@@ -1,7 +1,7 @@
 function [mfWHat, mfJHat] = RandomEINet(nNumExc, nNumInh, fInhTauFactor, fInhWFactor, fhRand)
 
 % - Check arguments
-if ~exist('fInhTau', 'var') || isempty(fInhTauFactor)
+if ~exist('fInhTauFactor', 'var') || isempty(fInhTauFactor)
    fInhTauFactor = 1;
 end
 
