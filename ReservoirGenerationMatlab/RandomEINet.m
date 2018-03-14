@@ -1,9 +1,4 @@
-function [mfWHat, mfJHat] = RandomEINet(nNumExc, nNumInh, fInhTauFactor, fInhWFactor, fhRand)
-
-% - Check arguments
-if ~exist('fInhTauFactor', 'var') || isempty(fInhTauFactor)
-   fInhTauFactor = 1;
-end
+function mfW = RandomEINet(nNumExc, nNumInh, fInhWFactor, fhRand)
 
 if ~exist('fInhWFactor', 'var') || isempty(fInhWFactor)
    fInhWFactor = 1;
@@ -26,22 +21,4 @@ mfWI(mfWI > 0) = 0;
 mfWI = -bsxfun(@rdivide, mfWI, sum(mfWI)) * abs(fInhWFactor);
 
 mfW = [mfWE mfWI];
-
-% - Compute Jacobian
-mfJ = mfW - eye(size(mfW));
-mfJ(vnInh, :) = mfJ(vnInh, :) ./ fInhTauFactor;
-
-% - Check for unstable eigenvectors
-[V, D] = eig(mfJ);
-
-% - Identify and wipe unstable eigenvectors
-vbUnstablePartition = all(V > 0, 1);
-D(vbUnstablePartition, vbUnstablePartition) = 0;
-
-% - Reconstruct weight matrix
-mfJHat = real(V * D / V);
-mfWHat = mfJHat;
-mfWHat(vnInh, :) = mfJHat(vnInh, :) .* fInhTauFactor;
-mfWHat = mfWHat + eye(size(mfWHat));
-mfWHat = mfWHat .* fInhTauFactor * 30;
 
