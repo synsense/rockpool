@@ -80,10 +80,13 @@ class TimeSeries:
         """
         ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
 
-        :param vtTimes: Scalar, list or np.array of T desired interpolated time points
+        :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
-        return self.interpolate(vtTimes)
+        if isinstance(vtTimes, slice):
+            return self.interpolate(np.arange(vtTimes.start, vtTimes.stop, vtTimes.step))
+        else:
+            return self.interpolate(vtTimes)
 
     def __call__(self, vtTimes):
         """
@@ -249,7 +252,7 @@ class TimeSeries:
         tsCopy.mfSamples = tsCopy.mfSamples[:, vnTraces]
         tsCopy.__create_interpolator()
         return tsCopy
-        
+
     @property
     def mfSamples(self):
         return self.__mfSamples
@@ -265,3 +268,7 @@ class TimeSeries:
 
         # - Create a new interpolator
         self.__create_interpolator() 
+
+    @property
+    def tDuration(self):
+        return self.__vtTimeTrace[-1] - self.__vtTimeTrace[0]
