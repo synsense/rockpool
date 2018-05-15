@@ -79,7 +79,7 @@ class TimeSeries:
     def __getitem__(self, vtTimes):
         """
         ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
-
+        NOTE that ts[:] uses step size 1, which might be different from ts.mfSamples!
         :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
@@ -93,7 +93,7 @@ class TimeSeries:
             assert fStop <= self.__vtTimeTrace[-1]+abs(fStep),\
                    'This TimeSeries already ends at t={}'.format(self.__vtTimeTrace[-1])
             
-            vTimeIndices = np.arange(fStart, fStop, abs(fStep))[::fStep]
+            vTimeIndices = np.arange(fStart, fStop, abs(fStep))[::int(np.sign(fStep))]
             return self.interpolate(vTimeIndices)
         else:
             return self.interpolate(vtTimes)
@@ -249,7 +249,11 @@ class TimeSeries:
 
     @property
     def nNumTraces(self):
-        return self.mfSamples.shape[1]
+        try:
+            return self.mfSamples.shape[1]
+        # If mfSamples is 1d:
+        except IndexError:
+            return 1
 
     def choose(self, vnTraces):
         # - Convert to a numpy array and check extents
@@ -269,8 +273,8 @@ class TimeSeries:
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples):
-         # - Check samples for correct size
-        assert mfNewSamples.shape == self.__mfSamples.shape, \
+        # - Check samples for correct size
+        assert len(mfNewSamples) == len(self.__mfSamples), \
             'New samples matrix must have the same shape as the original matrix.'
 
         # - Store new time trace
