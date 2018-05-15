@@ -3,7 +3,7 @@ import numpy as np
 from layers import FeedForward, Recurrent
 
 class Network():
-    def __init__(self, kwInput={}, kwReservoir={}, kwOutput={}):
+    def __init__(self, fDt=1, kwInput={}, kwReservoir={}, kwOutput={}):
         """
         Create Network instance consisting of input layer, output
         layer and an arbitrary number of reservoirs. Create forward
@@ -13,7 +13,9 @@ class Network():
         are passed to kwReservoir).
         """
         
-        # Default parameters
+        self.__fDt = fDt
+
+        # Default parameters for layers
         dParamsIn = {'nSize' : 1,
                      'bSpiking' : True}
         dParamsOut = {'nSize' : 1}
@@ -33,7 +35,7 @@ class Network():
         self.setLayers = set()
         
         # - Generate layers
-        self.add_layer('feedforward', 'In', **dParamsIn)
+        self.add_layer('ffinput', 'In', **dParamsIn)
         self.add_layer('feedforward', 'Out', **dParamsOut)
         self.add_layer('reservoir', 'Res', **dParamsRes)
 
@@ -83,9 +85,14 @@ class Network():
         if hasattr(self, sLyrName):
             raise NameError('There already exists a layer with this name')
         if sKind in ['FeedForward', 'Feedforward', 'feedforward', 'ff']:
-            setattr(self, sLyrName, FeedForward.FFLayer(sName=sName, **kwargs))
+            setattr(self, sLyrName, FeedForward.FFLayer(sName=sName, fDt=self.__fDt, **kwargs))
+            print('Feedforward layer "{}" has been added to network.'.format(sName))
+        if sKind == 'ffinput':
+            setattr(self, sLyrName, FeedForward.FFInput(sName=sName, fDt=self.__fDt, **kwargs))
+            print('FFInput layer "{}" has been added to network.'.format(sName))
         elif sKind in ['Reservoir', 'reservoir', 'Recurrent', 'recurrent', 'res', 'rec']:
-            setattr(self, sLyrName, Recurrent.RecLayer(sName=sName, **kwargs))
+            setattr(self, sLyrName, Recurrent.RecLayer(sName=sName, fDt=self.__fDt, **kwargs))
+            print('Recurrent layer "{}" has been added to network.'.format(sName))
         self.setLayers.add(getattr(self, sLyrName))
 
     def connect(self, source, target):
@@ -95,13 +102,25 @@ class Network():
             target.setIn = {source}
         try:
             self.lEvolOrder = self.evolution_order()
+            print('Layer "{}" now receives input from layer "{}" '.format(
+                  target.sName, source.sName),
+                  'and new layer evolution order has been set.')
         except NetworkError as e:
             target.setIn.remove(source)
             raise e 
 
+    def disconnect(self, source, target):
+        try:
+            target.setIn.remove(source)
+            print('Layer {} does no longer receive input from layer "{}"'.format(
+                  target.sName, source.sName))
+        except KeyError:
+            print('There is no connection from layer "{}" to layer "{}"'.format(
+                  source.sName, target.sName))
+
     def evolve(self, tTime, mInput):
         for lyr in self.lEvolOrder:
-            print('Evolving layer {}'.format(lyr.sName))
+            print('Evolving layer "{}"'.format(lyr.sName))
             lyr.evolve(tTime, mInput)
 
     def evolution_order(self):
@@ -134,6 +153,15 @@ class Network():
             setlyrRemaining.remove(lyrNext)
         return lOrder
 
+    @property
+    def fDt(self):
+        return self.__fDt
+
+    @fDt.setter
+    def fDt(self, fNewDt):
+        self.__fDt = fNewDt
+        for lyr in self.setLayers:
+            lyr.fDt = self.__fDt
 
 class NetworkError(Exception):
     pass
