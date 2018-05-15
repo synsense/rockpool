@@ -84,7 +84,18 @@ class TimeSeries:
         :return:      np.array of interpolated values. Will have the shape TxN
         """
         if isinstance(vtTimes, slice):
-            return self.interpolate(np.arange(vtTimes.start, vtTimes.stop, vtTimes.step))
+            fStep = (1 if vtTimes.step is None else vtTimes.step)
+            fStart = (self.__vtTimeTrace[0] if vtTimes.start is None else vtTimes.start)
+            fStop = (self.__vtTimeTrace[-1]+abs(fStep) if vtTimes.stop is None else vtTimes.stop)
+            
+            assert fStart >= self.__vtTimeTrace[0],\
+                   'This TimeSeries only starts at t={}'.format(self.__vtTimeTrace[0])
+            assert fStop <= self.__vtTimeTrace[-1]+abs(fStep),\
+                   'This TimeSeries already ends at t={}'.format(self.__vtTimeTrace[-1])
+            print(fStart, fStep, fStop)
+            vTimeIndices = np.arange(fStart, fStop, abs(fStep))[::fStep]
+            print(vTimeIndices)
+            return self.interpolate(vTimeIndices)
         else:
             return self.interpolate(vtTimes)
 
@@ -272,3 +283,11 @@ class TimeSeries:
     @property
     def tDuration(self):
         return self.__vtTimeTrace[-1] - self.__vtTimeTrace[0]
+
+    @property
+    def tStart(self):
+        return self.__vtTimeTrace[0]
+
+    @property
+    def tStop(self):
+        return self.__vtTimeTrace[-1]
