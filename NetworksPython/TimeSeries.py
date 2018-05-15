@@ -92,9 +92,8 @@ class TimeSeries:
                    'This TimeSeries only starts at t={}'.format(self.__vtTimeTrace[0])
             assert fStop <= self.__vtTimeTrace[-1]+abs(fStep),\
                    'This TimeSeries already ends at t={}'.format(self.__vtTimeTrace[-1])
-            print(fStart, fStep, fStop)
+            
             vTimeIndices = np.arange(fStart, fStop, abs(fStep))[::fStep]
-            print(vTimeIndices)
             return self.interpolate(vTimeIndices)
         else:
             return self.interpolate(vtTimes)
