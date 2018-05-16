@@ -17,12 +17,13 @@ class Network():
 
         # Default parameters for layers
         dParamsIn = {'nSize' : 1,
-                     'bSpiking' : True}
-        dParamsOut = {'nSize' : 1}
+                     'sKind' : 'pass'}
+        dParamsOut = {'nSize' : 1,
+                      'sKind' : 'ffrate'}
         dParamsRes = {'nSize' : 256,
                       # 'nReservoirs' : 1,
                       # 'sResConn' : 'serial',
-                      'bSpiking' : True}
+                      'sKind' : 'reservoir'}
         dParamsIn.update(kwInput)
         dParamsRes.update(kwReservoir)
         dParamsOut.update(kwOutput)
@@ -35,9 +36,9 @@ class Network():
         self.setLayers = set()
         
         # - Generate layers
-        self.add_layer('ffinput', 'In', **dParamsIn)
-        self.add_layer('feedforward', 'Out', **dParamsOut)
-        self.add_layer('reservoir', 'Res', **dParamsRes)
+        self.add_layer(sName='In', **dParamsIn)
+        self.add_layer(sName='Out', **dParamsOut)
+        self.add_layer(sName='Res', **dParamsRes)
 
         # self.nReservoirs = dParamsRes.pop('nReservoirs')
         # sResConn = dParamsRes.pop('sResConn')
@@ -84,16 +85,35 @@ class Network():
         sLyrName = 'lyr'+sName
         if hasattr(self, sLyrName):
             raise NameError('There already exists a layer with this name')
-        if sKind in ['FeedForward', 'Feedforward', 'feedforward', 'ff']:
-            setattr(self, sLyrName, FeedForward.FFLayer(sName=sName, fDt=self.__fDt, **kwargs))
-            print('Feedforward layer "{}" has been added to network.'.format(sName))
-        if sKind == 'ffinput':
-            setattr(self, sLyrName, FeedForward.FFInput(sName=sName, fDt=self.__fDt, **kwargs))
-            print('FFInput layer "{}" has been added to network.'.format(sName))
+
+        if sKind == 'ffrate':
+            setattr(self, sLyrName, FeedForward.FFRate(sName=sName, fDt=self.__fDt, **kwargs))
+            print('Rate-based feedforward layer "{}" has been added to network.'.format(sName))
+        
+        elif sKind == 'pass':
+            setattr(self, sLyrName, FeedForward.PassThrough(sName=sName, fDt=self.__fDt, **kwargs))
+            print('PassThrough layer "{}" has been added to network.'.format(sName))
+        
         elif sKind in ['Reservoir', 'reservoir', 'Recurrent', 'recurrent', 'res', 'rec']:
             setattr(self, sLyrName, Recurrent.RecLayer(sName=sName, fDt=self.__fDt, **kwargs))
             print('Recurrent layer "{}" has been added to network.'.format(sName))
+
+        else:
+            raise NetworkError('Layer type not understood')
+        
+        # Update inventory of layers
         self.setLayers.add(getattr(self, sLyrName))
+
+    def remove_layer(self, lyrDel):
+        # Remove connections from lyrDel to others
+        for lyr in self.setLayers:
+            try:
+                lyr.setIn.discard(lyrDel)
+            except AttributeError:
+                pass
+        self.setLayers.remove(lyrDel)
+        del lyrDel
+        self.lEvolOrder = self.evolution_order()
 
     def connect(self, source, target):
         try:
@@ -103,8 +123,8 @@ class Network():
         try:
             self.lEvolOrder = self.evolution_order()
             print('Layer "{}" now receives input from layer "{}" '.format(
-                  target.sName, source.sName),
-                  'and new layer evolution order has been set.')
+                  target.sName, source.sName)) #,
+                  # 'and new layer evolution order has been set.')
         except NetworkError as e:
             target.setIn.remove(source)
             raise e 
