@@ -1,6 +1,6 @@
 import numpy as np
 
-from layers import FeedForward, Recurrent
+from layers import feedforward, recurrent
 
 class Network():
     def __init__(self, fDt=1, kwInput={}, kwReservoir={}, kwOutput={}):
