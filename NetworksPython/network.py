@@ -13,15 +13,15 @@ class Network():
         are passed to kwReservoir).
         """
         
-        self.__fDt = fDt
+        # self.__fDt = fDt
 
         # Maintain set of all layers
         self.setLayers = set()
         
         # - Add layers
         self.lyrIn = self.add_layer(lyrIn)
-        self.lyrRes = self.add_layer(lyrRes,  setIn={self.lyrIn})
-        self.LyrOut = self.add_layer(lyrOut,  setInIn={self.lyrRes})
+        self.lyrRes = self.add_layer(lyrRes,  tplIn={self.lyrIn})
+        self.lyrOut = self.add_layer(lyrOut,  tplIn={self.lyrRes})
                
     def add_layer(self, lyr, tplIn=None, tplOut=None):
         """Add lyr to self and to self.setLayers. Its attribute name
@@ -43,10 +43,14 @@ class Network():
         self.setLayers.add(lyr)
 
         #Connect in- and outputs
-        for lyrIn in tplIn:
-            self.connect(lyrIn, lyr)
-        for lyrOut in tplOut:
-            self.connect(lyr, lyrOut)
+        if tplIn is not None:
+            for lyrIn in tplIn:
+                self.connect(lyrIn, lyr)
+        if tplOut is not None:
+            for lyrOut in tplOut:
+                self.connect(lyr, lyrOut)
+
+        return lyr
         
     def remove_layer(self, lyrDel):
         # Remove connections from lyrDel to others
@@ -61,31 +65,31 @@ class Network():
 
     def connect(self, lyrSource, lyrTarget):
         try:
-            target.setIn.add(source)
+            lyrTarget.setIn.add(lyrSource)
         except AttributeError:
-            target.setIn = {source}
+            lyrTarget.setIn = {lyrSource}
         try:
             self.lEvolOrder = self.evolution_order()
             print('Layer "{}" now receives input from layer "{}" '.format(
-                  target.sName, source.sName)) #,
+                  lyrTarget.sName, lyrSource.sName)) #,
                   # 'and new layer evolution order has been set.')
         except NetworkError as e:
-            target.setIn.remove(source)
+            lyrTarget.setIn.remove(lyrSource)
             raise e 
 
-    def disconnect(self, source, target):
+    def disconnect(self, lyrSource, lyrTarget):
         try:
-            target.setIn.remove(source)
+            lyrTarget.setIn.remove(lyrSource)
             print('Layer {} does no longer receive input from layer "{}"'.format(
-                  target.sName, source.sName))
+                  lyrTarget.sName, lyrSource.sName))
         except KeyError:
             print('There is no connection from layer "{}" to layer "{}"'.format(
-                  source.sName, target.sName))
+                  lyrSource.sName, lyrTarget.sName))
 
-    def evolve(self, tTime, mInput):
+    def evolve(self, tsInput, tTime):
         for lyr in self.lEvolOrder:
             print('Evolving layer "{}"'.format(lyr.sName))
-            lyr.evolve(tTime, mInput)
+            lyr.evolve(tsInput, tTime)
 
     def evolution_order(self):
         """
@@ -117,15 +121,15 @@ class Network():
             setlyrRemaining.remove(lyrNext)
         return lOrder
 
-    @property
-    def fDt(self):
-        return self.__fDt
+    # @property
+    # def fDt(self):
+    #     return self.__fDt
 
-    @fDt.setter
-    def fDt(self, fNewDt):
-        self.__fDt = fNewDt
-        for lyr in self.setLayers:
-            lyr.fDt = self.__fDt
+    # @fDt.setter
+    # def fDt(self, fNewDt):
+    #     self.__fDt = fNewDt
+    #     for lyr in self.setLayers:
+    #         lyr.fDt = self.__fDt
 
 class NetworkError(Exception):
     pass
