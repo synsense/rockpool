@@ -78,13 +78,16 @@ class TimeSeries:
 
     def __getitem__(self, vtTimes):
         """
-        ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
-        NOTE that ts[:] uses step size 1, which might be different from ts.mfSamples!
+        If a slice is provided, sample accordingly and return a new time series. Otherwise
+        interpolate the time series to the provided time points.
+        NOTE that ts[:] uses as (fixed) step size the mean step size of the samples, and
+        thus can return different values than those in ts.mfSamples!
         :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
-        :return:      np.array of interpolated values. Will have the shape TxN
+        :return:      New time series if vtTimes is slice, 
+                      np.array of interpolated values otherwise. Will have the shape TxN
         """
         if isinstance(vtTimes, slice):
-            fStep = (1 if vtTimes.step is None else vtTimes.step)
+            fStep = (np.mean(np.diff(self.__vtTimeTrace)) if vtTimes.step is None else vtTimes.step)
             fStart = (self.__vtTimeTrace[0] if vtTimes.start is None else vtTimes.start)
             fStop = (self.__vtTimeTrace[-1]+abs(fStep) if vtTimes.stop is None else vtTimes.stop)
             
@@ -93,8 +96,13 @@ class TimeSeries:
             assert fStop <= self.__vtTimeTrace[-1]+abs(fStep),\
                    'This TimeSeries already ends at t={}'.format(self.__vtTimeTrace[-1])
             
-            vTimeIndices = np.arange(fStart, fStop, abs(fStep))[::int(np.sign(fStep))]
-            return self.interpolate(vTimeIndices)
+            vNewTimeTrace = np.arange(fStart, fStop, abs(fStep))[::int(np.sign(fStep))]
+            mNewSamples = self.interpolate(vNewTimeTrace)
+            strNewName = (self.strName+'_slice' if self.strName is not None else None)
+            return TimeSeries(vNewTimeTrace,
+                              mNewSamples,
+                              strInterpKind=self.strInterpKind,
+                              strName=strNewName)
         else:
             return self.interpolate(vtTimes)
 
