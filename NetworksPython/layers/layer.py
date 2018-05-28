@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from ..TimeSeries import TimeSeries
+from TimeSeries import TimeSeries
 
 # Implements the Layer class
 
@@ -35,6 +35,38 @@ class Layer(ABC):
         # - Reset state
         self.reset_all()
 
+
+    ### --- Common methods
+
+    def check_inpt_dims(self, tsInput: TimeSeries):
+        """
+        Verify if dimension of input matches layer instance. If input
+        dimension == 1, scale it up to self._nDimIn by repeating signal.
+            tsInput : input time series
+            return : tsInput, possibly with dimensions repeated
+        """
+        if tsInput.nNumTraces == 1:
+            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)),
+                                          self._nDimIn, axis=1)
+        assert tsInput.nNumTraces == self._nDimIn, 'Input dimension {} does not match layer input dimension {}.'.format(
+            tsInput.nNumTraces, self._nDimIn)
+        return tsInput  
+
+    def gen_time_trace(self, tsInput: TimeSeries, tDuration: float):
+        """
+        Generate a time starting at self.t, of length tDuration with 
+        time step length self._tDt
+        """
+        assert tsInput.tStart <= self.t 'Input starts after t (t={}, starts at {}'.format(
+            self.t, tsInput.tStart)
+        tStop = self.t + tDuration
+        if tStop > tsInput.tStop:
+            tStop = tsInput.tStop
+            tDuration = tStop - self.t
+            print('Warning: input not sufficiently long. Evolving only until t={}'.format(tStop))
+        vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + self.t
+        # Make sure that vtTimeTrace doesn't go beyond tStop
+        return vtTimeTrace[vtTimeTrace <= tStop]
 
     ### --- String representations
 
