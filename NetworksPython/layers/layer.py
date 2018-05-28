@@ -1,17 +1,22 @@
 import numpy as np
+from abc import ABC, abstractmethod
+
+from ..TimeSeries import TimeSeries
 
 # Implements the Layer class
 
-class Layer():
+class Layer(ABC):
     def __init__(self,
-                 mfW: np.ndarray = None,
+                 mfW: np.ndarray,
                  tDt: float = 1,
+                 fNoiseStd: float = 0,
                  sName: str = None):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
 
         :param mfW:
         :param tDt:
+        :param fNoiseStd:
         :param sName:
         """
 
@@ -21,10 +26,14 @@ class Layer():
         # - Assign properties
         self._mfW = mfW
         self._nDimIn, self._nSize = mfW.shape
-        self.vState = np.zeros(self.nSize)
         self.sName = sName
-        self.t = 0
         self._tDt = tDt
+        self.fNoiseStd = fNoiseStd
+        self.t = None
+        self.vState = None
+
+        # - Reset state
+        self.reset_all()
 
 
     ### --- String representations
@@ -36,26 +45,44 @@ class Layer():
         return self.__str__()
 
 
+    ### --- State evolution methods
+
+    @abstractmethod
+    def evolve(self,
+               tsInput: TimeSeries = None,
+               tDuration: float = None):
+        pass
+
+    @abstractmethod
+    def reset_state(self):
+        self.vState = np.zeros(self.nSize)
+
+    @abstractmethod
+    def reset_all(self):
+        self.t = 0
+        self.reset_state()
+
+
     #### --- Properties
 
     @property
-    def nSize(self):
+    def nSize(self) -> int:
         return self._nSize
 
     @property
-    def nDimIn(self):
+    def nDimIn(self) -> int:
         return self._nDimIn
 
     @property
-    def tDt(self):
+    def tDt(self) -> float:
         return self._tDt
 
     @tDt.setter
-    def tDt(self, fNewDt):
+    def tDt(self, fNewDt: float):
         self._tDt = fNewDt
 
     @property
-    def mfW(self):
+    def mfW(self) -> np.ndarray:
         return self._mfW
 
     @mfW.setter
