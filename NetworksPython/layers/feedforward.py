@@ -5,9 +5,10 @@ import TimeSeries as ts
 
 class FFLayer():
     def __init__(self, mfW, fDt=1, vBias=0, sName=None):
-        self.mfW
+        self.mfW = mfW
         self._nDimIn, self._nSize = mfW.shape
         self.vBias = vBias
+        self.vState = np.zeros(self.nSize)
         self.sName = sName
         self.t = 0
         self._fDt = fDt
@@ -34,9 +35,9 @@ class FFLayer():
 class PassThrough(FFLayer):
     """ Neuron states directly correspond to input, but can be delayed. """
 
-    def __init__(self, mfW, fDt=1, vBias=0, sName=None, tDelay=0):
-        super().__init__(mfW, fDt, vBias, sName)
-        self.vState = np.zeros(nSize)
+    def __init__(self, mfW, fDt=1, sName=None, tDelay=0):
+        super().__init__(mfW, fDt, vBias=0, sName=sName)
+        self._tDelay = tDelay
         # Allow for delay, buffer delayed input in time series
         self.set_buffer()
 
@@ -56,15 +57,12 @@ class PassThrough(FFLayer):
             tsInput.nNumTraces, self._nDimIn)
         
         vtTimeTraceOut = np.arange(0, tsInput.tDuration+self._fDt, self._fDt) + self.t
-        mWeightedInput = self.mfW@tsInput(fStep=self._fDt)
-
-
         if self.tsBuffer is not None:
             mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
-                                     tsInput[ : tsInput.tStop-self.tDelay+self._fDt : self._fDt]))
-            self.tsBuffer.mfSamples = tsInput[tsInput.tStop-self.tDelay+self._fDt : : self._fDt]
+                                     (tsInput[ : tsInput.tStop-self.tDelay+self._fDt : self._fDt])@self.mfW))
+            self.tsBuffer.mfSamples = (tsInput[tsInput.tStop-self.tDelay+self._fDt : : self._fDt])@self.mfW
         else:
-            mSamplesOut = tsInput[::self._fDt]
+            mSamplesOut = (tsInput[::self._fDt])@self.mfW
         
         self.t += tsInput.tDuration
         
