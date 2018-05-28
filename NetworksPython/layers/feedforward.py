@@ -56,7 +56,8 @@ class PassThrough(FFLayer):
         assert tsInput.nNumTraces == self._nDimIn, 'Input dimension {} does not match layer input dimension {}.'.format(
             tsInput.nNumTraces, self._nDimIn)
         
-        vtTimeTraceOut = np.arange(0, tsInput.tDuration+self._fDt, self._fDt) + self.t
+        nSamples = int(tsInput.tDuration/self._fDt)
+        vtTimeTraceOut = np.linspace(0, tsInput.tDuration+self._fDt, self._fDt) + self.t
         if self.tsBuffer is not None:
             mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
                                      (tsInput[ : tsInput.tStop-self.tDelay+self._fDt : self._fDt])@self.mfW))
