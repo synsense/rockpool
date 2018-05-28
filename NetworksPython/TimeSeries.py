@@ -79,12 +79,13 @@ class TimeSeries:
     def __getitem__(self, vtTimes):
         """
         ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
-        NOTE that ts[:] uses step size 1, which might be different from ts.mfSamples!
+        NOTE that ts[:] uses as (fixed) step size the mean step size of self.vtTimeTrace
+        and thus can return different values than those in ts.mfSamples!
         :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
         if isinstance(vtTimes, slice):
-            fStep = (1 if vtTimes.step is None else vtTimes.step)
+            fStep = (np.mean(np.diff(self.__vtTimeTrace)) if vtTimes.step is None else vtTimes.step)
             fStart = (self.__vtTimeTrace[0] if vtTimes.start is None else vtTimes.start)
             fStop = (self.__vtTimeTrace[-1]+abs(fStep) if vtTimes.stop is None else vtTimes.stop)
             
