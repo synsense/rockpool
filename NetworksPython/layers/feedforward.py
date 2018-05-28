@@ -2,37 +2,9 @@ import numpy as np
 import time
 
 import TimeSeries as ts
+from layer import Layer
 
-class FFLayer():
-    def __init__(self, mfW, tDt=1, vBias=0, sName=None):
-        self.mfW = mfW
-        self._nDimIn, self._nSize = mfW.shape
-        self.vBias = vBias
-        self.vState = np.zeros(self.nSize)
-        self.sName = sName
-        self.t = 0
-        self._tDt = tDt
-
-    def __str__(self):
-        return '{} object: "{}"'.format(self.__class__.__name__, self.sName)
-
-    def __repr__(self):
-        return self.__str__()
-    
-    @property
-    def nSize(self):
-        return self._nSize
-
-    @property
-    def tDt(self):
-        return self._tDt
-
-    @tDt.setter
-    def tDt(self, fNewDt):
-        self._tDt = fNewDt
-
-
-class PassThrough(FFLayer):
+class PassThrough(Layer):
     """ Neuron states directly correspond to input, but can be delayed. """
 
     def __init__(self, mfW, tDt=1, sName=None, tDelay=0):
@@ -49,19 +21,16 @@ class PassThrough(FFLayer):
         else:
             self.tsBuffer = None        
 
-    def evolve(self, tsInput):
-        # Check input dimensions
-        if tsInput.nNumTraces == 1:
-            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)), self._DimIn, axis=1)
-        assert tsInput.nNumTraces == self._nDimIn, 'Input dimension {} does not match layer input dimension {}.'.format(
-            tsInput.nNumTraces, self._nDimIn)
-        
-        nSamples = int(tsInput.tDuration/self._tDt)
-        vtTimeTraceOut = np.linspace(0, tsInput.tDuration+self._tDt, self._tDt) + self.t
+    def evolve(self, tsInput, tDuration):
+        tsInput = self.check_inpt_dims(tsInput)
+        vtTimeTraceOut = self.gen_time_trace(tsInput, tDuration)
+        tStop = vtTimeTraceOut[-1]
+        tDuration = tStop - self.t 
+     
         if self.tsBuffer is not None:
             mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
-                                     (tsInput[ : tsInput.tStop-self.tDelay+self._tDt : self._tDt])@self.mfW))
-            self.tsBuffer.mfSamples = (tsInput[tsInput.tStop-self.tDelay+self._tDt : : self._tDt])@self.mfW
+                                     (tsInput[ : tStopIn-self.tDelay+self._tDt : self._tDt])@self.mfW))
+            self.tsBuffer.mfSamples = (tsInput[tStopIn-self.tDelay+self._tDt : : self._tDt])@self.mfW
         else:
             mSamplesOut = (tsInput[::self._tDt])@self.mfW
         
@@ -78,7 +47,7 @@ class PassThrough(FFLayer):
         # Some method to extend self.tsBuffer
 
 
-class FFRate(FFLayer):
+class FFRate(Layer):
     """ Feedforward layer consisting of rate-based neurons """
 
     def __init__(self, sName, nSize, tDt, **kwargs):
