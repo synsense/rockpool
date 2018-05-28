@@ -4,14 +4,13 @@ import time
 import TimeSeries as ts
 
 class FFLayer():
-    def __init__(self, sName, nSize, fDt, **kwargs):
+    def __init__(self, mfW, fDt=1, vBias=0, sName=None):
+        self.mfW
+        self._nDimIn, self._nSize = mfW.shape
+        self.vBias = vBias
         self.sName = sName
         self.t = 0
         self._fDt = fDt
-        self._nSize = nSize
-
-    def evolve(*args, **kwargs):
-        pass
 
     def __str__(self):
         return '{} object: "{}"'.format(self.__class__.__name__, self.sName)
@@ -31,14 +30,14 @@ class FFLayer():
     def fDt(self, fNewDt):
         self._fDt = fNewDt
 
+
 class PassThrough(FFLayer):
     """ Neuron states directly correspond to input, but can be delayed. """
 
-    def __init__(self, sName, nSize, fDt, **kwargs):
-        super().__init__(sName, nSize, fDt)
+    def __init__(self, mfW, fDt=1, vBias=0, sName=None, tDelay=0):
+        super().__init__(mfW, fDt, vBias, sName)
         self.vState = np.zeros(nSize)
         # Allow for delay, buffer delayed input in time series
-        self._tDelay = kwargs.get('tDelay', 0)
         self.set_buffer()
 
     def set_buffer(self):
@@ -52,11 +51,14 @@ class PassThrough(FFLayer):
     def evolve(self, tsInput):
         # Check input dimensions
         if tsInput.nNumTraces == 1:
-            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)), self.nSize, axis=1)
-        assert tsInput.nNumTraces == self.nSize, 'Input and network dimensions do not match.'
+            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)), self._DimIn, axis=1)
+        assert tsInput.nNumTraces == self._nDimIn, 'Input dimension {} does not match layer input dimension {}.'.format(
+            tsInput.nNumTraces, self._nDimIn)
         
         vtTimeTraceOut = np.arange(0, tsInput.tDuration+self._fDt, self._fDt) + self.t
-        
+        mWeightedInput = self.mfW@tsInput(fStep=self._fDt)
+
+
         if self.tsBuffer is not None:
             mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
                                      tsInput[ : tsInput.tStop-self.tDelay+self._fDt : self._fDt]))
