@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from abc import abstractmethod
 
 import TimeSeries as ts
 from layers.layer import Layer
@@ -32,29 +33,29 @@ class PassThrough(Layer):
         if tDuration is None:
             tDuration = tsInput.tStop - self.t
         tsInput = self._check_input_dims(tsInput)
-        vtTimeTrace = self._gen_time_trace(self.t, tDuration)
-        assert tsInput.contains(vtTimeTrace), ('Desired evolution interval not fully contained in input'
+        vtTime = self._gen_time_trace(self.t, tDuration)
+        assert tsInput.contains(vtTime), ('Desired evolution interval not fully contained in input'
                                                 + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
-                                                vtTimeTrace[0], vtTimeTrace[-1], tsInput.tStart, tsInput.tStop))
+                                                vtTime[0], vtTime[-1], tsInput.tStart, tsInput.tStop))
         if self.tsBuffer is not None:
             nBuffer = len(self.tsBuffer.vtTimeTrace)
-            nSamplesTrace = len(vtTimeTrace)
+            nSamplesTrace = len(vtTime)
             if nSamplesTrace > nBuffer:
-                vtTimeTraceOut = vtTimeTrace[:-nBuffer]
-                vtTimeTraceBuffer = vtTimeTrace[-nBuffer:]
+                vtTimeOut = vtTime[:-nBuffer]
+                vtTimeBuffer = vtTime[-nBuffer:]
                 mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
-                                         noisy(tsInput(vtTimeTraceOut)@self.mfW, self.fNoiseStd)))
-                self.tsBuffer.mfSamples = noisy(tsInput(vtTimeTraceBuffer)@self.mfW, self.fNoiseStd)
+                                         noisy(tsInput(vtTimeOut)@self.mfW, self.fNoiseStd)))
+                self.tsBuffer.mfSamples = noisy(tsInput(vtTimeBuffer)@self.mfW, self.fNoiseStd)
             else:
-                mSamplesOut = self.tsBuffer(vtTimeTrace-self.t)
+                mSamplesOut = self.tsBuffer(vtTime-self.t)
                 self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nSamplesTrace:],
-                                                     noisy(tsInput(vtTimeTrace)@self.mfW, self.fNoiseStd)))
+                                                     noisy(tsInput(vtTime)@self.mfW, self.fNoiseStd)))
         else:
-            mSamplesOut = noisy(tsInput(vtTimeTrace)@self.mfW, self.fNoiseStd)
+            mSamplesOut = noisy(tsInput(vtTime)@self.mfW, self.fNoiseStd)
         
         self._t += tDuration
         
-        return ts.TimeSeries(vtTimeTrace, mSamplesOut)
+        return ts.TimeSeries(vtTime, mSamplesOut)
 
     def reset_state(self):
         super().reset_state()
@@ -72,15 +73,6 @@ class PassThrough(Layer):
     # def tDelay(self, tNewDelay):
         # Some method to extend self.tsBuffer
 
-def noisy(oInput: np.ndarray, fStdDev: float):
-    """
-    noisy - Add randomly distributed noise to each element of oInput
-    :param oInput:  Array-like with values that noise is added to
-    :param fStdDev: Float, the standard deviation of the noise to be added
-    :return:        Array-like, oInput with noise added
-    """
-    return fStdDev * np.random.randn(*oInput.shape) + oInput
-
 
 class FFRate(Layer):
     """ Feedforward layer consisting of rate-based neurons """
@@ -93,38 +85,40 @@ class FFRate(Layer):
                  vTau: np.ndarray = 10,
                  vGain: np.ndarray = 1,
                  vBias: np.ndarray = 0):
-        super().__init__(mfW=sName, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
+        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
+        self.reset_all()
         self._vTau = vTau
         self._vAlpha = self._tDt/self._vTau
         self.vGain = vGain
         self.vBias = vBias
-
-    def evolve(self, tsInput, tDuration=None):
+        
+    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
         if tDuration is None:
             tDuration = tsInput.tStop - self.t
         tsInput = self._check_input_dims(tsInput)
-        vtTimeTrace = self._gen_time_trace(self.t, tDuration)
-        assert tsInput.contains(vtTimeTrace), ('Desired evolution interval not fully contained in input'
+        vtTime = self._gen_time_trace(self.t, tDuration)
+        assert tsInput.contains(vtTime), ('Desired evolution interval not fully contained in input'
                                                 + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
-                                                vtTimeTrace[0], vtTimeTrace[-1], tsInput.tStart, tsInput.tStop))
+                                                vtTime[0], vtTime[-1], tsInput.tStart, tsInput.tStop))
 
-
-        mSamplesOut = np.zeros((len(vtTimeTraceOut), self.nSize))
+        mSamplesOut = np.zeros((len(vtTime), self.nSize))
+        mSamplesIn = tsInput(vtTime)@self.mfW
         rtStart = time.time()
-        for i, t in enumerate(vtTimeTraceIn):
-            mSamplesOut[i] = self.vPotential = self.potential(tsInput(t))
-            print_progress(i, len(vtTimeTraceIn), time.time()-rtStart)
+        for i, vIn in enumerate(mSamplesIn):
+            mSamplesOut[i] = self.vState = self.potential(vIn)
+            print_progress(i, len(vtTime), time.time()-rtStart)
         print('')
-        self.t += tsInput.tDuration
-        return ts.TimeSeries(vtTimeTraceOut, mSamplesOut)
+        self._t += tDuration
+        
+        return ts.TimeSeries(vtTime, mSamplesOut)
     
-
     def potential(self, vInput):
-        return self._vAlpha*(vInput*self.vGain + self.vBias) + (1-self._vAlpha)*self.vPotential
+        return (self._vAlpha * noisy(vInput*self.vGain + self.vBias, self.fNoiseStd)
+                + (1-self._vAlpha)*self.vState)
 
-    @property
-    def vState(self):
-        return self.fActivation(self.vPotential)
+    @abstractmethod
+    def activation(self, *args, **kwargs):
+        pass
 
     @property
     def vTau(self):
@@ -135,20 +129,56 @@ class FFRate(Layer):
         self._vTau = vNewTau
         self._vAlpha = self._tDt/vNewTau
 
+    @property
+    def vAlpha(self):
+        return self._vAlpha
+
+    @vAlpha.setter
+    def vAlpha(self, vNewAlpha):
+        self._vAlpha = vNewAlpha
+        self._vTau = self._tDt/vNewAlpha
+
     @Layer.tDt.setter
     def tDt(self, fNewDt):
         self._tDt = fNewDt
         self._vAlpha = fNewDt/self._vTau
 
-def relu(vPotential, fUpperBound=None):
-    """
-    Activation function for rectified linear units.
-        vPotential : ndarray with current neuron potentials
-        fUpperBound : if not None, upper bound for activation
-    """
-    return np.clip(vPotential, 0, fUpperBound)
 
-dfActivation = {'ReLU' : relu}
+class FFReLU(FFRate):
+    def __init__(self,
+                 mfW: np.ndarray,
+                 tDt: float = 1,
+                 vTau: np.ndarray = 10,
+                 vGain: np.ndarray = 1,
+                 vBias: np.ndarray = 0,
+                 fNoiseStd: float = 0,
+                 fActUpperBound: float = None,
+                 sName: str = None):
+        super().__init__(mfW=mfW, tDt=tDt, vTau=vTau, vGain=vGain,
+                         vBias=vBias, fNoiseStd=fNoiseStd, sName=sName)
+        self.fActUpperBound = fActUpperBound
+
+    def activation(self, fUpperBound=None):
+        """
+        Activation function for rectified linear units.
+            vPotential : ndarray with current neuron potentials
+            fUpperBound : if not None, upper bound for activation
+        """
+        return np.clip(self.vState, 0, fUpperBound)
+
+    @property
+    def vActivation(self):
+        return self.activation(self.fActUpperBound)
+
+
+def noisy(oInput: np.ndarray, fStdDev: float):
+    """
+    noisy - Add randomly distributed noise to each element of oInput
+    :param oInput:  Array-like with values that noise is added to
+    :param fStdDev: Float, the standard deviation of the noise to be added
+    :return:        Array-like, oInput with noise added
+    """
+    return fStdDev * np.random.randn(*oInput.shape) + oInput
 
 def print_progress(iCurr, nTotal, tPassed):
     print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
