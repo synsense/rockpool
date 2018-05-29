@@ -94,6 +94,8 @@ class RecRateEuler(Layer):
         self.fhActivation = fhActivation
         self.fNoiseStd = fNoiseStd
 
+        # - Reset the internal state
+        self.reset_all()
 
 
     ### --- Properties
@@ -155,7 +157,7 @@ class RecRateEuler(Layer):
                                        nNumSteps, self.vfBias, self.vtTau)
 
         # - Increment internal time representation
-        self.t += tDuration
+        self._t += tDuration
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)

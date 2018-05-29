@@ -37,9 +37,6 @@ class Layer(ABC):
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
 
-        # - Reset state
-        self.reset_all()
-
 
     ### --- Common methods
 
@@ -120,7 +117,8 @@ class Layer(ABC):
     ### --- String representations
 
     def __str__(self):
-        return '{} object: "{}"'.format(self.__class__.__name__, self.sName)
+        return '{} object: "{}" Weights: {}'\
+            .format(self.__class__.__name__, self.sName, self.mfW.shape)
 
     def __repr__(self):
         return self.__str__()
@@ -149,6 +147,13 @@ class Layer(ABC):
         """
         self.vState = np.zeros(self.nSize)
 
+    def reset_time(self):
+        """
+        reset_time - Reset the internal clock
+        :return:
+        """
+        self._t = 0
+
     def randomize_state(self):
         """
         randomize_state - Randomise the internal state of this layer, in North America
@@ -158,7 +163,7 @@ class Layer(ABC):
         self.vState = np.random.rand(self.nSize)
 
     def reset_all(self):
-        self.t = 0
+        self.reset_time()
         self.reset_state()
 
 
@@ -203,3 +208,7 @@ class Layer(ABC):
             '`vNewState` must have {} elements'.format(self.nSize)
 
         self._vState = vNewState
+
+    @property
+    def t(self):
+        return self._t
