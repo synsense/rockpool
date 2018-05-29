@@ -180,7 +180,31 @@ class TimeSeries:
         # - Return a new time series
         return TimeSeries(vtTimes, self(vtTimes))
 
+    def resample_within(self, tStart: float=None, tStop: float=None, tDt: float=None):
+        """
+        resample_within - Return a new time series sampled between tStart
+                          and tStop with step size tDt
 
+        :param tStart:  Start time for sampling - defaults to minimum value
+                        of self.vtTimeTrace
+        :param tStop:   Stop time for sampling - defaults to maximum value
+                        of self.vtTimeTrace
+        :param tDt:     Sampling time step - defaults to mean difference
+                        between values of self.vtTimeTrace
+        :return:        New TimeSeries object, resampled according to parameters
+        """
+        tStart = (min(self.vtTimeTrace) if tStart is None else max(tStart, min(self.vtTimeTrace)))
+        tStop = (max(self.vtTimeTrace) if tStop is None else min(tStop, max(self.vtTimeTrace)))
+        tDt = (np.mean(np.diff(self.vtTimeTrace)) if tDt is None else tDt)
+
+        vtSampleTimes = np.arange(tStart, tStop+tDt, tDt)
+        vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop]
+
+        return self.resample(vtSampleTimes)
+
+
+        # - Return a new time series
+        return TimeSeries(vtTimes, self(vtTimes))
     def __create_interpolator(self):
         # - Construct interpolator
         self.oInterp = spint.interp1d(self.vtTimeTrace, self.mfSamples,
