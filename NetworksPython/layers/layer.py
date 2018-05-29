@@ -1,5 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 from TimeSeries import TimeSeries
 
@@ -26,7 +27,12 @@ class Layer(ABC):
         # - Assign properties
         self._mfW = mfW
         self._nDimIn, self._nSize = mfW.shape
-        self.sName = sName
+
+        if sName is None:
+            self.sName = '(unnamed)'
+        else:
+            self.sName = sName
+
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
         self.t = None
@@ -38,19 +44,25 @@ class Layer(ABC):
 
     ### --- Common methods
 
-    def check_inpt_dims(self, tsInput: TimeSeries):
+    def _check_input_dims(self, tsInput: TimeSeries) -> TimeSeries:
         """
         Verify if dimension of input matches layer instance. If input
         dimension == 1, scale it up to self._nDimIn by repeating signal.
             tsInput : input time series
             return : tsInput, possibly with dimensions repeated
         """
+        # - Replicate `tsInput` if necessary
         if tsInput.nNumTraces == 1:
-            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)),
-                                          self._nDimIn, axis=1)
-        assert tsInput.nNumTraces == self._nDimIn, 'Input dimension {} does not match layer input dimension {}.'.format(
-            tsInput.nNumTraces, self._nDimIn)
-        return tsInput  
+            tsInput = deepcopy(tsInput)
+            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1, 1)),
+                                          self._nDimIn, axis = 1)
+
+        # - Check dimensionality of input
+        assert tsInput.nNumTraces == self._nDimIn, \
+            'Input dimensionality {} does not match layer input size {}.'.format(tsInput.nNumTraces, self._nDimIn)
+
+        # - Return possibly corrected input
+        return tsInput
 
     def _gen_time_trace(self, tStart: float, tDuration: float):
         """
@@ -58,10 +70,53 @@ class Layer(ABC):
         time step length self._tDt. Make sure it does not go beyond 
         tStart+tDuration.
         """
+        # - Generate a periodic trace
         tStop = tStart + tDuration
         vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
-        # Make sure that vtTimeTrace doesn't go beyond tStop
+
+        # - Make sure that vtTimeTrace doesn't go beyond tStop
         return vtTimeTrace[vtTimeTrace <= tStop]
+
+    def _expand_to_net_size(self,
+                            oInput,
+                            sVariableName: str = 'input') -> np.ndarray:
+        """
+        _expand_to_net_size: Replicate out a scalar to the size of the layer
+
+        :param oInput:          scalar or array-like (N)
+        :param sVariableName:   str Name of the variable to include in error messages
+        :return:                np.ndarray (N) vector
+        """
+        if np.size(oInput) == 1:
+            # - Expand input to vector
+            oInput = np.repeat(oInput, self.nSize)
+
+        assert np.size(oInput) == self.nSize, \
+            '`{}` must be a scalar or have {} elements'.format(sVariableName, self.nSize)
+
+        # - Return object of correct shape
+        return np.reshape(oInput, self.nSize)
+
+    def _expand_to_weight_size(self,
+                               oInput,
+                               sVariableName: str = 'input') -> np.ndarray:
+        """
+        _expand_to_weight_size: Replicate out a scalar to the size of the layer's weights
+
+        :param oInput:          scalar or array-like (NxN)
+        :param sVariableName:   str Name of the variable to include in error messages
+        :return:                np.ndarray (NxN) vector
+        """
+        if np.size(oInput) == 1:
+            # - Expand input to matrix
+            oInput = np.repeat(oInput, (self.nSize, self.nSize))
+
+        assert np.size(oInput) == self.nSize**2, \
+            '`{}` must be a scalar or have {} elements'.format(sVariableName, self.nSize**2)
+
+        # - Return object of correct size
+        return np.reshape(oInput, (self.nSize, self.nSize))
+
 
     ### --- String representations
 
@@ -80,11 +135,9 @@ class Layer(ABC):
                tDuration: float = None):
         pass
 
-    @abstractmethod
     def reset_state(self):
         self.vState = np.zeros(self.nSize)
 
-    @abstractmethod
     def reset_all(self):
         self.t = 0
         self.reset_state()
@@ -120,3 +173,14 @@ class Layer(ABC):
 
         # - Save weights with appropriate size
         self._mfW = np.reshape(mfNewW, (self.nDimIn, self.nSize))
+
+    @property
+    def vState(self):
+        return self._vState
+
+    @vState.setter
+    def vState(self, vNewState):
+        assert np.size(vNewState) == self.nSize, \
+            '`vNewState` must have {} elements'.format(self.nSize)
+
+        self._vState = vNewState

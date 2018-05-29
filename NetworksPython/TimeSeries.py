@@ -55,7 +55,7 @@ class TimeSeries:
         mfSamples = np.atleast_1d(mfSamples)
 
         # - Permit a one-dimensional sample input
-        if mfSamples.shape[0] == 1:
+        if (mfSamples.shape[0] == 1) and (np.size(vtTimeTrace) > 1):
             mfSamples = np.transpose(mfSamples)
 
         # - Check arguments
@@ -160,11 +160,26 @@ class TimeSeries:
             warn('No plotting back-end detected.')
 
     def contains(self, vtTimeTrace: np.ndarray):
-        """ Check whether self contains the time range defined in vtTimeTrace.
-        Always true if self.bPeriodic"""
-        return (True if (self.tStart <= vtTimeTrace[0] and self.tStop >= vtTimeTrace[-1])
-                         or self.bPeriodic
+        """
+        contains - Does the time series contain all points in the specified time trace?
+
+        :param vtTimeTrace: Array-like containing time points
+        :return:            boolean: All time points are contained within this time series
+        """
+        return (True if self.tStart <= np.min(vtTimeTrace) and self.tStop >= np.max(vtTimeTrace)
                      else False)
+
+    def resample(self, vtTimes: np.ndarray):
+        """
+        resample - Return a new time series sampled to the supplied time base
+
+        :param vtTimes: Array-like of T desired time points to resample
+        :return:        New TimeSeries object, resampled to new time base
+        """
+
+        # - Return a new time series
+        return TimeSeries(vtTimes, self(vtTimes))
+
 
     def __create_interpolator(self):
         # - Construct interpolator
