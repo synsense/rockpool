@@ -27,7 +27,12 @@ class Layer(ABC):
         # - Assign properties
         self._mfW = mfW
         self._nDimIn, self._nSize = mfW.shape
-        self.sName = sName
+
+        if sName is None:
+            self.sName = '(unnamed)'
+        else:
+            self.sName = sName
+
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
         self.t = None
@@ -39,7 +44,7 @@ class Layer(ABC):
 
     ### --- Common methods
 
-    def check_inpt_dims(self, tsInput: TimeSeries) -> TimeSeries:
+    def _check_input_dims(self, tsInput: TimeSeries) -> TimeSeries:
         """
         Verify if dimension of input matches layer instance. If input
         dimension == 1, scale it up to self._nDimIn by repeating signal.
@@ -65,9 +70,11 @@ class Layer(ABC):
         time step length self._tDt. Make sure it does not go beyond 
         tStart+tDuration.
         """
+        # - Generate a periodic trace
         tStop = tStart + tDuration
         vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
-        # Make sure that vtTimeTrace doesn't go beyond tStop
+
+        # - Make sure that vtTimeTrace doesn't go beyond tStop
         return vtTimeTrace[vtTimeTrace <= tStop]
 
     ### --- String representations
