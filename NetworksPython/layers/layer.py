@@ -52,7 +52,7 @@ class Layer(ABC):
             tsInput.nNumTraces, self._nDimIn)
         return tsInput  
 
-    def gen_time_trace(self, tStart: float, tDuration: float):
+    def _gen_time_trace(self, tStart: float, tDuration: float):
         """
         Generate a time trace starting at tStart, of length tDuration with 
         time step length self._tDt. Make sure it does not go beyond 
