@@ -11,14 +11,14 @@ class Layer(ABC):
                  mfW: np.ndarray,
                  tDt: float = 1,
                  fNoiseStd: float = 0,
-                 sName: str = None):
+                 sName: str = '(unnamed)'):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
 
-        :param mfW:
-        :param tDt:
-        :param fNoiseStd:
-        :param sName:
+        :param mfW:         np.ndarray Weight matrix for this layer
+        :param tDt:         float Time-step used for evolving this layer. Default: 1
+        :param fNoiseStd:   float Std. Dev. of state noise when evolving this layer. Default: 0
+        :param sName:       str Name of this layer. Default: 'unnamed'
         """
 
         # - Ensure weights are at least 2D
@@ -35,8 +35,6 @@ class Layer(ABC):
 
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
-        self.t = None
-        self.vState = None
 
         # - Reset state
         self.reset_all()
