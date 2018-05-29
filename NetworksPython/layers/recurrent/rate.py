@@ -1,10 +1,19 @@
+###
+# rate.py - Classes for recurrent rate model layers
+#
+###
+
+# - Imports
 import numpy as np
 from typing import Callable
 from numba import njit
 
-from .layer import Layer
+from ..layer import Layer
 from TimeSeries import TimeSeries
 
+
+# - Define imports
+__all__ = ['RecRateEuler']
 
 
 ### --- Provide a default ReLu activation function
@@ -149,12 +158,8 @@ class RecRateEuler(Layer):
 
     ### --- Properties
 
-    @property
-    def tDt(self):
-        return super().tDt
-
-    @tDt.setter
-    def tDt(self, tNewDt):
+    @Layer.tDt.setter
+    def tDt(self, tNewDt: float):
         # - Check that the time step is reasonable
         tMinTau = np.min(self.vtTau)
         assert tNewDt <= tMinTau / 10, \
