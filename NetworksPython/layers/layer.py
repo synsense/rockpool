@@ -17,7 +17,8 @@ class Layer(ABC):
 
         :param mfW:         np.ndarray Weight matrix for this layer
         :param tDt:         float Time-step used for evolving this layer. Default: 1
-        :param fNoiseStd:   float Std. Dev. of state noise when evolving this layer. Default: 0
+        :param fNoiseStd:   float Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected
+                                    std. dev. after 1s of integration time
         :param sName:       str Name of this layer. Default: 'unnamed'
         """
 
