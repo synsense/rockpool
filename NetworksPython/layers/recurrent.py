@@ -96,16 +96,7 @@ class RecRateEuler(Layer):
 
     @vfBias.setter
     def vfBias(self, vfNewBias: np.ndarray):
-        if np.size(vfNewBias) == 1:
-            # - Expand bias to array
-            vfNewBias = np.repeat(vfNewBias, self.nSize)
-
-        else:
-            assert np.size(vfNewBias) == self.nSize, \
-                '`vfNewBias` must be a scalar or have {} elements'.format(self.nSize)
-
-        # - Assign biases
-        self._vfBias = np.reshape(vfNewBias, self.nSize)
+        self._vfBias = self._expand_to_net_size(vfNewBias, 'vfNewBias')
 
     @property
     def vtTau(self) -> np.ndarray:
@@ -113,16 +104,7 @@ class RecRateEuler(Layer):
 
     @vtTau.setter
     def vtTau(self, vtNewTau: np.ndarray):
-        if np.size(vtNewTau) == 1:
-            # - Expand tau to array
-            vtNewTau = np.repeat(vtNewTau, self.nSize)
-
-        else:
-            assert np.size(vtNewTau) == self.nSize, \
-                '`vtNewTau` must be a scalar or have {} elements'.format(self.nSize)
-
-        # - Assign biases
-        self._vtTau = np.reshape(vtNewTau, self.nSize)
+        self._vtTau = self._expand_to_net_size(vtNewTau, 'vtNewTau')
 
 
     ### --- State evolution method
@@ -157,7 +139,8 @@ class RecRateEuler(Layer):
         mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd
 
         # - Call Euler method integrator
-        mfActivity = self._evolveEuler(self.vState, self.nSize, self.mfW, mfInputStep + mfNoiseStep,
+        #   Note: Bypass setter method for .vState
+        mfActivity = self._evolveEuler(self._vState, self.nSize, self.mfW, mfInputStep + mfNoiseStep,
                                        nNumSteps, self.vfBias, self.vtTau)
 
         # - Construct a return TimeSeries
@@ -165,7 +148,7 @@ class RecRateEuler(Layer):
 
 
     ### --- Properties
-    
+
     @property
     def tDt(self):
         return super().tDt

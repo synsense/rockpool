@@ -77,6 +77,47 @@ class Layer(ABC):
         # - Make sure that vtTimeTrace doesn't go beyond tStop
         return vtTimeTrace[vtTimeTrace <= tStop]
 
+    def _expand_to_net_size(self,
+                            oInput,
+                            sVariableName: str = 'input') -> np.ndarray:
+        """
+        _expand_to_net_size: Replicate out a scalar to the size of the layer
+
+        :param oInput:          scalar or array-like (N)
+        :param sVariableName:   str Name of the variable to include in error messages
+        :return:                np.ndarray (N) vector
+        """
+        if np.size(oInput) == 1:
+            # - Expand input to vector
+            oInput = np.repeat(oInput, self.nSize)
+
+        assert np.size(oInput) == self.nSize, \
+            '`{}` must be a scalar or have {} elements'.format(sVariableName, self.nSize)
+
+        # - Return object of correct shape
+        return np.reshape(oInput, self.nSize)
+
+    def _expand_to_weight_size(self,
+                               oInput,
+                               sVariableName: str = 'input') -> np.ndarray:
+        """
+        _expand_to_weight_size: Replicate out a scalar to the size of the layer's weights
+
+        :param oInput:          scalar or array-like (NxN)
+        :param sVariableName:   str Name of the variable to include in error messages
+        :return:                np.ndarray (NxN) vector
+        """
+        if np.size(oInput) == 1:
+            # - Expand input to matrix
+            oInput = np.repeat(oInput, (self.nSize, self.nSize))
+
+        assert np.size(oInput) == self.nSize**2, \
+            '`{}` must be a scalar or have {} elements'.format(sVariableName, self.nSize**2)
+
+        # - Return object of correct size
+        return np.reshape(oInput, (self.nSize, self.nSize))
+
+
     ### --- String representations
 
     def __str__(self):
@@ -132,3 +173,14 @@ class Layer(ABC):
 
         # - Save weights with appropriate size
         self._mfW = np.reshape(mfNewW, (self.nDimIn, self.nSize))
+
+    @property
+    def vState(self):
+        return self._vState
+
+    @vState.setter
+    def vState(self, vNewState):
+        assert np.size(vNewState) == self.nSize, \
+            '`vNewState` must have {} elements'.format(self.nSize)
+
+        self._vState = vNewState
