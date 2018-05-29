@@ -159,6 +159,11 @@ class TimeSeries:
         else:
             warn('No plotting back-end detected.')
 
+    def contains(self, vtTimeTrace):
+        return (True if self.tStart <= vtTimeTrace[0]
+                         and self.tStop >= vtTimeTrace[-1]
+                     else False)
+
     def __create_interpolator(self):
         # - Construct interpolator
         self.oInterp = spint.interp1d(self.vtTimeTrace, self.mfSamples,
