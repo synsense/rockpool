@@ -52,19 +52,14 @@ class Layer(ABC):
             tsInput.nNumTraces, self._nDimIn)
         return tsInput  
 
-    def gen_time_trace(self, tsInput: TimeSeries, tDuration: float):
+    def gen_time_trace(self, tStart: float, tDuration: float):
         """
-        Generate a time starting at self.t, of length tDuration with 
-        time step length self._tDt
+        Generate a time trace starting at tStart, of length tDuration with 
+        time step length self._tDt. Make sure it does not go beyond 
+        tStart+tDuration.
         """
-        assert tsInput.tStart <= self.t 'Input starts after t (t={}, starts at {}'.format(
-            self.t, tsInput.tStart)
-        tStop = self.t + tDuration
-        if tStop > tsInput.tStop:
-            tStop = tsInput.tStop
-            tDuration = tStop - self.t
-            print('Warning: input not sufficiently long. Evolving only until t={}'.format(tStop))
-        vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + self.t
+        tStop = tStart + tDuration
+        vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
         # Make sure that vtTimeTrace doesn't go beyond tStop
         return vtTimeTrace[vtTimeTrace <= tStop]
 
