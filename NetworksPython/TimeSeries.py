@@ -55,7 +55,7 @@ class TimeSeries:
         mfSamples = np.atleast_1d(mfSamples)
 
         # - Permit a one-dimensional sample input
-        if mfSamples.shape[0] == 1:
+        if (mfSamples.shape[0] == 1) and (np.size(vtTimeTrace) > 1):
             mfSamples = np.transpose(mfSamples)
 
         # - Check arguments

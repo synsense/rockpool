@@ -1,5 +1,6 @@
 import numpy as np
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 from TimeSeries import TimeSeries
 
@@ -38,19 +39,25 @@ class Layer(ABC):
 
     ### --- Common methods
 
-    def check_inpt_dims(self, tsInput: TimeSeries):
+    def check_inpt_dims(self, tsInput: TimeSeries) -> TimeSeries:
         """
         Verify if dimension of input matches layer instance. If input
         dimension == 1, scale it up to self._nDimIn by repeating signal.
             tsInput : input time series
             return : tsInput, possibly with dimensions repeated
         """
+        # - Replicate `tsInput` if necessary
         if tsInput.nNumTraces == 1:
-            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)),
-                                          self._nDimIn, axis=1)
-        assert tsInput.nNumTraces == self._nDimIn, 'Input dimension {} does not match layer input dimension {}.'.format(
-            tsInput.nNumTraces, self._nDimIn)
-        return tsInput  
+            tsInput = deepcopy(tsInput)
+            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1, 1)),
+                                          self._nDimIn, axis = 1)
+
+        # - Check dimensionality of input
+        assert tsInput.nNumTraces == self._nDimIn, \
+            'Input dimensionality {} does not match layer input size {}.'.format(tsInput.nNumTraces, self._nDimIn)
+
+        # - Return possibly corrected input
+        return tsInput
 
     def _gen_time_trace(self, tStart: float, tDuration: float):
         """
