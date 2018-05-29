@@ -192,11 +192,17 @@ class TimeSeries:
         return 'TimeSeries object ' + str(self.mfSamples.shape)
 
     def print(self, bForceAll: bool=False, nFirst: int=4, nLast: int=4, nShorten: int=10):
-        """Print an overview over the time series and its values.
-            bForceAll : Print all samples of self, no matter how long it is
-            nShorten : Print shortened version of self if it comprises more than nShorten time points
-            nFirst, nLast : number of first and last time points for which shortened version is printed
-            """
+        """
+        print - Print an overview over the time series and its values.
+            
+        :param bForceAll: Boolean - Print all samples of self, no matter how long it is
+        :param nShorten:  Integer - Print shortened version of self if it comprises more
+                          than nShorten time points and bForceAll is False
+        :param nFirst:    Integer - Shortened version of printout contains samples at first
+                          nFirst points in self.vtTimeTrace
+        :param nLast:     Integer - Shortened version of printout contains samples at last
+                          nLast points in self.vtTimeTrace
+        """
 
         s = '\n'
         if len(self.vtTimeTrace) <= 10 or bForceAll:
