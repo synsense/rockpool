@@ -2,18 +2,25 @@ import numpy as np
 import time
 
 import TimeSeries as ts
-from layer import Layer
+from layers.layer import Layer
 
 class PassThrough(Layer):
     """ Neuron states directly correspond to input, but can be delayed. """
 
-    def __init__(self, mfW, tDt=1, sName=None, tDelay=0):
-        super().__init__(mfW, tDt, vBias=0, sName=sName)
+    def __init__(self,
+                 mfW: np.ndarray,
+                 tDt: float = 1,
+                 fNoiseStd: float = 0,
+                 tDelay: float = 0,
+                 sName: str = None):
+        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
         self._tDelay = tDelay
-        # Allow for delay, buffer delayed input in time series
-        self.set_buffer()
+        self.reset_all()
+        
+        # Buffer already reset by super().__init__ which calls self.reset_all()
+        # self.reset_buffer()
 
-    def set_buffer(self):
+    def reset_buffer(self):
         if self.tDelay != 0:
             vtBuffer = np.arange(0,self.tDelay, self._tDt)
             self.tsBuffer = ts.TimeSeries(vtBuffer,
@@ -21,23 +28,42 @@ class PassThrough(Layer):
         else:
             self.tsBuffer = None        
 
-    def evolve(self, tsInput, tDuration):
-        tsInput = self.check_inpt_dims(tsInput)
-        vtTimeTraceOut = self.gen_time_trace(tsInput, tDuration)
-        tStop = vtTimeTraceOut[-1]
-        tDuration = tStop - self.t 
-     
+    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
+        if tDuration is None:
+            tDuration = tsInput.tStop - self.t
+        tsInput = self._check_input_dims(tsInput)
+        vtTimeTrace = self._gen_time_trace(self.t, tDuration)
+        assert tsInput.contains(vtTimeTrace), ('Desired evolution interval not fully contained in input'
+                                                + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
+                                                vtTimeTrace[0], vtTimeTrace[-1], tsInput.tStart, tsInput.tStop))
         if self.tsBuffer is not None:
-            mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
-                                     (tsInput[ : tStopIn-self.tDelay+self._tDt : self._tDt])@self.mfW))
-            self.tsBuffer.mfSamples = (tsInput[tStopIn-self.tDelay+self._tDt : : self._tDt])@self.mfW
+            nBuffer = len(self.tsBuffer.vtTimeTrace)
+            nSamplesTrace = len(vtTimeTrace)
+            if nSamplesTrace > nBuffer:
+                vtTimeTraceOut = vtTimeTrace[:-nBuffer]
+                vtTimeTraceBuffer = vtTimeTrace[-nBuffer:]
+                mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
+                                         noisy(tsInput(vtTimeTraceOut)@self.mfW, self.fNoiseStd)))
+                self.tsBuffer.mfSamples = noisy(tsInput(vtTimeTraceBuffer)@self.mfW, self.fNoiseStd)
+            else:
+                mSamplesOut = self.tsBuffer(vtTimeTrace-self.t)
+                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nSamplesTrace:],
+                                                     noisy(tsInput(vtTimeTrace)@self.mfW, self.fNoiseStd)))
         else:
-            mSamplesOut = (tsInput[::self._tDt])@self.mfW
+            mSamplesOut = noisy(tsInput(vtTimeTrace)@self.mfW, self.fNoiseStd)
         
-        self.t += tsInput.tDuration
+        self._t += tDuration
         
-        return ts.TimeSeries(vtTimeTraceOut, mSamplesOut)
-        
+        return ts.TimeSeries(vtTimeTrace, mSamplesOut)
+
+    def reset_state(self):
+        super().reset_state()
+        self.reset_buffer()
+
+    def reset_all(self):
+        super().reset_all()
+        self.reset_buffer()
+
     @property
     def tDelay(self):
         return self._tDelay
@@ -46,25 +72,43 @@ class PassThrough(Layer):
     # def tDelay(self, tNewDelay):
         # Some method to extend self.tsBuffer
 
+def noisy(oInput: np.ndarray, fStdDev: float):
+    """
+    noisy - Add randomly distributed noise to each element of oInput
+    :param oInput:  Array-like with values that noise is added to
+    :param fStdDev: Float, the standard deviation of the noise to be added
+    :return:        Array-like, oInput with noise added
+    """
+    return fStdDev * np.random.randn(*oInput.shape) + oInput
+
 
 class FFRate(Layer):
     """ Feedforward layer consisting of rate-based neurons """
 
-    def __init__(self, sName, nSize, tDt, **kwargs):
-        super().__init__(sName, nSize, tDt)
-        self.vPotential = np.zeros(nSize)
-        self._vTau = np.array(kwargs.get('vTau', 10*tDt))
+    def __init__(self,
+                 mfW: np.ndarray,
+                 tDt: float = 1,
+                 sName: str = None,
+                 fNoiseStd: float = 0,
+                 vTau: np.ndarray = 10,
+                 vGain: np.ndarray = 1,
+                 vBias: np.ndarray = 0):
+        super().__init__(mfW=sName, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
+        self._vTau = vTau
         self._vAlpha = self._tDt/self._vTau
-        self.vGain = np.array(kwargs.get('vGain', 1))
-        self.vBias = np.array(kwargs.get('vBias', 0))
-        self.fActivation = dfActivation[kwargs.get('sActivation', 'ReLU')]
+        self.vGain = vGain
+        self.vBias = vBias
 
-    def evolve(self, tsInput):
-        if tsInput.nNumTraces == 1:
-            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1,1)), self.nSize, axis=1)
-        assert tsInput.nNumTraces == self.nSize, 'Input and network dimensions do not match.'
-        vtTimeTraceIn = np.arange(0, tsInput.tDuration+self._tDt, self._tDt) + tsInput.tStart
-        vtTimeTraceOut = vtTimeTraceIn - tsInput.tStart + self.t
+    def evolve(self, tsInput, tDuration=None):
+        if tDuration is None:
+            tDuration = tsInput.tStop - self.t
+        tsInput = self._check_input_dims(tsInput)
+        vtTimeTrace = self._gen_time_trace(self.t, tDuration)
+        assert tsInput.contains(vtTimeTrace), ('Desired evolution interval not fully contained in input'
+                                                + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
+                                                vtTimeTrace[0], vtTimeTrace[-1], tsInput.tStart, tsInput.tStop))
+
+
         mSamplesOut = np.zeros((len(vtTimeTraceOut), self.nSize))
         rtStart = time.time()
         for i, t in enumerate(vtTimeTraceIn):
@@ -91,7 +135,7 @@ class FFRate(Layer):
         self._vTau = vNewTau
         self._vAlpha = self._tDt/vNewTau
 
-    @FFLayer.tDt.setter
+    @Layer.tDt.setter
     def tDt(self, fNewDt):
         self._tDt = fNewDt
         self._vAlpha = fNewDt/self._vTau
