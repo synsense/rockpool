@@ -1,5 +1,4 @@
 import numpy as np
-from abc import ABC
 from typing import Callable
 from numba import njit
 
@@ -67,13 +66,13 @@ class RecRateEuler(Layer):
         """
         RecRate: Implement a recurrent layer with firing rate neurons
 
-        :param mfW:
-        :param vfBias:
-        :param vtTau:
-        :param fhActivation:
-        :param tDt:
-        :param fNoiseStd:
-        :param sName:
+        :param mfW:             np.ndarray (NxN) matrix of recurrent weights
+        :param vfBias:          np.ndarray (N) vector (or scalar) of bias currents
+        :param vtTau:           np.ndarray (N) vector (or scalar) of neuron time constants
+        :param fhActivation:    Callable (x) -> f(x) Activation function
+        :param tDt:             float Time step for integration (Euler method)
+        :param fNoiseStd:       float Std. Dev. of state noise injected at each time step
+        :param sName:           str Name of this layer
         """
 
         # - Call super-class init
@@ -108,8 +107,25 @@ class RecRateEuler(Layer):
         # - Assign biases
         self._vfBias = np.reshape(vfNewBias, self.nSize)
 
+    @property
+    def vtTau(self) -> np.ndarray:
+        return self._vtTau
 
-    ### --- State evolution methods
+    @vtTau.setter
+    def vtTau(self, vtNewTau: np.ndarray):
+        if np.size(vtNewTau) == 1:
+            # - Expand tau to array
+            vtNewTau = np.repeat(vtNewTau, self.nSize)
+
+        else:
+            assert np.size(vtNewTau) == self.nSize, \
+                '`vtNewTau` must be a scalar or have {} elements'.format(self.nSize)
+
+        # - Assign biases
+        self._vtTau = np.reshape(vtNewTau, self.nSize)
+
+
+    ### --- State evolution method
 
     def evolve(self,
                tsInput: TimeSeries = None,
@@ -127,8 +143,14 @@ class RecRateEuler(Layer):
         nNumSteps = np.size(vtTimeBase)
 
         if tsInput is not None:
+            # - Sample input trace
             mfInputStep = tsInput(vtTimeBase)
+
+            # - Treat "NaN" as zero inputs
+            mfInputStep[np.where(np.isnan(mfInputStep))] = 0
+
         else:
+            # - Assume zero inputs
             mfInputStep = np.zeros((nNumSteps, self.nSize))
 
         # - Generate a noise trace
@@ -142,12 +164,8 @@ class RecRateEuler(Layer):
         return TimeSeries(vtTimeBase, mfActivity)
 
 
-    def reset_state(self):
-        super().reset_state()
-
-    def reset_all(self):
-        super().reset_all()
-
+    ### --- Properties
+    
     @property
     def tDt(self):
         return super().tDt

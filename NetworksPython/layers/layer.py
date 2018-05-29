@@ -94,11 +94,9 @@ class Layer(ABC):
                tDuration: float = None):
         pass
 
-    @abstractmethod
     def reset_state(self):
         self.vState = np.zeros(self.nSize)
 
-    @abstractmethod
     def reset_all(self):
         self.t = 0
         self.reset_state()
