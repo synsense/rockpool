@@ -159,10 +159,27 @@ class TimeSeries:
         else:
             warn('No plotting back-end detected.')
 
-    def contains(self, vtTimeTrace):
-        return (True if self.tStart <= vtTimeTrace[0]
-                         and self.tStop >= vtTimeTrace[-1]
+    def contains(self, vtTimeTrace: np.ndarray):
+        """
+        contains - Does the time series contain all points in the specified time trace?
+
+        :param vtTimeTrace: Array-like containing time points
+        :return:            boolean: All time points are contained within this time series
+        """
+        return (True if self.tStart <= np.min(vtTimeTrace) and self.tStop >= np.max(vtTimeTrace)
                      else False)
+
+    def resample(self, vtTimes: np.ndarray):
+        """
+        resample - Return a new time series sampled to the supplied time base
+
+        :param vtTimes: Array-like of T desired time points to resample
+        :return:        New TimeSeries object, resampled to new time base
+        """
+
+        # - Return a new time series
+        return TimeSeries(vtTimes, self(vtTimes))
+
 
     def __create_interpolator(self):
         # - Construct interpolator
