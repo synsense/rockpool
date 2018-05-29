@@ -86,7 +86,6 @@ class RecRateEuler(Layer):
 
         # - Call super-class init
         super().__init__(mfW = mfW,
-                         tDt = tDt,
                          sName = sName)
 
         # - Assign properties
@@ -115,6 +114,9 @@ class RecRateEuler(Layer):
     def vtTau(self, vtNewTau: np.ndarray):
         self._vtTau = self._expand_to_net_size(vtNewTau, 'vtNewTau')
 
+        # - Ensure tDt is reasonable for numerical accuracy
+        self.tDt = np.min(self.vtTau) / 10
+
 
     ### --- State evolution method
 
@@ -130,7 +132,7 @@ class RecRateEuler(Layer):
             tDuration = tsInput.tDuration
 
         # - Discretise tsInput to the desired evolution time base
-        vtTimeBase = self.t + np.arange(0, tDuration, self.tDt)
+        vtTimeBase = self._gen_time_trace(self.t, tDuration)
         nNumSteps = np.size(vtTimeBase)
 
         if tsInput is not None:
@@ -151,6 +153,9 @@ class RecRateEuler(Layer):
         #   Note: Bypass setter method for .vState
         mfActivity = self._evolveEuler(self._vState, self.nSize, self.mfW, mfInputStep + mfNoiseStep,
                                        nNumSteps, self.vfBias, self.vtTau)
+
+        # - Increment internal time representation
+        self.t += tDuration
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)

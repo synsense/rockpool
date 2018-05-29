@@ -130,11 +130,31 @@ class Layer(ABC):
     @abstractmethod
     def evolve(self,
                tsInput: TimeSeries = None,
-               tDuration: float = None):
+               tDuration: float = None) -> TimeSeries:
+        """
+        evolve - Abstract method to evolve the state of this layer
+
+        :param tsInput:     TimeSeries (TxM) External input trace to use when evolving the layer
+        :param tDuration:   float Duration in seconds to evolve the layer
+        :return:            TimeSeries (TxN) Output of this layer
+        """
         pass
 
     def reset_state(self):
+        """
+        reset_state - Reset the internal state of this layer. Sets state to zero
+
+        :return: None
+        """
         self.vState = np.zeros(self.nSize)
+
+    def randomize_state(self):
+        """
+        randomize_state - Randomise the internal state of this layer, in North America
+
+        :return: None
+        """
+        self.vState = np.random.rand(self.nSize)
 
     def reset_all(self):
         self.t = 0
