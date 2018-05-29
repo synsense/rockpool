@@ -159,9 +159,11 @@ class TimeSeries:
         else:
             warn('No plotting back-end detected.')
 
-    def contains(self, vtTimeTrace):
-        return (True if self.tStart <= vtTimeTrace[0]
-                         and self.tStop >= vtTimeTrace[-1]
+    def contains(self, vtTimeTrace: np.ndarray):
+        """ Check whether self contains the time range defined in vtTimeTrace.
+        Always true if self.bPeriodic"""
+        return (True if (self.tStart <= vtTimeTrace[0] and self.tStop >= vtTimeTrace[-1])
+                         or self.bPeriodic
                      else False)
 
     def __create_interpolator(self):
@@ -173,6 +175,28 @@ class TimeSeries:
 
     def __repr__(self):
         return 'TimeSeries object ' + str(self.mfSamples.shape)
+
+    def print(self, bForceAll: bool=False, nFirst: int=4, nLast: int=4, nShorten: int=10):
+        """Print an overview over the time series and its values.
+            bForceAll : Print all samples of self, no matter how long it is
+            nShorten : Print shortened version of self if it comprises more than nShorten time points
+            nFirst, nLast : number of first and last time points for which shortened version is printed
+            """
+
+        s = '\n'
+        if len(self.vtTimeTrace) <= 10 or bForceAll:
+            strSummary = s.join(['{}: \t {}'.format(t, vSamples)
+                                for t, vSamples in zip(self.vtTimeTrace, self.mfSamples)])
+        else:
+            strSummary0 = s.join(['{}: \t {}'.format(t, vSamples)
+                                  for t, vSamples in zip(self.vtTimeTrace[:nFirst],
+                                                         self.mfSamples[:nFirst])])
+            strSummary1 = s.join(['{}: \t {}'.format(t, vSamples)
+                                  for t, vSamples in zip(self.vtTimeTrace[-nLast:],
+                                                         self.mfSamples[-nLast:])])
+            strSummary = strSummary0 + '\n\t...\n' + strSummary1
+        print(self.__repr__() + '\n' + strSummary)
+            
 
     def __add__(self, other):
         tsCopy = copy.deepcopy(self)
