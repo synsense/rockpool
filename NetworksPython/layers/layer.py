@@ -69,6 +69,8 @@ class Layer(ABC):
         # - Generate a periodic trace
         tStop = tStart + tDuration
         vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
+        vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStop]
+        vtTimeTrace = vtTimeTrace[:-1]
 
         # - Make sure that vtTimeTrace doesn't go beyond tStop
         return vtTimeTrace[vtTimeTrace <= tStop]

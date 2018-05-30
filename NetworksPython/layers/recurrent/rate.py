@@ -30,7 +30,7 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     get_evolution_function: Construct a compiled Euler solver for a given activation funciton
 
     :param fhActivation: Callable (x) -> f(x)
-    :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, nNumSteps, vfBias, vtTau)
+    :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, tDt, nNumSteps, vfBias, vtTau)
     """
 
     # - Compile an Euler solver for the desired activation function
@@ -40,17 +40,21 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
                               mfW: np.ndarray,
                               mfInputStep: np.ndarray,
                               nNumSteps: int,
+                              tDt: float,
                               vfBias: np.ndarray,
                               vtTau: np.ndarray) -> np.ndarray:
         # - Initialise storage of network output
         mfActivity = np.zeros((nNumSteps, nSize))
+
+        # - Precompute tDt / vtTau
+        vfLambda = tDt / vtTau
 
         # - Loop over time steps
         for nStep in range(nNumSteps):
             # - Evolve network state
             vfThisAct = fhActivation(vState + vfBias)
             vDState = -vState + mfInputStep[nStep, :] + mfW @ vfThisAct
-            vState += vDState * vtTau
+            vState += vDState * vfLambda
 
             # - Store network state
             mfActivity[nStep, :] = vfThisAct
@@ -154,10 +158,10 @@ class RecRateEuler(Layer):
         # - Call Euler method integrator
         #   Note: Bypass setter method for .vState
         mfActivity = self._evolveEuler(self._vState, self.nSize, self.mfW, mfInputStep + mfNoiseStep,
-                                       nNumSteps, self.vfBias, self.vtTau)
+                                       nNumSteps, self.tDt, self.vfBias, self.vtTau)
 
         # - Increment internal time representation
-        self._t += tDuration
+        self._t = vtTimeBase[-1] + self.tDt
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)
