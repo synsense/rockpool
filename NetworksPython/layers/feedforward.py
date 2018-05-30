@@ -113,7 +113,7 @@ class FFRate(Layer):
                  vtTau: np.ndarray = 10,
                  vfGain: np.ndarray = 1,
                  vfBias: np.ndarray = 0):
-        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
+        super().__init__(mfW=mfW.astype(float), tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
         self.reset_all()
         try:
             self.vtTau, self.vfGain, self.vfBias = map(self.correct_param_shape, (vtTau, vfGain, vfBias))
@@ -130,7 +130,7 @@ class FFRate(Layer):
         :param v:   Float or array-like that is to be converted
         :return:    v as 1D-np.ndarray
         """
-        v = np.array(v).flatten()
+        v = np.array(v, dtype=float).flatten()
         assert v.shape in ((1,), (self.nSize,), (1,self.nSize), (self.nSize), 1), (
             'Numbers of elements in v must be 1 or match layer size')
         return v
@@ -144,7 +144,8 @@ class FFRate(Layer):
                                         mfW=self.mfW,
                                         vfGain=self.vfGain,
                                         vfBias=self.vfBias,
-                                        vfAlpha=self.vfAlpha)
+                                        vfAlpha=self.vfAlpha,
+                                        fNoiseStd=self.fNoiseStd/np.sqrt(self.tDt))
 
         # rtStart = time.time()
         # for i, vIn in enumerate(mSamplesIn):
@@ -239,7 +240,7 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
                               vfGain: np.ndarray,
                               vfBias: np.ndarray,
                               vfAlpha: np.ndarray,
-                              vfNoiseStd) -> np.ndarray:
+                              fNoiseStd) -> np.ndarray:
         
         # - Initialise storage of network output
         nNumSteps = len(mfInput)
@@ -249,7 +250,7 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
         # - Loop over time steps
         for nStep in range(nNumSteps):
             # - Evolve network state
-            vDState = -vState + vfGain * mfWeightedInput[nStep, :]
+            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
             vState += vDState * vfAlpha
             # - Store network state
             mfStates[nStep, :] = vState
