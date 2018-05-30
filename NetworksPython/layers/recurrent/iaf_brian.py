@@ -281,11 +281,11 @@ class RecIAFBrian(Layer):
         self._ngReservoir.v_rest = np.asarray(self._expand_to_net_size(vfNewVRest, 'vfNewVRest')) * volt
 
     @property
-    def vfReset(self):
+    def vfVReset(self):
         return self._ngReservoir.v_reset_
 
-    @vfReset.setter
-    def vfReset(self, vfNewVReset):
+    @vfVReset.setter
+    def vfVReset(self, vfNewVReset):
         self._ngReservoir.v_reset = np.asarray(self._expand_to_net_size(vfNewVReset, 'vfNewVReset')) * volt
 
     @property

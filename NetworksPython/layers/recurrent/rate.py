@@ -153,7 +153,7 @@ class RecRateEuler(Layer):
             mfInputStep = np.zeros((nNumSteps, self.nSize))
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
+        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
 
         # - Call Euler method integrator
         #   Note: Bypass setter method for .vState
