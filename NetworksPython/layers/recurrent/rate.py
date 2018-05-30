@@ -130,27 +130,8 @@ class RecRateEuler(Layer):
                tsInput: TimeSeries = None,
                tDuration: float = None):
 
-        # - Determine default duration
-        if tDuration is None:
-            assert tsInput is not None, \
-                'One of `tsInput` or `tDuration` must be supplied'
-
-            tDuration = tsInput.tDuration
-
-        # - Discretise tsInput to the desired evolution time base
-        vtTimeBase = self._gen_time_trace(self.t, tDuration)
+        vtTimeBase, mfInputStep = self._prepare_input(tsInput, tDuration)
         nNumSteps = np.size(vtTimeBase)
-
-        if tsInput is not None:
-            # - Sample input trace
-            mfInputStep = tsInput(vtTimeBase)
-
-            # - Treat "NaN" as zero inputs
-            mfInputStep[np.where(np.isnan(mfInputStep))] = 0
-
-        else:
-            # - Assume zero inputs
-            mfInputStep = np.zeros((nNumSteps, self.nSize))
 
         # - Generate a noise trace
         mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)

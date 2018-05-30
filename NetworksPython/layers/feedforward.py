@@ -1,6 +1,7 @@
 import numpy as np
 import time
 from abc import abstractmethod
+from numba import njit
 
 import TimeSeries as ts
 from layers.layer import Layer
@@ -30,30 +31,26 @@ class PassThrough(Layer):
             self.tsBuffer = None        
 
     def evolve(self, tsInput: np.ndarray, tDuration: float = None):
-        if tDuration is None:
-            tDuration = tsInput.tStop - self.t
-        tsInput = self._check_input_dims(tsInput)
-        vtTime = self._gen_time_trace(self.t, tDuration)
-        assert tsInput.contains(vtTime), ('Desired evolution interval not fully contained in input'
-                                                + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
-                                                vtTime[0], vtTime[-1], tsInput.tStart, tsInput.tStop))
+        
+        vtTime, mfInput = self._prepare_input(tsInput, tDuration)
+
         if self.tsBuffer is not None:
             nBuffer = len(self.tsBuffer.vtTimeTrace)
-            nSamplesTrace = len(vtTime)
-            if nSamplesTrace > nBuffer:
+            nSteps = len(vtTime)
+            if nSteps > nBuffer:
                 vtTimeOut = vtTime[:-nBuffer]
                 vtTimeBuffer = vtTime[-nBuffer:]
                 mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
-                                         noisy(tsInput(vtTimeOut)@self.mfW, self.fNoiseStd)))
-                self.tsBuffer.mfSamples = noisy(tsInput(vtTimeBuffer)@self.mfW, self.fNoiseStd)
+                                         noisy(mfInput[:-nBuffer]@self.mfW, self.fNoiseStd)))
+                self.tsBuffer.mfSamples = noisy(mfInput[-nBuffer:]@self.mfW, self.fNoiseStd)
             else:
                 mSamplesOut = self.tsBuffer(vtTime-self.t)
-                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nSamplesTrace:],
-                                                     noisy(tsInput(vtTime)@self.mfW, self.fNoiseStd)))
+                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nSteps:],
+                                                     noisy(mfInput@self.mfW, self.fNoiseStd)))
         else:
-            mSamplesOut = noisy(tsInput(vtTime)@self.mfW, self.fNoiseStd)
+            mSamplesOut = noisy(mfInput@self.mfW, self.fNoiseStd)
         
-        self._t += tDuration
+        self._t = vtTime[-1] + self.tDt
         
         return ts.TimeSeries(vtTime, mSamplesOut)
 
@@ -82,17 +79,19 @@ class FFRate(Layer):
                  tDt: float = 1,
                  sName: str = None,
                  fNoiseStd: float = 0,
-                 vTau: np.ndarray = 10,
-                 vGain: np.ndarray = 1,
-                 vBias: np.ndarray = 0):
+                 fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLU,
+                 vtTau: np.ndarray = 10,
+                 vfGain: np.ndarray = 1,
+                 vfBias: np.ndarray = 0):
         super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
         self.reset_all()
         try:
-            self.vTau, self.vGain, self.vBias = map(self.correct_param_shape, (vTau, vGain, vBias))
+            self.vtTau, self.vfGain, self.vfBias = map(self.correct_param_shape, (vtTau, vfGain, vfBias))
         except AssertionError:
-            raise AssertionError('Numbers of elements in vTau, vGain and vBias'
+            raise AssertionError('Numbers of elements in vtTau, vfGain and vfBias'
                                  + ' must be 1 or match layer size.')
-        self.vAlpha = self._tDt/self.vTau
+        self.vfAlpha = self._tDt/self.vtTau
+        self.fhActivation = fhActivation
         
     def correct_param_shape(self, v) -> np.ndarray:
         """
@@ -106,29 +105,33 @@ class FFRate(Layer):
             'Numbers of elements in v must be 1 or match layer size')
         return v
 
-    def evolve(self, tsInput: ts.TimeSeries, tDuration: float = None) -> ts.TimeSeries:
-        if tDuration is None:
-            tDuration = tsInput.tStop - self.t
-        tsInput = self._check_input_dims(tsInput)
-        vtTime = self._gen_time_trace(self.t, tDuration)
-        assert tsInput.contains(vtTime), ('Desired evolution interval not fully contained in input'
-                                                + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
-                                                vtTime[0], vtTime[-1], tsInput.tStart, tsInput.tStop))
-
-        mSamplesOut = np.zeros((len(vtTime), self.nSize))
-        mSamplesIn = tsInput(vtTime)@self.mfW
-        rtStart = time.time()
-        for i, vIn in enumerate(mSamplesIn):
-            mSamplesOut[i] = self.vState = self.potential(vIn)
-            print_progress(i, len(vtTime), time.time()-rtStart)
-        print('')
-        self._t += tDuration
+    def evolve(self, tsInput: ts.TimeSeries = None, tDuration: float = None) -> ts.TimeSeries:
         
-        return ts.TimeSeries(vtTime, mSamplesOut)
+        vtTime, mfInput = self._prepare_input(tsInput, tDuration)
+        
+        mSamplesAct = self._evolveEuler(vState=self.vState,     #self.vState is automatically updated
+                                        mfInput=mfInput,
+                                        mfW=self.mfW,
+                                        vfGain=self.vfGain,
+                                        vfBias=self.vfBias,
+                                        vfAlpha=self.vfAlpha)
+
+        # rtStart = time.time()
+        # for i, vIn in enumerate(mSamplesIn):
+        #     self.vState = self.potential(vIn)
+        #     mSamplesOut[i] = self.vActivation
+        #     print_progress(i, len(vtTime), time.time()-rtStart)
+        # print('')
+
+        # - Increment internal time representation
+        self._t = vtTime[-1] + self.tDt
+        
+        return ts.TimeSeries(vtTime, mSamplesAct)
     
+    @njit
     def potential(self, vInput: np.ndarray) -> np.ndarray:
-        return (self._vAlpha * noisy(vInput*self.vGain + self.vBias, self.fNoiseStd)
-                + (1-self._vAlpha)*self.vState)
+        return (self._vfAlpha * noisy(vInput*self.vfGain + self.vfBias, self.fNoiseStd)
+                + (1-self._vfAlpha)*self.vState)
 
     @abstractmethod
     def activation(self, *args, **kwargs):
@@ -137,85 +140,118 @@ class FFRate(Layer):
     ### --- properties
 
     @property
-    def vTau(self):
-        return self._vTau
+    def vtTau(self):
+        return self._vtTau
 
-    @vTau.setter
-    def vTau(self, vNewTau):
+    @vtTau.setter
+    def vtTau(self, vNewTau):
         vNewTau = self.correct_param_shape(vNewTau)
-        if not (vNewTau >= self._tDt).all(): raise ValueError('All vTau must be at least tDt.')
-        self._vTau = vNewTau
-        self._vAlpha = self._tDt/vNewTau
+        if not (vNewTau >= self._tDt).all(): raise ValueError('All vtTau must be at least tDt.')
+        self._vtTau = vNewTau
+        self._vfAlpha = self._tDt/vNewTau
 
     @property
-    def vAlpha(self):
-        return self._vAlpha
+    def vfAlpha(self):
+        return self._vfAlpha
 
-    @vAlpha.setter
-    def vAlpha(self, vNewAlpha):
+    @vfAlpha.setter
+    def vfAlpha(self, vNewAlpha):
         vNewAlpha = self.correct_param_shape(vNewAlpha)
-        if not (vNewAlpha <= 1).all(): raise ValueError('All vAlpha must be at most 1.')
-        self._vAlpha = vNewAlpha
-        self._vTau = self._tDt/vNewAlpha
+        if not (vNewAlpha <= 1).all(): raise ValueError('All vfAlpha must be at most 1.')
+        self._vfAlpha = vNewAlpha
+        self._vtTau = self._tDt/vNewAlpha
     
     @property
-    def vBias(self):
-        return self._vBias
+    def vfBias(self):
+        return self._vfBias
 
-    @vBias.setter
-    def vBias(self, vNewBias):
-        self._vBias = self.correct_param_shape(vNewBias)
+    @vfBias.setter
+    def vfBias(self, vNewBias):
+        self._vfBias = self.correct_param_shape(vNewBias)
     
     @property
-    def vGain(self):
-        return self._vGain
+    def vfGain(self):
+        return self._vfGain
 
-    @vGain.setter
-    def vGain(self, vNewGain):
-        self._vGain = self.correct_param_shape(vNewGain)
+    @vfGain.setter
+    def vfGain(self, vNewGain):
+        self._vfGain = self.correct_param_shape(vNewGain)
+
+    @property
+    def fhActivation(self):
+        return self._fhActivation
+
+    @fhActivation.setter
+    def fhActivation(self, f):
+        self._fhActivation = f
+        self._evolveEuler = get_evolution_function(f)
 
     @Layer.tDt.setter
     def tDt(self, tNewDt):
-        if not (self.vTau >= tNewDt).all(): raise ValueError('All vTau must be at least tDt.')
+        if not (self.vtTau >= tNewDt).all(): raise ValueError('All vtTau must be at least tDt.')
         self._tDt = tNewDt
-        self._vAlpha = tNewDt/self._vTau
+        self._vfAlpha = tNewDt/self._vtTau
 
 
-class FFReLU(FFRate):
-    def __init__(self,
-                 mfW: np.ndarray,
-                 tDt: float = 1,
-                 vTau: np.ndarray = 10,
-                 vGain: np.ndarray = 1,
-                 vBias: np.ndarray = 0,
-                 fNoiseStd: float = 0,
-                 fActUpperBound: float = None,
-                 sName: str = None):
-        super().__init__(mfW=mfW, tDt=tDt, vTau=vTau, vGain=vGain,
-                         vBias=vBias, fNoiseStd=fNoiseStd, sName=sName)
-        self.fActUpperBound = fActUpperBound
-
-    def activation(self, fUpperBound=None) -> np.ndarray:
-        """
-        Activation function for rectified linear units.
-            vPotential : ndarray with current neuron potentials
-            fUpperBound : if not None, upper bound for activation
-        """
-        return np.clip(self.vState, 0, fUpperBound)
-
-    @property
-    def vActivation(self):
-        return self.activation(self.fActUpperBound)
-
-
-def noisy(oInput: np.ndarray, fStdDev: float) -> np.ndarray:
+def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     """
-    noisy - Add randomly distributed noise to each element of oInput
-    :param oInput:  Array-like with values that noise is added to
+    get_evolution_function: Construct a compiled Euler solver for a given activation function
+
+    :param fhActivation: Callable (x) -> f(x)
+    :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, nNumSteps, vfBias, vtTau)
+    """
+
+    # - Compile an Euler solver for the desired activation function
+    @njit
+    def evolve_Euler_complete(vState: np.ndarray,
+                              mfInput: np.ndarray,
+                              mfW: np.ndarray,
+                              vfGain: np.ndarray,
+                              vfBias: np.ndarray,
+                              vfAlpha: np.ndarray,
+                              vfNoiseStd) -> np.ndarray:
+        
+        # - Initialise storage of network output
+        nNumSteps = len(mfInput)
+        mfWeightedInput = mfInput@mfW
+        mfStates = np.zeros_like(mfWeightedInput)
+
+        # - Loop over time steps
+        for nStep in range(nNumSteps):
+            # - Evolve network state
+            vDState = -vState + vfGain * mfWeightedInput[nStep, :]
+            vState += vDState * vfAlpha
+            # - Store network state
+            mfStates[nStep, :] = vState
+
+        return fhActivation(mfStates + vfBias)
+
+    # - Return the compiled function
+    return evolve_Euler_complete
+
+@njit
+def fhReLU(mfX: np.ndarray, fUpperBound: float = None) -> np.ndarray:
+    """
+    Activation function for rectified linear units.
+    :param mfX:             ndarray with current neuron potentials
+    :param fUpperBound:     Upper bound
+    :return:                np.clip(mfX, 0, fUpperBound)
+    """
+    mfCopy = np.copy(mfX)
+    mfCopy[np.where(mfX < 0)] = 0
+    if fUpperBound is not None:
+        mfCopy[np.where(mfX > fUpperBound)] = fUpperBound
+    return mfCopy
+
+@njit
+def noisy(mX: np.ndarray, fStdDev: float) -> np.ndarray:
+    """
+    noisy - Add randomly distributed noise to each element of mX
+    :param mX:  Array-like with values that noise is added to
     :param fStdDev: Float, the standard deviation of the noise to be added
-    :return:        Array-like, oInput with noise added
+    :return:        Array-like, mX with noise added
     """
-    return fStdDev * np.random.randn(*oInput.shape) + oInput
+    return fStdDev * np.random.randn(*mX.shape) + mX
 
 def print_progress(iCurr: int, nTotal: int, tPassed: float):
     print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(

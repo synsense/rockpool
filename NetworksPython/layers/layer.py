@@ -40,6 +40,39 @@ class Layer(ABC):
 
     ### --- Common methods
 
+    def _prepare_input(self,
+                       tsInput: TimeSeries = None,
+                       tDuration: float = None) -> tuple[np.ndarray, np.ndarray]:
+        # - Determine default duration
+        if tDuration is None:
+            assert tsInput is not None, \
+                'One of `tsInput` or `tDuration` must be supplied'
+            
+            if tsInput.bPeriodic:
+                tDuration = tsInput.tDuration
+            else: 
+                tDuration = tsInput.tStop - self.t
+                assert tsInput.contains(vtTime), (
+                    'Desired evolution interval not fully contained in input'
+                     + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
+                     vtTime[0], vtTime[-1], tsInput.tStart, tsInput.tStop))
+
+        # - Discretise tsInput to the desired evolution time base
+        vtTimeBase = self._gen_time_trace(self.t, tDuration)
+        nNumSteps = np.size(vtTimeBase)
+            
+        if tsInput is not None:
+            # - Sample input trace and check for correct dimensions
+            mfInputStep = self._check_input_dims(tsInput(vtTimeBase))
+            # - Treat "NaN" as zero inputs
+            mfInputStep[np.where(np.isnan(mfInputStep))] = 0
+
+        else:
+            # - Assume zero inputs
+            mfInputStep = np.zeros((nNumSteps, self.nDimIn))  
+
+        return (vtTimeBase, mfInputStep)
+
     def _check_input_dims(self, tsInput: TimeSeries) -> TimeSeries:
         """
         Verify if dimension of input matches layer instance. If input
