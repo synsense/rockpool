@@ -1,10 +1,40 @@
 import numpy as np
 import time
 from abc import abstractmethod
+from typing import Callable
 from numba import njit
 
 import TimeSeries as ts
 from layers.layer import Layer
+
+@njit
+def fhReLU(mfX: np.ndarray, fUpperBound: float = None) -> np.ndarray:
+    """
+    Activation function for rectified linear units.
+    :param mfX:             ndarray with current neuron potentials
+    :param fUpperBound:     Upper bound
+    :return:                np.clip(mfX, 0, fUpperBound)
+    """
+    mfCopy = np.copy(mfX)
+    mfCopy[np.where(mfX < 0)] = 0
+    if fUpperBound is not None:
+        mfCopy[np.where(mfX > fUpperBound)] = fUpperBound
+    return mfCopy
+
+@njit
+def noisy(mX: np.ndarray, fStdDev: float) -> np.ndarray:
+    """
+    noisy - Add randomly distributed noise to each element of mX
+    :param mX:  Array-like with values that noise is added to
+    :param fStdDev: Float, the standard deviation of the noise to be added
+    :return:        Array-like, mX with noise added
+    """
+    return fStdDev * np.random.randn(*mX.shape) + mX
+
+def print_progress(iCurr: int, nTotal: int, tPassed: float):
+    print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
+             iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
+           end='\r')
 
 class PassThrough(Layer):
     """ Neuron states directly correspond to input, but can be delayed. """
@@ -133,9 +163,9 @@ class FFRate(Layer):
         return (self._vfAlpha * noisy(vInput*self.vfGain + self.vfBias, self.fNoiseStd)
                 + (1-self._vfAlpha)*self.vState)
 
-    @abstractmethod
-    def activation(self, *args, **kwargs):
-        pass
+    @property
+    def vActivation(self):
+        return self.fhActivation(self.vState)
 
     ### --- properties
 
@@ -229,31 +259,3 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     # - Return the compiled function
     return evolve_Euler_complete
 
-@njit
-def fhReLU(mfX: np.ndarray, fUpperBound: float = None) -> np.ndarray:
-    """
-    Activation function for rectified linear units.
-    :param mfX:             ndarray with current neuron potentials
-    :param fUpperBound:     Upper bound
-    :return:                np.clip(mfX, 0, fUpperBound)
-    """
-    mfCopy = np.copy(mfX)
-    mfCopy[np.where(mfX < 0)] = 0
-    if fUpperBound is not None:
-        mfCopy[np.where(mfX > fUpperBound)] = fUpperBound
-    return mfCopy
-
-@njit
-def noisy(mX: np.ndarray, fStdDev: float) -> np.ndarray:
-    """
-    noisy - Add randomly distributed noise to each element of mX
-    :param mX:  Array-like with values that noise is added to
-    :param fStdDev: Float, the standard deviation of the noise to be added
-    :return:        Array-like, mX with noise added
-    """
-    return fStdDev * np.random.randn(*mX.shape) + mX
-
-def print_progress(iCurr: int, nTotal: int, tPassed: float):
-    print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
-             iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
-           end='\r')

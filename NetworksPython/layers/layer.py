@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from typing import Tuple
 
 from TimeSeries import TimeSeries
 
@@ -42,7 +43,7 @@ class Layer(ABC):
 
     def _prepare_input(self,
                        tsInput: TimeSeries = None,
-                       tDuration: float = None) -> tuple[np.ndarray, np.ndarray]:
+                       tDuration: float = None) -> Tuple[np.ndarray, np.ndarray]:
         # - Determine default duration
         if tDuration is None:
             assert tsInput is not None, \
@@ -73,25 +74,23 @@ class Layer(ABC):
 
         return (vtTimeBase, mfInputStep)
 
-    def _check_input_dims(self, tsInput: TimeSeries) -> TimeSeries:
+    def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
         Verify if dimension of input matches layer instance. If input
         dimension == 1, scale it up to self._nDimIn by repeating signal.
-            tsInput : input time series
-            return : tsInput, possibly with dimensions repeated
+            mfInput : np.ndarray with input data
+            return : mfInput, possibly with dimensions repeated
         """
         # - Replicate `tsInput` if necessary
-        if tsInput.nNumTraces == 1:
-            tsInput = deepcopy(tsInput)
-            tsInput.mfSamples = np.repeat(tsInput.mfSamples.reshape((-1, 1)),
-                                          self._nDimIn, axis = 1)
-
-        # - Check dimensionality of input
-        assert tsInput.nNumTraces == self._nDimIn, \
-            'Input dimensionality {} does not match layer input size {}.'.format(tsInput.nNumTraces, self._nDimIn)
+        if mfInput.shape[1] == 1:
+            mfInput = np.repeat(mfInput.reshape((-1, 1)), self._nDimIn, axis = 1)
+        else:
+            # - Check dimensionality of input
+            assert mfInput.shape[1] == self._nDimIn, ('Input dimensionality {}'
+                + 'does not match layer input size {}.'.format(mfInput.shape[1], self._nDimIn))
 
         # - Return possibly corrected input
-        return tsInput
+        return mfInput
 
     def _gen_time_trace(self, tStart: float, tDuration: float):
         """
