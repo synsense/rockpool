@@ -87,12 +87,26 @@ class FFRate(Layer):
                  vBias: np.ndarray = 0):
         super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
         self.reset_all()
-        self._vTau = vTau
-        self._vAlpha = self._tDt/self._vTau
-        self.vGain = vGain
-        self.vBias = vBias
+        try:
+            self.vTau, self.vGain, self.vBias = map(self.correct_param_shape, (vTau, vGain, vBias))
+        except AssertionError:
+            raise AssertionError('Numbers of elements in vTau, vGain and vBias'
+                                 + ' must be 1 or match layer size.')
+        self.vAlpha = self._tDt/self.vTau
         
-    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
+    def correct_param_shape(self, v) -> np.ndarray:
+        """
+        correct_param_shape - Convert v to 1D-np.ndarray and verify
+                              that dimensions match self.nSize
+        :param v:   Float or array-like that is to be converted
+        :return:    v as 1D-np.ndarray
+        """
+        v = np.array(v).flatten()
+        assert v.shape in ((1,), (self.nSize,), (1,self.nSize), (self.nSize), 1), (
+            'Numbers of elements in v must be 1 or match layer size')
+        return v
+
+    def evolve(self, tsInput: ts.TimeSeries, tDuration: float = None) -> ts.TimeSeries:
         if tDuration is None:
             tDuration = tsInput.tStop - self.t
         tsInput = self._check_input_dims(tsInput)
@@ -112,7 +126,7 @@ class FFRate(Layer):
         
         return ts.TimeSeries(vtTime, mSamplesOut)
     
-    def potential(self, vInput):
+    def potential(self, vInput: np.ndarray) -> np.ndarray:
         return (self._vAlpha * noisy(vInput*self.vGain + self.vBias, self.fNoiseStd)
                 + (1-self._vAlpha)*self.vState)
 
@@ -120,12 +134,16 @@ class FFRate(Layer):
     def activation(self, *args, **kwargs):
         pass
 
+    ### --- properties
+
     @property
     def vTau(self):
         return self._vTau
 
     @vTau.setter
     def vTau(self, vNewTau):
+        vNewTau = self.correct_param_shape(vNewTau)
+        if not (vNewTau >= self._tDt).all(): raise ValueError('All vTau must be at least tDt.')
         self._vTau = vNewTau
         self._vAlpha = self._tDt/vNewTau
 
@@ -135,13 +153,32 @@ class FFRate(Layer):
 
     @vAlpha.setter
     def vAlpha(self, vNewAlpha):
+        vNewAlpha = self.correct_param_shape(vNewAlpha)
+        if not (vNewAlpha <= 1).all(): raise ValueError('All vAlpha must be at most 1.')
         self._vAlpha = vNewAlpha
         self._vTau = self._tDt/vNewAlpha
+    
+    @property
+    def vBias(self):
+        return self._vBias
+
+    @vBias.setter
+    def vBias(self, vNewBias):
+        self._vBias = self.correct_param_shape(vNewBias)
+    
+    @property
+    def vGain(self):
+        return self._vGain
+
+    @vGain.setter
+    def vGain(self, vNewGain):
+        self._vGain = self.correct_param_shape(vNewGain)
 
     @Layer.tDt.setter
-    def tDt(self, fNewDt):
-        self._tDt = fNewDt
-        self._vAlpha = fNewDt/self._vTau
+    def tDt(self, tNewDt):
+        if not (self.vTau >= tNewDt).all(): raise ValueError('All vTau must be at least tDt.')
+        self._tDt = tNewDt
+        self._vAlpha = tNewDt/self._vTau
 
 
 class FFReLU(FFRate):
@@ -158,7 +195,7 @@ class FFReLU(FFRate):
                          vBias=vBias, fNoiseStd=fNoiseStd, sName=sName)
         self.fActUpperBound = fActUpperBound
 
-    def activation(self, fUpperBound=None):
+    def activation(self, fUpperBound=None) -> np.ndarray:
         """
         Activation function for rectified linear units.
             vPotential : ndarray with current neuron potentials
@@ -171,7 +208,7 @@ class FFReLU(FFRate):
         return self.activation(self.fActUpperBound)
 
 
-def noisy(oInput: np.ndarray, fStdDev: float):
+def noisy(oInput: np.ndarray, fStdDev: float) -> np.ndarray:
     """
     noisy - Add randomly distributed noise to each element of oInput
     :param oInput:  Array-like with values that noise is added to
@@ -180,7 +217,7 @@ def noisy(oInput: np.ndarray, fStdDev: float):
     """
     return fStdDev * np.random.randn(*oInput.shape) + oInput
 
-def print_progress(iCurr, nTotal, tPassed):
+def print_progress(iCurr: int, nTotal: int, tPassed: float):
     print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
              iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
            end='\r')
