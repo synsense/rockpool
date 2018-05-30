@@ -56,7 +56,7 @@ class RecIAFBrian(Layer):
 
                  vtTauN: np.ndarray = 20*ms,
                  vtTauSynR: np.ndarray = 5 * ms,
-                 tTauSynO: float = 5.1 * ms,
+                 tTauSynO: float = 5 * ms,
 
                  vfVThresh: np.ndarray = -55*mV,
                  vfVReset: np.ndarray = -65*mV,
@@ -171,7 +171,7 @@ class RecIAFBrian(Layer):
             Usage: .randomize_state()
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngReservoir.v = np.random.rand(self.nSize) * fRangeV + self.vfVReset
+        self._ngReservoir.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
         self._ngReservoir.I_syn = np.random.rand(self.nSize) * amp
         self._ngReceiver.I_syn = 0 * amp
 
@@ -255,6 +255,14 @@ class RecIAFBrian(Layer):
     @vtTauSynR.setter
     def vtTauSynR(self, vtNewTauSynR):
         self._ngReservoir.tau_s = np.asarray(self._expand_to_net_size(vtNewTauSynR, 'vtNewTauSynR')) * second
+
+    @property
+    def tTauSynO(self):
+        return self._ngReceiver.tau_s_[0]
+
+    @tTauSynO.setter
+    def tTauSynO(self, tNewTauO):
+        self._ngReceiver.tau_s = np.asarray(tNewTauO) * second
 
     @property
     def vfBias(self):
