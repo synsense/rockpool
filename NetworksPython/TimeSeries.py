@@ -6,21 +6,25 @@ import copy
 # - Define import *
 __all__ = ["TimeSeries"]
 
-# - Detect what platting back-end to use
-TS_bUseHoloviews = False
-TS_bUseMatplotlib = False
+## -- Detect what plotting back-end to use
+__bHoloviewsDetected = False
+__bMatplotlibDetected = False
+__bUseHoloviews = False
+__bUseMatplotlib = False
 
 try:
     import holoviews as hv
-    TS_bUseHoloviews = True
+    __bHoloviewsDetected = True
 
 except Exception:
-    try:
-        import matplotlib.pyplot as plt
-        TS_bUseMatplotlib = True
+    pass
 
-    except Exception:
-        pass
+try:
+    import matplotlib.pyplot as plt
+    __bMatplotlibDetected = True
+
+except Exception:
+    pass
 
 class TimeSeries:
     """
@@ -69,6 +73,8 @@ class TimeSeries:
         self.strInterpKind = strInterpKind
         self.bPeriodic = bPeriodic
         self.strName = strName
+
+        self.__bUseHoloviews, self.__bUseMatplotlib = GetPlottingBackend()
 
         if bPeriodic:
             self._tDuration = vtTimeTrace[-1] - vtTimeTrace[0]
@@ -139,7 +145,7 @@ class TimeSeries:
         if vtTimes is None:
             vtTimes = self.vtTimeTrace
 
-        if TS_bUseHoloviews:
+        if self.__bUseHoloviews:
             mfData = self(vtTimes)
             if kwargs == {}:
                 vhCurves = [hv.Curve((vtTimes, vfData)).redim(x = 'Time')
@@ -153,7 +159,7 @@ class TimeSeries:
             else:
                 return vhCurves[0].relabel(self.strName)
 
-        elif TS_bUseMatplotlib:
+        elif self.__bUseMatplotlib:
             return plt.plot(vtTimes, self(vtTimes), **kwargs)
 
         else:
@@ -200,11 +206,81 @@ class TimeSeries:
         vtSampleTimes = np.arange(tStart, tStop+tDt, tDt)
         vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop]
 
+        # - Return a new time series
         return self.resample(vtSampleTimes)
 
 
-        # - Return a new time series
-        return TimeSeries(vtTimes, self(vtTimes))
+    def merge(self, tsOther):
+        """
+        merge() - Merge another time series into this one
+
+        :param tsOther: Another time series. Will be resampled to the time base of the called series object
+        :return: New merged time series
+        """
+
+        # - Check tsOther
+        assert isinstance(tsOther, TimeSeries), \
+            '`tsOther` must be a TimeSeries object.'
+
+        # - Create a new TS for merging
+        tsMerged = copy.deepcopy(self)
+
+        # - Resample tsOther to own time base
+        mfOtherSamples = tsOther(tsMerged.vtTimeTrace)
+
+        # - Merge in extra samples
+        tsMerged.mfSamples = np.concatenate((tsMerged.mfSamples, mfOtherSamples), 1)
+
+        # - Create new interpolator
+        tsMerged.__create_interpolator()
+
+        # - Return merged TS
+        return tsMerged
+
+    def append(self, tsOther):
+        """
+        append() - Append another time series to this one
+
+        :param tsOther: Another time series. WIll be tacked on to the end of the called series object
+        :return: Self, with other TS appended
+        """
+
+        # - Check tsOther
+        assert isinstance(tsOther, TimeSeries), \
+            '`tsOther` must be a TImeSeries object.'
+
+        assert tsOther.nNumTraces == self.nNumTraces, \
+            '`tsOther` must include the same number of traces (' + str(self.nNumTraces) + ').'
+
+        # - Concatenate time trace and samples
+        tMedianDT = np.median(np.diff(self.__vtTimeTrace))
+        self.__vtTimeTrace = np.concatenate((self.__vtTimeTrace,
+                                             tsOther.vtTimeTrace + self.__vtTimeTrace[-1] + tMedianDT -
+                                             tsOther.vtTimeTrace[0]),
+                                            axis = 0)
+        self.mfSamples = np.concatenate((self.mfSamples, tsOther.mfSamples), axis = 0)
+
+        # - Check and correct periodicity
+        if self.bPeriodic:
+            self._tDuration = self.__vtTimeTrace[-1]
+
+        # - Recreate interpolator
+        self.__create_interpolator()
+
+        # - Return self
+        return self
+
+    def concatenate(self, tsOther):
+        """
+        concatenate() - Join together two time series
+
+        :param tsOther: Another time series. WIll be tacked on to the end of the called series object
+        :return: New concatenated time series
+        """
+        tsCat = self.copy()
+        tsCat.append(tsOther)
+        return tsCat
+
     def __create_interpolator(self):
         # - Construct interpolator
         self.oInterp = spint.interp1d(self.vtTimeTrace, self.mfSamples,
@@ -217,7 +293,7 @@ class TimeSeries:
 
     def print(self, bForceAll: bool=False, nFirst: int=4, nLast: int=4, nShorten: int=10):
         """
-        print - Print an overview over the time series and its values.
+        print - Print an overview of the time series and its values.
             
         :param bForceAll: Boolean - Print all samples of self, no matter how long it is
         :param nShorten:  Integer - Print shortened version of self if it comprises more
@@ -244,60 +320,147 @@ class TimeSeries:
             
 
     def __add__(self, other):
-        tsCopy = copy.deepcopy(self)
-        tsCopy += other
-        return tsCopy
+        return self.copy().__iadd__(other)
 
     def __iadd__(self, other):
-        self.mfSamples += other
+        # - Should we handle TimeSeries subtraction?
+        if isinstance(other, TimeSeries):
+            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+        else:
+            mfOtherSamples = self.__compatibleShape(other)
+
+        # - Treat NaNs as zero
+        mbIsNanSelf = np.isnan(self.mfSamples)
+        mbIsNanOther = np.isnan(mfOtherSamples)
+        self.mfSamples[mbIsNanSelf] = 0
+        mfOtherSamples[mbIsNanOther] = 0
+
+        # - Perform addition
+        self.mfSamples += mfOtherSamples
+
+        # - Fill in nans
+        self.mfSamples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
+
+        # - Re-create interpolator
         self.__create_interpolator()
         return self
 
     def __mul__(self, other):
-        tsCopy = copy.deepcopy(self)
-        tsCopy *= other
-        return tsCopy
+        return self.copy().__imul__(other)
 
     def __imul__(self, other):
-        self.mfSamples *= other
+        # - Should we handle TimeSeries subtraction?
+        if isinstance(other, TimeSeries):
+            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+        else:
+            mfOtherSamples = self.__compatibleShape(other)
+
+        # - Propagate NaNs
+        mbIsNanSelf = np.isnan(self.mfSamples)
+        mbIsNanOther = np.isnan(mfOtherSamples)
+
+        # - Perform multiplication
+        self.mfSamples *= mfOtherSamples
+
+        # - Fill in nans
+        self.mfSamples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
+
+        # - Re-create interpolator
         self.__create_interpolator()
         return self
 
     def __truediv__(self, other):
-        tsCopy = copy.deepcopy(self)
-        tsCopy /= other
-        return tsCopy
+        return self.copy().__idiv__(other)
 
     def __idiv__(self, other):
-        self.mfSamples /= other
+        # - Should we handle TimeSeries subtraction?
+        if isinstance(other, TimeSeries):
+            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+        else:
+            mfOtherSamples = self.__compatibleShape(other)
+
+        # - Propagate NaNs
+        mbIsNanSelf = np.isnan(self.mfSamples)
+        mbIsNanOther = np.isnan(mfOtherSamples)
+
+        # - Perform division
+        self.mfSamples /= mfOtherSamples
+
+        # - Fill in nans
+        self.mfSamples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
+
+        # - Re-create interpolator
         self.__create_interpolator()
         return self
 
     def __floordiv__(self, other):
-        tsCopy = copy.deepcopy(self)
-        tsCopy //= other
-        return tsCopy
+        return self.copy().__ifloordiv__(other)
 
     def __ifloordiv__(self, other):
-        self.mfSamples //= other
+        # - Get nan mask
+        mbIsNan = np.isnan(self.mfSamples)
+
+        # - Should we handle TimeSeries subtraction?
+        if isinstance(other, TimeSeries):
+            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+        else:
+            mfOtherSamples = self.__compatibleShape(other)
+
+        # - Propagate NaNs
+        mbIsNanSelf = np.isnan(self.mfSamples)
+        mbIsNanOther = np.isnan(mfOtherSamples)
+
+        # - Perform division
+        self.mfSamples //= mfOtherSamples
+
+        # - Fill in nans
+        self.mfSamples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
+
+        # - Re-create interpolator
         self.__create_interpolator()
         return self
 
     def max(self):
-        return np.max(self.mfSamples)
+        return np.nanmax(self.mfSamples)
 
     def min(self):
-        return np.min(self.mfSamples)
+        return np.nanmin(self.mfSamples)
 
     def __abs__(self):
-        tsCopy = copy.deepcopy(self)
+        tsCopy = self.copy()
         tsCopy.mfSamples = np.abs(tsCopy.mfSamples)
         tsCopy.__create_interpolator()
         return tsCopy
 
     def __sub__(self, other):
-        tsCopy = copy.deepcopy(self)
-        tsCopy.mfSamples -= other
+        return self.copy().__isub__(other)
+
+    def __isub__(self, other):
+        # - Should we handle TimeSeries subtraction?
+        if isinstance(other, TimeSeries):
+            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+        else:
+            mfOtherSamples = self.__compatibleShape(other)
+
+        # - Treat NaNs as zero
+        mbIsNanSelf = np.isnan(self.mfSamples)
+        mbIsNanOther = np.isnan(mfOtherSamples)
+        self.mfSamples[mbIsNanSelf] = 0
+        mfOtherSamples[mbIsNanOther] = 0
+
+        # - Perform subtraction
+        self.mfSamples -= mfOtherSamples
+
+        # - Fill in nans
+        self.mfSamples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
+
+        # - Re-create interpolator
+        self.__create_interpolator()
+        return self
+
+    def __neg__(self):
+        tsCopy = self.copy()
+        tsCopy.mfSamples = -tsCopy.mfSamples
         tsCopy.__create_interpolator()
         return tsCopy
 
@@ -337,10 +500,19 @@ class TimeSeries:
             '`vnTraces` must be between 0 and ' + str(self.nNumTraces)
 
         # - Return a new TimeSeries with the subselected traces
-        tsCopy = copy.deepcopy(self)
+        tsCopy = self.copy()
         tsCopy.mfSamples = tsCopy.mfSamples[:, vnTraces]
         tsCopy.__create_interpolator()
         return tsCopy
+
+
+    def copy(self):
+        """
+        copy() - Return a deep copy of this time series
+        :return: tsCopy
+        """
+        return copy.deepcopy(self)
+
 
     @property
     def mfSamples(self):
@@ -369,3 +541,44 @@ class TimeSeries:
     @property
     def tStop(self):
         return self.__vtTimeTrace[-1]
+
+    def __compatibleShape(self, other):
+        try:
+            if np.size(other) == 1:
+                return copy.copy(np.broadcast_to(other, self.mfSamples.shape))
+
+            elif other.shape[0] == self.mfSamples.shape[0]:
+                if len(other.shape) > 0:
+                    if other.shape[1] == 1:
+                        return other
+                    else:
+                        return np.reshape(other, self.mfSamples.shape)
+
+        except Exception:
+            raise ValueError('Input data must have shape ' + str(self.mfSamples.shape))
+
+
+## -- Code for setting plotting backend
+
+def SetPlottingBackend(strBackend):
+    global __bHoloviewsDetected
+    global __bMatplotlibDetected
+    global __bUseHoloviews
+    global __bUseMatplotlib
+    if strBackend == 'holoviews' and __bHoloviewsDetected:
+        __bUseHoloviews = True
+        __bUseMatplotlib = False
+
+    elif strBackend == 'matplotlib' and __bMatplotlibDetected:
+        __bUseHoloviews = False
+        __bUseMatplotlib = True
+
+def GetPlottingBackend():
+    return __bUseHoloviews, __bUseMatplotlib
+
+## - Set default plotting backend
+if __bHoloviewsDetected:
+    SetPlottingBackend('holoviews')
+
+elif __bMatplotlibDetected:
+    SetPlottingBackend('matplotlib')
