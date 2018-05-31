@@ -109,6 +109,28 @@ class Layer(ABC):
         # - Return possibly corrected input
         return mfInput
 
+    def _gen_time_trace(self, tStart: float, tDuration: float):
+        """
+        Generate a time trace starting at tStart, of length tDuration with 
+        time step length self._tDt. The last time step is at tStart+tDuration.
+        tDuration has to be a multiple of self.tDt
+        """
+        # - Generate a periodic trace
+        
+        # - Asserting that tDuration % self.tDt == 0 may fail due to rounding errors
+        if (   min(tDuration%self.tDt, self.tDt-(tDuration%self.tDt))
+             > fTolerance * self.tDt):
+            raise ValueError('Creation of time trace failed. tDuration ({}) '
+                            +'is not a multiple of self.tDt ({})'.format(tDuration, self.tDt))
+        vtTimeTrace = np.arange(0, tDuration+self.tDt, self.tDt) + tStart
+        # - Last value of time series should be tSTart+tDuration
+        # tStop = tStart + tDuration
+        # if np.abs(vtTimeTrace[-1] - tStop) > fTol*self._tDt:
+        #     raise ValueError( 'Creation of time trace failed. Make sure that '
+        #                      +'tDuration ({}) is a multiple of self.tDt ({}).'.format(
+        #                      tDuration, self.tDt) )
+        return vtTimeTrace
+
     def _gen_time_trace(self, tStart: float, tDuration: float) -> (np.ndarray, float):
         """
         Generate a time trace starting at tStart, of length tDuration with 
