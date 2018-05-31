@@ -182,7 +182,7 @@ class FFIAFBrian(Layer):
         nNumSteps = np.size(vtTimeBase)
 
         # - Weight inputs
-        mfNeuronInputStep = self.mfW @ mfInputStep
+        mfNeuronInputStep = (mfInputStep @ self.mfW).T
 
         # - Generate a noise trace
         mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd
