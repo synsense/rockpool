@@ -209,37 +209,43 @@ class TimeSeries:
         # - Return a new time series
         return self.resample(vtSampleTimes)
 
-
-    def merge(self, tsOther):
+    def append(self, tsOther):
         """
-        merge() - Merge another time series into this one
+        append() - Combine another time series into this one, along samples axis
 
         :param tsOther: Another time series. Will be resampled to the time base of the called series object
-        :return: New merged time series
+        :return:        Current time series,
         """
-
         # - Check tsOther
         assert isinstance(tsOther, TimeSeries), \
             '`tsOther` must be a TimeSeries object.'
 
-        # - Create a new TS for merging
-        tsMerged = copy.deepcopy(self)
-
         # - Resample tsOther to own time base
-        mfOtherSamples = tsOther(tsMerged.vtTimeTrace)
+        mfOtherSamples = tsOther(self.vtTimeTrace)
 
-        # - Merge in extra samples
-        tsMerged.mfSamples = np.concatenate((tsMerged.mfSamples, mfOtherSamples), 1)
+        # - Combine samples
+        self.mfSamples = np.concatenate((self.mfSamples, mfOtherSamples), 1)
 
         # - Create new interpolator
-        tsMerged.__create_interpolator()
+        self.__create_interpolator()
 
         # - Return merged TS
-        return tsMerged
+        return self
 
-    def append(self, tsOther):
+
+    def concatenate(self, tsOther):
         """
-        append() - Append another time series to this one
+        concatenate() - Combine two time series another time series into this one, along samples axis
+
+        :param tsOther: Another time series. Will be resampled to the time base of the called series object
+        :return: New time series, with series from both source and other time series
+        """
+        return self.copy().append(tsOther)
+
+
+    def append_t(self, tsOther):
+        """
+        append_t() - Append another time series to this one, in time
 
         :param tsOther: Another time series. WIll be tacked on to the end of the called series object
         :return: Self, with other TS appended
@@ -247,7 +253,7 @@ class TimeSeries:
 
         # - Check tsOther
         assert isinstance(tsOther, TimeSeries), \
-            '`tsOther` must be a TImeSeries object.'
+            '`tsOther` must be a TimeSeries object.'
 
         assert tsOther.nNumTraces == self.nNumTraces, \
             '`tsOther` must include the same number of traces (' + str(self.nNumTraces) + ').'
@@ -258,6 +264,7 @@ class TimeSeries:
                                              tsOther.vtTimeTrace + self.__vtTimeTrace[-1] + tMedianDT -
                                              tsOther.vtTimeTrace[0]),
                                             axis = 0)
+
         self.mfSamples = np.concatenate((self.mfSamples, tsOther.mfSamples), axis = 0)
 
         # - Check and correct periodicity
@@ -270,16 +277,14 @@ class TimeSeries:
         # - Return self
         return self
 
-    def concatenate(self, tsOther):
+    def concatenate_t(self, tsOther):
         """
-        concatenate() - Join together two time series
+        concatenate_t() - Join together two time series in time
 
-        :param tsOther: Another time series. WIll be tacked on to the end of the called series object
+        :param tsOther: Another time series. Will be tacked on to the end of the called series object
         :return: New concatenated time series
         """
-        tsCat = self.copy()
-        tsCat.append(tsOther)
-        return tsCat
+        return self.copy().append_t(tsOther)
 
     def __create_interpolator(self):
         # - Construct interpolator
@@ -487,6 +492,9 @@ class TimeSeries:
 
     @property
     def nNumTraces(self):
+        """
+        .nNumTraces: int Number of traces in this TimeSeries object
+        """
         try:
             return self.mfSamples.shape[1]
         # If mfSamples is 1d:
@@ -494,6 +502,12 @@ class TimeSeries:
             return 1
 
     def choose(self, vnTraces):
+        """
+        choose() - Select from one of several sub-traces; return a new TimeSeries containing these traces
+
+        :param vnTraces:    array-like of indices within source TimeSeries
+        :return:            TimeSeries containing only the selected traces
+        """
         # - Convert to a numpy array and check extents
         vnTraces = np.atleast_1d(vnTraces)
         assert min(vnTraces) >= 0 and max(vnTraces) <= self.nNumTraces, \
@@ -528,7 +542,7 @@ class TimeSeries:
             mfNewSamples = np.transpose(mfNewSamples)
 
         # - Check samples for correct size
-        assert mfNewSamples.shape[1] == np.size(self.vtTimeTrace), \
+        assert mfNewSamples.shape[0] == np.size(self.vtTimeTrace), \
             'New samples matrix must have the same number of samples as `.vtTimeTrace`.'
 
         # - Store new time trace
