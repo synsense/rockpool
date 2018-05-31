@@ -4,7 +4,7 @@ from warnings import warn
 import copy
 
 # - Define import *
-__all__ = ["TimeSeries"]
+__all__ = ["TimeSeries", "SetPlottingBackend", "GetPlottingBackend"]
 
 ## -- Detect what plotting back-end to use
 __bHoloviewsDetected = False
