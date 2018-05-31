@@ -11,15 +11,15 @@ __all__ = ['Layer']
 
 ### --- Convenience functions
 
-def to_scalar(value):
+def to_scalar(value, sClass: str = None):
     # - Check the value is a scalar
     assert np.size(value) == 1, \
         'The value muste be a scalar'
 
-    if np.ndim(value) > 0:
-        return np.asscalar(np.array(value))
+    if sClass is not None:
+        return np.asscalar(np.array(value).astype(sClass))
     else:
-        return value
+        return np.asscalar(np.array(value))
 
 ### --- Implements the Layer abstract class
 

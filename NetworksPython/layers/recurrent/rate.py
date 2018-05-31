@@ -101,6 +101,9 @@ class RecRateEuler(Layer):
         self.fhActivation = fhActivation
         self.fNoiseStd = fNoiseStd
 
+        if tDt is not None:
+            self.tDt = tDt
+
         # - Reset the internal state
         self.reset_all()
 
@@ -169,7 +172,7 @@ class RecRateEuler(Layer):
             '`tNewDt` must be <= {}'.format(tMinTau/10)
 
         # - Assign time step
-        self._tDt = tNewDt
+        super().tDt = tNewDt
 
     @property
     def fhActivation(self):
