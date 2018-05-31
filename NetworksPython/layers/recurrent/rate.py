@@ -171,8 +171,8 @@ class RecRateEuler(Layer):
         assert tNewDt <= tMinTau / 10, \
             '`tNewDt` must be <= {}'.format(tMinTau/10)
 
-        # - Assign time step
-        super().tDt = tNewDt
+        # - Call super-class setter
+        super(RecRateEuler, RecRateEuler).tDt.__set__(self, tNewDt)
 
     @property
     def fhActivation(self):
