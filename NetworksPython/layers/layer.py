@@ -5,7 +5,23 @@ from typing import Tuple
 
 from TimeSeries import TimeSeries
 
-# Implements the Layer class
+# - Configure exports
+__all__ = ['Layer']
+
+
+### --- Convenience functions
+
+def to_scalar(value):
+    # - Check the value is a scalar
+    assert np.size(value) == 1, \
+        'The value muste be a scalar'
+
+    if np.ndim(value) > 0:
+        return np.asscalar(np.array(value))
+    else:
+        return value
+
+### --- Implements the Layer abstract class
 
 class Layer(ABC):
     def __init__(self,
@@ -259,7 +275,7 @@ class Layer(ABC):
 
     @tDt.setter
     def tDt(self, fNewDt: float):
-        self._tDt = fNewDt
+        self._tDt = to_scalar(fNewDt)
 
     @property
     def mfW(self) -> np.ndarray:
@@ -295,6 +311,4 @@ class Layer(ABC):
 
     @fNoiseStd.setter
     def fNoiseStd(self, fNewNoiseStd):
-        assert np.size(fNewNoiseStd) == 1, \
-            '`fNewNoiseStd` must be a scalar'
-        self._fNoiseStd = np.asscalar(fNewNoiseStd)
+        self._fNoiseStd = to_scalar(fNewNoiseStd)
