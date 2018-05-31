@@ -242,6 +242,19 @@ class TimeSeries:
         # - Return a new time series
         return self.resample(vtSampleTimes)
 
+    def merge(self, tsOther):
+        # - Check tsOther
+        assert isinstance(tsOther, TimeSeries), \
+            '`tsOther` must be a TimeSeries object.'
+
+        assert tsOther.nNumTraces == self.nNumTraces, \
+            '`tsOther` must include the same number of traces (' + str(self.nNumTraces) + ').'
+
+        # - Merge time trace and samples
+        # vtTimeMerged = 
+        
+
+
     def append(self, tsOther):
         """
         append() - Combine another time series into this one, along samples axis

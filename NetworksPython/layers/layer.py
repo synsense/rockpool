@@ -1,7 +1,5 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from typing import Tuple
 
 from TimeSeries import TimeSeries
 
@@ -63,7 +61,7 @@ class Layer(ABC):
 
     def _prepare_input(self,
                        tsInput: TimeSeries = None,
-                       tDuration: float = None) -> Tuple[np.ndarray, np.ndarray, float]:
+                       tDuration: float = None) -> (np.ndarray, np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
 
@@ -128,17 +126,17 @@ class Layer(ABC):
 
     def _gen_time_trace(self, tStart: float, tDuration: float) -> np.ndarray:
         """
-        Generate a time trace starting at tStart, of length tDuration with
-        time step length self._tDt. Make sure it does not go beyond
+        Generate a time trace starting at tStart, of length tDuration with 
+        time step length self._tDt. Make sure it does not go beyond 
         tStart+tDuration.
 
-        :return vtTimeTrace
+        :return vtTimeTrace, tDuration
         """
         # - Generate a trace
-        vtTimeTrace = np.arange(0, tDuration + self._tDt, self._tDt) + tStart
+        vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
         # - Make sure that vtTimeTrace doesn't go beyond tStart + tDuration
         vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration]
-
+        
         return vtTimeTrace
 
     def _expand_to_net_size(self,
