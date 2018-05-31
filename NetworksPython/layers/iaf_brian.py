@@ -87,8 +87,8 @@ class FFIAFBrian(Layer):
 
         # - Call super constructor
         super().__init__(mfW = mfW,
-                         tDt = np.asscalar(tDt),
-                         fNoiseStd = np.asscalar(fNoiseStd))
+                         tDt = np.asarray(tDt),
+                         fNoiseStd = np.asarray(fNoiseStd))
 
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons + eqSynapses,

@@ -35,6 +35,10 @@ class Layer(ABC):
         else:
             self.sName = sName
 
+        # - Check and assign tDt and fNoiseStd
+        assert np.size(tDt) == 1 and np.size(fNoiseStd) == 1, \
+            '`tDt` and `fNoiseStd` must be scalars.'
+
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
 
@@ -262,3 +266,13 @@ class Layer(ABC):
     @property
     def t(self):
         return self._t
+
+    @property
+    def fNoiseStd(self):
+        return self._fNoiseStd
+
+    @fNoiseStd.setter
+    def fNoiseStd(self, fNewNoiseStd):
+        assert np.size(fNewNoiseStd) == 1, \
+            '`fNewNoiseStd` must be a scalar'
+        self._fNoiseStd = np.asscalar(fNewNoiseStd)
