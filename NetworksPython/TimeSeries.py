@@ -154,7 +154,7 @@ class TimeSeries:
                 return vhCurves[0].relabel(self.strName)
 
         elif TS_bUseMatplotlib:
-            return plt.plot(vtTimes, self(vtTimes), kwargs)
+            return plt.plot(vtTimes, self(vtTimes), **kwargs)
 
         else:
             warn('No plotting back-end detected.')
