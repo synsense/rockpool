@@ -48,12 +48,24 @@ class Network():
             setIn : set of input layers to lyr
             setOut : set of layers to which lyr is input layer
         """
-        sLyrName = 'lyr' + lyr.sName
-        if hasattr(self, sLyrName):
-            print('Layer {} will be replaced'.format(sLyrName))
-        else:
-            print('Adding layer {} to netowrk'.format(sLyrName))
-        setattr(self, sLyrName, lyr)
+        
+        # - Check whether self already contains a layer with the same
+        #   name as lyr. If so, check whether they are the same objects.
+        #   If they are not, rename lyr.
+        if hasattr(self, lyr.sName):
+            if getattr(self, lyr.sName) is lyr:
+                print('This layer is already part of the network')
+                return
+            else:
+                sNewName = lyr.sName
+                while hasattr(self, sNewName):
+                    sNewName = self.new_layer_name(sNewName)
+                print('A layer with name {} already exists.'.format(lyr.sName)
+                          + 'The new layer will be renamed to  {}.'.format(sNewName))
+                lyr.sName = sNewName
+
+        setattr(self, lyr.sName, lyr)
+        print('Added layer {} to network\n'.format(lyr.sName))
         # - Update inventory of layers
         self.setLayers.add(lyr)
 
@@ -66,6 +78,20 @@ class Network():
                 self.connect(lyr, lyrOut)
 
         return lyr
+
+    def new_layer_name(self, sName):
+        lsSplitted = sName.split('_')
+        if len(lsSplitted) > 1:
+            try:
+                i = int(lsSplitted[-1])
+                lsSplitted[-1] = str(i+1)
+                sNewName = '_'.join(lsSplitted)
+            except ValueError:
+                sNewName = sName + '_0'
+        else:
+            sNewName = sName + '_0'
+
+        return sNewName
 
     def remove_layer(self, lyrDel):
         # Remove connections from lyrDel to others
@@ -85,7 +111,7 @@ class Network():
             lyrTarget.setIn = {lyrSource}
         try:
             self.lEvolOrder = self.evolution_order()
-            print('Layer "{}" now receives input from layer "{}" '.format(
+            print('Layer "{}" now receives input from layer "{}" \n'.format(
                   lyrTarget.sName, lyrSource.sName)) #,
                   # 'and new layer evolution order has been set.')
         except NetworkError as e:
