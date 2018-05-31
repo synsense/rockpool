@@ -93,7 +93,8 @@ class Layer(ABC):
                     'evolution time.'
 
         # - Discretise tsInput to the desired evolution time base
-        vtTimeBase, tDuration = self._gen_time_trace(self.t, tDuration)
+        vtTimeBase = self._gen_time_trace(self.t, tDuration)
+        tDuration = vtTimeBase[-1] - vtTimeBase[0]
 
         if tsInput is not None:
             # - Sample input trace and check for correct dimensions
@@ -131,7 +132,7 @@ class Layer(ABC):
         time step length self._tDt. Make sure it does not go beyond
         tStart+tDuration.
 
-        :return vtTimeTrace, tDuration
+        :return vtTimeTrace
         """
         # - Generate a trace
         vtTimeTrace = np.arange(0, tDuration + self._tDt, self._tDt) + tStart
