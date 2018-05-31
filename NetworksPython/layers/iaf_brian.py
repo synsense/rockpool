@@ -21,7 +21,7 @@ __all__ = ['FFIAFBrian', 'eqNeuronIAF', 'eqSynapseExp']
 # - Equations for an integrate-and-fire neuron
 eqNeuronIAF = b2.Equations('''
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
-    I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
+    I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
     I_bias                                          : amp                       # Per-neuron bias current
     v_rest                                          : volt                      # Rest potential
     tau_m                                           : second                    # Membrane time constant
@@ -45,7 +45,7 @@ class FFIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray = None,
-                 vfBias: np.ndarray = 5.5*mA,
+                 vfBias: np.ndarray = 10*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 1*mV,
@@ -91,7 +91,7 @@ class FFIAFBrian(Layer):
                          fNoiseStd = np.asarray(fNoiseStd))
 
         # - Set up layer neurons
-        self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons + eqSynapses,
+        self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons,
                                        threshold = 'v > v_thresh',
                                        reset = 'v = v_reset',
                                        refractory = tRefractoryTime,
@@ -117,7 +117,7 @@ class FFIAFBrian(Layer):
         self._sgReceiver.connect('i == j')
 
         # - Add current monitors to record reservoir outputs
-        self._stmLayer = b2.StateMonitor(self._ngLayer, ('v', 'I_syn'), True, name = 'Layer_membrane_voltage')
+        self._stmLayer = b2.StateMonitor(self._ngLayer, 'v', True, name = 'layer_membrane_voltage')
         self._stmReceiver = b2.StateMonitor(self._ngReceiver, 'I_syn', True, name = 'receiver_synaptic_currents')
         self._spmLayer = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
@@ -179,13 +179,12 @@ class FFIAFBrian(Layer):
 
         # - Discretise input, prepare time base
         vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
-        nNumSteps = np.size(vtTimeBase)
 
         # - Weight inputs
         mfNeuronInputStep = mfInputStep @ self.mfW
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd
+        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd
 
         # - Specifiy network input currents, construct TimedArray
         taI_inp = TAShift(np.asarray(mfNeuronInputStep + mfNoiseStep) * amp,

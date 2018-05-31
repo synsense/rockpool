@@ -44,7 +44,7 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
                               vfBias: np.ndarray,
                               vtTau: np.ndarray) -> np.ndarray:
         # - Initialise storage of network output
-        mfActivity = np.zeros((nNumSteps, nSize))
+        mfActivity = np.zeros((nNumSteps + 1, nSize))
 
         # - Precompute tDt / vtTau
         vfLambda = tDt / vtTau
@@ -58,6 +58,9 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
 
             # - Store network state
             mfActivity[nStep, :] = vfThisAct
+
+        # - Get final activation
+        mfActivity[-1, :] = fhActivation(vState + vfBias)
 
         return mfActivity
 
@@ -140,15 +143,14 @@ class RecRateEuler(Layer):
 
         # - Discretise input, prepare time base
         vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
-        nNumSteps = np.size(vtTimeBase)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
+        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
 
         # - Call Euler method integrator
         #   Note: Bypass setter method for .vState
         mfActivity = self._evolveEuler(self._vState, self.nSize, self.mfW, mfInputStep + mfNoiseStep,
-                                       nNumSteps, self.tDt, self.vfBias, self.vtTau)
+                                       np.size(vtTimeBase)-1, self.tDt, self.vfBias, self.vtTau)
 
         # - Increment internal time representation
         self._t = vtTimeBase[-1] + self.tDt
