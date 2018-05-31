@@ -546,9 +546,16 @@ class TimeSeries:
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples):
+        # - Promote to 1d
+        mfNewSamples = np.atleast_1d(mfNewSamples)
+
+        # - Permit a one-dimensional sample input
+        if (mfNewSamples.shape[0] == 1) and (np.size(self.vtTimeTrace) > 1):
+            mfNewSamples = np.transpose(mfNewSamples)
+
         # - Check samples for correct size
-        assert len(mfNewSamples) == len(self.__mfSamples), \
-            'New samples matrix must have the same shape as the original matrix.'
+        assert mfNewSamples.shape[1] == np.size(self.vtTimeTrace), \
+            'New samples matrix must have the same number of samples as `.vtTimeTrace`.'
 
         # - Store new time trace
         self.__mfSamples = mfNewSamples
@@ -557,18 +564,27 @@ class TimeSeries:
         self.__create_interpolator() 
 
     @property
-    def tDuration(self):
+    def tDuration(self) -> float:
+        """
+        .tDuration: float Duration of TimeSeries
+        """
         return self.__vtTimeTrace[-1] - self.__vtTimeTrace[0]
 
     @property
-    def tStart(self):
+    def tStart(self) -> float:
+        """
+        .tStart: float Start time
+        """
         return self.__vtTimeTrace[0]
 
     @property
-    def tStop(self):
+    def tStop(self) -> float:
+        """
+        .tStop: float Stop time
+        """
         return self.__vtTimeTrace[-1]
 
-    def __compatibleShape(self, other):
+    def __compatibleShape(self, other) -> np.ndarray:
         try:
             if np.size(other) == 1:
                 return copy.copy(np.broadcast_to(other, self.mfSamples.shape))
