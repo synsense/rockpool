@@ -242,6 +242,7 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
         # - Initialise storage of layer output
         nNumSteps = len(mfInput)
         mfWeightedInput = mfInput@mfW
+        print(mfWeightedInput)
         mfActivities = np.zeros_like(mfWeightedInput)
 
         # - Loop over time steps
