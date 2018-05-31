@@ -1,6 +1,21 @@
 import numpy as np
+from math import gcd
+from functools import reduce
 
 from layers import feedforward, recurrent
+
+
+
+def multiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
+    """
+    multiple - Check whether a%b is 0 within some tolerance.
+    :param a: float The number that may be multiple of b
+    :param b: float The number a may be a multiple of
+    :param fTolerance: float Relative tolerance
+    :return bool: True if a is a multiple of b within some tolerance
+    """
+    fMinRemainder = min(a%b, b-a%b)
+    return fMinRemainder < fTolerance*b
 
 class Network():
     def __init__(self, lyrIn, lyrRes, lyrOut):
@@ -20,8 +35,8 @@ class Network():
         
         # - Add layers
         self.lyrIn = self.add_layer(lyrIn)
-        self.lyrRes = self.add_layer(lyrRes,  tplIn={self.lyrIn})
-        self.lyrOut = self.add_layer(lyrOut,  tplIn={self.lyrRes})
+        self.lyrRes = self.add_layer(lyrRes,  tplIn=(self.lyrIn, ))
+        self.lyrOut = self.add_layer(lyrOut,  tplIn=(self.lyrRes, ))
                
     def add_layer(self, lyr, tplIn=None, tplOut=None):
         """Add lyr to self and to self.setLayers. Its attribute name
@@ -33,16 +48,28 @@ class Network():
             setIn : set of input layers to lyr
             setOut : set of layers to which lyr is input layer
         """
-        sLyrName = 'lyr' + lyr.sName
-        if hasattr(self, sLyrName):
-            print('Layer {} will be replaced'.format(sLyrName))
-        else:
-            print('Adding layer {} to netowrk'.format(sLyrName))
-        setattr(self, sLyrName, lyr)
-        # Update inventory of layers
+        
+        # - Check whether self already contains a layer with the same
+        #   name as lyr. If so, check whether they are the same objects.
+        #   If they are not, rename lyr.
+        if hasattr(self, lyr.sName):
+            if getattr(self, lyr.sName) is lyr:
+                print('This layer is already part of the network')
+                return
+            else:
+                sNewName = lyr.sName
+                while hasattr(self, sNewName):
+                    sNewName = self.new_layer_name(sNewName)
+                print('A layer with name {} already exists.'.format(lyr.sName)
+                          + 'The new layer will be renamed to  {}.'.format(sNewName))
+                lyr.sName = sNewName
+
+        setattr(self, lyr.sName, lyr)
+        print('Added layer {} to network\n'.format(lyr.sName))
+        # - Update inventory of layers
         self.setLayers.add(lyr)
 
-        #Connect in- and outputs
+        # - Connect in- and outputs
         if tplIn is not None:
             for lyrIn in tplIn:
                 self.connect(lyrIn, lyr)
@@ -51,7 +78,21 @@ class Network():
                 self.connect(lyr, lyrOut)
 
         return lyr
-        
+
+    def new_layer_name(self, sName):
+        lsSplitted = sName.split('_')
+        if len(lsSplitted) > 1:
+            try:
+                i = int(lsSplitted[-1])
+                lsSplitted[-1] = str(i+1)
+                sNewName = '_'.join(lsSplitted)
+            except ValueError:
+                sNewName = sName + '_0'
+        else:
+            sNewName = sName + '_0'
+
+        return sNewName
+
     def remove_layer(self, lyrDel):
         # Remove connections from lyrDel to others
         for lyr in self.setLayers:
@@ -70,7 +111,7 @@ class Network():
             lyrTarget.setIn = {lyrSource}
         try:
             self.lEvolOrder = self.evolution_order()
-            print('Layer "{}" now receives input from layer "{}" '.format(
+            print('Layer "{}" now receives input from layer "{}" \n'.format(
                   lyrTarget.sName, lyrSource.sName)) #,
                   # 'and new layer evolution order has been set.')
         except NetworkError as e:
@@ -86,10 +127,17 @@ class Network():
             print('There is no connection from layer "{}" to layer "{}"'.format(
                   lyrSource.sName, lyrTarget.sName))
 
-    def evolve(self, tsInput, tTime):
+    def evolve(self, tsInput, tDuration):
+        llyrProblematic = list(filter(lambda lyr: not multiple(tDuration, lyr.tDt), self.lEvolOrder))
+        if llyrProblematic != []:
+            strLayers = ', '.join(('{}: tDt={}'.format(lyr.sName, lyr.tDt)
+                                   for lyr in llyrProblematic))
+            raise ValueError('tDuration is not a multiple of tDt for the following layer(s):\n'
+                             + strLayers)
+
         for lyr in self.lEvolOrder:
             print('Evolving layer "{}"'.format(lyr.sName))
-            lyr.evolve(tsInput, tTime)
+            lyr.evolve(tsInput, tDuration)
 
     def evolution_order(self):
         """
@@ -136,6 +184,32 @@ class NetworkError(Exception):
 
 
 """Older stuff that might be useful again
+
+# - Asserting that tDuration % self.tDt == 0
+if (   min(tDuration%self.tDt, self.tDt-(tDuration%self.tDt))
+     > fTolerance * self.tDt):
+    raise ValueError('Creation of time trace failed. tDuration ({}) '
+                    +'is not a multiple of self.tDt ({})'.format(tDuration, self.tDt))
+# - or assert that last value of time series is tSTart+tDuration
+# tStop = tStart + tDuration
+# if np.abs(vtTimeTrace[-1] - tStop) > fTol*self._tDt:
+#     raise ValueError( 'Creation of time trace failed. Make sure that '
+#                      +'tDuration ({}) is a multiple of self.tDt ({}).'.format(
+#                      tDuration, self.tDt) )
+
+
+def lcm(*numbers: int) -> int:
+        lcm - Return the least common multiple of a series of numbers
+    :param numbers: iterable containing integer values
+    :return: int The least common multiple of *numbers
+    
+    # - The LCM of two numbers is their product divided by their gcd
+    def _lcm(x: int, y: int) -> int:
+        return x*y//gcd(x,y)
+
+    return reduce(_lcm, numbers, 1)
+
+
         # Default parameters for layers
         dParamsIn = {'nSize' : 1,
                      'sKind' : 'pass'}

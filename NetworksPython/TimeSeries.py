@@ -26,6 +26,32 @@ try:
 except Exception:
     pass
 
+def plotting_backend(strBackend):
+    global TS_bUseMatplotlib, TS_bUseHoloviews
+    if strBackend in ('holoviews', 'holo', 'Holoviews', 'hv'):
+        try:
+            import holoviews as hv
+            TS_bUseMatplotlib = False
+            TS_bUseHoloviews = True
+            print('Using holoviews as plotting back-end.')
+        except ModuleNotFoundError:
+            print('Cannot import holoviews')
+    elif strBackend in ('matplotlib', 'mpl', 'mp', 'pyplot', 'plt'):
+        try:
+            import matplotlib.pyplot as plt
+            TS_bUseHoloviews = False
+            TS_bUseMatplotlib = True
+            print('Using matplotlib as plotting back-end.')
+        except ModuleNotFoundError:
+            print('Cannot import matplotlib.pyplot.')
+    elif strBackend is None or strBackend == 'none':
+        TS_bUseMatplotlib = False
+        TS_bUseHoloviews = False
+        print('No plotting back-end set.')
+    else:
+        print('Backend unkkown')
+
+
 class TimeSeries:
     """
     TimeSeries - Class represent a multi-series time series, with temporal interpolation and periodicity supported
