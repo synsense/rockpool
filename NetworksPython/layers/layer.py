@@ -1,7 +1,5 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from typing import Tuple
 
 from TimeSeries import TimeSeries
 
@@ -63,7 +61,7 @@ class Layer(ABC):
 
     def _prepare_input(self,
                        tsInput: TimeSeries = None,
-                       tDuration: float = None) -> Tuple[np.ndarray, np.ndarray, float]:
+                       tDuration: float = None) -> (np.ndarray, np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
 
@@ -93,7 +91,8 @@ class Layer(ABC):
                     'evolution time.'
 
         # - Discretise tsInput to the desired evolution time base
-        vtTimeBase, tDuration = self._gen_time_trace(self.t, tDuration)
+        vtTimeBase = self._gen_time_trace(self.t, tDuration)
+        tDuration = vtTimeBase[-1] - vtTimeBase[0]
 
         if tsInput is not None:
             # - Sample input trace and check for correct dimensions
@@ -125,45 +124,20 @@ class Layer(ABC):
         # - Return possibly corrected input
         return mfInput
 
-    def _gen_time_trace(self, tStart: float, tDuration: float):
-        """
-        Generate a time trace starting at tStart, of length tDuration with 
-        time step length self._tDt. The last time step is at tStart+tDuration.
-        tDuration has to be a multiple of self.tDt
-        """
-        # - Generate a periodic trace
-        
-        # - Asserting that tDuration % self.tDt == 0 may fail due to rounding errors
-        if (   min(tDuration%self.tDt, self.tDt-(tDuration%self.tDt))
-             > fTolerance * self.tDt):
-            raise ValueError('Creation of time trace failed. tDuration ({}) '
-                            +'is not a multiple of self.tDt ({})'.format(tDuration, self.tDt))
-        vtTimeTrace = np.arange(0, tDuration+self.tDt, self.tDt) + tStart
-        # - Last value of time series should be tSTart+tDuration
-        # tStop = tStart + tDuration
-        # if np.abs(vtTimeTrace[-1] - tStop) > fTol*self._tDt:
-        #     raise ValueError( 'Creation of time trace failed. Make sure that '
-        #                      +'tDuration ({}) is a multiple of self.tDt ({}).'.format(
-        #                      tDuration, self.tDt) )
-        return vtTimeTrace
-
-    def _gen_time_trace(self, tStart: float, tDuration: float) -> (np.ndarray, float):
+    def _gen_time_trace(self, tStart: float, tDuration: float) -> np.ndarray:
         """
         Generate a time trace starting at tStart, of length tDuration with 
         time step length self._tDt. Make sure it does not go beyond 
         tStart+tDuration.
 
-        :return (vtTimeTrace, tDuration)
+        :return vtTimeTrace, tDuration
         """
-        # - Generate a periodic trace
-        tStop = tStart + tDuration
+        # - Generate a trace
         vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
-        vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStop]
-        tDuration = vtTimeTrace[-1] - vtTimeTrace[0]
-        vtTimeTrace = vtTimeTrace[:-1]
-
-        # - Make sure that vtTimeTrace doesn't go beyond tStop
-        return vtTimeTrace[vtTimeTrace <= tStop], tDuration
+        # - Make sure that vtTimeTrace doesn't go beyond tStart + tDuration
+        vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration]
+        
+        return vtTimeTrace
 
     def _expand_to_net_size(self,
                             oInput,
