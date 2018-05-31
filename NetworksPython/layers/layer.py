@@ -139,7 +139,7 @@ class Layer(ABC):
         vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration]
 
         return vtTimeTrace
-    
+
     def _expand_to_net_size(self,
                             oInput,
                             sVariableName: str = 'input') -> np.ndarray:
