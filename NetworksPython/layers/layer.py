@@ -98,8 +98,8 @@ class Layer(ABC):
             mfInput = np.repeat(mfInput.reshape((-1, 1)), self._nDimIn, axis = 1)
         else:
             # - Check dimensionality of input
-            assert mfInput.shape[1] == self._nDimIn, ('Input dimensionality {}'
-                + 'does not match layer input size {}.'.format(mfInput.shape[1], self._nDimIn))
+            assert mfInput.shape[1] == self._nDimIn, \
+                'Input dimensionality {} does not match layer input size {}.'.format(mfInput.shape[1], self._nDimIn)
 
         # - Return possibly corrected input
         return mfInput
