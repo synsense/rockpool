@@ -242,15 +242,14 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
         # - Initialise storage of layer output
         nNumSteps = len(mfInput)
         mfWeightedInput = mfInput@mfW
-        print(mfWeightedInput)
         mfActivities = np.zeros_like(mfWeightedInput)
 
         # - Loop over time steps
         for nStep in range(nNumSteps):
             # - Store layer activity
-            mfActivities[nStep, :] = fhActivation(vState)
+            mfActivities[nStep, :] = fhActivation(vState + vfBias)
             # - Evolve layer state
-            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd) + vfBias
+            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
             vState += vDState * vfAlpha
 
         return mfActivities
