@@ -45,7 +45,7 @@ class FFIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray = None,
-                 vfBias: np.ndarray = 5.5*mA,
+                 vfBias: np.ndarray = 10*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 1*mV,
