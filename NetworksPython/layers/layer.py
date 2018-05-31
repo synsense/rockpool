@@ -43,16 +43,17 @@ class Layer(ABC):
 
     def _prepare_input(self,
                        tsInput: TimeSeries = None,
-                       tDuration: float = None) -> Tuple[np.ndarray, np.ndarray]:
+                       tDuration: float = None) -> Tuple[np.ndarray, np.ndarray, float]:
         """
         _prepare_input - Sample input, set up time base
 
         :param tsInput:     TimeSeries TxM or Tx1 Input signals for this layer
         :param tDuration:   float Duration of the desired evolution, in seconds
 
-        :return: (vtTimeBase, mfInputStep)
+        :return: (vtTimeBase, mfInputStep, tDuration)
             vtTimeBase:     ndarray T1 Discretised time base for evolution
             mfInputStep:    ndarray (T1xN) Discretised input signal for layer
+            tDuration:      float Actual duration for evolution
         """
 
         # - Determine default duration
@@ -72,7 +73,7 @@ class Layer(ABC):
                     'evolution time.'
 
         # - Discretise tsInput to the desired evolution time base
-        vtTimeBase = self._gen_time_trace(self.t, tDuration)
+        vtTimeBase, tDuration = self._gen_time_trace(self.t, tDuration)
 
         if tsInput is not None:
             # - Sample input trace and check for correct dimensions
@@ -84,7 +85,7 @@ class Layer(ABC):
             # - Assume zero inputs
             mfInputStep = np.zeros((np.size(vtTimeBase), self.nDimIn))
 
-        return (vtTimeBase, mfInputStep)
+        return vtTimeBase, mfInputStep, tDuration
 
     def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
@@ -104,20 +105,23 @@ class Layer(ABC):
         # - Return possibly corrected input
         return mfInput
 
-    def _gen_time_trace(self, tStart: float, tDuration: float):
+    def _gen_time_trace(self, tStart: float, tDuration: float) -> (np.ndarray, float):
         """
         Generate a time trace starting at tStart, of length tDuration with 
         time step length self._tDt. Make sure it does not go beyond 
         tStart+tDuration.
+
+        :return (vtTimeTrace, tDuration)
         """
         # - Generate a periodic trace
         tStop = tStart + tDuration
         vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
         vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStop]
+        tDuration = vtTimeTrace[-1] - vtTimeTrace[0]
         vtTimeTrace = vtTimeTrace[:-1]
 
         # - Make sure that vtTimeTrace doesn't go beyond tStop
-        return vtTimeTrace[vtTimeTrace <= tStop]
+        return vtTimeTrace[vtTimeTrace <= tStop], tDuration
 
     def _expand_to_net_size(self,
                             oInput,

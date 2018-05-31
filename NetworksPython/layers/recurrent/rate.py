@@ -139,7 +139,7 @@ class RecRateEuler(Layer):
         """
 
         # - Discretise input, prepare time base
-        vtTimeBase, mfInputStep = self._prepare_input(tsInput, tDuration)
+        vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
         nNumSteps = np.size(vtTimeBase)
 
         # - Generate a noise trace

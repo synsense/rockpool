@@ -92,7 +92,7 @@ class RecIAFBrian(Layer):
         # - Call super constructor
         super().__init__(mfW = mfW,
                          tDt = np.asscalar(tDt),
-                         fNoiseStd = fNoiseStd)
+                         fNoiseStd = np.asscalar(fNoiseStd))
 
         # - Set up reservoir neurons
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons + eqSynRecurrent,
@@ -193,7 +193,7 @@ class RecIAFBrian(Layer):
         """
 
         # - Discretise input, prepare time base
-        vtTimeBase, mfInputStep = self._prepare_input(tsInput, tDuration)
+        vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
         nNumSteps = np.size(vtTimeBase)
 
         # - Generate a noise trace
