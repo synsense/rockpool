@@ -128,8 +128,17 @@ class RecRateEuler(Layer):
 
     def evolve(self,
                tsInput: TimeSeries = None,
-               tDuration: float = None):
+               tDuration: float = None) -> TimeSeries:
+        """
+        evolve - Evolve the state of this layer
 
+        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
+        :param tDuration:   float Duration of evolution, in seconds
+
+        :return: TimeSeries Output of this layer during evolution period
+        """
+
+        # - Discretise input, prepare time base
         vtTimeBase, mfInputStep = self._prepare_input(tsInput, tDuration)
         nNumSteps = np.size(vtTimeBase)
 

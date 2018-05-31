@@ -44,24 +44,36 @@ class Layer(ABC):
     def _prepare_input(self,
                        tsInput: TimeSeries = None,
                        tDuration: float = None) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        _prepare_input - Sample input, set up time base
+
+        :param tsInput:     TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:   float Duration of the desired evolution, in seconds
+
+        :return: (vtTimeBase, mfInputStep)
+            vtTimeBase:     ndarray T1 Discretised time base for evolution
+            mfInputStep:    ndarray (T1xN) Discretised input signal for layer
+        """
+
         # - Determine default duration
         if tDuration is None:
             assert tsInput is not None, \
                 'One of `tsInput` or `tDuration` must be supplied'
             
             if tsInput.bPeriodic:
+                # - Use duration of periodic TimeSeries, if possible
                 tDuration = tsInput.tDuration
-            else: 
+
+            else:
+                # - Evolve until the end of the input TImeSeries
                 tDuration = tsInput.tStop - self.t
-                assert tsInput.contains(vtTime), (
-                    'Desired evolution interval not fully contained in input'
-                     + ' ({:.2f} to {:.2f} vs {:.2f} to {:.2f})'.format(
-                     vtTime[0], vtTime[-1], tsInput.tStart, tsInput.tStop))
+                assert tDuration > 0, \
+                    'Cannot determine an appropriate evolution duration. `tsInput` finishes before the current ' \
+                    'evolution time.'
 
         # - Discretise tsInput to the desired evolution time base
         vtTimeBase = self._gen_time_trace(self.t, tDuration)
-        nNumSteps = np.size(vtTimeBase)
-            
+
         if tsInput is not None:
             # - Sample input trace and check for correct dimensions
             mfInputStep = self._check_input_dims(tsInput(vtTimeBase))
@@ -70,7 +82,7 @@ class Layer(ABC):
 
         else:
             # - Assume zero inputs
-            mfInputStep = np.zeros((nNumSteps, self.nDimIn))  
+            mfInputStep = np.zeros((np.size(vtTimeBase), self.nDimIn))
 
         return (vtTimeBase, mfInputStep)
 
