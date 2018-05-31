@@ -8,17 +8,14 @@ import TimeSeries as ts
 from layers.layer import Layer
 
 @njit
-def fhReLU(mfX: np.ndarray, fUpperBound: float = None) -> np.ndarray:
+def fhReLU(vfX: np.ndarray) -> np.ndarray:
     """
     Activation function for rectified linear units.
-    :param mfX:             ndarray with current neuron potentials
-    :param fUpperBound:     Upper bound
-    :return:                np.clip(mfX, 0, fUpperBound)
+    :param vfX:             ndarray with current neuron potentials
+    :return:                np.clip(vfX, 0, None)
     """
-    mfCopy = np.copy(mfX)
-    mfCopy[np.where(mfX < 0)] = 0
-    if fUpperBound is not None:
-        mfCopy[np.where(mfX > fUpperBound)] = fUpperBound
+    mfCopy = np.copy(vfX)
+    mfCopy[np.where(vfX < 0)] = 0
     return mfCopy
 
 @njit
@@ -242,20 +239,20 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
                               vfAlpha: np.ndarray,
                               fNoiseStd) -> np.ndarray:
         
-        # - Initialise storage of network output
+        # - Initialise storage of layer output
         nNumSteps = len(mfInput)
         mfWeightedInput = mfInput@mfW
-        mfStates = np.zeros_like(mfWeightedInput)
+        mfActivities = np.zeros_like(mfWeightedInput)
 
         # - Loop over time steps
         for nStep in range(nNumSteps):
-            # - Evolve network state
-            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
+            # - Store layer activity
+            mfActivities[nStep, :] = fhActivation(vState)
+            # - Evolve layer state
+            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd) + vfBias
             vState += vDState * vfAlpha
-            # - Store network state
-            mfStates[nStep, :] = vState
 
-        return fhActivation(mfStates + vfBias)
+        return mfActivities
 
     # - Return the compiled function
     return evolve_Euler_complete
