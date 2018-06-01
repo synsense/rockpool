@@ -243,6 +243,14 @@ class TimeSeries:
         return self.resample(vtSampleTimes)
 
     def merge(self, tsOther):
+        """
+        merge - Merge another time series to this one, in time. Maintain
+                each time series' time values. For time points that are
+                sampled in both time series, discard those of the other one.
+        :param tsOther:  TimeSeries that is merged to self
+        :return:         The merged time series
+        """
+
         # - Check tsOther
         assert isinstance(tsOther, TimeSeries), \
             '`tsOther` must be a TimeSeries object.'
@@ -250,8 +258,41 @@ class TimeSeries:
         assert tsOther.nNumTraces == self.nNumTraces, \
             '`tsOther` must include the same number of traces (' + str(self.nNumTraces) + ').'
 
-        # - Merge time trace and samples
-        # vtTimeMerged = 
+        # - Find and remove time points of tsOther that are also included in self
+        #   (assuming both TimeSeries have a sorted vTimeTrace)
+        # First, check if there is any overlap
+        if not (self.tStart > tsOther.tStop or self.tStop < tsOther.tStart):
+            # Determine region of overlap
+            viOverlap = np.where( (self.vtTimeTrace >= tsOther.tStart)
+                                 &(self.vtTimeTrace <= tsOther.tStop))
+            # Array of bools indicating which sampled time points of tsOther do not occur in self
+            vbUnique = np.array([(t != self.vtTimeTrace[viOverlap]).all()
+                                 for t in tsOther.vtTimeTrace])
+            # Time trace and samples to be merged into self
+            vtTimeTraceOther = tsOther.vtTimeTrace[vbUnique]
+            mfSamplesOther = tsOther.mfSamples[vbUnique]
+        else:
+            vtTimeTraceOther = tsOther.vtTimeTrace
+            mfSamplesOther = tsOther.mfSamples
+
+        # - Merge time traces and samples
+        vtTimeTraceNew = np.concatenate((self.__vtTimeTrace, vtTimeTraceOther))
+        mfSamplesNew = np.concatenate((self.mfSamples, mfSamplesOther), axis=0)
+        #  - Indices for sorting new time trace and samples
+        viSorted = np.argsort(vtTimeTraceNew)
+        self.__vtTimeTrace = vtTimeTraceNew[viSorted]
+        self.mfSamples = mfSamplesNew[viSorted]
+
+        # - Fix up periodicity, if the time trace is periodic
+        if self.bPeriodic:
+            self._tDuration = vtNewTrace[-1] - vtNewTrace[0]
+            self._tStart = vtNewTrace[0]
+
+        # - Create new interpolator
+        self.__create_interpolator()
+
+        # - Return merged TS
+        return self
         
 
 
@@ -281,7 +322,7 @@ class TimeSeries:
 
     def concatenate(self, tsOther):
         """
-        concatenate() - Combine two time series another time series into this one, along samples axis
+        concatenate() - Combine another time series with this one, along samples axis
 
         :param tsOther: Another time series. Will be resampled to the time base of the called series object
         :return: New time series, with series from both source and other time series
@@ -342,13 +383,13 @@ class TimeSeries:
     def __repr__(self):
         return 'TimeSeries object ' + str(self.mfSamples.shape)
 
-    def print(self, bForceAll: bool=False, nFirst: int=4, nLast: int=4, nShorten: int=10):
+    def print(self, bFull: bool=False, nFirst: int=4, nLast: int=4, nShorten: int=10):
         """
         print - Print an overview of the time series and its values.
             
-        :param bForceAll: Boolean - Print all samples of self, no matter how long it is
+        :param bFull:     Boolean - Print all samples of self, no matter how long it is
         :param nShorten:  Integer - Print shortened version of self if it comprises more
-                          than nShorten time points and bForceAll is False
+                          than nShorten time points and bFull is False
         :param nFirst:    Integer - Shortened version of printout contains samples at first
                           nFirst points in self.vtTimeTrace
         :param nLast:     Integer - Shortened version of printout contains samples at last
@@ -356,7 +397,7 @@ class TimeSeries:
         """
 
         s = '\n'
-        if len(self.vtTimeTrace) <= 10 or bForceAll:
+        if len(self.vtTimeTrace) <= 10 or bFull:
             strSummary = s.join(['{}: \t {}'.format(t, vSamples)
                                 for t, vSamples in zip(self.vtTimeTrace, self.mfSamples)])
         else:
