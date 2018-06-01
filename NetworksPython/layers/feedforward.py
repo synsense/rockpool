@@ -7,6 +7,8 @@ from numba import njit
 import TimeSeries as ts
 from layers.layer import Layer
 
+fTolerance = 1e-5
+
 @njit
 def fhReLU(vfX: np.ndarray) -> np.ndarray:
     """
@@ -33,6 +35,46 @@ def print_progress(iCurr: int, nTotal: int, tPassed: float):
              iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
            end='\r')
 
+def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
+    """
+    get_evolution_function: Construct a compiled Euler solver for a given activation function
+
+    :param fhActivation: Callable (x) -> f(x)
+    :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, nNumSteps, vfBias, vtTau)
+    """
+
+    # - Compile an Euler solver for the desired activation function
+    @njit
+    def evolve_Euler_complete(vState: np.ndarray,
+                              mfInput: np.ndarray,
+                              mfW: np.ndarray,
+                              vfGain: np.ndarray,
+                              vfBias: np.ndarray,
+                              vfAlpha: np.ndarray,
+                              fNoiseStd) -> np.ndarray:
+
+        # - Initialise storage of layer output
+        nNumSteps = len(mfInput)
+        mfWeightedInput = mfInput@mfW
+        mfActivities = np.zeros_like(mfWeightedInput)
+
+        # - Loop over time steps. The updated vState already corresponds to
+        # subsequent time step. Therefore skip state update in final step
+        # and only update activation.
+        for nStep in range(nNumSteps-1):
+            # - Store layer activity
+            mfActivities[nStep, :] = fhActivation(vState + vfBias)
+            # - Evolve layer state
+            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
+            vState += vDState * vfAlpha
+        mfActivities[-1, :] = fhActivation(vState + vfBias)
+
+        return mfActivities
+
+    # - Return the compiled function
+    return evolve_Euler_complete
+
+
 class PassThrough(Layer):
     """ Neuron states directly correspond to input, but can be delayed. """
 
@@ -45,40 +87,60 @@ class PassThrough(Layer):
         super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
         self._tDelay = tDelay
         self.reset_all()
-        
+
         # Buffer already reset by super().__init__ which calls self.reset_all()
         # self.reset_buffer()
 
     def reset_buffer(self):
         if self.tDelay != 0:
-            vtBuffer = np.arange(0,self.tDelay, self._tDt)
+            # - Make sure that self.tDelay is a multiple of self.tDt
+            if (min(self.tDelay%self.tDt, self.tDt-self.tDelay%self.tDt) 
+                > fTolerance * self.tDt):
+                raise ValueError('tDelay must be a multiple of tDt')
+
+            vtBuffer = np.arange(0, self.tDelay+self._tDt, self._tDt)
             self.tsBuffer = ts.TimeSeries(vtBuffer,
                                           np.zeros((len(vtBuffer), self.nSize)))
         else:
-            self.tsBuffer = None        
+            self.tsBuffer = None
 
     def evolve(self, tsInput: np.ndarray, tDuration: float = None):
-        
-        vtTime, mfInput = self._prepare_input(tsInput, tDuration)
+        """
+        evolve - Evolve the state of this layer
+
+        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
+        :param tDuration:   float Duration of evolution, in seconds
+
+        :return: TimeSeries Output of this layer during evolution period
+        """
+
+        # - Discretize input time series
+        vtTime, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
+
+        # - Apply input weights and add noise
+        mfProcessed = noisy(mfInput@self.mfW, self.fNoiseStd)
 
         if self.tsBuffer is not None:
-            nBuffer = len(self.tsBuffer.vtTimeTrace)
-            nSteps = len(vtTime)
-            if nSteps > nBuffer:
-                vtTimeOut = vtTime[:-nBuffer]
-                vtTimeBuffer = vtTime[-nBuffer:]
-                mSamplesOut = np.vstack((self.tsBuffer.mfSamples,
-                                         noisy(mfInput[:-nBuffer]@self.mfW, self.fNoiseStd)))
-                self.tsBuffer.mfSamples = noisy(mfInput[-nBuffer:]@self.mfW, self.fNoiseStd)
-            else:
-                mSamplesOut = self.tsBuffer(vtTime-self.t)
-                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nSteps:],
-                                                     noisy(mfInput@self.mfW, self.fNoiseStd)))
+            nBufferSteps = len(self.tsBuffer.vtTimeTrace)
+            nInputSteps = len(vtTime)
+            if nInputSteps >= nBufferSteps: # Input is as least as buffer
+                # - Output buffer content, then first part of new input
+                mSamplesOut = np.vstack((self.tsBuffer.mfSamples[:-1],
+                                         mfProcessed[:-(nBufferSteps-1)]))
+                # - Fill buffer with last part of new input
+                self.tsBuffer.mfSamples = mfProcessed[-nBufferSteps:]
+            else:  # Buffer is longer than input
+                # - Output older part of buffer content
+                # mSamplesOut = self.tsBuffer(vtTime-self.t)
+                mSamplesOut = self.tsBuffer.mfSamples[:nInputSteps]
+                # - Remove older part from buffer, move newer part to beginning and add new input
+                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nInputSteps-1:-1],
+                                                     mfProcessed))
         else:
             mSamplesOut = noisy(mfInput@self.mfW, self.fNoiseStd)
-        
-        self._t = vtTime[-1] + self.tDt
-        
+
+        self._t += tTrueDuration
+
         return ts.TimeSeries(vtTime, mSamplesOut)
 
     def reset_state(self):
@@ -119,7 +181,7 @@ class FFRate(Layer):
                                  + ' must be 1 or match layer size.')
         self.vfAlpha = self._tDt/self.vtTau
         self.fhActivation = fhActivation
-        
+
     def correct_param_shape(self, v) -> np.ndarray:
         """
         correct_param_shape - Convert v to 1D-np.ndarray and verify
@@ -133,9 +195,17 @@ class FFRate(Layer):
         return v
 
     def evolve(self, tsInput: ts.TimeSeries = None, tDuration: float = None) -> ts.TimeSeries:
-        
-        vtTime, mfInput = self._prepare_input(tsInput, tDuration)
-        
+        """
+        evolve - Evolve the state of this layer
+
+        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
+        :param tDuration:   float Duration of evolution, in seconds
+
+        :return: TimeSeries Output of this layer during evolution period
+        """
+
+        vtTime, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
+
         mSamplesAct = self._evolveEuler(vState=self.vState,     #self.vState is automatically updated
                                         mfInput=mfInput,
                                         mfW=self.mfW,
@@ -152,10 +222,10 @@ class FFRate(Layer):
         # print('')
 
         # - Increment internal time representation
-        self._t = vtTime[-1] + self.tDt
-        
+        self._t += tTrueDuration
+
         return ts.TimeSeries(vtTime, mSamplesAct)
-    
+
     @njit
     def potential(self, vInput: np.ndarray) -> np.ndarray:
         return (self._vfAlpha * noisy(vInput*self.vfGain + self.vfBias, self.fNoiseStd)
@@ -188,7 +258,7 @@ class FFRate(Layer):
         if not (vNewAlpha <= 1).all(): raise ValueError('All vfAlpha must be at most 1.')
         self._vfAlpha = vNewAlpha
         self._vtTau = self._tDt/vNewAlpha
-    
+
     @property
     def vfBias(self):
         return self._vfBias
@@ -196,7 +266,7 @@ class FFRate(Layer):
     @vfBias.setter
     def vfBias(self, vNewBias):
         self._vfBias = self.correct_param_shape(vNewBias)
-    
+
     @property
     def vfGain(self):
         return self._vfGain
@@ -219,41 +289,4 @@ class FFRate(Layer):
         if not (self.vtTau >= tNewDt).all(): raise ValueError('All vtTau must be at least tDt.')
         self._tDt = tNewDt
         self._vfAlpha = tNewDt/self._vtTau
-
-
-def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
-    """
-    get_evolution_function: Construct a compiled Euler solver for a given activation function
-
-    :param fhActivation: Callable (x) -> f(x)
-    :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, nNumSteps, vfBias, vtTau)
-    """
-
-    # - Compile an Euler solver for the desired activation function
-    @njit
-    def evolve_Euler_complete(vState: np.ndarray,
-                              mfInput: np.ndarray,
-                              mfW: np.ndarray,
-                              vfGain: np.ndarray,
-                              vfBias: np.ndarray,
-                              vfAlpha: np.ndarray,
-                              fNoiseStd) -> np.ndarray:
-        
-        # - Initialise storage of layer output
-        nNumSteps = len(mfInput)
-        mfWeightedInput = mfInput@mfW
-        mfActivities = np.zeros_like(mfWeightedInput)
-
-        # - Loop over time steps
-        for nStep in range(nNumSteps):
-            # - Store layer activity
-            mfActivities[nStep, :] = fhActivation(vState + vfBias)
-            # - Evolve layer state
-            vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
-            vState += vDState * vfAlpha
-
-        return mfActivities
-
-    # - Return the compiled function
-    return evolve_Euler_complete
 

@@ -26,7 +26,7 @@ class Layer(ABC):
                  mfW: np.ndarray,
                  tDt: float = 1,
                  fNoiseStd: float = 0,
-                 sName: str = '(unnamed)'):
+                 sName: str = 'unnamed'):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
 
@@ -45,7 +45,7 @@ class Layer(ABC):
         self._nDimIn, self._nSize = mfW.shape
 
         if sName is None:
-            self.sName = '(unnamed)'
+            self.sName = 'unnamed'
         else:
             self.sName = sName
 
