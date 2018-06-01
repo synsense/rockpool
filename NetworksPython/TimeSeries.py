@@ -381,7 +381,8 @@ class TimeSeries:
 
 
     def __repr__(self):
-        return 'TimeSeries object ' + str(self.mfSamples.shape)
+        return ('{}periodic TimeSeries object from t={} to {}. Shape: {}'.format(
+                int(not self.bPeriodic)*'non-', self.tStart, self.tStop, self.mfSamples.shape))
 
     def print(self, bFull: bool=False, nFirst: int=4, nLast: int=4, nShorten: int=10):
         """

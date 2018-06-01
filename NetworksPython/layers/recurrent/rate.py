@@ -156,7 +156,7 @@ class RecRateEuler(Layer):
                                        np.size(vtTimeBase)-1, self.tDt, self.vfBias, self.vtTau)
 
         # - Increment internal time representation
-        self._t = vtTimeBase[-1] + self.tDt
+        self._t = vtTimeBase[-1]
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)

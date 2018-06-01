@@ -28,8 +28,9 @@ class Network():
         corresponding parameter (e.g. parameters concerning reservoirs
         are passed to kwReservoir).
         """
-        
-        # self.__fDt = fDt
+
+        # - Network time
+        self._t = 0
 
         # Maintain set of all layers
         self.setLayers = set()
@@ -38,9 +39,6 @@ class Network():
         self.lyrInput = self.add_layer(lyrIn, bExternalInput=True)
         self.lyrRes = self.add_layer(lyrRes,  lyrIn=self.lyrInput)
         self.lyrOutput = self.add_layer(lyrOut,  lyrIn=self.lyrRes)
-
-        # - Network time
-        self._t = 0
                
     def add_layer(self,
                   lyr: Layer,
@@ -57,6 +55,9 @@ class Network():
             setOut : set of layers to which lyr is input layer
         """
         
+        # - Check whether layer time matches network time
+        assert lyr.t == self.t, ('Layer time must match network time '
+            +'(network: t={}, layer: t={})'.format(self.t, lyr.t))
         # - Check whether self already contains a layer with the same name as lyr.
         if hasattr(self, lyr.sName):
             # - Check if layers are the same object.
@@ -294,16 +295,23 @@ class Network():
     def check_sync(self) -> bool:
         """
         check_sync - Check whether the time t of all layers matches self.t
+                     If not, throw an exception.
         """
         bSync = True
         print('Network time is {}'.format(self.t))
         for lyr in self.lEvolOrder:
             if lyr.t != self.t:
                 bSync = False
-                print('\t WARNING: Layer `{}` is not in sync (t={})'.format(lyr.t))
+                print('\t WARNING: Layer `{}` is not in sync (t={})'.format(lyr.sName, lyr.t))
         if bSync:
             print('\t All layers are in sync with network.')
+        else:
+            raise NetworkError('Not all layers are in sync with the network.')
         return bSync
+    
+    def __repr__(self):
+        return 'Network object with {} layers'.format(len(self.setLayers))
+
 
     @property
     def t(self):
