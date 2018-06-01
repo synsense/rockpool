@@ -138,6 +138,7 @@ class Network():
         for lyr in self.lEvolOrder:
             print('Evolving layer "{}"'.format(lyr.sName))
             lyr.evolve(tsInput, tDuration)
+            # Layer outputs need to be passed on!!!!!!
 
     def evolution_order(self):
         """
