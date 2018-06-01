@@ -206,7 +206,7 @@ class FFRate(Layer):
 
         vtTime, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
 
-        mSamplesAct = self._evolveEuler(vState=self.vState,     #self.vState is automatically updated
+        mSamplesAct = self._evolveEuler(vState=self._vState,     #self._vState is automatically updated
                                         mfInput=mfInput,
                                         mfW=self.mfW,
                                         vfGain=self.vfGain,

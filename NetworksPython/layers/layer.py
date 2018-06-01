@@ -95,6 +95,13 @@ class Layer(ABC):
         tDuration = vtTimeBase[-1] - vtTimeBase[0]
 
         if tsInput is not None:
+            # - Warn if evolution period is not fully contained in tsInput
+            if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
+                print('WARNING: Evolution period (t = {} to {}) '.format(
+                      vtTimeBase[0], vtTimeBase[-1])
+                      +'not fully contained in input signal (t = {} to {})'.format(
+                      tsInput.tStart, tsInput.tStop))
+
             # - Sample input trace and check for correct dimensions
             mfInputStep = self._check_input_dims(tsInput(vtTimeBase))
             # - Treat "NaN" as zero inputs
