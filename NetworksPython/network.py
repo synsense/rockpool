@@ -3,11 +3,11 @@
 ###
 
 ### --- Imports
-import numpy as np
-from math import gcd
+# import numpy as np
+# from math import gcd
 # from functools import reduce
 
-from layers import feedforward, recurrent
+# from layers import feedforward, recurrent
 from TimeSeries import TimeSeries
 from layers.layer import Layer
 
@@ -32,14 +32,14 @@ def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
 
 ### --- Network class
 
-class Network():
-    def __init__(self, lyrIn: Layer, lyrRes: Layer, lyrOut: Layer):
+class Network:
+    def __init__(self, lyrInput: Layer, lyrRes: Layer, lyrOutput: Layer):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
-        :param lyrIn:   Layer Input layer (recieves network-external input)
-        :param lyrRes:  Layer Internal layer (usually a recurrent reservoir)
-        :param lyrOut:  Layer Output layer (provides network-external output)
+        :param lyrInput:   Layer Input layer (recieves network-external input)
+        :param lyrRes:     Layer Internal layer (usually a recurrent reservoir)
+        :param lyrOutput:  Layer Output layer (provides network-external output)
         """
 
         # - Network time
@@ -49,23 +49,23 @@ class Network():
         self.setLayers = set()
         
         # - Add layers
-        self.lyrInput = self.add_layer(lyrIn, bExternalInput=True)
-        self.lyrRes = self.add_layer(lyrRes,  lyrIn=self.lyrInput)
-        self.lyrOutput = self.add_layer(lyrOut,  lyrIn=self.lyrRes)
+        self.lyrInput = self.add_layer(lyrInput, bExternalInput=True)
+        self.lyrRes = self.add_layer(lyrRes, lyrInput =self.lyrInput)
+        self.lyrOutput = self.add_layer(lyrOutput, lyrInput =self.lyrRes)
                
     def add_layer(self,
                   lyr: Layer,
-                  lyrIn: Layer = None,
-                  lyrOut: Layer = None,
+                  lyrInput: Layer = None,
+                  lyrOutput: Layer = None,
                   bExternalInput: bool = False) -> Layer:
         """Add lyr to self and to self.setLayers. Its attribute name
         is 'lyr'+lyr.strName. Check whether layer with this name 
         already exists (replace anyway). 
-        Connect lyr to those in setIn and setOut.
+        Connect lyr to those in lyrInput and lyrOutput.
         Return lyr.
             lyr : layer to be added to self
-            setIn : set of input layers to lyr
-            setOut : set of layers to which lyr is input layer
+            lyrInput : input layer to lyr
+            lyrOutput : layer to which lyr is input layer
         """
         
         # - Check whether layer time matches network time
@@ -77,12 +77,12 @@ class Network():
             # - Check if layers are the same object.
             if getattr(self, lyr.strName) is lyr:
                 print('This layer is already part of the network')
-                return
+                return lyr
             else:
                 sNewName = lyr.strName
                 # - Find a new name for lyr.
                 while hasattr(self, sNewName):
-                    sNewName = self.new_name(sNewName)
+                    sNewName = self._new_name(sNewName)
                 print('A layer with name `{}` already exists.'.format(lyr.strName)
                           + 'The new layer will be renamed to  `{}`.'.format(sNewName))
                 lyr.strName = sNewName
@@ -99,16 +99,17 @@ class Network():
         self.setLayers.add(lyr)
 
         # - Connect in- and outputs
-        if lyrIn is not None:
-            self.connect(lyrIn, lyr)
-        if lyrOut is not None:
-            self.connect(lyr, lyrOut)
+        if lyrInput is not None:
+            self.connect(lyrInput, lyr)
+        if lyrOutput is not None:
+            self.connect(lyr, lyrOutput)
 
         return lyr
 
-    def new_name(self, strName: str) -> str:
+    @staticmethod
+    def _new_name(strName: str) -> str:
         """
-        new_name: Generate a new name by first checking whether
+        _new_name: Generate a new name by first checking whether
                   the old name ends with '_i', with i an integer.
                   If so, replace i by i+1, otherwise append '_0'
         :param strName:   str - Name to be modified
@@ -147,7 +148,7 @@ class Network():
         self.setLayers.remove(lyrDel)
 
         # - Reevaluate the layer evolution order
-        self.lEvolOrder = self.evolution_order()
+        self.lEvolOrder = self._evolution_order()
 
     def connect(self, lyrSource: Layer, lyrTarget: Layer):
         """
@@ -169,13 +170,13 @@ class Network():
         # - Make sure that the network remains a directed acyclic graph
         #   and reevaluate evolution order
         try:
-            self.lEvolOrder = self.evolution_order()
+            self.lEvolOrder = self._evolution_order()
             print('Layer `{}` now receives input from layer `{}` \n'.format(
                   lyrTarget.strName, lyrSource.strName)) #,
                   # 'and new layer evolution order has been set.')
         except NetworkError as e:
-            lyrTarget.setIn.remove(lyrSource)
-            raise e 
+            lyrTarget.lyrIn = None
+            raise e
 
     def disconnect(self, lyrSource: Layer, lyrTarget: Layer):
         """
@@ -189,13 +190,20 @@ class Network():
         if lyrTarget.lyrIn  is lyrSource:
             # - Remove the connection
             lyrTarget.lyrIn = None
-            print('Layer {} does no longer receive input from layer `{}`'.format(
+            print('Layer {} no longer receives input from layer `{}`'.format(
                   lyrTarget.strName, lyrSource.strName))
+
+            # - Reevaluate evolution order
+            try:
+                self.lEvolOrder = self._evolution_order()
+            except NetworkError as e:
+                raise e
+
         else:
             print('There is no connection from layer `{}` to layer `{}`'.format(
                   lyrSource.strName, lyrTarget.strName))
 
-    def evolution_order(self) -> list:
+    def _evolution_order(self) -> list:
         """
         Determine the order in which layers are evolved. Requires Network
         to be a directed acyclic graph, otherwise evolution has to happen
@@ -276,7 +284,7 @@ class Network():
         dtsOutputs = {}
         
         # - Make sure layers are in sync with netowrk
-        self.check_sync()
+        self._check_sync()
 
         # - Iterate over evolution order and evolve layers
         for lyr in self.lEvolOrder:
@@ -303,14 +311,14 @@ class Network():
         self._t += tDuration
 
         # - Make sure layers are still in sync with netowrk
-        self.check_sync()
+        self._check_sync()
 
         # - Return dict with layer outputs
         return dtsOutputs
 
-    def check_sync(self) -> bool:
+    def _check_sync(self) -> bool:
         """
-        check_sync - Check whether the time t of all layers matches self.t
+        _check_sync - Check whether the time t of all layers matches self.t
                      If not, throw an exception.
         """
         bSync = True
