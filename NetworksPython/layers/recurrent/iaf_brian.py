@@ -214,6 +214,12 @@ class RecIAFBrian(Layer):
         mfA = self._stmReceiver.I_syn_.T
         mfA = mfA[vbUseTime, :]
 
+        # - Return the current state as final time point
+        if vtTimeBaseOutput[-1] != self.t:
+            vtTimeBaseOutput = np.concatenate((vtTimeBaseOutput, [self.t]))
+            print(mfA.shape, np.atleast_2d(np.array(self._sgResToReceiver.I_syn_)).shape)
+            mfA = np.concatenate((mfA, np.atleast_2d(np.array(self._sgResToReceiver.I_syn_))))
+
         return TimeSeries(vtTimeBaseOutput, mfA, strName = 'Receiver current')
 
 
