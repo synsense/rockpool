@@ -1,3 +1,8 @@
+###
+# network.py - Code for encapsulating networks
+###
+
+### --- Imports
 import numpy as np
 from math import gcd
 # from functools import reduce
@@ -6,6 +11,12 @@ from layers import feedforward, recurrent
 from TimeSeries import TimeSeries
 from layers.layer import Layer
 
+
+# - Configure exports
+__all__ = ['Network']
+
+
+### --- Helper functions
 
 def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
     """
@@ -17,6 +28,9 @@ def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
     """
     fMinRemainder = min(a%b, b-a%b)
     return fMinRemainder < fTolerance*b
+
+
+### --- Network class
 
 class Network():
     def __init__(self, lyrIn: Layer, lyrRes: Layer, lyrOut: Layer):
@@ -325,6 +339,8 @@ class Network():
     #     for lyr in self.setLayers:
     #         lyr.fDt = self.__fDt
 
+
+### --- NetworkError exception class
 class NetworkError(Exception):
     pass
 
