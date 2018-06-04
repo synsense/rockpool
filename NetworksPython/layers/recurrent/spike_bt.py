@@ -7,7 +7,7 @@
 from ..layer import Layer
 from TimeSeries import *
 import numpy as np
-from typing import Callable
+from typing import Callable, Union
 from warnings import warn
 from scipy.interpolate import interp1d
 import copy
@@ -55,14 +55,14 @@ class RecFSSpikeEulerBT(Layer):
                  vfBias: np.ndarray = 0.,
                  fNoiseStd: float = 0.,
 
-                 vtTauN: np.ndarray = 20e-3,
-                 vtTauSynR_f: np.ndarray = 1e-3,
-                 vtTauSynR_s: np.ndarray = 100e-3,
+                 vtTauN: Union[np.ndarray, float] = 20e-3,
+                 vtTauSynR_f: Union[np.ndarray, float] = 1e-3,
+                 vtTauSynR_s: Union[np.ndarray, float] = 100e-3,
                  tTauSynO: float = 100e-3,
 
-                 vfVThresh: np.ndarray = -55e-3,
-                 vfVReset: np.ndarray = -65e-3,
-                 vfVRest: np.ndarray = -65e-3,
+                 vfVThresh: Union[np.ndarray, float] = -55e-3,
+                 vfVReset: Union[np.ndarray, float] = -65e-3,
+                 vfVRest: Union[np.ndarray, float] = -65e-3,
 
                  tRefractoryTime: float = 0e-3,
 
