@@ -7,9 +7,9 @@ from TimeSeries import TimeSeries
 from layers.layer import Layer
 
 
-def multiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
+def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
     """
-    multiple - Check whether a%b is 0 within some tolerance.
+    isMultiple - Check whether a%b is 0 within some tolerance.
     :param a: float The number that may be multiple of b
     :param b: float The number a may be a multiple of
     :param fTolerance: float Relative tolerance
@@ -21,12 +21,11 @@ def multiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
 class Network():
     def __init__(self, lyrIn: Layer, lyrRes: Layer, lyrOut: Layer):
         """
-        Create Network instance consisting of input layer, output
-        layer and an arbitrary number of reservoirs. Create forward
-        connections between input, reservoirs and output.
-        To overwrite default parameters, pass them inside dict to
-        corresponding parameter (e.g. parameters concerning reservoirs
-        are passed to kwReservoir).
+        Network - Super class to encapsulate several Layers, manage signal routing
+
+        :param lyrIn:   Layer Input layer (recieves network-external input)
+        :param lyrRes:  Layer Internal layer (usually a recurrent reservoir)
+        :param lyrOut:  Layer Output layer (provides network-external output)
         """
 
         # - Network time
@@ -58,6 +57,7 @@ class Network():
         # - Check whether layer time matches network time
         assert lyr.t == self.t, ('Layer time must match network time '
             +'(network: t={}, layer: t={})'.format(self.t, lyr.t))
+
         # - Check whether self already contains a layer with the same name as lyr.
         if hasattr(self, lyr.sName):
             # - Check if layers are the same object.
@@ -241,14 +241,15 @@ class Network():
                 tDuration = tsExternalInput.tDuration
 
             else:
-                # - Evolve until the end of the input TImeSeries
+                # - Evolve until the end of the input TimeSeries
                 tDuration = tsExternalInput.tStop - self.t
                 assert tDuration > 0, (
                     'Cannot determine an appropriate evolution duration. '
                    +'`tsExternalInput` finishes before the current evolution time.')
         
         # - List of layers where tDuration is not a multiple of tDt
-        llyrDtMismatch = list(filter(lambda lyr: not multiple(tDuration, lyr.tDt), self.lEvolOrder))
+        llyrDtMismatch = list(filter(lambda lyr: not isMultiple(tDuration, lyr.tDt), self.lEvolOrder))
+
         # - Throw an exception if llyrDtMismatch is not empty, showing for
         #   which layers there is a mismatch
         if llyrDtMismatch:
@@ -286,6 +287,7 @@ class Network():
 
         # - Update network time
         self._t += tDuration
+
         # - Make sure layers are still in sync with netowrk
         self.check_sync()
 
