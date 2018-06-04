@@ -83,8 +83,8 @@ class PassThrough(Layer):
                  tDt: float = 1,
                  fNoiseStd: float = 0,
                  tDelay: float = 0,
-                 sName: str = None):
-        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
+                 strName: str = None):
+        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
         self._tDelay = tDelay
         self.reset_all()
 
@@ -160,19 +160,19 @@ class PassThrough(Layer):
         # Some method to extend self.tsBuffer
 
 
-class FFRate(Layer):
+class FFRateEuler(Layer):
     """ Feedforward layer consisting of rate-based neurons """
 
     def __init__(self,
                  mfW: np.ndarray,
                  tDt: float = 1,
-                 sName: str = None,
+                 strName: str = None,
                  fNoiseStd: float = 0,
                  fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLU,
                  vtTau: np.ndarray = 10,
                  vfGain: np.ndarray = 1,
                  vfBias: np.ndarray = 0):
-        super().__init__(mfW=mfW.astype(float), tDt=tDt, fNoiseStd=fNoiseStd, sName=sName)
+        super().__init__(mfW=mfW.astype(float), tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
         self.reset_all()
         try:
             self.vtTau, self.vfGain, self.vfBias = map(self.correct_param_shape, (vtTau, vfGain, vfBias))

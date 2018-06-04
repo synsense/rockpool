@@ -78,7 +78,7 @@ class RecRateEuler(Layer):
                  fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLu,
                  tDt: float = None,
                  fNoiseStd: float = 0,
-                 sName: str = None):
+                 strName: str = None):
         """
         RecRate: Implement a recurrent layer with firing rate neurons
 
@@ -88,12 +88,12 @@ class RecRateEuler(Layer):
         :param fhActivation:    Callable (x) -> f(x) Activation function
         :param tDt:             float Time step for integration (Euler method)
         :param fNoiseStd:       float Std. Dev. of state noise injected at each time step
-        :param sName:           str Name of this layer
+        :param strName:           str Name of this layer
         """
 
         # - Call super-class init
         super().__init__(mfW = mfW,
-                         sName = sName)
+                         strName = strName)
 
         # - Assign properties
         self.vfBias = vfBias

@@ -59,7 +59,7 @@ class Network():
                   lyrOut: Layer = None,
                   bExternalInput: bool = False) -> Layer:
         """Add lyr to self and to self.setLayers. Its attribute name
-        is 'lyr'+lyr.sName. Check whether layer with this name 
+        is 'lyr'+lyr.strName. Check whether layer with this name 
         already exists (replace anyway). 
         Connect lyr to those in setIn and setOut.
         Return lyr.
@@ -73,27 +73,27 @@ class Network():
             +'(network: t={}, layer: t={})'.format(self.t, lyr.t))
 
         # - Check whether self already contains a layer with the same name as lyr.
-        if hasattr(self, lyr.sName):
+        if hasattr(self, lyr.strName):
             # - Check if layers are the same object.
-            if getattr(self, lyr.sName) is lyr:
+            if getattr(self, lyr.strName) is lyr:
                 print('This layer is already part of the network')
                 return
             else:
-                sNewName = lyr.sName
+                sNewName = lyr.strName
                 # - Find a new name for lyr.
                 while hasattr(self, sNewName):
                     sNewName = self.new_name(sNewName)
-                print('A layer with name `{}` already exists.'.format(lyr.sName)
+                print('A layer with name `{}` already exists.'.format(lyr.strName)
                           + 'The new layer will be renamed to  `{}`.'.format(sNewName))
-                lyr.sName = sNewName
+                lyr.strName = sNewName
 
         # - Add set of input layers and flag to determine if lyr receives external input
         lyr.lyrIn = None
         lyr.bExternalInput = bExternalInput
 
         # - Add lyr to the network
-        setattr(self, lyr.sName, lyr)
-        print('Added layer `{}` to network\n'.format(lyr.sName))
+        setattr(self, lyr.strName, lyr)
+        print('Added layer `{}` to network\n'.format(lyr.strName))
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
@@ -106,17 +106,17 @@ class Network():
 
         return lyr
 
-    def new_name(self, sName: str) -> str:
+    def new_name(self, strName: str) -> str:
         """
         new_name: Generate a new name by first checking whether
                   the old name ends with '_i', with i an integer.
                   If so, replace i by i+1, otherwise append '_0'
-        :param sName:   str - Name to be modified
+        :param strName:   str - Name to be modified
         :return:        str - Modified name
         """
 
-        # - Check wheter sName already ends with '_...'
-        lsSplitted = sName.split('_')
+        # - Check wheter strName already ends with '_...'
+        lsSplitted = strName.split('_')
         if len(lsSplitted) > 1:
             try:
                 # - If the part after the last '_' is an integer, raise it by 1
@@ -124,9 +124,9 @@ class Network():
                 lsSplitted[-1] = str(i+1)
                 sNewName = '_'.join(lsSplitted)
             except ValueError:
-                sNewName = sName + '_0'
+                sNewName = strName + '_0'
         else:
-            sNewName = sName + '_0'
+            sNewName = strName + '_0'
 
         return sNewName
 
@@ -160,7 +160,7 @@ class Network():
         # - Make sure that layer dimensions match
         if lyrSource.nSize != lyrTarget.nDimIn:
             raise NetworkError('Dimensions of layers `{}` (nSize={}) and `{}`'.format(
-                               lyrSource.sName, lyrSource.nSize, lyrTarget.sName)
+                               lyrSource.strName, lyrSource.nSize, lyrTarget.strName)
                               +' (nDimIn={}) do not match'.format(lyrTarget.nDimIn))
 
         # - Add source layer to target's set of inputs
@@ -171,7 +171,7 @@ class Network():
         try:
             self.lEvolOrder = self.evolution_order()
             print('Layer `{}` now receives input from layer `{}` \n'.format(
-                  lyrTarget.sName, lyrSource.sName)) #,
+                  lyrTarget.strName, lyrSource.strName)) #,
                   # 'and new layer evolution order has been set.')
         except NetworkError as e:
             lyrTarget.setIn.remove(lyrSource)
@@ -190,10 +190,10 @@ class Network():
             # - Remove the connection
             lyrTarget.lyrIn = None
             print('Layer {} does no longer receive input from layer `{}`'.format(
-                  lyrTarget.sName, lyrSource.sName))
+                  lyrTarget.strName, lyrSource.strName))
         else:
             print('There is no connection from layer `{}` to layer `{}`'.format(
-                  lyrSource.sName, lyrTarget.sName))
+                  lyrSource.strName, lyrTarget.strName))
 
     def evolution_order(self) -> list:
         """
@@ -267,7 +267,7 @@ class Network():
         # - Throw an exception if llyrDtMismatch is not empty, showing for
         #   which layers there is a mismatch
         if llyrDtMismatch:
-            strLayers = ', '.join(('{}: tDt={}'.format(lyr.sName, lyr.tDt)
+            strLayers = ', '.join(('{}: tDt={}'.format(lyr.strName, lyr.tDt)
                                    for lyr in llyrDtMismatch))
             raise ValueError('`tDuration` is not a multiple of `tDt` for the following layer(s):\n'
                              + strLayers)
@@ -288,16 +288,16 @@ class Network():
                 strIn = 'external input'
             elif lyr.lyrIn is not None:
                 # Output of current layer's input layer
-                tsCurrentInput = dtsOutputs[lyr.lyrIn.sName]
-                strIn = lyr.lyrIn.sName + "'s output"
+                tsCurrentInput = dtsOutputs[lyr.lyrIn.strName]
+                strIn = lyr.lyrIn.strName + "'s output"
             else:
                 # No input
                 tsCurrentInput = None
                 'nothing'
 
-            print('Evolving layer `{}` with {} as input'.format(lyr.sName, strIn))
+            print('Evolving layer `{}` with {} as input'.format(lyr.strName, strIn))
             # Evolve layer and store output in dtsOutputs
-            dtsOutputs[lyr.sName] = lyr.evolve(tsCurrentInput, tDuration)
+            dtsOutputs[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
 
         # - Update network time
         self._t += tDuration
@@ -318,7 +318,7 @@ class Network():
         for lyr in self.lEvolOrder:
             if lyr.t != self.t:
                 bSync = False
-                print('\t WARNING: Layer `{}` is not in sync (t={})'.format(lyr.sName, lyr.t))
+                print('\t WARNING: Layer `{}` is not in sync (t={})'.format(lyr.strName, lyr.t))
         if bSync:
             print('\t All layers are in sync with network.')
         else:
@@ -430,21 +430,21 @@ def lcm(*numbers: int) -> int:
 
         ""Add feedforward or recurrent layer to network and maintain 
         set containing all layers.""
-        sLyrName = 'lyr'+sName
+        sLyrName = 'lyr'+strName
         if hasattr(self, sLyrName):
             raise NameError('There already exists a layer with this name')
 
         if sKind == 'ffrate':
-            setattr(self, sLyrName, FeedForward.FFRate(sName=sName, fDt=self.__fDt, **kwargs))
-            print('Rate-based feedforward layer `{}` has been added to network.'.format(sName))
+            setattr(self, sLyrName, FeedForward.FFRate(strName=strName, fDt=self.__fDt, **kwargs))
+            print('Rate-based feedforward layer `{}` has been added to network.'.format(strName))
         
         elif sKind == 'pass':
-            setattr(self, sLyrName, FeedForward.PassThrough(sName=sName, fDt=self.__fDt, **kwargs))
-            print('PassThrough layer `{}` has been added to network.'.format(sName))
+            setattr(self, sLyrName, FeedForward.PassThrough(strName=strName, fDt=self.__fDt, **kwargs))
+            print('PassThrough layer `{}` has been added to network.'.format(strName))
         
         elif sKind in ['Reservoir', 'reservoir', 'Recurrent', 'recurrent', 'res', 'rec']:
-            setattr(self, sLyrName, Recurrent.RecLayer(sName=sName, fDt=self.__fDt, **kwargs))
-            print('Recurrent layer `{}` has been added to network.'.format(sName))
+            setattr(self, sLyrName, Recurrent.RecLayer(strName=strName, fDt=self.__fDt, **kwargs))
+            print('Recurrent layer `{}` has been added to network.'.format(strName))
 
         else:
             raise NetworkError('Layer type not understood')

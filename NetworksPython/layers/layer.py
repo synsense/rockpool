@@ -26,7 +26,7 @@ class Layer(ABC):
                  mfW: np.ndarray,
                  tDt: float = 1,
                  fNoiseStd: float = 0,
-                 sName: str = 'unnamed'):
+                 strName: str = 'unnamed'):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
 
@@ -34,7 +34,7 @@ class Layer(ABC):
         :param tDt:         float Time-step used for evolving this layer. Default: 1
         :param fNoiseStd:   float Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected
                                     std. dev. after 1s of integration time
-        :param sName:       str Name of this layer. Default: 'unnamed'
+        :param strName:       str Name of this layer. Default: 'unnamed'
         """
 
         # - Ensure weights are at least 2D
@@ -44,10 +44,10 @@ class Layer(ABC):
         self._mfW = mfW
         self._nDimIn, self._nSize = mfW.shape
 
-        if sName is None:
-            self.sName = 'unnamed'
+        if strName is None:
+            self.strName = 'unnamed'
         else:
-            self.sName = sName
+            self.strName = strName
 
         # - Check and assign tDt and fNoiseStd
         assert np.size(tDt) == 1 and np.size(fNoiseStd) == 1, \
@@ -191,7 +191,7 @@ class Layer(ABC):
 
     def __str__(self):
         return '{} object: "{}" Weights: {}'\
-            .format(self.__class__.__name__, self.sName, self.mfW.shape)
+            .format(self.__class__.__name__, self.strName, self.mfW.shape)
 
     def __repr__(self):
         return self.__str__()

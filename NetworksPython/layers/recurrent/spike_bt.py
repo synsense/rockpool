@@ -67,7 +67,7 @@ class RecFSSpikeEulerBT(Layer):
                  tRefractoryTime: float = 0e-3,
 
                  tDt: float = None,
-                 sName: str = None,
+                 strName: str = None,
                  ):
         """
         DeneveReservoir - Implement a spiking reservoir with tight E/I balance
@@ -91,12 +91,12 @@ class RecFSSpikeEulerBT(Layer):
         :param tRefractoryTime: float         Post-spike refractory period
 
         :param tDt:             float         Nominal time step (Euler solver)
-        :param sName:           str           Name of this layer
+        :param strName:           str           Name of this layer
         """
         # - Initialise object and set properties
         super().__init__(mfW = mfW_f,
                          fNoiseStd = fNoiseStd,
-                         sName = sName)
+                         strName = strName)
 
         self.mfW_s = mfW_s
         self.vfBias = np.asarray(vfBias).astype('float')

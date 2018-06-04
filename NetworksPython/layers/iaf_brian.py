@@ -63,6 +63,8 @@ class FFIAFBrian(Layer):
                  eqSynapses = eqSynapseExp,
 
                  strIntegrator: str = 'rk4',
+
+                 strName: str = 'unnamed'
                  ):
         """
         RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
@@ -83,12 +85,15 @@ class FFIAFBrian(Layer):
         :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
+
+        :param strName:         str Name for the layer. Default: 'unnamed'
         """
 
         # - Call super constructor
         super().__init__(mfW = mfW,
                          tDt = np.asarray(tDt),
-                         fNoiseStd = np.asarray(fNoiseStd))
+                         fNoiseStd = np.asarray(fNoiseStd),
+                         strName = strName)
 
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons,
