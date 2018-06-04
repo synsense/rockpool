@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Callable
 from numba import njit
 
-import TimeSeries as ts
+from TimeSeries import TimeSeries
 from layers.layer import Layer
 
 fTolerance = 1e-5
@@ -99,8 +99,8 @@ class PassThrough(Layer):
                 raise ValueError('tDelay must be a multiple of tDt')
 
             vtBuffer = np.arange(0, self.tDelay+self._tDt, self._tDt)
-            self.tsBuffer = ts.TimeSeries(vtBuffer,
-                                          np.zeros((len(vtBuffer), self.nSize)))
+            self.tsBuffer = TimeSeries(vtBuffer,
+                                       np.zeros((len(vtBuffer), self.nSize)))
         else:
             self.tsBuffer = None
 
@@ -141,7 +141,7 @@ class PassThrough(Layer):
 
         self._t += tTrueDuration
 
-        return ts.TimeSeries(vtTime, mSamplesOut)
+        return TimeSeries(vtTime, mSamplesOut)
 
     def reset_state(self):
         super().reset_state()
@@ -194,7 +194,7 @@ class FFRateEuler(Layer):
             'Numbers of elements in v must be 1 or match layer size')
         return v
 
-    def evolve(self, tsInput: ts.TimeSeries = None, tDuration: float = None) -> ts.TimeSeries:
+    def evolve(self, tsInput: TimeSeries = None, tDuration: float = None) -> TimeSeries:
         """
         evolve - Evolve the state of this layer
 
@@ -224,7 +224,7 @@ class FFRateEuler(Layer):
         # - Increment internal time representation
         self._t += tTrueDuration
 
-        return ts.TimeSeries(vtTime, mSamplesAct)
+        return TimeSeries(vtTime, mSamplesAct)
 
     def train_rr(self,
                  tsTarget: TimeSeries,
@@ -251,8 +251,8 @@ class FFRateEuler(Layer):
             vtTimeBase = vtTimeBase[:-1]
         
         # - Prepare target data, check dimensions
-        mfTarget = tsTarget(vtTimeTrace)
-        assert mfTarget.shape[-1] == self.nSize, 
+        mfTarget = tsTarget(vtTimeBase)
+        assert mfTarget.shape[-1] == self.nSize, \
             ('Target dimensions ({}) does not match layer size ({})'.format(
                 mfTarget.shape[-1], self.nSize))
         
@@ -279,31 +279,33 @@ class FFRateEuler(Layer):
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfYXT = np.zeros((nDimOut, nNetSize))
-            self.mfXXT = np.zeros((nNetSize, nNetSize))
+            self.mfYXT = np.zeros((self.nSize, self.nDimIn))
+            self.mfXXT = np.zeros((self.nDimIn, self.nDimIn))
             # Corresponding Kahan compensations 
-            self.mfKahanCompYXT = np.zeros_like(mfYXT)
-            self.mfKahanCompXXT = np.zeros_like(mfXXT)
+            self.mfKahanCompYXT = np.zeros_like(self.mfYXT)
+            self.mfKahanCompXXT = np.zeros_like(self.mfXXT)
 
         # - Actual computations
-        self._computation_training(mfTarget, mfInput, bFinal)
+        self._computation_training(mfTarget, mfInput, fRegularize, bFinal)
 
     @njit
     def _computation_training(self,
                               mfTarget: np.ndarray,
                               mfInput: np.ndarray,
+                              fRegularize: float,
                               bFinal: bool):
         """
         _computation_training - Perform matrix updates for training and
                                 in final batch also update weights
         :param mfTarget:    2D-Array - training target     
         :param mfInput:     2D-Array - training input to layer
+        :param fRegularize: float - Regularization parameter
         :param bFinal:      bool - True for final batch
         """
 
         # - New data to be added, including compensation from last batch
-        mfUpdYXT = mfTarget.T@mfInput - mfKahanCompYXT
-        mfUpdXXT = mfInput.T@mfInput - mfKahanCompXXT
+        mfUpdYXT = mfTarget.T@mfInput - self.mfKahanCompYXT
+        mfUpdXXT = mfInput.T@mfInput - self.mfKahanCompXXT
 
         if not bFinal:
             # - Update matrices with new data
@@ -322,7 +324,7 @@ class FFRateEuler(Layer):
             self.mfXXT += mfUpdXXT 
 
             # - Weight update by ridge regression
-            self.mfW = np.linalg.solve(self.mfXXT+fRegularize*np.eye(nNetSize),
+            self.mfW = np.linalg.solve(self.mfXXT+fRegularize*np.eye(self.nDimIn),
                                        self.mfYXT.T).T
 
             # - Remove dat stored during this trainig
