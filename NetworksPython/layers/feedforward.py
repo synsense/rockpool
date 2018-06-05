@@ -7,7 +7,30 @@ from numba import njit
 from TimeSeries import TimeSeries
 from layers.layer import Layer
 
+# - Relative tolerance for float comparions
 fTolerance = 1e-5
+
+
+### --- Helper functions
+
+def isMultiple(a: float, b: float, fTolerance: float = fTolerance) -> bool:
+    """
+    isMultiple - Check whether a%b is 0 within some tolerance.
+    :param a: float The number that may be multiple of b
+    :param b: float The number a may be a multiple of
+    :param fTolerance: float Relative tolerance
+    :return bool: True if a is a multiple of b within some tolerance
+    """
+    fMinRemainder = min(a%b, b-a%b)
+    return fMinRemainder < fTolerance*b
+
+
+def print_progress(iCurr: int, nTotal: int, tPassed: float):
+    print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
+             iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
+           end='\r')
+
+### --- Functions for layer evolutions
 
 @njit
 def fhReLU(vfX: np.ndarray) -> np.ndarray:
@@ -29,11 +52,6 @@ def noisy(mX: np.ndarray, fStdDev: float) -> np.ndarray:
     :return:        Array-like, mX with noise added
     """
     return fStdDev * np.random.randn(*mX.shape) + mX
-
-def print_progress(iCurr: int, nTotal: int, tPassed: float):
-    print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
-             iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
-           end='\r')
 
 def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     """
@@ -77,6 +95,8 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     return evolve_Euler_complete
 
 
+### --- PassThrough class
+
 class PassThrough(Layer):
     """ Neuron states directly correspond to input, but can be delayed. """
 
@@ -87,7 +107,7 @@ class PassThrough(Layer):
                  tDelay: float = 0,
                  strName: str = None):
         super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
-        self._tDelay = tDelay
+        self._tDelay = (0 if tDelay is None else tDelay)
         self.reset_all()
 
         # Buffer already reset by super().__init__ which calls self.reset_all()
@@ -96,8 +116,7 @@ class PassThrough(Layer):
     def reset_buffer(self):
         if self.tDelay != 0:
             # - Make sure that self.tDelay is a multiple of self.tDt
-            if (min(self.tDelay%self.tDt, self.tDt-self.tDelay%self.tDt) 
-                > fTolerance * self.tDt):
+            if not isMultiple(self.tDelay, self.tDt):
                 raise ValueError('tDelay must be a multiple of tDt')
 
             vtBuffer = np.arange(0, self.tDelay+self._tDt, self._tDt)
@@ -124,10 +143,10 @@ class PassThrough(Layer):
 
         if self.tsBuffer is not None:
             # - Combined time trace for buffer and processed input
-            vtTimeComb = self._gen_time_trace(self.t, self.tTrueDuration+self.tDelay)
+            vtTimeComb = self._gen_time_trace(self.t, tTrueDuration+self.tDelay)
             # - Array for buffered and new data
-            mfSamplesComb = np.zeros((vtTimeComb, self.nDimIn))
-            nStepsIn = len(vtTimeIn)
+            mfSamplesComb = np.zeros((vtTimeComb.size, self.nDimIn))
+            nStepsIn = vtTimeIn.size
             # - Buffered data: last point of buffer data corresponds to self.t, 
             #   which is also part of current input
             mfSamplesComb[ :-nStepsIn] = self.tsBuffer.mfSamples[:-1]
@@ -142,11 +161,28 @@ class PassThrough(Layer):
 
         else:
             # - Undelayed processed input
-            mSamplesOut = mfInProcessed
+            mfSamplesOut = mfInProcessed
 
         self._t += tTrueDuration
 
-        return TimeSeries(vtTime, mSamplesOut)
+        return TimeSeries(vtTimeIn, mfSamplesOut)
+
+    def __repr__(self):
+        return 'PassThrough layer object `{}`.\nnSize: {}, nDimIn: {}, tDelay: {}'.format(
+            self.strName, self.nSize, self.nDimIn, self.tDelay)
+
+    def print_buffer(self, **kwargs):
+        if self.tsBuffer is not None:
+            self.tsBuffer.print(**kwargs)
+        else:
+            print('This layer does not use a delay.')
+
+    @property
+    def mfBuffer(self):
+        if self.tsBuffer is not None:
+            return self.tsBuffer.mfSamples
+        else:
+            print('This layer does not use a delay.')
 
     def reset_state(self):
         super().reset_state()
@@ -164,6 +200,7 @@ class PassThrough(Layer):
     # def tDelay(self, tNewDelay):
         # Some method to extend self.tsBuffer
 
+### --- FFRateEuler class
 
 class FFRateEuler(Layer):
     """ Feedforward layer consisting of rate-based neurons """
@@ -342,6 +379,10 @@ class FFRateEuler(Layer):
     # def potential(self, vInput: np.ndarray) -> np.ndarray:
     #     return (self._vfAlpha * noisy(vInput@self.mfW*self.vfGain + self.vfBias, self.fNoiseStd)
     #             + (1-self._vfAlpha)*self.vState)
+
+    def __repr__(self):
+        return 'FFRateEuler layer object `{}`.\nnSize: {}, nDimIn: {}'.format(
+            self.strName, self.nSize, self.nDimIn)
 
     @property
     def vActivation(self):
