@@ -285,8 +285,8 @@ class TimeSeries:
 
         # - Fix up periodicity, if the time trace is periodic
         if self.bPeriodic:
-            self._tDuration = vtNewTrace[-1] - vtNewTrace[0]
-            self._tStart = vtNewTrace[0]
+            self._tDuration = vtTimeTraceNew[-1] - vtTimeTraceNew[0]
+            self._tStart = vtTimeTraceNew[0]
 
         # - Create new interpolator
         self.__create_interpolator()
