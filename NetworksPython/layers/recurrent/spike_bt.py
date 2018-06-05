@@ -127,7 +127,7 @@ class RecFSSpikeEulerBT(Layer):
         self.vState = self.vfVRest.copy()
         self.I_s_S = np.zeros(self.nSize)
         self.I_s_F = np.zeros(self.nSize)
-        self.x_hat = np.zeros(self.nSize)
+        self.I_s_O = np.zeros(self.nSize)
 
     @property
     def _tMinTau(self):
@@ -179,7 +179,7 @@ class RecFSSpikeEulerBT(Layer):
         mfS = full_nan((self.nSize, nMaxTimeStep))
         mfF = full_nan((self.nSize, nMaxTimeStep))
         mfDotV = full_nan((self.nSize, nMaxTimeStep))
-        mfx_hat = full_nan((self.nSize, nMaxTimeStep))
+        mfO = full_nan((self.nSize, nMaxTimeStep))
 
         # - Allocate storage for spike times
         nMaxSpikePointer = nMaxTimeStep * self.nSize
@@ -197,7 +197,7 @@ class RecFSSpikeEulerBT(Layer):
         VLast = self._vState.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
-        x_hat_Last = self.x_hat.copy()
+        I_s_O_Last = self.I_s_O.copy()
 
         vfZeros = np.zeros(self.nSize)
         # tSpike = np.nan
@@ -242,7 +242,7 @@ class RecFSSpikeEulerBT(Layer):
                 self._vState = _backstep(self._vState, VLast, self._tDt, tSpikeDelta)
                 self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._tDt, tSpikeDelta)
                 self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._tDt, tSpikeDelta)
-                self.x_hat = _backstep(self.x_hat, x_hat_Last, self._tDt, tSpikeDelta)
+                self.I_s_O = _backstep(self.I_s_O, I_s_O_Last, self._tDt, tSpikeDelta)
 
                 # - Apply reset to spiking neuron
                 self._vState[nFirstSpikeId] = self.vfVReset[nFirstSpikeId]
@@ -280,7 +280,7 @@ class RecFSSpikeEulerBT(Layer):
             VLast[:] = self.vState
             I_s_S_Last[:] = self.I_s_S
             I_s_F_Last[:] = self.I_s_F
-            x_hat_Last[:] = self.x_hat
+            I_s_O_Last[:] = self.I_s_O
 
             # - Update synapse and neuron states (Euler step)
             dotI_s_S = Syn_dotI(tTime, self.I_s_S, self.tDt, I_spike_slow, self.vtTauSynR_s)
@@ -289,8 +289,8 @@ class RecFSSpikeEulerBT(Layer):
             dotI_s_F = Syn_dotI(tTime, self.I_s_F, self.tDt, I_spike_fast, self.vtTauSynR_f)
             self.I_s_F += dotI_s_F * self.tDt
 
-            dotx_hat = Syn_dotI(tTime, self.x_hat, self.tDt, I_spike_output, self.tTauSynO)
-            self.x_hat += dotx_hat * self.tDt
+            dotx_hat = Syn_dotI(tTime, self.I_s_O, self.tDt, I_spike_output, self.tTauSynO)
+            self.I_s_O += dotx_hat * self.tDt
 
             nIntTime = int((tTime-tStart) // self.tDt)
             I_ext = mfStaticInput[nIntTime, :]
@@ -307,7 +307,7 @@ class RecFSSpikeEulerBT(Layer):
                 mfV = np.append(mfV, full_nan((self.nSize, nExtend)), axis = 1)
                 mfS = np.append(mfS, full_nan((self.nSize, nExtend)), axis = 1)
                 mfF = np.append(mfF, full_nan((self.nSize, nExtend)), axis = 1)
-                mfx_hat = np.append(mfx_hat, full_nan((self.nSize, nExtend)), axis = 1)
+                mfO = np.append(mfO, full_nan((self.nSize, nExtend)), axis = 1)
                 mfDotV = np.append(mfDotV, full_nan((self.nSize, nExtend)), axis = 1)
                 nMaxTimeStep += nExtend
 
@@ -316,7 +316,7 @@ class RecFSSpikeEulerBT(Layer):
             mfV[:, nStep] = self._vState
             mfS[:, nStep] = self.I_s_S
             mfF[:, nStep] = self.I_s_F
-            mfx_hat[:, nStep] = self.x_hat
+            mfO[:, nStep] = self.I_s_O
             mfDotV[:, nStep] = dotV
 
             # - Next nominal time step
@@ -330,21 +330,21 @@ class RecFSSpikeEulerBT(Layer):
         self.vState = _backstep(self.vState, VLast, self._tDt, tTime - tFinalTime)
         self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._tDt, tTime - tFinalTime)
         self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._tDt, tTime - tFinalTime)
-        self.x_hat = _backstep(self.x_hat, x_hat_Last, self._tDt, tTime - tFinalTime)
+        self.I_s_O = _backstep(self.I_s_O, I_s_O_Last, self._tDt, tTime - tFinalTime)
 
         ## - Store the network states for final time step
         vtTimes[nStep-1] = tFinalTime
         mfV[:, nStep-1] = self.vState
         mfS[:, nStep-1] = self.I_s_S
         mfF[:, nStep-1] = self.I_s_F
-        mfx_hat[:, nStep-1] = self.x_hat
+        mfO[:, nStep-1] = self.I_s_O
 
         ## - Trim state storage variables
         vtTimes = vtTimes[:nStep]
         mfV = mfV[:, :nStep]
         mfS = mfS[:, :nStep]
         mfF = mfF[:, :nStep]
-        mfx_hat = mfx_hat[:, :nStep]
+        mfO = mfO[:, :nStep]
         mfDotV = mfDotV[:, :nStep]
         vtSpikeTimes = vtSpikeTimes[:nSpikePointer]
         vnSpikeIndices = vnSpikeIndices[:nSpikePointer]
@@ -352,7 +352,7 @@ class RecFSSpikeEulerBT(Layer):
         ## - Construct return time series
         dResp = {'vt': vtTimes,
                  'mfX': mfV,
-                 'mfO': mfx_hat,
+                 'mfO': mfO,
                  'mfA': mfS,
                  'mfF': mfF,
                  'mfFast': mfF,
