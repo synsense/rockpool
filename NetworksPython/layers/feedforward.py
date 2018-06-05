@@ -67,6 +67,8 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
             # - Evolve layer state
             vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
             vState += vDState * vfAlpha
+        
+        # - Compute final activity
         mfActivities[-1, :] = fhActivation(vState + vfBias)
 
         return mfActivities
@@ -115,29 +117,32 @@ class PassThrough(Layer):
         """
 
         # - Discretize input time series
-        vtTime, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
+        vtTimeIn, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
 
         # - Apply input weights and add noise
-        mfProcessed = noisy(mfInput@self.mfW, self.fNoiseStd)
+        mfInProcessed = noisy(mfInput@self.mfW, self.fNoiseStd)
 
         if self.tsBuffer is not None:
-            nBufferSteps = len(self.tsBuffer.vtTimeTrace)
-            nInputSteps = len(vtTime)
-            if nInputSteps >= nBufferSteps: # Input is as least as buffer
-                # - Output buffer content, then first part of new input
-                mSamplesOut = np.vstack((self.tsBuffer.mfSamples[:-1],
-                                         mfProcessed[:-(nBufferSteps-1)]))
-                # - Fill buffer with last part of new input
-                self.tsBuffer.mfSamples = mfProcessed[-nBufferSteps:]
-            else:  # Buffer is longer than input
-                # - Output older part of buffer content
-                # mSamplesOut = self.tsBuffer(vtTime-self.t)
-                mSamplesOut = self.tsBuffer.mfSamples[:nInputSteps]
-                # - Remove older part from buffer, move newer part to beginning and add new input
-                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nInputSteps-1:-1],
-                                                     mfProcessed))
+            # - Combined time trace for buffer and processed input
+            vtTimeComb = self._gen_time_trace(self.t, self.tTrueDuration+self.tDelay)
+            # - Array for buffered and new data
+            mfSamplesComb = np.zeros((vtTimeComb, self.nDimIn))
+            nStepsIn = len(vtTimeIn)
+            # - Buffered data: last point of buffer data corresponds to self.t, 
+            #   which is also part of current input
+            mfSamplesComb[ :-nStepsIn] = self.tsBuffer.mfSamples[:-1]
+            # - Processed input data (weights and noise)
+            mfSamplesComb[-nStepsIn: ] = mfInProcessed
+
+            # - Output data
+            mfSamplesOut = mfSamplesComb[ :nStepsIn]
+
+            # - Update buffer with new data
+            self.tsBuffer.mfSamples = mfSamplesComb[nStepsIn-1:]
+
         else:
-            mSamplesOut = noisy(mfInput@self.mfW, self.fNoiseStd)
+            # - Undelayed processed input
+            mSamplesOut = mfInProcessed
 
         self._t += tTrueDuration
 
@@ -213,13 +218,6 @@ class FFRateEuler(Layer):
                                         vfBias=self.vfBias,
                                         vfAlpha=self.vfAlpha,
                                         fNoiseStd=self.fNoiseStd/np.sqrt(self.tDt))
-
-        # rtStart = time.time()
-        # for i, vIn in enumerate(mSamplesIn):
-        #     self.vState = self.potential(vIn)
-        #     mSamplesOut[i] = self.vActivation
-        #     print_progress(i, len(vtTime), time.time()-rtStart)
-        # print('')
 
         # - Increment internal time representation
         self._t += tTrueDuration
