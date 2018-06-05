@@ -235,7 +235,8 @@ class FFRateEuler(Layer):
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
-                   errors when adding data to existing matrices.
+                   errors when adding data to existing matrices from
+                   previous batches.
         :param tsTarget:    TimeSeries - target for current batch
         :param tsInput:     TimeSeries - input to self for current batch
         :fRegularize:       float - regularization for ridge regression
@@ -257,6 +258,11 @@ class FFRateEuler(Layer):
                 mfTarget.shape[-1], self.nSize))
         
         # - Prepare input data
+
+        # Empty input array with additional dimension for training biases
+        mfInput = np.zeros((np.size(vtTimeTrace), self.nDimIn+1))
+        mfInput[:,-1] = 1
+
         if tsInput is not None:
             # Warn if intput time range does not cover whole target time range
             if not tsInput.contains(vtTimeBase) or tsInput.bPeriodic:
@@ -267,72 +273,76 @@ class FFRateEuler(Layer):
                       +'Assuming input to be 0 outside of defined range.')
 
             # - Sample input trace and check for correct dimensions
-            mfInput = self._check_input_dims(tsInput(vtTimeBase))
+            mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
             # - Treat "NaN" as zero inputs
             mfInput[np.where(np.isnan(mfInput))] = 0
 
+
         else:
-            # - Assume zero input
-            mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn))
-            print('No tsInput defined, assuming input to be 0.')
+            print('No tsInput defined, assuming input to be 0 and only training biases.')
+
+        # - Add constant input dimension for training bias
+
             
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfYXT = np.zeros((nDimOut, nNetSize))
-            self.mfXXT = np.zeros((nNetSize, nNetSize))
+            self.mfXTY = np.zeros((self.nNetSize, self.nDimIn))       # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((self.nNetSize, self.nNetSize))     # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations 
-            self.mfKahanCompYXT = np.zeros_like(mfYXT)
-            self.mfKahanCompXXT = np.zeros_like(mfXXT)
+            self.mfKahanCompXTY = np.zeros_like(mfXTY)
+            self.mfKahanCompXTX = np.zeros_like(mfXTX)
 
         # - Actual computations
-        self._computation_training(mfTarget, mfInput, bFinal)
+        self._computation_training(mfTarget, mfInput, fRegularize, bFinal)
 
     @njit
     def _computation_training(self,
                               mfTarget: np.ndarray,
                               mfInput: np.ndarray,
+                              fRegularize : float,
                               bFinal: bool):
         """
         _computation_training - Perform matrix updates for training and
                                 in final batch also update weights
         :param mfTarget:    2D-Array - training target     
         :param mfInput:     2D-Array - training input to layer
+        :param fRegularize: float - regularization for ridge regression
         :param bFinal:      bool - True for final batch
         """
 
         # - New data to be added, including compensation from last batch
-        mfUpdYXT = mfTarget.T@mfInput - mfKahanCompYXT
-        mfUpdXXT = mfInput.T@mfInput - mfKahanCompXXT
+        mfUpdXTY = mfInput.T@mfTarget - mfKahanCompXTY
+        mfUpdXTX = mfInput.T@mfInput - mfKahanCompXTX
 
         if not bFinal:
             # - Update matrices with new data
-            mfNewYXT = self.mfYXT + mfUpdYXT
-            mfNewXXT = self.mfXXT + mfUpdXXT
+            mfNewXTY = self.mfXTY + mfUpdXTY
+            mfNewXTX = self.mfXTX + mfUpdXTX
             # - Calculate rounding error for compensation in next batch
-            self.mfKahanCompYXT = (mfNewYXT-self.mfYXT) - mfUpdYXT
-            self.mfKahanCompXXT = (mfNewXXT-self.mfXXT) - mfUpdXXT
+            self.mfKahanCompXTY = (mfNewXTY-self.mfXTY) - mfUpdXTY
+            self.mfKahanCompXTX = (mfNewXTX-self.mfXTX) - mfUpdXTX
             # - Store updated matrices
-            self.mfYXT = mfNewYXT
-            self.mfXXT = mfNewXXT
+            self.mfXTY = mfNewXTY
+            self.mfXTX = mfNewXTX
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
-            self.mfYXT += mfUpdYXT
-            self.mfXXT += mfUpdXXT 
+            self.mfXTY += mfUpdXTY
+            self.mfXTX += mfUpdXTX 
 
             # - Weight update by ridge regression
-            self.mfW = np.linalg.solve(self.mfXXT+fRegularize*np.eye(nNetSize),
-                                       self.mfYXT.T).T
+            self.mfW = np.linalg.solve(self.mfXTX + fRegularize*np.eye(nNetSize),
+                                       self.mfXTY).T
 
             # - Remove dat stored during this trainig
-            self.mfYXT = self.mfXXT = self.mfKahanCompYXT = self.mfKahanCompXXT = None              
+            self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None              
 
 
-    @njit
-    def potential(self, vInput: np.ndarray) -> np.ndarray:
-        return (self._vfAlpha * noisy(vInput*self.vfGain + self.vfBias, self.fNoiseStd)
-                + (1-self._vfAlpha)*self.vState)
+    # @njit
+    # def potential(self, vInput: np.ndarray) -> np.ndarray:
+    #     return (self._vfAlpha * noisy(vInput@self.mfW*self.vfGain + self.vfBias, self.fNoiseStd)
+    #             + (1-self._vfAlpha)*self.vState)
 
     @property
     def vActivation(self):
