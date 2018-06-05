@@ -154,7 +154,6 @@ class TimeSeries:
         :param vtTimes: np.ndarray of T desired interpolated time points
         :return:        np.ndarray of interpolated values. Will have the shape TxN
         """
-
         # - Enforce periodicity
         if self.bPeriodic:
             vtTimes = (np.asarray(vtTimes) - self._tStart) % self._tDuration + self._tStart
@@ -162,9 +161,15 @@ class TimeSeries:
         return self.oInterp(vtTimes)
 
     def delay(self, tOffset):
+        """
+        delay - Delay a TimeSeries by an offset. Deprecated: Use ".vtTimeTrace += ..." instead
+        :param tOffset: float Time offset
+        :return: New TimeSeries, delayed
+        """
         warn('DEPRECATED')
-        tsDelayed = TimeSeries(self.vtTimeTrace + tOffset, self.mfSamples, self.strInterpKind, self.bPeriodic)
-        return tsDelayed
+        tsCopy = self.copy()
+        tsCopy.vtTimeTrace += tOffset
+        return tsCopy
 
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
         """
@@ -217,7 +222,10 @@ class TimeSeries:
         """
 
         # - Return a new time series
-        return TimeSeries(vtTimes, self(vtTimes))
+        tsResampled = self.copy()
+        tsResampled._vtTimeTrace = vtTimes
+        tsResampled._mfSamples = self(vtTimes)
+        return tsResampled
 
     def resample_within(self, tStart: float=None, tStop: float=None, tDt: float=None):
         """
