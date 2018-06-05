@@ -11,9 +11,8 @@ from brian2.units.allunits import *
 
 from TimeSeries import TimeSeries
 
-from .layer import Layer
-
-from .recurrent.timedarray_shift import TimedArray as TAShift
+from ..layer import Layer
+from ..recurrent.timedarray_shift import TimedArray as TAShift
 
 # - Configure exports
 __all__ = ['FFIAFBrian', 'eqNeuronIAF', 'eqSynapseExp']

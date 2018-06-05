@@ -3,9 +3,10 @@
 ###
 
 ### --- Imports
-# import numpy as np
+import numpy as np
 # from math import gcd
 # from functools import reduce
+from typing import Callable
 
 # from layers import feedforward, recurrent
 from TimeSeries import TimeSeries
@@ -15,10 +16,12 @@ from layers.layer import Layer
 # - Configure exports
 __all__ = ['Network']
 
+# - Relative tolerance for float comparions
+fTolerance = 1e-5
 
 ### --- Helper functions
 
-def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
+def isMultiple(a: float, b: float, fTolerance: float = fTolerance) -> bool:
     """
     isMultiple - Check whether a%b is 0 within some tolerance.
     :param a: float The number that may be multiple of b
@@ -36,13 +39,13 @@ class Network:
     def __init__(self,
                  lyrInput: Layer = None,
                  lyrRes: Layer = None,
-                 lyrOutput: Layer = None):
+                 lyrReadout: Layer = None):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
         :param lyrInput:   Layer Input layer (recieves network-external input)
         :param lyrRes:     Layer Internal layer (usually a recurrent reservoir)
-        :param lyrOutput:  Layer Output layer (provides network-external output)
+        :param lyrReadout:  Layer Output layer (provides network-external output)
         """
 
         # - Network time
@@ -50,7 +53,7 @@ class Network:
 
         # Maintain set of all layers
         self.setLayers = set()
-        
+
         # - Add layers
         if lyrInput is not None:
             self.lyrInput = self.add_layer(lyrInput, bExternalInput=True)
@@ -58,24 +61,24 @@ class Network:
         if lyrInput is not None and lyrRes is not None:
             self.lyrRes = self.add_layer(lyrRes, lyrInput =self.lyrInput)
 
-        if lyrRes is not None and lyrOutput is not None:
-            self.lyrOutput = self.add_layer(lyrOutput, lyrInput =self.lyrRes)
-               
+        if lyrRes is not None and lyrReadout is not None:
+            self.lyrReadout = self.add_layer(lyrReadout, lyrInput =self.lyrRes)
+
     def add_layer(self,
                   lyr: Layer,
                   lyrInput: Layer = None,
                   lyrOutput: Layer = None,
                   bExternalInput: bool = False) -> Layer:
         """Add lyr to self and to self.setLayers. Its attribute name
-        is 'lyr'+lyr.strName. Check whether layer with this name 
-        already exists (replace anyway). 
-        Connect lyr to those in lyrInput and lyrOutput.
+        is 'lyr'+lyr.strName. Check whether layer with this name
+        already exists (replace anyway).
+        Connect lyr to lyrInput and lyrOutput.
         Return lyr.
             lyr : layer to be added to self
             lyrInput : input layer to lyr
             lyrOutput : layer to which lyr is input layer
         """
-        
+
         # - Check whether layer time matches network time
         assert lyr.t == self.t, ('Layer time must match network time '
             +'(network: t={}, layer: t={})'.format(self.t, lyr.t))
@@ -140,7 +143,7 @@ class Network:
         return sNewName
 
     def remove_layer(self, lyrDel: Layer):
-        """ 
+        """
         remove_layer: Remove a layer from the network by removing it
                       from the layer inventory and make sure that no
                       other layer receives input from it.
@@ -174,7 +177,7 @@ class Network:
 
         # - Add source layer to target's set of inputs
         lyrTarget.lyrIn = lyrSource
-        
+
         # - Make sure that the network remains a directed acyclic graph
         #   and reevaluate evolution order
         try:
@@ -226,7 +229,7 @@ class Network:
                     raise NetworkError('Cannot resolve evolution order of layers')
                     # Could implement timestep-wise evolution...
                 else:
-                    # - If there is a candidate and none of the remaining layers 
+                    # - If there is a candidate and none of the remaining layers
                     #   is its input layer, this will be the next
                     if not (lyrCandidate.lyrIn in setlyrRemaining):
                         return lyrCandidate
@@ -242,7 +245,7 @@ class Network:
             lOrder.append(lyrNext)
             setlyrRemaining.remove(lyrNext)
 
-        # - Return a list with the layers in their evolution order    
+        # - Return a list with the layers in their evolution order
         return lOrder
 
     def evolve(self,
@@ -250,8 +253,8 @@ class Network:
                tDuration: float = None) -> dict:
         """
         evolve - Evolve each layer in the network according to self.lEvolOrder.
-                 For layers with bExternalInput==True their input is 
-                 tsExternalInput. If not but an input layer is defined, it 
+                 For layers with bExternalInput==True their input is
+                 tsExternalInput. If not but an input layer is defined, it
                  will be the output of that, otherwise None.
                  Return a dict with each layer's output.
         :param tsExternalInput:  TimeSeries with external input data.
@@ -265,7 +268,7 @@ class Network:
         if tDuration is None:
             assert tsExternalInput is not None, (
                 'One of `tsExternalInput` or `tDuration` must be supplied')
-            
+
             if tsExternalInput.bPeriodic:
                 # - Use duration of periodic TimeSeries, if possible
                 tDuration = tsExternalInput.tDuration
@@ -276,7 +279,7 @@ class Network:
                 assert tDuration > 0, (
                     'Cannot determine an appropriate evolution duration. '
                    +'`tsExternalInput` finishes before the current evolution time.')
-        
+
         # - List of layers where tDuration is not a multiple of tDt
         llyrDtMismatch = list(filter(lambda lyr: not isMultiple(tDuration, lyr.tDt), self.lEvolOrder))
 
@@ -288,9 +291,9 @@ class Network:
             raise ValueError('`tDuration` is not a multiple of `tDt` for the following layer(s):\n'
                              + strLayers)
 
-        # - Dict to store each layer's output time series
-        dtsOutputs = {}
-        
+        # - Dict to store external input and each layer's output time series
+        dtsSignal = {'external' : tsExternalInput.resample_within(self.t, self.t+tDuration)  }
+
         # - Make sure layers are in sync with netowrk
         self._check_sync()
 
@@ -304,16 +307,16 @@ class Network:
                 strIn = 'external input'
             elif lyr.lyrIn is not None:
                 # Output of current layer's input layer
-                tsCurrentInput = dtsOutputs[lyr.lyrIn.strName]
+                tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
                 strIn = lyr.lyrIn.strName + "'s output"
             else:
                 # No input
                 tsCurrentInput = None
-                'nothing'
+                strIn = 'nothing'
 
             print('Evolving layer `{}` with {} as input'.format(lyr.strName, strIn))
-            # Evolve layer and store output in dtsOutputs
-            dtsOutputs[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
+            # Evolve layer and store output in dtsSignal
+            dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
 
         # - Update network time
         self._t += tDuration
@@ -322,7 +325,60 @@ class Network:
         self._check_sync()
 
         # - Return dict with layer outputs
-        return dtsOutputs
+        return dtsSignal
+
+    def train(self,
+              fhTraining: Callable,
+              tsExternalInput: TimeSeries = None,
+              tDuration: float = None,
+              tDurBatch: float = None):
+        """
+        train - Train the network batch-wise by evolving the layers and
+                calling fhTraining.
+        :param fhTraining:      Function that is called after each evolution
+        :param tsExternalInput: TimeSeries with external input to network
+        :param tDuration:       float - Duration over which netŵork should
+                                        be evolved. If None, evolution is
+                                        over the duration of tsExternalInput
+        :param tDurBatch:       float - Duration of one batch
+        """
+
+        # - Determine duration of training
+        if tDuration is None:
+            assert tsExternalInput is not None, (
+                'One of `tsExternalInput` or `tDuration` must be supplied')
+
+            if tsExternalInput.bPeriodic:
+                # - Use duration of periodic TimeSeries, if possible
+                tRemaining = tsExternalInput.tDuration
+
+            else:
+                # - Evolve until the end of the input TimeSeries
+                tRemaining = tsExternalInput.tStop - self.t
+                assert tRemaining > 0, (
+                    'Cannot determine an appropriate evolution duration. '
+                   +'`tsExternalInput` finishes before the current evolution time.')
+
+        # - Determine batch duration and number
+        tDurBatch = tRemaining if tDurBatch is None else tDurBatch
+        nNumBatches = int(np.ceil(tRemaining/tDurBatch))
+
+        # - Iterate over batches
+        bFirst = True
+        bFinal = False
+        for nBatch in range(1, nNumBatches+1):
+            print('\nTraining batch {} of {}'.format(nBatch, nNumBatches))
+            # - Evolve network
+            dtsSignal = self.evolve(tsExternalInput, min(tDurBatch, tRemaining))
+            # - Remaining simulation time
+            tRemaining -= tDurBatch
+            # - Determine if this batch was the first or the last of training
+            if nBatch == nNumBatches: bFinal = True
+            # - Call the callback
+            fhTraining(self, dtsSignal, bFirst, bFinal)
+            bFirst = False           
+
+        print('\nTraining successful')
 
     def _check_sync(self) -> bool:
         """
@@ -406,7 +462,7 @@ def lcm(*numbers: int) -> int:
         lcm - Return the least common multiple of a series of numbers
     :param numbers: iterable containing integer values
     :return: int The least common multiple of *numbers
-    
+
     # - The LCM of two numbers is their product divided by their gcd
     def _lcm(x: int, y: int) -> int:
         return x*y//gcd(x,y)
@@ -427,7 +483,7 @@ def lcm(*numbers: int) -> int:
         dParamsRes.update(kwReservoir)
         dParamsOut.update(kwOutput)
         try:
-            dParamsRes['vTau_n'] = kwReservoir['vTau_n']  
+            dParamsRes['vTau_n'] = kwReservoir['vTau_n']
         except KeyError:
             dParamsRes['vTau_n'] = np.random.rand(dParamsRes['nSize'])
 
@@ -447,13 +503,13 @@ def lcm(*numbers: int) -> int:
         #         try:
         #             dParamsRes[sParam] = np.full(self.nReservoirs, dParamsRes[sParam])
         #         except ValueError:
-        #             raise ValueError('The number of arguments for {} '.format(sParam) 
+        #             raise ValueError('The number of arguments for {} '.format(sParam)
         #                              + '({0}) does not match nReservoirs ({1})'.format(
         #                             len(dParamsRes), self.nReservoirs))
         # for i in range(self.nReservoirs):
-        #     setattr(self, 'lyrRes{}'.format(i), 
+        #     setattr(self, 'lyrRes{}'.format(i),
         #             Recurrent.RecLayer(**{s : v[i] for s, v in dParamsRes.items()}))
-    
+
         # - Generate connections: Each layer except input has a set with
         # references to its input layer
 
@@ -470,7 +526,7 @@ def lcm(*numbers: int) -> int:
         # else:
         #     raise NetworkError('Connection type `{}` not understood'.format(sResConn))
 
-        ""Add feedforward or recurrent layer to network and maintain 
+        ""Add feedforward or recurrent layer to network and maintain
         set containing all layers.""
         sLyrName = 'lyr'+strName
         if hasattr(self, sLyrName):
@@ -479,11 +535,11 @@ def lcm(*numbers: int) -> int:
         if sKind == 'ffrate':
             setattr(self, sLyrName, FeedForward.FFRate(strName=strName, fDt=self.__fDt, **kwargs))
             print('Rate-based feedforward layer `{}` has been added to network.'.format(strName))
-        
+
         elif sKind == 'pass':
             setattr(self, sLyrName, FeedForward.PassThrough(strName=strName, fDt=self.__fDt, **kwargs))
             print('PassThrough layer `{}` has been added to network.'.format(strName))
-        
+
         elif sKind in ['Reservoir', 'reservoir', 'Recurrent', 'recurrent', 'res', 'rec']:
             setattr(self, sLyrName, Recurrent.RecLayer(strName=strName, fDt=self.__fDt, **kwargs))
             print('Recurrent layer `{}` has been added to network.'.format(strName))

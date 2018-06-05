@@ -1,24 +1,33 @@
 import numpy as np
-import time
-from abc import abstractmethod
 from typing import Callable
 from numba import njit
 
 from TimeSeries import TimeSeries
 from layers.layer import Layer
+from network import Network
 
+
+# - Relative tolerance for float comparions
 fTolerance = 1e-5
 
-@njit
-def fhReLU(vfX: np.ndarray) -> np.ndarray:
+
+### --- Helper functions
+
+def isMultiple(a: float, b: float, fTolerance: float = fTolerance) -> bool:
     """
-    Activation function for rectified linear units.
-    :param vfX:             ndarray with current neuron potentials
-    :return:                np.clip(vfX, 0, None)
+    isMultiple - Check whether a%b is 0 within some tolerance.
+    :param a: float The number that may be multiple of b
+    :param b: float The number a may be a multiple of
+    :param fTolerance: float Relative tolerance
+    :return bool: True if a is a multiple of b within some tolerance
     """
-    mfCopy = np.copy(vfX)
-    mfCopy[np.where(vfX < 0)] = 0
-    return mfCopy
+    fMinRemainder = min(a%b, b-a%b)
+    return fMinRemainder < fTolerance*b
+
+def print_progress(iCurr: int, nTotal: int, tPassed: float):
+    print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
+             iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
+           end='\r')
 
 @njit
 def noisy(mX: np.ndarray, fStdDev: float) -> np.ndarray:
@@ -30,10 +39,19 @@ def noisy(mX: np.ndarray, fStdDev: float) -> np.ndarray:
     """
     return fStdDev * np.random.randn(*mX.shape) + mX
 
-def print_progress(iCurr: int, nTotal: int, tPassed: float):
-    print('Progress: [{:6.1%}]    in {:6.1f} s. Remaining:   {:6.1f}'.format(
-             iCurr/nTotal, tPassed, tPassed*(nTotal-iCurr)/max(0.1, iCurr)),
-           end='\r')
+
+### --- Functions used in connection with FFRateEuler class
+
+@njit
+def fhReLU(vfX: np.ndarray) -> np.ndarray:
+    """
+    Activation function for rectified linear units.
+    :param vfX:             ndarray with current neuron potentials
+    :return:                np.clip(vfX, 0, None)
+    """
+    mfCopy = np.copy(vfX)
+    mfCopy[np.where(vfX < 0)] = 0
+    return mfCopy
 
 def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     """
@@ -67,6 +85,8 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
             # - Evolve layer state
             vDState = -vState + noisy(vfGain * mfWeightedInput[nStep, :], fNoiseStd)
             vState += vDState * vfAlpha
+
+        # - Compute final activity
         mfActivities[-1, :] = fhActivation(vState + vfBias)
 
         return mfActivities
@@ -75,90 +95,7 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     return evolve_Euler_complete
 
 
-class PassThrough(Layer):
-    """ Neuron states directly correspond to input, but can be delayed. """
-
-    def __init__(self,
-                 mfW: np.ndarray,
-                 tDt: float = 1,
-                 fNoiseStd: float = 0,
-                 tDelay: float = 0,
-                 strName: str = None):
-        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
-        self._tDelay = tDelay
-        self.reset_all()
-
-        # Buffer already reset by super().__init__ which calls self.reset_all()
-        # self.reset_buffer()
-
-    def reset_buffer(self):
-        if self.tDelay != 0:
-            # - Make sure that self.tDelay is a multiple of self.tDt
-            if (min(self.tDelay%self.tDt, self.tDt-self.tDelay%self.tDt) 
-                > fTolerance * self.tDt):
-                raise ValueError('tDelay must be a multiple of tDt')
-
-            vtBuffer = np.arange(0, self.tDelay+self._tDt, self._tDt)
-            self.tsBuffer = TimeSeries(vtBuffer,
-                                       np.zeros((len(vtBuffer), self.nSize)))
-        else:
-            self.tsBuffer = None
-
-    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
-        """
-        evolve - Evolve the state of this layer
-
-        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-
-        :return: TimeSeries Output of this layer during evolution period
-        """
-
-        # - Discretize input time series
-        vtTime, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
-
-        # - Apply input weights and add noise
-        mfProcessed = noisy(mfInput@self.mfW, self.fNoiseStd)
-
-        if self.tsBuffer is not None:
-            nBufferSteps = len(self.tsBuffer.vtTimeTrace)
-            nInputSteps = len(vtTime)
-            if nInputSteps >= nBufferSteps: # Input is as least as buffer
-                # - Output buffer content, then first part of new input
-                mSamplesOut = np.vstack((self.tsBuffer.mfSamples[:-1],
-                                         mfProcessed[:-(nBufferSteps-1)]))
-                # - Fill buffer with last part of new input
-                self.tsBuffer.mfSamples = mfProcessed[-nBufferSteps:]
-            else:  # Buffer is longer than input
-                # - Output older part of buffer content
-                # mSamplesOut = self.tsBuffer(vtTime-self.t)
-                mSamplesOut = self.tsBuffer.mfSamples[:nInputSteps]
-                # - Remove older part from buffer, move newer part to beginning and add new input
-                self.tsBuffer.mfSamples = np.vstack((self.tsBuffer.mfSamples[nInputSteps-1:-1],
-                                                     mfProcessed))
-        else:
-            mSamplesOut = noisy(mfInput@self.mfW, self.fNoiseStd)
-
-        self._t += tTrueDuration
-
-        return TimeSeries(vtTime, mSamplesOut)
-
-    def reset_state(self):
-        super().reset_state()
-        self.reset_buffer()
-
-    def reset_all(self):
-        super().reset_all()
-        self.reset_buffer()
-
-    @property
-    def tDelay(self):
-        return self._tDelay
-
-    # @tDelay.setter
-    # def tDelay(self, tNewDelay):
-        # Some method to extend self.tsBuffer
-
+### --- FFRateEuler class
 
 class FFRateEuler(Layer):
     """ Feedforward layer consisting of rate-based neurons """
@@ -214,13 +151,6 @@ class FFRateEuler(Layer):
                                         vfAlpha=self.vfAlpha,
                                         fNoiseStd=self.fNoiseStd/np.sqrt(self.tDt))
 
-        # rtStart = time.time()
-        # for i, vIn in enumerate(mSamplesIn):
-        #     self.vState = self.potential(vIn)
-        #     mSamplesOut[i] = self.vActivation
-        #     print_progress(i, len(vtTime), time.time()-rtStart)
-        # print('')
-
         # - Increment internal time representation
         self._t += tTrueDuration
 
@@ -235,7 +165,8 @@ class FFRateEuler(Layer):
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
-                   errors when adding data to existing matrices.
+                   errors when adding data to existing matrices from
+                   previous batches.
         :param tsTarget:    TimeSeries - target for current batch
         :param tsInput:     TimeSeries - input to self for current batch
         :fRegularize:       float - regularization for ridge regression
@@ -249,14 +180,19 @@ class FFRateEuler(Layer):
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
-        
+
         # - Prepare target data, check dimensions
         mfTarget = tsTarget(vtTimeBase)
         assert mfTarget.shape[-1] == self.nSize, \
             ('Target dimensions ({}) does not match layer size ({})'.format(
                 mfTarget.shape[-1], self.nSize))
-        
+
         # - Prepare input data
+
+        # Empty input array with additional dimension for training biases
+        mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn+1))
+        mfInput[:,-1] = 1
+
         if tsInput is not None:
             # Warn if intput time range does not cover whole target time range
             if not tsInput.contains(vtTimeBase) or tsInput.bPeriodic:
@@ -267,74 +203,61 @@ class FFRateEuler(Layer):
                       +'Assuming input to be 0 outside of defined range.')
 
             # - Sample input trace and check for correct dimensions
-            mfInput = self._check_input_dims(tsInput(vtTimeBase))
+            mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
             # - Treat "NaN" as zero inputs
             mfInput[np.where(np.isnan(mfInput))] = 0
 
         else:
-            # - Assume zero input
-            mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn))
-            print('No tsInput defined, assuming input to be 0.')
-            
+            print('No tsInput defined, assuming input to be 0 and only training biases.')
+
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfYXT = np.zeros((self.nSize, self.nDimIn))
-            self.mfXXT = np.zeros((self.nDimIn, self.nDimIn))
-            # Corresponding Kahan compensations 
-            self.mfKahanCompYXT = np.zeros_like(self.mfYXT)
-            self.mfKahanCompXXT = np.zeros_like(self.mfXXT)
-
-        # - Actual computations
-        self._computation_training(mfTarget, mfInput, fRegularize, bFinal)
-
-    @njit
-    def _computation_training(self,
-                              mfTarget: np.ndarray,
-                              mfInput: np.ndarray,
-                              fRegularize: float,
-                              bFinal: bool):
-        """
-        _computation_training - Perform matrix updates for training and
-                                in final batch also update weights
-        :param mfTarget:    2D-Array - training target     
-        :param mfInput:     2D-Array - training input to layer
-        :param fRegularize: float - Regularization parameter
-        :param bFinal:      bool - True for final batch
-        """
+            self.mfXTY = np.zeros((self.nDimIn+1, self.nSize))  # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((self.nDimIn+1, self.nDimIn+1))     # mfInput.T (dot) mfInput
+            # Corresponding Kahan compensations
+            self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
+            self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
 
         # - New data to be added, including compensation from last batch
-        mfUpdYXT = mfTarget.T@mfInput - self.mfKahanCompYXT
-        mfUpdXXT = mfInput.T@mfInput - self.mfKahanCompXXT
+        #   (Matrix summation always runs over time)
+        mfUpdXTY = mfInput.T@mfTarget - self.mfKahanCompXTY
+        mfUpdXTX = mfInput.T@mfInput - self.mfKahanCompXTX
 
         if not bFinal:
             # - Update matrices with new data
-            mfNewYXT = self.mfYXT + mfUpdYXT
-            mfNewXXT = self.mfXXT + mfUpdXXT
+            mfNewXTY = self.mfXTY + mfUpdXTY
+            mfNewXTX = self.mfXTX + mfUpdXTX
             # - Calculate rounding error for compensation in next batch
-            self.mfKahanCompYXT = (mfNewYXT-self.mfYXT) - mfUpdYXT
-            self.mfKahanCompXXT = (mfNewXXT-self.mfXXT) - mfUpdXXT
+            self.mfKahanCompXTY = (mfNewXTY-self.mfXTY) - mfUpdXTY
+            self.mfKahanCompXTX = (mfNewXTX-self.mfXTX) - mfUpdXTX
             # - Store updated matrices
-            self.mfYXT = mfNewYXT
-            self.mfXXT = mfNewXXT
+            self.mfXTY = mfNewXTY
+            self.mfXTX = mfNewXTX
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
-            self.mfYXT += mfUpdYXT
-            self.mfXXT += mfUpdXXT 
+            self.mfXTY += mfUpdXTY
+            self.mfXTX += mfUpdXTX
 
-            # - Weight update by ridge regression
-            self.mfW = np.linalg.solve(self.mfXXT+fRegularize*np.eye(self.nDimIn),
-                                       self.mfYXT.T).T
+            # - Weight and bias update by ridge regression
+            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nDimIn+1),
+                                         self.mfXTY)
+            self.mfW = mfSolution[:-1, :]
+            self.vfBias = mfSolution[-1, :]
 
             # - Remove dat stored during this trainig
-            self.mfYXT = self.mfXXT = self.mfKahanCompYXT = self.mfKahanCompXXT = None              
+            self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
 
 
-    @njit
-    def potential(self, vInput: np.ndarray) -> np.ndarray:
-        return (self._vfAlpha * noisy(vInput*self.vfGain + self.vfBias, self.fNoiseStd)
-                + (1-self._vfAlpha)*self.vState)
+    # @njit
+    # def potential(self, vInput: np.ndarray) -> np.ndarray:
+    #     return (self._vfAlpha * noisy(vInput@self.mfW*self.vfGain + self.vfBias, self.fNoiseStd)
+    #             + (1-self._vfAlpha)*self.vState)
+
+    def __repr__(self):
+        return 'FFRateEuler layer object `{}`.\nnSize: {}, nDimIn: {}   '.format(
+            self.strName, self.nSize, self.nDimIn)
 
     @property
     def vActivation(self):
@@ -395,3 +318,108 @@ class FFRateEuler(Layer):
         self._tDt = tNewDt
         self._vfAlpha = tNewDt/self._vtTau
 
+
+### --- PassThrough Class
+
+class PassThrough(Layer):
+    """ Neuron states directly correspond to input, but can be delayed. """
+
+    def __init__(self,
+                 mfW: np.ndarray,
+                 tDt: float = 1,
+                 fNoiseStd: float = 0,
+                 tDelay: float = 0,
+                 strName: str = None):
+        super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
+        self._tDelay = (0 if tDelay is None else tDelay)
+        self.reset_all()
+
+        # Buffer already reset by super().__init__ which calls self.reset_all()
+        # self.reset_buffer()
+
+    def reset_buffer(self):
+        if self.tDelay != 0:
+            # - Make sure that self.tDelay is a multiple of self.tDt
+            if not isMultiple(self.tDelay, self.tDt):
+                raise ValueError('tDelay must be a multiple of tDt')
+
+            vtBuffer = np.arange(0, self.tDelay+self._tDt, self._tDt)
+            self.tsBuffer = TimeSeries(vtBuffer,
+                                       np.zeros((len(vtBuffer), self.nSize)))
+        else:
+            self.tsBuffer = None
+
+    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
+        """
+        evolve - Evolve the state of this layer
+
+        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
+        :param tDuration:   float Duration of evolution, in seconds
+
+        :return: TimeSeries Output of this layer during evolution period
+        """
+
+        # - Discretize input time series
+        vtTimeIn, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
+
+        # - Apply input weights and add noise
+        mfInProcessed = noisy(mfInput@self.mfW, self.fNoiseStd)
+
+        if self.tsBuffer is not None:
+            # - Combined time trace for buffer and processed input
+            vtTimeComb = self._gen_time_trace(self.t, tTrueDuration+self.tDelay)
+            # - Array for buffered and new data
+            mfSamplesComb = np.zeros((vtTimeComb.size, self.nDimIn))
+            nStepsIn = vtTimeIn.size
+            # - Buffered data: last point of buffer data corresponds to self.t,
+            #   which is also part of current input
+            mfSamplesComb[ :-nStepsIn] = self.tsBuffer.mfSamples[:-1]
+            # - Processed input data (weights and noise)
+            mfSamplesComb[-nStepsIn: ] = mfInProcessed
+
+            # - Output data
+            mfSamplesOut = mfSamplesComb[ :nStepsIn]
+
+            # - Update buffer with new data
+            self.tsBuffer.mfSamples = mfSamplesComb[nStepsIn-1:]
+
+        else:
+            # - Undelayed processed input
+            mfSamplesOut = mfInProcessed
+
+        self._t += tTrueDuration
+
+        return TimeSeries(vtTimeIn, mfSamplesOut)
+
+    def __repr__(self):
+        return 'PassThrough layer object `{}`.\nnSize: {}, nDimIn: {}, tDelay: {}'.format(
+            self.strName, self.nSize, self.nDimIn, self.tDelay)
+
+    def print_buffer(self, **kwargs):
+        if self.tsBuffer is not None:
+            self.tsBuffer.print(**kwargs)
+        else:
+            print('This layer does not use a delay.')
+
+    @property
+    def mfBuffer(self):
+        if self.tsBuffer is not None:
+            return self.tsBuffer.mfSamples
+        else:
+            print('This layer does not use a delay.')
+
+    def reset_state(self):
+        super().reset_state()
+        self.reset_buffer()
+
+    def reset_all(self):
+        super().reset_all()
+        self.reset_buffer()
+
+    @property
+    def tDelay(self):
+        return self._tDelay
+
+    # @tDelay.setter
+    # def tDelay(self, tNewDelay):
+        # Some method to extend self.tsBuffer
