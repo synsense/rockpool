@@ -4,7 +4,7 @@ from numba import njit
 
 from TimeSeries import TimeSeries
 from layers.layer import Layer
-from layers import noisy, fhReLU
+from network import Network
 
 
 # - Relative tolerance for float comparions
@@ -93,26 +93,6 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
 
     # - Return the compiled function
     return evolve_Euler_complete
-
-def fhTrain(net: Network,
-            dSignal: dict,
-            bFirst: bool,
-            bFinal: bool,
-            tsTarget: TimeSeries,
-            lyr: FFRateEuler,
-            fRegularize: float = 0):
-    """
-    fhTrain - function handle for training FFRateEuler layer
-    :param net:         network that layer is part of
-    :param dSignal:     dict with network in- and outputs
-    :param bFirst:      bool - True if current batch is the first in training
-    :param bFinal:      bool - True if current batch is the last in training
-    :param tsTarget:    TimeSeries - Target for layer
-    :param lyr:         FFRateEuler - Layer to be trained
-    :param fRegularize: float - Regularization parameter. Default: 0    
-    """
-    tsInput = dSignal[lyr.lyrIn.strName]
-    lyr.train_rr(tsTarget, tsInput, fRegularize, bFirst, bFinal)
 
 
 ### --- FFRateEuler class
@@ -210,7 +190,7 @@ class FFRateEuler(Layer):
         # - Prepare input data
 
         # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeTrace), self.nDimIn+1))
+        mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn+1))
         mfInput[:,-1] = 1
 
         if tsInput is not None:
@@ -233,34 +213,15 @@ class FFRateEuler(Layer):
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros((self.nSize, self.nDimIn+1))  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros((self.nSize, self.nSize))     # mfInput.T (dot) mfInput
+            self.mfXTY = np.zeros((self.nDimIn+1, self.nSize))  # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((self.nDimIn+1, self.nDimIn+1))     # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations
-            self.mfKahanCompXTY = np.zeros_like(mfXTY)
-            self.mfKahanCompXTX = np.zeros_like(mfXTX)
-
-
-        # - Actual computations
-        self._computation_training(mfTarget, mfInput, fRegularize, bFinal)
-
-    @njit
-    def _computation_training(self,
-                              mfTarget: np.ndarray,
-                              mfInput: np.ndarray,
-                              fRegularize : float,
-                              bFinal: bool):
-        """
-        _computation_training - Perform matrix updates for training and
-                                in final batch also update weights
-        :param mfTarget:    2D-Array - Training target
-        :param mfInput:     2D-Array - Training input to layer
-        :param fRegularize: float - Regularization parameter
-        :param bFinal:      bool - True for final batch
-        """
+            self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
+            self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
-        mfUpdXTY = mfTarget.T@mfInput - self.mfKahanCompXTY
+        mfUpdXTY = mfInput.T@mfTarget - self.mfKahanCompXTY
         mfUpdXTX = mfInput.T@mfInput - self.mfKahanCompXTX
 
         if not bFinal:
@@ -280,11 +241,10 @@ class FFRateEuler(Layer):
             self.mfXTX += mfUpdXTX
 
             # - Weight and bias update by ridge regression
-            mfSolution = np.linalg.solve(self.mfXTX+fRegularize*np.eye(self.nDimIn),
+            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nDimIn+1),
                                          self.mfXTY)
             self.mfW = mfSolution[:-1, :]
             self.vfBias = mfSolution[-1, :]
-
 
             # - Remove dat stored during this trainig
             self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
