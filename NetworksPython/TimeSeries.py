@@ -98,7 +98,7 @@ class TimeSeries:
         # - Check arguments
         assert np.size(vtTimeTrace) == mfSamples.shape[0], 'The number of time samples must be equal to the first ' \
                                                             'dimension of `mfSamples`'
-        assert np.all(np.diff(vtTimeTrace) > 0), 'The time trace must be sorted and always increasing'
+        assert np.all(np.diff(vtTimeTrace) >= 0), 'The time trace must be sorted and not decreasing'
 
         # - Assign attributes
         self.__vtTimeTrace = vtTimeTrace
