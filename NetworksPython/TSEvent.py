@@ -53,7 +53,7 @@ class TSEvent(TimeSeries):
                          strName = strName)
 
         # - Store channels
-        self.__vnChannels = np.array(vnChannels).flatten()
+        self._vnChannels = np.array(vnChannels).flatten()
 
 
     def interpolate(self, vtTimes: np.ndarray):
@@ -88,12 +88,12 @@ class TSEvent(TimeSeries):
 
             # - Return matching samples
             return self.vtTimeTrace[vbMatchingTimes], \
-                   self.__vnChannels[vbMatchingTimes], \
+                   self.vnChannels[vbMatchingTimes], \
                    (self.mfSamples[vbMatchingTimes]).flatten()
 
         else:
             # - Return all samples
-            return self.vtTimeTrace, self.__vnChannels, self.mfSamples.flatten()
+            return self.vtTimeTrace, self.vnChannels, self.mfSamples.flatten()
 
 
     def clip(self, vtNewBounds):
@@ -101,7 +101,7 @@ class TSEvent(TimeSeries):
         tsClip, vbIncludeSamples = super()._clip(vtNewBounds)
 
         # - Fix up channels variable
-        tsClip.__vnChannels = self.__vnChannels[vbIncludeSamples]
+        tsClip._vnChannels = self._vnChannels[vbIncludeSamples]
 
         # - Return new TimeSeries
         return tsClip
@@ -120,13 +120,12 @@ class TSEvent(TimeSeries):
         # - Get samples
         vtTimes, vnChannels, _ = self.find(vtTimes)
 
-        bUseHoloviews, bUseMatplotlib = GetPlottingBackend()
-        if bUseHoloviews:
+        if self._bUseHoloviews:
             return hv.Scatter((vtTimes, vnChannels)) \
                 .redim(x = 'Time', y = 'Channel') \
                 .relabel(self.strName)
 
-        elif bUseMatplotlib:
+        elif self._bUseMatplotlib:
             return plt.plot(vtTimes, self(vtTimes), **kwargs)
 
         else:
@@ -162,10 +161,24 @@ class TSEvent(TimeSeries):
         """
 
         # - Check tsOther
-        assert isinstance(tsOther, TSEvent)
+        assert isinstance(tsOther, TSEvent), \
+            '`tsOther` must be a `TSEvent` object.'
+
+        # - Merge samples
+        vtNewTimeBase = np.concatenate((self.vtTimeTrace, tsOther.vtTimeTrace))
+        vnNewChannels = np.concatenate((self.vnChannels, tsOther.vnChannels))
+        vfNewSamples = np.concatenate((self.mfSamples, tsOther.mfSamples))
+
+        # - Sort on time
+        vnOrder = np.argsort(vtNewTimeBase)
+        self._vtTimeTrace = vtNewTimeBase[vnOrder]
+        self._vnChannels = vnNewChannels[vnOrder]
+        self._mfSamples = vfNewSamples[vnOrder]
+
+        return self
 
 
-    def __compatibleShape(self, other) -> np.ndarray:
+    def _compatibleShape(self, other) -> np.ndarray:
         try:
             if np.size(other) == 1:
                 return copy.copy(np.broadcast_to(other, self.vtTimeTrace.shape))
@@ -179,6 +192,20 @@ class TSEvent(TimeSeries):
 
         except Exception:
             raise ValueError('Input data must have shape ' + str(self.vtTimeTrace.shape))
+
+    @property
+    def vnChannels(self):
+        return self._vnChannels
+
+    @vnChannels.setter
+    def vnChannels(self, vnNewChannels):
+        # - Check size of new data
+        assert np.size(vnNewChannels) == np.size(self._vnChannels), \
+            '`vnNewChannels` must be the same size as `vnChannels`.'
+
+        # - Assign vnChannels
+        self._vnChannels = vnNewChannels
+
 
 # - Convenience method to return a nan array
 def full_nan(vnShape: Union[tuple, int]):

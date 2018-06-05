@@ -101,19 +101,19 @@ class TimeSeries:
         assert np.all(np.diff(vtTimeTrace) >= 0), 'The time trace must be sorted and not decreasing'
 
         # - Assign attributes
-        self.__vtTimeTrace = vtTimeTrace
-        self.__mfSamples = mfSamples.astype('float')
+        self._vtTimeTrace = vtTimeTrace
+        self._mfSamples = mfSamples.astype('float')
         self.strInterpKind = strInterpKind
         self.bPeriodic = bPeriodic
         self.strName = strName
 
-        self.__bUseHoloviews, self.__bUseMatplotlib = GetPlottingBackend()
+        self._bUseHoloviews, self._bUseMatplotlib = GetPlottingBackend()
 
         if bPeriodic:
             self._tDuration = vtTimeTrace[-1] - vtTimeTrace[0]
             self._tStart = vtTimeTrace[0]
 
-        self.__create_interpolator()
+        self._create_interpolator()
 
     def __getitem__(self, vtTimes):
         """
@@ -124,14 +124,14 @@ class TimeSeries:
         :return:      np.array of interpolated values. Will have the shape TxN
         """
         if isinstance(vtTimes, slice):
-            fStep = (np.mean(np.diff(self.__vtTimeTrace)) if vtTimes.step is None else vtTimes.step)
-            fStart = (self.__vtTimeTrace[0] if vtTimes.start is None else vtTimes.start)
-            fStop = (self.__vtTimeTrace[-1]+abs(fStep) if vtTimes.stop is None else vtTimes.stop)
+            fStep = (np.mean(np.diff(self._vtTimeTrace)) if vtTimes.step is None else vtTimes.step)
+            fStart = (self._vtTimeTrace[0] if vtTimes.start is None else vtTimes.start)
+            fStop = (self._vtTimeTrace[-1] + abs(fStep) if vtTimes.stop is None else vtTimes.stop)
             
-            assert fStart >= self.__vtTimeTrace[0],\
-                   'This TimeSeries only starts at t={}'.format(self.__vtTimeTrace[0])
-            assert fStop <= self.__vtTimeTrace[-1]+abs(fStep),\
-                   'This TimeSeries already ends at t={}'.format(self.__vtTimeTrace[-1])
+            assert fStart >= self._vtTimeTrace[0],\
+                   'This TimeSeries only starts at t={}'.format(self._vtTimeTrace[0])
+            assert fStop <= self._vtTimeTrace[-1] + abs(fStep),\
+                   'This TimeSeries already ends at t={}'.format(self._vtTimeTrace[-1])
             
             vTimeIndices = np.arange(fStart, fStop, abs(fStep))[::int(np.sign(fStep))]
             return self.interpolate(vTimeIndices)
@@ -178,7 +178,7 @@ class TimeSeries:
         if vtTimes is None:
             vtTimes = self.vtTimeTrace
 
-        if self.__bUseHoloviews:
+        if self._bUseHoloviews:
             mfData = self(vtTimes)
             if kwargs == {}:
                 vhCurves = [hv.Curve((vtTimes, vfData)).redim(x = 'Time')
@@ -192,7 +192,7 @@ class TimeSeries:
             else:
                 return vhCurves[0].relabel(self.strName)
 
-        elif self.__bUseMatplotlib:
+        elif self._bUseMatplotlib:
             return plt.plot(vtTimes, self(vtTimes), **kwargs)
 
         else:
@@ -276,11 +276,11 @@ class TimeSeries:
             mfSamplesOther = tsOther.mfSamples
 
         # - Merge time traces and samples
-        vtTimeTraceNew = np.concatenate((self.__vtTimeTrace, vtTimeTraceOther))
+        vtTimeTraceNew = np.concatenate((self._vtTimeTrace, vtTimeTraceOther))
         mfSamplesNew = np.concatenate((self.mfSamples, mfSamplesOther), axis=0)
         #  - Indices for sorting new time trace and samples
         viSorted = np.argsort(vtTimeTraceNew)
-        self.__vtTimeTrace = vtTimeTraceNew[viSorted]
+        self._vtTimeTrace = vtTimeTraceNew[viSorted]
         self.mfSamples = mfSamplesNew[viSorted]
 
         # - Fix up periodicity, if the time trace is periodic
@@ -289,7 +289,7 @@ class TimeSeries:
             self._tStart = vtTimeTraceNew[0]
 
         # - Create new interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
 
         # - Return merged TS
         return self
@@ -314,7 +314,7 @@ class TimeSeries:
         self.mfSamples = np.concatenate((self.mfSamples, mfOtherSamples), 1)
 
         # - Create new interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
 
         # - Return merged TS
         return self
@@ -346,20 +346,20 @@ class TimeSeries:
             '`tsOther` must include the same number of traces (' + str(self.nNumTraces) + ').'
 
         # - Concatenate time trace and samples
-        tMedianDT = np.median(np.diff(self.__vtTimeTrace))
-        self.__vtTimeTrace = np.concatenate((self.__vtTimeTrace,
-                                             tsOther.vtTimeTrace + self.__vtTimeTrace[-1] + tMedianDT -
-                                             tsOther.vtTimeTrace[0]),
-                                            axis = 0)
+        tMedianDT = np.median(np.diff(self._vtTimeTrace))
+        self._vtTimeTrace = np.concatenate((self._vtTimeTrace,
+                                            tsOther.vtTimeTrace + self._vtTimeTrace[-1] + tMedianDT -
+                                            tsOther.vtTimeTrace[0]),
+                                           axis = 0)
 
         self.mfSamples = np.concatenate((self.mfSamples, tsOther.mfSamples), axis = 0)
 
         # - Check and correct periodicity
         if self.bPeriodic:
-            self._tDuration = self.__vtTimeTrace[-1]
+            self._tDuration = self._vtTimeTrace[-1]
 
         # - Recreate interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
 
         # - Return self
         return self
@@ -373,7 +373,7 @@ class TimeSeries:
         """
         return self.copy().append_t(tsOther)
 
-    def __create_interpolator(self):
+    def _create_interpolator(self):
         # - Construct interpolator
         self.oInterp = spint.interp1d(self.vtTimeTrace, self.mfSamples,
                                       kind = self.strInterpKind, axis = 0, assume_sorted = True,
@@ -426,13 +426,13 @@ class TimeSeries:
         tsClip, _ = self._clip(vtNewBounds)
 
         # - Insert initial time point
-        tsClip.__vtTimeTrace = np.concatenate(([vtNewBounds[0]], tsClip.__vtTimeTrace))
+        tsClip._vtTimeTrace = np.concatenate(([vtNewBounds[0]], tsClip._vtTimeTrace))
 
         # - Insert initial samples
         vfFirstSample = np.atleast_1d(self(vtNewBounds[0]))
-        tsClip.__mfSamples = np.concatenate((vfFirstSample,
-                                             tsClip.__mfSamples, (np.size(tsClip.__vtTimeTrace), -1)),
-                                            axis = 0)
+        tsClip._mfSamples = np.concatenate((vfFirstSample,
+                                            tsClip._mfSamples, (np.size(tsClip._vtTimeTrace), -1)),
+                                           axis = 0)
 
     def _clip(self, vtNewBounds):
         """
@@ -447,8 +447,8 @@ class TimeSeries:
 
         # - Build and return new TimeSeries
         tsClip = self.copy()
-        tsClip.__vtTimeTrace = self.vtTimeTrace[vbIncludeSamples]
-        tsClip.__mfSamples = self.mfSamples[vbIncludeSamples]
+        tsClip._vtTimeTrace = self.vtTimeTrace[vbIncludeSamples]
+        tsClip._mfSamples = self.mfSamples[vbIncludeSamples]
 
         return tsClip, vbIncludeSamples
 
@@ -459,9 +459,9 @@ class TimeSeries:
     def __iadd__(self, other):
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
-            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+            mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
         else:
-            mfOtherSamples = self.__compatibleShape(other)
+            mfOtherSamples = self._compatibleShape(other)
 
         # - Treat NaNs as zero
         mbIsNanSelf = np.isnan(self.mfSamples)
@@ -476,7 +476,7 @@ class TimeSeries:
         self.mfSamples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
 
         # - Re-create interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
         return self
 
     def __mul__(self, other):
@@ -485,9 +485,9 @@ class TimeSeries:
     def __imul__(self, other):
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
-            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+            mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
         else:
-            mfOtherSamples = self.__compatibleShape(other)
+            mfOtherSamples = self._compatibleShape(other)
 
         # - Propagate NaNs
         mbIsNanSelf = np.isnan(self.mfSamples)
@@ -500,7 +500,7 @@ class TimeSeries:
         self.mfSamples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
 
         # - Re-create interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
         return self
 
     def __truediv__(self, other):
@@ -509,9 +509,9 @@ class TimeSeries:
     def __idiv__(self, other):
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
-            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+            mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
         else:
-            mfOtherSamples = self.__compatibleShape(other)
+            mfOtherSamples = self._compatibleShape(other)
 
         # - Propagate NaNs
         mbIsNanSelf = np.isnan(self.mfSamples)
@@ -524,7 +524,7 @@ class TimeSeries:
         self.mfSamples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
 
         # - Re-create interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
         return self
 
     def __floordiv__(self, other):
@@ -536,9 +536,9 @@ class TimeSeries:
 
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
-            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+            mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
         else:
-            mfOtherSamples = self.__compatibleShape(other)
+            mfOtherSamples = self._compatibleShape(other)
 
         # - Propagate NaNs
         mbIsNanSelf = np.isnan(self.mfSamples)
@@ -551,7 +551,7 @@ class TimeSeries:
         self.mfSamples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
 
         # - Re-create interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
         return self
 
     def max(self):
@@ -563,7 +563,7 @@ class TimeSeries:
     def __abs__(self):
         tsCopy = self.copy()
         tsCopy.mfSamples = np.abs(tsCopy.mfSamples)
-        tsCopy.__create_interpolator()
+        tsCopy._create_interpolator()
         return tsCopy
 
     def __sub__(self, other):
@@ -572,9 +572,9 @@ class TimeSeries:
     def __isub__(self, other):
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
-            mfOtherSamples = self.__compatibleShape(other(self.vtTimeTrace))
+            mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
         else:
-            mfOtherSamples = self.__compatibleShape(other)
+            mfOtherSamples = self._compatibleShape(other)
 
         # - Treat NaNs as zero
         mbIsNanSelf = np.isnan(self.mfSamples)
@@ -589,27 +589,27 @@ class TimeSeries:
         self.mfSamples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
 
         # - Re-create interpolator
-        self.__create_interpolator()
+        self._create_interpolator()
         return self
 
     def __neg__(self):
         tsCopy = self.copy()
         tsCopy.mfSamples = -tsCopy.mfSamples
-        tsCopy.__create_interpolator()
+        tsCopy._create_interpolator()
         return tsCopy
 
     @property
     def vtTimeTrace(self):
-        return self.__vtTimeTrace
+        return self._vtTimeTrace
 
     @vtTimeTrace.setter
     def vtTimeTrace(self, vtNewTrace):
         # - Check time trace for correct size
-        assert np.size(vtNewTrace) == np.size(self.__vtTimeTrace), \
+        assert np.size(vtNewTrace) == np.size(self._vtTimeTrace), \
             'New time trace must have the same number of elements as the original trace.'
 
         # - Store new time trace
-        self.__vtTimeTrace = np.reshape(vtNewTrace, -1)
+        self._vtTimeTrace = np.reshape(vtNewTrace, -1)
 
         # - Fix up periodicity, if the time trace is periodic
         if self.bPeriodic:
@@ -617,7 +617,7 @@ class TimeSeries:
             self._tStart = vtNewTrace[0]
 
         # - Create a new interpolator
-        self.__create_interpolator()    
+        self._create_interpolator()
 
     @property
     def nNumTraces(self):
@@ -645,7 +645,7 @@ class TimeSeries:
         # - Return a new TimeSeries with the subselected traces
         tsCopy = self.copy()
         tsCopy.mfSamples = tsCopy.mfSamples[:, vnTraces]
-        tsCopy.__create_interpolator()
+        tsCopy._create_interpolator()
         return tsCopy
 
 
@@ -659,7 +659,7 @@ class TimeSeries:
 
     @property
     def mfSamples(self):
-        return self.__mfSamples
+        return self._mfSamples
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples):
@@ -675,33 +675,33 @@ class TimeSeries:
             'New samples matrix must have the same number of samples as `.vtTimeTrace`.'
 
         # - Store new time trace
-        self.__mfSamples = mfNewSamples
+        self._mfSamples = mfNewSamples
 
         # - Create a new interpolator
-        self.__create_interpolator() 
+        self._create_interpolator()
 
     @property
     def tDuration(self) -> float:
         """
         .tDuration: float Duration of TimeSeries
         """
-        return self.__vtTimeTrace[-1] - self.__vtTimeTrace[0]
+        return self._vtTimeTrace[-1] - self._vtTimeTrace[0]
 
     @property
     def tStart(self) -> float:
         """
         .tStart: float Start time
         """
-        return self.__vtTimeTrace[0]
+        return self._vtTimeTrace[0]
 
     @property
     def tStop(self) -> float:
         """
         .tStop: float Stop time
         """
-        return self.__vtTimeTrace[-1]
+        return self._vtTimeTrace[-1]
 
-    def __compatibleShape(self, other) -> np.ndarray:
+    def _compatibleShape(self, other) -> np.ndarray:
         try:
             if np.size(other) == 1:
                 return copy.copy(np.broadcast_to(other, self.mfSamples.shape))
