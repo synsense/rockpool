@@ -340,7 +340,33 @@ class Network:
         else:
             raise NetworkError('Not all layers are in sync with the network.')
         return bSync
-    
+
+    def reset_time(self):
+        """
+        reset_time() - Reset the time of the network to zero. Does not reset state.
+        """
+        # - Reset time for each layer
+        for lyr in self.setLayers:
+            lyr.reset_time()
+
+        # - Reset global network time
+        self._t = 0
+
+    def reset_state(self):
+        """
+        reset_state() - Reset the state of the network. Does not reset time.
+        """
+        # - Reset state for each layer
+        for lyr in self.setLayers:
+            lyr.reset_state()
+
+    def reset_all(self):
+        """
+        reset_all() - Reset state and time of the network.
+        """
+        self.reset_state()
+        self.reset_time()
+
     def __repr__(self):
         return '{} object with {} layers'.format(self.__class__.__name__, len(self.setLayers))
 
