@@ -381,7 +381,7 @@ class FFRateEuler(Layer):
     #             + (1-self._vfAlpha)*self.vState)
 
     def __repr__(self):
-        return 'FFRateEuler layer object `{}`.\nnSize: {}, nDimIn: {}'.format(
+        return 'FFRateEuler layer object `{}`.\nnSize: {}, nDimIn: {}   '.format(
             self.strName, self.nSize, self.nDimIn)
 
     @property
