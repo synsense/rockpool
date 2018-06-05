@@ -159,7 +159,7 @@ class TimeSeries:
         if self.bPeriodic:
             vtTimes = (np.asarray(vtTimes) - self._tStart) % self._tDuration + self._tStart
 
-        return np.reshape(self.oInterp(vtTimes), (np.size(vtTimes), -1))
+        return self.oInterp(vtTimes)
 
     def delay(self, tOffset):
         warn('DEPRECATED')
@@ -412,7 +412,46 @@ class TimeSeries:
                                                          self.mfSamples[-nLast:])])
             strSummary = strSummary0 + '\n\t...\n' + strSummary1
         print(self.__repr__() + '\n' + strSummary)
-            
+
+
+    def clip(self, vtNewBounds):
+        """
+        clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end)
+        :param vtNewBounds:
+
+        :return: tsClip, vbIncludeSamples)
+                tsClip:             New TimeSeries clipped to bounds
+                vbIncludeSamples:   boolean ndarray indicating which original samples are included
+        """
+        tsClip, _ = self._clip(vtNewBounds)
+
+        # - Insert initial time point
+        tsClip.__vtTimeTrace = np.concatenate(([vtNewBounds[0]], tsClip.__vtTimeTrace))
+
+        # - Insert initial samples
+        vfFirstSample = np.atleast_1d(self(vtNewBounds[0]))
+        tsClip.__mfSamples = np.concatenate((vfFirstSample,
+                                             tsClip.__mfSamples, (np.size(tsClip.__vtTimeTrace), -1)),
+                                            axis = 0)
+
+    def _clip(self, vtNewBounds):
+        """
+        clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
+        :param vtNewBounds:
+        :return: New TimeSeries clipped to bounds
+        """
+        # - Find samples included in new time bounds
+        vtNewBounds = np.sort(vtNewBounds)
+        vbIncludeSamples = np.logical_and(self.vtTimeTrace >= vtNewBounds[0],
+                                          self.vtTimeTrace < vtNewBounds[-1])
+
+        # - Build and return new TimeSeries
+        tsClip = self.copy()
+        tsClip.__vtTimeTrace = self.vtTimeTrace[vbIncludeSamples]
+        tsClip.__mfSamples = self.mfSamples[vbIncludeSamples]
+
+        return tsClip, vbIncludeSamples
+
 
     def __add__(self, other):
         return self.copy().__iadd__(other)

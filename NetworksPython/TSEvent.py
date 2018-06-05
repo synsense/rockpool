@@ -15,10 +15,10 @@ try: import matplotlib.pyplot as plt
 except Exception: pass
 
 # - Configure exports
-__all__ = ['TSSpikes']
+__all__ = ['TSEvent']
 
 
-class TSSpikes(TimeSeries):
+class TSEvent(TimeSeries):
     def __init__(self,
                  vtTimeTrace: np.ndarray,
                  vnChannels: np.ndarray = None,
@@ -29,10 +29,10 @@ class TSSpikes(TimeSeries):
                  ):
 
         # - Only 1D samples and channels are supported
-        assert np.ndim(vfSamples) <= 1, \
+        assert (np.ndim(vfSamples) <= 1) or (np.sum(vfSamples.shape > 1) == 1), \
             '`vfSamples` must be 1-dimensional'
 
-        assert np.ndim(vnChannels) <= 1, \
+        assert (np.ndim(vnChannels) <= 1) or (np.sum(vnChannels.shape > 1) == 1), \
             '`vnChannels` must be 1-dimensional'
 
         # - Check size of inputs
@@ -41,7 +41,7 @@ class TSSpikes(TimeSeries):
 
         # - Provide default inputs
         if vfSamples is None:
-            vfSamples = full_nan(np.size(vtTimeTrace))
+            vfSamples = full_nan((np.size(vtTimeTrace), 1))
 
         if vnChannels is None:
             vnChannels = np.zeros(np.size(vtTimeTrace))
@@ -55,9 +55,15 @@ class TSSpikes(TimeSeries):
         # - Store channels
         self.__vnChannels = np.array(vnChannels).flatten()
 
-    def __create_interpolator(self):
-        # - No interpolation is performed for a spiking time series
-        pass
+
+    def interpolate(self, vtTimes: np.ndarray):
+        """
+        interpolate - Return sample values interpolated to new time base
+
+        :param vtTimes: np.ndarray Time points to interpolate to
+        :return:        np.ndarray Interpolated sample values
+        """
+        return super().interpolate(vtTimes).flatten()
 
 
     def find(self, vtTimeBounds: np.ndarray = None):
@@ -83,11 +89,22 @@ class TSSpikes(TimeSeries):
             # - Return matching samples
             return self.vtTimeTrace[vbMatchingTimes], \
                    self.__vnChannels[vbMatchingTimes], \
-                   self.mfSamples[vbMatchingTimes]
+                   (self.mfSamples[vbMatchingTimes]).flatten()
 
         else:
             # - Return all samples
-            return self.vtTimeTrace, self.__vnChannels, self.mfSamples
+            return self.vtTimeTrace, self.__vnChannels, self.mfSamples.flatten()
+
+
+    def clip(self, vtNewBounds):
+        # - Call super-class clipper
+        tsClip, vbIncludeSamples = super()._clip(vtNewBounds)
+
+        # - Fix up channels variable
+        tsClip.__vnChannels = self.__vnChannels[vbIncludeSamples]
+
+        # - Return new TimeSeries
+        return tsClip
 
 
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
@@ -114,6 +131,38 @@ class TSSpikes(TimeSeries):
 
         else:
             warn('No plotting back-end detected.')
+
+
+    def resample(self, vtTimes: np.ndarray):
+        return self.clip(vtTimes)
+
+    def resample_within(self, tStart: float=None, tStop: float=None, tDt: float=None):
+        """
+        resample_within - Resample a TimeSeries, within bounds
+
+        :param tStart:  float Start time (inclusive)
+        :param tStop:   float Stop time (inclusive)
+        :param tDt:     Unused for event TimeSeries
+
+        :return:        New TimeSeries containing events within [tStart, tStop]
+        """
+        if tStart is None:
+            tStart = self.tStart
+
+        if tStop is None:
+            tStop = self.tStop + np.finfo(float).eps
+
+        return self.clip([tStart, tStop])
+
+    def merge(self, tsOther):
+        """
+        merge - Merge another TimeSeries into this one
+        :param tsOther: TimeSeries to merge into this one
+        :return: self with new samples included
+        """
+
+        # - Check tsOther
+        assert isinstance(tsOther, TSEvent)
 
 
     def __compatibleShape(self, other) -> np.ndarray:
