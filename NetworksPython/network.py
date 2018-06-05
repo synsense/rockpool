@@ -342,7 +342,7 @@ class Network:
         return bSync
     
     def __repr__(self):
-        return 'Network object with {} layers'.format(len(self.setLayers))
+        return '{} object with {} layers'.format(self.__class__.__name__, len(self.setLayers))
 
 
     @property
