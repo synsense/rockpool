@@ -6,6 +6,7 @@
 # import numpy as np
 # from math import gcd
 # from functools import reduce
+from typing import Callable
 
 # from layers import feedforward, recurrent
 from TimeSeries import TimeSeries
@@ -38,13 +39,13 @@ class Network:
     def __init__(self,
                  lyrInput: Layer = None,
                  lyrRes: Layer = None,
-                 lyrOutput: Layer = None):
+                 lyrReadout: Layer = None):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
         :param lyrInput:   Layer Input layer (recieves network-external input)
         :param lyrRes:     Layer Internal layer (usually a recurrent reservoir)
-        :param lyrOutput:  Layer Output layer (provides network-external output)
+        :param lyrReadout:  Layer Output layer (provides network-external output)
         """
 
         # - Network time
@@ -60,8 +61,8 @@ class Network:
         if lyrInput is not None and lyrRes is not None:
             self.lyrRes = self.add_layer(lyrRes, lyrInput =self.lyrInput)
 
-        if lyrRes is not None and lyrOutput is not None:
-            self.lyrOutput = self.add_layer(lyrOutput, lyrInput =self.lyrRes)
+        if lyrRes is not None and lyrReadout is not None:
+            self.lyrReadout = self.add_layer(lyrReadout, lyrInput =self.lyrRes)
                
     def add_layer(self,
                   lyr: Layer,
@@ -71,7 +72,7 @@ class Network:
         """Add lyr to self and to self.setLayers. Its attribute name
         is 'lyr'+lyr.strName. Check whether layer with this name 
         already exists (replace anyway). 
-        Connect lyr to those in lyrInput and lyrOutput.
+        Connect lyr to lyrInput and lyrOutput.
         Return lyr.
             lyr : layer to be added to self
             lyrInput : input layer to lyr
@@ -290,8 +291,8 @@ class Network:
             raise ValueError('`tDuration` is not a multiple of `tDt` for the following layer(s):\n'
                              + strLayers)
 
-        # - Dict to store each layer's output time series
-        dtsOutputs = {}
+        # - Dict to store external input and each layer's output time series
+        dtsSignal = {'external' : tsExternalInput.resample_between(self.t, self.t+tDuration)  }
         
         # - Make sure layers are in sync with netowrk
         self._check_sync()
@@ -306,16 +307,16 @@ class Network:
                 strIn = 'external input'
             elif lyr.lyrIn is not None:
                 # Output of current layer's input layer
-                tsCurrentInput = dtsOutputs[lyr.lyrIn.strName]
+                tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
                 strIn = lyr.lyrIn.strName + "'s output"
             else:
                 # No input
                 tsCurrentInput = None
-                'nothing'
+                strIn = 'nothing'
 
             print('Evolving layer `{}` with {} as input'.format(lyr.strName, strIn))
-            # Evolve layer and store output in dtsOutputs
-            dtsOutputs[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
+            # Evolve layer and store output in dtsSignal
+            dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
 
         # - Update network time
         self._t += tDuration
@@ -324,7 +325,47 @@ class Network:
         self._check_sync()
 
         # - Return dict with layer outputs
-        return dtsOutputs
+        return dtsSignal
+
+    def train(self,
+              fhTraining: Callable,
+              tsExternalInput: TimeSeries = None,
+              tDuration: float = None,
+              tBatch: float = None):
+        """
+        train - Train the network batch-wise by evolving the layers and
+                calling fhTraining.
+        :param fhTraining:      Function that is called after each evolution
+        :param tsExternalInput: TimeSeries with external input to network
+        :param tDuration:       float - Duration over which netŵork should
+                                        be evolved. If None, evolution is
+                                        over the duration of tsExternalInput
+        :param tBatch:          float - Duration of one batch
+        """
+
+        # - Determine duration of training
+        if tDuration is None:
+            assert tsExternalInput is not None, (
+                'One of `tsExternalInput` or `tDuration` must be supplied')
+            
+            if tsExternalInput.bPeriodic:
+                # - Use duration of periodic TimeSeries, if possible
+                tRemaining = tsExternalInput.tDuration
+
+            else:
+                # - Evolve until the end of the input TimeSeries
+                tRemaining = tsExternalInput.tStop - self.t
+                assert tDuration > 0, (
+                    'Cannot determine an appropriate evolution duration. '
+                   +'`tsExternalInput` finishes before the current evolution time.')
+        else:
+            tRemaining = tDuration
+
+        tBatch = tRemaining if tBatch is None else tBatch
+
+        while tRemaining > 0:
+            dtsSignal = self.evolve(tsExternalInput, min(tBach, tRemaining))
+            
 
     def _check_sync(self) -> bool:
         """
