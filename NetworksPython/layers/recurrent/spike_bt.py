@@ -7,12 +7,12 @@
 from ..layer import Layer
 from TimeSeries import *
 import numpy as np
-from typing import Callable
-from warnings import warn
-from scipy.interpolate import interp1d
+from typing import Union
+# from warnings import warn
+# from scipy.interpolate import interp1d
 import copy
 
-from numba import jit, njit, float64
+from numba import njit, float64
 
 # - Try to import holoviews
 try:
@@ -46,6 +46,10 @@ def Syn_dotI(t, I, dt,
     return -I / tau_Syn + I_spike / dt
 
 
+@njit
+def _backstep(vCurrent, vLast, tStep, tDesiredStep):
+    return (vCurrent - vLast) / tStep * tDesiredStep + vLast
+
 ### --- RecFSSpikeEulerBT class implementation
 
 class RecFSSpikeEulerBT(Layer):
@@ -55,14 +59,14 @@ class RecFSSpikeEulerBT(Layer):
                  vfBias: np.ndarray = 0.,
                  fNoiseStd: float = 0.,
 
-                 vtTauN: np.ndarray = 20e-3,
-                 vtTauSynR_f: np.ndarray = 1e-3,
-                 vtTauSynR_s: np.ndarray = 100e-3,
+                 vtTauN: Union[np.ndarray, float] = 20e-3,
+                 vtTauSynR_f: Union[np.ndarray, float] = 1e-3,
+                 vtTauSynR_s: Union[np.ndarray, float] = 100e-3,
                  tTauSynO: float = 100e-3,
 
-                 vfVThresh: np.ndarray = -55e-3,
-                 vfVReset: np.ndarray = -65e-3,
-                 vfVRest: np.ndarray = -65e-3,
+                 vfVThresh: Union[np.ndarray, float] = -55e-3,
+                 vfVReset: Union[np.ndarray, float] = -65e-3,
+                 vfVRest: Union[np.ndarray, float] = -65e-3,
 
                  tRefractoryTime: float = 0e-3,
 
@@ -79,8 +83,6 @@ class RecFSSpikeEulerBT(Layer):
         :param mfW_f:           ndarray [NxN] Recurrent weight matrix (fast synapses)
         :param mfW_s:           ndarray [NxN] Recurrent weight matrix (slow synapses)
         :param vfBias:          ndarray [Nx1] Bias currents for each neuron
-        :param mfW_input:       ndarray [NxJ] Input weight matrix
-        :param mfW_output:      ndarray [NxJ] Output weight matrix
         :param vtTauN:          ndarray [Nx1] Neuron time constants
         :param vtTauSynR_f:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
         :param vtTauSynR_s:     ndarray [Nx1] Post-synaptic neuron slow synapse TCs
@@ -143,16 +145,12 @@ class RecFSSpikeEulerBT(Layer):
         evolve() - Simulate the spiking reservoir, using a precise-time spike detector
             This method implements an Euler integrator, coupled with precise spike time detection using a linear
             interpolation between integration steps. Time is then reset to the spike time, and integration proceeds.
-            For this reason, the time steps returned by the integrator are not homogneous. A minimum time step can be set;
+            For this reason, the time steps returned by the integrator are not homogenous. A minimum time step can be set;
             by default this is 1/10 of the nominal time step.
 
-        :param fhInput:         Function (t)->[TxJ] Input function returning input for a given time t
-        :param tDuration:       float Duration of simulation in seconds. Default: 100ms
-        :param fZeta:           float Std. Dev. of noise applied to neuron membrane potentials at each time step. Default: 0
-        :param tNoiseStep:      float Time step of noise traces. Default: 1ms
-        :param fhNoiseInput:    Function (t)->[TxN] Input function returning a static noise trace for each neuron. Default: None
-        :param self.tDt:   float Nominal time step for Euler integration. Default: 1/10 shortest TC
-        :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
+        :param tsInput:     TimeSeries input for a given time t [TxN]
+        :param tDuration:   float Duration of simulation in seconds. Default: 100ms
+        :param tMinDelta:   float Minimum time step taken. Default: 1/10 nominal TC
 
         :return: TimeSeries containing the output currents of the reservoir
         """
@@ -167,6 +165,7 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Get discretised input and nominal time trace
         vtInputTimeTrace, mfStaticInput, tDuration = self._prepare_input(tsInput, tDuration)
+        tFinalTime = vtInputTimeTrace[-1]
 
         # - Generate a noise trace
         mfNoiseStep = np.random.randn(np.size(vtInputTimeTrace), self.nSize) * self.fNoiseStd
@@ -191,10 +190,11 @@ class RecFSSpikeEulerBT(Layer):
         vtRefractory = np.zeros(self.nSize)
 
         # - Initialise step and "previous step" variables
-        tTime = 0.
+        tTime = self._t
+        tStart = self._t
         nStep = 0
         tLast = 0.
-        VLast = self.vState.copy()
+        VLast = self._vState.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
         x_hat_Last = self.x_hat.copy()
@@ -204,15 +204,15 @@ class RecFSSpikeEulerBT(Layer):
         # nFirstSpikeId = 0
 
         # - Euler integrator loop
-        while tTime < tDuration:
+        while tTime < tFinalTime:
             # - Enforce refractory period by clamping membrane potential to reset
-            self.vState[vtRefractory > 0] = self.vfVReset[vtRefractory > 0]
+            self._vState[vtRefractory > 0] = self.vfVReset[vtRefractory > 0]
 
             ## - Back-tick spike detector
 
             # - Locate spiking neurons
             # vnSpikeIDs = np.argwhere(self.vState > self.vfVThresh).flatten()
-            vnSpikeIDs = argwhere(self.vState > self.vfVThresh)
+            vnSpikeIDs = argwhere(self._vState > self.vfVThresh)
 
             # - Were there any spikes?
             if np.size(vnSpikeIDs) > 0:
@@ -236,16 +236,16 @@ class RecFSSpikeEulerBT(Layer):
 
                 # - Back-step time to spike
                 tTime = tSpike
-                vtRefractory = vtRefractory + self.tDt - tSpikeDelta
+                vtRefractory = vtRefractory + self._tDt - tSpikeDelta
 
                 # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
-                self.vState = (self.vState - VLast) / self.tDt * tSpikeDelta + VLast
-                self.I_s_S = (self.I_s_S - I_s_S_Last) / self.tDt * tSpikeDelta + I_s_S_Last
-                self.I_s_F = (self.I_s_F - I_s_F_Last) / self.tDt * tSpikeDelta + I_s_F_Last
-                self.x_hat = (self.x_hat - x_hat_Last) / self.tDt * tSpikeDelta + x_hat_Last
+                self._vState = _backstep(self._vState, VLast, self._tDt, tSpikeDelta)
+                self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._tDt, tSpikeDelta)
+                self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._tDt, tSpikeDelta)
+                self.x_hat = _backstep(self.x_hat, x_hat_Last, self._tDt, tSpikeDelta)
 
                 # - Apply reset to spiking neuron
-                self.vState[nFirstSpikeId] = self.vfVReset[nFirstSpikeId]
+                self._vState[nFirstSpikeId] = self.vfVReset[nFirstSpikeId]
 
                 # - Begin refractory period for spiking neuron
                 vtRefractory[nFirstSpikeId] = self.tRefractoryTime
@@ -292,13 +292,13 @@ class RecFSSpikeEulerBT(Layer):
             dotx_hat = Syn_dotI(tTime, self.x_hat, self.tDt, I_spike_output, self.tTauSynO)
             self.x_hat += dotx_hat * self.tDt
 
-            nIntTime = int(tTime // self.tDt)
+            nIntTime = int((tTime-tStart) // self.tDt)
             I_ext = mfStaticInput[nIntTime, :]
-            dotV = Neuron_dotV(tTime, self.vState, self.tDt,
+            dotV = Neuron_dotV(tTime, self._vState, self._tDt,
                                self.I_s_S, self.I_s_F, [], I_ext, self.vfBias,
                                self.vfVRest, self.vfVReset, self.vfVThresh,
                                self.vtTauN, self.vtTauSynR_s, self.vtTauSynR_f, self.tTauSynO)
-            self.vState += dotV * self.tDt
+            self._vState += dotV * self._tDt
 
             # - Extend state storage variables, if needed
             if nStep >= nMaxTimeStep:
@@ -313,7 +313,7 @@ class RecFSSpikeEulerBT(Layer):
 
             # - Store the network states for this time step
             vtTimes[nStep] = tTime
-            mfV[:, nStep] = self.vState
+            mfV[:, nStep] = self._vState
             mfS[:, nStep] = self.I_s_S
             mfF[:, nStep] = self.I_s_F
             mfx_hat[:, nStep] = self.x_hat
@@ -321,10 +321,23 @@ class RecFSSpikeEulerBT(Layer):
 
             # - Next nominal time step
             tLast = copy.copy(tTime)
-            tTime += self.tDt
+            tTime += self._tDt
             nStep += 1
             vtRefractory -= self.tDt
         ### End of Euler integration loop
+
+        ## - Back-step to exact final time
+        self.vState = _backstep(self.vState, VLast, self._tDt, tTime - tFinalTime)
+        self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._tDt, tTime - tFinalTime)
+        self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._tDt, tTime - tFinalTime)
+        self.x_hat = _backstep(self.x_hat, x_hat_Last, self._tDt, tTime - tFinalTime)
+
+        ## - Store the network states for final time step
+        vtTimes[nStep-1] = tFinalTime
+        mfV[:, nStep-1] = self.vState
+        mfS[:, nStep-1] = self.I_s_S
+        mfF[:, nStep-1] = self.I_s_F
+        mfx_hat[:, nStep-1] = self.x_hat
 
         ## - Trim state storage variables
         vtTimes = vtTimes[:nStep]
@@ -363,7 +376,9 @@ class RecFSSpikeEulerBT(Layer):
         dResp['tsA'] = TimeSeries(dResp['vt'], dResp['mfA'].T, strName = 'Slow synaptic state')
         dResp['tsO'] = TimeSeries(dResp['vt'], dResp['mfO'].T, strName = 'Output')
 
+        # - Store "last evolution" state
         self._dLastEvolve = dResp
+        self._t = tFinalTime
 
         # - Return output TimeSeries
         return dResp['tsO']
@@ -420,7 +435,7 @@ class RecFSSpikeEulerBT(Layer):
 ###### Convenience functions
 
 # - Convenience method to return a nan array
-def full_nan(vnShape: tuple):
+def full_nan(vnShape: Union[tuple, int]):
     a = np.empty(vnShape)
     a.fill(np.nan)
     return a

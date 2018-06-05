@@ -33,7 +33,10 @@ def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
 ### --- Network class
 
 class Network:
-    def __init__(self, lyrInput: Layer, lyrRes: Layer, lyrOutput: Layer):
+    def __init__(self,
+                 lyrInput: Layer = None,
+                 lyrRes: Layer = None,
+                 lyrOutput: Layer = None):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
@@ -49,9 +52,14 @@ class Network:
         self.setLayers = set()
         
         # - Add layers
-        self.lyrInput = self.add_layer(lyrInput, bExternalInput=True)
-        self.lyrRes = self.add_layer(lyrRes, lyrInput =self.lyrInput)
-        self.lyrOutput = self.add_layer(lyrOutput, lyrInput =self.lyrRes)
+        if lyrInput is not None:
+            self.lyrInput = self.add_layer(lyrInput, bExternalInput=True)
+
+        if lyrInput is not None and lyrRes is not None:
+            self.lyrRes = self.add_layer(lyrRes, lyrInput =self.lyrInput)
+
+        if lyrRes is not None and lyrOutput is not None:
+            self.lyrOutput = self.add_layer(lyrOutput, lyrInput =self.lyrRes)
                
     def add_layer(self,
                   lyr: Layer,
@@ -334,7 +342,7 @@ class Network:
         return bSync
     
     def __repr__(self):
-        return 'Network object with {} layers'.format(len(self.setLayers))
+        return '{} object with {} layers'.format(self.__class__.__name__, len(self.setLayers))
 
 
     @property
