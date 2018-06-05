@@ -106,6 +106,30 @@ class TSEvent(TimeSeries):
         # - Return new TimeSeries
         return tsClip
 
+    def choose(self, vnSelectChannels):
+        """
+        choose - Select and return only the requested channels
+
+        :param vnSelectChannels: array-like of channel indices
+        :return: new TSEvent containing events from the requested channels
+        """
+
+        # - Check vnSelectChannels
+        assert np.min(vnSelectChannels) >= 0 and np.max(vnSelectChannels) <= np.max(self.vnChannels), \
+            '`vnSelectChannels` must be between 0 and {}'.format(np.max(self.vnChannels))
+
+        # - Find samples to return
+        vbIncludeSamples = np.any(np.concatenate([np.atleast_2d(self._vnChannels == i)
+                                                  for i in np.array(vnSelectChannels).flatten()]), axis = 0)
+
+        # - Build new TS with only those samples
+        tsChosen = self.copy()
+        tsChosen._vtTimeTrace = tsChosen._vtTimeTrace[vbIncludeSamples]
+        tsChosen._vnChannels = tsChosen._vnChannels[vbIncludeSamples]
+        tsChosen._mfSamples = tsChosen._mfSamples[vbIncludeSamples]
+
+        return tsChosen
+
 
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
         """
