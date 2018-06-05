@@ -292,7 +292,7 @@ class Network:
                              + strLayers)
 
         # - Dict to store external input and each layer's output time series
-        dtsSignal = {'external' : tsExternalInput.resample_within(self.t, self.t+tDuration)  }
+        dtsSignal = {'external' : tsExternalInput}
 
         # - Make sure layers are in sync with netowrk
         self._check_sync()
