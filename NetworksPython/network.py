@@ -15,10 +15,12 @@ from layers.layer import Layer
 # - Configure exports
 __all__ = ['Network']
 
+# - Relative tolerance for float comparions
+fTolerance = 1e-5
 
 ### --- Helper functions
 
-def isMultiple(a: float, b: float, fTolerance: float = 1e-5) -> bool:
+def isMultiple(a: float, b: float, fTolerance: float = fTolerance) -> bool:
     """
     isMultiple - Check whether a%b is 0 within some tolerance.
     :param a: float The number that may be multiple of b

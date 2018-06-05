@@ -78,7 +78,7 @@ class Layer(ABC):
         if tDuration is None:
             assert tsInput is not None, \
                 'One of `tsInput` or `tDuration` must be supplied'
-            
+
             if tsInput.bPeriodic:
                 # - Use duration of periodic TimeSeries, if possible
                 tDuration = tsInput.tDuration
@@ -133,8 +133,8 @@ class Layer(ABC):
 
     def _gen_time_trace(self, tStart: float, tDuration: float) -> np.ndarray:
         """
-        Generate a time trace starting at tStart, of length tDuration with 
-        time step length self._tDt. Make sure it does not go beyond 
+        Generate a time trace starting at tStart, of length tDuration with
+        time step length self._tDt. Make sure it does not go beyond
         tStart+tDuration.
 
         :return vtTimeTrace, tDuration
@@ -143,7 +143,7 @@ class Layer(ABC):
         vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
         # - Make sure that vtTimeTrace doesn't go beyond tStart + tDuration
         vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration]
-        
+
         return vtTimeTrace
 
     def _expand_to_net_size(self,
