@@ -91,7 +91,7 @@ class FFIAFBrian(Layer):
                                        reset = 'v = v_reset',
                                        refractory = tRefractoryTime,
                                        method = strIntegrator,
-                                       dt = tDt,
+                                       dt = np.asarray(tDt) * second,
                                        name = 'reservoir_neurons')
         self._ngLayer.v = vfVRest
         self._ngLayer.r_m = 1 * ohm

@@ -70,13 +70,13 @@ class FFExpSynBrian(Layer):
 
         # - Set up spike source to receive spiking input
         self._sggInput = b2.SpikeGeneratorGroup(self.nDimIn, [0], [0*second],
-                                                dt = tDt)
+                                                dt = np.asarray(tDt) * second)
 
         # - Set up layer receiver nodes
         self._ngReceiver = b2.NeuronGroup(self.nSize, eqSynapses,
                                           refractory = False,
                                           method = strIntegrator,
-                                          dt = tDt,
+                                          dt = np.asarray(tDt) * second,
                                           name = 'receiver_neurons')
 
         # - Add source -> receiver synapses
@@ -84,7 +84,7 @@ class FFExpSynBrian(Layer):
                                        model = 'w : 1',
                                        on_pre = 'I_syn_post += w*amp',
                                        method = strIntegrator,
-                                       dt = tDt,
+                                       dt = np.asarray(tDt) * second,
                                        name = 'receiver_synapses')
         self._sgReceiver.connect()
 

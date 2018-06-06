@@ -33,7 +33,7 @@ __all__ = ['RecFSSpikeEulerBT']
 def Neuron_dotV(t, V, dt,
                 I_s_S, I_s_F, I_O, I_ext, I_bias,
                 V_rest, V_reset, V_thresh,
-                tau_V, tau_S, tau_F, tau_O):
+                tau_V, tau_S, tau_F):
     return (V_rest - V + I_s_S + I_s_F + I_ext + I_bias) / tau_V
 
 # @jit(float64(float64, float64[:], float64,
@@ -282,7 +282,7 @@ class RecFSSpikeEulerBT(Layer):
             dotV = Neuron_dotV(tTime, self._vState, self._tDt,
                                self.I_s_S, self.I_s_F, [], I_ext, self.vfBias,
                                self.vfVRest, self.vfVReset, self.vfVThresh,
-                               self.vtTauN, self.vtTauSynR_s, self.vtTauSynR_f, self.tTauSynO)
+                               self.vtTauN, self.vtTauSynR_s, self.vtTauSynR_f)
             self._vState += dotV * self._tDt
 
             # - Extend state storage variables, if needed
@@ -353,7 +353,6 @@ class RecFSSpikeEulerBT(Layer):
         # - Convert some elements to time series
         dResp['tsX'] = TimeSeries(dResp['vt'], dResp['mfX'].T, strName = 'Membrane potential')
         dResp['tsA'] = TimeSeries(dResp['vt'], dResp['mfA'].T, strName = 'Slow synaptic state')
-        dResp['tsO'] = TimeSeries(dResp['vt'], dResp['mfO'].T, strName = 'Output')
 
         # - Store "last evolution" state
         self._dLastEvolve = dResp
@@ -361,6 +360,10 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Return output TimeSeries
         return TSEvent(vtSpikeTimes, vnSpikeIndices)
+
+    @property
+    def cOutput(self):
+        return TSEvent
 
     @property
     def vfTauSynR_f(self):
