@@ -9,7 +9,7 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TimeSeries
+from TimeSeries import TSContinuous, TSEvent
 
 from ..layer import Layer
 
@@ -52,7 +52,6 @@ class RecIAFBrian(Layer):
 
                  vtTauN: np.ndarray = 20*ms,
                  vtTauSynR: np.ndarray = 5 * ms,
-                 tTauSynO: float = 5 * ms,
 
                  vfVThresh: np.ndarray = -55*mV,
                  vfVReset: np.ndarray = -65*mV,
@@ -62,7 +61,6 @@ class RecIAFBrian(Layer):
 
                  eqNeurons = eqNeuronIAF,
                  eqSynRecurrent = eqSynapseExp,
-                 eqSynReceiver = eqSynapseExp,
 
                  strIntegrator: str = 'rk4',
 
@@ -76,7 +74,6 @@ class RecIAFBrian(Layer):
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 5ms
         :param vtTauSynR:       np.array NxN vector of recurrent synaptic time constants. Default: 5ms
-        :param tTauSynO:        float Output synaptic time constants. Default: 5ms
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
@@ -86,7 +83,6 @@ class RecIAFBrian(Layer):
 
         :param eqNeurons:       Brian2.Equations set of neuron equations. Default: IAF equation set
         :param eqSynRecurrent:  Brian2.Equations set of synapse equations for recurrent connects. Default: exponential
-        :param eqSynReceiver:   Brian2.Equations set of synapse equations for receiver. Default: exponential
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
 
@@ -110,21 +106,6 @@ class RecIAFBrian(Layer):
         self._ngLayer.v = vfVRest
         self._ngLayer.r_m = 1 * ohm
 
-        # - Set up layer receiver nodes
-        self._ngReceiver = b2.NeuronGroup(self.nSize, eqSynReceiver,
-                                          refractory = False,
-                                          method = strIntegrator,
-                                          dt = tDt,
-                                          name = 'receiver_neurons')
-
-        # - Add layer -> receiver synapses
-        self._sgResToReceiver = b2.Synapses(self._ngLayer, self._ngReceiver,
-                                            on_pre = 'I_syn_post += 1*amp',
-                                            method = strIntegrator,
-                                            dt = tDt,
-                                            name = 'reservoir_to_receiver_synapses')
-        self._sgResToReceiver.connect('i == j')
-
         # - Add recurrent weights (all-to-all)
         self._sgRecurrentSynapses = b2.Synapses(self._ngLayer, self._ngLayer,
                                                 model = 'w : 1',
@@ -135,24 +116,20 @@ class RecIAFBrian(Layer):
         self._sgRecurrentSynapses.connect()
 
         # - Add current monitors to record layer outputs
-        self._stmReservoir = b2.StateMonitor(self._ngLayer, ('v', 'I_syn'), True, name = 'layer_membrane_voltage')
-        self._stmReceiver = b2.StateMonitor(self._ngReceiver, 'I_syn', True, name = 'receiver_synaptic_currents')
         self._spmReservoir = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
         # - Call Network constructor
-        self._net = b2.Network(self._ngLayer, self._ngReceiver, self._sgResToReceiver,
-                               self._sgRecurrentSynapses,
-                               self._stmReservoir, self._stmReceiver, self._spmReservoir,
+        self._net = b2.Network(self._ngLayer, self._spmReservoir,
                                name = 'recurrent_spiking_layer')
 
         # - Record neuron / synapse parameters
+        self.mfW = mfW
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vtTauSynR = vtTauSynR
         self.tRefractoryTime = tRefractoryTime
-        self.tTauSynO = tTauSynO
         self.vfBias = vfBias
 
         # - Store "reset" state
@@ -165,7 +142,6 @@ class RecIAFBrian(Layer):
         """
         self._ngLayer.v = self.vfVRest
         self._ngLayer.I_syn = 0
-        self._ngReceiver.I_syn = 0
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -174,7 +150,6 @@ class RecIAFBrian(Layer):
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
         self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
-        self._ngReceiver.I_syn = 0 * amp
 
     def reset_time(self):
         """
@@ -186,7 +161,7 @@ class RecIAFBrian(Layer):
     ### --- State evolution
 
     def evolve(self,
-               tsInput: TimeSeries = None,
+               tsInput: TSContinuous = None,
                tDuration: float = None):
         """
         evolve - Evolve the state of this layer
@@ -213,22 +188,37 @@ class RecIAFBrian(Layer):
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
 
         # - Build response TimeSeries
-        vtTimeBaseOutput = self._stmReceiver.t_
-        vbUseTime = self._stmReceiver.t_ >= vtTimeBase[0]
-        vtTimeBaseOutput = vtTimeBaseOutput[vbUseTime]
-        mfA = self._stmReceiver.I_syn_.T
-        mfA = mfA[vbUseTime, :]
+        vtEventTimeOutput = self._spmReservoir.t_
+        vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
+        vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
-        # - Return the current state as final time point
-        if vtTimeBaseOutput[-1] != self.t:
-            vtTimeBaseOutput = np.concatenate((vtTimeBaseOutput, [self.t]))
-            print(mfA.shape, np.atleast_2d(np.array(self._sgResToReceiver.I_syn_)).shape)
-            mfA = np.concatenate((mfA, np.atleast_2d(np.array(self._sgResToReceiver.I_syn_))))
-
-        return TimeSeries(vtTimeBaseOutput, mfA, strName = 'Receiver current')
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
 
     ### --- Properties
+
+    @property
+    def cOutput(self):
+        return TSEvent
+
+    @property
+    def mfW(self):
+        if hasattr(self, '_sgRecurrentSynapses'):
+            return np.reshape(self._sgRecurrentSynapses.w, (self.nSize, -1))
+        else:
+            return self._mfW
+
+    @mfW.setter
+    def mfW(self, mfNewW):
+        assert np.size(mfNewW) == self.nSize ** 2, \
+            '`mfNewW` must have [' + str(self.nSize ** 2) + '] elements.'
+
+        self._mfW = mfNewW
+
+        if hasattr(self, '_sgRecurrentSynapses'):
+            # - Assign recurrent weights (need to transpose)
+            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
+            self._sgRecurrentSynapses.w = mfNewW.flatten()
 
     @property
     def vState(self):
@@ -253,14 +243,6 @@ class RecIAFBrian(Layer):
     @vtTauSynR.setter
     def vtTauSynR(self, vtNewTauSynR):
         self._ngLayer.tau_s = np.asarray(self._expand_to_net_size(vtNewTauSynR, 'vtNewTauSynR')) * second
-
-    @property
-    def tTauSynO(self):
-        return self._ngReceiver.tau_s_[0]
-
-    @tTauSynO.setter
-    def tTauSynO(self, tNewTauO):
-        self._ngReceiver.tau_s = np.asarray(tNewTauO) * second
 
     @property
     def vfBias(self):

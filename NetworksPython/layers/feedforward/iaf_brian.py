@@ -9,13 +9,13 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TimeSeries
+from TimeSeries import TSContinuous, TSEvent
 
 from ..layer import Layer
 from ..recurrent.timedarray_shift import TimedArray as TAShift
 
 # - Configure exports
-__all__ = ['FFIAFBrian', 'eqNeuronIAF', 'eqSynapseExp']
+__all__ = ['FFIAFBrian', 'eqNeuronIAF']
 
 # - Equations for an integrate-and-fire neuron
 eqNeuronIAF = b2.Equations('''
@@ -27,12 +27,6 @@ eqNeuronIAF = b2.Equations('''
     r_m                                             : ohm                       # Membrane resistance
     v_thresh                                        : volt                      # Firing threshold potential
     v_reset                                         : volt                      # Reset potential
-''')
-
-# - Equations for an exponential synapse
-eqSynapseExp = b2.Equations('''
-    dI_syn/dt = -I_syn / tau_s                      : amp                       # Synaptic current
-    tau_s                                           : second                    # Synapse time constant
 ''')
 
 
@@ -50,7 +44,6 @@ class FFIAFBrian(Layer):
                  fNoiseStd: float = 1*mV,
 
                  vtTauN: np.ndarray = 20*ms,
-                 tTauSynO: float = 5 * ms,
 
                  vfVThresh: np.ndarray = -55*mV,
                  vfVReset: np.ndarray = -65*mV,
@@ -59,7 +52,6 @@ class FFIAFBrian(Layer):
                  tRefractoryTime = 0*ms,
 
                  eqNeurons = eqNeuronIAF,
-                 eqSynapses = eqSynapseExp,
 
                  strIntegrator: str = 'rk4',
 
@@ -81,7 +73,6 @@ class FFIAFBrian(Layer):
         :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
         :param eqNeurons:       Brian2.Equations set of neuron equations. Default: IAF equation set
-        :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
 
@@ -105,29 +96,11 @@ class FFIAFBrian(Layer):
         self._ngLayer.v = vfVRest
         self._ngLayer.r_m = 1 * ohm
 
-        # - Set up layer receiver nodes
-        self._ngReceiver = b2.NeuronGroup(self.nSize, eqSynapses,
-                                          refractory = False,
-                                          method = strIntegrator,
-                                          dt = tDt,
-                                          name = 'receiver_neurons')
-
-        # - Add layer -> receiver synapses
-        self._sgReceiver = b2.Synapses(self._ngLayer, self._ngReceiver,
-                                       on_pre = 'I_syn_post += 1*amp',
-                                       method = strIntegrator,
-                                       dt = tDt,
-                                       name = 'receiver_synapses')
-        self._sgReceiver.connect('i == j')
-
-        # - Add current monitors to record reservoir outputs
-        self._stmLayer = b2.StateMonitor(self._ngLayer, 'v', True, name = 'layer_membrane_voltage')
-        self._stmReceiver = b2.StateMonitor(self._ngReceiver, 'I_syn', True, name = 'receiver_synaptic_currents')
+        # - Add monitors to record layer outputs
         self._spmLayer = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
         # - Call Network constructor
-        self._net = b2.Network(self._ngLayer, self._ngReceiver, self._sgReceiver,
-                               self._stmLayer, self._stmReceiver, self._spmLayer,
+        self._net = b2.Network(self._ngLayer, self._spmLayer,
                                name = 'ff_spiking_layer')
 
         # - Record reservoir parameters
@@ -136,7 +109,6 @@ class FFIAFBrian(Layer):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.tRefractoryTime = tRefractoryTime
-        self.tTauSynO = tTauSynO
         self.vfBias = vfBias
 
         # - Store "reset" state
@@ -149,7 +121,6 @@ class FFIAFBrian(Layer):
         """
         self._ngLayer.v = self.vfVRest
         self._ngLayer.I_syn = 0
-        self._ngReceiver.I_syn = 0
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -158,7 +129,6 @@ class FFIAFBrian(Layer):
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
         self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
-        self._ngReceiver.I_syn = 0 * amp
 
     def reset_time(self):
         """
@@ -170,7 +140,7 @@ class FFIAFBrian(Layer):
     ### --- State evolution
 
     def evolve(self,
-               tsInput: TimeSeries = None,
+               tsInput: TSContinuous = None,
                tDuration: float = None):
         """
         evolve - Evolve the state of this layer
@@ -199,18 +169,11 @@ class FFIAFBrian(Layer):
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
 
         # - Build response TimeSeries
-        vtTimeBaseOutput = self._stmReceiver.t_
-        vbUseTime = self._stmReceiver.t_ >= vtTimeBase[0]
-        vtTimeBaseOutput = vtTimeBaseOutput[vbUseTime]
-        mfA = self._stmReceiver.I_syn_.T
-        mfA = mfA[vbUseTime, :]
+        vtEventTimeOutput = self._spmLayer.t_
+        vbUseEvent = self._spmLayer.t_ >= vtTimeBase[0]
+        vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
-        # - Return the current state as final time point
-        if vtTimeBaseOutput[-1] != self.t:
-            vtTimeBaseOutput = np.concatenate((vtTimeBaseOutput, [self.t]))
-            mfA = np.concatenate((mfA, np.atleast_2d(np.array(self._sgReceiver.I_syn_))))
-
-        return TimeSeries(vtTimeBaseOutput, mfA, strName = 'Receiver current')
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
 
     ### --- Properties
@@ -230,14 +193,6 @@ class FFIAFBrian(Layer):
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
         self._ngLayer.tau_m = np.asarray(self._expand_to_net_size(vtNewTauN, 'vtNewTauN')) * second
-
-    @property
-    def tTauSynO(self):
-        return self._ngReceiver.tau_s_[0]
-
-    @tTauSynO.setter
-    def tTauSynO(self, tNewTauO):
-        self._ngReceiver.tau_s = np.asarray(tNewTauO) * second
 
     @property
     def vfBias(self):
