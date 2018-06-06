@@ -391,6 +391,99 @@ class PassThrough(Layer):
 
         return TimeSeries(vtTimeIn, mfSamplesOut)
 
+    def train_rr(self,
+                 tsTarget: TimeSeries,
+                 tsInput: TimeSeries = None,
+                 fRegularize=0,
+                 bFirst = True,
+                 bFinal = False):
+        """
+        train_rr - Train self with ridge regression over one of possibly
+                   many batches. Use Kahan summation to reduce rounding
+                   errors when adding data to existing matrices from
+                   previous batches.
+        :param tsTarget:    TimeSeries - target for current batch
+        :param tsInput:     TimeSeries - input to self for current batch
+        :fRegularize:       float - regularization for ridge regression
+        :bFirst:            bool - True if current batch is the first in training
+        :bFinal:            bool - True if current batch is the last in training
+        """
+
+        # - Discrete time steps for evaluating input and target time series
+        vtTimeBase = self._gen_time_trace(tsTarget.tStart, tsTarget.tDuration)
+
+        if not bFinal:
+            # - Discard last sample to avoid counting time points twice
+            vtTimeBase = vtTimeBase[:-1]
+
+        # - Prepare target data, check dimensions
+        mfTarget = tsTarget(vtTimeBase)
+        assert mfTarget.shape[-1] == self.nSize, \
+            ('Target dimensions ({}) does not match layer size ({})'.format(
+                mfTarget.shape[-1], self.nSize))
+
+        # - Prepare input data
+
+        # Empty input array with additional dimension for training biases
+        mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn+1))
+        mfInput[:,-1] = 1
+
+        if tsInput is not None:
+            # Warn if intput time range does not cover whole target time range
+            if not tsInput.contains(vtTimeBase) or tsInput.bPeriodic:
+                print('WARNING: tsInput (t = {} to {}) does not cover '.format(
+                      tsInput.tStart, tsInput.tStop)
+                      +'full time range of tsTarget (t = {} to {})'.format(
+                      tsTarget.tStart, tsTarget.tStop)
+                      +'Assuming input to be 0 outside of defined range.')
+
+            # - Sample input trace and check for correct dimensions
+            mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
+            # - Treat "NaN" as zero inputs
+            mfInput[np.where(np.isnan(mfInput))] = 0
+
+        else:
+            print('No tsInput defined, assuming input to be 0 and only training biases.')
+
+        # - For first batch, initialize summands
+        if bFirst:
+            # Matrices to be updated for each batch
+            self.mfXTY = np.zeros((self.nDimIn+1, self.nSize))  # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((self.nDimIn+1, self.nDimIn+1))     # mfInput.T (dot) mfInput
+            # Corresponding Kahan compensations
+            self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
+            self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
+
+        # - New data to be added, including compensation from last batch
+        #   (Matrix summation always runs over time)
+        mfUpdXTY = mfInput.T@mfTarget - self.mfKahanCompXTY
+        mfUpdXTX = mfInput.T@mfInput - self.mfKahanCompXTX
+
+        if not bFinal:
+            # - Update matrices with new data
+            mfNewXTY = self.mfXTY + mfUpdXTY
+            mfNewXTX = self.mfXTX + mfUpdXTX
+            # - Calculate rounding error for compensation in next batch
+            self.mfKahanCompXTY = (mfNewXTY-self.mfXTY) - mfUpdXTY
+            self.mfKahanCompXTX = (mfNewXTX-self.mfXTX) - mfUpdXTX
+            # - Store updated matrices
+            self.mfXTY = mfNewXTY
+            self.mfXTX = mfNewXTX
+
+        else:
+            # - In final step do not calculate rounding error but update matrices directly
+            self.mfXTY += mfUpdXTY
+            self.mfXTX += mfUpdXTX
+
+            # - Weight and bias update by ridge regression
+            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nDimIn+1),
+                                         self.mfXTY)
+            self.mfW = mfSolution[:-1, :]
+            self.vfBias = mfSolution[-1, :]
+
+            # - Remove dat stored during this trainig
+            self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
+
     def __repr__(self):
         return 'PassThrough layer object `{}`.\nnSize: {}, nDimIn: {}, tDelay: {}'.format(
             self.strName, self.nSize, self.nDimIn, self.tDelay)

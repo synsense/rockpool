@@ -295,8 +295,8 @@ class Network:
         if llyrDtMismatch:
             strLayers = ', '.join(('{}: tDt={}'.format(lyr.strName, lyr.tDt)
                                    for lyr in llyrDtMismatch))
-            raise ValueError('`tDuration` is not a multiple of `tDt` for the following layer(s):\n'
-                             + strLayers)
+            raise ValueError('`tDuration` ({}) is not a multiple of `tDt`'.format(tDuration)
+                             +' for the following layer(s):\n' + strLayers)
 
         # - Dict to store external input and each layer's output time series
         dtsSignal = {'external' : tsExternalInput}
