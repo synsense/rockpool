@@ -387,8 +387,19 @@ class TimeSeries:
         return self.copy().append_t(tsOther)
 
     def _create_interpolator(self):
+        """
+        _create_interpolator - Build an interpolator for the samples in this TimeSeries
+        """
+        if np.size(self.vtTimeTrace) == 1:
+            # - Replicate to avoid error in `interp1d`
+            vtTimeTrace = np.repeat(self.vtTimeTrace, 2, axis = 0)
+            mfSamples = np.repeat(self.mfSamples, 2, axis = 0)
+        else:
+            vtTimeTrace = self._vtTimeTrace
+            mfSamples = self._mfSamples
+
         # - Construct interpolator
-        self.oInterp = spint.interp1d(self.vtTimeTrace, self.mfSamples,
+        self.oInterp = spint.interp1d(vtTimeTrace, mfSamples,
                                       kind = self.strInterpKind, axis = 0, assume_sorted = True,
                                       bounds_error = False)
 
