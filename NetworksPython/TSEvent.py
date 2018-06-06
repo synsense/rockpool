@@ -66,7 +66,7 @@ class TSEvent(TimeSeries):
         return super().interpolate(vtTimes).flatten()
 
 
-    def find(self, vtTimeBounds: np.ndarray = None):
+    def find(self, vtTimeBounds: Union[list, np.ndarray] = None):
         """
         find - Return events that fall within a range
 
