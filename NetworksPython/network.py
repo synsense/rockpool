@@ -17,20 +17,21 @@ from layers.layer import Layer
 __all__ = ['Network']
 
 # - Relative tolerance for float comparions
-fTolerance = 1e-5
+fTolRel = 1e-5
+fTolAbs = 1e-8
 
 ### --- Helper functions
 
-def isMultiple(a: float, b: float, fTolerance: float = fTolerance) -> bool:
+def isMultiple(a: float, b: float, fTolRel: float = fTolRel) -> bool:
     """
     isMultiple - Check whether a%b is 0 within some tolerance.
     :param a: float The number that may be multiple of b
     :param b: float The number a may be a multiple of
-    :param fTolerance: float Relative tolerance
+    :param fTolRel: float Relative tolerance
     :return bool: True if a is a multiple of b within some tolerance
     """
     fMinRemainder = min(a%b, b-a%b)
-    return fMinRemainder < fTolerance*b
+    return fMinRemainder < fTolRel*b
 
 
 ### --- Network class
@@ -388,7 +389,7 @@ class Network:
         bSync = True
         print('Network time is {}'.format(self.t))
         for lyr in self.lEvolOrder:
-            if lyr.t != self.t:
+            if abs(lyr.t - self.t) >= fTolRel * self.t + fTolAbs:
                 bSync = False
                 print('\t WARNING: Layer `{}` is not in sync (t={})'.format(lyr.strName, lyr.t))
         if bSync:
@@ -447,7 +448,7 @@ class NetworkError(Exception):
 
 # - Asserting that tDuration % self.tDt == 0
 if (   min(tDuration%self.tDt, self.tDt-(tDuration%self.tDt))
-     > fTolerance * self.tDt):
+     > fTolRel * self.tDt):
     raise ValueError('Creation of time trace failed. tDuration ({}) '
                     +'is not a multiple of self.tDt ({})'.format(tDuration, self.tDt))
 # - or assert that last value of time series is tSTart+tDuration

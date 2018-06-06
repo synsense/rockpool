@@ -121,7 +121,7 @@ class Layer(ABC):
             return : mfInput, possibly with dimensions repeated
         """
         # - Replicate `tsInput` if necessary
-        if mfInput.shape[1] == 1:
+        if mfInput.ndim == 1 or (mfInput.ndim > 1 and mfInput.shape[1]) == 1:
             mfInput = np.repeat(mfInput.reshape((-1, 1)), self._nDimIn, axis = 1)
         else:
             # - Check dimensionality of input

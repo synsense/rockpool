@@ -183,9 +183,11 @@ class FFRateEuler(Layer):
 
         # - Prepare target data, check dimensions
         mfTarget = tsTarget(vtTimeBase)
-        assert mfTarget.shape[-1] == self.nSize, \
-            ('Target dimensions ({}) does not match layer size ({})'.format(
-                mfTarget.shape[-1], self.nSize))
+        if mfTarget.ndim == 1 and self.nSize == 1:
+            mfTarget = mfTarget.reshape(-1, 1)
+        assert mfTarget.shape[-1] == self.nSize, (
+            'Target dimensions ({}) does not match layer size ({})'.format(
+            mfTarget.shape[-1], self.nSize))
 
         # - Prepare input data
 
@@ -418,9 +420,11 @@ class PassThrough(Layer):
 
         # - Prepare target data, check dimensions
         mfTarget = tsTarget(vtTimeBase)
-        assert mfTarget.shape[-1] == self.nSize, \
-            ('Target dimensions ({}) does not match layer size ({})'.format(
-                mfTarget.shape[-1], self.nSize))
+        if mfTarget.ndim == 1 and self.nSize == 1:
+            mfTarget = mfTarget.reshape(-1, 1)
+        assert mfTarget.shape[-1] == self.nSize, (
+            'Target dimensions ({}) does not match layer size ({})'.format(
+            mfTarget.shape[-1], self.nSize))
 
         # - Prepare input data
 
