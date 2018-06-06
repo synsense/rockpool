@@ -250,12 +250,16 @@ class TimeSeries:
         # - Return a new time series
         return self.resample(vtSampleTimes)
 
-    def merge(self, tsOther):
+    def merge(self, tsOther, bRemoveDuplicates=True):
         """
         merge - Merge another time series to this one, in time. Maintain
-                each time series' time values. For time points that are
-                sampled in both time series, discard those of the other one.
-        :param tsOther:  TimeSeries that is merged to self
+                each time series' time values.
+        :param tsOther:             TimeSeries that is merged to self
+        :param bRemoveDuplicates:   bool - If true, time points in tsOther.vtTimeTrace
+                                           that are also in self.vtTimeTrace are
+                                           discarded. Otherwise they are included in
+                                           the new time trace and come after the
+                                           corresponding points of self.vtTimeTrace.
         :return:         The merged time series
         """
 
@@ -266,10 +270,11 @@ class TimeSeries:
         assert tsOther.nNumTraces == self.nNumTraces, \
             '`tsOther` must include the same number of traces (' + str(self.nNumTraces) + ').'
 
-        # - Find and remove time points of tsOther that are also included in self
-        #   (assuming both TimeSeries have a sorted vTimeTrace)
-        # First, check if there is any overlap
-        if not (self.tStart > tsOther.tStop or self.tStop < tsOther.tStart):
+        # - If bRemoveDuplicates==True and time ranges overlap,  find and remove
+        #   time points of tsOther that are also included in self (assuming both
+        #   TimeSeries have a sorted vTimeTrace)
+        if (bRemoveDuplicates
+            and not (self.tStart > tsOther.tStop or self.tStop < tsOther.tStart)):
             # Determine region of overlap
             viOverlap = np.where( (self.vtTimeTrace >= tsOther.tStart)
                                  &(self.vtTimeTrace <= tsOther.tStop))
@@ -286,8 +291,8 @@ class TimeSeries:
         # - Merge time traces and samples
         vtTimeTraceNew = np.concatenate((self._vtTimeTrace, vtTimeTraceOther))
         mfSamplesNew = np.concatenate((self.mfSamples, mfSamplesOther), axis=0)
-        #  - Indices for sorting new time trace and samples
-        viSorted = np.argsort(vtTimeTraceNew)
+        #  - Indices for sorting new time trace and samples. Use mergesort as stable sorting algorithm.
+        viSorted = np.argsort(vtTimeTraceNew, kind='mergesort')
         self._vtTimeTrace = vtTimeTraceNew[viSorted]
         self.mfSamples = mfSamplesNew[viSorted]
 
