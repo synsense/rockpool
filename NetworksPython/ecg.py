@@ -86,7 +86,7 @@ def vQRS(tLength, fSQ, fYa=0, fYb=0):
 
 
 # @profile
-def labeled_input(n, fHeartRate, lRepertoire='all', dProbs=None, **kwargs):
+def labeled_signal(n, fHeartRate, lRepertoire='all', dProbs=None, **kwargs):
     """Create 2D array of n ecg segments and rhythms and their labels.
     Both single normal or anomal segments as well as complete normal
     or anomal ecg rhythms can be included. Complete rhythms are
@@ -397,10 +397,80 @@ def labeled_input(n, fHeartRate, lRepertoire='all', dProbs=None, **kwargs):
     return mSignal
 
 
+def signal_and_target(nTrials: int,
+                      dProbs: dict,
+                      fHeartRate: float,
+                      tDt: float,
+                      strTargetMethod: str = 'fix',
+                      nTargetWidth: int = 200,
+                      bVerbose: bool = False) -> (np.ndarray, np.ndarray):
+    """
+    signal_and_target - Produce training or test signal and target for network.
+                        There are different methods for determining the target:
+                            'fix' : Label interval of fixed length after onset
+                                    of anomal segment
+                            'segment' : Only label specific segment where 
+                                        anomaly occurs
+                            'rhythm' : Label complete rhythm where anomaly occurs
+    :param nTrials:     int Number of ECG rhythms
+    :dProbs:            dict Probabilities for different symptoms
+    fHeartRate:         float Heart rate in rhythms per second
+    :tDt:               float time step size
+    :strTargetMethod:   str Method for determining the target
+                            Must be 'fix', 'rhythm' or 'segment'
+    :nTargetWidth:      int Number of timesteps to be marked as abnormal
+                            after onset of anomaly (only necesscary if
+                            strTargetMethod == 'fix')
+    :bVerbose:          bool Print information about generated signal
+    :return:            2 1D-np.ndarrays ECG signal and target
+    """
+
+    # - Input
+    vfECG, vnSegments, vnRhythms, vnAnomStarts = labeled_signal(n=nTrials,
+                                                               fHeartRate=fHeartRate*tDt,
+                                                               dProbs=dProbs)
+
+    if strTargetMethod == 'fix':
+        # - Label interval of fixed length after onset of anomal segment
+
+        #   Any ECG segment that is not abnormal by itself (label in vnAnomStarts either 1, 2 or 3)
+        #   and that is part of a complethe ECG rhythm (label in vnRhythms is not 9) is considered
+        #   normal. Isolated segments (vnRhythms==9) still count as anomalies.
+        vnAnomStarts[((vnAnomStarts==1) ^ (vnAnomStarts==2) ^ (vnAnomStarts==3)) & (vnRhythms!=9)] = 0
+        # - vnAnomStarts with leading 0s
+        v0AnomStarts = np.r_[np.zeros(nTargetWidth), vnAnomStarts]
+        # - For each time point the target is 1 if during any of the previous nTargetWidth time points
+        #   an anomaly has occured      
+        vTarget = np.array([(v0AnomStarts[i:i+nTargetWidth+1] != 0).any()
+                            for i in range(len(vnAnomStarts))])
+
+
+    elif strTargetMethod == 'segment':
+        # - Only label specific segment where anomaly occurs
+
+        #   Any ECG segment that is not abnormal by itself (label in vnSegments either 1, 2 or 3)
+        #   and that is part of a complethe ECG rhythm (label in vnRhythms is not 9) is considered
+        #   normal. Isolated segments (vnRhythms==9) still count as anomalies.
+        vnSegments[((vnSegments==1) ^ (vnSegments==2) ^ (vnSegments==3)) & (vnRhythms!=9)] = 0
+        vTarget = np.clip(vnSegments, 0, 1)
+
+    elif strTargetMethod == 'rhythm':
+        # - Label complete rhythm where anomaly occurs
+        vTarget = np.clip(vnRhythms, 0, 1)
+        
+    if bVerbose:
+        tDuration = vfECG.size*tDt
+        print('Generated input and target')
+        print('\tLength of signal: {:.3f}s ({} time steps)\n'.format(tDuration, vfECG.size))
+
+    return vfECG, vTarget
+
+
+
 if __name__ == '__main__':
     # Brief unit test
     from matplotlib import pyplot as plt
-    s = labeled_input(1e2, 5e-3)#, lRepertoire=['complete_brad'])
+    s = labeled_signal(1e2, 5e-3)#, lRepertoire=['complete_brad'])
     plt.plot(s[0,:])
     plt.plot(s[1,:])
     plt.show()

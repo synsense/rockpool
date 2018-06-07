@@ -251,7 +251,8 @@ class Network:
 
     def evolve(self,
                tsExternalInput: TimeSeries = None,
-               tDuration: float = None) -> dict:
+               tDuration: float = None,
+               bVerbose: bool = True) -> dict:
         """
         evolve - Evolve each layer in the network according to self.lEvolOrder.
                  For layers with bExternalInput==True their input is
@@ -259,9 +260,10 @@ class Network:
                  will be the output of that, otherwise None.
                  Return a dict with each layer's output.
         :param tsExternalInput:  TimeSeries with external input data.
-        :param tDuration:        Float - duration over which netŵork should
+        :param tDuration:        float - duration over which netŵork should
                                          be evolved. If None, evolution is
                                          over the duration of tsExternalInput
+        :param bVerbose:         bool - Print info about evolution state
         :return:                 Dict with each layer's output time Series
         """
 
@@ -296,7 +298,7 @@ class Network:
         dtsSignal = {'external' : tsExternalInput}
 
         # - Make sure layers are in sync with netowrk
-        self._check_sync()
+        self._check_sync(bVerbose)
 
         # - Iterate over evolution order and evolve layers
         for lyr in self.lEvolOrder:
@@ -315,7 +317,8 @@ class Network:
                 tsCurrentInput = None
                 strIn = 'nothing'
 
-            print('Evolving layer `{}` with {} as input'.format(lyr.strName, strIn))
+            if bVerbose:
+                print('Evolving layer `{}` with {} as input'.format(lyr.strName, strIn))
             # Evolve layer and store output in dtsSignal
             dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
 
@@ -323,7 +326,7 @@ class Network:
         self._t += tDuration
 
         # - Make sure layers are still in sync with netowrk
-        self._check_sync()
+        self._check_sync(bVerbose)
 
         # - Return dict with layer outputs
         return dtsSignal
@@ -368,9 +371,9 @@ class Network:
         bFirst = True
         bFinal = False
         for nBatch in range(1, nNumBatches+1):
-            print('\nTraining batch {} of {}'.format(nBatch, nNumBatches))
+            print('Training batch {} of {}   '.format(nBatch, nNumBatches), end='\r')
             # - Evolve network
-            dtsSignal = self.evolve(tsExternalInput, min(tDurBatch, tRemaining))
+            dtsSignal = self.evolve(tsExternalInput, min(tDurBatch, tRemaining), bVerbose=False)
             # - Remaining simulation time
             tRemaining -= tDurBatch
             # - Determine if this batch was the first or the last of training
@@ -381,19 +384,21 @@ class Network:
 
         print('\nTraining successful')
 
-    def _check_sync(self) -> bool:
+    def _check_sync(self, bVerbose: bool = True) -> bool:
         """
         _check_sync - Check whether the time t of all layers matches self.t
                      If not, throw an exception.
         """
         bSync = True
-        print('Network time is {}'.format(self.t))
+        if bVerbose:
+            print('Network time is {}'.format(self.t))
         for lyr in self.lEvolOrder:
             if abs(lyr.t - self.t) >= fTolRel * self.t + fTolAbs:
                 bSync = False
                 print('\t WARNING: Layer `{}` is not in sync (t={})'.format(lyr.strName, lyr.t))
         if bSync:
-            print('\t All layers are in sync with network.')
+            if bVerbose:
+                print('\t All layers are in sync with network.')
         else:
             raise NetworkError('Not all layers are in sync with the network.')
         return bSync
