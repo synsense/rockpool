@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-from TimeSeries import TimeSeries
+from TimeSeries import TimeSeries, TSContinuous, TSEvent
 
 # - Configure exports
 __all__ = ['Layer']
@@ -94,7 +94,7 @@ class Layer(ABC):
         vtTimeBase = self._gen_time_trace(self.t, tDuration)
         tDuration = vtTimeBase[-1] - vtTimeBase[0]
 
-        if tsInput is not None:
+        if (tsInput is not None) and (not isinstance(tsInput, TSEvent)):
             # - Warn if evolution period is not fully contained in tsInput
             if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
                 print('WARNING: Evolution period (t = {} to {}) '.format(
@@ -241,6 +241,14 @@ class Layer(ABC):
 
 
     #### --- Properties
+
+    @property
+    def cOutput(self):
+        return TimeSeries
+
+    @property
+    def cInput(self):
+        return TimeSeries
 
     @property
     def nSize(self) -> int:

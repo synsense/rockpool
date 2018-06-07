@@ -176,6 +176,13 @@ class Network:
                                lyrSource.strName, lyrSource.nSize, lyrTarget.strName)
                               +' (nDimIn={}) do not match'.format(lyrTarget.nDimIn))
 
+        # - Check for compatible input / output
+        if lyrSource.cOutput != lyrTarget.cInput:
+            raise NetworkError('Input / output classes of layer `{}` (cOutput = {})'.format(
+                                    lyrSource.strName, lyrSource.cOutput.__name__) +
+                               ' and `{}` (cInput = {}) do not match'.format(
+                                    lyrTarget.strName, lyrTarget.cInput.__name__))
+
         # - Add source layer to target's set of inputs
         lyrTarget.lyrIn = lyrSource
 
