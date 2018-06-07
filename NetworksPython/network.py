@@ -382,7 +382,7 @@ class Network:
             fhTraining(self, dtsSignal, bFirst, bFinal)
             bFirst = False           
 
-        print('\nTraining successful')
+        print('\nTraining successful\n')
 
     def _check_sync(self, bVerbose: bool = True) -> bool:
         """
