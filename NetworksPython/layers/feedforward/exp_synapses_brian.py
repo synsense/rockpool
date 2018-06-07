@@ -195,7 +195,7 @@ class FFExpSynBrian(Layer):
 
         if hasattr(self, '_sgReceiver'):
             # - Assign recurrent weights (need to transpose)
-            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
+            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
             self._sgReceiver.w = mfNewW.flatten()
 
     @property

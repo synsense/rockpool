@@ -102,10 +102,6 @@ class NetworkDeneve(Network):
         lyrOutput = FFExpSynBrian(mfGamma.T, tDt = tDt, fNoiseStd = fNoiseStd, tTauSyn = tTauSynSlow,
                                   strName = 'Output')
 
-        print(lyrInput)
-        print(lyrReservoir)
-        print(lyrOutput)
-
         # - Build network
         netDeneve = NetworkDeneve()
         netDeneve.lyrInput = netDeneve.add_layer(lyrInput, bExternalInput = True)

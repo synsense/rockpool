@@ -190,8 +190,10 @@ class Layer(ABC):
     ### --- String representations
 
     def __str__(self):
-        return '{} object: "{}" Weights: {}'\
-            .format(self.__class__.__name__, self.strName, self.mfW.shape)
+        return '{} object: "{}" [{} {} in -> {} {} out]'\
+            .format(self.__class__.__name__, self.strName,
+                    self.nDimIn, self.cInput.__name__,
+                    self.nSize, self.cOutput.__name__)
 
     def __repr__(self):
         return self.__str__()
