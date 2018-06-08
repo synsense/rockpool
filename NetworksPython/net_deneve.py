@@ -36,7 +36,7 @@ class NetworkDeneve(Network):
                            vfVThresh: np.ndarray = -55e-3,
                            vfVRest: np.ndarray = -65e-3,
 
-                           tRefractoryTime = 0e-3
+                           tRefractoryTime = -np.finfo(float).eps,
                            ):
         """
         SolveLinearProblem - Static method Direct implementation of a linear dynamical system
