@@ -38,6 +38,31 @@ class NetworkDeneve(Network):
 
                            tRefractoryTime = 0e-3
                            ):
+        """
+        SolveLinearProblem - Static method Direct implementation of a linear dynamical system
+
+        :param mfA:             np.ndarray [PxP] Matrix defining linear dynamical system
+        :param nNetSize:        int Desired size of recurrent reservoir layer (Default: 100)
+
+        :param mfGamma:         np.ndarray [PxN] Input kernel (Default: 50 * Normal / nNetSize)
+
+        :param tDt:             float Nominal time step (Default: 0.1 ms)
+
+        :param fMu:             float Linear cost parameter (Default: 1e-4)
+        :param fNu:             float Quadratic cost parameter (Default: 1e-3)
+
+        :param fNoiseStd:       float Noise std. dev. (Default: 0)
+
+        :param tTauN:           float Neuron membrane time constant (Default: 20 ms)
+        :param tTauSynFast:     float Fast synaptic time constant (Default: 1 ms)
+        :param tTauSynSlow:     float Slow synaptic time constant (Default: 100 ms)
+
+        :param vfVThresh:       float Threshold membrane potential (Default: -55 mV)
+        :param vfVRest:         float Rest potential (Default: -65 mV)
+        :param tRefractoryTime: float Refractory time for neuron spiking (Default: 0 ms)
+
+        :return: A configured NetworkDeneve object, containing input, reservoir and output layers
+        """
         # - Get input parameters
         nJ = mfA.shape[0]
 
