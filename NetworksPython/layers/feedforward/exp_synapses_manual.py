@@ -139,7 +139,7 @@ class FFExpSyn(Layer):
         # - Define exponential kernel
         vfKernel = np.exp(-np.arange(0, tTrueDuration, self.tDt)/self.tTauSyn)
         # - Make sure spikes only have effect on next time step
-        vfKernel = np.r_[0, vfKernel[:-1]]
+        vfKernel = np.r_[0, vfKernel]
 
         # - Apply kernel to spike trains
         mfFiltered = np.zeros_like(mWeightedSpikeTrains)
