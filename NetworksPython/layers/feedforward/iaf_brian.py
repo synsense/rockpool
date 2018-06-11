@@ -30,14 +30,14 @@ eqNeuronIAF = b2.Equations('''
 ''')
 
 
-## - FFIAFBrian - Class: define a spiking recurrent layer with exponential current synaptic outputs
+## - FFIAFBrian - Class: define a spiking feedforward layer with exponential current synaptic outputs
 class FFIAFBrian(Layer):
-    """ FFIAFBrian - Class: define a spiking recurrent layer with exponential current synaptic outputs
+    """ FFIAFBrian - Class: define a spiking feedforward layer with exponential current synaptic outputs
     """
 
     ## - Constructor
     def __init__(self,
-                 mfW: np.ndarray = None,
+                 mfW: np.ndarray,
                  vfBias: np.ndarray = 10*mA,
 
                  tDt: float = 0.1*ms,
@@ -58,13 +58,12 @@ class FFIAFBrian(Layer):
                  strName: str = 'unnamed'
                  ):
         """
-        RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
+        RecIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
 
-        :param mfW:             np.array NxN weight matrix. Default: [100x100] unit-lambda matrix
+        :param mfW:             np.array MxN weight matrix.
         :param vfBias:          np.array Nx1 bias vector. Default: 10.5mA
 
-        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 5ms
-        :param tTauSynO:        float Output synaptic time constants. Default: 5ms
+        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
@@ -74,7 +73,7 @@ class FFIAFBrian(Layer):
 
         :param eqNeurons:       Brian2.Equations set of neuron equations. Default: IAF equation set
 
-        :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
+        :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
 
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
@@ -92,7 +91,7 @@ class FFIAFBrian(Layer):
                                        refractory = tRefractoryTime,
                                        method = strIntegrator,
                                        dt = np.asarray(tDt) * second,
-                                       name = 'reservoir_neurons')
+                                       name = 'spiking_ff_neurons')
         self._ngLayer.v = vfVRest
         self._ngLayer.r_m = 1 * ohm
 
@@ -103,7 +102,7 @@ class FFIAFBrian(Layer):
         self._net = b2.Network(self._ngLayer, self._spmLayer,
                                name = 'ff_spiking_layer')
 
-        # - Record reservoir parameters
+        # - Record neuron parameters
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest

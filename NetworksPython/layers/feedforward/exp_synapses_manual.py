@@ -89,10 +89,9 @@ class FFExpSyn(Layer):
 
         :return: TimeSeries Output of this layer during evolution period
         """
-        from time import time
-
+        
         # - Prepare time base
-        vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
+        vtTimeBase, _, tTrueDuration = self._prepare_input(tsInput, tDuration)
 
         mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
         
@@ -102,8 +101,13 @@ class FFExpSyn(Layer):
             mWeightedSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
 
         else:
-            vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tDuration])
+            vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tTrueDuration])
             
+            # - Make sure that input channels do not exceed layer input dimensions
+            assert np.amax(vnEventChannels) <= self.nDimIn, (
+                'Number of input channels exceeds layer input dimensions ')
+
+            # - Convert input events to spike trains
             mSpikeTrains = np.zeros((vtTimeBase.size, self.nDimIn))
             #   Iterate over channel indices and create their spike trains
             for channel in range(self.nDimIn):
@@ -121,10 +125,17 @@ class FFExpSyn(Layer):
         mWeightedSpikeTrains[0, :] += self.vState
 
         # - Add a noise trace
-        mWeightedSpikeTrains += np.random.randn(*mWeightedSpikeTrains.shape) * self.fNoiseStd
+        mfNoise = np.random.randn(*mWeightedSpikeTrains.shape) * self.fNoiseStd * np.sqrt(self.tDt) / self.tTauSyn
+        mfNoise[0,:] = 0 # Assure that noice trace starts with 0
+        #mfNoise = np.zeros_like(mWeightedSpikeTrains)
+        #mfNoise[0,:] = self.fNoiseStd
+        
+        mWeightedSpikeTrains += mfNoise
         
         # - Define exponential kernel
-        vfKernel = np.exp(-np.arange(0, tDuration, self.tDt)/self.tTauSyn)
+        vfKernel = np.exp(-np.arange(0, tTrueDuration, self.tDt)/self.tTauSyn)
+        # - Make sure spikes only have effect on next time step
+        vfKernel = np.r_[0, vfKernel[:-1]]
 
         # - Apply kernel to spike trains
         mfFiltered = np.zeros_like(mWeightedSpikeTrains)
@@ -134,7 +145,7 @@ class FFExpSyn(Layer):
             mfFiltered[:, channel] = vConvShort
 
         # - Update time and state
-        self._tDt = vtTimeBase[-1]
+        self._t += tTrueDuration
         self.vState = mfFiltered[-1]
 
         # - Output time series with output data and bias
@@ -189,7 +200,7 @@ class FFExpSyn(Layer):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tDuration])
+            vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]])
 
             # - Make sure that input channels do not exceed layer input dimensions
             assert np.amax(vnEventChannels) <= self.nDimIn, (
@@ -207,7 +218,7 @@ class FFExpSyn(Layer):
                 mSpikeTrains[viEventIndicesChannel, channel] = 1
 
             # - Define exponential kernel
-            vfKernel = np.exp(-np.arange(0, tDuration, self.tDt)/self.tTauSyn)
+            vfKernel = np.exp(-np.arange(0, vtTimeBase[-1]-vtTimeBase[0], self.tDt)/self.tTauSyn)
 
             # - Apply kernel to spike trains and add filtered trains to input array
             for channel, vEvents in enumerate(mSpikeTrains.T):
