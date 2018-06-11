@@ -102,20 +102,43 @@ class FFRateEuler(Layer):
 
     def __init__(self,
                  mfW: np.ndarray,
-                 tDt: float = 1,
+                 tDt: float = None,
                  strName: str = None,
                  fNoiseStd: float = 0,
                  fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLU,
                  vtTau: np.ndarray = 10,
                  vfGain: np.ndarray = 1,
                  vfBias: np.ndarray = 0):
+        """
+        FFRateEuler - Implement a feed-forward non-spiking neuron layer, with an Euler method solver
+
+        :param mfW:             np.ndarray [MxN] Weight matrix
+        :param tDt:             float Time step for Euler solver, in seconds
+        :param strName:         string Name of this layer
+        :param fNoiseStd:       float Noise std. dev. per second
+        :param fhActivation:    Callable a = f(x) Neuron activation function (Default: ReLU)
+        :param vtTau:           np.ndarray [Nx1] Vector of neuron time constants
+        :param vfGain:          np.ndarray [Nx1] Vector of gain factors
+        :param vfBias:          np.ndarray [Nx1] Vector of bias currents
+        """
+
+        # - Set a reasonable tDt
+        if tDt is None:
+            tMinTau = np.min(vtTau)
+            tDt = tMinTau / 10
+
+        # - Call super-class initialiser
         super().__init__(mfW=mfW.astype(float), tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
-        self.reset_all()
+
+        # - Check all parameter shapes
         try:
             self.vtTau, self.vfGain, self.vfBias = map(self._correct_param_shape, (vtTau, vfGain, vfBias))
         except AssertionError:
             raise AssertionError('Numbers of elements in vtTau, vfGain and vfBias'
                                  + ' must be 1 or match layer size.')
+
+        # - Reset this layer state and set attributes
+        self.reset_all()
         self.vfAlpha = self._tDt/self.vtTau
         self.fhActivation = fhActivation
 
@@ -333,17 +356,27 @@ class PassThrough(FFRateEuler):
                  vfBias = 0,
                  tDelay: float = 0,
                  strName: str = None):
-        
-        self._tDelay = (0 if tDelay is None else tDelay)
-        
+        """
+        PassThrough - Implement a feed-forward layer that simply passes input (possibly delayed)
+
+        :param mfW:         np.ndarray [MxN] Weight matrix
+        :param tDt:         float Time step for Euler solver, in seconds
+        :param fNoiseStd:   float Noise std. dev. per second
+        :param vfBias:      np.ndarray [Nx1] Vector of bias currents
+        :param tDelay:      float Delay between input and output, in seconds
+        :param strName:     string Name of this layer
+        """
+        # - Call super-class initialiser
         super().__init__(mfW = mfW,
                          tDt = tDt,
                          fNoiseStd = fNoiseStd,
                          fhActivation = lambda x: x,
                          vfBias = vfBias,
                          strName=strName)
-        # self.reset_all()
-        
+
+        # - Set delay
+        self._tDelay = (0 if tDelay is None else tDelay)
+
     def reset_buffer(self):
         if self.tDelay != 0:
             # - Make sure that self.tDelay is a multiple of self.tDt
