@@ -22,12 +22,12 @@ class NetworkDeneve(Network):
 
                            mfGamma: np.ndarray = None,
 
-                           tDt: float = 1e-4,
+                           tDt: float = None,
 
                            fMu: float = 1e-4,
                            fNu: float = 1e-3,
 
-                           fNoiseStd: float = 0,
+                           fNoiseStd: float = 0.0,
 
                            tTauN: float = 20e-3,
                            tTauSynFast: float = 1e-3,
@@ -113,18 +113,70 @@ class NetworkDeneve(Network):
         Omega_s_dash *= tTauN
         Gamma_dash *= tTauN
 
+        # - Build and return network
+        return NetworkDeneve.SpecifyNetwork(mfW_f = -Omega_f_dash, mfW_s = Omega_s_dash,
+                       mfW_input = Gamma_dash.T, mfW_output = mfGamma.T,
+                       tDt = tDt, fNoiseStd = fNoiseStd,
+                       vfVRest = vfVRest, vfVReset = vfVReset, vfVThresh = vfVThresh,
+                       vtTauN = tTauN, vtTauSynR_f = tTauSynFast, vtTauSynR_s = tTauSynSlow, tTauSynO = tTauSynSlow,
+                       tRefractoryTime = tRefractoryTime,
+                    )
+
+
+    @staticmethod
+    def SpecifyNetwork(mfW_f, mfW_s,
+                       mfW_input, mfW_output,
+
+                       tDt: float = None,
+                       fNoiseStd: float = 0.0,
+
+                       vfVThresh: np.ndarray = -55e-3,
+                       vfVReset: np.ndarray = -65e-3,
+                       vfVRest: np.ndarray = -65e-3,
+
+                       vtTauN: float = 20e-3,
+                       vtTauSynR_f: float = 1e-3,
+                       vtTauSynR_s: float = 100e-3,
+                       tTauSynO: float = 100e-3,
+
+                       tRefractoryTime: float = -np.finfo(float).eps,
+                    ):
+        """
+        SpecifyNetwork - Directly configure all layers of a reservoir
+
+        :param mfW_f:       np.ndarray [NxN] Matrix of fast synaptic weights
+        :param mfW_s:       np.ndarray [NxN] Matrix of slow synaptic weights
+        :param mfW_input:   np.ndarray [LxN] Matrix of input kernels
+        :param mfW_output:  np.ndarray [NxM] Matrix of output kernels
+
+        :param tDt:         float Nominal time step
+        :param fNoiseStd:   float Noise Std. Dev.
+
+        :param vfVRest:     np.ndarray [Nx1] Vector of rest potentials (spiking layer)
+        :param vfVReset:    np.ndarray [Nx1] Vector of reset potentials (spiking layer)
+        :param vfVThresh:   np.ndarray [Nx1] Vector of threshold potentials (spiking layer)
+
+        :param vtTauN:      float Neuron membrane time constant (spiking layer)
+        :param vtTauSynR_f: float Fast recurrent synaptic time constant
+        :param vtTauSynR_s: float Slow recurrent synaptic time constant
+        :param tTauSynO:    float Synaptic time constant for output layer
+
+        :param tRefractoryTime: float Refractory time for spiking layer
+
+        :return:
+        """
         # - Construct input layer
-        lyrInput = PassThrough(Gamma_dash.T, tDt = tDt, fNoiseStd = fNoiseStd, strName = 'Input')
+        lyrInput = PassThrough(mfW_input, tDt = tDt, fNoiseStd = fNoiseStd, strName = 'Input')
 
         # - Construct reservoir
-        lyrReservoir = RecFSSpikeEulerBT(-Omega_f_dash, Omega_s_dash, tDt = tDt, fNoiseStd = fNoiseStd,
-                                         vtTauN = tTauN, vtTauSynR_f = tTauSynFast, vtTauSynR_s = tTauSynSlow,
+        lyrReservoir = RecFSSpikeEulerBT(mfW_f, mfW_s, tDt = tDt, fNoiseStd = fNoiseStd,
+                                         vtTauN = vtTauN, vtTauSynR_f = vtTauSynR_f, vtTauSynR_s = vtTauSynR_s,
                                          vfVThresh = vfVThresh, vfVRest = vfVRest,
                                          vfVReset = vfVReset, tRefractoryTime = tRefractoryTime,
                                          strName = 'Deneve_Reservoir')
 
         # - Construct output layer
-        lyrOutput = FFExpSynBrian(mfGamma.T, tDt = tDt, fNoiseStd = fNoiseStd, tTauSyn = tTauSynSlow,
+        lyrOutput = FFExpSynBrian(mfW_output, tDt = tDt, fNoiseStd = fNoiseStd, tTauSyn = tTauSynO,
                                   strName = 'Output')
 
         # - Build network
