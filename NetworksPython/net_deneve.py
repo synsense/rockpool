@@ -3,7 +3,7 @@
 ###
 
 from network import Network
-from layers.feedforward import PassThrough, FFExpSynBrian
+from layers.feedforward import PassThrough, FFExpSyn, FFExpSynBrian
 from layers.recurrent import RecFSSpikeEulerBT
 
 import numpy as np
@@ -165,9 +165,6 @@ class NetworkDeneve(Network):
 
         :return:
         """
-        # - Construct input layer
-        lyrInput = PassThrough(mfW_input, tDt = tDt, fNoiseStd = fNoiseStd, strName = 'Input')
-
         # - Construct reservoir
         lyrReservoir = RecFSSpikeEulerBT(mfW_f, mfW_s, tDt = tDt, fNoiseStd = fNoiseStd,
                                          vtTauN = vtTauN, vtTauSynR_f = vtTauSynR_f, vtTauSynR_s = vtTauSynR_s,
@@ -175,9 +172,16 @@ class NetworkDeneve(Network):
                                          vfVReset = vfVReset, tRefractoryTime = tRefractoryTime,
                                          strName = 'Deneve_Reservoir')
 
+        # - Ensure time step is consistent across layers
+        if tDt is None:
+            tDt = lyrReservoir.tDt
+
+        # - Construct input layer
+        lyrInput = PassThrough(mfW_input, tDt = tDt, fNoiseStd = fNoiseStd, strName = 'Input')
+
+
         # - Construct output layer
-        lyrOutput = FFExpSynBrian(mfW_output, tDt = tDt, fNoiseStd = fNoiseStd, tTauSyn = tTauSynO,
-                                  strName = 'Output')
+        lyrOutput = FFExpSyn(mfW_output, tDt = 0.1e-4, fNoiseStd = fNoiseStd, tTauSyn = tTauSynO, strName = 'Output')
 
         # - Build network
         netDeneve = NetworkDeneve()

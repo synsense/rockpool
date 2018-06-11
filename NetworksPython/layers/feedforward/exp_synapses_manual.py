@@ -27,7 +27,7 @@ class FFExpSyn(Layer):
                  mfW: Union[np.ndarray, int] = None,
                  vfBias: np.ndarray = 0,
                  tDt: float = 0.0001,
-                 fNoiseStd: float = 0.001,
+                 fNoiseStd: float = 0,
                  tTauSyn: float = 0.005,
                  strName: str = 'unnamed'
                  ):
@@ -37,7 +37,7 @@ class FFExpSyn(Layer):
         :param mfW:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
         :param tDt:             float Time step for state evolution
-        :param fNoiseStd:       float Std. dev. of noise added to this layer
+        :param fNoiseStd:       float Std. dev. of noise added to this layer. Default: 0
 
         :param tTauSyn:         float Output synaptic time constants. Default: 5ms
         :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
@@ -108,7 +108,7 @@ class FFExpSyn(Layer):
             vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tTrueDuration])
             
             # - Make sure that input channels do not exceed layer input dimensions
-            assert np.amax(vnEventChannels) <= self.nDimIn, (
+            assert np.max(vnEventChannels) <= self.nDimIn, (
                 'Number of input channels exceeds layer input dimensions ')
 
             # - Convert input events to spike trains
@@ -123,14 +123,14 @@ class FFExpSyn(Layer):
                 mSpikeTrains[viEventIndicesChannel, channel] = 1
 
             # - Apply weights
-            mWeightedSpikeTrains = mSpikeTrains@self.mfW
+            mWeightedSpikeTrains = mSpikeTrains @ self.mfW
         
         # Add current state
         mWeightedSpikeTrains[0, :] += self.vState
 
         # - Add a noise trace
         mfNoise = np.random.randn(*mWeightedSpikeTrains.shape) * self.fNoiseStd * np.sqrt(self.tDt) / self.tTauSyn
-        mfNoise[0,:] = 0 # Assure that noice trace starts with 0
+        mfNoise[0,:] = 0 # Assure that noise trace starts with 0
         #mfNoise = np.zeros_like(mWeightedSpikeTrains)
         #mfNoise[0,:] = self.fNoiseStd
         

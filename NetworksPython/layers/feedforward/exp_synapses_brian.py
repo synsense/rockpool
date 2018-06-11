@@ -35,7 +35,7 @@ class FFExpSynBrian(Layer):
                  mfW: Union[np.ndarray, int] = None,
 
                  tDt: float = 0.1*ms,
-                 fNoiseStd: float = 1*mV,
+                 fNoiseStd: float = 0*mV,
 
                  tTauSyn: float = 5 * ms,
                  eqSynapses = eqSynapseExp,
@@ -48,8 +48,8 @@ class FFExpSynBrian(Layer):
 
         :param mfW:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
-        :param tDt:             float Time step for state evolution
-        :param fNoiseStd:       float Std. dev. of noise added to this layer
+        :param tDt:             float Time step for state evolution. Default: 0.1 ms
+        :param fNoiseStd:       float Std. dev. of noise added to this layer. Default: 0
 
         :param tTauSyn:         float Output synaptic time constants. Default: 5ms
         :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
@@ -57,6 +57,10 @@ class FFExpSynBrian(Layer):
 
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
+
+        # - Provide default tDt
+        if tDt is None:
+            tDt = 0.1*ms
 
         # - Provide default weight matrix for one-to-one conversion
         if isinstance(mfW, int):
@@ -196,7 +200,7 @@ class FFExpSynBrian(Layer):
         self._mfW = mfNewW
 
         if hasattr(self, '_sgReceiver'):
-            # - Assign recurrent weights (need to transpose)
+            # - Assign recurrent weights
             mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
             self._sgReceiver.w = mfNewW.flatten()
 
