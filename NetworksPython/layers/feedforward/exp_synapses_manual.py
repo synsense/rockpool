@@ -50,6 +50,10 @@ class FFExpSyn(Layer):
         if isinstance(mfW, int):
             mfW = np.identity(mfW, 'float')
 
+        # - Check tDt
+        if tDt is None:
+            tDt = tTauSyn / 10
+
         # - Call super constructor
         super().__init__(mfW = mfW,
                          tDt = np.asarray(tDt),
