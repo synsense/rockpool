@@ -366,6 +366,9 @@ class PassThrough(FFRateEuler):
         :param tDelay:      float Delay between input and output, in seconds
         :param strName:     string Name of this layer
         """
+        # - Set delay
+        self._tDelay = (0 if tDelay is None else tDelay)
+
         # - Call super-class initialiser
         super().__init__(mfW = mfW,
                          tDt = tDt,
@@ -373,9 +376,6 @@ class PassThrough(FFRateEuler):
                          fhActivation = lambda x: x,
                          vfBias = vfBias,
                          strName=strName)
-
-        # - Set delay
-        self._tDelay = (0 if tDelay is None else tDelay)
 
     def reset_buffer(self):
         if self.tDelay != 0:
