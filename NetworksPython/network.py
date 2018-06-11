@@ -498,10 +498,11 @@ class Network:
         """
         reset_all() - Reset state and time of the network.
         """
-        # self.reset_state()
-        # self.reset_time()
         for lyr in self.setLayers:
             lyr.reset_all()
+
+        # - Reset global network time
+        self._t = 0
 
     def __repr__(self):
         return "{} object with {} layers".format(
