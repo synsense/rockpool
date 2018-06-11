@@ -385,18 +385,21 @@ class PassThrough(FFRateEuler):
             mfSamplesComb[-nStepsIn: ] = mfInProcessed
 
             # - Output data
-            mfSamplesOut = mfSamplesComb[ :nStepsIn] + self.vfBias
+            mfSamplesOut = mfSamplesComb[ :nStepsIn]
 
             # - Update buffer with new data
             self.tsBuffer.mfSamples = mfSamplesComb[nStepsIn-1:]
 
         else:
             # - Undelayed processed input
-            mfSamplesOut = mfInProcessed + self.vfBias
+            mfSamplesOut = mfInProcessed
 
+        # - Update state and time
+        self.vState = mfSamplesOut[-1]
         self._t += tTrueDuration
 
-        return TimeSeries(vtTimeIn, mfSamplesOut)
+        # - Return time series with output data and bias 
+        return TimeSeries(vtTimeIn, mfSamplesOut + self.vfBias)
 
     def __repr__(self):
         return 'PassThrough layer object `{}`.\nnSize: {}, nDimIn: {}, tDelay: {}'.format(

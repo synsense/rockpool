@@ -136,19 +136,21 @@ class FFExpSynBrian(Layer):
 
         :return: TimeSeries Output of this layer during evolution period
         """
-
+        
         # - Prepare time base
         vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], tDuration])
+            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
             self._sggInput.set_spikes(vnEventChannels, vtEventTimes * second, sorted = False)
         else:
-            self._sggInput.set_spikes([])
+            self._sggInput.set_spikes([], [] * second)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd
+        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
+        #mfNoiseStep = np.zeros((np.size(vtTimeBase), self.nSize))
+        #mfNoiseStep[0,:] = self.fNoiseStd
 
         # - Specifiy noise input currents, construct TimedArray
         taI_noise = TAShift(np.asarray(mfNoiseStep) * amp,
