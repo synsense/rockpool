@@ -7,38 +7,29 @@
 from ..layer import Layer
 from TimeSeries import *
 import numpy as np
-from typing import Union
-# from warnings import warn
-# from scipy.interpolate import interp1d
+from typing import Union, Callable
 import copy
 
-from numba import njit, float64
+from numba import njit
 
 # - Try to import holoviews
-try:
-    import holoviews as hv
-
-except Exception:
-     pass
+try: import holoviews as hv
+except Exception: pass
 
 # - Configure exports
 __all__ = ['RecFSSpikeEulerBT']
 
+
 ### --- Functions implementing membrane and synapse dynamics
 
-# @jit(float64(float64, float64[:], float64,
-#              float64[:], float64[:], float64[:], float64[:],
-#              float64[:], float64[:], float64[:],
-#              float64[:], float64[:], float64[:], float64))
+@njit
 def Neuron_dotV(t, V, dt,
-                I_s_S, I_s_F, I_O, I_ext, I_bias,
+                I_s_S, I_s_F, I_ext, I_bias,
                 V_rest, V_reset, V_thresh,
                 tau_V, tau_S, tau_F):
     return (V_rest - V + I_s_S + I_s_F + I_ext + I_bias) / tau_V
 
-# @jit(float64(float64, float64[:], float64,
-#              float64[:],
-#              float64[:]))
+@njit
 def Syn_dotI(t, I, dt,
              I_spike,
              tau_Syn):
@@ -48,6 +39,7 @@ def Syn_dotI(t, I, dt,
 @njit
 def _backstep(vCurrent, vLast, tStep, tDesiredStep):
     return (vCurrent - vLast) / tStep * tDesiredStep + vLast
+
 
 ### --- RecFSSpikeEulerBT class implementation
 
@@ -66,7 +58,7 @@ class RecFSSpikeEulerBT(Layer):
                  vfVReset: Union[np.ndarray, float] = -65e-3,
                  vfVRest: Union[np.ndarray, float] = -65e-3,
 
-                 tRefractoryTime: float = 0e-3,
+                 tRefractoryTime: float = -np.finfo(float).eps,
 
                  tDt: float = None,
                  strName: str = None,
@@ -105,7 +97,7 @@ class RecFSSpikeEulerBT(Layer):
         self.vfVThresh = np.asarray(vfVThresh).astype('float')
         self.vfVReset = np.asarray(vfVReset).astype('float')
         self.vfVRest = np.asarray(vfVRest).astype('float')
-        self.tRefractoryTime = np.asarray(tRefractoryTime).astype('float')
+        self.tRefractoryTime = float(tRefractoryTime)
 
         # - Set a reasonable tDt
         if tDt is None:
@@ -135,6 +127,7 @@ class RecFSSpikeEulerBT(Layer):
                tsInput: TimeSeries = None,
                tDuration: float = None,
                tMinDelta: float = None,
+               fhSpikeCallback: Callable = None,
                ) -> TimeSeries:
         """
         evolve() - Simulate the spiking reservoir, using a precise-time spike detector
@@ -143,9 +136,10 @@ class RecFSSpikeEulerBT(Layer):
             For this reason, the time steps returned by the integrator are not homogenous. A minimum time step can be set;
             by default this is 1/10 of the nominal time step.
 
-        :param tsInput:     TimeSeries input for a given time t [TxN]
-        :param tDuration:   float Duration of simulation in seconds. Default: 100ms
-        :param tMinDelta:   float Minimum time step taken. Default: 1/10 nominal TC
+        :param tsInput:         TimeSeries input for a given time t [TxN]
+        :param tDuration:       float Duration of simulation in seconds. Default: 100ms
+        :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
+        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :return: TimeSeries containing the output currents of the reservoir
         """
@@ -198,92 +192,126 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Euler integrator loop
         while tTime < tFinalTime:
-            # - Enforce refractory period by clamping membrane potential to reset
-            self._vState[vtRefractory > 0] = self.vfVReset[vtRefractory > 0]
 
-            ## - Back-tick spike detector
+            ### --- Numba-compiled inner function for speed
+            # @njit
+            def _evolve_backstep(tTime, mfW, mfW_s,
+                                 vState, I_s_S, I_s_F, tDt,
+                                 VLast, I_s_S_Last, I_s_F_Last,
+                                 vfVReset, vfVRest, vfVThresh, vfBias,
+                                 vtTauN, vtTauSynR_s, vtTauSynR_f,
+                                 tRefractoryTime, vtRefractory,
+                                 vfZeros):
+                # - Enforce refractory period by clamping membrane potential to reset
+                vState[vtRefractory > 0] = vfVReset[vtRefractory > 0]
 
-            # - Locate spiking neurons
-            # vnSpikeIDs = np.argwhere(self.vState > self.vfVThresh).flatten()
-            vnSpikeIDs = argwhere(self._vState > self.vfVThresh)
+                ## - Back-tick spike detector
 
-            # - Were there any spikes?
-            if np.size(vnSpikeIDs) > 0:
-                # - Predict the precise spike times using linear interpolation
-                vtSpikeDeltas = (self.vfVThresh[vnSpikeIDs] - VLast[vnSpikeIDs]) * self.tDt / \
-                                (self.vState[vnSpikeIDs] - VLast[vnSpikeIDs])
+                # - Locate spiking neurons
+                vbSpikeIDs = vState > vfVThresh
+                vnSpikeIDs = argwhere(vbSpikeIDs)
+                nNumSpikes = np.sum(vbSpikeIDs)
 
-                # - Was there more than one neuron above threshold?
-                if np.size(vnSpikeIDs) > 1:
-                    # - Find the earliest spike
-                    tSpikeDelta, nFirstSpikeId = min_argmin(vtSpikeDeltas)
-                    nFirstSpikeId = vnSpikeIDs[nFirstSpikeId]
+                # - Were there any spikes?
+                if nNumSpikes > 0:
+                    # - Predict the precise spike times using linear interpolation
+                    vtSpikeDeltas = (vfVThresh[vbSpikeIDs] - VLast[vbSpikeIDs]) * tDt / \
+                                    (vState[vbSpikeIDs] - VLast[vbSpikeIDs])
+
+                    # - Was there more than one neuron above threshold?
+                    if nNumSpikes > 1:
+                        # - Find the earliest spike
+                        tSpikeDelta, nFirstSpikeId = min_argmin(vtSpikeDeltas)
+                        nFirstSpikeId = vnSpikeIDs[nFirstSpikeId]
+                    else:
+                        tSpikeDelta = vtSpikeDeltas[0]
+                        nFirstSpikeId = vnSpikeIDs[0]
+
+                    # - Find time of actual spike
+                    tShortestStep = tLast + tMinDelta
+                    tSpike = clip_scalar(tLast + tSpikeDelta, tShortestStep, tTime)
+                    tSpikeDelta = tSpike - tLast
+
+                    # - Back-step time to spike
+                    tTime = tSpike
+                    vtRefractory = vtRefractory + tDt - tSpikeDelta
+
+                    # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
+                    vState = _backstep(vState, VLast, tDt, tSpikeDelta)
+                    I_s_S = _backstep(I_s_S, I_s_S_Last, tDt, tSpikeDelta)
+                    I_s_F = _backstep(I_s_F, I_s_F_Last, tDt, tSpikeDelta)
+
+                    # - Apply reset to spiking neuron
+                    vState[nFirstSpikeId] = vfVReset[nFirstSpikeId]
+
+                    # - Begin refractory period for spiking neuron
+                    vtRefractory[nFirstSpikeId] = tRefractoryTime
+
+                    # - Set spike currents
+                    I_spike_slow = mfW_s[:, nFirstSpikeId]
+                    I_spike_fast = mfW[:, nFirstSpikeId]
+
                 else:
-                    tSpikeDelta = vtSpikeDeltas[0]
-                    nFirstSpikeId = vnSpikeIDs[0]
+                    # - Clear spike currents
+                    nFirstSpikeId = -1
+                    I_spike_slow = vfZeros
+                    I_spike_fast = vfZeros
 
-                # - Find time of actual spike
-                tShortestStep = tLast + tMinDelta
-                tSpike = np.clip(tLast + tSpikeDelta, tShortestStep, tTime)
-                tSpikeDelta = tSpike - tLast
+                ### End of back-tick spike detector
 
-                # - Back-step time to spike
-                tTime = tSpike
-                vtRefractory = vtRefractory + self._tDt - tSpikeDelta
+                # - Save synapse and neuron states for previous time step
+                VLast[:] = vState
+                I_s_S_Last[:] = I_s_S
+                I_s_F_Last[:] = I_s_F
 
-                # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
-                self._vState = _backstep(self._vState, VLast, self._tDt, tSpikeDelta)
-                self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._tDt, tSpikeDelta)
-                self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._tDt, tSpikeDelta)
+                # - Update synapse and neuron states (Euler step)
+                dotI_s_S = Syn_dotI(tTime, I_s_S, tDt, I_spike_slow, vtTauSynR_s)
+                I_s_S += dotI_s_S * tDt
 
-                # - Apply reset to spiking neuron
-                self._vState[nFirstSpikeId] = self.vfVReset[nFirstSpikeId]
+                dotI_s_F = Syn_dotI(tTime, I_s_F, tDt, I_spike_fast, vtTauSynR_f)
+                I_s_F += dotI_s_F * tDt
 
-                # - Begin refractory period for spiking neuron
-                vtRefractory[nFirstSpikeId] = self.tRefractoryTime
+                nIntTime = int((tTime-tStart) // tDt)
+                I_ext = mfStaticInput[nIntTime, :]
+                dotV = Neuron_dotV(tTime, vState, tDt,
+                                   I_s_S, I_s_F, I_ext, vfBias,
+                                   vfVRest, vfVReset, vfVThresh,
+                                   vtTauN, vtTauSynR_s, vtTauSynR_f)
+                vState += dotV * tDt
 
-                # - Set spike currents
-                I_spike_slow = self.mfW_s[:, nFirstSpikeId]
-                I_spike_fast = self.mfW[:, nFirstSpikeId]
+                return (tTime, nFirstSpikeId, dotV, vState, I_s_S, I_s_F, tDt,
+                        VLast, I_s_S_Last, I_s_F_Last,
+                        vtRefractory)
 
-                # - Extend spike record, if necessary
-                if nSpikePointer >= nMaxSpikePointer:
-                    nExtend = int(nMaxSpikePointer // 2)
-                    vtSpikeTimes = np.append(vtSpikeTimes, full_nan(nExtend))
-                    vnSpikeIndices = np.append(vnSpikeIndices, full_nan(nExtend))
-                    nMaxSpikePointer += nExtend
+            ### --- END of compiled inner function
 
-                # - Record spiking neuron
-                vtSpikeTimes[nSpikePointer] = tTime
-                vnSpikeIndices[nSpikePointer] = nFirstSpikeId
-                nSpikePointer += 1
+            # - Call compiled inner function
+            (tTime, nFirstSpikeId, dotV,
+             self._vState, self.I_s_S, self.I_s_F, self._tDt,
+             VLast, I_s_S_Last, I_s_F_Last,
+             vtRefractory) = _evolve_backstep(tTime, self._mfW, self.mfW_s,
+                                              self._vState, self.I_s_S, self.I_s_F, self._tDt,
+                                              VLast, I_s_S_Last, I_s_F_Last,
+                                              self.vfVReset, self.vfVRest, self.vfVThresh, self.vfBias,
+                                              self.vtTauN, self.vtTauSynR_s, self.vtTauSynR_f,
+                                              self.tRefractoryTime, vtRefractory,
+                                              vfZeros)
 
-            else:
-                # - Clear spike currents
-                I_spike_slow = 0.
-                I_spike_fast = 0.
+            # - Call spike-based learning callback
+            if nFirstSpikeId > -1 and fhSpikeCallback is not None:
+                fhSpikeCallback(self, tTime, nFirstSpikeId)
 
-            ### End of back-tick spike detector
+            # - Extend spike record, if necessary
+            if nSpikePointer >= nMaxSpikePointer:
+                nExtend = int(nMaxSpikePointer // 2)
+                vtSpikeTimes = np.append(vtSpikeTimes, full_nan(nExtend))
+                vnSpikeIndices = np.append(vnSpikeIndices, full_nan(nExtend))
+                nMaxSpikePointer += nExtend
 
-            # - Save synapse and neuron states for previous time step
-            VLast[:] = self.vState
-            I_s_S_Last[:] = self.I_s_S
-            I_s_F_Last[:] = self.I_s_F
-
-            # - Update synapse and neuron states (Euler step)
-            dotI_s_S = Syn_dotI(tTime, self.I_s_S, self.tDt, I_spike_slow, self.vtTauSynR_s)
-            self.I_s_S += dotI_s_S * self.tDt
-
-            dotI_s_F = Syn_dotI(tTime, self.I_s_F, self.tDt, I_spike_fast, self.vtTauSynR_f)
-            self.I_s_F += dotI_s_F * self.tDt
-
-            nIntTime = int((tTime-tStart) // self.tDt)
-            I_ext = mfStaticInput[nIntTime, :]
-            dotV = Neuron_dotV(tTime, self._vState, self._tDt,
-                               self.I_s_S, self.I_s_F, [], I_ext, self.vfBias,
-                               self.vfVRest, self.vfVReset, self.vfVThresh,
-                               self.vtTauN, self.vtTauSynR_s, self.vtTauSynR_f)
-            self._vState += dotV * self._tDt
+            # - Record spiking neuron
+            vtSpikeTimes[nSpikePointer] = tTime
+            vnSpikeIndices[nSpikePointer] = nFirstSpikeId
+            nSpikePointer += 1
 
             # - Extend state storage variables, if needed
             if nStep >= nMaxTimeStep:
@@ -422,12 +450,21 @@ def full_nan(vnShape: Union[tuple, int]):
     a.fill(np.nan)
     return a
 
-# - Python-only min and argmin function
-# @njit
-def min_argmin(vfData):
+
+### --- Compiled concenience functions
+
+@njit
+def min_argmin(vfData: np.ndarray):
+    """
+    min_argmin - Accelerated function to find minimum and location of minimum
+
+    :param vfData:  np.ndarray of data
+
+    :return:        fMinVal, nMinLoc
+    """
     n = 0
     nMinLoc = -1
-    fMinVal = float('inf')
+    fMinVal = np.inf
     for x in vfData:
         if x < fMinVal:
             nMinLoc = n
@@ -436,8 +473,16 @@ def min_argmin(vfData):
 
     return fMinVal, nMinLoc
 
-# @njit
-def argwhere(vbData):
+
+@njit
+def argwhere(vbData: np.ndarray):
+    """
+    argwhere - Accelerated argwhere function
+
+    :param vbData:  np.ndarray Boolean array
+
+    :return:        list vnLocations where vbData = True
+    """
     vnLocs = []
     n = 0
     for val in vbData:
@@ -445,6 +490,43 @@ def argwhere(vbData):
         n += 1
 
     return vnLocs
+
+
+@njit
+def clip_vector(v: np.ndarray,
+         fMin: float,
+         fMax: float):
+    """
+    clip_vector - Accelerated vector clip function
+
+    :param v:
+    :param fMin:
+    :param fMax:
+
+    :return: Clipped vector
+    """
+    v[v < fMin] = fMin
+    v[v > fMax] = fMax
+    return v
+
+
+@njit
+def clip_scalar(fVal: float,
+                fMin: float,
+                fMax: float):
+    """
+    clip_scalar - Accelerated scalar clip function
+
+    :param fVal:
+    :param fMin:
+    :param fMax:
+
+    :return: Clipped value
+    """
+    if fVal < fMin: return fMin
+    elif fVal > fMax: return fMax
+    else: return fVal
+
 
 def RepToNetSize(oData, nSize):
     if np.size(oData) == 1:

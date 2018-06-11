@@ -37,6 +37,10 @@ class Layer(ABC):
         :param strName:       str Name of this layer. Default: 'unnamed'
         """
 
+        # Weights must be provided
+        assert mfW is not None, \
+            '`mfW` must be provided.'
+
         # - Ensure weights are at least 2D
         mfW = np.atleast_2d(mfW)
 
