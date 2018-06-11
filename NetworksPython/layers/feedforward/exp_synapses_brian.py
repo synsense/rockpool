@@ -48,7 +48,7 @@ class FFExpSynBrian(Layer):
 
         :param mfW:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
-        :param tDt:             float Time step for state evolution
+        :param tDt:             float Time step for state evolution. Default: 0.1 ms
         :param fNoiseStd:       float Std. dev. of noise added to this layer. Default: 0
 
         :param tTauSyn:         float Output synaptic time constants. Default: 5ms
@@ -57,6 +57,10 @@ class FFExpSynBrian(Layer):
 
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
+
+        # - Provide default tDt
+        if tDt is None:
+            tDt = 0.1*ms
 
         # - Provide default weight matrix for one-to-one conversion
         if isinstance(mfW, int):
