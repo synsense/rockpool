@@ -194,14 +194,6 @@ class RecIAFBrian(Layer):
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
-    def reset_state(self):
-        """
-        reset_state - Reset the internal state of this layer. Sets state to zero
-
-        :return: None
-        """
-        self.vState = np.zeros(self.nSize) * volt
-
     ### --- Properties
 
     @property
