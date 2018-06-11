@@ -181,6 +181,10 @@ class FFIAFBrian(Layer):
     ### --- Properties
 
     @property
+    def cOutput(self):
+        return TSEvent
+
+    @property
     def vState(self):
         return self._ngLayer.v_
 
