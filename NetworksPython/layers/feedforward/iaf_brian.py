@@ -41,7 +41,7 @@ class FFIAFBrian(Layer):
                  vfBias: np.ndarray = 10*mA,
 
                  tDt: float = 0.1*ms,
-                 fNoiseStd: float = 1*mV,
+                 fNoiseStd: float = 0*mV,
 
                  vtTauN: np.ndarray = 20*ms,
 
@@ -58,10 +58,13 @@ class FFIAFBrian(Layer):
                  strName: str = 'unnamed'
                  ):
         """
-        RecIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
+        FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
 
         :param mfW:             np.array MxN weight matrix.
-        :param vfBias:          np.array Nx1 bias vector. Default: 10.5mA
+        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
+
+        :param tDt:             float Time-step. Default: 0.1 ms
+        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
 
