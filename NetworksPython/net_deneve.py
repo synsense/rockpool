@@ -181,7 +181,7 @@ class NetworkDeneve(Network):
 
 
         # - Construct output layer
-        lyrOutput = FFExpSyn(mfW_output, tDt = tDt, fNoiseStd = fNoiseStd, tTauSyn = tTauSynO, strName = 'Output')
+        lyrOutput = FFExpSyn(mfW_output, tDt = 0.1e-4, fNoiseStd = fNoiseStd, tTauSyn = tTauSynO, strName = 'Output')
 
         # - Build network
         netDeneve = NetworkDeneve()

@@ -60,6 +60,8 @@ class RecFSSpikeEulerBT(Layer):
 
                  tRefractoryTime: float = -np.finfo(float).eps,
 
+                 fhSpikeCallback: Callable = None,
+
                  tDt: float = None,
                  strName: str = None,
                  ):
@@ -73,13 +75,19 @@ class RecFSSpikeEulerBT(Layer):
         :param mfW_f:           ndarray [NxN] Recurrent weight matrix (fast synapses)
         :param mfW_s:           ndarray [NxN] Recurrent weight matrix (slow synapses)
         :param vfBias:          ndarray [Nx1] Bias currents for each neuron
+        :param fNoiseStd:       float Noise Std. Dev.
+
         :param vtTauN:          ndarray [Nx1] Neuron time constants
         :param vtTauSynR_f:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
         :param vtTauSynR_s:     ndarray [Nx1] Post-synaptic neuron slow synapse TCs
+
         :param vfVThresh:       ndarray [Nx1] Neuron firing thresholds
         :param vfVReset:        ndarray [Nx1] Neuron reset potentials
         :param vfVRest:         ndarray [Nx1] Neuron rest potentials
+
         :param tRefractoryTime: float         Post-spike refractory period
+
+        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :param tDt:             float         Nominal time step (Euler solver)
         :param strName:           str           Name of this layer
@@ -98,6 +106,7 @@ class RecFSSpikeEulerBT(Layer):
         self.vfVReset = np.asarray(vfVReset).astype('float')
         self.vfVRest = np.asarray(vfVRest).astype('float')
         self.tRefractoryTime = float(tRefractoryTime)
+        self.fhSpikeCallback = fhSpikeCallback
 
         # - Set a reasonable tDt
         if tDt is None:
@@ -127,7 +136,6 @@ class RecFSSpikeEulerBT(Layer):
                tsInput: TimeSeries = None,
                tDuration: float = None,
                tMinDelta: float = None,
-               fhSpikeCallback: Callable = None,
                ) -> TimeSeries:
         """
         evolve() - Simulate the spiking reservoir, using a precise-time spike detector
@@ -139,7 +147,6 @@ class RecFSSpikeEulerBT(Layer):
         :param tsInput:         TimeSeries input for a given time t [TxN]
         :param tDuration:       float Duration of simulation in seconds. Default: 100ms
         :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
-        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :return: TimeSeries containing the output currents of the reservoir
         """
@@ -298,8 +305,8 @@ class RecFSSpikeEulerBT(Layer):
                                               vfZeros)
 
             # - Call spike-based learning callback
-            if nFirstSpikeId > -1 and fhSpikeCallback is not None:
-                fhSpikeCallback(self, tTime, nFirstSpikeId)
+            if nFirstSpikeId > -1 and self.fhSpikeCallback is not None:
+                self.fhSpikeCallback(self, tTime, nFirstSpikeId)
 
             # - Extend spike record, if necessary
             if nSpikePointer >= nMaxSpikePointer:
