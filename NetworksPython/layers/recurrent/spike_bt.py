@@ -268,8 +268,8 @@ class RecFSSpikeEulerBT(Layer):
 
                 # - Save synapse and neuron states for previous time step
                 VLast[:] = vState
-                I_s_S_Last[:] = I_s_S
-                I_s_F_Last[:] = I_s_F
+                I_s_S_Last[:] = I_s_S + I_spike_slow
+                I_s_F_Last[:] = I_s_F + I_spike_fast
 
                 # - Update synapse and neuron states (Euler step)
                 dotI_s_S = Syn_dotI(tTime, I_s_S, tDt, I_spike_slow, vtTauSynR_s)
