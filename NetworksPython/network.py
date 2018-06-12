@@ -248,11 +248,12 @@ class Network:
 
     def _evolution_order(self) -> list:
         """
-        Determine the order in which layers are evolved. Requires Network
+        _evolution_order() - Determine the order in which layers are evolved. Requires Network
         to be a directed acyclic graph, otherwise evolution has to happen
-        timestep-wise instead of layer-wise
+        timestep-wise instead of layer-wise.
         """
 
+        # - Function to find next evolution layer
         def next_layer(setCandidates: set) -> Layer:
             while True:
                 try:
@@ -269,9 +270,12 @@ class Network:
 
         # - Set of layers that are not in evolution order yet
         setlyrRemaining = self.setLayers.copy()
+
         # - Begin with input layer
         lOrder = [self.lyrInput]
         setlyrRemaining.remove(self.lyrInput)
+
+        # - Loop through layers
         while bool(setlyrRemaining):
             # - Find the next layer to be evolved
             lyrNext = next_layer(setlyrRemaining.copy())
@@ -449,6 +453,86 @@ class Network:
         :param tCallbackStep:
         :return:
         """
+        return
+
+        # - Determine default total duration to evolve
+        if tDuration is None:
+            assert (
+                tsExternalInput is not None
+            ), "One of `tsExternalInput` or `tDuration` must be supplied"
+
+            if tsExternalInput.bPeriodic:
+                # - Use duration of periodic TimeSeries, if possible
+                tDuration = tsExternalInput.tDuration
+
+            else:
+                # - Evolve until the end of the input TimeSeries
+                tDuration = tsExternalInput.tStop - self.t
+                assert tDuration > 0, (
+                    "Cannot determine an appropriate evolution duration. "
+                    + "`tsExternalInput` finishes before the current evolution time."
+                )
+
+        # - List of layers where tDuration is not a multiple of tDt
+        llyrDtMismatch = list(
+            filter(lambda lyr: not isMultiple(tDuration, lyr.tDt), self.lEvolOrder)
+        )
+
+        # - Throw an exception if llyrDtMismatch is not empty, showing for
+        #   which layers there is a mismatch
+        if llyrDtMismatch:
+            strLayers = ", ".join(
+                ("{}: tDt={}".format(lyr.strName, lyr.tDt) for lyr in llyrDtMismatch)
+            )
+            raise ValueError(
+                "`tDuration` ({}) is not a multiple of `tDt`".format(tDuration)
+                + " for the following layer(s):\n"
+                + strLayers
+            )
+
+        # - Dict to store external input and each layer's output time series
+        dtsSignal = {"external": tsExternalInput}
+
+        # - Make sure layers are in sync with netowrk
+        self._check_sync(bVerbose)
+
+        # - Initialise streaming for each layer in turn
+        for lyr in self.setLayers:
+            lyr.stream
+
+
+
+        # - Iterate over evolution order and evolve layers
+        for lyr in self.lEvolOrder:
+
+            # - Determine input for current layer
+            if lyr.bExternalInput:
+                # External input
+                tsCurrentInput = tsExternalInput
+                strIn = "external input"
+            elif lyr.lyrIn is not None:
+                # Output of current layer's input layer
+                tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
+                strIn = lyr.lyrIn.strName + "'s output"
+            else:
+                # No input
+                tsCurrentInput = None
+                strIn = "nothing"
+
+            if bVerbose:
+                print("Evolving layer `{}` with {} as input".format(lyr.strName, strIn))
+            # Evolve layer and store output in dtsSignal
+            dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
+
+        # - Update network time
+        self._t += tDuration
+
+        # - Make sure layers are still in sync with netowrk
+        self._check_sync(bVerbose)
+
+        # - Return dict with layer outputs
+        return dtsSignal
+
         # - Call
         pass
 
