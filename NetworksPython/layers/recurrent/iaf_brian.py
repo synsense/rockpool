@@ -188,8 +188,8 @@ class RecIAFBrian(Layer):
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
 
         # - Build response TimeSeries
-        vtEventTimeOutput = self._spmReservoir.t_
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
+        vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
