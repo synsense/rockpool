@@ -279,4 +279,5 @@ def IAFSparseNet(nResSize: int = 100,
     vbConnection = np.array(mbConnection).reshape(-1)
 
     # - Randomise recurrent weights
-    return (np.random.randn(nResSize ** 2) * (np.asarray(fStd) ** 2) + np.asarray(fMean)) * vbConnection
+    mfW = (np.random.randn(nResSize ** 2) * (np.asarray(fStd) ** 2) + np.asarray(fMean)) * vbConnection
+    return mfW.reshape(nResSize, nResSize)
