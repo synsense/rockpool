@@ -15,7 +15,8 @@ import analysis as an
 from layers.feedforward.rate import PassThrough
 from layers.recurrent.iaf_brian import RecIAFBrian as Rec
 from layers.feedforward.exp_synapses_manual import FFExpSyn as FFsc
-from layers.recurrent.weights import RndmSparseEINet
+# from layers.recurrent.weights import RndmSparseEINet
+from layers.recurrent.weights import IAFSparseNet
 
 
 ### --- Set parameters
@@ -38,11 +39,12 @@ fRegularize = 0.001  # Regularization parameter for training with ridge regressi
 # Parameters concerning reservoir weights
 kwResWeights = {
     "nResSize": nResSize,
-    "fConnectivity": 0.4,  # Connectivity
-    "bPartitioned": False,  # Partition reservoir into excitatory/inhibitory
-    "fRatioExc": 0.5,  # Ratio of excitatory neurons
-    "fScaleInh": 1,  # Scale of inhibitory vs excitatory weights
-    "fNormalize": 0.5,
+    "fDensity" : 0.4,
+    # "fConnectivity": 0.4,  # Connectivity
+    # "bPartitioned": False,  # Partition reservoir into excitatory/inhibitory
+    # "fRatioExc": 0.5,  # Ratio of excitatory neurons
+    # "fScaleInh": 1,  # Scale of inhibitory vs excitatory weights
+    # "fNormalize": 0.5,
 }  # Normalize matrix spectral radius
 
 # Probabilities for anomalies in ECG rhythms
@@ -92,7 +94,8 @@ def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
 
 # - Generate weight matrices
 mfW_in = 2 * np.random.rand(nDimIn, nResSize)
-mfW_res = RndmSparseEINet(**kwResWeights)
+# mfW_res = RndmSparseEINet(**kwResWeights)
+mfW_res = IAFSparseNet(**kwResWeights)
 
 # - Generate layers
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName='in')
