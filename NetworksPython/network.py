@@ -206,7 +206,7 @@ class Network:
         try:
             self.lEvolOrder = self._evolution_order()
             print(
-                "Layer `{}` now receives input from layer `{}` \n".format(
+                "\tLayer `{}` now receives input from layer `{}` \n".format(
                     lyrTarget.strName, lyrSource.strName
                 )
             )  # ,
