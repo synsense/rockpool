@@ -578,6 +578,9 @@ class TimeSeries:
     def __add__(self, other):
         return self.copy().__iadd__(other)
 
+    def __radd__(self, other):
+        return self + other
+
     def __iadd__(self, other):
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
@@ -604,6 +607,9 @@ class TimeSeries:
     def __mul__(self, other):
         return self.copy().__imul__(other)
 
+    def __rmul__(self, other):
+        return self * other
+
     def __imul__(self, other):
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
@@ -627,6 +633,11 @@ class TimeSeries:
 
     def __truediv__(self, other):
         return self.copy().__idiv__(other)
+
+    def __rdiv__(self, other):
+        tsCopy = self.copy()
+        tsCopy.mfSamples = 1 / tsCopy.mfSamples
+        return tsCopy * other
 
     def __idiv__(self, other):
         # - Should we handle TimeSeries subtraction?
@@ -653,6 +664,11 @@ class TimeSeries:
 
     def __floordiv__(self, other):
         return self.copy().__ifloordiv__(other)
+
+    def __rfloordiv__(self, other):
+        tsCopy = self.copy()
+        tsCopy.mfSamples = 1 / tsCopy.mfSamples
+        return tsCopy // (1/other)
 
     def __ifloordiv__(self, other):
         # - Get nan mask
@@ -692,6 +708,9 @@ class TimeSeries:
 
     def __sub__(self, other):
         return self.copy().__isub__(other)
+
+    def __rsub__(self, other):
+        return -(self - other)
 
     def __isub__(self, other):
         # - Should we handle TimeSeries subtraction?
