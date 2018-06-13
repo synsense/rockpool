@@ -212,11 +212,11 @@ class TimeSeries:
 
     def delay(self, tOffset):
         """
-        delay - Delay a TimeSeries by an offset. Deprecated: Use ".vtTimeTrace += ..." instead
+        delay - Return a copy of self that is delayed by an offset. 
+                For delaying self, use ".vtTimeTrace += ..." instead.
         :param tOffset: float Time offset
         :return: New TimeSeries, delayed
         """
-        warn("DEPRECATED")
         tsCopy = self.copy()
         tsCopy.vtTimeTrace += tOffset
         return tsCopy
