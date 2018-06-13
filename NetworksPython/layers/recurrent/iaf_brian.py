@@ -45,7 +45,7 @@ class RecIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray = None,
-                 vfBias: np.ndarray = 5.5*mA,
+                 vfBias: np.ndarray = 10.5*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 1*mV,
@@ -119,7 +119,8 @@ class RecIAFBrian(Layer):
         self._spmReservoir = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
         # - Call Network constructor
-        self._net = b2.Network(self._ngLayer, self._spmReservoir,
+        self._net = b2.Network(self._ngLayer, self._sgRecurrentSynapses,
+                               self._spmReservoir,
                                name = 'recurrent_spiking_layer')
 
         # - Record neuron / synapse parameters
