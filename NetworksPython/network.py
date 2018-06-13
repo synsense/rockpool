@@ -340,7 +340,7 @@ class Network:
         dtsSignal = {"external": tsExternalInput}
 
         # - Make sure layers are in sync with netowrk
-        self._check_sync(bVerbose)
+        self._check_sync(bVerbose=False)
 
         # - Iterate over evolution order and evolve layers
         for lyr in self.lEvolOrder:
@@ -368,7 +368,7 @@ class Network:
         self._t += tDuration
 
         # - Make sure layers are still in sync with netowrk
-        self._check_sync(bVerbose)
+        self._check_sync(bVerbose=False)
 
         # - Return dict with layer outputs
         return dtsSignal
