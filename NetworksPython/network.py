@@ -5,11 +5,8 @@
 ### --- Imports
 import numpy as np
 
-# from math import gcd
-# from functools import reduce
 from typing import Callable
 
-# from layers import feedforward, recurrent
 from TimeSeries import TimeSeries
 from layers.layer import Layer
 
@@ -73,17 +70,24 @@ class Network:
         lyrInput: Layer = None,
         lyrOutput: Layer = None,
         bExternalInput: bool = False,
+        bVerbose: bool = False,
     ) -> Layer:
-        """Add lyr to self and to self.setLayers. Its attribute name
+        """
+        add_layer - Add a new layer to the network
+
+        Add lyr to self and to self.setLayers. Its attribute name
         is 'lyr'+lyr.strName. Check whether layer with this name
         already exists (replace anyway).
         Connect lyr to lyrInput and lyrOutput.
-        Return lyr.
-            lyr : layer to be added to self
-            lyrInput : input layer to lyr
-            lyrOutput : layer to which lyr is input layer
-        """
 
+        :param lyr:             Layer layer to be added to self
+        :param lyrInput:        Layer input layer to lyr
+        :param lyrOutput:       Layer layer to which lyr is input layer
+        :param bExternalInput:  bool This layer receives external input (Default: False)
+        :param bVerbose:        bool Print feedback about layer addition (Default: False)
+
+        :return:                Layer lyr
+        """
         # - Check whether layer time matches network time
         assert lyr.t == self.t, (
             "Layer time must match network time "
@@ -101,7 +105,7 @@ class Network:
                 # - Find a new name for lyr.
                 while hasattr(self, sNewName):
                     sNewName = self._new_name(sNewName)
-                print(
+                if bVerbose: print(
                     "A layer with name `{}` already exists.".format(lyr.strName)
                     + "The new layer will be renamed to  `{}`.".format(sNewName)
                 )
@@ -113,7 +117,7 @@ class Network:
 
         # - Add lyr to the network
         setattr(self, lyr.strName, lyr)
-        print("Added layer `{}` to network\n".format(lyr.strName))
+        if bVerbose: print("Added layer `{}` to network\n".format(lyr.strName))
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
@@ -170,12 +174,13 @@ class Network:
         # - Reevaluate the layer evolution order
         self.lEvolOrder = self._evolution_order()
 
-    def connect(self, lyrSource: Layer, lyrTarget: Layer):
+    def connect(self, lyrSource: Layer, lyrTarget: Layer, bVerbose: bool = False):
         """
         connect: Connect two layers by defining one as the input layer
                  of the other.
         :param lyrSource:   The source layer
         :param lyrTarget:   The target layer
+        :param bVerbose:    bool Flag indicating whether to print feedback
         """
 
         # - Make sure that layer dimensions match
@@ -205,12 +210,11 @@ class Network:
         #   and reevaluate evolution order
         try:
             self.lEvolOrder = self._evolution_order()
-            print(
-                "\tLayer `{}` now receives input from layer `{}` \n".format(
+            if bVerbose: print(
+                "Layer `{}` now receives input from layer `{}` \n".format(
                     lyrTarget.strName, lyrSource.strName
                 )
-            )  # ,
-            # 'and new layer evolution order has been set.')
+            )
         except NetworkError as e:
             lyrTarget.lyrIn = None
             raise e
@@ -248,11 +252,12 @@ class Network:
 
     def _evolution_order(self) -> list:
         """
-        Determine the order in which layers are evolved. Requires Network
+        _evolution_order() - Determine the order in which layers are evolved. Requires Network
         to be a directed acyclic graph, otherwise evolution has to happen
-        timestep-wise instead of layer-wise
+        timestep-wise instead of layer-wise.
         """
 
+        # - Function to find next evolution layer
         def next_layer(setCandidates: set) -> Layer:
             while True:
                 try:
@@ -269,9 +274,12 @@ class Network:
 
         # - Set of layers that are not in evolution order yet
         setlyrRemaining = self.setLayers.copy()
+
         # - Begin with input layer
         lOrder = [self.lyrInput]
         setlyrRemaining.remove(self.lyrInput)
+
+        # - Loop through layers
         while bool(setlyrRemaining):
             # - Find the next layer to be evolved
             lyrNext = next_layer(setlyrRemaining.copy())
@@ -505,9 +513,9 @@ class Network:
         self._t = 0
 
     def __repr__(self):
-        return "{} object with {} layers".format(
+        return "{} object with {} layers\n".format(
             self.__class__.__name__, len(self.setLayers)
-        )
+        ) + '    ' + '\n    '.join([str(lyr) for lyr in self.setLayers])
 
     @property
     def t(self):
