@@ -59,6 +59,7 @@ class Layer(ABC):
 
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
+        self._t = 0
 
 
     ### --- Common methods
@@ -208,7 +209,8 @@ class Layer(ABC):
     @abstractmethod
     def evolve(self,
                tsInput: TimeSeries = None,
-               tDuration: float = None) -> TimeSeries:
+               tDuration: float = None,
+               ) -> TimeSeries:
         """
         evolve - Abstract method to evolve the state of this layer
 
