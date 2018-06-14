@@ -898,10 +898,22 @@ class TSEvent(TimeSeries):
         vtTimeTrace: np.ndarray,
         vnChannels: np.ndarray = None,
         vfSamples: np.ndarray = None,
-        strInterpKind="linear",
+        strInterpKind = "linear",
         bPeriodic: bool = False,
-        strName=None,
+        strName = None,
     ):
+        """
+        TSEvent - Represent discrete events in time
+
+        :param vtTimeTrace:     np.array float Tx1 vector of event times
+        :param vnChannels:      np.array int Tx1 vector of event channels (Default: channel 0)
+        :param vfSamples:       np.array float Tx1 vector of event values (Default: nan)
+
+        :param strInterpKind:   str Interpolation kind for event values (Default: "linear")
+        :param bPeriodic:       bool Is this a periodic TimeSeries (Default: False)
+
+        :param strName:         str Name of the time series (Default: None)
+        """
 
         # - Only 1D samples and channels are supported
         assert (np.ndim(vfSamples) <= 1) or (
