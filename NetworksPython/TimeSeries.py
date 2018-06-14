@@ -937,7 +937,7 @@ class TSEvent(TimeSeries):
         )
 
         # - Store channels
-        self._vnChannels = np.array(vnChannels).flatten()
+        self.vnChannels = np.array(vnChannels).flatten()
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -1096,10 +1096,6 @@ class TSEvent(TimeSeries):
         vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
         vfNewSamples = np.concatenate([tsOther.mfSamples for tsOther in ltsOther])
 
-        print(vtNewTimeBase)
-        print(vnNewChannels)
-        print(vfNewSamples)
-
         # - Sort on time and merge
         vnOrder = np.argsort(vtNewTimeBase)
         self._vtTimeTrace = vtNewTimeBase[vnOrder]
@@ -1132,9 +1128,13 @@ class TSEvent(TimeSeries):
     @vnChannels.setter
     def vnChannels(self, vnNewChannels):
         # - Check size of new data
-        assert np.size(vnNewChannels) == np.size(
-            self._vnChannels
-        ), "`vnNewChannels` must be the same size as `vnChannels`."
+        assert np.size(vnNewChannels) == 1 or \
+                np.size(vnNewChannels) == np.size(self.vtTimeTrace), \
+            "`vnNewChannels` must be the same size as `vtTimeTrace`."
+
+        # - Handle scalar channel
+        if np.size(vnNewChannels) == 1:
+            vnNewChannels = np.repeat(vnNewChannels, np.size(self._vtTimeTrace))
 
         # - Assign vnChannels
         self._vnChannels = vnNewChannels
