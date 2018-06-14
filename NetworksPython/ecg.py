@@ -1,6 +1,6 @@
 from scipy.stats import truncnorm
 import numpy as np
-
+import warnings
 
 
 # - Functions for constructing the ecg segments
@@ -403,6 +403,7 @@ def signal_and_target(nTrials: int,
                       tDt: float,
                       strTargetMethod: str = 'fix',
                       nTargetWidth: int = 200,
+                      bDetailled: bool = False,
                       bVerbose: bool = False) -> (np.ndarray, np.ndarray):
     """
     signal_and_target - Produce training or test signal and target for network.
@@ -421,6 +422,7 @@ def signal_and_target(nTrials: int,
     :nTargetWidth:      int Number of timesteps to be marked as abnormal
                             after onset of anomaly (only necesscary if
                             strTargetMethod == 'fix')
+    :bDetailled:        bool Target contains info about anomaly type
     :bVerbose:          bool Print information about generated signal
     :return:            2 1D-np.ndarrays ECG signal and target
     """
@@ -433,17 +435,28 @@ def signal_and_target(nTrials: int,
     if strTargetMethod == 'fix':
         # - Label interval of fixed length after onset of anomal segment
 
-        #   Any ECG segment that is not abnormal by itself (label in vnAnomStarts either 1, 2 or 3)
-        #   and that is part of a complethe ECG rhythm (label in vnRhythms is not 9) is considered
-        #   normal. Isolated segments (vnRhythms==9) still count as anomalies.
-        vnAnomStarts[((vnAnomStarts==1) ^ (vnAnomStarts==2) ^ (vnAnomStarts==3)) & (vnRhythms!=9)] = 0
-        # - vnAnomStarts with leading 0s
-        v0AnomStarts = np.r_[np.zeros(nTargetWidth), vnAnomStarts]
-        # - For each time point the target is 1 if during any of the previous nTargetWidth time points
-        #   an anomaly has occured      
-        vTarget = np.array([(v0AnomStarts[i:i+nTargetWidth+1] != 0).any()
-                            for i in range(len(vnAnomStarts))])
-
+        if not bDetailled:
+            #   Any ECG segment that is not abnormal by itself (label in vnAnomStarts either 1, 2 or 3)
+            #   and that is part of a complethe ECG rhythm (label in vnRhythms is not 9) is considered
+            #   normal. Isolated segments (vnRhythms==9) still count as anomalies.
+            vnAnomStarts[((vnAnomStarts==1) ^ (vnAnomStarts==2) ^ (vnAnomStarts==3)) & (vnRhythms!=9)] = 0
+            # - vnAnomStarts with leading 0s
+            v0AnomStarts = np.r_[np.zeros(nTargetWidth), vnAnomStarts]
+            # - For each time point the target is 1 if during any of the previous nTargetWidth time points
+            #   an anomaly has occured      
+            vTarget = np.array([(v0AnomStarts[i:i+nTargetWidth+1] != 0).any()
+                                for i in range(len(vnAnomStarts))])
+            mTarget = vTarget.reshape(-1,1)
+        else:
+            mTarget = np.zeros((len(vfECG), 9))  # First 4 labels correspond to normal segments, 9 remaining
+            print(mTarget.shape)
+            for j in range(9):
+                vnStarts = vnAnomStarts == (j + 4)
+                vn0Starts = np.r_[np.zeros(nTargetWidth), vnStarts]
+                mTarget[:, j] = np.array([( vn0Starts[i : i + nTargetWidth +1] != 0 ).any()
+                                          for i in range(len(vnStarts))
+                                         ]
+                                        )
 
     elif strTargetMethod == 'segment':
         # - Only label specific segment where anomaly occurs
@@ -453,17 +466,27 @@ def signal_and_target(nTrials: int,
         #   normal. Isolated segments (vnRhythms==9) still count as anomalies.
         vnSegments[((vnSegments==1) ^ (vnSegments==2) ^ (vnSegments==3)) & (vnRhythms!=9)] = 0
         vTarget = np.clip(vnSegments, 0, 1)
+        mTarget = vTarget.reshape(-1,1)
+        
+        if bDetailled:
+            warnings.warn('Detailled targets not implemented for method ' + strTargetMethod
+                          + 'Producing simple target instead')
 
     elif strTargetMethod == 'rhythm':
         # - Label complete rhythm where anomaly occurs
         vTarget = np.clip(vnRhythms, 0, 1)
+        mTarget = vTarget.reshape(-1,1)
+
+        if bDetailled:
+            warnings.warn('Detailled targets not implemented for method ' + strTargetMethod
+                          + 'Producing simple target instead')
         
     if bVerbose:
         tDuration = vfECG.size*tDt
         print('Generated input and target')
         print('\tLength of signal: {:.3f}s ({} time steps)\n'.format(tDuration, vfECG.size))
 
-    return vfECG, vTarget
+    return vfECG, mTarget
 
 
 

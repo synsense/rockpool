@@ -387,6 +387,7 @@ class Network:
         tsExternalInput: TimeSeries = None,
         tDuration: float = None,
         tDurBatch: float = None,
+        bVerbose = True,
     ):
         """
         train - Train the network batch-wise by evolving the layers and
@@ -397,6 +398,7 @@ class Network:
                                         be evolved. If None, evolution is
                                         over the duration of tsExternalInput
         :param tDurBatch:       float - Duration of one batch
+        :param bVerbose:        bool  - Print info about training progress
         """
 
         # - Determine duration of training
@@ -425,7 +427,8 @@ class Network:
         bFirst = True
         bFinal = False
         for nBatch in range(1, nNumBatches + 1):
-            print("Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r")
+            if bVerbose:
+                print("Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r")
             # - Evolve network
             dtsSignal = self.evolve(
                 tsExternalInput, min(tDurBatch, tRemaining), bVerbose=False
@@ -439,7 +442,8 @@ class Network:
             fhTraining(self, dtsSignal, bFirst, bFinal)
             bFirst = False
 
-        print("\nTraining successful\n")
+        if bVerbose:
+            print("\nTraining successful\n")
 
     def stream(
         self,
