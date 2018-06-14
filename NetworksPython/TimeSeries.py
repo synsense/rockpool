@@ -6,7 +6,9 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union
+from typing import Union, List
+import collections
+from functools import reduce
 
 # - Define exports
 __all__ = [
@@ -1043,22 +1045,33 @@ class TSEvent(TimeSeries):
 
         return self.clip([tStart, tStop])
 
-    def merge(self, tsOther):
+    def merge(self, ltsOther: Union[TimeSeries, List[TimeSeries]]):
         """
         merge - Merge another TimeSeries into this one
-        :param tsOther: TimeSeries to merge into this one
+        :param ltsOther: TimeSeries (or list of TimeSeries) to merge into this one
         :return: self with new samples included
         """
 
-        # - Check tsOther
-        assert isinstance(tsOther, TSEvent), "`tsOther` must be a `TSEvent` object."
+        # - Ensure we have a list of objects to work on
+        if not isinstance(ltsOther, collections.Iterable):
+            ltsOther = [self, ltsOther]
+        else:
+            ltsOther = [self] + list(ltsOther)
 
-        # - Merge samples
-        vtNewTimeBase = np.concatenate((self.vtTimeTrace, tsOther.vtTimeTrace))
-        vnNewChannels = np.concatenate((self.vnChannels, tsOther.vnChannels))
-        vfNewSamples = np.concatenate((self.mfSamples, tsOther.mfSamples))
+        # - Check tsOther class
+        assert all(map(lambda tsOther: isinstance(tsOther, TSEvent), ltsOther)),\
+            "`tsOther` must be a `TSEvent` object."
 
-        # - Sort on time
+        # - Merge all samples
+        vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
+        vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
+        vfNewSamples = np.concatenate([tsOther.mfSamples for tsOther in ltsOther])
+
+        print(vtNewTimeBase)
+        print(vnNewChannels)
+        print(vfNewSamples)
+
+        # - Sort on time and merge
         vnOrder = np.argsort(vtNewTimeBase)
         self._vtTimeTrace = vtNewTimeBase[vnOrder]
         self._vnChannels = vnNewChannels[vnOrder]
