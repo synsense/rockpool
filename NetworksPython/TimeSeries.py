@@ -340,6 +340,10 @@ class TimeSeries:
             + ")."
         )
 
+        # - If the other TimeSeries is empty, just return
+        if tsOther.isempty():
+            return self
+
         # - If bRemoveDuplicates==True and time ranges overlap,  find and remove
         #   time points of tsOther that are also included in self (assuming both
         #   TimeSeries have a sorted vTimeTrace)
@@ -463,11 +467,23 @@ class TimeSeries:
         """
         return self.copy().append_t(tsOther)
 
+    def isempty(self):
+        """
+        isempty() - Is this TimeSeries object empty?
+
+        :return: bool True -> The TimeSeries object contains no samples
+        """
+        return np.size(self.vtTimeTrace) == 0
+
     def _create_interpolator(self):
         """
         _create_interpolator - Build an interpolator for the samples in this TimeSeries
         """
-        if np.size(self.vtTimeTrace) == 1:
+        if np.size(self.vtTimeTrace) == 0:
+            self.oInterp = lambda o: None
+            return
+
+        elif np.size(self.vtTimeTrace) == 1:
             # - Replicate to avoid error in `interp1d`
             vtTimeTrace = np.repeat(self.vtTimeTrace, 2, axis=0)
             mfSamples = np.repeat(self.mfSamples, 2, axis=0)
@@ -486,13 +502,20 @@ class TimeSeries:
         )
 
     def __repr__(self):
-        return "{}periodic {} object from t={} to {}. Shape: {}".format(
-            int(not self.bPeriodic) * "non-",
-            self.__class__.__name__,
-            self.tStart,
-            self.tStop,
-            self.mfSamples.shape,
-        )
+        """
+        __repr__() - Return a string representation of this object
+        :return: str String description
+        """
+        if self.isempty():
+            return "Empty {} object".format(self.__class__.__name__)
+        else:
+            return "{}periodic {} object from t={} to {}. Shape: {}".format(
+                int(not self.bPeriodic) * "non-",
+                self.__class__.__name__,
+                self.tStart,
+                self.tStop,
+                self.mfSamples.shape,
+            )
 
     def print(
         self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
@@ -889,17 +912,20 @@ class TSEvent(TimeSeries):
             np.sum(vnChannels.shape > 1) == 1
         ), "`vnChannels` must be 1-dimensional"
 
-        # - Check size of inputs
-        assert (np.size(vnChannels) == 1) or (
-            np.size(vtTimeTrace) == np.size(vnChannels)
-        ), "`vnChannels` must match the size of `vtTimeTrace`"
-
         # - Provide default inputs
+        if vtTimeTrace is None:
+            vtTimeTrace = np.array([])
+
         if vfSamples is None:
             vfSamples = full_nan((np.size(vtTimeTrace), 1))
 
         if vnChannels is None:
             vnChannels = np.zeros(np.size(vtTimeTrace))
+
+        # - Check size of inputs
+        assert (np.size(vnChannels) == 1) or (
+            np.size(vtTimeTrace) == np.size(vnChannels)
+        ), "`vnChannels` must match the size of `vtTimeTrace`"
 
         # - Initialise superclass
         super().__init__(
@@ -1061,6 +1087,9 @@ class TSEvent(TimeSeries):
         # - Check tsOther class
         assert all(map(lambda tsOther: isinstance(tsOther, TSEvent), ltsOther)),\
             "`tsOther` must be a `TSEvent` object."
+
+        # - Filter out empty series
+        ltsOther = list(filter(lambda ts: not ts.isempty(), ltsOther))
 
         # - Merge all samples
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
