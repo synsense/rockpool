@@ -24,15 +24,16 @@ from layers.recurrent.weights import IAFSparseNet
 tDt = 0.005  # Length of time step in seconds
 fHeartRate = 1  # Heart rate in rhythms per second
 
-nTrialsTr = 500  # Number ECG rhythms for training
-nTrialsTe = 500  # Number ECG rhythms for testing
+nTrialsTr = 1500  # Number ECG rhythms for training
+nTrialsTe = 400  # Number ECG rhythms for testing
 
 nDimIn = 1  # Input dimensions
 nDimOut = 1  # Output dimensions
 
-nResSize = 256  # Reservoir size
-tTauN = 50 * tDt  # Reservoir time constant
-tTauS = 500 * tDt  # Reservoir time constant
+nResSize = 512  # Reservoir size
+tTauN = 25 * tDt  # Reservoir neuron time constant
+tTauS = 75 * tDt # Reservoir synapse time constant
+tTauO = 25 * tDt  # Readout time constant
 
 fRegularize = 0.001  # Regularization parameter for training with ridge regression
 
@@ -49,16 +50,16 @@ kwResWeights = {
 
 # Probabilities for anomalies in ECG rhythms
 dProbs = {
-    "complete_normal": 0.8,  # Normal ECG
-    "complete_noP": 0.025,  # Missing P-wave
-    "complete_Pinv": 0.025,  # Inverted P-wave
-    "complete_noQRS": 0.025,  # Missing QRS complex
-    "complete_Tinv": 0.025,  # Inverted T-wave
-    "complete_STelev": 0.025,  # Elevated ST-segment
-    "complete_STdepr": 0.025,  # Depressed ST-segment
-    "complete_tach": 0.025,  # Tachycardia
-    "complete_brad": 0.025,
-}  # Bradycardia
+    "complete_normal": 0.8,     # Normal ECG
+    "complete_noP": 0.025,      # Missing P-wave
+    "complete_Pinv": 0.025,     # Inverted P-wave
+    "complete_noQRS": 0.025,    # Missing QRS complex
+    "complete_Tinv": 0.025,     # Inverted T-wave
+    "complete_STelev": 0.025,   # Elevated ST-segment
+    "complete_STdepr": 0.025,   # Depressed ST-segment
+    "complete_tach": 0.025,     # Tachycardia
+    "complete_brad": 0.025,     # Bradycardia
+}  
 
 # - Kwargs for signal_and_target function
 kwSignal = {
@@ -90,19 +91,42 @@ def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
     flOut.train_rr(tsTarget, tsInput, fRegularize, bFirst, bFinal)
 
 
+def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
+    """
+    ts_ecg_target - Generate two time series, one containing an ECG signal
+                   and the other the corresponding target.
+    :param nRhythms:    int Number of ECG rhythms in the input
+    :tDt:               float Size of a single time step
+    :kwargs:            dict Kwargs that are passed on to signal_and_target
+    """
+
+    # - Input signal and target
+    vfInput, vfTarget = signal_and_target(nTrials=nRhythms, **kwargs)
+    
+    # - Time base
+    tDt = kwargs['tDt']
+    vtTime = np.arange(0, vfInput.size * tDt, tDt)[: vfInput.size]
+    
+    # - Genrate time series
+    tsInput = ts.TimeSeries(vtTime, vfInput)
+    tsTarget = ts.TimeSeries(vtTime, vfTarget)
+
+    return tsInput, tsTarget
+
+
 ### --- Network generation
 
 # - Generate weight matrices
-mfW_in = 2 * np.random.rand(nDimIn, nResSize)
+mfW_in = 2 * (np.random.rand(nDimIn, nResSize) - 0.5)
 # mfW_res = RndmSparseEINet(**kwResWeights)
 mfW_res = IAFSparseNet(**kwResWeights)
 
 # - Generate layers
-flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName='in')
+flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName='input')
 # rlRes = rec.RecRateEuler(mfW=mfW_res, vtTau=tTau, tDt=tDt, strName='res')
 # flOut = ff.PassThrough(mfW=np.zeros((nResSize, nDimOut)), tDt=tDt, tDelay=0, strName='out')
-rlRes = Rec(mfW=mfW_res, vtTauN=tTauN, tDt=tDt * second, strName="reservoir")
-flOut = FFsc(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauS, tDt=tDt, strName="output")
+rlRes = Rec(mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir")
+flOut = FFsc(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output")
 
 # - Generate network
 net = nw.Network(flIn, rlRes, flOut)
@@ -111,14 +135,13 @@ net = nw.Network(flIn, rlRes, flOut)
 ### --- Training
 
 # - Training signal
-# Generate traceining data and time trace
-vfEcgTr, vfTgtTr = signal_and_target(nTrials=nTrialsTr, **kwSignal)
-vtTimeTr = np.arange(0, vfEcgTr.size * tDt, tDt)[: vfEcgTr.size]
-# Generate TimeSeries for input and target
-tsInTr = ts.TimeSeries(vtTimeTr, vfEcgTr)
-# # Train with sine wave instead
-# vfTgtTr = np.sin(np.linspace(0, 20, vfEcgTr.size)) + 1
-tsTgtTr = ts.TimeSeries(vtTimeTr, vfTgtTr)
+# Generate training data and time trace
+tsInTr, tsTgtTr = ts_ecg_target(nTrialsTr, **kwSignal)
+
+# d = net.evolve(tsInTr)
+# plt.scatter(d['reservoir'].vtTimeTrace, d['reservoir'].vnChannels)
+# plt.plot(tsInTr.vtTimeTrace, tsInTr.mfSamples*30+50, color='y')
+
 
 # - Run training
 net.train(cTrain, tsInTr, tDurBatch=500)
@@ -148,11 +171,7 @@ plt.plot(tsInTr.vtTimeTrace, 0.2*tsInTr.mfSamples, color='k', alpha=0.3, zorder=
 
 # - Validation signal
 # Generate test data and time trace
-vfEcgVa, vfTgtVa = signal_and_target(nTrials=nTrialsTe, **kwSignal)
-vtTimeVa = np.arange(0, vfEcgVa.size * tDt, tDt)[: vfEcgVa.size]
-# Generate TimeSeries with input and target
-tsInVa = ts.TimeSeries(vtTimeVa, vfEcgVa)
-tsTgtVa = ts.TimeSeries(vtTimeVa, vfTgtVa)
+tsInVa, tsTgtVa = ts_ecg_target(nTrialsTe, **kwSignal)
 
 # - Validation run
 dVa = net.evolve(tsInVa)
@@ -175,11 +194,7 @@ print("Using threshold: {:.3f}".format(fThr))
 
 # - Test signal
 # Generate test data and time trace
-vfEcgTe, vfTgtTe = signal_and_target(nTrials=nTrialsTe, **kwSignal)
-vtTimeTe = np.arange(0, vfEcgTe.size * tDt, tDt)[: vfEcgTe.size]
-# Generate TimeSeries with input and target
-tsInTe = ts.TimeSeries(vtTimeTe, vfEcgTe)
-tsTgtTe = ts.TimeSeries(vtTimeTe, vfTgtTe)
+tsInTe, tsTgtTe = ts_ecg_target(nTrialsTe, **kwSignal)
 
 # - Run test
 dTe = net.evolve(tsInTe)

@@ -96,7 +96,7 @@ class FFExpSyn(Layer):
         
         # - Prepare time base
         vtTimeBase, _, tTrueDuration = self._prepare_input(tsInput, tDuration)
-
+        
         mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
         
         # - Generate spike trains from tsInput
