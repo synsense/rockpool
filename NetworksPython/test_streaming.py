@@ -276,4 +276,13 @@ if __name__ == '__main__':
 
     dOut = net.stream(None, 10)
 
-    dOut[0].plot() + dOut[1].plot() + dOut[2].plot()
+    dOut['unnamed'].plot() + dOut['unnamed_0'].plot() + dOut['unnamed_1'].plot()
+
+    lyr1 = TestSpikeLayer(0)
+    lyr2 = TestSpikeLayer(0)
+    lyr3 = TestSpikeLayer(0)
+    net = TestSpikeNetwork(lyr1, lyr2, lyr3)
+
+    tsSpikes = TSEvent([0, 1, 2, 3, 4]).delay(.1)
+
+    dOutSpikes = net.stream(tsSpikes, 5)
