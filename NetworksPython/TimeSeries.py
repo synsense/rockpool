@@ -125,8 +125,8 @@ class TimeSeries:
         """
 
         # - Convert everything to numpy arrays
-        vtTimeTrace = np.atleast_1d(np.asarray(vtTimeTrace))
-        mfSamples = np.atleast_1d(mfSamples)
+        vtTimeTrace = np.atleast_1d(np.asarray(vtTimeTrace)).astype(float)
+        mfSamples = np.atleast_1d(mfSamples).astype(float)
 
         # - Permit a one-dimensional sample input
         if (mfSamples.shape[0] == 1) and (np.size(vtTimeTrace) > 1):
