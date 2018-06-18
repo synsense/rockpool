@@ -10,12 +10,9 @@ import analysis as an
 import network as nw
 
 # - Layers
-# from layers.feedforward import rate as ff
-# from layers.recurrent import rate as rec
 from layers.feedforward.rate import PassThrough  ##
 from layers.recurrent.iaf_brian import RecIAFBrian  ##
 from layers.feedforward.exp_synapses_manual import FFExpSyn  ##
-# from layers.recurrent.weights import RndmSparseEINet
 from layers.recurrent.weights import IAFSparseNet  ##
 
 
@@ -60,7 +57,7 @@ dProbs = {
     "complete_STdepr": 0.025,   # Depressed ST-segment
     "complete_tach": 0.025,     # Tachycardia
     "complete_brad": 0.025,     # Bradycardia
-}  
+}
 
 # - Kwargs for signal_and_target function
 kwSignal = {
@@ -103,11 +100,11 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
 
     # - Input signal and target
     vfInput, vfTarget = signal_and_target(nTrials=nRhythms, **kwargs)
-    
+
     # - Time base
     tDt = kwargs['tDt']
     vtTime = np.arange(0, vfInput.size * tDt, tDt)[: vfInput.size]
-    
+
     # - Genrate time series
     tsInput = ts.TimeSeries(vtTime, vfInput)
     tsTarget = ts.TimeSeries(vtTime, vfTarget)
@@ -124,8 +121,6 @@ mfW_res = IAFSparseNet(**kwResWeights)  ##
 
 # - Generate layers
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName='input')   ##
-# rlRes = rec.RecRateEuler(mfW=mfW_res, vtTau=tTau, tDt=tDt, strName='res')
-# flOut = ff.PassThrough(mfW=np.zeros((nResSize, nDimOut)), tDt=tDt, tDelay=0, strName='out')
 rlRes = RecIAFBrian(mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir")  ##
 flOut = FFExpSyn(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output")  ##
 
@@ -149,18 +144,19 @@ net.train(cTrain, tsInTr, tDurBatch=tDurBatch)
 net.reset_all()
 
 
-# - Sanity check with training signal
-dTr = net.evolve(tsInTr)
-net.reset_all()
-#
-# Output TimeSeries
-tsOutTr = dTr[flOut.strName]
+# # - Sanity check with training signal
+# dTr = net.evolve(tsInTr)
+# net.reset_all()
+# 
+# # Output TimeSeries
+# tsOutTr = dTr[flOut.strName]
 
-# Plot input, target and output
-plt.figure()
-plt.plot(tsOutTr.vtTimeTrace, tsOutTr.mfSamples)
-plt.plot(tsTgtTr.vtTimeTrace, tsTgtTr.mfSamples)
-plt.plot(tsInTr.vtTimeTrace, 0.2*tsInTr.mfSamples, color='k', alpha=0.3, zorder=-1)
+# # Plot input, target and output
+# plt.figure()
+# plt.plot(tsOutTr.vtTimeTrace, tsOutTr.mfSamples)
+# plt.plot(tsTgtTr.vtTimeTrace, tsTgtTr.mfSamples)
+# plt.plot(tsInTr.vtTimeTrace, 0.2*tsInTr.mfSamples, color='k', alpha=0.3, zorder=-1)
+
 # # Plot smoothed output
 # nWindowSize = 200
 # vWindow = np.ones(nWindowSize) / nWindowSize
@@ -182,7 +178,7 @@ vOutVa = dVa[flOut.strName].mfSamples
 # - Determine threshold for analysis of test run
 fThr = an.find_threshold(
     vOutput=vOutVa,
-    vTarget=tsTgtVa.mfSamples,
+    vTarget=tsTgtVa.mfSamples.flatten(),
     nWindow=int(fHeartRate / tDt),
     nClose=int(fHeartRate / tDt),
     nAttempts=5,
@@ -214,11 +210,11 @@ tsOutTe = dTe[flOut.strName]
 # - Analysis and plotting
 print("\nAnalysis of test run:")
 vOutTe = dTe[flOut.strName].mfSamples
-an.analyze(
-    vOutTe,
-    tsTgtTe.mfSamples,
-    tsInTe.mfSamples,
-    fThr,
-    nWindow=int(fHeartRate / tDt),
-    bPlot=True,
-)
+dAnalysis = an.analyze(
+                       vOutTe,
+                       tsTgtTe.mfSamples.flatten(),
+                       tsInTe.mfSamples,
+                       fThr,
+                       nWindow=int(fHeartRate / tDt),
+                       bPlot=True,
+                      )
