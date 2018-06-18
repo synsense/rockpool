@@ -1,15 +1,13 @@
 import numpy as np
-from scipy import sparse
-from typing import Callable
 from matplotlib import pyplot as plt
 plt.ion()
 
 import TimeSeries as ts
 from ecg import signal_and_target
 import network as nw
+from layers.feedforward import rate as ff
 from layers.recurrent import rate as rec
 from layers.recurrent.weights import RndmSparseEINet
-from layers.feedforward import rate as ff
 import analysis as an
 
 
@@ -27,6 +25,7 @@ nDimOut = 1         # Output dimensions
 nResSize = 256      # Reservoir size
 tTau = 50*tDt       # Reservoir time constant
 
+tDurBatch  = 500 # Training batch duration
 fRegularize = 0.001 # Regularization parameter for training with ridge regression
 
 # Parameters concerning reservoir weights
@@ -104,7 +103,7 @@ tsInTr = ts.TimeSeries(vtTimeTr, vfEcgTr)
 tsTgtTr = ts.TimeSeries(vtTimeTr, vfTgtTr)
 
 # - Run training
-net.train(cTrain, tsInTr, tDurBatch=500)
+net.train(cTrain, tsInTr, tDurBatch=tDurBatch)
 net.reset_all()
 
 
