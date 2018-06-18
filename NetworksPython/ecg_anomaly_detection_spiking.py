@@ -13,8 +13,8 @@ import network as nw
 # from layers.feedforward import rate as ff
 # from layers.recurrent import rate as rec
 from layers.feedforward.rate import PassThrough  ##
-from layers.recurrent.iaf_brian import RecIAFBrian as RecIAFBrian  ##
-from layers.feedforward.exp_synapses_manual import FFExpSyn as FFsc  ##
+from layers.recurrent.iaf_brian import RecIAFBrian  ##
+from layers.feedforward.exp_synapses_manual import FFExpSyn  ##
 # from layers.recurrent.weights import RndmSparseEINet
 from layers.recurrent.weights import IAFSparseNet  ##
 
@@ -126,8 +126,8 @@ mfW_res = IAFSparseNet(**kwResWeights)  ##
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName='input')   ##
 # rlRes = rec.RecRateEuler(mfW=mfW_res, vtTau=tTau, tDt=tDt, strName='res')
 # flOut = ff.PassThrough(mfW=np.zeros((nResSize, nDimOut)), tDt=tDt, tDelay=0, strName='out')
-rlRes = Rec(mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir")  ##
-flOut = FFsc(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output")  ##
+rlRes = RecIAFBrian(mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir")  ##
+flOut = FFExpSyn(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output")  ##
 
 # - Generate network
 net = nw.Network(flIn, rlRes, flOut)
