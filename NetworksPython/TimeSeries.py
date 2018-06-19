@@ -105,6 +105,8 @@ class TimeSeries:
     ts.oInterp:         scipy.interpolate.interp1d object, interpolator
     """
 
+    nTupleSize: int = 2
+
     def __init__(
         self,
         vtTimeTrace: np.ndarray,
@@ -893,6 +895,9 @@ class TSContinuous(TimeSeries):
 
 
 class TSEvent(TimeSeries):
+
+    nTupleSize: int = 3
+
     def __init__(
         self,
         vtTimeTrace: np.ndarray,
