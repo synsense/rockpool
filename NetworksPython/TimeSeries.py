@@ -888,7 +888,10 @@ class TimeSeries:
 
 
 class TSContinuous(TimeSeries):
-    pass
+    def find(self, ttTimes):
+        vtTime = list(ttTimes)
+        mfSamples = self(vtTime)
+        return vtTime, mfSamples
 
 
 ### --- Event time series
@@ -922,11 +925,11 @@ class TSEvent(TimeSeries):
 
         # - Only 1D samples and channels are supported
         assert (np.ndim(vfSamples) <= 1) or (
-            np.sum(vfSamples.shape > 1) == 1
+            np.sum(np.array(vfSamples.shape) > 1) == 1
         ), "`vfSamples` must be 1-dimensional"
 
         assert (np.ndim(vnChannels) <= 1) or (
-            np.sum(vnChannels.shape > 1) == 1
+            np.sum(np.array(vnChannels.shape) > 1) == 1
         ), "`vnChannels` must be 1-dimensional"
 
         # - Provide default inputs

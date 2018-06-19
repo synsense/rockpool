@@ -2,6 +2,7 @@ import numpy as np
 from layers import Layer
 from network import Network
 from TimeSeries import *
+from copy import deepcopy
 
 import holoviews as hv
 hv.extension('bokeh')
@@ -20,7 +21,7 @@ class TestLayer(Layer):
 
         nStep = 0
         vfInput = None
-        self.state = 0
+        self.state = np.zeros(self.nSize, 'float')
         if bVerbose: print("Layer: Prepared")
 
         # - Loop over tDt steps
@@ -37,7 +38,8 @@ class TestLayer(Layer):
 
             # - Process input, if supplied
             if tInput is not None:
-                self.state += tInput[1]
+                mfSamples = np.atleast_2d(tInput[1])
+                self.state += mfSamples[0, :]
 
             # - Incorporate noise trace
             self.state += mfNoise[nStep]
@@ -132,13 +134,13 @@ class TestNetwork(Network):
             lInput = [tsExtInput.find((t, t + self.tCommonDt))
                       for t in vtTimeBase]
         else:
-            lInput = [(None)] * nNumSteps
+            lInput = [None] * nNumSteps
 
         # - Get initial state of all layers
         if bVerbose: print('Net: getting initial state')
 
         # - Determine input state size, obtain initial layer state
-        tInputState = tuple([0] * self.lEvolOrder[0].cInput.nTupleSize)
+        tInputState = lInput[0] #tuple(np.zeros(self.lEvolOrder[0].cInput.nTupleSize, 'float'))
         vtLastState = [tInputState] + [lyr.send(None) for lyr in self.lStreamers]
 
         # - Initialise layer output variables with initial state, convert to lists
@@ -149,7 +151,7 @@ class TestNetwork(Network):
             print(ldLayerOutputs)
 
         # - Streaming loop
-        vtState = vtLastState.copy()
+        vtState = deepcopy(vtLastState)
         nOutputPointer = 0
         for nStep in range(nNumSteps - 1):
             if bVerbose: print('Net: Start of step', nStep)
@@ -169,13 +171,13 @@ class TestNetwork(Network):
                     ldLayerOutputs[nLayer][nTupleIndex].append(vtState[nLayer + 1][nTupleIndex])
 
             # - Save last state to use as input for next step
-            vtLastState = vtState.copy()
+            vtLastState = deepcopy(vtState)
 
         # - Build return dictionary
         dReturn = dict()
         for nLayer in range(nNumLayers):
             # - Concatenate time series
-            lvoData = [np.array(data, 'float') for data in ldLayerOutputs[nLayer]]
+            lvoData = [np.stack(np.array(data, 'float')) for data in ldLayerOutputs[nLayer]]
 
             # - Filter out nans in time trace (always first data element)
             vbUseSamples = ~np.isnan(lvoData[0])
@@ -197,15 +199,23 @@ if __name__ == '__main__':
     lyr3 = TestLayer(0)
     net = TestNetwork(lyr1, lyr2, lyr3)
 
-    dOut = net.stream(None, 10, bVerbose = True)
+    # - Linear input
+    tsIn = TSContinuous(np.arange(0, 11, 1), np.linspace(0, 1, 11).reshape(-1, 1))
 
-    dOut['unnamed'].plot() + dOut['unnamed_0'].plot() + dOut['unnamed_1'].plot()
+    dOut = net.stream(tsIn, 10, bVerbose = True)
 
-    lyr1 = TestSpikeLayer(0)
-    lyr2 = TestSpikeLayer(0)
-    lyr3 = TestSpikeLayer(0)
-    net = TestNetwork(lyr1, lyr2, lyr3)
+    print(dOut)
 
-    tsSpikes = TSEvent([0, 1, 2, 3, 4]).delay(.1)
-
-    dOutSpikes = net.stream(tsSpikes, 5, bVerbose = True)
+    #
+    # dOut = net.stream(None, 10, bVerbose = True)
+    #
+    # dOut['unnamed'].plot() + dOut['unnamed_0'].plot() + dOut['unnamed_1'].plot()
+    #
+    # lyr1 = TestSpikeLayer(0)
+    # lyr2 = TestSpikeLayer(0)
+    # lyr3 = TestSpikeLayer(0)
+    # net = TestNetwork(lyr1, lyr2, lyr3)
+    #
+    # tsSpikes = TSEvent([0, 1, 2, 3, 4]).delay(.1)
+    #
+    # dOutSpikes = net.stream(tsSpikes, 5, bVerbose = True)
