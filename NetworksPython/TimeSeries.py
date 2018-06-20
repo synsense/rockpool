@@ -567,9 +567,7 @@ class TimeSeries:
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end)
         :param vtNewBounds:
 
-        :return: tsClip, vbIncludeSamples)
-                tsClip:             New TimeSeries clipped to bounds
-                vbIncludeSamples:   boolean ndarray indicating which original samples are included
+        :return: New TimeSeries clipped to bounds
         """
         tsClip, _ = self._clip(vtNewBounds)
 
@@ -587,7 +585,9 @@ class TimeSeries:
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
         :param vtNewBounds:
-        :return: New TimeSeries clipped to bounds
+        :return: (tsClipped, vbIncludeSamples)
+            tsClipped:          New TimeSeries clipped to bounds
+            vbIncludeSamples:   bool array indicating which samples were included
         """
         # - Find samples included in new time bounds
         vtNewBounds = np.sort(vtNewBounds)
