@@ -140,53 +140,53 @@ class TestNetwork(Network):
         if bVerbose: print('Net: getting initial state')
 
         # - Determine input state size, obtain initial layer state
-        tInputState = lInput[0]
-        vtLastState = [tInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
+        tupInputState = lInput[0]
+        lLastState = [tupInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
 
         # - Initialise layer output variables with initial state, convert to lists
-        tLayerOutputs = tuple(tuple([x] for x in state) for state in vtLastState[1:])
+        lLayerOutputs = [tuple([x] for x in state) for state in lLastState[1:]]
 
         if bVerbose:
             print('Net: got initial state:')
-            print(tLayerOutputs)
+            print(lLayerOutputs)
 
         # - Streaming loop
-        vtState = deepcopy(vtLastState)
+        lState = deepcopy(lLastState)
         for nStep in range(nNumSteps - 1):
             if bVerbose: print('Net: Start of step', nStep)
 
             # - Set up external input
-            vtLastState[0] = (lInput[nStep])
+            lLastState[0] = (lInput[nStep])
 
             for nLayerInd in range(nNumLayers):
                 if bVerbose: print('Net: Evolving layer {}'.format(nLayerInd))
                 try:
-                    vtState[nLayerInd + 1] = deepcopy(self.lStreamers[nLayerInd].send(vtLastState[nLayerInd]))
+                    lState[nLayerInd + 1] = deepcopy(self.lStreamers[nLayerInd].send(lLastState[nLayerInd]))
                 except StopIteration as e:
-                    vtState[nLayerInd + 1] = e.args[0]
+                    lState[nLayerInd + 1] = e.args[0]
 
             # - Save layer outputs
             for nLayer in range(nNumLayers):
-                for nTupleIndex in range(len(tLayerOutputs[nLayer])):
-                    tLayerOutputs[nLayer][nTupleIndex].append(vtState[nLayer + 1][nTupleIndex])
+                for nTupleIndex in range(len(lLayerOutputs[nLayer])):
+                    lLayerOutputs[nLayer][nTupleIndex].append(lState[nLayer + 1][nTupleIndex])
 
             # - Save last state to use as input for next step
-            vtLastState = deepcopy(vtState)
+            lLastState = deepcopy(lState)
 
         # - Build return dictionary
         dReturn = dict()
         for nLayer in range(nNumLayers):
             # - Concatenate time series
-            lvoData = [np.stack(np.array(data, 'float')) for data in tLayerOutputs[nLayer]]
+            lvData = [np.stack(np.array(data, 'float')) for data in lLayerOutputs[nLayer]]
 
             # - Filter out nans in time trace (always first data element)
-            vbUseSamples = ~np.isnan(lvoData[0])
-            tvoData = tuple(data[vbUseSamples] for data in lvoData)
+            vbUseSamples = ~np.isnan(lvData[0])
+            tupData = tuple(data[vbUseSamples] for data in lvData)
 
-            if bVerbose: print(tvoData[0])
+            if bVerbose: print(tupData[0])
 
             # - Build dictionary
-            dReturn[self.lEvolOrder[nLayer].strName] = TSEvent(*tvoData)
+            dReturn[self.lEvolOrder[nLayer].strName] = TSEvent(*tupData)
 
         # - Increment time
         self._t += tDuration
