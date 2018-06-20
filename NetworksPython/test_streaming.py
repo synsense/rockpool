@@ -141,7 +141,7 @@ class TestNetwork(Network):
 
         # - Determine input state size, obtain initial layer state
         tInputState = lInput[0] #tuple(np.zeros(self.lEvolOrder[0].cInput.nTupleSize, 'float'))
-        vtLastState = [tInputState] + [lyr.send(None) for lyr in self.lStreamers]
+        vtLastState = [tInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
 
         # - Initialise layer output variables with initial state, convert to lists
         ldLayerOutputs = [tuple([[x] for x in state]) for state in vtLastState[1:]]
@@ -152,7 +152,6 @@ class TestNetwork(Network):
 
         # - Streaming loop
         vtState = deepcopy(vtLastState)
-        nOutputPointer = 0
         for nStep in range(nNumSteps - 1):
             if bVerbose: print('Net: Start of step', nStep)
 
@@ -160,8 +159,9 @@ class TestNetwork(Network):
             vtLastState[0] = (lInput[nStep])
 
             for nLayerInd in range(nNumLayers):
+                if bVerbose: print('Net: Evolving layer {}'.format(nLayerInd))
                 try:
-                    vtState[nLayerInd + 1] = self.lStreamers[nLayerInd].send(vtLastState[nLayerInd])
+                    vtState[nLayerInd + 1] = deepcopy(self.lStreamers[nLayerInd].send(vtLastState[nLayerInd]))
                 except StopIteration as e:
                     vtState[nLayerInd + 1] = e.args[0]
 
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     net = TestNetwork(lyr1, lyr2, lyr3)
 
     # - Linear input
-    tsIn = TSContinuous(np.arange(0, 11, 1), np.linspace(0, 1, 11).reshape(-1, 1))
+    tsIn = TSContinuous(np.arange(0, 11, 1), np.linspace(0, 1, 11).reshape(-1, 1)) + .5
 
     dOut = net.stream(tsIn, 10, bVerbose = True)
 
