@@ -140,15 +140,15 @@ class TestNetwork(Network):
         if bVerbose: print('Net: getting initial state')
 
         # - Determine input state size, obtain initial layer state
-        tInputState = lInput[0] #tuple(np.zeros(self.lEvolOrder[0].cInput.nTupleSize, 'float'))
+        tInputState = lInput[0]
         vtLastState = [tInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
 
         # - Initialise layer output variables with initial state, convert to lists
-        ldLayerOutputs = [tuple([[x] for x in state]) for state in vtLastState[1:]]
+        tLayerOutputs = tuple(tuple([x] for x in state) for state in vtLastState[1:])
 
         if bVerbose:
             print('Net: got initial state:')
-            print(ldLayerOutputs)
+            print(tLayerOutputs)
 
         # - Streaming loop
         vtState = deepcopy(vtLastState)
@@ -167,8 +167,8 @@ class TestNetwork(Network):
 
             # - Save layer outputs
             for nLayer in range(nNumLayers):
-                for nTupleIndex in range(len(ldLayerOutputs[nLayer])):
-                    ldLayerOutputs[nLayer][nTupleIndex].append(vtState[nLayer + 1][nTupleIndex])
+                for nTupleIndex in range(len(tLayerOutputs[nLayer])):
+                    tLayerOutputs[nLayer][nTupleIndex].append(vtState[nLayer + 1][nTupleIndex])
 
             # - Save last state to use as input for next step
             vtLastState = deepcopy(vtState)
@@ -177,7 +177,7 @@ class TestNetwork(Network):
         dReturn = dict()
         for nLayer in range(nNumLayers):
             # - Concatenate time series
-            lvoData = [np.stack(np.array(data, 'float')) for data in ldLayerOutputs[nLayer]]
+            lvoData = [np.stack(np.array(data, 'float')) for data in tLayerOutputs[nLayer]]
 
             # - Filter out nans in time trace (always first data element)
             vbUseSamples = ~np.isnan(lvoData[0])
