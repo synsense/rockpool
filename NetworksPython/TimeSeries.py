@@ -195,7 +195,7 @@ class TimeSeries:
         :param tTime: Scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
-        return self.interpolate(vtTimes)
+        return np.reshape(self.interpolate(vtTimes), (-1, self.nNumTraces))
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -283,6 +283,8 @@ class TimeSeries:
         tsResampled = self.copy()
         tsResampled._vtTimeTrace = vtTimes
         tsResampled._mfSamples = self(vtTimes)
+        tsResampled.bPeriodic = False
+        tsResampled._create_interpolator()
         return tsResampled
 
     def resample_within(
@@ -569,17 +571,25 @@ class TimeSeries:
                 tsClip:             New TimeSeries clipped to bounds
                 vbIncludeSamples:   boolean ndarray indicating which original samples are included
         """
-        tsClip, _ = self._clip(vtNewBounds)
+        # - For periodic time series, resample the series
+        if self.bPeriodic:
+            tsClip, _ = self._clip_periodic(vtNewBounds)
+        else:
+            tsClip, _ = self._clip(vtNewBounds)
 
         # - Insert initial time point
         tsClip._vtTimeTrace = np.concatenate(([vtNewBounds[0]], tsClip._vtTimeTrace))
 
         # - Insert initial samples
         vfFirstSample = np.atleast_1d(self(vtNewBounds[0]))
+
         tsClip._mfSamples = np.concatenate(
-            (vfFirstSample, tsClip._mfSamples, (np.size(tsClip._vtTimeTrace), -1)),
-            axis=0,
+                (np.reshape(vfFirstSample, (-1, self.nNumTraces)),
+                 np.reshape(tsClip._mfSamples, (-1, self.nNumTraces))),
+                axis = 0,
         )
+
+        return tsClip
 
     def _clip(self, vtNewBounds):
         """
@@ -599,6 +609,45 @@ class TimeSeries:
         tsClip._mfSamples = self.mfSamples[vbIncludeSamples]
 
         return tsClip, vbIncludeSamples
+
+    def _clip_periodic(self, vtNewBounds):
+        """
+        _clip_periodic - Clip a periodic TimeSeries
+        :param vtNewBounds:
+        :return:
+        """
+        # - Ensure time bounds are sorted
+        vtNewBounds = np.sort(vtNewBounds)
+        tDuration = np.diff(vtNewBounds)
+
+        # - Catch sinlgeton time point
+        if vtNewBounds[0] == vtNewBounds[1]:
+            return self(vtNewBounds[0]).copy()
+
+        # - Map time bounds to periodic bounds
+        vtNewBoundsPeriodic = copy.deepcopy(vtNewBounds)
+        vtNewBoundsPeriodic[0] = (np.asarray(vtNewBoundsPeriodic[0]) - self._tStart
+        ) % self._tDuration + self._tStart
+        vtNewBoundsPeriodic[1] = vtNewBoundsPeriodic[0] + tDuration
+
+        # - Build new time trace
+        vtNewTimeTrace = copy.deepcopy(self._vtTimeTrace)
+        vtNewTimeTrace = vtNewTimeTrace[vtNewTimeTrace >= vtNewBoundsPeriodic[0]]
+
+        # - Keep appending copies of periodic time base until required duration is reached
+        while vtNewTimeTrace[-1] < vtNewBoundsPeriodic[1]:
+            vtNewTimeTrace = np.concatenate((vtNewTimeTrace, self._vtTimeTrace + vtNewTimeTrace[-1]))
+
+        # - Trim new time base to end point
+        vtNewTimeTrace = vtNewTimeTrace[vtNewTimeTrace <= vtNewBoundsPeriodic[1]]
+
+        # - Restore to original time base
+        vtNewTimeTrace = vtNewTimeTrace - vtNewTimeTrace[0] + vtNewBounds[0]
+
+        # - Return a new clipped time series
+        tsClip = self.resample(vtNewTimeTrace)
+        return tsClip, None
+
 
     def __add__(self, other):
         return self.copy().__iadd__(other)
