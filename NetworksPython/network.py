@@ -63,6 +63,10 @@ class Network:
 
         if lyrRes is not None and lyrReadout is not None:
             self.lyrReadout = self.add_layer(lyrReadout, lyrInput=self.lyrRes)
+        
+        # - Set evolution order if no layers have been connected
+        if not hasattr(self, 'lEvolOrder'):
+            self.lEvolOrder = self._evolution_order()
 
     def add_layer(
         self,
@@ -275,10 +279,11 @@ class Network:
         # - Set of layers that are not in evolution order yet
         setlyrRemaining = self.setLayers.copy()
 
-        # - Begin with input layer
-        lOrder = [self.lyrInput]
-        setlyrRemaining.remove(self.lyrInput)
-
+        # # - Begin with input layer
+        # lOrder = [self.lyrInput]
+        # setlyrRemaining.remove(self.lyrInput)
+        lOrder = []
+        
         # - Loop through layers
         while bool(setlyrRemaining):
             # - Find the next layer to be evolved
