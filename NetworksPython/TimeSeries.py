@@ -1022,12 +1022,22 @@ class TSEvent(TimeSeries):
         """
 
         if vtTimeBounds is not None:
+            # - Map None to time trace bounds
+            vtTimeBounds = np.array(vtTimeBounds)
+            if vtTimeBounds[0] is None:
+                vtTimeBounds[0] = self.vtTimeTrace[0]
+            if vtTimeBounds[-1] is None:
+                vtTimeBounds[-1] = self.vtTimeTrace[-1]
+                bIncludeFinal = True
+            else: bIncludeFinal = False
+
             # - Permit unsorted bounds
             vtTimeBounds = np.sort(vtTimeBounds)
 
             # - Find matching times
             vbMatchingTimes = np.logical_and(
-                self.vtTimeTrace >= vtTimeBounds[0], self.vtTimeTrace < vtTimeBounds[-1]
+                self.vtTimeTrace >= vtTimeBounds[0],
+                np.logical_or(self.vtTimeTrace < vtTimeBounds[-1], bIncludeFinal)
             )
 
             # - Return matching samples
@@ -1181,6 +1191,67 @@ class TSEvent(TimeSeries):
             raise ValueError(
                 "Input data must have shape " + str(self.vtTimeTrace.shape)
             )
+
+    def raster(tDt: float,
+               tStart: float = None,
+               tStop: float = None,
+               vnSelectChannels: np.ndarray = None
+        ) -> (np.ndarray, np.ndarray, np.ndarray):
+
+        """
+        raster - Return rasterized time series data, where each data point
+                 represents a time step. Events are represented in a boolen
+                 matrix, where the first axis corresponds to time, the second
+                 axis to the channel. Samples are returned in a 1D arra.
+                 Events that happen between time steps are projected to the
+                 preceding one. 
+        :param tDt:     float Length of single time step in raster
+        :param tStart:  float Time where to start raster - Will start
+                              at self.vtTImeTrace[0] if None
+        :param tStop:   float Time where to stop raster. This time point is 
+                              not included anymore. - If None, will use all 
+                              points until (and including) self.vtTImeTrace[-1]
+        :vnSelectedChannels: Array-like Channels, from which data is to be used.
+
+        :return
+            vtTimeBase:     Time base of rasterized data
+            mbSpikesRaster  Boolean matrix with True indicating event
+                            First axis corresponds to time, second axis to channel.
+            vfSamplesRaster 1D-array raster with samples.
+        """
+        
+        # - Get data from selected channels and time range
+        if vnSelectChannels is not None:
+            tsSelected = self.choose(vnSelectChannels)
+        else:
+            tsSelected = self.copy()
+
+        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStart, tStop])
+        
+        # - Generate time base
+        tStartBase = (self.tStart if tStart is None else tStart)
+        tStopBase = (self.tStop + tDt if tStop is None else tStop)
+
+        vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
+
+        # - Convert input events to rasterized spike trains
+        nNumChannels = np.amax(tsSelected.vnChannels)
+        mbSpikesRaster = np.zeros((vtTimeBase.size, nNumChannels), bool)
+        #   Iterate over channel indices and create their spike trains
+        for channel in range(nNumChannels):
+            # Times with event in current channel
+            vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
+            # Indices of vtTimeBase corresponding to these times
+            viEventIndicesChannel = ((vtEventTimesChannel-vtTimeBase[0]) / self.tDt).astype(int)
+            # Set spike trains for current channel
+            mbSpikesRaster[viEventIndicesChannel, channel] = True
+
+        # - Rasterize samples
+        vfSamplesRaster = np.zeros(len(vtTimeBase))
+        vfSamplesRaster[mbSpikesRaster.any(axis=1)] = vfSamples
+        # PROBLEM: What if two or more events at one time point???
+
+        return vtTimeBase, mbSpikesRaster, vfSamplesRaster
 
     @property
     def vnChannels(self):
