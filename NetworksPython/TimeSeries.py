@@ -1192,19 +1192,23 @@ class TSEvent(TimeSeries):
                 "Input data must have shape " + str(self.vtTimeTrace.shape)
             )
 
-    def raster(tDt: float,
+    def raster(self,
+               tDt: float,
                tStart: float = None,
                tStop: float = None,
-               vnSelectChannels: np.ndarray = None
+               vnSelectChannels: np.ndarray = None,
+               bSamples: bool = False,
         ) -> (np.ndarray, np.ndarray, np.ndarray):
 
         """
         raster - Return rasterized time series data, where each data point
                  represents a time step. Events are represented in a boolen
                  matrix, where the first axis corresponds to time, the second
-                 axis to the channel. Samples are returned in a 1D arra.
+                 axis to the channel. If bSamples is True, Samples are
+                 returned in a tuple of lists (see description below).
                  Events that happen between time steps are projected to the
-                 preceding one. 
+                 preceding one. If two events happen during one time step
+                 within a single channel, they are counted as one.
         :param tDt:     float Length of single time step in raster
         :param tStart:  float Time where to start raster - Will start
                               at self.vtTImeTrace[0] if None
@@ -1212,12 +1216,17 @@ class TSEvent(TimeSeries):
                               not included anymore. - If None, will use all 
                               points until (and including) self.vtTImeTrace[-1]
         :vnSelectedChannels: Array-like Channels, from which data is to be used.
+        :bSamples:      bool If True, tplSamples is returned, otherwise None.
 
         :return
             vtTimeBase:     Time base of rasterized data
-            mbSpikesRaster  Boolean matrix with True indicating event
+            mbEventsRaster  Boolean matrix with True indicating event
                             First axis corresponds to time, second axis to channel.
-            vfSamplesRaster 1D-array raster with samples.
+            tplSamples      Tuple with one list per time step. For each event 
+                            corresponding to a time step the list contains a tuple
+                            whose first entry is the channel, the second entry is
+                            the sample.
+                            If bSamples is False, then None is returned.
         """
         
         # - Get data from selected channels and time range
@@ -1234,24 +1243,36 @@ class TSEvent(TimeSeries):
 
         vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
 
-        # - Convert input events to rasterized spike trains
-        nNumChannels = np.amax(tsSelected.vnChannels)
-        mbSpikesRaster = np.zeros((vtTimeBase.size, nNumChannels), bool)
-        #   Iterate over channel indices and create their spike trains
+        # - Convert input events and samples to boolen raster
+        
+        nNumChannels = np.amax(tsSelected.vnChannels + 1)
+        
+        mbEventsRaster = np.zeros((vtTimeBase.size, nNumChannels), bool)
+        
+        if bSamples:
+            tplSamples = tuple(([] for i in range(vtTimeBase.size)))
+        else:
+            tplSamples = None
+
+        #   Iterate over channel indices and create their event raster
         for channel in range(nNumChannels):
+
             # Times with event in current channel
-            vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
+            viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
+            vtEventTimes_Channel = vtEventTimes[viEventIndices_Channel]
+
             # Indices of vtTimeBase corresponding to these times
-            viEventIndicesChannel = ((vtEventTimesChannel-vtTimeBase[0]) / self.tDt).astype(int)
-            # Set spike trains for current channel
-            mbSpikesRaster[viEventIndicesChannel, channel] = True
+            viEventIndices_Raster = ((vtEventTimes_Channel-vtTimeBase[0]) / tDt).astype(int)
 
-        # - Rasterize samples
-        vfSamplesRaster = np.zeros(len(vtTimeBase))
-        vfSamplesRaster[mbSpikesRaster.any(axis=1)] = vfSamples
-        # PROBLEM: What if two or more events at one time point???
-
-        return vtTimeBase, mbSpikesRaster, vfSamplesRaster
+            # Set event  and sample raster for current channel
+            mbEventsRaster[viEventIndices_Raster, channel] = True
+            
+            # Add samples
+            if bSamples:
+                for iRasterIndex, iTimeIndex in zip(viEventIndices_Raster, viEventIndices_Channel):
+                    tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
+        
+        return vtTimeBase, mbEventsRaster, tplSamples
 
     @property
     def vnChannels(self):
