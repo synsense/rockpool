@@ -393,6 +393,7 @@ class Network:
         tDuration: float = None,
         tDurBatch: float = None,
         bVerbose = True,
+        bHighVerbosity = False,
     ):
         """
         train - Train the network batch-wise by evolving the layers and
@@ -404,6 +405,8 @@ class Network:
                                         over the duration of tsExternalInput
         :param tDurBatch:       float - Duration of one batch
         :param bVerbose:        bool  - Print info about training progress
+        :param bHighVerbosity:  bool  - Print info about layer evolution
+                                        (only has effect if bVerbose is True)
         """
 
         # - Determine duration of training
@@ -423,6 +426,8 @@ class Network:
                     "Cannot determine an appropriate evolution duration. "
                     + "`tsExternalInput` finishes before the current evolution time."
                 )
+        else:
+            tRemaining = tDuration
 
         # - Determine batch duration and number
         tDurBatch = tRemaining if tDurBatch is None else tDurBatch
@@ -436,7 +441,7 @@ class Network:
                 print("Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r")
             # - Evolve network
             dtsSignal = self.evolve(
-                tsExternalInput, min(tDurBatch, tRemaining), bVerbose=False
+                tsExternalInput, min(tDurBatch, tRemaining), bVerbose=(bHighVerbosity and bVerbose)
             )
             # - Remaining simulation time
             tRemaining -= tDurBatch
