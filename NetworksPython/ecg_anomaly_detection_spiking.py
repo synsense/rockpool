@@ -47,26 +47,29 @@ kwResWeights = {
 }  # Normalize matrix spectral radius
 
 # Probabilities for anomalies in ECG rhythms
+pNormal = 0.8  # Probability of normal input rhythm
+pAnomal = (1 - pNormal) / 8  # Probability of abnormal input rhythm
+
 dProbs = {
-    "complete_normal": 0.8,     # Normal ECG
-    "complete_noP": 0.025,      # Missing P-wave
-    "complete_Pinv": 0.025,     # Inverted P-wave
-    "complete_noQRS": 0.025,    # Missing QRS complex
-    "complete_Tinv": 0.025,     # Inverted T-wave
-    "complete_STelev": 0.025,   # Elevated ST-segment
-    "complete_STdepr": 0.025,   # Depressed ST-segment
-    "complete_tach": 0.025,     # Tachycardia
-    "complete_brad": 0.025,     # Bradycardia
+    "complete_normal": pNormal,     # Normal ECG
+    "complete_noP": pAnomal,      # Missing P-wave
+    "complete_Pinv": pAnomal,     # Inverted P-wave
+    "complete_noQRS": pAnomal,    # Missing QRS complex
+    "complete_Tinv": pAnomal,     # Inverted T-wave
+    "complete_STelev": pAnomal,   # Elevated ST-segment
+    "complete_STdepr": pAnomal,   # Depressed ST-segment
+    "complete_tach": pAnomal,     # Tachycardia
+    "complete_brad": pAnomal,     # Bradycardia
 }
 
 # - Kwargs for signal_and_target function
 kwSignal = {
-    "strTargetMethod": "fix",  # Method for labelling targets
+    "strTargetMethod": "segment-extd",  # Method for labelling targets
     "dProbs": dProbs,
     "fHeartRate": fHeartRate,
     "tDt": tDt,
     "bVerbose": True,
-    "nTargetWidth": int(fHeartRate / tDt),
+    "nMinWidth": int(0.5*fHeartRate / tDt),
 }
 
 
@@ -83,8 +86,11 @@ def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
     """
     # - Input to flOut
     tsInput = dtsSignal[flOut.lyrIn.strName]
-    # - Coose suitable time range for target
-    tsTarget = tsTgtTr.resample(tsInput.vtTimeTrace)
+    # - Infer time range of current batch
+    tStart = dtsSignal['external'].tStart
+    tStop = dtsSignal['external'].tStop
+    # - Sample target within time range of current batch
+    tsTarget = tsTgtTr.resample_within(tStart, tStop)
     # - Train the layer
     flOut.train_rr(tsTarget, tsInput, fRegularize, bFirst, bFinal)
 
@@ -128,93 +134,96 @@ flOut = FFExpSyn(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strN
 net = nw.Network(flIn, rlRes, flOut)
 
 
-### --- Training
 
-# - Training signal
-# Generate training data and time trace
-tsInTr, tsTgtTr = ts_ecg_target(nTrialsTr, **kwSignal)
+if __name__ == '__main__':
 
-# d = net.evolve(tsInTr)
-# plt.scatter(d['reservoir'].vtTimeTrace, d['reservoir'].vnChannels)
-# plt.plot(tsInTr.vtTimeTrace, tsInTr.mfSamples*30+50, color='y')
+    ### --- Training
 
+    # - Training signal
+    # Generate training data and time trace
+    tsInTr, tsTgtTr = ts_ecg_target(nTrialsTr, **kwSignal)
 
-# - Run training
-net.train(cTrain, tsInTr, tDurBatch=tDurBatch)
-net.reset_all()
+    # d = net.evolve(tsInTr)
+    # plt.scatter(d['reservoir'].vtTimeTrace, d['reservoir'].vnChannels)
+    # plt.plot(tsInTr.vtTimeTrace, tsInTr.mfSamples*30+50, color='y')
 
 
-# # - Sanity check with training signal
-# dTr = net.evolve(tsInTr)
-# net.reset_all()
-# 
-# # Output TimeSeries
-# tsOutTr = dTr[flOut.strName]
-
-# # Plot input, target and output
-# plt.figure()
-# plt.plot(tsOutTr.vtTimeTrace, tsOutTr.mfSamples)
-# plt.plot(tsTgtTr.vtTimeTrace, tsTgtTr.mfSamples)
-# plt.plot(tsInTr.vtTimeTrace, 0.2*tsInTr.mfSamples, color='k', alpha=0.3, zorder=-1)
-
-# # Plot smoothed output
-# nWindowSize = 200
-# vWindow = np.ones(nWindowSize) / nWindowSize
-# vfSmoothed = np.convolve(tsOutTr.mfSamples.flatten(), vWindow, 'full')
-# plt.plot(tsOutTr,vtTimeTrace, vfSmoothed[-(tsOutTr.vtTimeTrace.size):])
+    # - Run training
+    net.train(cTrain, tsInTr, tDurBatch=tDurBatch, bHighVerbosity=True)
+    net.reset_all()
 
 
-### --- Validation run for threshold determination
+    # # - Sanity check with training signal
+    # dTr = net.evolve(tsInTr)
+    # net.reset_all()
+    # 
+    # # Output TimeSeries
+    # tsOutTr = dTr[flOut.strName]
 
-# - Validation signal
-# Generate test data and time trace
-tsInVa, tsTgtVa = ts_ecg_target(nTrialsTe, **kwSignal)
+    # # Plot input, target and output
+    # plt.figure()
+    # plt.plot(tsOutTr.vtTimeTrace, tsOutTr.mfSamples)
+    # plt.plot(tsTgtTr.vtTimeTrace, tsTgtTr.mfSamples)
+    # plt.plot(tsInTr.vtTimeTrace, 0.2*tsInTr.mfSamples, color='k', alpha=0.3, zorder=-1)
 
-# - Validation run
-dVa = net.evolve(tsInVa)
-net.reset_all()
-
-vOutVa = dVa[flOut.strName].mfSamples
-# - Determine threshold for analysis of test run
-fThr = an.find_threshold(
-    vOutput=vOutVa,
-    vTarget=tsTgtVa.mfSamples.flatten(),
-    nWindow=int(fHeartRate / tDt),
-    nClose=int(fHeartRate / tDt),
-    nAttempts=5,
-    nRecursions=5,
-)
-print("Using threshold: {:.3f}".format(fThr))
+    # # Plot smoothed output
+    # nWindowSize = 200
+    # vWindow = np.ones(nWindowSize) / nWindowSize
+    # vfSmoothed = np.convolve(tsOutTr.mfSamples.flatten(), vWindow, 'full')
+    # plt.plot(tsOutTr,vtTimeTrace, vfSmoothed[-(tsOutTr.vtTimeTrace.size):])
 
 
-### --- Testing
+    ### --- Validation run for threshold determination
 
-# - Test signal
-# Generate test data and time trace
-tsInTe, tsTgtTe = ts_ecg_target(nTrialsTe, **kwSignal)
+    # - Validation signal
+    # Generate test data and time trace
+    tsInVa, tsTgtVa = ts_ecg_target(nTrialsTe, **kwSignal)
 
-# - Run test
-dTe = net.evolve(tsInTe)
-net.reset_all()
+    # - Validation run
+    dVa = net.evolve(tsInVa)
+    net.reset_all()
 
-# - Output TimeSeries
-tsOutTe = dTe[flOut.strName]
+    vOutVa = dVa[flOut.strName].mfSamples
+    # - Determine threshold for analysis of test run
+    fThr = an.find_threshold(
+        vOutput=vOutVa,
+        vTarget=tsTgtVa.mfSamples.flatten(),
+        nWindow=int(fHeartRate / tDt),
+        nClose=int(fHeartRate / tDt),
+        nAttempts=16,
+        nRecursions=4,
+    )
+    print("Using threshold: {:.3f}".format(fThr))
 
-# Plot input, target and output
-# plt.figure()
-# plt.plot(tsOutTe.vtTimeTrace, tsOutTe.mfSamples)
-# plt.plot(tsTgtTe.vtTimeTrace, tsTgtTe.mfSamples)
-# plt.plot([tsResTe.vtTimeTrace[0], tsResTe.vtTimeTrace[1]], [fThr, fThr], 'k--', zorder=0, lw=2)
-# plt.plot(tsInTe.vtTimeTrace, 0.2*tsInTe.mfSamples, color='k', alpha=0.3, zorder=-1)
 
-# - Analysis and plotting
-print("\nAnalysis of test run:")
-vOutTe = dTe[flOut.strName].mfSamples
-dAnalysis = an.analyze(
-                       vOutTe,
-                       tsTgtTe.mfSamples.flatten(),
-                       tsInTe.mfSamples,
-                       fThr,
-                       nWindow=int(fHeartRate / tDt),
-                       bPlot=True,
-                      )
+    ### --- Testing
+
+    # - Test signal
+    # Generate test data and time trace
+    tsInTe, tsTgtTe = ts_ecg_target(nTrialsTe, **kwSignal)
+
+    # - Run test
+    dTe = net.evolve(tsInTe)
+    net.reset_all()
+
+    # - Output TimeSeries
+    tsOutTe = dTe[flOut.strName]
+
+    # Plot input, target and output
+    # plt.figure()
+    # plt.plot(tsOutTe.vtTimeTrace, tsOutTe.mfSamples)
+    # plt.plot(tsTgtTe.vtTimeTrace, tsTgtTe.mfSamples)
+    # plt.plot([tsResTe.vtTimeTrace[0], tsResTe.vtTimeTrace[1]], [fThr, fThr], 'k--', zorder=0, lw=2)
+    # plt.plot(tsInTe.vtTimeTrace, 0.2*tsInTe.mfSamples, color='k', alpha=0.3, zorder=-1)
+
+    # - Analysis and plotting
+    print("\nAnalysis of test run:")
+    vOutTe = dTe[flOut.strName].mfSamples
+    dAnalysis = an.analyze(
+                           vOutTe,
+                           tsTgtTe.mfSamples.flatten(),
+                           tsInTe.mfSamples,
+                           fThr,
+                           nWindow=int(fHeartRate / tDt),
+                           bPlot=True,
+                          )
