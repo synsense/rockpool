@@ -5,6 +5,8 @@
 ### --- Imports
 import numpy as np
 
+import copy
+
 from typing import Callable
 
 from TimeSeries import TimeSeries
@@ -37,15 +39,15 @@ def isMultiple(a: float, b: float, fTolRel: float = fTolRel) -> bool:
 
 
 class Network:
-    def __init__(
-        self, lyrInput: Layer = None, lyrRes: Layer = None, lyrReadout: Layer = None
-    ):
+    def __init__(self, *layers : Layer):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
-        :param lyrInput:   Layer Input layer (recieves network-external input)
-        :param lyrRes:     Layer Internal layer (usually a recurrent reservoir)
-        :param lyrReadout:  Layer Output layer (provides network-external output)
+        :param layers:   Layers to be added to the network. They will
+                         be connected in series. The Order in which
+                         they are received determines the order in
+                         which they are connected. First layer will
+                         receive external input
         """
 
         # - Network time
@@ -54,16 +56,21 @@ class Network:
         # Maintain set of all layers
         self.setLayers = set()
 
-        # - Add layers
-        if lyrInput is not None:
-            self.lyrInput = self.add_layer(lyrInput, bExternalInput=True)
+        if layers:
+            # - First layer receives external input
+            self.lyrInput = self.add_layer(layers[0], bExternalInput=True)
 
-        if lyrInput is not None and lyrRes is not None:
-            self.lyrRes = self.add_layer(lyrRes, lyrInput=self.lyrInput)
+            # - Keep track of most recently added layer
+            lyrLastLayer = layers[0]
 
-        if lyrRes is not None and lyrReadout is not None:
-            self.lyrReadout = self.add_layer(lyrReadout, lyrInput=self.lyrRes)
-        
+            # - Add and connect subsequent layers
+            for lyr in layers[1:]:
+                self.add_layer(lyr, lyrInput=lyrLastLayer)
+                lyrLastLayer = lyr
+
+            # - Handle to last layer
+            self.lyrOutput = lyrLastLayer
+                    
         # - Set evolution order if no layers have been connected
         if not hasattr(self, 'lEvolOrder'):
             self.lEvolOrder = self._evolution_order()
@@ -102,7 +109,7 @@ class Network:
         if hasattr(self, lyr.strName):
             # - Check if layers are the same object.
             if getattr(self, lyr.strName) is lyr:
-                print("This layer is already part of the network")
+                print("Layer `{}` is already part of the network".format(lyr.strName))
                 return lyr
             else:
                 sNewName = lyr.strName
