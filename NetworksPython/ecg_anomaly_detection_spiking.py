@@ -225,5 +225,6 @@ if __name__ == '__main__':
                            tsInTe.mfSamples,
                            fThr,
                            nWindow=int(fHeartRate / tDt),
+                           nClose=int(fHeartRate / tDt),
                            bPlot=True,
                           )

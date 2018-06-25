@@ -1,9 +1,12 @@
 import numpy as np
 from matplotlib import pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.signal import fftconvolve
+
 from bokeh import plotting as bk
 
 
-def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=0, nClose=200, bVerbose=True, bPlot=True):
+def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=200, nClose=100, bVerbose=True, bPlot=True):
     """Analyze output signal vOutput wrt to target: 
         - Sensitivity: Which of the anomalies have been detected?
             Detected means that there is at least one detection during
@@ -32,9 +35,7 @@ def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=0, nClose=200, bVerbos
     #                                        1-np.r_[vbAboveThr[1:], 0]))[0] + 1  # Below threshold at curent point
     # If Threshold crossed from below within nClose time steps after previous
     # crossing from below, do not count as additional detection
-    np.seterr(invalid='ignore')
-    vnIgnoreDetects = vnDetectInds - np.r_[np.nan, vnDetectInds[:-1]] < nClose
-    np.seterr(invalid='warn')
+    vnIgnoreDetects = vnDetectInds - np.r_[-nClose, vnDetectInds[:-1]] < nClose
     vnDetectInds = vnDetectInds[vnIgnoreDetects == False]
     # vnDetectEnds = vnDetectEnds[np.r_[1-vnIgnoreDetects[1:], True]]   # Remove ends preciding the removed start
     vbDetects = np.repeat(False, nDuration)
@@ -47,13 +48,11 @@ def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=0, nClose=200, bVerbos
                                          np.r_[vTarget[1:], 0] == 0))[0] + 1  # Current value is 0
     lbDetectedAnom = [vbDetects[min(s, nDuration-1):min(e, nDuration-1)].any()
                       for s, e in zip(vnAnomStarts, vnAnomEnds+nWindow)]
-    # Anomalies that occur close together (with less than nWindow time steps between)
-    # Only require vOutput to be above threshold, no new detect
-    np.seterr(invalid='ignore')
-    vnAnomCloseStartsInd, = np.where(vnAnomStarts - np.r_[np.nan, vnAnomStarts[:-1]] < nClose)
-    np.seterr(invalid='warn')
+    # Anomalies that occur close together (with less than nClose time steps between)
+    #   only require vOutput to be above threshold, no new detect
+    vnAnomCloseStartsInd, = np.where(vnAnomStarts - np.r_[-nClose, vnAnomEnds[:-1]] < nClose)
     for i in vnAnomCloseStartsInd:
-        if vbAboveThr[vnAnomStarts[i]:min(vnAnomEnds[i]+nClose, nDuration)].any():
+        if vbAboveThr[vnAnomStarts[i]:min(vnAnomEnds[i]+nWindow, nDuration)].any():
             lbDetectedAnom[i] = True
     nTruePos = np.sum(lbDetectedAnom)
     nFalseNeg = len(lbDetectedAnom) - nTruePos
@@ -68,9 +67,10 @@ def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=0, nClose=200, bVerbos
     # Number of normal intervals with no detection
     nTrueNeg = np.sum(np.asarray(lnFalseDetects) == 0)
     nFalseDetects = np.sum(lnFalseDetects)
-    fSpecificity = nTrueNeg / len(lnFalseDetects)
+    nFalseDetectIntervals = len(lnFalseDetects) - nTrueNeg
+    fSpecificity = nTrueNeg / len(lnFalseDetects)   # len(lnFalseDetects) corresponds to number of normal intervals
 
-    nErrors = nFalseNeg + nFalseDetects
+    nErrors = nFalseNeg + nFalseDetectIntervals
 
     v0Target = np.r_[np.zeros(nWindow), vTarget]     # vTarget with leading 0s
     vbAnomal = np.array([(v0Target[i:i+nWindow+1] >= 0.5).any() for i in range(len(vTarget))])
@@ -78,10 +78,8 @@ def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=0, nClose=200, bVerbos
     if bVerbose:
         print('Sensitivity : {:.1%} ({} anomalies)'.format(fSensitivity, len(lbDetectedAnom)))
         print('Specificity : {:.1%} ({} normal intervals)'.format(fSpecificity, len(lnFalseDetects)))
-        print('{} Errors: \n {} of {} anomalies missed, {} false detections'.format(nErrors,
-                                                                                    nFalseNeg,
-                                                                                    len(lnFalseDetects),
-                                                                                    nFalseDetects))
+        print('{} Errors: \n {} of {} anomalies missed,'.format(nErrors, nFalseNeg, len(lnFalseDetects))
+              + ' {} false detections (in {} intervals)'.format(nFalseDetects, nFalseDetectIntervals))
     if bPlot:
         # - Plotting
         fig, ax = plt.subplots()
@@ -123,9 +121,448 @@ def analyze(vOutput, vTarget, vInput, fThrDetect, nWindow=0, nClose=200, bVerbos
             'nFalseNeg' : nFalseNeg,
             'nTrueNeg' : nTrueNeg,
             'nFalseDetects' : nFalseDetects,
+            'nFalseDetectIntervals' : nFalseDetectIntervals,
             'fSensitivity' : fSensitivity,
             'fSpecificity' : fSpecificity,
             'nErrors' : nErrors}
+
+
+def find_detects(vSignal, fThrDetect, nClose):
+    """
+    find_detects - Find all threshold crossings from below in a 1D output 
+                   signal that count as detects. Return their indices
+    """
+    assert vSignal.ndim == 1, 'Array dimension must be 1'
+
+    vbAboveThr = vSignal > fThrDetect
+
+    # Indices where threshold is crossed from below
+    viDetects, = np.where(np.logical_and(vbAboveThr,                             # Above threshold at current point
+                                         np.r_[False, vbAboveThr[:-1]]==False))  # Below threshold at previous point
+    
+    # If Threshold crossed from below within nClose time steps after previous
+    # crossing from below, do not count as additional detection
+    viIgnoreDetects = viDetects - np.r_[-nClose, viDetects[:-1]] < nClose
+    viDetects = viDetects[viIgnoreDetects == False]
+    
+    return viDetects
+
+def find_detects_multi(mfSignal, vfThr, nClose):
+    """
+    find_detects_multi - Find all threshold crossings from below in a 2D output 
+                         signal that count as detects. Return their indices. 
+                         Then find the detects of all outputs taken together.
+    """
+
+    assert mfSignal.ndim == 2, 'Array dimension must be 2'
+
+    mbAboveThr = mfSignal > vfThr
+
+    # - Boolean 2D array indicating for each channel where threshold is crossed from below
+    mbDetects = np.zeros_like(mfSignal)
+    mbPreviousBelowThr = np.zeros_like(mbAboveThr, bool)
+    mbPreviousBelowThr[1:] = (mbAboveThr[:-1] == False)
+    mbDetects = mbAboveThr & mbPreviousBelowThr
+
+    # - 1D array with indices of points where threshold is crossed from below in any channel
+    viDetects1D, = np.where(mbDetects.any(axis=1))
+
+    # - If Threshold crossed from below within nClose time steps after previous
+    #   crossing from below, do not count as additional detection
+    viIgnoreDetects = viDetects1D - np.r_[-nClose, viDetects1D[:-1]] < nClose
+    
+    return viDetects1D[viIgnoreDetects == False]
+    
+
+def anom_starts_ends(vTarget):
+    viAnomStarts, = np.where(np.logical_and(vTarget == 1,                     # Current value is 1
+                                            np.r_[0, vTarget[:-1]] == 0))     # Previous value is 0
+    viAnomEnds = np.where(np.logical_and(vTarget == 1,                        # Previous value is 1
+                                         np.r_[vTarget[1:], 0] == 0))[0] + 1  # Current value is 0
+    return viAnomStarts, viAnomEnds
+
+def anom_starts_ends_multi(mTarget):
+    mbAnomal = mTarget > 0.5
+
+    mbPreviousAnomal = np.zeros_like(mTarget, bool)
+    mbPreviousAnomal[1:] = mbAnomal[:-1]
+
+    # - Boolean indicating first time point of anomaly for each channel
+    mbAnomStarts = mbAnomal & (mbPreviousAnomal == False)
+    # - Boolean indicating last time point of anomaly for each channel
+    mbAnomEnds = (mbAnomal == False) & mbPreviousAnomal
+    
+    # - Taking all channels together, indices
+    viAnomStartsAll = np.where(mbAnomStarts.any(axis=1))[0]
+    viAnomEndsAll = np.where(mbAnomEnds.any(axis=1))[0] +1 # Indices of first time points after anomalies
+
+    # - Make sure arrays have same length, also if last time point is anomal
+    if viAnomEndsAll.size < viAnomStartsAll.size:
+        viAnomEndsAll = np.r_[viAnomEndsAll, mTarget.shape[0]]
+
+    return viAnomStartsAll, viAnomEndsAll
+
+def detected_anoms(vfOutput, vTarget, vbDetects, fThrDetect, nWindow=200, nClose=100):
+    ## -- Which anomalies have been detected
+    
+    assert len(vfOutput) == len(vTarget) == len(vbDetects), 'Output, target and detecs dimentions must match'
+
+    nDuration = len(vTarget)
+
+    # - Indices of starts and ends of anomalies
+    viAnomStarts, viAnomEnds = anom_starts_ends(vTarget)
+
+    # - Detected anomalies (a detect during anomaly or within nWindow time steps after it)
+    #   List of bools, indicating for each anomlay if detected or not
+    lbDetectedAnom = [vbDetects[min(s, nDuration-1):min(e, nDuration-1)].any()
+                      for s, e in zip(viAnomStarts, viAnomEnds+nWindow)]
+    
+    # - Anomalies that occur close together (with less than nClose time steps between)
+    #   Only require mfOutput to be above threshold, no new detect
+    viAnomStartsClose, = np.where(viAnomStarts-np.r_[-nClose, viAnomStarts[:-1]] < nClose)
+    vbAboveThr = vfOutput > fThrDetect
+    for i in viAnomStartsClose:
+        if vbAboveThr[ viAnomStarts[i] : min(viAnomEnds[i]+nWindow, nDuration) ].any():
+            lbDetectedAnom[i] = True
+
+    return lbDetectedAnom
+
+def detected_anoms_multi(mfOutput, mTarget, vbDetects, vfThr, nWindow=200, nClose=100):
+    ## -- Which anomalies have been detected
+    
+    assert len(mfOutput) == len(mTarget) == len(vbDetects), 'Output, target and detecs dimentions must match'
+
+    nDuration = len(mTarget)
+
+    # - Indices of starts and ends of anomalies
+    viAnomStarts, viAnomEnds = anom_starts_ends_multi(mTarget)
+
+    # - Detected anomalies (a detect during anomaly or within nWindow time steps after it)
+    #   List of bools, indicating for each anomlay if detected or not
+    lbDetectedAnom = [vbDetects[s : e].any()
+                      for s, e in zip(viAnomStarts, viAnomEnds+nWindow)]
+    
+    # - Anomalies that occur close together (with less than nClose time steps between)
+    #   Only require mfOutput to be above threshold, no new detect
+    viAnomStartsClose, = np.where(viAnomStarts-np.r_[-nClose, viAnomEnds[:-1]] < nClose)
+    mbAboveThr = (mfOutput > vfThr).any(axis=1)
+    for i in viAnomStartsClose:
+        if mbAboveThr[ viAnomStarts[i] : min(viAnomEnds[i]+nWindow, nDuration) ].any():
+            lbDetectedAnom[i] = True
+
+    return lbDetectedAnom
+
+def anomal_points(mTarget, nWindow):
+    
+    mbAnomal = np.zeros_like(mTarget)
+
+    if mTarget.ndim == 2:
+        for iChannel in range(mTarget.shape[1]):
+            # - Indices of starts and ends of anomalies
+            viAnomStarts, viAnomEnds = anom_starts_ends(mTarget[:, iChannel])
+
+            for iStart, iEnd in zip(viAnomStarts, viAnomEnds+nWindow):
+                mbAnomal[iStart : min(iEnd, mbAnomal.shape[0]), iChannel] = True
+
+    else:
+        raise ValueError('mTarget must be 2D array')
+
+    return mbAnomal
+
+
+def detects_in_normal_multi(mTarget, vbDetects, nWindow):
+    
+    mbAnomal = anomal_points(mTarget, nWindow)
+    vbAllNormal = mbAnomal.any(axis=1) == False
+
+    # Starts and ends of normal intervals
+    viNormalStarts, = np.where( vbAllNormal & (np.r_[True, vbAllNormal[:-1] == False]) )
+    viNormalEnds, = np.where( (vbAllNormal == False) & (np.r_[False, vbAllNormal[:-1]]) )
+
+    # Make sure both arrays have same length
+    if viNormalEnds.size < viNormalStarts.size:
+        viNormalEnds = np.r_[viNormalEnds, len(vbAllNormal)]
+        
+    # List with number of false detects for each interval
+    nDuration = mTarget.shape[0]
+    lnFalseDetects = [np.sum(vbDetects[s : e])
+                      for s, e in zip(viNormalStarts, viNormalEnds)
+                     ]
+
+    return lnFalseDetects
+
+
+def errors_single(iChannel, mfOutput, mTarget, fThrDetect, nWindow=200, nClose=100):
+    
+    # - Detects
+    viDetects = find_detects(mfOutput[:, iChannel], fThrDetect, nClose)
+    vbDetects = np.zeros_like(mfOutput[:, iChannel], bool)
+    vbDetects[viDetects] = True 
+
+    # - Which anomalies have been detected?
+    lbDetectedAnom = detected_anoms(mfOutput[:, iChannel], mTarget[:, iChannel],
+                                    vbDetects, fThrDetect, nWindow, nClose)
+
+    # - False negatives
+    nFalseNeg = len(lbDetectedAnom) - np.sum(lbDetectedAnom)
+    
+    # Numbers of false detections during normal intervals
+    lnFalseDetects = detects_in_normal_multi(mTarget, vbDetects, nWindow)
+    
+    # Number of normal intervals with one or more detections
+    nFalseDetectIntervals = np.sum(np.array(lnFalseDetects) > 0)
+    
+    dErrors = {'nFalseNeg' : nFalseNeg,
+               'nFalseDetectIntervals' : nFalseDetectIntervals,
+               'lbDetectedAnom' : lbDetectedAnom,
+               'lnFalseDetects' : lnFalseDetects}
+
+    return dErrors
+
+
+def find_single_threshold_multi(iChannel, mOutput, mTarget, nWindow, nClose, nAttempts, fMin=0, fMax=2, nRecursions=2):
+    """Find a threshold that minimizes errors wrt vOutput and vTarget.
+    Search on a grid with nAttempts steps. If nRecursions>0, continue
+    search on grid around previous optimum.
+        vOutput : Network output
+        vTarget : Target output
+        nWindow : Number of time steps after which an anomaly can still be detected
+        nAttempts : Number of values to try for threshold within one run
+        fMin, fMax : lowest, largest value of values to be tested
+        nRecursion : How many times search should be refined on smaller-scale grid
+    """
+
+    def nErrors(fThr):
+        """
+        nErrors - Return in how many errors a given threshold results
+        :param fThr:    float Threshold to be tested
+        :return:        int Number of errors
+        """
+        dErrors = errors_single(iChannel, mOutput, mTarget, fThr, nWindow, nClose)
+        return dErrors['nFalseNeg'] + dErrors['nFalseDetectIntervals']
+
+    vGrid = np.linspace(fMin, fMax, nAttempts)
+    vErrors = np.array([nErrors(fNewThr) for fNewThr in vGrid])
+    
+    # - Smallest error and corresponding threshold
+    nIndMin = np.argmin(vErrors)
+    fErrMin = vErrors[nIndMin]
+    fThrOpt = vGrid[nIndMin]
+    
+    if nRecursions > 0:
+        return find_single_threshold_multi(iChannel, mOutput, mTarget, nWindow, nClose, nAttempts,
+                                               fMin=vGrid[max(0, nIndMin-1)],
+                                               fMax=vGrid[min(nIndMin+2, nAttempts-1)],
+                                               nRecursions=nRecursions-1)
+    else:
+        # print('Best threshold found: {} ({} errors)'.format(fThrOpt, vErrors[nIndMin]))
+        # - return best threshold and corresponding error
+        return fThrOpt, fErrMin
+
+
+def find_all_thresholds_multi(mOutput, mTarget, nWindow, nClose, nAttempts, fMin=0, fMax=2, nRecursions=2):
+    
+    def find_threshold_wrapper(iChannel):
+        return find_single_threshold_multi(iChannel, mOutput, mTarget, nWindow,
+            nClose, nAttempts, fMin, fMax, nRecursions)
+    
+    return np.array([find_threshold_wrapper(iChannel)
+                     for iChannel in range(mOutput.shape[1])])
+    
+
+def analyze_multi(mfOutput, mTarget, vInput, vfThr, nWindow=200, nClose=100, bVerbose=True, bPlot=True):
+    """Analyze output signal mfOutput wrt to target: 
+        - Sensitivity: Which of the anomalies have been detected?
+            Detected means that there is at least one detection during
+              or up to nWindow time steps after the anomaly
+            A detection is when mfOutput crosses the threshold from below
+              and there has been no detection within the last nClose
+              time steps  
+            If two anomalies happen with less than
+              nClose time steps between their beginning, detecting
+              both is unlikely. Therefore in this case it is sufficient
+              if mfOutput is above threshold.
+        - False detections: Each detection that happens within a normal
+          interval counts as false detection.
+            A normal interval is an interval where no anomaly has
+              occured within the previous nWindow time steps.
+        - For the specificity, each normal interval in which one or
+          more detections happen counts as false positive
+    """
+
+    # - Normal and anomal intervals 
+    mbAnomal = anomal_points(mTarget, nWindow)
+    vbAllNormal = mbAnomal.any(axis=1) == False
+
+    # - Starts and ends of normal intervals
+    viNormalStarts, = np.where( vbAllNormal & (np.r_[True, vbAllNormal[:-1] == False]) )
+    viNormalEnds, = np.where( (vbAllNormal == False) & (np.r_[False, vbAllNormal[:-1]]) )
+
+    # Make sure both arrays have same length if data ends with normal interval
+    if viNormalEnds.size < viNormalStarts.size:
+        viNormalEnds = np.r_[viNormalEnds, len(vbAllNormal)]
+        
+    # - Number of normal and abnormal intervals (all symptoms together)
+    nNumNormal = viNormalStarts.size
+    #   Anomalies in between normal intervals
+    nNumAbnormal = viNormalStarts.size - 1
+    #   Anomaly before first normal interval
+    if viNormalStarts[0] != 0:
+        nNumAbnormal += 1
+    #   Anomaly after last normal interval
+    if viNormalEnds[-1] != len(vbAllNormal):
+        nNumAbnormal += 1
+
+    # - Starts and ends of anomalies (considers overlaps as separate anomalies)
+    viAnomStarts, viAnomEnds = anom_starts_ends_multi(mTarget)
+
+    # - Register detects
+    viDetects = find_detects_multi(mfOutput, vfThr, nClose)
+    vbDetects = np.zeros(len(mfOutput), bool)
+    vbDetects[viDetects] = True
+
+    # - List with number of false detects for each interval
+    lnFalseDetects = detects_in_normal_multi(mTarget, vbDetects, nWindow)
+
+    # - Indices of false detects
+    viFalseDetects = np.where(vbDetects & vbAllNormal)
+
+    # - Specificity
+    nTrueNeg = np.sum(np.asarray(lnFalseDetects) == 0)
+    nFalseDetects = np.sum(lnFalseDetects)
+    nFalseDetectIntervals = len(lnFalseDetects) - nTrueNeg  # Number of nomral intervals with one or more wrong detections
+    fSpecificity = nTrueNeg / len(lnFalseDetects)   # len(lnFalseDetects) corresponds to number of normal intervals
+
+    # - List of bools, indicating for each anomaly if it has been detected
+    lbDetectedAnom = detected_anoms_multi(mfOutput, mTarget, vbDetects, vfThr, nWindow, nClose)
+
+    # - Selectivity
+    nTruePos = np.sum(lbDetectedAnom)
+    nFalseNeg = len(lbDetectedAnom) - nTruePos
+    fSensitivity = nTruePos / len(lbDetectedAnom)
+
+    nErrors = nFalseNeg + nFalseDetectIntervals
+
+    # - Single symptom analysis
+    def analyze_single(iChannel):
+        dAnalysis = errors_single(iChannel, mfOutput, mTarget, vfThr[iChannel], nWindow, nClose)
+        
+        dAnalysis['fSpecificity'] = (nNumNormal - dAnalysis['nFalseDetectIntervals']) / nNumNormal
+        
+        nNumAbnormalCurrent = len(dAnalysis['lbDetectedAnom'])
+        if nNumAbnormalCurrent == 0:
+            dAnalysis['fSensitivity'] = 1
+        else:    
+            dAnalysis['fSensitivity'] = (nNumAbnormalCurrent - dAnalysis['nFalseNeg']) / nNumAbnormalCurrent
+        
+        dAnalysis['nErrors'] = dAnalysis['nFalseDetectIntervals'] + dAnalysis['nFalseNeg']
+
+        return dAnalysis
+
+    dDetailled = {iChannel : analyze_single(iChannel)
+                  for iChannel in range(mfOutput.shape[1])
+                 } 
+
+    # - 1D-Signals
+    # Scale output dimensions according to their thresholds
+    mfOutputScaled = mfOutput / vfThr
+    vfOutMax = np.max(mfOutputScaled, axis=1)
+    vfOutMean = np.mean(np.abs(mfOutputScaled), axis=1)
+
+    if bVerbose:
+        print('Sensitivity : {:.1%} ({} of {} anomalies detected)'.format(fSensitivity,
+                                                                          nTruePos,
+                                                                          len(lbDetectedAnom)))
+        print('Specificity : {:.1%} ({} of {} normal intervals correct)'.format(fSpecificity,
+                                                                                nTrueNeg,    
+                                                                                len(lnFalseDetects)))
+        print('{} Errors: \n {} of {} anomalies missed,'.format(nErrors, nFalseNeg, len(lnFalseDetects))
+              + ' {} false detections (in {} intervals)'.format(nFalseDetects, nFalseDetectIntervals))
+     
+    if bPlot:
+        # - Plotting
+        fig, ax = plt.subplots()
+        ax.plot(0.2*vInput, lw=2, color='k', alpha=0.4, zorder=-1)
+        # Higlight missed anomalies red, detected anomalies green and false positive intervals red
+        for i, (s, e) in enumerate(zip(viAnomStarts, viAnomEnds)):
+            strColorHighlight = ('g' if lbDetectedAnom[i] else 'r')
+            ax.plot([s, e+nWindow], [1.5, 1.5], color=strColorHighlight, lw=15, alpha=0.5)
+
+        # Highlight normal intervals with wrong detection    
+        for i, (s, e) in enumerate(zip(viNormalStarts, viNormalEnds)):
+            if lnFalseDetects[i] > 0.1:
+                ax.plot([s, e], [-0.75,-0.75], color='r', lw=15, alpha=0.5)
+
+        # Mark false detections with vertical red line
+        for i in viFalseDetects:
+            try:
+                ax.plot([i,i], [-0.75, 1.5], 'r--', lw=3, alpha=0.5)
+            except ZeroDivisionError:
+                pass
+    
+        plt.show()
+
+    return {'viAnomStarts' : viAnomStarts,  # Starts of anomalies, considering overlaps as separate anomalies
+            'viAnomEnds' : viAnomEnds,  # Ends of anomalies, considering overlaps as separate anomalies
+            'viNormalStarts' : viNormalStarts,  # Starts of normal intervals
+            'viNormalEnds' : viNormalEnds,  # Ends of normal intervals
+            'vbDetects' : vbDetects,  # Boolean array indicating at which time points there are detects
+            'lbDetectedAnom' : lbDetectedAnom,  # List of bools indicating which anomalies have been detected
+            'lnFalseDetects' : lnFalseDetects,  # List of ints indicating number of false detections during each normal interval
+            'nTruePos' : nTruePos,  # True positives
+            'nFalseNeg' : nFalseNeg,  # False Negatives
+            'nTrueNeg' : nTrueNeg,  # True Negatives
+            'nFalseDetects' : nFalseDetects, # Number of false detections
+            'nFalseDetectIntervals' : nFalseDetectIntervals,  # Number of normal intervals with at least one false detection
+            'fSensitivity' : fSensitivity,
+            'fSpecificity' : fSpecificity,
+            'nErrors' : nErrors,
+            'dDetailled' : dDetailled,  # Details on single anomaly types
+            'vfOutMean' : vfOutMean,
+            'vfOutMax' : vfOutMax,
+    }
+
+
+def plot_activities(tsReservoir, tTau, tDt = None, vnSelectChannels = None):
+
+    if tsReservoir.vnChannels.size == 0:
+        print('No Spikes recorded')
+        return
+    
+    if tDt is None:
+        tDt = tTau / 10
+    
+    nDim = np.amax(tsReservoir.vnChannels)+1
+    
+    # - Get rasterized spike trains
+    vtTimeBase, mfSpikeRaster, __ = tsReservoir.raster(tDt=tDt,
+                                                       vnSelectChannels=vnSelectChannels,
+                                                       bSamples=False)
+
+    # - Filter spike trains with exponentially decaying kernel
+    
+    # Define exponential kernel (Cut after 10*tTau, where it is only around 5e-5)
+    vfKernel = np.exp(-np.arange(0, 10*tTau, tDt) / tTau)
+    # - Make sure spikes only have effect on next time step
+    vfKernel = np.r_[0, vfKernel]
+
+    # - Apply kernel to spike trains
+    mfFiltered = np.zeros((len(vtTimeBase) + len(vfKernel) - 1, nDim))
+    for channel, vEvents in enumerate(mfSpikeRaster.T):
+        vfConv = fftconvolve(vEvents, vfKernel, 'full')
+        mfFiltered[:, channel] = vfConv
+
+    # - Prepare axis
+    viNeurons = np.arange(nDim)
+    vtTime = vtTimeBase[0] + np.arange(mfFiltered.shape[0]) * tDt
+    X, Y = np.meshgrid(viNeurons, vtTime)
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    ax.plot_surface(X, Y, mfFiltered)
+
+    return ax
 
     
 def find_threshold(vOutput, vTarget, nWindow, nClose, nAttempts, fMin=0, fMax=1, nRecursions=2):
