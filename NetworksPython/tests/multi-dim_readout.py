@@ -152,7 +152,7 @@ print("Training")
 
 # - Training signal
 # Generate training data and time trace
-tsInTr, tsTgtTr, tsTgtTr1D = ts_ecg_target(nTrialsTr, **kwSignal)
+tsInTr, tsTgtTr, tsTgtTr1D = ts_ecg_target(nTrialsTr, **dict(kwSignal, bVerbose=False))
 
 # - Run training
 net1D.train(cTrain, tsInTr, tDurBatch=tDurBatch)
@@ -275,7 +275,7 @@ for iSymptom in dAnalysis1D["dSymptoms"].keys():
         print(
             "1D: {:.1%}".format(dAnalysis1D["dSymptoms"][iSymptom]["fSensitivity"])
             + "\tMulti: {:.1%}\n".format(
-                dAnalysisMulti["dSymptoms"][iSymptom]["fSensitivity"]
+                dAnalysis["dSymptoms"][iSymptom]["fSensitivity"]
             )
         )
 
