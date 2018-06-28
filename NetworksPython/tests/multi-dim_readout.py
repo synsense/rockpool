@@ -8,7 +8,7 @@ plt.ion()
 
 import sys
 
-sys.path.insert(0, "/home/felix/gitlab/network-architectures/NetworksPython")
+sys.path.insert(0, "..")
 
 import TimeSeries as ts
 from ecg import signal_and_target
