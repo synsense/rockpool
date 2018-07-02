@@ -96,7 +96,7 @@ class FFExpSyn(Layer):
         
         # - Prepare time base
         vtTimeBase, _, tTrueDuration = self._prepare_input(tsInput, tDuration)
-
+        
         mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
         
         # - Generate spike trains from tsInput
@@ -108,8 +108,9 @@ class FFExpSyn(Layer):
             vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tTrueDuration])
             
             # - Make sure that input channels do not exceed layer input dimensions
-            assert np.max(vnEventChannels) <= self.nDimIn, (
-                'Number of input channels exceeds layer input dimensions ')
+            if vnEventChannels.size > 0:
+                assert np.max(vnEventChannels) <= self.nDimIn, (
+                    'Number of input channels exceeds layer input dimensions ')
 
             # - Convert input events to spike trains
             mSpikeTrains = np.zeros((vtTimeBase.size, self.nDimIn))
@@ -139,7 +140,7 @@ class FFExpSyn(Layer):
         # - Define exponential kernel
         vfKernel = np.exp(-np.arange(0, tTrueDuration, self.tDt)/self.tTauSyn)
         # - Make sure spikes only have effect on next time step
-        vfKernel = np.r_[0, vfKernel[:-1]]
+        vfKernel = np.r_[0, vfKernel]
 
         # - Apply kernel to spike trains
         mfFiltered = np.zeros_like(mWeightedSpikeTrains)

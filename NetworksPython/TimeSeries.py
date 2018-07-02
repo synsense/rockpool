@@ -197,7 +197,7 @@ class TimeSeries:
         :param tTime: Scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
-        return self.interpolate(vtTimes)
+        return np.reshape(self.interpolate(vtTimes), (-1, self.nNumTraces))
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -285,6 +285,8 @@ class TimeSeries:
         tsResampled = self.copy()
         tsResampled._vtTimeTrace = vtTimes
         tsResampled._mfSamples = self(vtTimes)
+        tsResampled.bPeriodic = False
+        tsResampled._create_interpolator()
         return tsResampled
 
     def resample_within(
@@ -567,19 +569,29 @@ class TimeSeries:
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end)
         :param vtNewBounds:
 
-        :return: New TimeSeries clipped to bounds
+        :return: tsClip, vbIncludeSamples)
+                tsClip:             New TimeSeries clipped to bounds
+                vbIncludeSamples:   boolean ndarray indicating which original samples are included
         """
-        tsClip, _ = self._clip(vtNewBounds)
+        # - For periodic time series, resample the series
+        if self.bPeriodic:
+            tsClip, _ = self._clip_periodic(vtNewBounds)
+        else:
+            tsClip, _ = self._clip(vtNewBounds)
 
         # - Insert initial time point
         tsClip._vtTimeTrace = np.concatenate(([vtNewBounds[0]], tsClip._vtTimeTrace))
 
         # - Insert initial samples
         vfFirstSample = np.atleast_1d(self(vtNewBounds[0]))
+
         tsClip._mfSamples = np.concatenate(
-            (vfFirstSample, tsClip._mfSamples, (np.size(tsClip._vtTimeTrace), -1)),
-            axis=0,
+                (np.reshape(vfFirstSample, (-1, self.nNumTraces)),
+                 np.reshape(tsClip._mfSamples, (-1, self.nNumTraces))),
+                axis = 0,
         )
+
+        return tsClip
 
     def _clip(self, vtNewBounds):
         """
@@ -601,6 +613,45 @@ class TimeSeries:
         tsClip._mfSamples = self.mfSamples[vbIncludeSamples]
 
         return tsClip, vbIncludeSamples
+
+    def _clip_periodic(self, vtNewBounds):
+        """
+        _clip_periodic - Clip a periodic TimeSeries
+        :param vtNewBounds:
+        :return:
+        """
+        # - Ensure time bounds are sorted
+        vtNewBounds = np.sort(vtNewBounds)
+        tDuration = np.diff(vtNewBounds)
+
+        # - Catch sinlgeton time point
+        if vtNewBounds[0] == vtNewBounds[1]:
+            return self(vtNewBounds[0]).copy()
+
+        # - Map time bounds to periodic bounds
+        vtNewBoundsPeriodic = copy.deepcopy(vtNewBounds)
+        vtNewBoundsPeriodic[0] = (np.asarray(vtNewBoundsPeriodic[0]) - self._tStart
+        ) % self._tDuration + self._tStart
+        vtNewBoundsPeriodic[1] = vtNewBoundsPeriodic[0] + tDuration
+
+        # - Build new time trace
+        vtNewTimeTrace = copy.deepcopy(self._vtTimeTrace)
+        vtNewTimeTrace = vtNewTimeTrace[vtNewTimeTrace >= vtNewBoundsPeriodic[0]]
+
+        # - Keep appending copies of periodic time base until required duration is reached
+        while vtNewTimeTrace[-1] < vtNewBoundsPeriodic[1]:
+            vtNewTimeTrace = np.concatenate((vtNewTimeTrace, self._vtTimeTrace + vtNewTimeTrace[-1]))
+
+        # - Trim new time base to end point
+        vtNewTimeTrace = vtNewTimeTrace[vtNewTimeTrace <= vtNewBoundsPeriodic[1]]
+
+        # - Restore to original time base
+        vtNewTimeTrace = vtNewTimeTrace - vtNewTimeTrace[0] + vtNewBounds[0]
+
+        # - Return a new clipped time series
+        tsClip = self.resample(vtNewTimeTrace)
+        return tsClip, None
+
 
     def __add__(self, other):
         return self.copy().__iadd__(other)
@@ -981,12 +1032,22 @@ class TSEvent(TimeSeries):
         """
 
         if vtTimeBounds is not None:
+            # - Map None to time trace bounds
+            vtTimeBounds = np.array(vtTimeBounds)
+            if vtTimeBounds[0] is None:
+                vtTimeBounds[0] = self.vtTimeTrace[0]
+            if vtTimeBounds[-1] is None:
+                vtTimeBounds[-1] = self.vtTimeTrace[-1]
+                bIncludeFinal = True
+            else: bIncludeFinal = False
+
             # - Permit unsorted bounds
             vtTimeBounds = np.sort(vtTimeBounds)
 
             # - Find matching times
             vbMatchingTimes = np.logical_and(
-                self.vtTimeTrace >= vtTimeBounds[0], self.vtTimeTrace < vtTimeBounds[-1]
+                self.vtTimeTrace >= vtTimeBounds[0],
+                np.logical_or(self.vtTimeTrace < vtTimeBounds[-1], bIncludeFinal)
             )
 
             # - Return matching samples
@@ -1140,6 +1201,88 @@ class TSEvent(TimeSeries):
             raise ValueError(
                 "Input data must have shape " + str(self.vtTimeTrace.shape)
             )
+
+    def raster(self,
+               tDt: float,
+               tStart: float = None,
+               tStop: float = None,
+               vnSelectChannels: np.ndarray = None,
+               bSamples: bool = False,
+        ) -> (np.ndarray, np.ndarray, np.ndarray):
+
+        """
+        raster - Return rasterized time series data, where each data point
+                 represents a time step. Events are represented in a boolen
+                 matrix, where the first axis corresponds to time, the second
+                 axis to the channel. If bSamples is True, Samples are
+                 returned in a tuple of lists (see description below).
+                 Events that happen between time steps are projected to the
+                 preceding one. If two events happen during one time step
+                 within a single channel, they are counted as one.
+        :param tDt:     float Length of single time step in raster
+        :param tStart:  float Time where to start raster - Will start
+                              at self.vtTImeTrace[0] if None
+        :param tStop:   float Time where to stop raster. This time point is 
+                              not included anymore. - If None, will use all 
+                              points until (and including) self.vtTImeTrace[-1]
+        :vnSelectedChannels: Array-like Channels, from which data is to be used.
+        :bSamples:      bool If True, tplSamples is returned, otherwise None.
+
+        :return
+            vtTimeBase:     Time base of rasterized data
+            mbEventsRaster  Boolean matrix with True indicating event
+                            First axis corresponds to time, second axis to channel.
+            tplSamples      Tuple with one list per time step. For each event 
+                            corresponding to a time step the list contains a tuple
+                            whose first entry is the channel, the second entry is
+                            the sample.
+                            If bSamples is False, then None is returned.
+        """
+        
+        # - Get data from selected channels and time range
+        if vnSelectChannels is not None:
+            tsSelected = self.choose(vnSelectChannels)
+        else:
+            tsSelected = self.copy()
+
+        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStart, tStop])
+        
+        # - Generate time base
+        tStartBase = (self.tStart if tStart is None else tStart)
+        tStopBase = (self.tStop + tDt if tStop is None else tStop)
+
+        vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
+
+        # - Convert input events and samples to boolen raster
+        
+        nNumChannels = np.amax(tsSelected.vnChannels + 1)
+        
+        mbEventsRaster = np.zeros((vtTimeBase.size, nNumChannels), bool)
+        
+        if bSamples:
+            tplSamples = tuple(([] for i in range(vtTimeBase.size)))
+        else:
+            tplSamples = None
+
+        #   Iterate over channel indices and create their event raster
+        for channel in range(nNumChannels):
+
+            # Times with event in current channel
+            viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
+            vtEventTimes_Channel = vtEventTimes[viEventIndices_Channel]
+
+            # Indices of vtTimeBase corresponding to these times
+            viEventIndices_Raster = ((vtEventTimes_Channel-vtTimeBase[0]) / tDt).astype(int)
+
+            # Set event  and sample raster for current channel
+            mbEventsRaster[viEventIndices_Raster, channel] = True
+            
+            # Add samples
+            if bSamples:
+                for iRasterIndex, iTimeIndex in zip(viEventIndices_Raster, viEventIndices_Channel):
+                    tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
+        
+        return vtTimeBase, mbEventsRaster, tplSamples
 
     @property
     def vnChannels(self):

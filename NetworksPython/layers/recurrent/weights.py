@@ -148,10 +148,10 @@ def WipeNonSwitchingEigs(mfW: np.ndarray, vnInh: np.ndarray = None, fInhTauFacto
     :return:                (mfW, mfJ) Weight matrix and estimated Jacobian
     """
 
-    nNetSize = mfW.shape[0]
+    nResSize = mfW.shape[0]
 
     # - Compute Jacobian
-    mfJ = mfW - np.identity(nNetSize)
+    mfJ = mfW - np.identity(nResSize)
 
     if vnInh is not None:
         mfJ[vnInh, :] /= fInhTauFactor
@@ -173,7 +173,7 @@ def WipeNonSwitchingEigs(mfW: np.ndarray, vnInh: np.ndarray = None, fInhTauFacto
     if vnInh is not None:
         mfWHat[vnInh, :] *= fInhTauFactor
 
-    mfWHat += np.identity(nNetSize)
+    mfWHat += np.identity(nResSize)
 
     # - Attempt to rescale weight matrix for optimal dynamics
     mfWHat *= fInhTauFactor * 30
@@ -181,16 +181,16 @@ def WipeNonSwitchingEigs(mfW: np.ndarray, vnInh: np.ndarray = None, fInhTauFacto
     return mfWHat, mfJHat
 
 
-def UnitLambdaNet(nNetSize: int) -> np.ndarray:
+def UnitLambdaNet(nResSize: int) -> np.ndarray:
     """
     UnitLambdaNet - Generate a network from Norm(0, sqrt(N))
 
-    :param nNetSize: Number of neurons in the network
+    :param nResSize: Number of neurons in the network
     :return:         mfW: weight matrix
     """
 
     # - Draw from a Normal distribution
-    mfW = np.random.randn(nNetSize, nNetSize) / np.sqrt(nNetSize)
+    mfW = np.random.randn(nResSize, nResSize) / np.sqrt(nResSize)
     return mfW
 
 def DiscretiseWeightMatrix(mfW: np.ndarray, nMaxConnections: int = 3,
@@ -247,13 +247,13 @@ def DiscretiseWeightMatrix(mfW: np.ndarray, nMaxConnections: int = 3,
     return mfWD, mnNumConns
 
 
-def IAFSparseNet(nNetSize: int = 100,
+def IAFSparseNet(nResSize: int = 100,
                  fMean: float = None, fStd: float = None,
                  fDensity: float = 1.0) -> np.ndarray:
     """
     IAFSparseNet - Return a random sparse reservoir, scaled for a standard IAF spiking network
 
-    :param nNetSize:    int Number of neurons in reservoir. Default: 100
+    :param nResSize:    int Number of neurons in reservoir. Default: 100
     :param fMean:       float Mean connection strength. Default: -4.5mV
     :param fStd:        float Std. Dev. of connection strengths. Default: 5.5mV
     :param fDensity:    float 0..1 Density of connections. Default: 1 (full connectivity)
@@ -266,17 +266,18 @@ def IAFSparseNet(nNetSize: int = 100,
 
     # - Set default values
     if fMean is None:
-        fMean = -4.5 * mvolt / fDensity / nNetSize
+        fMean = -4.5 * mvolt / fDensity / nResSize
 
     if fStd is None:
         fStd = 5.5 * mvolt / np.sqrt(fDensity)
 
     # - Determine sparsity
-    nNumConnPerRow = int(fDensity * nNetSize)
-    nNumNonConnPerRow = nNetSize - nNumConnPerRow
-    mbConnection = [random.sample([1] * nNumConnPerRow + [0] * nNumNonConnPerRow, nNetSize) for _ in
-                    range(nNetSize)]
+    nNumConnPerRow = int(fDensity * nResSize)
+    nNumNonConnPerRow = nResSize - nNumConnPerRow
+    mbConnection = [random.sample([1] * nNumConnPerRow + [0] * nNumNonConnPerRow, nResSize) for _ in
+                    range(nResSize)]
     vbConnection = np.array(mbConnection).reshape(-1)
 
     # - Randomise recurrent weights
-    return (np.random.randn(nNetSize ** 2) * (np.asarray(fStd) ** 2) + np.asarray(fMean)) * vbConnection
+    mfW = (np.random.randn(nResSize ** 2) * (np.asarray(fStd) ** 2) + np.asarray(fMean)) * vbConnection
+    return mfW.reshape(nResSize, nResSize)
