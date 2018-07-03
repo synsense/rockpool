@@ -700,6 +700,10 @@ def analyze_multi(
         ax.plot(0.2 * vInput, lw=2, color="k", alpha=0.4, zorder=-1)
         # Maximum scaled output
         ax.plot(np.clip(vfOutMax, -2, 2))
+        # Target
+        ax.plot(mbAnomal.any(axis=1), zorder=2)
+        # Threshold
+        ax.plot([0, len(vInput)], [1,1], 'k--', lw=2, zorder=10)
 
         # Higlight missed anomalies red, detected anomalies green and false positive intervals red
         for i, (s, e) in enumerate(zip(viAnomStarts, viAnomEnds)):
@@ -758,7 +762,7 @@ def filter_trains_exp(mfSpikeRaster, tTau, tDt=1):
     #   Add leading 0 for causality
     vfKernel = np.r_[0, vfKernel]
 
-    return filter_spike_raster(vfKernel, mfRaster)
+    return filter_spike_raster(vfKernel, mfSpikeRaster)
 
 
 def filter_trains_box(mfSpikeRaster, tWindow, tDt=1):
@@ -770,6 +774,22 @@ def filter_trains_box(mfSpikeRaster, tWindow, tDt=1):
 
     return filter_spike_raster(vfBox, mfSpikeRaster)
 
+def filter_exp_box(mfSpikeRaster, tTau, tWindow, tDt=1):
+
+    ### --- Exptl filtering
+    # - Normalized exponential kernel
+    vfKernel = np.exp(-np.arange(0, int(10 * tTau), tDt) / tTau) * (tDt / tTau)
+    #   Add leading 0 for causality
+    vfKernel = np.r_[0, vfKernel]
+
+    mfFilteredExp = filter_spike_raster(vfKernel, mfSpikeRaster)
+
+    ### --- Moving window
+    # - Box-shaped filter
+    vfBox = np.ones(int(tWindow / tDt)) * tDt / tWindow
+
+    return filter_spike_raster(vfBox, mfFilteredExp)    
+
 
 def filter_spike_raster(vfKernel, mfSpikeRaster):
     # - Filter spike trains
@@ -780,6 +800,68 @@ def filter_spike_raster(vfKernel, mfSpikeRaster):
         mfFiltered[:, iChannel] = fftconvolve(vfKernel, vEvents)
 
     return mfFiltered
+
+def interspike_intervals(tsReservoir, tDt, vnSelectChannels=None):
+    
+    nDim = np.amax(tsReservoir.vnChannels) + 1
+
+    # - Get rasterized spike trains
+    vtTimeBase, mfSpikeRaster, __ = tsReservoir.raster(
+        tDt=tDt, vnSelectChannels=vnSelectChannels, bSamples=False
+    )
+
+    mfISI = np.zeros_like(mfSpikeRaster, float)
+
+    for iChannel in range(nDim):
+        # - Spike locations in raster
+        viSpikeInds = np.where(mfSpikeRaster[:,iChannel])[0]
+
+        # - Interspike intervals (in numbers of time steps)
+        vnISI = np.diff(viSpikeInds)
+        
+        # - Start first interval after first spike, last interval ends with last spike
+        nStart = viSpikeInds[0] + 1
+        nEnd = viSpikeInds[-1] + 1
+        # - Fill in inter spike intervals
+        mfISI[nStart : nEnd, iChannel] = np.repeat(vnISI * tDt, vnISI)
+        # - Fill entries before first and after last interval with nan
+        mfISI[ : nStart, iChannel] = np.nan
+        mfISI[ nEnd : , iChannel] = np.nan
+
+    return mfISI
+
+
+
+def plot_activities_2d(tsReservoir, tTau, tDt=None, strKernel='exp', vnSelectChannels=None):
+    if tsReservoir.vnChannels.size == 0:
+        print("No Spikes recorded")
+        return
+
+    if tDt is None:
+        tDt = tTau / 10
+
+    nDim = np.amax(tsReservoir.vnChannels) + 1
+
+    # - Get rasterized spike trains
+    __, mfSpikeRaster, __ = tsReservoir.raster(
+        tDt=tDt, vnSelectChannels=vnSelectChannels, bSamples=False
+    )
+
+    # - Filter spike trains
+    if strKernel == 'exp':
+        mfFiltered = filter_trains_exp(mfSpikeRaster, tTau, tDt)
+    elif strKernel == 'box':
+        mfFiltered = filter_trains_box(mfSpikeRaster, tTau, tDt)
+    else:
+        print('Kernel type not knwon')
+        return
+
+    vtTime = np.arange(len(mfFiltered)) * tDt + tsReservoir.tStart
+    
+    fig = plt.figure()
+    plt.plot(vtTime, mfFiltered)
+
+    return fig
 
 
 def plot_activities(tsReservoir, tTau, tDt=None, vnSelectChannels=None):

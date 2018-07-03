@@ -38,6 +38,10 @@ nDimIn = 1  # Input dimensions
 nDimOut = 9  # Output dimensions
 
 nResSize = 512  # Reservoir size
+fConnectivity = 0.4  # Percentage of non-zero recurrent weights  ##
+fMeanScale = -9e-6  # Scale mean of recurrent weights  ##
+fStdScale = 11e-6  # Scale standard dev. of recurrent weights  ##
+
 tTauN = 35 * tDt  # Reservoir neuron time constant
 tTauS = 350 * tDt  # Reservoir synapse time constant
 tTauO = 35 * tDt  # Readout time constant
@@ -46,7 +50,12 @@ tDurBatch = 250  # Training batch duration
 fRegularize = 0.001  # Regularization parameter for training with ridge regression
 
 # Parameters concerning reservoir weights
-kwResWeights = {"nResSize": nResSize, "fDensity": 0.4}
+kwResWeights = {
+    "nResSize": nResSize,
+    "fDensity": fConnectivity,
+    "fMean" : fMeanScale / fConnectivity / nResSize,
+    "fStd" : fStdScale / np.sqrt(fConnectivity),
+}
 
 # Probabilities for anomalies in ECG rhythms
 pNormal = 0.8  # Probability of normal input rhythm
@@ -152,7 +161,7 @@ print("Training")
 
 # - Training signal
 # Generate training data and time trace
-tsInTr, tsTgtTr, tsTgtTr1D = ts_ecg_target(nTrialsTr, **dict(kwSignal, bVerbose=False))
+tsInTr, tsTgtTr, tsTgtTr1D = ts_ecg_target(nTrialsTr, **kwSignal)
 
 # - Run training
 net1D.train(cTrain, tsInTr, tDurBatch=tDurBatch)
@@ -173,7 +182,7 @@ for i in range(nRepsVa):
     print("\tRun {} of {}".format(i + 1, nRepsVa), end="\r")
 
     # Input and target generation
-    tsInVa, tsTgtVa, tsTgtVa1D = ts_ecg_target(nTrialsVa, **kwSignal)
+    tsInVa, tsTgtVa, tsTgtVa1D = ts_ecg_target(nTrialsVa, **dict(kwSignal, bVerbose=False))
 
     # Simulation
     dVa1D = net1D.evolve(tsInVa, bVerbose=False)
@@ -209,8 +218,16 @@ for i in range(nRepsVa):
     del dVa1D, tsOutVa
 
 # - Average over stored thresholds
-vfThr = np.mean(lvfThrM, axis=0)
-fThr1D = np.mean(lfThr1D)
+
+# Throw out unrealistically low thresholds
+for vfT in lvfThrM:
+    # Ignore thresholds < 0.1, but only consider anomalies that have
+    # actually been implemented (indices 0-5)
+    viIgnore, = np.where(vfT[:6, 0] < 0.1)
+    vfT[viIgnore] = np.nan
+
+vfThr = np.nanmean(lvfThrM, axis=0)
+fThr1D = np.mean(list(filter(lambda x: x > 0.1, lfThr1D)))
 
 print("Using {} as threshold for 1D output".format(fThr1D))
 print("Using following thresholds for multi output:")
@@ -280,7 +297,7 @@ for iSymptom in dAnalysis1D["dSymptoms"].keys():
         )
 
 np.savez(
-    "multi-dim.npz",
+    "multi-dim_180702.npz",
     mfW_in=mfW_in,
     mfW_res=mfW_res,
     mfW_out_1D=flOut1D.mfW,
