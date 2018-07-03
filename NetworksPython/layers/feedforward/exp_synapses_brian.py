@@ -9,7 +9,7 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TSContinuous, TSEvent
+from ...TimeSeries import TSContinuous, TSEvent
 from typing import Union
 
 from ..layer import Layer
@@ -140,7 +140,7 @@ class FFExpSynBrian(Layer):
 
         :return: TimeSeries Output of this layer during evolution period
         """
-        
+
         # - Prepare time base
         vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
 

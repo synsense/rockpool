@@ -9,8 +9,8 @@ import copy
 
 from typing import Callable
 
-from TimeSeries import TimeSeries
-from layers.layer import Layer
+from .TimeSeries import TimeSeries
+from .layers.layer import Layer
 
 
 # - Configure exports
@@ -70,7 +70,7 @@ class Network:
 
             # - Handle to last layer
             self.lyrOutput = lyrLastLayer
-                    
+
         # - Set evolution order if no layers have been connected
         if not hasattr(self, 'lEvolOrder'):
             self.lEvolOrder = self._evolution_order()
@@ -290,7 +290,7 @@ class Network:
         # lOrder = [self.lyrInput]
         # setlyrRemaining.remove(self.lyrInput)
         lOrder = []
-        
+
         # - Loop through layers
         while bool(setlyrRemaining):
             # - Find the next layer to be evolved

@@ -8,7 +8,7 @@ from typing import Union
 import numpy as np
 from scipy.signal import fftconvolve
 
-from TimeSeries import TSContinuous, TSEvent
+from ...TimeSeries import TSContinuous, TSEvent
 from ..layer import Layer
 
 
@@ -93,12 +93,12 @@ class FFExpSyn(Layer):
 
         :return: TimeSeries Output of this layer during evolution period
         """
-        
+
         # - Prepare time base
         vtTimeBase, _, tTrueDuration = self._prepare_input(tsInput, tDuration)
-        
+
         mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
-        
+
         # - Generate spike trains from tsInput
         if tsInput is None:
             # - Assume zero input
@@ -106,7 +106,7 @@ class FFExpSyn(Layer):
 
         else:
             vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tTrueDuration])
-            
+
             # - Make sure that input channels do not exceed layer input dimensions
             if vnEventChannels.size > 0:
                 assert np.max(vnEventChannels) <= self.nDimIn, (
@@ -125,7 +125,7 @@ class FFExpSyn(Layer):
 
             # - Apply weights
             mWeightedSpikeTrains = mSpikeTrains @ self.mfW
-        
+
         # Add current state
         mWeightedSpikeTrains[0, :] += self.vState
 
@@ -134,9 +134,9 @@ class FFExpSyn(Layer):
         mfNoise[0,:] = 0 # Assure that noise trace starts with 0
         #mfNoise = np.zeros_like(mWeightedSpikeTrains)
         #mfNoise[0,:] = self.fNoiseStd
-        
+
         mWeightedSpikeTrains += mfNoise
-        
+
         # - Define exponential kernel
         vfKernel = np.exp(-np.arange(0, tTrueDuration, self.tDt)/self.tTauSyn)
         # - Make sure spikes only have effect on next time step
@@ -162,7 +162,7 @@ class FFExpSyn(Layer):
                  fRegularize=0,
                  bFirst = True,
                  bFinal = False):
-        
+
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
@@ -268,7 +268,7 @@ class FFExpSyn(Layer):
 
             # - Remove dat stored during this trainig
             self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
-    
+
     ### --- Properties
 
     @property
