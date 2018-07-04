@@ -56,7 +56,7 @@ class EventCNNLayer(Layer):
         self.addToRecord(aStateTimeSeries, 0)
 
         # Local variables
-        vState = self.vSate
+        vState = self.vState
         fVth = self.fVth
 
         # Iterate over all input spikes
@@ -127,7 +127,7 @@ class EventCNNLayer(Layer):
                                        Default = None
         """
         # Local variable
-        mfState = self._mfState
+        mfState = self.vState
 
         if nIdOut is None:
             # Update record of state changes
