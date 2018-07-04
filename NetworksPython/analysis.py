@@ -218,7 +218,7 @@ def find_detects_multi(mfSignal, vfThr, nClose):
     # - Boolean 2D array indicating for each channel where threshold is crossed from below
     mbDetects = np.zeros_like(mfSignal)
     mbPreviousBelowThr = np.zeros_like(mbAboveThr, bool)
-    mbPreviousBelowThr[1:] = mbAboveThr[:-1] == False
+    mbPreviousBelowThr[1:] = (mbAboveThr[:-1] == False)
     mbDetects = mbAboveThr & mbPreviousBelowThr
 
     # - 1D array with indices of points where threshold is crossed from below in any channel
@@ -246,7 +246,7 @@ def anom_starts_ends(vTarget):
     return viAnomStarts, viAnomEnds
 
 
-def anom_starts_ends_multi(mTarget):
+def anom_starts_ends_multi(mTarget, bClasses=False):
     mbAnomal = mTarget > 0.5
 
     mbPreviousAnomal = np.zeros_like(mTarget, bool)
@@ -256,6 +256,14 @@ def anom_starts_ends_multi(mTarget):
     mbAnomStarts = mbAnomal & (mbPreviousAnomal == False)
     # - Boolean indicating last time point of anomaly for each channel
     mbAnomEnds = (mbAnomal == False) & mbPreviousAnomal
+
+    # - Determine to which anomaly class the target belongs
+    #   Works only if no two anomalies start at the same point (which should be the case)
+    #   Overlapping anomalies are labelled correctly
+    if bClasses:
+        lnClasses = [np.where(vbStartsCurrent)[0][0]
+            for vbStartsCurrent in mbAnomStarts if vbStartsCurrent.any()
+        ]
 
     # - Taking all channels together, indices
     viAnomStartsAll = np.where(mbAnomStarts.any(axis=1))[0]
@@ -267,7 +275,10 @@ def anom_starts_ends_multi(mTarget):
     if viAnomEndsAll.size < viAnomStartsAll.size:
         viAnomEndsAll = np.r_[viAnomEndsAll, mTarget.shape[0]]
 
-    return viAnomStartsAll, viAnomEndsAll
+    if bClasses:
+        return viAnomStartsAll, viAnomEndsAll, lnClasses
+    else:
+        return viAnomStartsAll, viAnomEndsAll
 
 
 def detected_anoms(vfOutput, vTarget, vbDetects, fThrDetect, nWindow=200, nClose=100):
@@ -391,9 +402,10 @@ def detects_in_normal(vTarget, vbDetects, nWindow):
     viNormalStarts = np.where(
         np.logical_and(vTarget == False, np.r_[True, vTarget[:-1]])
     )[0]
-    viNormalEnds = (
-        np.where(np.logical_and(vTarget == False, np.r_[vTarget[1:], True]))[0] + 1
-    )
+    viNormalEnds = np.where(
+        np.logical_and(vTarget == False, np.r_[vTarget[1:], True])
+    )[0] + 1
+    
 
     # List with number of false detects for each interval
     nDuration = vTarget.shape[0]
@@ -405,44 +417,97 @@ def detects_in_normal(vTarget, vbDetects, nWindow):
 
 
 def errors_single(
-    iChannel, mfOutput, mTarget, fThrDetect, nWindow=200, nClose=100, bStrict=False
+    iChannel, mfOutput, mTarget, fThr, nWindow=200, nClose=100, bStrict=False, vfThr=None
 ):
 
-    # - Detects
-    viDetects = find_detects(mfOutput[:, iChannel], fThrDetect, nClose)
+    dErrors = dict()
+
+    # - Detects, only count if the anomaly is detected by the specific channel
+    #   It might happen, that another output would have detected the anomaly,
+    #   but this is not counted here
+    viDetects = find_detects(mfOutput[:, iChannel], fThr, nClose)
     vbDetects = np.zeros_like(mfOutput[:, iChannel], bool)
     vbDetects[viDetects] = True
 
     # - Which anomalies have been detected?
-    lbDetectedAnom = detected_anoms(
+    dErrors['lbDetectedAnom'] = detected_anoms(
         mfOutput[:, iChannel],
         mTarget[:, iChannel],
         vbDetects,
-        fThrDetect,
+        fThr,
         nWindow,
         nClose,
     )
 
     # - False negatives
-    nFalseNeg = len(lbDetectedAnom) - np.sum(lbDetectedAnom)
+    dErrors['nFalseNeg'] = (len(dErrors['lbDetectedAnom'])
+        - np.sum(dErrors['lbDetectedAnom'])
+    )
 
-    # Numbers of false detections during normal intervals
-    if bStrict:
-        lnFalseDetects, *__ = detects_in_normal(
+    if vfThr is not None:
+        # - Detects are also counted if the anomaly has been detected by a different readout
+        #   that has actually been trained for another anomaly type
+        viDetectsAny = find_detects_multi(mfOutput, vfThr, nClose)
+        vbDetectsAny = np.zeros_like(mfOutput[:, iChannel], bool)
+        vbDetectsAny[viDetectsAny] = True
+
+        dErrors['lbDetectedAnomAny'] = detected_anoms_multi(
+            mfOutput,
+            mTarget[:, iChannel].reshape(-1,1),
+            vbDetects,
+            vfThr,
+            nWindow,
+            nClose,
+        )
+
+        dErrors['nFalseNegAny'] = (len(dErrors['lbDetectedAnomAny'])
+            - np.sum(dErrors['lbDetectedAnomAny'])
+        )
+
+    # - False positives
+
+    if int(bStrict) == 0:
+        # Do not count false detections if they just belong to different anomaly
+
+        # Numbers of false detections during normal intervals
+        dErrors['lnFalseDetects'], *__ = detects_in_normal_multi(
+            mTarget, vbDetects, nWindow
+        )
+        # Number of normal intervals with one or more detections
+        dErrors['nFalseDetectIntervals'] = np.sum(
+            np.array(dErrors['lnFalseDetects']) > 0
+        )
+
+    elif int(bStrict) == 1:
+        # Count false detections, also if they just belong to different anomaly
+
+        # Numbers of false detections during normal intervals
+        dErrors['lnFalseDetects'], *__ = detects_in_normal(
             mTarget[:, iChannel], vbDetects, nWindow
         )
-    else:
-        lnFalseDetects, *__ = detects_in_normal_multi(mTarget, vbDetects, nWindow)
+        # Number of normal intervals with one or more detections
+        dErrors['nFalseDetectIntervals'] = np.sum(
+            np.array(dErrors['lnFalseDetects']) > 0
+        )
 
-    # Number of normal intervals with one or more detections
-    nFalseDetectIntervals = np.sum(np.array(lnFalseDetects) > 0)
-
-    dErrors = {
-        "nFalseNeg": nFalseNeg,
-        "nFalseDetectIntervals": nFalseDetectIntervals,
-        "lbDetectedAnom": lbDetectedAnom,
-        "lnFalseDetects": lnFalseDetects,
-    }
+    elif int(bStrict) == 2:
+        
+        # Numbers of false detections during normal intervals
+        dErrors['lnFalseDetects'], *__ = detects_in_normal_multi(
+            mTarget, vbDetects, nWindow
+        )
+        # Number of normal intervals with one or more detections
+        dErrors['nFalseDetectIntervals'] = np.sum(
+            np.array(dErrors['lnFalseDetects']) > 0
+        )
+       
+        # Numbers of false detections during normal intervals
+        dErrors['lnFalseDetectsStrict'], *__ = detects_in_normal(
+            mTarget[:, iChannel], vbDetects, nWindow
+        )
+        # Number of normal intervals with one or more detections
+        dErrors['nFalseDetectIntervalsStrict'] = np.sum(
+            np.array(dErrors['lnFalseDetectsStrict']) > 0)
 
     return dErrors
 
@@ -587,7 +652,7 @@ def analyze_multi(
     vbAllNormal = mbAnomal.any(axis=1) == False
 
     # - Starts and ends of anomalies (considers overlaps as separate anomalies)
-    viAnomStarts, viAnomEnds = anom_starts_ends_multi(mTarget)
+    viAnomStarts, viAnomEnds, lnClassTarget = anom_starts_ends_multi(mTarget, bClasses=True)
 
     # - Register detects
     viDetects = find_detects_multi(mfOutput, vfThr, nClose)
@@ -629,32 +694,81 @@ def analyze_multi(
     )
 
     # - Sensitivity
+    
     nTruePos = np.sum(lbDetectedAnom)
     nFalseNeg = len(lbDetectedAnom) - nTruePos
     fSensitivity = nTruePos / len(lbDetectedAnom)
 
     nErrors = nFalseNeg + nFalseDetectIntervals
 
+
+    # - Scale output dimensions according to their thresholds
+    mfOutputScaled = np.zeros_like(mfOutput)
+    mfOutputScaled[:, vfThr > 1e-6] = mfOutput[:, vfThr > 1e-6] / vfThr[vfThr > 1e-6]
+    
+
+    # - Classification
+
+    # Classify detects according to maximum scaled output
+    lnClass = [np.unravel_index(np.argmax(mfOutputScaled[iStart:iEnd]),
+                                mfOutputScaled[iStart:iEnd].shape)[1]
+        for iStart, iEnd in zip(viAnomStarts, viAnomEnds)
+    ]
+
+    # Indicate classes only for detected anomalies
+    lnClassDetected = [nClass if bDetected else np.nan
+        for nClass, bDetected in zip(lnClass, lbDetectedAnom)
+    ]
+
+    # Target classes
+    lbClassified = [nDetected == nTarget for nDetected, nTarget in zip(lnClassDetected, lnClassTarget)]
+
+    # Classification accuracy overall
+    fClassified = np.sum(lbClassified) / len(lbClassified)
+
+    # Classification accuracy, anomaly-wise
+    lfClassifiedSpecific = [np.sum(np.array(lbClassified)[np.array(lnClassTarget) == iClass]
+        ) / np.sum(np.array(lnClassTarget) == iClass) 
+        if np.sum(np.array(lnClassTarget) == iClass) > 0 else np.nan
+        for iClass in range(np.amax(lnClassTarget))
+    ]
+
     # - Single symptom analysis
     def analyze_single(iChannel):
         dAnalysis = errors_single(
-            iChannel, mfOutput, mTarget, vfThr[iChannel], nWindow, nClose, bStrict
+            iChannel, mfOutput, mTarget, vfThr[iChannel], nWindow, nClose, bStrict=2, vfThr=vfThr
         )
 
+        # - Specificities
         dAnalysis["fSpecificity"] = (
-            nNumNormal - dAnalysis["nFalseDetectIntervals"]
-        ) / nNumNormal
+            len(dAnalysis["lnFalseDetects"]) - dAnalysis["nFalseDetectIntervals"]
+        ) / len(dAnalysis["lnFalseDetects"])
 
+        dAnalysis["fSpecificityStrict"] = (
+            len(dAnalysis["lnFalseDetectsStrict"]) - dAnalysis["nFalseDetectIntervalsStrict"]
+        ) / len(dAnalysis["lnFalseDetectsStrict"])
+
+        # - Sensitivity
         nNumAbnormalCurrent = len(dAnalysis["lbDetectedAnom"])
         if nNumAbnormalCurrent == 0:
-            dAnalysis["fSensitivity"] = 1
+            dAnalysis["fSensitivity"] = dAnalysis["fSensitivityAny"] = 1
+        
         else:
             dAnalysis["fSensitivity"] = (
+                nNumAbnormalCurrent - dAnalysis["nFalseNegAny"]
+            ) / nNumAbnormalCurrent
+
+            dAnalysis["fSensitivityStrict"] = (
                 nNumAbnormalCurrent - dAnalysis["nFalseNeg"]
             ) / nNumAbnormalCurrent
 
+        # - Error counts
         dAnalysis["nErrors"] = (
             dAnalysis["nFalseDetectIntervals"] + dAnalysis["nFalseNeg"]
+        )
+        
+        dAnalysis["nErrors"] = (
+            dAnalysis["nFalseDetectIntervalsStrict"] + dAnalysis["nFalseNeg"]
         )
 
         return dAnalysis
@@ -664,9 +778,6 @@ def analyze_multi(
     }
 
     # - 1D-Signals
-    # Scale output dimensions according to their thresholds
-    mfOutputScaled = np.zeros_like(mfOutput)
-    mfOutputScaled[:, vfThr > 1e-6] = mfOutput[:, vfThr > 1e-6] / vfThr[vfThr > 1e-6]
     vfOutMax = np.max(mfOutputScaled, axis=1)
     vfOutMean = np.mean(np.abs(mfOutputScaled), axis=1)
 
@@ -745,6 +856,12 @@ def analyze_multi(
         "dSymptoms": dDetailled,  # Details on single symptom types
         "vfOutMean": vfOutMean,
         "vfOutMax": vfOutMax,
+        "lnClass" : lnClass,
+        "lnClassDetected" : lnClassDetected,
+        "lnClassTarget" : lnClassTarget,
+        "lbClassified" : lbClassified,
+        "fClassified" : fClassified,
+        "lfClassifiedSpecific" : lfClassifiedSpecific,
     }
 
 

@@ -195,7 +195,7 @@ class TimeSeries:
         :param tTime: Scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
-        return np.reshape(self.interpolate(vtTimes), (-1, self.nNumTraces))
+        return self.interpolate(vtTimes)
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -210,7 +210,7 @@ class TimeSeries:
                 np.asarray(vtTimes) - self._tStart
             ) % self._tDuration + self._tStart
 
-        return self.oInterp(vtTimes)
+        return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
 
     def delay(self, tOffset):
         """
