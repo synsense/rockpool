@@ -144,7 +144,7 @@ mfW_res = IAFSparseNet(**kwResWeights)
 # - Generate layers
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="input")
 rlRes = Rec(
-    mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir"
+    mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir", fNoiseStd=0
 )
 flOut = FFsc(
     mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output"
@@ -209,6 +209,7 @@ for i in range(nRepsVa):
             mTarget=tsTgtVa.mfSamples,
             nWindow=int(fHeartRate / tDt),
             nClose=int(fHeartRate / tDt),
+            fMin=0.1,
             nAttempts=16,
             nRecursions=4,
             bStrict=False,
@@ -297,11 +298,12 @@ for iSymptom in dAnalysis1D["dSymptoms"].keys():
         )
 
 np.savez(
-    "multi-dim_180702.npz",
+    "multi-dim_180704.npz",
     mfW_in=mfW_in,
     mfW_res=mfW_res,
-    mfW_out_1D=flOut1D.mfW,
-    mfW_out_multi=flOut.mfW,
+    flOutMulti=flOut,
+    vfWOut1D=flOut1D.mfW,       # Cannot store objects that are part of network, store weights and bias instead
+    vfBias1D=flOut1D.vfBias,
     fThr1D=fThr1D,
     vfThrMulti=vfThr[:, 0],
 )
