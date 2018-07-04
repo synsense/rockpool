@@ -39,7 +39,7 @@ def isMultiple(a: float, b: float, fTolRel: float = fTolRel) -> bool:
 
 
 class Network:
-    def __init__(self, *layers : Layer):
+    def __init__(self, *layers: Layer):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
@@ -70,9 +70,9 @@ class Network:
 
             # - Handle to last layer
             self.lyrOutput = lyrLastLayer
-                    
+
         # - Set evolution order if no layers have been connected
-        if not hasattr(self, 'lEvolOrder'):
+        if not hasattr(self, "lEvolOrder"):
             self.lEvolOrder = self._evolution_order()
 
     def add_layer(
@@ -116,10 +116,11 @@ class Network:
                 # - Find a new name for lyr.
                 while hasattr(self, sNewName):
                     sNewName = self._new_name(sNewName)
-                if bVerbose: print(
-                    "A layer with name `{}` already exists.".format(lyr.strName)
-                    + "The new layer will be renamed to  `{}`.".format(sNewName)
-                )
+                if bVerbose:
+                    print(
+                        "A layer with name `{}` already exists.".format(lyr.strName)
+                        + "The new layer will be renamed to  `{}`.".format(sNewName)
+                    )
                 lyr.strName = sNewName
 
         # - Add set of input layers and flag to determine if lyr receives external input
@@ -128,7 +129,8 @@ class Network:
 
         # - Add lyr to the network
         setattr(self, lyr.strName, lyr)
-        if bVerbose: print("Added layer `{}` to network\n".format(lyr.strName))
+        if bVerbose:
+            print("Added layer `{}` to network\n".format(lyr.strName))
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
@@ -138,6 +140,10 @@ class Network:
             self.connect(lyrInput, lyr)
         if lyrOutput is not None:
             self.connect(lyr, lyrOutput)
+
+        # - Make sure evolution order is updated if it hasn't been before
+        if lyrInput is None and lyrOutput is None:
+            self.lEvolOrder = self._evolution_order()
 
         return lyr
 
@@ -221,11 +227,12 @@ class Network:
         #   and reevaluate evolution order
         try:
             self.lEvolOrder = self._evolution_order()
-            if bVerbose: print(
-                "Layer `{}` now receives input from layer `{}` \n".format(
-                    lyrTarget.strName, lyrSource.strName
+            if bVerbose:
+                print(
+                    "Layer `{}` now receives input from layer `{}` \n".format(
+                        lyrTarget.strName, lyrSource.strName
+                    )
                 )
-            )
         except NetworkError as e:
             lyrTarget.lyrIn = None
             raise e
@@ -290,7 +297,7 @@ class Network:
         # lOrder = [self.lyrInput]
         # setlyrRemaining.remove(self.lyrInput)
         lOrder = []
-        
+
         # - Loop through layers
         while bool(setlyrRemaining):
             # - Find the next layer to be evolved
@@ -399,8 +406,8 @@ class Network:
         tsExternalInput: TimeSeries = None,
         tDuration: float = None,
         tDurBatch: float = None,
-        bVerbose = True,
-        bHighVerbosity = False,
+        bVerbose=True,
+        bHighVerbosity=False,
     ):
         """
         train - Train the network batch-wise by evolving the layers and
@@ -445,10 +452,14 @@ class Network:
         bFinal = False
         for nBatch in range(1, nNumBatches + 1):
             if bVerbose:
-                print("Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r")
+                print(
+                    "Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r"
+                )
             # - Evolve network
             dtsSignal = self.evolve(
-                tsExternalInput, min(tDurBatch, tRemaining), bVerbose=(bHighVerbosity and bVerbose)
+                tsExternalInput,
+                min(tDurBatch, tRemaining),
+                bVerbose=(bHighVerbosity and bVerbose),
             )
             # - Remaining simulation time
             tRemaining -= tDurBatch
@@ -534,9 +545,13 @@ class Network:
         self._t = 0
 
     def __repr__(self):
-        return "{} object with {} layers\n".format(
-            self.__class__.__name__, len(self.setLayers)
-        ) + '    ' + '\n    '.join([str(lyr) for lyr in self.setLayers])
+        return (
+            "{} object with {} layers\n".format(
+                self.__class__.__name__, len(self.setLayers)
+            )
+            + "    "
+            + "\n    ".join([str(lyr) for lyr in self.setLayers])
+        )
 
     @property
     def t(self):
