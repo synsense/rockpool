@@ -45,7 +45,7 @@ def test_cnn_evolve():
     # Generate time series input
     evInput = TSEvent(None, strName='Input')
     for nId in range(lyrCNN.nSize):
-        vSpk = poisson_generator(10.0, t_stop=100)
+        vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId))
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
