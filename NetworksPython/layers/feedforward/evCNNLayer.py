@@ -5,9 +5,7 @@ from .. import Layer
 
 class EventCNNLayer(Layer):
     '''
-    DualAccumulatorNeuron Layer
-
-    TODO: Should be integrated into the Network library of ai-ctx
+    EventCNNLayer: Event driven 2D convolution layer
     '''
     def __init__(self,
                  mfW: np.ndarray = None,
@@ -16,12 +14,11 @@ class EventCNNLayer(Layer):
                  fNoiseStd: float = 0,
                  strName: str = 'unnamed'):
         """
-        DualAccumulatorNeuronLayer - Implements a layer of DA neurons
+        EventCNLayer - Implements a 2D convolutional layer of neurons
 
-
-        :param nSize:      int        No. of neurons in this layer
         :param nfW:        np.ndarray Weight matrix
         :param fVth: float      Spiking threshold
+        :param tDt:  float  Time step
         :param strName:    str        Name of this layer.
         """
         # Call parent constructor
