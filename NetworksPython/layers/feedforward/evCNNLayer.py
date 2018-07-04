@@ -14,7 +14,7 @@ class EventCNNLayer(Layer):
                  fNoiseStd: float = 0,
                  strName: str = 'unnamed'):
         """
-        EventCNLayer - Implements a 2D convolutional layer of neurons
+        EventCNLayer - Implements a 2D convolutional layer of spiking neurons
 
         :param nfW:        np.ndarray Weight matrix
         :param fVth: float      Spiking threshold
