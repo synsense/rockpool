@@ -19,6 +19,8 @@ class CNNWeight(UserList):
         self.inShape = inShape
         self.nKernels = nKernels
         self.data = np.random.rand(nKernels, *kernel_size)  # Kernel
+        self.ndim = 2
+
 
     def __len__(self):
         return len(self.data)
@@ -66,7 +68,13 @@ class CNNWeight(UserList):
             raise e
 
     @property
-    def size(self):
+    def shape(self):
         # NOTE: This does not take strides into account
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
         return (inSize, self.nKernels*inSize)
+
+    @property
+    def size(self):
+        # NOTE: This does not take strides into account
+        inSize = int(reduce(lambda x, y: x*y, self.inShape))
+        return (inSize*self.nKernels*inSize)
