@@ -9,8 +9,8 @@ import copy
 
 from typing import Callable
 
-from TimeSeries import TimeSeries
-from layers.layer import Layer
+from .TimeSeries import TimeSeries
+from .layers.layer import Layer
 
 
 # - Configure exports

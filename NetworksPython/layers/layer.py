@@ -1,7 +1,8 @@
 import numpy as np
+import warnings
 from abc import ABC, abstractmethod
 
-from TimeSeries import TimeSeries, TSContinuous, TSEvent
+from ..TimeSeries import TimeSeries, TSContinuous, TSEvent
 
 # - Configure exports
 __all__ = ['Layer']
@@ -42,7 +43,11 @@ class Layer(ABC):
             '`mfW` must be provided.'
 
         # - Ensure weights are at least 2D
-        mfW = np.atleast_2d(mfW)
+        try:
+            assert mfW.ndim >= 2
+        except Exception as e:
+            warnings.warn(str(e))
+            mfW = np.atleast_2d(mfW)
 
         # - Assign properties
         self._mfW = mfW

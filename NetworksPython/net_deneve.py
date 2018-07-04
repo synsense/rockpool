@@ -2,9 +2,9 @@
 # net_deneve.py - Classes and functions for encapsulating Denève reservoirs
 ###
 
-from network import Network
-from layers.feedforward import PassThrough, FFExpSyn, FFExpSynBrian
-from layers.recurrent import RecFSSpikeEulerBT
+from .network import Network
+from .layers.feedforward import PassThrough, FFExpSyn, FFExpSynBrian
+from .layers.recurrent import RecFSSpikeEulerBT
 
 import numpy as np
 
