@@ -1,9 +1,7 @@
-import sys
 import numpy as np
-sys.path.insert(0,
-    "/home/sadique/Work/aictx/network-architectures/")
-from NetworksPython import TSEvent
-from NetworksPython.layers import Layer
+from ...TimeSeries import TSEvent
+from .. import Layer
+
 
 class EventCNNLayer(Layer):
     '''
@@ -13,7 +11,7 @@ class EventCNNLayer(Layer):
     '''
     def __init__(self,
                  mfW: np.ndarray = None,
-                 fVth= 8,
+                 fVth: float = 8,
                  tDt: float = 1,
                  fNoiseStd: float = 0,
                  strName: str = 'unnamed'):
