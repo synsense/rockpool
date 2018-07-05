@@ -1,5 +1,5 @@
 import numpy as np
-from ...TimeSeries import TSEvent
+from ...timeseries import TSEvent
 from .. import Layer
 
 
