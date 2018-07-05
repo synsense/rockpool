@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 from ...timeseries import TSEvent
 from .. import Layer
 
@@ -55,7 +56,7 @@ class EventCNNLayer(Layer):
         fVth = self.fVth
 
         # Iterate over all input spikes
-        for nSpikeIndx in range(len(vSpk)):
+        for nSpikeIndx in tqdm(range(len(vSpk))):
 
             tCurrentTime = vSpk[nSpikeIndx]
             nInputId = vIdInput[nSpikeIndx].astype(int)
