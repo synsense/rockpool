@@ -9,7 +9,7 @@ import copy
 
 from typing import Callable
 
-from .timeseries import TimeSeries
+from .TimeSeries import TimeSeries
 from .layers.layer import Layer
 
 
