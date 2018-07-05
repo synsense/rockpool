@@ -2,9 +2,9 @@ import numpy as np
 from typing import Callable
 from numba import njit
 
-from ...TimeSeries import TimeSeries
+from ...timeseries import TimeSeries
 from ..layer import Layer
-from ...network import Network
+# from ...network import Network
 
 
 # - Relative tolerance for float comparions

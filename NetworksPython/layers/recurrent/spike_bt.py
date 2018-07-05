@@ -5,7 +5,7 @@
 ### --- Imports
 
 from ..layer import Layer
-from ...TimeSeries import *
+from ...timeseries import *
 import numpy as np
 from typing import Union, Callable
 import copy
