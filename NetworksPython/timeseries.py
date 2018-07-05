@@ -1162,6 +1162,10 @@ class TSEvent(TimeSeries):
         # - Filter out empty series
         ltsOther = list(filter(lambda ts: not ts.isempty(), ltsOther))
 
+        # - Stop if no non-empty series is left
+        if not ltsOther:
+            return self
+
         # - Merge all samples
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
         vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
@@ -1273,6 +1277,50 @@ class TSEvent(TimeSeries):
                     tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
         
         return vtTimeBase, mbEventsRaster, tplSamples
+
+    def print(
+        self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
+    ):
+        """
+        print - Print an overview of the time series and its values.
+            
+        :param bFull:     Boolean - Print all samples of self, no matter how long it is
+        :param nShorten:  Integer - Print shortened version of self if it comprises more
+                          than nShorten time points and bFull is False
+        :param nFirst:    Integer - Shortened version of printout contains samples at first
+                          nFirst points in self.vtTimeTrace
+        :param nLast:     Integer - Shortened version of printout contains samples at last
+                          nLast points in self.vtTimeTrace
+        """
+
+        s = "\n"
+        if len(self.vtTimeTrace) <= 10 or bFull:
+            strSummary = s.join(
+                [
+                    "{}: \t {} \t {}".format(t, nChannel, fSample)
+                    for t, nChannel, fSample in zip(self.vtTimeTrace, self.vnChannels, self.mfSamples)
+                ]
+            )
+        else:
+            strSummary0 = s.join(
+                [
+                    "{}: \t {} \t {}".format(t, nChannel, fSample)
+                    for t, nChannel, fSample in zip(
+                        self.vtTimeTrace[:nFirst], self.vnChannels[:nFirst], self.mfSamples[:nFirst]
+                    )
+                ]
+            )
+            strSummary1 = s.join(
+                [
+                    "{}: \t {} \t {}".format(t, nChannel, fSample)
+                    for t, nChannel, fSample in zip(
+                        self.vtTimeTrace[-nLast:], self.vnChannels[-nLast:], self.mfSamples[-nLast:]
+                    )
+                ]
+            )
+            strSummary = strSummary0 + "\n\t...\n" + strSummary1
+        print(self.__repr__() + "\nTime \t Ch.-ID  Sample" + "\n" + strSummary)
+
 
     @property
     def vnChannels(self):
