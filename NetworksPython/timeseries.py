@@ -1162,6 +1162,10 @@ class TSEvent(TimeSeries):
         # - Filter out empty series
         ltsOther = list(filter(lambda ts: not ts.isempty(), ltsOther))
 
+        # - Stop if no non-empty series is left
+        if not ltsOther:
+            return self
+
         # - Merge all samples
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
         vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
