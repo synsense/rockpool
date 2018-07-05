@@ -8,7 +8,7 @@ from typing import Union
 import numpy as np
 from scipy.signal import fftconvolve
 
-from ...TimeSeries import TSContinuous, TSEvent
+from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
 
 

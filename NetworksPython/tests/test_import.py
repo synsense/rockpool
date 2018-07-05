@@ -3,7 +3,9 @@ Test library integrity
 '''
 
 import sys
-sys.path.insert(0, "../")
+
+strNetworkPath = sys.path[0] + "/../.."
+sys.path.insert(1, strNetworkPath)
 
 def test_import():
     '''

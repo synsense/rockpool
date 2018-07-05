@@ -4,7 +4,9 @@ Test weigh access and indexing for CNNWeight class
 import sys
 import pytest
 import numpy as np
-sys.path.insert(0, "../")
+
+strNetworkPath = sys.path[0] + "/../.."
+sys.path.insert(1, strNetworkPath)
 
 def test_import():
     '''

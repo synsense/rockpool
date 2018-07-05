@@ -9,7 +9,7 @@ from typing import Callable
 from numba import njit
 
 from ..layer import Layer
-from ...TimeSeries import TimeSeries
+from ...timeseries import TimeSeries
 
 
 # - Define imports
