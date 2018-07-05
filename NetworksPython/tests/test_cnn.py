@@ -59,10 +59,13 @@ def test_cnn_multilayer():
     from NetworksPython import TSEvent, Network
     from NetworksPython.layers.feedforward.evCNNLayer import EventCNNLayer
     from NetworksPython.layers.cnnweights import CNNWeight
+    
+    # Parameters
+    imageShape = (10,10)
 
     # Initialize weights
-    cnnW1 = CNNWeight(inShape=(20, 20), nKernels=2, kernel_size=(3,3))
-    cnnW2 = CNNWeight(inShape=(2, 20, 20), nKernels=2, kernel_size=(3,3))
+    cnnW1 = CNNWeight(inShape=imageShape, nKernels=2, kernel_size=(3, 3))
+    cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
     lyrCnn1 = EventCNNLayer(mfW=cnnW1, fVth=0.5, strName='CNN1')
@@ -72,12 +75,12 @@ def test_cnn_multilayer():
 
     # Generate time series input
     evInput = TSEvent(None, strName='Input')
-    for nId in range(lyrCNN.nSize):
+    for nId in range(imageShape[0]*imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId))
     # Evolve
-    evOut = net.evolve(tsInput=evInput, tDuration=100)
-    print(evOut.find())
+    evOut = net.evolve(tsExternalInput=evInput, tDuration=100)
+    print(evOut)
 
 # Place holder
 #def test_raise_exception_on_incorrect_shape():
