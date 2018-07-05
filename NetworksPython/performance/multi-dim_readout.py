@@ -6,23 +6,20 @@ from matplotlib import pyplot as plt
 
 plt.ion()
 
-import sys
+import sys 
+sys.path.insert(1, '../..')
 
-sys.path.insert(0, "..")
+# - Local imports
+from NetworksPython import TimeSeries
+from NetworksPython.ecg import signal_and_target
+import NetworksPython.analysis as an
+import NetworksPython.network as nw
 
-import TimeSeries as ts
-from ecg import signal_and_target
-import network as nw
-import analysis as an
-
-# from layers.recurrent import rate as rec
-from layers.feedforward.rate import PassThrough
-from layers.recurrent.iaf_brian import RecIAFBrian as Rec
-from layers.feedforward.exp_synapses_manual import FFExpSyn as FFsc
-
-# from layers.recurrent.weights import RndmSparseEINet
-from layers.recurrent.weights import IAFSparseNet
-
+# - Layers
+from NetworksPython.layers.feedforward.rate import PassThrough
+from NetworksPython.layers.recurrent.iaf_brian import RecIAFBrian
+from NetworksPython.layers.feedforward.exp_synapses_manual import FFExpSyn
+from NetworksPython.layers.recurrent.weights import IAFSparseNet
 
 ### --- Set parameters
 
@@ -109,7 +106,7 @@ def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
     flOut1D.train_rr(tsTarget1D, tsInput, fRegularize, bFirst, bFinal)
 
 
-def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
+def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
     """
     ts_ecg_target - Generate two time series, one containing an ECG signal
                    and the other the corresponding target.
@@ -127,9 +124,9 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
     vtTime = np.arange(0, vfInput.size * tDt, tDt)[: vfInput.size]
 
     # - Genrate time series
-    tsInput = ts.TimeSeries(vtTime, vfInput)
-    tsTarget = ts.TimeSeries(vtTime, mfTarget)
-    tsTarget1D = ts.TimeSeries(vtTime, vfTarget1D)
+    tsInput = TimeSeries(vtTime, vfInput)
+    tsTarget = TimeSeries(vtTime, mfTarget)
+    tsTarget1D = TimeSeries(vtTime, vfTarget1D)
 
     return tsInput, tsTarget, tsTarget1D
 
@@ -143,13 +140,13 @@ mfW_res = IAFSparseNet(**kwResWeights)
 
 # - Generate layers
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="input")
-rlRes = Rec(
+rlRes = RecIAFBrian(
     mfW=mfW_res, vtTauN=tTauN, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir", fNoiseStd=0
 )
-flOut = FFsc(
+flOut = FFExpSyn(
     mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output"
 )
-flOut1D = FFsc(mfW=np.zeros((nResSize, 1)), tTauSyn=tTauO, tDt=tDt, strName="output")
+flOut1D = FFExpSyn(mfW=np.zeros((nResSize, 1)), tTauSyn=tTauO, tDt=tDt, strName="output")
 
 # - Generate network
 # net = nw.Network(flIn, rlRes, flOut)

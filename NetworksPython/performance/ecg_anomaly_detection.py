@@ -3,13 +3,19 @@ from matplotlib import pyplot as plt
 
 plt.ion()
 
-import TimeSeries as ts
-from ecg import signal_and_target
-import network as nw
-from layers.recurrent import rate as rec
-from layers.recurrent.weights import RndmSparseEINet
-from layers.feedforward import rate as ff
-import analysis as an
+import sys 
+sys.path.insert(1, '../..')
+
+# - Local imports
+from NetworksPython import TimeSeries
+from NetworksPython.ecg import signal_and_target
+import NetworksPython.analysis as an
+import NetworksPython.network as nw
+
+# - Layers
+from NetworksPython.layers.feedforward.rate import PassThrough
+from NetworksPython.layers.recurrent.rate import RecRateEuler
+from NetworksPython.layers.recurrent.weights import RndmSparseEINet
 
 
 ### --- Set parameters
@@ -88,9 +94,9 @@ mfW_in = 2 * np.random.rand(nDimIn, nResSize)
 mfW_res = RndmSparseEINet(**kwResWeights)
 
 # - Generate layers
-flIn = ff.PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="in")
-rlRes = rec.RecRateEuler(mfW=mfW_res, vtTau=tTau, tDt=tDt, strName="res")
-flOut = ff.PassThrough(
+flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="in")
+rlRes = RecRateEuler(mfW=mfW_res, vtTau=tTau, tDt=tDt, strName="res")
+flOut = PassThrough(
     mfW=np.zeros((nResSize, nDimOut)), tDt=tDt, tDelay=0, strName="out"
 )
 
@@ -105,8 +111,8 @@ net = nw.Network(flIn, rlRes, flOut)
 vfEcgTr, vfTgtTr = signal_and_target(nTrials=nTrialsTr, **kwSignal)
 vtTimeTr = np.arange(0, vfEcgTr.size * tDt, tDt)[: vfEcgTr.size]
 # Generate TimeSeries for input and target
-tsInTr = ts.TimeSeries(vtTimeTr, vfEcgTr)
-tsTgtTr = ts.TimeSeries(vtTimeTr, vfTgtTr)
+tsInTr = TimeSeries(vtTimeTr, vfEcgTr)
+tsTgtTr = TimeSeries(vtTimeTr, vfTgtTr)
 
 # - Run training
 net.train(cTrain, tsInTr, tDurBatch=500)
@@ -134,8 +140,8 @@ net.reset_all()
 vfEcgVa, vfTgtVa = signal_and_target(nTrials=nTrialsTe, **kwSignal)
 vtTimeVa = np.arange(0, vfEcgVa.size * tDt, tDt)[: vfEcgVa.size]
 # Generate TimeSeries with input and target
-tsInVa = ts.TimeSeries(vtTimeVa, vfEcgVa)
-tsTgtVa = ts.TimeSeries(vtTimeVa, vfTgtVa)
+tsInVa = TimeSeries(vtTimeVa, vfEcgVa)
+tsTgtVa = TimeSeries(vtTimeVa, vfTgtVa)
 
 # - Validation run
 dVa = net.evolve(tsInVa)
@@ -161,8 +167,8 @@ print("Using threshold: {:.3f}".format(fThr))
 vfEcgTe, vfTgtTe = signal_and_target(nTrials=nTrialsTe, **kwSignal)
 vtTimeTe = np.arange(0, vfEcgTe.size * tDt, tDt)[: vfEcgTe.size]
 # Generate TimeSeries with input and target
-tsInTe = ts.TimeSeries(vtTimeTe, vfEcgTe)
-tsTgtTe = ts.TimeSeries(vtTimeTe, vfTgtTe)
+tsInTe = TimeSeries(vtTimeTe, vfEcgTe)
+tsTgtTe = TimeSeries(vtTimeTe, vfTgtTe)
 
 # - Run test
 dTe = net.evolve(tsInTe)

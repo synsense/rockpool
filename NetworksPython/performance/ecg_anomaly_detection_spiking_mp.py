@@ -1,3 +1,7 @@
+"""
+An attempt to include multiprocessing. Not working correctly!!
+"""
+
 import numpy as np
 from brian2 import second, amp  ##
 from matplotlib import pyplot as plt
@@ -5,21 +9,21 @@ import seaborn as sb
 
 plt.ion()
 
-import sys 
-sys.path.insert(1, '../..')
-
 # - Local imports
-from NetworksPython import TimeSeries
-from NetworksPython.ecg import signal_and_target
-import NetworksPython.analysis as an
-import NetworksPython.network as nw
+import TimeSeries as ts
+from ecg import signal_and_target
+import analysis as an
+import network as nw
 
 # - Layers
-from NetworksPython.layers.feedforward.rate import PassThrough
-from NetworksPython.layers.recurrent.iaf_brian import RecIAFBrian
-from NetworksPython.layers.feedforward.exp_synapses_manual import FFExpSyn
-# from NetworksPython.layers.recurrent.weights import IAFSparseNet
-from layers.recurrent.weights import DynapseConform
+from layers.feedforward.rate import PassThrough  ##
+from layers.recurrent.iaf_brian import RecIAFBrian  ##
+from layers.feedforward.exp_synapses_manual import FFExpSyn  ##
+from layers.recurrent.weights import IAFSparseNet  ##
+
+# - Multiprocessing
+from multiprocessing import Pool
+nNumThreads = 4
 
 
 ### --- Set parameters
@@ -29,53 +33,35 @@ fHeartRate = 1  # Heart rate in rhythms per second
 
 nTrialsTr = 1000  # Number ECG rhythms for Training
 nTrialsVa = 500  # Number ECG rhythms for validation
-nRepsVa = 2  # Number repetitions of validation runs
-nTrialsTe = 1000  # Number ECG rhythms for testing
+nRepsVa = 4  # Number repetitions of validation runs
+nTrialsTe = 2000  # Number ECG rhythms for testing
 
 nDimIn = 1  # Input dimensions
 nDimOut = 1  # Output dimensions
 
 nResSize = 512  # Reservoir size  ##
-fConnectivity = 0.4  # Percentage of non-zero recurrent weights  ##
-fMeanScale = -9e-6  # Scale mean of recurrent weights  ##
-fStdScale = 11e-6  # Scale standard dev. of recurrent weights  ##
-
 tTauN = 35 * tDt  # Reservoir neuron time constant  ##
 tTauS = 350 * tDt  # Reservoir synapse time constant  ##
 tTauO = 35 * tDt  # Readout time constant  ##
 
 fBiasMin = 0 * amp
 fBiasMax = 0.02 * amp
-vfBias = (fBiasMax - fBiasMin) * np.random.rand(nResSize) + fBiasMin
-# vfBias = 0.0105*amp
+# vfBias = (fBiasMax - fBiasMin) * np.random.rand(nResSize) + fBiasMin
+vfBias = 0.0105*amp
 
 tDurBatch = 500  # Training batch duration
 fRegularize = 0.001  # Regularization parameter for training with ridge regression
 
-# # Parameters concerning reservoir weights
+# Parameters concerning reservoir weights
 kwResWeights = {
-    'nResSize' : nResSize,
-    'nLimitInputs' : 64,
-    'nLimitOutputs' : 1024,
-    'tupfProbWExc' : (0.5,0.5),
-    'tupfProbWInh' : (0.5,0.5),
-    'tupfWExc' : (1,2),
-    'tupfWInh' : (1,2),
-    'fRatioExc' : 0.5,
-    'fNormalize' : 0.00025,
-}
-
-# kwResWeights = {
-    # "nResSize": nResSize,
-    # "fDensity": fConnectivity,
-    # "fMean" : fMeanScale / fConnectivity / nResSize,
-    # "fStd" : fStdScale / np.sqrt(fConnectivity),
+    "nResSize": nResSize,
+    "fDensity": 0.4,
     # "fConnectivity": 0.4,  # Connectivity
     # "bPartitioned": False,  # Partition reservoir into excitatory/inhibitory
     # "fRatioExc": 0.5,  # Ratio of excitatory neurons
     # "fScaleInh": 1,  # Scale of inhibitory vs excitatory weights
     # "fNormalize": 0.5,
-# }  # Normalize matrix spectral radius
+}  # Normalize matrix spectral radius
 
 # Probabilities for anomalies in ECG rhythms
 pNormal = 0.8  # Probability of normal input rhythm
@@ -127,7 +113,7 @@ def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
     flOut.train_rr(tsTarget, tsInput, fRegularize, bFirst, bFinal)
 
 
-def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
+def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
     """
     ts_ecg_target - Generate two time series, one containing an ECG signal
                    and the other the corresponding target.
@@ -144,8 +130,8 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
     vtTime = np.arange(0, vfInput.size * tDt, tDt)[: len(vfInput)]
 
     # - Genrate time series
-    tsInput = TimeSeries(vtTime, vfInput)
-    tsTarget = TimeSeries(vtTime, vfTarget1D)
+    tsInput = ts.TimeSeries(vtTime, vfInput)
+    tsTarget = ts.TimeSeries(vtTime, vfTarget1D)
 
     return tsInput, tsTarget, mfTarget
 
@@ -156,9 +142,8 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
 mfW_in = 2 * (np.random.rand(nDimIn, nResSize) - 0.5)
 # mfW_in = np.random.rand(nDimIn, nResSize)
 # mfW_res = RndmSparseEINet(**kwResWeights)
-# mfW_res = IAFSparseNet(**kwResWeights) ##
-
-mfW_res, *__ = DynapseConform(**kwResWeights)
+# mfW_res = IAFSparseNet(**kwResWeights)  ##
+mfW_res = np.zeros((nResSize, nResSize))  ##
 
 # - Generate layers
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="input")  ##
@@ -194,36 +179,62 @@ if __name__ == "__main__":
 
     print("Finding threshold")
 
-    # - Lists for storing thresholds
-    lfThr = []
-    
-    # - Validation runs
-    for i in range(nRepsVa):
+    ltupSignals = [ts_ecg_target(nTrialsVa, **dict(kwSignal, bVerbose=False))[:2]
+                   for i in range(nRepsVa)]
 
-        print("\tRun {} of {}".format(i + 1, nRepsVa), end='\r')
+    def threshold_run(tsInVa, tsTgtVa):
+        # - Generate identical copy of original network
+        flInVa = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="input")  ##
+        rlResVa = RecIAFBrian(
+            mfW=mfW_res, vtTauN=tTauN, vfBias=vfBias, vtTauSynR=tTauS, tDt=tDt * second, strName="reservoir"
+        )  ##
+        flOutVa = FFExpSyn(
+            mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauO, tDt=tDt, strName="output"
+        )  ##
+        flOutVa.mfW = np.copy(flOut.mfW)
+
+        # - Generate network
+        netVa = nw.Network(flInVa, rlResVa, flOutVa)
+
         # - Signal generation
-        tsInVa, tsTgtVa, __ = ts_ecg_target(nTrialsTe, **dict(kwSignal, bVerbose=False))
+        # tsInVa, tsTgtVa, __ = ts_ecg_target(nTrialsVa, **dict(kwSignal, bVerbose=False))
 
         # - Validation run
-        dVa = net.evolve(tsInVa, bVerbose=False)
-        net.reset_all()
+        dVa = netVa.evolve(tsInVa, bVerbose=False)
+        netVa.reset_all()
 
         # - Determine threshold for analysis of test run
-        lfThr.append(
-            an.find_threshold(
-                vOutput=dVa[flOut.strName].mfSamples,
-                vTarget=tsTgtVa.mfSamples.flatten(),
-                nWindow=int(fHeartRate / tDt),
-                nClose=int(fHeartRate / tDt),
-                nAttempts=16,
-                nRecursions=4,
-            )
+        fThr = an.find_threshold(
+            vOutput=dVa[flOut.strName].mfSamples,
+            vTarget=tsTgtVa.mfSamples.flatten(),
+            nWindow=int(fHeartRate / tDt),
+            nClose=int(fHeartRate / tDt),
+            nAttempts=16,
+            nRecursions=4,
         )
-
+        
+        # Free up memory
         del dVa
 
+        return fThr
+
+    def prog_report(*args):
+        global nNumThrFound
+        nNumThrFound += 1
+        print('{} of {} thresholds found.'.format(nNumThrFound, nRepsVa), end='\r')
+
+    nNumThrFound = 0
+    with Pool(nNumThreads) as poolTrain:
+        lThresholdPools = [
+            poolTrain.apply_async(threshold_run, args=tupSignals, callback = prog_report)
+            for tupSignals in ltupSignals
+        ]
+
+        lfThr = [result.get() for result in lThresholdPools]
+        del lThresholdPools
+
     fThr = np.mean(lfThr)
-    print("Using threshold: {:.3f}".format(fThr))
+    print("Using threshold: {:.3f}       ".format(fThr))
 
 
     ### --- Testing
@@ -267,8 +278,9 @@ if __name__ == "__main__":
     for iSymptom in dAnalysis["dSymptoms"].keys():
         if iSymptom < len(lstrSymptomFullNames):
             print(
-                lstrSymptomFullNames[iSymptom]
-                + ":" 
+                "\t"
+                + lstrSymptomFullNames[iSymptom]
+                + ":\t" 
                 + str(dAnalysis["dSymptoms"][iSymptom]["fSensitivity"])
             )
 
