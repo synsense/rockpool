@@ -5,21 +5,18 @@ import seaborn as sb
 
 plt.ion()
 
-import sys 
-sys.path.insert(1, '..')
-
 # - Local imports
-from NetworksPython import TimeSeries
-from NetworksPython.ecg import signal_and_target
-import NetworksPython.analysis as an
-import NetworksPython.network as nw
+import TimeSeries as ts
+from ecg import signal_and_target
+import analysis as an
+import network as nw
 
 # - Layers
-from NetworksPython.layers.feedforward.rate import PassThrough  ##
-from NetworksPython.layers.recurrent.iaf_brian import RecIAFBrian  ##
-from NetworksPython.layers.feedforward.exp_synapses_manual import FFExpSyn  ##
-from NetworksPython.layers.recurrent.weights import IAFSparseNet  ##
-
+from layers.feedforward.rate import PassThrough  ##
+from layers.recurrent.iaf_brian import RecIAFBrian  ##
+from layers.feedforward.exp_synapses_manual import FFExpSyn  ##
+# from layers.recurrent.weights import IAFSparseNet  ##
+from layers.recurrent.weights import DynapseConform
 
 ### --- Set parameters
 
@@ -28,10 +25,8 @@ fHeartRate = 1  # Heart rate in rhythms per second
 
 nTrialsTr = 1000  # Number ECG rhythms for Training
 nTrialsVa = 500  # Number ECG rhythms for validation
-nRepsVa = 4  # Number repetitions of validation runs
+nRepsVa = 2  # Number repetitions of validation runs
 nTrialsTe = 1000  # Number ECG rhythms for testing
-
-fStdNoiseSignal = 0.05  # Standard deviation of input noise
 
 nDimIn = 1  # Input dimensions
 nDimOut = 1  # Output dimensions
@@ -47,24 +42,36 @@ tTauO = 35 * tDt  # Readout time constant  ##
 
 fBiasMin = 0 * amp
 fBiasMax = 0.02 * amp
-# vfBias = (fBiasMax - fBiasMin) * np.random.rand(nResSize) + fBiasMin
-vfBias = 0.0105*amp
+vfBias = (fBiasMax - fBiasMin) * np.random.rand(nResSize) + fBiasMin
+# vfBias = 0.0105*amp
 
 tDurBatch = 500  # Training batch duration
 fRegularize = 0.001  # Regularization parameter for training with ridge regression
 
-# Parameters concerning reservoir weights
+# # Parameters concerning reservoir weights
 kwResWeights = {
-    "nResSize": nResSize,
-    "fDensity": fConnectivity,
-    "fMean" : fMeanScale / fConnectivity / nResSize,
-    "fStd" : fStdScale / np.sqrt(fConnectivity),
+    'nResSize' : nResSize,
+    'nLimitInputs' : 64,
+    'nLimitOutputs' : 1024,
+    'tupfProbWExc' : (0.5,0.5),
+    'tupfProbWInh' : (0.5,0.5),
+    'tupfWExc' : (1,2),
+    'tupfWInh' : (1,2),
+    'fRatioExc' : 0.5,
+    'fNormalize' : 0.00025,
+}
+
+# kwResWeights = {
+    # "nResSize": nResSize,
+    # "fDensity": fConnectivity,
+    # "fMean" : fMeanScale / fConnectivity / nResSize,
+    # "fStd" : fStdScale / np.sqrt(fConnectivity),
     # "fConnectivity": 0.4,  # Connectivity
     # "bPartitioned": False,  # Partition reservoir into excitatory/inhibitory
     # "fRatioExc": 0.5,  # Ratio of excitatory neurons
     # "fScaleInh": 1,  # Scale of inhibitory vs excitatory weights
     # "fNormalize": 0.5,
-}  # Normalize matrix spectral radius
+# }  # Normalize matrix spectral radius
 
 # Probabilities for anomalies in ECG rhythms
 pNormal = 0.8  # Probability of normal input rhythm
@@ -91,7 +98,6 @@ kwSignal = {
     "bVerbose": True,
     "nMinWidth": int(0.5 * fHeartRate / tDt),
     "bDetailled": True,
-    "fStdNoise" : fStdNoiseSignal,
 }
 
 
@@ -117,7 +123,7 @@ def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
     flOut.train_rr(tsTarget, tsInput, fRegularize, bFirst, bFinal)
 
 
-def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
+def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
     """
     ts_ecg_target - Generate two time series, one containing an ECG signal
                    and the other the corresponding target.
@@ -134,8 +140,8 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
     vtTime = np.arange(0, vfInput.size * tDt, tDt)[: len(vfInput)]
 
     # - Genrate time series
-    tsInput = TimeSeries(vtTime, vfInput)
-    tsTarget = TimeSeries(vtTime, vfTarget1D)
+    tsInput = ts.TimeSeries(vtTime, vfInput)
+    tsTarget = ts.TimeSeries(vtTime, vfTarget1D)
 
     return tsInput, tsTarget, mfTarget
 
@@ -146,7 +152,9 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (TimeSeries, TimeSeries):
 mfW_in = 2 * (np.random.rand(nDimIn, nResSize) - 0.5)
 # mfW_in = np.random.rand(nDimIn, nResSize)
 # mfW_res = RndmSparseEINet(**kwResWeights)
-mfW_res = IAFSparseNet(**kwResWeights) ##
+# mfW_res = IAFSparseNet(**kwResWeights) ##
+
+mfW_res, *__ = DynapseConform(**kwResWeights)
 
 # - Generate layers
 flIn = PassThrough(mfW=mfW_in, tDt=tDt, tDelay=0, strName="input")  ##

@@ -101,7 +101,13 @@ def vQRS(tLength, fSQ, fYa=0, fYb=0):
 
 
 # @profile
-def labeled_signal(n, fHeartRate, lRepertoire="all", dProbs=None, **kwargs):
+def labeled_signal(
+    n : int,
+    fHeartRate : float,
+    lRepertoire: str = "all",
+    dProbs: dict = None,
+    fStdNoise: float = 0,
+    **kwargs):
     """Create 2D array of n ecg segments and rhythms and their labels.
     Both single normal or anomal segments as well as complete normal
     or anomal ecg rhythms can be included. Complete rhythms are
@@ -114,6 +120,8 @@ def labeled_signal(n, fHeartRate, lRepertoire="all", dProbs=None, **kwargs):
         lRepertoire : which kinds of segments to produce - either list of
                       segment types or 'all'
         dProbs : dictionary with probabilities for given elements
+        fStdNoise :  float Standard deviation of Gaussian noise added to
+                                  ECG signal
         kwargs : dict to modify default parameters that are otherwise
                  defined in dParameters
     """
@@ -505,6 +513,9 @@ def labeled_signal(n, fHeartRate, lRepertoire="all", dProbs=None, **kwargs):
     # Merge segments into one large array
     mSignal = np.hstack(lSegments)
 
+    if fStdNoise > 0:
+        mSignal[0,:] += np.random.randn(len(mSignal[0,:])) * fStdNoise
+
     return mSignal
 
 
@@ -520,6 +531,7 @@ def signal_and_target(
     fScale: float = 1,
     bDetailled: bool = True,
     bVerbose: bool = False,
+    fStdNoise: float = 0,
 ) -> (np.ndarray, np.ndarray):
     """
     signal_and_target - Produce training or test signal and target for network.
@@ -546,15 +558,17 @@ def signal_and_target(
     :param fScale:          float Scale width of labeled anomal segments
                                 (only used if strTargetMethod == 'segment-extd')
 
-    :param bDetailled:        bool Target contains info about anomaly type
-    :param bVerbose:          bool Print information about generated signal
+    :param bDetailled:      bool Target contains info about anomaly type
+    :param bVerbose:        bool Print information about generated signal
+    :param fStdNoise:       float Standard deviation of Gaussian noise added to
+                                  ECG signal
     :return:            1D-np.ndarray with ECG signal
                         2D-np.ndarray with target for each anomaly
     """
 
     # - Input
     vfECG, vnSegments, vnRhythms, vnSegStarts, vnSegEnds = labeled_signal(
-        n=nTrials, fHeartRate=fHeartRate * tDt, dProbs=dProbs
+        n=nTrials, fHeartRate=fHeartRate * tDt, dProbs=dProbs, fStdNoise=fStdNoise,
     )
 
     if strTargetMethod == "rhythm":
