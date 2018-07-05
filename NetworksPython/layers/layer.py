@@ -2,7 +2,7 @@ import numpy as np
 import warnings
 from abc import ABC, abstractmethod
 
-from ..TimeSeries import TimeSeries, TSContinuous, TSEvent
+from ..timeseries import TimeSeries, TSContinuous, TSEvent
 
 # - Configure exports
 __all__ = ['Layer']

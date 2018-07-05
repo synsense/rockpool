@@ -1,5 +1,5 @@
 ###
-# TimeSeries.py - Classes to manage time series
+# timeseries.py - Classes to manage time series
 ###
 
 import numpy as np
