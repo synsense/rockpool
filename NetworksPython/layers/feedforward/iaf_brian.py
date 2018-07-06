@@ -9,7 +9,7 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TSContinuous, TSEvent
+from ...timeseries import TSContinuous, TSEvent
 
 from ..layer import Layer
 from ..recurrent.timedarray_shift import TimedArray as TAShift
@@ -30,9 +30,9 @@ eqNeuronIAF = b2.Equations('''
 ''')
 
 
-## - FFIAFBrian - Class: define a spiking feedforward layer with exponential current synaptic outputs
+## - FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFBrian(Layer):
-    """ FFIAFBrian - Class: define a spiking feedforward layer with exponential current synaptic outputs
+    """ FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
     """
 
     ## - Constructor
@@ -59,6 +59,7 @@ class FFIAFBrian(Layer):
                  ):
         """
         FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
+                     Inputs are continuous currents; outputs are spiking events
 
         :param mfW:             np.array MxN weight matrix.
         :param vfBias:          np.array Nx1 bias vector. Default: 10mA

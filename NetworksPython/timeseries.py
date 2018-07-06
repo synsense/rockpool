@@ -1,5 +1,5 @@
 ###
-# TimeSeries.py - Classes to manage time series
+# timeseries.py - Classes to manage time series
 ###
 
 import numpy as np
@@ -105,8 +105,6 @@ class TimeSeries:
     ts.oInterp:         scipy.interpolate.interp1d object, interpolator
     """
 
-    nTupleSize: int = 2
-
     def __init__(
         self,
         vtTimeTrace: np.ndarray,
@@ -197,7 +195,7 @@ class TimeSeries:
         :param tTime: Scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
-        return np.reshape(self.interpolate(vtTimes), (-1, self.nNumTraces))
+        return self.interpolate(vtTimes)
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -212,7 +210,7 @@ class TimeSeries:
                 np.asarray(vtTimes) - self._tStart
             ) % self._tDuration + self._tStart
 
-        return self.oInterp(vtTimes)
+        return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
 
     def delay(self, tOffset):
         """
@@ -597,9 +595,7 @@ class TimeSeries:
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
         :param vtNewBounds:
-        :return: (tsClipped, vbIncludeSamples)
-            tsClipped:          New TimeSeries clipped to bounds
-            vbIncludeSamples:   bool array indicating which samples were included
+        :return: New TimeSeries clipped to bounds
         """
         # - Find samples included in new time bounds
         vtNewBounds = np.sort(vtNewBounds)
@@ -939,19 +935,13 @@ class TimeSeries:
 
 
 class TSContinuous(TimeSeries):
-    def find(self, ttTimes):
-        vtTime = list(ttTimes)
-        mfSamples = self(vtTime)
-        return vtTime, mfSamples
+    pass
 
 
 ### --- Event time series
 
 
 class TSEvent(TimeSeries):
-
-    nTupleSize: int = 3
-
     def __init__(
         self,
         vtTimeTrace: np.ndarray,
@@ -976,11 +966,11 @@ class TSEvent(TimeSeries):
 
         # - Only 1D samples and channels are supported
         assert (np.ndim(vfSamples) <= 1) or (
-            np.sum(np.array(vfSamples.shape) > 1) == 1
+            np.sum(vfSamples.shape > 1) == 1
         ), "`vfSamples` must be 1-dimensional"
 
         assert (np.ndim(vnChannels) <= 1) or (
-            np.sum(np.array(vnChannels.shape) > 1) == 1
+            np.sum(vnChannels.shape > 1) == 1
         ), "`vnChannels` must be 1-dimensional"
 
         # - Provide default inputs
@@ -1172,6 +1162,10 @@ class TSEvent(TimeSeries):
         # - Filter out empty series
         ltsOther = list(filter(lambda ts: not ts.isempty(), ltsOther))
 
+        # - Stop if no non-empty series is left
+        if not ltsOther:
+            return self
+
         # - Merge all samples
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
         vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
@@ -1283,6 +1277,50 @@ class TSEvent(TimeSeries):
                     tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
         
         return vtTimeBase, mbEventsRaster, tplSamples
+
+    def print(
+        self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
+    ):
+        """
+        print - Print an overview of the time series and its values.
+            
+        :param bFull:     Boolean - Print all samples of self, no matter how long it is
+        :param nShorten:  Integer - Print shortened version of self if it comprises more
+                          than nShorten time points and bFull is False
+        :param nFirst:    Integer - Shortened version of printout contains samples at first
+                          nFirst points in self.vtTimeTrace
+        :param nLast:     Integer - Shortened version of printout contains samples at last
+                          nLast points in self.vtTimeTrace
+        """
+
+        s = "\n"
+        if len(self.vtTimeTrace) <= 10 or bFull:
+            strSummary = s.join(
+                [
+                    "{}: \t {} \t {}".format(t, nChannel, fSample)
+                    for t, nChannel, fSample in zip(self.vtTimeTrace, self.vnChannels, self.mfSamples)
+                ]
+            )
+        else:
+            strSummary0 = s.join(
+                [
+                    "{}: \t {} \t {}".format(t, nChannel, fSample)
+                    for t, nChannel, fSample in zip(
+                        self.vtTimeTrace[:nFirst], self.vnChannels[:nFirst], self.mfSamples[:nFirst]
+                    )
+                ]
+            )
+            strSummary1 = s.join(
+                [
+                    "{}: \t {} \t {}".format(t, nChannel, fSample)
+                    for t, nChannel, fSample in zip(
+                        self.vtTimeTrace[-nLast:], self.vnChannels[-nLast:], self.mfSamples[-nLast:]
+                    )
+                ]
+            )
+            strSummary = strSummary0 + "\n\t...\n" + strSummary1
+        print(self.__repr__() + "\nTime \t Ch.-ID  Sample" + "\n" + strSummary)
+
 
     @property
     def vnChannels(self):

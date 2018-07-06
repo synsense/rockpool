@@ -9,7 +9,7 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TSContinuous, TSEvent
+from ...timeseries import TSContinuous, TSEvent
 
 from ..layer import Layer
 

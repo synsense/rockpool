@@ -1,2 +1,6 @@
-AnomalyDetection/rate-based/build
-AnomalyDetection/rate-based/dist
+.idea
+output
+.pyc
+__pycache__
+.ipynb_checkpoints
+.pytest_cache

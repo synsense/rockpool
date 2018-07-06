@@ -2,9 +2,9 @@ import numpy as np
 from typing import Callable
 from numba import njit
 
-from TimeSeries import TimeSeries
-from layers.layer import Layer
-from network import Network
+from ...timeseries import TimeSeries
+from ..layer import Layer
+# from ...network import Network
 
 
 # - Relative tolerance for float comparions
@@ -431,7 +431,7 @@ class PassThrough(FFRateEuler):
         self.vState = mfSamplesOut[-1]
         self._t += tTrueDuration
 
-        # - Return time series with output data and bias 
+        # - Return time series with output data and bias
         return TimeSeries(vtTimeIn, mfSamplesOut + self.vfBias)
 
     def __repr__(self):
