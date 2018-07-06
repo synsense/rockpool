@@ -220,12 +220,12 @@ class FFRateEuler(Layer):
 
         if tsInput is not None:
             # Warn if intput time range does not cover whole target time range
-            if not tsInput.contains(vtTimeBase) or tsInput.bPeriodic:
+            if not tsInput.contains(vtTimeBase) and not tsInput.bPeriodic and not tsTarget.bPeriodic:
                 print('WARNING: tsInput (t = {} to {}) does not cover '.format(
                       tsInput.tStart, tsInput.tStop)
-                      +'full time range of tsTarget (t = {} to {})'.format(
+                      +'full time range of tsTarget (t = {} to {})\n'.format(
                       tsTarget.tStart, tsTarget.tStop)
-                      +'Assuming input to be 0 outside of defined range.')
+                      +'Assuming input to be 0 outside of defined range.\n')
 
             # - Sample input trace and check for correct dimensions
             mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
