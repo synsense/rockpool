@@ -2,27 +2,30 @@
 # dynapse_brian.py - Class implementing a recurrent layer in Brian using Dynap equations from teili lib
 ###
 
-
 # - Imports
 import brian2 as b2
 import brian2.numpy_ as np
-
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TSContinuous, TSEvent
+import sys
+strNetworkPath = sys.path[0] + '../../..'
+sys.path.insert(1, strNetworkPath)
 
-from ..layer import Layer
+from NetworksPython.timeseries import TSContinuous, TSEvent
 
-from .timedarray_shift import TimedArray as TAShift
+from NetworksPython.layers.layer import Layer
 
+from NetworksPython.layers.recurrent.timedarray_shift import TimedArray as TAShift
+
+# - Teili
 from teili import Neurons as teiliNG, Connections as teiliSyn, teiliNetwork
 from teili.models.neuron_models import DPI as teiliDPIEqts
 from teili.models.synapse_models import DPISyn as teiliDPISynEqts
 from teili.models.parameters.dpi_neuron_param import parameters as dTeiliNeuronParam
 
 # - Configure exports
-__all__ = ['RecDynapseBrian', 'eqNeuronIAF', 'eqSynapseExp']
+__all__ = ['RecDynapseBrian']
 
 
 ## - RecIAFBrian - Class: define a spiking recurrent layer based on Dynap equations
@@ -33,6 +36,7 @@ class RecDynapseBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray = None,
+                 vfWIn: np.ndarray = None,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 1*mV,
@@ -50,7 +54,8 @@ class RecDynapseBrian(Layer):
         """
         RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
 
-        :param mfW:             np.array NxN weight matrix. Default: [100x100] unit-lambda matrix
+        :param mfW:             np.array NxN weight matrix
+        :param mfW:             np.array 1xN input weight matrix.
 
         :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
@@ -69,10 +74,17 @@ class RecDynapseBrian(Layer):
                          fNoiseStd = np.asarray(fNoiseStd),
                          strName = strName)
 
+        # - Input weights must be provided
+        assert vfWIn is not None, 'vfWIn must be provided.'
+
+        # - Set up spike source to receive spiking input
+        self._sggInput = b2.SpikeGeneratorGroup(self.nSize, [0], [0*second],
+                                                dt = np.asarray(tDt) * second)
+
         # - Set up reservoir neurons
         self._ngLayer = teiliNG(
             N = self.nSize,
-            equation_builder = teiliDPIEqts(num_inputs=self.nSize),
+            equation_builder = teiliDPIEqts(num_inputs=2),
             name = 'reservoir_neurons',
             refractory = tRefractoryTime,
             method = strIntegrator,
@@ -85,9 +97,6 @@ class RecDynapseBrian(Layer):
         else:
             self._ngLayer.set_params(dTeiliNeuronParam)
 
-        # - Initialize neurons with correct values
-
-
         # - Add recurrent weights (all-to-all)
         self._sgRecurrentSynapses = teiliSyn(
             self._ngLayer, self._ngLayer,
@@ -98,6 +107,16 @@ class RecDynapseBrian(Layer):
         )
         self._sgRecurrentSynapses.connect()
 
+        # - Add source -> reservoir synapses
+        self._sgReceiver = teiliSyn(
+            self._sggInput, self._ngLayer,
+            equation_builder=teiliDPISynEqts,
+            method = strIntegrator,
+            dt = np.asarray(tDt) * second,
+            name = 'receiver_synapses')
+        # Each spike generator neuron corresponds to one reservoir neuron
+        self._sgReceiver.connect('i==j')
+
         # - Add current monitors to record layer outputs
         self._spmReservoir = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
@@ -107,7 +126,9 @@ class RecDynapseBrian(Layer):
                                  name = 'recurrent_spiking_layer')
 
         # - Record neuron / synapse parameters
-
+        # automatically sets weights  via setters
+        self.mfW = mfW
+        self.vfWIn = vfWIn
 
         # - Store "reset" state
         self._net.store('reset')
@@ -117,9 +138,10 @@ class RecDynapseBrian(Layer):
         """ .reset_state() - Method: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self._ngLayer.v = self.vfVRest * volt
-        self._ngLayer.I_syn = 0 * amp
+        self._ngLayer.Imem = 0 * amp
+        self._ngLayer.Iahp = 0.5 * pamp
 
+    
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
             Usage: .randomize_state()
@@ -180,7 +202,7 @@ class RecDynapseBrian(Layer):
     @property
     def mfW(self):
         if hasattr(self, '_sgRecurrentSynapses'):
-            return np.reshape(self._sgRecurrentSynapses.w, (self.nSize, -1))
+            return np.reshape(self._sgRecurrentSynapses.weight, (self.nSize, -1))
         else:
             return self._mfW
 
@@ -194,7 +216,26 @@ class RecDynapseBrian(Layer):
         if hasattr(self, '_sgRecurrentSynapses'):
             # - Assign recurrent weights (need to transpose)
             mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
-            self._sgRecurrentSynapses.w = mfNewW.flatten()
+            self._sgRecurrentSynapses.weight = mfNewW.flatten()
+
+    @property
+    def vfWIn(self):
+        if hasattr(self, '_sgReceiver'):
+            return np.reshape(self._sgReceiver.weight, (self.nSize, -1))
+        else:
+            return self._mfW
+
+    @mfW.setter
+    def mfW(self, mfNewW):
+        assert np.size(mfNewW) == self.nSize ** 2, \
+            '`mfNewW` must have [' + str(self.nSize ** 2) + '] elements.'
+
+        self._mfW = mfNewW
+
+        if hasattr(self, '_sgRecurrentSynapses'):
+            # - Assign recurrent weights (need to transpose)
+            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
+            self._sgRecurrentSynapses.weight = mfNewW.flatten()
 
     @property
     def vState(self):
