@@ -208,7 +208,7 @@ def UnitLambdaNet(nResSize: int) -> np.ndarray:
     UnitLambdaNet - Generate a network from Norm(0, sqrt(N))
 
     :param nResSize: Number of neurons in the network
-    :return:         mfW: weight matrix
+    :return:    weight matrix
     """
 
     # - Draw from a Normal distribution
@@ -294,7 +294,7 @@ def DiscretiseWeightMatrix(
     return mfWD, mnNumConns
 
 def DynapseConform(
-    nResSize,
+    tupSize,
     fConnectivity=None,
     fRatioExc=0.5,
     nLimitInputs=64,
@@ -310,24 +310,34 @@ def DynapseConform(
     tupfWExc = tuple(abs(w) for w in tupfWExc)
     tupfWInh = tuple(-abs(w) for w in tupfWInh)
 
+    # - Determine size of matrix
+    try:
+        tupSize = tuple(tupSize)
+        assert len(tupSize) == 2 or len(tupSize) == 1, 'Only 2-dimensional matrices can be created.'
+        if len(tupSize) == 1:
+            tupSize = (tupSize[0], tupSize[0])
+    except TypeError:
+        assert isinstance(tupSize, int), 'tupSize must be integer or array-like of size 2.'
+        tupSize = (tupSize,tupSize)
+
     # - Matrix for holding weihgts
-    mfW = np.zeros((nResSize, nResSize), float)
+    mfW = np.zeros(tupSize, float)
     # - Matrix for counting number of assigned connections for each synapse
     mnCount = np.zeros_like(mfW, int)
     # - Dict of matrices to count assignments for each weight and synapse
     #   Can be used for re-constructing mfW:
-    #     mfW_reconstr = np.zeros((nResSize, nResSize))
+    #     mfW_reconstr = np.zeros(tupSize)
     #     for fWeight, miAssignments in dmnCount:
     #         mfW_reconstr += fWeight * miAssignments
     dmnCount = {weight : np.zeros_like(mfW, int) for weight in (*tupfWExc, *tupfWInh)}
       
     # - Input synapses per neuron
     if fConnectivity is not None:
-        nNumInputs = int(fConnectivity * nResSize)
+        nNumInputs = int(fConnectivity * mfW.shape[0])
         assert nNumInputs <= nLimitInputs, (
-            "Maximum connectivity for given reservoir size and input limits is {}".format(float(nLimitInputs) / nResSize))
+            "Maximum connectivity for given reservoir size and input limits is {}".format(float(nLimitInputs) / mfW.shape[0]))
     else:
-        nNumInputs = min(nLimitInputs, nResSize)
+        nNumInputs = min(nLimitInputs, mfW.shape[0])
 
     # - Numbers of excitatory and inhibitory inputs per neuron
     #   (could also be stochastic for each neuron....)
@@ -335,7 +345,9 @@ def DynapseConform(
     nNumInhIn = nNumInputs - nNumExcIn
 
     # - Iterrate over neurons (columns of mfW) and set their inputs
-    for iCol in range(nResSize):
+    #   Do so in random order. Otherwise small nLimitOutputs could result in more
+    #   deterministic columns towards the end if no more weights can be assigned anymore
+    for iCol in np.random.permutation(mfW.shape[1]):
         # - Array holding non-zero weights
         vfWeights = np.zeros(nNumInputs)
         # - Generate excitatory weights
@@ -357,13 +369,85 @@ def DynapseConform(
             mnCount[iInpNeur, iCol] += 1
 
     if fNormalize is not None:
+        # - Normalize matrix according to spectral radius
         vfEigenVals = np.linalg.eigvals(mfW)
         fSpectralRad = np.amax(np.abs(vfEigenVals))
-        mfW *= fNormalize / fSpectralRad
+        fScale = fNormalize / fSpectralRad
+        mfW *= fScale
+        # - Also scale keys in dmnCount accordingly
+        dmnCount = {fScale*k : v for k, v in dmnCount.items()}
 
     return mfW, mnCount, dmnCount
 
+def In_Res_Dynapse(
+    nSize : int,
+    fInputDensity=1,
+    fConnectivity=None,
+    fRatioExcRes=0.5,
+    fRatioExcIn=0.5,
+    nLimitInputs=64,
+    nLimitOutputs=1024,
+    tupfWExc=(1,2),
+    tupfWInh=(1,2),
+    tupfProbWExcRes=(0.5,0.5),
+    tupfProbWInhRes=(0.5,0.5),
+    tupfProbWExcIn=(0.5,0.5),
+    tupfProbWInhIn=(0.5,0.5),
+    fNormalize=None,
+    bVerbose=False,
+    bLeaveSpaceForInput=False,
+):
+    """
+    In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+    """
 
+    # - Matrix with weights. First row corresponds to input weights, others to reservoir matrix
+    mfWRes, mnCount, dmnCount = DynapseConform(
+        tupSize= (nSize, nSize),
+        fConnectivity=fConnectivity,
+        fRatioExc=fRatioExcRes,
+        nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput),
+        nLimitOutputs=nLimitOutputs,
+        tupfWExc=tupfWExc,
+        tupfWInh=tupfWInh,
+        tupfProbWExc=tupfProbWExcRes,
+        tupfProbWInh=tupfProbWInhRes,
+        fNormalize=fNormalize,
+    )
+
+    # - For each reservoir neuron, check whether it still has space for an input
+    vbFree = (nLimitInputs - np.sum(mnCount, axis=0)) > 0
+    # - Total number of input weights to be assigned
+    nNumInputs = (min(np.sum(vbFree), int(fInputDensity*nSize))
+        if fInputDensity is not None else np.sum(vbFree)
+    )
+
+    if nNumInputs == 0:
+        print("WARNING: Could not assign any input weights, "
+            + "try setting bLeaveSpaceForInput=True or reducing fConnectivity"
+        )
+        return np.zeros((nSize, 1)), mfWRes, mnCount, dmnCount
+    # - Number excitatory and inhibitory input weights
+    nNumExcIn = int(nNumInputs * fRatioExcIn)
+    nNumInhIn = nNumInputs - nNumExcIn
+    # - Array holding non-zero weights
+    vfWeights = np.zeros(nNumInputs)
+    # - Extract normalized weight values from dmnCount
+    lfValues = sorted(dmnCount.keys())
+    tupfWInExc = tuple(lfValues[-2:])
+    tupfWInInh = tuple(lfValues[:2])
+    # - Generate excitatory weights
+    vfWeights[ : nNumExcIn] = np.random.choice(tupfWInExc, size=nNumExcIn, p=tupfProbWExcIn, replace=True)
+    # - Generate inhibitory weights
+    vfWeights[nNumExcIn : ] = np.random.choice(tupfWInInh, size=nNumInhIn, p=tupfProbWInhIn, replace=True)
+    # - Ids of neurons to which weights will be assigned
+    viNeurons = np.random.choice(np.where(vbFree)[0], size=nNumInputs, replace=False)
+    # - Input weight vector
+    vfWIn = np.zeros(nSize)
+    for iNeuron, fWeight in zip(viNeurons, vfWeights):
+        vfWIn[iNeuron] = fWeight
+
+    return vfWIn.reshape(-1,1), mfWRes, mnCount, dmnCount
 
 def IAFSparseNet(
     nResSize: int = 100, fMean: float = None, fStd: float = None, fDensity: float = 1.0
