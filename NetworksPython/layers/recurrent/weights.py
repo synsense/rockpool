@@ -306,7 +306,7 @@ def DynapseConform(
     fNormalize=None,
 ):
     """
-    DynapseConform - Add description!!
+    DynapseConform - Add description!
     """
 
     # - Make sure input weights all have correct sign
