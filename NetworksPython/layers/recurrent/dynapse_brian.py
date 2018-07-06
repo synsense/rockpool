@@ -89,10 +89,9 @@ class RecDynapseBrian(Layer):
 
 
         # - Add recurrent weights (all-to-all)
-        self._sgRecurrentSynapses = teiliDPISynEqts(
+        self._sgRecurrentSynapses = teiliSyn(
             self._ngLayer, self._ngLayer,
-            model = 'w : 1',
-            on_pre = 'I_syn_post += w*amp',
+            equation_builder=teiliDPISynEqts,
             method = strIntegrator,
             dt = tDt,
             name = 'reservoir_recurrent_synapses'
