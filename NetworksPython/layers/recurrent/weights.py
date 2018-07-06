@@ -305,6 +305,9 @@ def DynapseConform(
     tupfProbWInh=(0.5,0.5),
     fNormalize=None,
 ):
+    """
+    DynapseConform - Add description!!!
+    """
 
     # - Make sure input weights all have correct sign
     tupfWExc = tuple(abs(w) for w in tupfWExc)
