@@ -71,7 +71,8 @@ class Layer(ABC):
 
     def _prepare_input(self,
                        tsInput: TimeSeries = None,
-                       tDuration: float = None) -> (np.ndarray, np.ndarray, float):
+                       tDuration: float = None,
+                       ) -> (np.ndarray, np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
 
