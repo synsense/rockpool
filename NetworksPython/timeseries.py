@@ -998,7 +998,7 @@ class TSEvent(TimeSeries):
         )
 
         # - Store channels
-        self.vnChannels = np.array(vnChannels).flatten()
+        self.vnChannels = np.array(vnChannels).flatten().astype(int)
 
     def interpolate(self, vtTimes: np.ndarray):
         """
