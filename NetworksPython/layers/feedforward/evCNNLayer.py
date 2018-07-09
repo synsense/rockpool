@@ -28,6 +28,7 @@ class EventCNNLayer(Layer):
 
         self.fVth = fVth
         self.reset_state()
+        self.__nIdMonitor__ = 0  # Default monitorin of neuron 0
 
     def evolve(self,
                tsInput: TSEvent = None,
@@ -70,7 +71,7 @@ class EventCNNLayer(Layer):
             # TODO: The above could perhaps be written in a different function
             #       to account for diffrent lookup tables like CNNs
 
-            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=5)
+            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
             # Check threshold and reset
             mbSpike = vState >= fVth
@@ -86,7 +87,7 @@ class EventCNNLayer(Layer):
                                      vbSpike)))
 
                 # Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=5)
+                self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
         # Convert arrays to TimeSeries objects
         mfSpk = np.row_stack(aSpk)
