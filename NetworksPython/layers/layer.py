@@ -257,11 +257,11 @@ class Layer(ABC):
 
     @property
     def cOutput(self):
-        return TimeSeries
+        return TSContinuous
 
     @property
     def cInput(self):
-        return TimeSeries
+        return TSContinuous
 
     @property
     def nSize(self) -> int:

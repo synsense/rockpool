@@ -363,6 +363,10 @@ class Network:
                 + strLayers
             )
 
+        # - Set external input name if not set already
+        if tsExternalInput.strName is None:
+            tsExternalInput.strName = 'External input'
+
         # - Dict to store external input and each layer's output time series
         dtsSignal = {"external": tsExternalInput}
 
@@ -388,8 +392,14 @@ class Network:
 
             if bVerbose:
                 print("Evolving layer `{}` with {} as input".format(lyr.strName, strIn))
-            # Evolve layer and store output in dtsSignal
+
+            # - Evolve layer and store output in dtsSignal
             dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
+
+            # - Set name for time series, if not already set
+            if dtsSignal[lyr.strName].strName is None:
+                dtsSignal[lyr.strName].strName = lyr.strName
+
 
         # - Update network time
         self._t += tDuration
@@ -412,7 +422,14 @@ class Network:
         """
         train - Train the network batch-wise by evolving the layers and
                 calling fhTraining.
+
         :param fhTraining:      Function that is called after each evolution
+                fhTraining(netObj, dtsSignals, bFirst, bFinal)
+                :param netObj:      Network the network object to be trained
+                :param dtsSignals:  Dictionary containing all signals in the current evolution batch
+                :param bFirst:      bool Is this the first batch?
+                :param bFinal:      bool Is this the final batch?
+
         :param tsExternalInput: TimeSeries with external input to network
         :param tDuration:       float - Duration over which netŵork should
                                         be evolved. If None, evolution is
