@@ -114,12 +114,10 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
         t_start - the beginning of the SpikeTrain (in ms)
         t_stop  - the end of the SpikeTrain (in ms)
     """
-    # less wasteful than double length method above
     n = (t_stop - t_start) / 1000.0 * rate
     number = int(np.ceil(n + 3 * np.sqrt(n)))
     if number < 100:
         number = min(5 + int(np.ceil(2 * n)), 100)
-
     if number > 0:
         isi = np.random.exponential(1.0 / rate, number) * 1000.0
 
@@ -129,23 +127,18 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
             spikes = isi
     else:
         spikes = np.array([])
-
     spikes += t_start
     i = np.searchsorted(spikes, t_stop)
-
     extra_spikes = []
     if i == len(spikes):
         # ISI buf overrun
-
         t_last = spikes[-1] + np.random.exponential(1.0 /
                                                     rate, 1)[0] * 1000.0
-
         while (t_last < t_stop):
             extra_spikes.append(t_last)
             t_last += np.random.exponential(1.0 / rate, 1)[0] * 1000.0
 
         spikes = np.concatenate((spikes, extra_spikes))
-
     else:
         spikes = np.resize(spikes, (i,))
 

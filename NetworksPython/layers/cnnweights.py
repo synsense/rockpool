@@ -6,12 +6,14 @@ from functools import reduce
 
 
 class CNNWeight(UserList):
-    def __init__(self, inShape=None, nKernels=1, kernel_size=(5, 5)):
+    def __init__(self, inShape=None, nKernels=1, kernel_size=(5, 5), mode='same'):
         '''
         CNNWeight class is virtual array that allows convolutions on the input through indexing
         :param inShape:     tuple Shape of input
         :param nKernels:    int No. of kernels for this convolutial weight matrix
         :param kernel_size: tuple Shape of each kernel
+        :param mode:        str 'same' or 'valid' or 'full'
+        (For more information on convolution parameters look into scipy.convolve2d documentation
 
         Important Note: inShape needs to be set before the use of indexing on this object.
         If left undefine/None, the input dimension is inferred from input dimensions, if the data is binary.
@@ -23,6 +25,7 @@ class CNNWeight(UserList):
         self.data = None  # Initialized when inShape is assigned
         self._inShape = None
         self.inShape = inShape
+        self.mode = mode
 
     def __len__(self):
         return len(self.data)
@@ -88,7 +91,7 @@ class CNNWeight(UserList):
         '''
         # This is the function to modify for stride, padding and other parameters
         # NOTE: This function should also defines what the shape of the output is going to be
-        return signal.convolve2d(bIndexReshaped, kernel, mode='same', boundary='fill')
+        return signal.convolve2d(bIndexReshaped, kernel, mode=self.mode, boundary='fill')
 
     def __setitem__(self, index, value):
         '''
@@ -98,17 +101,19 @@ class CNNWeight(UserList):
 
     @property
     def shape(self):
-        # NOTE: This does not take strides into account
-        imgSize = int(reduce(lambda x, y: x*y, self.inShape[-2:]))
+        # NOTE: This value only needs to be calculated once.
+        outShape = self._do_convolve_2d(np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)).shape
+        outSize = int(reduce(lambda x, y: x*y, outShape))*self.nKernels
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
-        return (inSize, self.nKernels*imgSize)
+        return (inSize, outSize)
 
     @property
     def size(self):
-        # NOTE: This does not take strides into account
-        imgSize = int(reduce(lambda x, y: x*y, self.inShape[-2:]))
+        # NOTE: This value only needs to be calculated once.
+        outShape = self._do_convolve_2d(np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)).shape
+        outSize = int(reduce(lambda x, y: x*y, outShape))*self.nKernels
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
-        return (inSize*self.nKernels*imgSize)
+        return (inSize*outSize)
 
     @property
     def inShape(self):
