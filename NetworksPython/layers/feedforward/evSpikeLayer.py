@@ -4,7 +4,7 @@ from ...timeseries import TSEvent
 from .. import Layer
 
 
-class EventCNNLayer(Layer):
+class EventDrivenSpikingLayer(Layer):
     '''
     EventCNNLayer: Event driven 2D convolution layer
     '''
