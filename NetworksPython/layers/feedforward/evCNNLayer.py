@@ -70,7 +70,7 @@ class EventCNNLayer(Layer):
             # TODO: The above could perhaps be written in a different function
             #       to account for diffrent lookup tables like CNNs
 
-            self.addToRecord(aStateTimeSeries, tCurrentTime)
+            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=5)
 
             # Check threshold and reset
             mbSpike = vState >= fVth
@@ -86,7 +86,7 @@ class EventCNNLayer(Layer):
                                      vbSpike)))
 
                 # Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime)
+                self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=5)
 
         # Convert arrays to TimeSeries objects
         mfSpk = np.row_stack(aSpk)
@@ -137,8 +137,8 @@ class EventCNNLayer(Layer):
                            mfState[nIdOutIter, 0]])
         else:
             aStateTimeSeries.append([tCurrentTime,
-                                     nIdOutIter,
-                                     mfState[nIdOutIter]])
+                                     nIdOut,
+                                     mfState[nIdOut]])
             if debug:
                 print([tCurrentTime,
                        nIdOutIter,
