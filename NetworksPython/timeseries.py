@@ -995,6 +995,8 @@ class TSEvent(TimeSeries):
 
         if vnChannels is None:
             vnChannels = np.zeros(np.size(vtTimeTrace))
+        elif isinstance(vnChannels, int):
+            vnChannels = np.array([vnChannels for _ in vtTimeTrace]    )
 
         if nNumChannels is None:
             if len(vnChannels) == 0:
