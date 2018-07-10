@@ -995,20 +995,24 @@ class TSEvent(TimeSeries):
 
         if vnChannels is None:
             vnChannels = np.zeros(np.size(vtTimeTrace))
+            nMinNumChannels = min(np.size(vnChannels), 1)
         elif isinstance(vnChannels, int):
-            vnChannels = np.array([vnChannels for _ in vtTimeTrace]    )
+            nMinNumChannels = vnChannels + 1
+            vnChannels = np.array([vnChannels for _ in vtTimeTrace])            
+        else:
+            nMinNumChannels = np.amax(vnChannels) + 1
 
         if nNumChannels is None:
-            if len(vnChannels) == 0:
-                nNumChannels = 0
-            else:
-                nNumChannels = np.amax(vnChannels) + 1
-
-
+            # - Infer number of channels from maximum channel id in vnChannels
+            nNumChannels = nMinNumChannels
+        else:
+            assert nNumChannels >= nMinNumChannels, ('nNumChannels must be None'
+                + ' or greater than the highest channel ID.'
+            )
+        
         # - Check size of inputs
-        assert (np.size(vnChannels) == 1) or (
-            np.size(vtTimeTrace) == np.size(vnChannels)
-        ), "`vnChannels` must match the size of `vtTimeTrace`"
+        assert np.size(vtTimeTrace) == np.size(vnChannels) == np.size(vfSamples), (
+            "`vnChannels` and `vfSamples` must match the size of `vtTimeTrace` or be None.")
 
         # - Initialise superclass
         super().__init__(
@@ -1023,7 +1027,7 @@ class TSEvent(TimeSeries):
         self.vnChannels = np.array(vnChannels).flatten().astype(int)
 
         # - Store total number of channels
-        self.nNumChannels = nNumChannels
+        self.nNumChannels = int(nNumChannels)
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -1183,6 +1187,9 @@ class TSEvent(TimeSeries):
             ltsOther = [self, ltsOther]
         else:
             ltsOther = [self] + list(ltsOther)
+
+        # - Determine number of channels
+        self.nNumChannels = np.amax([tsOther.nNumChannels for tsOther in ltsOther])
 
         # - Check tsOther class
         assert all(map(lambda tsOther: isinstance(tsOther, TSEvent), ltsOther)),\
@@ -1383,10 +1390,10 @@ class TSEvent(TimeSeries):
 
     @nNumChannels.setter
     def nNumChannels(self, nNewNumChannels):
-        if len(self.vnChannels) == 0:
+        if np.size(self.vnChannels) == 0:
             assert nNewNumChannels >= 0, 'nNumChannels cannot be negative.'
         else:
-            nMinNumChannels = np.amax(self.vnChannels) + 1
+            nMinNumChannels = 0 if np.size(self.vnChannels) == 0 else np.amax(self.vnChannels) + 1
             assert nNewNumChannels >= nMinNumChannels, 'nNumChannels must be at least {}.'.format(nMinNumChannels)
         self._nNumChannels = nNewNumChannels
 

@@ -18,7 +18,7 @@ def test_TSEvent_raster():
         testTSEvent.merge(TSEvent(None, i))
 
     raster = testTSEvent.raster(tDt=1)[2]
-    assert raster.shape == (31, 5)
+    assert raster.shape == (31, 4)
 
 
 def test_TSEvent_raster_explicit_nNumChannels():
