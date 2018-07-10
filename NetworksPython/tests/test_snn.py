@@ -35,7 +35,7 @@ def test_cnn_evolve():
     Test initialization of the layer
     '''
     from NetworksPython import TSEvent
-    from NetworksPython.layers.feedforward.evSpikeLayer import SpikingLayer
+    from NetworksPython.layers.feedforward import SpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights

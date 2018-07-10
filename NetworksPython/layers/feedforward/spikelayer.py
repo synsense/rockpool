@@ -89,7 +89,7 @@ class SpikingLayer(Layer):
                 vbSpike, = np.nonzero(mbSpike)
 
                 # Reset membrane state
-                vState[mbSpike] = 0
+                vState[mbSpike] -= fVth
 
                 # Record spikes
                 aSpk.append(

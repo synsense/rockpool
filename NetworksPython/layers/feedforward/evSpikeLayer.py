@@ -72,7 +72,10 @@ class EventDrivenSpikingLayer(SpikingLayer):
                 vbSpike, = np.nonzero(mbSpike)
 
                 # Reset membrane state
-                vState[mbSpike] = 0
+                vState[mbSpike] -= fVth
+
+                # TODO: The above code has a bug
+                # If the threshold goes over 2*fVth this spike will not be detected till the next update.
 
                 # Record spikes
                 aSpk.append(
