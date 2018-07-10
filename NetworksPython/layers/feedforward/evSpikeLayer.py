@@ -1,15 +1,14 @@
 import numpy as np
 from tqdm import tqdm
 from ...timeseries import TSEvent
-from .. import Layer
+from .spikelayer import SpikingLayer
 
 
-class EventDrivenSpikingLayer(Layer):
+class EventDrivenSpikingLayer(SpikingLayer):
     '''
     EventCNNLayer: Event driven 2D convolution layer
     '''
-    def __init__(self,
-                 mfW: np.ndarray = None,
+    def __init__(self, mfW: np.ndarray = None,
                  fVth: float = 8,
                  tDt: float = 1,
                  fNoiseStd: float = 0,
@@ -23,12 +22,8 @@ class EventDrivenSpikingLayer(Layer):
         :param strName:    str        Name of this layer.
         """
         # Call parent constructor
-        Layer.__init__(self, mfW, tDt=tDt,
-                       fNoiseStd=fNoiseStd, strName=strName)
-
-        self.fVth = fVth
-        self.reset_state()
-        self.__nIdMonitor__ = 0  # Default monitorin of neuron 0
+        SpikingLayer.__init__(self, mfW, tDt=tDt,
+                              fNoiseStd=fNoiseStd, strName=strName)
 
     def evolve(self,
                tsInput: TSEvent = None,
@@ -55,6 +50,7 @@ class EventDrivenSpikingLayer(Layer):
         # Local variables
         vState = self.vState
         fVth = self.fVth
+        mfW = self.mfW
 
         # Iterate over all input spikes
         for nSpikeIndx in tqdm(range(len(vSpk))):
@@ -63,13 +59,10 @@ class EventDrivenSpikingLayer(Layer):
             nInputId = vIdInput[nSpikeIndx].astype(int)
 
             # Add input to neurons
-            vW = self._mfW[nInputId]
+            vW = mfW[nInputId]
 
             # State update
-            vState[:] += vW  # Learning state
-
-            # TODO: The above could perhaps be written in a different function
-            #       to account for diffrent lookup tables like CNNs
+            vState[:] += vW  # Membrane state update
 
             self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
@@ -93,7 +86,8 @@ class EventDrivenSpikingLayer(Layer):
         mfSpk = np.row_stack(aSpk)
         evOut = TSEvent(mfSpk[:, 0],
                         mfSpk[:, 1],
-                        strName='Output')
+                        strName='Output',
+                        nNumChannels=self.nSize)
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
@@ -105,44 +99,3 @@ class EventDrivenSpikingLayer(Layer):
         self._t += tDuration
 
         return evOut
-
-    def addToRecord(self,
-                    aStateTimeSeries: list,
-                    tCurrentTime: float,
-                    nIdOut: int = None,
-                    debug: bool = False):
-        """
-        addToRecord: Convenience function to record current state of the layer
-                     or individual neuron
-
-        :param aStateTimeSeries: list  A simple python list object to which the
-                                       state needs to be appended
-        :param tCurrentTime:     float Current simulation time
-        :param nIdOut:           int   Neuron id to record the state of,
-                                       if None all the neuron's states
-                                       will be added to the record.
-                                       Default = None
-        """
-        # Local variable
-        mfState = self.vState
-
-        if nIdOut is None:
-            # Update record of state changes
-            for nIdOutIter in range(self.nSize):
-                aStateTimeSeries.append([tCurrentTime,
-                                         nIdOutIter,
-                                         mfState[nIdOutIter]])
-                if debug:
-                    print([tCurrentTime,
-                           nIdOutIter,
-                           mfState[nIdOutIter, 0]])
-        else:
-            aStateTimeSeries.append([tCurrentTime,
-                                     nIdOut,
-                                     mfState[nIdOut]])
-            if debug:
-                print([tCurrentTime,
-                       nIdOutIter,
-                       mfState[nIdOutIter, 0]])
-
-        return

@@ -55,9 +55,9 @@ class SpikingLayer(Layer):
         # Local variables
         vState = self.vState
         fVth = self.fVth
+        mfW = self.mfW
         bias = self.bias
         tDt = self.tDt
-        mfW = self.mfW
 
         # Iterate over all time steps
         for tCurrentTimeStep in tqdm(range(int(tDuration/tDt))):
@@ -69,6 +69,8 @@ class SpikingLayer(Layer):
                 # In this case no input is assumed
                 vbInputSpkT = inpSpkRaster[tCurrentTimeStep]
 
+            tCurrentTime = tCurrentTimeStep*tDt
+
             # Add input to neurons
             vW = mfW[vbInputSpkT]
 
@@ -79,7 +81,7 @@ class SpikingLayer(Layer):
             # State update
             vState[:] += vW + bias  # Membrane update with synaptic input
 
-            self.addToRecord(aStateTimeSeries, tCurrentTimeStep*tDt, nIdOut=self.__nIdMonitor__)
+            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
             # Check threshold and reset
             mbSpike = vState >= fVth
@@ -91,11 +93,11 @@ class SpikingLayer(Layer):
 
                 # Record spikes
                 aSpk.append(
-                    np.column_stack(([tCurrentTimeStep*tDt]*len(vbSpike),
+                    np.column_stack(([tCurrentTime]*len(vbSpike),
                                      vbSpike)))
 
                 # Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTimeStep*tDt, nIdOut=self.__nIdMonitor__)
+                self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
         # Convert arrays to TimeSeries objects
         mfSpk = np.row_stack(aSpk)
