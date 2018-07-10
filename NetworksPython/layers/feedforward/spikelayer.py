@@ -43,7 +43,7 @@ class SpikingLayer(Layer):
 
         """
         # Extract spike data from the input variable
-        _, inpSpkRaster, _ = tsInput.raster(tDt=self.tDt)
+        _, _, inpSpkRaster, _ = tsInput.raster(tDt=self.tDt)
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -57,14 +57,24 @@ class SpikingLayer(Layer):
         fVth = self.fVth
         bias = self.bias
         tDt = self.tDt
+        mfW = self.mfW
 
         # Iterate over all time steps
         for tCurrentTimeStep in tqdm(range(int(tDuration/tDt))):
-
-            vbInputSpkT = inpSpkRaster[tCurrentTimeStep]
+            if tCurrentTimeStep >= len(inpSpkRaster):
+                # If the time step is within the provided input stream duration
+                vbInputSpkT = np.zeros(mfW.shape[0]).astype(bool)
+            else:
+                # If the time step goes beyond length of input stream
+                # In this case no input is assumed
+                vbInputSpkT = inpSpkRaster[tCurrentTimeStep]
 
             # Add input to neurons
-            vW = self._mfW[vbInputSpkT]
+            vW = mfW[vbInputSpkT]
+
+            # If the input current have not been added
+            if vW.shape != vState.shape:
+                vW = vW.sum(axis=0)
 
             # State update
             vState[:] += vW + bias  # Membrane update with synaptic input
@@ -91,7 +101,8 @@ class SpikingLayer(Layer):
         mfSpk = np.row_stack(aSpk)
         evOut = TSEvent(mfSpk[:, 0],
                         mfSpk[:, 1],
-                        strName='Output')
+                        strName='Output',
+                        nNumChannels=self.nSize)
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
