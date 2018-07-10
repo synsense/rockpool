@@ -5,11 +5,11 @@
 ### --- Imports
 import numpy as np
 
-import copy
+from copy import deepcopy
 
 from typing import Callable
 
-from .timeseries import TimeSeries
+from .timeseries import TimeSeries, TSContinuous, TSEvent
 from .layers.layer import Layer
 
 
@@ -587,8 +587,8 @@ class Network:
 
             if bVerbose: print(tupData[0])
 
-            # - Build output dictionary
-            dtsSignal[self.lEvolOrder[nLayer].strName] = TSEvent(*tupData)
+            # - Build output dictionary (using appropriate output class)
+            dtsSignal[self.lEvolOrder[nLayer].strName] = self.lEvolOrder[nLayer].cOutput(*tupData)
 
         # - Increment time
         self._t += tDuration
