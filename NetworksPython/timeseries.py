@@ -903,21 +903,30 @@ class TimeSeries:
         """
         .tDuration: float Duration of TimeSeries
         """
-        return self._vtTimeTrace[-1] - self._vtTimeTrace[0]
+        try:
+            return self._vtTimeTrace[-1] - self._vtTimeTrace[0]
+        except IndexError:
+            return None
 
     @property
     def tStart(self) -> float:
         """
         .tStart: float Start time
         """
-        return self._vtTimeTrace[0]
+        try:
+            return self._vtTimeTrace[0]
+        except IndexError:
+            return None
 
     @property
     def tStop(self) -> float:
         """
         .tStop: float Stop time
         """
-        return self._vtTimeTrace[-1]
+        try:
+            return self._vtTimeTrace[-1]
+        except IndexError:
+            return None
 
     def _compatibleShape(self, other) -> np.ndarray:
         try:
