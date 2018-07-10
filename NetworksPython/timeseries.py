@@ -1097,8 +1097,8 @@ class TSEvent(TimeSeries):
         """
 
         # - Check vnSelectChannels
-        assert np.min(vnSelectChannels) >= 0 and np.max(vnSelectChannels) <= np.max(
-            self.vnChannels
+        assert (np.min(vnSelectChannels) >= 0 
+            and np.max(vnSelectChannels) <= self.nNumChannels
         ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels))
 
         # - Find samples to return
@@ -1251,6 +1251,7 @@ class TSEvent(TimeSeries):
 
         :return
             vtTimeBase:     Time base of rasterized data
+            vnSelectChannels Channel ids corresponding to columns in mbEventsRaster
             mbEventsRaster  Boolean matrix with True indicating event
                             First axis corresponds to time, second axis to channel.
             tplSamples      Tuple with one list per time step. For each event 
@@ -1259,12 +1260,18 @@ class TSEvent(TimeSeries):
                             the sample.
                             If bSamples is False, then None is returned.
         """
+
+        # - Handle empty series
+        if len(self.vtTimeTrace) == 0:
+            tplSamples = tuple() if bSamples else None
+            return np.array([]), np.array([], int), np.zeros((0,0), bool), tplSamples
         
         # - Get data from selected channels and time range
         if vnSelectChannels is not None:
             tsSelected = self.choose(vnSelectChannels)
         else:
             tsSelected = self.copy()
+            vnSelectChannels = np.arange(self.nNumChannels)
 
         vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStart, tStop])
 
@@ -1276,7 +1283,7 @@ class TSEvent(TimeSeries):
 
         # - Convert input events and samples to boolen raster
         
-        mbEventsRaster = np.zeros((vtTimeBase.size, tsSelected.nNumChannels), bool)
+        mbEventsRaster = np.zeros((vtTimeBase.size, len(vnSelectChannels)), bool)
         
         if bSamples:
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
@@ -1284,7 +1291,7 @@ class TSEvent(TimeSeries):
             tplSamples = None
 
         #   Iterate over channel indices and create their event raster
-        for channel in range(tsSelected.nNumChannels):
+        for row, channel in enumerate(vnSelectChannels):
 
             # Times with event in current channel
             viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
@@ -1294,14 +1301,14 @@ class TSEvent(TimeSeries):
             viEventIndices_Raster = ((vtEventTimes_Channel-vtTimeBase[0]) / tDt).astype(int)
 
             # Set event  and sample raster for current channel
-            mbEventsRaster[viEventIndices_Raster, channel] = True
+            mbEventsRaster[viEventIndices_Raster, row] = True
             
             # Add samples
             if bSamples:
                 for iRasterIndex, iTimeIndex in zip(viEventIndices_Raster, viEventIndices_Channel):
                     tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
         
-        return vtTimeBase, mbEventsRaster, tplSamples
+        return vtTimeBase, np.array(vnSelectChannels), mbEventsRaster, tplSamples
 
     def print(
         self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
