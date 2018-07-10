@@ -214,7 +214,7 @@ class TimeSeries:
 
     def delay(self, tOffset):
         """
-        delay - Return a copy of self that is delayed by an offset. 
+        delay - Return a copy of self that is delayed by an offset.
                 For delaying self, use ".vtTimeTrace += ..." instead.
         :param tOffset: float Time offset
         :return: New TimeSeries, delayed
@@ -524,7 +524,7 @@ class TimeSeries:
     ):
         """
         print - Print an overview of the time series and its values.
-            
+
         :param bFull:     Boolean - Print all samples of self, no matter how long it is
         :param nShorten:  Integer - Print shortened version of self if it comprises more
                           than nShorten time points and bFull is False
@@ -998,7 +998,7 @@ class TSEvent(TimeSeries):
             nMinNumChannels = min(np.size(vnChannels), 1)
         elif isinstance(vnChannels, int):
             nMinNumChannels = vnChannels + 1
-            vnChannels = np.array([vnChannels for _ in vtTimeTrace])            
+            vnChannels = np.array([vnChannels for _ in vtTimeTrace])
         else:
             nMinNumChannels = np.amax(vnChannels) + 1
 
@@ -1009,7 +1009,7 @@ class TSEvent(TimeSeries):
             assert nNumChannels >= nMinNumChannels, ('nNumChannels must be None'
                 + ' or greater than the highest channel ID.'
             )
-        
+
         # - Check size of inputs
         assert np.size(vtTimeTrace) == np.size(vnChannels) == np.size(vfSamples), (
             "`vnChannels` and `vfSamples` must match the size of `vtTimeTrace` or be None.")
@@ -1103,7 +1103,7 @@ class TSEvent(TimeSeries):
         """
 
         # - Check vnSelectChannels
-        assert (np.min(vnSelectChannels) >= 0 
+        assert (np.min(vnSelectChannels) >= 0
             and np.max(vnSelectChannels) <= self.nNumChannels
         ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels))
 
@@ -1252,8 +1252,8 @@ class TSEvent(TimeSeries):
         :param tDt:     float Length of single time step in raster
         :param tStart:  float Time where to start raster - Will start
                               at self.vtTImeTrace[0] if None
-        :param tStop:   float Time where to stop raster. This time point is 
-                              not included anymore. - If None, will use all 
+        :param tStop:   float Time where to stop raster. This time point is
+                              not included anymore. - If None, will use all
                               points until (and including) self.vtTImeTrace[-1]
         :vnSelectedChannels: Array-like Channels, from which data is to be used.
         :bSamples:      bool If True, tplSamples is returned, otherwise None.
@@ -1263,7 +1263,7 @@ class TSEvent(TimeSeries):
             vnSelectChannels Channel ids corresponding to columns in mbEventsRaster
             mbEventsRaster  Boolean matrix with True indicating event
                             First axis corresponds to time, second axis to channel.
-            tplSamples      Tuple with one list per time step. For each event 
+            tplSamples      Tuple with one list per time step. For each event
                             corresponding to a time step the list contains a tuple
                             whose first entry is the channel, the second entry is
                             the sample.
@@ -1274,7 +1274,7 @@ class TSEvent(TimeSeries):
         if len(self.vtTimeTrace) == 0:
             tplSamples = tuple() if bSamples else None
             return np.array([]), np.array([], int), np.zeros((0,0), bool), tplSamples
-        
+
         # - Get data from selected channels and time range
         if vnSelectChannels is not None:
             tsSelected = self.choose(vnSelectChannels)
@@ -1291,9 +1291,9 @@ class TSEvent(TimeSeries):
         vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
 
         # - Convert input events and samples to boolen raster
-        
+
         mbEventsRaster = np.zeros((vtTimeBase.size, len(vnSelectChannels)), bool)
-        
+
         if bSamples:
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
         else:
@@ -1311,12 +1311,12 @@ class TSEvent(TimeSeries):
 
             # Set event  and sample raster for current channel
             mbEventsRaster[viEventIndices_Raster, row] = True
-            
+
             # Add samples
             if bSamples:
                 for iRasterIndex, iTimeIndex in zip(viEventIndices_Raster, viEventIndices_Channel):
                     tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
-        
+
         return vtTimeBase, np.array(vnSelectChannels), mbEventsRaster, tplSamples
 
     def print(
@@ -1324,7 +1324,7 @@ class TSEvent(TimeSeries):
     ):
         """
         print - Print an overview of the time series and its values.
-            
+
         :param bFull:     Boolean - Print all samples of self, no matter how long it is
         :param nShorten:  Integer - Print shortened version of self if it comprises more
                           than nShorten time points and bFull is False
@@ -1396,6 +1396,3 @@ class TSEvent(TimeSeries):
             nMinNumChannels = 0 if np.size(self.vnChannels) == 0 else np.amax(self.vnChannels) + 1
             assert nNewNumChannels >= nMinNumChannels, 'nNumChannels must be at least {}.'.format(nMinNumChannels)
         self._nNumChannels = nNewNumChannels
-
-
-    
