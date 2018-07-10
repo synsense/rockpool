@@ -923,7 +923,7 @@ def interspike_intervals(tsReservoir, tDt, vnSelectChannels=None):
     nDim = np.amax(tsReservoir.vnChannels) + 1
 
     # - Get rasterized spike trains
-    vtTimeBase, mfSpikeRaster, __ = tsReservoir.raster(
+    vtTimeBase, __, mfSpikeRaster, __ = tsReservoir.raster(
         tDt=tDt, vnSelectChannels=vnSelectChannels, bSamples=False
     )
 
@@ -960,7 +960,7 @@ def plot_activities_2d(tsReservoir, tTau, tDt=None, strKernel='exp', vnSelectCha
     nDim = np.amax(tsReservoir.vnChannels) + 1
 
     # - Get rasterized spike trains
-    __, mfSpikeRaster, __ = tsReservoir.raster(
+    __, __, mfSpikeRaster, __ = tsReservoir.raster(
         tDt=tDt, vnSelectChannels=vnSelectChannels, bSamples=False
     )
 
@@ -993,7 +993,7 @@ def plot_activities(tsReservoir, tTau, tDt=None, vnSelectChannels=None):
     nDim = np.amax(tsReservoir.vnChannels) + 1
 
     # - Get rasterized spike trains
-    vtTimeBase, mfSpikeRaster, __ = tsReservoir.raster(
+    vtTimeBase, __, mfSpikeRaster, __ = tsReservoir.raster(
         tDt=tDt, vnSelectChannels=vnSelectChannels, bSamples=False
     )
 
