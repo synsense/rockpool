@@ -949,7 +949,8 @@ class TSEvent(TimeSeries):
         vfSamples: np.ndarray = None,
         strInterpKind = "linear",
         bPeriodic: bool = False,
-        strName = None,
+        strName: str = None,
+        nNumChannels: int = None,
     ):
         """
         TSEvent - Represent discrete events in time
@@ -962,6 +963,9 @@ class TSEvent(TimeSeries):
         :param bPeriodic:       bool Is this a periodic TimeSeries (Default: False)
 
         :param strName:         str Name of the time series (Default: None)
+
+        :param nNumChannels:    int Total number of channels in the data source. If None,
+                                    it is inferred from the max channel ID in vnChannels
         """
 
         # - Only 1D samples and channels are supported
@@ -983,6 +987,13 @@ class TSEvent(TimeSeries):
         if vnChannels is None:
             vnChannels = np.zeros(np.size(vtTimeTrace))
 
+        if nNumChannels is None:
+            if len(vnChannels) == 0:
+                nNumChannels = 0
+            else:
+                nNumChannels = np.amax(vnChannels) + 1
+
+
         # - Check size of inputs
         assert (np.size(vnChannels) == 1) or (
             np.size(vtTimeTrace) == np.size(vnChannels)
@@ -999,6 +1010,9 @@ class TSEvent(TimeSeries):
 
         # - Store channels
         self.vnChannels = np.array(vnChannels).flatten()
+
+        # - Store total number of channels
+        self.nNumChannels = nNumChannels
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -1020,6 +1034,10 @@ class TSEvent(TimeSeries):
                 vnMatchingChannels: np.ndarray Channels corresponding to matching times
                 vfMatchingSamples:  np.ndarray Samples corresponding to matching times
         """
+
+        # - Handle empty TSEvent
+        if len(self.vtTimeTrace) == 0:
+            return(np.array([]), np.array([], int), np.array([]))
 
         if vtTimeBounds is not None:
             # - Map None to time trace bounds
@@ -1240,7 +1258,7 @@ class TSEvent(TimeSeries):
             tsSelected = self.copy()
 
         vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStart, tStop])
-        
+
         # - Generate time base
         tStartBase = (self.tStart if tStart is None else tStart)
         tStopBase = (self.tStop + tDt if tStop is None else tStop)
@@ -1249,9 +1267,7 @@ class TSEvent(TimeSeries):
 
         # - Convert input events and samples to boolen raster
         
-        nNumChannels = np.amax(tsSelected.vnChannels + 1)
-        
-        mbEventsRaster = np.zeros((vtTimeBase.size, nNumChannels), bool)
+        mbEventsRaster = np.zeros((vtTimeBase.size, tsSelected.nNumChannels), bool)
         
         if bSamples:
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
@@ -1259,7 +1275,7 @@ class TSEvent(TimeSeries):
             tplSamples = None
 
         #   Iterate over channel indices and create their event raster
-        for channel in range(nNumChannels):
+        for channel in range(tsSelected.nNumChannels):
 
             # Times with event in current channel
             viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
@@ -1339,3 +1355,22 @@ class TSEvent(TimeSeries):
 
         # - Assign vnChannels
         self._vnChannels = vnNewChannels
+
+    @property
+    def nNumChannels(self):
+        if hasattr(self, '_nNumChannels') and self._nNumChannels is not None:
+            return self._nNumChannels
+        else:
+            return np.amax(self.vnChannels) + 1
+
+    @nNumChannels.setter
+    def nNumChannels(self, nNewNumChannels):
+        if len(self.vnChannels) == 0:
+            assert nNewNumChannels >= 0, 'nNumChannels cannot be negative.'
+        else:
+            nMinNumChannels = np.amax(self.vnChannels) + 1
+            assert nNewNumChannels >= nMinNumChannels, 'nNumChannels must be at least {}.'.format(nMinNumChannels)
+        self._nNumChannels = nNewNumChannels
+
+
+    
