@@ -1020,7 +1020,7 @@ class TSEvent(TimeSeries):
         )
 
         # - Store channels
-        self.vnChannels = np.array(vnChannels).flatten()
+        self.vnChannels = np.array(vnChannels).flatten().astype(int)
 
         # - Store total number of channels
         self.nNumChannels = nNumChannels
