@@ -1047,7 +1047,7 @@ class TSEvent(TimeSeries):
             return (
                 self.vtTimeTrace[vbMatchingTimes],
                 self.vnChannels[vbMatchingTimes],
-                (self.mfSamples[vbMatchingTimes]).flatten(),
+                self.mfSamples[vbMatchingTimes].flatten(),
             )
 
         else:

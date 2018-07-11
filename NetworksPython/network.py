@@ -400,7 +400,6 @@ class Network:
             if dtsSignal[lyr.strName].strName is None:
                 dtsSignal[lyr.strName].strName = lyr.strName
 
-
         # - Update network time
         self._t += tDuration
 
@@ -506,6 +505,14 @@ class Network:
         assert all([hasattr(lyr, 'stream') for lyr in self.setLayers]), \
             'Not all layers implement the `stream` interface.'
 
+        # - Check that external input has the correct class
+        assert isinstance(tsInput, self.lyrInput.cInput), \
+            'External input must be of class {} for this network.'.format(self.lyrInput.cInput.__name__)
+
+        # - Check that external input has the correct size
+        assert tsInput.nNumTraces == self.lyrInput.nDimIn, \
+            'External input must have {} traces for this network.'.format(self.lyrInput.nDimIn)
+
         # - Find the largest common tDt
         self.ltDts = [lyr.tDt for lyr in self.setLayers]
         self.tCommonDt = max(self.ltDts)
@@ -589,6 +596,10 @@ class Network:
 
             # - Build output dictionary (using appropriate output class)
             dtsSignal[self.lEvolOrder[nLayer].strName] = self.lEvolOrder[nLayer].cOutput(*tupData)
+
+            # - Set name for time series, if not already set
+            if dtsSignal[self.lEvolOrder[nLayer].strName].strName is None:
+                dtsSignal[self.lEvolOrder[nLayer].strName].strName = self.lEvolOrder[nLayer].strName
 
         # - Increment time
         self._t += tDuration
