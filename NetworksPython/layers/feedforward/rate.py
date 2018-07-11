@@ -471,12 +471,15 @@ class PassThrough(FFRateEuler):
         if self.tsBuffer is not None:
             # - Combined time trace for buffer and processed input
             vtTimeComb = self._gen_time_trace(self.t, tTrueDuration+self.tDelay)
+
             # - Array for buffered and new data
             mfSamplesComb = np.zeros((vtTimeComb.size, self.nDimIn))
             nStepsIn = vtTimeIn.size
+
             # - Buffered data: last point of buffer data corresponds to self.t,
             #   which is also part of current input
             mfSamplesComb[ :-nStepsIn] = self.tsBuffer.mfSamples[:-1]
+
             # - Processed input data (weights and noise)
             mfSamplesComb[-nStepsIn: ] = mfInProcessed
 

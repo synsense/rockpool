@@ -489,14 +489,19 @@ class Network:
         if bVerbose:
             print("\nTraining successful\n")
 
-    def stream(self, tsInput, tDuration, bVerbose = False,
+    def stream(self,
+               tsInput: TimeSeries,
+               tDuration: float,
+               bVerbose: bool = False,
+               fhStepCallback: Callable = None,
                ) -> dict:
         """
         stream - Stream data through layers, evolving by single time steps
 
-        :param tsInput:     TimeSeries External input to the network
-        :param tDuration:   float Total duration to stream for
-        :param bVerbose:    bool Display feedback
+        :param tsInput:         TimeSeries External input to the network
+        :param tDuration:       float Total duration to stream for
+        :param bVerbose:        bool Display feedback
+        :param fhStepCallback:  Callable[Network]
 
         :return: dtsSignals dict Collected output signals from each layer
         """
@@ -581,6 +586,10 @@ class Network:
 
             # - Save last state to use as input for next step
             lLastState = deepcopy(lState)
+
+            # - Call callback function
+            if fhStepCallback is not None:
+                fhStepCallback(self)
 
         # - Build return dictionary
         dtsSignal = {'external': tsInput.copy()}
