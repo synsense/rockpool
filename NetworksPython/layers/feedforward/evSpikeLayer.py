@@ -22,7 +22,7 @@ class EventDrivenSpikingLayer(SpikingLayer):
         :param strName:    str        Name of this layer.
         """
         # Call parent constructor
-        SpikingLayer.__init__(self, mfW, tDt=tDt,
+        SpikingLayer.__init__(self, mfW, fVth=fVth, tDt=tDt,
                               fNoiseStd=fNoiseStd, strName=strName)
 
     def evolve(self,
@@ -70,6 +70,10 @@ class EventDrivenSpikingLayer(SpikingLayer):
             mbSpike = vState >= fVth
             if mbSpike.any():
                 vnSpike, = np.nonzero(mbSpike)
+
+                # Debug printing
+                if mbSpike[self.__nIdMonitor__]:
+                    print(vState[self.__nIdMonitor__])
 
                 # Reset membrane state
                 vState[mbSpike] -= fVth
