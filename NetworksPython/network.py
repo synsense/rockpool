@@ -549,7 +549,7 @@ class Network:
         lLastState = [tupInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
 
         # - Initialise layer output variables with initial state, convert to lists
-        lLayerOutputs = [tuple([x] for x in state) for state in lLastState[1:]]
+        lLayerOutputs = [tuple([np.array(x).flatten()] for x in state) for state in lLastState[1:]]
 
         # - Display some feedback
         if bVerbose:
@@ -582,7 +582,7 @@ class Network:
             # - Collate layer outputs
             for nLayer in range(nNumLayers):
                 for nTupleIndex in range(len(lLayerOutputs[nLayer])):
-                    lLayerOutputs[nLayer][nTupleIndex].append(lState[nLayer + 1][nTupleIndex])
+                    lLayerOutputs[nLayer][nTupleIndex].append(lState[nLayer + 1][nTupleIndex].flatten())
 
             # - Save last state to use as input for next step
             lLastState = deepcopy(lState)
@@ -598,8 +598,8 @@ class Network:
             lvData = [np.stack(np.array(data, 'float')) for data in lLayerOutputs[nLayer]]
 
             # - Filter out nans in time trace (always first data element)
-            vbUseSamples = ~np.isnan(lvData[0])
-            tupData = tuple(data[vbUseSamples] for data in lvData)
+            vbUseSamples = ~np.isnan(lvData[0]).flatten()
+            tupData = tuple(data[vbUseSamples, :] for data in lvData)
 
             if bVerbose: print(tupData[0])
 

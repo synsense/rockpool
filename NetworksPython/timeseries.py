@@ -125,7 +125,7 @@ class TimeSeries:
         """
 
         # - Convert everything to numpy arrays
-        vtTimeTrace = np.atleast_1d(np.asarray(vtTimeTrace)).astype(float)
+        vtTimeTrace = np.asarray(vtTimeTrace).flatten().astype(float)
         mfSamples = np.atleast_1d(mfSamples).astype(float)
 
         # - Permit a one-dimensional sample input

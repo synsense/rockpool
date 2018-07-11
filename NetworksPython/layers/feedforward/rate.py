@@ -184,15 +184,15 @@ class FFRateEuler(Layer):
 
 
     def stream(self,
-               tDuration,
-               tDt,
-               bVerbose = False,
+               tDuration: float,
+               tDt: float,
+               bVerbose: bool = False,
                ) -> Tuple[float, List[float]]:
         """
         stream - Stream data through this layer
-        :param tDuration:
-        :param tDt:
-        :param bVerbose:
+        :param tDuration:   float Total duration for which to handle streaming
+        :param tDt:         float Streaming time step
+        :param bVerbose:    bool Display feedback
 
         :yield: (t, vState)
 
@@ -203,7 +203,7 @@ class FFRateEuler(Layer):
         if bVerbose: print("Layer: I'm preparing")
         vtTimeTrace = np.arange(0, tDuration, tDt)
         nNumSteps = np.size(vtTimeTrace)
-        nEulerStepsPerDt = tDt // self._tDt
+        nEulerStepsPerDt = int(tDt // self._tDt)
 
         if bVerbose: print("Layer: Prepared")
 
@@ -229,7 +229,7 @@ class FFRateEuler(Layer):
                                   mfInput = mfInput,
                                   mfW = self._mfW,
                                   nSize = self._nSize,
-                                  nNumSteps = 1,
+                                  nNumSteps = nEulerStepsPerDt,
                                   vfGain = self._vfGain,
                                   vfBias = self._vfBias,
                                   vfAlpha = self._vfAlpha,
