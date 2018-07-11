@@ -69,7 +69,7 @@ class EventDrivenSpikingLayer(SpikingLayer):
             # Check threshold and reset
             mbSpike = vState >= fVth
             if mbSpike.any():
-                vbSpike, = np.nonzero(mbSpike)
+                vnSpike, = np.nonzero(mbSpike)
 
                 # Reset membrane state
                 vState[mbSpike] -= fVth
@@ -79,8 +79,8 @@ class EventDrivenSpikingLayer(SpikingLayer):
 
                 # Record spikes
                 aSpk.append(
-                    np.column_stack(([tCurrentTime]*len(vbSpike),
-                                     vbSpike)))
+                    np.column_stack(([tCurrentTime]*len(vnSpike),
+                                     vnSpike)))
 
                 # Record state after reset
                 self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
