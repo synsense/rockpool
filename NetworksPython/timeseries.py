@@ -993,7 +993,7 @@ class TSEvent(TimeSeries):
         if vfSamples is None:
             vfSamples = full_nan((np.size(vtTimeTrace), 1))
 
-        if vnChannels is None:
+        if vnChannels is None or np.size(vnChannels) == 0:
             vnChannels = np.zeros(np.size(vtTimeTrace))
             nMinNumChannels = min(np.size(vnChannels), 1)
         elif isinstance(vnChannels, int):
