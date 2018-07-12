@@ -7,18 +7,20 @@ from matplotlib import pyplot as plt
 plt.ion()
 
 import numpy as np
+import seaborn as sb
 
 from brian2 import second, amp, farad
 import brian2 as b2
 
 from NetworksPython.layers.recurrent import dynapse_brian as db
-from NetworksPython import timeseries as ts 
+from NetworksPython.layers.recurrent.weights import DynapseConform as weights
+from NetworksPython import timeseries as ts
 
 
 tDt = 0.0001 * second
 
 nNumInputSamples = 40
-tInputDuration = 0.5
+tInputDuration = 1
 
 # - Corrected constant parameters
 dParamsNeuron = {
@@ -28,30 +30,38 @@ dParamsNeuron = {
     # 'Ireset' : 0 * amp,
     # 'Ith' : 500e-9 * amp,
     # 'Iagain' : 10e-12 * amp,
-    'Iconst' : 1e-12 * amp,
+    'Iconst' : 4.375e-9 * amp,
 }
 
-dParamsSynapse = {
+fBaseweightE = 7e-8 * amp
+fBaseweightI = 1e-7 * amp
+
+dParamsSynapseIn = {
     # 'Io_syn' : 1.5e-12 * amp,
     # 'Csyn' : 2e-12 * farad,
-    'baseweight_i' : 1e-13 * amp,
-    'baseweight_e' : 1e-13 * amp,
+    'baseweight_i' : fBaseweightI,
+    'baseweight_e' : fBaseweightE,
+}
+
+dParamsSynapseRec = {
+    # 'Io_syn' : 1.5e-12 * amp,
+    # 'Csyn' : 2e-12 * farad,
+    'baseweight_i' : fBaseweightI,
+    'baseweight_e' : fBaseweightE,
 }
 
 # - Reservoir generation
 
-nReSize = 8
+nResSize = 512
 # fBiasInE = fBiasInI = 1e-8 * amp  # Input baseweight
 # fBiasRecE = fBiasRecI = 1e-9 * amp  # Reservoir baseweight     
 # fIconst = 1e-6 * amp  # Bias current
 
 # Recurrent weights, normalized by spectral radius
 np.random.seed(1)
-mfW = 2*np.random.rand(nReSize, nReSize) - 1
-mfW /= np.amax(np.abs(np.linalg.eigvals(mfW)))
-
+mfW = weights(nResSize, tupfWExc=(1,1), tupfWInh=(1,1), fNormalize=1)[0]
 # Input weights
-vfWIn = 2*np.random.rand(nReSize) - 1
+vfWIn = 2*np.random.rand(nResSize) - 1
 
 
 # Reservoir
@@ -62,26 +72,26 @@ res = db.RecDynapseBrian(mfW, vfWIn, tDt=tDt)
 # res._sgReceiver.baseweight_e = fBiasInE
 # res._sgRecurrentSynapses.baseweight_i = fBiasRecI
 # res._sgRecurrentSynapses.baseweight_e = fBiasRecE
-res._sgReceiver.set_params(dParamsSynapse)
-res._sgRecurrentSynapses.set_params(dParamsSynapse)
+res._sgReceiver.set_params(dParamsSynapseIn)
+res._sgRecurrentSynapses.set_params(dParamsSynapseRec)
 res._ngLayer.set_params(dParamsNeuron)
 
 # Monitors
-stmNg = b2.StateMonitor(res._ngLayer, ['Ie0', 'Ii0', 'Ie1', 'Ii1', 'Imem'], record=True)
+stmNg = b2.StateMonitor(res._ngLayer, ['Ie0', 'Ii0', 'Ie1', 'Ii1', 'Imem', 'Iin_clip'], record=True)
 res._net.add(stmNg)
 
 # - Input
 vtIn = np.sort(np.random.rand(nNumInputSamples)) * tInputDuration
-vnChIn = np.random.randint(nReSize, size=nNumInputSamples)
+vnChIn = np.random.randint(nResSize, size=nNumInputSamples)
 tsIn = ts.TSEvent(vtIn, vnChIn)
 
 # - Run simulation
 tsR = res.evolve(tsIn)
 
 # - Plot
-fig, axes = plt.subplots(3, figsize=(10,15), sharex=True)
+fig, axes = plt.subplots(4, figsize=(10,15), sharex=True)
 # Continuous variables
-for var, axID in zip(('Ie1', 'Ii1', 'Ie0', 'Ii0', 'Imem'), (0,0,1,1,2)):
+for var, axID in zip(('Ie1', 'Ii1', 'Ie0', 'Ii0', 'Iin_clip', 'Imem'), (0,0,1,1,2,3)):
     axes[axID].plot(stmNg.t/second, getattr(stmNg, var).T/amp)
     axes[axID].set_title(var)
 
@@ -93,6 +103,20 @@ for t in vtIn:
     for ax, ylims in zip((axes[0],), (lYlims[0],)):
         ax.plot([t,t], ylims, 'k--', zorder = -1, alpha=0.5)
 # Reservoir spikes
-for t in tsR.vtTimeTrace:
-    for ax, ylims in zip(axes[1:], lYlims[1:]):
-        ax.plot([t,t], ylims, 'b--', zorder = -1, alpha=0.5)
+# for t in tsR.vtTimeTrace:
+#     for ax, ylims in zip(axes[1:], lYlims[1:]):
+#         ax.plot([t,t], ylims, 'b--', zorder = -1, alpha=0.5)
+
+# - Mean firing rates
+# total:
+fMeanTotal = np.size(tsR.vnChannels) / tInputDuration
+fMeanTotalPerNeuron = fMeanTotal / nResSize
+# neuron-wise
+vfMeanRates = np.array([
+    np.sum(tsR.vnChannels == iChannel)/tInputDuration for iChannel in range(nResSize)
+])
+fStdMeanRates = np.std(vfMeanRates)
+
+print('Overall firing rate: {} Hz, ({} +- {}) Hz per Neuron)'.format(
+    fMeanTotal, fMeanTotalPerNeuron, fStdMeanRates
+))
