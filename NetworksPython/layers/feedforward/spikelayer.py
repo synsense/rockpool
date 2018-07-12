@@ -100,11 +100,14 @@ class SpikingLayer(Layer):
                 self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
         # Convert arrays to TimeSeries objects
-        mfSpk = np.row_stack(aSpk)
-        evOut = TSEvent(mfSpk[:, 0],
-                        mfSpk[:, 1],
-                        strName='Output',
-                        nNumChannels=self.nSize)
+        if len(aSpk) > 0:
+            mfSpk = np.row_stack(aSpk)
+            evOut = TSEvent(mfSpk[:, 0],
+                            mfSpk[:, 1],
+                            strName='Output',
+                            nNumChannels=self.nSize)
+        else:
+            evOut = TSEvent(None, nNumChannels=self.nSize)
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)

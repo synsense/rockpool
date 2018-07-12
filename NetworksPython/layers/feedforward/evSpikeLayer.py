@@ -71,10 +71,6 @@ class EventDrivenSpikingLayer(SpikingLayer):
             if mbSpike.any():
                 vnSpike, = np.nonzero(mbSpike)
 
-                # Debug printing
-                if mbSpike[self.__nIdMonitor__]:
-                    print(vState[self.__nIdMonitor__])
-
                 # Reset membrane state
                 vState[mbSpike] -= fVth
 
