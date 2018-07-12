@@ -15,6 +15,7 @@ import brian2 as b2
 from NetworksPython.layers.recurrent import dynapse_brian as db
 from NetworksPython.layers.recurrent.weights import DynapseConform as weights
 from NetworksPython import timeseries as ts
+from NetworksPython import analysis as an
 
 
 tDt = 0.0001 * second
@@ -107,6 +108,11 @@ for t in vtIn:
 #     for ax, ylims in zip(axes[1:], lYlims[1:]):
 #         ax.plot([t,t], ylims, 'b--', zorder = -1, alpha=0.5)
 
+# inter-spike intervals
+vfMeanISI = np.nanmean(an.interspike_intervals(tsR, tDt=tDt/second), axis=1)
+plt.figure()
+plt.plot(np.arange(len(vfMeanISI)) * tDt/second, vfMeanISI)
+
 # - Mean firing rates
 # total:
 fMeanTotal = np.size(tsR.vnChannels) / tInputDuration
@@ -115,8 +121,16 @@ fMeanTotalPerNeuron = fMeanTotal / nResSize
 vfMeanRates = np.array([
     np.sum(tsR.vnChannels == iChannel)/tInputDuration for iChannel in range(nResSize)
 ])
+vfRateDevs = np.array([
+    np.std(1./np.diff(tsR.vtTimeTrace[tsR.vnChannels == iChannel]))
+    for iChannel in range(nResSize)
+])
 fStdMeanRates = np.std(vfMeanRates)
 
 print('Overall firing rate: {} Hz, ({} +- {}) Hz per Neuron)'.format(
     fMeanTotal, fMeanTotalPerNeuron, fStdMeanRates
 ))
+
+# Plot mean rate distro
+plt.figure()
+plt.bar(np.arange(nResSize), vfMeanRates, yerr=vfRateDevs)
