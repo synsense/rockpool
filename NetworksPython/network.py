@@ -527,7 +527,7 @@ class Network:
         vtTimeBase = np.arange(0, tDuration + self.tCommonDt, self.tCommonDt) + self._t
         vtTimeBase = vtTimeBase[vtTimeBase <= self._t + tDuration]
         tDuration = vtTimeBase[-1] - vtTimeBase[0]
-        nNumSteps = np.size(vtTimeBase)
+        nNumSteps = np.size(vtTimeBase)-1
 
         # - Prepare all layers
         self.lStreamers = [lyr.stream(tDuration, self.tCommonDt, bVerbose = bVerbose)
@@ -549,7 +549,7 @@ class Network:
         lLastState = [tupInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
 
         # - Initialise layer output variables with initial state, convert to lists
-        lLayerOutputs = [tuple([np.array(x).flatten()] for x in state) for state in lLastState[1:]]
+        lLayerOutputs = [tuple([np.reshape(x, (1, -1))] for x in state) for state in lLastState[1:]]
 
         # - Display some feedback
         if bVerbose:
@@ -558,7 +558,7 @@ class Network:
 
         # - Streaming loop
         lState = deepcopy(lLastState)
-        for nStep in range(nNumSteps - 1):
+        for nStep in range(nNumSteps):
             if bVerbose: print('Net: Start of step', nStep)
 
             # - Set up external input
@@ -582,7 +582,7 @@ class Network:
             # - Collate layer outputs
             for nLayer in range(nNumLayers):
                 for nTupleIndex in range(len(lLayerOutputs[nLayer])):
-                    lLayerOutputs[nLayer][nTupleIndex].append(lState[nLayer + 1][nTupleIndex].flatten())
+                    lLayerOutputs[nLayer][nTupleIndex].append(np.reshape(lState[nLayer + 1][nTupleIndex], (1, -1)))
 
             # - Save last state to use as input for next step
             lLastState = deepcopy(lState)
@@ -674,7 +674,7 @@ class Network:
                 self.__class__.__name__, len(self.setLayers)
             )
             + "    "
-            + "\n    ".join([str(lyr) for lyr in self.setLayers])
+            + "\n    ".join([str(lyr) for lyr in self.lEvolOrder])
         )
 
     @property

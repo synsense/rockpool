@@ -201,8 +201,8 @@ class FFRateEuler(Layer):
 
         # - Initialise simulation, determine how many tDt to evolve for
         if bVerbose: print("Layer: I'm preparing")
-        vtTimeTrace = np.arange(0, tDuration, tDt)
-        nNumSteps = np.size(vtTimeTrace)
+        vtTimeTrace = np.arange(0, tDuration+tDt, tDt)
+        nNumSteps = np.size(vtTimeTrace)-1
         nEulerStepsPerDt = int(tDt // self._tDt)
 
         if bVerbose: print("Layer: Prepared")
