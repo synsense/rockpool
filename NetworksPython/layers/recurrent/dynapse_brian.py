@@ -45,7 +45,7 @@ class RecDynapseBrian(Layer):
 
                  dParamNeuron = None,
 
-                 dParamsSynapse = None,
+                 dParamSynapse = None,
 
                  strIntegrator: str = 'rk4',
 
@@ -81,6 +81,9 @@ class RecDynapseBrian(Layer):
         self._sggInput = b2.SpikeGeneratorGroup(self.nSize, [0], [0*second],
                                                 dt = np.asarray(tDt) * second)
 
+
+        ### --- Neurons
+
         # - Set up reservoir neurons
         self._ngLayer = teiliNG(
             N = self.nSize,
@@ -96,6 +99,9 @@ class RecDynapseBrian(Layer):
             self._ngLayer.set_params(dict(dTeiliNeuronParam, **dParamNeuron))
         else:
             self._ngLayer.set_params(dTeiliNeuronParam)
+
+
+        ### --- Synapses
 
         # - Add recurrent synapses (all-to-all)
         self._sgRecurrentSynapses = teiliSyn(
@@ -117,8 +123,15 @@ class RecDynapseBrian(Layer):
         # Each spike generator neuron corresponds to one reservoir neuron
         self._sgReceiver.connect('i==j')
 
+        # - Overwrite default synapse parameters
+        if dParamSynapse is not None:
+            self._sgRecurrentSynapses.set_params(dParamNeuron)
+            self._sgReceiver.set_params(dParamNeuron)
+
+
         # - Add spike monitor to record layer outputs
         self._spmReservoir = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
+
 
         # - Call Network constructor
         self._net = b2.Network(self._ngLayer, self._sgRecurrentSynapses,
@@ -126,6 +139,7 @@ class RecDynapseBrian(Layer):
                                  self._spmReservoir,
                                  name = 'recurrent_spiking_layer')
 
+        
         # - Record neuron / synapse parameters
         # automatically sets weights  via setters
         self.mfW = mfW
