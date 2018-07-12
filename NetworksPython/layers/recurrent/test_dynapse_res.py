@@ -13,7 +13,7 @@ from brian2 import second, amp, farad
 import brian2 as b2
 
 from NetworksPython.layers.recurrent import dynapse_brian as db
-from NetworksPython.layers.recurrent.weights import DynapseConform as weights
+from NetworksPython.layers.recurrent.weights import In_Res_Dynapse
 from NetworksPython import timeseries as ts
 from NetworksPython import analysis as an
 
@@ -60,10 +60,10 @@ nResSize = 512
 
 # Recurrent weights, normalized by spectral radius
 np.random.seed(1)
-mfW = weights(nResSize, tupfWExc=(1,1), tupfWInh=(1,1), fNormalize=1)[0]
+# mfW = weights(nResSize, tupfWExc=(1,1), tupfWInh=(1,1), fNormalize=1)[0]
 # Input weights
-vfWIn = 2*np.random.rand(nResSize) - 1
-
+#vfWIn = 2*np.random.rand(nResSize) - 1
+vfWIn, mfW, *__ = In_Res_Dynapse(nResSize, tupfWExc=(1,1), tupfWInh=(1,1), fNormalize=1, bLeaveSpaceForInput=True)
 
 # Reservoir
 res = db.RecDynapseBrian(mfW, vfWIn, tDt=tDt)
@@ -108,10 +108,10 @@ for t in vtIn:
 #     for ax, ylims in zip(axes[1:], lYlims[1:]):
 #         ax.plot([t,t], ylims, 'b--', zorder = -1, alpha=0.5)
 
-# inter-spike intervals
-vfMeanISI = np.nanmean(an.interspike_intervals(tsR, tDt=tDt/second), axis=1)
+# instantaneous firing rates as inverted inter-spike intervals, averaged over all neurons
+vfMeanInstRate = np.nanmean(1./an.interspike_intervals(tsR, tDt=tDt/second), axis=1)
 plt.figure()
-plt.plot(np.arange(len(vfMeanISI)) * tDt/second, vfMeanISI)
+plt.plot(np.arange(len(vfMeanInstRate)) * tDt/second, vfMeanInstRate)
 
 # - Mean firing rates
 # total:
