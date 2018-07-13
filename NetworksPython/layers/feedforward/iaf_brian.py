@@ -8,6 +8,7 @@ import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
+from typing import List, Tuple, Union
 
 from ...timeseries import TSContinuous, TSEvent
 
@@ -38,16 +39,16 @@ class FFIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray,
-                 vfBias: np.ndarray = 10*mA,
+                 vfBias: Union[float, np.ndarray] = 10*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 0*mV,
 
-                 vtTauN: np.ndarray = 20*ms,
+                 vtTauN: Union[float, np.ndarray] = 20*ms,
 
-                 vfVThresh: np.ndarray = -55*mV,
-                 vfVReset: np.ndarray = -65*mV,
-                 vfVRest: np.ndarray = -65*mV,
+                 vfVThresh: Union[float, np.ndarray] = -55*mV,
+                 vfVReset: Union[float, np.ndarray] = -65*mV,
+                 vfVRest: Union[float, np.ndarray] = -65*mV,
 
                  tRefractoryTime = 0*ms,
 
@@ -166,7 +167,7 @@ class FFIAFBrian(Layer):
         # - Specifiy network input currents, construct TimedArray
         taI_inp = TAShift(np.asarray(mfNeuronInputStep + mfNoiseStep) * amp,
                           self.tDt * second, tOffset = self.t * second,
-                          name  = 'external_input')
+                          name = 'external_input')
 
         # - Perform simulation
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
@@ -177,6 +178,63 @@ class FFIAFBrian(Layer):
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
+
+    def stream(self,
+               tDuration: float,
+               tDt: float,
+               bVerbose: bool = False,
+               ) -> Tuple[float, List[float]]:
+        """
+        stream - Stream data through this layer
+        :param tDuration:   float Total duration for which to handle streaming
+        :param tDt:         float Streaming time step
+        :param bVerbose:    bool Display feedback
+
+        :yield: (vtEventTimes, vnEventChannels)
+
+        :return: Final (vtEventTimes, vnEventChannels)
+        """
+
+        # - Initialise simulation, determine how many tDt to evolve for
+        if bVerbose: print("Layer: I'm preparing")
+        vtTimeTrace = np.arange(0, tDuration+tDt, tDt)
+        nNumSteps = np.size(vtTimeTrace)-1
+
+        # - Generate a noise trace
+        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
+
+        # - Generate a TimedArray to use for step-constant input currents
+        taI_inp = TAShift(np.zeros((1, self._nDimIn)) * amp,
+                          self.tDt * second,
+                          name = 'external_input',
+                          )
+
+        if bVerbose: print("Layer: Prepared")
+
+        # - Loop over tDt steps
+        for nStep in range(nNumSteps):
+            if bVerbose: print('Layer: Yielding from internal state.')
+            if bVerbose: print('Layer: step', nStep)
+            if bVerbose: print('Layer: Waiting for input...')
+
+            # - Yield current output spikes, receive input for next time step
+            vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[nStep]
+            tupInput = yield self._spmLayer.t_[vbUseEvents], self._spmLayer.i_[vbUseEvents]
+
+            # - Specify network input currents for this streaming step
+            if tupInput is None:
+                taI_inp.values = mfNoiseStep[nStep, :]
+            else:
+                taI_inp.values = np.reshape(tupInput[1][0, :], (1, -1)) + mfNoiseStep[nStep, :]
+
+            if bVerbose: print('Layer: Input was: ', tupInput)
+
+            # - Evolve layer (increments time implicitly)
+            self._net.run(tDt * second, namespace = {'I_inp': taI_inp}, level = 0)
+
+        # - Return final spikes, if any
+        vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[-2]  # Should be tDuration - tDt
+        return self._spmLayer.t_[vbUseEvents], self._spmLayer.i_[vbUseEvents]
 
 
     ### --- Properties
