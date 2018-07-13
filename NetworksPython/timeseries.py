@@ -957,8 +957,8 @@ class TSEvent(TimeSeries):
     def __init__(
         self,
         vtTimeTrace: np.ndarray,
-        vnChannels: np.ndarray = None,
-        vfSamples: np.ndarray = None,
+        vnChannels: Union[int, np.ndarray] = None,
+        vfSamples: Union[float, np.ndarray] = None,
         strInterpKind = "linear",
         bPeriodic: bool = False,
         strName: str = None,
@@ -980,30 +980,37 @@ class TSEvent(TimeSeries):
                                     it is inferred from the max channel ID in vnChannels
         """
 
-        # - Only 1D samples and channels are supported
-        assert (np.ndim(vfSamples) <= 1) or (
-            np.sum(np.array(vfSamples.shape) > 1) == 1
-        ), "`vfSamples` must be 1-dimensional"
+        # - Samples, channels and time must all have the same number of elements
+        if vfSamples is not None:
+            assert np.size(vfSamples) == np.size(vtTimeTrace) or np.size(vfSamples) == 1, \
+                '`vfSamples` must have the same number of elements as `vtTimeTrace`.'
 
-        assert (np.ndim(vnChannels) <= 1) or (
-            np.sum(np.array(vnChannels.shape) > 1) == 1
-        ), "`vnChannels` must be 1-dimensional"
+        if vnChannels is not None:
+            assert np.size(vnChannels) == np.size(vtTimeTrace) or np.size(vnChannels) == 1, \
+                '`vnChannels` must have the same number of elements as `vtTimeTrace`.'
 
-        # - Provide default inputs
+        # - Default time trace: empty
         if vtTimeTrace is None:
             vtTimeTrace = np.array([])
+        else:
+            vtTimeTrace = np.array(vtTimeTrace, 'float').flatten()
 
+        # - Default samples: NaN
         if vfSamples is None:
             vfSamples = full_nan((np.size(vtTimeTrace), 1))
+        else:
+            vfSamples = np.array(vfSamples, 'float').flatten()
 
+        # - Default channel: zero
         if vnChannels is None or np.size(vnChannels) == 0:
             vnChannels = np.zeros(np.size(vtTimeTrace))
-            nMinNumChannels = min(np.size(vnChannels), 1)
-        elif isinstance(vnChannels, int):
-            nMinNumChannels = vnChannels + 1
+
+        # - Handle scalar channel
+        if isinstance(vnChannels, int):
             vnChannels = np.array([vnChannels for _ in vtTimeTrace])
-        else:
-            nMinNumChannels = np.amax(vnChannels) + 1
+
+        # - Determine the minimum number of channels
+        nMinNumChannels = np.amax(vnChannels) + 1
 
         if nNumChannels is None:
             # - Infer number of channels from maximum channel id in vnChannels
@@ -1027,7 +1034,7 @@ class TSEvent(TimeSeries):
         )
 
         # - Store channels
-        self.vnChannels = np.array(vnChannels).flatten().astype(int)
+        self.vnChannels = np.array(vnChannels, 'int').flatten()
 
         # - Store total number of channels
         self.nNumChannels = int(nNumChannels)

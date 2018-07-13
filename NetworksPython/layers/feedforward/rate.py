@@ -4,7 +4,7 @@ from numba import njit
 
 from ...timeseries import TimeSeries
 from ..layer import Layer
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 # - Relative tolerance for float comparions
 fTolerance = 1e-5
@@ -105,11 +105,11 @@ class FFRateEuler(Layer):
                  mfW: np.ndarray,
                  tDt: float = None,
                  strName: str = None,
-                 fNoiseStd: float = 0,
+                 fNoiseStd: float = 0.,
                  fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLU,
-                 vtTau: np.ndarray = 10,
-                 vfGain: np.ndarray = 1,
-                 vfBias: np.ndarray = 0):
+                 vtTau: Union[float, np.ndarray] = 10.,
+                 vfGain: Union[float, np.ndarray] = 1.,
+                 vfBias: Union[float, np.ndarray] = 0.):
         """
         FFRateEuler - Implement a feed-forward non-spiking neuron layer, with an Euler method solver
 
@@ -203,7 +203,7 @@ class FFRateEuler(Layer):
         if bVerbose: print("Layer: I'm preparing")
         vtTimeTrace = np.arange(0, tDuration+tDt, tDt)
         nNumSteps = np.size(vtTimeTrace)-1
-        nEulerStepsPerDt = int(tDt // self._tDt)
+        nEulerStepsPerDt = int(np.round(tDt / self._tDt))
 
         if bVerbose: print("Layer: Prepared")
 
@@ -414,10 +414,10 @@ class PassThrough(FFRateEuler):
 
     def __init__(self,
                  mfW: np.ndarray,
-                 tDt: float = 1,
-                 fNoiseStd: float = 0,
-                 vfBias = 0,
-                 tDelay: float = 0,
+                 tDt: float = 1.,
+                 fNoiseStd: float = 0.,
+                 vfBias: Union[float, np.ndarray] = 0.,
+                 tDelay: float = 0.,
                  strName: str = None):
         """
         PassThrough - Implement a feed-forward layer that simply passes input (possibly delayed)

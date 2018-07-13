@@ -9,6 +9,8 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
+from typing import Union
+
 from ...timeseries import TSContinuous, TSEvent
 
 from ..layer import Layer
@@ -45,17 +47,17 @@ class RecIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray = None,
-                 vfBias: np.ndarray = 10.5*mA,
+                 vfBias: Union[float, np.ndarray] = 10.5*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 1*mV,
 
-                 vtTauN: np.ndarray = 20*ms,
-                 vtTauSynR: np.ndarray = 5 * ms,
+                 vtTauN: Union[float, np.ndarray] = 20*ms,
+                 vtTauSynR: Union[float, np.ndarray] = 5 * ms,
 
-                 vfVThresh: np.ndarray = -55*mV,
-                 vfVReset: np.ndarray = -65*mV,
-                 vfVRest: np.ndarray = -65*mV,
+                 vfVThresh: Union[float, np.ndarray] = -55*mV,
+                 vfVReset: Union[float, np.ndarray] = -65*mV,
+                 vfVRest: Union[float, np.ndarray] = -65*mV,
 
                  tRefractoryTime = 0*ms,
 
