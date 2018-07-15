@@ -26,6 +26,7 @@ class CNNWeight(UserList):
         self._inShape = None
         self.inShape = inShape
         self.mode = mode
+        self.img_data_format = 'channels_last'
 
     def __len__(self):
         return len(self.data)
@@ -61,7 +62,8 @@ class CNNWeight(UserList):
                 # The actual convolution happens here
                 aConvolution = []
                 # Convolve each kernel individually
-                for kernel in self.data:
+                for nKernelIndex in range(self.nKernels):
+                    kernel = self.data[..., nKernelIndex]
                     fmConvolution = None  # Reset value
                     if bIndexReshaped.ndim == 3:
                         # Convolve each feature of input individually
@@ -129,7 +131,13 @@ class CNNWeight(UserList):
         if inShape == self._inShape:
             return  # No change
         self._inShape = inShape
+        self.initialize_weights(self)
+
+    def initialize_weights(self):
+        '''
+        This function reinitializes the weights of this object
+        '''
         # Initialize kernels
         if self.data is not None:
             warnings.warn('Re-Initializing convolutional kernel because of inSize change')
-        self.data = np.random.rand(self.nKernels, *inShape[:-2], *self.kernel_size)  # Kernel
+        self.data = np.random.rand(self.nKernels, *self._inShape[:-2], *self.kernel_size)  # Kernel
