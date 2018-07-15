@@ -67,9 +67,9 @@ class CNNWeight(UserList):
                     fmConvolution = None  # Reset value
                     if bIndexReshaped.ndim == 3:
                         # Convolve each feature of input individually
-                        for nFeature in range(bIndexReshaped.shape[0]):
-                            fmConvolutionFeature = self._do_convolve_2d(bIndexReshaped[nFeature],
-                                                                        kernel[nFeature])
+                        for nFeature in range(bIndexReshaped.shape[-1]):
+                            fmConvolutionFeature = self._do_convolve_2d(bIndexReshaped[..., nFeature],
+                                                                        kernel[..., nFeature])
                             if fmConvolution is None:
                                 fmConvolution = fmConvolutionFeature
                             else:
@@ -79,6 +79,7 @@ class CNNWeight(UserList):
                     aConvolution.append(fmConvolution)
 
                 fmConvolution = np.array(aConvolution)
+                fmConvolution = np.moveaxis(fmConvolution, 0, -1)
                 return fmConvolution.flatten()
             else:
                 raise TypeError('Indices should be of type [bool]')
@@ -103,19 +104,21 @@ class CNNWeight(UserList):
 
     @property
     def shape(self):
-        # NOTE: This value only needs to be calculated once.
-        outShape = self._do_convolve_2d(np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)).shape
-        outSize = int(reduce(lambda x, y: x*y, outShape))*self.nKernels
+        outSize = int(reduce(lambda x, y: x*y, self.outShape))*self.nKernels
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
         return (inSize, outSize)
 
     @property
     def size(self):
-        # NOTE: This value only needs to be calculated once.
-        outShape = self._do_convolve_2d(np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)).shape
-        outSize = int(reduce(lambda x, y: x*y, outShape))*self.nKernels
+        outSize = int(reduce(lambda x, y: x*y, self.outShape))*self.nKernels
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
         return (inSize*outSize)
+
+    @property
+    def outShape(self):
+        if self._outShape is None:
+            self._outShape = self._do_convolve_2d(np.zeros(self.inShape[:2]), np.zeros(self.kernel_size)).shape
+        return self._outShape
 
     @property
     def inShape(self):
@@ -131,7 +134,8 @@ class CNNWeight(UserList):
         if inShape == self._inShape:
             return  # No change
         self._inShape = inShape
-        self.initialize_weights(self)
+        self._outShape = None
+        self.initialize_weights()
 
     def initialize_weights(self):
         '''
@@ -140,4 +144,4 @@ class CNNWeight(UserList):
         # Initialize kernels
         if self.data is not None:
             warnings.warn('Re-Initializing convolutional kernel because of inSize change')
-        self.data = np.random.rand(self.nKernels, *self._inShape[:-2], *self.kernel_size)  # Kernel
+        self.data = np.random.rand(*self.kernel_size, *self._inShape[2:], self.nKernels)    # Kernel
