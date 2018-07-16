@@ -120,13 +120,13 @@ class CNNWeight(UserList):
 
     @property
     def shape(self):
-        outSize = int(reduce(lambda x, y: x*y, self.outShape))*self.nKernels
+        outSize = int(reduce(lambda x, y: x*y, self.outShape))
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
         return (inSize, outSize)
 
     @property
     def size(self):
-        outSize = int(reduce(lambda x, y: x*y, self.outShape))*self.nKernels
+        outSize = int(reduce(lambda x, y: x*y, self.outShape))
         inSize = int(reduce(lambda x, y: x*y, self.inShape))
         return (inSize*outSize)
 
@@ -134,9 +134,13 @@ class CNNWeight(UserList):
     def outShape(self):
         if self._outShape is None:
             if self.img_data_format == 'channels_last':
-                self._outShape = self._do_convolve_2d(np.zeros(self.inShape[:2]), np.zeros(self.kernel_size)).shape
+                self._outShape = (*(self._do_convolve_2d(np.zeros(self.inShape[:2]),
+                                                         np.zeros(self.kernel_size)).shape),
+                                  self.nKernels)
             if self.img_data_format == 'channels_first':
-                self._outShape = self._do_convolve_2d(np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)).shape
+                self._outShape = (self.nKernels,
+                                  *(self._do_convolve_2d(np.zeros(self.inShape[-2:]),
+                                                         np.zeros(self.kernel_size)).shape))
         return self._outShape
 
     @property
