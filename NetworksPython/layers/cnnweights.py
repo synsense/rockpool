@@ -67,10 +67,14 @@ class CNNWeight(UserList):
                 for nKernelIndex in range(self.nKernels):
                     if img_data_format == 'channels_last':
                         kernel = data[..., nKernelIndex]
+                    elif img_data_format == 'channels_first':
+                        kernel = data[nKernelIndex]
                     fmConvolution = None  # Reset value
                     if bIndexReshaped.ndim == 3:
                         if img_data_format == 'channels_last':
                             nFeatureMaps = bIndexReshaped.shape[-1]
+                        elif img_data_format == 'channels_first':
+                            nFeatureMaps = bIndexReshaped.shape[0]
                         # Convolve each feature of input individually
                         for nFeatureIndex in range(nFeatureMaps):
                             img = bIndexReshaped[..., nFeatureIndex]
@@ -85,7 +89,8 @@ class CNNWeight(UserList):
                     aConvolution.append(fmConvolution)
 
                 fmConvolution = np.array(aConvolution)
-                fmConvolution = np.moveaxis(fmConvolution, 0, -1)
+                if img_data_format == 'channels_last':
+                    fmConvolution = np.moveaxis(fmConvolution, 0, -1)
                 return fmConvolution.flatten()
             else:
                 raise TypeError('Indices should be of type [bool]')
