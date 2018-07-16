@@ -6,13 +6,14 @@ from functools import reduce
 
 
 class CNNWeight(UserList):
-    def __init__(self, inShape=None, nKernels=1, kernel_size=(5, 5), mode='same'):
+    def __init__(self, inShape=None, nKernels=1, kernel_size=(5, 5), mode='same', img_data_format='channels_last'):
         '''
         CNNWeight class is virtual array that allows convolutions on the input through indexing
         :param inShape:     tuple Shape of input
         :param nKernels:    int No. of kernels for this convolutial weight matrix
         :param kernel_size: tuple Shape of each kernel
         :param mode:        str 'same' or 'valid' or 'full'
+        :param img_data_format: str 'channels_first' or 'channels_last'
         (For more information on convolution parameters look into scipy.convolve2d documentation
 
         Important Note: inShape needs to be set before the use of indexing on this object.
@@ -26,7 +27,7 @@ class CNNWeight(UserList):
         self._inShape = None
         self.inShape = inShape
         self.mode = mode
-        self.img_data_format = 'channels_last'
+        self.img_data_format = img_data_format
 
     def __len__(self):
         return len(self.data)
