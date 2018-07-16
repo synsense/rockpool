@@ -22,12 +22,12 @@ class CNNWeight(UserList):
         '''
         self.nKernels = nKernels
         self.kernel_size = kernel_size
-        self.ndim = 2  # Because the input and output is always flattened
+        self.img_data_format = img_data_format
+        self.mode = mode
         self.data = None  # Initialized when inShape is assigned
         self._inShape = None
         self.inShape = inShape
-        self.mode = mode
-        self.img_data_format = img_data_format
+        self.ndim = 2  # Because the input and output is always flattened
 
     def __len__(self):
         return len(self.data)
@@ -78,8 +78,12 @@ class CNNWeight(UserList):
                             nFeatureMaps = bIndexReshaped.shape[0]
                         # Convolve each feature of input individually
                         for nFeatureIndex in range(nFeatureMaps):
-                            img = bIndexReshaped[..., nFeatureIndex]
-                            kern = kernel[..., nFeatureIndex]
+                            if img_data_format == 'channels_last':
+                                img = bIndexReshaped[..., nFeatureIndex]
+                                kern = kernel[..., nFeatureIndex]
+                            elif img_data_format == 'channels_first':
+                                img = bIndexReshaped[nFeatureIndex]
+                                kern = kernel[nFeatureIndex]
                             fmConvolutionFeature = self._do_convolve_2d(img, kern)
                             if fmConvolution is None:
                                 fmConvolution = fmConvolutionFeature
@@ -129,7 +133,10 @@ class CNNWeight(UserList):
     @property
     def outShape(self):
         if self._outShape is None:
-            self._outShape = self._do_convolve_2d(np.zeros(self.inShape[:2]), np.zeros(self.kernel_size)).shape
+            if self.img_data_format == 'channels_last':
+                self._outShape = self._do_convolve_2d(np.zeros(self.inShape[:2]), np.zeros(self.kernel_size)).shape
+            if self.img_data_format == 'channels_first':
+                self._outShape = self._do_convolve_2d(np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)).shape
         return self._outShape
 
     @property
@@ -156,4 +163,7 @@ class CNNWeight(UserList):
         # Initialize kernels
         if self.data is not None:
             warnings.warn('Re-Initializing convolutional kernel because of inSize change')
-        self.data = np.random.rand(*self.kernel_size, *self._inShape[2:], self.nKernels)    # Kernel
+        if self.img_data_format == 'channels_last':
+            self.data = np.random.rand(*self.kernel_size, *self._inShape[2:], self.nKernels)    # Kernel
+        elif self.img_data_format == 'channels_first':
+            self.data = np.random.rand(self.nKernels, *self.inShape[:-2], *self.kernel_size)    # Kernel
