@@ -124,17 +124,17 @@ def test_data_format_channels_first():
                   img_data_format='channels_first')
 
     # Create an image
-    myImg = np.zeros((400, 400, 1))
+    myImg = np.zeros((1, 400, 400))
     myImg[0, 5, 0] = 1  # One pixel in image active
     myImgIndex = myImg.flatten().nonzero()[0]
 
     # Test indexing with entire image
     outConv = W[myImgIndex]
+    # Ensure image dimensions are understood and maintained
+    assert myImg.shape[-2:] == W.outShape[-2:]
     # Ensure size of output is as expected
     assert myImg.size*3 == outConv.size
-    # Ensure image dimensions are understood and maintained
-    assert myImg.shape[:2] == W.outShape[:2]
     # Ensure convolution data is accurate
-    outConv = outConv.reshape((400, 400, 3))
+    outConv = outConv.reshape((3, 400, 400))
     assert outConv[0, 5, 0] != 0
-    assert outConv[5, 0, 0] == 0
+    assert outConv[0, 0, 5] == 0
