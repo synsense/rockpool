@@ -41,6 +41,8 @@ class CNNWeight(UserList):
         # NOTE: This approach is optimal when there is dense spiking activity.
         # If this is used on a per spike basis, the simulations will be pretty
         # slow. So this will need some optimization
+        img_data_format = self.img_data_format  # Local variable
+        data = self.data    # Local variable
         try:
             if (type(index) is int) or (type(index) is list):
                 # indexed by integer
@@ -63,13 +65,17 @@ class CNNWeight(UserList):
                 aConvolution = []
                 # Convolve each kernel individually
                 for nKernelIndex in range(self.nKernels):
-                    kernel = self.data[..., nKernelIndex]
+                    if img_data_format == 'channels_last':
+                        kernel = data[..., nKernelIndex]
                     fmConvolution = None  # Reset value
                     if bIndexReshaped.ndim == 3:
+                        if img_data_format == 'channels_last':
+                            nFeatureMaps = bIndexReshaped.shape[-1]
                         # Convolve each feature of input individually
-                        for nFeature in range(bIndexReshaped.shape[-1]):
-                            fmConvolutionFeature = self._do_convolve_2d(bIndexReshaped[..., nFeature],
-                                                                        kernel[..., nFeature])
+                        for nFeatureIndex in range(nFeatureMaps):
+                            img = bIndexReshaped[..., nFeatureIndex]
+                            kern = kernel[..., nFeatureIndex]
+                            fmConvolutionFeature = self._do_convolve_2d(img, kern)
                             if fmConvolution is None:
                                 fmConvolution = fmConvolutionFeature
                             else:
