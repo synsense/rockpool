@@ -117,7 +117,6 @@ class SpikingLayer(Layer):
 
         # Update time
         self._t += tDuration
-
         return evOut
 
     def addToRecord(self,

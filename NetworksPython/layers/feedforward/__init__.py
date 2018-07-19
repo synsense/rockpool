@@ -4,6 +4,7 @@ from .exp_synapses_brian import FFExpSynBrian
 from .exp_synapses_manual import FFExpSyn
 from .evSpikeLayer import EventDrivenSpikingLayer
 from .spikelayer import SpikingLayer
+from .softmaxlayer import SoftMaxLayer
 
 __all__ = ['FFRateEuler',
            'PassThrough',
@@ -11,4 +12,5 @@ __all__ = ['FFRateEuler',
            'FFExpSynBrian',
            'FFExpSyn',
            'EventDrivenSpikingLayer',
-           'SpikingLayer']
+           'SpikingLayer',
+           'SoftMaxLayer']
