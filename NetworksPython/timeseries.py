@@ -1010,15 +1010,17 @@ class TSEvent(TimeSeries):
             vnChannels = np.array([vnChannels for _ in vtTimeTrace])
 
         # - Determine the minimum number of channels
-        nMinNumChannels = np.amax(vnChannels) + 1
+        if np.size(vnChannels) > 0:
+            nMinNumChannels = np.amax(vnChannels) + 1
+        else:
+            nMinNumChannels = 0
 
         if nNumChannels is None:
             # - Infer number of channels from maximum channel id in vnChannels
-            nNumChannels = nMinNumChannels
+            nNumChannels = int(nMinNumChannels)
         else:
-            assert nNumChannels >= nMinNumChannels, ('nNumChannels must be None'
-                + ' or greater than the highest channel ID.'
-            )
+            assert nNumChannels >= nMinNumChannels, \
+                'nNumChannels must be None or greater than the highest channel ID.'
 
         # - Check size of inputs
         assert np.size(vtTimeTrace) == np.size(vnChannels) == np.size(vfSamples), (
@@ -1037,7 +1039,7 @@ class TSEvent(TimeSeries):
         self.vnChannels = np.array(vnChannels, 'int').flatten()
 
         # - Store total number of channels
-        self.nNumChannels = int(nNumChannels)
+        self.nNumChannels = nNumChannels
 
     def interpolate(self, vtTimes: np.ndarray):
         """
