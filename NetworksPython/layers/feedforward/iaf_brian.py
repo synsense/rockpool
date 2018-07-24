@@ -39,7 +39,7 @@ class FFIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray,
-                 vfBias: Union[float, np.ndarray] = 10*mA,
+                 vfBias: Union[float, np.ndarray] = 15*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 0*mV,
@@ -124,7 +124,6 @@ class FFIAFBrian(Layer):
             Usage: .reset_state()
         """
         self._ngLayer.v = self.vfVRest * volt
-        self._ngLayer.I_syn = 0 * amp
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -132,7 +131,6 @@ class FFIAFBrian(Layer):
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
 
     def reset_time(self):
         """
@@ -219,6 +217,7 @@ class FFIAFBrian(Layer):
 
             # - Yield current output spikes, receive input for next time step
             vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[nStep]
+            if bVerbose: print('Layer: Yielding {} spikes'.format(np.sum(vbUseEvents)))
             tupInput = yield self._spmLayer.t_[vbUseEvents], self._spmLayer.i_[vbUseEvents]
 
             # - Specify network input currents for this streaming step
@@ -226,6 +225,9 @@ class FFIAFBrian(Layer):
                 taI_inp.values = mfNoiseStep[nStep, :]
             else:
                 taI_inp.values = np.reshape(tupInput[1][0, :], (1, -1)) + mfNoiseStep[nStep, :]
+
+            # - Reinitialise TimedArray
+            taI_inp._init_2d()
 
             if bVerbose: print('Layer: Input was: ', tupInput)
 
