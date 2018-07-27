@@ -13,7 +13,6 @@ from brian2 import second, amp, farad
 import brian2 as b2
 
 from NetworksPython.layers.feedforward.iaf_brian import FFIAFBrian
-from NetworksPython.layers.feedforward.rate import PassThrough
 from NetworksPython import timeseries as ts
 from NetworksPython.network import Network
 from NetworksPython import analysis as an
@@ -26,7 +25,7 @@ def draw_uniform(nNumSamples, fMin, fMax):
     """
     return (fMax - fMin) * np.random.rand(nNumSamples) + fMin
 
-tDt = 0.001
+tDt = 0.005
 fHeartRate = 1
 nTrials = 20
 
@@ -48,7 +47,7 @@ vtTau = draw_uniform(nResSize, tTauMin, tTauMax)
 vfWIn = (2*np.random.rand(nResSize) - 1) * fWeightScale
 
 # Layer
-fl = FFIAFBrian(vfWIn, vfBias=vfBias, vtTauN=vtTau)
+fl = FFIAFBrian(vfWIn, vfBias=vfBias, vtTauN=vtTau, tDt=tDt)
 
 # Input signal
 vfECG = labeled_signal(nTrials, fHeartRate=fHeartRate*tDt)[0]
@@ -92,7 +91,14 @@ plt.figure()
 viSortedByRate = np.argsort(vfMeanRates)
 plt.plot(np.arange(nResSize), vfMeanRates[viSortedByRate], label="Rate")
 plt.plot(np.arange(nResSize), vfRateDevs[viSortedByRate], 'k--', label="Std Rate")
-plt.plot(np.arange(nResSize), vfBias[viSortedByRate] * 1e5, label="Bias * 1e5")
-plt.plot(np.arange(nResSize), vtTau[viSortedByRate] * 1e5, label="Tau * 1e5")
-plt.plot(np.arange(nResSize), vfWIn[viSortedByRate] * 5e3, label="Weight * 1e4")
+# plt.plot(np.arange(nResSize), vfBias[viSortedByRate] * 1e5, label="Bias * 1e5")
+# plt.plot(np.arange(nResSize), vtTau[viSortedByRate] * 1e5, label="Tau * 1e5")
+# plt.plot(np.arange(nResSize), vfWIn[viSortedByRate] * 5e3, label="Weight * 1e4")
+plt.legend(loc="best")
+
+# Plot rate vs different quantities
+plt.figure()
+plt.scatter(vfMeanRates, vfBias * 1e5, label="Bias * 1e5", s=3)
+plt.scatter(vfMeanRates, vtTau * 1e5, label="Tau * 1e5", s=3)
+plt.scatter(vfMeanRates, vfWIn * 5e3, label="Weight * 1e4", s=3)
 plt.legend(loc="best")

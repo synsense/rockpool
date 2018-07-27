@@ -20,7 +20,7 @@ from NetworksPython import analysis as an
 
 tDt = 0.0001 * second
 
-nNumInputSamples = 40
+nNumInputSpikes = 40
 tInputDuration = 1
 
 # - Corrected constant parameters
@@ -82,8 +82,8 @@ stmNg = b2.StateMonitor(res._ngLayer, ['Ie0', 'Ii0', 'Ie1', 'Ii1', 'Imem', 'Iin_
 res._net.add(stmNg)
 
 # - Input
-vtIn = np.sort(np.random.rand(nNumInputSamples)) * tInputDuration
-vnChIn = np.random.randint(nResSize, size=nNumInputSamples)
+vtIn = np.sort(np.random.rand(nNumInputSpikes)) * tInputDuration
+vnChIn = np.random.randint(nResSize, size=nNumInputSpikes)
 tsIn = ts.TSEvent(vtIn, vnChIn)
 
 # - Run simulation

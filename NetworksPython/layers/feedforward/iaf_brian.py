@@ -131,7 +131,6 @@ class FFIAFBrian(Layer):
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
 
     def reset_time(self):
         """
