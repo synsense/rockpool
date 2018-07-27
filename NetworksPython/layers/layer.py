@@ -46,7 +46,7 @@ class Layer(ABC):
         try:
             assert mfW.ndim >= 2
         except Exception as e:
-            warnings.warn(str(e))
+            # warnings.warn(str(e))
             mfW = np.atleast_2d(mfW)
 
         # - Assign properties
