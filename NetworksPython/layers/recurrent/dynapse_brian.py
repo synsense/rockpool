@@ -81,6 +81,8 @@ class RecDynapseBrian(Layer):
         self._sggInput = b2.SpikeGeneratorGroup(self.nSize, [0], [0*second],
                                                 dt = np.asarray(tDt) * second)
 
+        # - Handle unit of tDt: if no unit provided, assume it is in seconds
+        tDt = np.asscalar(np.array(tDt)) * second
 
         ### --- Neurons
 
@@ -155,8 +157,11 @@ class RecDynapseBrian(Layer):
         """
         self._ngLayer.Imem = 0 * amp
         self._ngLayer.Iahp = 0.5 * pamp
+        self._sgRecurrentSynapses.Ie_syn = 0 * amp
+        self._sgRecurrentSynapses.Ii_syn = 0 * amp
+        self._sgReceiver
 
-    
+    # OBSOLETE!!!#     
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
             Usage: .randomize_state()
@@ -219,6 +224,10 @@ class RecDynapseBrian(Layer):
 
     @property
     def cOutput(self):
+        return TSEvent
+
+    @property
+    def cInput(self):
         return TSEvent
 
     @property
