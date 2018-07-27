@@ -1,3 +1,5 @@
+### --- Import statements
+
 import sys
 import os.path
 strPathToLib = os.path.abspath(sys.path[0] + '../../../..')
@@ -11,86 +13,270 @@ import numpy as np
 from brian2 import second, amp, farad
 import brian2 as b2
 
-from NetworksPython.layers.recurrent import dynapse_brian as db
+# Layers
+from NetworksPython.layers.feedforward.iaf_brian import FFIAFBrian
+from NetworksPython.layers.recurrent.dynapse_brian import RecDynapseBrian
 from NetworksPython.layers.recurrent.weights import In_Res_Dynapse
+from NetworksPython.layers.feedforward.exp_synapses_manual import FFExpSyn
+
 from NetworksPython import timeseries as ts
 from NetworksPython import analysis as an
+from NetworksPython import network as nw
 
+from Projects.AnomalyDetection.ECG.ecgsignal import signal_and_target
 
-### Include code from spiking.py and test_ecg_to_spike.py
+### --- Parameters
 
-### --- Set parameters
-
-tDtRes = 0.0001  # Length of time step in seconds - might only need that small for reservoir...
-tDt = 0.005
-
+# - Input data
 fHeartRate = 1  # Heart rate in rhythms per second
-
-tDurBatch = 500  # Training batch duration
-fRegularize = 0.001  # Regularization parameter for training with ridge regression
-
-# Input data
-nTrialsTr = 1000  # Number ECG rhythms for Training
-nTrialsVa = 500  # Number ECG rhythms for validation
-nRepsVa = 4  # Number repetitions of validation runs
-nTrialsTe = 1000  # Number ECG rhythms for testing
 
 fStdNoiseSignal = 0  # Standard deviation of input noise
 
+nTrialsTr = 1  # Number ECG rhythms for Training
+nTrialsVa = 1  # Number ECG rhythms for validation
+nRepsVa = 1  # Number repetitions of validation runs
+nTrialsTe = 1  # Number ECG rhythms for testing
+
+pNormal = 0.8  # Probability of normal input rhythm
+pAnomal = (1 - pNormal) / 6.  # Probability of abnormal input rhythm
+
+# Anomaly probabilities
+dProbs = {
+    "complete_normal": pNormal,  # Normal ECG
+    "complete_noP": pAnomal,  # Missing P-wave
+    "complete_Pinv": pAnomal,  # Inverted P-wave
+    "complete_noQRS": pAnomal,  # Missing QRS complex
+    "complete_Tinv": pAnomal,  # Inverted T-wave
+    "complete_STelev": pAnomal,  # Elevated ST-segment
+    "complete_STdepr": pAnomal,  # Depressed ST-segment
+}
+
+# - Forward layer
 nDimIn = 1  # Input dimensions
-nDimOut = 1  # Output dimensions
 
-# Forward layer
-fScaleFF = 0.3
+tDtAS = 0.005  # Length of time step in seconds (analogue-to-spike layer)
 
-# Reservoir
-nResSize = 512  # Reservoir size
+fScaleAS = 0.3
+
+fBiasMinAS = 0 * amp
+fBiasMaxAS = 0.015 * amp
+
+tTauMinAS = 0.010
+tTauMaxAS = 0.1
+
+# - Reservoir
+tDtRes = 0.0001  # Length of time step in seconds (reservoir layer)
+
+nResSize = 64  # Reservoir size
 fConnectivity = None  # Percentage of non-zero recurrent weights
 
-fIconst = 4.375e-9 * amp
-fBaseweightE = 7e-8 * amp
-fBaseweightI = 1e-7 * amp
+fIconst = 4.375e-9 * amp  # Constant input current as bias
+fBaseweightE = 7e-8 * amp  # Excitatory synapse strength
+fBaseweightI = 1e-7 * amp  # Inhibitory synapse strength
+
+# - Readout
+nDimOut = 9  # Output dimensions
+tDtOut = 0.005  # Length of time step in seconds (readout layer)
+tTauOut = 35 * tDtOut  # Time constant of readout exponential filter
+
+# - Training
+tDurBatch = 500  # Training batch duration
+fRegularize = 0.001  # Regularization parameter for training with ridge regression
 
 
+# - Collect some of the parameters in dicts
 
-
-# - Corrected constant parameters
+# Corrected neuron parameters
 dParamNeuron = {
     'Iconst' : fIconst,
 }
 
+# Corrected synapse parameters
 dParamSynapse = {
     'baseweight_i' : fBaseweightI,
     'baseweight_e' : fBaseweightE,
 }
 
-# - Reservoir generation
+# Signal parameters
+kwSignal = {
+    "strTargetMethod": "segment-extd",  # Method for labelling targets
+    "dProbs": dProbs,
+    "fHeartRate": fHeartRate,
+    "tDt": tDtAS,
+    "bVerbose": True,
+    "nMinWidth": int(0.5 * fHeartRate / tDtAS),
+    "bDetailled": True,
+    "fStdNoise" : fStdNoiseSignal,
+}
 
 
-# Recurrent weights, normalized by spectral radius
-np.random.seed(1)
 
-# - Weight generation
-# Forward layer
-# Input weights
-vfWFF = (2*np.random.rand(nResSize) - 1) * fScaleFF
-# Reservoir
+### --- Function definitions
+
+def draw_uniform(nNumSamples, fMin, fMax):
+    """
+    draw_uniform - Convenience function fro drawing nNumSamples uniformly
+                   distributed samples between fMin and fMax 
+    """
+    return (fMax - fMin) * np.random.rand(nNumSamples) + fMin
+
+def cTrain(net: nw.Network, dtsSignal: dict, bFirst: bool, bFinal: bool):
+    """
+    cTrain - Train layers flOut and flOut1D with input from dtsSignal and tsTgtTr as
+             target. Use fRegularize as parameter for ridge regression.
+             Training may span several batches. This funciton is to be
+             passed on to net and will be called after each batch.
+    :param net:     Network containing the layer
+    :param dtsSignal: dict with TimeSeries from network evolutions
+    :param bFirst:    bool True if this is the first batch of a training
+    :param bLast:    bool True if this is the final batch of a training
+    """
+    # - Input to flOut
+    tsInput = dtsSignal["reservoir"]
+    # - Infer time range of current batch
+    tStart = dtsSignal["external"].tStart
+    tStop = dtsSignal["external"].tStop
+    # - Sample target within time range of current batch
+    tsTarget = tsTgtTr.resample_within(tStart, tStop)
+    # - Train the layer
+    flOut.train_rr(tsTarget, tsInput, fRegularize, bFirst, bFinal)
+
+def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
+    """
+    ts_ecg_target - Generate two time series, one containing an ECG signal
+                   and the other the corresponding target.
+    :param nRhythms:    int Number of ECG rhythms in the input
+    :tDt:               float Size of a single time step
+    :kwargs:            dict Kwargs that are passed on to signal_and_target
+    """
+
+    # - Input signal and target
+    vfInput, mfTarget = signal_and_target(nTrials=nRhythms, **kwargs)
+
+    # - Time base
+    tDt = kwargs["tDt"]
+    vtTime = np.arange(0, vfInput.size * tDtAS, tDtAS)[: vfInput.size]
+
+    # - Genrate time series
+    tsInput = ts.TimeSeries(vtTime, vfInput)
+    tsTarget = ts.TimeSeries(vtTime, mfTarget)
+
+    return tsInput, tsTarget
+
+
+### --- Network generation
+
+# - Layer for analogue to spike conversion
+vfWAS = (2*np.random.rand(nDimIn, nResSize) - 1) * fScaleAS
+vfBiasAS = draw_uniform(nResSize, fBiasMinAS, fBiasMaxAS)
+vtTauAS = draw_uniform(nResSize, tTauMinAS, tTauMaxAS)
+flAS = FFIAFBrian(vfWAS, vfBias=vfBiasAS, vtTauN=vtTauAS, strName="input")
+
+# - Reservoir
 vfWIn, mfW, *__ = In_Res_Dynapse(nResSize, tupfWExc=(1,1), tupfWInh=(1,1), fNormalize=1, bLeaveSpaceForInput=True)
+rlRes = RecDynapseBrian(mfW, vfWIn, tDt=tDtRes, dParamNeuron=dParamNeuron, dParamSynapse=dParamSynapse, strName="reservoir")
 
-# - Network generation
-# Forward layer
-fl = FFIAFBrian(vfWIn, vfBias=vfBias, vtTauN=vtTau)
-# Reservoir
-res = db.RecDynapseBrian(mfW, vfWIn, tDt=tDtRes, dParamNeuron=dParamNeuron, dParamSynapse=dParamSynapse)
+# - Readout
+flOut = FFExpSyn(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauOut, tDt=tDtOut, strName="output")
+# - Network
+net = nw.Network(flAS, rlRes, flOut)
 
-# Monitors
-stmNg = b2.StateMonitor(res._ngLayer, ['Ie0', 'Ii0', 'Ie1', 'Ii1', 'Imem', 'Iin_clip'], record=True)
-res._net.add(stmNg)
 
-# - Input
-vtIn = np.sort(np.random.rand(nNumInputSamples)) * tInputDuration
-vnChIn = np.random.randint(nResSize, size=nNumInputSamples)
-tsIn = ts.TSEvent(vtIn, vnChIn)
 
-# - Run simulation
-tsR = res.evolve(tsIn)
+### --- Training
+print("Training")
+
+# - Training signal
+# Generate training data and time trace
+tsInTr, tsTgtTr = ts_ecg_target(nTrialsTr, **kwSignal)
+
+# - Run training
+net.train(cTrain, tsInTr, tDurBatch=tDurBatch)
+net.reset_all()
+
+
+### --- Validation run for threshold determination
+
+print("Finding threshold")
+
+# - Lists for storing thresholds
+lvfThr = []
+
+# - Validation runs
+for i in range(nRepsVa):
+
+    print("\tRun {} of {}".format(i + 1, nRepsVa), end="\r")
+
+    # Input and target generation
+    tsInVa, tsTgtVa = ts_ecg_target(nTrialsVa, **dict(kwSignal, bVerbose=False))
+
+    # Simulation
+    dVa = net.evolve(tsInVa, bVerbose=False)
+    net.reset_all()
+
+    lvfThr.append(
+        an.find_all_thresholds_multi(
+            mOutput=dVa["output"].mfSamples,
+            mTarget=tsTgtVa.mfSamples,
+            nWindow=int(fHeartRate / tDtOut),
+            nClose=int(fHeartRate / tDtOut),
+            fMin=0.1,
+            nAttempts=16,
+            nRecursions=4,
+            bStrict=False,
+        )
+    )
+
+    del dVa
+
+# - Average over stored thresholds
+vfThr = np.nanmean(lvfThr, axis=0)
+
+print("Using following thresholds:")
+print(vfThr)
+
+
+### --- Testing
+print("Testing")
+# - Test signal
+# Generate test data and time trace
+tsInTe, tsTgtTe = ts_ecg_target(nTrialsTe, **kwSignal)
+
+# - Run test
+dTe = net.evolve(tsInTe)
+net.reset_all()
+
+# - Analysis and plotting
+print("\nAnalysis of test run:")
+mfOutTe = dTe['output'].mfSamples
+dAnalysis = an.analyze_multi(
+    mfOutTe,
+    tsTgtTe.mfSamples,
+    tsInTe.mfSamples,
+    vfThr[:, 0],
+    nWindow=int(fHeartRate / tDtOut),
+    nClose=int(fHeartRate / tDtOut),
+    bPlot=True,
+    bVerbose=True,
+)
+
+
+# - Show statistics for individual symptom types
+
+lstrSymptomFullNames = [
+    "Inverted P-wave",
+    "Missing P-wave",
+    "Missing QRS-complex",
+    "Inverted T-wave",
+    "Elevated ST-segment",
+    "Depressed ST-segment",
+]
+
+for iSymptom in dAnalysis["dSymptoms"].keys():
+    if iSymptom < len(lstrSymptomFullNames):
+        print(lstrSymptomFullNames[iSymptom] + ":")
+        print(
+            "{:.1%}\n".format(
+                dAnalysis["dSymptoms"][iSymptom]["fSensitivity"]
+            )
+        )
