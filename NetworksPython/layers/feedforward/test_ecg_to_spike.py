@@ -27,7 +27,7 @@ def draw_uniform(nNumSamples, fMin, fMax):
 
 tDt = 0.005
 fHeartRate = 1
-nTrials = 20
+nTrials = 900
 
 nResSize = 512
 
