@@ -8,6 +8,8 @@ sys.path.insert(1, strPathToLib)
 from matplotlib import pyplot as plt
 plt.ion()
 
+import time
+
 import numpy as np
 
 from brian2 import second, amp, farad
@@ -32,10 +34,10 @@ fHeartRate = 1  # Heart rate in rhythms per second
 
 fStdNoiseSignal = 0  # Standard deviation of input noise
 
-nTrialsTr = 1  # Number ECG rhythms for Training
-nTrialsVa = 1  # Number ECG rhythms for validation
-nRepsVa = 1  # Number repetitions of validation runs
-nTrialsTe = 1  # Number ECG rhythms for testing
+nTrialsTr = 500  # Number ECG rhythms for Training
+nTrialsVa = 500  # Number ECG rhythms for validation
+nRepsVa = 3  # Number repetitions of validation runs
+nTrialsTe = 500  # Number ECG rhythms for testing
 
 pNormal = 0.8  # Probability of normal input rhythm
 pAnomal = (1 - pNormal) / 6.  # Probability of abnormal input rhythm
@@ -67,7 +69,7 @@ tTauMaxAS = 0.1
 # - Reservoir
 tDtRes = 0.0001  # Length of time step in seconds (reservoir layer)
 
-nResSize = 64  # Reservoir size
+nResSize = 512  # Reservoir size
 fConnectivity = None  # Percentage of non-zero recurrent weights
 
 fIconst = 4.375e-9 * amp  # Constant input current as bias
@@ -80,7 +82,7 @@ tDtOut = 0.005  # Length of time step in seconds (readout layer)
 tTauOut = 35 * tDtOut  # Time constant of readout exponential filter
 
 # - Training
-tDurBatch = 500  # Training batch duration
+tDurBatch = 50  # Training batch duration
 fRegularize = 0.001  # Regularization parameter for training with ridge regression
 
 
@@ -170,7 +172,7 @@ def ts_ecg_target(nRhythms: int, **kwargs) -> (ts.TimeSeries, ts.TimeSeries):
 vfWAS = (2*np.random.rand(nDimIn, nResSize) - 1) * fScaleAS
 vfBiasAS = draw_uniform(nResSize, fBiasMinAS, fBiasMaxAS)
 vtTauAS = draw_uniform(nResSize, tTauMinAS, tTauMaxAS)
-flAS = FFIAFBrian(vfWAS, vfBias=vfBiasAS, vtTauN=vtTauAS, strName="input")
+flAS = FFIAFBrian(vfWAS, vfBias=vfBiasAS, vtTauN=vtTauAS, tDt=tDtAS, strName="input")
 
 # - Reservoir
 vfWIn, mfW, *__ = In_Res_Dynapse(nResSize, tupfWExc=(1,1), tupfWInh=(1,1), fNormalize=1, bLeaveSpaceForInput=True)
@@ -182,101 +184,130 @@ flOut = FFExpSyn(mfW=np.zeros((nResSize, nDimOut)), tTauSyn=tTauOut, tDt=tDtOut,
 net = nw.Network(flAS, rlRes, flOut)
 
 
+if __name__ == "__main__":
+    ### --- Training
+    print("Training")
 
-### --- Training
-print("Training")
+    # - Training signal
+    # Generate training data and time trace
+    tsInTr, tsTgtTr = ts_ecg_target(nTrialsTr, **kwSignal)
 
-# - Training signal
-# Generate training data and time trace
-tsInTr, tsTgtTr = ts_ecg_target(nTrialsTr, **kwSignal)
-
-# - Run training
-net.train(cTrain, tsInTr, tDurBatch=tDurBatch)
-net.reset_all()
-
-
-### --- Validation run for threshold determination
-
-print("Finding threshold")
-
-# - Lists for storing thresholds
-lvfThr = []
-
-# - Validation runs
-for i in range(nRepsVa):
-
-    print("\tRun {} of {}".format(i + 1, nRepsVa), end="\r")
-
-    # Input and target generation
-    tsInVa, tsTgtVa = ts_ecg_target(nTrialsVa, **dict(kwSignal, bVerbose=False))
-
-    # Simulation
-    dVa = net.evolve(tsInVa, bVerbose=False)
+    # - Run training
+    net.train(cTrain, tsInTr, tDurBatch=tDurBatch)
     net.reset_all()
 
-    lvfThr.append(
-        an.find_all_thresholds_multi(
-            mOutput=dVa["output"].mfSamples,
-            mTarget=tsTgtVa.mfSamples,
-            nWindow=int(fHeartRate / tDtOut),
-            nClose=int(fHeartRate / tDtOut),
-            fMin=0.1,
-            nAttempts=16,
-            nRecursions=4,
-            bStrict=False,
-        )
-    )
 
-    del dVa
+    ### --- Validation run for threshold determination
 
-# - Average over stored thresholds
-vfThr = np.nanmean(lvfThr, axis=0)
+    print("Finding threshold")
 
-print("Using following thresholds:")
-print(vfThr)
+    # - Lists for storing thresholds
+    lvfThr = []
 
+    # - Validation runs
+    for i in range(nRepsVa):
 
-### --- Testing
-print("Testing")
-# - Test signal
-# Generate test data and time trace
-tsInTe, tsTgtTe = ts_ecg_target(nTrialsTe, **kwSignal)
+        print("\tRun {} of {}".format(i + 1, nRepsVa), end="\r")
 
-# - Run test
-dTe = net.evolve(tsInTe)
-net.reset_all()
+        # Input and target generation
+        tsInVa, tsTgtVa = ts_ecg_target(nTrialsVa, **dict(kwSignal, bVerbose=False))
 
-# - Analysis and plotting
-print("\nAnalysis of test run:")
-mfOutTe = dTe['output'].mfSamples
-dAnalysis = an.analyze_multi(
-    mfOutTe,
-    tsTgtTe.mfSamples,
-    tsInTe.mfSamples,
-    vfThr[:, 0],
-    nWindow=int(fHeartRate / tDtOut),
-    nClose=int(fHeartRate / tDtOut),
-    bPlot=True,
-    bVerbose=True,
-)
+        # Simulation
+        dVa = net.evolve(tsInVa, bVerbose=False)
+        net.reset_all()
 
-
-# - Show statistics for individual symptom types
-
-lstrSymptomFullNames = [
-    "Inverted P-wave",
-    "Missing P-wave",
-    "Missing QRS-complex",
-    "Inverted T-wave",
-    "Elevated ST-segment",
-    "Depressed ST-segment",
-]
-
-for iSymptom in dAnalysis["dSymptoms"].keys():
-    if iSymptom < len(lstrSymptomFullNames):
-        print(lstrSymptomFullNames[iSymptom] + ":")
-        print(
-            "{:.1%}\n".format(
-                dAnalysis["dSymptoms"][iSymptom]["fSensitivity"]
+        lvfThr.append(
+            an.find_all_thresholds_multi(
+                mOutput=dVa["output"].mfSamples,
+                mTarget=tsTgtVa.mfSamples,
+                nWindow=int(fHeartRate / tDtOut),
+                nClose=int(fHeartRate / tDtOut),
+                fMin=0.1,
+                nAttempts=16,
+                nRecursions=4,
+                bStrict=False,
             )
         )
+
+        del dVa
+
+    # - Average over stored thresholds
+    vfThr = np.nanmean(lvfThr, axis=0)
+
+    print("Using following thresholds:")
+    print(vfThr)
+
+
+    ### --- Testing
+    print("Testing")
+    # - Test signal
+    # Generate test data and time trace
+    tsInTe, tsTgtTe = ts_ecg_target(nTrialsTe, **kwSignal)
+
+    # - Run test
+    dTe = net.evolve(tsInTe)
+    net.reset_all()
+
+    # - Analysis and plotting
+    print("\nAnalysis of test run:")
+    mfOutTe = dTe['output'].mfSamples
+    dAnalysis = an.analyze_multi(
+        mfOutTe,
+        tsTgtTe.mfSamples,
+        tsInTe.mfSamples,
+        vfThr[:, 0],
+        nWindow=int(fHeartRate / tDtOut),
+        nClose=int(fHeartRate / tDtOut),
+        bPlot=True,
+        bVerbose=True,
+    )
+
+
+    # - Show statistics for individual symptom types
+
+    lstrSymptomFullNames = [
+        "Inverted P-wave",
+        "Missing P-wave",
+        "Missing QRS-complex",
+        "Inverted T-wave",
+        "Elevated ST-segment",
+        "Depressed ST-segment",
+    ]
+
+    for iSymptom in dAnalysis["dSymptoms"].keys():
+        if iSymptom < len(lstrSymptomFullNames):
+            print(lstrSymptomFullNames[iSymptom] + ":")
+            print(
+                "{:.1%}\n".format(
+                    dAnalysis["dSymptoms"][iSymptom]["fSensitivity"]
+                )
+            )
+
+    # - Save results
+    strDateTime = time.strftime('%y-%m-%d_%H-%M-%S')
+    dParams = dict(
+        nResSize = nResSize,
+        nTrialTr = nTrialTr,
+        nTrialTe = nTrialTe,
+        nTrialVa = nTrialVa,
+        nRepsVa = nRepsVa,
+        fHeartRate = fHeartRate,
+        fStdNoiseSignal = fStdNoiseSignal,
+        tDtAS = tDtAS,
+        fScaleAS = fScaleAS,
+        fBiasMinAS = fBiasMinAS,
+        fBiasMaxAS = fBiasMaxAS,
+        tTauMinAS = tTauMinAS,
+        tTauMaxAS = tTauMaxAS,
+        tDtRes = tDtRes,
+        fConnectivity = fConnectivity,
+        fIconst = fIconst,
+        fBaseweightE = fBaseweightE,
+        fBaseweightI = fBaseweightI,
+        nDimOut = nDimOut,
+        tDtOut = tDtOut,
+        tTauOut = tTauOut,
+        tDurBatch = tDurBatch,
+        fRegularize = fRegularize,
+    )
+    np.savez('results_' + strDateTime, dAnalysis=dAnalysis, dProbs=dProbs, dTe=dTe, dParams=dParams)
