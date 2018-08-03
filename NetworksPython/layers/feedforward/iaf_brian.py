@@ -29,6 +29,18 @@ eqNeuronIAF = b2.Equations('''
     v_reset                                         : volt                      # Reset potential
 ''')
 
+eqNeuronIAFSpkIn = b2.Equations('''
+    dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
+    I_total = I_syn + I_bias + I_inp(t, i)          : amp                       # Total input current
+    I_syn                                           : amp                       # Synaptic input current
+    I_bias                                          : amp                       # Per-neuron bias current
+    v_rest                                          : volt                      # Rest potential
+    tau_m                                           : second                    # Membrane time constant
+    r_m                                             : ohm                       # Membrane resistance
+    v_thresh                                        : volt                      # Firing threshold potential
+    v_reset                                         : volt                      # Reset potential
+''')
+
 
 ## - FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFBrian(Layer):
@@ -238,3 +250,171 @@ class FFIAFBrian(Layer):
     @Layer.tDt.setter
     def tDt(self, _):
         raise ValueError('The `tDt` property cannot be set for this layer')
+
+
+# - FFIAFSpkInBrian - Class: Spiking feedforward layer with spiking in- and outputs
+class FFIAFSpkInBrian(FFIAFBrian):
+    """ FFIAFSpkInBrian - Class: Spiking feedforward layer with spiking in- and outputs
+    """
+
+    ## - Constructor
+    def __init__(self,
+                 mfW: np.ndarray,
+                 vfBias: np.ndarray = 10*mA,
+
+                 tDt: float = 0.1*ms,
+                 fNoiseStd: float = 0*mV,
+
+                 vtTauN: np.ndarray = 20*ms,
+
+                 vfVThresh: np.ndarray = -55*mV,
+                 vfVReset: np.ndarray = -65*mV,
+                 vfVRest: np.ndarray = -65*mV,
+
+                 tRefractoryTime = 0*ms,
+
+                 eqNeurons = eqNeuronIAFSpkIn,
+
+                 strIntegrator: str = 'rk4',
+
+                 strName: str = 'unnamed'
+                 ):
+        """
+        FFIAFSpkInBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
+                          in- and outputs are spiking events
+
+        :param mfW:             np.array MxN weight matrix.
+        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
+
+        :param tDt:             float Time-step. Default: 0.1 ms
+        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+
+        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
+
+        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
+        :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
+        :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
+
+        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+
+        :param eqNeurons:       Brian2.Equations set of neuron equations. Default: IAF equation set
+
+        :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
+
+        :param strName:         str Name for the layer. Default: 'unnamed'
+        """
+
+        # - Call Layer constructor
+        Layer.__init__(
+            self,
+            mfW = mfW,
+            tDt = np.asarray(tDt),
+            fNoiseStd = np.asarray(fNoiseStd),
+            strName = strName
+        )
+
+        # - Set up spike source to receive spiking input
+        self._sggInput = b2.SpikeGeneratorGroup(self.nDimIn, [0], [0*second],
+                                                dt = np.asarray(tDt) * second)
+        # - Set up layer neurons
+        self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons,
+                                       threshold = 'v > v_thresh',
+                                       reset = 'v = v_reset',
+                                       refractory = np.asarray(tRefractoryTime) * second,
+                                       method = strIntegrator,
+                                       dt = np.asarray(tDt) * second,
+                                       name = 'spiking_ff_neurons')
+        self._ngLayer.v = vfVRest
+        self._ngLayer.r_m = 1 * ohm
+
+        # - Add source -> receiver synapses
+        self._sgReceiver = b2.Synapses(self._sggInput, self._ngLayer,
+                                       model = 'w : 1',
+                                       on_pre = 'I_syn_post += w*amp',
+                                       method = strIntegrator,
+                                       dt = np.asarray(tDt) * second,
+                                       name = 'receiver_synapses')
+        self._sgReceiver.connect()
+
+        # - Add monitors to record layer outputs
+        self._spmLayer = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
+
+        # - Call Network constructor
+        self._net = b2.Network(
+            self._sggInput,
+            self._ngLayer,
+            self._spmLayer,
+            name = 'ff_spiking_layer'
+        )
+
+        # - Record neuron parameters
+        self.vfVThresh = vfVThresh
+        self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
+        self.vtTauN = vtTauN
+        self.tRefractoryTime = tRefractoryTime
+        self.vfBias = vfBias
+
+        # - Store "reset" state
+        self._net.store('reset')
+
+    def reset_state(self):
+        """ .reset_state() - Method: reset the internal state of the layer
+            Usage: .reset_state()
+        """
+        self._ngLayer.v = self.vfVRest * volt
+        self._ngLayer.I_syn = 0 * amp
+
+    def randomize_state(self):
+        """ .randomize_state() - Method: randomize the internal state of the layer
+            Usage: .randomize_state()
+        """
+        fRangeV = abs(self.vfVThresh - self.vfVReset)
+        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
+        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+
+    def evolve(
+        self,
+        tsInput: TSContinuous = None,
+        tDuration: float = None
+    ):
+        """
+        evolve - Evolve the state of this layer
+
+        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
+        :param tDuration:   float Duration of evolution, in seconds
+
+        :return: TimeSeries Output of this layer during evolution period
+        """
+
+        # - Prepare time base
+        vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
+
+        # - Set spikes for spike generator
+        if tsInput is not None:
+            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
+            self._sggInput.set_spikes(vnEventChannels, vtEventTimes * second, sorted = False)
+        else:
+            self._sggInput.set_spikes([], [] * second)
+
+        # - Generate a noise trace
+        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
+        
+        # - Specifiy noise input currents, construct TimedArray
+        taI_noise = TAShift(np.asarray(mfNoiseStep) * amp,
+                          self.tDt * second, tOffset = self.t * second,
+                          name  = 'noise_input')
+
+        # - Perform simulation
+        self._net.run(tDuration * second, namespace = {'I_inp': taI_noise}, level = 0)
+
+        # - Build response TimeSeries
+        vtEventTimeOutput = self._spmLayer.t_
+        vbUseEvent = self._spmLayer.t_ >= vtTimeBase[0]
+        vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
+
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
+
+        @property
+        def cInput(self):
+            return TSEvent
