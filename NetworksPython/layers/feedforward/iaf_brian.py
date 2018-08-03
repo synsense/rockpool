@@ -92,7 +92,7 @@ class FFIAFBrian(Layer):
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons,
                                        threshold = 'v > v_thresh',
                                        reset = 'v = v_reset',
-                                       refractory = tRefractoryTime,
+                                       refractory = np.asarray(tRefractoryTime) * second,
                                        method = strIntegrator,
                                        dt = np.asarray(tDt) * second,
                                        name = 'spiking_ff_neurons')
