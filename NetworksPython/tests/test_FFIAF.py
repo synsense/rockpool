@@ -42,7 +42,7 @@ assert fl0.t == 0
 assert (vStateBefore == fl0.vState).all()
 
 # - Test FFIAFSpkInBrian
-fl1 = iaf_brian.FFIAFBrian(
+fl1 = iaf_brian.FFIAFSpkInBrian(
     mfW = mfW,
     vfBias = vfBias,
     vtTauN = vtTauN,
