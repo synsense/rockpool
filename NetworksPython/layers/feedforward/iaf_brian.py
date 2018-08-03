@@ -125,6 +125,7 @@ class FFIAFBrian(Layer):
         self.vtTauN = vtTauN
         self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
+        self.mfW = mfW
 
         # - Store "reset" state
         self._net.store('reset')
@@ -418,3 +419,13 @@ class FFIAFSpkInBrian(FFIAFBrian):
         @property
         def cInput(self):
             return TSEvent
+
+        @property
+        def mfW(self):
+            return self._sgReceiver.w
+
+        @mfW.setter
+        def mfW(self, mfNewW):
+            assert mfNewW.shape == (self.nDimIn, self.nSize), \
+            "mfW must be of dimensions ({}, {}).".format(self.nDimIn, self.nSize)
+            self._sgReceiver.w = np.array(mfW_new)
