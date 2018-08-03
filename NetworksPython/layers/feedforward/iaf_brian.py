@@ -123,7 +123,6 @@ class FFIAFBrian(Layer):
             Usage: .reset_state()
         """
         self._ngLayer.v = self.vfVRest * volt
-        self._ngLayer.I_syn = 0 * amp
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -131,7 +130,6 @@ class FFIAFBrian(Layer):
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
 
     def reset_time(self):
         """
