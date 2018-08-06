@@ -32,10 +32,11 @@ eqNeuronIAF = b2.Equations('''
 eqNeuronIAFSpkIn = b2.Equations('''
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_syn + I_bias + I_inp(t, i)          : amp                       # Total input current
-    I_syn                                           : amp                       # Synaptic input current
+    dI_syn/dt = -I_syn / tau_s                      : amp                       # Synaptic input current
     I_bias                                          : amp                       # Per-neuron bias current
     v_rest                                          : volt                      # Rest potential
     tau_m                                           : second                    # Membrane time constant
+    tau_s                                           : second                    # Membrane time constant
     r_m                                             : ohm                       # Membrane resistance
     v_thresh                                        : volt                      # Firing threshold potential
     v_reset                                         : volt                      # Reset potential
@@ -267,6 +268,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
                  fNoiseStd: float = 0*mV,
 
                  vtTauN: np.ndarray = 20*ms,
+                 vtTauS: np.ndarray = 20*ms,
 
                  vfVThresh: np.ndarray = -55*mV,
                  vfVReset: np.ndarray = -65*mV,
@@ -291,6 +293,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         :param fNoiseStd:       float Noise std. dev. per second. Default: 0
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
+        :param vtTauS:          np.array Nx1 vector of synapse time constants. Default: 20ms
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
@@ -343,6 +346,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # - Call Network constructor
         self._net = b2.Network(
             self._sggInput,
+            self._sgReceiver,
             self._ngLayer,
             self._spmLayer,
             name = 'ff_spiking_layer'
@@ -353,8 +357,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
+        self.vtTauS = vtTauS
         self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
+        self.mfW = mfW
 
         # - Store "reset" state
         self._net.store('reset')
@@ -416,16 +422,54 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
-        @property
-        def cInput(self):
-            return TSEvent
+    def reset_all(self, bResetParams=False):
+        if not bResetParams:
+            # - Store parameters
+            vfVThresh = self.vfVThresh
+            vfVReset = self.vfVReset
+            vfVRest = self.vfVRest
+            vtTauN = self.vtTauN
+            vtTauS = self.vtTauS
+            tRefractoryTime = self.tRefractoryTime
+            vfBias = self.vfBias
+            mfW = self.mfW
 
-        @property
-        def mfW(self):
-            return self._sgReceiver.w
+        super().reset_all()
+        
+        if not bResetParams:
+            # - Restork parameters
+            self.vfVThresh = vfVThresh
+            self.vfVReset = vfVReset
+            self.vfVRest = vfVRest
+            self.vtTauN = vtTauN
+            self.vtTauS = vtTauS
+            self.tRefractoryTime = tRefractoryTime
+            self.vfBias = vfBias
+            self.mfW = mfW
 
-        @mfW.setter
-        def mfW(self, mfNewW):
-            assert mfNewW.shape == (self.nDimIn, self.nSize), \
-            "mfW must be of dimensions ({}, {}).".format(self.nDimIn, self.nSize)
-            self._sgReceiver.w = np.array(mfW_new)
+
+    @property
+    def cInput(self):
+        return TSEvent
+
+    @property
+    def mfW(self):
+        return self._sgReceiver.w
+
+    @mfW.setter
+    def mfW(self, mfNewW):
+        assert (
+            mfNewW.shape == (self.nDimIn, self.nSize)
+            or mfNewW.shape == self._sgReceiver.w.shape
+        ), "mfW must be of dimensions ({}, {}).".format(self.nDimIn, self.nSize)
+        
+        self._sgReceiver.w = np.array(mfNewW).flatten()
+
+    @property
+    def vtTauS(self):
+        return self._ngLayer.tau_s_
+
+    @vtTauS.setter
+    def vtTauS(self, vtNewTauS):
+        self._ngLayer.tau_s = np.asarray(self._expand_to_net_size(vtNewTauS, 'vtNewTauS')) * second
+
