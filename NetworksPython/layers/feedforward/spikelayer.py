@@ -62,11 +62,11 @@ class SpikingLayer(Layer):
         # Iterate over all time steps
         for tCurrentTimeStep in tqdm(range(int(tDuration/tDt))):
             if tCurrentTimeStep >= len(inpSpkRaster):
-                # If the time step is within the provided input stream duration
-                vbInputSpkT = np.zeros(mfW.shape[0]).astype(bool)
-            else:
                 # If the time step goes beyond length of input stream
                 # In this case no input is assumed
+                vbInputSpkT = np.zeros(mfW.shape[0]).astype(bool)
+            else:
+                # If the time step is within the provided input stream duration
                 vbInputSpkT = inpSpkRaster[tCurrentTimeStep]
 
             tCurrentTime = tCurrentTimeStep*tDt
