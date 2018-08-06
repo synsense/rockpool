@@ -345,6 +345,8 @@ class Network:
                     "Cannot determine an appropriate evolution duration. "
                     + "`tsExternalInput` finishes before the current evolution time."
                 )
+                # - Correct tDuration in case of rounding errors
+                tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
 
         # - List of layers where tDuration is not a multiple of tDt
         llyrDtMismatch = list(
@@ -362,6 +364,9 @@ class Network:
                 + " for the following layer(s):\n"
                 + strLayers
             )
+            # - Correct tDuration in case of rounding errors
+            tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
+
 
         # - Set external input name if not set already
         if tsExternalInput.strName is None:
@@ -516,7 +521,15 @@ class Network:
         """
         bSync = True
         if bVerbose:
-            print("Network time is {}".format(self.t))
+            print("Network time is {}. \n\t Layer times:".format(self.t))
+            print(
+                "\n".join(
+                    (
+                        "\t\t {}: {}".format(lyr.strName, lyr.t)
+                        for lyr in self.lEvolOrder
+                    )
+                )
+            )
         for lyr in self.lEvolOrder:
             if abs(lyr.t - self.t) >= fTolRel * self.t + fTolAbs:
                 bSync = False
@@ -584,109 +597,3 @@ class Network:
 ### --- NetworkError exception class
 class NetworkError(Exception):
     pass
-
-
-"""Older stuff that might be useful again
-
-# - Asserting that tDuration % self.tDt == 0
-if (   min(tDuration%self.tDt, self.tDt-(tDuration%self.tDt))
-     > fTolRel * self.tDt):
-    raise ValueError('Creation of time trace failed. tDuration ({}) '
-                    +'is not a multiple of self.tDt ({})'.format(tDuration, self.tDt))
-# - or assert that last value of time series is tSTart+tDuration
-# tStop = tStart + tDuration
-# if np.abs(vtTimeTrace[-1] - tStop) > fTol*self._tDt:
-#     raise ValueError( 'Creation of time trace failed. Make sure that '
-#                      +'tDuration ({}) is a multiple of self.tDt ({}).'.format(
-#                      tDuration, self.tDt) )
-
-
-def lcm(*numbers: int) -> int:
-        lcm - Return the least common multiple of a series of numbers
-    :param numbers: iterable containing integer values
-    :return: int The least common multiple of *numbers
-
-    # - The LCM of two numbers is their product divided by their gcd
-    def _lcm(x: int, y: int) -> int:
-        return x*y//gcd(x,y)
-
-    return reduce(_lcm, numbers, 1)
-
-
-        # Default parameters for layers
-        dParamsIn = {'nSize' : 1,
-                     'sKind' : 'pass'}
-        dParamsOut = {'nSize' : 1,
-                      'sKind' : 'ffrate'}
-        dParamsRes = {'nSize' : 256,
-                      # 'nReservoirs' : 1,
-                      # 'sResConn' : 'serial',
-                      'sKind' : 'reservoir'}
-        dParamsIn.update(kwInput)
-        dParamsRes.update(kwReservoir)
-        dParamsOut.update(kwOutput)
-        try:
-            dParamsRes['vTau_n'] = kwReservoir['vTau_n']
-        except KeyError:
-            dParamsRes['vTau_n'] = np.random.rand(dParamsRes['nSize'])
-
-
-        Constructing reservoirs in series or parallel
-        # self.nReservoirs = dParamsRes.pop('nReservoirs')
-        # sResConn = dParamsRes.pop('sResConn')
-        # # Broadcast single paramters to arrays that apply to all reservoirs
-        # #   Time constants
-        # if (len(np.atleast_2d(dParamsRes['vTau_n'])) == 1
-        #       and len(dParamsRes['vTau_n']) != self.nReservoirs):
-        #     dParamsRes['vTau_n'] = np.repeat(np.atleast_2d(dParamsRes['vTau_n']),
-        #                                      self.nReservoirs, axis=0)
-        # #  All other parameters
-        # for sParam in dParamsRes.keys():
-        #     if sParam != 'vTau_n':
-        #         try:
-        #             dParamsRes[sParam] = np.full(self.nReservoirs, dParamsRes[sParam])
-        #         except ValueError:
-        #             raise ValueError('The number of arguments for {} '.format(sParam)
-        #                              + '({0}) does not match nReservoirs ({1})'.format(
-        #                             len(dParamsRes), self.nReservoirs))
-        # for i in range(self.nReservoirs):
-        #     setattr(self, 'lyrRes{}'.format(i),
-        #             Recurrent.RecLayer(**{s : v[i] for s, v in dParamsRes.items()}))
-
-        # - Generate connections: Each layer except input has a set with
-        # references to its input layer
-
-        # if sResConn == 'serial':
-        #     self.lyrRes0.setIn = {self.lyrInput}
-        #     for i in range(1, self.nReservoirs):
-        #         getattr(self, 'lyrRes{}'.format(i)).setIn = {getattr(self, 'lyrRes{}'.format(i-1))}
-        #     self.lyrOut.setIn = {getattr(self, 'lyrRes{}'.format(self.nReservoirs-1))}
-        # elif sResConn == 'parallel':
-        #     for i in Range(self.nReservoirs):
-        #         getattr(self, 'lyrRes{}'.format(i)).setIn = {self.lyrInput}
-        #     self.lyrOut.setIn = {getattr(self, 'lyrRes{}'.format(i))
-        #                        for i in range(self.nReservoirs)}
-        # else:
-        #     raise NetworkError('Connection type `{}` not understood'.format(sResConn))
-
-        ""Add feedforward or recurrent layer to network and maintain
-        set containing all layers.""
-        sLyrName = 'lyr'+strName
-        if hasattr(self, sLyrName):
-            raise NameError('There already exists a layer with this name')
-
-        if sKind == 'ffrate':
-            setattr(self, sLyrName, FeedForward.FFRate(strName=strName, fDt=self.__fDt, **kwargs))
-            print('Rate-based feedforward layer `{}` has been added to network.'.format(strName))
-
-        elif sKind == 'pass':
-            setattr(self, sLyrName, FeedForward.PassThrough(strName=strName, fDt=self.__fDt, **kwargs))
-            print('PassThrough layer `{}` has been added to network.'.format(strName))
-
-        elif sKind in ['Reservoir', 'reservoir', 'Recurrent', 'recurrent', 'res', 'rec']:
-            setattr(self, sLyrName, Recurrent.RecLayer(strName=strName, fDt=self.__fDt, **kwargs))
-            print('Recurrent layer `{}` has been added to network.'.format(strName))
-
-        else:
-            raise NetworkError('Layer type not understood')
-"""

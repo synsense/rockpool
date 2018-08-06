@@ -105,7 +105,7 @@ class FFExpSyn(Layer):
             mWeightedSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
 
         else:
-            vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], tTrueDuration])
+            vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], vtTimeBase[0] + tTrueDuration])
 
             # - Make sure that input channels do not exceed layer input dimensions
             if vnEventChannels.size > 0:
