@@ -280,7 +280,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
                  strIntegrator: str = 'rk4',
 
-                 strName: str = 'unnamed'
+                 strName: str = 'unnamed',
+
+                 bRecord: bool = False,
                  ):
         """
         FFIAFSpkInBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
@@ -306,6 +308,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
         :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
 
         :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions
         """
 
         # - Call Layer constructor
@@ -351,6 +355,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self._spmLayer,
             name = 'ff_spiking_layer'
         )
+
+        # - Monitor for recording network potential
+        self._stmVmem = b2.StateMonitor(self._ngLayer, ['v'], record=True, name = "layer_potential")
+        self._net.add(self._stmVmem)
 
         # - Record neuron parameters
         self.vfVThresh = vfVThresh
@@ -422,21 +430,21 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
-    def reset_all(self, bResetParams=False):
-        if not bResetParams:
+    def reset_all(self, bKeepParams=True):
+        if bKeepParams:
             # - Store parameters
-            vfVThresh = self.vfVThresh
-            vfVReset = self.vfVReset
-            vfVRest = self.vfVRest
-            vtTauN = self.vtTauN
-            vtTauS = self.vtTauS
-            tRefractoryTime = self.tRefractoryTime
-            vfBias = self.vfBias
-            mfW = self.mfW
+            vfVThresh = np.copy(self.vfVThresh)
+            vfVReset = np.copy(self.vfVReset)
+            vfVRest = np.copy(self.vfVRest)
+            vtTauN = np.copy(self.vtTauN)
+            vtTauS = np.copy(self.vtTauS)
+            tRefractoryTime = np.copy(self.tRefractoryTime)
+            vfBias = np.copy(self.vfBias)
+            mfW = np.copy(self.mfW)
 
         super().reset_all()
         
-        if not bResetParams:
+        if bKeepParams:
             # - Restork parameters
             self.vfVThresh = vfVThresh
             self.vfVReset = vfVReset
@@ -447,6 +455,101 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self.vfBias = vfBias
             self.mfW = mfW
 
+    def pot_kernel(t):
+        """ pot_kernel - response of the membrane potential to an
+                         incoming spike at a single synapse with
+                         weight 1*amp (not considering vfVRest)
+        """
+        fConst = self.vtTauS / (self.vtTauS-self.vtTauN) * self._ngLayer.r_m * amp
+        return fConst * ( np.exp(-t/self.vtTauS) - np.exp(-t/self.vtTauM) )
+
+    def train_mst_simple(
+        self,
+        tStart,
+        tDuration,
+        tsInput,
+        vnTargetCounts,
+        fLambda,
+        fEligibilityRatio,
+        bFirst = True,
+        bFinal = False,
+    ):
+        """
+        train_mst_simple - Use the multi-spike tempotron learning rule
+                           from Guetig2017, in its simplified version,
+                           where no gradients are calculated
+        """
+
+        assert hasattr(self, "_stmVmem"), (
+            "Layer needs to be instantiated with bRecord=True for "
+            + "this learning rule."
+        )
+
+        # - Discrete time steps for evaluating input and target time series
+        vtTimeBase = self._gen_time_trace(tStart, tDuration)
+
+        if tsInput is not None:
+            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
+        else:
+            print('No tsInput defined, assuming input to be 0.')
+            vtEventTimes, vnEventChannels = [], []
+
+        if not bFinal:
+            # - Discard last sample to avoid counting time points twice
+            vtTimeBase = vtTimeBase[:-1]
+
+        ## -- Determine eligibility for each neuron and synapse
+        mfEligibiity = np.zeros((self.nDimIn, self.nSize))
+
+        # - Iterate over source neurons
+        for iSource in range(nDimIn):
+            # - Find spike timings
+            vtEventTimesSource = vtEventTimes[vnEventChannels == iSource]
+            # - Sum individual correlations over input spikes, for all synapses
+            for tSpkIn in vtEventTimes
+                # - Membrane potential between input spike time and now (transform to vfVRest at 0)
+                vfVmem = self._stmVmem.v[self._stmVmem.t_ >= tSpkIn] - self.vfVRest
+                # - Kernel between input spike time and now
+                vfKernel = self.pot_kernel(self._stmVmem.t[self._stmVmem.t >= tSpkIn] - tSpkIn)
+                # - Add correlations to eligibility matrix
+                mfEligibiity[i, :] += np.sum(vfKernel * vfVmem)
+            
+        ## -- For each neuron sort eligibilities and choose synapses with largest eligibility
+        nEligible = int(fEligibilityRatio * nDimIn)
+        # - Mark eligible neurons
+        miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible, :]
+
+        ##  -- Compare target number of events with spikes and perform weight updates for chosen synapses
+        # - Numbers of (output) spike times for each neuron
+        vbUseEventOut = (self._spmLayer.t_ >= vtTimeBase[0]) & (self._spmLayer.t_ <= vtTimeBase[-1])
+        viSpkNeuronOut = self._spmLayer.i[vbUseEvent]
+        vnSpikeCount = np.array([
+            np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(nSize)
+        ])
+        # - Updates to eligible synapses of each neuron
+        vfUpdates = np.zeros(nSize)
+        # - Negative update if spike count too high
+        vfUpdates[vnSpikeCount > vnTargetCounts] = -fLambda
+        # - Positive update if spike count too low
+        vfUpdates[vnSpikeCount < vnTargetCounts] = fLambda
+
+        # - Update only eligible synapses
+        # - approach one: flattened arrays
+        mfW_flat = np.copy(self.mfW).flatten()
+        # - Indices of eligible connections wrt flat array
+        viEligible_flat = np.ravel_multi_index(
+            np.array([
+                miEligible.flatten(),  # Source index
+                np.repeat(np.arange(nSize),nEligible)  # Target index
+            ]),
+            (nDimIn, nSize)
+        )
+        mfW_flat[viEligible_flat] += np.repeat(vfUpdates, nEligible)
+        self.mfW = mfW_flat.reshape(nDimIn, nSize)
+
+        # - Second approach: using loops
+        for iTarget in range(nSize):
+            self.mfW[miEligible[:, iTarget], iTarget] += vfUpdates[iTarget]
 
     @property
     def cInput(self):
@@ -454,14 +557,16 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     @property
     def mfW(self):
-        return self._sgReceiver.w
+        return self._sgReceiver.w.reshape(nDimIn, nDimOut)
 
     @mfW.setter
     def mfW(self, mfNewW):
         assert (
             mfNewW.shape == (self.nDimIn, self.nSize)
             or mfNewW.shape == self._sgReceiver.w.shape
-        ), "mfW must be of dimensions ({}, {}).".format(self.nDimIn, self.nSize)
+        ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
+            self.nDimIn, self.nSize, self.nDimIn*self.nSize
+        )
         
         self._sgReceiver.w = np.array(mfNewW).flatten()
 
