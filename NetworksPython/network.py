@@ -514,13 +514,15 @@ class Network:
                     vtDurBatch = np.r_[tDurBatch, tRemaining-vtPassed[-1]]
         nNumBatches = np.size(vtDurBatch)
         
+        ## -- Actual training starts here:
+
         # - Iterate over batches
         bFirst = True
         bFinal = False
         for nBatch, tDurBatch in enumerate(vtDurBatch):
             if bVerbose:
                 print(
-                    "Training batch {} of {} from t={} to {}.".format(
+                    "Training batch {} of {} from t={} to {}.                             ".format(
                         nBatch+1, nNumBatches, self.t, self.t+min(tDurBatch, tRemaining)), end="\r"
                 )
             # - Evolve network
