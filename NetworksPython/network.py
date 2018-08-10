@@ -439,7 +439,7 @@ class Network:
         :param tDuration:       float - Duration over which netŵork should
                                         be evolved. If None, evolution is
                                         over the duration of tsExternalInput
-        :param tDurBatch:       float - Duration of one batch
+        :param tDurBatch:       float - Duration of one batch (can also pass array with several values)
         :param bVerbose:        bool  - Print info about training progress
         :param bHighVerbosity:  bool  - Print info about layer evolution
                                         (only has effect if bVerbose is True)
@@ -463,19 +463,39 @@ class Network:
                     + "`tsExternalInput` finishes before the current evolution time."
                 )
         else:
+            # - Count remaining time to ensure tDuration is not exceeded
             tRemaining = tDuration
 
         # - Determine batch duration and number
-        tDurBatch = tRemaining if tDurBatch is None else tDurBatch
-        nNumBatches = int(np.ceil(tRemaining / tDurBatch))
-
+        if tDurBatch is None:
+            vtDurBatch = np.array([tRemaining])
+        else:
+            # - Batch duration the same for all batches
+            if np.size(tDurBatch) == 1:
+                nNumBatches = (np.ceil(np.asarray(tRemaining) / tDurBatch)).astype(int)
+                vtDurBatch = np.repeat(tDurBatch, nNumBatches)
+            else:
+                # - Generate iterable with possibly different durations for each batch
+                # - Time value after each batch
+                vtPassed = np.cumsum(tDurBatch)
+                # - If sum of batch durations larger than tDuration, ignore last entries
+                if vtPassed[-1] > tDuration:
+                    # Index of first element with t past tDuration - include only until here
+                    # It is not dramatic if the last(!) batch goes beyond tDuration
+                    iFirstPast = np.where(vtPassed > tDuration)[0][0]
+                    vtDurBatch = tDurBatch[: iFirstPast+1]
+                elif vtPassed[-1] < tDuration:
+                    # - Add batch with missing duration
+                    vtDurBatch = np.r_[tDurBatch, tDuration-vtPassed[-1]]
+        nNumBatches = np.size(vtDurBatch)
+        
         # - Iterate over batches
         bFirst = True
         bFinal = False
-        for nBatch in range(1, nNumBatches + 1):
+        for nBatch, tDurBatch in enumerate(vtDurBatch):
             if bVerbose:
                 print(
-                    "Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r"
+                    "Training batch {} of {}   ".format(nBatch+1, nNumBatches), end="\r"
                 )
             # - Evolve network
             dtsSignal = self.evolve(
@@ -486,7 +506,7 @@ class Network:
             # - Remaining simulation time
             tRemaining -= tDurBatch
             # - Determine if this batch was the first or the last of training
-            if nBatch == nNumBatches:
+            if nBatch == nNumBatches-1:
                 bFinal = True
             # - Call the callback
             fhTraining(self, dtsSignal, bFirst, bFinal)
