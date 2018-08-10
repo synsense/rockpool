@@ -308,6 +308,30 @@ class Network:
         # - Return a list with the layers in their evolution order
         return lOrder
 
+    def _fix_duration(self, tDuration: float) -> float:
+        """
+        _fix_duration - Due to rounding errors it can happen that
+                        tDuration is slightly below its intened value,
+                        causing the layers to not evolve sufficiently.
+                        This method fixes the problem by increasing
+                        tDuration if it is slightly below a multiple of
+                        tDt of any of the layers in the network.
+            :param tDuration:   float - Duration to be fixed
+            :return:            float - Fixed duration
+        """
+        
+        # - All tDt
+        vtDt = np.array([lyr.tDt for lyr in self.lEvolOrder])
+
+        if (
+            (np.abs(tDuration % vtDt) > fTolAbs)
+            & (np.abs(tDuration % vtDt) - vtDt < fTolAbs)
+        ).any():
+            return tDuration + fTolAbs
+        else: 
+            return tDuration
+
+
     def evolve(
         self,
         tsExternalInput: TimeSeries = None,
@@ -346,7 +370,8 @@ class Network:
                     + "`tsExternalInput` finishes before the current evolution time."
                 )
                 # - Correct tDuration in case of rounding errors
-                tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
+                # tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
+                tDuration = self._fix_duration(tDuration)
 
         # - List of layers where tDuration is not a multiple of tDt
         llyrDtMismatch = list(
@@ -364,8 +389,8 @@ class Network:
                 + " for the following layer(s):\n"
                 + strLayers
             )
-            # - Correct tDuration in case of rounding errors
-            tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
+        # - Correct tDuration in case of rounding errors
+        tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
 
 
         # - Set external input name if not set already
@@ -478,15 +503,15 @@ class Network:
                 # - Generate iterable with possibly different durations for each batch
                 # - Time value after each batch
                 vtPassed = np.cumsum(tDurBatch)
-                # - If sum of batch durations larger than tDuration, ignore last entries
-                if vtPassed[-1] > tDuration:
-                    # Index of first element with t past tDuration - include only until here
-                    # It is not dramatic if the last(!) batch goes beyond tDuration
-                    iFirstPast = np.where(vtPassed > tDuration)[0][0]
+                # - If sum of batch durations larger than tRemaining, ignore last entries
+                if vtPassed[-1] > tRemaining:
+                    # Index of first element with t past tRemaining - include only until here
+                    # It is not dramatic if the last(!) batch goes beyond tRemaining
+                    iFirstPast = np.where(vtPassed > tRemaining)[0][0]
                     vtDurBatch = tDurBatch[: iFirstPast+1]
-                elif vtPassed[-1] < tDuration:
+                elif vtPassed[-1] < tRemaining:
                     # - Add batch with missing duration
-                    vtDurBatch = np.r_[tDurBatch, tDuration-vtPassed[-1]]
+                    vtDurBatch = np.r_[tDurBatch, tRemaining-vtPassed[-1]]
         nNumBatches = np.size(vtDurBatch)
         
         # - Iterate over batches
@@ -495,7 +520,8 @@ class Network:
         for nBatch, tDurBatch in enumerate(vtDurBatch):
             if bVerbose:
                 print(
-                    "Training batch {} of {}   ".format(nBatch+1, nNumBatches), end="\r"
+                    "Training batch {} of {} from t={} to {}.".format(
+                        nBatch+1, nNumBatches, self.t, self.t+min(tDurBatch, tRemaining)), end="\r"
                 )
             # - Evolve network
             dtsSignal = self.evolve(
