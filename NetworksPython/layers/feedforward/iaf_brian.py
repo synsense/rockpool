@@ -388,7 +388,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
         self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
-
+    
     def evolve(
         self,
         tsInput: TSContinuous = None,
@@ -455,7 +455,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self.tRefractoryTime = tRefractoryTime
             self.vfBias = vfBias
             self.mfW = mfW
-
+    
     def pot_kernel(self, t):
         """ pot_kernel - response of the membrane potential to an
                          incoming spike at a single synapse with
@@ -468,6 +468,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
     def train_mst_simple(
         self,
         tDuration: float,
+        tStart: float,
         tsInput: TSEvent,
         vnTargetCounts: np.ndarray = None,
         fLambda: float = 1e-5,
@@ -482,15 +483,19 @@ class FFIAFSpkInBrian(FFIAFBrian):
                            from Guetig2017, in its simplified version,
                            where no gradients are calculated
         """
-
+        print(self.mfW)
         assert hasattr(self, "_stmVmem"), (
             "Layer needs to be instantiated with bRecord=True for "
             + "this learning rule."
         )
 
         # - Discrete time steps for evaluating input and target time series
-        vtTimeBase = self._gen_time_trace(self.t, tDuration)
-
+        vtTimeBase = self._gen_time_trace(tStart, tDuration)
+        
+        if not bFinal:
+            # - Discard last sample to avoid counting time points twice
+            vtTimeBase = vtTimeBase[:-1]
+        
         if tsInput is not None:
             vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
         else:
@@ -505,14 +510,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 "Target array size must match layer size ({}).".format(self.nSize)
             )
 
-        if bFirst:
-            # - Use previous weight changes for momentum heuristig
-            self._mfDW_previous = np.zeros_like(self.mfW)
-
-        if not bFinal:
-            # - Discard last sample to avoid counting time points twice
-            vtTimeBase = vtTimeBase[:-1]
-
         ## -- Determine eligibility for each neuron and synapse
         mfEligibiity = np.zeros((self.nDimIn, self.nSize))
 
@@ -522,6 +519,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 print("\rProcessing input {} of {}".format(iSource+1, self.nDimIn), end='')
             # - Find spike timings
             vtEventTimesSource = vtEventTimes[vnEventChannels == iSource]
+            # print(iSource, vtEventTimesSource)
             # - Sum individual correlations over input spikes, for all synapses
             for tSpkIn in vtEventTimesSource:
                 # - Membrane potential between input spike time and now (transform to vfVRest at 0)
@@ -529,12 +527,15 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 # - Kernel between input spike time and now
                 vfKernel = self.pot_kernel(self._stmVmem.t_[self._stmVmem.t_ >= tSpkIn] - tSpkIn)
                 # - Add correlations to eligibility matrix
+                # print(np.sum(vfKernel * vfVmem))
                 mfEligibiity[iSource, :] += np.sum(vfKernel * vfVmem)
             
+        # print(mfEligibiity)
         ## -- For each neuron sort eligibilities and choose synapses with largest eligibility
         nEligible = int(fEligibilityRatio * self.nDimIn)
         # - Mark eligible neurons
-        miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible, :]
+        miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible:-1]
+        # print(miEligible)
 
         ##  -- Compare target number of events with spikes and perform weight updates for chosen synapses
         # - Numbers of (output) spike times for each neuron
@@ -543,6 +544,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vnSpikeCount = np.array([
             np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.nSize)
         ])
+        print(vbUseEventOut)
+        print(viSpkNeuronOut)
+        print(vnSpikeCount)
         # - Updates to eligible synapses of each neuron
         vfUpdates = np.zeros(self.nSize)
         # - Negative update if spike count too high
@@ -564,12 +568,27 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # mfW_flat[viEligible_flat] += np.repeat(vfUpdates, nEligible)
         # self.mfW = mfW_flat.reshape(nDimIn, nSize)
 
-        # - Second approach: using loops
+        # - Reset previous weight changes that are used for momentum heuristic
+        if bFirst:
+            self._mfDW_previous = np.zeros_like(self.mfW)
+
+        # - Accumulate updates to me made to weights
         mfDW_current = np.zeros_like(self.mfW)
+        print(vfUpdates)
+        # - Update only eligible synapses
         for iTarget in range(self.nSize):
             mfDW_current[miEligible[:, iTarget], iTarget] += vfUpdates[iTarget]
-        self.mfW += mfDW_current + fMomentum*self._mfDW_previous
+
+        # - Include previous weight changes for momentum heuristic
+        mfDW_current += fMomentum * self._mfDW_previous
+
+        print(mfDW_current)
+        # - Perform weight update
+        print(self.mfW)
+        self.mfW += mfDW_current
+        # - Store weight changes for next iteration
         self._mfDW_previous = mfDW_current
+        print(self.mfW)
 
 
     @property
