@@ -308,6 +308,30 @@ class Network:
         # - Return a list with the layers in their evolution order
         return lOrder
 
+    def _fix_duration(self, t: float) -> float:
+        """
+        _fix_duration - Due to rounding errors it can happen that a
+                        duration or end time t is slightly below its intened
+                        value, causing the layers to not evolve sufficiently.
+                        This method fixes the problem by increasing
+                        t if it is slightly below a multiple of
+                        tDt of any of the layers in the network.
+            :param t:   float - time to be fixed
+            :return:    float - Fixed duration
+        """
+        
+        # - All tDt
+        vtDt = np.array([lyr.tDt for lyr in self.lEvolOrder])
+
+        if (
+            (np.abs(t % vtDt) > fTolAbs)
+            & (np.abs(t % vtDt) - vtDt < fTolAbs)
+        ).any():
+            return t + fTolAbs
+        else: 
+            return t
+
+
     def evolve(
         self,
         tsExternalInput: TimeSeries = None,
@@ -345,8 +369,11 @@ class Network:
                     "Cannot determine an appropriate evolution duration. "
                     + "`tsExternalInput` finishes before the current evolution time."
                 )
-                # - Correct tDuration in case of rounding errors
-                tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
+
+        # - Correct tDuration and last point of time series in case of rounding errors
+        tDuration = self._fix_duration(tDuration)
+        if tsExternalInput is not None:
+            tsExternalInput.vtTimeTrace[-1] = self._fix_duration(tsExternalInput.vtTimeTrace[-1])
 
         # - List of layers where tDuration is not a multiple of tDt
         llyrDtMismatch = list(
@@ -364,8 +391,8 @@ class Network:
                 + " for the following layer(s):\n"
                 + strLayers
             )
-            # - Correct tDuration in case of rounding errors
-            tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
+        # - Correct tDuration in case of rounding errors
+        tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
 
 
         # - Set external input name if not set already
@@ -439,7 +466,7 @@ class Network:
         :param tDuration:       float - Duration over which netŵork should
                                         be evolved. If None, evolution is
                                         over the duration of tsExternalInput
-        :param tDurBatch:       float - Duration of one batch
+        :param tDurBatch:       float - Duration of one batch (can also pass array with several values)
         :param bVerbose:        bool  - Print info about training progress
         :param bHighVerbosity:  bool  - Print info about layer evolution
                                         (only has effect if bVerbose is True)
@@ -453,40 +480,70 @@ class Network:
 
             if tsExternalInput.bPeriodic:
                 # - Use duration of periodic TimeSeries, if possible
-                tRemaining = tsExternalInput.tDuration
+                tFinal = self._fix_duration(self.t + tsExternalInput.tDuration)
 
             else:
                 # - Evolve until the end of the input TimeSeries
-                tRemaining = tsExternalInput.tStop - self.t
-                assert tRemaining > 0, (
+                tFinal = self._fix_duration(tsExternalInput.tStop)
+                assert tFinal > self.t, (
                     "Cannot determine an appropriate evolution duration. "
                     + "`tsExternalInput` finishes before the current evolution time."
                 )
         else:
-            tRemaining = tDuration
+            tFinal = self._fix_duration(self.t + tDuration)
+
+        tRemaining = self._fix_duration(tFinal - self.t)
 
         # - Determine batch duration and number
-        tDurBatch = tRemaining if tDurBatch is None else tDurBatch
-        nNumBatches = int(np.ceil(tRemaining / tDurBatch))
+        if tDurBatch is None:
+            vtDurBatch = np.array([tRemaining])
+        else:
+            # - Batch duration the same for all batches
+            if np.size(tDurBatch) == 1:
+                nNumBatches = (np.ceil(np.asarray(tRemaining) / tDurBatch)).astype(int)
+                vtDurBatch = np.repeat(tDurBatch, nNumBatches)
+            else:
+                # - Generate iterable with possibly different durations for each batch
+                # - Time value after each batch
+                vtPassed = np.cumsum(tDurBatch)
+                # - If sum of batch durations larger than tRemaining, ignore last entries
+                if vtPassed[-1] > tRemaining:
+                    # Index of first element with t past tRemaining - include only until here
+                    # It is not dramatic if the last(!) batch goes beyond tRemaining
+                    iFirstPast = np.where(vtPassed > tRemaining)[0][0]
+                    vtDurBatch = tDurBatch[: iFirstPast+1]
+                elif vtPassed[-1] < tRemaining:
+                    # - Add batch with missing duration
+                    vtDurBatch = np.r_[tDurBatch, tRemaining-vtPassed[-1]]
+        nNumBatches = np.size(vtDurBatch)
+        
+        ## -- Actual training starts here:
 
         # - Iterate over batches
         bFirst = True
         bFinal = False
-        for nBatch in range(1, nNumBatches + 1):
+        for nBatch, tDurBatch in enumerate(vtDurBatch):
+            
+            # - Duration of next batch
+            tRemaining = tFinal - self.t
+            tCurrentDur = self._fix_duration(min(tDurBatch, tRemaining))
+            
             if bVerbose:
                 print(
-                    "Training batch {} of {}   ".format(nBatch, nNumBatches), end="\r"
+                    "Training batch {} of {} from t={} to {}.                             ".format(
+                        nBatch+1, nNumBatches, self.t, self.t+tCurrentDur, end="\r"
+                    )
                 )
             # - Evolve network
             dtsSignal = self.evolve(
-                tsExternalInput,
-                min(tDurBatch, tRemaining),
+                tsExternalInput.resample_within(self.t, self.t+tCurrentDur),
+                tCurrentDur,
                 bVerbose=(bHighVerbosity and bVerbose),
             )
             # - Remaining simulation time
             tRemaining -= tDurBatch
             # - Determine if this batch was the first or the last of training
-            if nBatch == nNumBatches:
+            if nBatch == nNumBatches-1:
                 bFinal = True
             # - Call the callback
             fhTraining(self, dtsSignal, bFirst, bFinal)
