@@ -157,24 +157,42 @@ class RecDynapseBrian(Layer):
         """
         self._ngLayer.Imem = 0 * amp
         self._ngLayer.Iahp = 0.5 * pamp
-        self._sgRecurrentSynapses.Ie_syn = 0 * amp
-        self._sgRecurrentSynapses.Ii_syn = 0 * amp
-        self._sgReceiver
-
-    # OBSOLETE!!!#     
-    def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
-            Usage: .randomize_state()
-        """
-        fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+        self._sgRecurrentSynapses.Ie_syn = 0.5 * pamp
+        self._sgRecurrentSynapses.Ii_syn = 0.5 * pamp
+        self._sgReceiver.Ie_syn = 0.5 * pamp
+        self._sgReceiver.Ii_syn = 0.5 * pamp
 
     def reset_time(self):
         """
         reset_time - Reset the internal clock of this layer
         """
+
+        # - Save state variables
+        Imem = np.copy(self._ngLayer.Imem) * amp
+        Iahp = np.copy(self._ngLayer.Iahp) * amp
+        Ie_Recur = np.copy(self._sgRecurrentSynapses.Ie_syn) * amp
+        Ii_Recur = np.copy(self._sgRecurrentSynapses.Ii_syn) * amp
+        Ie_Recei = np.copy(self._sgReceiver.Ie_syn) * amp
+        Ii_Recei = np.copy(self._sgReceiver.Ii_syn) * amp
+
+        # - Save parameters
+        mfW = np.copy(self.mfW)
+        vfWIn = np.copy(self.vfWIn)
+
+        # - Reset Network
         self._net.restore('reset')
+
+        # - Restore state variables
+        self._ngLayer.Imem = Imem
+        self._ngLayer.Iahp = Iahp
+        self._sgRecurrentSynapses.Ie_syn = Ie_Recur
+        self._sgRecurrentSynapses.Ii_syn = Ii_Recur
+        self._sgReceiver.Ie_syn = Ie_Recei
+        self._sgReceiver.Ii_syn = Ii_Recei
+
+        # - Restore parameters 
+        self.mfW = mfW
+        self.vfWIn = vfWIn
 
 
     ### --- State evolution
@@ -212,12 +230,12 @@ class RecDynapseBrian(Layer):
 
         # - Perform simulation
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
-
+        
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
         vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
-
+        
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
     ### --- Properties
@@ -269,59 +287,11 @@ class RecDynapseBrian(Layer):
 
     @property
     def vState(self):
-        return self._ngLayer.v_
+        return self._ngLayer.I_mem_
 
     @vState.setter
     def vState(self, vNewState):
-        self._ngLayer.v = np.asarray(self._expand_to_net_size(vNewState, 'vNewState')) * volt
-
-    @property
-    def vtTauN(self):
-        return self._ngLayer.tau_m_
-
-    @vtTauN.setter
-    def vtTauN(self, vtNewTauN):
-        self._ngLayer.tau_m = np.asarray(self._expand_to_net_size(vtNewTauN, 'vtNewTauN')) * second
-
-    @property
-    def vtTauSynR(self):
-        return self._ngLayer.tau_s_
-
-    @vtTauSynR.setter
-    def vtTauSynR(self, vtNewTauSynR):
-        self._ngLayer.tau_s = np.asarray(self._expand_to_net_size(vtNewTauSynR, 'vtNewTauSynR')) * second
-
-    @property
-    def vfBias(self):
-        return self._ngLayer.I_bias_
-
-    @vfBias.setter
-    def vfBias(self, vfNewBias):
-        self._ngLayer.I_bias = np.asarray(self._expand_to_net_size(vfNewBias, 'vfNewBias')) * amp
-
-    @property
-    def vfVThresh(self):
-        return self._ngLayer.v_thresh_
-
-    @vfVThresh.setter
-    def vfVThresh(self, vfNewVThresh):
-        self._ngLayer.v_thresh = np.asarray(self._expand_to_net_size(vfNewVThresh, 'vfNewVThresh')) * volt
-
-    @property
-    def vfVRest(self):
-        return self._ngLayer.v_rest_
-
-    @vfVRest.setter
-    def vfVRest(self, vfNewVRest):
-        self._ngLayer.v_rest = np.asarray(self._expand_to_net_size(vfNewVRest, 'vfNewVRest')) * volt
-
-    @property
-    def vfVReset(self):
-        return self._ngLayer.v_reset_
-
-    @vfVReset.setter
-    def vfVReset(self, vfNewVReset):
-        self._ngLayer.v_reset = np.asarray(self._expand_to_net_size(vfNewVReset, 'vfNewVReset')) * volt
+        self._ngLayer.I_mem = np.asarray(self._expand_to_net_size(vNewState, 'vNewState')) * volt
 
     @property
     def t(self):
