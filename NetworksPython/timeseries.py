@@ -42,6 +42,8 @@ try:
 except Exception:
     pass
 
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
 
 def SetPlottingBackend(strBackend):
     global __bHoloviewsDetected
@@ -315,7 +317,7 @@ class TimeSeries:
         tDt = np.mean(np.diff(self.vtTimeTrace)) if tDt is None else tDt
 
         vtSampleTimes = np.arange(tStart, tStop + tDt, tDt)
-        vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop]
+        vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop + fTolAbs]
 
         # - Return a new time series
         return self.resample(vtSampleTimes)
