@@ -483,21 +483,17 @@ class FFIAFSpkInBrian(FFIAFBrian):
                            from Guetig2017, in its simplified version,
                            where no gradients are calculated
         """
-        print(self.mfW)
+        
         assert hasattr(self, "_stmVmem"), (
             "Layer needs to be instantiated with bRecord=True for "
             + "this learning rule."
         )
 
-        # - Discrete time steps for evaluating input and target time series
-        vtTimeBase = self._gen_time_trace(tStart, tDuration)
-        
-        if not bFinal:
-            # - Discard last sample to avoid counting time points twice
-            vtTimeBase = vtTimeBase[:-1]
-        
+        # - End time of current batch
+        tStop = tStart + tDuration
+              
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
+            vtEventTimes, vnEventChannels, _ = tsInput.find([tStart, tStop])
         else:
             print('No tsInput defined, assuming input to be 0.')
             vtEventTimes, vnEventChannels = [], []
@@ -519,7 +515,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 print("\rProcessing input {} of {}".format(iSource+1, self.nDimIn), end='')
             # - Find spike timings
             vtEventTimesSource = vtEventTimes[vnEventChannels == iSource]
-            # print(iSource, vtEventTimesSource)
             # - Sum individual correlations over input spikes, for all synapses
             for tSpkIn in vtEventTimesSource:
                 # - Membrane potential between input spike time and now (transform to vfVRest at 0)
@@ -527,26 +522,21 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 # - Kernel between input spike time and now
                 vfKernel = self.pot_kernel(self._stmVmem.t_[self._stmVmem.t_ >= tSpkIn] - tSpkIn)
                 # - Add correlations to eligibility matrix
-                # print(np.sum(vfKernel * vfVmem))
                 mfEligibiity[iSource, :] += np.sum(vfKernel * vfVmem)
             
-        # print(mfEligibiity)
         ## -- For each neuron sort eligibilities and choose synapses with largest eligibility
         nEligible = int(fEligibilityRatio * self.nDimIn)
         # - Mark eligible neurons
         miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible:-1]
-        # print(miEligible)
-
+        
         ##  -- Compare target number of events with spikes and perform weight updates for chosen synapses
         # - Numbers of (output) spike times for each neuron
-        vbUseEventOut = (self._spmLayer.t_ >= vtTimeBase[0]) & (self._spmLayer.t_ <= vtTimeBase[-1])
+        vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= tStop)
         viSpkNeuronOut = self._spmLayer.i[vbUseEventOut]
         vnSpikeCount = np.array([
             np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.nSize)
         ])
-        print(vbUseEventOut)
-        print(viSpkNeuronOut)
-        print(vnSpikeCount)
+        
         # - Updates to eligible synapses of each neuron
         vfUpdates = np.zeros(self.nSize)
         # - Negative update if spike count too high
@@ -574,7 +564,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         # - Accumulate updates to me made to weights
         mfDW_current = np.zeros_like(self.mfW)
-        print(vfUpdates)
+        
         # - Update only eligible synapses
         for iTarget in range(self.nSize):
             mfDW_current[miEligible[:, iTarget], iTarget] += vfUpdates[iTarget]
@@ -582,14 +572,11 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # - Include previous weight changes for momentum heuristic
         mfDW_current += fMomentum * self._mfDW_previous
 
-        print(mfDW_current)
         # - Perform weight update
-        print(self.mfW)
         self.mfW += mfDW_current
         # - Store weight changes for next iteration
         self._mfDW_previous = mfDW_current
-        print(self.mfW)
-
+        
 
     @property
     def cInput(self):
