@@ -530,8 +530,8 @@ class Network:
             
             if bVerbose:
                 print(
-                    "Training batch {} of {} from t={} to {}.                             ".format(
-                        nBatch+1, nNumBatches, self.t, self.t+tCurrentDur, end="\r"
+                    "\rTraining batch {} of {} from t={:.3f} to {:.3f}.              ".format(
+                        nBatch+1, nNumBatches, self.t, self.t+tCurrentDur, end=""
                     )
                 )
             # - Evolve network
