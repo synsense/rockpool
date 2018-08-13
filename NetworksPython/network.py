@@ -18,7 +18,7 @@ __all__ = ["Network"]
 
 # - Relative tolerance for float comparions
 fTolRel = 1e-5
-fTolAbs = 1e-8
+fTolAbs = 1e-10
 
 ### --- Helper functions
 
@@ -32,7 +32,7 @@ def isMultiple(a: float, b: float, fTolRel: float = fTolRel) -> bool:
     :return bool: True if a is a multiple of b within some tolerance
     """
     fMinRemainder = min(a % b, b - a % b)
-    return fMinRemainder < fTolRel * b
+    return fMinRemainder < fTolRel * b + fTolAbs
 
 
 ### --- Network class
@@ -530,8 +530,8 @@ class Network:
             
             if bVerbose:
                 print(
-                    "Training batch {} of {} from t={} to {}.                             ".format(
-                        nBatch+1, nNumBatches, self.t, self.t+tCurrentDur, end="\r"
+                    "\rTraining batch {} of {} from t={:.3f} to {:.3f}.              ".format(
+                        nBatch+1, nNumBatches, self.t, self.t+tCurrentDur, end=""
                     )
                 )
             # - Evolve network
