@@ -45,7 +45,7 @@ class RecDynapseBrian(Layer):
 
                  dParamNeuron = None,
 
-                 dParamsSynapse = None,
+                 dParamSynapse = None,
 
                  strIntegrator: str = 'rk4',
 
@@ -55,7 +55,7 @@ class RecDynapseBrian(Layer):
         RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
 
         :param mfW:             np.array NxN weight matrix
-        :param mfW:             np.array 1xN input weight matrix.
+        :param vfWIn:             np.array 1xN input weight matrix.
 
         :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
@@ -81,6 +81,11 @@ class RecDynapseBrian(Layer):
         self._sggInput = b2.SpikeGeneratorGroup(self.nSize, [0], [0*second],
                                                 dt = np.asarray(tDt) * second)
 
+        # - Handle unit of tDt: if no unit provided, assume it is in seconds
+        tDt = np.asscalar(np.array(tDt)) * second
+
+        ### --- Neurons
+
         # - Set up reservoir neurons
         self._ngLayer = teiliNG(
             N = self.nSize,
@@ -97,7 +102,10 @@ class RecDynapseBrian(Layer):
         else:
             self._ngLayer.set_params(dTeiliNeuronParam)
 
-        # - Add recurrent weights (all-to-all)
+
+        ### --- Synapses
+
+        # - Add recurrent synapses (all-to-all)
         self._sgRecurrentSynapses = teiliSyn(
             self._ngLayer, self._ngLayer,
             equation_builder=teiliDPISynEqts,
@@ -107,7 +115,7 @@ class RecDynapseBrian(Layer):
         )
         self._sgRecurrentSynapses.connect()
 
-        # - Add source -> reservoir synapses
+        # - Add source -> reservoir synapses (one-to-one)
         self._sgReceiver = teiliSyn(
             self._sggInput, self._ngLayer,
             equation_builder=teiliDPISynEqts,
@@ -117,14 +125,23 @@ class RecDynapseBrian(Layer):
         # Each spike generator neuron corresponds to one reservoir neuron
         self._sgReceiver.connect('i==j')
 
-        # - Add current monitors to record layer outputs
+        # - Overwrite default synapse parameters
+        if dParamSynapse is not None:
+            self._sgRecurrentSynapses.set_params(dParamNeuron)
+            self._sgReceiver.set_params(dParamNeuron)
+
+
+        # - Add spike monitor to record layer outputs
         self._spmReservoir = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
+
         # - Call Network constructor
-        self._net = teiliNetwork(self._ngLayer, self._sgRecurrentSynapses,
+        self._net = b2.Network(self._ngLayer, self._sgRecurrentSynapses,
+                                 self._sggInput, self._sgReceiver,
                                  self._spmReservoir,
                                  name = 'recurrent_spiking_layer')
 
+        
         # - Record neuron / synapse parameters
         # automatically sets weights  via setters
         self.mfW = mfW
@@ -140,21 +157,42 @@ class RecDynapseBrian(Layer):
         """
         self._ngLayer.Imem = 0 * amp
         self._ngLayer.Iahp = 0.5 * pamp
-
-    
-    def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
-            Usage: .randomize_state()
-        """
-        fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+        self._sgRecurrentSynapses.Ie_syn = 0.5 * pamp
+        self._sgRecurrentSynapses.Ii_syn = 0.5 * pamp
+        self._sgReceiver.Ie_syn = 0.5 * pamp
+        self._sgReceiver.Ii_syn = 0.5 * pamp
 
     def reset_time(self):
         """
         reset_time - Reset the internal clock of this layer
         """
+
+        # - Save state variables
+        Imem = np.copy(self._ngLayer.Imem) * amp
+        Iahp = np.copy(self._ngLayer.Iahp) * amp
+        Ie_Recur = np.copy(self._sgRecurrentSynapses.Ie_syn) * amp
+        Ii_Recur = np.copy(self._sgRecurrentSynapses.Ii_syn) * amp
+        Ie_Recei = np.copy(self._sgReceiver.Ie_syn) * amp
+        Ii_Recei = np.copy(self._sgReceiver.Ii_syn) * amp
+
+        # - Save parameters
+        mfW = np.copy(self.mfW)
+        vfWIn = np.copy(self.vfWIn)
+
+        # - Reset Network
         self._net.restore('reset')
+
+        # - Restore state variables
+        self._ngLayer.Imem = Imem
+        self._ngLayer.Iahp = Iahp
+        self._sgRecurrentSynapses.Ie_syn = Ie_Recur
+        self._sgRecurrentSynapses.Ii_syn = Ii_Recur
+        self._sgReceiver.Ie_syn = Ie_Recei
+        self._sgReceiver.Ii_syn = Ii_Recei
+
+        # - Restore parameters 
+        self.mfW = mfW
+        self.vfWIn = vfWIn
 
 
     ### --- State evolution
@@ -171,9 +209,16 @@ class RecDynapseBrian(Layer):
         :return: TimeSeries Output of this layer during evolution period
         """
 
-        # - Discretise input, prepare time base
+        # - Prepare time base
         vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
         nNumSteps = np.size(vtTimeBase)
+
+        # - Set spikes for spike generator
+        if tsInput is not None:
+            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
+            self._sggInput.set_spikes(vnEventChannels, vtEventTimes * second, sorted = False)
+        else:
+            self._sggInput.set_spikes([], [] * second)
 
         # - Generate a noise trace
         mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd
@@ -185,18 +230,22 @@ class RecDynapseBrian(Layer):
 
         # - Perform simulation
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
-
+        
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
         vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
-
+        
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
     ### --- Properties
 
     @property
     def cOutput(self):
+        return TSEvent
+
+    @property
+    def cInput(self):
         return TSEvent
 
     @property
@@ -214,8 +263,8 @@ class RecDynapseBrian(Layer):
         self._mfW = mfNewW
 
         if hasattr(self, '_sgRecurrentSynapses'):
-            # - Assign recurrent weights (need to transpose)
-            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
+            # - Assign recurrent weights
+            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
             self._sgRecurrentSynapses.weight = mfNewW.flatten()
 
     @property
@@ -225,73 +274,24 @@ class RecDynapseBrian(Layer):
         else:
             return self._mfW
 
-    @mfW.setter
-    def mfW(self, mfNewW):
-        assert np.size(mfNewW) == self.nSize ** 2, \
-            '`mfNewW` must have [' + str(self.nSize ** 2) + '] elements.'
+    @vfWIn.setter
+    def vfWIn(self, vfNewW):
+        assert np.size(vfNewW) == self.nSize, \
+            '`mfNewW` must have [' + str(self.nSize) + '] elements.'
 
-        self._mfW = mfNewW
+        self._mfW = vfNewW
 
-        if hasattr(self, '_sgRecurrentSynapses'):
-            # - Assign recurrent weights (need to transpose)
-            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
-            self._sgRecurrentSynapses.weight = mfNewW.flatten()
+        if hasattr(self, '_sgReceiver'):
+            # - Assign input weights
+            self._sgReceiver.weight = vfNewW.flatten()
 
     @property
     def vState(self):
-        return self._ngLayer.v_
+        return self._ngLayer.I_mem_
 
     @vState.setter
     def vState(self, vNewState):
-        self._ngLayer.v = np.asarray(self._expand_to_net_size(vNewState, 'vNewState')) * volt
-
-    @property
-    def vtTauN(self):
-        return self._ngLayer.tau_m_
-
-    @vtTauN.setter
-    def vtTauN(self, vtNewTauN):
-        self._ngLayer.tau_m = np.asarray(self._expand_to_net_size(vtNewTauN, 'vtNewTauN')) * second
-
-    @property
-    def vtTauSynR(self):
-        return self._ngLayer.tau_s_
-
-    @vtTauSynR.setter
-    def vtTauSynR(self, vtNewTauSynR):
-        self._ngLayer.tau_s = np.asarray(self._expand_to_net_size(vtNewTauSynR, 'vtNewTauSynR')) * second
-
-    @property
-    def vfBias(self):
-        return self._ngLayer.I_bias_
-
-    @vfBias.setter
-    def vfBias(self, vfNewBias):
-        self._ngLayer.I_bias = np.asarray(self._expand_to_net_size(vfNewBias, 'vfNewBias')) * amp
-
-    @property
-    def vfVThresh(self):
-        return self._ngLayer.v_thresh_
-
-    @vfVThresh.setter
-    def vfVThresh(self, vfNewVThresh):
-        self._ngLayer.v_thresh = np.asarray(self._expand_to_net_size(vfNewVThresh, 'vfNewVThresh')) * volt
-
-    @property
-    def vfVRest(self):
-        return self._ngLayer.v_rest_
-
-    @vfVRest.setter
-    def vfVRest(self, vfNewVRest):
-        self._ngLayer.v_rest = np.asarray(self._expand_to_net_size(vfNewVRest, 'vfNewVRest')) * volt
-
-    @property
-    def vfVReset(self):
-        return self._ngLayer.v_reset_
-
-    @vfVReset.setter
-    def vfVReset(self, vfNewVReset):
-        self._ngLayer.v_reset = np.asarray(self._expand_to_net_size(vfNewVReset, 'vfNewVReset')) * volt
+        self._ngLayer.I_mem = np.asarray(self._expand_to_net_size(vNewState, 'vNewState')) * volt
 
     @property
     def t(self):

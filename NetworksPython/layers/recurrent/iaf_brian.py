@@ -99,9 +99,9 @@ class RecIAFBrian(Layer):
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons + eqSynRecurrent,
                                        threshold = 'v > v_thresh',
                                        reset = 'v = v_reset',
-                                       refractory = tRefractoryTime,
+                                       refractory = np.asarray(tRefractoryTime) * second,
                                        method = strIntegrator,
-                                       dt = tDt,
+                                       dt = np.asarray(tDt) * second,
                                        name = 'reservoir_neurons')
         self._ngLayer.v = vfVRest
         self._ngLayer.r_m = 1 * ohm
