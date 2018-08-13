@@ -34,10 +34,10 @@ fHeartRate = 1  # Heart rate in rhythms per second
 
 fStdNoiseSignal = 0  # Standard deviation of input noise
 
-nTrialsTr = 500  # Number ECG rhythms for Training
-nTrialsVa = 500  # Number ECG rhythms for validation
+nTrialsTr = 5  # Number ECG rhythms for Training
+nTrialsVa = 5  # Number ECG rhythms for validation
 nRepsVa = 3  # Number repetitions of validation runs
-nTrialsTe = 500  # Number ECG rhythms for testing
+nTrialsTe = 5  # Number ECG rhythms for testing
 
 pNormal = 0.8  # Probability of normal input rhythm
 pAnomal = (1 - pNormal) / 6.  # Probability of abnormal input rhythm
@@ -69,7 +69,7 @@ tTauMaxAS = 0.1
 # - Reservoir
 tDtRes = 0.0001  # Length of time step in seconds (reservoir layer)
 
-nResSize = 512  # Reservoir size
+nResSize = 5  # Reservoir size
 fConnectivity = None  # Percentage of non-zero recurrent weights
 
 fIconst = 4.375e-9 * amp  # Constant input current as bias
