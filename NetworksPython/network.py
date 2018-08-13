@@ -18,7 +18,7 @@ __all__ = ["Network"]
 
 # - Relative tolerance for float comparions
 fTolRel = 1e-5
-fTolAbs = 1e-8
+fTolAbs = 1e-10
 
 ### --- Helper functions
 
@@ -32,7 +32,7 @@ def isMultiple(a: float, b: float, fTolRel: float = fTolRel) -> bool:
     :return bool: True if a is a multiple of b within some tolerance
     """
     fMinRemainder = min(a % b, b - a % b)
-    return fMinRemainder < fTolRel * b
+    return fMinRemainder < fTolRel * b + fTolAbs
 
 
 ### --- Network class
