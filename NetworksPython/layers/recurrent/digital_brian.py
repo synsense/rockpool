@@ -269,7 +269,7 @@ class RecDIAF(Layer):
             
             # - State updates after incoming spike
             vfStateNew = np.clip(
-                vfStateOld + self._mfW[nChannel],
+                vfStateOld + self._mfWIn[nChannel],
                 self._nStateMin,
                 self._nStateMax
             )
@@ -292,7 +292,17 @@ class RecDIAF(Layer):
                 ltSpikeTimes += np.sum(vbAboveThresh) * tTime
                 ltSpikeIDs += list(np.where(vbAboveThresh)[0])
 
-                # - apply
+                # - Apply spikes within network
+                vfStateNew = np.clip(
+                    vfStateNew + self._mfW[nChannel],
+                    self._nStateMin,
+                    self._nStateMax
+                )
+
+                # - Neurons above threshold
+                vbAboveThresh = (vStateNew >= self.vfVThresh)
+
+            # - Put status update in function - #
                 
             mnState[iTimeIndex + 1, :] = vfStateNew
             vfStateOld = vfStateNew
