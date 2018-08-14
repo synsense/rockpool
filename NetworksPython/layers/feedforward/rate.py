@@ -154,12 +154,17 @@ class FFRateEuler(Layer):
             'Numbers of elements in v must be 1 or match layer size')
         return v
 
-    def evolve(self, tsInput: TimeSeries = None, tDuration: float = None) -> TimeSeries:
+    def evolve(self,
+               tsInput: TimeSeries = None,
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> TimeSeries:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TimeSeries TxM or Tx1 input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """
@@ -389,12 +394,18 @@ class PassThrough(FFRateEuler):
         else:
             self.tsBuffer = None
 
-    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
+    def evolve(
+        self,
+        tsInput: TimeSeries,
+        tDuration: float = None,
+        bVerbose: bool = False,
+    ) -> TimeSeries:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TimeSeries TxM or Tx1 input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """

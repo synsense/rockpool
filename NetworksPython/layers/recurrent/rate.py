@@ -134,12 +134,15 @@ class RecRateEuler(Layer):
 
     def evolve(self,
                tsInput: TimeSeries = None,
-               tDuration: float = None) -> TimeSeries:
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> TimeSeries:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TimeSeries TxM or Tx1 input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """

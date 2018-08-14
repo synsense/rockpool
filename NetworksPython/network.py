@@ -426,7 +426,7 @@ class Network:
                 print("Evolving layer `{}` with {} as input".format(lyr.strName, strIn))
 
             # - Evolve layer and store output in dtsSignal
-            dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration)
+            dtsSignal[lyr.strName] = lyr.evolve(tsCurrentInput, tDuration, bVerbose)
 
             # - Set name for time series, if not already set
             if dtsSignal[lyr.strName].strName is None:
