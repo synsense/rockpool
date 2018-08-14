@@ -149,7 +149,27 @@ class FFIAFBrian(Layer):
         """
         reset_time - Reset the internal clock of this layer
         """
+        
+        # - Store parameters
+        vfVThresh = np.copy(self.vfVThresh)
+        vfVReset = np.copy(self.vfVReset)
+        vfVRest = np.copy(self.vfVRest)
+        vtTauN = np.copy(self.vtTauN)
+        tRefractoryTime = np.copy(self.tRefractoryTime)
+        vfBias = np.copy(self.vfBias)
+        mfW = np.copy(self.mfW)
+
+        # - Reset network
         self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vfVThresh = vfVThresh
+        self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
+        self.vtTauN = vtTauN
+        self.tRefractoryTime = tRefractoryTime
+        self.vfBias = vfBias
+        self.mfW = mfW  
 
 
     ### --- State evolution
@@ -374,21 +394,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # - Store "reset" state
         self._net.store('reset')
 
-    def reset_state(self):
-        """ .reset_state() - Method: reset the internal state of the layer
-            Usage: .reset_state()
-        """
-        self._ngLayer.v = self.vfVRest * volt
-        self._ngLayer.I_syn = 0 * amp
-
-    def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
-            Usage: .randomize_state()
-        """
-        fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
-    
     def evolve(
         self,
         tsInput: TSContinuous = None,
@@ -431,6 +436,36 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
+    def reset_time(self):
+        # - Store parameters
+        vfVThresh = np.copy(self.vfVThresh)
+        vfVReset = np.copy(self.vfVReset)
+        vfVRest = np.copy(self.vfVRest)
+        vtTauN = np.copy(self.vtTauN)
+        vtTauS = np.copy(self.vtTauS)
+        tRefractoryTime = np.copy(self.tRefractoryTime)
+        vfBias = np.copy(self.vfBias)
+        mfW = np.copy(self.mfW)
+
+        self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vfVThresh = vfVThresh
+        self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
+        self.vtTauN = vtTauN
+        self.vtTauS = vtTauS
+        self.tRefractoryTime = tRefractoryTime
+        self.vfBias = vfBias
+        self.mfW = mfW        
+
+    def reset_state(self):
+        """ .reset_state() - Method: reset the internal state of the layer
+            Usage: .reset_state()
+        """
+        self._ngLayer.v = self.vfVRest * volt
+        self._ngLayer.I_syn = 0 * amp
+
     def reset_all(self, bKeepParams=True):
         if bKeepParams:
             # - Store parameters
@@ -443,7 +478,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
             vfBias = np.copy(self.vfBias)
             mfW = np.copy(self.mfW)
 
-        super().reset_all()
+        self.reset_state()
+        self._net.restore('reset')
         
         if bKeepParams:
             # - Restork parameters
@@ -455,6 +491,14 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self.tRefractoryTime = tRefractoryTime
             self.vfBias = vfBias
             self.mfW = mfW
+    
+    def randomize_state(self):
+        """ .randomize_state() - Method: randomize the internal state of the layer
+            Usage: .randomize_state()
+        """
+        fRangeV = abs(self.vfVThresh - self.vfVReset)
+        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
+        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
     
     def pot_kernel(self, t):
         """ pot_kernel - response of the membrane potential to an
