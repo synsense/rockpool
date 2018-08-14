@@ -150,6 +150,9 @@ class FFIAFBrian(Layer):
         reset_time - Reset the internal clock of this layer
         """
         
+        # - Sotre state variables
+        vfV = np.copy(self._ngLayer.v) * volt
+
         # - Store parameters
         vfVThresh = np.copy(self.vfVThresh)
         vfVReset = np.copy(self.vfVReset)
@@ -171,6 +174,8 @@ class FFIAFBrian(Layer):
         self.vfBias = vfBias
         self.mfW = mfW  
 
+        # - Restore state variables
+        self._ngLayer.v = vfV
 
     ### --- State evolution
 
@@ -437,6 +442,11 @@ class FFIAFSpkInBrian(FFIAFBrian):
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
     def reset_time(self):
+
+        # - Store state variables
+        vfV = np.copy(self._ngLayer.v) * volt
+        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
+
         # - Store parameters
         vfVThresh = np.copy(self.vfVThresh)
         vfVReset = np.copy(self.vfVReset)
@@ -457,7 +467,11 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.vtTauS = vtTauS
         self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
-        self.mfW = mfW        
+        self.mfW = mfW
+
+        # - Restore state variables
+        self._ngLayer.v = vfV
+        self._ngLayer.I_syn = vfIsyn
 
     def reset_state(self):
         """ .reset_state() - Method: reset the internal state of the layer
