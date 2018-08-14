@@ -156,8 +156,37 @@ class RecIAFBrian(Layer):
         """
         reset_time - Reset the internal clock of this layer
         """
-        self._net.restore('reset')
+        
+        # - Store state variables
+        vfV = np.copy(self._ngLayer.v) * volt
+        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
 
+        # - Store parameters
+        vfVThresh = np.copy(self.vfVThresh)
+        vfVReset = np.copy(self.vfVReset)
+        vfVRest = np.copy(self.vfVRest)
+        vtTauN = np.copy(self.vtTauN)
+        vtTauSynR = np.copy(self.vtTauSynR)
+        tRefractoryTime = np.copy(self.tRefractoryTime)
+        vfBias = np.copy(self.vfBias)
+        mfW = np.copy(self.mfW)
+        
+        # - Reset network
+        self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vfVThresh = vfVThresh
+        self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
+        self.vtTauN = vtTauN
+        self.vtTauSynR = vtTauSynR
+        self.tRefractoryTime = tRefractoryTime
+        self.vfBias = vfBias
+        self.mfW = mfW  
+
+        # - Restore state variables
+        self._ngLayer.v = vfV
+        self._ngLayer.I_syn = vfIsyn
 
     ### --- State evolution
 
