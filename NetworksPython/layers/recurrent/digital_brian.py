@@ -257,27 +257,46 @@ class RecDIAF(Layer):
         vnEventChannels = vnEventChannels[viSorted]
         vtEventTimes = vtEventTimes[viSorted]
 
+        # - Store layer spike times and IDs in list
+        ltSpikeTimes = []
+        liSpikeIDs = []
+        
         # - Store states in matrix (starting with currrent state at t=self.t)
         mnState = np.zeros((vtEventTimes.size, self.nSize), dtype=self.dtypeState)
         vfStateOld = self.vfState
+        
         for iTimeIndex, (tTime, nChannel) in enumerate(, vtEventTimes, vnEventChannels):
+            
+            # - State updates after incoming spike
             vfStateNew = np.clip(
-                mfState[iTimeIndex, : ] + self._mfW[nChannel],
+                vfStateOld + self._mfW[nChannel],
                 self._nStateMin,
                 self._nStateMax
             )
+
             # - Neurons above threshold
             vbAboveThresh = (vStateNew >= self.vfVThresh)
-            # - Set state to reset potential
-            vStateNew[vbAboveThresh] = self.vfVReset[vbAboveThresh]
-            # # - Subtract value from state
-            # vStateNew[vbAboveThresh] = np.clip(
-            #     vStateNew[vbAboveThresh]-self.vfVReset[vbAboveThresh],
-            #     self._nStateMin,
-            #     None
-            # )
-            mnState[iTimeIndex + 1, :]
-            # Times not necessary?
+            
+            while vbAboveThresh.any():
+                # - Set state to reset potential
+                vStateNew[vbAboveThresh] = self.vfVReset[vbAboveThresh]
+                
+                # # - Subtract value from state
+                # vStateNew[vbAboveThresh] = np.clip(
+                #     vStateNew[vbAboveThresh]-self.vfVReset[vbAboveThresh],
+                #     self._nStateMin,
+                #     None
+                # )
+                
+                # - Append spike events to lists
+                ltSpikeTimes += np.sum(vbAboveThresh) * tTime
+                ltSpikeIDs += list(np.where(vbAboveThresh)[0])
+
+                # - apply
+                
+            mnState[iTimeIndex + 1, :] = vfStateNew
+            vfStateOld = vfStateNew
+
         # - Copy latest state entry to save state explicitly for tFinal
         self.vfState = mnState[-1, : ] = mnState[-2, :]
 
