@@ -84,12 +84,15 @@ class FFExpSyn(Layer):
 
     def evolve(self,
                tsInput: TSEvent = None,
-               tDuration: float = None):
+               tDuration: float = None,
+               bVerbose: bool = False,
+        ) -> TSContinuous:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TSEvent spikes as input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """

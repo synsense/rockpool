@@ -30,12 +30,15 @@ class EventCNNLayer(Layer):
 
     def evolve(self,
                tsInput: TSEvent = None,
-               tDuration: float = None) -> (TSEvent, np.ndarray):
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:  TSEvent  Input spike trian
-        :param tDuration: float    Simulation/Evolution time
+        :param tDuration:   float    Simulation/Evolution time
+        :param bVerbose:    bool Currently no effect, just for conformity
         :return:          TSEvent  output spike series
 
         """
