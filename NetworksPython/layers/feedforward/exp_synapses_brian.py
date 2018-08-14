@@ -124,8 +124,23 @@ class FFExpSynBrian(Layer):
         """
         reset_time - Reset the internal clock of this layer
         """
-        self._net.restore('reset')
+        
+        # - Sotre state variables
+        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
 
+        # - Store parameters
+        vtTauSyn = np.copy(self.vtTauSyn)
+        mfW = np.copy(self.mfW)
+
+        # - Reset network
+        self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vtTauSyn = vtTauSyn
+        self.mfW = mfW
+
+        # - Restore state variables
+        self._ngLayer.I_syn = vfIsyn
 
     ### --- State evolution
 
