@@ -1,7 +1,7 @@
 ###
 # digital_brian.py - Class implementing a recurrent layer consisting of
 #                    digital neurons with constant leak and fixed-size
-#                    integer as state.
+#                    integer as state. Event based.
 ###
 
 # - Imports
