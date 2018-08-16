@@ -25,7 +25,8 @@ __all__ = ['RecDIAF']
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
-
+# - Minimum refractory time
+tMinRefractory = 1e-9
 
 ## - RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
 class RecDIAF(Layer):
@@ -42,6 +43,7 @@ class RecDIAF(Layer):
 
                  tSpikeDelay = 1e-8,
                  tTauLeak = 1e-3,
+                 vtRefractoryTime = tMinRefractory,
 
                  vfVThresh: np.ndarray = 100,
                  vfVReset: np.ndarray = 0,
@@ -64,6 +66,7 @@ class RecDIAF(Layer):
                                       synapses of the receiving neurons
                                       within the network.
         :param tTauLeak:        float Period for applying leak
+        :param vtRefractoryTime:np.array Nx1 vector of refractory times.
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds.
         :param vfVReset:        np.array Nx1 vector of neuron reset potentials.
@@ -89,6 +92,9 @@ class RecDIAF(Layer):
         #   as well as leak
         self._mfWTotal = np.zeros((self._nLeakChannel + 1, self.nSize))
 
+        # - Set minimum refractory time
+        self._tMinRefractory = tMinRefractory
+
         # - Set neuron parameters
         self.mfW = mfWRec
         self.mfWIn = mfWIn
@@ -97,6 +103,7 @@ class RecDIAF(Layer):
         self.vfCleak = vfCleak
         self.tSpikeDelay = tSpikeDelay
         self.tTauLeak = tTauLeak
+        self.vtRefractoryTime = vtRefractoryTime
         self.strDtypeState = strDtypeState
 
         self.reset_state()
@@ -139,7 +146,7 @@ class RecDIAF(Layer):
 
         # - Prepare input and infer real duration of evolution
         vtEventTimes, vnEventChannels, tDuration, tFinal = self._prepare_input(tsInput, tDuration)
-        print("prepared input", tDuration, tFinal)
+        # print("prepared input", tDuration, tFinal)
 
         ## -- Consider leak as periodic input spike with fixed weight
 
@@ -168,27 +175,34 @@ class RecDIAF(Layer):
         ltSpikeTimes = []
         liSpikeIDs = []
 
-        print("prepared")
-        
-        import time
-        t0 = time.time()
+        # - Times when neurons are able to spike again
+        vtRefractoryEnds = np.zeros(self.nSize)
 
-        tTime = self.t
-        i=0
+        # print("prepared")
+
+        # import time
+        # t0 = time.time()
+
+        # tTime = self.t
+        # i=0
         # - Iterate over spike times. Stop when tFinal is exceeded.
         while tTime <= tFinal:
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print(i, tTime, end="\r")
+                # print(i, tTime, nChannel, end='\r')
 
             except IndexError:
                 # - Stop if there are no spikes left
                 break
             else:
+                # print("update: ", self._mfWTotal[nChannel])
+
+                # - Only neurons that are not refractory can receive inputs
+                vbNotRefractory = (vtRefractoryEnds <= tTime)
                 # - State updates after incoming spike
-                self._vState = np.clip(
-                    self._vState + self._mfWTotal[nChannel],
+                self._vState[vbNotRefractory] = np.clip(
+                    self._vState[vbNotRefractory] + self._mfWTotal[nChannel, vbNotRefractory],
                     self._nStateMin,
                     self._nStateMax
                     ).astype(self.strDtypeState)
@@ -198,7 +212,7 @@ class RecDIAF(Layer):
 
                 # - Set states to reset potential
                 self._vState[vbAboveThresh] = self._vfVReset[vbAboveThresh].astype(self._strDtypeState)
-
+                # print("new state: ", self._vState)
                 # # - Use this if fixed value should be subtracted from state instead of resetting:
                 # self._vState[vbAboveThresh] = np.clip(
                 #     self._vState[vbAboveThresh]-self.vfVReset[vbAboveThresh],
@@ -206,8 +220,12 @@ class RecDIAF(Layer):
                 #     None
                 # )
 
+                # - Determine times when refractory period will end for neurons that have just fired
+                vtRefractoryEnds[vbAboveThresh] = tTime + self.vtRefractoryTime[vbAboveThresh]
+
                 # - IDs of spiking neurons
                 viSpikeIDs = np.where(vbAboveThresh)[0]
+                # print("spiking: ", viSpikeIDs)
                 # - Append spike events to lists
                 ltSpikeTimes += [tTime] * np.sum(vbAboveThresh)
                 liSpikeIDs += list(viSpikeIDs)
@@ -217,10 +235,11 @@ class RecDIAF(Layer):
                     # - Delay spikes by self.tSpikeDelay. Set IDs off by self.nDimIn in order
                     #   to distinguish them from spikes coming from the input
                     heapq.heappush(heapSpikes, (tTime + self._tSpikeDelay, nID + self._nDimIn))
-            i += 1
+                # print("heap: ", heapq.nsmallest(5, heapSpikes))
+            # i += 1
 
-        print("finished loop")
-        print(time.time()-t0)
+        # print("finished loop")
+        # print(time.time()-t0)
 
         # - Store remaining spikes (happening after tFinal) for next call of evolution
         self._heapRemainingSpikes = heapSpikes
@@ -356,6 +375,19 @@ class RecDIAF(Layer):
     def vfCleak(self, vfNewLeak):
 
         self._mfWTotal[-1, : ] = self._expand_to_net_size(-vfNewLeak, 'vfCleak')
+
+    @property
+    def vtRefractoryTime(self):
+        return self._vtRefractoryTime
+
+    @vtRefractoryTime.setter
+    def vtRefractoryTime(self, vtNewTime):
+
+        self._vtRefractoryTime = np.clip(
+            self._expand_to_net_size(vtNewTime, 'vtRefractoryTime'),
+            self._tMinRefractory,
+            None
+        )
 
     @Layer.tDt.setter
     def tDt(self, _):
