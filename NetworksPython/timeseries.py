@@ -1123,6 +1123,31 @@ class TSEvent(TimeSeries):
 
         return tsChosen
 
+    def choose_times(self, vnSelectChannels):
+        """
+        choose_times - like choose but only return vtTimeTrace instead of time series
+
+        :param vnSelectChannels: array-like of channel indices
+        :return: np.ndarray with the time values corresponding to the given channel indices
+        """
+
+        # - Check vnSelectChannels
+        assert (np.min(vnSelectChannels) >= 0
+            and np.max(vnSelectChannels) < self.nNumChannels
+        ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels-1))
+
+        # - If single ID is provided
+        if isinstance(vnSelectChannels, int):
+            return self.vtTimeTrace[self.vnChannels == vnSelectChannels]
+
+        else:
+            # - Make sure elements in vnSelectChannels are unique for better performance
+            vnSelectChannels = np.unique(vnSelectChannels)
+
+            # - Find and return times of matching samples
+            return self.vtTimeTrace[np.isin(self._vnChannels, vnSelectChannels)]
+
+
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
         """
         plot - Visualise a time series on plot
