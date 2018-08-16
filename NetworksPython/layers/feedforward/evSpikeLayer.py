@@ -36,7 +36,7 @@ class EventDrivenSpikingLayer(SpikingLayer):
         :param tsSpkInput:  TSEvent  Input spike trian
         :param tDuration: float    Simulation/Evolution time
         :param bVerbose:    bool Currently no effect, just for conformity
-        
+
         :return:          TSEvent  output spike series
 
         """
