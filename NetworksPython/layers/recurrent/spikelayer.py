@@ -13,9 +13,9 @@ from .. import Layer
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 
-class SpikingLayer(Layer):
+class RecCLIAF(Layer):
     '''
-    SpikingLayer: 
+    RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
     '''
     def __init__(self,
                  mfWRec: np.ndarray = None,
@@ -23,15 +23,17 @@ class SpikingLayer(Layer):
                  vfVth: np.ndarray = 8,
                  vfBias: np.ndarray = 0,
                  tDt: float = 1,
+                 vnIdMonitor: np.ndarray = [],
                  strName: str = 'unnamed'):
         """
-        EventCNLayer - Implements a 2D convolutional layer of spiking neurons
+        RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
 
-        :param nfWRec:  np.ndarray  Weight matrix
-        :param mfWIn:   np.array  nDimInxN input weight matrix.
-        :param vfVth:   np.array  Spiking threshold
-        :param vfBias:  np.array  Constant bias to be added to state at each time step
+        :param nfWRec:  array-like  Weight matrix
+        :param mfWIn:   array-like  nDimInxN input weight matrix.
+        :param vfVth:   array-like  Spiking threshold
+        :param vfBias:  array-like  Constant bias to be added to state at each time step
         :param tDt:     float  Time step
+        :vnIdMonitor:   array-like  IDs of neurons to be recorded
         :param strName: str  Name of this layer.
         """
         # Call parent constructor
@@ -46,14 +48,16 @@ class SpikingLayer(Layer):
         self._mfWTotal = np.zeros((self._nDimIn + self._nSize, self.nSize))
 
         # - Set neuron parameters
-        self.mfW = mfWRec
+        self.mfWRec = mfWRec
         self.mfWIn = mfWIn
         self.vfVth = vfVth
         self.vfBias = vfBias
 
-        self.reset_state()
+        # - IDs of neurons to be recorded
+        self.vnIdMonitor = vnIdMonitor
+
+        self.reset_state()       
         
-        self.__nIdMonitor__ = 0  # Default monitorin of neuron 0
 
     def evolve(self,
                tsInput: TSEvent = None,
@@ -78,9 +82,6 @@ class SpikingLayer(Layer):
         ltSpikeTimes = []
         liSpikeIDs = []
 
-        # Record initial state of the network
-        self.addToRecord(aStateTimeSeries, 0)
-
         # Local variables
         vState = self.vState
         vfVth = self.vfVth
@@ -89,46 +90,53 @@ class SpikingLayer(Layer):
         vfBias = self.vfBias
         tDt = self.tDt
         nDimIn = self.nDimIn
-        # Number of potential spike sources (input neurons and layer neurons)
-        nSpikeSources = self.nDimIn + self.nSize
+        
+        nSpikeSources = self.nDimIn + self.nSize  # Number of spike sources (input neurons and layer neurons)
+        vbRecSpikeRaster = self._vbRecSpikeRaster  # recurrent spikes from previous time step
+        vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
 
-        # Initialize spike raster with recurrent spikes from last time step
-        vbSpikeRaster = self._vbSpikeRaster
+        if vnIdMonitor is not None:
+            # Record initial state of the network
+            self.addToRecord(aStateTimeSeries, self.t)
+
 
         # Iterate over all time steps
-        for iCurrentTimeStep in tqdm(mfInptSpikeRaster.shape[0]):
+        for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
             
             # - Spikes from input synapses
-            vbSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
+            vbInptSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
                       
             # Update neuron states
-            vfUpdate = np.sum(mfWIn[vbSpikeRaster], axis=0) + np.sum(mfWRec[vbRecurrentSpikeRaster])
+            vfUpdate = np.sum(mfWIn[vbInptSpikeRaster], axis=0) + np.sum(mfWRec[vbRecSpikeRaster])
 
             # State update
             vState[:] += vfUpdate + vfBias  # Membrane update with synaptic input
 
-            # - Record state before reset
-            tCurrentTime = tCurrentTimeStep*tDt
-            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
+            tCurrentTime = iCurrentTimeStep*tDt
+
+            if vnIdMonitor is not None:
+                # - Record state before reset
+                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState)
 
             # - Check threshold crossings for spikes
-            vbSpikeRaster = (vState >= vfVth)
+            vbRecSpikeRaster = (vState >= vfVth)
 
             # - Reset membrane state
-            vState[vbSpikeRaster] -= vfVth[vbSpikeRaster]
+            vState[vbRecSpikeRaster] -= vfVth[vbRecSpikeRaster]
 
             # - Record spikes
-            ltSpikeTimes += [tCurrentTime] * np.sum(vbSpikeRaster)
-            liSpikeIDs += list(np.where(vbSpikeRaster)[0])
+            ltSpikeTimes += [tCurrentTime] * np.sum(vbRecSpikeRaster)
+            liSpikeIDs += list(np.where(vbRecSpikeRaster)[0])
 
-            # - Record state after reset
-            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
+            if vnIdMonitor is not None:
+                # - Record state after reset
+                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor)
 
         # - Update state
         self._vState = vState
 
         # - Store IDs of neurons that would spike in next time step
-        self._vbSpikeRaster = vbSpikeRaster
+        self._vbRecSpikeRaster = vbRecSpikeRaster
 
         # Update time
         self._t += tDuration
@@ -136,7 +144,7 @@ class SpikingLayer(Layer):
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
             vtTimeTrace = ltSpikeTimes,
-            vnEventChannels = liSpikeIDs,
+            vnChannels = liSpikeIDs,
             nNumChannels = self.nSize)
 
         # TODO: Is there a time series object for this too?
@@ -147,11 +155,13 @@ class SpikingLayer(Layer):
 
         return tseOut
 
+
     def addToRecord(self,
                     aStateTimeSeries: list,
                     tCurrentTime: float,
-                    nIdOut: int = None,
-                    debug: bool = False):
+                    vnIdOut: np.ndarray = True,
+                    vState: np.ndarray = None,
+                    bDebug: bool = False):
         """
         addToRecord: Convenience function to record current state of the layer
                      or individual neuron
@@ -159,34 +169,30 @@ class SpikingLayer(Layer):
         :param aStateTimeSeries: list  A simple python list object to which the
                                        state needs to be appended
         :param tCurrentTime:     float Current simulation time
-        :param nIdOut:           int   Neuron id to record the state of,
-                                       if None all the neuron's states
-                                       will be added to the record.
-                                       Default = None
+        :param vnIdOut:          np.ndarray   Neuron IDs to record the state of,
+                                              if True all the neuron's states
+                                              will be added to the record.
+                                              Default = True
+        :param vState:           np.ndarray If not None, record this as state,
+                                            otherwise self.vState
+        :param bDebug:           bool Print debug info
         """
-        # Local variable
-        mfState = self.vState
+        
+        vState = self.vState if vState is None else vState
 
-        if nIdOut is None:
-            # Update record of state changes
-            for nIdOutIter in range(self.nSize):
-                aStateTimeSeries.append([tCurrentTime,
-                                         nIdOutIter,
-                                         mfState[nIdOutIter]])
-                if debug:
-                    print([tCurrentTime,
-                           nIdOutIter,
-                           mfState[nIdOutIter, 0]])
-        else:
+        if vnIdOut is True:
+            vnIdOut = np.arange(self.nSize)
+    
+        # Update record of state changes
+        for nIdOutIter in np.asarray(vnIdOut):
             aStateTimeSeries.append([tCurrentTime,
-                                     nIdOut,
-                                     mfState[nIdOut]])
-            if debug:
+                                     nIdOutIter,
+                                     vState[nIdOutIter]])
+            if bDebug:
                 print([tCurrentTime,
                        nIdOutIter,
-                       mfState[nIdOutIter, 0]])
-
-        return
+                       vState[nIdOutIter, 0]])
+        
 
     def _prepare_input(
         self,
@@ -238,3 +244,102 @@ class SpikingLayer(Layer):
             mfSpikeRaster = np.zeros((nSamples, nDimIn), bool)
 
         return mfSpikeRaster, tDuration
+
+    def reset_time(self):
+        # - Set internal clock to 0
+        self._t = 0
+        
+    def reset_state(self):
+        # - Delete spikes that would arrive in recurrent synapses during next time step
+        self._vbRecSpikeRaster = np.zeros(self.nSize, bool)
+        # - Reset neuron state to 0
+        self._vState = np.zeros(self.nSize)
+
+
+    ### --- Properties
+
+    @property
+    def cOutput(self):
+        return TSEvent
+
+    @property
+    def cInput(self):
+        return TSEvent
+
+    @property
+    def mfW(self):
+        return self.mfWRec
+
+    @mfW.setter
+    def mfW(self, mfNewW):
+        self.mfWRec = mfNewW
+
+    @property
+    def mfWRec(self):
+        return self._mfWRec
+
+    @mfWRec.setter
+    def mfWRec(self, mfNewW):
+
+        self._mfWRec = self._expand_to_weight_size(mfNewW, "mfWRec")
+
+    @property
+    def mfWIn(self):
+        return self._mfWIn
+
+    @mfWIn.setter
+    def mfWIn(self, mfNewW):
+        assert np.size(mfNewW) == self.nDimIn * self.nSize, \
+            '`mfWIn` must have [{}] elements.'.format(self.nDimIn * self.nSize)
+
+        self._mfWIn = np.array(mfNewW).reshape(self.nDimIn, self.nSize)
+
+    @property
+    def vState(self):
+        return self._vState
+
+    @vState.setter
+    def vState(self, vNewState):
+        self._vState = self._expand_to_net_size(vNewState, "vState")
+
+    @property
+    def vfVth(self):
+        return self._vfVth
+
+    @vfVth.setter
+    def vfVth(self, vfNewThresh):
+        self._vfVth = self._expand_to_net_size(vfNewThresh, "vfVth")
+
+    @property
+    def vfBias(self):
+        return self._vfBias
+
+    @vfBias.setter
+    def vfBias(self, vfNewBias):
+
+        self._vfBias = self._expand_to_net_size(vfNewBias, 'vfBias')
+
+    @Layer.tDt.setter
+    def tDt(self, tNewDt):
+        assert tNewDt > 0, "tDt must be greater than 0."
+        self._tDt = tNewDt
+
+    @property
+    def vnIdMonitor(self):
+        return self._vnIdMonitor
+
+    @vnIdMonitor.setter
+    def vnIdMonitor(self, vnNewIDs):
+        if vnNewIDs is True:
+            self._vnIdMonitor = np.arange(self.nSize)
+        elif (
+            vnNewIDs is None
+            or vnNewIDs is False
+            or np.size(vnNewIDs) == 0
+        ):
+            self._vnIdMonitor = np.array([])
+        else:
+            self._vnIdMonitor = self._expand_to_net_size(vnNewIDs, "vnIdMonitor")
+
+    
+    
