@@ -122,10 +122,13 @@ class RecDIAF(Layer):
         reset_time - Reset the internal clock of this layer
         """
 
-        # - Reset heap for remaining spikes
-        self._heapRemainingSpikes = []
+        # - Adapt spike times in heap
+        self._heapRemainingSpikes = [
+            (tTime-self.t, iID) for tTime, iID in self._heapRemainingSpikes
+        ]
+        heapq.heapify(self._heapRemainingSpikes)
         super().reset_time()
-
+        
 
     ### --- State evolution
 
