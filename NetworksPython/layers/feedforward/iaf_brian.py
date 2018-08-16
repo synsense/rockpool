@@ -607,21 +607,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # - Positive update if spike count too low
         vfUpdates[vnSpikeCount < vnTargetCounts] = fLambda
 
-        # - Update only eligible synapses
-        # # - approach one: flattened arrays
-        # mfW_flat = np.copy(self.mfW).flatten()
-        # # - Indices of eligible connections wrt flat array
-        # viEligible_flat = np.ravel_multi_index(
-        #     np.array([
-        #         miEligible.flatten(),  # Source index
-        #         np.repeat(np.arange(nSize),nEligible)  # Target index
-        #     ]),
-        #     (nDimIn, nSize)
-        # )
-        # mfW_flat[viEligible_flat] += np.repeat(vfUpdates, nEligible)
-        # self.mfW = mfW_flat.reshape(nDimIn, nSize)
-
-        # - Reset previous weight changes that are used for momentum heuristic
         if bFirst:
             self._mfDW_previous = np.zeros_like(self.mfW)
 
