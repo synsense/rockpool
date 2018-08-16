@@ -1106,19 +1106,14 @@ class TSEvent(TimeSeries):
 
         # - Check vnSelectChannels
         assert (np.min(vnSelectChannels) >= 0
-            and np.max(vnSelectChannels) <= self.nNumChannels
-        ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels))
+            and np.max(vnSelectChannels) < self.nNumChannels
+        ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels-1))
+
+        # - Make sure elements in vnSelectChannels are unique for better performance
+        vnSelectChannels = np.unique(vnSelectChannels)
 
         # - Find samples to return
-        vbIncludeSamples = np.any(
-            np.concatenate(
-                [
-                    np.atleast_2d(self._vnChannels == i)
-                    for i in np.array(vnSelectChannels).flatten()
-                ]
-            ),
-            axis=0,
-        )
+        vbIncludeSamples = np.isin(self._vnChannels, vnSelectChannels)
 
         # - Build new TS with only those samples
         tsChosen = self.copy()
