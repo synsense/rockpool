@@ -79,7 +79,7 @@ class RecDIAF(Layer):
 
         # - Call super constructor
         super().__init__(mfW = mfWIn,
-                         tDt = np.asarray(tDt),
+                         tDt = tDt,
                          strName = strName)
 
         # - Input weights must be provided
@@ -180,17 +180,30 @@ class RecDIAF(Layer):
 
         # print("prepared")
 
-        # import time
-        # t0 = time.time()
+        import time
+        t0 = time.time()
 
-        # tTime = self.t
-        # i=0
+        tTime = self.t
+        i=0
         # - Iterate over spike times. Stop when tFinal is exceeded.
+
+        # - Copy instance variables to local variables
+        vState = self._vState
+        mfWTotal = self._mfWTotal
+        nStateMin = self._nStateMin
+        nStateMax = self._nStateMax
+        strDtypeState = self._strDtypeState
+        vfVThresh = self._vfVThresh
+        vfVReset = self._vfVReset
+        vtRefr = self._vtRefractoryTime
+        tDelay = self._tSpikeDelay
+        nDimIn = self._nDimIn
+
         while tTime <= tFinal:
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                # print(i, tTime, nChannel, end='\r')
+                print(i, tTime, nChannel, end='\r')
 
             except IndexError:
                 # - Stop if there are no spikes left
@@ -201,17 +214,17 @@ class RecDIAF(Layer):
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = (vtRefractoryEnds <= tTime)
                 # - State updates after incoming spike
-                self._vState[vbNotRefractory] = np.clip(
-                    self._vState[vbNotRefractory] + self._mfWTotal[nChannel, vbNotRefractory],
-                    self._nStateMin,
-                    self._nStateMax
-                    ).astype(self.strDtypeState)
+                vState[vbNotRefractory] = np.clip(
+                    vState[vbNotRefractory] + mfWTotal[nChannel, vbNotRefractory],
+                    nStateMin,
+                    nStateMax
+                    ).astype(strDtypeState)
 
                 # - Neurons above threshold
-                vbAboveThresh = (self._vState >= self._vfVThresh)
+                vbAboveThresh = (vState >= vfVThresh)
 
                 # - Set states to reset potential
-                self._vState[vbAboveThresh] = self._vfVReset[vbAboveThresh].astype(self._strDtypeState)
+                vState[vbAboveThresh] = vfVReset[vbAboveThresh].astype(strDtypeState)
                 # print("new state: ", self._vState)
                 # # - Use this if fixed value should be subtracted from state instead of resetting:
                 # self._vState[vbAboveThresh] = np.clip(
@@ -221,7 +234,7 @@ class RecDIAF(Layer):
                 # )
 
                 # - Determine times when refractory period will end for neurons that have just fired
-                vtRefractoryEnds[vbAboveThresh] = tTime + self.vtRefractoryTime[vbAboveThresh]
+                vtRefractoryEnds[vbAboveThresh] = tTime + vtRefr[vbAboveThresh]
 
                 # - IDs of spiking neurons
                 viSpikeIDs = np.where(vbAboveThresh)[0]
@@ -234,12 +247,14 @@ class RecDIAF(Layer):
                 for nID in viSpikeIDs:
                     # - Delay spikes by self.tSpikeDelay. Set IDs off by self.nDimIn in order
                     #   to distinguish them from spikes coming from the input
-                    heapq.heappush(heapSpikes, (tTime + self._tSpikeDelay, nID + self._nDimIn))
+                    heapq.heappush(heapSpikes, (tTime + tDelay, nID + nDimIn))
                 # print("heap: ", heapq.nsmallest(5, heapSpikes))
-            # i += 1
+            i += 1
+        # - Update state variable
+        self._vState = vState
 
-        # print("finished loop")
-        # print(time.time()-t0)
+        print("finished loop")
+        print(time.time()-t0)
 
         # - Store remaining spikes (happening after tFinal) for next call of evolution
         self._heapRemainingSpikes = heapSpikes
@@ -290,7 +305,7 @@ class RecDIAF(Layer):
 
         # - Extract spike timings and channels
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, __ = tsInput.find([self.t, tFinal+fTolAbs])
+            vtEventTimes, vnEventChannels, __ = tsInput.find([self.t, tFinal])
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range
                 assert np.amax(vnEventChannels) < self.nDimIn, \
