@@ -1,9 +1,10 @@
 import numpy as np
+from tqdm import tqdm
 from ...timeseries import TSEvent
 from .. import Layer
 
 
-class EventCNNLayer(Layer):
+class SpikingLayer(Layer):
     '''
     EventCNNLayer: Event driven 2D convolution layer
     '''
@@ -26,22 +27,26 @@ class EventCNNLayer(Layer):
                        fNoiseStd=fNoiseStd, strName=strName)
 
         self.fVth = fVth
+        self.bias = np.zeros(self.nSize)
         self.reset_state()
+        self.__nIdMonitor__ = 0  # Default monitorin of neuron 0
 
     def evolve(self,
                tsInput: TSEvent = None,
-               tDuration: float = None) -> (TSEvent, np.ndarray):
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:  TSEvent  Input spike trian
-        :param tDuration: float    Simulation/Evolution time
+        :param tDuration:   float    Simulation/Evolution time
+        :param bVerbose:    bool Currently no effect, just for conformity
         :return:          TSEvent  output spike series
 
         """
         # Extract spike data from the input variable
-        vSpk = tsInput._vtTimeTrace
-        vIdInput = tsInput._vnChannels
+        _, _, inpSpkRaster, _ = tsInput.raster(tDt=self.tDt)
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -53,23 +58,33 @@ class EventCNNLayer(Layer):
         # Local variables
         vState = self.vState
         fVth = self.fVth
+        mfW = self.mfW
+        bias = self.bias
+        tDt = self.tDt
 
-        # Iterate over all input spikes
-        for nSpikeIndx in range(len(vSpk)):
+        # Iterate over all time steps
+        for tCurrentTimeStep in tqdm(range(int(tDuration/tDt))):
+            if tCurrentTimeStep >= len(inpSpkRaster):
+                # If the time step goes beyond length of input stream
+                # In this case no input is assumed
+                vbInputSpkT = np.zeros(mfW.shape[0]).astype(bool)
+            else:
+                # If the time step is within the provided input stream duration
+                vbInputSpkT = inpSpkRaster[tCurrentTimeStep]
 
-            tCurrentTime = vSpk[nSpikeIndx]
-            nInputId = vIdInput[nSpikeIndx].astype(int)
+            tCurrentTime = tCurrentTimeStep*tDt
 
             # Add input to neurons
-            vW = self._mfW[nInputId]
+            vW = mfW[vbInputSpkT]
+
+            # If the input current have not been added
+            if vW.shape != vState.shape:
+                vW = vW.sum(axis=0)
 
             # State update
-            vState[:] += vW  # Learning state
+            vState[:] += vW + bias  # Membrane update with synaptic input
 
-            # TODO: The above could perhaps be written in a different function
-            #       to account for diffrent lookup tables like CNNs
-
-            self.addToRecord(aStateTimeSeries, tCurrentTime)
+            self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
             # Check threshold and reset
             mbSpike = vState >= fVth
@@ -77,7 +92,7 @@ class EventCNNLayer(Layer):
                 vbSpike, = np.nonzero(mbSpike)
 
                 # Reset membrane state
-                vState[mbSpike] = 0
+                vState[mbSpike] -= fVth
 
                 # Record spikes
                 aSpk.append(
@@ -85,13 +100,17 @@ class EventCNNLayer(Layer):
                                      vbSpike)))
 
                 # Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime)
+                self.addToRecord(aStateTimeSeries, tCurrentTime, nIdOut=self.__nIdMonitor__)
 
         # Convert arrays to TimeSeries objects
-        mfSpk = np.row_stack(aSpk)
-        evOut = TSEvent(mfSpk[:, 0],
-                        mfSpk[:, 1],
-                        strName='Output')
+        if len(aSpk) > 0:
+            mfSpk = np.row_stack(aSpk)
+            evOut = TSEvent(mfSpk[:, 0],
+                            mfSpk[:, 1],
+                            strName='Output',
+                            nNumChannels=self.nSize)
+        else:
+            evOut = TSEvent(None, nNumChannels=self.nSize)
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
@@ -101,7 +120,6 @@ class EventCNNLayer(Layer):
 
         # Update time
         self._t += tDuration
-
         return evOut
 
     def addToRecord(self,
@@ -136,8 +154,8 @@ class EventCNNLayer(Layer):
                            mfState[nIdOutIter, 0]])
         else:
             aStateTimeSeries.append([tCurrentTime,
-                                     nIdOutIter,
-                                     mfState[nIdOutIter]])
+                                     nIdOut,
+                                     mfState[nIdOut]])
             if debug:
                 print([tCurrentTime,
                        nIdOutIter,

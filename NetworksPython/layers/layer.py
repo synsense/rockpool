@@ -8,6 +8,9 @@ from ..timeseries import TimeSeries, TSContinuous, TSEvent
 __all__ = ['Layer']
 
 
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
+
 ### --- Convenience functions
 
 def to_scalar(value, sClass: str = None):
@@ -151,9 +154,9 @@ class Layer(ABC):
         :return vtTimeTrace, tDuration
         """
         # - Generate a trace
-        vtTimeTrace = np.arange(0, tDuration+self._tDt, self._tDt) + tStart
+        vtTimeTrace = np.arange(0, tDuration + self._tDt, self._tDt) + tStart
         # - Make sure that vtTimeTrace doesn't go beyond tStart + tDuration
-        vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration]
+        vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration + fTolAbs]
 
         return vtTimeTrace
 

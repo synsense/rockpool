@@ -42,6 +42,8 @@ try:
 except Exception:
     pass
 
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
 
 def SetPlottingBackend(strBackend):
     global __bHoloviewsDetected
@@ -315,7 +317,7 @@ class TimeSeries:
         tDt = np.mean(np.diff(self.vtTimeTrace)) if tDt is None else tDt
 
         vtSampleTimes = np.arange(tStart, tStop + tDt, tDt)
-        vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop]
+        vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop + fTolAbs]
 
         # - Return a new time series
         return self.resample(vtSampleTimes)
@@ -1116,19 +1118,14 @@ class TSEvent(TimeSeries):
 
         # - Check vnSelectChannels
         assert (np.min(vnSelectChannels) >= 0
-            and np.max(vnSelectChannels) <= self.nNumChannels
-        ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels))
+            and np.max(vnSelectChannels) < self.nNumChannels
+        ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels-1))
+
+        # - Make sure elements in vnSelectChannels are unique for better performance
+        vnSelectChannels = np.unique(vnSelectChannels)
 
         # - Find samples to return
-        vbIncludeSamples = np.any(
-            np.concatenate(
-                [
-                    np.atleast_2d(self._vnChannels == i)
-                    for i in np.array(vnSelectChannels).flatten()
-                ]
-            ),
-            axis=0,
-        )
+        vbIncludeSamples = np.isin(self._vnChannels, vnSelectChannels)
 
         # - Build new TS with only those samples
         tsChosen = self.copy()
@@ -1137,6 +1134,31 @@ class TSEvent(TimeSeries):
         tsChosen._mfSamples = tsChosen._mfSamples[vbIncludeSamples]
 
         return tsChosen
+
+    def choose_times(self, vnSelectChannels):
+        """
+        choose_times - like choose but only return vtTimeTrace instead of time series
+
+        :param vnSelectChannels: array-like of channel indices
+        :return: np.ndarray with the time values corresponding to the given channel indices
+        """
+
+        # - Check vnSelectChannels
+        assert (np.min(vnSelectChannels) >= 0
+            and np.max(vnSelectChannels) < self.nNumChannels
+        ), "`vnSelectChannels` must be between 0 and {}".format(np.max(self.vnChannels-1))
+
+        # - If single ID is provided
+        if isinstance(vnSelectChannels, int):
+            return self.vtTimeTrace[self.vnChannels == vnSelectChannels]
+
+        else:
+            # - Make sure elements in vnSelectChannels are unique for better performance
+            vnSelectChannels = np.unique(vnSelectChannels)
+
+            # - Find and return times of matching samples
+            return self.vtTimeTrace[np.isin(self._vnChannels, vnSelectChannels)]
+
 
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
         """
