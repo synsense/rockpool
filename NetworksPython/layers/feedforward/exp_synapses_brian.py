@@ -124,19 +124,37 @@ class FFExpSynBrian(Layer):
         """
         reset_time - Reset the internal clock of this layer
         """
-        self._net.restore('reset')
+        
+        # - Sotre state variables
+        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
 
+        # - Store parameters
+        vtTauSyn = np.copy(self.vtTauSyn)
+        mfW = np.copy(self.mfW)
+
+        # - Reset network
+        self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vtTauSyn = vtTauSyn
+        self.mfW = mfW
+
+        # - Restore state variables
+        self._ngLayer.I_syn = vfIsyn
 
     ### --- State evolution
 
     def evolve(self,
                tsInput: TSEvent = None,
-               tDuration: float = None):
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> TSContinuous:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TSEvent spikes as input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """
