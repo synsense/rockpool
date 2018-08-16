@@ -13,21 +13,21 @@ def test_import():
     '''
     Test import of the class
     '''
-    from NetworksPython.layers.feedforward.evCNNLayer import EventCNNLayer
+    from NetworksPython.layers.feedforward import SpikingLayer
 
 
 def test_cnn_initialization():
     '''
     Test initialization of the layer
     '''
-    from NetworksPython.layers.feedforward.evCNNLayer import EventCNNLayer
+    from NetworksPython.layers.feedforward.evSpikeLayer import SpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = EventCNNLayer(mfW=cnnW, strName='CNN')
+    lyrCNN = SpikingLayer(mfW=cnnW, strName='CNN')
 
 
 def test_cnn_evolve():
@@ -35,14 +35,14 @@ def test_cnn_evolve():
     Test initialization of the layer
     '''
     from NetworksPython import TSEvent
-    from NetworksPython.layers.feedforward.evCNNLayer import EventCNNLayer
+    from NetworksPython.layers.feedforward import SpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = EventCNNLayer(mfW=cnnW, fVth=0.5, strName='CNN')
+    lyrCNN = SpikingLayer(mfW=cnnW, fVth=0.5, strName='CNN')
 
     # Generate time series input
     evInput = TSEvent(None, strName='Input')
@@ -59,19 +59,19 @@ def test_cnn_multilayer():
     Test initialization of the layer
     '''
     from NetworksPython import TSEvent, Network
-    from NetworksPython.layers.feedforward.evCNNLayer import EventCNNLayer
+    from NetworksPython.layers.feedforward.evSpikeLayer import SpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
-    
+
     # Parameters
-    imageShape = (10,10)
+    imageShape = (10, 10)
 
     # Initialize weights
     cnnW1 = CNNWeight(inShape=imageShape, nKernels=2, kernel_size=(3, 3))
     cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = EventCNNLayer(mfW=cnnW1, fVth=0.5, strName='CNN1')
-    lyrCnn2 = EventCNNLayer(mfW=cnnW2, fVth=0.5, strName='CNN2')
+    lyrCnn1 = SpikingLayer(mfW=cnnW1, fVth=0.5, strName='CNN1')
+    lyrCnn2 = SpikingLayer(mfW=cnnW2, fVth=0.5, strName='CNN2')
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
@@ -114,12 +114,10 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
         t_start - the beginning of the SpikeTrain (in ms)
         t_stop  - the end of the SpikeTrain (in ms)
     """
-    # less wasteful than double length method above
     n = (t_stop - t_start) / 1000.0 * rate
     number = int(np.ceil(n + 3 * np.sqrt(n)))
     if number < 100:
         number = min(5 + int(np.ceil(2 * n)), 100)
-
     if number > 0:
         isi = np.random.exponential(1.0 / rate, number) * 1000.0
 
@@ -129,23 +127,18 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
             spikes = isi
     else:
         spikes = np.array([])
-
     spikes += t_start
     i = np.searchsorted(spikes, t_stop)
-
     extra_spikes = []
     if i == len(spikes):
         # ISI buf overrun
-
         t_last = spikes[-1] + np.random.exponential(1.0 /
                                                     rate, 1)[0] * 1000.0
-
         while (t_last < t_stop):
             extra_spikes.append(t_last)
             t_last += np.random.exponential(1.0 / rate, 1)[0] * 1000.0
 
         spikes = np.concatenate((spikes, extra_spikes))
-
     else:
         spikes = np.resize(spikes, (i,))
 
