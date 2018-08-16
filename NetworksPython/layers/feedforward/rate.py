@@ -154,12 +154,17 @@ class FFRateEuler(Layer):
             'Numbers of elements in v must be 1 or match layer size')
         return v
 
-    def evolve(self, tsInput: TimeSeries = None, tDuration: float = None) -> TimeSeries:
+    def evolve(self,
+               tsInput: TimeSeries = None,
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> TimeSeries:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TimeSeries TxM or Tx1 input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """
@@ -220,12 +225,12 @@ class FFRateEuler(Layer):
 
         if tsInput is not None:
             # Warn if intput time range does not cover whole target time range
-            if not tsInput.contains(vtTimeBase) or tsInput.bPeriodic:
+            if not tsInput.contains(vtTimeBase) and not tsInput.bPeriodic and not tsTarget.bPeriodic:
                 print('WARNING: tsInput (t = {} to {}) does not cover '.format(
                       tsInput.tStart, tsInput.tStop)
-                      +'full time range of tsTarget (t = {} to {})'.format(
+                      +'full time range of tsTarget (t = {} to {})\n'.format(
                       tsTarget.tStart, tsTarget.tStop)
-                      +'Assuming input to be 0 outside of defined range.')
+                      +'Assuming input to be 0 outside of defined range.\n')
 
             # - Sample input trace and check for correct dimensions
             mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
@@ -389,12 +394,18 @@ class PassThrough(FFRateEuler):
         else:
             self.tsBuffer = None
 
-    def evolve(self, tsInput: np.ndarray, tDuration: float = None):
+    def evolve(
+        self,
+        tsInput: TimeSeries,
+        tDuration: float = None,
+        bVerbose: bool = False,
+    ) -> TimeSeries:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TimeSeries TxM or Tx1 input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """
