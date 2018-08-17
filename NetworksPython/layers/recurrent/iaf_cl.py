@@ -19,7 +19,7 @@ class RecCLIAF(Layer):
     '''
     def __init__(self,
                  mfWRec: np.ndarray = None,
-                 mfWIn: np.ndarray = None, 
+                 mfWIn: np.ndarray = None,
                  vfBias: np.ndarray = 0,
                  vfVth: np.ndarray = 8,
                  vfVreset: np.ndarray = None,
@@ -59,12 +59,12 @@ class RecCLIAF(Layer):
         self.vfVth = vfVth
         self.bSubtract = bSubtract
         self.vfVreset = vfVreset
-        
+
         # - IDs of neurons to be recorded
         self.vnIdMonitor = vnIdMonitor
 
-        self.reset_state()       
-        
+        self.reset_state()
+
 
     def evolve(self,
                tsInput: TSEvent = None,
@@ -100,7 +100,7 @@ class RecCLIAF(Layer):
         nSize = self.nSize
         bSubtract = self.bSubtract
         vfVreset = self.vfVreset
-        
+
         nSpikeSources = self.nDimIn + self.nSize  # Number of spike sources (input neurons and layer neurons)
         vnNumRecSpikes = self._vnNumRecSpikes  # Number of recurrent spikes from previous time step
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
@@ -112,15 +112,15 @@ class RecCLIAF(Layer):
 
         # Iterate over all time steps
         for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
-            
+
             # - Spikes from input synapses
             vbInptSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
-                      
+
             # Update neuron states
             vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
             # - Reset recurrent spike counter
             vnNumRecSpikes[:] = 0
-            
+
             # State update
             vState[:] += vfUpdate + vfBias  # Membrane update with synaptic input
             # - Update current time
@@ -143,10 +143,11 @@ class RecCLIAF(Layer):
                     # - Neurons that are still above threshold will emit another spike
                     vbRecSpikeRaster = (vState >= vfVth)
             else:
+                # - Add to spike counter
                 vnNumRecSpikes = vbRecSpikeRaster.astype(int)
                 # - Reset neuron states
                 vState[vbRecSpikeRaster] = vfVreset[vbRecSpikeRaster]
-            
+
             # - Record spikes
             ltSpikeTimes += [tCurrentTime] * np.sum(vnNumRecSpikes)
             liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumRecSpikes))
@@ -163,7 +164,7 @@ class RecCLIAF(Layer):
 
         # Update time
         self._t += tDuration
-        
+
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
             vtTimeTrace = ltSpikeTimes,
@@ -200,12 +201,12 @@ class RecCLIAF(Layer):
                                             otherwise self.vState
         :param bDebug:           bool Print debug info
         """
-        
+
         vState = self.vState if vState is None else vState
 
         if vnIdOut is True:
             vnIdOut = np.arange(self.nSize)
-    
+
         # Update record of state changes
         for nIdOutIter in np.asarray(vnIdOut):
             aStateTimeSeries.append([tCurrentTime,
@@ -215,7 +216,7 @@ class RecCLIAF(Layer):
                 print([tCurrentTime,
                        nIdOutIter,
                        vState[nIdOutIter, 0]])
-        
+
 
     def _prepare_input(
         self,
@@ -271,7 +272,7 @@ class RecCLIAF(Layer):
     def reset_time(self):
         # - Set internal clock to 0
         self._t = 0
-        
+
     def reset_state(self):
         # - Delete spikes that would arrive in recurrent synapses during next time step
         self._vnNumRecSpikes = np.zeros(self.nSize, int)
