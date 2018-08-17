@@ -1321,23 +1321,25 @@ class TSEvent(TimeSeries):
         else:
             tplSamples = None
 
-        #   Iterate over channel indices and create their event raster
-        for row, channel in enumerate(vnSelectChannels):
+        # - Only perform iteration for rasters that have non-zero length
+        if vtTimeBase.size > 0:
+            #   Iterate over channel indices and create their event raster
+            for row, channel in enumerate(vnSelectChannels):
 
-            # Times with event in current channel
-            viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
-            vtEventTimes_Channel = vtEventTimes[viEventIndices_Channel]
+                # Times with event in current channel
+                viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
+                vtEventTimes_Channel = vtEventTimes[viEventIndices_Channel]
 
-            # Indices of vtTimeBase corresponding to these times
-            viEventIndices_Raster = ((vtEventTimes_Channel-vtTimeBase[0]) / tDt).astype(int)
+                # Indices of vtTimeBase corresponding to these times
+                viEventIndices_Raster = ((vtEventTimes_Channel-vtTimeBase[0]) / tDt).astype(int)
 
-            # Set event  and sample raster for current channel
-            mbEventsRaster[viEventIndices_Raster, row] = True
+                # Set event  and sample raster for current channel
+                mbEventsRaster[viEventIndices_Raster, row] = True
 
-            # Add samples
-            if bSamples:
-                for iRasterIndex, iTimeIndex in zip(viEventIndices_Raster, viEventIndices_Channel):
-                    tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
+                # Add samples
+                if bSamples:
+                    for iRasterIndex, iTimeIndex in zip(viEventIndices_Raster, viEventIndices_Channel):
+                        tplSamples[iRasterIndex].append((channel, vfSamples[iTimeIndex]))
 
         return vtTimeBase, np.array(vnSelectChannels), mbEventsRaster, tplSamples
 
