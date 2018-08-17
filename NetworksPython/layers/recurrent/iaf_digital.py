@@ -134,7 +134,7 @@ class RecDIAF(Layer):
         ]
         heapq.heapify(self._heapRemainingSpikes)
         super().reset_time()
-        
+
 
     ### --- State evolution
 
@@ -197,28 +197,29 @@ class RecDIAF(Layer):
         # - Iterate over spike times. Stop when tFinal is exceeded.
 
         # - Copy instance variables to local variables
-        vState = self._vState
+        vState = self.vState
         mfWTotal = self._mfWTotal
         nStateMin = self._nStateMin
         nStateMax = self._nStateMax
-        strDtypeState = self._strDtypeState
-        vfVThresh = self._vfVThresh
-        vfVReset = self._vfVReset
-        vtRefr = self._vtRefractoryTime
-        tDelay = self._tSpikeDelay
-        nDimIn = self._nDimIn
+        strDtypeState = self.strDtypeState
+        vfVThresh = self.vfVThresh
+        vfVReset = self.vfVReset
+        vtRefr = self.vtRefractoryTime
+        tDelay = self.tSpikeDelay
+        nDimIn = self.nDimIn
+        bSubtract = self.bSubtract
 
         while tTime <= tFinal:
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print(i, tTime, nChannel, end='\r')
+                print("\n", i, tTime, nChannel) #, end='\r')
 
             except IndexError:
                 # - Stop if there are no spikes left
                 break
             else:
-                # print("update: ", self._mfWTotal[nChannel])
+                print("update: ", self._mfWTotal[nChannel])
 
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = (vtRefractoryEnds <= tTime)
@@ -232,15 +233,18 @@ class RecDIAF(Layer):
                 # - Neurons above threshold
                 vbAboveThresh = (vState >= vfVThresh)
 
-                # - Set states to reset potential
-                vState[vbAboveThresh] = vfVReset[vbAboveThresh].astype(strDtypeState)
-                # print("new state: ", self._vState)
-                # # - Use this if fixed value should be subtracted from state instead of resetting:
-                # self._vState[vbAboveThresh] = np.clip(
-                #     self._vState[vbAboveThresh]-self.vfVReset[vbAboveThresh],
-                #     self._nStateMin,
-                #     None
-                # )
+                if bSubtract:
+                    # - Subtract from states of spiking neurons
+                    vState[vbAboveThresh] = np.clip(
+                        vState[vbAboveThresh]-vfVReset[vbAboveThresh],
+                        nStateMin,
+                        nStateMax
+                    )
+                else:
+                    # - Set states to reset potential
+                    vState[vbAboveThresh] = vfVReset[vbAboveThresh].astype(strDtypeState)
+
+                print("new state: ", self._vState)
 
                 # - Determine times when refractory period will end for neurons that have just fired
                 vtRefractoryEnds[vbAboveThresh] = tTime + vtRefr[vbAboveThresh]
@@ -257,7 +261,7 @@ class RecDIAF(Layer):
                     # - Delay spikes by self.tSpikeDelay. Set IDs off by self.nDimIn in order
                     #   to distinguish them from spikes coming from the input
                     heapq.heappush(heapSpikes, (tTime + tDelay, nID + nDimIn))
-                # print("heap: ", heapq.nsmallest(5, heapSpikes))
+                print("heap: ", heapq.nsmallest(5, heapSpikes))
             i += 1
         # - Update state variable
         self._vState = vState
@@ -387,8 +391,8 @@ class RecDIAF(Layer):
     def vfVReset(self):
         return self._vfVReset
 
-    @vfVreset.setter
-    def vfVreset(self, vfNewReset):
+    @vfVReset.setter
+    def vfVReset(self, vfNewReset):
         if vfNewReset is None:
             if self.bSubtract:
                 # - Subtract threshold values after spike
@@ -399,7 +403,7 @@ class RecDIAF(Layer):
         else:
             # - Use provided values for reset
             self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
-    
+
     @property
     def vfCleak(self):
         return -self._mfWTotal[-1, : ]
