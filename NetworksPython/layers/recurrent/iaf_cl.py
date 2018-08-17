@@ -143,6 +143,7 @@ class RecCLIAF(Layer):
                     # - Neurons that are still above threshold will emit another spike
                     vbRecSpikeRaster = (vState >= vfVth)
             else:
+                vnNumRecSpikes = vbRecSpikeRaster.astype(int)
                 # - Reset neuron states
                 vState[vbRecSpikeRaster] = vfVreset[vbRecSpikeRaster]
             
