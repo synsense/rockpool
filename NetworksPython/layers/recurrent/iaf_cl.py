@@ -3,6 +3,7 @@
 #                 I&F-neurons with constant leak. Clock based.
 ###
 
+from typing import Optional, Union, List, Tuple
 
 import numpy as np
 from tqdm import tqdm
@@ -12,34 +13,35 @@ from .. import Layer
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 class RecCLIAF(Layer):
     '''
     RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
     '''
     def __init__(self,
-                 mfWRec: np.ndarray = None,
-                 mfWIn: np.ndarray = None,
-                 vfBias: np.ndarray = 0,
-                 vfVth: np.ndarray = 8,
-                 vfVreset: np.ndarray = None,
-                 bSubtract: bool = True,
+                 mfWIn: np.ndarray,
+                 mfWRec: Optional[np.ndarray] = None,
+                 vfVBias: Union[ArrayLike, float] = 0,
+                 vfVThresh: Union[ArrayLike, float] = 8,
+                 vfVReset: Union[ArrayLike, float] = 0,
+                 vfVSubtract: Union[ArrayLike, float, None] = 8,
                  tDt: float = 1,
-                 vnIdMonitor: np.ndarray = [],
+                 vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
                  strName: str = 'unnamed'):
         """
         RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
 
-        :param nfWRec:  array-like  Weight matrix
-        :param mfWIn:   array-like  nDimInxN input weight matrix.
-        :param vfBias:  array-like  Constant bias to be added to state at each time step
-        :param vfVth:   array-like  Spiking threshold
-        :param vfVreset: array-like  Reset potential after spike (also see param bSubtract)
-        :param bSubtract: bool  If True, a spiking neuron's state will be subtracted
-                                by the corresponding value in vfVreset
-        :param tDt:     float  Time step
-        :vnIdMonitor:   array-like  IDs of neurons to be recorded
-        :param strName: str  Name of this layer.
+        :param nfWRec:      array-like  Weight matrix
+        :param mfWIn:       array-like  nDimInxN input weight matrix.
+        :param vfVBias:     array-like  Constant bias to be added to state at each time step
+        :param vfVThresh:   array-like  Spiking threshold
+        :param vfVReset:    array-like  Reset potential after spike (also see param bSubtract)
+        :param vfVSubtract: array-like  If not None, subtract provided values
+                                        from neuron state after spike. Otherwise will reset.
+        :vnIdMonitor:       array-like  IDs of neurons to be recorded
+        :param strName:     str  Name of this layer.
         """
         # Call parent constructor
         super().__init__(mfW = mfWIn,
@@ -55,10 +57,10 @@ class RecCLIAF(Layer):
         # - Set neuron parameters
         self.mfWRec = mfWRec
         self.mfWIn = mfWIn
-        self.vfBias = vfBias
-        self.vfVth = vfVth
-        self.bSubtract = bSubtract
-        self.vfVreset = vfVreset
+        self.vfVBias = vfVBias
+        self.vfVThresh = vfVThresh
+        self.vfVSubtract = vfVSubtract
+        self.vfVReset = vfVReset
 
         # - IDs of neurons to be recorded
         self.vnIdMonitor = vnIdMonitor
@@ -67,8 +69,8 @@ class RecCLIAF(Layer):
 
 
     def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
+               tsInput: Optional[TSEvent] = None,
+               tDuration: Optional[float] = None,
                bVerbose: bool = False,
     ) -> (TSEvent, np.ndarray):
         """
@@ -91,15 +93,15 @@ class RecCLIAF(Layer):
 
         # Local variables
         vState = self.vState
-        vfVth = self.vfVth
+        vfVThresh = self.vfVThresh
         mfWRec = self.mfWRec
         mfWIn = self.mfWIn
-        vfBias = self.vfBias
+        vfVBias = self.vfVBias
         tDt = self.tDt
         nDimIn = self.nDimIn
         nSize = self.nSize
-        bSubtract = self.bSubtract
-        vfVreset = self.vfVreset
+        vfVSubtract = self.vfVSubtract
+        vfVReset = self.vfVReset
 
         nSpikeSources = self.nDimIn + self.nSize  # Number of spike sources (input neurons and layer neurons)
         vnNumRecSpikes = self._vnNumRecSpikes  # Number of recurrent spikes from previous time step
@@ -121,8 +123,8 @@ class RecCLIAF(Layer):
             # - Reset recurrent spike counter
             vnNumRecSpikes[:] = 0
 
-            # State update
-            vState[:] += vfUpdate + vfBias  # Membrane update with synaptic input
+            # State update (write this way to avoid that type casting fails)
+            vState = vState + vfUpdate + vfVBias  # Membrane update with synaptic input
             # - Update current time
             tCurrentTime = iCurrentTimeStep*tDt
 
@@ -131,22 +133,22 @@ class RecCLIAF(Layer):
                 self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState)
 
             # - Check threshold crossings for spikes
-            vbRecSpikeRaster = (vState >= vfVth)
+            vbRecSpikeRaster = (vState >= vfVThresh)
 
             # - Reset or subtract from membrane state after spikes
-            if bSubtract:
+            if vfVSubtract is not None:
                 while vbRecSpikeRaster.any():
                     # - Subtract from states
-                    vState[vbRecSpikeRaster] -= vfVreset[vbRecSpikeRaster]
+                    vState[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
                     # - Add to spike counter
                     vnNumRecSpikes[vbRecSpikeRaster] += 1
                     # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = (vState >= vfVth)
+                    vbRecSpikeRaster = (vState >= vfVThresh)
             else:
                 # - Add to spike counter
                 vnNumRecSpikes = vbRecSpikeRaster.astype(int)
                 # - Reset neuron states
-                vState[vbRecSpikeRaster] = vfVreset[vbRecSpikeRaster]
+                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
 
             # - Record spikes
             ltSpikeTimes += [tCurrentTime] * np.sum(vnNumRecSpikes)
@@ -183,8 +185,8 @@ class RecCLIAF(Layer):
     def addToRecord(self,
                     aStateTimeSeries: list,
                     tCurrentTime: float,
-                    vnIdOut: np.ndarray = True,
-                    vState: np.ndarray = None,
+                    vnIdOut: Union[ArrayLike, bool] = True,
+                    vState: Optional[np.ndarray] = None,
                     bDebug: bool = False):
         """
         addToRecord: Convenience function to record current state of the layer
@@ -206,6 +208,9 @@ class RecCLIAF(Layer):
 
         if vnIdOut is True:
             vnIdOut = np.arange(self.nSize)
+        elif vnIdOut is False:
+            # - Do nothing
+            return
 
         # Update record of state changes
         for nIdOutIter in np.asarray(vnIdOut):
@@ -220,9 +225,9 @@ class RecCLIAF(Layer):
 
     def _prepare_input(
         self,
-        tsInput: TSEvent = None,
-        tDuration: float = None
-    ) -> (np.ndarray, float, float):
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None
+    ) -> (np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
 
@@ -277,7 +282,7 @@ class RecCLIAF(Layer):
         # - Delete spikes that would arrive in recurrent synapses during next time step
         self._vnNumRecSpikes = np.zeros(self.nSize, int)
         # - Reset neuron state to 0
-        self._vState = np.zeros(self.nSize)
+        self._vState = self.vfVReset
 
 
     ### --- Properties
@@ -327,47 +332,44 @@ class RecCLIAF(Layer):
         self._vState = self._expand_to_net_size(vNewState, "vState")
 
     @property
-    def vfVth(self):
-        return self._vfVth
+    def vfVThresh(self):
+        return self._vfVThresh
 
-    @vfVth.setter
-    def vfVth(self, vfNewThresh):
-        self._vfVth = self._expand_to_net_size(vfNewThresh, "vfVth")
+    @vfVThresh.setter
+    def vfVThresh(self, vfNewThresh):
+        self._vfVThresh = self._expand_to_net_size(vfNewThresh, "vfVThresh")
 
     @property
-    def vfVreset(self):
-        return self._vfVreset
+    def vfVReset(self):
+        return self._vfVReset
 
-    @vfVreset.setter
-    def vfVreset(self, vfNewReset):
-        if vfNewReset is None:
-            if self.bSubtract:
-                # - Subtract threshold values after spike
-                self._vfVreset = np.copy(self.vfVth)
-            else:
-                # - Set state to zero after spike
-                self._vfVreset = np.zeros(self.nSize)
+    @property
+    def vfVReset(self):
+        return self._vfVReset
+
+    @vfVReset.setter
+    def vfVReset(self, vfNewReset):
+        self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
+
+    @property
+    def vfVSubtract(self):
+        return self._vfVSubtract
+
+    @vfVSubtract.setter
+    def vfVSubtract(self, vfVNew):
+        if vfVNew is None:
+            self._vfVSubtract = None
         else:
-            # - Use provided values for reset
-            self._vfVreset = self._expand_to_net_size(vfNewReset, "vfVreset")
+            self._vfVSubtract = self._expand_to_net_size(vfVNew, "vfVSubtract")
 
     @property
-    def bSubtract(self):
-        return self._bSubtract
+    def vfVBias(self):
+        return self._vfVBias
 
-    @bSubtract.setter
-    def bSubtract(self, bNew):
-        assert isinstance(bNew, bool), "bSubtract must be of type bool."
-        self._bSubtract = bNew
+    @vfVBias.setter
+    def vfVBias(self, vfNewBias):
 
-    @property
-    def vfBias(self):
-        return self._vfBias
-
-    @vfBias.setter
-    def vfBias(self, vfNewBias):
-
-        self._vfBias = self._expand_to_net_size(vfNewBias, 'vfBias')
+        self._vfVBias = self._expand_to_net_size(vfNewBias, 'vfVBias')
 
     @Layer.tDt.setter
     def tDt(self, tNewDt):

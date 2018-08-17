@@ -9,6 +9,7 @@ import sys
 strNetworkPath = sys.path[0] + '../../..'
 sys.path.insert(1, strNetworkPath)
 
+from typing import Union, Optional, List, Tuple
 import numpy as np
 import heapq
 
@@ -24,9 +25,11 @@ __all__ = ['RecDIAF']
 
 
 # - Absolute tolerance, e.g. for comparing float values
-fTolAbs = 1e-9
+fTolAbs = 1e-10
 # - Minimum refractory time
 tMinRefractory = 1e-9
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 ## - RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
 class RecDIAF(Layer):
@@ -37,19 +40,18 @@ class RecDIAF(Layer):
     def __init__(self,
 
                  mfWRec: np.ndarray = None,
-                 mfWIn: np.ndarray = None,
+                 mfWIn: Optional[np.ndarray] = None,
 
                  tDt: float = 0.0001,
 
-                 tSpikeDelay = 1e-8,
-                 tTauLeak = 1e-3,
-                 vtRefractoryTime = tMinRefractory,
+                 tSpikeDelay: float = 1e-8,
+                 tTauLeak: float = 1e-3,
+                 vtRefractoryTime: Union[ArrayLike, float] = tMinRefractory,
 
-                 vfVThresh: np.ndarray = 100,
-                 vfVReset: np.ndarray = 0,
-                 vfCleak: np.ndarray = 1,
-
-                 bSubtract: bool = False,
+                 vfVThresh: Union[ArrayLike, float] = 100,
+                 vfVReset: Union[ArrayLike, float] = 0,
+                 vfCleak: Union[ArrayLike, float] = 1,
+                 vfVSubtract: Union[ArrayLike, float, None] = None,
 
                  strDtypeState: str = "int8",
 
@@ -74,8 +76,9 @@ class RecDIAF(Layer):
         :param vfVReset:        np.array Nx1 vector of neuron reset potentials.
         :param vfCleak:         np.array Nx1 vector of leak values.
 
-        :param bSubtract:       bool If True, a spiking neuron's state will be
-                                     subtracted by the corresponding value in vfVreset
+        :param vfVSubtract:     np.array If not None, subtract provided values
+                                         from neuron state after spike.
+                                         Otherwise will reset.
 
         :param strDtypeState:   str data type for the membrane potential
 
@@ -94,8 +97,9 @@ class RecDIAF(Layer):
         self._nLeakChannel = self.nDimIn + self.nSize
 
         # - One large weight matrix to process input and recurrent connections
-        #   as well as leak
-        self._mfWTotal = np.zeros((self._nLeakChannel + 1, self.nSize))
+        #   as well as leak and multiple spikes if state after subtraction is
+        #   still above threshold.
+        self._mfWTotal = np.zeros((self._nLeakChannel + 2, self.nSize))
 
         # - Set minimum refractory time
         self._tMinRefractory = tMinRefractory
@@ -103,10 +107,10 @@ class RecDIAF(Layer):
         # - Set neuron parameters
         self.mfW = mfWRec
         self.mfWIn = mfWIn
+        self.vfVSubtract = vfVSubtract
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
         self.vfCleak = vfCleak
-        self.bSubtract = bSubtract
         self.tSpikeDelay = tSpikeDelay
         self.tTauLeak = tTauLeak
         self.vtRefractoryTime = vtRefractoryTime
@@ -133,15 +137,15 @@ class RecDIAF(Layer):
             (tTime-self.t, iID) for tTime, iID in self._heapRemainingSpikes
         ]
         heapq.heapify(self._heapRemainingSpikes)
-        super().reset_time()
+        self._t = 0
 
 
     ### --- State evolution
 
     def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
+               tsInput: Optional[TSEvent] = None,
+               tDuration: Optional[float] = None,
+               bVerbose: Optional[bool] = False,
     ) -> TSEvent:
         """
         evolve - Evolve the state of this layer
@@ -207,7 +211,7 @@ class RecDIAF(Layer):
         vtRefr = self.vtRefractoryTime
         tDelay = self.tSpikeDelay
         nDimIn = self.nDimIn
-        bSubtract = self.bSubtract
+        vfVSubtract = self.vfVSubtract
 
         while tTime <= tFinal:
             try:
@@ -230,30 +234,40 @@ class RecDIAF(Layer):
                     nStateMax
                     ).astype(strDtypeState)
 
-                # - Neurons above threshold
-                vbAboveThresh = (vState >= vfVThresh)
+                # - Neurons above threshold and not refractory
+                vbSpiking = np.logical_and(vState >= vfVThresh, vbNotRefractory)
 
-                if bSubtract:
+                if vfVSubtract is not None:
                     # - Subtract from states of spiking neurons
-                    vState[vbAboveThresh] = np.clip(
-                        vState[vbAboveThresh]-vfVReset[vbAboveThresh],
+                    vState[vbSpiking] = np.clip(
+                        vState[vbSpiking]-vfVSubtract[vbSpiking],
                         nStateMin,
                         nStateMax
-                    )
+                    ).astype(strDtypeState)
+                    # - Check if there are still states above threshold
+                    for iStillAboveThresh in np.where(vState >= vfVThresh)[0]:
+                        # - Add the time when they stop being refractory to the heap
+                        #   on the last channel, where weights are 0, so that no states
+                        #   are updated, only respective states are subtracted
+                        heapq.heappush(
+                            heapSpikes,
+                            (tTime + vtRefr[iStillAboveThresh] + fTolAbs, -1)
+                        )
+
                 else:
                     # - Set states to reset potential
-                    vState[vbAboveThresh] = vfVReset[vbAboveThresh].astype(strDtypeState)
+                    vState[vbSpiking] = vfVReset[vbSpiking].astype(strDtypeState)
 
                 print("new state: ", self._vState)
 
                 # - Determine times when refractory period will end for neurons that have just fired
-                vtRefractoryEnds[vbAboveThresh] = tTime + vtRefr[vbAboveThresh]
+                vtRefractoryEnds[vbSpiking] = tTime + vtRefr[vbSpiking]
 
                 # - IDs of spiking neurons
-                viSpikeIDs = np.where(vbAboveThresh)[0]
+                viSpikeIDs = np.where(vbSpiking)[0]
                 # print("spiking: ", viSpikeIDs)
                 # - Append spike events to lists
-                ltSpikeTimes += [tTime] * np.sum(vbAboveThresh)
+                ltSpikeTimes += [tTime] * np.sum(vbSpiking)
                 liSpikeIDs += list(viSpikeIDs)
 
                 # - Append new spikes to heap
@@ -280,8 +294,8 @@ class RecDIAF(Layer):
 
     def _prepare_input(
         self,
-        tsInput: TSEvent = None,
-        tDuration: float = None
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None
     ) -> (np.ndarray, np.ndarray, float, float):
         """
         _prepare_input - Sample input, set up time base
@@ -393,34 +407,26 @@ class RecDIAF(Layer):
 
     @vfVReset.setter
     def vfVReset(self, vfNewReset):
-        if vfNewReset is None:
-            if self.bSubtract:
-                # - Subtract threshold values after spike
-                self._vfVReset = np.copy(self.vfVThresh)
-            else:
-                # - Set state to zero after spike
-                self._vfVReset = np.zeros(self.nSize)
-        else:
-            # - Use provided values for reset
-            self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
+        self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
 
     @property
     def vfCleak(self):
-        return -self._mfWTotal[-1, : ]
+        return -self._mfWTotal[self._nLeakChannel, : ]
 
     @vfCleak.setter
     def vfCleak(self, vfNewLeak):
-
-        self._mfWTotal[-1, : ] = self._expand_to_net_size(-vfNewLeak, 'vfCleak')
+        self._mfWTotal[self._nLeakChannel, : ] = self._expand_to_net_size(-vfNewLeak, 'vfCleak')
 
     @property
-    def bSubtract(self):
-        return self._bSubtract
+    def vfVSubtract(self):
+        return self._vfVSubtract
 
-    @bSubtract.setter
-    def bSubtract(self, bNew):
-        assert isinstance(bNew, bool), "bSubtract must be of type bool."
-        self._bSubtract = bNew
+    @vfVSubtract.setter
+    def vfVSubtract(self, vfVNew):
+        if vfVNew is None:
+            self._vfVSubtract = None
+        else:
+            self._vfVSubtract = self._expand_to_net_size(vfVNew, "vfVSubtract")
 
     @property
     def vtRefractoryTime(self):
