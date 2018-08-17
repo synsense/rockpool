@@ -1,5 +1,5 @@
 ###
-# spikelayer.py - Class implementing a recurrent layer consisting of
+# iaf_cl.py - Class implementing a recurrent layer consisting of
 #                 I&F-neurons with constant leak. Clock based.
 ###
 
@@ -20,8 +20,10 @@ class RecCLIAF(Layer):
     def __init__(self,
                  mfWRec: np.ndarray = None,
                  mfWIn: np.ndarray = None, 
-                 vfVth: np.ndarray = 8,
                  vfBias: np.ndarray = 0,
+                 vfVth: np.ndarray = 8,
+                 vfVreset: np.ndarray = None,
+                 bSubtract: bool = True,
                  tDt: float = 1,
                  vnIdMonitor: np.ndarray = [],
                  strName: str = 'unnamed'):
@@ -30,8 +32,11 @@ class RecCLIAF(Layer):
 
         :param nfWRec:  array-like  Weight matrix
         :param mfWIn:   array-like  nDimInxN input weight matrix.
-        :param vfVth:   array-like  Spiking threshold
         :param vfBias:  array-like  Constant bias to be added to state at each time step
+        :param vfVth:   array-like  Spiking threshold
+        :param vfVreset: array-like  Reset potential after spike (also see param bSubtract)
+        :param bSubtract: bool  If True, a spiking neuron's state will be subtracted
+                                by the corresponding value in vfVreset
         :param tDt:     float  Time step
         :vnIdMonitor:   array-like  IDs of neurons to be recorded
         :param strName: str  Name of this layer.
@@ -50,9 +55,11 @@ class RecCLIAF(Layer):
         # - Set neuron parameters
         self.mfWRec = mfWRec
         self.mfWIn = mfWIn
-        self.vfVth = vfVth
         self.vfBias = vfBias
-
+        self.vfVth = vfVth
+        self.bSubtract = bSubtract
+        self.vfVreset = vfVreset
+        
         # - IDs of neurons to be recorded
         self.vnIdMonitor = vnIdMonitor
 
@@ -90,6 +97,8 @@ class RecCLIAF(Layer):
         vfBias = self.vfBias
         tDt = self.tDt
         nDimIn = self.nDimIn
+        bSubtract = self.bSubtract
+        vfVreset = self.vfVreset
         
         nSpikeSources = self.nDimIn + self.nSize  # Number of spike sources (input neurons and layer neurons)
         vbRecSpikeRaster = self._vbRecSpikeRaster  # recurrent spikes from previous time step
@@ -108,10 +117,9 @@ class RecCLIAF(Layer):
                       
             # Update neuron states
             vfUpdate = np.sum(mfWIn[vbInptSpikeRaster], axis=0) + np.sum(mfWRec[vbRecSpikeRaster])
-
             # State update
             vState[:] += vfUpdate + vfBias  # Membrane update with synaptic input
-
+            # - Update current time
             tCurrentTime = iCurrentTimeStep*tDt
 
             if vnIdMonitor is not None:
@@ -121,9 +129,11 @@ class RecCLIAF(Layer):
             # - Check threshold crossings for spikes
             vbRecSpikeRaster = (vState >= vfVth)
 
-            # - Reset membrane state
-            vState[vbRecSpikeRaster] -= vfVth[vbRecSpikeRaster]
-
+            # - Reset or subtract from membrane state
+            if bSubtract:
+                vState[vbRecSpikeRaster] -= vfVreset[vbRecSpikeRaster]
+            else:
+                vState[vbRecSpikeRaster] = vfVreset[vbRecSpikeRaster]
             # - Record spikes
             ltSpikeTimes += [tCurrentTime] * np.sum(vbRecSpikeRaster)
             liSpikeIDs += list(np.where(vbRecSpikeRaster)[0])
@@ -309,6 +319,32 @@ class RecCLIAF(Layer):
     @vfVth.setter
     def vfVth(self, vfNewThresh):
         self._vfVth = self._expand_to_net_size(vfNewThresh, "vfVth")
+
+    @property
+    def vfVreset(self):
+        return self._vfVreset
+
+    @vfVreset.setter
+    def vfVreset(self, vfNewReset):
+        if vfNewReset is None:
+            if self.bSubtract:
+                # - Subtract threshold values after spike
+                self._vfVreset = np.copy(self.vfVth)
+            else:
+                # - Set state to zero after spike
+                self._vfVreset = np.zeros(self.nSize)
+        else:
+            # - Use provided values for reset
+            self._vfVreset = self._expand_to_net_size(vfNewReset, "vfVreset")
+
+    @property
+    def bSubtract(self):
+        return self._bSubtract
+
+    @bSubtract.setter
+    def bSubtract(self, bNew):
+        assert isinstance(bNew, bool), "bSubtract must be of type bool."
+        self._bSubtract = bNew
 
     @property
     def vfBias(self):
