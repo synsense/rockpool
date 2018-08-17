@@ -49,6 +49,8 @@ class RecDIAF(Layer):
                  vfVReset: np.ndarray = 0,
                  vfCleak: np.ndarray = 1,
 
+                 bSubtract: bool = False,
+
                  strDtypeState: str = "int8",
 
                  strName: str = 'unnamed'
@@ -71,6 +73,9 @@ class RecDIAF(Layer):
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds.
         :param vfVReset:        np.array Nx1 vector of neuron reset potentials.
         :param vfCleak:         np.array Nx1 vector of leak values.
+
+        :param bSubtract:       bool If True, a spiking neuron's state will be
+                                     subtracted by the corresponding value in vfVreset
 
         :param strDtypeState:   str data type for the membrane potential
 
@@ -101,6 +106,7 @@ class RecDIAF(Layer):
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
         self.vfCleak = vfCleak
+        self.bSubtract = bSubtract
         self.tSpikeDelay = tSpikeDelay
         self.tTauLeak = tTauLeak
         self.vtRefractoryTime = vtRefractoryTime
@@ -381,10 +387,19 @@ class RecDIAF(Layer):
     def vfVReset(self):
         return self._vfVReset
 
-    @vfVReset.setter
-    def vfVReset(self, vfNewReset):
-        self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
-
+    @vfVreset.setter
+    def vfVreset(self, vfNewReset):
+        if vfNewReset is None:
+            if self.bSubtract:
+                # - Subtract threshold values after spike
+                self._vfVReset = np.copy(self.vfVThresh)
+            else:
+                # - Set state to zero after spike
+                self._vfVReset = np.zeros(self.nSize)
+        else:
+            # - Use provided values for reset
+            self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
+    
     @property
     def vfCleak(self):
         return -self._mfWTotal[-1, : ]
@@ -393,6 +408,15 @@ class RecDIAF(Layer):
     def vfCleak(self, vfNewLeak):
 
         self._mfWTotal[-1, : ] = self._expand_to_net_size(-vfNewLeak, 'vfCleak')
+
+    @property
+    def bSubtract(self):
+        return self._bSubtract
+
+    @bSubtract.setter
+    def bSubtract(self, bNew):
+        assert isinstance(bNew, bool), "bSubtract must be of type bool."
+        self._bSubtract = bNew
 
     @property
     def vtRefractoryTime(self):
