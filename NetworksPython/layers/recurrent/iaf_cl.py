@@ -16,6 +16,7 @@ fTolAbs = 1e-9
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
+
 class RecCLIAF(Layer):
     '''
     RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
@@ -44,9 +45,9 @@ class RecCLIAF(Layer):
         :param strName:     str  Name of this layer.
         """
         # Call parent constructor
-        super().__init__(mfW = mfWIn,
-                         tDt = tDt,
-                         strName = strName)
+        super().__init__(mfW=mfWIn,
+                         tDt=tDt,
+                         strName=strName)
 
         # - Input weights must be provided
         assert mfWRec is not None, 'Recurrent weights mfWRec must be provided.'
@@ -67,12 +68,11 @@ class RecCLIAF(Layer):
 
         self.reset_state()
 
-
     def evolve(self,
                tsInput: Optional[TSEvent] = None,
                tDuration: Optional[float] = None,
-               bVerbose: bool = False,
-    ) -> (TSEvent, np.ndarray):
+               bVerbose: bool = False
+               ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
 
@@ -110,7 +110,6 @@ class RecCLIAF(Layer):
         if vnIdMonitor is not None:
             # Record initial state of the network
             self.addToRecord(aStateTimeSeries, self.t)
-
 
         # Iterate over all time steps
         for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
@@ -169,9 +168,9 @@ class RecCLIAF(Layer):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace = ltSpikeTimes,
-            vnChannels = liSpikeIDs,
-            nNumChannels = self.nSize)
+            vtTimeTrace=ltSpikeTimes,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize)
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
@@ -180,7 +179,6 @@ class RecCLIAF(Layer):
         self._mfStateTimeSeries = mfStateTimeSeries
 
         return tseOut
-
 
     def addToRecord(self,
                     aStateTimeSeries: list,
@@ -222,7 +220,6 @@ class RecCLIAF(Layer):
                        nIdOutIter,
                        vState[nIdOutIter, 0]])
 
-
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -263,10 +260,10 @@ class RecCLIAF(Layer):
         if tsInput is not None:
             # Extract spike data from the input variable
             __, __, mfSpikeRaster, __ = tsInput.raster(
-                tDt = self.tDt,
-                tStart = self.t,
-                tStop = self.t + tDuration,
-                vnSelectChannels = np.arange(self.nDimIn),
+                tDt=self.tDt,
+                tStart=self.t,
+                tStop=self.t + tDuration,
+                vnSelectChannels=np.arange(self.nDimIn),
             )
 
         else:

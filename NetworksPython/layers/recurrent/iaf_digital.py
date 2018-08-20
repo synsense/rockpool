@@ -5,19 +5,19 @@
 ###
 
 # - Imports
-import sys
-strNetworkPath = sys.path[0] + '../../..'
-sys.path.insert(1, strNetworkPath)
+# import sys
+# strNetworkPath = sys.path[0] + '../../..'
+# sys.path.insert(1, strNetworkPath)
 
 from typing import Union, Optional, List, Tuple
 import numpy as np
 import heapq
 
-from NetworksPython.timeseries import TSEvent
+from ...timeseries import TSEvent
 
-from NetworksPython.layers.layer import Layer
+from ..layer import Layer
 
-from NetworksPython.layers.recurrent.timedarray_shift import TimedArray as TAShift
+from .timedarray_shift import TimedArray as TAShift
 
 
 # - Configure exports
@@ -31,7 +31,9 @@ tMinRefractory = 1e-9
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-## - RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
+# - RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
+
+
 class RecDIAF(Layer):
     """ RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
     """
@@ -86,9 +88,9 @@ class RecDIAF(Layer):
         """
 
         # - Call super constructor
-        super().__init__(mfW = mfWIn,
-                         tDt = tDt,
-                         strName = strName)
+        super().__init__(mfW=mfWIn,
+                         tDt=tDt,
+                         strName=strName)
 
         # - Input weights must be provided
         assert mfWRec is not None, 'Recurrent weights mfWRec must be provided.'
@@ -117,7 +119,6 @@ class RecDIAF(Layer):
         self.strDtypeState = strDtypeState
 
         self.reset_state()
-
 
     def reset_state(self):
         """ .reset_state() - Method: reset the internal state of the layer
@@ -197,7 +198,7 @@ class RecDIAF(Layer):
         t0 = time.time()
 
         tTime = self.t
-        i=0
+        i = 0
         # - Iterate over spike times. Stop when tFinal is exceeded.
 
         # - Copy instance variables to local variables
@@ -217,7 +218,7 @@ class RecDIAF(Layer):
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print("\n", i, tTime, nChannel) #, end='\r')
+                print("\n", i, tTime, nChannel)   # , end='\r')
 
             except IndexError:
                 # - Stop if there are no spikes left
@@ -336,7 +337,7 @@ class RecDIAF(Layer):
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range
                 assert np.amax(vnEventChannels) < self.nDimIn, \
-                "Only channels between 0 and {} are allowed".format(self.nDimIn-1)
+                    "Only channels between 0 and {} are allowed".format(self.nDimIn-1)
         else:
             vtEventTimes, vnEventChannels = [], []
 
@@ -363,23 +364,23 @@ class RecDIAF(Layer):
 
     @property
     def mfWRec(self):
-        return self._mfWTotal[self.nDimIn : self._nLeakChannel, : ]
+        return self._mfWTotal[self.nDimIn:self._nLeakChannel, :]
 
     @mfWRec.setter
     def mfWRec(self, mfNewW):
 
-        self._mfWTotal[self.nDimIn : self._nLeakChannel, : ] = self._expand_to_weight_size(mfNewW, "mfWRec")
+        self._mfWTotal[self.nDimIn:self._nLeakChannel, :] = self._expand_to_weight_size(mfNewW, "mfWRec")
 
     @property
     def mfWIn(self):
-        return self._mfWTotal[: self.nDimIn, : ]
+        return self._mfWTotal[:self.nDimIn, :]
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
         assert np.size(mfNewW) == self.nDimIn * self.nSize, \
             '`mfNewW` must have [{}] elements.'.format(self.nDimIn * self.nSize)
 
-        self._mfWTotal[: self.nDimIn, : ] = np.array(mfNewW)
+        self._mfWTotal[: self.nDimIn, :] = np.array(mfNewW)
 
     @property
     def vState(self):
@@ -411,11 +412,11 @@ class RecDIAF(Layer):
 
     @property
     def vfCleak(self):
-        return -self._mfWTotal[self._nLeakChannel, : ]
+        return -self._mfWTotal[self._nLeakChannel, :]
 
     @vfCleak.setter
     def vfCleak(self, vfNewLeak):
-        self._mfWTotal[self._nLeakChannel, : ] = self._expand_to_net_size(-vfNewLeak, 'vfCleak')
+        self._mfWTotal[self._nLeakChannel, :] = self._expand_to_net_size(-vfNewLeak, 'vfCleak')
 
     @property
     def vfVSubtract(self):
@@ -452,7 +453,7 @@ class RecDIAF(Layer):
     @tTauLeak.setter
     def tTauLeak(self, tNewTauLeak):
         assert np.isscalar(tNewTauLeak) and tNewTauLeak > 0, \
-        "`tNewTauLeak` must be a scalar greater than 0."
+            "`tNewTauLeak` must be a scalar greater than 0."
 
         self._tTauLeak = tNewTauLeak
 
@@ -463,7 +464,7 @@ class RecDIAF(Layer):
     @tSpikeDelay.setter
     def tSpikeDelay(self, tNewSpikeDelay):
         assert np.isscalar(tNewSpikeDelay) and tNewSpikeDelay > 0, \
-        "`tNewSpikeDelay` must be a scalar greater than 0."
+            "`tNewSpikeDelay` must be a scalar greater than 0."
 
         self._tSpikeDelay = tNewSpikeDelay
 
