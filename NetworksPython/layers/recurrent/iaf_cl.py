@@ -18,19 +18,22 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 
 class RecCLIAF(CLIAF):
-    '''
+    """
     RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
-    '''
-    def __init__(self,
-                 mfWIn: np.ndarray,
-                 mfWRec: np.ndarray,
-                 vfVBias: Union[ArrayLike, float] = 0,
-                 vfVThresh: Union[ArrayLike, float] = 8,
-                 vfVReset: Union[ArrayLike, float] = 0,
-                 vfVSubtract: Union[ArrayLike, float, None] = 8,
-                 tDt: float = 1,
-                 vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-                 strName: str = 'unnamed'):
+    """
+
+    def __init__(
+        self,
+        mfWIn: np.ndarray,
+        mfWRec: np.ndarray,
+        vfVBias: Union[ArrayLike, float] = 0,
+        vfVThresh: Union[ArrayLike, float] = 8,
+        vfVReset: Union[ArrayLike, float] = 0,
+        vfVSubtract: Union[ArrayLike, float, None] = 8,
+        tDt: float = 1,
+        vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
+        strName: str = "unnamed",
+    ):
         """
         RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
 
@@ -47,26 +50,27 @@ class RecCLIAF(CLIAF):
 
         # Call parent constructor
         super().__init__(
-            mfWIn = mfWIn,
-            vfVBias = vfVBias,
-            vfVThresh = vfVThresh,
-            vfVReset = vfVReset,
-            vfVSubtract = vfVSubtract,
-            tDt = tDt,
-            vnIdMonitor = vnIdMonitor,
-            strName = strName
+            mfWIn=mfWIn,
+            vfVBias=vfVBias,
+            vfVThresh=vfVThresh,
+            vfVReset=vfVReset,
+            vfVSubtract=vfVSubtract,
+            tDt=tDt,
+            vnIdMonitor=vnIdMonitor,
+            strName=strName,
         )
 
         # - Set recurrent weights
         self.mfWRec = mfWRec
-        
+
         self.reset_state()
 
-    def evolve(self,
-               tsInput: Optional[TSEvent] = None,
-               tDuration: Optional[float] = None,
-               bVerbose: bool = False
-               ) -> (TSEvent, np.ndarray):
+    def evolve(
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        bVerbose: bool = False,
+    ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
 
@@ -104,7 +108,7 @@ class RecCLIAF(CLIAF):
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
         # - Time before first time step
-        tCurrentTime = self.t        
+        tCurrentTime = self.t
 
         if vnIdMonitor is not None:
             # Record initial state of the network
@@ -118,22 +122,24 @@ class RecCLIAF(CLIAF):
 
             # Update neuron states
             vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
-            
+
             # State update (write this way to avoid that type casting fails)
             vState = vState + vfUpdate + vfVBias
-            
+
             # - Update current time
             tCurrentTime += tDt
 
             if vnIdMonitor is not None:
                 # - Record state before reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState)
+                self.addToRecord(
+                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+                )
 
             # - Reset recurrent spike counter
             vnNumRecSpikes[:] = 0
-            
+
             # - Check threshold crossings for spikes
-            vbRecSpikeRaster = (vState >= vfVThresh)
+            vbRecSpikeRaster = vState >= vfVThresh
 
             # - Reset or subtract from membrane state after spikes
             if vfVSubtract is not None:
@@ -143,7 +149,7 @@ class RecCLIAF(CLIAF):
                     # - Add to spike counter
                     vnNumRecSpikes[vbRecSpikeRaster] += 1
                     # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = (vState >= vfVThresh)
+                    vbRecSpikeRaster = vState >= vfVThresh
             else:
                 # - Add to spike counter
                 vnNumRecSpikes = vbRecSpikeRaster.astype(int)
@@ -156,7 +162,9 @@ class RecCLIAF(CLIAF):
 
             if vnIdMonitor is not None:
                 # - Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState)
+                self.addToRecord(
+                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+                )
 
         # - Update state
         self._vState = vState
@@ -169,9 +177,8 @@ class RecCLIAF(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes,
-            vnChannels=liSpikeIDs,
-            nNumChannels=self.nSize)
+            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+        )
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
@@ -186,7 +193,6 @@ class RecCLIAF(CLIAF):
         self._vnNumRecSpikes = np.zeros(self.nSize, int)
         # - Reset neuron state to 0
         self._vState = self.vfVReset
-
 
     ### --- Properties
 
