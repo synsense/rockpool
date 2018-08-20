@@ -1,0 +1,4 @@
+numba
+brian2
+scipy
+
