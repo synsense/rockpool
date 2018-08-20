@@ -84,6 +84,34 @@ def test_cnn_multilayer():
     evOut = net.evolve(tsExternalInput=evInput, tDuration=100)
     print(evOut)
 
+def test_ffcliaf_none_attributes():
+    """
+    Make sure an exception is thrown if FFCLIAF is to be assigned None
+    as weight, bias or state.
+    """
+    from NetworksPython.layers.feedforward.iaf_cl import FFCLIAF
+
+    # - Input weight matrix
+    mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
+    
+    # - Generate layer
+    lyrFF = FFCLIAF(
+        mfW = mfWIn,
+        vfVBias = -0.05,
+        vfVThresh = 5,
+        tDt = 0.1,
+        vnIdMonitor = True,
+        vfVSubtract = 5,
+    )
+
+    for strVarName in ("mfW", "vfVBias", "vState"):
+        try:
+            setattr(lyrFF, strVarName, None)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError("Should not accept None as {}".format(strVarName))
+
 
 def test_ffcliaf_evolve_subtracting():
     """
