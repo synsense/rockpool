@@ -7,6 +7,7 @@ import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
 from abc import abstractmethod
+from .cnnweights import CNNWeight
 from ..timeseries import TSEvent
 from . import Layer
 
@@ -21,7 +22,7 @@ class CLIAF(Layer):
 
     def __init__(
         self,
-        mfWIn: Optional[np.ndarray] = None,
+        mfWIn: Union[np.ndarray, CNNWeight],
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
@@ -176,13 +177,16 @@ class CLIAF(Layer):
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
-        assert (
-            np.size(mfNewW) == self.nDimIn * self.nSize
-        ), "`mfWIn` must have [{}] elements.".format(
-            self.nDimIn * self.nSize
-        )
-
-        self._mfWIn = np.array(mfNewW).reshape(self.nDimIn, self.nSize)
+        if isinstance(mfNewW, CNNWeight):
+            assert mfNewW.shape == (self.nDimIn, self.nSize)
+            self._mfWIn = mfNewW
+        else:
+            assert (
+                np.size(mfNewW) == self.nDimIn * self.nSize
+            ), "`mfWIn` must have [{}] elements.".format(
+                self.nDimIn * self.nSize
+            )
+            self._mfWIn = np.array(mfNewW).reshape(self.nDimIn, self.nSize)
 
     @property
     def vState(self):

@@ -6,6 +6,7 @@
 import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
+from ..cnnweights import CNNWeight
 from ...timeseries import TSEvent
 from .. import CLIAF
 
@@ -20,7 +21,7 @@ class FFCLIAF(CLIAF):
 
     def __init__(
         self,
-        mfW: Optional[np.ndarray] = None,
+        mfW: Union[np.ndarray, CNNWeight],
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
@@ -87,6 +88,9 @@ class FFCLIAF(CLIAF):
         nSize = self.nSize
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
+
+        # - Check type of mfWIn
+        bCNNWeights = isinstance(mfWIn, CNNWeight)
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
         # - Count number of spikes for each neuron in each time step
@@ -105,7 +109,10 @@ class FFCLIAF(CLIAF):
             vbInptSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
 
             # Update neuron states
-            vfUpdate = vbInptSpikeRaster @ mfWIn
+            if bCNNWeights:
+                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster)
+            else:
+                vfUpdate = vbInptSpikeRaster @ mfWIn
 
             # State update (write this way to avoid that type casting fails)
             vState = vState + vfUpdate + vfVBias
