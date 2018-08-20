@@ -5,7 +5,7 @@
 
 # - Imports
 import numpy as np
-from typing import Callable
+from typing import Callable, Tuple, List
 from numba import njit
 
 from ..layer import Layer
@@ -155,14 +155,75 @@ class RecRateEuler(Layer):
 
         # - Call Euler method integrator
         #   Note: Bypass setter method for .vState
-        mfActivity = self._evolveEuler(self._vState, self.nSize, self.mfW, mfInputStep + mfNoiseStep,
-                                       np.size(vtTimeBase)-1, self.tDt, self.vfBias, self.vtTau)
+        mfActivity = self._evolveEuler(self._vState, self._nSize, self._mfW, mfInputStep + mfNoiseStep,
+                                       np.size(vtTimeBase)-1, self._tDt, self._vfBias, self._vtTau)
 
         # - Increment internal time representation
         self._t = vtTimeBase[-1]
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)
+
+    def stream(self,
+               tDuration: float,
+               tDt: float,
+               bVerbose: bool = False,
+               ) -> Tuple[float, List[float]]:
+        """
+        stream - Stream data through this layer
+        :param tDuration:   float Total duration for which to handle streaming
+        :param tDt:         float Streaming time step
+        :param bVerbose:    bool Display feedback
+
+        :yield: (t, vState)
+
+        :return: Final (t, vState)
+        """
+
+        # - Initialise simulation, determine how many tDt to evolve for
+        if bVerbose: print("Layer: I'm preparing")
+        vtTimeTrace = np.arange(0, tDuration+tDt, tDt)
+        nNumSteps = np.size(vtTimeTrace)-1
+        nEulerStepsPerDt = int(tDt / self._tDt)
+
+        # - Generate a noise trace
+        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
+
+        if bVerbose: print("Layer: Prepared")
+
+        # - Loop over tDt steps
+        for nStep in range(nNumSteps):
+            if bVerbose: print('Layer: Yielding from internal state.')
+            if bVerbose: print('Layer: step', nStep)
+            if bVerbose: print('Layer: Waiting for input...')
+
+            # - Yield current activity, receive input for next time step
+            tupInput = yield self._t, np.reshape(self._fhActivation(self._vState + self._vfBias), (1, -1))
+
+            # - Set zero input if no input provided
+            if tupInput is None:
+                mfInput = np.zeros(nEulerStepsPerDt, self._nDimIn)
+            else:
+                mfInput = np.repeat(np.atleast_2d(tupInput[1][0, :]), nEulerStepsPerDt, axis = 0)
+
+            if bVerbose: print('Layer: Input was: ', tupInput)
+
+            # - Evolve layer
+            _ = self._evolveEuler(vState = self._vState,  # self._vState is automatically updated
+                                  nSize = self._nSize,
+                                  mfW = self._mfW,
+                                  mfInputStep = mfInput + mfNoiseStep[nStep, :],
+                                  nNumSteps = nEulerStepsPerDt,
+                                  tDt = self._tDt,
+                                  vfBias = self._vfBias,
+                                  vtTau = self._vtTau,
+                                  )
+
+            # - Increment time
+            self._t += tDt
+
+        # - Return final activity
+        return self._t, np.reshape(self._fhActivation(self._vState + self._vfBias), (1, -1))
 
 
     ### --- Properties
