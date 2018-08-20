@@ -13,21 +13,21 @@ def test_import():
     '''
     Test import of the class
     '''
-    from NetworksPython.layers.feedforward import SpikingLayer
+    from NetworksPython.layers.feedforward import FFCLIAF
 
 
 def test_cnn_initialization():
     '''
     Test initialization of the layer
     '''
-    from NetworksPython.layers.feedforward.evSpikeLayer import SpikingLayer
+    from NetworksPython.layers.feedforward.evSpikeLayer import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = SpikingLayer(mfW=cnnW, strName='CNN')
+    lyrCNN = FFCLIAF(mfW=cnnW, strName='CNN')
 
 
 def test_cnn_evolve():
@@ -35,14 +35,14 @@ def test_cnn_evolve():
     Test initialization of the layer
     '''
     from NetworksPython import TSEvent
-    from NetworksPython.layers.feedforward import SpikingLayer
+    from NetworksPython.layers.feedforward import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = SpikingLayer(mfW=cnnW, fVth=0.5, strName='CNN')
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName='CNN')
 
     # Generate time series input
     evInput = TSEvent(None, strName='Input')
@@ -59,7 +59,7 @@ def test_cnn_multilayer():
     Test initialization of the layer
     '''
     from NetworksPython import TSEvent, Network
-    from NetworksPython.layers.feedforward.evSpikeLayer import SpikingLayer
+    from NetworksPython.layers.feedforward.evSpikeLayer import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Parameters
@@ -70,8 +70,8 @@ def test_cnn_multilayer():
     cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = SpikingLayer(mfW=cnnW1, fVth=0.5, strName='CNN1')
-    lyrCnn2 = SpikingLayer(mfW=cnnW2, fVth=0.5, strName='CNN2')
+    lyrCnn1 = FFCLIAF(mfW=cnnW1, vfVThresh=0.5, strName='CNN1')
+    lyrCnn2 = FFCLIAF(mfW=cnnW2, vfVThresh=0.5, strName='CNN2')
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
@@ -83,6 +83,94 @@ def test_cnn_multilayer():
     # Evolve
     evOut = net.evolve(tsExternalInput=evInput, tDuration=100)
     print(evOut)
+
+
+def test_ffcliaf_evolve_subtracting():
+    """
+    Test initialization and evolution of FFCLIAF layer using subtraction after spikes.
+    """
+    from NetworksPython.layers.feedforward.iaf_cl import FFCLIAF
+    from NetworksPython.timeseries import TSEvent
+
+    # - Input weight matrix
+    mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
+    
+    # - Generate layer
+    lyrFF = FFCLIAF(
+        mfW = mfWIn,
+        vfVBias = -0.05,
+        vfVThresh = 5,
+        tDt = 0.1,
+        vnIdMonitor = True,
+        vfVSubtract = 5,
+    )
+
+    # - Input spike
+    tsInput = TSEvent(vtTimeTrace = [0.55, 0.7, 0.8], vnChannels = [0, 1, 1])
+
+    # - Evolution
+    tsOutput = lyrFF.evolve(tsInput, tDuration = 0.75)
+
+    print(lyrFF._mfStateTimeSeries)
+
+    # - Expectation: First input spike will cause neuron 0 to spike 2 times at
+    #                t=0.6 but not neuron 2 because of negative vfVBias.
+    #                Second input spike will cause neuron 2 to spike at t=0.7
+    #                Last input spike will not have effect because evolution
+    #                stops beforehand
+    print(tsOutput.vtTimeTrace)
+    assert np.allclose(tsOutput.vtTimeTrace, np.array([0.6, 0.6, 0.7])), \
+    "Output spike times not as expected"
+    assert (tsOutput.vnChannels == np.array([0, 0, 2])).all(), \
+    "Output spike channels not as expected"
+
+    # - Reset
+    lyrFF.reset_all()
+    assert lyrFF.t == 0, "Time has not been reset correctly"
+    assert (lyrFF.vState == 0).all(), "State has not been reset correctly"
+
+def test_cliaf_evolve_resetting():
+    """
+    Test initialization and evolution of RecCLIAF layer using reset after spikes.
+    """
+    from NetworksPython.layers.feedforward.iaf_cl import FFCLIAF
+    from NetworksPython.timeseries import TSEvent
+
+    # - Input weight matrix
+    mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
+    
+    # - Generate layer
+    lyrFF = FFCLIAF(
+        mfW = mfWIn,
+        vfVBias = -0.05,
+        vfVThresh = 5,
+        tDt = 0.1,
+        vnIdMonitor = True,
+        vfVSubtract = None,
+    )
+
+    # - Input spike
+    tsInput = TSEvent(vtTimeTrace = [0.55, 0.7, 0.8], vnChannels = [0, 1, 1])
+
+    # - Evolution
+    tsOutput = lyrFF.evolve(tsInput, tDuration = 0.8)
+
+    print(lyrFF._mfStateTimeSeries)
+
+    # - Expectation: First input spike will cause neuron 0 to spike once at
+    #                t=0.6 but not neuron 2 because of negative vfVBias.
+    #                Second input spike will cause neuron 2 to spike at t=0.7
+    #                Last input spike will not have effect because evolution
+    #                stops beforehand
+    assert np.allclose(tsOutput.vtTimeTrace, np.array([0.6, 0.7])), \
+    "Output spike times not as expected"
+    assert (tsOutput.vnChannels == np.array([0, 2])).all(), \
+    "Output spike channels not as expected"
+
+    # - Reset
+    lyrFF.reset_all()
+    assert lyrFF.t == 0, "Time has not been reset correctly"
+    assert (lyrFF.vState == 0).all(), "State has not been reset correctly"
 
 # Place holder
 #def test_raise_exception_on_incorrect_shape():
