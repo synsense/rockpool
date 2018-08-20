@@ -5,11 +5,11 @@
 ### --- Imports
 import numpy as np
 
-import copy
+from copy import deepcopy
 
 from typing import Callable
 
-from .timeseries import TimeSeries
+from .timeseries import TimeSeries, TSContinuous, TSEvent
 from .layers.layer import Layer
 
 
@@ -432,7 +432,6 @@ class Network:
             if dtsSignal[lyr.strName].strName is None:
                 dtsSignal[lyr.strName].strName = lyr.strName
 
-
         # - Update network time
         self._t += tDuration
 
@@ -552,24 +551,132 @@ class Network:
         if bVerbose:
             print("\nTraining successful\n")
 
-    def stream(
-        self,
-        tsExternalInput: TimeSeries = None,
-        tDuration: float = None,
-        fhCallback: Callable = None,
-        tCallbackStep: float = None,
-    ):
+    def stream(self,
+               tsInput: TimeSeries,
+               tDuration: float,
+               bVerbose: bool = False,
+               fhStepCallback: Callable = None,
+               ) -> dict:
         """
-        stream - Evolve layers in turn, single time steps
+        stream - Stream data through layers, evolving by single time steps
 
-        :param tsExternalInput:
-        :param tDuration:
-        :param fhCallback:
-        :param tCallbackStep:
-        :return:
+        :param tsInput:         TimeSeries External input to the network
+        :param tDuration:       float Total duration to stream for
+        :param bVerbose:        bool Display feedback
+        :param fhStepCallback:  Callable[Network]
+
+        :return: dtsSignals dict Collected output signals from each layer
         """
-        # - Call
-        pass
+
+        # - Check that all layers implement the streaming interface
+        assert all([hasattr(lyr, 'stream') for lyr in self.setLayers]), \
+            'Not all layers implement the `stream` interface.'
+
+        # - Check that external input has the correct class
+        assert isinstance(tsInput, self.lyrInput.cInput), \
+            'External input must be of class {} for this network.'.format(self.lyrInput.cInput.__name__)
+
+        # - Check that external input has the correct size
+        assert tsInput.nNumTraces == self.lyrInput.nDimIn, \
+            'External input must have {} traces for this network.'.format(self.lyrInput.nDimIn)
+
+        # - Find the largest common tDt
+        self.ltDts = [lyr.tDt for lyr in self.setLayers]
+        self.tCommonDt = max(self.ltDts)
+        if bVerbose: print('Net: Common time base: ', self.tCommonDt)
+
+        # - Prepare time base
+        vtTimeBase = np.arange(0, tDuration + self.tCommonDt, self.tCommonDt) + self._t
+        vtTimeBase = vtTimeBase[vtTimeBase <= self._t + tDuration]
+        tDuration = vtTimeBase[-1] - vtTimeBase[0]
+        nNumSteps = np.size(vtTimeBase)-1
+
+        # - Prepare all layers
+        self.lStreamers = [lyr.stream(tDuration, self.tCommonDt, bVerbose = bVerbose)
+                           for lyr in self.lEvolOrder]
+        nNumLayers = np.size(self.lEvolOrder)
+
+        # - Prepare external input
+        if tsInput is not None:
+            lInput = [tsInput.find((t, t + self.tCommonDt))
+                      for t in vtTimeBase]
+        else:
+            lInput = [None] * nNumSteps
+
+        # - Get initial state of all layers
+        if bVerbose: print('Net: getting initial state')
+
+        # - Determine input state size, obtain initial layer state
+        tupInputState = lInput[0]
+        lLastState = [tupInputState] + [deepcopy(lyr.send(None)) for lyr in self.lStreamers]
+
+        # - Initialise layer output variables with initial state, convert to lists
+        lLayerOutputs = [tuple([np.reshape(x, (1, -1))] for x in state) for state in lLastState[1:]]
+
+        # - Display some feedback
+        if bVerbose:
+            print('Net: got initial state:')
+            print(lLayerOutputs)
+
+        # - Streaming loop
+        lState = deepcopy(lLastState)
+        for nStep in range(nNumSteps):
+            if bVerbose: print('Net: Start of step', nStep)
+
+            # - Set up external input
+            lLastState[0] = (lInput[nStep])
+
+            # - Loop over layers, stream data in and out
+            for nLayerInd in range(nNumLayers):
+                # - Display some feedback
+                if bVerbose: print('Net: Evolving layer {}'.format(nLayerInd))
+
+                # - Try / Catch to handle end of streaming iteration
+                try:
+                    # - `send` input data for current layer
+                    # - wait for the output state for the current layer
+                    lState[nLayerInd + 1] = deepcopy(self.lStreamers[nLayerInd].send(lLastState[nLayerInd]))
+
+                except StopIteration as e:
+                    # - StopIteration returns the final state
+                    lState[nLayerInd + 1] = e.args[0]
+
+            # - Collate layer outputs
+            for nLayer in range(nNumLayers):
+                for nTupleIndex in range(len(lLayerOutputs[nLayer])):
+                    lLayerOutputs[nLayer][nTupleIndex].append(np.reshape(lState[nLayer + 1][nTupleIndex], (1, -1)))
+
+            # - Save last state to use as input for next step
+            lLastState = deepcopy(lState)
+
+            # - Call callback function
+            if fhStepCallback is not None:
+                fhStepCallback(self)
+
+        # - Build return dictionary
+        dtsSignal = {'external': tsInput.copy()}
+        for nLayer in range(nNumLayers):
+            # - Concatenate time series
+            lvData = [np.stack(np.array(data, 'float')) for data in lLayerOutputs[nLayer]]
+
+            # - Filter out nans in time trace (always first data element)
+            vbUseSamples = ~np.isnan(lvData[0]).flatten()
+            tupData = tuple(data[vbUseSamples, :] for data in lvData)
+
+            if bVerbose: print(tupData[0])
+
+            # - Build output dictionary (using appropriate output class)
+            dtsSignal[self.lEvolOrder[nLayer].strName] = self.lEvolOrder[nLayer].cOutput(*tupData)
+
+            # - Set name for time series, if not already set
+            if dtsSignal[self.lEvolOrder[nLayer].strName].strName is None:
+                dtsSignal[self.lEvolOrder[nLayer].strName].strName = self.lEvolOrder[nLayer].strName
+
+        # - Increment time
+        self._t += tDuration
+
+        # - Return collated signals
+        return dtsSignal
 
     def _check_sync(self, bVerbose: bool = True) -> bool:
         """
@@ -637,7 +744,7 @@ class Network:
                 self.__class__.__name__, len(self.setLayers)
             )
             + "    "
-            + "\n    ".join([str(lyr) for lyr in self.setLayers])
+            + "\n    ".join([str(lyr) for lyr in self.lEvolOrder])
         )
 
     @property

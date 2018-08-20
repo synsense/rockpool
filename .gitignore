@@ -4,3 +4,5 @@ output
 __pycache__
 .ipynb_checkpoints
 .pytest_cache
+AnomalyDetection/rate-based/build
+AnomalyDetection/rate-based/dist

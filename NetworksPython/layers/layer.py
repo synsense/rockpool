@@ -117,6 +117,7 @@ class Layer(ABC):
 
             # - Sample input trace and check for correct dimensions
             mfInputStep = self._check_input_dims(tsInput(vtTimeBase))
+
             # - Treat "NaN" as zero inputs
             mfInputStep[np.where(np.isnan(mfInputStep))] = 0
 
@@ -227,6 +228,22 @@ class Layer(ABC):
         :return:            TimeSeries (TxN) Output of this layer
         """
         pass
+
+    # @abstractmethod
+    # def stream(self,
+    #            tDuration: float,
+    #            tDt: float,
+    #            bVerbose: bool = False,
+    #           ) -> TimeSeries:
+    #     """
+    #     stream - Abstract method to evolve the state of this layer, in a streaming format
+    #
+    #     :param tDuration: float Total duration to be streamed
+    #     :param tDt:       float Streaming time-step (multiple of layer.tDt)
+    #
+    #     :yield TimeSeries raw tuple representation on each time step
+    #     """
+    #     pass
 
     def reset_state(self):
         """
