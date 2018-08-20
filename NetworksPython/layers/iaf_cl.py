@@ -13,11 +13,12 @@ from . import Layer
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
+
 class CLIAF(Layer):
-    '''
+    """
     CLIAF - Abstract layer class of integrate and fire neurons with constant leak
-    '''
-    
+    """
+
     def __init__(
         self,
         mfWIn: Optional[np.ndarray] = None,
@@ -27,7 +28,7 @@ class CLIAF(Layer):
         vfVSubtract: Union[ArrayLike, float, None] = 8,
         tDt: float = 1,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-        strName: str = 'unnamed'
+        strName: str = "unnamed",
     ):
         """
         FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
@@ -43,9 +44,7 @@ class CLIAF(Layer):
         """
 
         # Call parent constructor
-        super().__init__(mfW = mfWIn,
-                         tDt = tDt,
-                         strName = strName)
+        super().__init__(mfW=mfWIn, tDt=tDt, strName=strName)
 
         # - Set neuron parameters
         self.mfWIn = mfWIn
@@ -57,12 +56,14 @@ class CLIAF(Layer):
         # - IDs of neurons to be recorded
         self.vnIdMonitor = vnIdMonitor
 
-    def addToRecord(self,
-                    aStateTimeSeries: list,
-                    tCurrentTime: float,
-                    vnIdOut: Union[ArrayLike, bool] = True,
-                    vState: Optional[np.ndarray] = None,
-                    bDebug: bool = False):
+    def addToRecord(
+        self,
+        aStateTimeSeries: list,
+        tCurrentTime: float,
+        vnIdOut: Union[ArrayLike, bool] = True,
+        vState: Optional[np.ndarray] = None,
+        bDebug: bool = False,
+    ):
         """
         addToRecord: Convenience function to record current state of the layer
                      or individual neuron
@@ -89,19 +90,12 @@ class CLIAF(Layer):
 
         # Update record of state changes
         for nIdOutIter in np.asarray(vnIdOut):
-            aStateTimeSeries.append([tCurrentTime,
-                                     nIdOutIter,
-                                     vState[nIdOutIter]])
+            aStateTimeSeries.append([tCurrentTime, nIdOutIter, vState[nIdOutIter]])
             if bDebug:
-                print([tCurrentTime,
-                       nIdOutIter,
-                       vState[nIdOutIter, 0]])
-
+                print([tCurrentTime, nIdOutIter, vState[nIdOutIter, 0]])
 
     def _prepare_input(
-        self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None
+        self, tsInput: Optional[TSEvent] = None, tDuration: Optional[float] = None
     ) -> (np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
@@ -116,8 +110,9 @@ class CLIAF(Layer):
 
         # - Determine default duration
         if tDuration is None:
-            assert tsInput is not None, \
-                'One of `tsInput` or `tDuration` must be supplied'
+            assert (
+                tsInput is not None
+            ), "One of `tsInput` or `tDuration` must be supplied"
 
             if tsInput.bPeriodic:
                 # - Use duration of periodic TimeSeries, if possible
@@ -126,9 +121,9 @@ class CLIAF(Layer):
             else:
                 # - Evolve until the end of the input TImeSeries
                 tDuration = tsInput.tStop - self.t
-                assert tDuration > 0, \
-                    'Cannot determine an appropriate evolution duration. `tsInput` finishes before the current ' \
-                    'evolution time.'
+                assert (
+                    tDuration > 0
+                ), "Cannot determine an appropriate evolution duration. `tsInput` finishes before the current " "evolution time."
 
         # - Discretize tDuration wrt self.tDt
         nSamples = tDuration // self.tDt
@@ -138,10 +133,10 @@ class CLIAF(Layer):
         if tsInput is not None:
             # Extract spike data from the input variable
             __, __, mfSpikeRaster, __ = tsInput.raster(
-                tDt = self.tDt,
-                tStart = self.t,
-                tStop = self.t + tDuration,
-                vnSelectChannels = np.arange(self.nDimIn),
+                tDt=self.tDt,
+                tStart=self.t,
+                tStop=self.t + tDuration,
+                vnSelectChannels=np.arange(self.nDimIn),
             )
 
         else:
@@ -173,7 +168,7 @@ class CLIAF(Layer):
 
     @mfW.setter
     def mfW(self, mfNewW):
-        self.mfWIn = mfNewW    
+        self.mfWIn = mfNewW
 
     @property
     def mfWIn(self):
@@ -181,8 +176,11 @@ class CLIAF(Layer):
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
-        assert np.size(mfNewW) == self.nDimIn * self.nSize, \
-            '`mfWIn` must have [{}] elements.'.format(self.nDimIn * self.nSize)
+        assert (
+            np.size(mfNewW) == self.nDimIn * self.nSize
+        ), "`mfWIn` must have [{}] elements.".format(
+            self.nDimIn * self.nSize
+        )
 
         self._mfWIn = np.array(mfNewW).reshape(self.nDimIn, self.nSize)
 
@@ -200,7 +198,9 @@ class CLIAF(Layer):
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewThresh):
-        self._vfVThresh = self._expand_to_net_size(vfNewThresh, "vfVThresh", bAllowNone=False)
+        self._vfVThresh = self._expand_to_net_size(
+            vfNewThresh, "vfVThresh", bAllowNone=False
+        )
 
     @property
     def vfVReset(self):
@@ -212,7 +212,9 @@ class CLIAF(Layer):
 
     @vfVReset.setter
     def vfVReset(self, vfNewReset):
-        self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset", bAllowNone=False)
+        self._vfVReset = self._expand_to_net_size(
+            vfNewReset, "vfVReset", bAllowNone=False
+        )
 
     @property
     def vfVSubtract(self):
@@ -232,7 +234,7 @@ class CLIAF(Layer):
     @vfVBias.setter
     def vfVBias(self, vfNewBias):
 
-        self._vfVBias = self._expand_to_net_size(vfNewBias, 'vfVBias', bAllowNone=False)
+        self._vfVBias = self._expand_to_net_size(vfNewBias, "vfVBias", bAllowNone=False)
 
     @Layer.tDt.setter
     def tDt(self, tNewDt):
@@ -247,11 +249,7 @@ class CLIAF(Layer):
     def vnIdMonitor(self, vnNewIDs):
         if vnNewIDs is True:
             self._vnIdMonitor = np.arange(self.nSize)
-        elif (
-            vnNewIDs is None
-            or vnNewIDs is False
-            or np.size(vnNewIDs) == 0
-        ):
+        elif vnNewIDs is None or vnNewIDs is False or np.size(vnNewIDs) == 0:
             self._vnIdMonitor = np.array([])
         else:
-            self._vnIdMonitor = self._expand_to_net_size(vnNewIDs, "vnIdMonitor")    
+            self._vnIdMonitor = self._expand_to_net_size(vnNewIDs, "vnIdMonitor")

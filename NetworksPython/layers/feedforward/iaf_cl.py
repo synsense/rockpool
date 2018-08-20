@@ -14,18 +14,21 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 
 class FFCLIAF(CLIAF):
-    '''
+    """
     FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
-    '''
-    def __init__(self,
-                 mfW: Optional[np.ndarray] = None,
-                 vfVBias: Union[ArrayLike, float] = 0,
-                 vfVThresh: Union[ArrayLike, float] = 8,
-                 vfVReset: Union[ArrayLike, float] = 0,
-                 vfVSubtract: Union[ArrayLike, float, None] = 8,
-                 tDt: float = 1,
-                 vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-                 strName: str = 'unnamed'):
+    """
+
+    def __init__(
+        self,
+        mfW: Optional[np.ndarray] = None,
+        vfVBias: Union[ArrayLike, float] = 0,
+        vfVThresh: Union[ArrayLike, float] = 8,
+        vfVReset: Union[ArrayLike, float] = 0,
+        vfVSubtract: Union[ArrayLike, float, None] = 8,
+        tDt: float = 1,
+        vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
+        strName: str = "unnamed",
+    ):
         """
         FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
 
@@ -41,23 +44,20 @@ class FFCLIAF(CLIAF):
 
         # Call parent constructor
         super().__init__(
-            mfWIn = mfW,
-            vfVBias = vfVBias,
-            vfVThresh = vfVThresh,
-            vfVReset = vfVReset,
-            vfVSubtract = vfVSubtract,
-            tDt = tDt,
-            vnIdMonitor = vnIdMonitor,
-            strName = strName
+            mfWIn=mfW,
+            vfVBias=vfVBias,
+            vfVThresh=vfVThresh,
+            vfVReset=vfVReset,
+            vfVSubtract=vfVSubtract,
+            tDt=tDt,
+            vnIdMonitor=vnIdMonitor,
+            strName=strName,
         )
 
         self.reset_state()
 
-
-    def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
+    def evolve(
+        self, tsInput: TSEvent = None, tDuration: float = None, bVerbose: bool = False
     ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
@@ -92,7 +92,7 @@ class FFCLIAF(CLIAF):
         # - Count number of spikes for each neuron in each time step
         vnNumSpikes = np.zeros(nSize, int)
         # - Time before first time step
-        tCurrentTime = self.t        
+        tCurrentTime = self.t
 
         if vnIdMonitor is not None:
             # Record initial state of the network
@@ -115,13 +115,15 @@ class FFCLIAF(CLIAF):
 
             if vnIdMonitor is not None:
                 # - Record state before reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState)
+                self.addToRecord(
+                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+                )
 
             # - Reset spike counter
             vnNumSpikes[:] = 0
 
             # - Check threshold crossings for spikes
-            vbRecSpikeRaster = (vState >= vfVThresh)
+            vbRecSpikeRaster = vState >= vfVThresh
 
             # - Reset or subtract from membrane state after spikes
             if vfVSubtract is not None:
@@ -131,7 +133,7 @@ class FFCLIAF(CLIAF):
                     # - Add to spike counter
                     vnNumSpikes[vbRecSpikeRaster] += 1
                     # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = (vState >= vfVThresh)
+                    vbRecSpikeRaster = vState >= vfVThresh
             else:
                 # - Add to spike counter
                 vnNumSpikes = vbRecSpikeRaster.astype(int)
@@ -144,7 +146,9 @@ class FFCLIAF(CLIAF):
 
             if vnIdMonitor is not None:
                 # - Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState)
+                self.addToRecord(
+                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+                )
 
         # - Update state
         self._vState = vState
@@ -154,9 +158,8 @@ class FFCLIAF(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace = ltSpikeTimes,
-            vnChannels = liSpikeIDs,
-            nNumChannels = self.nSize)
+            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+        )
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)

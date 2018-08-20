@@ -6,11 +6,13 @@ from .evSpikeLayer import EventDrivenSpikingLayer
 from .iaf_cl import FFCLIAF
 from .softmaxlayer import SoftMaxLayer
 
-__all__ = ['FFRateEuler',
-           'PassThrough',
-           'FFIAFBrian',
-           'FFExpSynBrian',
-           'FFExpSyn',
-           'EventDrivenSpikingLayer',
-           'FFCLIAF',
-           'SoftMaxLayer']
+__all__ = [
+    "FFRateEuler",
+    "PassThrough",
+    "FFIAFBrian",
+    "FFExpSynBrian",
+    "FFExpSyn",
+    "EventDrivenSpikingLayer",
+    "FFCLIAF",
+    "SoftMaxLayer",
+]

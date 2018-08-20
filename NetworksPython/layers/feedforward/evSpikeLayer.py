@@ -1,17 +1,16 @@
 import numpy as np
 from tqdm import tqdm
 from ...timeseries import TSEvent
-from .spikelayer import SpikingLayer
+from .iaf_cl import FFCLIAF
 
 
-class EventDrivenSpikingLayer(SpikingLayer):
+class EventDrivenSpikingLayer(FFCLIAF):
     '''
     EventCNNLayer: Event driven 2D convolution layer
     '''
     def __init__(self, mfW: np.ndarray = None,
                  fVth: float = 8,
                  tDt: float = 1,
-                 fNoiseStd: float = 0,
                  strName: str = 'unnamed'):
         """
         EventCNLayer - Implements a 2D convolutional layer of spiking neurons
@@ -22,8 +21,7 @@ class EventDrivenSpikingLayer(SpikingLayer):
         :param strName:    str        Name of this layer.
         """
         # Call parent constructor
-        SpikingLayer.__init__(self, mfW, fVth=fVth, tDt=tDt,
-                              fNoiseStd=fNoiseStd, strName=strName)
+        FFCLIAF.__init__(self, mfW, fVth=fVth, tDt=tDt, strName=strName)
 
     def evolve(self,
                tsInput: TSEvent = None,
