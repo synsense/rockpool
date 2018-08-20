@@ -7,6 +7,7 @@ from typing import Optional, Union, List, Tuple
 
 import numpy as np
 from tqdm import tqdm
+from ..cnnweights import CNNWeight
 from ...timeseries import TSEvent
 from .. import CLIAF
 
@@ -24,7 +25,7 @@ class RecCLIAF(CLIAF):
 
     def __init__(
         self,
-        mfWIn: np.ndarray,
+        mfWIn: Union[np.ndarray, CNNWeight],
         mfWRec: np.ndarray,
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
@@ -101,6 +102,8 @@ class RecCLIAF(CLIAF):
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
 
+        # - Check type of mfWIn
+        bCNNWeights = isinstance(mfWIn, CNNWeight)
         # - Number of spike sources (input neurons and layer neurons)
         nSpikeSources = self.nDimIn + self.nSize
         # - Count number of spikes for each neuron in each time step
@@ -121,7 +124,10 @@ class RecCLIAF(CLIAF):
             vbInptSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
 
             # Update neuron states
-            vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
+            if bCNNWeights:
+                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) + (vnNumRecSpikes @ mfWRec)
+            else:
+                vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
 
             # State update (write this way to avoid that type casting fails)
             vState = vState + vfUpdate + vfVBias

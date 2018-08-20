@@ -171,3 +171,23 @@ class CNNWeight(UserList):
             self.data = np.random.rand(*self.kernel_size, *self._inShape[2:], self.nKernels)    # Kernel
         elif self.img_data_format == 'channels_first':
             self.data = np.random.rand(self.nKernels, *self.inShape[:-2], *self.kernel_size)    # Kernel
+
+
+    def reverse_dot(self, vnInput):
+        """
+        Each element of vnInput corresponds to the number of input
+        spikes from the respective channel. The method will return
+        the sum of the corresponding weights, summed by the number
+        of spikes.
+        This yields the same result as a dot product vnInput @ M,
+        where M is a matrix representing the weights.
+        """
+        vnInput = np.array(vnInput).flatten()
+        assert vnInput.size == self.shape[0], \
+            "Input vector must be of size {}".format(self.shape[0])
+        # - Collect the respective weights, multiply them by the number of 
+        #   spikes and add them up
+        return np.sum((
+            nNumSpikes * self[iNeuronID]  # Multiply weights with spike counts
+            for iNeuronID, nNumSpikes in enumerate(vnInput)
+        ))
