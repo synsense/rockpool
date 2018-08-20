@@ -161,14 +161,19 @@ class Layer(ABC):
 
     def _expand_to_net_size(self,
                             oInput,
-                            sVariableName: str = 'input') -> np.ndarray:
+                            sVariableName: str = 'input',
+                            bAllowNone: bool = True) -> np.ndarray:
         """
         _expand_to_net_size: Replicate out a scalar to the size of the layer
 
         :param oInput:          scalar or array-like (N)
         :param sVariableName:   str Name of the variable to include in error messages
+        :param bAllowNone:      bool Allow None as argument for oInput
         :return:                np.ndarray (N) vector
         """
+        if not bAllowNone:
+            assert oInput is not None, "`{}` must not be None".format(sVariableName)
+            
         if np.size(oInput) == 1:
             # - Expand input to vector
             oInput = np.repeat(oInput, self.nSize)
@@ -181,14 +186,20 @@ class Layer(ABC):
 
     def _expand_to_weight_size(self,
                                oInput,
-                               sVariableName: str = 'input') -> np.ndarray:
+                               sVariableName: str = 'input',
+                               bAllowNone: bool = True) -> np.ndarray:
         """
         _expand_to_weight_size: Replicate out a scalar to the size of the layer's weights
 
         :param oInput:          scalar or array-like (NxN)
         :param sVariableName:   str Name of the variable to include in error messages
+        :param bAllowNone:      bool Allow None as argument for oInput
         :return:                np.ndarray (NxN) vector
         """
+
+        if not bAllowNone:
+            assert oInput is not None, "`{}` must not be None".format(sVariableName)
+
         if np.size(oInput) == 1:
             # - Expand input to matrix
             oInput = np.repeat(oInput, (self.nSize, self.nSize))
