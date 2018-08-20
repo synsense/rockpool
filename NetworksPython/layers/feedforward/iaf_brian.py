@@ -669,6 +669,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # - Positive update if spike count too low
         vfUpdates[vnSpikeCount < vnTargetCounts] = fLambda
 
+        # - Reset previous weight changes that are used for momentum heuristic
         if bFirst:
             self._mfDW_previous = np.zeros_like(self.mfW)
 
