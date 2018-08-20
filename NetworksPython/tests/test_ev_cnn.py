@@ -42,7 +42,7 @@ def test_cnn_evolve():
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = EventDrivenSpikingLayer(mfW=cnnW, fVth=0.5, strName='CNN')
+    lyrCNN = EventDrivenSpikingLayer(mfW=cnnW, vfVThresh=0.5, strName='CNN')
 
     # Generate time series input
     evInput = TSEvent(None, strName='Input')
@@ -70,8 +70,8 @@ def test_cnn_multilayer():
     cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = EventDrivenSpikingLayer(mfW=cnnW1, fVth=0.5, strName='CNN1')
-    lyrCnn2 = EventDrivenSpikingLayer(mfW=cnnW2, fVth=0.5, strName='CNN2')
+    lyrCnn1 = EventDrivenSpikingLayer(mfW=cnnW1, vfVThresh=0.5, strName='CNN1')
+    lyrCnn2 = EventDrivenSpikingLayer(mfW=cnnW2, vfVThresh=0.5, strName='CNN2')
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
