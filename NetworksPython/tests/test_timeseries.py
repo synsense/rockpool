@@ -33,3 +33,15 @@ def test_TSEvent_raster_explicit_nNumChannels():
 
     raster = testTSEvent.raster(tDt=1)[2]
     assert raster.shape == (31, 5)
+
+def test_TSEvent_empty():
+    '''
+    Test TSEvent instantiation with empty objects or None
+    '''
+    from NetworksPython import TSEvent
+
+    testTSEvent = TSEvent([], [])
+    assert testTSEvent.nNumChannels == 0
+
+    tsetTSEvent = TSEvent(None, None)
+    assert testTSEvent.nNumChannels == 0

@@ -1,6 +1,6 @@
 import numpy as np
 from ...timeseries import TSEvent, TimeSeries
-from .spikelayer import SpikingLayer
+from .iaf_cl import FFCLIAF
 
 
 def softmax(x):
@@ -11,7 +11,7 @@ def softmax(x):
     return np.exp(x)/np.sum(np.exp(x), axis=0)
 
 
-class SoftMaxLayer(SpikingLayer):
+class SoftMaxLayer(FFCLIAF):
     '''
     EventCNNLayer: Event driven 2D convolution layer
     '''
@@ -19,7 +19,6 @@ class SoftMaxLayer(SpikingLayer):
                  mfW: np.ndarray = None,
                  fVth: float = 8,
                  tDt: float = 1,
-                 fNoiseStd: float = 0,
                  strName: str = 'unnamed'):
         """
         EventCNLayer - Implements a 2D convolutional layer of spiking neurons
@@ -30,8 +29,7 @@ class SoftMaxLayer(SpikingLayer):
         :param strName:    str        Name of this layer.
         """
         # Call parent constructor
-        SpikingLayer.__init__(self, mfW, tDt=tDt,
-                              fNoiseStd=fNoiseStd, strName=strName)
+        FFCLIAF.__init__(self, mfW, tDt=tDt, strName=strName)
         self.fVth = 1e10  # Just some absurdly large number that will never be reachable
         self.__nIdMonitor__ = None  # Monitor all neurons
 
@@ -46,7 +44,7 @@ class SoftMaxLayer(SpikingLayer):
         :return:          TSEvent  output spike series
 
         """
-        _evOut = SpikingLayer.evolve(self, tsInput=tsInput, tDuration=tDuration)
+        _evOut = FFCLIAF.evolve(self, tsInput=tsInput, tDuration=tDuration)
         assert(len(_evOut.vtTimeTrace) == 0)
         # Analyse states
         mfStateHistoryLog = self._mfStateTimeSeries[10:]

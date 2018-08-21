@@ -135,6 +135,7 @@ class RecFSSpikeEulerBT(Layer):
     def evolve(self,
                tsInput: TimeSeries = None,
                tDuration: float = None,
+               bVerbose: bool = False,
                tMinDelta: float = None,
                ) -> TimeSeries:
         """
@@ -146,7 +147,12 @@ class RecFSSpikeEulerBT(Layer):
 
         :param tsInput:         TimeSeries input for a given time t [TxN]
         :param tDuration:       float Duration of simulation in seconds. Default: 100ms
+        :param bVerbose:    bool Currently no effect, just for conformity
         :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
+        :param tsInput:         TimeSeries input for a given time t [TxN]
+        :param tDuration:       float Duration of simulation in seconds. Default: 100ms
+        :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
+        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :return: TimeSeries containing the output currents of the reservoir
         """
