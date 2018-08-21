@@ -9,7 +9,9 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TSContinuous, TSEvent
+from typing import Union
+
+from ...timeseries import TSContinuous, TSEvent
 
 from ..layer import Layer
 
@@ -45,17 +47,17 @@ class RecIAFBrian(Layer):
     ## - Constructor
     def __init__(self,
                  mfW: np.ndarray = None,
-                 vfBias: np.ndarray = 5.5*mA,
+                 vfBias: Union[float, np.ndarray] = 10.5*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 1*mV,
 
-                 vtTauN: np.ndarray = 20*ms,
-                 vtTauSynR: np.ndarray = 5 * ms,
+                 vtTauN: Union[float, np.ndarray] = 20*ms,
+                 vtTauSynR: Union[float, np.ndarray] = 5 * ms,
 
-                 vfVThresh: np.ndarray = -55*mV,
-                 vfVReset: np.ndarray = -65*mV,
-                 vfVRest: np.ndarray = -65*mV,
+                 vfVThresh: Union[float, np.ndarray] = -55*mV,
+                 vfVReset: Union[float, np.ndarray] = -65*mV,
+                 vfVRest: Union[float, np.ndarray] = -65*mV,
 
                  tRefractoryTime = 0*ms,
 
@@ -99,9 +101,9 @@ class RecIAFBrian(Layer):
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons + eqSynRecurrent,
                                        threshold = 'v > v_thresh',
                                        reset = 'v = v_reset',
-                                       refractory = tRefractoryTime,
+                                       refractory = np.asarray(tRefractoryTime) * second,
                                        method = strIntegrator,
-                                       dt = tDt,
+                                       dt = np.asarray(tDt) * second,
                                        name = 'reservoir_neurons')
         self._ngLayer.v = vfVRest
         self._ngLayer.r_m = 1 * ohm
@@ -119,7 +121,8 @@ class RecIAFBrian(Layer):
         self._spmReservoir = b2.SpikeMonitor(self._ngLayer, record = True, name = 'layer_spikes')
 
         # - Call Network constructor
-        self._net = b2.Network(self._ngLayer, self._spmReservoir,
+        self._net = b2.Network(self._ngLayer, self._sgRecurrentSynapses,
+                               self._spmReservoir,
                                name = 'recurrent_spiking_layer')
 
         # - Record neuron / synapse parameters
@@ -140,8 +143,8 @@ class RecIAFBrian(Layer):
         """ .reset_state() - Method: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self._ngLayer.v = self.vfVRest
-        self._ngLayer.I_syn = 0
+        self._ngLayer.v = self.vfVRest * volt
+        self._ngLayer.I_syn = 0 * amp
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -155,19 +158,51 @@ class RecIAFBrian(Layer):
         """
         reset_time - Reset the internal clock of this layer
         """
-        self._net.restore('reset')
+        
+        # - Store state variables
+        vfV = np.copy(self._ngLayer.v) * volt
+        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
 
+        # - Store parameters
+        vfVThresh = np.copy(self.vfVThresh)
+        vfVReset = np.copy(self.vfVReset)
+        vfVRest = np.copy(self.vfVRest)
+        vtTauN = np.copy(self.vtTauN)
+        vtTauSynR = np.copy(self.vtTauSynR)
+        tRefractoryTime = np.copy(self.tRefractoryTime)
+        vfBias = np.copy(self.vfBias)
+        mfW = np.copy(self.mfW)
+        
+        # - Reset network
+        self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vfVThresh = vfVThresh
+        self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
+        self.vtTauN = vtTauN
+        self.vtTauSynR = vtTauSynR
+        self.tRefractoryTime = tRefractoryTime
+        self.vfBias = vfBias
+        self.mfW = mfW  
+
+        # - Restore state variables
+        self._ngLayer.v = vfV
+        self._ngLayer.I_syn = vfIsyn
 
     ### --- State evolution
 
     def evolve(self,
                tsInput: TSContinuous = None,
-               tDuration: float = None):
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> TSEvent:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TimeSeries TxM or Tx1 input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """
@@ -188,12 +223,11 @@ class RecIAFBrian(Layer):
         self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
 
         # - Build response TimeSeries
-        vtEventTimeOutput = self._spmReservoir.t_
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
+        vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
-
 
     ### --- Properties
 
