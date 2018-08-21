@@ -1006,27 +1006,25 @@ class TSEvent(TimeSeries):
         # - Default channel: zero
         if vnChannels is None or np.size(vnChannels) == 0:
             vnChannels = np.zeros(np.size(vtTimeTrace))
-
+            nMinNumChannels = min(np.size(vtTimeTrace), 1)
         # - Handle scalar channel
-        if isinstance(vnChannels, int):
+        elif isinstance(vnChannels, int):
+            nMinNumChannels = vnChannels + 1
             vnChannels = np.array([vnChannels for _ in vtTimeTrace])
-
-        # - Determine the minimum number of channels
-        if np.size(vnChannels) > 0:
-            nMinNumChannels = np.amax(vnChannels) + 1
+        # - Array-like of channels        
         else:
-            nMinNumChannels = 0
+            nMinNumChannels = np.amax(vnChannels) + 1
 
         if nNumChannels is None:
             # - Infer number of channels from maximum channel id in vnChannels
-            nNumChannels = int(nMinNumChannels)
+            nNumChannels = nMinNumChannels
         else:
             assert nNumChannels >= nMinNumChannels, \
                 'nNumChannels must be None or greater than the highest channel ID.'
 
         # - Check size of inputs
-        assert np.size(vtTimeTrace) == np.size(vnChannels) == np.size(vfSamples), (
-            "`vnChannels` and `vfSamples` must match the size of `vtTimeTrace` or be None.")
+        assert np.size(vtTimeTrace) == np.size(vnChannels) == np.size(vfSamples), \
+            "`vnChannels` and `vfSamples` must match the size of `vtTimeTrace` or be None."
 
         # - Initialise superclass
         super().__init__(
@@ -1041,7 +1039,7 @@ class TSEvent(TimeSeries):
         self.vnChannels = np.array(vnChannels, 'int').flatten()
 
         # - Store total number of channels
-        self.nNumChannels = nNumChannels
+        self.nNumChannels = int(nNumChannels)
 
     def interpolate(self, vtTimes: np.ndarray):
         """
