@@ -5,7 +5,7 @@
 ### --- Imports
 
 from ..layer import Layer
-from TimeSeries import *
+from ...timeseries import *
 import numpy as np
 from typing import Union, Callable
 import copy
@@ -60,6 +60,8 @@ class RecFSSpikeEulerBT(Layer):
 
                  tRefractoryTime: float = -np.finfo(float).eps,
 
+                 fhSpikeCallback: Callable = None,
+
                  tDt: float = None,
                  strName: str = None,
                  ):
@@ -73,13 +75,19 @@ class RecFSSpikeEulerBT(Layer):
         :param mfW_f:           ndarray [NxN] Recurrent weight matrix (fast synapses)
         :param mfW_s:           ndarray [NxN] Recurrent weight matrix (slow synapses)
         :param vfBias:          ndarray [Nx1] Bias currents for each neuron
+        :param fNoiseStd:       float Noise Std. Dev.
+
         :param vtTauN:          ndarray [Nx1] Neuron time constants
         :param vtTauSynR_f:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
         :param vtTauSynR_s:     ndarray [Nx1] Post-synaptic neuron slow synapse TCs
+
         :param vfVThresh:       ndarray [Nx1] Neuron firing thresholds
         :param vfVReset:        ndarray [Nx1] Neuron reset potentials
         :param vfVRest:         ndarray [Nx1] Neuron rest potentials
+
         :param tRefractoryTime: float         Post-spike refractory period
+
+        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :param tDt:             float         Nominal time step (Euler solver)
         :param strName:           str           Name of this layer
@@ -98,6 +106,7 @@ class RecFSSpikeEulerBT(Layer):
         self.vfVReset = np.asarray(vfVReset).astype('float')
         self.vfVRest = np.asarray(vfVRest).astype('float')
         self.tRefractoryTime = float(tRefractoryTime)
+        self.fhSpikeCallback = fhSpikeCallback
 
         # - Set a reasonable tDt
         if tDt is None:
@@ -126,8 +135,8 @@ class RecFSSpikeEulerBT(Layer):
     def evolve(self,
                tsInput: TimeSeries = None,
                tDuration: float = None,
+               bVerbose: bool = False,
                tMinDelta: float = None,
-               fhSpikeCallback: Callable = None,
                ) -> TimeSeries:
         """
         evolve() - Simulate the spiking reservoir, using a precise-time spike detector
@@ -136,6 +145,10 @@ class RecFSSpikeEulerBT(Layer):
             For this reason, the time steps returned by the integrator are not homogenous. A minimum time step can be set;
             by default this is 1/10 of the nominal time step.
 
+        :param tsInput:         TimeSeries input for a given time t [TxN]
+        :param tDuration:       float Duration of simulation in seconds. Default: 100ms
+        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
         :param tsInput:         TimeSeries input for a given time t [TxN]
         :param tDuration:       float Duration of simulation in seconds. Default: 100ms
         :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
@@ -261,8 +274,8 @@ class RecFSSpikeEulerBT(Layer):
 
                 # - Save synapse and neuron states for previous time step
                 VLast[:] = vState
-                I_s_S_Last[:] = I_s_S
-                I_s_F_Last[:] = I_s_F
+                I_s_S_Last[:] = I_s_S + I_spike_slow
+                I_s_F_Last[:] = I_s_F + I_spike_fast
 
                 # - Update synapse and neuron states (Euler step)
                 dotI_s_S = Syn_dotI(tTime, I_s_S, tDt, I_spike_slow, vtTauSynR_s)
@@ -298,8 +311,8 @@ class RecFSSpikeEulerBT(Layer):
                                               vfZeros)
 
             # - Call spike-based learning callback
-            if nFirstSpikeId > -1 and fhSpikeCallback is not None:
-                fhSpikeCallback(self, tTime, nFirstSpikeId)
+            if nFirstSpikeId > -1 and self.fhSpikeCallback is not None:
+                self.fhSpikeCallback(self, tTime, nFirstSpikeId)
 
             # - Extend spike record, if necessary
             if nSpikePointer >= nMaxSpikePointer:

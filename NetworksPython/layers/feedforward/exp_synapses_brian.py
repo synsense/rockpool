@@ -9,7 +9,7 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from TimeSeries import TSContinuous, TSEvent
+from ...timeseries import TSContinuous, TSEvent
 from typing import Union
 
 from ..layer import Layer
@@ -35,7 +35,7 @@ class FFExpSynBrian(Layer):
                  mfW: Union[np.ndarray, int] = None,
 
                  tDt: float = 0.1*ms,
-                 fNoiseStd: float = 1*mV,
+                 fNoiseStd: float = 0*mV,
 
                  tTauSyn: float = 5 * ms,
                  eqSynapses = eqSynapseExp,
@@ -48,8 +48,8 @@ class FFExpSynBrian(Layer):
 
         :param mfW:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
-        :param tDt:             float Time step for state evolution
-        :param fNoiseStd:       float Std. dev. of noise added to this layer
+        :param tDt:             float Time step for state evolution. Default: 0.1 ms
+        :param fNoiseStd:       float Std. dev. of noise added to this layer. Default: 0
 
         :param tTauSyn:         float Output synaptic time constants. Default: 5ms
         :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
@@ -57,6 +57,10 @@ class FFExpSynBrian(Layer):
 
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
+
+        # - Provide default tDt
+        if tDt is None:
+            tDt = 0.1*ms
 
         # - Provide default weight matrix for one-to-one conversion
         if isinstance(mfW, int):
@@ -120,19 +124,37 @@ class FFExpSynBrian(Layer):
         """
         reset_time - Reset the internal clock of this layer
         """
-        self._net.restore('reset')
+        
+        # - Sotre state variables
+        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
 
+        # - Store parameters
+        vtTauSyn = np.copy(self.vtTauSyn)
+        mfW = np.copy(self.mfW)
+
+        # - Reset network
+        self._net.restore('reset')
+        
+        # - Restork parameters
+        self.vtTauSyn = vtTauSyn
+        self.mfW = mfW
+
+        # - Restore state variables
+        self._ngLayer.I_syn = vfIsyn
 
     ### --- State evolution
 
     def evolve(self,
                tsInput: TSEvent = None,
-               tDuration: float = None):
+               tDuration: float = None,
+               bVerbose: bool = False,
+    ) -> TSContinuous:
         """
         evolve - Evolve the state of this layer
 
         :param tsInput:     TSEvent spikes as input to this layer
         :param tDuration:   float Duration of evolution, in seconds
+        :param bVerbose:    bool Currently no effect, just for conformity
 
         :return: TimeSeries Output of this layer during evolution period
         """
@@ -142,13 +164,15 @@ class FFExpSynBrian(Layer):
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], tDuration])
+            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
             self._sggInput.set_spikes(vnEventChannels, vtEventTimes * second, sorted = False)
         else:
-            self._sggInput.set_spikes([])
+            self._sggInput.set_spikes([], [] * second)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd
+        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
+        #mfNoiseStep = np.zeros((np.size(vtTimeBase), self.nSize))
+        #mfNoiseStep[0,:] = self.fNoiseStd
 
         # - Specifiy noise input currents, construct TimedArray
         taI_noise = TAShift(np.asarray(mfNoiseStep) * amp,
@@ -194,7 +218,7 @@ class FFExpSynBrian(Layer):
         self._mfW = mfNewW
 
         if hasattr(self, '_sgReceiver'):
-            # - Assign recurrent weights (need to transpose)
+            # - Assign recurrent weights
             mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
             self._sgReceiver.w = mfNewW.flatten()
 
