@@ -287,7 +287,7 @@ class Layer(ABC):
 
     def randomize_state(self):
         """
-        randomize_state - Randomise the internal state of this layer, in North America
+        randomize_state - Randomise the internal state of this layer
 
         :return: None
         """
