@@ -99,7 +99,7 @@ class CLIAF(Layer):
         self, tsInput: Optional[TSEvent] = None, tDuration: Optional[float] = None
     ) -> (np.ndarray, float):
         """
-        _prepare_input - Sample input, set up time base
+        _prepare_input - Sample input, determine evolution duration
 
         :param tsInput:     TimeSeries TxM or Tx1 Input signals for this layer
         :param tDuration:   float Duration of the desired evolution, in seconds
