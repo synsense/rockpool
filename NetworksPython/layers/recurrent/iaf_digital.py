@@ -454,7 +454,7 @@ class RecDIAF(Layer):
             None,
         )
 
-        if (vtNewTime < self._tMinRefractory).any():
+        if (np.array(vtNewTime) < self._tMinRefractory).any():
             print(
                 "Refractory times must be at least {}.".format(self._tMinRefractory)
                 +" Lower values have been clipped. The minimum value can be"
