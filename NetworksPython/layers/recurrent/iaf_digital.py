@@ -41,9 +41,9 @@ class RecDIAF(Layer):
     ## - Constructor
     def __init__(
         self,
-        mfWRec: np.ndarray = None,
-        mfWIn: Optional[np.ndarray] = None,
-        tDt: float = 0.0001,
+        mfWIn: np.ndarray,
+        mfWRec: np.ndarray,
+        tDt: float = 1e-4,
         tSpikeDelay: float = 1e-8,
         tTauLeak: float = 1e-3,
         vtRefractoryTime: Union[ArrayLike, float] = tMinRefractory,
@@ -57,8 +57,8 @@ class RecDIAF(Layer):
         """
         RecDIAFBrian - Construct a spiking recurrent layer with digital IAF neurons
 
-        :param mfWRec:          np.array NxN weight matrix
         :param mfWIn:           np.array nDimInxN input weight matrix.
+        :param mfWRec:          np.array NxN weight matrix
 
         :param tDt:             float Length of single time step
 
@@ -342,6 +342,13 @@ class RecDIAF(Layer):
 
         return vtEventTimes, vnEventChannels, tDuration, tFinal
 
+    def randomize_state(self):
+        self.vState = np.random.randint(
+            self._nStateMin,
+            self._nStateMax+1,
+            size=self.nSize
+        )
+
     ### --- Properties
 
     @property
@@ -443,9 +450,16 @@ class RecDIAF(Layer):
 
         self._vtRefractoryTime = np.clip(
             self._expand_to_net_size(vtNewTime, "vtRefractoryTime"),
-            self._tMinRefractory,
+            max(0, self._tMinRefractory),
             None,
         )
+
+        if (vtNewTime < self._tMinRefractory).any():
+            print(
+                "Refractory times must be at least {}.".format(self._tMinRefractory)
+                +" Lower values have been clipped. The minimum value can be"
+                +" set by changing _tMinRefractory."
+            )
 
     @Layer.tDt.setter
     def tDt(self, _):
