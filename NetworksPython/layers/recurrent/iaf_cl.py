@@ -115,7 +115,7 @@ class RecCLIAF(CLIAF):
 
         if vnIdMonitor is not None:
             # Record initial state of the network
-            self.addToRecord(aStateTimeSeries, self.t)
+            self._add_to_record(aStateTimeSeries, self.t)
 
         # Iterate over all time steps
         for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
@@ -137,7 +137,7 @@ class RecCLIAF(CLIAF):
 
             if vnIdMonitor is not None:
                 # - Record state before reset
-                self.addToRecord(
+                self._add_to_record(
                     aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
                 )
 
@@ -168,7 +168,7 @@ class RecCLIAF(CLIAF):
 
             if vnIdMonitor is not None:
                 # - Record state after reset
-                self.addToRecord(
+                self._add_to_record(
                     aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
                 )
 

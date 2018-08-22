@@ -57,7 +57,7 @@ class CLIAF(Layer):
         # - IDs of neurons to be recorded
         self.vnIdMonitor = vnIdMonitor
 
-    def addToRecord(
+    def _add_to_record(
         self,
         aStateTimeSeries: list,
         tCurrentTime: float,
@@ -66,7 +66,7 @@ class CLIAF(Layer):
         bDebug: bool = False,
     ):
         """
-        addToRecord: Convenience function to record current state of the layer
+        _add_to_record: Convenience function to record current state of the layer
                      or individual neuron
 
         :param aStateTimeSeries: list  A simple python list object to which the

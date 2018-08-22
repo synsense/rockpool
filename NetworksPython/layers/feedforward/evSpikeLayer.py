@@ -47,7 +47,7 @@ class EventDrivenSpikingLayer(FFCLIAF):
         aSpk = []
 
         # Record initial state of the network
-        self.addToRecord(aStateTimeSeries, 0)
+        self._add_to_record(aStateTimeSeries, 0)
 
         # Local variables
         vState = self.vState
@@ -66,7 +66,7 @@ class EventDrivenSpikingLayer(FFCLIAF):
             # State update (avoiding type cast errors)
             vState = vState + vfUpdate
 
-            self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState)
+            self._add_to_record(aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState)
 
             # Check threshold and reset
             vbSpike = (vState >= vfVThresh)
@@ -85,7 +85,7 @@ class EventDrivenSpikingLayer(FFCLIAF):
                                      vnSpike)))
 
                 # Record state after reset
-                self.addToRecord(aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState)
+                self._add_to_record(aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState)
 
         # Convert arrays to TimeSeries objects
         mfSpk = np.row_stack(aSpk)
