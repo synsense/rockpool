@@ -133,8 +133,9 @@ class FFExpSyn(Layer):
         mWeightedSpikeTrains[0, :] += self.vState
 
         # - Add a noise trace
-        mfNoise = np.random.randn(*mWeightedSpikeTrains.shape) * self.fNoiseStd * np.sqrt(self.tDt) / self.tTauSyn
-        mfNoise[0,:] = 0 # Assure that noise trace starts with 0
+        # - Noise correction is slightly different than in other layers
+        mfNoise = np.random.randn(*mWeightedSpikeTrains.shape) * self.fNoiseStd * np.sqrt(2 * self.tDt / self.tTauSyn)
+        mfNoise[0,:] = 0 # Make sure that noise trace starts with 0
         #mfNoise = np.zeros_like(mWeightedSpikeTrains)
         #mfNoise[0,:] = self.fNoiseStd
 

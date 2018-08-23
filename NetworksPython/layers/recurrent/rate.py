@@ -151,7 +151,11 @@ class RecRateEuler(Layer):
         vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
+        # Noise correction: Standard deviation after some time would be fNoiseStd * sqrt(0.5*tDt/vtTau)
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize) 
+            * self.fNoiseStd * np.sqrt(2.*self._vtTau/self._tDt)
+        )
 
         # - Call Euler method integrator
         #   Note: Bypass setter method for .vState
@@ -187,7 +191,10 @@ class RecRateEuler(Layer):
         nEulerStepsPerDt = int(tDt / self._tDt)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize) 
+            * self.fNoiseStd * np.sqrt(2.*self._vtTau/self._tDt)
+        )
 
         if bVerbose: print("Layer: Prepared")
 

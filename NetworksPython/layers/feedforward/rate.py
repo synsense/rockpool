@@ -180,7 +180,9 @@ class FFRateEuler(Layer):
                                         vfGain=self._vfGain,
                                         vfBias=self._vfBias,
                                         vfAlpha=self._vfAlpha,
-                                        fNoiseStd=self._fNoiseStd/np.sqrt(self._tDt))
+                                        # Without correction, standard deviation after some time will be
+                                        # self._fNoiseStd * sqrt(self._vfAlpha/2)
+                                        fNoiseStd=self._fNoiseStd * np.sqrt(2./self._vfAlpha))
 
         # - Increment internal time representation
         self._t += tTrueDuration
@@ -238,7 +240,9 @@ class FFRateEuler(Layer):
                                   vfGain = self._vfGain,
                                   vfBias = self._vfBias,
                                   vfAlpha = self._vfAlpha,
-                                  fNoiseStd = self._fNoiseStd / np.sqrt(self._tDt))
+                                  # Without correction, standard deviation after some time will be
+                                  # self._fNoiseStd * sqrt(self._vfAlpha/2)
+                                  fNoiseStd=self._fNoiseStd * np.sqrt(2./self._vfAlpha))
 
             # - Increment time
             self._t += tDt
