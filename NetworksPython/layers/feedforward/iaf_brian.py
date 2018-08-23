@@ -202,7 +202,12 @@ class FFIAFBrian(Layer):
         mfNeuronInputStep = mfInputStep @ self.mfW
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize)
+            # - Standard deviation slightly smaller than expected (due to brian??),
+            #   therefore correct with empirically found factor 1.63
+            * self.fNoiseStd * np.sqrt(2.*self.vtTauN/self.tDt) * 1.63
+        )
 
         # - Specifiy network input currents, construct TimedArray
         taI_inp = TAShift(np.asarray(mfNeuronInputStep + mfNoiseStep) * amp,
@@ -241,7 +246,12 @@ class FFIAFBrian(Layer):
         nNumSteps = np.size(vtTimeTrace)-1
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd * np.sqrt(self.tDt)
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize)
+            # - Standard deviation slightly smaller than expected (due to brian??),
+            #   therefore correct with empirically found factor 1.63
+            * self.fNoiseStd * np.sqrt(2.*self.vtTauN/self.tDt) * 1.63
+        )
 
         # - Generate a TimedArray to use for step-constant input currents
         taI_inp = TAShift(np.zeros((1, self._nDimIn)) * amp,
@@ -491,7 +501,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self._sggInput.set_spikes([], [] * second)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize)
+            # - Standard deviation slightly smaller than expected (due to brian??),
+            #   therefore correct with empirically found factor 1.63
+            * self.fNoiseStd * np.sqrt(2.*self.vtTauN/self.tDt) * 1.63
+        )
         
         # - Specifiy noise input currents, construct TimedArray
         taI_noise = TAShift(np.asarray(mfNoiseStep) * amp,

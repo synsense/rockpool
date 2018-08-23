@@ -32,10 +32,11 @@ eqNeuronIAF = b2.Equations('''
     v_reset                                         : volt                      # Reset potential
 ''')
 
-# - Equations for an integrate-and-fire neuron, spiking input recurrent and external
+# - Equations for an integrate-and-fire neuron, recurrent and external input spikes
 eqNeuronIAF2 = b2.Equations('''
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
-    I_total = I_syn_ext + I_syn_rec + I_bias        : amp                       # Total input current
+    I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
+    I_syn = I_syn_inp + I_syn_rec                   : amp                       # Synaptic currents
     I_bias                                          : amp                       # Per-neuron bias current
     v_rest                                          : volt                      # Rest potential
     tau_m                                           : second                    # Membrane time constant
@@ -52,9 +53,9 @@ eqSynapseExp = b2.Equations('''
 
 # - Equations for two exponential synapses (external input and recurrent)
 eqSynapseExp2 = b2.Equations('''
-    dI_syn_ext/dt = -I_syn_ext / tau_syn_ext        : amp                       # Synaptic current, input synapses
+    dI_syn_inp/dt = -I_syn_inp / tau_syn_inp        : amp                       # Synaptic current, input synapses
     dI_syn_rec/dt = -I_syn_rec / tau_syn_rec        : amp                       # Synaptic current, recurrent synapses
-    tau_syn_ext                                     : second                    # Synapse time constant, input
+    tau_syn_inp                                     : second                    # Synapse time constant, input
     tau_syn_rec                                     : second                    # Synapse time constant, recurrent
 ''')
 
@@ -232,8 +233,13 @@ class RecIAFBrian(Layer):
         nNumSteps = np.size(vtTimeBase)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd
-
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize)
+            # - Standard deviation slightly smaller than expected (due to brian??),
+            #   therefore correct with empirically found factor 1.63
+            * self.fNoiseStd * np.sqrt(2.*self.vtTauN/self.tDt) * 1.63
+        )
+        
         # - Specifiy network input currents, construct TimedArray
         taI_inp = TAShift(np.asarray(mfInputStep + mfNoiseStep) * amp,
                           self.tDt * second, tOffset = self.t * second,
@@ -340,7 +346,7 @@ class RecIAFBrian(Layer):
 
 
 # - RecIAFSpkInBrian - Class: Spiking recurrent layer with spiking in- and outputs
-class RecIAFSpkInBrian(FFIAFBrian):
+class RecIAFSpkInBrian(RecIAFBrian):
     """ RecIAFSpkInBrian - Class: Spiking recurrent layer with spiking in- and outputs
     """
 
@@ -354,7 +360,7 @@ class RecIAFSpkInBrian(FFIAFBrian):
                  fNoiseStd: float = 0*mV,
 
                  vtTauN: np.ndarray = 20*ms,
-                 vtTauSIn: np.ndarray = 20*ms,
+                 vtTauSInp: np.ndarray = 20*ms,
                  vtTauSRec: np.ndarray = 20*ms,
 
                  vfVThresh: np.ndarray = -55*mV,
@@ -384,7 +390,7 @@ class RecIAFSpkInBrian(FFIAFBrian):
         :param fNoiseStd:       float Noise std. dev. per second. Default: 0
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param vtTauSIn:        np.array Nx1 vector of synapse time constants. Default: 20ms
+        :param vtTauSInp:       np.array Nx1 vector of synapse time constants. Default: 20ms
         :param vtTauSRec:       np.array Nx1 vector of synapse time constants. Default: 20ms
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
@@ -475,7 +481,7 @@ class RecIAFSpkInBrian(FFIAFBrian):
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
-        self.vtTauSIn = vtTauSIn
+        self.vtTauSInp = vtTauSInp
         self.vtTauSRec = vtTauSRec
         self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
@@ -504,6 +510,31 @@ class RecIAFSpkInBrian(FFIAFBrian):
         # - Prepare time base
         vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
 
+        # - Generate a noise trace
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize)
+            # - Standard deviation slightly smaller than expected (due to brian??),
+            #   therefore correct with empirically found factor 1.63
+            * self.fNoiseStd * np.sqrt(2.*self.vtTauN/self.tDt) * 1.63
+        )
+
+        # - Specifiy network input currents, construct TimedArray
+        taI_inp = TAShift(np.asarray(mfNoiseStep) * amp,
+                          self.tDt * second, tOffset = self.t * second,
+                          name  = 'external_input')
+
+        # - Perform simulation
+        self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
+
+        # - Build response TimeSeries
+        vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
+        vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
+        vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
+
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
+
+
+        
         # - Set spikes for spike generator
         if tsInput is not None:
             vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
@@ -533,17 +564,20 @@ class RecIAFSpkInBrian(FFIAFBrian):
 
         # - Store state variables
         vfV = np.copy(self._ngLayer.v) * volt
-        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
+        vfIsynRec = np.copy(self._ngLayer.I_syn_rec) * amp
+        vfIsynInp = np.copy(self._ngLayer.I_syn_inp) * amp
 
         # - Store parameters
         vfVThresh = np.copy(self.vfVThresh)
         vfVReset = np.copy(self.vfVReset)
         vfVRest = np.copy(self.vfVRest)
         vtTauN = np.copy(self.vtTauN)
-        vtTauS = np.copy(self.vtTauS)
+        vtTauSInp = np.copy(self.vtTauSInp)
+        vtTauSRec = np.copy(self.vtTauSRec)
         tRefractoryTime = np.copy(self.tRefractoryTime)
         vfBias = np.copy(self.vfBias)
-        mfW = np.copy(self.mfW)
+        mfWIn = np.copy(self.mfWIn)
+        mfWRec = np.copy(self.mfWRec)
 
         self._net.restore('reset')
         
@@ -552,21 +586,25 @@ class RecIAFSpkInBrian(FFIAFBrian):
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
-        self.vtTauS = vtTauS
+        self.vtTauSInp = vtTauSInp
+        self.vtTauSRec = vtTauSRec
         self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
-        self.mfW = mfW
+        self.mfWIn = mfWIn
+        self.mfWRec = mfWRec
 
         # - Restore state variables
         self._ngLayer.v = vfV
-        self._ngLayer.I_syn = vfIsyn
+        self._ngLayer.I_syn_inp = vfIsynInp
+        self._ngLayer.I_syn_rec = vfIsynRec
 
     def reset_state(self):
         """ .reset_state() - Method: reset the internal state of the layer
             Usage: .reset_state()
         """
         self._ngLayer.v = self.vfVRest * volt
-        self._ngLayer.I_syn = 0 * amp
+        self._ngLayer.I_syn_inp = 0 * amp
+        self._ngLayer.I_syn_rec = 0 * amp
 
     def reset_all(self, bKeepParams=True):
         if bKeepParams:
@@ -576,9 +614,11 @@ class RecIAFSpkInBrian(FFIAFBrian):
             vfVRest = np.copy(self.vfVRest)
             vtTauN = np.copy(self.vtTauN)
             vtTauS = np.copy(self.vtTauS)
+            vtTauSInp = np.copy(self.vtTauSInp)
             tRefractoryTime = np.copy(self.tRefractoryTime)
             vfBias = np.copy(self.vfBias)
-            mfW = np.copy(self.mfW)
+            mfWIn = np.copy(self.mfWIn)
+            mfWRec = np.copy(self.mfWRec)
 
         self.reset_state()
         self._net.restore('reset')
@@ -589,10 +629,12 @@ class RecIAFSpkInBrian(FFIAFBrian):
             self.vfVReset = vfVReset
             self.vfVRest = vfVRest
             self.vtTauN = vtTauN
-            self.vtTauS = vtTauS
+            self.vtTauSInp = vtTauSInp
+            self.vtTauSRec = vtTauSRec
             self.tRefractoryTime = tRefractoryTime
             self.vfBias = vfBias
-            self.mfW = mfW
+            self.mfWIn = mfWIn
+            self.mfWRec = mfWRec
     
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -600,7 +642,8 @@ class RecIAFSpkInBrian(FFIAFBrian):
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
         self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+        self._ngLayer.I_syn_inp = np.random.randn(self.nSize) * np.mean(np.abs(self.mfWIn)) * amp
+        self._ngLayer.I_syn_rec = np.random.randn(self.nSize) * np.mean(np.abs(self.mfWRec)) * amp
 
     @property
     def cInput(self):
@@ -645,12 +688,12 @@ class RecIAFSpkInBrian(FFIAFBrian):
         self._sgRecurrentSynapses.w = np.array(mfNewW).flatten()
 
     @property
-    def vtTauSIn(self):
-        return self._ngLayer.tau_syn_ext
+    def vtTauSInp(self):
+        return self._ngLayer.tau_syn_inp
 
-    @vtTauSIn.setter
-    def vtTauSIn(self, vtNewTauS):
-        self._ngLayer.tau_syn_ext = np.asarray(self._expand_to_net_size(vtNewTauS, 'vtTauSIn')) * second
+    @vtTauSInp.setter
+    def vtTauSInp(self, vtNewTauS):
+        self._ngLayer.tau_syn_inp = np.asarray(self._expand_to_net_size(vtNewTauS, 'vtTauSInp')) * second
 
     @property
     def vtTauSRec(self):

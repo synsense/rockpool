@@ -126,21 +126,21 @@ class FFExpSynBrian(Layer):
         """
         
         # - Sotre state variables
-        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
+        vfIsyn = np.copy(self._ngReceiver.I_syn) * amp
 
         # - Store parameters
-        vtTauSyn = np.copy(self.vtTauSyn)
+        tTauSyn = np.copy(self.tTauSyn)
         mfW = np.copy(self.mfW)
 
         # - Reset network
         self._net.restore('reset')
         
         # - Restork parameters
-        self.vtTauSyn = vtTauSyn
+        self.tTauSyn = tTauSyn
         self.mfW = mfW
 
         # - Restore state variables
-        self._ngLayer.I_syn = vfIsyn
+        self._ngReceiver.I_syn = vfIsyn
 
     ### --- State evolution
 
@@ -170,7 +170,10 @@ class FFExpSynBrian(Layer):
             self._sggInput.set_spikes([], [] * second)
 
         # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
+        mfNoiseStep = (
+            np.random.randn(np.size(vtTimeBase), self.nSize)
+            * self.fNoiseStd * np.sqrt(2 * self.tTauSyn / self.tDt)
+        )
         #mfNoiseStep = np.zeros((np.size(vtTimeBase), self.nSize))
         #mfNoiseStep[0,:] = self.fNoiseStd
 
