@@ -9,6 +9,9 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
+# # - Print debug information
+# b2.BrianLogger.log_level_debug()
+
 from typing import Union
 
 from ...timeseries import TSContinuous, TSEvent
@@ -437,9 +440,10 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         # - Add source -> receiver synapses
         self._sgReceiver = b2.Synapses(
-            self._sggInput, self._ngLayer,
+            self._sggInput,
+            self._ngLayer,
             model = 'w : 1',
-            on_pre = 'I_syn_post += w*amp',
+            on_pre = 'I_syn_inp_post += w*amp',
             method = strIntegrator,
             dt = np.asarray(tDt) * second,
             name = 'receiver_synapses'
@@ -613,7 +617,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             vfVReset = np.copy(self.vfVReset)
             vfVRest = np.copy(self.vfVRest)
             vtTauN = np.copy(self.vtTauN)
-            vtTauS = np.copy(self.vtTauS)
+            vtTauSRec = np.copy(self.vtTauSRec)
             vtTauSInp = np.copy(self.vtTauSInp)
             tRefractoryTime = np.copy(self.tRefractoryTime)
             vfBias = np.copy(self.vfBias)
@@ -674,7 +678,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
     @property
     def mfWRec(self):
-        return np.array(self._sgRecurrentSynapses.w).reshape(self.nDimIn, self.nSize)
+        return np.array(self._sgRecurrentSynapses.w).reshape(self.nSize, self.nSize)
 
     @mfWRec.setter
     def mfWRec(self, mfNewW):
