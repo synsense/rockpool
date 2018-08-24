@@ -35,11 +35,11 @@ class RecDynapseBrian(Layer):
 
     ## - Constructor
     def __init__(self,
-                 mfW: np.ndarray = None,
-                 vfWIn: np.ndarray = None,
+                 mfW: np.ndarray,
+                 vfWIn: np.ndarray,
 
                  tDt: float = 0.1*ms,
-                 fNoiseStd: float = 1*mV,
+                 fNoiseStd: float = 0*mV,
 
                  tRefractoryTime = 0*ms,
 
@@ -76,6 +76,10 @@ class RecDynapseBrian(Layer):
 
         # - Input weights must be provided
         assert vfWIn is not None, 'vfWIn must be provided.'
+
+        # - Warn that nosie is not implemented
+        if fNoiseStd != 0:
+            print("WARNING: Noise is currently not implemented in this layer.")
 
         # - Set up spike source to receive spiking input
         self._sggInput = b2.SpikeGeneratorGroup(self.nSize, [0], [0*second],
@@ -223,16 +227,8 @@ class RecDynapseBrian(Layer):
         else:
             self._sggInput.set_spikes([], [] * second)
 
-        # - Generate a noise trace
-        mfNoiseStep = np.random.randn(nNumSteps, self.nSize) * self.fNoiseStd
-
-        # - Specifiy network input currents, construct TimedArray
-        taI_inp = TAShift(np.asarray(mfInputStep + mfNoiseStep) * amp,
-                          self.tDt * second, tOffset = self.t * second,
-                          name  = 'external_input')
-
         # - Perform simulation
-        self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
+        self._net.run(tDuration * second, level = 0)
         
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
@@ -290,11 +286,11 @@ class RecDynapseBrian(Layer):
 
     @property
     def vState(self):
-        return self._ngLayer.I_mem_
+        return self._ngLayer.Imem_
 
     @vState.setter
     def vState(self, vNewState):
-        self._ngLayer.I_mem = np.asarray(self._expand_to_net_size(vNewState, 'vNewState')) * volt
+        self._ngLayer.Imem = np.asarray(self._expand_to_net_size(vNewState, 'vNewState')) * volt
 
     @property
     def t(self):
