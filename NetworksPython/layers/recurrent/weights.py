@@ -294,7 +294,7 @@ def DiscretiseWeightMatrix(
     return mfWD, mnNumConns
 
 def DynapseConform(
-    tupSize,
+    tupShape,
     fConnectivity=None,
     fRatioExc=0.5,
     nLimitInputs=64,
@@ -306,7 +306,26 @@ def DynapseConform(
     fNormalize=None,
 ):
     """
-    DynapseConform - Add description!
+    DynapseConform - Create a weight matrix that conforms the specifications of the Dynapse Chip
+
+    :param tupShape:        tuple Shape of the weight matrix
+    :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
+    :param fRatioExc:       float Ratio of excitatory vs. inhibitory synapses
+    
+    :param nLimitInputs:    int   Maximum fan-in per neuron
+    :param nLimitOutputs:   int   Maximum fan-out per neuron
+    
+    :param tupfWEcx:        tuple Possible strengths for excitatory synapses
+    :param tupfWInh:        tuple Possible strengths for inhibitory synapses
+    :param tupfProbWEcx:    tuple Probabilities for excitatory synapse strengths
+    :param tupfProbWInh:    tuple Probabilities for inhibitory synapse strengths
+    
+    :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
+
+    :return mfW:            2D-np.ndarray Generated weight matrix
+    :return mnCount:        2D-np.ndarray Number of assigned weights per connection
+    :return dmnCount:       dict Number of assigned weights, separated by weights
+                                 Useful for re-construction of the matrix    
     """
 
     # - Make sure input weights all have correct sign
@@ -315,21 +334,21 @@ def DynapseConform(
 
     # - Determine size of matrix
     try:
-        tupSize = tuple(tupSize)
-        assert len(tupSize) == 2 or len(tupSize) == 1, 'Only 2-dimensional matrices can be created.'
-        if len(tupSize) == 1:
-            tupSize = (tupSize[0], tupSize[0])
+        tupShape = tuple(tupShape)
+        assert len(tupShape) == 2 or len(tupShape) == 1, 'Only 2-dimensional matrices can be created.'
+        if len(tupShape) == 1:
+            tupShape = (tupShape[0], tupShape[0])
     except TypeError:
-        assert isinstance(tupSize, int), 'tupSize must be integer or array-like of size 2.'
-        tupSize = (tupSize,tupSize)
+        assert isinstance(tupShape, int), 'tupShape must be integer or array-like of size 2.'
+        tupShape = (tupShape,tupShape)
 
     # - Matrix for holding weihgts
-    mfW = np.zeros(tupSize, float)
+    mfW = np.zeros(tupShape, float)
     # - Matrix for counting number of assigned connections for each synapse
     mnCount = np.zeros_like(mfW, int)
     # - Dict of matrices to count assignments for each weight and synapse
     #   Can be used for re-constructing mfW:
-    #     mfW_reconstr = np.zeros(tupSize)
+    #     mfW_reconstr = np.zeros(tupShape)
     #     for fWeight, miAssignments in dmnCount:
     #         mfW_reconstr += fWeight * miAssignments
     dmnCount = {weight : np.zeros_like(mfW, int) for weight in (*tupfWExc, *tupfWInh)}
@@ -402,11 +421,40 @@ def In_Res_Dynapse(
 ):
     """
     In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+
+    :param nSize:           int Reservoir size
+    :param fInputDensity:   float Ratio of non-zero vs. zero input connections
+    :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
+    :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
+    :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
+    
+    :param nLimitInputs:    int   Maximum fan-in per neuron
+    :param nLimitOutputs:   int   Maximum fan-out per neuron
+    
+    :param tupfWEcx:        tuple Possible strengths for excitatory synapses
+    :param tupfWInh:        tuple Possible strengths for inhibitory synapses
+    :param tupfProbWEcxRes: tuple Probabilities for excitatory recurrent synapse strengths
+    :param tupfProbWInhRes: tuple Probabilities for inhibitory recurrent synapse strengths
+    :param tupfProbWEcxIn:  tuple Probabilities for excitatory input synapse strengths
+    :param tupfProbWInhIn:  tuple Probabilities for inhibitory input synapse strengths
+    
+    :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
+
+    :param bVerbose:        bool Currently unused
+
+    :param bLeaveSpaceForInput: bool Limit number of input connections to ensure fan-in
+                                     to include all all input weights
+
+    :return vfWIn:          2D-np.ndarray (Nx1) Generated input weights
+    :return mfW:            2D-np.ndarray (NxN) Generated weight matrix
+    :return mnCount:        2D-np.ndarray (NxN) Number of assigned weights per connection
+    :return dmnCount:       dict Number of assigned weights, separated by weights
+                                 Useful for re-construction of the matrix    
     """
 
     # - Matrix with weights. First row corresponds to input weights, others to reservoir matrix
     mfWRes, mnCount, dmnCount = DynapseConform(
-        tupSize= (nSize, nSize),
+        tupShape= (nSize, nSize),
         fConnectivity=fConnectivity,
         fRatioExc=fRatioExcRes,
         nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput),
