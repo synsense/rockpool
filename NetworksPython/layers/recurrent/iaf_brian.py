@@ -357,7 +357,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
     def __init__(self,
                  mfWIn: np.ndarray,
                  mfWRec: np.ndarray,
-                 vfBias: np.ndarray = 10*mA,
+                 vfBias: np.ndarray = 10.5*mA,
 
                  tDt: float = 0.1*ms,
                  fNoiseStd: float = 0*mV,
@@ -387,7 +387,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         :param mfWIn:           np.array MxN input weight matrix.
         :param mfWRec:          np.array NxN recurrent weight matrix.
-        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
+        :param vfBias:          np.array Nx1 bias vector. Default: 10.5mA
 
         :param tDt:             float Time-step. Default: 0.1 ms
         :param fNoiseStd:       float Noise std. dev. per second. Default: 0
@@ -477,8 +477,10 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         if bRecord:
             # - Monitor for recording network potential
-            self._stmVmem = b2.StateMonitor(self._ngLayer, ['v'], record=True, name = "layer_potential")
-            self._net.add(self._stmVmem)
+            self._stmVmemIsyn = b2.StateMonitor(
+                self._ngLayer, ['v', 'I_syn_inp', 'I_syn_rec'], record=True, name="layer_neurons"
+            )
+            self._net.add(self._stmVmemIsyn)
 
         # - Record neuron parameters
         self.vfVThresh = vfVThresh
@@ -514,6 +516,13 @@ class RecIAFSpkInBrian(RecIAFBrian):
         # - Prepare time base
         vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
 
+        # - Set spikes for spike generator
+        if tsInput is not None:
+            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
+            self._sggInput.set_spikes(vnEventChannels, vtEventTimes * second, sorted = False)
+        else:
+            self._sggInput.set_spikes([], [] * second)
+
         # - Generate a noise trace
         mfNoiseStep = (
             np.random.randn(np.size(vtTimeBase), self.nSize)
@@ -521,14 +530,14 @@ class RecIAFSpkInBrian(RecIAFBrian):
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd * np.sqrt(2.*self.vtTauN/self.tDt) * 1.63
         )
-
-        # - Specifiy network input currents, construct TimedArray
-        taI_inp = TAShift(np.asarray(mfNoiseStep) * amp,
+        
+        # - Specifiy noise input currents, construct TimedArray
+        taI_noise = TAShift(np.asarray(mfNoiseStep) * amp,
                           self.tDt * second, tOffset = self.t * second,
-                          name  = 'external_input')
+                          name  = 'noise_input')
 
         # - Perform simulation
-        self._net.run(tDuration * second, namespace = {'I_inp': taI_inp}, level = 0)
+        self._net.run(tDuration * second, namespace = {'I_inp': taI_noise}, level = 0)
 
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
