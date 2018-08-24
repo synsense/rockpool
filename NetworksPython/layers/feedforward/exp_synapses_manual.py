@@ -212,8 +212,15 @@ class FFExpSyn(Layer):
             vtEventTimes, vnEventChannels, __ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]])
 
             # - Make sure that input channels do not exceed layer input dimensions
-            assert np.amax(vnEventChannels) <= self.nDimIn, (
-                'Number of input channels exceeds layer input dimensions ')
+            try:
+                assert np.amax(vnEventChannels) <= self.nDimIn, (
+                    'Number of input channels exceeds layer input dimensions ')
+            except ValueError as e:
+                # - No events in input data 
+                if vnEventChannels.size == 0:
+                    print("{}: No input spikes for training".format(self.strName))
+                else:
+                    raise e
 
             # - Convert input events to spike trains
             mSpikeTrains = np.zeros((vtTimeBase.size, self.nDimIn))
