@@ -537,33 +537,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
 
-
-        
-        # - Set spikes for spike generator
-        if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]+self.tDt])
-            self._sggInput.set_spikes(vnEventChannels, vtEventTimes * second, sorted = False)
-        else:
-            self._sggInput.set_spikes([], [] * second)
-
-        # - Generate a noise trace
-        mfNoiseStep = np.random.randn(np.size(vtTimeBase), self.nSize) * self.fNoiseStd / np.sqrt(self.tDt)
-        
-        # - Specifiy noise input currents, construct TimedArray
-        taI_noise = TAShift(np.asarray(mfNoiseStep) * amp,
-                          self.tDt * second, tOffset = self.t * second,
-                          name  = 'noise_input')
-
-        # - Perform simulation
-        self._net.run(tDuration * second, namespace = {'I_inp': taI_noise}, level = 0)
-
-        # - Build response TimeSeries
-        vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
-        vtEventTimeOutput = self._spmReservoir.t_[vbUseEvent]
-        vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
-
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName = 'Layer spikes')
-
     def reset_time(self):
 
         # - Store state variables
@@ -686,7 +659,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             mfNewW.shape == (self.nSize, self.nSize)
             or mfNewW.shape == self._sgReceiver.w.shape
         ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nSize, self.nSize, self.nsize*self.nSize
+            self.nSize, self.nSize, self.nSize*self.nSize
         )
         
         self._sgRecurrentSynapses.w = np.array(mfNewW).flatten()
