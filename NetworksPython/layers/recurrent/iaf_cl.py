@@ -206,6 +206,7 @@ class RecCLIAF(CLIAF):
     def mfW(self):
         return self.mfWRec
 
+    # - mfW as synonym for mfWRec
     @mfW.setter
     def mfW(self, mfNewW):
         self.mfWRec = mfNewW
