@@ -201,12 +201,12 @@ class Network:
         """
 
         # - Make sure that layer dimensions match
-        if lyrSource.nSize != lyrTarget.nDimIn:
+        if lyrSource.nSize != lyrTarget.nSizeIn:
             raise NetworkError(
                 "Dimensions of layers `{}` (nSize={}) and `{}`".format(
                     lyrSource.strName, lyrSource.nSize, lyrTarget.strName
                 )
-                + " (nDimIn={}) do not match".format(lyrTarget.nDimIn)
+                + " (nSizeIn={}) do not match".format(lyrTarget.nSizeIn)
             )
 
         # - Check for compatible input / output
@@ -577,8 +577,8 @@ class Network:
             'External input must be of class {} for this network.'.format(self.lyrInput.cInput.__name__)
 
         # - Check that external input has the correct size
-        assert tsInput.nNumTraces == self.lyrInput.nDimIn, \
-            'External input must have {} traces for this network.'.format(self.lyrInput.nDimIn)
+        assert tsInput.nNumTraces == self.lyrInput.nSizeIn, \
+            'External input must have {} traces for this network.'.format(self.lyrInput.nSizeIn)
 
         # - Find the largest common tDt
         self.ltDts = [lyr.tDt for lyr in self.setLayers]

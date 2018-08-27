@@ -254,7 +254,7 @@ class FFIAFBrian(Layer):
         )
 
         # - Generate a TimedArray to use for step-constant input currents
-        taI_inp = TAShift(np.zeros((1, self._nDimIn)) * amp,
+        taI_inp = TAShift(np.zeros((1, self._nSizeIn)) * amp,
                           self.tDt * second,
                           name = 'external_input',
                           )
@@ -422,7 +422,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - Set up spike source to receive spiking input
-        self._sggInput = b2.SpikeGeneratorGroup(self.nDimIn, [0], [0*second],
+        self._sggInput = b2.SpikeGeneratorGroup(self.nSizeIn, [0], [0*second],
                                                 dt = np.asarray(tDt) * second)
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(self.nSize, eqNeurons,
@@ -647,12 +647,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
             )
 
         ## -- Determine eligibility for each neuron and synapse
-        mfEligibiity = np.zeros((self.nDimIn, self.nSize))
+        mfEligibiity = np.zeros((self.nSizeIn, self.nSize))
 
         # - Iterate over source neurons
-        for iSource in range(self.nDimIn):
+        for iSource in range(self.nSizeIn):
             if bVerbose:
-                print("\rProcessing input {} of {}".format(iSource+1, self.nDimIn), end='')
+                print("\rProcessing input {} of {}".format(iSource+1, self.nSizeIn), end='')
             # - Find spike timings
             vtEventTimesSource = vtEventTimes[vnEventChannels == iSource]
             # - Sum individual correlations over input spikes, for all synapses
@@ -665,7 +665,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 mfEligibiity[iSource, :] += np.sum(vfKernel * vfVmem)
             
         ## -- For each neuron sort eligibilities and choose synapses with largest eligibility
-        nEligible = int(fEligibilityRatio * self.nDimIn)
+        nEligible = int(fEligibilityRatio * self.nSizeIn)
         # - Mark eligible neurons
         miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible:-1]
         
@@ -710,15 +710,15 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     @property
     def mfW(self):
-        return np.array(self._sgReceiver.w).reshape(self.nDimIn, self.nSize)
+        return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
 
     @mfW.setter
     def mfW(self, mfNewW):
         assert (
-            mfNewW.shape == (self.nDimIn, self.nSize)
+            mfNewW.shape == (self.nSizeIn, self.nSize)
             or mfNewW.shape == self._sgReceiver.w.shape
         ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nDimIn, self.nSize, self.nDimIn*self.nSize
+            self.nSizeIn, self.nSize, self.nSizeIn*self.nSize
         )
         
         self._sgReceiver.w = np.array(mfNewW).flatten()

@@ -84,7 +84,7 @@ class FFCLIAF(CLIAF):
         mfWIn = self.mfWIn
         vfVBias = self.vfVBias
         tDt = self.tDt
-        nDimIn = self.nDimIn
+        nSizeIn = self.nSizeIn
         nSize = self.nSize
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset

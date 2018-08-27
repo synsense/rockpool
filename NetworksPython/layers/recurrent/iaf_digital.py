@@ -57,7 +57,7 @@ class RecDIAF(Layer):
         """
         RecDIAFBrian - Construct a spiking recurrent layer with digital IAF neurons
 
-        :param mfWIn:           np.array nDimInxN input weight matrix.
+        :param mfWIn:           np.array nSizeInxN input weight matrix.
         :param mfWRec:          np.array NxN weight matrix
 
         :param tDt:             float Length of single time step
@@ -89,7 +89,7 @@ class RecDIAF(Layer):
         assert mfWRec is not None, "Recurrent weights mfWRec must be provided."
 
         # - Channel for leak
-        self._nLeakChannel = self.nDimIn + self.nSize
+        self._nLeakChannel = self.nSizeIn + self.nSize
 
         # - One large weight matrix to process input and recurrent connections
         #   as well as leak and multiple spikes if state after subtraction is
@@ -210,7 +210,7 @@ class RecDIAF(Layer):
         vfVReset = self.vfVReset
         vtRefr = self.vtRefractoryTime
         tDelay = self.tSpikeDelay
-        nDimIn = self.nDimIn
+        nSizeIn = self.nSizeIn
         vfVSubtract = self.vfVSubtract
 
         while tTime <= tFinal:
@@ -270,9 +270,9 @@ class RecDIAF(Layer):
 
                 # - Append new spikes to heap
                 for nID in viSpikeIDs:
-                    # - Delay spikes by self.tSpikeDelay. Set IDs off by self.nDimIn in order
+                    # - Delay spikes by self.tSpikeDelay. Set IDs off by self.nSizeIn in order
                     #   to distinguish them from spikes coming from the input
-                    heapq.heappush(heapSpikes, (tTime + tDelay, nID + nDimIn))
+                    heapq.heappush(heapSpikes, (tTime + tDelay, nID + nSizeIn))
                 print("heap: ", heapq.nsmallest(5, heapSpikes))
             i += 1
         # - Update state variable
@@ -333,9 +333,9 @@ class RecDIAF(Layer):
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range
                 assert (
-                    np.amax(vnEventChannels) < self.nDimIn
+                    np.amax(vnEventChannels) < self.nSizeIn
                 ), "Only channels between 0 and {} are allowed".format(
-                    self.nDimIn - 1
+                    self.nSizeIn - 1
                 )
         else:
             vtEventTimes, vnEventChannels = [], []
@@ -369,28 +369,28 @@ class RecDIAF(Layer):
 
     @property
     def mfWRec(self):
-        return self._mfWTotal[self.nDimIn : self._nLeakChannel, :]
+        return self._mfWTotal[self.nSizeIn : self._nLeakChannel, :]
 
     @mfWRec.setter
     def mfWRec(self, mfNewW):
 
         self._mfWTotal[
-            self.nDimIn : self._nLeakChannel, :
+            self.nSizeIn : self._nLeakChannel, :
         ] = self._expand_to_weight_size(mfNewW, "mfWRec")
 
     @property
     def mfWIn(self):
-        return self._mfWTotal[: self.nDimIn, :]
+        return self._mfWTotal[: self.nSizeIn, :]
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
         assert (
-            np.size(mfNewW) == self.nDimIn * self.nSize
+            np.size(mfNewW) == self.nSizeIn * self.nSize
         ), "`mfNewW` must have [{}] elements.".format(
-            self.nDimIn * self.nSize
+            self.nSizeIn * self.nSize
         )
 
-        self._mfWTotal[: self.nDimIn, :] = np.array(mfNewW)
+        self._mfWTotal[: self.nSizeIn, :] = np.array(mfNewW)
 
     @property
     def vState(self):

@@ -422,7 +422,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
         )
 
         # - Set up spike source to receive spiking input
-        self._sggInput = b2.SpikeGeneratorGroup(self.nDimIn, [0], [0*second],
+        self._sggInput = b2.SpikeGeneratorGroup(self.nSizeIn, [0], [0*second],
                                                 dt = np.asarray(tDt) * second)
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(
@@ -645,15 +645,15 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
     @property
     def mfWIn(self):
-        return np.array(self._sgReceiver.w).reshape(self.nDimIn, self.nSize)
+        return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
         assert (
-            mfNewW.shape == (self.nDimIn, self.nSize)
+            mfNewW.shape == (self.nSizeIn, self.nSize)
             or mfNewW.shape == self._sgReceiver.w.shape
         ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nDimIn, self.nSize, self.nDimIn*self.nSize
+            self.nSizeIn, self.nSize, self.nSizeIn*self.nSize
         )
         
         self._sgReceiver.w = np.array(mfNewW).flatten()

@@ -57,7 +57,7 @@ class Layer(ABC):
 
         # - Assign properties
         self._mfW = mfW
-        self._nDimIn, self._nSize = mfW.shape
+        self._nSizeIn, self._nSize = mfW.shape
 
         if strName is None:
             self.strName = "unnamed"
@@ -131,26 +131,26 @@ class Layer(ABC):
 
         else:
             # - Assume zero inputs
-            mfInputStep = np.zeros((np.size(vtTimeBase), self.nDimIn))
+            mfInputStep = np.zeros((np.size(vtTimeBase), self.nSizeIn))
 
         return vtTimeBase, mfInputStep, tDuration
 
     def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
         Verify if dimension of input matches layer instance. If input
-        dimension == 1, scale it up to self._nDimIn by repeating signal.
+        dimension == 1, scale it up to self._nSizeIn by repeating signal.
             mfInput : np.ndarray with input data
             return : mfInput, possibly with dimensions repeated
         """
         # - Replicate `tsInput` if necessary
         if mfInput.ndim == 1 or (mfInput.ndim > 1 and mfInput.shape[1]) == 1:
-            mfInput = np.repeat(mfInput.reshape((-1, 1)), self._nDimIn, axis=1)
+            mfInput = np.repeat(mfInput.reshape((-1, 1)), self._nSizeIn, axis=1)
         else:
             # - Check dimensionality of input
             assert (
-                mfInput.shape[1] == self._nDimIn
+                mfInput.shape[1] == self._nSizeIn
             ), "Input dimensionality {} does not match layer input size {}.".format(
-                mfInput.shape[1], self._nDimIn
+                mfInput.shape[1], self._nSizeIn
             )
 
         # - Return possibly corrected input
@@ -232,7 +232,7 @@ class Layer(ABC):
         return '{} object: "{}" [{} {} in -> {} {} out]'.format(
             self.__class__.__name__,
             self.strName,
-            self.nDimIn,
+            self.nSizeIn,
             self.cInput.__name__,
             self.nSize,
             self.cOutput.__name__,
@@ -312,8 +312,8 @@ class Layer(ABC):
         return self._nSize
 
     @property
-    def nDimIn(self) -> int:
-        return self._nDimIn
+    def nSizeIn(self) -> int:
+        return self._nSizeIn
 
     @property
     def tDt(self) -> float:
@@ -331,13 +331,13 @@ class Layer(ABC):
     def mfW(self, mfNewW: np.ndarray):
         # - Check dimensionality of new weights
         assert (
-            mfNewW.size == self.nDimIn * self.nSize
+            mfNewW.size == self.nSizeIn * self.nSize
         ), "`mfNewW` must be of shape {}".format(
-            (self.nDimIn, self.nSize)
+            (self.nSizeIn, self.nSize)
         )
 
         # - Save weights with appropriate size
-        self._mfW = np.reshape(mfNewW, (self.nDimIn, self.nSize))
+        self._mfW = np.reshape(mfNewW, (self.nSizeIn, self.nSize))
 
     @property
     def vState(self):

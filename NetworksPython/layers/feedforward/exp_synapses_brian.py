@@ -73,7 +73,7 @@ class FFExpSynBrian(Layer):
                          strName = strName)
 
         # - Set up spike source to receive spiking input
-        self._sggInput = b2.SpikeGeneratorGroup(self.nDimIn, [0], [0*second],
+        self._sggInput = b2.SpikeGeneratorGroup(self.nSizeIn, [0], [0*second],
                                                 dt = np.asarray(tDt) * second)
 
         # - Set up layer receiver nodes
@@ -215,8 +215,8 @@ class FFExpSynBrian(Layer):
 
     @mfW.setter
     def mfW(self, mfNewW):
-        assert np.size(mfNewW) == self.nSize * self.nDimIn, \
-            '`mfNewW` must have [' + str(self.nSize * self.nDimIn) + '] elements.'
+        assert np.size(mfNewW) == self.nSize * self.nSizeIn, \
+            '`mfNewW` must have [' + str(self.nSize * self.nSizeIn) + '] elements.'
 
         self._mfW = mfNewW
 

@@ -38,7 +38,7 @@ class RecCLIAF(CLIAF):
         """
         RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
 
-        :param mfWIn:       array-like  nDimInxN input weight matrix.
+        :param mfWIn:       array-like  nSizeInxN input weight matrix.
         :param mfWRec:      array-like  Weight matrix
         :param vfVBias:     array-like  Constant bias to be added to state at each time step
         :param vfVThresh:   array-like  Spiking threshold
@@ -97,7 +97,7 @@ class RecCLIAF(CLIAF):
         mfWIn = self.mfWIn
         vfVBias = self.vfVBias
         tDt = self.tDt
-        nDimIn = self.nDimIn
+        nSizeIn = self.nSizeIn
         nSize = self.nSize
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
@@ -105,7 +105,7 @@ class RecCLIAF(CLIAF):
         # - Check type of mfWIn
         bCNNWeights = isinstance(mfWIn, CNNWeight)
         # - Number of spike sources (input neurons and layer neurons)
-        nSpikeSources = self.nDimIn + self.nSize
+        nSpikeSources = self.nSizeIn + self.nSize
         # - Count number of spikes for each neuron in each time step
         vnNumRecSpikes = self._vnNumRecSpikes
         # - Indices of neurons to be monitored
