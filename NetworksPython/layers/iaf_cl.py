@@ -137,11 +137,11 @@ class CLIAF(Layer):
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=self.t + tDuration,
-                vnSelectChannels=np.arange(self.nDimIn),
+                vnSelectChannels=np.arange(self.nSizeIn),
             )
 
         else:
-            mfSpikeRaster = np.zeros((nSamples, nDimIn), bool)
+            mfSpikeRaster = np.zeros((nSamples, nSizeIn), bool)
 
         return mfSpikeRaster, tDuration
 
@@ -170,15 +170,15 @@ class CLIAF(Layer):
     @mfWIn.setter
     def mfWIn(self, mfNewW):
         if isinstance(mfNewW, CNNWeight):
-            assert mfNewW.shape == (self.nDimIn, self.nSize)
+            assert mfNewW.shape == (self.nSizeIn, self.nSize)
             self._mfWIn = mfNewW
         else:
             assert (
-                np.size(mfNewW) == self.nDimIn * self.nSize
+                np.size(mfNewW) == self.nSizeIn * self.nSize
             ), "`mfWIn` must have [{}] elements.".format(
-                self.nDimIn * self.nSize
+                self.nSizeIn * self.nSize
             )
-            self._mfWIn = np.array(mfNewW).reshape(self.nDimIn, self.nSize)
+            self._mfWIn = np.array(mfNewW).reshape(self.nSizeIn, self.nSize)
 
     @property
     def vState(self):

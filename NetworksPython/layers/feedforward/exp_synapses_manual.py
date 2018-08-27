@@ -112,13 +112,13 @@ class FFExpSyn(Layer):
 
             # - Make sure that input channels do not exceed layer input dimensions
             if vnEventChannels.size > 0:
-                assert np.max(vnEventChannels) <= self.nDimIn, (
+                assert np.max(vnEventChannels) <= self.nSizeIn, (
                     'Number of input channels exceeds layer input dimensions ')
 
             # - Convert input events to spike trains
-            mSpikeTrains = np.zeros((vtTimeBase.size, self.nDimIn))
+            mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
             #   Iterate over channel indices and create their spike trains
-            for channel in range(self.nDimIn):
+            for channel in range(self.nSizeIn):
                 # Times with event in current channel
                 vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
                 # Indices of vtTimeBase corresponding to these times
@@ -213,7 +213,7 @@ class FFExpSyn(Layer):
         # - Prepare input data
 
         # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn+1))
+        mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn+1))
         mfInput[:,-1] = 1
 
         # - Generate spike trains from tsInput
@@ -227,7 +227,7 @@ class FFExpSyn(Layer):
 
             # - Make sure that input channels do not exceed layer input dimensions
             try:
-                assert np.amax(vnEventChannels) <= self.nDimIn-1, (
+                assert np.amax(vnEventChannels) <= self.nSizeIn-1, (
                     'Number of input channels exceeds layer input dimensions ')
             except ValueError as e:
                 # - No events in input data 
@@ -237,9 +237,9 @@ class FFExpSyn(Layer):
                     raise e
 
             # - Convert input events to spike trains
-            mSpikeTrains = np.zeros((vtTimeBase.size, self.nDimIn))
+            mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
             #   Iterate over channel indices and create their spike trains
-            for channel in range(self.nDimIn):
+            for channel in range(self.nSizeIn):
                 # Times with event in current channel
                 vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
                 # Indices of vtTimeBase corresponding to these times
@@ -258,8 +258,8 @@ class FFExpSyn(Layer):
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros((self.nDimIn+1, self.nSize))  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros((self.nDimIn+1, self.nDimIn+1))     # mfInput.T (dot) mfInput
+            self.mfXTY = np.zeros((self.nSizeIn+1, self.nSize))  # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((self.nSizeIn+1, self.nSizeIn+1))     # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations
             self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
             self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
@@ -286,7 +286,7 @@ class FFExpSyn(Layer):
             self.mfXTX += mfUpdXTX
 
             # - Weight and bias update by ridge regression
-            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nDimIn+1),
+            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nSizeIn+1),
                                          self.mfXTY)
             self.mfW = mfSolution[:-1, :]
             self.vfBias = mfSolution[-1, :]

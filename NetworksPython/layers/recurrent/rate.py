@@ -209,7 +209,7 @@ class RecRateEuler(Layer):
 
             # - Set zero input if no input provided
             if tupInput is None:
-                mfInput = np.zeros(nEulerStepsPerDt, self._nDimIn)
+                mfInput = np.zeros(nEulerStepsPerDt, self._nSizeIn)
             else:
                 mfInput = np.repeat(np.atleast_2d(tupInput[1][0, :]), nEulerStepsPerDt, axis = 0)
 

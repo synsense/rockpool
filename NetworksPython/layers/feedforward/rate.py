@@ -225,7 +225,7 @@ class FFRateEuler(Layer):
 
             # - Set zero input if no input provided
             if tupInput is None:
-                mfInput = np.zeros(nEulerStepsPerDt, self._nDimIn)
+                mfInput = np.zeros(nEulerStepsPerDt, self._nSizeIn)
             else:
                 mfInput = np.repeat(np.atleast_2d(tupInput[1][0, :]), nEulerStepsPerDt, axis = 0)
 
@@ -297,7 +297,7 @@ class FFRateEuler(Layer):
         # - Prepare input data
 
         # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeBase), self.nDimIn+1))
+        mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn+1))
         mfInput[:,-1] = 1
 
         if tsInput is not None:
@@ -320,8 +320,8 @@ class FFRateEuler(Layer):
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros((self.nDimIn+1, self.nSize))  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros((self.nDimIn+1, self.nDimIn+1))     # mfInput.T (dot) mfInput
+            self.mfXTY = np.zeros((self.nSizeIn+1, self.nSize))  # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((self.nSizeIn+1, self.nSizeIn+1))     # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations
             self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
             self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
@@ -348,7 +348,7 @@ class FFRateEuler(Layer):
             self.mfXTX += mfUpdXTX
 
             # - Weight and bias update by ridge regression
-            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nDimIn+1),
+            mfSolution = np.linalg.solve(self.mfXTX + fRegularize*np.eye(self.nSizeIn+1),
                                          self.mfXTY)
             self.mfW = mfSolution[:-1, :]
             self.vfBias = mfSolution[-1, :]
@@ -363,8 +363,8 @@ class FFRateEuler(Layer):
     #             + (1-self._vfAlpha)*self.vState)
 
     def __repr__(self):
-        return 'FFRateEuler layer object `{}`.\nnSize: {}, nDimIn: {}   '.format(
-            self.strName, self.nSize, self.nDimIn)
+        return 'FFRateEuler layer object `{}`.\nnSize: {}, nSizeIn: {}   '.format(
+            self.strName, self.nSize, self.nSizeIn)
 
     @property
     def vActivation(self):
@@ -498,7 +498,7 @@ class PassThrough(FFRateEuler):
             vtTimeComb = self._gen_time_trace(self.t, tTrueDuration+self.tDelay)
 
             # - Array for buffered and new data
-            mfSamplesComb = np.zeros((vtTimeComb.size, self.nDimIn))
+            mfSamplesComb = np.zeros((vtTimeComb.size, self.nSizeIn))
             nStepsIn = vtTimeIn.size
 
             # - Buffered data: last point of buffer data corresponds to self.t,
@@ -526,8 +526,8 @@ class PassThrough(FFRateEuler):
         return TimeSeries(vtTimeIn, mfSamplesOut + self.vfBias)
 
     def __repr__(self):
-        return 'PassThrough layer object `{}`.\nnSize: {}, nDimIn: {}, tDelay: {}'.format(
-            self.strName, self.nSize, self.nDimIn, self.tDelay)
+        return 'PassThrough layer object `{}`.\nnSize: {}, nSizeIn: {}, tDelay: {}'.format(
+            self.strName, self.nSize, self.nSizeIn, self.tDelay)
 
     def print_buffer(self, **kwargs):
         if self.tsBuffer is not None:
