@@ -276,10 +276,20 @@ class FFRateEuler(Layer):
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
-        # - Prepare target data, check dimensions
+        # - Make sure vtTimeBase does not exceed tsTarget
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+
+        # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
+
+        # - Make sure no nan is in target, as this causes learning to fail
+        assert not np.isnan(mfTarget).any(), \
+            "nan values have been found in mfTarget (where: {})".format(np.where(np.isnan(mfTarget)))
+
+        # - Check target dimensions
         if mfTarget.ndim == 1 and self.nSize == 1:
             mfTarget = mfTarget.reshape(-1, 1)
+
         assert mfTarget.shape[-1] == self.nSize, (
             'Target dimensions ({}) does not match layer size ({})'.format(
             mfTarget.shape[-1], self.nSize))
