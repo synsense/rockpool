@@ -164,14 +164,6 @@ class CLIAF(Layer):
         return TSEvent
 
     @property
-    def mfW(self):
-        return self._mfWIn
-
-    @mfW.setter
-    def mfW(self, mfNewW):
-        self.mfWIn = mfNewW
-
-    @property
     def mfWIn(self):
         return self._mfWIn
 

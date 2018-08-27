@@ -175,3 +175,13 @@ class FFCLIAF(CLIAF):
         self._mfStateTimeSeries = mfStateTimeSeries
 
         return tseOut
+
+    # - mfW as synonym for mfWIn
+    @property
+    def mfW(self):
+        return self._mfWIn
+
+    @mfW.setter
+    def mfW(self, mfNewW):
+        self.mfWIn = mfNewW
+
