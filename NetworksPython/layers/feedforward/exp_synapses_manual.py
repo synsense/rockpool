@@ -186,9 +186,23 @@ class FFExpSyn(Layer):
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
-        # - Prepare target data, check dimensions
+        # - Make sure vtTimeBase does not exceed tsTarget
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+
+        # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
 
+        # - Store some objects for debuging
+        self.tsTarget = tsTarget
+        self.tsInput = tsInput
+        self.mfTarget = mfTarget
+        self.vtTimeBase = vtTimeBase
+
+        # - Make sure no nan is in target, as this causes learning to fail
+        assert not np.isnan(mfTarget).any(), \
+            "nan values have been found in mfTarget (where: {})".format(np.where(np.isnan(mfTarget)))
+
+        # - Check target dimensions
         if mfTarget.ndim == 1 and self.nSize == 1:
             mfTarget = mfTarget.reshape(-1, 1)
 
@@ -213,7 +227,7 @@ class FFExpSyn(Layer):
 
             # - Make sure that input channels do not exceed layer input dimensions
             try:
-                assert np.amax(vnEventChannels) <= self.nDimIn, (
+                assert np.amax(vnEventChannels) <= self.nDimIn-1, (
                     'Number of input channels exceeds layer input dimensions ')
             except ValueError as e:
                 # - No events in input data 
