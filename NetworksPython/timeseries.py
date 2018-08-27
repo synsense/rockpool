@@ -318,6 +318,11 @@ class TimeSeries:
 
         vtSampleTimes = np.arange(tStart, tStop + tDt, tDt)
         vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop + fTolAbs]
+        # - If vtSampleTimes[-1] is close to tStop, correct it, so that 
+        #   is exactly tStop. This ensures that the returned TimeSeries
+        #   is neither too short, nor is the last sample nan
+        if np.isclose(vtSampleTimes[-1], tStop, atol=fTolAbs):
+            vtSampleTimes[-1] = tStop
 
         # - Return a new time series
         return self.resample(vtSampleTimes)
