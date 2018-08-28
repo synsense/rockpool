@@ -147,6 +147,7 @@ class CNNWeight(UserList):
     @property
     def outShape(self):
         if self._outShape is None:
+            print(self.img_data_format)
             if self.img_data_format == "channels_last":
                 self._outShape = (
                     *(
