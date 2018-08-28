@@ -45,29 +45,21 @@ class Layer(ABC):
         :param strName:       str Name of this layer. Default: 'unnamed'
         """
 
-        # Weights must be provided
-        assert mfW is not None, "`mfW` must be provided."
-
-        # - Ensure weights are at least 2D
-        try:
-            assert mfW.ndim >= 2
-        except Exception as e:
-            warnings.warn(str(e))
-            mfW = np.atleast_2d(mfW)
-
         # - Assign properties
-        self._mfW = mfW
-        self._nSizeIn, self._nSize = mfW.shape
-
         if strName is None:
             self.strName = "unnamed"
         else:
             self.strName = strName
 
+        self._mfW = mfW
+        self._nSizeIn, self._nSize = mfW.shape
+
         # - Check and assign tDt and fNoiseStd
         assert (
             np.size(tDt) == 1 and np.size(fNoiseStd) == 1
-        ), "`tDt` and `fNoiseStd` must be scalars."
+        ), "Layer `{}`: `tDt` and `fNoiseStd` must be scalars.".format(
+            self.strName
+        )
 
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
@@ -94,7 +86,9 @@ class Layer(ABC):
         if tDuration is None:
             assert (
                 tsInput is not None
-            ), "One of `tsInput` or `tDuration` must be supplied"
+            ), "Layer `{}`: One of `tsInput` or `tDuration` must be supplied".format(
+                self.strName
+            )
 
             if tsInput.bPeriodic:
                 # - Use duration of periodic TimeSeries, if possible
@@ -103,9 +97,10 @@ class Layer(ABC):
             else:
                 # - Evolve until the end of the input TImeSeries
                 tDuration = tsInput.tStop - self.t
-                assert (
-                    tDuration > 0
-                ), "Cannot determine an appropriate evolution duration. `tsInput` finishes before the current " "evolution time."
+                assert tDuration > 0, (
+                    "Layer `{}`: Cannot determine an appropriate evolution duration.".format(self.strName)
+                    " `tsInput` finishes before the current evolution time."
+                )
 
         # - Discretise tsInput to the desired evolution time base
         vtTimeBase = self._gen_time_trace(self.t, tDuration)
@@ -115,8 +110,8 @@ class Layer(ABC):
             # - Warn if evolution period is not fully contained in tsInput
             if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
                 print(
-                    "WARNING: Evolution period (t = {} to {}) ".format(
-                        vtTimeBase[0], vtTimeBase[-1]
+                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
+                        self.strName, vtTimeBase[0], vtTimeBase[-1]
                     )
                     + "not fully contained in input signal (t = {} to {})".format(
                         tsInput.tStart, tsInput.tStop
@@ -149,8 +144,8 @@ class Layer(ABC):
             # - Check dimensionality of input
             assert (
                 mfInput.shape[1] == self._nSizeIn
-            ), "Input dimensionality {} does not match layer input size {}.".format(
-                mfInput.shape[1], self._nSizeIn
+            ), "Layer `{}`: Input dimensionality {} does not match layer input size {}.".format(
+                self.strName, mfInput.shape[1], self._nSizeIn
             )
 
         # - Return possibly corrected input
@@ -183,7 +178,9 @@ class Layer(ABC):
         :return:                np.ndarray (N) vector
         """
         if not bAllowNone:
-            assert oInput is not None, "`{}` must not be None".format(sVariableName)
+            assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
+                self.strName, sVariableName
+            )
 
         if np.size(oInput) == 1:
             # - Expand input to vector
@@ -191,8 +188,8 @@ class Layer(ABC):
 
         assert (
             np.size(oInput) == self.nSize
-        ), "`{}` must be a scalar or have {} elements".format(
-            sVariableName, self.nSize
+        ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
+            self.strName, sVariableName, self.nSize
         )
 
         # - Return object of correct shape
@@ -211,7 +208,9 @@ class Layer(ABC):
         """
 
         if not bAllowNone:
-            assert oInput is not None, "`{}` must not be None".format(sVariableName)
+            assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
+                self.strName, sVariableName
+            )
 
         if np.size(oInput) == 1:
             # - Expand input to matrix
@@ -219,8 +218,8 @@ class Layer(ABC):
 
         assert (
             np.size(oInput) == self.nSize ** 2
-        ), "`{}` must be a scalar or have {} elements".format(
-            sVariableName, self.nSize ** 2
+        ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
+            self.strName, sVariableName, self.nSize ** 2
         )
 
         # - Return object of correct size
@@ -329,11 +328,22 @@ class Layer(ABC):
 
     @mfW.setter
     def mfW(self, mfNewW: np.ndarray):
+        assert (mfNewW is not None,), "Layer `{}`: mfW must not be None.".format(
+            self.strName
+        )
+
+        # - Ensure weights are at least 2D
+        try:
+            assert mfWNewW.ndim >= 2
+        except Exception as e:
+            warnings.warn("Layer `{}`: ".format(self.strName) + str(e))
+            mfWNewW = np.atleast_2d(mfWNewW)
+
         # - Check dimensionality of new weights
         assert (
             mfNewW.size == self.nSizeIn * self.nSize
-        ), "`mfNewW` must be of shape {}".format(
-            (self.nSizeIn, self.nSize)
+        ), "Layer `{}`: `mfNewW` must be of shape {}".format(
+            (self.strName, self.nSizeIn, self.nSize)
         )
 
         # - Save weights with appropriate size
@@ -347,7 +357,9 @@ class Layer(ABC):
     def vState(self, vNewState):
         assert (
             np.size(vNewState) == self.nSize
-        ), "`vNewState` must have {} elements".format(self.nSize)
+        ), "Layer `{}`: `vNewState` must have {} elements".format(
+            self.strName, self.nSize
+        )
 
         self._vState = vNewState
 
