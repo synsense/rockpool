@@ -76,7 +76,9 @@ class FFCLIAF(CLIAF):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -189,4 +191,3 @@ class FFCLIAF(CLIAF):
     @mfW.setter
     def mfW(self, mfNewW):
         self.mfWIn = mfNewW
-

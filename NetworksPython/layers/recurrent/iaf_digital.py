@@ -90,7 +90,11 @@ class RecDIAF(Layer):
         super().__init__(mfW=mfWIn, tDt=tDt, strName=strName)
 
         # - Input weights must be provided
-        assert mfWRec is not None, "Layer {}: Recurrent weights mfWRec must be provided.".format(self.strName)
+        assert (
+            mfWRec is not None
+        ), "Layer {}: Recurrent weights mfWRec must be provided.".format(
+            self.strName
+        )
 
         # - Channel for leak
         self._nLeakChannel = self.nSizeIn + self.nSize
@@ -162,7 +166,7 @@ class RecDIAF(Layer):
         vtEventTimes, vnEventChannels, nNumTimeSteps, tFinal = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
         )
-        
+
         ## -- Consider leak as periodic input spike with fixed weight
 
         # - Leak timings
@@ -222,7 +226,7 @@ class RecDIAF(Layer):
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print(i, tTime, nChannel , end='\r')
+                print(i, tTime, nChannel, end="\r")
 
             except IndexError:
                 # - Stop if there are no spikes left
@@ -321,7 +325,9 @@ class RecDIAF(Layer):
                 # - Determine tDuration
                 assert (
                     tsInput is not None
-                ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(self.strName)
+                ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(
+                    self.strName
+                )
 
                 if tsInput.bPeriodic:
                     # - Use duration of periodic TimeSeries, if possible
@@ -330,17 +336,18 @@ class RecDIAF(Layer):
                 else:
                     # - Evolve until the end of the input TImeSeries
                     tDuration = tsInput.tStop - self.t
-                    assert (
-                        tDuration > 0
-                    ), (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(self.strName)
-                        + "`tsInput` finishes before the current " "evolution time."
+                    assert tDuration > 0, (
+                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
+                            self.strName
+                        )
+                        + "`tsInput` finishes before the current "
+                        "evolution time."
                     )
             # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = (tDuration+fTolAbs) // self.tDt
+            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
         else:
-            assert (
-                isinstance(nNumTimeSteps, int)
+            assert isinstance(
+                nNumTimeSteps, int
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
 
         # - End time of evolution
@@ -348,7 +355,9 @@ class RecDIAF(Layer):
 
         # - Extract spike timings and channels
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, __ = tsInput.find([self.t, (self._nTimeStep+nNumTimeSteps) * self.tDt])
+            vtEventTimes, vnEventChannels, __ = tsInput.find(
+                [self.t, (self._nTimeStep + nNumTimeSteps) * self.tDt]
+            )
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range
                 assert (
@@ -363,9 +372,7 @@ class RecDIAF(Layer):
 
     def randomize_state(self):
         self.vState = np.random.randint(
-            self._nStateMin,
-            self._nStateMax+1,
-            size=self.nSize
+            self._nStateMin, self._nStateMax + 1, size=self.nSize
         )
 
     ### --- Properties
@@ -476,8 +483,8 @@ class RecDIAF(Layer):
         if (np.array(vtNewTime) < self._tMinRefractory).any():
             print(
                 "Refractory times must be at least {}.".format(self._tMinRefractory)
-                +" Lower values have been clipped. The minimum value can be"
-                +" set by changing _tMinRefractory."
+                + " Lower values have been clipped. The minimum value can be"
+                + " set by changing _tMinRefractory."
             )
 
     @Layer.tDt.setter

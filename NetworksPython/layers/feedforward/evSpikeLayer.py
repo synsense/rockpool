@@ -10,13 +10,17 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 
 class EventDrivenSpikingLayer(FFCLIAF):
-    '''
+    """
     EventCNNLayer: Event driven 2D convolution layer
-    '''
-    def __init__(self, mfW: np.ndarray = None,
-                 vfVThresh: float = 8,
-                 tDt: float = 1,
-                 strName: str = 'unnamed'):
+    """
+
+    def __init__(
+        self,
+        mfW: np.ndarray = None,
+        vfVThresh: float = 8,
+        tDt: float = 1,
+        strName: str = "unnamed",
+    ):
         """
         EventCNLayer - Implements a 2D convolutional layer of spiking neurons
 
@@ -50,7 +54,7 @@ class EventDrivenSpikingLayer(FFCLIAF):
         __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # Extract spike data from the input variable
-        vSpk = tsInput.vtTimeTrace # !! What if tsInput is None??
+        vSpk = tsInput.vtTimeTrace  # !! What if tsInput is None??
         vIdInput = tsInput.vnChannels
 
         # Hold the sate of network at any time step when updated
@@ -77,10 +81,12 @@ class EventDrivenSpikingLayer(FFCLIAF):
             # State update (avoiding type cast errors)
             vState = vState + vfUpdate
 
-            self._add_to_record(aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState)
+            self._add_to_record(
+                aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState
+            )
 
             # Check threshold and reset
-            vbSpike = (vState >= vfVThresh)
+            vbSpike = vState >= vfVThresh
             if vbSpike.any():
                 vnSpike, = np.nonzero(vbSpike)
 
@@ -91,19 +97,21 @@ class EventDrivenSpikingLayer(FFCLIAF):
                 # If the threshold goes over 2*vfVThresh this spike will not be detected till the next update.
 
                 # Record spikes
-                aSpk.append(
-                    np.column_stack(([tCurrentTime]*len(vnSpike),
-                                     vnSpike)))
+                aSpk.append(np.column_stack(([tCurrentTime] * len(vnSpike), vnSpike)))
 
                 # Record state after reset
-                self._add_to_record(aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState)
+                self._add_to_record(
+                    aStateTimeSeries,
+                    tCurrentTime,
+                    vnIdOut=self.vnIdMonitor,
+                    vState=vState,
+                )
 
         # Convert arrays to TimeSeries objects
         mfSpk = np.row_stack(aSpk)
-        evOut = TSEvent(mfSpk[:, 0],
-                        mfSpk[:, 1],
-                        strName='Output',
-                        nNumChannels=self.nSize)
+        evOut = TSEvent(
+            mfSpk[:, 0], mfSpk[:, 1], strName="Output", nNumChannels=self.nSize
+        )
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)

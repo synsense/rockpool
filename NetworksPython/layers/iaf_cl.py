@@ -17,6 +17,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 
+
 class CLIAF(Layer):
     """
     CLIAF - Abstract layer class of integrate and fire neurons with constant leak
@@ -121,7 +122,9 @@ class CLIAF(Layer):
                 # - Determine tDuration
                 assert (
                     tsInput is not None
-                ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(self.strName)
+                ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(
+                    self.strName
+                )
 
                 if tsInput.bPeriodic:
                     # - Use duration of periodic TimeSeries, if possible
@@ -130,17 +133,18 @@ class CLIAF(Layer):
                 else:
                     # - Evolve until the end of the input TImeSeries
                     tDuration = tsInput.tStop - self.t
-                    assert (
-                        tDuration > 0
-                    ), (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(self.strName)
-                        + "`tsInput` finishes before the current " "evolution time."
+                    assert tDuration > 0, (
+                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
+                            self.strName
+                        )
+                        + "`tsInput` finishes before the current "
+                        "evolution time."
                     )
             # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = (tDuration+fTolAbs) // self.tDt
+            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
         else:
-            assert (
-                isinstance(nNumTimeSteps, int)
+            assert isinstance(
+                nNumTimeSteps, int
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
 
         # - End time of evolution
