@@ -111,8 +111,10 @@ class FFExpSyn(Layer):
         """
 
         # - Prepare time base
-        vtTimeBase, __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
-        
+        vtTimeBase, __, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
+
         mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
 
         # - Generate spike trains from tsInput
@@ -164,7 +166,7 @@ class FFExpSyn(Layer):
         mWeightedSpikeTrains += mfNoise
 
         # - Define exponential kernel
-        vfKernel = np.exp(-np.arange(nNumTimeSteps+1)*self.tDt / self.tTauSyn)
+        vfKernel = np.exp(-np.arange(nNumTimeSteps + 1) * self.tDt / self.tTauSyn)
         # - Make sure spikes only have effect on next time step
         vfKernel = np.r_[0, vfKernel]
 

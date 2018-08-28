@@ -85,7 +85,9 @@ class RecCLIAF(CLIAF):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -127,7 +129,9 @@ class RecCLIAF(CLIAF):
 
             # Update neuron states
             if bCNNWeights:
-                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) + (vnNumRecSpikes @ mfWRec)
+                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) + (
+                    vnNumRecSpikes @ mfWRec
+                )
             else:
                 vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
 

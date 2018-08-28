@@ -293,16 +293,17 @@ def DiscretiseWeightMatrix(
     # - Return matrices
     return mfWD, mnNumConns
 
+
 def DynapseConform(
     tupShape,
     fConnectivity=None,
     fRatioExc=0.5,
     nLimitInputs=64,
     nLimitOutputs=1024,
-    tupfWExc=(1,2),
-    tupfWInh=(1,2),
-    tupfProbWExc=(0.5,0.5),
-    tupfProbWInh=(0.5,0.5),
+    tupfWExc=(1, 2),
+    tupfWInh=(1, 2),
+    tupfProbWExc=(0.5, 0.5),
+    tupfProbWInh=(0.5, 0.5),
     fNormalize=None,
 ):
     """
@@ -335,12 +336,16 @@ def DynapseConform(
     # - Determine size of matrix
     try:
         tupShape = tuple(tupShape)
-        assert len(tupShape) == 2 or len(tupShape) == 1, 'Only 2-dimensional matrices can be created.'
+        assert (
+            len(tupShape) == 2 or len(tupShape) == 1
+        ), "Only 2-dimensional matrices can be created."
         if len(tupShape) == 1:
             tupShape = (tupShape[0], tupShape[0])
     except TypeError:
-        assert isinstance(tupShape, int), 'tupShape must be integer or array-like of size 2.'
-        tupShape = (tupShape,tupShape)
+        assert isinstance(
+            tupShape, int
+        ), "tupShape must be integer or array-like of size 2."
+        tupShape = (tupShape, tupShape)
 
     # - Matrix for holding weihgts
     mfW = np.zeros(tupShape, float)
@@ -351,13 +356,16 @@ def DynapseConform(
     #     mfW_reconstr = np.zeros(tupShape)
     #     for fWeight, miAssignments in dmnCount:
     #         mfW_reconstr += fWeight * miAssignments
-    dmnCount = {weight : np.zeros_like(mfW, int) for weight in (*tupfWExc, *tupfWInh)}
-      
+    dmnCount = {weight: np.zeros_like(mfW, int) for weight in (*tupfWExc, *tupfWInh)}
+
     # - Input synapses per neuron
     if fConnectivity is not None:
         nNumInputs = int(fConnectivity * mfW.shape[0])
-        assert nNumInputs <= nLimitInputs, (
-            "Maximum connectivity for given reservoir size and input limits is {}".format(float(nLimitInputs) / mfW.shape[0]))
+        assert (
+            nNumInputs <= nLimitInputs
+        ), "Maximum connectivity for given reservoir size and input limits is {}".format(
+            float(nLimitInputs) / mfW.shape[0]
+        )
     else:
         nNumInputs = min(nLimitInputs, mfW.shape[0])
 
@@ -373,9 +381,13 @@ def DynapseConform(
         # - Array holding non-zero weights
         vfWeights = np.zeros(nNumInputs)
         # - Generate excitatory weights
-        vfWeights[ : nNumExcIn] = np.random.choice(tupfWExc, size=nNumExcIn, p=tupfProbWExc, replace=True)
+        vfWeights[:nNumExcIn] = np.random.choice(
+            tupfWExc, size=nNumExcIn, p=tupfProbWExc, replace=True
+        )
         # - Generate inhibitory weights
-        vfWeights[nNumExcIn : ] = np.random.choice(tupfWInh, size=nNumInhIn, p=tupfProbWInh, replace=True)
+        vfWeights[nNumExcIn:] = np.random.choice(
+            tupfWInh, size=nNumInhIn, p=tupfProbWInh, replace=True
+        )
 
         # - Count how many weights can still be set for each row without exceeding nLimitOutputs
         vnFree = nLimitOutputs - np.sum(mnCount, axis=1)
@@ -397,24 +409,25 @@ def DynapseConform(
         fScale = fNormalize / fSpectralRad
         mfW *= fScale
         # - Also scale keys in dmnCount accordingly
-        dmnCount = {fScale*k : v for k, v in dmnCount.items()}
+        dmnCount = {fScale * k: v for k, v in dmnCount.items()}
 
     return mfW, mnCount, dmnCount
 
+
 def In_Res_Dynapse(
-    nSize : int,
+    nSize: int,
     fInputDensity=1,
     fConnectivity=None,
     fRatioExcRes=0.5,
     fRatioExcIn=0.5,
     nLimitInputs=64,
     nLimitOutputs=1024,
-    tupfWExc=(1,2),
-    tupfWInh=(1,2),
-    tupfProbWExcRes=(0.5,0.5),
-    tupfProbWInhRes=(0.5,0.5),
-    tupfProbWExcIn=(0.5,0.5),
-    tupfProbWInhIn=(0.5,0.5),
+    tupfWExc=(1, 2),
+    tupfWInh=(1, 2),
+    tupfProbWExcRes=(0.5, 0.5),
+    tupfProbWInhRes=(0.5, 0.5),
+    tupfProbWExcIn=(0.5, 0.5),
+    tupfProbWInhIn=(0.5, 0.5),
     fNormalize=None,
     bVerbose=False,
     bLeaveSpaceForInput=False,
@@ -454,7 +467,7 @@ def In_Res_Dynapse(
 
     # - Matrix with weights. First row corresponds to input weights, others to reservoir matrix
     mfWRes, mnCount, dmnCount = DynapseConform(
-        tupShape= (nSize, nSize),
+        tupShape=(nSize, nSize),
         fConnectivity=fConnectivity,
         fRatioExc=fRatioExcRes,
         nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput),
@@ -469,12 +482,15 @@ def In_Res_Dynapse(
     # - For each reservoir neuron, check whether it still has space for an input
     vbFree = (nLimitInputs - np.sum(mnCount, axis=0)) > 0
     # - Total number of input weights to be assigned
-    nNumInputs = (min(np.sum(vbFree), int(fInputDensity*nSize))
-        if fInputDensity is not None else np.sum(vbFree)
+    nNumInputs = (
+        min(np.sum(vbFree), int(fInputDensity * nSize))
+        if fInputDensity is not None
+        else np.sum(vbFree)
     )
 
     if nNumInputs == 0:
-        print("WARNING: Could not assign any input weights, "
+        print(
+            "WARNING: Could not assign any input weights, "
             + "try setting bLeaveSpaceForInput=True or reducing fConnectivity"
         )
         return np.zeros((nSize, 1)), mfWRes, mnCount, dmnCount
@@ -488,9 +504,13 @@ def In_Res_Dynapse(
     tupfWInExc = tuple(lfValues[-2:])
     tupfWInInh = tuple(lfValues[:2])
     # - Generate excitatory weights
-    vfWeights[ : nNumExcIn] = np.random.choice(tupfWInExc, size=nNumExcIn, p=tupfProbWExcIn, replace=True)
+    vfWeights[:nNumExcIn] = np.random.choice(
+        tupfWInExc, size=nNumExcIn, p=tupfProbWExcIn, replace=True
+    )
     # - Generate inhibitory weights
-    vfWeights[nNumExcIn : ] = np.random.choice(tupfWInInh, size=nNumInhIn, p=tupfProbWInhIn, replace=True)
+    vfWeights[nNumExcIn:] = np.random.choice(
+        tupfWInInh, size=nNumInhIn, p=tupfProbWInhIn, replace=True
+    )
     # - Ids of neurons to which weights will be assigned
     viNeurons = np.random.choice(np.where(vbFree)[0], size=nNumInputs, replace=False)
     # - Input weight vector
@@ -498,7 +518,8 @@ def In_Res_Dynapse(
     for iNeuron, fWeight in zip(viNeurons, vfWeights):
         vfWIn[iNeuron] = fWeight
 
-    return vfWIn.reshape(-1,1), mfWRes, mnCount, dmnCount
+    return vfWIn.reshape(-1, 1), mfWRes, mnCount, dmnCount
+
 
 def IAFSparseNet(
     nResSize: int = 100, fMean: float = None, fStd: float = None, fDensity: float = 1.0

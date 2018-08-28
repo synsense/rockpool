@@ -104,13 +104,15 @@ class Layer(ABC):
                     # - Evolve until the end of the input TImeSeries
                     tDuration = tsInput.tStop - self.t
                     assert tDuration > 0, (
-                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(self.strName)
-                         + " `tsInput` finishes before the current evolution time."
+                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
+                            self.strName
+                        )
+                        + " `tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = (tDuration+fTolAbs) // self.tDt
+            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
         else:
-            assert (
-                isinstance(nNumTimeSteps, int)
+            assert isinstance(
+                nNumTimeSteps, int
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
 
         # - Generate discrete time base
@@ -120,9 +122,9 @@ class Layer(ABC):
         if tsInput is not None:
             if not tsInput.bPeriodic:
                 # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
-                if tsInput.tStart - 1e-3*self.tDt <= vtTimeBase[0] <= tsInput.tStart:
+                if tsInput.tStart - 1e-3 * self.tDt <= vtTimeBase[0] <= tsInput.tStart:
                     vtTimeBase[0] = tsInput.tStart
-                if tsInput.tStop <= vtTimeBase[-1] <= tsInput.tStop + 1e-3*self.tDt:
+                if tsInput.tStop <= vtTimeBase[-1] <= tsInput.tStop + 1e-3 * self.tDt:
                     vtTimeBase[-1] = tsInput.tStop
 
             if not isinstance(tsInput, TSEvent):
@@ -179,7 +181,7 @@ class Layer(ABC):
         :return vtTimeTrace, tDuration
         """
         # - Generate a trace
-        vtTimeTrace = np.arange(nNumTimeSteps+1) * self._tDt + tStart
+        vtTimeTrace = np.arange(nNumTimeSteps + 1) * self._tDt + tStart
 
         return vtTimeTrace
 
@@ -345,7 +347,7 @@ class Layer(ABC):
 
     @mfW.setter
     def mfW(self, mfNewW: np.ndarray):
-        assert (mfNewW is not None), "Layer `{}`: mfW must not be None.".format(
+        assert mfNewW is not None, "Layer `{}`: mfW must not be None.".format(
             self.strName
         )
 
@@ -353,7 +355,11 @@ class Layer(ABC):
         try:
             assert mfNewW.ndim >= 2
         except AssertionError:
-            warnings.warn("Layer `{}`: `mfNewW must be at least of dimension 2".format(self.strName))
+            warnings.warn(
+                "Layer `{}`: `mfNewW must be at least of dimension 2".format(
+                    self.strName
+                )
+            )
             mfNewW = np.atleast_2d(mfNewW)
 
         # - Check dimensionality of new weights
@@ -395,7 +401,7 @@ class Layer(ABC):
     @t.setter
     def t(self, new_t):
         self._nTimeStep = new_t // self.tDt
-    
+
     # - Temporary, for maintaining compatibility with layers that still use _t
     @property
     def _t(self):
@@ -404,5 +410,3 @@ class Layer(ABC):
     @_t.setter
     def _t(self, new_t):
         self._nTimeStep = new_t // self.tDt
-    
-    

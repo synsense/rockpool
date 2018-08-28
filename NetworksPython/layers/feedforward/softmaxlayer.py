@@ -6,6 +6,7 @@ from typing import Optional, Union, Tuple, List
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
+
 def softmax(x):
     """
     Comput softmax values for each of scores in x
@@ -57,7 +58,9 @@ class SoftMaxLayer(FFCLIAF):
 
         """
 
-        _evOut = FFCLIAF.evolve(self, tsInput=tsInput, tDuration=tDuration, nNumTimeSteps=nNumTimeSteps)
+        _evOut = FFCLIAF.evolve(
+            self, tsInput=tsInput, tDuration=tDuration, nNumTimeSteps=nNumTimeSteps
+        )
         assert len(_evOut.vtTimeTrace) == 0
         # Analyse states
         mfStateHistoryLog = self._mfStateTimeSeries[10:]
