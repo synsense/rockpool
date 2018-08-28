@@ -3,6 +3,7 @@
 ###
 
 import numpy as np
+import skimage.measure
 
 # from typing import Optional, Union, List, Tuple
 from ...timeseries import TSEvent
@@ -34,7 +35,7 @@ class AveragePooling(Layer):
             inShape=inShape, nKernels=1, kernel_size=pool_size, strides=pool_size
         )  # Simple hack
         super().__init__(mfW=mfW, tDt=np.asarray(tDt), strName=strName)
-
+        self.pool_size = pool_size
         self.reset_state()
 
     def evolve(
@@ -51,23 +52,15 @@ class AveragePooling(Layer):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, tDuration = self._prepare_input(tsInput, tDuration)
+        vnIds, mfInputSpikeRaster, tDuration = self._prepare_input(tsInput, tDuration)
 
         # Hold the sate of network at any time step when updated
-        aStateTimeSeries = []
         ltSpikeTimes = []
         liSpikeIDs = []
 
-        # - Count number of spikes for each neuron in each time step
-        vnNumSpikes = np.zeros(nSize, int)
-        # - Time before first time step
-        tCurrentTime = self.t
-
-        if vnIdMonitor is not None:
-            # Record initial state of the network
-            self._add_to_record(aStateTimeSeries, tCurrentTime)
-
         # Do average pooling here
+        print(mfInputSpikeRaster.shape)
+        mbOutRaster = skimage.measure.block_reduce(mfInputSpikeRaster, (2, 2), np.sum)
 
         # Update time
         self._t += tDuration
