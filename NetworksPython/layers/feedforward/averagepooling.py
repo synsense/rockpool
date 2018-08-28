@@ -20,20 +20,32 @@ class AveragePooling(Layer):
         self,
         inShape: tuple,
         pool_size: tuple = (1, 1),
+        img_data_format="channels_last",
         tDt: float = 1,
         strName: str = "unnamed",
     ):
         """
         :param inShape:     tuple Input shape
         :param pool_size:   tuple Pooling width along each dimension
-        :param tDt:         float  Time step for simulations
+        :param img_data_format: str 'channels_first' or 'channels_last'
         :param strName:     str  Name of this layer.
+        :param tDt:         float  Time step for simulations
         """
 
-        # Call parent constructor
+        if img_data_format == "channels_last":
+            nKernels = inShape[-1]
+        elif img_data_format == "channels_first":
+            nKernels = inShape[0]
+        self.img_data_format = img_data_format
         mfW = CNNWeight(
-            inShape=inShape, nKernels=1, kernel_size=pool_size, strides=pool_size
+            inShape=inShape,
+            nKernels=nKernels,
+            kernel_size=pool_size,
+            strides=pool_size,
+            img_data_format=img_data_format,
         )  # Simple hack
+
+        # Call parent constructor
         super().__init__(mfW=mfW, tDt=tDt, strName=strName)
         self.pool_size = pool_size
         self.reset_state()
@@ -64,9 +76,14 @@ class AveragePooling(Layer):
         mfInputSpikeRaster = mfInputSpikeRaster.reshape((-1, *self.mfW.inShape))
         print(mfInputSpikeRaster.shape)
 
-        mbOutRaster = skimage.measure.block_reduce(
-            mfInputSpikeRaster, (1, *self.pool_size), np.sum
-        )
+        if self.img_data_format == "channels_last":
+            mbOutRaster = skimage.measure.block_reduce(
+                mfInputSpikeRaster, (1, *self.pool_size, 1), np.sum
+            )
+        elif self.img_data_format == "channels_first":
+            mbOutRaster = skimage.measure.block_reduce(
+                mfInputSpikeRaster, (1, 1, *self.pool_size, 1), np.sum
+            )
         print(mbOutRaster.shape)
 
         # Reshape the output to flat indices
