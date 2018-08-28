@@ -6,6 +6,11 @@ from ...timeseries import TimeSeries
 from ..layer import Layer
 from typing import List, Tuple, Union
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
+
 # - Relative tolerance for float comparions
 fTolerance = 1e-5
 
@@ -155,28 +160,32 @@ class FFRateEuler(Layer):
             'Numbers of elements in v must be 1 or match layer size')
         return v
 
-    def evolve(self,
-               tsInput: TimeSeries = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
-    ) -> TimeSeries:
+    def evolve(
+        self,
+        tsInput: Optional[TimeSeries] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> (TimeSeries, np.ndarray):
         """
-        evolve - Evolve the state of this layer
+        evolve : Function to evolve the states of this layer given an input
 
-        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsSpkInput:      TimeSeries  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TimeSeries  output spike series
 
-        :return: TimeSeries Output of this layer during evolution period
         """
 
-        vtTime, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
+        # - Prepare time base
+        vtTimeBase, mfInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         mSamplesAct = self._evolveEuler(vState=self._vState,     #self._vState is automatically updated
                                         mfInput=mfInput,
                                         mfW=self._mfW,
                                         nSize = self._nSize,
-                                        nNumSteps = np.size(vtTime)-1,
+                                        nNumSteps = nNumTimeSteps,
                                         vfGain=self._vfGain,
                                         vfBias=self._vfBias,
                                         vfAlpha=self._vfAlpha,
@@ -185,7 +194,7 @@ class FFRateEuler(Layer):
                                         fNoiseStd=self._fNoiseStd * np.sqrt(2./self._vfAlpha))
 
         # - Increment internal time representation
-        self._t += tTrueDuration
+        self._nTimeStep += nNumTimeSteps
 
         return TimeSeries(vtTime, mSamplesAct)
 
@@ -245,10 +254,10 @@ class FFRateEuler(Layer):
                                   fNoiseStd=self._fNoiseStd * np.sqrt(2./self._vfAlpha))
 
             # - Increment time
-            self._t += tDt
+            self._nTimeStep += nEulerStepsPerDt
 
         # - Return final state
-        return self._t, np.reshape(self._fhActivation(self._vState + self._vfBias), (1, -1))
+        return self.t, np.reshape(self._fhActivation(self._vState + self._vfBias), (1, -1))
 
 
     def train_rr(self,
@@ -270,7 +279,8 @@ class FFRateEuler(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, tsTarget.tDuration)
+        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
@@ -449,7 +459,7 @@ class PassThrough(FFRateEuler):
         :param strName:     string Name of this layer
         """
         # - Set delay
-        self._tDelay = (0 if tDelay is None else tDelay)
+        self._nDelaySteps = (0 if tDelay is None else int(np.round(tDelay/tDt)))
 
         # - Call super-class initialiser
         super().__init__(mfW = mfW,
@@ -458,6 +468,8 @@ class PassThrough(FFRateEuler):
                          fhActivation = lambda x: x,
                          vfBias = vfBias,
                          strName=strName)
+
+        self.reset_all()
 
     def reset_buffer(self):
         if self.tDelay != 0:
@@ -473,29 +485,32 @@ class PassThrough(FFRateEuler):
 
     def evolve(
         self,
-        tsInput: TimeSeries,
-        tDuration: float = None,
+        tsInput: Optional[TimeSeries] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> TimeSeries:
+    ) -> (TimeSeries, np.ndarray):
         """
-        evolve - Evolve the state of this layer
+        evolve : Function to evolve the states of this layer given an input
 
-        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsSpkInput:      TimeSeries  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TimeSeries  output spike series
 
-        :return: TimeSeries Output of this layer during evolution period
         """
 
-        # - Discretize input time series
-        vtTimeIn, mfInput, tTrueDuration = self._prepare_input(tsInput, tDuration)
+        # - Prepare time base
+        vtTimeBase, mfInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # - Apply input weights and add noise
         mfInProcessed = noisy(mfInput@self.mfW, self.fNoiseStd)
 
         if self.tsBuffer is not None:
             # - Combined time trace for buffer and processed input
-            vtTimeComb = self._gen_time_trace(self.t, tTrueDuration+self.tDelay)
+            nNumTimeStepsComb = nNumTimeSteps + self._nDelaySteps
+            vtTimeComb = self._gen_time_trace(self.t, nNumTimeStepsComb)
 
             # - Array for buffered and new data
             mfSamplesComb = np.zeros((vtTimeComb.size, self.nSizeIn))
@@ -520,7 +535,7 @@ class PassThrough(FFRateEuler):
 
         # - Update state and time
         self.vState = mfSamplesOut[-1]
-        self._t += tTrueDuration
+        self._nTimeStep += nNumTimeSteps
 
         # - Return time series with output data and bias
         return TimeSeries(vtTimeIn, mfSamplesOut + self.vfBias)
@@ -553,6 +568,10 @@ class PassThrough(FFRateEuler):
     @property
     def tDelay(self):
         return self._tDelay
+
+    @property
+    def nDelaySteps(self):
+        return self._nDelaySteps
 
     # @tDelay.setter
     # def tDelay(self, tNewDelay):

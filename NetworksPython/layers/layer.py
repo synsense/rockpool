@@ -63,60 +63,79 @@ class Layer(ABC):
 
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
-        self._t = 0
+        self._nTimeStep = 0
 
     ### --- Common methods
 
     def _prepare_input(
-        self, tsInput: TimeSeries = None, tDuration: float = None
+        self,
+        tsInput: TimeSeries = None,
+        tDuration: float = None,
+        nNumTimeSteps: int = None,
     ) -> (np.ndarray, np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
 
-        :param tsInput:     TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:   float Duration of the desired evolution, in seconds
+        :param tsInput:       TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:     float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps: int Number of evolution time steps
 
         :return: (vtTimeBase, mfInputStep, tDuration)
             vtTimeBase:     ndarray T1 Discretised time base for evolution
             mfInputStep:    ndarray (T1xN) Discretised input signal for layer
-            tDuration:      float Actual duration for evolution
+            nNumTimeSteps:  int Actual number of evolution time steps
         """
 
-        # - Determine default duration
-        if tDuration is None:
+        if nNumTimeSteps is None:
+            # - Determine nNumTimeSteps
+            if tDuration is None:
+                # - Determine tDuration
+                assert (
+                    tsInput is not None
+                ), "Layer `{}`: One of `tsInput` or `tDuration` must be supplied".format(
+                    self.strName
+                )
+
+                if tsInput.bPeriodic:
+                    # - Use duration of periodic TimeSeries, if possible
+                    tDuration = tsInput.tDuration
+
+                else:
+                    # - Evolve until the end of the input TImeSeries
+                    tDuration = tsInput.tStop - self.t
+                    assert tDuration > 0, (
+                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(self.strName)
+                         + " `tsInput` finishes before the current evolution time."
+                    )
+            nNumTimeSteps = (tDuration+fTolAbs) // self.tDt
+        else:
             assert (
-                tsInput is not None
-            ), "Layer `{}`: One of `tsInput` or `tDuration` must be supplied".format(
-                self.strName
-            )
+                isinstance(nNumTimeSteps, int)
+            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
 
-            if tsInput.bPeriodic:
-                # - Use duration of periodic TimeSeries, if possible
-                tDuration = tsInput.tDuration
+        # - Generate discrete time base
+        vtTimeBase = self._gen_time_trace(self.t, nNumTimeSteps)
 
-            else:
-                # - Evolve until the end of the input TImeSeries
-                tDuration = tsInput.tStop - self.t
-                assert tDuration > 0, (
-                    "Layer `{}`: Cannot determine an appropriate evolution duration.".format(self.strName)
-                     + " `tsInput` finishes before the current evolution time."
-                )
+        # - Make sure vtTimeBase matches tsInput
+        if tsInput is not None:
+            if not tsInput.bPeriodic:
+                # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
+                if tsInput.tStart - 1e-3*self.tDt <= vtTimeBase[0] <= tsInput.tStart:
+                    vtTimeBase[0] = tsInput.tStart
+                if tsInput.tStop <= vtTimeBase[-1] <= tsInput.tStop + 1e-3*self.tDt:
+                    vtTimeBase[-1] = tsInput.tStop
 
-        # - Discretise tsInput to the desired evolution time base
-        vtTimeBase = self._gen_time_trace(self.t, tDuration)
-        tDuration = vtTimeBase[-1] - vtTimeBase[0]
-
-        if (tsInput is not None) and (not isinstance(tsInput, TSEvent)):
-            # - Warn if evolution period is not fully contained in tsInput
-            if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
-                print(
-                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                        self.strName, vtTimeBase[0], vtTimeBase[-1]
+            if not isinstance(tsInput, TSEvent):
+                # - Warn if evolution period is not fully contained in tsInput
+                if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
+                    print(
+                        "Layer `{}`: Evolution period (t = {} to {}) ".format(
+                            self.strName, vtTimeBase[0], vtTimeBase[-1]
+                        )
+                        + "not fully contained in input signal (t = {} to {})".format(
+                            tsInput.tStart, tsInput.tStop
+                        )
                     )
-                    + "not fully contained in input signal (t = {} to {})".format(
-                        tsInput.tStart, tsInput.tStop
-                    )
-                )
 
             # - Sample input trace and check for correct dimensions
             mfInputStep = self._check_input_dims(tsInput(vtTimeBase))
@@ -128,7 +147,7 @@ class Layer(ABC):
             # - Assume zero inputs
             mfInputStep = np.zeros((np.size(vtTimeBase), self.nSizeIn))
 
-        return vtTimeBase, mfInputStep, tDuration
+        return vtTimeBase, mfInputStep, nNumTimeSteps
 
     def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
@@ -151,18 +170,16 @@ class Layer(ABC):
         # - Return possibly corrected input
         return mfInput
 
-    def _gen_time_trace(self, tStart: float, tDuration: float) -> np.ndarray:
+    def _gen_time_trace(self, tStart: float, nNumTimeSteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at tStart, of length tDuration with
+        Generate a time trace starting at tStart, of length nNumTimeSteps+1 with
         time step length self._tDt. Make sure it does not go beyond
         tStart+tDuration.
 
         :return vtTimeTrace, tDuration
         """
         # - Generate a trace
-        vtTimeTrace = np.arange(0, tDuration + self._tDt, self._tDt) + tStart
-        # - Make sure that vtTimeTrace doesn't go beyond tStart + tDuration
-        vtTimeTrace = vtTimeTrace[vtTimeTrace <= tStart + tDuration + fTolAbs]
+        vtTimeTrace = np.arange(nNumTimeSteps+1) * self._tDt + tStart
 
         return vtTimeTrace
 
@@ -282,7 +299,7 @@ class Layer(ABC):
         reset_time - Reset the internal clock
         :return:
         """
-        self._t = 0
+        self._nTimeStep = 0
 
     def randomize_state(self):
         """
@@ -364,13 +381,28 @@ class Layer(ABC):
         self._vState = vNewState
 
     @property
-    def t(self):
-        return self._t
-
-    @property
     def fNoiseStd(self):
         return self._fNoiseStd
 
     @fNoiseStd.setter
     def fNoiseStd(self, fNewNoiseStd):
         self._fNoiseStd = to_scalar(fNewNoiseStd)
+
+    @property
+    def t(self):
+        return self._nTimeStep * self.tDt
+
+    @t.setter
+    def t(self, new_t):
+        self._nTimeStep = new_t // self.tDt
+    
+    # - Temporary, for maintaining compatibility with layers that still use _t
+    @property
+    def _t(self):
+        return self._nTimeStep * self.tDt
+
+    @_t.setter
+    def _t(self, new_t):
+        self._nTimeStep = new_t // self.tDt
+    
+    
