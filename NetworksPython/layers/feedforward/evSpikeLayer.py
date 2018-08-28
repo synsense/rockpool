@@ -3,6 +3,11 @@ from tqdm import tqdm
 from ...timeseries import TSEvent
 from .iaf_cl import FFCLIAF
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
+
 
 class EventDrivenSpikingLayer(FFCLIAF):
     '''
@@ -23,24 +28,30 @@ class EventDrivenSpikingLayer(FFCLIAF):
         # Call parent constructor
         FFCLIAF.__init__(self, mfW, vfVThresh=vfVThresh, tDt=tDt, strName=strName)
 
-    def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
-        ) -> (TSEvent, np.ndarray):
+    def evolve(
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:  TSEvent  Input spike trian
-        :param tDuration: float    Simulation/Evolution time
-        :param bVerbose:    bool Currently no effect, just for conformity
-
-        :return:          TSEvent  output spike series
+        :param tsSpkInput:      TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
 
         """
+
+        # - Prepare time base
+        __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+
         # Extract spike data from the input variable
-        vSpk = tsInput._vtTimeTrace
-        vIdInput = tsInput._vnChannels
+        vSpk = tsInput.vtTimeTrace # !! What if tsInput is None??
+        vIdInput = tsInput.vnChannels
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -101,6 +112,6 @@ class EventDrivenSpikingLayer(FFCLIAF):
         self._mfStateTimeSeries = mfStateTimeSeries
 
         # Update time
-        self._t += tDuration
+        self._nTimeStep += nNumTimeSteps
 
         return evOut

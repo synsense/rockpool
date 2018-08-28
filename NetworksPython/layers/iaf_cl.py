@@ -14,6 +14,8 @@ from . import Layer
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
 
 class CLIAF(Layer):
     """
@@ -96,39 +98,53 @@ class CLIAF(Layer):
                 print([tCurrentTime, nIdOutIter, vState[nIdOutIter, 0]])
 
     def _prepare_input(
-        self, tsInput: Optional[TSEvent] = None, tDuration: Optional[float] = None
-    ) -> (np.ndarray, float):
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+    ) -> (np.ndarray, np.ndarray, float, float):
         """
-        _prepare_input - Sample input, determine evolution duration
+        _prepare_input - Sample input, set up time base
 
-        :param tsInput:     TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:   float Duration of the desired evolution, in seconds
+        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:    float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps int Number of evolution time steps
 
-        :return: (vtEventTimes, vnEventChannels, tDuration, tFinal)
+        :return:
             mfSpikeRaster:    ndarray Boolean raster containing spike info
-            tDuration:        float Actual duration for evolution
+            nNumTimeSteps:    int Number of evlution time steps
         """
 
-        # - Determine default duration
-        if tDuration is None:
-            assert (
-                tsInput is not None
-            ), "One of `tsInput` or `tDuration` must be supplied"
-
-            if tsInput.bPeriodic:
-                # - Use duration of periodic TimeSeries, if possible
-                tDuration = tsInput.tDuration
-
-            else:
-                # - Evolve until the end of the input TImeSeries
-                tDuration = tsInput.tStop - self.t
+        if nNumTimeSteps is None:
+            # - Determine nNumTimeSteps
+            if tDuration is None:
+                # - Determine tDuration
                 assert (
-                    tDuration > 0
-                ), "Cannot determine an appropriate evolution duration. `tsInput` finishes before the current " "evolution time."
+                    tsInput is not None
+                ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(self.strName)
 
-        # - Discretize tDuration wrt self.tDt
-        nSamples = tDuration // self.tDt
-        tDuration = nSamples * self.tDt
+                if tsInput.bPeriodic:
+                    # - Use duration of periodic TimeSeries, if possible
+                    tDuration = tsInput.tDuration
+
+                else:
+                    # - Evolve until the end of the input TImeSeries
+                    tDuration = tsInput.tStop - self.t
+                    assert (
+                        tDuration > 0
+                    ), (
+                        "Layer {}: Cannot determine an appropriate evolution duration.".format(self.strName)
+                        + "`tsInput` finishes before the current " "evolution time."
+                    )
+            # - Discretize tDuration wrt self.tDt
+            nNumTimeSteps = (tDuration+fTolAbs) // self.tDt
+        else:
+            assert (
+                isinstance(nNumTimeSteps, int)
+            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+
+        # - End time of evolution
+        tFinal = self.t + nNumTimeSteps * self.tDt
 
         # - Extract spike timings and channels
         if tsInput is not None:
@@ -136,18 +152,18 @@ class CLIAF(Layer):
             __, __, mfSpikeRaster, __ = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
-                tStop=self.t + tDuration,
+                tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
                 vnSelectChannels=np.arange(self.nSizeIn),
             )
 
         else:
-            mfSpikeRaster = np.zeros((nSamples, nSizeIn), bool)
+            mfSpikeRaster = np.zeros((nNumTimeSteps, nSizeIn), bool)
 
-        return mfSpikeRaster, tDuration
+        return mfSpikeRaster, nNumTimeSteps
 
     def reset_time(self):
         # - Set internal clock to 0
-        self._t = 0
+        self._nTimeStep = 0
 
     def reset_state(self):
         # - Reset neuron state to 0

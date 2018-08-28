@@ -15,6 +15,11 @@ from typing import Union
 from ..layer import Layer
 from ..recurrent.timedarray_shift import TimedArray as TAShift
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
+
 # - Configure exports
 __all__ = ['FFExpSynBrian', 'eqSynapseExp']
 
@@ -134,6 +139,7 @@ class FFExpSynBrian(Layer):
 
         # - Reset network
         self._net.restore('reset')
+        self._nTimeStep = 0
         
         # - Restork parameters
         self.tTauSyn = tTauSyn
@@ -144,23 +150,26 @@ class FFExpSynBrian(Layer):
 
     ### --- State evolution
 
-    def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
-    ) -> TSContinuous:
+    def evolve(
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> (TSContinuous, np.ndarray):
         """
-        evolve - Evolve the state of this layer
+        evolve : Function to evolve the states of this layer given an input
 
-        :param tsInput:     TSEvent spikes as input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsSpkInput:      TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSContinuous  output spike series
 
-        :return: TimeSeries Output of this layer during evolution period
         """
 
         # - Prepare time base
-        vtTimeBase, _, tDuration = self._prepare_input(tsInput, tDuration)
+        vtTimeBase, __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # - Set spikes for spike generator
         if tsInput is not None:
@@ -183,8 +192,9 @@ class FFExpSynBrian(Layer):
                           name  = 'noise_input')
 
         # - Perform simulation
-        self._net.run(tDuration * second, namespace = {'I_inp': taI_noise}, level = 0)
-
+        self._net.run(nNumTimeSteps * self.tDt * second, namespace = {'I_inp': taI_noise}, level = 0)
+        self._nTimeStep += nNumTimeSteps
+        
         # - Build response TimeSeries
         vtTimeBaseOutput = self._stmReceiver.t_
         vbUseTime = self._stmReceiver.t_ >= vtTimeBase[0]

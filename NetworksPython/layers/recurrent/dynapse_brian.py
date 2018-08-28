@@ -24,6 +24,11 @@ from teili.models.neuron_models import DPI as teiliDPIEqts
 from teili.models.synapse_models import DPISyn as teiliDPISynEqts
 from teili.models.parameters.dpi_neuron_param import parameters as dTeiliNeuronParam
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
+
 # - Configure exports
 __all__ = ['RecDynapseBrian']
 
@@ -185,6 +190,7 @@ class RecDynapseBrian(Layer):
 
         # - Reset Network
         self._net.restore('reset')
+        self._nTimeStep = 0
 
         # - Restore state variables
         self._ngLayer.Imem = Imem
@@ -201,24 +207,26 @@ class RecDynapseBrian(Layer):
 
     ### --- State evolution
 
-    def evolve(self,
-               tsInput: TSContinuous = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
-    ) -> TSEvent:
+    def evolve(
+        self,
+        tsInput: Optional[TSContinuous] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> (TSEvent, np.ndarray):
         """
-        evolve - Evolve the state of this layer
+        evolve : Function to evolve the states of this layer given an input
 
-        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsSpkInput:      TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
 
-        :return: TimeSeries Output of this layer during evolution period
         """
 
         # - Prepare time base
-        vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
-        nNumSteps = np.size(vtTimeBase)
+        vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # - Set spikes for spike generator
         if tsInput is not None:
@@ -228,7 +236,8 @@ class RecDynapseBrian(Layer):
             self._sggInput.set_spikes([], [] * second)
 
         # - Perform simulation
-        self._net.run(tDuration * second, level = 0)
+        self._net.run(nNumTimeSteps * self.tDt * second, level = 0)
+        self._nTimeStep += nNumTimeSteps
         
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]

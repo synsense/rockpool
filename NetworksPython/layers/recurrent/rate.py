@@ -11,6 +11,10 @@ from numba import njit
 from ..layer import Layer
 from ...timeseries import TimeSeries
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Define imports
 __all__ = ['RecRateEuler']
@@ -132,23 +136,26 @@ class RecRateEuler(Layer):
 
     ### --- State evolution method
 
-    def evolve(self,
-               tsInput: TimeSeries = None,
-               tDuration: float = None,
-               bVerbose: bool = False,
-    ) -> TimeSeries:
+    def evolve(
+        self,
+        tsInput: Optional[TimeSeries] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> (TimeSeries, np.ndarray):
         """
-        evolve - Evolve the state of this layer
+        evolve : Function to evolve the states of this layer given an input
 
-        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsSpkInput:      TimeSeries  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TimeSeries  output spike series
 
-        :return: TimeSeries Output of this layer during evolution period
         """
 
-        # - Discretise input, prepare time base
-        vtTimeBase, mfInputStep, tDuration = self._prepare_input(tsInput, tDuration)
+        # - Prepare time base
+        vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # - Generate a noise trace
         # Noise correction: Standard deviation after some time would be fNoiseStd * sqrt(0.5*tDt/vtTau)
@@ -160,10 +167,10 @@ class RecRateEuler(Layer):
         # - Call Euler method integrator
         #   Note: Bypass setter method for .vState
         mfActivity = self._evolveEuler(self._vState, self._nSize, self._mfW, mfInputStep + mfNoiseStep,
-                                       np.size(vtTimeBase)-1, self._tDt, self._vfBias, self._vtTau)
+                                       nNumTimeSteps, self._tDt, self._vfBias, self._vtTau)
 
         # - Increment internal time representation
-        self._t = vtTimeBase[-1]
+        self._n += nNumTimeSteps
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)
@@ -227,10 +234,10 @@ class RecRateEuler(Layer):
                                   )
 
             # - Increment time
-            self._t += tDt
+            self._n += nEulerStepsPerDt
 
         # - Return final activity
-        return self._t, np.reshape(self._fhActivation(self._vState + self._vfBias), (1, -1))
+        return self.t, np.reshape(self._fhActivation(self._vState + self._vfBias), (1, -1))
 
 
     ### --- Properties

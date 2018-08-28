@@ -11,6 +11,10 @@ from scipy.signal import fftconvolve
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
 __all__ = ["FFExpSyn"]
@@ -89,21 +93,26 @@ class FFExpSyn(Layer):
     ### --- State evolution
 
     def evolve(
-        self, tsInput: TSEvent = None, tDuration: float = None, bVerbose: bool = False
-    ) -> TSContinuous:
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> (TSContinuous, np.ndarray):
         """
-        evolve - Evolve the state of this layer
+        evolve : Function to evolve the states of this layer given an input
 
-        :param tsInput:     TSEvent spikes as input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsSpkInput:      TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSContinuous  output spike series
 
-        :return: TimeSeries Output of this layer during evolution period
         """
 
         # - Prepare time base
-        vtTimeBase, _, tTrueDuration = self._prepare_input(tsInput, tDuration)
-
+        vtTimeBase, __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        
         mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
 
         # - Generate spike trains from tsInput
@@ -113,7 +122,7 @@ class FFExpSyn(Layer):
 
         else:
             vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[0] + tTrueDuration]
+                [vtTimeBase[0], vtTimeBase[-1]]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
@@ -155,7 +164,7 @@ class FFExpSyn(Layer):
         mWeightedSpikeTrains += mfNoise
 
         # - Define exponential kernel
-        vfKernel = np.exp(-np.arange(0, tTrueDuration, self.tDt) / self.tTauSyn)
+        vfKernel = np.exp(-np.arange(nNumTimeSteps+1)*self.tDt / self.tTauSyn)
         # - Make sure spikes only have effect on next time step
         vfKernel = np.r_[0, vfKernel]
 
@@ -167,7 +176,7 @@ class FFExpSyn(Layer):
             mfFiltered[:, channel] = vConvShort
 
         # - Update time and state
-        self._t += tTrueDuration
+        self._n += nNumTimeSteps
         self.vState = mfFiltered[-1]
 
         # - Output time series with output data and bias
@@ -197,7 +206,8 @@ class FFExpSyn(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, tsTarget.tDuration)
+        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
