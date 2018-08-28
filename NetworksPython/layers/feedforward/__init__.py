@@ -5,6 +5,7 @@ from .exp_synapses_manual import FFExpSyn
 from .evSpikeLayer import EventDrivenSpikingLayer
 from .iaf_cl import FFCLIAF
 from .softmaxlayer import SoftMaxLayer
+from .averagepooling import AveragePooling
 
 __all__ = [
     "FFRateEuler",
@@ -16,4 +17,5 @@ __all__ = [
     "EventDrivenSpikingLayer",
     "FFCLIAF",
     "SoftMaxLayer",
+    "AveragePooling",
 ]

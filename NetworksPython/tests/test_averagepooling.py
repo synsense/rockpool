@@ -12,17 +12,19 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers.feedforward.averagepooling import AveragePooling
+    from NetworksPython.layers.feedforward import AveragePooling
 
 
 def test_averagepooling():
     """
     Test import of the class
     """
-    from NetworksPython.layers.feedforward.averagepooling import AveragePooling
+    from NetworksPython.layers.feedforward import AveragePooling
     from NetworksPython.timeseries import TSEvent
 
-    lyrAverage = AveragePooling(inShape=(10, 10), pool_size=(2, 5))
+    lyrAverage = AveragePooling(
+        inShape=(10, 10, 1), pool_size=(2, 5), img_data_format="channels_last"
+    )
     # since the output image dimension should be (5,2)
     assert lyrAverage.nSize == 10
 
