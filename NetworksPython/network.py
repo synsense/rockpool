@@ -391,10 +391,10 @@ class Network:
                 + " for the following layer(s):\n"
                 + strLayers
             )
+        
         ## (this can actually introduce more errors) ##
         # # - Correct tDuration in case of rounding errors
         # tDuration = int(np.round(tDuration / self.lEvolOrder[0].tDt)) * self.lEvolOrder[0].tDt
-
 
         # - Set external input name if not set already
         if tsExternalInput.strName is None:
