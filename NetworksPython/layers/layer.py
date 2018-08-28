@@ -99,7 +99,7 @@ class Layer(ABC):
                 tDuration = tsInput.tStop - self.t
                 assert tDuration > 0, (
                     "Layer `{}`: Cannot determine an appropriate evolution duration.".format(self.strName)
-                    " `tsInput` finishes before the current evolution time."
+                     + " `tsInput` finishes before the current evolution time."
                 )
 
         # - Discretise tsInput to the desired evolution time base
@@ -328,16 +328,16 @@ class Layer(ABC):
 
     @mfW.setter
     def mfW(self, mfNewW: np.ndarray):
-        assert (mfNewW is not None,), "Layer `{}`: mfW must not be None.".format(
+        assert (mfNewW is not None), "Layer `{}`: mfW must not be None.".format(
             self.strName
         )
 
         # - Ensure weights are at least 2D
         try:
-            assert mfWNewW.ndim >= 2
-        except Exception as e:
-            warnings.warn("Layer `{}`: ".format(self.strName) + str(e))
-            mfWNewW = np.atleast_2d(mfWNewW)
+            assert mfNewW.ndim >= 2
+        except AssertionError:
+            warnings.warn("Layer `{}`: `mfNewW must be at least of dimension 2".format(self.strName))
+            mfNewW = np.atleast_2d(mfNewW)
 
         # - Check dimensionality of new weights
         assert (
