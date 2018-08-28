@@ -34,7 +34,7 @@ class AveragePooling(Layer):
         mfW = CNNWeight(
             inShape=inShape, nKernels=1, kernel_size=pool_size, strides=pool_size
         )  # Simple hack
-        super().__init__(mfW=mfW, tDt=np.asarray(tDt), strName=strName)
+        super().__init__(mfW=mfW, tDt=tDt, strName=strName)
         self.pool_size = pool_size
         self.reset_state()
 
@@ -52,22 +52,38 @@ class AveragePooling(Layer):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        vnIds, mfInputSpikeRaster, tDuration = self._prepare_input(tsInput, tDuration)
-
-        # Hold the sate of network at any time step when updated
-        ltSpikeTimes = []
-        liSpikeIDs = []
+        _, _, mfInputSpikeRaster, _ = tsInput.raster(
+            tDt=self.tDt, tStart=self.t, tStop=self.t + tDuration
+        )
+        print(np.sum(mfInputSpikeRaster))
 
         # Do average pooling here
         print(mfInputSpikeRaster.shape)
-        mbOutRaster = skimage.measure.block_reduce(mfInputSpikeRaster, (2, 2), np.sum)
 
-        # Update time
-        self._t += tDuration
+        # Reshape input data
+        mfInputSpikeRaster = mfInputSpikeRaster.reshape((-1, *self.mfW.inShape))
+        print(mfInputSpikeRaster.shape)
+
+        mbOutRaster = skimage.measure.block_reduce(
+            mfInputSpikeRaster, (1, *self.pool_size), np.sum
+        )
+        print(mbOutRaster.shape)
+
+        # Reshape the output to flat indices
+        mbOutRaster = mbOutRaster.reshape((-1, self.nSize))
+        print(mbOutRaster.shape)
+
+        # Convert raster to indices
+        ltSpikeTimes, liSpikeIDs = np.nonzero(mbOutRaster)
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
             vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
         )
+
+        print(np.sum(mfInputSpikeRaster), np.sum(mbOutRaster))
+
+        # Update time
+        self._t += tDuration
 
         return tseOut
