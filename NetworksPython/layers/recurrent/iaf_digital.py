@@ -86,7 +86,7 @@ class RecDIAF(Layer):
         super().__init__(mfW=mfWIn, tDt=tDt, strName=strName)
 
         # - Input weights must be provided
-        assert mfWRec is not None, "Recurrent weights mfWRec must be provided."
+        assert mfWRec is not None, "Layer {}: Recurrent weights mfWRec must be provided.".format(self.strName)
 
         # - Channel for leak
         self._nLeakChannel = self.nSizeIn + self.nSize
@@ -309,7 +309,7 @@ class RecDIAF(Layer):
         if tDuration is None:
             assert (
                 tsInput is not None
-            ), "One of `tsInput` or `tDuration` must be supplied"
+            ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(self.strName)
 
             if tsInput.bPeriodic:
                 # - Use duration of periodic TimeSeries, if possible
@@ -320,7 +320,7 @@ class RecDIAF(Layer):
                 tDuration = tsInput.tStop - self.t
                 assert (
                     tDuration > 0
-                ), "Cannot determine an appropriate evolution duration. `tsInput` finishes before the current " "evolution time."
+                ), "Layer {}: Cannot determine an appropriate evolution duration. `tsInput` finishes before the current " "evolution time.".format(self.strName)
 
         # - Discretize tDuration wrt self.tDt
         tDuration = np.round( (tDuration+fTolAbs) / self.tDt) * self.tDt
@@ -333,8 +333,8 @@ class RecDIAF(Layer):
                 # - Make sure channels are within range
                 assert (
                     np.amax(vnEventChannels) < self.nSizeIn
-                ), "Only channels between 0 and {} are allowed".format(
-                    self.nSizeIn - 1
+                ), "Layer {}: Only channels between 0 and {} are allowed".format(
+                    self.strName, self.nSizeIn - 1
                 )
         else:
             vtEventTimes, vnEventChannels = [], []
