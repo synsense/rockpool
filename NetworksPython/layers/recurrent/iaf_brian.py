@@ -273,8 +273,12 @@ class RecIAFBrian(Layer):
 
     @mfW.setter
     def mfW(self, mfNewW):
+        assert (
+            mfNewW is not None
+        ), "Layer `{}`: mfW must not be None.".format(self.strName)
+
         assert np.size(mfNewW) == self.nSize ** 2, \
-            '`mfNewW` must have [' + str(self.nSize ** 2) + '] elements.'
+            'Layer `{}`: `mfNewW` must have [' + str(self.nSize ** 2) + '] elements.'.format(self.strName)
 
         self._mfW = mfNewW
 
@@ -345,7 +349,7 @@ class RecIAFBrian(Layer):
 
     @Layer.tDt.setter
     def tDt(self, _):
-        raise ValueError('The `tDt` property cannot be set for this layer')
+        raise ValueError('Layer `{}`: The `tDt` property cannot be set for this layer'.format(self.strName))
 
 
 # - RecIAFSpkInBrian - Class: Spiking recurrent layer with spiking in- and outputs
@@ -650,10 +654,14 @@ class RecIAFSpkInBrian(RecIAFBrian):
     @mfWIn.setter
     def mfWIn(self, mfNewW):
         assert (
+            mfNewW is not None
+        ), "Layer `{}`: mfWIn must not be None.".format(self.strName)
+
+        assert (
             mfNewW.shape == (self.nSizeIn, self.nSize)
             or mfNewW.shape == self._sgReceiver.w.shape
-        ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nSizeIn, self.nSize, self.nSizeIn*self.nSize
+        ), "Layer `{}`: mfW must be of dimensions ({}, {}) or flat with size {}.".format(
+            self.strName, self.nSizeIn, self.nSize, self.nSizeIn*self.nSize
         )
         
         self._sgReceiver.w = np.array(mfNewW).flatten()
@@ -665,10 +673,14 @@ class RecIAFSpkInBrian(RecIAFBrian):
     @mfWRec.setter
     def mfWRec(self, mfNewW):
         assert (
+            mfNewW is not None
+        ), "Layer `{}`: mfWRec must not be None.".format(self.strName)
+
+        assert (
             mfNewW.shape == (self.nSize, self.nSize)
             or mfNewW.shape == self._sgReceiver.w.shape
-        ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nSize, self.nSize, self.nSize*self.nSize
+        ), "Layer `{}`: mfWRec must be of dimensions ({}, {}) or flat with size {}.".format(
+            self.strName, self.nSize, self.nSize, self.nSize*self.nSize
         )
         
         self._sgRecurrentSynapses.w = np.array(mfNewW).flatten()
