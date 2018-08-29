@@ -34,7 +34,7 @@ for strModule, classnames in dModules.items():
         __all__.append(strClass)
 
     except TypeError:
-        for strClass in classnames:
+        for strClass in classnames:  # If list of class names
             # - Attempt to import the package
             locals()[strClass] = getattr(
                 importlib.import_module(strModule, strBasePackage), strClass
