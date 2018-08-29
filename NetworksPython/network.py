@@ -115,7 +115,7 @@ class Network:
         :return:                Layer lyr
         """
         # - Check whether layer time matches network time
-        assert lyr.t == self.t, (
+        assert np.isclose(lyr.t, self.t), (
             "Network: Layer time must match network time "
             + "(network: t={}, layer: t={})".format(self.t, lyr.t)
         )
@@ -150,10 +150,8 @@ class Network:
         # - Update inventory of layers
         self.setLayers.add(lyr)
 
-        # - Determine global tDt
-        self._tDt = self._determine_tDt()
-        # - Store number of layer time steps per global time step
-        lyr._nNumTimeStepsPerGlobal = int(np.round(self._tDt / lyr.tDt))
+        # - Update global tDt
+        self._set_tDt()
 
         # - Connect in- and outputs
         if lyrInput is not None:
@@ -209,7 +207,7 @@ class Network:
         self.setLayers.remove(lyrDel)
 
         # - Update global tDt
-        self._tDt = self._determine_tDt()
+        self._tDt = self._set_tDt()
         
         # - Reevaluate the layer evolution order
         self.lEvolOrder = self._evolution_order()
@@ -331,14 +329,13 @@ class Network:
         # - Return a list with the layers in their evolution order
         return lOrder
 
-    def _determine_tDt(self, fMaxFactor: float = 1000) -> float:
+    def _set_tDt(self, fMaxFactor: float = 1000):
         """
-        _determine_tDt - Determine a time step size for the network,
-                         which is the lcm of all layers' tDt's.
+        _set_tDt - Set a time step size for the network
+                   which is the lcm of all layers' tDt's.
             :param fMaxFactor   float - By which factor can the network tDt
                                         exceed the largest layer tDt before
                                         an error is assumed
-            :return tLCM:   float - New network tDt
         """
         # - Collectt layer time steps
         ltDt = [lyr.tDt for lyr in self.setLayers]
@@ -357,7 +354,14 @@ class Network:
             and not list(filter(lambda tDt: not is_multiple(tLCM, tDt), ltDt))
         ), "Network: Couldn't find a reasonable common time step (layer tDt's: {}, found: {}".format(ltDt, tLCM)
 
-        return tLCM
+        # - Store global time step
+        self._tDt = tLCM
+
+        # - Store number of layer time steps per global time step for each layer
+        for lyr in self.setLayers:
+            lyr._nNumTimeStepsPerGlobal = int(np.round(self._tDt / lyr.tDt))
+
+
 
     def _fix_duration(self, t: float) -> float:
         """
@@ -458,7 +462,7 @@ class Network:
             # - Evolve layer and store output in dtsSignal
             dtsSignal[lyr.strName] = lyr.evolve(
                 tsInput=tsCurrentInput,
-                nNumTimeSteps=nNumTimeSteps * lyr._nNumTimeStepsPerGlobal,
+                nNumTimeSteps=int(nNumTimeSteps * lyr._nNumTimeStepsPerGlobal),
                 bVerbose=bVerbose
             )
 
@@ -583,7 +587,8 @@ class Network:
 
     def stream(self,
                tsInput: TimeSeries,
-               tDuration: float,
+               tDuration: float = None,
+               nNumTimeSteps: int = None,
                bVerbose: bool = False,
                fhStepCallback: Callable = None,
                ) -> dict:
@@ -610,28 +615,28 @@ class Network:
         assert tsInput.nNumTraces == self.lyrInput.nSizeIn, \
             'Network: External input must have {} traces for this network.'.format(self.lyrInput.nSizeIn)
 
-        # - Find the largest common tDt
-        self.ltDts = [lyr.tDt for lyr in self.setLayers]
-        self.tCommonDt = max(self.ltDts)
-        if bVerbose: print('Network: Common time base: ', self.tCommonDt)
+        if nNumTimeSteps is None:
+            # - Try to determine time step number from tDuration
+            assert (
+                tDuration is not None
+            ), "Network: Either `nNumTimeSteps` or `tDuration` must be provided."
+            nNumTimeSteps = tDuration // self.tDt
 
         # - Prepare time base
-        vtTimeBase = np.arange(0, tDuration + self.tCommonDt, self.tCommonDt) + self._t
-        vtTimeBase = vtTimeBase[vtTimeBase <= self._t + tDuration]
+        vtTimeBase = np.arange(nNumTimeSteps + 1) * self._tDt + self.t
         tDuration = vtTimeBase[-1] - vtTimeBase[0]
-        nNumSteps = np.size(vtTimeBase)-1
 
         # - Prepare all layers
-        self.lStreamers = [lyr.stream(tDuration, self.tCommonDt, bVerbose = bVerbose)
+        self.lStreamers = [lyr.stream(tDuration, self.tDt, bVerbose = bVerbose)
                            for lyr in self.lEvolOrder]
         nNumLayers = np.size(self.lEvolOrder)
 
         # - Prepare external input
         if tsInput is not None:
-            lInput = [tsInput.find((t, t + self.tCommonDt))
+            lInput = [tsInput.find((t, t + self.tDt))
                       for t in vtTimeBase]
         else:
-            lInput = [None] * nNumSteps
+            lInput = [None] * nNumTimeSteps
 
         # - Get initial state of all layers
         if bVerbose: print('Network: getting initial state')
@@ -650,7 +655,7 @@ class Network:
 
         # - Streaming loop
         lState = deepcopy(lLastState)
-        for nStep in range(nNumSteps):
+        for nStep in range(nNumTimeSteps):
             if bVerbose: print('Network: Start of step', nStep)
 
             # - Set up external input
@@ -703,7 +708,7 @@ class Network:
                 dtsSignal[self.lEvolOrder[nLayer].strName].strName = self.lEvolOrder[nLayer].strName
 
         # - Increment time
-        self._t += tDuration
+        self._nTimeStep += nNumTimeSteps
 
         # - Return collated signals
         return dtsSignal
@@ -780,7 +785,7 @@ class Network:
     @property
     def t(self):
         return (
-            None if self._tDt is None
+            0 if not hasattr(self, "_tDt") or self._tDt is None
             else self._tDt * self._nTimeStep
         )
     
