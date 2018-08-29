@@ -725,7 +725,7 @@ class Network:
                 )
             )
         for lyr in self.lEvolOrder:
-            if abs(lyr.t - self.t) >= fTolRel * self.t + fTolAbs:
+            if lyr._nTimeStep * lyr._nNumTimeStepsPerGlobal != self._nTimeStep:
                 bSync = False
                 print(
                     "\t Network: WARNING: Layer `{}` is not in sync (t={})".format(
