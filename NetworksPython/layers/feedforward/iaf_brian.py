@@ -195,7 +195,7 @@ class FFIAFBrian(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> (TSEvent, np.ndarray):
+    ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
@@ -528,7 +528,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> (TSEvent, np.ndarray):
+    ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
