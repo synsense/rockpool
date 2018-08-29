@@ -119,7 +119,7 @@ class Layer(ABC):
         vtTimeBase = self._gen_time_trace(self.t, nNumTimeSteps)
 
         # - Make sure vtTimeBase matches tsInput
-        if tsInput is not None:
+        if isinstance(tsInput, TSContinuous):
             if not tsInput.bPeriodic:
                 # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
                 if tsInput.tStart - 1e-3 * self.tDt <= vtTimeBase[0] <= tsInput.tStart:
