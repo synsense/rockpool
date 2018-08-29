@@ -3,13 +3,14 @@
 ###
 
 from .network import Network
-from .layers.feedforward import PassThrough, FFExpSyn, FFExpSynBrian
+from .layers.internal import PassThrough, FFExpSyn, FFExpSynBrian
 from .layers.recurrent import RecFSSpikeEulerBT
 
 import numpy as np
 
 # - Configure exports
-__all__ = ['NetworkDeneve']
+__all__ = ["NetworkDeneve"]
+
 
 class NetworkDeneve(Network):
     def __init__(self):
@@ -17,27 +18,21 @@ class NetworkDeneve(Network):
         super().__init__()
 
     @staticmethod
-    def SolveLinearProblem(mfA: np.ndarray = None,
-                           nNetSize: int = None,
-
-                           mfGamma: np.ndarray = None,
-
-                           tDt: float = None,
-
-                           fMu: float = 1e-4,
-                           fNu: float = 1e-3,
-
-                           fNoiseStd: float = 0.0,
-
-                           tTauN: float = 20e-3,
-                           tTauSynFast: float = 1e-3,
-                           tTauSynSlow: float = 100e-3,
-
-                           vfVThresh: np.ndarray = -55e-3,
-                           vfVRest: np.ndarray = -65e-3,
-
-                           tRefractoryTime = -np.finfo(float).eps,
-                           ):
+    def SolveLinearProblem(
+        mfA: np.ndarray = None,
+        nNetSize: int = None,
+        mfGamma: np.ndarray = None,
+        tDt: float = None,
+        fMu: float = 1e-4,
+        fNu: float = 1e-3,
+        fNoiseStd: float = 0.0,
+        tTauN: float = 20e-3,
+        tTauSynFast: float = 1e-3,
+        tTauSynSlow: float = 100e-3,
+        vfVThresh: np.ndarray = -55e-3,
+        vfVRest: np.ndarray = -65e-3,
+        tRefractoryTime=-np.finfo(float).eps,
+    ):
         """
         SolveLinearProblem - Static method Direct implementation of a linear dynamical system
 
@@ -74,19 +69,24 @@ class NetworkDeneve(Network):
 
             # - Create random input kernels
             mfGamma = np.random.randn(nJ, nNetSize)
-            mfGamma /= np.sum(np.abs(mfGamma), 0, keepdims = True)
+            mfGamma /= np.sum(np.abs(mfGamma), 0, keepdims=True)
             mfGamma /= nNetSize
             mfGamma *= 50
 
         else:
-            assert (nNetSize is None) or nNetSize == mfGamma.shape[1], \
-                '`nNetSize` must match the size of `mfGamma`.'
+            assert (nNetSize is None) or nNetSize == mfGamma.shape[
+                1
+            ], "`nNetSize` must match the size of `mfGamma`."
             nNetSize = mfGamma.shape[1]
 
         # - Generate network
         lambda_d = np.asarray(1 / tTauSynSlow)
 
-        vfT = (fNu * lambda_d + fMu * lambda_d ** 2 + np.sum(abs(mfGamma.T), -1, keepdims = True) ** 2) / 2
+        vfT = (
+            fNu * lambda_d
+            + fMu * lambda_d ** 2
+            + np.sum(abs(mfGamma.T), -1, keepdims=True) ** 2
+        ) / 2
 
         Omega_f = mfGamma.T @ mfGamma + fMu * lambda_d ** 2 * np.identity(nNetSize)
         Omega_s = mfGamma.T @ (mfA + lambda_d * np.identity(nJ)) @ mfGamma
@@ -114,33 +114,40 @@ class NetworkDeneve(Network):
         Gamma_dash *= tTauN
 
         # - Build and return network
-        return NetworkDeneve.SpecifyNetwork(mfW_f = -Omega_f_dash, mfW_s = Omega_s_dash,
-                       mfW_input = Gamma_dash.T, mfW_output = mfGamma.T,
-                       tDt = tDt, fNoiseStd = fNoiseStd,
-                       vfVRest = vfVRest, vfVReset = vfVReset, vfVThresh = vfVThresh,
-                       vtTauN = tTauN, vtTauSynR_f = tTauSynFast, vtTauSynR_s = tTauSynSlow, tTauSynO = tTauSynSlow,
-                       tRefractoryTime = tRefractoryTime,
-                    )
-
+        return NetworkDeneve.SpecifyNetwork(
+            mfW_f=-Omega_f_dash,
+            mfW_s=Omega_s_dash,
+            mfW_input=Gamma_dash.T,
+            mfW_output=mfGamma.T,
+            tDt=tDt,
+            fNoiseStd=fNoiseStd,
+            vfVRest=vfVRest,
+            vfVReset=vfVReset,
+            vfVThresh=vfVThresh,
+            vtTauN=tTauN,
+            vtTauSynR_f=tTauSynFast,
+            vtTauSynR_s=tTauSynSlow,
+            tTauSynO=tTauSynSlow,
+            tRefractoryTime=tRefractoryTime,
+        )
 
     @staticmethod
-    def SpecifyNetwork(mfW_f, mfW_s,
-                       mfW_input, mfW_output,
-
-                       tDt: float = None,
-                       fNoiseStd: float = 0.0,
-
-                       vfVThresh: np.ndarray = -55e-3,
-                       vfVReset: np.ndarray = -65e-3,
-                       vfVRest: np.ndarray = -65e-3,
-
-                       vtTauN: float = 20e-3,
-                       vtTauSynR_f: float = 1e-3,
-                       vtTauSynR_s: float = 100e-3,
-                       tTauSynO: float = 100e-3,
-
-                       tRefractoryTime: float = -np.finfo(float).eps,
-                    ):
+    def SpecifyNetwork(
+        mfW_f,
+        mfW_s,
+        mfW_input,
+        mfW_output,
+        tDt: float = None,
+        fNoiseStd: float = 0.0,
+        vfVThresh: np.ndarray = -55e-3,
+        vfVReset: np.ndarray = -65e-3,
+        vfVRest: np.ndarray = -65e-3,
+        vtTauN: float = 20e-3,
+        vtTauSynR_f: float = 1e-3,
+        vtTauSynR_s: float = 100e-3,
+        tTauSynO: float = 100e-3,
+        tRefractoryTime: float = -np.finfo(float).eps,
+    ):
         """
         SpecifyNetwork - Directly configure all layers of a reservoir
 
@@ -166,26 +173,40 @@ class NetworkDeneve(Network):
         :return:
         """
         # - Construct reservoir
-        lyrReservoir = RecFSSpikeEulerBT(mfW_f, mfW_s, tDt = tDt, fNoiseStd = fNoiseStd,
-                                         vtTauN = vtTauN, vtTauSynR_f = vtTauSynR_f, vtTauSynR_s = vtTauSynR_s,
-                                         vfVThresh = vfVThresh, vfVRest = vfVRest,
-                                         vfVReset = vfVReset, tRefractoryTime = tRefractoryTime,
-                                         strName = 'Deneve_Reservoir')
+        lyrReservoir = RecFSSpikeEulerBT(
+            mfW_f,
+            mfW_s,
+            tDt=tDt,
+            fNoiseStd=fNoiseStd,
+            vtTauN=vtTauN,
+            vtTauSynR_f=vtTauSynR_f,
+            vtTauSynR_s=vtTauSynR_s,
+            vfVThresh=vfVThresh,
+            vfVRest=vfVRest,
+            vfVReset=vfVReset,
+            tRefractoryTime=tRefractoryTime,
+            strName="Deneve_Reservoir",
+        )
 
         # - Ensure time step is consistent across layers
         if tDt is None:
             tDt = lyrReservoir.tDt
 
         # - Construct input layer
-        lyrInput = PassThrough(mfW_input, tDt = tDt, fNoiseStd = fNoiseStd, strName = 'Input')
-
+        lyrInput = PassThrough(mfW_input, tDt=tDt, fNoiseStd=fNoiseStd, strName="Input")
 
         # - Construct output layer
-        lyrOutput = FFExpSyn(mfW_output, tDt = 0.1e-4, fNoiseStd = fNoiseStd, tTauSyn = tTauSynO, strName = 'Output')
+        lyrOutput = FFExpSyn(
+            mfW_output,
+            tDt=0.1e-4,
+            fNoiseStd=fNoiseStd,
+            tTauSyn=tTauSynO,
+            strName="Output",
+        )
 
         # - Build network
         netDeneve = NetworkDeneve()
-        netDeneve.lyrInput = netDeneve.add_layer(lyrInput, bExternalInput = True)
+        netDeneve.lyrInput = netDeneve.add_layer(lyrInput, bExternalInput=True)
         netDeneve.lyrRes = netDeneve.add_layer(lyrReservoir, lyrInput)
         netDeneve.lyrOutput = netDeneve.add_layer(lyrOutput, lyrReservoir)
 
@@ -193,9 +214,7 @@ class NetworkDeneve(Network):
         return netDeneve
 
 
-def _expand_to_size(oInput,
-                    nSize: int,
-                    sVariableName: str = 'input') -> np.ndarray:
+def _expand_to_size(oInput, nSize: int, sVariableName: str = "input") -> np.ndarray:
     """
     _expand_to_size: Replicate out a scalar to a desired size
 
@@ -208,8 +227,9 @@ def _expand_to_size(oInput,
         # - Expand input to vector
         oInput = np.repeat(oInput, nSize)
 
-    assert np.size(oInput) == nSize, \
-        '`{}` must be a scalar or have {} elements'.format(sVariableName, nSize)
+    assert np.size(oInput) == nSize, "`{}` must be a scalar or have {} elements".format(
+        sVariableName, nSize
+    )
 
     # - Return object of correct shape
     return np.reshape(oInput, nSize)

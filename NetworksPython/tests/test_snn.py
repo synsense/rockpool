@@ -13,14 +13,14 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers.feedforward import FFCLIAF
+    from NetworksPython.layers.internal import FFCLIAF
 
 
 def test_cnn_initialization():
     """
     Test initialization of the layer
     """
-    from NetworksPython.layers.feedforward.evSpikeLayer import FFCLIAF
+    from NetworksPython.layers.internal.evSpikeLayer import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
@@ -35,7 +35,7 @@ def test_cnn_evolve():
     Test initialization of the layer
     """
     from NetworksPython import TSEvent
-    from NetworksPython.layers.feedforward import FFCLIAF
+    from NetworksPython.layers.internal import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
@@ -59,7 +59,7 @@ def test_cnn_multilayer():
     Test initialization of the layer
     """
     from NetworksPython import TSEvent, Network
-    from NetworksPython.layers.feedforward.evSpikeLayer import FFCLIAF
+    from NetworksPython.layers.internal.evSpikeLayer import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Parameters
@@ -90,7 +90,7 @@ def test_ffcliaf_none_attributes():
     Make sure an exception is thrown if FFCLIAF is to be assigned None
     as weight, bias or state.
     """
-    from NetworksPython.layers.feedforward.iaf_cl import FFCLIAF
+    from NetworksPython.layers.internal.iaf_cl import FFCLIAF
 
     # - Input weight matrix
     mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
@@ -113,7 +113,7 @@ def test_ffcliaf_evolve_subtracting():
     """
     Test initialization and evolution of FFCLIAF layer using subtraction after spikes.
     """
-    from NetworksPython.layers.feedforward.iaf_cl import FFCLIAF
+    from NetworksPython.layers.internal.iaf_cl import FFCLIAF
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
@@ -155,7 +155,7 @@ def test_cliaf_evolve_resetting():
     """
     Test initialization and evolution of RecCLIAF layer using reset after spikes.
     """
-    from NetworksPython.layers.feedforward.iaf_cl import FFCLIAF
+    from NetworksPython.layers.internal.iaf_cl import FFCLIAF
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
