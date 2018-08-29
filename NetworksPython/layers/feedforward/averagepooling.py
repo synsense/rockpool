@@ -52,7 +52,7 @@ class AveragePooling2D(Layer):
 
     def evolve(
         self, tsInput: TSEvent = None, tDuration: float = None, bVerbose: bool = False
-    ) -> (TSEvent, np.ndarray):
+    ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
