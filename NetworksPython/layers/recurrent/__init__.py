@@ -19,8 +19,9 @@ strBasePackage = "NetworksPython.layers.recurrent"
 __all__ = []
 
 # - Loop over submodules to attempt import
-for strModule, strClass in dModules.items():
+for strModule, classnames in dModules.items():
     try:
+        strClass = classnames  # If string name
         # - Attempt to import the package
         locals()[strClass] = getattr(
             importlib.import_module(strModule, strBasePackage), strClass
@@ -29,8 +30,20 @@ for strModule, strClass in dModules.items():
         # - Add the resulting class to __all__
         __all__.append(strClass)
 
-    except ModuleNotFoundError:
+    except TypeError:
+        for strClass in classnames:  # If list of class names
+            # - Attempt to import the package
+            locals()[strClass] = getattr(
+                importlib.import_module(strModule, strBasePackage), strClass
+            )
+
+            # - Add the resulting class to __all__
+            __all__.append(strClass)
+
+    except ModuleNotFoundError as err:
         # - Ignore ModuleNotFoundError
+        warn("Could not load package " + strModule)
+        print(err)
         pass
 
     except ImportError as err:
