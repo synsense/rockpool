@@ -224,7 +224,7 @@ class FFRateEuler(Layer):
         # - Increment internal time representation
         self._nTimeStep += nNumTimeSteps
 
-        return TimeSeries(vtTime, mSamplesAct)
+        return TimeSeries(vtTimeBase, mSamplesAct)
 
     def stream(
         self, tDuration: float, tDt: float, bVerbose: bool = False
