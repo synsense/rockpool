@@ -1,4 +1,6 @@
 ## __init__.py Smart importer for submodules
+import importlib
+from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
@@ -12,9 +14,6 @@ dModules = {
 # - Define current package
 strBasePackage = "NetworksPython.layers.recurrent"
 
-# - Required imports
-import importlib
-from warnings import warn
 
 # - Initialise list of available modules
 __all__ = []
@@ -23,7 +22,9 @@ __all__ = []
 for strModule, strClass in dModules.items():
     try:
         # - Attempt to import the package
-        locals()[strClass] = importlib.import_module(strModule, strBasePackage)
+        locals()[strClass] = getattr(
+            importlib.import_module(strModule, strBasePackage), strClass
+        )
 
         # - Add the resulting class to __all__
         __all__.append(strClass)
