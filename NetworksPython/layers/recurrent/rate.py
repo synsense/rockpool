@@ -145,7 +145,7 @@ class RecRateEuler(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> (TimeSeries, np.ndarray):
+    ) -> TimeSeries:
         """
         evolve : Function to evolve the states of this layer given an input
 
