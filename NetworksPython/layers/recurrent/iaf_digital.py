@@ -173,7 +173,7 @@ class RecDIAF(Layer):
         # First leak is at multiple of self.tTauLeak
         tFirstLeak = np.ceil(self.t / self.tTauLeak) * self.tTauLeak
         # Maximum possible number of leak steps in evolution period
-        nMaxNumLeaks = np.ceil(tDuration / self.tTauLeak) + 1
+        nMaxNumLeaks = np.ceil((tFinal-self.t) / self.tTauLeak) + 1
         vtLeak = np.arange(nMaxNumLeaks) * self.tTauLeak + tFirstLeak
         # - Do not apply leak at t=self.t, assume it has already been applied previously
         vtLeak = vtLeak[
