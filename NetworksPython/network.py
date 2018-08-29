@@ -427,7 +427,7 @@ class Network:
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = tDuration // self.tDt
+            nNumTimeSteps = int(tDuration // self.tDt)
 
         # - Set external input name if not set already
         if tsInput.strName is None:
@@ -532,12 +532,12 @@ class Network:
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = tDuration // self.tDt
+            nNumTimeSteps = int(tDuration // self.tDt)
 
         # - Number of time steps per batch
         if vnNumTimeStepsBatch is None:
             if vtDurBatch is None:
-                vnTSBatch = np.array([nNumTimeSteps])
+                vnTSBatch = np.array([nNumTimeSteps], dtype=int)
             else:
                 # - Convert batch durations to time step numbers - Rounding down should
                 #   not be too problematic as total training will always be nNumTimeSteps
@@ -730,7 +730,7 @@ class Network:
                 )
             )
         for lyr in self.lEvolOrder:
-            if lyr._nTimeStep * lyr._nNumTimeStepsPerGlobal != self._nTimeStep:
+            if lyr._nTimeStep != self._nTimeStep * lyr._nNumTimeStepsPerGlobal:
                 bSync = False
                 print(
                     "\t Network: WARNING: Layer `{}` is not in sync (t={})".format(
