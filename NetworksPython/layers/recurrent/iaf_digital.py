@@ -325,7 +325,7 @@ class RecDIAF(Layer):
                 # - Determine tDuration
                 assert (
                     tsInput is not None
-                ), "Layer {}: One of `tsInput` or `tDuration` must be supplied".format(
+                ), "Layer {}: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
                     self.strName
                 )
 
