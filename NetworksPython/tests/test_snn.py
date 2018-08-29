@@ -1,6 +1,6 @@
-'''
+"""
 Test weigh access and indexing for CNNWeight class
-'''
+"""
 import sys
 import pytest
 import numpy as np
@@ -10,16 +10,16 @@ sys.path.insert(1, strNetworkPath)
 
 
 def test_import():
-    '''
+    """
     Test import of the class
-    '''
+    """
     from NetworksPython.layers.feedforward import FFCLIAF
 
 
 def test_cnn_initialization():
-    '''
+    """
     Test initialization of the layer
-    '''
+    """
     from NetworksPython.layers.feedforward.evSpikeLayer import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
 
@@ -27,13 +27,13 @@ def test_cnn_initialization():
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, strName='CNN')
+    lyrCNN = FFCLIAF(mfW=cnnW, strName="CNN")
 
 
 def test_cnn_evolve():
-    '''
+    """
     Test initialization of the layer
-    '''
+    """
     from NetworksPython import TSEvent
     from NetworksPython.layers.feedforward import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
@@ -42,10 +42,10 @@ def test_cnn_evolve():
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName='CNN')
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
 
     # Generate time series input
-    evInput = TSEvent(None, strName='Input')
+    evInput = TSEvent(None, strName="Input")
     for nId in range(lyrCNN.nSize):
         vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId))
@@ -55,9 +55,9 @@ def test_cnn_evolve():
 
 
 def test_cnn_multilayer():
-    '''
+    """
     Test initialization of the layer
-    '''
+    """
     from NetworksPython import TSEvent, Network
     from NetworksPython.layers.feedforward.evSpikeLayer import FFCLIAF
     from NetworksPython.layers.cnnweights import CNNWeight
@@ -70,19 +70,20 @@ def test_cnn_multilayer():
     cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = FFCLIAF(mfW=cnnW1, vfVThresh=0.5, strName='CNN1')
-    lyrCnn2 = FFCLIAF(mfW=cnnW2, vfVThresh=0.5, strName='CNN2')
+    lyrCnn1 = FFCLIAF(mfW=cnnW1, vfVThresh=0.5, strName="CNN1")
+    lyrCnn2 = FFCLIAF(mfW=cnnW2, vfVThresh=0.5, strName="CNN2")
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
     # Generate time series input
-    evInput = TSEvent(None, strName='Input')
-    for nId in range(imageShape[0]*imageShape[1]):
+    evInput = TSEvent(None, strName="Input")
+    for nId in range(imageShape[0] * imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId))
     # Evolve
-    evOut = net.evolve(tsExternalInput=evInput, tDuration=100)
+    evOut = net.evolve(tsInput=evInput, tDuration=100)
     print(evOut)
+
 
 def test_ffcliaf_none_attributes():
     """
@@ -93,15 +94,10 @@ def test_ffcliaf_none_attributes():
 
     # - Input weight matrix
     mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
-    
+
     # - Generate layer
     lyrFF = FFCLIAF(
-        mfW = mfWIn,
-        vfVBias = -0.05,
-        vfVThresh = 5,
-        tDt = 0.1,
-        vnIdMonitor = True,
-        vfVSubtract = 5,
+        mfW=mfWIn, vfVBias=-0.05, vfVThresh=5, tDt=0.1, vnIdMonitor=True, vfVSubtract=5
     )
 
     for strVarName in ("mfW", "vfVBias", "vState"):
@@ -122,22 +118,17 @@ def test_ffcliaf_evolve_subtracting():
 
     # - Input weight matrix
     mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
-    
+
     # - Generate layer
     lyrFF = FFCLIAF(
-        mfW = mfWIn,
-        vfVBias = -0.05,
-        vfVThresh = 5,
-        tDt = 0.1,
-        vnIdMonitor = True,
-        vfVSubtract = 5,
+        mfW=mfWIn, vfVBias=-0.05, vfVThresh=5, tDt=0.1, vnIdMonitor=True, vfVSubtract=5
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace = [0.55, 0.7, 0.8], vnChannels = [0, 1, 1])
+    tsInput = TSEvent(vtTimeTrace=[0.55, 0.7, 0.8], vnChannels=[0, 1, 1])
 
     # - Evolution
-    tsOutput = lyrFF.evolve(tsInput, tDuration = 0.75)
+    tsOutput = lyrFF.evolve(tsInput, tDuration=0.75)
 
     print(lyrFF._mfStateTimeSeries)
 
@@ -147,15 +138,18 @@ def test_ffcliaf_evolve_subtracting():
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     print(tsOutput.vtTimeTrace)
-    assert np.allclose(tsOutput.vtTimeTrace, np.array([0.6, 0.6, 0.7])), \
-    "Output spike times not as expected"
-    assert (tsOutput.vnChannels == np.array([0, 0, 2])).all(), \
-    "Output spike channels not as expected"
+    assert np.allclose(
+        tsOutput.vtTimeTrace, np.array([0.6, 0.6, 0.7])
+    ), "Output spike times not as expected"
+    assert (
+        tsOutput.vnChannels == np.array([0, 0, 2])
+    ).all(), "Output spike channels not as expected"
 
     # - Reset
     lyrFF.reset_all()
     assert lyrFF.t == 0, "Time has not been reset correctly"
     assert (lyrFF.vState == 0).all(), "State has not been reset correctly"
+
 
 def test_cliaf_evolve_resetting():
     """
@@ -166,22 +160,22 @@ def test_cliaf_evolve_resetting():
 
     # - Input weight matrix
     mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
-    
+
     # - Generate layer
     lyrFF = FFCLIAF(
-        mfW = mfWIn,
-        vfVBias = -0.05,
-        vfVThresh = 5,
-        tDt = 0.1,
-        vnIdMonitor = True,
-        vfVSubtract = None,
+        mfW=mfWIn,
+        vfVBias=-0.05,
+        vfVThresh=5,
+        tDt=0.1,
+        vnIdMonitor=True,
+        vfVSubtract=None,
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace = [0.55, 0.7, 0.8], vnChannels = [0, 1, 1])
+    tsInput = TSEvent(vtTimeTrace=[0.55, 0.7, 0.8], vnChannels=[0, 1, 1])
 
     # - Evolution
-    tsOutput = lyrFF.evolve(tsInput, tDuration = 0.8)
+    tsOutput = lyrFF.evolve(tsInput, tDuration=0.8)
 
     print(lyrFF._mfStateTimeSeries)
 
@@ -190,18 +184,21 @@ def test_cliaf_evolve_resetting():
     #                Second input spike will cause neuron 2 to spike at t=0.7
     #                Last input spike will not have effect because evolution
     #                stops beforehand
-    assert np.allclose(tsOutput.vtTimeTrace, np.array([0.6, 0.7])), \
-    "Output spike times not as expected"
-    assert (tsOutput.vnChannels == np.array([0, 2])).all(), \
-    "Output spike channels not as expected"
+    assert np.allclose(
+        tsOutput.vtTimeTrace, np.array([0.6, 0.7])
+    ), "Output spike times not as expected"
+    assert (
+        tsOutput.vnChannels == np.array([0, 2])
+    ).all(), "Output spike channels not as expected"
 
     # - Reset
     lyrFF.reset_all()
     assert lyrFF.t == 0, "Time has not been reset correctly"
     assert (lyrFF.vState == 0).all(), "State has not been reset correctly"
 
+
 # Place holder
-#def test_raise_exception_on_incorrect_shape():
+# def test_raise_exception_on_incorrect_shape():
 #    '''
 #    Test exception on size incompatibility
 #    '''
@@ -248,9 +245,8 @@ def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
     extra_spikes = []
     if i == len(spikes):
         # ISI buf overrun
-        t_last = spikes[-1] + np.random.exponential(1.0 /
-                                                    rate, 1)[0] * 1000.0
-        while (t_last < t_stop):
+        t_last = spikes[-1] + np.random.exponential(1.0 / rate, 1)[0] * 1000.0
+        while t_last < t_stop:
             extra_spikes.append(t_last)
             t_last += np.random.exponential(1.0 / rate, 1)[0] * 1000.0
 
