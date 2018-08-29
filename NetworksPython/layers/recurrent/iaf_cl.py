@@ -70,20 +70,24 @@ class RecCLIAF(CLIAF):
         self,
         tsInput: Optional[TSEvent] = None,
         tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
     ) -> (TSEvent, np.ndarray):
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:  TSEvent  Input spike trian
-        :param tDuration:   float    Simulation/Evolution time
-        :param bVerbose:    bool Currently no effect, just for conformity
-        :return:          TSEvent  output spike series
+        :param tsSpkInput:      TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
 
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, tDuration = self._prepare_input(tsInput, tDuration)
+        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -125,7 +129,9 @@ class RecCLIAF(CLIAF):
 
             # Update neuron states
             if bCNNWeights:
-                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) + (vnNumRecSpikes @ mfWRec)
+                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) + (
+                    vnNumRecSpikes @ mfWRec
+                )
             else:
                 vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
 
@@ -179,7 +185,7 @@ class RecCLIAF(CLIAF):
         self._vnNumRecSpikes = vnNumRecSpikes
 
         # Update time
-        self._t += tDuration
+        self._nTimeStep += nNumTimeSteps
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(

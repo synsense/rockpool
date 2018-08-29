@@ -19,6 +19,10 @@ from ..layer import Layer
 
 from .timedarray_shift import TimedArray as TAShift
 
+from typing import Optional, Union, Tuple, List
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
 __all__ = ["RecDIAF"]
@@ -86,7 +90,11 @@ class RecDIAF(Layer):
         super().__init__(mfW=mfWIn, tDt=tDt, strName=strName)
 
         # - Input weights must be provided
-        assert mfWRec is not None, "Recurrent weights mfWRec must be provided."
+        assert (
+            mfWRec is not None
+        ), "Layer {}: Recurrent weights mfWRec must be provided.".format(
+            self.strName
+        )
 
         # - Channel for leak
         self._nLeakChannel = self.nSizeIn + self.nSize
@@ -131,7 +139,7 @@ class RecDIAF(Layer):
             (tTime - self.t, iID) for tTime, iID in self._heapRemainingSpikes
         ]
         heapq.heapify(self._heapRemainingSpikes)
-        self._t = 0
+        self._nTimeStep = 0
 
     ### --- State evolution
 
@@ -139,23 +147,25 @@ class RecDIAF(Layer):
         self,
         tsInput: Optional[TSEvent] = None,
         tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
         bVerbose: Optional[bool] = False,
     ) -> TSEvent:
         """
         evolve - Evolve the state of this layer
 
-        :param tsInput:     TimeSeries TxM or Tx1 input to this layer
-        :param tDuration:   float Duration of evolution, in seconds
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param tsInput:         TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
 
         :return: TimeSeries Output of this layer during evolution period
         """
 
         # - Prepare input and infer real duration of evolution
-        vtEventTimes, vnEventChannels, tDuration, tFinal = self._prepare_input(
-            tsInput, tDuration
+        vtEventTimes, vnEventChannels, nNumTimeSteps, tFinal = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
         )
-        # print("prepared input", tDuration, tFinal)
 
         ## -- Consider leak as periodic input spike with fixed weight
 
@@ -216,7 +226,7 @@ class RecDIAF(Layer):
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print(i, tTime, nChannel , end='\r')
+                print(i, tTime, nChannel, end="\r")
 
             except IndexError:
                 # - Stop if there are no spikes left
@@ -284,68 +294,85 @@ class RecDIAF(Layer):
         self._heapRemainingSpikes = heapSpikes
 
         # - Update time
-        self._t += tDuration
+        self._nTimeStep += nNumTimeSteps
 
         # - Output time series
         return TSEvent(ltSpikeTimes, liSpikeIDs)
 
     def _prepare_input(
-        self, tsInput: Optional[TSEvent] = None, tDuration: Optional[float] = None
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
     ) -> (np.ndarray, np.ndarray, float, float):
         """
         _prepare_input - Sample input, set up time base
 
-        :param tsInput:     TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:   float Duration of the desired evolution, in seconds
+        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:    float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps int Number of evolution time steps
 
-        :return: (vtEventTimes, vnEventChannels, tDuration, tFinal)
+        :return:
             vtEventTimes:     ndarray Event times
             vnEventChannels:  ndarray Event channels
-            tDuration:        float Actual duration for evolution
-            tFinal:           flaot End time of evolution
+            nNumTimeSteps:    int Number of evlution time steps
+            tFinal:           float End time of evolution
         """
 
-        # - Determine default duration
-        if tDuration is None:
-            assert (
-                tsInput is not None
-            ), "One of `tsInput` or `tDuration` must be supplied"
-
-            if tsInput.bPeriodic:
-                # - Use duration of periodic TimeSeries, if possible
-                tDuration = tsInput.tDuration
-
-            else:
-                # - Evolve until the end of the input TImeSeries
-                tDuration = tsInput.tStop - self.t
+        if nNumTimeSteps is None:
+            # - Determine nNumTimeSteps
+            if tDuration is None:
+                # - Determine tDuration
                 assert (
-                    tDuration > 0
-                ), "Cannot determine an appropriate evolution duration. `tsInput` finishes before the current " "evolution time."
+                    tsInput is not None
+                ), "Layer {}: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
+                    self.strName
+                )
 
-        # - Discretize tDuration wrt self.tDt
-        tDuration = np.round( (tDuration+fTolAbs) / self.tDt) * self.tDt
-        tFinal = self.t + tDuration
+                if tsInput.bPeriodic:
+                    # - Use duration of periodic TimeSeries, if possible
+                    tDuration = tsInput.tDuration
+
+                else:
+                    # - Evolve until the end of the input TImeSeries
+                    tDuration = tsInput.tStop - self.t
+                    assert tDuration > 0, (
+                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
+                            self.strName
+                        )
+                        + "`tsInput` finishes before the current "
+                        "evolution time."
+                    )
+            # - Discretize tDuration wrt self.tDt
+            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
+        else:
+            assert isinstance(
+                nNumTimeSteps, int
+            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+
+        # - End time of evolution
+        tFinal = self.t + nNumTimeSteps * self.tDt
 
         # - Extract spike timings and channels
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, __ = tsInput.find([self.t, tFinal])
+            vtEventTimes, vnEventChannels, __ = tsInput.find(
+                [self.t, (self._nTimeStep + nNumTimeSteps) * self.tDt]
+            )
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range
                 assert (
                     np.amax(vnEventChannels) < self.nSizeIn
-                ), "Only channels between 0 and {} are allowed".format(
-                    self.nSizeIn - 1
+                ), "Layer {}: Only channels between 0 and {} are allowed".format(
+                    self.strName, self.nSizeIn - 1
                 )
         else:
             vtEventTimes, vnEventChannels = [], []
 
-        return vtEventTimes, vnEventChannels, tDuration, tFinal
+        return vtEventTimes, vnEventChannels, nNumTimeSteps, tFinal
 
     def randomize_state(self):
         self.vState = np.random.randint(
-            self._nStateMin,
-            self._nStateMax+1,
-            size=self.nSize
+            self._nStateMin, self._nStateMax + 1, size=self.nSize
         )
 
     ### --- Properties
@@ -456,8 +483,8 @@ class RecDIAF(Layer):
         if (np.array(vtNewTime) < self._tMinRefractory).any():
             print(
                 "Refractory times must be at least {}.".format(self._tMinRefractory)
-                +" Lower values have been clipped. The minimum value can be"
-                +" set by changing _tMinRefractory."
+                + " Lower values have been clipped. The minimum value can be"
+                + " set by changing _tMinRefractory."
             )
 
     @Layer.tDt.setter

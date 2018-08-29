@@ -2,15 +2,15 @@
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    '.rate': 'RecRateEuler',
-    '.iaf_brian': 'RecIAFBrian',
-    '.spike_bt': 'RecFSSpikeEulerBT',
-    '.iaf_cl': 'RecCLIAF',
-    '.iaf_digital': 'RecDIAF',
+    ".rate": "RecRateEuler",
+    ".iaf_brian": "RecIAFBrian",
+    ".spike_bt": "RecFSSpikeEulerBT",
+    ".iaf_cl": "RecCLIAF",
+    ".iaf_digital": "RecDIAF",
 }
 
 # - Define current package
-strBasePackage = 'NetworksPython.layers.recurrent'
+strBasePackage = "NetworksPython.layers.recurrent"
 
 # - Required imports
 import importlib
@@ -34,5 +34,5 @@ for strModule, strClass in dModules.items():
 
     except ImportError as err:
         # - Raise a warning if the package could not be imported for any other reason
-        warn('Could not load package ' + strModule)
+        warn("Could not load package " + strModule)
         print(err)
