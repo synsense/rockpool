@@ -109,7 +109,7 @@ class Layer(ABC):
                         )
                         + " `tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
+            nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
         else:
             assert isinstance(
                 nNumTimeSteps, int
@@ -400,7 +400,7 @@ class Layer(ABC):
 
     @t.setter
     def t(self, new_t):
-        self._nTimeStep = new_t // self.tDt
+        self._nTimeStep = int(np.floor(new_t / self.tDt))
 
     # - Temporary, for maintaining compatibility with layers that still use _t
     @property
@@ -409,4 +409,4 @@ class Layer(ABC):
 
     @_t.setter
     def _t(self, new_t):
-        self._nTimeStep = new_t // self.tDt
+        self._nTimeStep = int(np.floor(new_t / self.tDt))
