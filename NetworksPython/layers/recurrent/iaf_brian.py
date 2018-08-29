@@ -242,7 +242,7 @@ class RecIAFBrian(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> (TSEvent, np.ndarray):
+    ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
@@ -559,7 +559,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> (TSEvent, np.ndarray):
+    ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 

@@ -98,7 +98,7 @@ class FFExpSyn(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> (TSContinuous, np.ndarray):
+    ) -> TSContinuous:
         """
         evolve : Function to evolve the states of this layer given an input
 
