@@ -178,7 +178,7 @@ class FFExpSyn(Layer):
             mfFiltered[:, channel] = vConvShort
 
         # - Update time and state
-        self._n += nNumTimeSteps
+        self._nTimeStep += nNumTimeSteps
         self.vState = mfFiltered[-1]
 
         # - Output time series with output data and bias
