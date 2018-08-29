@@ -535,7 +535,7 @@ class Network:
             nNumTimeSteps = tDuration // self.tDt
 
         # - Number of time steps per batch
-        if nNumTimeStepsBatch is None:
+        if vnNumTimeStepsBatch is None:
             if vtDurBatch is None:
                 vnTSBatch = np.array([nNumTimeSteps])
             else:
