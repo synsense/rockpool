@@ -11,7 +11,7 @@ dModules = {
     ".evSpikeLayer": "EventDrivenSpikingLayer",
     ".iaf_cl": "FFCLIAF",
     ".softmaxlayer": "SoftMaxLayer",
-    ".averagepooling": "AveragePooling",
+    ".averagepooling": "AveragePooling2D",
 }
 
 # - Define current package
