@@ -15,7 +15,7 @@ dModules = {
 }
 
 # - Define current package
-strBasePackage = "NetworksPython.layers.feedforward"
+strBasePackage = "NetworksPython.layers.internal"
 
 
 # - Initialise list of available modules

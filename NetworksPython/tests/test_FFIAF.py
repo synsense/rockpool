@@ -1,42 +1,43 @@
-'''
-Test Brian-based spiking layers from layers.feedforward.iaf_brian and layers.recurrent.iaf_brian
-'''
+"""
+Test Brian-based spiking layers from layers.internal.iaf_brian and layers.recurrent.iaf_brian
+"""
 
 import numpy as np
 import sys
 import os.path
+
 strNetworkPath = os.path.abspath(sys.path[0] + "/../..")
 sys.path.insert(1, strNetworkPath)
 
 
 def test_imports():
-    from NetworksPython.layers.feedforward import iaf_brian
+    from NetworksPython.layers.internal import iaf_brian
     from NetworksPython.layers.recurrent import iaf_brian
+
 
 def test_ffiaf():
     """ Test FFIAFBrian """
     from brian2 import second
     from NetworksPython import timeseries as ts
-    from NetworksPython.layers.feedforward.iaf_brian import FFIAFBrian
+    from NetworksPython.layers.internal.iaf_brian import FFIAFBrian
 
     # - Generic parameters
-    mfW = 2*np.random.rand(2,3)-1
-    vfBias = 2*np.random.rand(3)-1
+    mfW = 2 * np.random.rand(2, 3) - 1
+    vfBias = 2 * np.random.rand(3) - 1
     vtTauN = np.random.rand(3)
 
     # - Layer generation
     fl0 = FFIAFBrian(
-        mfW = mfW,
-        vfBias = vfBias,
-        vtTauN = vtTauN,
-        fNoiseStd =0.1,
-        tRefractoryTime = 0.001 * second,
+        mfW=mfW,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        fNoiseStd=0.1,
+        tRefractoryTime=0.001 * second,
     )
 
     # - Input signal
     tsInCont = ts.TSContinuous(
-        vtTimeTrace = np.arange(15) * 0.01,
-        mfSamples = np.ones((15,2))
+        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
     )
 
     # - Compare states and time before and after
@@ -49,30 +50,26 @@ def test_ffiaf():
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
 
+
 def test_ffiaf_spkin():
     """ Test FFIAFSpkInBrian """
     from brian2 import second
     from NetworksPython import timeseries as ts
-    from NetworksPython.layers.feedforward.iaf_brian import FFIAFSpkInBrian
+    from NetworksPython.layers.internal.iaf_brian import FFIAFSpkInBrian
 
     # - Generic parameters
-    mfW = 2*np.random.rand(2,3)-1
-    vfBias = 2*np.random.rand(3)-1
+    mfW = 2 * np.random.rand(2, 3) - 1
+    vfBias = 2 * np.random.rand(3) - 1
     vtTauN = np.random.rand(3)
 
     # - Layer generation
     fl1 = FFIAFSpkInBrian(
-        mfW = mfW,
-        vfBias = vfBias,
-        vtTauN = vtTauN,
-        fNoiseStd =0.1,
-        tRefractoryTime = 0.001
+        mfW=mfW, vfBias=vfBias, vtTauN=vtTauN, fNoiseStd=0.1, tRefractoryTime=0.001
     )
 
     # - Input signal
     tsInEvt = ts.TSEvent(
-        vtTimeTrace = [0.02, 0.04, 0.04, 0.06, 0.12],
-        vnChannels = [1, 0, 1, 1, 0]
+        vtTimeTrace=[0.02, 0.04, 0.04, 0.06, 0.12], vnChannels=[1, 0, 1, 1, 0]
     )
 
     # - Compare states and time before and after
@@ -93,24 +90,24 @@ def test_reciaf():
     from NetworksPython.layers.recurrent.iaf_brian import RecIAFBrian
 
     # - Generic parameters
-    mfW = 2*np.random.rand(3,3)-1
-    vfBias = 2*np.random.rand(3)-1
-    vtTauN, vtTauSynR = np.random.rand(2,3)
+    np.random.seed(1)
+    mfW = 2 * np.random.rand(3, 3) - 1
+    vfBias = 2 * np.random.rand(3) - 1
+    vtTauN, vtTauSynR = np.random.rand(2, 3)
 
     # - Layer generation
     rl0 = RecIAFBrian(
-        mfW = mfW,
-        vfBias = vfBias,
-        vtTauN = vtTauN,
-        vtTauSynR = vtTauSynR,
-        fNoiseStd =0.1,
-        tRefractoryTime = 0.001 * second,
+        mfW=mfW,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        vtTauSynR=vtTauSynR,
+        fNoiseStd=0.1,
+        tRefractoryTime=0.001 * second,
     )
 
     # - Input signal
     tsInCont = ts.TSContinuous(
-        vtTimeTrace = np.arange(15) * 0.01,
-        mfSamples = np.ones((15,3))
+        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 3))
     )
 
     # - Compare states and time before and after
@@ -123,6 +120,7 @@ def test_reciaf():
     assert rl0.t == 0
     assert (vStateBefore == rl0.vState).all()
 
+
 def test_reciaf_spkin():
     """ Test RecIAFSpkInBrian """
     from brian2 import second
@@ -130,27 +128,26 @@ def test_reciaf_spkin():
     from NetworksPython.layers.recurrent.iaf_brian import RecIAFSpkInBrian
 
     # - Negative weights, so that layer doesn't spike and gets reset
-    mfWIn = np.random.rand(2,3)-1
-    mfWRec = 2*np.random.rand(3,3)-1
-    vfBias = 2*np.random.rand(3)-1
+    mfWIn = np.random.rand(2, 3) - 1
+    mfWRec = 2 * np.random.rand(3, 3) - 1
+    vfBias = 2 * np.random.rand(3) - 1
     vtTauN, vtTauSInp, vtTauSRec = np.random.rand(3, 3)
 
     # - Layer generation
     rl1 = RecIAFSpkInBrian(
-        mfWIn = mfWIn,
-        mfWRec = mfWRec,
-        vfBias = vfBias,
-        vtTauN = vtTauN,
-        vtTauSInp = vtTauSInp,
-        vtTauSRec = vtTauSRec,
-        fNoiseStd =0.1,
-        tRefractoryTime = 0.001
+        mfWIn=mfWIn,
+        mfWRec=mfWRec,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        vtTauSInp=vtTauSInp,
+        vtTauSRec=vtTauSRec,
+        fNoiseStd=0.1,
+        tRefractoryTime=0.001,
     )
 
     # - Input signal
     tsInEvt = ts.TSEvent(
-        vtTimeTrace = [0.02, 0.04, 0.04, 0.06, 0.12],
-        vnChannels = [1, 0, 1, 1, 0]
+        vtTimeTrace=[0.02, 0.04, 0.04, 0.06, 0.12], vnChannels=[1, 0, 1, 1, 0]
     )
 
     # - Compare states and time before and after
