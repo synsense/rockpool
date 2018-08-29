@@ -81,7 +81,7 @@ def test_cnn_multilayer():
         vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId))
     # Evolve
-    evOut = net.evolve(tsExternalInput=evInput, tDuration=100)
+    evOut = net.evolve(tsInput=evInput, tDuration=100)
     print(evOut)
 
 # Place holder
