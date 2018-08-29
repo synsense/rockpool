@@ -104,3 +104,11 @@ class AveragePooling2D(Layer):
         self._t += tDuration
 
         return tseOut
+
+    @property
+    def cOutput(self):
+        return TSEvent
+
+    @property
+    def cInput(self):
+        return TSEvent
