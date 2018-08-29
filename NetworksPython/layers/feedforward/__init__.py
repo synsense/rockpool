@@ -4,10 +4,8 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".iaf_brian": "FFIAFBrian",  # , "FFIAFSpkInBrian"),
-    # ".iaf_brian": "FFIAFBrian",  # # "FFIAFSpkInBrian"),
-    # ".rate": "FFRateEuler",  # "PassThrough"),
-    ".rate": "PassThrough",
+    ".iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian"),
+    ".rate": ("FFRateEuler", "PassThrough"),
     ".exp_synapses_brian": "FFExpSynBrian",
     ".exp_synapses_manual": "FFExpSyn",
     ".evSpikeLayer": "EventDrivenSpikingLayer",
@@ -24,8 +22,9 @@ strBasePackage = "NetworksPython.layers.feedforward"
 __all__ = []
 
 # - Loop over submodules to attempt import
-for strModule, strClass in dModules.items():
+for strModule, classnames in dModules.items():
     try:
+        strClass = classnames  # If string name
         # - Attempt to import the package
         locals()[strClass] = getattr(
             importlib.import_module(strModule, strBasePackage), strClass
@@ -33,6 +32,16 @@ for strModule, strClass in dModules.items():
 
         # - Add the resulting class to __all__
         __all__.append(strClass)
+
+    except TypeError:
+        for strClass in classnames:
+            # - Attempt to import the package
+            locals()[strClass] = getattr(
+                importlib.import_module(strModule, strBasePackage), strClass
+            )
+
+            # - Add the resulting class to __all__
+            __all__.append(strClass)
 
     except ModuleNotFoundError as err:
         # - Ignore ModuleNotFoundError
