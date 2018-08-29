@@ -388,7 +388,7 @@ class Network:
 
     def evolve(
         self,
-        tsExternalInput: TimeSeries = None,
+        tsInput: TimeSeries = None,
         tDuration: float = None,
         nNumTimeSteps: int = None,
         bVerbose: bool = True,
@@ -396,13 +396,13 @@ class Network:
         """
         evolve - Evolve each layer in the network according to self.lEvolOrder.
                  For layers with bExternalInput==True their input is
-                 tsExternalInput. If not but an input layer is defined, it
+                 tsInput. If not but an input layer is defined, it
                  will be the output of that, otherwise None.
                  Return a dict with each layer's output.
-        :param tsExternalInput:  TimeSeries with external input data.
+        :param tsInput:  TimeSeries with external input data.
         :param tDuration:        float - duration over which netŵork should
                                          be evolved. If None, evolution is
-                                         over the duration of tsExternalInput
+                                         over the duration of tsInput
         :param nNumTimeSteps:    int - Number of evolution time steps
         :param bVerbose:         bool - Print info about evolution state
         :return:                 Dict with each layer's output time Series
@@ -413,28 +413,28 @@ class Network:
             if tDuration is None:
                 # - Determine tDuration
                 assert (
-                    tsExternalInput is not None
-                ), "Network: One of `nNumTimeSteps`, `tsExternalInput` or `tDuration` must be supplied"
+                    tsInput is not None
+                ), "Network: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied"
 
-                if tsExternalInput.bPeriodic:
+                if tsInput.bPeriodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsExternalInput.tDuration
+                    tDuration = tsInput.tDuration
 
                 else:
                     # - Evolve until the end of the input TimeSeries
-                    tDuration = tsExternalInput.tStop - self.t
+                    tDuration = tsInput.tStop - self.t
                     assert tDuration > 0, (
                         "Network: Cannot determine an appropriate evolution duration. "
-                        + "`tsExternalInput` finishes before the current evolution time."
+                        + "`tsInput` finishes before the current evolution time."
                     )
             nNumTimeSteps = tDuration // self.tDt
 
         # - Set external input name if not set already
-        if tsExternalInput.strName is None:
-            tsExternalInput.strName = 'External input'
+        if tsInput.strName is None:
+            tsInput.strName = 'External input'
 
         # - Dict to store external input and each layer's output time series
-        dtsSignal = {"external": tsExternalInput}
+        dtsSignal = {"external": tsInput}
 
         # - Make sure layers are in sync with netowrk
         self._check_sync(bVerbose=False)
@@ -445,7 +445,7 @@ class Network:
             # - Determine input for current layer
             if lyr.bExternalInput:
                 # External input
-                tsCurrentInput = tsExternalInput
+                tsCurrentInput = tsInput
                 strIn = "external input"
             elif lyr.lyrIn is not None:
                 # Output of current layer's input layer
@@ -482,7 +482,7 @@ class Network:
     def train(
         self,
         fhTraining: Callable,
-        tsExternalInput: TimeSeries = None,
+        tsInput: TimeSeries = None,
         tDuration: float = None,
         vtDurBatch: float = None,
         nNumTimeSteps: int = None,
@@ -501,10 +501,10 @@ class Network:
                 :param bFirst:      bool Is this the first batch?
                 :param bFinal:      bool Is this the final batch?
 
-        :param tsExternalInput: TimeSeries with external input to network
+        :param tsInput: TimeSeries with external input to network
         :param tDuration:       float - Duration over which netŵork should
                                         be evolved. If None, evolution is
-                                        over the duration of tsExternalInput
+                                        over the duration of tsInput
         :param vtDurBatch:      Array-like or float - Duration of one batch (can also pass array with several values)
         :param nNumTimeSteps:   int   - Total number of training time steps
         :param vnNumTimeStepsBatch: Array-like or int - Number of time steps per batch
@@ -518,19 +518,19 @@ class Network:
             if tDuration is None:
                 # - Determine tDuration
                 assert (
-                    tsExternalInput is not None
-                ), "Network: One of `nNumTimeSteps`, `tsExternalInput` or `tDuration` must be supplied"
+                    tsInput is not None
+                ), "Network: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied"
 
-                if tsExternalInput.bPeriodic:
+                if tsInput.bPeriodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsExternalInput.tDuration
+                    tDuration = tsInput.tDuration
 
                 else:
                     # - Evolve until the end of the input TimeSeries
-                    tDuration = tsExternalInput.tStop - self.t
+                    tDuration = tsInput.tStop - self.t
                     assert tDuration > 0, (
                         "Network: Cannot determine an appropriate evolution duration. "
-                        + "`tsExternalInput` finishes before the current evolution time."
+                        + "`tsInput` finishes before the current evolution time."
                     )
             nNumTimeSteps = tDuration // self.tDt
 
@@ -571,7 +571,7 @@ class Network:
                 )
             # - Evolve network
             dtsSignal = self.evolve(
-                tsInput = tsExternalInput.resample_within(self.t, self.t + nTSCurrent*self.tDt),
+                tsInput = tsInput.resample_within(self.t, self.t + nTSCurrent*self.tDt),
                 nNumTimeSteps = nTSCurrent,
                 bVerbose=(bHighVerbosity and bVerbose),
             )
