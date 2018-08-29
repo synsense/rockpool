@@ -11,7 +11,7 @@ from ..layer import Layer
 from ..cnnweights import CNNWeight
 
 
-class AveragePooling(Layer):
+class AveragePooling2D(Layer):
     """
     AveragePooling: Implements average pooling by simply merging inputs. So this is more of sum than average pooling.
     """
