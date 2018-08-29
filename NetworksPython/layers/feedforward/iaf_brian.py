@@ -268,7 +268,7 @@ class FFIAFBrian(Layer):
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+            np.random.randn(np.size(vtTimeTrace), self.nSize)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd

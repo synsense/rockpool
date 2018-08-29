@@ -620,7 +620,7 @@ class Network:
             assert (
                 tDuration is not None
             ), "Network: Either `nNumTimeSteps` or `tDuration` must be provided."
-            nNumTimeSteps = tDuration // self.tDt
+            nNumTimeSteps = int(tDuration // self.tDt)
 
         # - Prepare time base
         vtTimeBase = np.arange(nNumTimeSteps + 1) * self._tDt + self.t
