@@ -129,8 +129,8 @@ def test_reciaf_spkin():
     from NetworksPython import timeseries as ts
     from NetworksPython.layers.recurrent.iaf_brian import RecIAFSpkInBrian
 
-    # - Generic parameters
-    mfWIn = 2*np.random.rand(2,3)-1
+    # - Negative weights, so that layer doesn't spike and gets reset
+    mfWIn = np.random.rand(2,3)-1
     mfWRec = 2*np.random.rand(3,3)-1
     vfBias = 2*np.random.rand(3)-1
     vtTauN, vtTauSInp, vtTauSRec = np.random.rand(3, 3)
