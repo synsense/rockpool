@@ -116,7 +116,7 @@ class Network:
         """
         # - Check whether layer time matches network time
         assert lyr.t == self.t, (
-            "Layer time must match network time "
+            "Network: Layer time must match network time "
             + "(network: t={}, layer: t={})".format(self.t, lyr.t)
         )
 
@@ -124,7 +124,7 @@ class Network:
         if hasattr(self, lyr.strName):
             # - Check if layers are the same object.
             if getattr(self, lyr.strName) is lyr:
-                print("Layer `{}` is already part of the network".format(lyr.strName))
+                print("Network: Layer `{}` is already part of the network".format(lyr.strName))
                 return lyr
             else:
                 sNewName = lyr.strName
@@ -133,7 +133,7 @@ class Network:
                     sNewName = self._new_name(sNewName)
                 if bVerbose:
                     print(
-                        "A layer with name `{}` already exists.".format(lyr.strName)
+                        "Network: A layer with name `{}` already exists.".format(lyr.strName)
                         + "The new layer will be renamed to  `{}`.".format(sNewName)
                     )
                 lyr.strName = sNewName
@@ -145,7 +145,7 @@ class Network:
         # - Add lyr to the network
         setattr(self, lyr.strName, lyr)
         if bVerbose:
-            print("Added layer `{}` to network\n".format(lyr.strName))
+            print("Network: Added layer `{}` to network\n".format(lyr.strName))
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
@@ -226,7 +226,7 @@ class Network:
         # - Make sure that layer dimensions match
         if lyrSource.nSize != lyrTarget.nSizeIn:
             raise NetworkError(
-                "Dimensions of layers `{}` (nSize={}) and `{}`".format(
+                "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
                     lyrSource.strName, lyrSource.nSize, lyrTarget.strName
                 )
                 + " (nSizeIn={}) do not match".format(lyrTarget.nSizeIn)
@@ -235,7 +235,7 @@ class Network:
         # - Check for compatible input / output
         if lyrSource.cOutput != lyrTarget.cInput:
             raise NetworkError(
-                "Input / output classes of layer `{}` (cOutput = {})".format(
+                "Network: Input / output classes of layer `{}` (cOutput = {})".format(
                     lyrSource.strName, lyrSource.cOutput.__name__
                 )
                 + " and `{}` (cInput = {}) do not match".format(
@@ -252,7 +252,7 @@ class Network:
             self.lEvolOrder = self._evolution_order()
             if bVerbose:
                 print(
-                    "Layer `{}` now receives input from layer `{}` \n".format(
+                    "Network: Layer `{}` now receives input from layer `{}` \n".format(
                         lyrTarget.strName, lyrSource.strName
                     )
                 )
@@ -273,7 +273,7 @@ class Network:
             # - Remove the connection
             lyrTarget.lyrIn = None
             print(
-                "Layer {} no longer receives input from layer `{}`".format(
+                "Network: Layer {} no longer receives input from layer `{}`".format(
                     lyrTarget.strName, lyrSource.strName
                 )
             )
@@ -286,7 +286,7 @@ class Network:
 
         else:
             print(
-                "There is no connection from layer `{}` to layer `{}`".format(
+                "Network: There is no connection from layer `{}` to layer `{}`".format(
                     lyrSource.strName, lyrTarget.strName
                 )
             )
@@ -305,7 +305,7 @@ class Network:
                     lyrCandidate = setCandidates.pop()
                 # If no candidate is left, raise an exception
                 except KeyError:
-                    raise NetworkError("Cannot resolve evolution order of layers")
+                    raise NetworkError("Network: Cannot resolve evolution order of layers")
                     # Could implement timestep-wise evolution...
                 else:
                     # - If there is a candidate and none of the remaining layers
@@ -561,7 +561,7 @@ class Network:
             
             if bVerbose:
                 print(
-                    "\rTraining batch {} of {} from t={:.3f} to {:.3f}.              ".format(
+                    "\rNetwork: Training batch {} of {} from t={:.3f} to {:.3f}.              ".format(
                         nBatch+1, nNumBatches, self.t, self.t+nTSCurrent*self.tDt, end=""
                     )
                 )
@@ -579,7 +579,7 @@ class Network:
             bFirst = False
 
         if bVerbose:
-            print("\nTraining successful\n")
+            print("\nNetwork: Training successful\n")
 
     def stream(self,
                tsInput: TimeSeries,
@@ -600,20 +600,20 @@ class Network:
 
         # - Check that all layers implement the streaming interface
         assert all([hasattr(lyr, 'stream') for lyr in self.setLayers]), \
-            'Not all layers implement the `stream` interface.'
+            'Network: Not all layers implement the `stream` interface.'
 
         # - Check that external input has the correct class
         assert isinstance(tsInput, self.lyrInput.cInput), \
-            'External input must be of class {} for this network.'.format(self.lyrInput.cInput.__name__)
+            'Network: External input must be of class {} for this network.'.format(self.lyrInput.cInput.__name__)
 
         # - Check that external input has the correct size
         assert tsInput.nNumTraces == self.lyrInput.nSizeIn, \
-            'External input must have {} traces for this network.'.format(self.lyrInput.nSizeIn)
+            'Network: External input must have {} traces for this network.'.format(self.lyrInput.nSizeIn)
 
         # - Find the largest common tDt
         self.ltDts = [lyr.tDt for lyr in self.setLayers]
         self.tCommonDt = max(self.ltDts)
-        if bVerbose: print('Net: Common time base: ', self.tCommonDt)
+        if bVerbose: print('Network: Common time base: ', self.tCommonDt)
 
         # - Prepare time base
         vtTimeBase = np.arange(0, tDuration + self.tCommonDt, self.tCommonDt) + self._t
@@ -634,7 +634,7 @@ class Network:
             lInput = [None] * nNumSteps
 
         # - Get initial state of all layers
-        if bVerbose: print('Net: getting initial state')
+        if bVerbose: print('Network: getting initial state')
 
         # - Determine input state size, obtain initial layer state
         tupInputState = lInput[0]
@@ -645,13 +645,13 @@ class Network:
 
         # - Display some feedback
         if bVerbose:
-            print('Net: got initial state:')
+            print('Network: got initial state:')
             print(lLayerOutputs)
 
         # - Streaming loop
         lState = deepcopy(lLastState)
         for nStep in range(nNumSteps):
-            if bVerbose: print('Net: Start of step', nStep)
+            if bVerbose: print('Network: Start of step', nStep)
 
             # - Set up external input
             lLastState[0] = (lInput[nStep])
@@ -659,7 +659,7 @@ class Network:
             # - Loop over layers, stream data in and out
             for nLayerInd in range(nNumLayers):
                 # - Display some feedback
-                if bVerbose: print('Net: Evolving layer {}'.format(nLayerInd))
+                if bVerbose: print('Network: Evolving layer {}'.format(nLayerInd))
 
                 # - Try / Catch to handle end of streaming iteration
                 try:
@@ -715,7 +715,7 @@ class Network:
         """
         bSync = True
         if bVerbose:
-            print("Network time is {}. \n\t Layer times:".format(self.t))
+            print("Network: Network time is {}. \n\t Layer times:".format(self.t))
             print(
                 "\n".join(
                     (
@@ -728,15 +728,15 @@ class Network:
             if abs(lyr.t - self.t) >= fTolRel * self.t + fTolAbs:
                 bSync = False
                 print(
-                    "\t WARNING: Layer `{}` is not in sync (t={})".format(
+                    "\t Network: WARNING: Layer `{}` is not in sync (t={})".format(
                         lyr.strName, lyr.t
                     )
                 )
         if bSync:
             if bVerbose:
-                print("\t All layers are in sync with network.")
+                print("\t Network: All layers are in sync with network.")
         else:
-            raise NetworkError("Not all layers are in sync with the network.")
+            raise NetworkError("Network: Not all layers are in sync with the network.")
         return bSync
 
     def reset_time(self):
