@@ -184,7 +184,7 @@ class RecRateEuler(Layer):
         )
 
         # - Increment internal time representation
-        self._n += nNumTimeSteps
+        self._nTimeStep += nNumTimeSteps
 
         # - Construct a return TimeSeries
         return TimeSeries(vtTimeBase, mfActivity)
@@ -259,7 +259,7 @@ class RecRateEuler(Layer):
             )
 
             # - Increment time
-            self._n += nEulerStepsPerDt
+            self._nTimeStep += nEulerStepsPerDt
 
         # - Return final activity
         return (
