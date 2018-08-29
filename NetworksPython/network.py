@@ -427,7 +427,7 @@ class Network:
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = int(tDuration // self.tDt)
+            nNumTimeSteps = int(np.floor(tDuration / self.tDt))
 
         # - Set external input name if not set already
         if tsInput.strName is None:
@@ -486,7 +486,7 @@ class Network:
         tDuration: float = None,
         vtDurBatch: float = None,
         nNumTimeSteps: int = None,
-        vnNumTimeStepsBatch: int = None,
+        vnNumTSBatch: int = None,
         bVerbose=True,
         bHighVerbosity=False,
     ):
@@ -507,7 +507,7 @@ class Network:
                                         over the duration of tsInput
         :param vtDurBatch:      Array-like or float - Duration of one batch (can also pass array with several values)
         :param nNumTimeSteps:   int   - Total number of training time steps
-        :param vnNumTimeStepsBatch: Array-like or int - Number of time steps per batch
+        :param vnNumTSBatch: Array-like or int - Number of time steps per batch
         :param bVerbose:        bool  - Print info about training progress
         :param bHighVerbosity:  bool  - Print info about layer evolution
                                         (only has effect if bVerbose is True)
@@ -532,18 +532,33 @@ class Network:
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = int(tDuration // self.tDt)
+            nNumTimeSteps = int(np.floor(tDuration / self.tDt))
 
         # - Number of time steps per batch
-        if vnNumTimeStepsBatch is None:
+        if vnNumTSBatch is None:
             if vtDurBatch is None:
                 vnTSBatch = np.array([nNumTimeSteps], dtype=int)
+            elif np.size(vtDurBatch) == 1:
+                # - Same value for all batches
+                nNumTSSingleBatch = int(np.floor(np.asscalar(np.asarray(vtDurBatch)) / self.tDt))
+                nNumBatches = int(np.ceil(nNumTimeSteps / nNumTSSingleBatch))
+                vnTSBatch = np.repeat(nNumTSSingleBatch, nNumBatches)
+                vnTSBatch[-1] = nNumTimeSteps - np.sum(vnTSBatch[:-1])
             else:
+                # - Individual batch durations
                 # - Convert batch durations to time step numbers - Rounding down should
                 #   not be too problematic as total training will always be nNumTimeSteps
-                vnTSBatch = (np.array(vtDurBatch) // self.tDt).astype(int)
+                vnTSBatch = np.floor(np.array(vtDurBatch) / self.tDt).astype(int)
         else:
-            vnTSBatch = np.asarray(vnNumTimeStepsBatch)
+            if np.size(vnNumTSBatch) == 1:
+                # - Same value for all batches
+                nNumTSSingleBatch = np.asscalar(np.asarray(vnNumTSBatch, dtype=int))
+                nNumBatches = int(np.ceil(nNumTimeSteps / nNumTSSingleBatch))
+                vnTSBatch = np.repeat(nNumTSSingleBatch, nNumBatches)
+                vnTSBatch[-1] = nNumTimeSteps - np.sum(vnTSBatch[:-1])
+            else:
+                # - Individual batch durations
+                vnTSBatch = np.asarray(vnNumTSBatch)
 
         # - Make sure time steps add up to nNumTimeSteps
         nTSDiff = nNumTimeSteps - np.sum(vnTSBatch)
@@ -620,7 +635,7 @@ class Network:
             assert (
                 tDuration is not None
             ), "Network: Either `nNumTimeSteps` or `tDuration` must be provided."
-            nNumTimeSteps = int(tDuration // self.tDt)
+            nNumTimeSteps = int(np.floor(tDuration / self.tDt))
 
         # - Prepare time base
         vtTimeBase = np.arange(nNumTimeSteps + 1) * self._tDt + self.t
