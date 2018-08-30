@@ -8,11 +8,13 @@ import skimage.measure
 
 # from typing import Optional, Union, List, Tuple
 from ...timeseries import TSEvent
-from ..layer import Layer
+
+# from ..layer import Layer
+from ..iaf_cl import CLIAF
 from ..cnnweights import CNNWeight
 
 
-class AveragePooling2D(Layer):
+class AveragePooling2D(CLIAF):
     """
     AveragePooling: Implements average pooling by simply merging inputs. So this is more of sum than average pooling.
     """
@@ -47,7 +49,7 @@ class AveragePooling2D(Layer):
         )  # Simple hack
 
         # Call parent constructor
-        super().__init__(mfW=mfW, tDt=tDt, strName=strName)
+        super().__init__(mfWIn=mfW, tDt=tDt, strName=strName)
         self.pool_size = pool_size
         self.reset_state()
 
@@ -106,14 +108,23 @@ class AveragePooling2D(Layer):
         print(np.sum(mfInptSpikeRaster), np.sum(mbOutRaster))
 
         # Update time
-        self._t += tDuration
+        self._t += self.tDt * nNumTimeSteps
 
         return tseOut
 
     @property
-    def cOutput(self):
-        return TSEvent
+    def mfW(self):
+        return self._mfWIn
 
-    @property
-    def cInput(self):
-        return TSEvent
+    @mfW.setter
+    def mfW(self, mfNewW):
+        self.mfWIn = mfNewW
+
+
+#    @property
+#    def cOutput(self):
+#        return TSEvent
+#
+#    @property
+#    def cInput(self):
+#        return TSEvent
