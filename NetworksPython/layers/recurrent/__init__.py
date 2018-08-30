@@ -21,24 +21,32 @@ __all__ = []
 # - Loop over submodules to attempt import
 for strModule, classnames in dModules.items():
     try:
-        strClass = classnames  # If string name
-        # - Attempt to import the package
-        locals()[strClass] = getattr(
-            importlib.import_module(strModule, strBasePackage), strClass
-        )
-
-        # - Add the resulting class to __all__
-        __all__.append(strClass)
-
-    except TypeError:
-        for strClass in classnames:  # If list of class names
-            # - Attempt to import the package
+        if isinstance(classnames, str):
+            # - Attempt to import the module, get the requested class
+            strClass = classnames
             locals()[strClass] = getattr(
                 importlib.import_module(strModule, strBasePackage), strClass
             )
 
             # - Add the resulting class to __all__
             __all__.append(strClass)
+
+        elif isinstance(classnames, list):
+            for strClass in classnames:
+                # - Attempt to import the module
+                locals()[strClass] = getattr(
+                    importlib.import_module(strModule, strBasePackage), strClass
+                )
+
+                # - Add the resulting class to __all__
+                __all__.append(strClass)
+
+        elif classnames is None:
+            # - Attempt to import the module alone
+            locals()[strModule] = importlib.import_module(strModule, strBasePackage)
+
+            # - Add the module to __all__
+            __all__.append(strModule)
 
     except ModuleNotFoundError as err:
         # - Ignore ModuleNotFoundError
