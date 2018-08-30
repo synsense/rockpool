@@ -141,7 +141,7 @@ class CLIAF(Layer):
                         "evolution time."
                     )
             # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
+            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
         else:
             assert isinstance(
                 nNumTimeSteps, int
@@ -159,9 +159,11 @@ class CLIAF(Layer):
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
                 vnSelectChannels=np.arange(self.nSizeIn),
             )
+            # - Make sure size is correct
+            mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
 
         else:
-            mfSpikeRaster = np.zeros((nNumTimeSteps, nSizeIn), bool)
+            mfSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn), bool)
 
         return mfSpikeRaster, nNumTimeSteps
 

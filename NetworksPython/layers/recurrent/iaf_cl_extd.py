@@ -1,6 +1,5 @@
 ###
-# iaf_cl.py - Class implementing a recurrent layer consisting of
-#                 I&F-neurons with constant leak. Clock based.
+# iaf_cl_extd.py - Extended version of RecCLIAF
 ###
 
 from typing import Optional, Union, List, Tuple
@@ -19,9 +18,9 @@ fTolAbs = 1e-9
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 
-class RecCLIAF(CLIAF):
+class RecCLIAFExtd(CLIAF):
     """
-    RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
+    RecCLIAFExtd - Extended version of RecCLIAF
     """
 
     def __init__(
@@ -34,13 +33,13 @@ class RecCLIAF(CLIAF):
         vfVSubtract: Union[ArrayLike, float, None] = 8,
         vtRefractoryTime: Union[ArrayLike, float] = 0,
         tDt: float = 1e-4,
-        tSpikeDelay: Optional[float] = 0,
+        tSpikeDelay: Optional[float] = None,
         tTauBias: float = 1e-4,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
         strName: str = "unnamed",
     ):
         """
-        RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
+        RecCLIAFExtd - Extended version of RecCLIAF
 
         :param mfWIn:       array-like  nSizeInxN input weight matrix.
         :param mfWRec:      array-like  Weight matrix
@@ -95,7 +94,7 @@ class RecCLIAF(CLIAF):
         :param tsSpkInput:      TSEvent  Input spike trian
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param bVerbose:        bool     Show progress bar during evolution
         :return:            TSEvent  output spike series
 
         """
@@ -134,7 +133,7 @@ class RecCLIAF(CLIAF):
 
         # - For each neuron store number time steps until refractoriness ends
         vnTSRefractoryEnds = np.zeros(self.nSize)
-        nNumTSperRefractory = self._vnNumTSperRefractory
+        vnNumTSperRefractory = self._vnNumTSperRefractory
 
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
@@ -151,8 +150,13 @@ class RecCLIAF(CLIAF):
             # Record initial state of the network
             self._add_to_record(aStateTimeSeries, self.t)
 
+        if bVerbose:
+            rangeIterator = tqdm(range(nNumTimeSteps))
+        else:
+            rangeIterator = range(nNumTimeSteps)
+
         # Iterate over all time steps
-        for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
+        for iCurrentTimeStep in rangeIterator:
 
             # - Spikes from input synapses
             vbInptSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
@@ -192,7 +196,7 @@ class RecCLIAF(CLIAF):
 
             # - Reset or subtract from membrane state after spikes
             if vfVSubtract is not None:  # - Subtract from potential
-                if nNumTSperRefractory == 0:  # - No refractoriness - neurons can emit multiple spikes per time step
+                if (vnNumTSperRefractory == 0).all():  # - No refractoriness - neurons can emit multiple spikes per time step
                     # - Reset recurrent spike counter
                     vnNumRecSpikes[:] = 0
                     while vbSpiking.any():
@@ -213,10 +217,10 @@ class RecCLIAF(CLIAF):
                 # - Reset neuron states
                 vState[vbSpiking] = vfVReset[vbSpiking]
 
-            if nNumTSperRefractory > 0:
+            if (vnNumTSperRefractory > 0).any():
                 # - Update refractoryness
                 vnTSRefractoryEnds = np.clip(vnTSRefractoryEnds-1, 0, None)
-                vnTSRefractoryEnds[vbSpiking] = nNumTSperRefractory
+                vnTSRefractoryEnds[vbSpiking] = vnNumTSperRefractory[vbSpiking]
 
             # - Store recurrent spikes in deque
             dqvnNumRecSpikes.append(vnNumRecSpikes)
@@ -299,11 +303,14 @@ class RecCLIAF(CLIAF):
 
     @tSpikeDelay.setter
     def tSpikeDelay(self, tNewDelay):
-        assert (
-            np.isscalar(tNewDelay) and tNewDelay > self.tDt
-        ), "Layer `{}`: tSpikeDelay must be a scalar greater than tDt ({})".format(self.strName, self.tDt)
-        # - tNewDelay is rounded to multiple of tDt and at least tDt
-        nNumTSperDelay = int(np.floor(tNewDelay / self.tDt))
+        if tNewDelay is None:
+            nNumTSperDelay = 1
+        else:
+            assert (
+                np.isscalar(tNewDelay) and tNewDelay > self.tDt
+            ), "Layer `{}`: tSpikeDelay must be a scalar greater than tDt ({})".format(self.strName, self.tDt)
+            # - tNewDelay is rounded to multiple of tDt and at least tDt
+            nNumTSperDelay = int(np.floor(tNewDelay / self.tDt))
 
         ## -- Create a deque for holding delayed spikes
         # - Copy spikes from previous deque
@@ -345,4 +352,4 @@ class RecCLIAF(CLIAF):
         else:
             vtRefractoryTime = self._expand_to_net_size(vtNewTime, "vtRefractoryTime")           
             # - vtRefractoryTime is rounded to multiple of tDt and at least tDt
-            self._vnNumTSperRefractory = int(np.floor(vtRefractoryTime / self.tDt))
+            self._vnNumTSperRefractory = (np.floor(vtRefractoryTime / self.tDt)).astype(int)
