@@ -117,7 +117,8 @@ class FFCLIAF(CLIAF):
 
             # Update neuron states
             if bCNNWeights:
-                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster)
+                # vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) # This is too slow, only if network activity is super sparse
+                vfUpdate = mfWIn[vbInptSpikeRaster]
             else:
                 vfUpdate = vbInptSpikeRaster @ mfWIn
 
