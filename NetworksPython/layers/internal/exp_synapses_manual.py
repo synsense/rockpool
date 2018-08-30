@@ -115,8 +115,6 @@ class FFExpSyn(Layer):
             tsInput, tDuration, nNumTimeSteps
         )
 
-        mSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
-
         # - Generate spike trains from tsInput
         if tsInput is None:
             # - Assume zero input
