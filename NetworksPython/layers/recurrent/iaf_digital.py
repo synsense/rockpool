@@ -222,11 +222,15 @@ class RecDIAF(Layer):
         nSizeIn = self.nSizeIn
         vfVSubtract = self.vfVSubtract
 
+        # - Lists for storing states and times
+        lvStates = [vState]
+        ltTimes = [tTime]
+
         while tTime <= tFinal:
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print(i, tTime, nChannel, end="\r")
+                print(i, tTime, nChannel, "                       ", end="\r")
 
             except IndexError:
                 # - Stop if there are no spikes left
@@ -234,6 +238,10 @@ class RecDIAF(Layer):
             else:
                 # print("update: ", self._mfWTotal[nChannel])
 
+                # - Record state
+                ltTimes.append(tTime)
+                lvStates.append(vState.copy())
+                
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = vtRefractoryEnds <= tTime
                 # - State updates after incoming spike
@@ -265,6 +273,10 @@ class RecDIAF(Layer):
                     # - Set states to reset potential
                     vState[vbSpiking] = vfVReset[vbSpiking].astype(strDtypeState)
 
+                # - Record state
+                ltTimes.append(tTime)
+                lvStates.append(vState.copy())
+                
                 # print("new state: ", self._vState)
 
                 # - Determine times when refractory period will end for neurons that have just fired
@@ -284,6 +296,7 @@ class RecDIAF(Layer):
                     heapq.heappush(heapSpikes, (tTime + tDelay, nID + nSizeIn))
                 # print("heap: ", heapq.nsmallest(5, heapSpikes))
             i += 1
+
         # - Update state variable
         self._vState = vState
 
@@ -295,6 +308,10 @@ class RecDIAF(Layer):
 
         # - Update time
         self._nTimeStep += nNumTimeSteps
+
+        # - Store evolution of states in lists
+        self.ltTimes = ltTimes
+        self.lvStates = lvStates
 
         # - Output time series
         return TSEvent(ltSpikeTimes, liSpikeIDs)
