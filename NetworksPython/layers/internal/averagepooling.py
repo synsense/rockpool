@@ -2,16 +2,19 @@
 # averagepooling.py - Class implementing a pooling layer.
 ###
 
+from typing import Optional
 import numpy as np
 import skimage.measure
 
 # from typing import Optional, Union, List, Tuple
 from ...timeseries import TSEvent
-from ..layer import Layer
+
+# from ..layer import Layer
+from ..iaf_cl import CLIAF
 from ..cnnweights import CNNWeight
 
 
-class AveragePooling2D(Layer):
+class AveragePooling2D(CLIAF):
     """
     AveragePooling: Implements average pooling by simply merging inputs. So this is more of sum than average pooling.
     """
@@ -46,12 +49,16 @@ class AveragePooling2D(Layer):
         )  # Simple hack
 
         # Call parent constructor
-        super().__init__(mfW=mfW, tDt=tDt, strName=strName)
+        super().__init__(mfWIn=mfW, tDt=tDt, strName=strName)
         self.pool_size = pool_size
         self.reset_state()
 
     def evolve(
-        self, tsInput: TSEvent = None, tDuration: float = None, bVerbose: bool = False
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
@@ -64,25 +71,25 @@ class AveragePooling2D(Layer):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        _, _, mfInputSpikeRaster, _ = tsInput.raster(
-            tDt=self.tDt, tStart=self.t, tStop=self.t + tDuration
+        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
         )
-        print(np.sum(mfInputSpikeRaster))
+        print(np.sum(mfInptSpikeRaster))
 
         # Do average pooling here
-        print(mfInputSpikeRaster.shape)
+        print(mfInptSpikeRaster.shape)
 
         # Reshape input data
-        mfInputSpikeRaster = mfInputSpikeRaster.reshape((-1, *self.mfW.inShape))
-        print(mfInputSpikeRaster.shape)
+        mfInptSpikeRaster = mfInptSpikeRaster.reshape((-1, *self.mfW.inShape))
+        print(mfInptSpikeRaster.shape)
 
         if self.img_data_format == "channels_last":
             mbOutRaster = skimage.measure.block_reduce(
-                mfInputSpikeRaster, (1, *self.pool_size, 1), np.sum
+                mfInptSpikeRaster, (1, *self.pool_size, 1), np.sum
             )
         elif self.img_data_format == "channels_first":
             mbOutRaster = skimage.measure.block_reduce(
-                mfInputSpikeRaster, (1, 1, *self.pool_size, 1), np.sum
+                mfInptSpikeRaster, (1, 1, *self.pool_size, 1), np.sum
             )
         print(mbOutRaster.shape)
 
@@ -98,17 +105,26 @@ class AveragePooling2D(Layer):
             vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
         )
 
-        print(np.sum(mfInputSpikeRaster), np.sum(mbOutRaster))
+        print(np.sum(mfInptSpikeRaster), np.sum(mbOutRaster))
 
         # Update time
-        self._t += tDuration
+        self._t += self.tDt * nNumTimeSteps
 
         return tseOut
 
     @property
-    def cOutput(self):
-        return TSEvent
+    def mfW(self):
+        return self._mfWIn
 
-    @property
-    def cInput(self):
-        return TSEvent
+    @mfW.setter
+    def mfW(self, mfNewW):
+        self.mfWIn = mfNewW
+
+
+#    @property
+#    def cOutput(self):
+#        return TSEvent
+#
+#    @property
+#    def cInput(self):
+#        return TSEvent
