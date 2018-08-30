@@ -7,6 +7,7 @@ from typing import Optional, Union, List, Tuple
 
 import numpy as np
 from tqdm import tqdm
+from collections import deque
 from ..cnnweights import CNNWeight
 from ...timeseries import TSEvent
 from .. import CLIAF
@@ -121,22 +122,30 @@ class RecCLIAF(CLIAF):
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
         tTauBias = self.tTauBias
-        tSpikeDelay = self.tSpikeDelay
-        vtRefractoryTime = self.vtRefractoryTime
+        
 
         # - Check type of mfWIn
         bCNNWeights = isinstance(mfWIn, CNNWeight)
-        # - Number of spike sources (input neurons and layer neurons)
-        nSpikeSources = self.nSizeIn + self.nSize
-        # - Count number of spikes for each neuron in each time step
-        vnNumRecSpikes = self._vnNumRecSpikes
+
+        # - Deque of arrays with number of delayed spikes for each neuron for each time step
+        dqvnNumRecSpikes = self._dqvnNumRecSpikes
+        # - Array for storing new recurrent spikes
+        vnNumRecSpikes = np.zeros(self.nSize)
+
+        # - For each neuron store number time steps until refractoriness ends
+        vnTSRefractoryEnds = np.zeros(self.nSize)
+        nNumTSperRefractory = self._vnNumTSperRefractory
+
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
         # - Time before first time step
         tCurrentTime = self.t
 
         # - Boolean array indicating evolution time steps where bias is applied
-        vbBias = np.zreos(mfInptSpikeRaster.shape[0])
+        vbBias = np.zeros(nNumTimeSteps)
+        # - Determine where bias is applied: Index i corresponds to bias taking effect at
+        #   nTimeStep = self._nTimeStep+1+i, want them when nTimeStep%_nNumTSperBias == 0
+        vbBias[-(self._nTimeStep+1) % self._nNumTSperBias :: self._nNumTSperBias] = 1
 
         if vnIdMonitor is not None:
             # Record initial state of the network
@@ -150,14 +159,24 @@ class RecCLIAF(CLIAF):
 
             # Update neuron states
             if bCNNWeights:
-                vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) + (
-                    vnNumRecSpikes @ mfWRec
+                vfUpdate = (
+                    mfWIn.reverse_dot(vbInptSpikeRaster)  # Input spikes
+                    + (dqvnNumRecSpikes.popleft() @ mfWRec)  # Recurrent spikes
+                    + (vbBias[iCurrentTimeStep] * vfVBias)  # Bias
                 )
             else:
-                vfUpdate = (vbInptSpikeRaster @ mfWIn) + (vnNumRecSpikes @ mfWRec)
+                vfUpdate = (
+                    (vbInptSpikeRaster @ mfWIn)  # Input spikes
+                    + (dqvnNumRecSpikes.popleft() @ mfWRec)  # Recurrent spikes
+                    + (vbBias[iCurrentTimeStep] * vfVBias)  # Bias
+                )
+
+            # - Only neurons that are not refractory can receive inputs and be updated
+            vbRefractory = vnTSRefractoryEnds > 0
+            vfUpdate[vbRefractory] = 0
 
             # State update (write this way to avoid that type casting fails)
-            vState = vState + vfUpdate + vfVBias
+            vState = vState + vfUpdate
 
             # - Update current time
             tCurrentTime += tDt
@@ -168,26 +187,39 @@ class RecCLIAF(CLIAF):
                     aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
                 )
 
-            # - Reset recurrent spike counter
-            vnNumRecSpikes[:] = 0
-
             # - Check threshold crossings for spikes
-            vbRecSpikeRaster = vState >= vfVThresh
+            vbSpiking = vState >= vfVThresh
 
             # - Reset or subtract from membrane state after spikes
-            if vfVSubtract is not None:
-                while vbRecSpikeRaster.any():
-                    # - Subtract from states
-                    vState[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
+            if vfVSubtract is not None:  # - Subtract from potential
+                if nNumTSperRefractory == 0:  # - No refractoriness - neurons can emit multiple spikes per time step
+                    # - Reset recurrent spike counter
+                    vnNumRecSpikes[:] = 0
+                    while vbSpiking.any():
+                        # - Add to spike counter
+                        vnNumRecSpikes[vbSpiking] += 1
+                        # - Subtract from states
+                        vState[vbSpiking] -= vfVSubtract[vbSpiking]
+                        # - Neurons that are still above threshold will emit another spike
+                        vbSpiking = vState >= vfVThresh
+                else:  # With refractoriness, at most one spike per time step is possible
                     # - Add to spike counter
-                    vnNumRecSpikes[vbRecSpikeRaster] += 1
-                    # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = vState >= vfVThresh
-            else:
+                    vnNumRecSpikes = vbSpiking.astype(int)
+                    # - Reset neuron states
+                    vState[vbSpiking] -= vfVSubtract[vbSpiking]              
+            else:  # - Reset potential
                 # - Add to spike counter
-                vnNumRecSpikes = vbRecSpikeRaster.astype(int)
+                vnNumRecSpikes = vbSpiking.astype(int)
                 # - Reset neuron states
-                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
+                vState[vbSpiking] = vfVReset[vbSpiking]
+
+            if nNumTSperRefractory > 0:
+                # - Update refractoryness
+                vnTSRefractoryEnds = np.clip(vnTSRefractoryEnds-1, 0, None)
+                vnTSRefractoryEnds[vbSpiking] = nNumTSperRefractory
+
+            # - Store recurrent spikes in deque
+            dqvnNumRecSpikes.append(vnNumRecSpikes)
 
             # - Record spikes
             ltSpikeTimes += [tCurrentTime] * np.sum(vnNumRecSpikes)
@@ -222,10 +254,13 @@ class RecCLIAF(CLIAF):
         return tseOut
 
     def reset_state(self):
-        # - Delete spikes that would arrive in recurrent synapses during next time step
-        self._vnNumRecSpikes = np.zeros(self.nSize, int)
+        # - Delete spikes that would arrive in recurrent synapses during future time steps
+        #   by filling up deque with zeros
+        nNumTSperDelay = self._dqvnNumRecSpikes.maxlen
+        self._dqvnNumRecSpikes += [np.zeros(self.nSize) for _ in range(nNumTSperDelay)]
         # - Reset neuron state to 0
         self._vState = self.vfVReset
+        # - Reset 
 
     ### --- Properties
 
@@ -260,7 +295,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def tSpikeDelay(self):
-        return self._nNumTSperDelay * self._tDt
+        return self._dqvnNumRecSpikes.maxlen * self._tDt
 
     @tSpikeDelay.setter
     def tSpikeDelay(self, tNewDelay):
@@ -268,7 +303,33 @@ class RecCLIAF(CLIAF):
             np.isscalar(tNewDelay) and tNewDelay > self.tDt
         ), "Layer `{}`: tSpikeDelay must be a scalar greater than tDt ({})".format(self.strName, self.tDt)
         # - tNewDelay is rounded to multiple of tDt and at least tDt
-        self._nNumTSperDelay = int(np.floor(tNewDelay / self.tDt))
+        nNumTSperDelay = int(np.floor(tNewDelay / self.tDt))
+
+        ## -- Create a deque for holding delayed spikes
+        # - Copy spikes from previous deque
+        if hasattr(self, "_dqvnNumRecSpikes"):
+            lPrevSpikes = list(self._dqvnNumRecSpikes)
+            nDifference = nNumTSperDelay - len(lPrevSpikes)
+            # - If new delay is less, some spikes will be lost
+            self._dqvnNumRecSpikes = deque(lPrevSpikes, maxlen=nNumTSperDelay)
+            if nDifference >= 0:    
+                self._dqvnNumRecSpikes = deque(
+                    [np.zeros(self.nSize) for _ in range(nDifference)] + lPrevSpikes,
+                    maxlen=nNumTSperDelay
+                )
+            else:
+                self._dqvnNumRecSpikes = deque(lPrevSpikes, maxlen=nNumTSperDelay)
+                print(
+                    "Layer `{}`: Last {} spikes in buffer have been lost due to reduction of tSpikeDelay.".format(
+                        self.strName, np.sum(np.array(lPrevSpikes[:-nDifference]))
+                    )
+                )
+        else:
+            self._dqvnNumRecSpikes = deque(
+                [np.zeros(self.nSize) for _ in range(nNumTSperDelay)],
+                maxlen=nNumTSperDelay
+            )
+
 
     @property
     def vtRefractoryTime(self):
