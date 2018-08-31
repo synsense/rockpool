@@ -14,7 +14,7 @@ def test_cliaf_evolve_subtracting():
     """
     Test initialization and evolution of RecCLIAF layer using subtraction after spikes.
     """
-    from NetworksPython.layers.internal.iaf_cl import RecCLIAF
+    from NetworksPython.layers import RecCLIAF
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
@@ -61,7 +61,7 @@ def test_cliaf_evolve_resetting():
     """
     Test initialization and evolution of RecCLIAF layer using reset after spikes.
     """
-    from NetworksPython.layers.internal.iaf_cl import RecCLIAF
+    from NetworksPython.layers import RecCLIAF
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
@@ -110,7 +110,7 @@ def test_diaf_evolve_subtracting():
     """
     Test initialization and evolution of RecDIAF layer using subtraction after spikes.
     """
-    from NetworksPython.layers.internal.iaf_digital import RecDIAF
+    from NetworksPython.layers import RecDIAF
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
@@ -163,7 +163,7 @@ def test_diaf_evolve_resetting():
     Test initialization and evolution of RecDIAF layer using reset after spikes.
     """
 
-    from NetworksPython.layers.internal.iaf_digital import RecDIAF
+    from NetworksPython.layers import RecDIAF
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
