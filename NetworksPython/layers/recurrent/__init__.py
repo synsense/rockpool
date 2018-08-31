@@ -5,7 +5,7 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     # ".rate": "RecRateEuler",
-    ".iaf_brian": "RecIAFBrian",
+    # ".iaf_brian": "RecIAFBrian",
     ".spike_bt": "RecFSSpikeEulerBT",
     # ".iaf_cl": "RecCLIAF",
     ".iaf_digital": "RecDIAF",
