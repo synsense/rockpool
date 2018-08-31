@@ -55,7 +55,7 @@ class RecDIAF(Layer):
         vfVReset: Union[ArrayLike, float] = 0,
         vfCleak: Union[ArrayLike, float] = 1,
         vfVSubtract: Union[ArrayLike, float, None] = None,
-        strDtypeState: str = "int8",
+        dtypeState: Union[type, str] = "int8",
         strName: str = "unnamed",
     ):
         """
@@ -81,7 +81,7 @@ class RecDIAF(Layer):
                                          from neuron state after spike.
                                          Otherwise will reset.
 
-        :param strDtypeState:   str data type for the membrane potential
+        :param dtypeState:      type data type for the membrane potential
 
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
@@ -117,7 +117,7 @@ class RecDIAF(Layer):
         self.tSpikeDelay = tSpikeDelay
         self.tTauLeak = tTauLeak
         self.vtRefractoryTime = vtRefractoryTime
-        self.strDtypeState = strDtypeState
+        self.dtypeState = dtypeState
 
         self.reset_state()
 
@@ -125,7 +125,7 @@ class RecDIAF(Layer):
         """ .reset_state() - Method: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self.vState = self.vfVReset
+        self.vState = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(self.dtypeState)
         # - Initialize heap and for events that are to be processed in future evolution
         self._heapRemainingSpikes = []
 
@@ -214,7 +214,7 @@ class RecDIAF(Layer):
         mfWTotal = self._mfWTotal
         nStateMin = self._nStateMin
         nStateMax = self._nStateMax
-        strDtypeState = self.strDtypeState
+        dtypeState = self.dtypeState
         vfVThresh = self.vfVThresh
         vfVReset = self.vfVReset
         vtRefr = self.vtRefractoryTime
@@ -249,7 +249,7 @@ class RecDIAF(Layer):
                     vState[vbNotRefractory] + mfWTotal[nChannel, vbNotRefractory],
                     nStateMin,
                     nStateMax,
-                ).astype(strDtypeState)
+                ).astype(dtypeState)
 
                 # - Neurons above threshold and not refractory
                 vbSpiking = np.logical_and(vState >= vfVThresh, vbNotRefractory)
@@ -258,7 +258,7 @@ class RecDIAF(Layer):
                     # - Subtract from states of spiking neurons
                     vState[vbSpiking] = np.clip(
                         vState[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
-                    ).astype(strDtypeState)
+                    ).astype(dtypeState)
                     # - Check if there are still states above threshold
                     for iStillAboveThresh in np.where(vState >= vfVThresh)[0]:
                         # - Add the time when they stop being refractory to the heap
@@ -271,7 +271,7 @@ class RecDIAF(Layer):
 
                 else:
                     # - Set states to reset potential
-                    vState[vbSpiking] = vfVReset[vbSpiking].astype(strDtypeState)
+                    vState[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
 
                 # - Record state
                 ltTimes.append(tTime)
@@ -388,9 +388,12 @@ class RecDIAF(Layer):
         return vtEventTimes, vnEventChannels, nNumTimeSteps, tFinal
 
     def randomize_state(self):
-        self.vState = np.random.randint(
-            self._nStateMin, self._nStateMax + 1, size=self.nSize
-        )
+        # - Set state to random values between reset value and theshold
+        self.vState = np.clip(
+            (np.amin(self.vfVThresh) - np.amin(self.vfVReset)) * np.random.rand(self.nSize) - np.amin(self.vfVReset),
+            self._nStateMin,
+            self._nStateMax
+        ).astype(self.dtypeState)
 
     ### --- Properties
 
@@ -445,7 +448,7 @@ class RecDIAF(Layer):
             self._expand_to_net_size(vNewState, "vState"),
             self._nStateMin,
             self._nStateMax,
-        ).astype(self.strDtypeState)
+        ).astype(self.dtypeState)
 
     @property
     def vfVThresh(self):
@@ -533,11 +536,22 @@ class RecDIAF(Layer):
         self._tSpikeDelay = tNewSpikeDelay
 
     @property
-    def strDtypeState(self):
-        return self._strDtypeState
+    def dtypeState(self):
+        return self._dtypeState
 
-    @strDtypeState.setter
-    def strDtypeState(self, strNewDtype):
-        self._nStateMin = np.iinfo(strNewDtype).min
-        self._nStateMax = np.iinfo(strNewDtype).max
-        self._strDtypeState = strNewDtype
+    @dtypeState.setter
+    def dtypeState(self, dtypeNew):
+        if np.issubdtype(dtypeNew, np.integer):
+            # - Set limits for integer type states
+            self._nStateMin = np.iinfo(dtypeNew).min
+            self._nStateMax = np.iinfo(dtypeNew).max
+        elif np.issubdtype(dtypeNew, np.floating):
+            self._nStateMin = np.finfo(dtypeNew).min
+            self._nStateMax = np.finfo(dtypeNew).max
+        else:
+            raise ValueError("Layer `{}`: dtypeState must be integer or float data type.".format(self.strName))
+        self._dtypeState = dtypeNew
+        # - Convert vState to dtype
+        if hasattr(self, "_vState"):
+            self.vState = self.vState
+
