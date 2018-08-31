@@ -4,7 +4,7 @@
 
 from .network import Network
 from .layers.internal import PassThrough, FFExpSyn, FFExpSynBrian
-from .layers.recurrent import RecFSSpikeEulerBT
+from .layers.internal import RecFSSpikeEulerBT
 
 import numpy as np
 
