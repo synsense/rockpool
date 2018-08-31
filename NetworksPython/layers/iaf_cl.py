@@ -157,7 +157,7 @@ class CLIAF(Layer):
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                vnSelectChannels=np.arange(self.nSizeIn),
+                # vnSelectChannels=np.arange(self.nSizeIn), ## This causes problems when tsInput has no events in some channels
             )
             # - Make sure size is correct
             mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
@@ -270,4 +270,4 @@ class CLIAF(Layer):
         elif vnNewIDs is None or vnNewIDs is False or np.size(vnNewIDs) == 0:
             self._vnIdMonitor = np.array([])
         else:
-            self._vnIdMonitor = np.array(vnIdMonitor)
+            self._vnIdMonitor = np.array(vnNewIDs)
