@@ -12,14 +12,14 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers.internal import AveragePooling2D
+    from NetworksPython.layers import AveragePooling2D
 
 
 def test_averagepooling():
     """
     Test import of the class
     """
-    from NetworksPython.layers.internal import AveragePooling2D
+    from NetworksPython.layers import AveragePooling2D
     from NetworksPython.timeseries import TSEvent
 
     lyrAverage = AveragePooling2D(
