@@ -14,6 +14,7 @@ dModules = {
     ".softmaxlayer": "SoftMaxLayer",
     ".averagepooling": "AveragePooling2D",
     ".iaf_digital": "RecDIAF",
+    ".spike_bt": "RecFSSpikeEulerBT",
 }
 
 # - Define current package
