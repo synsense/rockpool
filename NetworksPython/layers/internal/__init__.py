@@ -9,7 +9,7 @@ dModules = {
     ".exp_synapses_brian": "FFExpSynBrian",
     ".exp_synapses_manual": "FFExpSyn",
     ".evSpikeLayer": "EventDrivenSpikingLayer",
-    ".iaf_cl": "FFCLIAF",
+    ".iaf_cl": ("FFCLIAF", "RecCLIAF"),
     ".softmaxlayer": "SoftMaxLayer",
     ".averagepooling": "AveragePooling2D",
 }
