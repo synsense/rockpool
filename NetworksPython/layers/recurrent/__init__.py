@@ -8,7 +8,7 @@ dModules = {
     # ".iaf_brian": "RecIAFBrian",
     ".spike_bt": "RecFSSpikeEulerBT",
     # ".iaf_cl": "RecCLIAF",
-    ".iaf_digital": "RecDIAF",
+    # ".iaf_digital": "RecDIAF",
 }
 
 # - Define current package
