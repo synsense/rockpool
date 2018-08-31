@@ -5,7 +5,7 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian"),
-    ".rate": ("FFRateEuler", "PassThrough"),
+    ".rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
     ".exp_synapses_brian": "FFExpSynBrian",
     ".exp_synapses_manual": "FFExpSyn",
     ".evSpikeLayer": "EventDrivenSpikingLayer",
