@@ -292,7 +292,7 @@ class RecCLIAFExtd(CLIAF):
     @tTauBias.setter
     def tTauBias(self, tNewBias):
         assert (
-            np.isscalar(tNewBias) and tNewBias > self.tDt
+            np.isscalar(tNewBias) and tNewBias >= self.tDt
         ), "Layer `{}`: tTauBias must be a scalar greater than tDt ({})".format(self.strName, self.tDt)
         # - tNewBias is rounded to multiple of tDt and at least tDt
         self._nNumTSperBias = int(np.floor(tNewBias / self.tDt))
@@ -307,7 +307,7 @@ class RecCLIAFExtd(CLIAF):
             nNumTSperDelay = 1
         else:
             assert (
-                np.isscalar(tNewDelay) and tNewDelay > self.tDt
+                np.isscalar(tNewDelay) and tNewDelay >= self.tDt
             ), "Layer `{}`: tSpikeDelay must be a scalar greater than tDt ({})".format(self.strName, self.tDt)
             # - tNewDelay is rounded to multiple of tDt and at least tDt
             nNumTSperDelay = int(np.floor(tNewDelay / self.tDt))

@@ -270,4 +270,4 @@ class CLIAF(Layer):
         elif vnNewIDs is None or vnNewIDs is False or np.size(vnNewIDs) == 0:
             self._vnIdMonitor = np.array([])
         else:
-            self._vnIdMonitor = self._expand_to_net_size(vnNewIDs, "vnIdMonitor")
+            self._vnIdMonitor = np.array(vnIdMonitor)
