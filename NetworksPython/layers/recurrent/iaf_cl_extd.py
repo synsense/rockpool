@@ -164,7 +164,7 @@ class RecCLIAFExtd(CLIAF):
             # Update neuron states
             if bCNNWeights:
                 vfUpdate = (
-                    mfWIn.reverse_dot(vbInptSpikeRaster)  # Input spikes
+                    mfWIn[vbInptSpikeRaster]  # Input spikes
                     + (dqvnNumRecSpikes.popleft() @ mfWRec)  # Recurrent spikes
                     + (vbBias[iCurrentTimeStep] * vfVBias)  # Bias
                 )
