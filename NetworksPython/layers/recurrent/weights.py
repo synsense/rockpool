@@ -530,6 +530,7 @@ def digital(
     nBitResolution=4,
     nLimitInputs=64,
     nLimitOutputs=1024,
+    fRangeUse=1,
     fNormalize=None,
 ):
     """
@@ -544,6 +545,9 @@ def digital(
 
     :param nLimitInputs:    int   Maximum fan-in per neuron
     :param nLimitOutputs:   int   Maximum fan-out per neuron
+
+    :param fRangeUse:       float Ratio of the possible value range that is actually used. If smaller than
+                                  than 1, input weights can be larger than recurrent weights, later on.
     
     :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
 
@@ -594,8 +598,8 @@ def digital(
     nNumInhIn = nNumInputs - nNumExcIn
 
     # - Determine value range of weights
-    nMinWeight = int(-2 ** nBitResolution/2)
-    nMaxWeight = int(2 ** nBitResolution/2) ## Due to how np.random.randin works, max weight will be nMaxWeight-1
+    nMinWeight = int(-2**(nBitResolution/2) * fRangeUse)
+    nMaxWeight = int(2**(nBitResolution/2) * fRangeUse) ## Due to how np.random.randin works, max weight will be nMaxWeight-1
 
     # - Iterrate over neurons (columns of mnW) and set their inputs
     #   Do so in random order. Otherwise small nLimitOutputs could result in more
@@ -646,6 +650,7 @@ def in_res_digital(
     nBitResolution=4,
     nLimitInputs=64,
     nLimitOutputs=1024,
+    fRatioRecIn=1,
     fNormalize=None,
     bVerbose=False,
     bLeaveSpaceForInput=False,
@@ -656,6 +661,7 @@ def in_res_digital(
     :param nSize:           int Reservoir size
     :param fInputDensity:   float Ratio of non-zero vs. zero input connections
     :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
+
     :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
     :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
     
@@ -665,6 +671,8 @@ def in_res_digital(
     :param nLimitInputs:    int   Maximum fan-in per neuron
     :param nLimitOutputs:   int   Maximum fan-out per neuron
     
+    :param fRatioRecIn:     float Ratio of input vs recurrent weight ranges
+                                  smaller than 1 leads to stronger input than recurrent weights
     :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
 
     :param bVerbose:        bool Currently unused
@@ -687,6 +695,7 @@ def in_res_digital(
         nBitResolution=nBitResolution,
         nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput),
         nLimitOutputs=nLimitOutputs,
+        fRangeUse=fRatioRecIn,
         fNormalize=fNormalize,
     )
 
