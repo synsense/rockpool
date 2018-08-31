@@ -4,12 +4,13 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian"),
+    ".iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian", "RecIAFBrian", "RecIAFSpkInBrian"),
     ".rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
     ".exp_synapses_brian": "FFExpSynBrian",
     ".exp_synapses_manual": "FFExpSyn",
     ".evSpikeLayer": "EventDrivenSpikingLayer",
     ".iaf_cl": ("FFCLIAF", "RecCLIAF"),
+    ".iaf_cl_extd": "RecCLIAFExtd",
     ".softmaxlayer": "SoftMaxLayer",
     ".averagepooling": "AveragePooling2D",
 }

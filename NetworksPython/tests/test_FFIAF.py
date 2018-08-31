@@ -12,7 +12,8 @@ sys.path.insert(1, strNetworkPath)
 
 def test_imports():
     from NetworksPython.layers.internal import iaf_brian
-    from NetworksPython.layers.recurrent import iaf_brian
+
+    # from NetworksPython.layers.internal import iaf_brian
 
 
 def test_ffiaf():
@@ -87,7 +88,7 @@ def test_reciaf():
     """ Test RecIAFBrian """
     from brian2 import second
     from NetworksPython import timeseries as ts
-    from NetworksPython.layers.recurrent.iaf_brian import RecIAFBrian
+    from NetworksPython.layers.internal.iaf_brian import RecIAFBrian
 
     # - Generic parameters
     np.random.seed(1)
@@ -125,7 +126,7 @@ def test_reciaf_spkin():
     """ Test RecIAFSpkInBrian """
     from brian2 import second
     from NetworksPython import timeseries as ts
-    from NetworksPython.layers.recurrent.iaf_brian import RecIAFSpkInBrian
+    from NetworksPython.layers.internal.iaf_brian import RecIAFSpkInBrian
 
     # - Negative weights, so that layer doesn't spike and gets reset
     mfWIn = np.random.rand(2, 3) - 1
