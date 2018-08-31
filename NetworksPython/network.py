@@ -580,9 +580,10 @@ class Network:
             
             if bVerbose:
                 print(
-                    "\rNetwork: Training batch {} of {} from t={:.3f} to {:.3f}.              ".format(
+                    "Network: Training batch {} of {} from t = {:.3f} to {:.3f}.".format(
                         nBatch+1, nNumBatches, self.t, self.t+nTSCurrent*self.tDt, end=""
-                    )
+                    ),
+                    end = "\r"
                 )
             # - Evolve network
             dtsSignal = self.evolve(
