@@ -20,5 +20,6 @@ def test_submodule_import():
     Test the import of submodules
     """
     from NetworksPython import layers
-    from NetworksPython.layers import recurrent
-    from NetworksPython.layers import internal
+
+    # from NetworksPython.layers import recurrent
+    # from NetworksPython.layers import internal
