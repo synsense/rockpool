@@ -13,14 +13,14 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers.internal.evSpikeLayer import EventDrivenSpikingLayer
+    from NetworksPython.layers import EventDrivenSpikingLayer
 
 
 def test_cnn_initialization():
     """
     Test initialization of the layer
     """
-    from NetworksPython.layers.internal.evSpikeLayer import EventDrivenSpikingLayer
+    from NetworksPython.layers import EventDrivenSpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
@@ -35,7 +35,7 @@ def test_cnn_evolve():
     Test initialization of the layer
     """
     from NetworksPython import TSEvent
-    from NetworksPython.layers.internal.evSpikeLayer import EventDrivenSpikingLayer
+    from NetworksPython.layers import EventDrivenSpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Initialize weights
@@ -59,7 +59,7 @@ def test_cnn_multilayer():
     Test initialization of the layer
     """
     from NetworksPython import TSEvent, Network
-    from NetworksPython.layers.internal.evSpikeLayer import EventDrivenSpikingLayer
+    from NetworksPython.layers import EventDrivenSpikingLayer
     from NetworksPython.layers.cnnweights import CNNWeight
 
     # Parameters

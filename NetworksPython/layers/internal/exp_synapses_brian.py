@@ -10,10 +10,8 @@ from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
 from ...timeseries import TSContinuous, TSEvent
-from typing import Union
-
 from ..layer import Layer
-from ..recurrent.timedarray_shift import TimedArray as TAShift
+from .timedarray_shift import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
 
