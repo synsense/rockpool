@@ -118,13 +118,45 @@ class CNNWeight(UserList):
         """
         Performs the actual convolution call of a 2D image with a 2D kernel
         """
-        # This is the function to modify for stride, padding and other parameters
-        mfConvOut = signal.convolve2d(
-            bIndexReshaped, kernel, mode=self.mode, boundary="fill"
-        )
-        # Subsample based on strides
-        mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
+        try:
+            # Try the torch version
+            return self._do_convolve_2d_torch(bIndexReshaped, kernel)
+        except Exception as err:
+            raise err
+            # This is the function to modify for stride, padding and other parameters
+            mfConvOut = signal.convolve2d(
+                bIndexReshaped, kernel, mode=self.mode, boundary="fill"
+            )
+            # Subsample based on strides
+            mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
+            return mfConvOut
+
+    def _do_convolve_2d_torch(self, bIndexReshaped, kernel):
+        """
+        Performs the actual convolution call of a 2D image with a 2D kernel, using torch
+        """
+        import torch
+        import torch.nn as nn
+
+        conv = nn.Conv2d(1, 1, kernel_size=kernel.shape, stride=self.strides)
+        conv.weight.data = torch.from_numpy(kernel[np.newaxis, np.newaxis, ...]).float()
+
+        tsrIndexReshaped = torch.from_numpy(
+            bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
+        ).float()
+
+        # Do the convolution
+        tsrConvOut = conv(tsrIndexReshaped)
+        mfConvOut = tsrConvOut.detach().numpy()[0, 0]
         return mfConvOut
+
+        ## This is the function to modify for stride, padding and other parameters
+        # mfConvOut = signal.convolve2d(
+        #    bIndexReshaped, kernel, mode=self.mode, boundary="fill"
+        # )
+        ## Subsample based on strides
+        # mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
+        # return mfConvOut
 
     def __setitem__(self, index, value):
         """
