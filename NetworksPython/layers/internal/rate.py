@@ -548,11 +548,7 @@ class PassThrough(FFRateEuler):
 
     def reset_buffer(self):
         if self.tDelay != 0:
-            # - Make sure that self.tDelay is a multiple of self.tDt
-            if not isMultiple(self.tDelay, self.tDt):
-                raise ValueError("tDelay must be a multiple of tDt")
-
-            vtBuffer = np.arange(0, self.tDelay + self._tDt, self._tDt)
+            vtBuffer = np.arange(self._nDelaySteps + 1) * self._tDt
             self.tsBuffer = TimeSeries(vtBuffer, np.zeros((len(vtBuffer), self.nSize)))
         else:
             self.tsBuffer = None
@@ -644,7 +640,7 @@ class PassThrough(FFRateEuler):
 
     @property
     def tDelay(self):
-        return self._tDelay
+        return self._nDelaySteps * self.tDt
 
     @property
     def nDelaySteps(self):
