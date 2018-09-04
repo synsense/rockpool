@@ -159,6 +159,20 @@ class CNNWeight(UserList):
             raise Exception("Unknown convolution mode")
         return padding
 
+    def _update_torch_layers(self):
+        import torch
+        import torch.nn as nn
+
+        with torch.no_grad():
+            self.pad = nn.ZeroPad2d(self.padding)
+            self.conv = nn.Conv2d(1, 1, kernel_size=kernel.shape, stride=self.strides)
+            # Set the correct weights
+            self.conv.weight.data = torch.from_numpy(
+                kernel[np.newaxis, np.newaxis, ...]
+            ).float()
+            # Set the correct biases
+            self.conv.bias.data = torch.from_numpy(np.zeros((1,))).float()
+
     def _do_convolve_2d_torch(self, bIndexReshaped, kernel):
         """
         Performs the actual convolution call of a 2D image with a 2D kernel, using torch
@@ -177,23 +191,35 @@ class CNNWeight(UserList):
         )
         self.padding = np.array(padding).flatten().tolist()
 
+        class TorchLayer(nn.Module):
+            def __init__(self, kernel, strides, padding):
+                super(TorchLayer, self).__init__()
+                self.pad = nn.ZeroPad2d(padding)
+                self.conv = nn.Conv2d(1, 1, kernel_size=kernel.shape, stride=strides)
+                # Set the correct weights
+                self.conv.weight.data = torch.from_numpy(
+                    kernel[np.newaxis, np.newaxis, ...]
+                ).float()
+                # Set the correct biases
+                self.conv.bias.data = torch.from_numpy(np.zeros((1,))).float()
+
+            def forward(self, tsrIndexReshaped):
+                tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
+                return tsrConvOut
+
         with torch.no_grad():
-            pad = nn.ZeroPad2d(self.padding)
-            conv = nn.Conv2d(1, 1, kernel_size=kernel.shape, stride=self.strides)
-            # Set the correct weights
-            conv.weight.data = torch.from_numpy(
-                kernel[np.newaxis, np.newaxis, ...]
-            ).float()
-            # Set the correct biases
-            conv.bias.data = torch.from_numpy(np.zeros((1,))).float()
+            device = torch.device("cpu")
+            torchlayer = TorchLayer(kernel, self.strides, self.padding)
 
             tsrIndexReshaped = torch.from_numpy(
                 bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
             ).float()
 
             # Do the convolution
-            tsrConvOut = conv(pad(tsrIndexReshaped))
-            mfConvOut = tsrConvOut.detach().numpy()
+            torchlayer.to(device)
+            tsrIndexReshaped = tsrIndexReshaped.to(device)
+            tsrConvOut = torchlayer(tsrIndexReshaped)
+            mfConvOut = tsrConvOut.cpu().numpy()
         return mfConvOut[0, 0]
 
     def __setitem__(self, index, value):
