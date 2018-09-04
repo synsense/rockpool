@@ -8,10 +8,10 @@
 import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
-from ..cnnweights import CNNWeight
+from .cnnweights import CNNWeight
 from ...timeseries import TSEvent
 from abc import abstractmethod
-from . import Layer
+from .. import Layer
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]

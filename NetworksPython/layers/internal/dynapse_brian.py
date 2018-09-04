@@ -17,7 +17,7 @@ from NetworksPython.timeseries import TSContinuous, TSEvent
 
 from NetworksPython.layers.layer import Layer
 
-from NetworksPython.layers.recurrent.timedarray_shift import TimedArray as TAShift
+from NetworksPython.layers import TimedArray as TAShift
 
 # - Teili
 from teili import Neurons as teiliNG, Connections as teiliSyn, teiliNetwork
