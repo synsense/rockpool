@@ -13,14 +13,14 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
 
 def test_raise_exception_on_incorrect_shape():
     """
     Test exception on size incompatibility
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight(inShape=(200, 200))
 
@@ -36,7 +36,7 @@ def test_raise_exception_on_undefined_shape():
     """
     Test exception on size incompatibility
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight()
 
@@ -53,7 +53,7 @@ def test_convolution_full_image():
     """
     Test convolution of full image
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight(inShape=(400, 400))
 
@@ -69,7 +69,7 @@ def test_convolutionl_nonzero_index():
     """
     Test convolution when the indexing is done by non-zero pixels
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight(inShape=(400, 400))
 
@@ -86,7 +86,7 @@ def test_data_format_channels_last():
     """
     Test indexing and output dimensions with channels last data format
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight(
         inShape=(400, 400, 1),
@@ -117,7 +117,7 @@ def test_data_format_channels_first():
     """
     Test indexing and output dimensions with channels last data format
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight(
         inShape=(1, 400, 400),
@@ -148,7 +148,7 @@ def test_strides_on_convolution():
     """
     Test the convolution upon a custom stride specified by user
     """
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     W = CNNWeight(
         inShape=(1, 10, 10),

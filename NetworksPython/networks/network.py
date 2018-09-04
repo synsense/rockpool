@@ -10,7 +10,7 @@ from copy import deepcopy
 from typing import Callable
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
-from ..layers.layer import Layer
+from ..layers import Layer
 
 
 # - Configure exports
