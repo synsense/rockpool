@@ -586,7 +586,7 @@ class PassThrough(FFRateEuler):
 
             # - Array for buffered and new data
             mfSamplesComb = np.zeros((vtTimeComb.size, self.nSizeIn))
-            nStepsIn = vtTimeIn.size
+            nStepsIn = vtTimeBase.size
 
             # - Buffered data: last point of buffer data corresponds to self.t,
             #   which is also part of current input
@@ -610,7 +610,7 @@ class PassThrough(FFRateEuler):
         self._nTimeStep += nNumTimeSteps
 
         # - Return time series with output data and bias
-        return TimeSeries(vtTimeIn, mfSamplesOut + self.vfBias)
+        return TimeSeries(vtTimeBase, mfSamplesOut + self.vfBias)
 
     def __repr__(self):
         return "PassThrough layer object `{}`.\nnSize: {}, nSizeIn: {}, tDelay: {}".format(
