@@ -94,13 +94,17 @@ class CNNWeight(UserList):
                             elif img_data_format == "channels_first":
                                 img = bIndexReshaped[nFeatureIndex]
                                 kern = kernel[nFeatureIndex]
-                            fmConvolutionFeature = self._do_convolve_2d(img, kern)
+                            # Do the convolution
+                            fmConvolutionFeature = self._do_convolve_2d_torch(img, kern)
                             if fmConvolution is None:
                                 fmConvolution = fmConvolutionFeature
                             else:
                                 fmConvolution += fmConvolutionFeature
                     else:
-                        fmConvolution = self._do_convolve_2d(bIndexReshaped, kernel)
+                        # Do the convolution
+                        fmConvolution = self._do_convolve_2d_torch(
+                            bIndexReshaped, kernel
+                        )
                     aConvolution.append(fmConvolution)
 
                 fmConvolution = np.array(aConvolution)
@@ -118,18 +122,38 @@ class CNNWeight(UserList):
         """
         Performs the actual convolution call of a 2D image with a 2D kernel
         """
-        try:
-            # Try the torch version
-            return self._do_convolve_2d_torch(bIndexReshaped, kernel)
-        except Exception as err:
-            raise err
-            # This is the function to modify for stride, padding and other parameters
-            mfConvOut = signal.convolve2d(
-                bIndexReshaped, kernel, mode=self.mode, boundary="fill"
-            )
-            # Subsample based on strides
-            mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
-            return mfConvOut
+        # This is the function to modify for stride, padding and other parameters
+        mfConvOut = signal.convolve2d(
+            bIndexReshaped, kernel, mode=self.mode, boundary="fill"
+        )
+
+        # Subsample based on strides
+        mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
+        return mfConvOut
+
+    def _calculatePadding(self, nDimSize, nKWidth, nStrideLength):
+        # Calculate necessary padding
+        if self.mode == "same":
+            # We need to calculate padding such that the input and output dimensions are the same
+            # Really only meaningful if stride length is 1, so we will ignore strides here
+            nStrides = 0
+            while True:
+                if nStrides * 1 + nKWidth >= nDimSize:
+                    break
+                else:
+                    nStrides += 1
+            # nStrides defines the dimensions of the output
+            if nStrides + 1 == nDimSize:
+                padding = 0
+            else:
+                padding = int(np.ceil((nDimSize - (nStrides + 1)) / 2))
+        elif self.mode == "valid":
+            padding = 0
+        elif self.mode == "full":
+            padding = nKWidth - 1
+        else:
+            raise Exception("Unknown convolution mode")
+        return padding
 
     def _do_convolve_2d_torch(self, bIndexReshaped, kernel):
         """
@@ -138,8 +162,23 @@ class CNNWeight(UserList):
         import torch
         import torch.nn as nn
 
-        conv = nn.Conv2d(1, 1, kernel_size=kernel.shape, stride=self.strides)
+        # Calculate necessary padding
+        padding = list(
+            map(
+                self._calculatePadding,
+                bIndexReshaped.shape,
+                self.kernel_size,
+                self.strides,
+            )
+        )
+
+        conv = nn.Conv2d(
+            1, 1, kernel_size=kernel.shape, stride=self.strides, padding=padding
+        )
+        # Set the correct weights
         conv.weight.data = torch.from_numpy(kernel[np.newaxis, np.newaxis, ...]).float()
+        # Set the correct biases
+        conv.bias.data = torch.from_numpy(np.zeros((1,))).float()
 
         tsrIndexReshaped = torch.from_numpy(
             bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
@@ -147,16 +186,10 @@ class CNNWeight(UserList):
 
         # Do the convolution
         tsrConvOut = conv(tsrIndexReshaped)
-        mfConvOut = tsrConvOut.detach().numpy()[0, 0]
-        return mfConvOut
+        mfConvOut = tsrConvOut.detach().numpy()
+        print(mfConvOut.shape)
 
-        ## This is the function to modify for stride, padding and other parameters
-        # mfConvOut = signal.convolve2d(
-        #    bIndexReshaped, kernel, mode=self.mode, boundary="fill"
-        # )
-        ## Subsample based on strides
-        # mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
-        # return mfConvOut
+        return mfConvOut[0, 0]
 
     def __setitem__(self, index, value):
         """
