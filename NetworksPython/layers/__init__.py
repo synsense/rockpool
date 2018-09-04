@@ -5,7 +5,12 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".layer": "Layer",
-    ".internal.iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian", "RecIAFBrian", "RecIAFSpkInBrian"),
+    ".internal.iaf_brian": (
+        "FFIAFBrian",
+        "FFIAFSpkInBrian",
+        "RecIAFBrian",
+        "RecIAFSpkInBrian",
+    ),
     ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
     ".internal.exp_synapses_brian": "FFExpSynBrian",
     ".internal.exp_synapses_manual": "FFExpSyn",
@@ -16,6 +21,20 @@ dModules = {
     ".internal.averagepooling": "AveragePooling2D",
     ".internal.iaf_digital": "RecDIAF",
     ".internal.spike_bt": "RecFSSpikeEulerBT",
+    ".internal.cnnweights": "CNNWeight",
+    ".internal.weights": (
+        "RndmSparseEINet",
+        "RandomEINet",
+        "WilsonCowanNet",
+        "WipeNonSwitchingEigs",
+        "UnitLambdaNet",
+        "DiscretiseWeightMatrix",
+        "DynapseConform",
+        "In_Res_Dynapse",
+        "digital",
+        "in_res_digital",
+        "IAFSparseNet",
+    ),
 }
 
 # - Define current package
