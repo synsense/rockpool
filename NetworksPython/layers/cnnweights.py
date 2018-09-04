@@ -144,11 +144,15 @@ class CNNWeight(UserList):
                     nStrides += 1
             # nStrides defines the dimensions of the output
             if nStrides + 1 == nDimSize:
-                padding = 0
+                padding = [0, 0]
             else:
-                padding = int(np.ceil((nDimSize - (nStrides + 1)) / 2))
+                padding = nDimSize - (nStrides + 1)
+                if padding % 2 == 0:
+                    padding = [int(padding / 2)] * 2
+                else:
+                    padding = [int(padding / 2), int(padding / 2) + 1]
         elif self.mode == "valid":
-            padding = 0
+            padding = [0, 0]
         elif self.mode == "full":
             padding = nKWidth - 1
         else:
@@ -171,24 +175,25 @@ class CNNWeight(UserList):
                 self.strides,
             )
         )
+        self.padding = np.array(padding).flatten().tolist()
 
-        conv = nn.Conv2d(
-            1, 1, kernel_size=kernel.shape, stride=self.strides, padding=padding
-        )
-        # Set the correct weights
-        conv.weight.data = torch.from_numpy(kernel[np.newaxis, np.newaxis, ...]).float()
-        # Set the correct biases
-        conv.bias.data = torch.from_numpy(np.zeros((1,))).float()
+        with torch.no_grad():
+            pad = nn.ZeroPad2d(self.padding)
+            conv = nn.Conv2d(1, 1, kernel_size=kernel.shape, stride=self.strides)
+            # Set the correct weights
+            conv.weight.data = torch.from_numpy(
+                kernel[np.newaxis, np.newaxis, ...]
+            ).float()
+            # Set the correct biases
+            conv.bias.data = torch.from_numpy(np.zeros((1,))).float()
 
-        tsrIndexReshaped = torch.from_numpy(
-            bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
-        ).float()
+            tsrIndexReshaped = torch.from_numpy(
+                bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
+            ).float()
 
-        # Do the convolution
-        tsrConvOut = conv(tsrIndexReshaped)
-        mfConvOut = tsrConvOut.detach().numpy()
-        print(mfConvOut.shape)
-
+            # Do the convolution
+            tsrConvOut = conv(pad(tsrIndexReshaped))
+            mfConvOut = tsrConvOut.detach().numpy()
         return mfConvOut[0, 0]
 
     def __setitem__(self, index, value):
