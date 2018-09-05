@@ -22,10 +22,10 @@ def test_raise_exception_on_incorrect_shape():
     """
     from NetworksPython.layers import CNNWeightTorch
 
-    W = CNNWeightTorch(inShape=(200, 200))
+    W = CNNWeightTorch(inShape=(1, 200, 200), img_data_format="channels_first")
 
     # Create an image
-    myImg = np.random.rand(400, 400) > 0.999
+    myImg = np.random.rand(1, 400, 400) > 0.999
 
     # Test indexing with entire image
     with pytest.raises(ValueError):
@@ -55,10 +55,10 @@ def test_convolution_full_image():
     """
     from NetworksPython.layers import CNNWeightTorch
 
-    W = CNNWeightTorch(inShape=(400, 400))
+    W = CNNWeightTorch(inShape=(1, 400, 400), img_data_format="channels_first")
 
     # Create an image
-    myImg = np.random.rand(400, 400) > 0.999
+    myImg = np.random.rand(1, 400, 400) > 0.999
 
     # Test indexing with entire image
     outConv = W[myImg]
@@ -71,7 +71,7 @@ def test_convolutionl_nonzero_index():
     """
     from NetworksPython.layers import CNNWeightTorch
 
-    W = CNNWeightTorch(inShape=(400, 400))
+    W = CNNWeightTorch(inShape=(400, 400, 1))
 
     # Create an image
     myImg = np.random.rand(400, 400) > 0.999
@@ -160,3 +160,21 @@ def test_strides_on_convolution():
     )
 
     assert W.outShape == (3, 5, 2)
+
+
+def test_strides_on_convolution_channels_last():
+    """
+    Test the convolution upon a custom stride specified by user
+    """
+    from NetworksPython.layers import CNNWeightTorch
+
+    W = CNNWeightTorch(
+        inShape=(10, 10, 1),
+        nKernels=3,
+        kernel_size=(2, 2),
+        strides=(2, 5),
+        mode="valid",
+        img_data_format="channels_last",
+    )
+
+    assert W.outShape == (5, 2, 3)

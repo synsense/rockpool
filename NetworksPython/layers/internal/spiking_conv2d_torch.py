@@ -7,7 +7,7 @@ import torch.nn as nn
 
 
 class TorchLayer(nn.Module):
-    def __init__(self, kernel, strides, padding, img_data_format="channel_last"):
+    def __init__(self, kernel, strides, padding, img_data_format="channels_last"):
         """
         PyTorch Layer that does convolution
         :param kernel: numpy array kernel weights
@@ -68,7 +68,7 @@ class CNNWeightTorch(UserList):
         CNNWeight class is virtual array that allows convolutions on the input through indexing
         :param inShape:     tuple Shape of input
         :param nKernels:    int No. of kernels for this convolutial weight matrix
-        :param kernel_size: tuple Shape of each kernel
+        :param kernel_size: tuple Shape of each kernel, eg (5,5)
         :param strides:     tuple strides in each dimension for convolution
         :param mode:        str 'same' or 'valid' or 'full'
         :param img_data_format: str 'channels_first' or 'channels_last'
@@ -78,14 +78,16 @@ class CNNWeightTorch(UserList):
         If left undefine/None, the input dimension is inferred from input dimensions, if the data is binary.
         If it is an integer index, then an IndexError is raised
         """
+        # Initialize placeholder variables
+        self.data = None  # Initialized when inShape is assigned
+        self._inShape = None
+        # Set parameters from the initialization
         self.nKernels = nKernels
         self.kernel_size = kernel_size
         self.strides = strides
         self.img_data_format = img_data_format
         self.mode = mode
-        self.data = None  # Initialized when inShape is assigned
-        self._inShape = None
-        self.inShape = inShape
+        self.inShape = inShape  # This will initialize the weights
         self.ndim = 2  # Because the input and output is always flattened
 
     def __len__(self):
@@ -116,17 +118,27 @@ class CNNWeightTorch(UserList):
                 # Reshape input
                 bIndex = index
                 bIndexReshaped = bIndex.reshape(self.inShape)
-                if self.inShape is None:
-                    self.inShape == bIndexReshaped.shape
+                # Ensure that the shape of input and this layer match
+                assert self.inShape == bIndexReshaped.shape
 
                 # The actual convolution happens here
                 if bIndexReshaped.ndim == 3:
-                    tsrConvolution = self.torchLyr(bIndexReshaped)
+
+                    # Convert input to torch tensor
+                    tsrIndexReshaped = torch.from_numpy(
+                        bIndexReshaped.astype(float)
+                    ).float()
+                    if self.img_data_format == "channels_last":
+                        tsrIndexReshaped = tsrIndexReshaped.unsqueeze(-1)
+                    elif self.img_data_format == "channels_first":
+                        tsrIndexReshaped = tsrIndexReshaped.unsqueeze(0)
+                    print(tsrIndexReshaped.shape)
+                    tsrConvolution = self.lyrTorch(tsrIndexReshaped)
                 else:
                     # Do the convolution
                     raise Exception("Incorrect dimensions")
 
-                fmConvolution = tsrConvolution.numpy()
+                fmConvolution = tsrConvolution.detach().numpy()
                 return fmConvolution.flatten()
             else:
                 raise TypeError("Indices should be of type [bool]")
@@ -136,6 +148,8 @@ class CNNWeightTorch(UserList):
             raise e
 
     def _calculatePadding(self, nDimSize, nKWidth, nStrideLength):
+        print(nDimSize, nKWidth, nStrideLength)
+
         # Calculate necessary padding
         if self.mode == "same":
             # We need to calculate padding such that the input and output dimensions are the same
@@ -164,32 +178,38 @@ class CNNWeightTorch(UserList):
         return padding
 
     def _update_torch_layer(self):
+        # Determine input image shape
+        if self.img_data_format == "channels_last":
+            vImgShape = self.inShape[:2]
+        elif self.img_data_format == "channels_first":
+            vImgShape = self.inShape[-2:]
         # Calculate necessary padding
         padding = list(
-            map(
-                self._calculatePadding,
-                bIndexReshaped.shape,
-                self.kernel_size,
-                self.strides,
-            )
+            map(self._calculatePadding, vImgShape, self.kernel_size, self.strides)
         )
         self.padding = np.array(padding).flatten().tolist()
-        self.lyrTorch = TorchLayer(self.data, self.strides, self.padding)
+        self.lyrTorch = TorchLayer(
+            self.data.astype(float),
+            self.strides,
+            self.padding,
+            img_data_format=self.img_data_format,
+        )
 
-        with torch.no_grad():
-            device = torch.device("cpu")
-            torchlayer = TorchLayer(kernel, self.strides, self.padding)
-
-            tsrIndexReshaped = torch.from_numpy(
-                bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
-            ).float()
-
-            # Do the convolution
-            torchlayer.to(device)
-            tsrIndexReshaped = tsrIndexReshaped.to(device)
-            tsrConvOut = torchlayer(tsrIndexReshaped)
-            mfConvOut = tsrConvOut.cpu().numpy()
-        return mfConvOut[0, 0]
+    #    def _do_your_thing(self):
+    #        with torch.no_grad():
+    #            device = torch.device("cpu")
+    #            torchlayer = TorchLayer(kernel, self.strides, self.padding)
+    #
+    #            tsrIndexReshaped = torch.from_numpy(
+    #                bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
+    #            ).float()
+    #
+    #            # Do the convolution
+    #            torchlayer.to(device)
+    #            tsrIndexReshaped = tsrIndexReshaped.to(device)
+    #            tsrConvOut = torchlayer(tsrIndexReshaped)
+    #            mfConvOut = tsrConvOut.cpu().numpy()
+    #        return mfConvOut[0, 0]
 
     def __setitem__(self, index, value):
         """
@@ -212,24 +232,16 @@ class CNNWeightTorch(UserList):
     @property
     def outShape(self):
         if self._outShape is None:
+            # create fake data
+            tsrImg = torch.rand(self.inShape)
             if self.img_data_format == "channels_last":
-                self._outShape = (
-                    *(
-                        self._do_convolve_2d(
-                            np.zeros(self.inShape[:2]), np.zeros(self.kernel_size)
-                        ).shape
-                    ),
-                    self.nKernels,
-                )
+                tsrImg = tsrImg.unsqueeze(-1)
+                tsrOutImg = self.lyrTorch(tsrImg)
+                self._outShape = tsrOutImg.shape[:-1]
             if self.img_data_format == "channels_first":
-                self._outShape = (
-                    self.nKernels,
-                    *(
-                        self._do_convolve_2d(
-                            np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)
-                        ).shape
-                    ),
-                )
+                tsrImg = tsrImg.unsqueeze(0)
+                tsrOutImg = self.lyrTorch(tsrImg)
+                self._outShape = tsrOutImg.shape[1:]
         return self._outShape
 
     @property
@@ -242,9 +254,12 @@ class CNNWeightTorch(UserList):
         Set the variable inShape and initialize a corresponding kernel
         """
         if inShape is None:
-            inShape = []
+            return  # There is nothing to do
         if inShape == self._inShape:
             return  # No change
+
+        # (No. of channels, hight, width in the order of img_data_format)
+        assert len(inShape) == 3
         self._inShape = inShape
         self._outShape = None
         self.initialize_weights()
@@ -266,25 +281,5 @@ class CNNWeightTorch(UserList):
             self.data = np.random.rand(
                 self.nKernels, *self.inShape[:-2], *self.kernel_size
             )  # Kernel
-
-    def reverse_dot(self, vnInput):
-        """
-        Each element of vnInput corresponds to the number of input
-        spikes from the respective channel. The method will return
-        the sum of the corresponding weights, summed by the number
-        of spikes.
-        This yields the same result as a dot product vnInput @ M,
-        where M is a matrix representing the weights.
-        """
-        vnInput = np.array(vnInput).flatten()
-        assert vnInput.size == self.shape[0], "Input vector must be of size {}".format(
-            self.shape[0]
-        )
-        # - Collect the respective weights, multiply them by the number of
-        #   spikes and add them up
-        return np.sum(
-            (
-                nNumSpikes * self[iNeuronID]  # Multiply weights with spike counts
-                for iNeuronID, nNumSpikes in enumerate(vnInput)
-            )
-        )
+        # Initialize an updated torch layer with the updated weights
+        self._update_torch_layer()
