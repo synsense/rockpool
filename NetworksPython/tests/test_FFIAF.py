@@ -11,9 +11,9 @@ sys.path.insert(1, strNetworkPath)
 
 
 # def test_imports():
-#    from NetworksPython.layers.internal import iaf_brian
+#    from NetworksPython.layers import iaf_brian
 #
-#    # from NetworksPython.layers.internal import iaf_brian
+#    # from NetworksPython.layers import iaf_brian
 
 
 def test_ffiaf():

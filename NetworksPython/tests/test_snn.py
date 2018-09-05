@@ -21,7 +21,7 @@ def test_cnn_initialization():
     Test initialization of the layer
     """
     from NetworksPython.layers import FFCLIAF
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
@@ -36,7 +36,7 @@ def test_cnn_evolve():
     """
     from NetworksPython import TSEvent
     from NetworksPython.layers import FFCLIAF
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
@@ -60,7 +60,7 @@ def test_cnn_multilayer():
     """
     from NetworksPython import TSEvent, Network
     from NetworksPython.layers import FFCLIAF
-    from NetworksPython.layers.cnnweights import CNNWeight
+    from NetworksPython.layers import CNNWeight
 
     # Parameters
     imageShape = (10, 10)
@@ -202,7 +202,7 @@ def test_cliaf_evolve_resetting():
 #    '''
 #    Test exception on size incompatibility
 #    '''
-#    from NetworksPython.layers.cnnweights import CNNWeight
+#    from NetworksPython.layers import CNNWeight
 #
 #    W = CNNWeight(inShape=(200,200))
 #

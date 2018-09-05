@@ -10,8 +10,8 @@ import skimage.measure
 from ...timeseries import TSEvent
 
 # from ..layer import Layer
-from ..iaf_cl import CLIAF
-from ..cnnweights import CNNWeight
+from .iaf_cl import CLIAF
+from .cnnweights import CNNWeight
 
 
 class AveragePooling2D(CLIAF):
