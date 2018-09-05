@@ -1,3 +1,7 @@
+import importlib
+from warnings import warn
+
+
 from .layer import Layer
 from .iaf_cl import CLIAF
 
@@ -11,11 +15,7 @@ from .gpl import *
 dModules = {}
 
 # - Define current package
-strBasePackage = "NetworksPython.layers.internal"
-
-
-# - Initialise list of available modules
-__all__ = []
+strBasePackage = "NetworksPython.layers"
 
 # - Loop over submodules to attempt import
 for strModule, classnames in dModules.items():

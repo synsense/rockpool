@@ -11,6 +11,8 @@ from .cnnweights import CNNWeight
 from ..timeseries import TSEvent
 from . import Layer
 
+from . import CNNWeightTorch
+
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -191,7 +193,7 @@ class CLIAF(Layer):
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
-        if isinstance(mfNewW, CNNWeight):
+        if isinstance(mfNewW, CNNWeight) or isinstance(mfNewW, CNNWeightTorch):
             assert mfNewW.shape == (self.nSizeIn, self.nSize)
             self._mfWIn = mfNewW
         else:
