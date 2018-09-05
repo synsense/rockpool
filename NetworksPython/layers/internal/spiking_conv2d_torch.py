@@ -1,11 +1,60 @@
 import numpy as np
 import warnings
-from scipy import signal
 from collections import UserList
 from functools import reduce
+import torch
+import torch.nn as nn
 
 
-class CNNWeight(UserList):
+class TorchLayer(nn.Module):
+    def __init__(self, kernel, strides, padding, img_data_format="channel_last"):
+        """
+        PyTorch Layer that does convolution
+        :param kernel: numpy array kernel weights
+        :param strides: tuple strides along each axis
+        :param padding: padding along each axis
+        :param img_data_format: str 'channels_first' or 'channels_last'
+        """
+        super(TorchLayer, self).__init__()
+
+        self.img_data_format = img_data_format  # Expected image data format
+
+        # Determine input and output channel numbers
+        if img_data_format == "channels_last":
+            nInChannels, nOutChannels = kernel.shape[-2:]
+            kernel_size = kernel.shape[:2]
+            kernel = kernel.transpose((3, 2, 0, 1))
+        elif img_data_format == "channels_first":
+            nOutChannels, nInChannels = kernel.shape[:2]
+            kernel_size = kernel.shape[2:]
+
+        self.pad = nn.ZeroPad2d(padding)
+        self.conv = nn.Conv2d(
+            nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
+        )
+        # Set the correct weights
+        self.conv.weight.data = torch.from_numpy(kernel).float()
+        # Set the correct biases
+        # TODO: replace with actual biases
+        self.conv.bias.data = torch.from_numpy(np.zeros((nOutChannels,))).float()
+
+    def forward(self, tsrIndexReshaped):
+        # Restructure input
+        if self.img_data_format == "channels_last":
+            tsrIndexReshaped = tsrIndexReshaped.permute((3, 2, 0, 1))
+        elif self.img_data_format == "channels_first":
+            pass
+        tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
+
+        # Restructure output
+        if self.img_data_format == "channels_last":
+            tsrConvOut = tsrConvOut.permute((2, 3, 1, 0))
+        elif self.img_data_format == "channels_first":
+            pass
+        return tsrConvOut
+
+
+class CNNWeightTorch(UserList):
     def __init__(
         self,
         inShape=None,
@@ -52,8 +101,6 @@ class CNNWeight(UserList):
         # NOTE: This approach is optimal when there is dense spiking activity.
         # If this is used on a per spike basis, the simulations will be pretty
         # slow. So this will need some optimization
-        img_data_format = self.img_data_format  # Local variable
-        data = self.data  # Local variable
         try:
             if (type(index) is int) or (type(index) is list):
                 # indexed by integer
@@ -73,41 +120,13 @@ class CNNWeight(UserList):
                     self.inShape == bIndexReshaped.shape
 
                 # The actual convolution happens here
-                aConvolution = []
-                # Convolve each kernel individually
-                for nKernelIndex in range(self.nKernels):
-                    if img_data_format == "channels_last":
-                        kernel = data[..., nKernelIndex]
-                    elif img_data_format == "channels_first":
-                        kernel = data[nKernelIndex]
-                    fmConvolution = None  # Reset value
-                    if bIndexReshaped.ndim == 3:
-                        if img_data_format == "channels_last":
-                            nFeatureMaps = bIndexReshaped.shape[-1]
-                        elif img_data_format == "channels_first":
-                            nFeatureMaps = bIndexReshaped.shape[0]
-                        # Convolve each feature of input individually
-                        for nFeatureIndex in range(nFeatureMaps):
-                            if img_data_format == "channels_last":
-                                img = bIndexReshaped[..., nFeatureIndex]
-                                kern = kernel[..., nFeatureIndex]
-                            elif img_data_format == "channels_first":
-                                img = bIndexReshaped[nFeatureIndex]
-                                kern = kernel[nFeatureIndex]
-                            # Do the convolution
-                            fmConvolutionFeature = self._do_convolve_2d(img, kern)
-                            if fmConvolution is None:
-                                fmConvolution = fmConvolutionFeature
-                            else:
-                                fmConvolution += fmConvolutionFeature
-                    else:
-                        # Do the convolution
-                        fmConvolution = self._do_convolve_2d(bIndexReshaped, kernel)
-                    aConvolution.append(fmConvolution)
+                if bIndexReshaped.ndim == 3:
+                    tsrConvolution = self.torchLyr(bIndexReshaped)
+                else:
+                    # Do the convolution
+                    raise Exception("Incorrect dimensions")
 
-                fmConvolution = np.array(aConvolution)
-                if img_data_format == "channels_last":
-                    fmConvolution = np.moveaxis(fmConvolution, 0, -1)
+                fmConvolution = tsrConvolution.numpy()
                 return fmConvolution.flatten()
             else:
                 raise TypeError("Indices should be of type [bool]")
@@ -116,18 +135,61 @@ class CNNWeight(UserList):
         except IndexError as e:
             raise e
 
-    def _do_convolve_2d(self, bIndexReshaped, kernel):
-        """
-        Performs the actual convolution call of a 2D image with a 2D kernel
-        """
-        # This is the function to modify for stride, padding and other parameters
-        mfConvOut = signal.convolve2d(
-            bIndexReshaped, kernel, mode=self.mode, boundary="fill"
-        )
+    def _calculatePadding(self, nDimSize, nKWidth, nStrideLength):
+        # Calculate necessary padding
+        if self.mode == "same":
+            # We need to calculate padding such that the input and output dimensions are the same
+            # Really only meaningful if stride length is 1, so we will ignore strides here
+            nStrides = 0
+            while True:
+                if nStrides * 1 + nKWidth >= nDimSize:
+                    break
+                else:
+                    nStrides += 1
+            # nStrides defines the dimensions of the output
+            if nStrides + 1 == nDimSize:
+                padding = [0, 0]
+            else:
+                padding = nDimSize - (nStrides + 1)
+                if padding % 2 == 0:
+                    padding = [int(padding / 2)] * 2
+                else:
+                    padding = [int(padding / 2), int(padding / 2) + 1]
+        elif self.mode == "valid":
+            padding = [0, 0]
+        elif self.mode == "full":
+            padding = nKWidth - 1
+        else:
+            raise Exception("Unknown convolution mode")
+        return padding
 
-        # Subsample based on strides
-        mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
-        return mfConvOut
+    def _update_torch_layer(self):
+        # Calculate necessary padding
+        padding = list(
+            map(
+                self._calculatePadding,
+                bIndexReshaped.shape,
+                self.kernel_size,
+                self.strides,
+            )
+        )
+        self.padding = np.array(padding).flatten().tolist()
+        self.lyrTorch = TorchLayer(self.data, self.strides, self.padding)
+
+        with torch.no_grad():
+            device = torch.device("cpu")
+            torchlayer = TorchLayer(kernel, self.strides, self.padding)
+
+            tsrIndexReshaped = torch.from_numpy(
+                bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
+            ).float()
+
+            # Do the convolution
+            torchlayer.to(device)
+            tsrIndexReshaped = tsrIndexReshaped.to(device)
+            tsrConvOut = torchlayer(tsrIndexReshaped)
+            mfConvOut = tsrConvOut.cpu().numpy()
+        return mfConvOut[0, 0]
 
     def __setitem__(self, index, value):
         """
