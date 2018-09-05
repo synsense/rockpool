@@ -79,7 +79,7 @@ class CNNWeightTorch(UserList):
         If it is an integer index, then an IndexError is raised
         """
         # Initialize placeholder variables
-        self.data = None  # Initialized when inShape is assigned
+        self._data = None  # Initialized when inShape is assigned
         self._inShape = None
         # Set parameters from the initialization
         self.nKernels = nKernels
@@ -147,8 +147,6 @@ class CNNWeightTorch(UserList):
             raise e
 
     def _calculatePadding(self, nDimSize, nKWidth, nStrideLength):
-        print(nDimSize, nKWidth, nStrideLength)
-
         # Calculate necessary padding
         if self.mode == "same":
             # We need to calculate padding such that the input and output dimensions are the same
@@ -193,22 +191,6 @@ class CNNWeightTorch(UserList):
             self.padding,
             img_data_format=self.img_data_format,
         )
-
-    #    def _do_your_thing(self):
-    #        with torch.no_grad():
-    #            device = torch.device("cpu")
-    #            torchlayer = TorchLayer(kernel, self.strides, self.padding)
-    #
-    #            tsrIndexReshaped = torch.from_numpy(
-    #                bIndexReshaped[np.newaxis, np.newaxis, ...].astype(float)
-    #            ).float()
-    #
-    #            # Do the convolution
-    #            torchlayer.to(device)
-    #            tsrIndexReshaped = tsrIndexReshaped.to(device)
-    #            tsrConvOut = torchlayer(tsrIndexReshaped)
-    #            mfConvOut = tsrConvOut.cpu().numpy()
-    #        return mfConvOut[0, 0]
 
     def __setitem__(self, index, value):
         """
@@ -282,3 +264,13 @@ class CNNWeightTorch(UserList):
             )  # Kernel
         # Initialize an updated torch layer with the updated weights
         self._update_torch_layer()
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, mfWNewData):
+        self._data = mfWNewData
+        self._update_torch_layer()
+        return

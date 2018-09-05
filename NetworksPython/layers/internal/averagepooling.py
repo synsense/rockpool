@@ -74,15 +74,11 @@ class AveragePooling2D(CLIAF):
         mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
         )
-        print(np.sum(mfInptSpikeRaster))
-
-        # Do average pooling here
-        print(mfInptSpikeRaster.shape)
 
         # Reshape input data
         mfInptSpikeRaster = mfInptSpikeRaster.reshape((-1, *self.mfW.inShape))
-        print(mfInptSpikeRaster.shape)
 
+        # Do average pooling here
         if self.img_data_format == "channels_last":
             mbOutRaster = skimage.measure.block_reduce(
                 mfInptSpikeRaster, (1, *self.pool_size, 1), np.sum
@@ -91,11 +87,9 @@ class AveragePooling2D(CLIAF):
             mbOutRaster = skimage.measure.block_reduce(
                 mfInptSpikeRaster, (1, 1, *self.pool_size, 1), np.sum
             )
-        print(mbOutRaster.shape)
 
         # Reshape the output to flat indices
         mbOutRaster = mbOutRaster.reshape((-1, self.nSize))
-        print(mbOutRaster.shape)
 
         # Convert raster to indices
         ltSpikeTimes, liSpikeIDs = np.nonzero(mbOutRaster)
@@ -104,8 +98,6 @@ class AveragePooling2D(CLIAF):
         tseOut = TSEvent(
             vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
         )
-
-        print(np.sum(mfInptSpikeRaster), np.sum(mbOutRaster))
 
         # Update time
         self._t += self.tDt * nNumTimeSteps
