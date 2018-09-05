@@ -132,7 +132,6 @@ class CNNWeightTorch(UserList):
                         tsrIndexReshaped = tsrIndexReshaped.unsqueeze(-1)
                     elif self.img_data_format == "channels_first":
                         tsrIndexReshaped = tsrIndexReshaped.unsqueeze(0)
-                    print(tsrIndexReshaped.shape)
                     tsrConvolution = self.lyrTorch(tsrIndexReshaped)
                 else:
                     # Do the convolution
