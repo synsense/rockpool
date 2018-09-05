@@ -1,5 +1,5 @@
 ###
-# iaf_brian.py - Class implementing an IAF simple feed-forward layer in Brian
+# iaf_brian.py - Classes implementing recurrent and feedforward layers consisting of standard IAF neurons in brian2
 ###
 
 
@@ -20,10 +20,21 @@ from typing import Optional, Union, Tuple, List
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
-__all__ = ["FFIAFBrian", "eqNeuronIAF"]
+__all__ = [
+    "FFIAFBrian",
+    "FFIAFSpkInBrian",
+    "RecIAFBrian",
+    "RecIAFSpkInBrian",
+    "eqNeuronIAFFF",
+    "eqNeuronIAFSpkInFF",
+    "eqNeuronIAFRec",
+    "eqNeuronIAFSpkInRec",
+    "eqSynapseExp",
+    "eqSynapseExpSpkInRec"
+]
 
-# - Equations for an integrate-and-fire neuron
-eqNeuronIAF = b2.Equations(
+# - Equations for an integrate-and-fire neuron, ff-layer, analogue external input
+eqNeuronIAFFF = b2.Equations(
     """
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
@@ -36,7 +47,8 @@ eqNeuronIAF = b2.Equations(
 """
 )
 
-eqNeuronIAFSpkIn = b2.Equations(
+# - Equations for an integrate-and-fire neuron, ff-layer, spiking external input
+eqNeuronIAFSpkInFF = b2.Equations(
     """
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_syn + I_bias + I_inp(t, i)          : amp                       # Total input current
@@ -51,8 +63,22 @@ eqNeuronIAFSpkIn = b2.Equations(
 """
 )
 
-# - Equations for an integrate-and-fire neuron, recurrent and external input spikes
-eqNeuronIAF2 = b2.Equations(
+# - Equations for an integrate-and-fire neuron, recurrent layer, analogue external input
+eqNeuronIAFRec = b2.Equations(
+   """
+   dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
+   I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
+   I_bias                                          : amp                       # Per-neuron bias current
+   v_rest                                          : volt                      # Rest potential
+   tau_m                                           : second                    # Membrane time constant
+   r_m                                             : ohm                       # Membrane resistance
+   v_thresh                                        : volt                      # Firing threshold potential
+   v_reset                                         : volt                      # Reset potential
+"""
+)
+
+# - Equations for an integrate-and-fire neuron, recurrent layer, spiking external input
+eqNeuronIAFSpkInRec = b2.Equations(
     """
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
@@ -66,7 +92,7 @@ eqNeuronIAF2 = b2.Equations(
 """
 )
 
-# - Equations for an exponential synapse
+# - Equations for an exponential synapse - used for RecIAFBrian
 eqSynapseExp = b2.Equations(
     """
     dI_syn/dt = -I_syn / tau_s                      : amp                       # Synaptic current
@@ -74,8 +100,8 @@ eqSynapseExp = b2.Equations(
 """
 )
 
-# - Equations for two exponential synapses (external input and recurrent)
-eqSynapseExp2 = b2.Equations(
+# - Equations for two exponential synapses (spiking external input and recurrent) for RecIAFSpkInBrian
+eqSynapseExpSpkInRec = b2.Equations(
     """
     dI_syn_inp/dt = -I_syn_inp / tau_syn_inp        : amp                       # Synaptic current, input synapses
     dI_syn_rec/dt = -I_syn_rec / tau_syn_rec        : amp                       # Synaptic current, recurrent synapses
@@ -103,7 +129,7 @@ class FFIAFBrian(Layer):
         vfVReset: Union[float, np.ndarray] = -65 * mV,
         vfVRest: Union[float, np.ndarray] = -65 * mV,
         tRefractoryTime=0 * ms,
-        eqNeurons=eqNeuronIAF,
+        eqNeurons=eqNeuronIAFFF,
         strIntegrator: str = "rk4",
         strName: str = "unnamed",
     ):
@@ -449,7 +475,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vfVReset: np.ndarray = -65 * mV,
         vfVRest: np.ndarray = -65 * mV,
         tRefractoryTime=0 * ms,
-        eqNeurons=eqNeuronIAFSpkIn,
+        eqNeurons=eqNeuronIAFSpkInFF,
         strIntegrator: str = "rk4",
         strName: str = "unnamed",
         bRecord: bool = False,
@@ -859,7 +885,7 @@ class RecIAFBrian(Layer):
         vfVReset: Union[float, np.ndarray] = -65 * mV,
         vfVRest: Union[float, np.ndarray] = -65 * mV,
         tRefractoryTime=0 * ms,
-        eqNeurons=eqNeuronIAF,
+        eqNeurons=eqNeuronIAFRec,
         eqSynRecurrent=eqSynapseExp,
         strIntegrator: str = "rk4",
         strName: str = "unnamed",
@@ -921,7 +947,7 @@ class RecIAFBrian(Layer):
         )
         self._sgRecurrentSynapses.connect()
 
-        # - Add current monitors to record layer outputs
+        # - Add spike monitor to record layer outputs
         self._spmReservoir = b2.SpikeMonitor(
             self._ngLayer, record=True, name="layer_spikes"
         )
@@ -1190,8 +1216,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
         vfVReset: np.ndarray = -65 * mV,
         vfVRest: np.ndarray = -65 * mV,
         tRefractoryTime=0 * ms,
-        eqNeurons=eqNeuronIAF2,
-        eqSynapses=eqSynapseExp2,
+        eqNeurons=eqNeuronIAFSpkInRec,
+        eqSynapses=eqSynapseExpSpkInRec,
         strIntegrator: str = "rk4",
         strName: str = "unnamed",
         bRecord: bool = False,
