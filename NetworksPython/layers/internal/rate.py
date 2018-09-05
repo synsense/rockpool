@@ -677,6 +677,12 @@ class RecRateEuler(Layer):
         # - Call super-class init
         super().__init__(mfW=mfW, strName=strName)
 
+        # - Check size and shape of `mfW`
+        assert len(mfW.shape) == 2, \
+            '`mfW` must be a matrix with 2 dimensions'
+        assert mfW.shape[0] == mfW.shape[1], \
+            '`mfW` must be a square matrix'
+
         # - Assign properties
         self.vfBias = vfBias
         self.vtTau = vtTau
