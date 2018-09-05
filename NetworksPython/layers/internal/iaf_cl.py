@@ -28,7 +28,7 @@ class CLIAF(Layer):
 
     def __init__(
         self,
-        mfWIn: Union[np.ndarray, CNNWeight],
+        mfWIn: Union[np.ndarray, CNNWeight, CNNWeightTorch],
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
@@ -359,7 +359,7 @@ class FFCLIAF(CLIAF):
         vfVReset = self.vfVReset
 
         # - Check type of mfWIn
-        bCNNWeights = isinstance(mfWIn, CNNWeight)
+        bCNNWeights = isinstance(mfWIn, CNNWeight) or isinstance(mfWIn, CNNWeightTorch)
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
         # - Count number of spikes for each neuron in each time step
@@ -545,7 +545,7 @@ class RecCLIAF(CLIAF):
         vfVReset = self.vfVReset
 
         # - Check type of mfWIn
-        bCNNWeights = isinstance(mfWIn, CNNWeight)
+        bCNNWeights = isinstance(mfWIn, CNNWeight) or isinstance(mfWIn, CNNWeightTorch)
         # - Number of spike sources (input neurons and layer neurons)
         nSpikeSources = self.nSizeIn + self.nSize
         # - Count number of spikes for each neuron in each time step
