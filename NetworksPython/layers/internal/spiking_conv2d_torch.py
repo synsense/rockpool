@@ -39,18 +39,20 @@ class TorchLayer(nn.Module):
         self.conv.bias.data = torch.from_numpy(np.zeros((nOutChannels,))).float()
 
     def forward(self, tsrIndexReshaped):
-        # Restructure input
-        if self.img_data_format == "channels_last":
-            tsrIndexReshaped = tsrIndexReshaped.permute((3, 2, 0, 1))
-        elif self.img_data_format == "channels_first":
-            pass
-        tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
+        # This will always only be used for inference
+        with torch.no_grad():
+            # Restructure input
+            if self.img_data_format == "channels_last":
+                tsrIndexReshaped = tsrIndexReshaped.permute((3, 2, 0, 1))
+            elif self.img_data_format == "channels_first":
+                pass
+            tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
 
-        # Restructure output
-        if self.img_data_format == "channels_last":
-            tsrConvOut = tsrConvOut.permute((2, 3, 1, 0))
-        elif self.img_data_format == "channels_first":
-            pass
+            # Restructure output
+            if self.img_data_format == "channels_last":
+                tsrConvOut = tsrConvOut.permute((2, 3, 1, 0))
+            elif self.img_data_format == "channels_first":
+                pass
         return tsrConvOut
 
 
@@ -81,6 +83,9 @@ class CNNWeightTorch(UserList):
         # Initialize placeholder variables
         self._data = None  # Initialized when inShape is assigned
         self._inShape = None
+        self.lyrTorch = None
+        # Determine if there is a gpu
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # Set parameters from the initialization
         self.nKernels = nKernels
         self.kernel_size = kernel_size
@@ -132,12 +137,15 @@ class CNNWeightTorch(UserList):
                         tsrIndexReshaped = tsrIndexReshaped.unsqueeze(-1)
                     elif self.img_data_format == "channels_first":
                         tsrIndexReshaped = tsrIndexReshaped.unsqueeze(0)
+                    # Move data to device
+                    tsrIndexReshaped = tsrIndexReshaped.to(self.device)
+                    # Do the convolution
                     tsrConvolution = self.lyrTorch(tsrIndexReshaped)
                 else:
                     # Do the convolution
                     raise Exception("Incorrect dimensions")
 
-                fmConvolution = tsrConvolution.detach().numpy()
+                fmConvolution = tsrConvolution.cpu().numpy()
                 return fmConvolution.flatten()
             else:
                 raise TypeError("Indices should be of type [bool]")
@@ -185,12 +193,15 @@ class CNNWeightTorch(UserList):
             map(self._calculatePadding, vImgShape, self.kernel_size, self.strides)
         )
         self.padding = np.array(padding).flatten().tolist()
+        del self.lyrTorch  # Free memory
         self.lyrTorch = TorchLayer(
             self.data.astype(float),
             self.strides,
             self.padding,
             img_data_format=self.img_data_format,
         )
+        # Move to appropriate device
+        self.lyrTorch.to(self.device)
 
     def __setitem__(self, index, value):
         """
@@ -216,11 +227,11 @@ class CNNWeightTorch(UserList):
             # create fake data
             tsrImg = torch.rand(self.inShape)
             if self.img_data_format == "channels_last":
-                tsrImg = tsrImg.unsqueeze(-1)
+                tsrImg = tsrImg.unsqueeze(-1).to(self.device)
                 tsrOutImg = self.lyrTorch(tsrImg)
                 self._outShape = tsrOutImg.shape[:-1]
             if self.img_data_format == "channels_first":
-                tsrImg = tsrImg.unsqueeze(0)
+                tsrImg = tsrImg.unsqueeze(0).to(self.device)
                 tsrOutImg = self.lyrTorch(tsrImg)
                 self._outShape = tsrOutImg.shape[1:]
         return self._outShape

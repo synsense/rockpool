@@ -118,7 +118,7 @@ class CLIAF(Layer):
             mfSpikeRaster:    ndarray Boolean raster containing spike info
             nNumTimeSteps:    int Number of evlution time steps
         """
-
+        print("Preparing input for processing")
         if nNumTimeSteps is None:
             # - Determine nNumTimeSteps
             if tDuration is None:
@@ -168,6 +168,7 @@ class CLIAF(Layer):
         else:
             mfSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn), bool)
 
+        print("Done preparing input!")
         return mfSpikeRaster, nNumTimeSteps
 
     def reset_time(self):
