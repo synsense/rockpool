@@ -9,6 +9,7 @@ import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
 from .cnnweights import CNNWeight
+from .spiking_conv2d_torch import CNNWeightTorch
 from ...timeseries import TSEvent
 from abc import abstractmethod
 from .. import Layer
@@ -193,7 +194,7 @@ class CLIAF(Layer):
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
-        if isinstance(mfNewW, CNNWeight):
+        if isinstance(mfNewW, CNNWeight) or isinstance(mfNewW, CNNWeightTorch):
             assert mfNewW.shape == (self.nSizeIn, self.nSize)
             self._mfWIn = mfNewW
         else:
