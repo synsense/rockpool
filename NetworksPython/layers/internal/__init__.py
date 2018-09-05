@@ -15,6 +15,7 @@ dModules = {
     ".averagepooling": "AveragePooling2D",
     ".iaf_digital": "RecDIAF",
     ".spike_bt": "RecFSSpikeEulerBT",
+    ".spiking_conv2d_torch": "CNNWeightTorch",
 }
 
 # - Define current package
