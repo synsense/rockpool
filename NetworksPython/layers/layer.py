@@ -118,16 +118,16 @@ class Layer(ABC):
         # - Generate discrete time base
         vtTimeBase = self._gen_time_trace(self.t, nNumTimeSteps)
 
-        # - Make sure vtTimeBase matches tsInput
-        if isinstance(tsInput, TSContinuous):
-            if not tsInput.bPeriodic:
-                # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
-                if tsInput.tStart - 1e-3 * self.tDt <= vtTimeBase[0] <= tsInput.tStart:
-                    vtTimeBase[0] = tsInput.tStart
-                if tsInput.tStop <= vtTimeBase[-1] <= tsInput.tStop + 1e-3 * self.tDt:
-                    vtTimeBase[-1] = tsInput.tStop
-
+        if tsInput is not None:
+            # - Make sure vtTimeBase matches tsInput
             if not isinstance(tsInput, TSEvent):
+                if not tsInput.bPeriodic:
+                    # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
+                    if tsInput.tStart - 1e-3 * self.tDt <= vtTimeBase[0] <= tsInput.tStart:
+                        vtTimeBase[0] = tsInput.tStart
+                    if tsInput.tStop <= vtTimeBase[-1] <= tsInput.tStop + 1e-3 * self.tDt:
+                        vtTimeBase[-1] = tsInput.tStop
+
                 # - Warn if evolution period is not fully contained in tsInput
                 if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
                     print(
