@@ -7,11 +7,10 @@ import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
 from abc import abstractmethod
-from .cnnweights import CNNWeight
 from ..timeseries import TSEvent
 from . import Layer
-
 from . import CNNWeightTorch
+from . import CNNWeight
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]

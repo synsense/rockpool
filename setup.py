@@ -10,5 +10,12 @@ setup(
         "NetworksPython.layers.gpl",
     ],
     license="All rights reserved aiCTX AG",
+    install_requires=[
+        "numba",
+        "numpy",
+        "scipy",
+        "tqdm",
+        "brian2",
+    ],
     # long_description=open('README.txt').read(),
 )

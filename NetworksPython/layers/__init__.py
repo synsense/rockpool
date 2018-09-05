@@ -3,18 +3,47 @@ from warnings import warn
 
 
 from .layer import Layer
-from .iaf_cl import CLIAF
+
+# from .iaf_cl import CLIAF
 
 __all__ = ["Layer", "CLIAF"]
 
-from .internal import *
-from .gpl import *
-
-
 # - Dictionary {module file} -> {class name to import}
-dModules = {}
+dModules = {
+    ".layer": "Layer",
+    ".internal.iaf_brian": (
+        "FFIAFBrian",
+        "FFIAFSpkInBrian",
+        "RecIAFBrian",
+        "RecIAFSpkInBrian",
+    ),
+    ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
+    ".internal.exp_synapses_brian": "FFExpSynBrian",
+    ".internal.exp_synapses_manual": "FFExpSyn",
+    ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
+    ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
+    ".internal.iaf_cl_extd": "RecCLIAFExtd",
+    ".internal.softmaxlayer": "SoftMaxLayer",
+    ".internal.averagepooling": "AveragePooling2D",
+    ".internal.iaf_digital": "RecDIAF",
+    ".internal.spike_bt": "RecFSSpikeEulerBT",
+    ".internal.cnnweights": "CNNWeight",
+    ".internal.weights": (
+        "RndmSparseEINet",
+        "RandomEINet",
+        "WilsonCowanNet",
+        "WipeNonSwitchingEigs",
+        "UnitLambdaNet",
+        "DiscretiseWeightMatrix",
+        "DynapseConform",
+        "In_Res_Dynapse",
+        "digital",
+        "in_res_digital",
+        "IAFSparseNet",
+    ),
+    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
+}
 
-# - Define current package
 strBasePackage = "NetworksPython.layers"
 
 # - Loop over submodules to attempt import
