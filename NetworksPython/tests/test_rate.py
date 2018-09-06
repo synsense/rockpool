@@ -48,7 +48,7 @@ def test_FFRateEuler():
         fl1 = FFRateEuler(mfW = 1, vfBias = [1, 1])
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(mfW = 1, vfTau = [1, 1])
+        fl1 = FFRateEuler(mfW = 1, vtTau = [1, 1])
 
     with pytest.raises(AssertionError):
         fl1 = FFRateEuler(mfW = 1, vfGain = [1, 1])
