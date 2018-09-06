@@ -3,10 +3,10 @@ Test rate-based Euler models in rate.py
 """
 
 import numpy as np
+import pytest
 
 def test_imports():
    from NetworksPython.layers import FFRateEuler, RecRateEuler
-
 
 def test_FFRateEuler():
     """ Test FFRateEuler """
@@ -40,6 +40,18 @@ def test_FFRateEuler():
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
 
+    # - Test that some errors are caught
+    with pytest.raises(AssertionError):
+        fl1 = FFRateEuler(mfW = None)
+
+    with pytest.raises(AssertionError):
+        fl1 = FFRateEuler(mfW = 1, vfBias = [1, 1])
+
+    with pytest.raises(AssertionError):
+        fl1 = FFRateEuler(mfW = 1, vtTau = [1, 1])
+
+    with pytest.raises(AssertionError):
+        fl1 = FFRateEuler(mfW = 1, vfGain = [1, 1])
 
 def test_RecRateEuler():
     """ Test RecRateEuler """
@@ -72,4 +84,8 @@ def test_RecRateEuler():
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
+
+    # - Test that some errors are caught
+    with pytest.raises(AssertionError):
+        fl1 = RecRateEuler(mfW = np.zeros((1, 2)))
 
