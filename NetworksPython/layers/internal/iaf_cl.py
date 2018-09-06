@@ -20,6 +20,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 
+__all__ = ["FFCLIAF", "RecCLIAF"]
 
 class CLIAF(Layer):
     """
