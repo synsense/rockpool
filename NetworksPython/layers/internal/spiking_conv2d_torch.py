@@ -4,9 +4,13 @@ from collections import UserList
 from functools import reduce
 import torch
 import torch.nn as nn
+from typing import Optional, Union, List, Tuple
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 
-class TorchLayer(nn.Module):
+class TorchConv2dLayer(nn.Module):
     def __init__(self, kernel, strides, padding, img_data_format="channels_last"):
         """
         PyTorch Layer that does convolution
@@ -15,7 +19,7 @@ class TorchLayer(nn.Module):
         :param padding: padding along each axis
         :param img_data_format: str 'channels_first' or 'channels_last'
         """
-        super(TorchLayer, self).__init__()
+        super(TorchConv2dLayer, self).__init__()
 
         self.img_data_format = img_data_format  # Expected image data format
 
@@ -194,7 +198,7 @@ class CNNWeightTorch(UserList):
         )
         self.padding = np.array(padding).flatten().tolist()
         del self.lyrTorch  # Free memory
-        self.lyrTorch = TorchLayer(
+        self.lyrTorch = TorchConv2dLayer(
             self.data.astype(float),
             self.strides,
             self.padding,

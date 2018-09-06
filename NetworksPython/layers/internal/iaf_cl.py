@@ -38,7 +38,7 @@ class CLIAF(Layer):
         strName: str = "unnamed",
     ):
         """
-        FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
+        CLIAF - Feedforward layer of integrate and fire neurons with constant leak
 
         :param mfWIn:       array-like  Input weight matrix
         :param vfVBias:     array-like  Constant bias to be added to state at each time step

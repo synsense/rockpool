@@ -42,6 +42,7 @@ dModules = {
         "IAFSparseNet",
     ),
     ".internal.spiking_conv2d_torch": "CNNWeightTorch",
+    ".internal.torch_cnn_layer": "FFCLIAFTorch",
 }
 
 strBasePackage = "NetworksPython.layers"

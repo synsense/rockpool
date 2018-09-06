@@ -16,6 +16,7 @@ dModules = {
     ".iaf_digital": "RecDIAF",
     ".spike_bt": "RecFSSpikeEulerBT",
     ".spiking_conv2d_torch": "CNNWeightTorch",
+    ".torch_cnn_layer": "FFCLIAFTorch",
 }
 
 # - Define current package
