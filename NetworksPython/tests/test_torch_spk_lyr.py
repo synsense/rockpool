@@ -13,5 +13,27 @@ def test_torch_lyr_evolve():
     """
     Test basic layer evolution of this layer
     """
+    from NetworksPython import TSEvent
     from NetworksPython.layers import CNNWeightTorch
     from NetworksPython.layers import FFCLIAFTorch
+
+    # Create weights
+    W = CNNWeightTorch(
+        inShape=(1, 400, 400),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_first",
+    )
+
+    # Create an image
+    myImg = np.zeros((1, 400, 400))
+    myImg[0, 5, 0] = 1  # One pixel in image active
+
+    # Create an empty TSEvent
+    evInput = TSEvent(None, strName="Input")
+
+    # Create a FFIAFTorch layer
+    lyrConv2d = FFCLIAFTorch(mfW=W, strName="TorchConv2d")
+
+    lyrConv2d.evolve(evInput, tDuration=10)

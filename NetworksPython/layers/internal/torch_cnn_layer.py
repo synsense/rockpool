@@ -1,17 +1,20 @@
 import numpy as np
-import warnings
-from collections import UserList
-from functools import reduce
 from tqdm import tqdm
 import torch
 import torch.nn as nn
-from typing import Optional, Union, List, Tuple
+
+# Internal class dependencies
 from ...timeseries import TSEvent
 from .spiking_conv2d_torch import CNNWeightTorch
 from .iaf_cl import FFCLIAF
 
+from typing import Optional, Union, List, Tuple, Generator
+
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
+
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
 
 
 class FFCLIAFTorch(FFCLIAF):
@@ -59,6 +62,30 @@ class FFCLIAFTorch(FFCLIAF):
 
         self.reset_state()
 
+    def _prepare_input(
+        self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
+    ) -> np.ndarray:
+        """
+        Prepare input stream and return a binarized vector of spikes
+        """
+        # - End time of evolution
+        tFinal = self.t + nNumTimeSteps * self.tDt
+
+        # - Extract spike timings and channels
+        if tsInput is not None:
+            mfSpikeRaster = np.zeros((self.nSizeIn), bool)
+            ## Extract spike data from the input variable
+            # __, __, mfSpikeRaster, __ = tsInput.raster(
+            #    tDt=self.tDt, tStart=self.t, tStop=tFinal
+            # )
+            ## - Make sure size is correct
+            # mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+        else:
+            mfSpikeRaster = np.zeros((self.nSizeIn), bool)
+
+        print("Done preparing input!")
+        yield mfSpikeRaster
+
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -77,10 +104,12 @@ class FFCLIAFTorch(FFCLIAF):
 
         """
 
-        # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
-        )
+        # Compute number of simulation time steps
+        if nNumTimeSteps is None:
+            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+
+        # - Generate input in rasterized form
+        mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps)
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -88,12 +117,12 @@ class FFCLIAFTorch(FFCLIAF):
         liSpikeIDs = []
 
         # Local variables
-        vState = self.vState
-        vfVThresh = self.vfVThresh
+        vState = torch.from_numpy(self.vState).float()
         mfWIn = self.mfWIn
-        vfVBias = self.vfVBias
+        vfVBias = torch.from_numpy(self.vfVBias).float()
+        vfVThresh = torch.from_numpy(self.vfVThresh).float()
+        # Assuming these are not vectors
         tDt = self.tDt
-        nSizeIn = self.nSizeIn
         nSize = self.nSize
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
@@ -112,16 +141,18 @@ class FFCLIAFTorch(FFCLIAF):
             self._add_to_record(aStateTimeSeries, tCurrentTime)
 
         # Iterate over all time steps
-        for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
-
+        for iCurrentTimeStep, vbInptSpikeRaster in tqdm(enumerate(mfInptSpikeRaster)):
+            if iCurrentTimeStep == nNumTimeSteps:
+                break
             # - Spikes from input synapses
-            vbInptSpikeRaster = mfInptSpikeRaster[iCurrentTimeStep]
-
+            tsrInptSpikeRaster = torch.from_numpy(
+                vbInptSpikeRaster.astype(float)
+            ).float()
             # Update neuron states
             vfUpdate = mfWIn[vbInptSpikeRaster]
 
             # State update (write this way to avoid that type casting fails)
-            vState = vState + vfUpdate + vfVBias
+            vState = vState + torch.from_numpy(vfUpdate) + vfVBias
 
             # - Update current time
             tCurrentTime += tDt
