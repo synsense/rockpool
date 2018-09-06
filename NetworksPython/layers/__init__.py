@@ -1,12 +1,6 @@
+## __init__.py Smart importer for submodules
 import importlib
 from warnings import warn
-
-
-from .layer import Layer
-
-# from .iaf_cl import CLIAF
-
-__all__ = ["Layer", "CLIAF"]
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
@@ -28,6 +22,7 @@ dModules = {
     ".internal.iaf_digital": "RecDIAF",
     ".internal.spike_bt": "RecFSSpikeEulerBT",
     ".internal.cnnweights": "CNNWeight",
+    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
     ".internal.weights": (
         "RndmSparseEINet",
         "RandomEINet",
@@ -41,10 +36,13 @@ dModules = {
         "in_res_digital",
         "IAFSparseNet",
     ),
-    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
 }
 
+# - Define current package
 strBasePackage = "NetworksPython.layers"
+
+# - Initialise list of available modules
+__all__ = []
 
 # - Loop over submodules to attempt import
 for strModule, classnames in dModules.items():

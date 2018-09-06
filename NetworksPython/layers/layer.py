@@ -51,8 +51,8 @@ class Layer(ABC):
         else:
             self.strName = strName
 
-        self._mfW = mfW
-        self._nSizeIn, self._nSize = mfW.shape
+        self._mfW = np.atleast_2d(mfW)
+        self._nSizeIn, self._nSize = self._mfW.shape
 
         # - Check and assign tDt and fNoiseStd
         assert (
