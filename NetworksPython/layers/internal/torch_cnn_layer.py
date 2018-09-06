@@ -73,14 +73,25 @@ class FFCLIAFTorch(FFCLIAF):
 
         # - Extract spike timings and channels
         if tsInput is not None:
-            mfSpikeRaster = np.zeros((self.nSizeIn), bool)
-            ## Extract spike data from the input variable
-            # __, __, mfSpikeRaster, __ = tsInput.raster(
-            #    tDt=self.tDt, tStart=self.t, tStop=tFinal
-            # )
-            ## - Make sure size is correct
-            # mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+            if not tsInput.isempty():
+                # Ensure number of channels is atleast as many as required
+                try:
+                    assert tsInput.nNumChannels >= self.nSizeIn
+                except AssertionError as err:
+                    tsInput.nNumChannels = self.nSizeIn
+                # Extract spike data from the input variable
+                __, __, mfSpikeRaster, __ = tsInput.raster(
+                    tDt=self.tDt, tStart=self.t, tStop=tFinal
+                )
+                # - Make sure size is correct
+                mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+                assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
+                return mfSpikeRaster
+            else:
+                # Return an empty list with all zeros
+                mfSpikeRaster = np.zeros((self.nSizeIn), bool)
         else:
+            # Return an empty list with all zeros
             mfSpikeRaster = np.zeros((self.nSizeIn), bool)
 
         print("Done preparing input!")
