@@ -62,7 +62,10 @@ def test_torch_lyr_prepare_input_partial():
 
     # - Input spike on only two neurons
     tsInput = TSEvent(
-        vtTimeTrace=[0.55, 0.7, 1.8], vnChannels=[0, 1, 1], strName="input"
+        vtTimeTrace=[0.55, 0.7, 1.8],
+        vnChannels=[0, 1, 1],
+        # nNumChannels=400 * 400,
+        strName="input",
     )
 
     # Create a FFIAFTorch layer

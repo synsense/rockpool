@@ -62,40 +62,45 @@ class FFCLIAFTorch(FFCLIAF):
 
         self.reset_state()
 
-    def _prepare_input(
-        self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
-    ) -> np.ndarray:
-        """
-        Prepare input stream and return a binarized vector of spikes
-        """
-        # - End time of evolution
-        tFinal = self.t + nNumTimeSteps * self.tDt
+    # def _prepare_input(
+    #    self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
+    # ) -> np.ndarray:
+    #    """
+    #    Prepare input stream and return a binarized vector of spikes
+    #    """
+    #    # - End time of evolution
+    #    tFinal = self.t + nNumTimeSteps * self.tDt
 
-        # - Extract spike timings and channels
-        if tsInput is not None:
-            if not tsInput.isempty():
-                # Ensure number of channels is atleast as many as required
-                try:
-                    assert tsInput.nNumChannels >= self.nSizeIn
-                except AssertionError as err:
-                    tsInput.nNumChannels = self.nSizeIn
-                # Extract spike data from the input variable
-                __, __, mfSpikeRaster, __ = tsInput.raster(
-                    tDt=self.tDt, tStart=self.t, tStop=tFinal
-                )
-                # - Make sure size is correct
-                mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
-                assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
-                return mfSpikeRaster
-            else:
-                # Return an empty list with all zeros
-                mfSpikeRaster = np.zeros((self.nSizeIn), bool)
-        else:
-            # Return an empty list with all zeros
-            mfSpikeRaster = np.zeros((self.nSizeIn), bool)
+    #    # - Extract spike timings and channels
+    #    if tsInput is not None:
+    #        if tsInput.isempty():
+    #            # Return an empty list with all zeros
+    #            mfSpikeRaster = np.zeros((self.nSizeIn), bool)
+    #        else:
+    #            # Ensure number of channels is atleast as many as required
+    #            print("I am in here")
+    #            try:
+    #                assert tsInput.nNumChannels >= self.nSizeIn
+    #            except AssertionError as err:
+    #                tsInput.nNumChannels = self.nSizeIn
 
-        print("Done preparing input!")
-        yield mfSpikeRaster
+    #            # Extract spike data from the input variable
+    #            __, __, mfSpikeRaster, __ = tsInput.raster(
+    #                tDt=self.tDt, tStart=self.t, tStop=tFinal
+    #            )
+
+    #            # - Make sure size is correct
+    #            mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+    #            assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
+    #            print(mfSpikeRaster.sum())
+    #            return mfSpikeRaster
+    #    else:
+    #        # Return an empty list with all zeros
+    #        mfSpikeRaster = np.zeros((self.nSizeIn), bool)
+
+    #    print("Done preparing input!")
+    #    while True:
+    #        yield mfSpikeRaster
 
     def evolve(
         self,
@@ -120,7 +125,12 @@ class FFCLIAFTorch(FFCLIAF):
             nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
 
         # - Generate input in rasterized form
-        mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps)
+        mfInptSpikeRaster, _ = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
+        print(self.strName, tsInput)
+        try:
+            print(mfInptSpikeRaster.sum())
+        except AttributeError as err:
+            print("generator created")
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -128,11 +138,10 @@ class FFCLIAFTorch(FFCLIAF):
         liSpikeIDs = []
 
         # Local variables
-        vState = torch.from_numpy(self.vState).float()
+        vState = self.vState
+        vfVThresh = self.vfVThresh
         mfWIn = self.mfWIn
-        vfVBias = torch.from_numpy(self.vfVBias).float()
-        vfVThresh = torch.from_numpy(self.vfVThresh).float()
-        # Assuming these are not vectors
+        vfVBias = self.vfVBias
         tDt = self.tDt
         nSize = self.nSize
         vfVSubtract = self.vfVSubtract
@@ -156,14 +165,11 @@ class FFCLIAFTorch(FFCLIAF):
             if iCurrentTimeStep == nNumTimeSteps:
                 break
             # - Spikes from input synapses
-            tsrInptSpikeRaster = torch.from_numpy(
-                vbInptSpikeRaster.astype(float)
-            ).float()
+            vbInptSpikeRaster = vbInptSpikeRaster
             # Update neuron states
             vfUpdate = mfWIn[vbInptSpikeRaster]
-
             # State update (write this way to avoid that type casting fails)
-            vState = vState + torch.from_numpy(vfUpdate) + vfVBias
+            vState = vState + vfUpdate + vfVBias
 
             # - Update current time
             tCurrentTime += tDt
