@@ -70,9 +70,9 @@ def fhReLU(vfX: np.ndarray) -> np.ndarray:
     return mfCopy
 
 
-def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
+def get_ff_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
     """
-    get_evolution_function: Construct a compiled Euler solver for a given activation function
+    get_ff_evolution_function: Construct a compiled Euler solver for a given activation function
 
     :param fhActivation: Callable (x) -> f(x)
     :return: Compiled function evolve_Euler_complete(vState, mfInput, mfW, nSize, nNumSteps, vfGain, vfBias, vfAlpha, fNoiseStd)
@@ -114,6 +114,51 @@ def get_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
 
     # - Return the compiled function
     return evolve_Euler_complete
+
+
+def get_rec_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
+   """
+   get_rec_evolution_function: Construct a compiled Euler solver for a given activation function
+
+   :param fhActivation: Callable (x) -> f(x)
+   :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, tDt, nNumSteps, vfBias, vtTau)
+   """
+
+   # - Compile an Euler solver for the desired activation function
+   @njit
+   def evolve_Euler_complete(
+       vState: np.ndarray,
+       nSize: int,
+       mfW: np.ndarray,
+       mfInputStep: np.ndarray,
+       nNumSteps: int,
+       tDt: float,
+       vfBias: np.ndarray,
+       vtTau: np.ndarray,
+   ) -> np.ndarray:
+       # - Initialise storage of network output
+       mfActivity = np.zeros((nNumSteps + 1, nSize))
+
+       # - Precompute tDt / vtTau
+       vfLambda = tDt / vtTau
+
+       # - Loop over time steps
+       for nStep in range(nNumSteps):
+           # - Evolve network state
+           vfThisAct = fhActivation(vState + vfBias)
+           vDState = -vState + mfInputStep[nStep, :] + mfW @ vfThisAct
+           vState += vDState * vfLambda
+
+           # - Store network state
+           mfActivity[nStep, :] = vfThisAct
+
+       # - Get final activation
+       mfActivity[-1, :] = fhActivation(vState + vfBias)
+
+       return mfActivity
+
+   # - Return the compiled function
+   return evolve_Euler_complete
 
 
 ### --- FFRateEuler class
@@ -496,7 +541,7 @@ class FFRateEuler(Layer):
     @fhActivation.setter
     def fhActivation(self, f):
         self._fhActivation = f
-        self._evolveEuler = get_evolution_function(f)
+        self._evolveEuler = get_ff_evolution_function(f)
 
     @Layer.tDt.setter
     def tDt(self, tNewDt):
@@ -676,6 +721,12 @@ class RecRateEuler(Layer):
 
         # - Call super-class init
         super().__init__(mfW=mfW, strName=strName)
+
+        # - Check size and shape of `mfW`
+        assert len(mfW.shape) == 2, \
+            '`mfW` must be a matrix with 2 dimensions'
+        assert mfW.shape[0] == mfW.shape[1], \
+            '`mfW` must be a square matrix'
 
         # - Assign properties
         self.vfBias = vfBias
@@ -860,4 +911,4 @@ class RecRateEuler(Layer):
         self._fhActivation = fhNewActivation
 
         # - Build a state evolution function
-        self._evolveEuler = get_evolution_function(fhNewActivation)
+        self._evolveEuler = get_rec_evolution_function(fhNewActivation)
