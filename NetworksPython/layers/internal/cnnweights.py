@@ -94,12 +94,14 @@ class CNNWeight(UserList):
                             elif img_data_format == "channels_first":
                                 img = bIndexReshaped[nFeatureIndex]
                                 kern = kernel[nFeatureIndex]
+                            # Do the convolution
                             fmConvolutionFeature = self._do_convolve_2d(img, kern)
                             if fmConvolution is None:
                                 fmConvolution = fmConvolutionFeature
                             else:
                                 fmConvolution += fmConvolutionFeature
                     else:
+                        # Do the convolution
                         fmConvolution = self._do_convolve_2d(bIndexReshaped, kernel)
                     aConvolution.append(fmConvolution)
 
@@ -122,6 +124,7 @@ class CNNWeight(UserList):
         mfConvOut = signal.convolve2d(
             bIndexReshaped, kernel, mode=self.mode, boundary="fill"
         )
+
         # Subsample based on strides
         mfConvOut = mfConvOut[:: self.strides[0], :: self.strides[1]]
         return mfConvOut

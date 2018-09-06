@@ -9,6 +9,7 @@ import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
 from .cnnweights import CNNWeight
+from .spiking_conv2d_torch import CNNWeightTorch
 from ...timeseries import TSEvent
 from abc import abstractmethod
 from .. import Layer
@@ -27,7 +28,7 @@ class CLIAF(Layer):
 
     def __init__(
         self,
-        mfWIn: Union[np.ndarray, CNNWeight],
+        mfWIn: Union[np.ndarray, CNNWeight, CNNWeightTorch],
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
@@ -117,7 +118,7 @@ class CLIAF(Layer):
             mfSpikeRaster:    ndarray Boolean raster containing spike info
             nNumTimeSteps:    int Number of evlution time steps
         """
-
+        print("Preparing input for processing")
         if nNumTimeSteps is None:
             # - Determine nNumTimeSteps
             if tDuration is None:
@@ -167,6 +168,7 @@ class CLIAF(Layer):
         else:
             mfSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn), bool)
 
+        print("Done preparing input!")
         return mfSpikeRaster, nNumTimeSteps
 
     def reset_time(self):
@@ -193,7 +195,7 @@ class CLIAF(Layer):
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
-        if isinstance(mfNewW, CNNWeight):
+        if isinstance(mfNewW, CNNWeight) or isinstance(mfNewW, CNNWeightTorch):
             assert mfNewW.shape == (self.nSizeIn, self.nSize)
             self._mfWIn = mfNewW
         else:
@@ -358,7 +360,7 @@ class FFCLIAF(CLIAF):
         vfVReset = self.vfVReset
 
         # - Check type of mfWIn
-        bCNNWeights = isinstance(mfWIn, CNNWeight)
+        bCNNWeights = isinstance(mfWIn, CNNWeight) or isinstance(mfWIn, CNNWeightTorch)
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
         # - Count number of spikes for each neuron in each time step
@@ -544,7 +546,7 @@ class RecCLIAF(CLIAF):
         vfVReset = self.vfVReset
 
         # - Check type of mfWIn
-        bCNNWeights = isinstance(mfWIn, CNNWeight)
+        bCNNWeights = isinstance(mfWIn, CNNWeight) or isinstance(mfWIn, CNNWeightTorch)
         # - Number of spike sources (input neurons and layer neurons)
         nSpikeSources = self.nSizeIn + self.nSize
         # - Count number of spikes for each neuron in each time step
