@@ -191,6 +191,19 @@ class FFRateEuler(Layer):
         :param vfBias:          np.ndarray [Nx1] Vector of bias currents
         """
 
+        # - Make sure some required parameters are set
+        assert mfW is not None, \
+            '`mfW` is required'
+
+        assert vtTau is not None, \
+            '`vtTau` is required'
+
+        assert vfBias is not None, \
+            '`vfBias` is required'
+
+        assert vfGain is not None, \
+            '`vfGain` is required'
+
         # - Set a reasonable tDt
         if tDt is None:
             tMinTau = np.min(vtTau)
@@ -198,7 +211,7 @@ class FFRateEuler(Layer):
 
         # - Call super-class initialiser
         super().__init__(
-            mfW=mfW.astype(float), tDt=tDt, fNoiseStd=fNoiseStd, strName=strName
+            mfW=np.asarray(mfW, float), tDt=tDt, fNoiseStd=fNoiseStd, strName=strName
         )
 
         # - Check all parameter shapes
