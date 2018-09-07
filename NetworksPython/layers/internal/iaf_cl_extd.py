@@ -9,7 +9,7 @@ from tqdm import tqdm
 from collections import deque
 from .cnnweights import CNNWeight
 from ...timeseries import TSEvent, TSContinuous
-from .. import CLIAF
+from .iaf_cl import CLIAF
 
 
 # - Absolute tolerance, e.g. for comparing float values
@@ -18,6 +18,7 @@ fTolAbs = 1e-9
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 __all__ = ["RecCLIAFExtd"]
+
 
 class RecCLIAFExtd(CLIAF):
     """
