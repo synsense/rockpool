@@ -16,6 +16,7 @@ setup(
         "scipy",
         "tqdm",
         "brian2",
+        "pytorch"
     ],
     # long_description=open('README.txt').read(),
 )

@@ -17,6 +17,7 @@ fTolAbs = 1e-9
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
+__all__ = ["RecCLIAFExtd"]
 
 class RecCLIAFExtd(CLIAF):
     """

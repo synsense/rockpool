@@ -1050,6 +1050,11 @@ class RecIAFBrian(Layer):
             tsInput, tDuration, nNumTimeSteps
         )
 
+        # - Store stuff for debugging
+        self.vtTimeBase = vtTimeBase
+        self.mfInputStep = mfInputStep
+        self.nNumTimeSteps = nNumTimeSteps
+
         # - Generate a noise trace
         mfNoiseStep = (
             np.random.randn(np.size(vtTimeBase), self.nSize)
@@ -1110,7 +1115,7 @@ class RecIAFBrian(Layer):
 
         if hasattr(self, "_sgRecurrentSynapses"):
             # - Assign recurrent weights (need to transpose)
-            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1).T
+            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
             self._sgRecurrentSynapses.w = mfNewW.flatten()
 
     @property

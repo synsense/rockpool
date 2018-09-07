@@ -1,6 +1,7 @@
 import numpy as np
 import warnings
 from abc import ABC, abstractmethod
+from functools import reduce
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
 
@@ -51,8 +52,13 @@ class Layer(ABC):
         else:
             self.strName = strName
 
-        self._mfW = mfW
-        self._nSizeIn, self._nSize = mfW.shape
+        try:
+            self._nSizeIn, self._nSize = mfW.shape
+            self._mfW = mfW
+        except Exception:
+            # Expand dimensions if necessary
+            self._mfW = np.atleast_2d(mfW)
+            self._nSizeIn, self._nSize = self._mfW.shape
 
         # - Check and assign tDt and fNoiseStd
         assert (
@@ -123,9 +129,17 @@ class Layer(ABC):
             if not isinstance(tsInput, TSEvent):
                 if not tsInput.bPeriodic:
                     # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
-                    if tsInput.tStart - 1e-3 * self.tDt <= vtTimeBase[0] <= tsInput.tStart:
+                    if (
+                        tsInput.tStart - 1e-3 * self.tDt
+                        <= vtTimeBase[0]
+                        <= tsInput.tStart
+                    ):
                         vtTimeBase[0] = tsInput.tStart
-                    if tsInput.tStop <= vtTimeBase[-1] <= tsInput.tStop + 1e-3 * self.tDt:
+                    if (
+                        tsInput.tStop
+                        <= vtTimeBase[-1]
+                        <= tsInput.tStop + 1e-3 * self.tDt
+                    ):
                         vtTimeBase[-1] = tsInput.tStop
 
                 # - Warn if evolution period is not fully contained in tsInput
@@ -185,6 +199,56 @@ class Layer(ABC):
 
         return vtTimeTrace
 
+    def _expand_to_shape(
+        self,
+        oInput,
+        tupShape: tuple,
+        sVariableName: str = "input",
+        bAllowNone: bool = True,
+    ) -> np.ndarray:
+        """
+        _expand_to_shape: Replicate out a scalar to an array of shape tupShape
+
+        :param oInput:          scalar or array-like (nSize)
+        :param tupShape:        tuple of int Shape that input should be expanded to
+        :param sVariableName:   str Name of the variable to include in error messages
+        :param bAllowNone:      bool Allow None as argument for oInput
+        :return:                np.ndarray (N) vector
+        """
+        if not bAllowNone:
+            assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
+                self.strName, sVariableName
+            )
+
+        nTotalSize = reduce(lambda m, n: m * n, tupShape)
+
+        if np.size(oInput) == 1:
+            # - Expand input to full size
+            oInput = np.repeat(oInput, nTotalSize)
+
+        assert (
+            np.size(oInput) == nTotalSize
+        ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
+            self.strName, sVariableName, nTotalSize
+        )
+
+        # - Return object of correct shape
+        return np.reshape(oInput, tupShape)
+
+    def _expand_to_size(
+        self, oInput, nSize: int, sVariableName: str = "input", bAllowNone: bool = True
+    ) -> np.ndarray:
+        """
+        _expand_to_size: Replicate out a scalar to nSize
+
+        :param oInput:          scalar or array-like (nSize)
+        :param nSize:           integer Size that input should be expanded to
+        :param sVariableName:   str Name of the variable to include in error messages
+        :param bAllowNone:      bool Allow None as argument for oInput
+        :return:                np.ndarray (N) vector
+        """
+        return self._expand_to_shape(oInput, (nSize,), sVariableName, bAllowNone)
+
     def _expand_to_net_size(
         self, oInput, sVariableName: str = "input", bAllowNone: bool = True
     ) -> np.ndarray:
@@ -196,23 +260,7 @@ class Layer(ABC):
         :param bAllowNone:      bool Allow None as argument for oInput
         :return:                np.ndarray (N) vector
         """
-        if not bAllowNone:
-            assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
-                self.strName, sVariableName
-            )
-
-        if np.size(oInput) == 1:
-            # - Expand input to vector
-            oInput = np.repeat(oInput, self.nSize)
-
-        assert (
-            np.size(oInput) == self.nSize
-        ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
-            self.strName, sVariableName, self.nSize
-        )
-
-        # - Return object of correct shape
-        return np.reshape(oInput, self.nSize)
+        return self._expand_to_shape(oInput, (self.nSize,), sVariableName, bAllowNone)
 
     def _expand_to_weight_size(
         self, oInput, sVariableName: str = "input", bAllowNone: bool = True
@@ -226,23 +274,9 @@ class Layer(ABC):
         :return:                np.ndarray (NxN) vector
         """
 
-        if not bAllowNone:
-            assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
-                self.strName, sVariableName
-            )
-
-        if np.size(oInput) == 1:
-            # - Expand input to matrix
-            oInput = np.repeat(oInput, (self.nSize, self.nSize))
-
-        assert (
-            np.size(oInput) == self.nSize ** 2
-        ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
-            self.strName, sVariableName, self.nSize ** 2
+        return self._expand_to_shape(
+            oInput, (self.nSize, self.nSize), sVariableName, bAllowNone
         )
-
-        # - Return object of correct size
-        return np.reshape(oInput, (self.nSize, self.nSize))
 
     ### --- String representations
 

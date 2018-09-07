@@ -599,7 +599,7 @@ class Network:
             bFirst = False
 
         if bVerbose:
-            print("Network: Training successful\n")
+            print("Network: Training successful                                        \n")
 
     def stream(self,
                tsInput: TimeSeries,
