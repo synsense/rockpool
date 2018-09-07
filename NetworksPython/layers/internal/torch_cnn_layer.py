@@ -229,7 +229,96 @@ class FFCLIAFTorch(FFCLIAF):
 
 
 class TorchSpikingConv2dLayer(nn.Module):
-    def __init__(self, kernel, strides, padding, img_data_format="channels_last"):
+    def __init__(
+        self,
+        nInChannels: int = 1,
+        nOutChannels: int = 1,
+        kernel_size: ArrayLike = (1, 1),
+        strides: ArrayLike = (1, 1),
+        padding: ArrayLike = (0, 0, 0, 0),
+        vfVThresh: Union[ArrayLike, float] = 8,
+        fVSubtract: Optional[float] = 8,
+        vfVReset: float = 0,
+        # img_data_format="channels_first",
+    ):
         """
+        Pytorch implementation of a spiking neuron with convolutional inputs
+        SUBTRACT superseeds Reset value
         """
         super(TorchSpikingConv2dLayer, self).__init__()
+        self.pad = nn.ZeroPad2d(padding)
+        self.conv = nn.Conv2d(
+            nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
+        )
+
+        # Initialize neuron states
+        self._tsrState = None
+        self.fVSubtract = fVSubtract
+
+    def forward(self, tsrIndexReshaped):
+        # Convolve all inputs at once
+        tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
+        # Determine no. of time steps from input
+        nNumTimeSteps = len(tsrIndexReshaped)
+
+        # Initialize state if not initialized
+        if self.tsrState is None:
+            self.tsrState = torch.zeros(tsrConvOut.shape[1:])
+            # can be a very low dimensinal vector ideally
+            self.vnNumSpikes = torch.zeros(self.tsrState.shape).int()
+
+        # Local variables
+        tsrState = self.tsrState
+        vnNumSpikes = self.vnNumSpikes
+        fVSubtract = self.fVSubtract
+
+        # Loop over time steps
+        for iCurrentTimeStep in tqdm(range(nNumTimeSteps)):
+            tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
+
+            # - Reset spike counter
+            vnNumSpikes[:] = 0
+
+            # - Check threshold crossings for spikes
+            vbRecSpikeRaster = tsrState >= fVThresh
+
+            # - Reset or subtract from membrane state after spikes
+            if fVSubtract is not None:
+                while vbRecSpikeRaster.any():
+                    # - Subtract from states
+                    tsrState[vbRecSpikeRaster] -= fVSubtract[vbRecSpikeRaster]
+                    # - Add to spike counter
+                    vnNumSpikes[vbRecSpikeRaster] += 1
+                    # - Neurons that are still above threshold will emit another spike
+                    vbRecSpikeRaster = vState >= vfVThresh
+            else:
+                # - Add to spike counter
+                vnNumSpikes = vbRecSpikeRaster.astype(int)
+                # - Reset neuron states
+                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
+
+            # - Record spikes
+            ltSpikeTimes += [tCurrentTime] * np.sum(vnNumSpikes)
+            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumSpikes))
+
+        self.tsrState = tsrState
+
+        tsrOutputReshaped = tsrConvOut
+        return tsrOutputReshaped
+
+    @property
+    def tsrState(self):
+        return self._tsrState
+
+    @tsrState.setter
+    def tsrState(self, tsrNewState):
+        if self._tsrState is None:
+            self._tsrState = tsrNewState
+        elif self._tsrState.shape == tsrNewState.shape:
+            self._tsrState = tsrNewState
+        else:
+            raise Exception(
+                "Dimension Mismatch: Expected shape: {0} but received {1}".format(
+                    self._tsrState.shape, tsrNewState
+                )
+            )
