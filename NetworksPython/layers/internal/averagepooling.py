@@ -13,6 +13,9 @@ from ...timeseries import TSEvent
 from .iaf_cl import CLIAF
 from .cnnweights import CNNWeight
 
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
+
 
 class AveragePooling2D(CLIAF):
     """
@@ -53,6 +56,47 @@ class AveragePooling2D(CLIAF):
         self.pool_size = pool_size
         self.reset_state()
 
+    def _prepare_input(
+        self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
+    ) -> np.ndarray:
+        """
+        Prepare input stream and return a binarized vector of spikes
+        """
+        # - End time of evolution
+        tFinal = self.t + nNumTimeSteps * self.tDt
+        # - Extract spike timings and channels
+        if tsInput is not None:
+            if tsInput.isempty():
+                # Return an empty list with all zeros
+                vbSpikeRaster = np.zeros((self.nSizeIn), bool)
+            else:
+                # Ensure number of channels is atleast as many as required
+                try:
+                    assert tsInput.nNumChannels >= self.nSizeIn
+                except AssertionError as err:
+                    warn(
+                        self.strName
+                        + ": Expanding input dimensions to match layer size."
+                    )
+                    tsInput.nNumChannels = self.nSizeIn
+
+                # Extract spike data from the input variable
+                mfSpikeRaster = tsInput.xraster(
+                    tDt=self.tDt, tStart=self.t, tStop=tFinal
+                )
+
+                ## - Make sure size is correct
+                # mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+                # assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
+                yield from mfSpikeRaster  # Yield a single time step
+                return
+        else:
+            # Return an empty list with all zeros
+            vbSpikeRaster = np.zeros((self.nSizeIn), bool)
+
+        while True:
+            yield vbSpikeRaster
+
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -70,10 +114,12 @@ class AveragePooling2D(CLIAF):
 
         """
 
+        # Compute number of simulation time steps
+        if nNumTimeSteps is None:
+            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
-        )
+        mfInptSpikeRaster = np.array(list(self._prepare_input(tsInput, nNumTimeSteps)))
 
         # Reshape input data
         mfInptSpikeRaster = mfInptSpikeRaster.reshape((-1, *self.mfW.inShape))
