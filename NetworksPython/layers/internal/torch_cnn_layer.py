@@ -88,17 +88,14 @@ class FFCLIAFTorch(FFCLIAF):
                     tsInput.nNumChannels = self.nSizeIn
 
                 # Extract spike data from the input variable
-                __, __, mfSpikeRaster, __ = tsInput.raster(
-                    tDt=self.tDt,
-                    tStart=self.t,
-                    tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                mfSpikeRaster = tsInput.xraster(
+                    tDt=self.tDt, tStart=self.t, tStop=tFinal
                 )
 
-                # - Make sure size is correct
-                mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
-                assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
-                for vbSpikeRaster in mfSpikeRaster:
-                    yield vbSpikeRaster
+                ## - Make sure size is correct
+                # mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+                # assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
+                yield from mfSpikeRaster  # Yield a single time step
                 return
         else:
             # Return an empty list with all zeros
