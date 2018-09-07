@@ -9,6 +9,7 @@ from .spiking_conv2d_torch import CNNWeightTorch
 from .iaf_cl import FFCLIAF
 
 from typing import Optional, Union, List, Tuple, Generator
+from warnings import warn
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -62,45 +63,49 @@ class FFCLIAFTorch(FFCLIAF):
 
         self.reset_state()
 
-    # def _prepare_input(
-    #    self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
-    # ) -> np.ndarray:
-    #    """
-    #    Prepare input stream and return a binarized vector of spikes
-    #    """
-    #    # - End time of evolution
-    #    tFinal = self.t + nNumTimeSteps * self.tDt
+    def _prepare_input(
+        self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
+    ) -> np.ndarray:
+        """
+        Prepare input stream and return a binarized vector of spikes
+        """
+        # - End time of evolution
+        tFinal = self.t + nNumTimeSteps * self.tDt
+        # - Extract spike timings and channels
+        if tsInput is not None:
+            if tsInput.isempty():
+                # Return an empty list with all zeros
+                vbSpikeRaster = np.zeros((self.nSizeIn), bool)
+            else:
+                # Ensure number of channels is atleast as many as required
+                try:
+                    assert tsInput.nNumChannels >= self.nSizeIn
+                except AssertionError as err:
+                    warn(
+                        self.strName
+                        + ": Expanding input dimensions to match layer size."
+                    )
+                    tsInput.nNumChannels = self.nSizeIn
 
-    #    # - Extract spike timings and channels
-    #    if tsInput is not None:
-    #        if tsInput.isempty():
-    #            # Return an empty list with all zeros
-    #            mfSpikeRaster = np.zeros((self.nSizeIn), bool)
-    #        else:
-    #            # Ensure number of channels is atleast as many as required
-    #            print("I am in here")
-    #            try:
-    #                assert tsInput.nNumChannels >= self.nSizeIn
-    #            except AssertionError as err:
-    #                tsInput.nNumChannels = self.nSizeIn
+                # Extract spike data from the input variable
+                __, __, mfSpikeRaster, __ = tsInput.raster(
+                    tDt=self.tDt,
+                    tStart=self.t,
+                    tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                )
 
-    #            # Extract spike data from the input variable
-    #            __, __, mfSpikeRaster, __ = tsInput.raster(
-    #                tDt=self.tDt, tStart=self.t, tStop=tFinal
-    #            )
+                # - Make sure size is correct
+                mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+                assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
+                for vbSpikeRaster in mfSpikeRaster:
+                    yield vbSpikeRaster
+                return
+        else:
+            # Return an empty list with all zeros
+            vbSpikeRaster = np.zeros((self.nSizeIn), bool)
 
-    #            # - Make sure size is correct
-    #            mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
-    #            assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
-    #            print(mfSpikeRaster.sum())
-    #            return mfSpikeRaster
-    #    else:
-    #        # Return an empty list with all zeros
-    #        mfSpikeRaster = np.zeros((self.nSizeIn), bool)
-
-    #    print("Done preparing input!")
-    #    while True:
-    #        yield mfSpikeRaster
+        while True:
+            yield vbSpikeRaster
 
     def evolve(
         self,
@@ -125,12 +130,7 @@ class FFCLIAFTorch(FFCLIAF):
             nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
 
         # - Generate input in rasterized form
-        mfInptSpikeRaster, _ = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
-        print(self.strName, tsInput)
-        try:
-            print(mfInptSpikeRaster.sum())
-        except AttributeError as err:
-            print("generator created")
+        mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
