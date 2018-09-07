@@ -158,9 +158,9 @@ class FFIAFBrian(Layer):
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
 
-        # - Call super constructor
+        # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
-            mfW=mfW,
+            mfW=np.asarray(mfW),
             tDt=np.asarray(tDt),
             fNoiseStd=np.asarray(fNoiseStd),
             strName=strName,
