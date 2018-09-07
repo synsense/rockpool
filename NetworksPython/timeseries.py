@@ -1407,8 +1407,7 @@ class TSEvent(TimeSeries):
                               This parameter will determine the speed vs latency for this process
 
         :yields
-            vbEventsRaster  Boolean matrix with True indicating event
-                            First axis corresponds to time, second axis to channel.
+            vbEventsRaster  Boolean matrix with True indicating event axis corresponds to channel
         """
         tsSelected = self
         vnSelectChannels = np.arange(self.nNumChannels)
@@ -1428,10 +1427,6 @@ class TSEvent(TimeSeries):
         if vtTimeBase.size > 0:
             # Compute indices for times
             viTimeIndices_Raster = ((vtEventTimes - vtTimeBase[0]) / tDt).astype(int)
-            # Compute indices for ids
-            # viRowIndices_Raster = np.zeros_like(vnEventChannels)  # Init
-            # for row, channel in enumerate(vnSelectChannels):
-            #    viRowIndices_Raster[vnEventChannels == channel] = row
             viRowIndices_Raster = vnEventChannels
             # Mark spiking indices with True
             mbEventsRaster[viTimeIndices_Raster, viRowIndices_Raster] = True
