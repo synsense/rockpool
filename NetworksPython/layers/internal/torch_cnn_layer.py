@@ -27,10 +27,10 @@ class FFCLIAFTorch(FFCLIAF):
     def __init__(
         self,
         mfW: CNNWeightTorch,
-        vfVBias: Union[ArrayLike, float] = 0,
-        vfVThresh: Union[ArrayLike, float] = 8,
-        vfVReset: Union[ArrayLike, float] = 0,
-        vfVSubtract: Union[ArrayLike, float, None] = 8,
+        vfVBias: float = 0,
+        fVThresh: float = 8,
+        fVReset: float = 0,
+        fVSubtract: float = 8,
         tDt: float = 1,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
         strName: str = "unnamed",
@@ -53,15 +53,40 @@ class FFCLIAFTorch(FFCLIAF):
             self,
             mfW=mfW,
             vfVBias=vfVBias,
-            vfVThresh=vfVThresh,
-            vfVReset=vfVReset,
-            vfVSubtract=vfVSubtract,
+            vfVThresh=fVThresh,
+            vfVReset=fVReset,
+            vfVSubtract=fVSubtract,
             tDt=tDt,
             vnIdMonitor=vnIdMonitor,
             strName=strName,
         )
 
+        # Placeholder variable
+        self._lyrTorch = None
+
         self.reset_state()
+
+    @property
+    def lyrTorch(self):
+        if self._lyrTorch is None:
+            self._init_torch_layer()
+        return self._lyrTorch
+
+    @lyrTorch.setter
+    def lyrTorch(self, lyrNewTorch):
+        self._lyrTorch = lyrNewTorch
+
+    def _init_torch_layer(self):
+        self.lyrTorch = TorchSpikingConv2dLayer(
+            nInChannels=self.mfW.nInChannels,
+            nOutChannels=self.mfW.nKernels,
+            kernel_size=self.mfW.kernel_size,
+            strides=self.mfW.strides,
+            padding=self.mfW.padding,
+            fVThresh=self.vfVThresh,
+            fVSubtract=self.vfVSubtract,
+            fVReset=self.vfVReset,
+        )
 
     def _prepare_input(
         self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
@@ -121,6 +146,8 @@ class FFCLIAFTorch(FFCLIAF):
         :return:            TSEvent  output spike series
 
         """
+
+        self.lyrTorch
 
         # Compute number of simulation time steps
         if nNumTimeSteps is None:
@@ -236,16 +263,16 @@ class TorchSpikingConv2dLayer(nn.Module):
         kernel_size: ArrayLike = (1, 1),
         strides: ArrayLike = (1, 1),
         padding: ArrayLike = (0, 0, 0, 0),
-        vfVThresh: Union[ArrayLike, float] = 8,
-        fVSubtract: Optional[float] = 8,
-        vfVReset: float = 0,
+        fVThresh: float = 8,
+        fVSubtract: Optional[float] = None,
+        fVReset: float = 0,
         # img_data_format="channels_first",
     ):
         """
         Pytorch implementation of a spiking neuron with convolutional inputs
         SUBTRACT superseeds Reset value
         """
-        super(TorchSpikingConv2dLayer, self).__init__()
+        super(TorchSpikingConv2dLayer, self).__init__()  # Init nn.Module
         self.pad = nn.ZeroPad2d(padding)
         self.conv = nn.Conv2d(
             nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
@@ -254,23 +281,34 @@ class TorchSpikingConv2dLayer(nn.Module):
         # Initialize neuron states
         self._tsrState = None
         self.fVSubtract = fVSubtract
+        self.fVReset = fVReset
+        self.fVThresh = fVThresh
 
-    def forward(self, tsrIndexReshaped):
-        # Convolve all inputs at once
-        tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
+    def forward(self, tsrBinaryInput):
         # Determine no. of time steps from input
-        nNumTimeSteps = len(tsrIndexReshaped)
+        nNumTimeSteps = len(tsrBinaryInput)
 
+        # Convolve all inputs at once
+        tsrConvOut = self.conv(self.pad(tsrBinaryInput))
+
+        # TODO: This should go in the init phase perhaps?
         # Initialize state if not initialized
         if self.tsrState is None:
             self.tsrState = torch.zeros(tsrConvOut.shape[1:])
-            # can be a very low dimensinal vector ideally
-            self.vnNumSpikes = torch.zeros(self.tsrState.shape).int()
+
+        # - Count number of spikes for each neuron in each time step
+        vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
 
         # Local variables
         tsrState = self.tsrState
-        vnNumSpikes = self.vnNumSpikes
         fVSubtract = self.fVSubtract
+        fVThresh = self.fVThresh
+        fVReset = self.fVReset
+
+        # Create a vector to hold all output spikes
+        tsrNumSpikes = torch.zeros(
+            nNumTimeSteps, *tsrConvOut.shape[1:], dtype=torch.uint8
+        )
 
         # Loop over time steps
         for iCurrentTimeStep in tqdm(range(nNumTimeSteps)):
@@ -286,25 +324,22 @@ class TorchSpikingConv2dLayer(nn.Module):
             if fVSubtract is not None:
                 while vbRecSpikeRaster.any():
                     # - Subtract from states
-                    tsrState[vbRecSpikeRaster] -= fVSubtract[vbRecSpikeRaster]
+                    tsrState[vbRecSpikeRaster] -= fVSubtract
                     # - Add to spike counter
-                    vnNumSpikes[vbRecSpikeRaster] += 1
+                    tsrNumSpikes[iCurrentTimeStep][vbRecSpikeRaster] += 1
                     # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = vState >= vfVThresh
+                    vbRecSpikeRaster = tsrState >= fVThresh
             else:
                 # - Add to spike counter
-                vnNumSpikes = vbRecSpikeRaster.astype(int)
+                tsrNumSpikes[iCurrentTimeStep] = vbRecSpikeRaster
                 # - Reset neuron states
-                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
+                tsrState[vbRecSpikeRaster] = fVReset
 
-            # - Record spikes
-            ltSpikeTimes += [tCurrentTime] * np.sum(vnNumSpikes)
-            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumSpikes))
+            # Record spikes
 
         self.tsrState = tsrState
 
-        tsrOutputReshaped = tsrConvOut
-        return tsrOutputReshaped
+        return tsrNumSpikes
 
     @property
     def tsrState(self):
