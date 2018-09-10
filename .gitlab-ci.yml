@@ -1,4 +1,5 @@
 unittests:
         script:
+                - apt-get install python3-pytest
                 - pytest NetworksPython
         
