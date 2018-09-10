@@ -52,13 +52,9 @@ class Layer(ABC):
         else:
             self.strName = strName
 
-        try:
-            self._nSizeIn, self._nSize = mfW.shape
-            self._mfW = mfW
-        except Exception:
-            # Expand dimensions if necessary
-            self._mfW = np.atleast_2d(mfW)
-            self._nSizeIn, self._nSize = self._mfW.shape
+        mfW = np.atleast_2d(mfW)
+        self._nSizeIn, self._nSize = mfW.shape
+        self._mfW = mfW
 
         # - Check and assign tDt and fNoiseStd
         assert (
