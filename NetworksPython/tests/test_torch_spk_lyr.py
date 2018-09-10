@@ -57,7 +57,7 @@ def test_torch_lyr_prepare_input_partial():
     )
 
     # Create a FFIAFTorch layer
-    lyrCNNTorch = FFCLIAFTorch(mfW=cnnWTorch, vfVThresh=0.5, strName="TorchCNN")
+    lyrCNNTorch = FFCLIAFTorch(mfW=cnnWTorch, fVThresh=0.5, strName="TorchCNN")
 
     # Generate time series input
     evInput = TSEvent(None, strName="Input")
@@ -71,6 +71,61 @@ def test_torch_lyr_prepare_input_partial():
         evOut = lyrCNNTorch.evolve(tsInput=evInput, tDuration=100)
 
     assert evOut.nNumChannels == lyrCNNTorch.nSize
+
+
+def test_toch_activity_comparison_to_skimage_default_params():
+    """
+    Test basic layer evolution of this layer
+    """
+    from NetworksPython import TSEvent
+    from NetworksPython.layers import CNNWeight
+    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.layers import FFCLIAFTorch
+    from NetworksPython.layers import FFCLIAF
+
+    # Initialize weights
+    cnnW = CNNWeight(
+        inShape=(1, 20, 20),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_first",
+    )
+
+    # Create weights
+    cnnWTorch = CNNWeightTorch(
+        inShape=(1, 20, 20),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_first",
+    )
+    cnnWTorch.data = np.copy(cnnW.data)
+
+    # Initialize a CNN layer with CN weights
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+    # Create a FFIAFTorch layer
+    lyrCNNTorch = FFCLIAFTorch(mfW=cnnWTorch, fVThresh=0.5, strName="TorchCNN")
+
+    # Generate time series input
+    evInput = TSEvent(None, strName="Input")
+    for nId in range(20 * 20):
+        vSpk = poisson_generator(40.0, t_stop=100)
+        evInput.merge(TSEvent(vSpk, nId))
+
+    # Create a copy of the input
+    evInputTorch = TSEvent(
+        evInput.vtTimeTrace.copy(), evInput.vnChannels.copy(), strName="Input copy"
+    )
+
+    # Evolve
+    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+
+    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
+
+    # Check that the outputs are identical
+    assert evOut.nNumChannels == evOutTorch.nNumChannels
+    assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
 
 
 def test_toch_activity_comparison_to_skimage():
@@ -103,9 +158,11 @@ def test_toch_activity_comparison_to_skimage():
     cnnWTorch.data = np.copy(cnnW.data)
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, vfVSubtract=None, strName="CNN")
     # Create a FFIAFTorch layer
-    lyrCNNTorch = FFCLIAFTorch(mfW=cnnWTorch, vfVThresh=0.5, strName="TorchCNN")
+    lyrCNNTorch = FFCLIAFTorch(
+        mfW=cnnWTorch, fVThresh=0.5, fVSubtract=None, strName="TorchCNN"
+    )
 
     # Generate time series input
     evInput = TSEvent(None, strName="Input")
@@ -126,6 +183,28 @@ def test_toch_activity_comparison_to_skimage():
     # Check that the outputs are identical
     assert evOut.nNumChannels == evOutTorch.nNumChannels
     assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
+
+
+def test_TorchSpikingConv2dLayer():
+    from NetworksPython.layers.internal.torch_cnn_layer import TorchSpikingConv2dLayer
+    import torch
+
+    # Create a torch layer
+    lyrTorchPure = TorchSpikingConv2dLayer(
+        nInChannels=2,
+        nOutChannels=4,
+        kernel_size=(3, 3),
+        strides=(3, 3),
+        padding=(0, 0),
+        fVThresh=0.5,
+        fVSubtract=None,
+        fVReset=0.0,
+    )
+
+    # Create an input
+    tsrInp = torch.from_numpy((np.random.rand(10, 2, 10, 10) > 0.7).astype(int)).float()
+
+    lyrTorchPure(tsrInp)
 
 
 # This is a convenience function, not a test function
