@@ -52,9 +52,14 @@ class Layer(ABC):
         else:
             self.strName = strName
 
-        mfW = np.atleast_2d(mfW)
-        self._nSizeIn, self._nSize = mfW.shape
-        self._mfW = mfW
+        try:
+            # Try this before enforcing with Numpy atleast to account for custom classes for weights
+            self._nSizeIn, self._nSize = mfW.shape
+            self._mfW = mfW
+        except Exception:
+            mfW = np.atleast_2d(mfW)
+            self._nSizeIn, self._nSize = mfW.shape
+            self._mfW = mfW
 
         # - Check and assign tDt and fNoiseStd
         assert (
