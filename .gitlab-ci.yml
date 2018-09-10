@@ -1,6 +1,6 @@
-unittests:
-        script:
-                - apt-get install python3
-                - pip3 install NetworksPython/requirements.txt
-                - pytest NetworksPython
+#unittests:
+#        script:
+#                - apt-get install python3
+#                - pip3 install NetworksPython/requirements.txt
+#                - pytest NetworksPython
         
