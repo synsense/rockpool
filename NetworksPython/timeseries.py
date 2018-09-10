@@ -971,7 +971,7 @@ class TSEvent(TimeSeries):
         vtTimeTrace: np.ndarray,
         vnChannels: Union[int, np.ndarray] = None,
         vfSamples: Union[float, np.ndarray] = None,
-        strInterpKind="linear",
+        strInterpKind = "linear",
         bPeriodic: bool = False,
         strName: str = None,
         nNumChannels: int = None,
@@ -1111,7 +1111,7 @@ class TSEvent(TimeSeries):
             # - Return all samples
             return self.vtTimeTrace, self.vnChannels, self.mfSamples.flatten()
 
-    def clip(self, vtNewBounds):
+    def clip(self, vtNewBounds: Union[list, np.ndarray]):
         # - Call super-class clipper
         tsClip, vbIncludeSamples = super()._clip(vtNewBounds)
 
@@ -1121,12 +1121,12 @@ class TSEvent(TimeSeries):
         # - Return new TimeSeries
         return tsClip
 
-    def choose(self, vnSelectChannels):
+    def _choose(self, vnSelectChannels: Union[list, np.ndarray]):
         """
-        choose - Select and return only the requested channels
+        _choose - Select and return raw event data for the requested channels
 
         :param vnSelectChannels: array-like of channel indices
-        :return: new TSEvent containing events from the requested channels
+        :return: (vtTimeTrace, vnChannels, mfSamples) containing events form the requested channels
         """
 
         # - Check vnSelectChannels
@@ -1143,15 +1143,26 @@ class TSEvent(TimeSeries):
         # - Find samples to return
         vbIncludeSamples = np.isin(self._vnChannels, vnSelectChannels)
 
-        # - Build new TS with only those samples
+        # - Return events for those samples
+        return self._vtTimeTrace[vbIncludeSamples],\
+               self._vnChannels[vbIncludeSamples], \
+               self._mfSamples[vbIncludeSamples]
+
+    def choose(self, vnSelectChannels: Union[list, np.ndarray]):
+        """
+        choose - Select and return only the requested channels
+
+        :param vnSelectChannels: array-like of channel indices
+        :return: new TSEvent containing events from the requested channels
+        """
+
+        # - Build new TS with only those samples from requested channels
         tsChosen = self.copy()
-        tsChosen._vtTimeTrace = tsChosen._vtTimeTrace[vbIncludeSamples]
-        tsChosen._vnChannels = tsChosen._vnChannels[vbIncludeSamples]
-        tsChosen._mfSamples = tsChosen._mfSamples[vbIncludeSamples]
+        tsChosen._vtTimeTrace, tsChosen._vnChannels, tsChosen._mfSamples = self._choose(vnSelectChannels)
 
         return tsChosen
 
-    def choose_times(self, vnSelectChannels):
+    def choose_times(self, vnSelectChannels: Union[list, np.ndarray]):
         """
         choose_times - like choose but only return vtTimeTrace instead of time series
 
@@ -1159,24 +1170,10 @@ class TSEvent(TimeSeries):
         :return: np.ndarray with the time values corresponding to the given channel indices
         """
 
-        # - Check vnSelectChannels
-        assert (
-            np.min(vnSelectChannels) >= 0
-            and np.max(vnSelectChannels) < self.nNumChannels
-        ), "`vnSelectChannels` must be between 0 and {}".format(
-            np.max(self.vnChannels - 1)
-        )
+        # - Use `_choose` to return time trace
+        vtTimes, _, _ = self._choose(vnSelectChannels)
+        return vtTimes
 
-        # - If single ID is provided
-        if isinstance(vnSelectChannels, int):
-            return self.vtTimeTrace[self.vnChannels == vnSelectChannels]
-
-        else:
-            # - Make sure elements in vnSelectChannels are unique for better performance
-            vnSelectChannels = np.unique(vnSelectChannels)
-
-            # - Find and return times of matching samples
-            return self.vtTimeTrace[np.isin(self._vnChannels, vnSelectChannels)]
 
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
         """
@@ -1199,7 +1196,7 @@ class TSEvent(TimeSeries):
             )
 
         elif self._bUseMatplotlib:
-            return plt.plot(vtTimes, self(vtTimes), **kwargs)
+            return plt.scatter(vtTimes, self(vtTimes), **kwargs)
 
         else:
             warn("No plotting back-end detected.")
