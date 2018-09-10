@@ -146,9 +146,6 @@ class FFCLIAFTorch(FFCLIAF):
         :return:            TSEvent  output spike series
 
         """
-
-        self.lyrTorch
-
         # Compute number of simulation time steps
         if nNumTimeSteps is None:
             nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
@@ -156,103 +153,149 @@ class FFCLIAFTorch(FFCLIAF):
         # - Generate input in rasterized form
         mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
 
-        # Hold the sate of network at any time step when updated
-        aStateTimeSeries = []
-        ltSpikeTimes = []
-        liSpikeIDs = []
-
-        # Local variables
-        vState = self.vState
-        vfVThresh = self.vfVThresh
-        mfWIn = self.mfWIn
-        vfVBias = self.vfVBias
-        tDt = self.tDt
-        nSize = self.nSize
-        vfVSubtract = self.vfVSubtract
-        vfVReset = self.vfVReset
-
-        # - Check type of mfWIn
-        assert isinstance(mfWIn, CNNWeightTorch)
-        # - Indices of neurons to be monitored
-        vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
-        # - Count number of spikes for each neuron in each time step
-        vnNumSpikes = np.zeros(nSize, int)
-        # - Time before first time step
-        tCurrentTime = self.t
-
-        if vnIdMonitor is not None:
-            # Record initial state of the network
-            self._add_to_record(aStateTimeSeries, tCurrentTime)
-
-        # Iterate over all time steps
-        for iCurrentTimeStep, vbInptSpikeRaster in tqdm(enumerate(mfInptSpikeRaster)):
-            if iCurrentTimeStep == nNumTimeSteps:
-                break
-            # - Spikes from input synapses
-            vbInptSpikeRaster = vbInptSpikeRaster
-            # Update neuron states
-            vfUpdate = mfWIn[vbInptSpikeRaster]
-            # State update (write this way to avoid that type casting fails)
-            vState = vState + vfUpdate + vfVBias
-
-            # - Update current time
-            tCurrentTime += tDt
-
-            if vnIdMonitor is not None:
-                # - Record state before reset
-                self._add_to_record(
-                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
-                )
-
-            # - Reset spike counter
-            vnNumSpikes[:] = 0
-
-            # - Check threshold crossings for spikes
-            vbRecSpikeRaster = vState >= vfVThresh
-
-            # - Reset or subtract from membrane state after spikes
-            if vfVSubtract is not None:
-                while vbRecSpikeRaster.any():
-                    # - Subtract from states
-                    vState[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
-                    # - Add to spike counter
-                    vnNumSpikes[vbRecSpikeRaster] += 1
-                    # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = vState >= vfVThresh
-            else:
-                # - Add to spike counter
-                vnNumSpikes = vbRecSpikeRaster.astype(int)
-                # - Reset neuron states
-                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
-
-            # - Record spikes
-            ltSpikeTimes += [tCurrentTime] * np.sum(vnNumSpikes)
-            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumSpikes))
-
-            if vnIdMonitor is not None:
-                # - Record state after reset
-                self._add_to_record(
-                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
-                )
-
-        # - Update state
-        self._vState = vState
-
-        # Update time
-        self._nTimeStep += nNumTimeSteps
-
-        # Convert arrays to TimeSeries objects
-        tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+        # Convert input to torch tensors
+        tsrIn = torch.from_numpy(
+            np.array(list(mfInptSpikeRaster), int), dtype=torch.uint8
         )
+        # Reshape flat data to images and channels
+        tsrInReshaped = tsrIn.reshape(-1, self.inShape)
+        # Restructure input
+        if self.img_data_format == "channels_last":
+            tsrInReshaped = tsrInReshaped.permute((3, 2, 0, 1))
+        elif self.img_data_format == "channels_first":
+            pass
 
-        # TODO: Is there a time series object for this too?
-        mfStateTimeSeries = np.array(aStateTimeSeries)
+        # Process data
+        tsrOut = self.lyrTorch(tsrIn)
+        # Reshape data again to the class's format
+        # Flatten output and return
+        return tsrOut
 
-        # This is only for debugging purposes. Should ideally not be saved
-        self._mfStateTimeSeries = mfStateTimeSeries
 
-        return tseOut
+#    def evolve(
+#        self,
+#        tsInput: Optional[TSEvent] = None,
+#        tDuration: Optional[float] = None,
+#        nNumTimeSteps: Optional[int] = None,
+#        bVerbose: bool = False,
+#    ) -> TSEvent:
+#        """
+#        evolve : Function to evolve the states of this layer given an input
+#
+#        :param tsSpkInput:      TSEvent  Input spike trian
+#        :param tDuration:       float    Simulation/Evolution time
+#        :param nNumTimeSteps    int      Number of evolution time steps
+#        :param bVerbose:        bool     Currently no effect, just for conformity
+#        :return:            TSEvent  output spike series
+#
+#        """
+#
+#        self.lyrTorch
+#
+#        # Compute number of simulation time steps
+#        if nNumTimeSteps is None:
+#            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+#
+#        # - Generate input in rasterized form
+#        mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
+#
+#        # Hold the sate of network at any time step when updated
+#        aStateTimeSeries = []
+#        ltSpikeTimes = []
+#        liSpikeIDs = []
+#
+#        # Local variables
+#        vState = self.vState
+#        vfVThresh = self.vfVThresh
+#        mfWIn = self.mfWIn
+#        vfVBias = self.vfVBias
+#        tDt = self.tDt
+#        nSize = self.nSize
+#        vfVSubtract = self.vfVSubtract
+#        vfVReset = self.vfVReset
+#
+#        # - Check type of mfWIn
+#        assert isinstance(mfWIn, CNNWeightTorch)
+#        # - Indices of neurons to be monitored
+#        vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
+#        # - Count number of spikes for each neuron in each time step
+#        vnNumSpikes = np.zeros(nSize, int)
+#        # - Time before first time step
+#        tCurrentTime = self.t
+#
+#        if vnIdMonitor is not None:
+#            # Record initial state of the network
+#            self._add_to_record(aStateTimeSeries, tCurrentTime)
+#
+#        # Iterate over all time steps
+#        for iCurrentTimeStep, vbInptSpikeRaster in tqdm(enumerate(mfInptSpikeRaster)):
+#            if iCurrentTimeStep == nNumTimeSteps:
+#                break
+#            # - Spikes from input synapses
+#            vbInptSpikeRaster = vbInptSpikeRaster
+#            # Update neuron states
+#            vfUpdate = mfWIn[vbInptSpikeRaster]
+#            # State update (write this way to avoid that type casting fails)
+#            vState = vState + vfUpdate + vfVBias
+#
+#            # - Update current time
+#            tCurrentTime += tDt
+#
+#            if vnIdMonitor is not None:
+#                # - Record state before reset
+#                self._add_to_record(
+#                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+#                )
+#
+#            # - Reset spike counter
+#            vnNumSpikes[:] = 0
+#
+#            # - Check threshold crossings for spikes
+#            vbRecSpikeRaster = vState >= vfVThresh
+#
+#            # - Reset or subtract from membrane state after spikes
+#            if vfVSubtract is not None:
+#                while vbRecSpikeRaster.any():
+#                    # - Subtract from states
+#                    vState[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
+#                    # - Add to spike counter
+#                    vnNumSpikes[vbRecSpikeRaster] += 1
+#                    # - Neurons that are still above threshold will emit another spike
+#                    vbRecSpikeRaster = vState >= vfVThresh
+#            else:
+#                # - Add to spike counter
+#                vnNumSpikes = vbRecSpikeRaster.astype(int)
+#                # - Reset neuron states
+#                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
+#
+#            # - Record spikes
+#            ltSpikeTimes += [tCurrentTime] * np.sum(vnNumSpikes)
+#            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumSpikes))
+#
+#            if vnIdMonitor is not None:
+#                # - Record state after reset
+#                self._add_to_record(
+#                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+#                )
+#
+#        # - Update state
+#        self._vState = vState
+#
+#        # Update time
+#        self._nTimeStep += nNumTimeSteps
+#
+#        # Convert arrays to TimeSeries objects
+#        tseOut = TSEvent(
+#            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+#        )
+#
+#        # TODO: Is there a time series object for this too?
+#        mfStateTimeSeries = np.array(aStateTimeSeries)
+#
+#        # This is only for debugging purposes. Should ideally not be saved
+#        self._mfStateTimeSeries = mfStateTimeSeries
+#
+#        return tseOut
 
 
 class TorchSpikingConv2dLayer(nn.Module):
