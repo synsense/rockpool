@@ -1,6 +1,7 @@
-#unittests:
-#        script:
-#                - apt-get install python3
-#                - pip3 install NetworksPython/requirements.txt
-#                - pytest NetworksPython
+unittests:
+        image: continuumio/miniconda3:latest
+        script:
+                - pip install -r NetworksPython/requirements.txt
+                - pip install pytest
+                - pytest NetworksPython
         
