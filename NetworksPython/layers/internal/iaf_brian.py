@@ -942,7 +942,7 @@ class RecIAFBrian(Layer):
             model="w : 1",
             on_pre="I_syn_post += w*amp",
             method=strIntegrator,
-            dt=tDt,
+            dt=np.asarray(tDt) * second,
             name="reservoir_recurrent_synapses",
         )
         self._sgRecurrentSynapses.connect()

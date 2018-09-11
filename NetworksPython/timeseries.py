@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List
+from typing import Union, List, Tuple
 import collections
 from functools import reduce
 
@@ -18,6 +18,9 @@ __all__ = [
     "TSEvent",
     "TSContinuous",
 ]
+
+# - Type alias for array-like objects
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 ### -- Code for setting plotting backend
 
@@ -110,8 +113,8 @@ class TimeSeries:
 
     def __init__(
         self,
-        vtTimeTrace: np.ndarray,
-        mfSamples: np.ndarray,
+        vtTimeTrace: ArrayLike,
+        mfSamples: ArrayLike,
         strInterpKind: str = "linear",
         bPeriodic: bool = False,
         strName=None,
@@ -158,13 +161,13 @@ class TimeSeries:
 
         self._create_interpolator()
 
-    def __getitem__(self, vtTimes):
+    def __getitem__(self, vtTimes: Union[ArrayLike, slice]):
         """
         ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
         NOTE that ts[:] uses as (fixed) step size the mean step size of self.vtTimeTrace
         and thus can return different values than those in ts.mfSamples!
         :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
-        :return:      np.array of interpolated values. Will have the shape TxN
+        :return:        np.array of interpolated values. Will have the shape TxN
         """
         if isinstance(vtTimes, slice):
             fStep = (
@@ -191,7 +194,7 @@ class TimeSeries:
         else:
             return self.interpolate(vtTimes)
 
-    def __call__(self, vtTimes):
+    def __call__(self, vtTimes: ArrayLike):
         """
         ts(tTime1, tTime2, ...) - Interpolate the time series to the provided time points
 
@@ -200,7 +203,7 @@ class TimeSeries:
         """
         return self.interpolate(vtTimes)
 
-    def interpolate(self, vtTimes: np.ndarray):
+    def interpolate(self, vtTimes: ArrayLike):
         """
         interpolate - Interpolate the time series to the provided time points
 
@@ -215,7 +218,7 @@ class TimeSeries:
 
         return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
 
-    def delay(self, tOffset):
+    def delay(self, tOffset: Union[int, float]):
         """
         delay - Return a copy of self that is delayed by an offset.
                 For delaying self, use ".vtTimeTrace += ..." instead.
@@ -226,7 +229,7 @@ class TimeSeries:
         tsCopy.vtTimeTrace += tOffset
         return tsCopy
 
-    def plot(self, vtTimes: np.ndarray = None, **kwargs):
+    def plot(self, vtTimes: ArrayLike = None, **kwargs):
         """
         plot - Visualise a time series on a line plot
 
@@ -261,7 +264,7 @@ class TimeSeries:
         else:
             warn("No plotting back-end detected.")
 
-    def contains(self, vtTimeTrace: np.ndarray):
+    def contains(self, vtTimeTrace: ArrayLike):
         """
         contains - Does the time series contain all points in the specified time trace?
 
@@ -274,7 +277,7 @@ class TimeSeries:
             else False
         )
 
-    def resample(self, vtTimes: np.ndarray):
+    def resample(self, vtTimes: ArrayLike):
         """
         resample - Return a new time series sampled to the supplied time base
 
@@ -570,7 +573,7 @@ class TimeSeries:
             strSummary = strSummary0 + "\n\t...\n" + strSummary1
         print(self.__repr__() + "\n" + strSummary)
 
-    def clip(self, vtNewBounds):
+    def clip(self, vtNewBounds: ArrayLike):
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end)
         :param vtNewBounds:
@@ -601,7 +604,7 @@ class TimeSeries:
 
         return tsClip
 
-    def _clip(self, vtNewBounds):
+    def _clip(self, vtNewBounds: ArrayLike):
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
         :param vtNewBounds:
@@ -620,7 +623,7 @@ class TimeSeries:
 
         return tsClip, vbIncludeSamples
 
-    def _clip_periodic(self, vtNewBounds):
+    def _clip_periodic(self, vtNewBounds: ArrayLike):
         """
         _clip_periodic - Clip a periodic TimeSeries
         :param vtNewBounds:
@@ -832,7 +835,7 @@ class TimeSeries:
         return self._vtTimeTrace
 
     @vtTimeTrace.setter
-    def vtTimeTrace(self, vtNewTrace):
+    def vtTimeTrace(self, vtNewTrace: ArrayLike):
         # - Check time trace for correct size
         assert np.size(vtNewTrace) == np.size(
             self._vtTimeTrace
@@ -860,7 +863,7 @@ class TimeSeries:
         except IndexError:
             return 1
 
-    def choose(self, vnTraces):
+    def choose(self, vnTraces: Union[int, ArrayLike]):
         """
         choose() - Select from one of several sub-traces; return a new TimeSeries containing these traces
 
@@ -891,7 +894,7 @@ class TimeSeries:
         return self._mfSamples
 
     @mfSamples.setter
-    def mfSamples(self, mfNewSamples):
+    def mfSamples(self, mfNewSamples: ArrayLike):
         # - Promote to 1d
         mfNewSamples = np.atleast_1d(mfNewSamples)
 
