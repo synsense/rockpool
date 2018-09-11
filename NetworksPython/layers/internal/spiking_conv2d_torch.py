@@ -273,7 +273,7 @@ class CNNWeightTorch(UserList):
             self.data = np.random.rand(
                 *self.kernel_size, *self._inShape[2:], self.nKernels
             )  # Kernel
-            self.nInChannels = self._inShape[3]
+            self.nInChannels = self._inShape[2]
         elif self.img_data_format == "channels_first":
             self.data = np.random.rand(
                 self.nKernels, *self.inShape[:-2], *self.kernel_size
