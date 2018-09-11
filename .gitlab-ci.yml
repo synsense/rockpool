@@ -1,6 +1,7 @@
 unittests:
         image: continuumio/miniconda3:latest
         script:
+                - conda install pytorch-cpu -c pytorch
                 - pip install -r NetworksPython/requirements.txt
                 - pip install pytest
                 - pytest NetworksPython
