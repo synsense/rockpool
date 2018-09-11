@@ -61,6 +61,10 @@ class FFCLIAFTorch(FFCLIAF):
             strName=strName,
         )
 
+        self.fVThresh = fVThresh
+        self.fVSubtract = fVSubtract
+        self.fVReset = fVReset
+
         # Placeholder variable
         self._lyrTorch = None
 
@@ -83,9 +87,9 @@ class FFCLIAFTorch(FFCLIAF):
             kernel_size=self.mfW.kernel_size,
             strides=self.mfW.strides,
             padding=self.mfW.padding,
-            fVThresh=self.vfVThresh,
-            fVSubtract=self.vfVSubtract,
-            fVReset=self.vfVReset,
+            fVThresh=self.fVThresh,
+            fVSubtract=self.fVSubtract,
+            fVReset=self.fVReset,
         )
 
     def _prepare_input(
@@ -154,19 +158,20 @@ class FFCLIAFTorch(FFCLIAF):
         mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
 
         # Convert input to torch tensors
-        tsrIn = torch.from_numpy(
-            np.array(list(mfInptSpikeRaster), int), dtype=torch.uint8
+        mfInptSpikeRaster = [next(mfInptSpikeRaster) for i in range(nNumTimeSteps)]
+        tsrIn = torch.from_numpy(np.array(mfInptSpikeRaster, np.uint8)).type(
+            torch.float
         )
         # Reshape flat data to images and channels
-        tsrInReshaped = tsrIn.reshape(-1, self.inShape)
+        tsrInReshaped = tsrIn.reshape(-1, *self.mfW.inShape)
         # Restructure input
-        if self.img_data_format == "channels_last":
+        if self.mfW.img_data_format == "channels_last":
             tsrInReshaped = tsrInReshaped.permute((3, 2, 0, 1))
-        elif self.img_data_format == "channels_first":
+        elif self.mfW.img_data_format == "channels_first":
             pass
 
         # Process data
-        tsrOut = self.lyrTorch(tsrIn)
+        tsrOut = self.lyrTorch(tsrInReshaped)
         # Reshape data again to the class's format
         # Flatten output and return
         return tsrOut
