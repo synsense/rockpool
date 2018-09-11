@@ -81,6 +81,7 @@ class FFCLIAFTorch(FFCLIAF):
         self._lyrTorch = lyrNewTorch
 
     def _init_torch_layer(self):
+        # Initialize torch layer
         self.lyrTorch = TorchSpikingConv2dLayer(
             nInChannels=self.mfW.nInChannels,
             nOutChannels=self.mfW.nKernels,
@@ -91,6 +92,28 @@ class FFCLIAFTorch(FFCLIAF):
             fVSubtract=self.fVSubtract,
             fVReset=self.fVReset,
         )
+        # Set torch weights and bias
+        if self.mfW.img_data_format == "channels_first":
+            self.lyrTorch.conv.weight.data = torch.from_numpy(self.mfW.data).float()
+            self.lyrTorch.conv.bias.data = torch.from_numpy(
+                np.zeros((self.mfW.nKernels,))
+            ).float()
+        elif self.mfW.img_data_format == "channels_last":
+            weights = self.mfW.data
+            self.lyrTorch.conv.weight.data = torch.from_numpy(
+                weights.transpose((3, 2, 0, 1))
+            ).float()
+            self.lyrTorch.conv.bias.data = torch.from_numpy(
+                np.zeros((self.mfW.nKernels,))
+            ).float()
+            self.lyrTorch.conv.bias.data = torch.from_numpy(
+                np.zeros((self.mfW.nKernels,))
+            ).float()
+            pass
+        else:
+            raise Exception(
+                "img_data_format(={}) not understood".format(self.mfW.img_data_format)
+            )
 
     def _prepare_input(
         self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
@@ -164,17 +187,36 @@ class FFCLIAFTorch(FFCLIAF):
         )
         # Reshape flat data to images and channels
         tsrInReshaped = tsrIn.reshape(-1, *self.mfW.inShape)
+        print(tsrInReshaped.shape)
         # Restructure input
         if self.mfW.img_data_format == "channels_last":
-            tsrInReshaped = tsrInReshaped.permute((3, 2, 0, 1))
+            tsrInReshaped = tsrInReshaped.permute((0, 3, 1, 2))
         elif self.mfW.img_data_format == "channels_first":
             pass
 
         # Process data
         tsrOut = self.lyrTorch(tsrInReshaped)
+
         # Reshape data again to the class's format
+        if self.mfW.img_data_format == "channels_last":
+            tsrOut = tsrOut.permute((0, 2, 3, 1))
+        elif self.mfW.img_data_format == "channels_first":
+            pass
         # Flatten output and return
-        return tsrOut
+        mbOutRaster = tsrOut.numpy()
+        mbOutRaster = mbOutRaster.reshape((nNumTimeSteps, -1))
+
+        # Create time series from raster
+        vnTimeSteps, vnChannels = np.nonzero(mbOutRaster)
+        vtTimeTrace = self.t + (vnTimeSteps + 1) * self.tDt
+
+        # Update time
+        self._nTimeStep += nNumTimeSteps
+
+        evOut = TSEvent(
+            vtTimeTrace, vnChannels, nNumChannels=self.nSize, strName=self.strName
+        )
+        return evOut
 
 
 #    def evolve(

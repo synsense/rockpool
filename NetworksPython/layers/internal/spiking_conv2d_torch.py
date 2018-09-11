@@ -47,14 +47,14 @@ class TorchConv2dLayer(nn.Module):
         with torch.no_grad():
             # Restructure input
             if self.img_data_format == "channels_last":
-                tsrIndexReshaped = tsrIndexReshaped.permute((3, 2, 0, 1))
+                tsrIndexReshaped = tsrIndexReshaped.permute((0, 3, 1, 2))
             elif self.img_data_format == "channels_first":
                 pass
             tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
 
             # Restructure output
             if self.img_data_format == "channels_last":
-                tsrConvOut = tsrConvOut.permute((2, 3, 1, 0))
+                tsrConvOut = tsrConvOut.permute((0, 2, 3, 1))
             elif self.img_data_format == "channels_first":
                 pass
         return tsrConvOut
@@ -230,14 +230,17 @@ class CNNWeightTorch(UserList):
         if self._outShape is None:
             # create fake data
             tsrImg = torch.rand(self.inShape)
-            if self.img_data_format == "channels_last":
-                tsrImg = tsrImg.unsqueeze(-1).to(self.device)
-                tsrOutImg = self.lyrTorch(tsrImg)
-                self._outShape = tsrOutImg.shape[:-1]
-            if self.img_data_format == "channels_first":
-                tsrImg = tsrImg.unsqueeze(0).to(self.device)
-                tsrOutImg = self.lyrTorch(tsrImg)
-                self._outShape = tsrOutImg.shape[1:]
+            # if self.img_data_format == "channels_last":
+            #    tsrImg = tsrImg.unsqueeze(-1).to(self.device)
+            #    tsrOutImg = self.lyrTorch(tsrImg)
+            #    self._outShape = tsrOutImg.shape[:-1]
+            # if self.img_data_format == "channels_first":
+            #    tsrImg = tsrImg.unsqueeze(0).to(self.device)
+            #    tsrOutImg = self.lyrTorch(tsrImg)
+            #    self._outShape = tsrOutImg.shape[1:]
+            tsrImg = tsrImg.unsqueeze(0).to(self.device)
+            tsrOutImg = self.lyrTorch(tsrImg)
+            self._outShape = tsrOutImg.shape[1:]
         return self._outShape
 
     @property
