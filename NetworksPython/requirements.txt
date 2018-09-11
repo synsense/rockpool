@@ -2,5 +2,5 @@ numba
 brian2
 scipy
 pytorch
-skimage
+scikit-image
 tqdm
