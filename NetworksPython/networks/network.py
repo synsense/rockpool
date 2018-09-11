@@ -52,7 +52,7 @@ def lcm(a: float, b: float) -> float:
 
 
 class Network:
-    def __init__(self, *layers: Layer):
+    def __init__(self, *layers: Layer, tDt=None):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
@@ -61,6 +61,11 @@ class Network:
                          they are received determines the order in
                          which they are connected. First layer will
                          receive external input
+        :param tDt:      float If not none, network time step is forced to
+                               this values. Layers that are added must have
+                               time step that is multiple of tDt. 
+                               If None, network will try to determine
+                               suitable tDt each time a layer is added.
         """
 
         # - Network time
@@ -68,6 +73,14 @@ class Network:
 
         # Maintain set of all layers
         self.setLayers = set()
+
+        if tDt is not None:
+            assert tDt > 0, "Network: tDt must be positie."
+            # - Force tDt
+            self._tDt = tDt
+            self._bForceDt = True
+        else:
+            self._bForceDt = False
 
         if layers:
             # - First layer receives external input
@@ -337,25 +350,35 @@ class Network:
                                         exceed the largest layer tDt before
                                         an error is assumed
         """
-        # - Collectt layer time steps
-        ltDt = [lyr.tDt for lyr in self.setLayers]
-        # - If list is empty, there are no layers in the network
-        if not ltDt:
-            return None
-        # - Determine lcm
-        tLCM = ltDt[0]
-        for tDt in ltDt[1:]:
-            tLCM = lcm(tLCM, tDt)
-        #   Also 
-        assert (
-            # - If result is way larger than largest tDt, assume it hasn't worked
-            tLCM < fMaxFactor * np.amax(ltDt)
-            # - Also make sure that tLCM is indeed a multiple of all tDt's
-            and not list(filter(lambda tDt: not is_multiple(tLCM, tDt), ltDt))
-        ), "Network: Couldn't find a reasonable common time step (layer tDt's: {}, found: {}".format(ltDt, tLCM)
+        if self._bForceDt:
+            # - Just make sure layer tDt are multiples of self.tDt
+            for lyr in self.setLayers:
+                assert is_multiple(self.tDt, lyr.tDt), (
+                    "Network: tDt is set to {}, which is not a multiple of layer `{}`'s time step ({}).".format(
+                        self.tDt, lyr.strName, lyr.tDt
+                    )
+                )
+        else:
+            ## -- Try to determine self._tDt from layer time steps
+            # - Collectt layer time steps
+            ltDt = [lyr.tDt for lyr in self.setLayers]
+            # - If list is empty, there are no layers in the network
+            if not ltDt:
+                return None
+            # - Determine lcm
+            tLCM = ltDt[0]
+            for tDt in ltDt[1:]:
+                tLCM = lcm(tLCM, tDt)
+            #   Also 
+            assert (
+                # - If result is way larger than largest tDt, assume it hasn't worked
+                tLCM < fMaxFactor * np.amax(ltDt)
+                # - Also make sure that tLCM is indeed a multiple of all tDt's
+                and not list(filter(lambda tDt: not is_multiple(tLCM, tDt), ltDt))
+            ), "Network: Couldn't find a reasonable common time step (layer tDt's: {}, found: {}".format(ltDt, tLCM)
 
-        # - Store global time step
-        self._tDt = tLCM
+            # - Store global time step
+            self._tDt = tLCM
 
         # - Store number of layer time steps per global time step for each layer
         for lyr in self.setLayers:
