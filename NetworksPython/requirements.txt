@@ -1,4 +1,6 @@
 numba
 brian2
 scipy
-
+pytorch
+skimage
+tqdm
