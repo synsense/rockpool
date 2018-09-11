@@ -39,13 +39,18 @@ class FFUpDown(Layer):
     ):
         """
         FFUpDown - Construct a spiking feedforward layer to convert analogue inputs to up and down channels
+        This layer is exceptional in that self.vState has the same size as self.nSizeIn, not self.nSize. 
+        It corresponds to the input, inferred from the output spikes by inverting the up-/down-algorithm.
         
         :param mfW:         np.array MxN weight matrix.
-            Unlike other Layer classes, only important thing about mfW is mfW.shape[0].
-            It determines the number of input channels (self.nSizeIn). The output size
-            (corresponding to self.nSize) is always 2*self.nSizeIn (one up and one down
-            channel for each input). The values of the weight matrix do not have any effect.
-            Therefore also an integer (corresponding to nSizeIn) can be passed.
+            Unlike other Layer classes, only important thing about mfW its shape. The first
+            dimension determines the number of input channels (self.nSizeIn). The second
+            dimension corresponds to nSize and has to be n*2*nSizeIn, n up and n down
+            channels for each input). If n>1 the up-/and down-spikes are distributed over
+            multipple channels. The values of the weight matrix do not have any effect.
+            It is also possible to pass only an integer, which will correspond to nSizeIn.
+            nSize is then set to 2*nSizeIn, i.e. n=1. Alternatively a tuple of two values,
+            corresponding to nSizeIn and n can be passed.
         :param tDt:         float Time-step. Default: 0.1 ms
         :param fNoiseStd:   float Noise std. dev. per second. Default: 0
 
@@ -57,12 +62,26 @@ class FFUpDown(Layer):
 
         if np.size(mfW) == 1:
             nSizeIn = mfW
+            nSize = 2*nSizeIn
+            # - On how many output channels is the are the up-/down-spikes from each input distributed
+            self._nMultiChannel = 1
+        elif np.size(mfW) == 2:
+                # - Tuple determining shape
+                (nSizeIn, self._nMultiChannel) = mfW
+                nSize = 2*self._nMultiChannel*nSizeIn
         else:
-            nSizeIn = mfW.shape[0]
+            (nSizeIn, nSize) = mfW.shape
+            assert nSize % (2*nSizeIn) == 0, (
+                "Layer `{}`: nSize (here {}) must be a multiple of 2*nSizeIn (here {}).".format(
+                    strName, nSize, nSizeIn
+                )
+            )
+            # - On how many output channels is the are the up-/down-spikes from each input distributed
+            self._nMultiChannel = nSize / (2*nSizeIn)
 
         # - Call super constructor
         super().__init__(
-            mfW=np.zeros((nSizeIn, 2*nSizeIn)),
+            mfW=np.zeros((nSizeIn, nSize)),
             tDt=tDt,
             fNoiseStd=fNoiseStd,
             strName=strName
@@ -74,6 +93,7 @@ class FFUpDown(Layer):
 
         self.reset_all()
 
+    #@profile
     def evolve(
         self,
         tsInput: Optional[TSContinuous] = None,
@@ -133,10 +153,22 @@ class FFUpDown(Layer):
         # - Store state for future evolutions
         self.vState = vState
 
+        ## -- Distribute output spikes over output channels
+        vnSpikeIDs = np.array(liSpikeIDs)
+        # - Array to hold distributed channel IDs
+        vnChannels = np.zeros(vnSpikeIDs.size, int)
+        for nSpikeID in range(2*self.nSizeIn):
+            viSpikeIndices, = np.where(vnSpikeIDs == nSpikeID)
+            nNumEvents = viSpikeIndices.size
+            vnChannels[viSpikeIndices] = np.tile(
+                np.arange(self._nMultiChannel) + self._nMultiChannel*nSpikeID,
+                int(np.ceil(nNumEvents / self._nMultiChannel))
+            )[:nNumEvents]
+
         # - Output time series
         vtSpikeTimes = (np.array(lnTSSpike) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=vtSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=2*self.nSizeIn
+            vtTimeTrace=vtSpikeTimes, vnChannels=vnChannels, nNumChannels=2*self.nSizeIn*self._nMultiChannel
         )
 
         # - Update time
