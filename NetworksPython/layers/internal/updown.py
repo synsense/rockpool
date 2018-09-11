@@ -62,29 +62,29 @@ class FFUpDown(Layer):
 
         if np.size(mfW) == 1:
             nSizeIn = mfW
-            nSize = 2*nSizeIn
+            nSize = 2 * nSizeIn
             # - On how many output channels is the are the up-/down-spikes from each input distributed
             self._nMultiChannel = 1
         elif np.size(mfW) == 2:
-                # - Tuple determining shape
-                (nSizeIn, self._nMultiChannel) = mfW
-                nSize = 2*self._nMultiChannel*nSizeIn
+            # - Tuple determining shape
+            (nSizeIn, self._nMultiChannel) = mfW
+            nSize = 2 * self._nMultiChannel * nSizeIn
         else:
             (nSizeIn, nSize) = mfW.shape
-            assert nSize % (2*nSizeIn) == 0, (
-                "Layer `{}`: nSize (here {}) must be a multiple of 2*nSizeIn (here {}).".format(
-                    strName, nSize, nSizeIn
-                )
+            assert (
+                nSize % (2 * nSizeIn) == 0
+            ), "Layer `{}`: nSize (here {}) must be a multiple of 2*nSizeIn (here {}).".format(
+                strName, nSize, nSizeIn
             )
             # - On how many output channels is the are the up-/down-spikes from each input distributed
-            self._nMultiChannel = nSize / (2*nSizeIn)
+            self._nMultiChannel = nSize / (2 * nSizeIn)
 
         # - Call super constructor
         super().__init__(
             mfW=np.zeros((nSizeIn, nSize)),
             tDt=tDt,
             fNoiseStd=fNoiseStd,
-            strName=strName
+            strName=strName,
         )
 
         # - Store layer parameters
@@ -93,7 +93,7 @@ class FFUpDown(Layer):
 
         self.reset_all()
 
-    #@profile
+    # @profile
     def evolve(
         self,
         tsInput: Optional[TSContinuous] = None,
@@ -132,11 +132,11 @@ class FFUpDown(Layer):
         if bVerbose and bUseTqdm:
             # - Add tqdm output
             rangeIterator = tqdm(rangeIterator)
-        
+
         # - Initialize state for comparing values: If self.vState exists, assume input continues from
         #   previous evolution. Otherwise start with initial input data
         vState = mfInputStep[0] if self.vState is None else self.vState
-        
+
         for iCurrentTS in rangeIterator:
             # - Indices of inputs where upper threshold is passed
             viUp, = np.where(mfInputStep[iCurrentTS] > vState + vfThrUp)
@@ -148,7 +148,7 @@ class FFUpDown(Layer):
             # - Append spikes to lists
             lnTSSpike += (viUp.size + viDown.size) * [iCurrentTS]
             # - Up channels have even, down channels odd IDs
-            liSpikeIDs += list(2*viUp) + list(2*viDown + 1)
+            liSpikeIDs += list(2 * viUp) + list(2 * viDown + 1)
 
         # - Store state for future evolutions
         self.vState = vState
@@ -157,18 +157,20 @@ class FFUpDown(Layer):
         vnSpikeIDs = np.array(liSpikeIDs)
         # - Array to hold distributed channel IDs
         vnChannels = np.zeros(vnSpikeIDs.size, int)
-        for nSpikeID in range(2*self.nSizeIn):
+        for nSpikeID in range(2 * self.nSizeIn):
             viSpikeIndices, = np.where(vnSpikeIDs == nSpikeID)
             nNumEvents = viSpikeIndices.size
             vnChannels[viSpikeIndices] = np.tile(
-                np.arange(self._nMultiChannel) + self._nMultiChannel*nSpikeID,
-                int(np.ceil(nNumEvents / self._nMultiChannel))
+                np.arange(self._nMultiChannel) + self._nMultiChannel * nSpikeID,
+                int(np.ceil(nNumEvents / self._nMultiChannel)),
             )[:nNumEvents]
 
         # - Output time series
         vtSpikeTimes = (np.array(lnTSSpike) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=vtSpikeTimes, vnChannels=vnChannels, nNumChannels=2*self.nSizeIn*self._nMultiChannel
+            vtTimeTrace=vtSpikeTimes,
+            vnChannels=vnChannels,
+            nNumChannels=2 * self.nSizeIn * self._nMultiChannel,
         )
 
         # - Update time
@@ -176,16 +178,14 @@ class FFUpDown(Layer):
 
         return tseOut
 
-
     def reset_state(self):
         # - Store None as state to indicate that future evolutions do not continue from previous input
         self.vState = None
 
-
     @property
     def cOutput(self):
         return TSEvent
-    
+
     @property
     def vState(self):
         return self._vState
@@ -206,8 +206,10 @@ class FFUpDown(Layer):
     def vfThrUp(self, vfNewThr):
         assert (np.array(vfNewThr) >= 0).all(), "vfThrUp must not be negative."
 
-        self._vfThrUp = self._expand_to_size(vfNewThr, self.nSizeIn, "vfThrUp", bAllowNone=False)
-    
+        self._vfThrUp = self._expand_to_size(
+            vfNewThr, self.nSizeIn, "vfThrUp", bAllowNone=False
+        )
+
     @property
     def vfThrDown(self):
         return self._vfThrDown
@@ -215,5 +217,6 @@ class FFUpDown(Layer):
     @vfThrDown.setter
     def vfThrDown(self, vfNewThr):
         assert (np.array(vfNewThr) >= 0).all(), "vfThrDown must not be negative."
-        self._vfThrDown = self._expand_to_size(vfNewThr, self.nSizeIn, "vfThrDown", bAllowNone=False)
-    
+        self._vfThrDown = self._expand_to_size(
+            vfNewThr, self.nSizeIn, "vfThrDown", bAllowNone=False
+        )
