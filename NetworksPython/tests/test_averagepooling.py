@@ -43,6 +43,7 @@ def test_averagepooling():
 def test_torch_sumpooling():
     """
     Perform sumpooling with torch implementation
+    This is pure torch code and has very little to do with library layers
     """
     import torch
     from NetworksPython.layers import TorchSumPooling2dLayer
@@ -58,8 +59,12 @@ def test_torch_sumpooling():
     # Verify output dimensions
     assert tsrOutput.shape == (100, 2, 5, 4)
 
+    # Asset no. of spikes is retained
+    assert tsrOutput.sum() == tsrIn.sum()
+
     # Spiketimes are still the same
     tSpkOut, _, _, _ = np.where(tsrOutput.numpy())
     tSpkIn, _, _, _ = np.where(tsrIn.numpy())
 
+    # Verify that as many
     assert len(tSpkOut) <= len(tSpkIn)
