@@ -193,7 +193,6 @@ class FFIAFBrian(Layer):
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfW = mfW
 
@@ -226,7 +225,6 @@ class FFIAFBrian(Layer):
         vfVReset = np.copy(self.vfVReset)
         vfVRest = np.copy(self.vfVRest)
         vtTauN = np.copy(self.vtTauN)
-        tRefractoryTime = np.copy(self.tRefractoryTime)
         vfBias = np.copy(self.vfBias)
         mfW = np.copy(self.mfW)
 
@@ -239,7 +237,6 @@ class FFIAFBrian(Layer):
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfW = mfW
 
@@ -388,6 +385,10 @@ class FFIAFBrian(Layer):
     def cOutput(self):
         return TSEvent
 
+    @property
+    def tRefractoryTime(self):
+        return self._ngLayer._refractory
+    
     @property
     def vState(self):
         return self._ngLayer.v_
@@ -574,7 +575,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vtTauS = vtTauS
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfW = mfW
 
@@ -658,7 +658,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vfVRest = np.copy(self.vfVRest)
         vtTauN = np.copy(self.vtTauN)
         vtTauS = np.copy(self.vtTauS)
-        tRefractoryTime = np.copy(self.tRefractoryTime)
         vfBias = np.copy(self.vfBias)
         mfW = np.copy(self.mfW)
 
@@ -671,7 +670,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vtTauS = vtTauS
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfW = mfW
 
@@ -694,7 +692,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
             vfVRest = np.copy(self.vfVRest)
             vtTauN = np.copy(self.vtTauN)
             vtTauS = np.copy(self.vtTauS)
-            tRefractoryTime = np.copy(self.tRefractoryTime)
             vfBias = np.copy(self.vfBias)
             mfW = np.copy(self.mfW)
 
@@ -709,7 +706,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self.vfVRest = vfVRest
             self.vtTauN = vtTauN
             self.vtTauS = vtTauS
-            self.tRefractoryTime = tRefractoryTime
             self.vfBias = vfBias
             self.mfW = mfW
 
@@ -842,6 +838,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
         return TSEvent
 
     @property
+    def tRefractoryTime(self):
+        return self._ngLayer._refractory
+    
+    @property
     def mfW(self):
         return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
 
@@ -967,7 +967,6 @@ class RecIAFBrian(Layer):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vtTauSynR = vtTauSynR
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
 
         # - Store "reset" state
@@ -1003,7 +1002,6 @@ class RecIAFBrian(Layer):
         vfVRest = np.copy(self.vfVRest)
         vtTauN = np.copy(self.vtTauN)
         vtTauSynR = np.copy(self.vtTauSynR)
-        tRefractoryTime = np.copy(self.tRefractoryTime)
         vfBias = np.copy(self.vfBias)
         mfW = np.copy(self.mfW)
 
@@ -1017,7 +1015,6 @@ class RecIAFBrian(Layer):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vtTauSynR = vtTauSynR
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfW = mfW
 
@@ -1128,6 +1125,10 @@ class RecIAFBrian(Layer):
             np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * volt
         )
 
+    @property
+    def tRefractoryTime(self):
+        return self._ngLayer._refractory
+    
     @property
     def vtTauN(self):
         return self._ngLayer.tau_m_
@@ -1341,7 +1342,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self.vtTauN = vtTauN
         self.vtTauSInp = vtTauSInp
         self.vtTauSRec = vtTauSRec
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
@@ -1427,7 +1427,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
         vtTauN = np.copy(self.vtTauN)
         vtTauSInp = np.copy(self.vtTauSInp)
         vtTauSRec = np.copy(self.vtTauSRec)
-        tRefractoryTime = np.copy(self.tRefractoryTime)
         vfBias = np.copy(self.vfBias)
         mfWIn = np.copy(self.mfWIn)
         mfWRec = np.copy(self.mfWRec)
@@ -1442,7 +1441,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self.vtTauN = vtTauN
         self.vtTauSInp = vtTauSInp
         self.vtTauSRec = vtTauSRec
-        self.tRefractoryTime = tRefractoryTime
         self.vfBias = vfBias
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
@@ -1469,7 +1467,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
             vtTauN = np.copy(self.vtTauN)
             vtTauSRec = np.copy(self.vtTauSRec)
             vtTauSInp = np.copy(self.vtTauSInp)
-            tRefractoryTime = np.copy(self.tRefractoryTime)
             vfBias = np.copy(self.vfBias)
             mfWIn = np.copy(self.mfWIn)
             mfWRec = np.copy(self.mfWRec)
@@ -1486,7 +1483,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
             self.vtTauN = vtTauN
             self.vtTauSInp = vtTauSInp
             self.vtTauSRec = vtTauSRec
-            self.tRefractoryTime = tRefractoryTime
             self.vfBias = vfBias
             self.mfWIn = mfWIn
             self.mfWRec = mfWRec
@@ -1508,6 +1504,10 @@ class RecIAFSpkInBrian(RecIAFBrian):
     def cInput(self):
         return TSEvent
 
+    @property
+    def tRefractoryTime(self):
+        return self._ngLayer._refractory
+    
     @property
     def mfW(self):
         return self.mfWRec
