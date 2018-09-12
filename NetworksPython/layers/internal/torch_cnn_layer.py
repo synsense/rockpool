@@ -67,6 +67,8 @@ class FFCLIAFTorch(FFCLIAF):
 
         # Placeholder variable
         self._lyrTorch = None
+        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
 
         self.reset_state()
 
@@ -114,6 +116,10 @@ class FFCLIAFTorch(FFCLIAF):
             raise Exception(
                 "img_data_format(={}) not understood".format(self.mfW.img_data_format)
             )
+
+        # Transfer layer to appropriate device
+        self.lyrTorch.to(self.device)
+        return
 
     def _prepare_input(
         self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
@@ -195,6 +201,7 @@ class FFCLIAFTorch(FFCLIAF):
             pass
 
         # Process data
+        tsrInReshaped = tsrInReshaped.to(self.device)
         tsrOut = self.lyrTorch(tsrInReshaped)
 
         # Reshape data again to the class's format
@@ -369,7 +376,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         )
 
         # Initialize neuron states
-        self._tsrState = None
+        self.tsrState = nn.Parameter(torch.zeros(5))
         self.fVSubtract = fVSubtract
         self.fVReset = fVReset
         self.fVThresh = fVThresh
@@ -383,8 +390,10 @@ class TorchSpikingConv2dLayer(nn.Module):
 
         # TODO: This should go in the init phase perhaps?
         # Initialize state if not initialized
-        if self.tsrState is None:
-            self.tsrState = torch.zeros(tsrConvOut.shape[1:])
+        if tsrConvOut.shape[1:] == self.tsrState.shape:
+            pass
+        else:
+            self.tsrState = nn.Parameter(torch.zeros(tsrConvOut.shape[1:]))
 
         # - Count number of spikes for each neuron in each time step
         vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
@@ -427,23 +436,6 @@ class TorchSpikingConv2dLayer(nn.Module):
 
             # Record spikes
 
-        self.tsrState = tsrState
+        self.tsrState.data = tsrState
 
         return tsrNumSpikes
-
-    @property
-    def tsrState(self):
-        return self._tsrState
-
-    @tsrState.setter
-    def tsrState(self, tsrNewState):
-        if self._tsrState is None:
-            self._tsrState = tsrNewState
-        elif self._tsrState.shape == tsrNewState.shape:
-            self._tsrState = tsrNewState
-        else:
-            raise Exception(
-                "Dimension Mismatch: Expected shape: {0} but received {1}".format(
-                    self._tsrState.shape, tsrNewState
-                )
-            )
