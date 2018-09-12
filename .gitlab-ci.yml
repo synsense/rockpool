@@ -1,4 +1,6 @@
 unittests:
+        tags:
+                - aictx
         image: continuumio/miniconda3:latest
         script:
                 - ./NetworksPython/requirements_conda.sh
