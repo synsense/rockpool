@@ -1344,10 +1344,8 @@ class TSEvent(TimeSeries):
 
         vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
 
-        # - Convert input events and samples to boolen raster
-
+        ## -- Convert input events and samples to boolen raster
         mbEventsRaster = np.zeros((vtTimeBase.size, len(vnSelectChannels)), bool)
-
         if bSamples:
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
         else:
@@ -1355,29 +1353,15 @@ class TSEvent(TimeSeries):
 
         # - Only perform iteration for rasters that have non-zero length
         if vtTimeBase.size > 0:
-            #   Iterate over channel indices and create their event raster
-            for row, channel in enumerate(vnSelectChannels):
+            # Compute indices for times
+            viTimeIndices_Raster = ((vtEventTimes - vtTimeBase[0]) / tDt).astype(int)
+            # Mark spiking indices with True
+            mbEventsRaster[viTimeIndices_Raster, vnEventChannels] = True
 
-                # Times with event in current channel
-                viEventIndices_Channel = np.where(vnEventChannels == channel)[0]
-                vtEventTimes_Channel = vtEventTimes[viEventIndices_Channel]
-
-                # Indices of vtTimeBase corresponding to these times
-                viEventIndices_Raster = (
-                    (vtEventTimes_Channel - vtTimeBase[0]) / tDt
-                ).astype(int)
-
-                # Set event  and sample raster for current channel
-                mbEventsRaster[viEventIndices_Raster, row] = True
-
+            if bSamples:
                 # Add samples
-                if bSamples:
-                    for iRasterIndex, iTimeIndex in zip(
-                        viEventIndices_Raster, viEventIndices_Channel
-                    ):
-                        tplSamples[iRasterIndex].append(
-                            (channel, vfSamples[iTimeIndex])
-                        )
+                for iTimeIndex, nChannel, fSample in zip(viTimeIndices_Raster, vnEventChannels, vfSamples):
+                    tplSamples[iTimeIndex].append((nChannel, fSample))
 
         return vtTimeBase, np.array(vnSelectChannels), mbEventsRaster, tplSamples
 
