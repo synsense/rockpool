@@ -18,7 +18,7 @@ dModules = {
     ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
     ".internal.iaf_cl_extd": "RecCLIAFExtd",
     ".internal.softmaxlayer": "SoftMaxLayer",
-    ".internal.averagepooling": "AveragePooling2D",
+    ".internal.averagepooling": ("AveragePooling2D", "TorchSumPooling2dLayer"),
     ".internal.iaf_digital": "RecDIAF",
     ".internal.spike_bt": "RecFSSpikeEulerBT",
     ".internal.cnnweights": "CNNWeight",
