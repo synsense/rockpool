@@ -77,6 +77,56 @@ def test_continuous_operators():
     ts = ts // ts2
     ts //= ts2
 
+def test_continuous_methods():
+    from NetworksPython import TSContinuous
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+
+    # - Interpolation
+    assert ts1(0) == 0
+    assert ts1(2) == 2
+    assert ts1(1.5) == 1.5
+
+    assert ts1.interpolate(0) == 0
+    assert ts1.interpolate(2) == 2
+    assert ts1.interpolate(1.5) == 1.5
+
+    # - Delay
+    ts1.delay(1)
+
+    # - Contains
+    assert ts1.contains(0)
+    assert ~ts1.contains(-1)
+    assert ts1.contains([0, 1, 2])
+    assert ~ts1.contains([0, 1, 2, 3])
+
+    # - Resample
+    ts1.resample([.1, 1.1, 1.9])
+    ts1.resample_within(0, 2, .1)
+
+    # - Merge
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
+    ts1.merge(ts2)
+
+    # - Append
+    ts1.append(ts2)
+    ts1.append_t(ts2)
+
+    # - Concatenate
+    ts1.concatenate(ts2)
+    ts1.concatenate_t(ts2)
+
+    # - isempty
+    assert ~ts1.isempty()
+    assert TSContinuous([], []).isempty()
+
+    # - clip
+    ts1.clip([.5, 1.5])
+
+    # - Min / Max
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    assert ts1.min() == 0
+    assert ts1.max() == 2
+
 
 def test_merge():
     from NetworksPython import TSContinuous, TSEvent
