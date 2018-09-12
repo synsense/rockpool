@@ -67,6 +67,8 @@ class FFCLIAFTorch(FFCLIAF):
 
         # Placeholder variable
         self._lyrTorch = None
+        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cpu")
 
         self.reset_state()
 
@@ -81,6 +83,7 @@ class FFCLIAFTorch(FFCLIAF):
         self._lyrTorch = lyrNewTorch
 
     def _init_torch_layer(self):
+        # Initialize torch layer
         self.lyrTorch = TorchSpikingConv2dLayer(
             nInChannels=self.mfW.nInChannels,
             nOutChannels=self.mfW.nKernels,
@@ -91,6 +94,32 @@ class FFCLIAFTorch(FFCLIAF):
             fVSubtract=self.fVSubtract,
             fVReset=self.fVReset,
         )
+        # Set torch weights and bias
+        if self.mfW.img_data_format == "channels_first":
+            self.lyrTorch.conv.weight.data = torch.from_numpy(self.mfW.data).float()
+            self.lyrTorch.conv.bias.data = torch.from_numpy(
+                np.zeros((self.mfW.nKernels,))
+            ).float()
+        elif self.mfW.img_data_format == "channels_last":
+            weights = self.mfW.data
+            self.lyrTorch.conv.weight.data = torch.from_numpy(
+                weights.transpose((3, 2, 0, 1))
+            ).float()
+            self.lyrTorch.conv.bias.data = torch.from_numpy(
+                np.zeros((self.mfW.nKernels,))
+            ).float()
+            self.lyrTorch.conv.bias.data = torch.from_numpy(
+                np.zeros((self.mfW.nKernels,))
+            ).float()
+            pass
+        else:
+            raise Exception(
+                "img_data_format(={}) not understood".format(self.mfW.img_data_format)
+            )
+
+        # Transfer layer to appropriate device
+        self.lyrTorch.to(self.device)
+        return
 
     def _prepare_input(
         self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
@@ -164,17 +193,37 @@ class FFCLIAFTorch(FFCLIAF):
         )
         # Reshape flat data to images and channels
         tsrInReshaped = tsrIn.reshape(-1, *self.mfW.inShape)
+        print(tsrInReshaped.shape)
         # Restructure input
         if self.mfW.img_data_format == "channels_last":
-            tsrInReshaped = tsrInReshaped.permute((3, 2, 0, 1))
+            tsrInReshaped = tsrInReshaped.permute((0, 3, 1, 2))
         elif self.mfW.img_data_format == "channels_first":
             pass
 
         # Process data
+        tsrInReshaped = tsrInReshaped.to(self.device)
         tsrOut = self.lyrTorch(tsrInReshaped)
+
         # Reshape data again to the class's format
+        if self.mfW.img_data_format == "channels_last":
+            tsrOut = tsrOut.permute((0, 2, 3, 1))
+        elif self.mfW.img_data_format == "channels_first":
+            pass
         # Flatten output and return
-        return tsrOut
+        mbOutRaster = tsrOut.numpy()
+        mbOutRaster = mbOutRaster.reshape((nNumTimeSteps, -1))
+
+        # Create time series from raster
+        vnTimeSteps, vnChannels = np.nonzero(mbOutRaster)
+        vtTimeTrace = self.t + (vnTimeSteps + 1) * self.tDt
+
+        # Update time
+        self._nTimeStep += nNumTimeSteps
+
+        evOut = TSEvent(
+            vtTimeTrace, vnChannels, nNumChannels=self.nSize, strName=self.strName
+        )
+        return evOut
 
 
 #    def evolve(
@@ -327,7 +376,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         )
 
         # Initialize neuron states
-        self._tsrState = None
+        self.tsrState = nn.Parameter(torch.zeros(5))
         self.fVSubtract = fVSubtract
         self.fVReset = fVReset
         self.fVThresh = fVThresh
@@ -341,8 +390,10 @@ class TorchSpikingConv2dLayer(nn.Module):
 
         # TODO: This should go in the init phase perhaps?
         # Initialize state if not initialized
-        if self.tsrState is None:
-            self.tsrState = torch.zeros(tsrConvOut.shape[1:])
+        if tsrConvOut.shape[1:] == self.tsrState.shape:
+            pass
+        else:
+            self.tsrState = nn.Parameter(torch.zeros(tsrConvOut.shape[1:]))
 
         # - Count number of spikes for each neuron in each time step
         vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
@@ -385,23 +436,6 @@ class TorchSpikingConv2dLayer(nn.Module):
 
             # Record spikes
 
-        self.tsrState = tsrState
+        self.tsrState.data = tsrState
 
         return tsrNumSpikes
-
-    @property
-    def tsrState(self):
-        return self._tsrState
-
-    @tsrState.setter
-    def tsrState(self, tsrNewState):
-        if self._tsrState is None:
-            self._tsrState = tsrNewState
-        elif self._tsrState.shape == tsrNewState.shape:
-            self._tsrState = tsrNewState
-        else:
-            raise Exception(
-                "Dimension Mismatch: Expected shape: {0} but received {1}".format(
-                    self._tsrState.shape, tsrNewState
-                )
-            )
