@@ -181,11 +181,69 @@ def test_toch_activity_comparison_to_skimage():
     evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
 
     # Check that the outputs are identical
-    assert evOut.nNumChannels == evOutTorch.nNumChannels
+    assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
+
+
+def test_toch_activity_comparison_to_skimage_channels_last():
+    """
+    Test basic layer evolution of this layer
+    """
+    from NetworksPython import TSEvent
+    from NetworksPython.layers import CNNWeight
+    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.layers import FFCLIAFTorch
+    from NetworksPython.layers import FFCLIAF
+
+    # Initialize weights
+    cnnW = CNNWeight(
+        inShape=(20, 20, 1),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_last",
+    )
+
+    # Create weights
+    cnnWTorch = CNNWeightTorch(
+        inShape=(20, 20, 1),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_last",
+    )
+    cnnWTorch.data = np.copy(cnnW.data)
+
+    # Initialize a CNN layer with CN weights
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, vfVSubtract=None, strName="CNN")
+    # Create a FFIAFTorch layer
+    lyrCNNTorch = FFCLIAFTorch(
+        mfW=cnnWTorch, fVThresh=0.5, fVSubtract=None, strName="TorchCNN"
+    )
+
+    # Generate time series input
+    evInput = TSEvent(None, strName="Input")
+    for nId in range(20 * 20):
+        vSpk = poisson_generator(40.0, t_stop=100)
+        evInput.merge(TSEvent(vSpk, nId))
+
+    # Create a copy of the input
+    evInputTorch = TSEvent(
+        evInput.vtTimeTrace.copy(), evInput.vnChannels.copy(), strName="Input copy"
+    )
+
+    # Evolve
+    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+
+    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
+
+    # Check that the outputs are identical
     assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
 
 
 def test_TorchSpikingConv2dLayer():
+    """
+    Test smooth execution of pure torch implementation
+    """
     from NetworksPython.layers.internal.torch_cnn_layer import TorchSpikingConv2dLayer
     import torch
 

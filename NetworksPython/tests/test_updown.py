@@ -14,7 +14,7 @@ def test_updown():
     from NetworksPython.layers import FFUpDown
 
     # - Generic parameters
-    mfW = np.random.rand(2, 3)
+    mfW = np.random.rand(2, 4)
 
     # - Layer generation
     fl0 = FFUpDown(
@@ -57,7 +57,7 @@ def test_updown_in_net():
     from NetworksPython.layers import RecDIAF
 
     # - Generic parameters
-    mfW = np.random.rand(2, 3)
+    mfW = np.random.rand(2, 4)
 
     # - Layer generation
     fl0 = FFUpDown(mfW=mfW)
