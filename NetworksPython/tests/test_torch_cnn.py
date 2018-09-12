@@ -195,7 +195,7 @@ def test_compare_skimage_torch_channels_first():
         img_data_format="channels_first",
     )
 
-    Wskimage = CNNWeightTorch(
+    Wskimage = CNNWeight(
         inShape=(1, 60, 60),
         nKernels=3,
         kernel_size=(1, 1),
@@ -213,6 +213,9 @@ def test_compare_skimage_torch_channels_first():
     # Test indexing with entire image
     outConvTorch = Wtorch[myImgIndex]
     outConvSkimage = Wskimage[myImgIndex]
+
+    # Convert both to the same type
+    outConvSkimage = outConvSkimage.astype(np.float32)
 
     # Compare the output shapes
     assert outConvTorch.shape == outConvSkimage.shape
@@ -236,7 +239,7 @@ def test_compare_skimage_torch_channels_last():
         img_data_format="channels_last",
     )
 
-    Wskimage = CNNWeightTorch(
+    Wskimage = CNNWeight(
         inShape=(60, 60, 1),
         nKernels=3,
         kernel_size=(1, 1),
@@ -254,6 +257,9 @@ def test_compare_skimage_torch_channels_last():
     # Test indexing with entire image
     outConvTorch = Wtorch[myImgIndex]
     outConvSkimage = Wskimage[myImgIndex]
+
+    # Convert both to the same type
+    outConvSkimage = outConvSkimage.astype(np.float32)
 
     # Compare the output shapes
     assert outConvTorch.shape == outConvSkimage.shape
