@@ -1,5 +1,4 @@
 numba
-brian2
 scipy
 scikit-image
 tqdm
