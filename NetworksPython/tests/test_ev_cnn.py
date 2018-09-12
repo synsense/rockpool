@@ -85,24 +85,6 @@ def test_cnn_multilayer():
     print(evOut)
 
 
-# Place holder
-# def test_raise_exception_on_incorrect_shape():
-#    '''
-#    Test exception on size incompatibility
-#    '''
-#    from NetworksPython.layers import CNNWeight
-#
-#    W = CNNWeight(inShape=(200,200))
-#
-#    # Create an image
-#    myImg = np.random.rand(400, 400) > 0.999
-#
-#    # Test indexing with entire image
-#    with pytest.raises(ValueError):
-#        outConv = W[myImg]
-#
-
-
 # This is a convenience function, not a test function
 def poisson_generator(rate, t_start=0.0, t_stop=1000.0, refractory=0):
     """
