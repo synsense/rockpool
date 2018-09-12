@@ -263,7 +263,7 @@ class TimedArray(Function, Nameable):
             epsilon = dt / K
 
             def unitless_timed_array_func(t, i):
-                t -= tOffset
+                t -= np.asarray(tOffset)
                 timestep = np.clip(np.int_(np.round(t / epsilon) / K), 0, n_values - 1)
                 return values[timestep, i]
 
