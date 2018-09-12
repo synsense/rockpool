@@ -67,8 +67,8 @@ class FFCLIAFTorch(FFCLIAF):
 
         # Placeholder variable
         self._lyrTorch = None
-        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
 
         self.reset_state()
 
@@ -376,7 +376,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         )
 
         # Initialize neuron states
-        self.tsrState = nn.Parameter(torch.zeros(5))
+        self.tsrState = nn.Parameter(None)
         self.fVSubtract = fVSubtract
         self.fVReset = fVReset
         self.fVThresh = fVThresh
@@ -387,13 +387,6 @@ class TorchSpikingConv2dLayer(nn.Module):
 
         # Convolve all inputs at once
         tsrConvOut = self.conv(self.pad(tsrBinaryInput))
-
-        # TODO: This should go in the init phase perhaps?
-        # Initialize state if not initialized
-        if tsrConvOut.shape[1:] == self.tsrState.shape:
-            pass
-        else:
-            self.tsrState = nn.Parameter(torch.zeros(tsrConvOut.shape[1:]))
 
         # - Count number of spikes for each neuron in each time step
         vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
@@ -410,7 +403,15 @@ class TorchSpikingConv2dLayer(nn.Module):
         )
 
         # Loop over time steps
+        tsrState = self.tsrState.data
+        if len(tsrState) == 0:
+            tsrState = tsrConvOut[0].new_zeros(tsrConvOut.shape[1:])
+
         for iCurrentTimeStep in tqdm(range(nNumTimeSteps)):
+            # if len(tsrState) == 0:
+            #    tsrState = tsrConvOut[iCurrentTimeStep]
+            # else:
+            #    tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
             tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
 
             # - Reset spike counter
