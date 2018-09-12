@@ -133,11 +133,50 @@ def test_continuous_methods():
     assert ts1.max() == 2
 
 
-def test_merge():
-    from NetworksPython import TSContinuous, TSEvent
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+def test_event_operators():
+    '''
+    Test creation and manipulation of a continuous time series
+    '''
+    from NetworksPython import TSEvent
 
+    # - Creation
+    ts = TSEvent([0], [0])
+    ts = TSEvent([0, 1, 2, 3], [1, 2, 3, 4])
+    ts2 = TSEvent([1, 2, 3, 4], [5, 6, 7, 8])
+
+    # - Samples don't match time
+    with pytest.raises(AssertionError):
+        TSEvent([0, 1, 2], 0, [0])
+
+    # - Addition
+    ts = ts + 1
+    ts += 5
+    ts = ts + ts2
+    ts += ts2
+
+    # - Subtraction
+    ts = ts - 3
+    ts -= 2
+    ts = ts - ts2
+    ts -= ts2
+
+    # - Multiplication
+    ts = ts * .9
+    ts *= .2
+    ts = ts * ts2
+    ts *= ts2
+
+    # - Division
+    ts = ts / 2.
+    ts /= 1.
+    ts = ts / ts2
+    ts /= ts2
+
+    # - Floor division
+    ts = ts // 1.
+    ts //= 1.
+    ts = ts // ts2
+    ts //= ts2
 
 def test_TSEvent_raster():
     '''

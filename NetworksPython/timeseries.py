@@ -134,10 +134,6 @@ class TimeSeries:
         vtTimeTrace = np.asarray(vtTimeTrace).flatten().astype(float)
         mfSamples = np.atleast_1d(mfSamples).astype(float)
 
-        # - Permit a one-dimensional sample input
-        if (mfSamples.shape[0] == 1) and (np.size(vtTimeTrace) > 1):
-            mfSamples = np.transpose(mfSamples)
-
         # - Check arguments
         assert (
             np.size(vtTimeTrace) == mfSamples.shape[0]
@@ -385,7 +381,7 @@ class TimeSeries:
         #  - Indices for sorting new time trace and samples. Use mergesort as stable sorting algorithm.
         viSorted = np.argsort(vtTimeTraceNew, kind="mergesort")
         self._vtTimeTrace = vtTimeTraceNew[viSorted]
-        self.mfSamples = mfSamplesNew[viSorted]
+        self._mfSamples = mfSamplesNew[viSorted]
 
         # - Fix up periodicity, if the time trace is periodic
         if self.bPeriodic:
@@ -671,7 +667,7 @@ class TimeSeries:
         return self + other
 
     def __iadd__(self, other):
-        # - Should we handle TimeSeries subtraction?
+        # - Should we handle TimeSeries addition?
         if isinstance(other, TimeSeries):
             mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
         else:
@@ -684,7 +680,8 @@ class TimeSeries:
         mfOtherSamples[mbIsNanOther] = 0
 
         # - Perform addition
-        self.mfSamples += mfOtherSamples
+        mfNewSamples = self.mfSamples + mfOtherSamples
+        self.mfSamples = mfNewSamples
 
         # - Fill in nans
         self.mfSamples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
@@ -891,16 +888,12 @@ class TimeSeries:
 
     @property
     def mfSamples(self):
-        return np.reshape(self._mfSamples, (np.size(self.vtTimeTrace), -1))
+        return self._mfSamples
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples: ArrayLike):
         # - Promote to 1d
         mfNewSamples = np.atleast_1d(mfNewSamples)
-
-        # - Permit a one-dimensional sample input
-        if (mfNewSamples.shape[0] == 1) and (np.size(self.vtTimeTrace) > 1):
-            mfNewSamples = np.transpose(mfNewSamples)
 
         # - Check samples for correct size
         assert mfNewSamples.shape[0] == np.size(
@@ -951,6 +944,9 @@ class TimeSeries:
             elif other.shape[0] == self.mfSamples.shape[0]:
                 return np.reshape(other, self.mfSamples.shape)
 
+            else:
+                raise Exception
+
         except Exception:
             raise ValueError("Input data must have shape " + str(self.mfSamples.shape))
 
@@ -959,11 +955,34 @@ class TimeSeries:
 
 
 class TSContinuous(TimeSeries):
-    def find(self, ttTimes):
+    def find(self, ttTimes: ArrayLike):
         vtTime = list(ttTimes)
         mfSamples = self(vtTime)
         return vtTime, mfSamples
 
+    @property
+    def mfSamples(self):
+        return np.reshape(self._mfSamples, (np.size(self.vtTimeTrace), -1))
+
+    @mfSamples.setter
+    def mfSamples(self, mfNewSamples: ArrayLike):
+        # - Promote to 1d
+        mfNewSamples = np.atleast_1d(mfNewSamples)
+
+        # - Permit a one-dimensional sample input, promote to 2d
+        if (mfNewSamples.shape[0] == 1) and (np.size(self.vtTimeTrace) > 1):
+            mfNewSamples = np.reshape(mfNewSamples, (np.size(self.vtTimeTrace), 1))
+
+        # - Check samples for correct size
+        assert mfNewSamples.shape[0] == np.size(
+            self.vtTimeTrace
+        ), "New samples matrix must have the same number of samples as `.vtTimeTrace`."
+
+        # - Store new time trace
+        self._mfSamples = mfNewSamples
+
+        # - Create a new interpolator
+        self._create_interpolator()
 
 ### --- Event time series
 
@@ -971,9 +990,9 @@ class TSContinuous(TimeSeries):
 class TSEvent(TimeSeries):
     def __init__(
         self,
-        vtTimeTrace: np.ndarray,
-        vnChannels: Union[int, np.ndarray] = None,
-        vfSamples: Union[float, np.ndarray] = None,
+        vtTimeTrace: ArrayLike,
+        vnChannels: Union[int, ArrayLike] = None,
+        vfSamples: Union[int, float, ArrayLike] = None,
         strInterpKind = "linear",
         bPeriodic: bool = False,
         strName: str = None,
@@ -1274,11 +1293,10 @@ class TSEvent(TimeSeries):
                 return copy.copy(np.broadcast_to(other, self.vtTimeTrace.shape))
 
             elif other.shape[0] == self.vtTimeTrace.shape[0]:
-                if len(other.shape) > 0:
-                    if other.shape[1] == 1:
-                        return other
-                    else:
-                        return np.reshape(other, self.vtTimeTrace.shape)
+                if len(other.shape) > 1 and other.shape[1] == 1:
+                    return other.flatten()
+                else:
+                    return np.reshape(other, self.vtTimeTrace.shape)
 
         except Exception:
             raise ValueError(
@@ -1505,3 +1523,19 @@ class TSEvent(TimeSeries):
                 nMinNumChannels
             )
         self._nNumChannels = nNewNumChannels
+
+    @property
+    def mfSamples(self):
+        return self._mfSamples.flatten()
+
+    @mfSamples.setter
+    def mfSamples(self, mfNewSamples):
+        # - Promote to 1d
+        mfNewSamples = np.atleast_1d(mfNewSamples)
+
+        # - Check the number of samples
+        assert np.size(mfNewSamples) == np.size(self._vtTimeTrace), \
+            'The number of samples must match the number of events'
+
+        # - Assign property
+        self._mfSamples = mfNewSamples.flatten()
