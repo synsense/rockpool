@@ -137,10 +137,8 @@ class CNNWeightTorch(UserList):
                     tsrIndexReshaped = torch.from_numpy(
                         bIndexReshaped.astype(float)
                     ).float()
-                    if self.img_data_format == "channels_last":
-                        tsrIndexReshaped = tsrIndexReshaped.unsqueeze(-1)
-                    elif self.img_data_format == "channels_first":
-                        tsrIndexReshaped = tsrIndexReshaped.unsqueeze(0)
+                    tsrIndexReshaped = tsrIndexReshaped.unsqueeze(0)
+
                     # Move data to device
                     tsrIndexReshaped = tsrIndexReshaped.to(self.device)
                     # Do the convolution
