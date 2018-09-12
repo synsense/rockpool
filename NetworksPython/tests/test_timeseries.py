@@ -104,16 +104,21 @@ def test_continuous_methods():
     ts1.resample_within(0, 2, .1)
 
     # - Merge
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
     ts1.merge(ts2)
 
     # - Append
-    ts1.append(ts2)
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
     ts1.append_t(ts2)
+    ts1.append(ts2)
 
     # - Concatenate
-    ts1.concatenate(ts2)
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
     ts1.concatenate_t(ts2)
+    ts1.concatenate(ts2)
 
     # - isempty
     assert ~ts1.isempty()

@@ -412,7 +412,7 @@ class TimeSeries:
         mfOtherSamples = tsOther(self.vtTimeTrace)
 
         # - Combine samples
-        self.mfSamples = np.concatenate((self.mfSamples, mfOtherSamples), 1)
+        self.mfSamples = np.concatenate((np.atleast_2d(self.mfSamples), mfOtherSamples), 1)
 
         # - Create new interpolator
         self._create_interpolator()
@@ -447,6 +447,8 @@ class TimeSeries:
         )
 
         # - Concatenate time trace and samples
+        self._mfSamples = np.concatenate((self.mfSamples, tsOther.mfSamples), axis=0)
+
         tMedianDT = np.median(np.diff(self._vtTimeTrace))
         self._vtTimeTrace = np.concatenate(
             (
@@ -458,8 +460,6 @@ class TimeSeries:
             ),
             axis=0,
         )
-
-        self.mfSamples = np.concatenate((self.mfSamples, tsOther.mfSamples), axis=0)
 
         # - Check and correct periodicity
         if self.bPeriodic:
@@ -891,7 +891,7 @@ class TimeSeries:
 
     @property
     def mfSamples(self):
-        return self._mfSamples
+        return np.reshape(self._mfSamples, (np.size(self.vtTimeTrace), -1))
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples: ArrayLike):
