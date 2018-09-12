@@ -194,7 +194,7 @@ class TimeSeries:
         else:
             return self.interpolate(vtTimes)
 
-    def __call__(self, vtTimes: ArrayLike):
+    def __call__(self, vtTimes: Union[int, float, ArrayLike]):
         """
         ts(tTime1, tTime2, ...) - Interpolate the time series to the provided time points
 
@@ -203,7 +203,7 @@ class TimeSeries:
         """
         return self.interpolate(vtTimes)
 
-    def interpolate(self, vtTimes: ArrayLike):
+    def interpolate(self, vtTimes: Union[int, float, ArrayLike]):
         """
         interpolate - Interpolate the time series to the provided time points
 
@@ -229,7 +229,7 @@ class TimeSeries:
         tsCopy.vtTimeTrace += tOffset
         return tsCopy
 
-    def plot(self, vtTimes: ArrayLike = None, **kwargs):
+    def plot(self, vtTimes: Union[int, float, ArrayLike] = None, **kwargs):
         """
         plot - Visualise a time series on a line plot
 
@@ -264,7 +264,7 @@ class TimeSeries:
         else:
             warn("No plotting back-end detected.")
 
-    def contains(self, vtTimeTrace: ArrayLike):
+    def contains(self, vtTimeTrace: Union[int, float, ArrayLike]):
         """
         contains - Does the time series contain all points in the specified time trace?
 
@@ -277,7 +277,7 @@ class TimeSeries:
             else False
         )
 
-    def resample(self, vtTimes: ArrayLike):
+    def resample(self, vtTimes: Union[int, float, ArrayLike]):
         """
         resample - Return a new time series sampled to the supplied time base
 
