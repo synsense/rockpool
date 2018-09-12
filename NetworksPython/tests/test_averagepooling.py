@@ -17,7 +17,7 @@ def test_import():
 
 def test_averagepooling():
     """
-    Test import of the class
+    Test averagepooling implementation
     """
     from NetworksPython.layers import AveragePooling2D
     from NetworksPython.timeseries import TSEvent
@@ -38,3 +38,28 @@ def test_averagepooling():
 
     # Neuron indices are updated
     assert np.array_equal(tseOutput.vnChannels, np.array([0, 0, 1, 1]))
+
+
+def test_torch_sumpooling():
+    """
+    Perform sumpooling with torch implementation
+    """
+    import torch
+    from NetworksPython.layers import TorchSumPooling2dLayer
+
+    lyrSumPool = TorchSumPooling2dLayer(kernel_size=(2, 5))
+
+    # Generate some random input
+    tsrIn = (torch.rand((100, 2, 10, 20)) > 0.99).float()
+
+    # Process some input
+    tsrOutput = lyrSumPool(tsrIn)
+
+    # Verify output dimensions
+    assert tsrOutput.shape == (100, 2, 5, 4)
+
+    # Spiketimes are still the same
+    tSpkOut, _, _, _ = np.where(tsrOutput.numpy())
+    tSpkIn, _, _, _ = np.where(tsrIn.numpy())
+
+    assert len(tSpkOut) <= len(tSpkIn)
