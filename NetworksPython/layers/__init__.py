@@ -23,7 +23,7 @@ dModules = {
     ".internal.spike_bt": "RecFSSpikeEulerBT",
     ".internal.cnnweights": "CNNWeight",
     ".internal.spiking_conv2d_torch": "CNNWeightTorch",
-    ".internal.torch_cnn_layer": "FFCLIAFTorch",
+    ".internal.torch_cnn_layer": ("FFCLIAFTorch", "TorchSpikingConv2dLayer"),
     ".internal.updown": "FFUpDown",
     ".internal.weights": (
         "RndmSparseEINet",
