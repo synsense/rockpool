@@ -105,6 +105,14 @@ class RecFSSpikeEulerBT(Layer):
         # - Initialise object and set properties
         super().__init__(mfW=mfW_f, fNoiseStd=fNoiseStd, strName=strName)
 
+        # - Check weight shape
+        assert mfW_s.shape[0] == mfW_s.shape[1], \
+            '`mfW_s` must be a square matrix'
+        assert mfW_f.shape[0] == mfW_f.shape[1], \
+            '`mfW_f` must be a square matrix'
+        assert mfW_s.shape[0] == mfW_f.shape[0], \
+            '`mfW_f` and `mfW_s` must be the same size'
+
         self.mfW_s = mfW_s
         self.vfBias = np.asarray(vfBias).astype("float")
         self.vtTauN = np.asarray(vtTauN).astype("float")

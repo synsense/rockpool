@@ -178,3 +178,91 @@ def test_strides_on_convolution_channels_last():
     )
 
     assert W.outShape == (5, 2, 3)
+
+
+def test_compare_skimage_torch_channels_first():
+    """
+    Compare convolution results for torch vs skimage with channels first format
+    """
+    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.layers import CNNWeight
+
+    Wtorch = CNNWeightTorch(
+        inShape=(1, 60, 60),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_first",
+    )
+
+    Wskimage = CNNWeight(
+        inShape=(1, 60, 60),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_first",
+    )
+
+    # Copy weights in both
+    Wtorch.data = Wskimage.data.copy()
+
+    # Create an image
+    myImg = np.random.rand(1, 60, 60) > 0.98
+    myImgIndex = myImg.flatten().nonzero()[0]
+
+    # Test indexing with entire image
+    outConvTorch = Wtorch[myImgIndex]
+    outConvSkimage = Wskimage[myImgIndex]
+
+    # Convert both to the same type
+    outConvSkimage = outConvSkimage.astype(np.float32)
+
+    # Compare the output shapes
+    assert outConvTorch.shape == outConvSkimage.shape
+
+    # Compare output values
+    assert np.all(outConvTorch == outConvSkimage)
+
+
+def test_compare_skimage_torch_channels_last():
+    """
+    Compare convolution results for torch vs skimage with channels first format
+    """
+    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.layers import CNNWeight
+
+    Wtorch = CNNWeightTorch(
+        inShape=(60, 60, 1),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_last",
+    )
+
+    Wskimage = CNNWeight(
+        inShape=(60, 60, 1),
+        nKernels=3,
+        kernel_size=(1, 1),
+        mode="same",
+        img_data_format="channels_last",
+    )
+
+    # Copy weights in both
+    Wtorch.data = Wskimage.data.copy()
+
+    # Create an image
+    myImg = np.random.rand(60, 60, 1) > 0.98
+    myImgIndex = myImg.flatten().nonzero()[0]
+
+    # Test indexing with entire image
+    outConvTorch = Wtorch[myImgIndex]
+    outConvSkimage = Wskimage[myImgIndex]
+
+    # Convert both to the same type
+    outConvSkimage = outConvSkimage.astype(np.float32)
+
+    # Compare the output shapes
+    assert outConvTorch.shape == outConvSkimage.shape
+
+    # Compare output values
+    assert np.all(outConvTorch == outConvSkimage)
