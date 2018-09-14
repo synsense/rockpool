@@ -67,8 +67,8 @@ class FFCLIAFTorch(FFCLIAF):
 
         # Placeholder variable
         self._lyrTorch = None
-        # self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # self.device = torch.device("cpu")
 
         self.reset_state()
 
@@ -210,7 +210,7 @@ class FFCLIAFTorch(FFCLIAF):
         elif self.mfW.img_data_format == "channels_first":
             pass
         # Flatten output and return
-        mbOutRaster = tsrOut.numpy()
+        mbOutRaster = tsrOut.cpu().numpy()
         mbOutRaster = mbOutRaster.reshape((nNumTimeSteps, -1))
 
         # Create time series from raster
@@ -226,132 +226,6 @@ class FFCLIAFTorch(FFCLIAF):
         return evOut
 
 
-#    def evolve(
-#        self,
-#        tsInput: Optional[TSEvent] = None,
-#        tDuration: Optional[float] = None,
-#        nNumTimeSteps: Optional[int] = None,
-#        bVerbose: bool = False,
-#    ) -> TSEvent:
-#        """
-#        evolve : Function to evolve the states of this layer given an input
-#
-#        :param tsSpkInput:      TSEvent  Input spike trian
-#        :param tDuration:       float    Simulation/Evolution time
-#        :param nNumTimeSteps    int      Number of evolution time steps
-#        :param bVerbose:        bool     Currently no effect, just for conformity
-#        :return:            TSEvent  output spike series
-#
-#        """
-#
-#        self.lyrTorch
-#
-#        # Compute number of simulation time steps
-#        if nNumTimeSteps is None:
-#            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
-#
-#        # - Generate input in rasterized form
-#        mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
-#
-#        # Hold the sate of network at any time step when updated
-#        aStateTimeSeries = []
-#        ltSpikeTimes = []
-#        liSpikeIDs = []
-#
-#        # Local variables
-#        vState = self.vState
-#        vfVThresh = self.vfVThresh
-#        mfWIn = self.mfWIn
-#        vfVBias = self.vfVBias
-#        tDt = self.tDt
-#        nSize = self.nSize
-#        vfVSubtract = self.vfVSubtract
-#        vfVReset = self.vfVReset
-#
-#        # - Check type of mfWIn
-#        assert isinstance(mfWIn, CNNWeightTorch)
-#        # - Indices of neurons to be monitored
-#        vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
-#        # - Count number of spikes for each neuron in each time step
-#        vnNumSpikes = np.zeros(nSize, int)
-#        # - Time before first time step
-#        tCurrentTime = self.t
-#
-#        if vnIdMonitor is not None:
-#            # Record initial state of the network
-#            self._add_to_record(aStateTimeSeries, tCurrentTime)
-#
-#        # Iterate over all time steps
-#        for iCurrentTimeStep, vbInptSpikeRaster in tqdm(enumerate(mfInptSpikeRaster)):
-#            if iCurrentTimeStep == nNumTimeSteps:
-#                break
-#            # - Spikes from input synapses
-#            vbInptSpikeRaster = vbInptSpikeRaster
-#            # Update neuron states
-#            vfUpdate = mfWIn[vbInptSpikeRaster]
-#            # State update (write this way to avoid that type casting fails)
-#            vState = vState + vfUpdate + vfVBias
-#
-#            # - Update current time
-#            tCurrentTime += tDt
-#
-#            if vnIdMonitor is not None:
-#                # - Record state before reset
-#                self._add_to_record(
-#                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
-#                )
-#
-#            # - Reset spike counter
-#            vnNumSpikes[:] = 0
-#
-#            # - Check threshold crossings for spikes
-#            vbRecSpikeRaster = vState >= vfVThresh
-#
-#            # - Reset or subtract from membrane state after spikes
-#            if vfVSubtract is not None:
-#                while vbRecSpikeRaster.any():
-#                    # - Subtract from states
-#                    vState[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
-#                    # - Add to spike counter
-#                    vnNumSpikes[vbRecSpikeRaster] += 1
-#                    # - Neurons that are still above threshold will emit another spike
-#                    vbRecSpikeRaster = vState >= vfVThresh
-#            else:
-#                # - Add to spike counter
-#                vnNumSpikes = vbRecSpikeRaster.astype(int)
-#                # - Reset neuron states
-#                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
-#
-#            # - Record spikes
-#            ltSpikeTimes += [tCurrentTime] * np.sum(vnNumSpikes)
-#            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumSpikes))
-#
-#            if vnIdMonitor is not None:
-#                # - Record state after reset
-#                self._add_to_record(
-#                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
-#                )
-#
-#        # - Update state
-#        self._vState = vState
-#
-#        # Update time
-#        self._nTimeStep += nNumTimeSteps
-#
-#        # Convert arrays to TimeSeries objects
-#        tseOut = TSEvent(
-#            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
-#        )
-#
-#        # TODO: Is there a time series object for this too?
-#        mfStateTimeSeries = np.array(aStateTimeSeries)
-#
-#        # This is only for debugging purposes. Should ideally not be saved
-#        self._mfStateTimeSeries = mfStateTimeSeries
-#
-#        return tseOut
-
-
 class TorchSpikingConv2dLayer(nn.Module):
     def __init__(
         self,
@@ -363,7 +237,6 @@ class TorchSpikingConv2dLayer(nn.Module):
         fVThresh: float = 8,
         fVSubtract: Optional[float] = None,
         fVReset: float = 0,
-        # img_data_format="channels_first",
     ):
         """
         Pytorch implementation of a spiking neuron with convolutional inputs
@@ -376,10 +249,20 @@ class TorchSpikingConv2dLayer(nn.Module):
         )
 
         # Initialize neuron states
-        self.tsrState = nn.Parameter(torch.zeros(5))
         self.fVSubtract = fVSubtract
         self.fVReset = fVReset
         self.fVThresh = fVThresh
+
+        # Blank parameter place holders
+        self.tsrNumSpikes = nn.Parameter(None)
+        self.tsrState = nn.Parameter(None)
+
+    def reset_states(self):
+        """
+        Reset the state of all neurons in this layer
+        """
+        self.tsrState.data.zero_()
+        self.tsrState.data.zero_()
 
     def forward(self, tsrBinaryInput):
         # Determine no. of time steps from input
@@ -388,15 +271,8 @@ class TorchSpikingConv2dLayer(nn.Module):
         # Convolve all inputs at once
         tsrConvOut = self.conv(self.pad(tsrBinaryInput))
 
-        # TODO: This should go in the init phase perhaps?
-        # Initialize state if not initialized
-        if tsrConvOut.shape[1:] == self.tsrState.shape:
-            pass
-        else:
-            self.tsrState = nn.Parameter(torch.zeros(tsrConvOut.shape[1:]))
-
-        # - Count number of spikes for each neuron in each time step
-        vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
+        ## - Count number of spikes for each neuron in each time step
+        # vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
 
         # Local variables
         tsrState = self.tsrState
@@ -404,17 +280,23 @@ class TorchSpikingConv2dLayer(nn.Module):
         fVThresh = self.fVThresh
         fVReset = self.fVReset
 
+        # Initialize state as required
         # Create a vector to hold all output spikes
-        tsrNumSpikes = torch.zeros(
-            nNumTimeSteps, *tsrConvOut.shape[1:], dtype=torch.uint8
-        )
+        if len(self.tsrNumSpikes) == 0:
+            self.tsrNumSpikes.data = tsrConvOut.new_zeros(
+                nNumTimeSteps, *tsrConvOut.shape[1:]
+            )
+
+        tsrNumSpikes = self.tsrNumSpikes.data
+
+        if len(self.tsrState) == 0:
+            self.tsrState.data = tsrConvOut.new_zeros(tsrConvOut.shape[1:])
+
+        tsrState = self.tsrState.data
 
         # Loop over time steps
-        for iCurrentTimeStep in tqdm(range(nNumTimeSteps)):
+        for iCurrentTimeStep in range(nNumTimeSteps):
             tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
-
-            # - Reset spike counter
-            vnNumSpikes[:] = 0
 
             # - Check threshold crossings for spikes
             vbRecSpikeRaster = tsrState >= fVThresh
@@ -432,10 +314,13 @@ class TorchSpikingConv2dLayer(nn.Module):
                 # - Add to spike counter
                 tsrNumSpikes[iCurrentTimeStep] = vbRecSpikeRaster
                 # - Reset neuron states
-                tsrState[vbRecSpikeRaster] = fVReset
+                tsrState = (
+                    vbRecSpikeRaster.float() * fVReset
+                    + tsrState * (1 - vbRecSpikeRaster).float()
+                )
 
             # Record spikes
 
         self.tsrState.data = tsrState
 
-        return tsrNumSpikes
+        return tsrNumSpikes  # Float is just to keep things compatible
