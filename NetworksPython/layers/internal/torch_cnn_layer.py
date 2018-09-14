@@ -94,24 +94,14 @@ class FFCLIAFTorch(FFCLIAF):
             fVSubtract=self.fVSubtract,
             fVReset=self.fVReset,
         )
-        # Set torch weights and bias
+        # Set torch weights
         if self.mfW.img_data_format == "channels_first":
             self.lyrTorch.conv.weight.data = torch.from_numpy(self.mfW.data).float()
-            self.lyrTorch.conv.bias.data = torch.from_numpy(
-                np.zeros((self.mfW.nKernels,))
-            ).float()
         elif self.mfW.img_data_format == "channels_last":
             weights = self.mfW.data
             self.lyrTorch.conv.weight.data = torch.from_numpy(
                 weights.transpose((3, 2, 0, 1))
             ).float()
-            self.lyrTorch.conv.bias.data = torch.from_numpy(
-                np.zeros((self.mfW.nKernels,))
-            ).float()
-            self.lyrTorch.conv.bias.data = torch.from_numpy(
-                np.zeros((self.mfW.nKernels,))
-            ).float()
-            pass
         else:
             raise Exception(
                 "img_data_format(={}) not understood".format(self.mfW.img_data_format)
@@ -245,7 +235,11 @@ class TorchSpikingConv2dLayer(nn.Module):
         super(TorchSpikingConv2dLayer, self).__init__()  # Init nn.Module
         self.pad = nn.ZeroPad2d(padding)
         self.conv = nn.Conv2d(
-            nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
+            nInChannels,
+            nOutChannels,
+            kernel_size=kernel_size,
+            stride=strides,
+            bias=False,
         )
 
         # Initialize neuron states
@@ -254,8 +248,8 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.fVThresh = fVThresh
 
         # Blank parameter place holders
-        self.tsrNumSpikes = nn.Parameter(None)
-        self.tsrState = nn.Parameter(None)
+        self.tsrNumSpikes = None
+        self.tsrState = None
 
     def reset_states(self):
         """
@@ -282,17 +276,17 @@ class TorchSpikingConv2dLayer(nn.Module):
 
         # Initialize state as required
         # Create a vector to hold all output spikes
-        if len(self.tsrNumSpikes) == 0:
-            self.tsrNumSpikes.data = tsrConvOut.new_zeros(
+        if self.tsrNumSpikes is None:
+            self.tsrNumSpikes = tsrConvOut.new_zeros(
                 nNumTimeSteps, *tsrConvOut.shape[1:]
             )
 
-        tsrNumSpikes = self.tsrNumSpikes.data
+        tsrNumSpikes = self.tsrNumSpikes
 
-        if len(self.tsrState) == 0:
-            self.tsrState.data = tsrConvOut.new_zeros(tsrConvOut.shape[1:])
+        if self.tsrState is None:
+            self.tsrState = tsrConvOut.new_zeros(tsrConvOut.shape[1:])
 
-        tsrState = self.tsrState.data
+        tsrState = self.tsrState
 
         # Loop over time steps
         for iCurrentTimeStep in range(nNumTimeSteps):
@@ -321,6 +315,6 @@ class TorchSpikingConv2dLayer(nn.Module):
 
             # Record spikes
 
-        self.tsrState.data = tsrState
+        self.tsrState = tsrState
 
         return tsrNumSpikes  # Float is just to keep things compatible
