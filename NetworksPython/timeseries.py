@@ -307,12 +307,20 @@ class TimeSeries:
         tStart = (
             min(self.vtTimeTrace)
             if tStart is None
-            else max(tStart, min(self.vtTimeTrace))
+            else (
+                tStart
+                if self.bPeriodic  # - Allow for tStart < self.tStart if self.bPeriodic
+                else max(tStart, min(self.vtTimeTrace))
+            )
         )
         tStop = (
             max(self.vtTimeTrace)
             if tStop is None
-            else min(tStop, max(self.vtTimeTrace))
+            else (
+                tStop
+                if self.bPeriodic  # - Allow for tStop > self.tStop if self.bPeriodic
+                else min(tStop, max(self.vtTimeTrace))
+            )
         )
         tDt = np.mean(np.diff(self.vtTimeTrace)) if tDt is None else tDt
 
