@@ -94,6 +94,8 @@ class FFCLIAFTorch(FFCLIAF):
             fVSubtract=self.fVSubtract,
             fVReset=self.fVReset,
         )
+        # Set biases
+        self.lyrTorch.conv.bias.data = torch.zeros(self.mfW.nKernels)
         # Set torch weights
         if self.mfW.img_data_format == "channels_first":
             self.lyrTorch.conv.weight.data = torch.from_numpy(self.mfW.data).float()
@@ -235,12 +237,9 @@ class TorchSpikingConv2dLayer(nn.Module):
         super(TorchSpikingConv2dLayer, self).__init__()  # Init nn.Module
         self.pad = nn.ZeroPad2d(padding)
         self.conv = nn.Conv2d(
-            nInChannels,
-            nOutChannels,
-            kernel_size=kernel_size,
-            stride=strides,
-            bias=False,
+            nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
         )
+        self.threshLower = nn.Threshold(-fVThresh, -fVThresh)  # Relu on the layer
 
         # Initialize neuron states
         self.fVSubtract = fVSubtract
@@ -291,6 +290,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         # Loop over time steps
         for iCurrentTimeStep in range(nNumTimeSteps):
             tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
+            tsrState = self.threshLower(tsrState)  # Lower bound on the activation
 
             # - Check threshold crossings for spikes
             vbRecSpikeRaster = tsrState >= fVThresh
@@ -310,7 +310,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 # - Reset neuron states
                 tsrState = (
                     vbRecSpikeRaster.float() * fVReset
-                    + tsrState * (1 - vbRecSpikeRaster).float()
+                    + tsrState * (vbRecSpikeRaster ^ 1).float()
                 )
 
             # Record spikes
