@@ -4,14 +4,15 @@
 
 ### --- Imports
 import numpy as np
-
+from decimal import Decimal
 from copy import deepcopy
 
-from typing import Callable
+from typing import Callable, Union
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
 from ..layers import Layer
 
+RealValue = Union[float, Decimal, str]
 
 # - Configure exports
 __all__ = ["Network"]
@@ -24,7 +25,10 @@ fTolAbs = 1e-10
 
 
 def is_multiple(
-    a: float, b: float, fTolRel: float = fTolRel, fTolAbs: float = fTolAbs
+    a: RealValue,
+    b: RealValue,
+    fTolRel: RealValue = fTolRel,
+    fTolAbs: RealValue = fTolAbs
 ) -> bool:
     """
     is_multiple - Check whether a%b is 0 within some tolerance.
@@ -33,20 +37,29 @@ def is_multiple(
     :param fTolRel: float Relative tolerance
     :return bool: True if a is a multiple of b within some tolerance
     """
+    # - Convert to decimals
+    a = Decimal(str(a))
+    b = Decimal(str(b))
+    fTolRel = Decimal(str(fTolRel))
+    fTolAbs = Decimal(str(fTolAbs))
     fMinRemainder = min(a % b, b - a % b)
     return fMinRemainder < fTolRel * b + fTolAbs
 
 
-def gcd(a: float, b: float) -> float:
+def gcd(a: RealValue, b: RealValue) -> Decimal:
     """ gcd - Return the greatest common divisor of two values a and b"""
+    a = Decimal(str(a))
+    b = Decimal(str(b))
     if b == 0:
         return a
     else:
         return gcd(b, a % b)
 
 
-def lcm(a: float, b: float) -> float:
+def lcm(a: RealValue, b: RealValue) -> Decimal:
     """ lcm - Return the least common multiple of two values a and b"""
+    a = Decimal(str(a))
+    b = Decimal(str(b))
     return a / gcd(a, b) * b
 
 
@@ -352,7 +365,7 @@ class Network:
         # - Return a list with the layers in their evolution order
         return lOrder
 
-    def _set_tDt(self, fMaxFactor: float = 1000):
+    def _set_tDt(self, fMaxFactor: float = 100):
         """
         _set_tDt - Set a time step size for the network
                    which is the lcm of all layers' tDt's.
@@ -370,8 +383,8 @@ class Network:
                 )
         else:
             ## -- Try to determine self._tDt from layer time steps
-            # - Collectt layer time steps
-            ltDt = [lyr.tDt for lyr in self.setLayers]
+            # - Collectt layer time steps, convert to Decimals for numerical stability
+            ltDt = [Decimal(str(lyr.tDt)) for lyr in self.setLayers]
             # - If list is empty, there are no layers in the network
             if not ltDt:
                 return None
@@ -389,8 +402,8 @@ class Network:
                 ltDt, tLCM
             )
 
-            # - Store global time step
-            self._tDt = tLCM
+            # - Store global time step, for now as float for compatibility
+            self._tDt = float(tLCM)
 
         # - Store number of layer time steps per global time step for each layer
         for lyr in self.setLayers:
