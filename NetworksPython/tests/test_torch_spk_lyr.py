@@ -108,9 +108,11 @@ def test_toch_activity_comparison_to_skimage_default_params():
     lyrCNNTorch = FFCLIAFTorch(mfW=cnnWTorch, fVThresh=0.5, strName="TorchCNN")
 
     # Generate time series input
+    tSim = 100
+
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
-        vSpk = poisson_generator(40.0, t_stop=100)
+        vSpk = poisson_generator(40.0, t_stop=tSim)
         evInput.merge(TSEvent(vSpk, nId))
 
     # Create a copy of the input
@@ -119,9 +121,9 @@ def test_toch_activity_comparison_to_skimage_default_params():
     )
 
     # Evolve
-    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=tSim)
 
-    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
+    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=tSim)
 
     # Check that the outputs are identical
     assert evOut.nNumChannels == evOutTorch.nNumChannels
