@@ -68,7 +68,6 @@ class FFCLIAFTorch(FFCLIAF):
         # Placeholder variable
         self._lyrTorch = None
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        # self.device = torch.device("cpu")
 
         self.reset_state()
 
@@ -284,7 +283,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         if self.tsrNumSpikes is None:
             self.tsrNumSpikes = tsrConvOut.new_zeros(
                 nNumTimeSteps, *tsrConvOut.shape[1:]
-            )
+            ).int()
 
         self.tsrNumSpikes.zero_()
         tsrNumSpikes = self.tsrNumSpikes
@@ -297,8 +296,6 @@ class TorchSpikingConv2dLayer(nn.Module):
         # Loop over time steps
         for iCurrentTimeStep in range(nNumTimeSteps):
             tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
-            if fVThreshLow is not None:
-                tsrState = self.threshLower(tsrState)  # Lower bound on the activation
 
             # - Check threshold crossings for spikes
             vbRecSpikeRaster = tsrState >= fVThresh
@@ -309,7 +306,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                     # - Subtract from states
                     tsrState = tsrState - (fVSubtract * vbRecSpikeRaster.float())
                     # - Add to spike counter
-                    tsrNumSpikes[iCurrentTimeStep] += vbRecSpikeRaster.float()
+                    tsrNumSpikes[iCurrentTimeStep] += vbRecSpikeRaster.int()
                     # - Neurons that are still above threshold will emit another spike
                     vbRecSpikeRaster = tsrState >= fVThresh
             else:
@@ -320,9 +317,11 @@ class TorchSpikingConv2dLayer(nn.Module):
                     vbRecSpikeRaster.float() * fVReset
                     + tsrState * (vbRecSpikeRaster ^ 1).float()
                 )
-            # Record spikes
+
+            if fVThreshLow is not None:
+                tsrState = self.threshLower(tsrState)  # Lower bound on the activation
 
         self.tsrState = tsrState
         self.tsrNumSpikes = tsrNumSpikes
 
-        return tsrNumSpikes  # Float is just to keep things compatible
+        return tsrNumSpikes.float()  # Float is just to keep things compatible
