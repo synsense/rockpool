@@ -22,6 +22,7 @@ fTolAbs = 1e-9
 
 __all__ = ["FFCLIAF", "RecCLIAF"]
 
+
 class CLIAF(Layer):
     """
     CLIAF - Abstract layer class of integrate and fire neurons with constant leak
@@ -350,7 +351,7 @@ class FFCLIAF(CLIAF):
         liSpikeIDs = []
 
         # Local variables
-        vState = self.vState
+        vState = self.vState.astype(np.float32)
         vfVThresh = self.vfVThresh
         mfWIn = self.mfWIn
         vfVBias = self.vfVBias
@@ -372,6 +373,8 @@ class FFCLIAF(CLIAF):
         if vnIdMonitor is not None:
             # Record initial state of the network
             self._add_to_record(aStateTimeSeries, tCurrentTime)
+
+        print(sum(mfInptSpikeRaster))
 
         # Iterate over all time steps
         for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
@@ -428,6 +431,7 @@ class FFCLIAF(CLIAF):
                 self._add_to_record(
                     aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
                 )
+            np.set_printoptions(precision=4, suppress=True)
 
         # - Update state
         self._vState = vState
