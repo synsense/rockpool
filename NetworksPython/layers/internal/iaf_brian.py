@@ -36,6 +36,20 @@ __all__ = [
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input
 eqNeuronIAFFF = b2.Equations(
     """
+    dv/dt = (r_m * I_total) / tau_m                 : volt (unless refractory)  # Neuron membrane voltage
+    I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
+    I_bias                                          : amp                       # Per-neuron bias current
+    v_rest                                          : volt                      # Rest potential
+    tau_m                                           : second                    # Membrane time constant
+    r_m                                             : ohm                       # Membrane resistance
+    v_thresh                                        : volt                      # Firing threshold potential
+    v_reset                                         : volt                      # Reset potential
+"""
+)
+
+# - Equations for an integrate-and-fire neuron, ff-layer, analogue external input, constant leak
+eqNeuronCLIAFFF = b2.Equations(
+    """
     dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
     I_bias                                          : amp                       # Per-neuron bias current
@@ -388,7 +402,7 @@ class FFIAFBrian(Layer):
     @property
     def tRefractoryTime(self):
         return self._ngLayer._refractory
-    
+
     @property
     def vState(self):
         return self._ngLayer.v_
@@ -840,7 +854,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
     @property
     def tRefractoryTime(self):
         return self._ngLayer._refractory
-    
+
     @property
     def mfW(self):
         return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
@@ -1128,7 +1142,7 @@ class RecIAFBrian(Layer):
     @property
     def tRefractoryTime(self):
         return self._ngLayer._refractory
-    
+
     @property
     def vtTauN(self):
         return self._ngLayer.tau_m_
@@ -1507,7 +1521,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
     @property
     def tRefractoryTime(self):
         return self._ngLayer._refractory
-    
+
     @property
     def mfW(self):
         return self.mfWRec
@@ -1572,4 +1586,18 @@ class RecIAFSpkInBrian(RecIAFBrian):
     def vtTauSRec(self, vtNewTauS):
         self._ngLayer.tau_syn_rec = (
             np.asarray(self._expand_to_net_size(vtNewTauS, "vtTauSRec")) * second
+        )
+
+    @property
+    def vtTauSynR(self):
+        print(
+            "Layer {}: This layer has no attribute `vtTauSynR`. ".format(self.strName)
+            + "You might want to consider `vtTauSRec` or `vtTauSInp`."
+        )
+
+    @vtTauSynR.setter
+    def vtTauSynR(self, *args, **kwargs):
+        print(
+            "Layer {}: This layer has no attribute `vtTauSynR`. ".format(self.strName)
+            + "You might want to consider `vtTauSRec` or `vtTauSInp`."
         )
