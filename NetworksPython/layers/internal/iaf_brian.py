@@ -36,7 +36,7 @@ __all__ = [
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input
 eqNeuronIAFFF = b2.Equations(
     """
-    dv/dt = (r_m * I_total) / tau_m                 : volt (unless refractory)  # Neuron membrane voltage
+    dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
     I_bias                                          : amp                       # Per-neuron bias current
     v_rest                                          : volt                      # Rest potential
@@ -50,7 +50,7 @@ eqNeuronIAFFF = b2.Equations(
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input, constant leak
 eqNeuronCLIAFFF = b2.Equations(
     """
-    dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
+    dv/dt = (r_m * I_total) / tau_m                 : volt (unless refractory)  # Neuron membrane voltage
     I_total = I_inp(t, i) + I_bias                  : amp                       # Total input current
     I_bias                                          : amp                       # Per-neuron bias current
     v_rest                                          : volt                      # Rest potential
