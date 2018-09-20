@@ -125,8 +125,6 @@ eqSynapseExpSpkInRec = b2.Equations(
 )
 
 ## - FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
-
-
 class FFIAFBrian(Layer):
     """ FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
     """
