@@ -6,6 +6,7 @@ from warnings import warn
 dModules = {
     ".network": "Network",
     ".internal.net_deneve": "NetworkDeneve",
+    ".internal.net_rate_reservoir": ("BuildRateReservoir", "BuildRandomReservoir"),
 }
 
 # - Define current package
