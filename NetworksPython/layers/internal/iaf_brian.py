@@ -30,7 +30,7 @@ __all__ = [
     "eqNeuronIAFRec",
     "eqNeuronIAFSpkInRec",
     "eqSynapseExp",
-    "eqSynapseExpSpkInRec"
+    "eqSynapseExpSpkInRec",
 ]
 
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input
@@ -79,7 +79,7 @@ eqNeuronIAFSpkInFF = b2.Equations(
 
 # - Equations for an integrate-and-fire neuron, recurrent layer, analogue external input
 eqNeuronIAFRec = b2.Equations(
-   """
+    """
    dv/dt = (v_rest - v + r_m * I_total) / tau_m    : volt (unless refractory)  # Neuron membrane voltage
    I_total = I_inp(t, i) + I_syn + I_bias          : amp                       # Total input current
    I_bias                                          : amp                       # Per-neuron bias current
@@ -144,6 +144,7 @@ class FFIAFBrian(Layer):
         eqNeurons=eqNeuronIAFFF,
         strIntegrator: str = "rk4",
         strName: str = "unnamed",
+        bRecord: bool = False,
     ):
         """
         FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
@@ -168,6 +169,8 @@ class FFIAFBrian(Layer):
         :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
 
         :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions
         """
 
         # - Call super constructor (`asarray` is used to strip units)
@@ -199,6 +202,13 @@ class FFIAFBrian(Layer):
 
         # - Call Network constructor
         self._net = b2.Network(self._ngLayer, self._spmLayer, name="ff_spiking_layer")
+
+        if bRecord:
+            # - Monitor for recording network potential
+            self._stmVmem = b2.StateMonitor(
+                self._ngLayer, ["v"], record=True, name="layer_potential"
+            )
+            self._net.add(self._stmVmem)
 
         # - Record neuron parameters
         self.vfVThresh = vfVThresh
