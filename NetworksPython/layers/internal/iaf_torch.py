@@ -43,6 +43,7 @@ class FFIAFTorch(Layer):
         vfVRest: Union[float, np.ndarray] = -0.065,
         tRefractoryTime=0,
         strName: str = "unnamed",
+        bRecord: bool = False,
     ):
         """
         FFIAFTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
@@ -63,19 +64,24 @@ class FFIAFTorch(Layer):
         :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
         :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions
         """
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
             mfW=np.asarray(mfW),
-            tDt=np.asarray(tDt),
-            fNoiseStd=np.asarray(fNoiseStd),
+            tDt=tDt,
+            fNoiseStd=fNoiseStd,
             strName=strName,
         )
 
-        # - Set cuda as backend
-        assert torch.cuda.is_available(), "Layer `{}`: Cuda not available.".format(self.strName)
-        self.gpu = torch.device("cuda")
+        # - Set device to cuda if available
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
+            print("Layer `{}`: Using CPU as CUDA is not available.".format(strName))
 
         # - Record neuron parameters
         self.vfVThresh = vfVThresh
@@ -84,10 +90,12 @@ class FFIAFTorch(Layer):
         self.vtTauN = vtTauN
         self.vfBias = vfBias
         self.mfW = mfW
+        self._bRecord = bRecord
 
         # - Store "reset" state
         self.reset_all()
 
+    # @profile
     def evolve(
         self,
         tsInput: Optional[TSContinuous] = None,
@@ -107,7 +115,7 @@ class FFIAFTorch(Layer):
         """
 
         # - Prepare time base
-        vtTimeBase, mfInput, nNumTimeSteps = self._prepare_input(
+        mfInput, nNumTimeSteps = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
         )
 
@@ -116,57 +124,67 @@ class FFIAFTorch(Layer):
 
         # - Add noise trace
         mfNeuralInput += (
-            torch.randn(vtTimeBase.flatten().shape[0], self.nSize).to(self.gpu).double()
+            torch.randn(nNumTimeSteps+1, self.nSize).to(self.device).double()
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd
-            * torch.sqrt(2. * self._vtTauN / torch.from_numpy(self.tDt).to(self.gpu))
+            * torch.sqrt(2. * self._vtTauN / self.tDt)
             * 1.63
         )
 
         # - Include resting potential and bias in input for fewer computations
         mfNeuralInput += self._vfVRest + self._vfBias
 
+        # - Tensor for collecting spike data
+        mbSpiking = torch.zeros((nNumTimeSteps, self.nSize)).byte().to(self.device)
+
+        # - Tensor for recording states
+        if self._bRecord:
+            mfRecordStates = torch.zeros((nNumTimeSteps, self.nSize)).to(self.device)
+
         # - Get local variables
         vState = self._vState.clone()
         vfAlpha = self._vfAlpha
         vfVThresh = self._vfVThresh
         vfVRest = self._vfVRest
+        vfVReset = self._vfVReset
 
-        # - lists for collecting spike data
-        lnSpikeTimeIndices = list()
-        lnSpikeChannels = list()
-
-        # - Useful for obtaining spike indices from boolean
-        vfArange = torch.arange(self.nSize)
-        
         for nStep in range(nNumTimeSteps):
             # - Incremental state update from input
             vState += vfAlpha * (mfNeuralInput[nStep] - vState)
             # - Spiking
             vbSpiking = vState > vfVThresh
-            vState[vbSpiking] = vfVRest[vbSpiking]
-            lnSpikeTimeIndices += torch.sum(vbSpiking).item() * [nStep]
-            lnSpikeChannels += list(vfArange[vbSpiking].numpy())
-            
+            # vState[vbSpiking] = vfVRest[vbSpiking]
+            # - State reset
+            vState += (vfVReset - vState) * vbSpiking.double()
+            # - Store spikes
+            mbSpiking[nStep] = vbSpiking
+            # - Store updated state
+            if self._bRecord:
+                mfRecordStates[nStep] = vState
+            del vbSpiking
 
         # - Store updated state
         self._vState = vState
+        # - Store recorded states
+        if self._bRecord:
+            self.mfRecordStates = mfRecordStates.cpu().numpy()
 
         # - Build response TimeSeries
-        vtSpikeTimings = (np.array(lnSpikeTimeIndices) + self._nTimeStep) * self.tDt
+        vnSpikeTimeIndices, vnChannels = np.nonzero(mbSpiking.cpu().numpy())
+        vtSpikeTimings = (vnSpikeTimeIndices + self._nTimeStep) * self.tDt
 
         # - Update clock
         self._nTimeStep += nNumTimeSteps
 
-        return TSEvent(vtSpikeTimings, lnSpikeChannels, strName="Layer `{}` spikes".format(self.strName))
+        return TSEvent(vtSpikeTimings, vnChannels, strName="Layer `{}` spikes".format(self.strName))
 
     def _prepare_input(
         self,
         tsInput: TSContinuous = None,
         tDuration: float = None,
         nNumTimeSteps: int = None,
-    ) -> (torch.Tensor, torch.Tensor, int):
+    ) -> (torch.Tensor, int):
         """
         _prepare_input - Sample input, set up time base
 
@@ -175,7 +193,6 @@ class FFIAFTorch(Layer):
         :param nNumTimeSteps: int Number of evolution time steps
 
         :return: (vtTimeBase, mfInputStep, tDuration)
-            vtTimeBase:     Tensor T1 Discretised time base for evolution
             mfInputStep:    Tensor (T1xN) Discretised input signal for layer
             nNumTimeSteps:  int Actual number of evolution time steps
         """
@@ -242,17 +259,17 @@ class FFIAFTorch(Layer):
                     )
 
             # - Sample input trace and check for correct dimensions
-            mfInputStep = torch.from_numpy(self._check_input_dims(tsInput(vtTimeBase))).to(self.gpu)
+            mfInputStep = torch.from_numpy(self._check_input_dims(tsInput(vtTimeBase))).to(self.device)
 
             # - Treat "NaN" as zero inputs
             mfInputStep[torch.isnan(mfInputStep)] = 0
 
         else:
             # - Assume zero inputs
-            mfInputStep = torch.zeros((vtTimeBase.flatten().shape[0], self.nSizeIn))
+            mfSpikeRaster = torch.zeros((nNumTimeSteps+1, self.nSizeIn)).to(self.device)
 
         return (
-            torch.from_numpy(vtTimeBase).to(self.gpu), mfInputStep, nNumTimeSteps
+            mfInputStep, nNumTimeSteps
         )
 
     def reset_state(self):
@@ -284,7 +301,7 @@ class FFIAFTorch(Layer):
         vNewState =         (
             np.asarray(self._expand_to_net_size(vNewState, "vState"))
         )
-        self._vState = torch.from_numpy(vNewState).to(self.gpu)
+        self._vState = torch.from_numpy(vNewState).to(self.device)
 
     @property
     def vtTauN(self):
@@ -295,7 +312,7 @@ class FFIAFTorch(Layer):
         vtNewTauN = (
             np.asarray(self._expand_to_net_size(vtNewTauN, "vtTauN"))
         )
-        self._vtTauN = torch.from_numpy(vtNewTauN).to(self.gpu)
+        self._vtTauN = torch.from_numpy(vtNewTauN).to(self.device)
 
     @property
     def vfAlpha(self):
@@ -303,7 +320,7 @@ class FFIAFTorch(Layer):
 
     @property
     def _vfAlpha(self):
-        return torch.from_numpy(self.tDt).to(self.gpu) / self._vtTauN 
+        return torch.from_numpy(self.tDt).to(self.device) / self._vtTauN 
 
     @property
     def vfBias(self):
@@ -314,7 +331,7 @@ class FFIAFTorch(Layer):
         vfNewBias = (
             np.asarray(self._expand_to_net_size(vfNewBias, "vfBias"))
         )
-        self._vfBias = torch.from_numpy(vfNewBias).to(self.gpu)
+        self._vfBias = torch.from_numpy(vfNewBias).to(self.device)
 
     @property
     def vfVThresh(self):
@@ -325,7 +342,7 @@ class FFIAFTorch(Layer):
         vfNewVThresh = (
             np.asarray(self._expand_to_net_size(vfNewVThresh, "vfVThresh"))
         )
-        self._vfVThresh = torch.from_numpy(vfNewVThresh).to(self.gpu)
+        self._vfVThresh = torch.from_numpy(vfNewVThresh).to(self.device)
 
     @property
     def vfVRest(self):
@@ -336,7 +353,7 @@ class FFIAFTorch(Layer):
         vfNewVRest = (
             np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
         )
-        self._vfVRest = torch.from_numpy(vfNewVRest).to(self.gpu)
+        self._vfVRest = torch.from_numpy(vfNewVRest).to(self.device)
 
     @property
     def vfVReset(self):
@@ -347,7 +364,7 @@ class FFIAFTorch(Layer):
         vfNewVReset = (
             np.asarray(self._expand_to_net_size(vfNewVReset, "vfVReset"))
         )
-        self._vfVReset = torch.from_numpy(vfNewVReset).to(self.gpu)
+        self._vfVReset = torch.from_numpy(vfNewVReset).to(self.device)
 
     @property
     def t(self):
@@ -360,5 +377,250 @@ class FFIAFTorch(Layer):
     @mfW.setter
     def mfW(self, mfNewW):
         mfNewW  = self._expand_to_shape(mfNewW, (self.nSizeIn, self.nSize), "mfW", bAllowNone=False)
-        self._mfW = torch.from_numpy(mfNewW).to(self.gpu)
-    
+        self._mfW = torch.from_numpy(mfNewW).to(self.device)
+
+
+# - FFIAFSpkInTorch - Class: Spiking feedforward layer with spiking in- and outputs
+class FFIAFSpkInTorch(FFIAFTorch):
+    """ FFIAFSpkInTorch - Class: Spiking feedforward layer with spiking in- and outputs
+    """
+
+    ## - Constructor
+    def __init__(
+        self,
+        mfW: np.ndarray,
+        vfBias: np.ndarray = 0.01,
+        tDt: float = 0.1,
+        fNoiseStd: float = 0,
+        vtTauN: np.ndarray = 0.02,
+        vtTauS: np.ndarray = 0.02,
+        vfVThresh: np.ndarray = -0.055,
+        vfVReset: np.ndarray = -0.065,
+        vfVRest: np.ndarray = -0.065,
+        tRefractoryTime=0,
+        strName: str = "unnamed",
+        bRecord: bool = False,
+    ):
+        """
+        FFIAFSpkInTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
+                          in- and outputs are spiking events
+
+        :param mfW:             np.array MxN weight matrix.
+        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
+
+        :param tDt:             float Time-step. Default: 0.1 ms
+        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+
+        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
+        :param vtTauS:          np.array Nx1 vector of synapse time constants. Default: 20ms
+
+        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
+        :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
+        :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
+
+        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+
+        :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions
+        """
+
+        # - Call super constructor (`asarray` is used to strip units)
+        super().__init__(
+            mfW=mfW,
+            vfBias=vfBias,
+            tDt=tDt,
+            fNoiseStd=fNoiseStd,
+            vtTauN=vtTauN,
+            vfVThresh=vfVThresh,
+            vfVReset=vfVReset,
+            vfVRest=vfVRest,
+            tRefractoryTime=tRefractoryTime,
+            strName=strName,
+            bRecord=bRecord,
+        )
+
+        # - Record neuron parameters
+        self.vtTauS = vtTauS
+
+    # @profile
+    def evolve(
+        self,
+        tsInput: Optional[TSContinuous] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input
+
+        :param tsSpkInput:      TSContinuous  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
+
+        """
+
+        # - Prepare time base
+        mfInput, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
+
+        # - Weigh inputs
+        mfWeightedInput = torch.mm(mfInput,self._mfW)
+
+        # - Add noise trace
+        mfWeightedInput += (
+            torch.randn(nNumTimeSteps, self.nSize).to(self.device).double()
+            # - Standard deviation slightly smaller than expected (due to brian??),
+            #   therefore correct with empirically found factor 1.63
+            * self.fNoiseStd
+            * torch.sqrt(2. * self._vtTauN / self.tDt)
+            * 1.63
+        )
+
+        # - Reshape input for convolution
+        mfWeightedInput = mfWeightedInput.t().reshape(1,self.nSizeIn,-1)
+
+        # - Apply exponential filter to input
+        vtTimes = torch.arange(nNumTimeSteps).to(gpu).reshape(1,-1).double() * self.tDt
+        mfKernels = torch.exp(-vtTimes / self._vtTauS.reshape(-1,1))
+        # - Reverse on time axis and reshape to match convention of pytorch
+        mfKernels = mfKernels.flip(1).reshape(self.nSizeIn, 1, nNumTimeSteps)
+        # - Object for applying convolution
+        convSynapses = torch.nn.Conv1d(
+            self.nSizeIn, self.nSizeIn, nNumTimeSteps, padding=nNumTimeSteps-1, groups=self.nSizeIn, bias=False
+        ).to(gpu)
+        convSynapses.weight.data = mfKernels
+        # - Filtered synaptic currents
+        mfNeuralInput = convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
+
+        # - Include resting potential and bias in input for fewer computations
+        mfNeuralInput += self._vfVRest + self._vfBias
+
+        # - Tensor for collecting spike data
+        mbSpiking = torch.zeros((nNumTimeSteps, self.nSize)).byte().to(self.device)
+
+        # - Tensor for recording states
+        if self._bRecord:
+            mfRecordStates = torch.zeros((nNumTimeSteps, self.nSize)).to(self.device)
+
+        # - Get local variables
+        vState = self._vState.clone()
+        vfAlpha = self._vfAlpha
+        vfVThresh = self._vfVThresh
+        vfVRest = self._vfVRest
+        vfVReset = self._vfVReset
+
+        for nStep in range(nNumTimeSteps):
+            # - Incremental state update from input
+            vState += vfAlpha * (mfNeuralInput[nStep] - vState)
+            # - Spiking
+            vbSpiking = vState > vfVThresh
+            # vState[vbSpiking] = vfVRest[vbSpiking]
+            # - State reset
+            vState += (vfVReset - vState) * vbSpiking.double()
+            # - Store spikes
+            mbSpiking[nStep] = vbSpiking
+            # - Store updated state
+            if self._bRecord:
+                mfRecordStates[nStep] = vState
+            del vbSpiking
+
+        # - Store updated state
+        self._vState = vState
+        # - Store recorded states
+        if self._bRecord:
+            self.mfRecordStates = mfRecordStates.cpu().numpy()
+
+        # - Build response TimeSeries
+        vnSpikeTimeIndices, vnChannels = np.nonzero(mbSpiking.cpu().numpy())
+        vtSpikeTimings = (vnSpikeTimeIndices + self._nTimeStep) * self.tDt
+
+        # - Update clock
+        self._nTimeStep += nNumTimeSteps
+
+        return TSEvent(vtSpikeTimings, vnChannels, strName="Layer `{}` spikes".format(self.strName))        
+
+    def _prepare_input(
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+    ) -> (torch.Tensor, int):
+        """
+        _prepare_input - Sample input, set up time base
+
+        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:    float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps int Number of evolution time steps
+
+        :return:
+            mfSpikeRaster:    Tensor Boolean raster containing spike info
+            nNumTimeSteps:    int Number of evlution time steps
+        """
+        if nNumTimeSteps is None:
+            # - Determine nNumTimeSteps
+            if tDuration is None:
+                # - Determine tDuration
+                assert (
+                    tsInput is not None
+                ), "Layer {}: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
+                    self.strName
+                )
+
+                if tsInput.bPeriodic:
+                    # - Use duration of periodic TimeSeries, if possible
+                    tDuration = tsInput.tDuration
+
+                else:
+                    # - Evolve until the end of the input TImeSeries
+                    tDuration = tsInput.tStop - self.t
+                    assert tDuration > 0, (
+                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
+                            self.strName
+                        )
+                        + "`tsInput` finishes before the current "
+                        "evolution time."
+                    )
+            # - Discretize tDuration wrt self.tDt
+            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+        else:
+            assert isinstance(
+                nNumTimeSteps, int
+            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+
+        # - End time of evolution
+        tFinal = self.t + nNumTimeSteps * self.tDt
+
+        # - Extract spike timings and channels
+        if tsInput is not None:
+            # Extract spike data from the input variable
+            __, __, mfSpikeRaster, __ = tsInput.raster(
+                tDt=self.tDt,
+                tStart=self.t,
+                tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                # vnSelectChannels=np.arange(self.nSizeIn), ## This causes problems when tsInput has no events in some channels
+            )
+            # - Convert to supportedformat
+            mfSpikeRaster = mfSpikeRaster.astype(int)
+            # - Make sure size is correct
+            mfSpikeRaster = torch.from_numpy(mfSpikeRaster[:nNumTimeSteps, :]).to(self.device).double()
+
+        else:
+            mfSpikeRaster = torch.zeros((nNumTimeSteps+1, self.nSizeIn)).to(self.device).double()
+
+        return mfSpikeRaster, nNumTimeSteps
+
+    @property
+    def vtTauS(self):
+        return self._vtTauS.cpu().numpy()
+
+    @vtTauS.setter
+    def vtTauS(self, vtNewTauS):
+        vtNewTauS = (
+            np.asarray(self._expand_to_net_size(vtNewTauS, "vtTauS"))
+        )
+        self._vtTauS = torch.from_numpy(vtNewTauS).to(self.device)
+
