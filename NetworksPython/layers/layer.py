@@ -68,6 +68,14 @@ class Layer(ABC):
             self.strName
         )
 
+        # - Assign default noise
+        if fNoiseStd is None:
+            fNoiseStd = 0.
+
+        # - Check tDt
+        assert tDt is not None, \
+            '`tDt` must be a numerical value'
+
         self._tDt = tDt
         self.fNoiseStd = fNoiseStd
         self._nTimeStep = 0
