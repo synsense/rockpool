@@ -89,3 +89,8 @@ def test_RecRateEuler():
     with pytest.raises(AssertionError):
         fl1 = RecRateEuler(mfW = np.zeros((1, 2)))
 
+    with pytest.raises(AssertionError):
+        RecRateEuler(mfW = np.zeros((2, 2)), vtTau = None)
+
+    with pytest.raises(AssertionError):
+        RecRateEuler(mfW = np.zeros((2, 2)), fNoiseStd = None)
