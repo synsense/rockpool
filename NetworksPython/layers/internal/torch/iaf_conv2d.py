@@ -1,6 +1,9 @@
 import numpy as np
+import pandas as pd
 import torch.nn as nn
 from typing import Optional, Union, List, Tuple
+from operator import mul
+from functools import reduce
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -118,5 +121,22 @@ class TorchSpikingConv2dLayer(nn.Module):
 
         self.tsrState = tsrState
         self.tsrNumSpikes = tsrNumSpikes
-
+        self.outShape = tsrNumSpikes.shape[1:]
         return tsrNumSpikes.float()  # Float is just to keep things compatible
+
+    def summary(self):
+        summary = pd.DataFrame(
+            {
+                "Output Shape": str(list(self.outShape)),
+                "Padding": str(self.padding),
+                "Kernel": str(self.kernel_size),
+                "Stride": str(self.strides),
+                "Neurons": reduce(mul, list(self.outShape), 1),
+                "KernelMem": self.nInChannels
+                * self.nOutChannels
+                * reduce(mul, self.kernel_size, 1),
+                "BiasMem": self.nOutChannels,
+            },
+            index=[0],
+        )
+        return summary
