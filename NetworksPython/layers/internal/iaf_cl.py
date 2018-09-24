@@ -108,7 +108,7 @@ class CLIAF(Layer):
         tsInput: Optional[TSEvent] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
-    ) -> (np.ndarray, np.ndarray, float, float):
+    ) -> (np.ndarray, int):
         """
         _prepare_input - Sample input, set up time base
 
