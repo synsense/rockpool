@@ -23,13 +23,17 @@ def test_ffiaf():
     from NetworksPython.layers import FFIAFBrian
 
     # - Generic parameters
-    mfW = 2 * np.random.rand(2, 3) - 1
-    vfBias = 2 * np.random.rand(3) - 1
-    vtTauN = np.random.rand(3)
+    mfW = np.array([
+        [-0.1, 0.02, 0.4],
+        [0.2, -0.3, -0.15],
+    ])
+    vfBias = 0.01
+    vtTauN = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl0 = FFIAFBrian(
         mfW=mfW,
+        tDt=0.01,
         vfBias=vfBias,
         vtTauN=vtTauN,
         fNoiseStd=0.1,
@@ -59,13 +63,16 @@ def test_ffiaf_spkin():
     from NetworksPython.layers import FFIAFSpkInBrian
 
     # - Generic parameters
-    mfW = 2 * np.random.rand(2, 3) - 1
-    vfBias = 2 * np.random.rand(3) - 1
-    vtTauN = np.random.rand(3)
+    mfW = np.array([
+        [-0.1, 0.02, 0.4],
+        [0.2, -0.3, -0.15],
+    ])
+    vfBias = 0.01
+    vtTauN = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl1 = FFIAFSpkInBrian(
-        mfW=mfW, vfBias=vfBias, vtTauN=vtTauN, fNoiseStd=0.1, tRefractoryTime=0.001
+        mfW=mfW, vfBias=vfBias, vtTauN=vtTauN, tDt=0.01, fNoiseStd=0.1, tRefractoryTime=0.001
     )
 
     # - Input signal
@@ -94,7 +101,7 @@ def test_reciaf():
     np.random.seed(1)
     mfW = 2 * np.random.rand(3, 3) - 1
     vfBias = 2 * np.random.rand(3) - 1
-    vtTauN, vtTauSynR = np.random.rand(2, 3)
+    vtTauN, vtTauSynR = np.clip(np.random.rand(2, 3), 0.01, None)
 
     # - Layer generation
     rl0 = RecIAFBrian(
@@ -102,6 +109,7 @@ def test_reciaf():
         vfBias=vfBias,
         vtTauN=vtTauN,
         vtTauSynR=vtTauSynR,
+        tDt=0.01,
         fNoiseStd=0.1,
         tRefractoryTime=0.001 * second,
     )
@@ -129,10 +137,11 @@ def test_reciaf_spkin():
     from NetworksPython.layers import RecIAFSpkInBrian
 
     # - Negative weights, so that layer doesn't spike and gets reset
+    np.random.seed(1)
     mfWIn = np.random.rand(2, 3) - 1
     mfWRec = 2 * np.random.rand(3, 3) - 1
     vfBias = 2 * np.random.rand(3) - 1
-    vtTauN, vtTauSInp, vtTauSRec = np.random.rand(3, 3)
+    vtTauN, vtTauSInp, vtTauSRec = np.clip(np.random.rand(3, 3), 0.01, None)
 
     # - Layer generation
     rl1 = RecIAFSpkInBrian(
@@ -142,6 +151,7 @@ def test_reciaf_spkin():
         vtTauN=vtTauN,
         vtTauSInp=vtTauSInp,
         vtTauSRec=vtTauSRec,
+        tDt=0.01,
         fNoiseStd=0.1,
         tRefractoryTime=0.001,
     )
