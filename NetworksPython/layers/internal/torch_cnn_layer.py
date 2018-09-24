@@ -1,15 +1,13 @@
 from .torch import TorchSpikingConv2dLayer
 import numpy as np
-from tqdm import tqdm
 import torch
-import torch.nn as nn
 
 # Internal class dependencies
 from ...timeseries import TSEvent
 from .spiking_conv2d_torch import CNNWeightTorch
 from .iaf_cl import FFCLIAF
 
-from typing import Optional, Union, List, Tuple, Generator
+from typing import Optional, Union, List, Tuple
 from warnings import warn
 
 # - Type alias for array-like objects
