@@ -250,6 +250,13 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.fVThresh = fVThresh
         self.fVThreshLow = fVThreshLow
 
+        # Layer convolutional properties
+        self.nInChannels = nInChannels
+        self.nOutChannels = nOutChannels
+        self.kernel_size = kernel_size
+        self.padding = padding
+        self.strides = strides
+
         # Blank parameter place holders
         self.tsrNumSpikes = None
         self.tsrState = None
