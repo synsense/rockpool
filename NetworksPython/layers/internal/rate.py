@@ -713,11 +713,11 @@ class RecRateEuler(Layer):
     def __init__(
         self,
         mfW: np.ndarray,
-        vfBias: np.ndarray = 0,
-        vtTau: np.ndarray = 1,
+        vfBias: np.ndarray = 0.,
+        vtTau: np.ndarray = 1.,
         fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLu,
         tDt: float = None,
-        fNoiseStd: float = 0,
+        fNoiseStd: float = 0.,
         strName: str = None,
     ):
         """
@@ -740,6 +740,13 @@ class RecRateEuler(Layer):
             '`mfW` must be a matrix with 2 dimensions'
         assert mfW.shape[0] == mfW.shape[1], \
             '`mfW` must be a square matrix'
+
+        # - Check arguments
+        assert vtTau is not None, \
+            '`vtTau` may not be None'
+
+        assert fNoiseStd is not None, \
+            '`fNoiseStd` may not be None'
 
         # - Assign properties
         self.vfBias = vfBias
