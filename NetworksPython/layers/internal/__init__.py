@@ -84,6 +84,6 @@ for strModule, classnames in dModules.items():
 
 from .torch import *
 
-import NetworksPython.layers.internal.torch as torch
+from .torch import __all__ as suball
 
-__all__ += torch.__all__
+__all__ += suball

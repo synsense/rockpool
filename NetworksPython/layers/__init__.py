@@ -55,6 +55,6 @@ for strModule, classnames in dModules.items():
 
 from .internal import *
 
-import NetworksPython.layers.internal as internal
+from .internal import __all__ as suball
 
-__all__ += internal.__all__
+__all__ += suball
