@@ -6,6 +6,7 @@ from warnings import warn
 dModules = {
     ".iaf_conv2d": "TorchSpikingConv2dLayer",
     ".sumpool2d": "TorchSumPooling2dLayer",
+    ".crop2d": "TorchCropping2dLayer",
 }
 
 
