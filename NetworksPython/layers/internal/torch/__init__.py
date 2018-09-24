@@ -4,24 +4,13 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian", "RecIAFBrian", "RecIAFSpkInBrian"),
-    ".rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-    ".exp_synapses_brian": "FFExpSynBrian",
-    ".exp_synapses_manual": "FFExpSyn",
-    ".evSpikeLayer": "EventDrivenSpikingLayer",
-    ".iaf_cl": ("FFCLIAF", "RecCLIAF"),
-    ".iaf_cl_extd": "RecCLIAFExtd",
-    ".softmaxlayer": "SoftMaxLayer",
-    ".averagepooling": "AveragePooling2D",
-    ".iaf_digital": "RecDIAF",
-    ".spike_bt": "RecFSSpikeEulerBT",
-    ".spiking_conv2d_torch": "CNNWeightTorch",
-    ".torch_cnn_layer": "FFCLIAFTorch",
+    ".iaf_conv2d": "TorchSpikingConv2dLayer",
+    ".sumpool2d": "TorchSumPooling2dLayer",
 }
 
-# - Define current package
-strBasePackage = "NetworksPython.layers.internal"
 
+# - Define current package
+strBasePackage = "NetworksPython.layers.internal.torch"
 
 # - Initialise list of available modules
 __all__ = []

@@ -246,7 +246,7 @@ def test_TorchSpikingConv2dLayer():
     """
     Test smooth execution of pure torch implementation
     """
-    from NetworksPython.layers.internal.torch_cnn_layer import TorchSpikingConv2dLayer
+    from NetworksPython.layers import TorchSpikingConv2dLayer
     import torch
 
     # Create a torch layer
