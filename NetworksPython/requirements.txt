@@ -2,3 +2,4 @@ numba
 scipy
 scikit-image
 tqdm
+pandas
