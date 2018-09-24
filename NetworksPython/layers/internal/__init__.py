@@ -9,14 +9,29 @@ dModules = {
     ".exp_synapses_brian": "FFExpSynBrian",
     ".exp_synapses_manual": "FFExpSyn",
     ".evSpikeLayer": "EventDrivenSpikingLayer",
-    ".iaf_cl": ("FFCLIAF", "RecCLIAF"),
+    ".iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
     ".iaf_cl_extd": "RecCLIAFExtd",
     ".softmaxlayer": "SoftMaxLayer",
     ".averagepooling": "AveragePooling2D",
     ".iaf_digital": "RecDIAF",
     ".spike_bt": "RecFSSpikeEulerBT",
+    ".cnnweights": "CNNWeight",
     ".spiking_conv2d_torch": "CNNWeightTorch",
     ".torch_cnn_layer": "FFCLIAFTorch",
+    ".updown": "FFUpDown",
+    ".weights": (
+        "RndmSparseEINet",
+        "RandomEINet",
+        "WilsonCowanNet",
+        "WipeNonSwitchingEigs",
+        "UnitLambdaNet",
+        "DiscretiseWeightMatrix",
+        "DynapseConform",
+        "In_Res_Dynapse",
+        "digital",
+        "in_res_digital",
+        "IAFSparseNet",
+    ),
 }
 
 # - Define current package
@@ -66,3 +81,9 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
+
+from .torch import *
+
+import NetworksPython.layers.internal.torch as torch
+
+__all__ += torch.__all__
