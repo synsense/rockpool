@@ -99,14 +99,14 @@ class FFIAFTorch(Layer):
         # - Store "reset" state
         self.reset_all()
 
-    # @profile
+    @profile
     def evolve(
         self,
         tsInput: Optional[TSContinuous] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-        nMaxTimeStep: int = 2000,
+        nMaxTimeStep: int = 1000,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input. Automatically splits evolution in batches,
@@ -151,7 +151,7 @@ class FFIAFTorch(Layer):
         
         return tseOut
 
-
+    @profile
     def _batch_timesteps(
         self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxTimeStep: int = None,
     ) -> (np.ndarray, int):
@@ -168,7 +168,7 @@ class FFIAFTorch(Layer):
             # - Update nStart
             nStart = nEnd
 
-        
+    @profile
     def _single_batch_evolution(
         self,
         mfInput: np.ndarray,
@@ -231,7 +231,7 @@ class FFIAFTorch(Layer):
         
         return list(vnSpikeTimeIndices), list(vnChannels), mfRecordStates
 
-    # @profile
+    @profile
     def _prepare_neural_input(
         self,
         mfInput: np.array,
@@ -266,6 +266,7 @@ class FFIAFTorch(Layer):
 
         return mfNeuralInput, nNumTimeSteps
 
+    @profile
     def _prepare_input(
         self,
         tsInput: TSContinuous = None,
@@ -531,7 +532,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         # - Record neuron parameters
         self.vtTauS = vtTauS
 
-
+    @profile
     def _prepare_neural_input(
         self,
         mfInput: np.array,
@@ -582,6 +583,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
         return mfNeuralInput, nNumTimeSteps
 
+    @profile
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
