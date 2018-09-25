@@ -26,6 +26,8 @@ __all__ = [
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
+# - Default maximum numbers of time steps for a single evolution batch
+nMaxTimeStepDefault = 750
 
 ## - FFIAFTorch - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFTorch(Layer):
@@ -106,7 +108,7 @@ class FFIAFTorch(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-        nMaxTimeStep: int = 1000,
+        nMaxTimeStep: int = nMaxTimeStepDefault,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input. Automatically splits evolution in batches,
@@ -127,28 +129,40 @@ class FFIAFTorch(Layer):
         mfInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # - Evolve over batches and collect spike data
-        lnSpikeTimeIndices = list()
-        lnSpikeChannels = list()
-        lmRecordedStates = list(self._vState.reshape(1,1,-1))  # List seems to reduce one dimension
+        mbSpiking = torch.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
+        # - Tensor for recording states
+        if self._bRecord:
+            mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps+1, self.nSize).fill_(0)
+            mfRecordStates[0] = self._vState
+            # lmRecordedStates = list(self._vState.reshape(1,1,-1))  # List seems to reduce one dimension
+        
 
+        iCurrentIndex = 0
         for mfCurrentInput, nCurrNumTS in self._batch_timesteps(mfInput, nNumTimeSteps, nMaxTimeStep):
-            ltNewIndices, lnNewChannels, mNewRecordings = self._single_batch_evolution(mfCurrentInput, nCurrNumTS, bVerbose)
-            lnSpikeTimeIndices += ltNewIndices
-            lnSpikeChannels += lnNewChannels
-            lmRecordedStates.append(mNewRecordings)
-
-        # - Output timeseries
-        vtSpikeTimings = np.array(lnSpikeTimeIndices) * self.tDt
-        tseOut = TSEvent(vtSpikeTimings, lnSpikeChannels, strName="Layer `{}` spikes".format(self.strName))
+            if self._bRecord:
+                (
+                    mbSpiking[iCurrentIndex : iCurrentIndex+nCurrNumTS],
+                    mfRecordStates[2*iCurrentIndex+1 : 2*(iCurrentIndex+nCurrNumTS)+1],
+                ) = self._single_batch_evolution(mfCurrentInput, nCurrNumTS, bVerbose)
+                iCurrentIndex += nCurrNumTS
+            else:
+                (
+                    mbSpiking[iCurrentIndex : iCurrentIndex+nCurrNumTS], __
+                ) = self._single_batch_evolution(mfCurrentInput, nCurrNumTS, bVerbose)
+            # lmRecordedStates.append(mNewRecordings)
 
         # - Store recorded states in timeseries
         if self._bRecord:
             vtRecordTimes = np.repeat(
                 (nTimeStepStart + np.arange(nNumTimeSteps + 1 )) * self.tDt, 2
             )[1:]
-            mfRecordStates = torch.cat(lmRecordedStates).cpu().numpy()
-            self.tscRecorded = TSContinuous(vtRecordTimes, mfRecordStates)
+            self.tscRecorded = TSContinuous(vtRecordTimes, mfRecordStates.cpu().numpy())
         
+        # - Output timeseries
+        vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
+        vtSpikeTimings = (nTimeStepStart + vnSpikeTimeIndices + 1) * self.tDt
+        tseOut = TSEvent(vtSpikeTimings.numpy(), vnChannels.numpy(), strName="Layer `{}` spikes".format(self.strName))
+
         return tseOut
 
     @profile
@@ -190,7 +204,7 @@ class FFIAFTorch(Layer):
         # - Include resting potential and bias in input for fewer computations
         mfNeuralInput += self._vfVRest + self._vfBias
         # - Tensor for collecting spike data
-        mbSpiking = self.tensors.ByteTensor(nNumTimeSteps+1, self.nSize).fill_(0)
+        mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
         # - Tensor for recording states
         if self._bRecord:
             mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps, self.nSize).fill_(0)
@@ -210,10 +224,10 @@ class FFIAFTorch(Layer):
             if self._bRecord:
                 mfRecordStates[2*nStep] = vState
             # - Spiking
-            vbSpiking = vState > vfVThresh
+            vbSpiking = (vState > vfVThresh).float()
             # vState[vbSpiking] = vfVRest[vbSpiking]
             # - State reset
-            vState += (vfVReset - vState) * vbSpiking.float()
+            vState += (vfVReset - vState) * vbSpiking
             # - Store spikes
             mbSpiking[nStep] = vbSpiking
             # - Store updated state after spike
@@ -221,15 +235,11 @@ class FFIAFTorch(Layer):
                 mfRecordStates[2*nStep+1] = vState
             del vbSpiking
 
-        # - Extract spike output data
-        vnSpikeTimeIndices, vnChannels = np.nonzero(mbSpiking.cpu().numpy())
-        vnSpikeTimeIndices += self._nTimeStep
-        
         # - Store updated state and update clock
         self._vState = vState
         self._nTimeStep += nNumTimeSteps
         
-        return list(vnSpikeTimeIndices), list(vnChannels), mfRecordStates
+        return mbSpiking.cpu(), mfRecordStates
 
     @profile
     def _prepare_neural_input(
@@ -664,4 +674,78 @@ class FFIAFSpkInTorch(FFIAFTorch):
             np.asarray(self._expand_to_net_size(vtNewTauS, "vtTauS"))
         )
         self._vtTauS = torch.from_numpy(vtNewTauS).to(self.device).float()
+
+## - RecIAFTorch - Class: define a spiking recurrent layer with spiking outputs
+class RecIAFTorch(Layer):
+    """ FFIAFTorch - Class: define a spiking recurrent layer with spiking outputs
+    """
+
+    ## - Constructor
+    def __init__(
+        self,
+        mfW: np.ndarray,
+        vfBias: Union[float, np.ndarray] = 0.015,
+        tDt: float = 0.0001,
+        fNoiseStd: float = 0,
+        vtTauN: Union[float, np.ndarray] = 0.02,
+        vtTauSynR: Union[float, np.ndarray] = 0.05,
+        vfVThresh: Union[float, np.ndarray] = -0.055,
+        vfVReset: Union[float, np.ndarray] = -0.065,
+        vfVRest: Union[float, np.ndarray] = -0.065,
+        tRefractoryTime=0,
+        strName: str = "unnamed",
+        bRecord: bool = False,
+    ):
+        """
+        FFIAFTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
+                     Inputs are continuous currents; outputs are spiking events
+
+        :param mfW:             np.array MxN weight matrix.
+        :param vfBias:          np.array Nx1 bias vector. Default: 0.015
+
+        :param tDt:             float Time-step. Default: 0.0001
+        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+
+        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 0.02
+        :param vtTauSynR:       np.array NxN vector of recurrent synaptic time constants. Default: 0.005
+
+        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
+        :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
+        :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
+
+        :param tRefractoryTime: float Refractory period after each spike. Default: 0
+
+        :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions. Default: False
+        """
+
+        # - Call super constructor (`asarray` is used to strip units)
+        super().__init__(
+            mfW=np.asarray(mfW),
+            tDt=tDt,
+            fNoiseStd=fNoiseStd,
+            strName=strName,
+        )
+
+        # - Set device to cuda if available and determine how tensors should be instantiated
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+            self.tensors = torch.cuda
+        else:
+            self.device = torch.device('cpu')
+            print("Layer `{}`: Using CPU as CUDA is not available.".format(strName))
+            self.tensors = torch
+
+        # - Record neuron parameters
+        self.vfVThresh = vfVThresh
+        self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
+        self.vtTauN = vtTauN
+        self.vfBias = vfBias
+        self.mfW = mfW
+        self._bRecord = bRecord
+
+        # - Store "reset" state
+        self.reset_all()
 
