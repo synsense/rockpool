@@ -82,8 +82,8 @@ for strModule, classnames in dModules.items():
         warn("Could not load package " + strModule)
         print(err)
 
-from .torch import *
+from .pytorch import *
 
-from .torch import __all__ as suball
+from .pytorch import __all__ as suball
 
 __all__ += suball
