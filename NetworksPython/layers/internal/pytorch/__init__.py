@@ -11,7 +11,7 @@ dModules = {
 
 
 # - Define current package
-strBasePackage = "NetworksPython.layers.internal.torch"
+strBasePackage = "NetworksPython.layers.internal.pytorch"
 
 # - Initialise list of available modules
 __all__ = []
