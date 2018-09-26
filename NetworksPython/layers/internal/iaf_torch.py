@@ -101,7 +101,7 @@ class FFIAFTorch(Layer):
         # - Store "reset" state
         self.reset_all()
 
-    @profile
+    # @profile
     def evolve(
         self,
         tsInput: Optional[TSContinuous] = None,
@@ -165,7 +165,7 @@ class FFIAFTorch(Layer):
 
         return tseOut
 
-    @profile
+    # @profile
     def _batch_data(
         self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxTimeStep: int = None,
     ) -> (np.ndarray, int):
@@ -182,7 +182,7 @@ class FFIAFTorch(Layer):
             # - Update nStart
             nStart = nEnd
 
-    @profile
+    # @profile
     def _single_batch_evolution(    
         self,
         mfInput: np.ndarray,
@@ -254,7 +254,7 @@ class FFIAFTorch(Layer):
         
         return mbSpiking.cpu()
 
-    @profile
+    # @profile
     def _prepare_neural_input(
         self,
         mfInput: np.array,
@@ -290,7 +290,7 @@ class FFIAFTorch(Layer):
 
         return mfNeuralInput, nNumTimeSteps
 
-    @profile
+    # @profile
     def _prepare_input(
         self,
         tsInput: TSContinuous = None,
@@ -568,7 +568,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         # - Record neuron parameters
         self.vtTauS = vtTauS
 
-    @profile
+    # @profile
     def _prepare_neural_input(
         self,
         mfInput: np.array,
@@ -623,7 +623,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
         return mfNeuralInput, nNumTimeSteps
 
-    @profile
+    # @profile
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -776,7 +776,7 @@ class RecIAFTorch(FFIAFTorch):
         # - Record neuron parameters
         self.vtTauSynR = vtTauSynR
 
-    @profile
+    # @profile
     def _single_batch_evolution(
         self,
         mfInput: np.ndarray,
@@ -854,7 +854,7 @@ class RecIAFTorch(FFIAFTorch):
         
         return mbSpiking.cpu()
 
-    @profile
+    # @profile
     def _prepare_neural_input(
         self,
         mfInput: np.array,
@@ -1010,7 +1010,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Store "reset" state
         self.reset_all()
 
-    @profile
+    # @profile
     def _prepare_neural_input(
         self,
         mfInput: np.array,
@@ -1074,7 +1074,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
         return mfNeuralInput, nNumTimeSteps
 
-    @profile
+    # @profile
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
