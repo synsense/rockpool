@@ -938,6 +938,9 @@ class RecIAFBrian(Layer):
         :param bRecord:         bool Record membrane potential during evolutions
         """
 
+        assert np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1], (
+            "Layer `{}`: mfW must be a square matrix.".format(strName)
+        )
         # - Call super constructor
         super().__init__(
             mfW=mfW,
@@ -1251,8 +1254,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
         tDt: float = 0.1 * ms,
         fNoiseStd: float = 0 * mV,
         vtTauN: np.ndarray = 20 * ms,
-        vtTauSInp: np.ndarray = 20 * ms,
-        vtTauSRec: np.ndarray = 20 * ms,
+        vtTauSInp: np.ndarray = 50 * ms,
+        vtTauSRec: np.ndarray = 50 * ms,
         vfVThresh: np.ndarray = -55 * mV,
         vfVReset: np.ndarray = -65 * mV,
         vfVRest: np.ndarray = -65 * mV,
