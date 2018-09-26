@@ -6,6 +6,8 @@ from ...timeseries import TimeSeries
 from ..layer import Layer
 from typing import Optional, Union, Tuple, List
 
+from warnings import warn
+
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -421,13 +423,13 @@ class FFRateEuler(Layer):
         mfInput[:, -1] = 1
 
         if tsInput is not None:
-            # Warn if intput time range does not cover whole target time range
+            # Warn if input time range does not cover whole target time range
             if (
                 not tsInput.contains(vtTimeBase)
                 and not tsInput.bPeriodic
                 and not tsTarget.bPeriodic
             ):
-                print(
+                warn(
                     "WARNING: tsInput (t = {} to {}) does not cover ".format(
                         tsInput.tStart, tsInput.tStop
                     )
@@ -435,6 +437,7 @@ class FFRateEuler(Layer):
                         tsTarget.tStart, tsTarget.tStop
                     )
                     + "Assuming input to be 0 outside of defined range.\n"
+                    + "If you are training by batches, check that the target signal is also split by batch.\n"
                 )
 
             # - Sample input trace and check for correct dimensions
