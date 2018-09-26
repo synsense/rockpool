@@ -1,8 +1,8 @@
 unittests:
         image: continuumio/miniconda3:latest
         script:
-                - ./NetworksPython/requirements_conda.sh
-                - pip install -r NetworksPython/requirements.txt
+                - ./requirements_conda.sh
+                - pip install -r requirements.txt
                 - pip install pytest
                 - pytest NetworksPython
         
