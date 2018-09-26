@@ -17,7 +17,7 @@ If not, it is advisable to install these packages using your system package mana
 
 The rest of the requirements call be installed using pip.
 
-`$ pip install -r NetworksPython/requirements.txt --user`
+`$ pip install -r requirements.txt --user`
 `$ pip install -e . --user`
 
 The `--user` option installs an egg only for the current user. 
