@@ -250,12 +250,12 @@ class TimeSeries:
                 ]
 
             if len(vhCurves) > 1:
-                return hv.Overlay(vhCurves).relabel(group=self.strName)
+                return hv.Overlay(vhCurves).relabel(group = self.strName)
             else:
                 return vhCurves[0].relabel(self.strName)
 
         elif self._bUseMatplotlib:
-            return plt.plot(vtTimes, self(vtTimes), **kwargs)
+            return plt.plot(vtTimes, self(vtTimes), label = self.strName, **kwargs)
 
         else:
             warn("No plotting back-end detected.")

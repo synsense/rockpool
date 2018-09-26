@@ -622,11 +622,9 @@ class Network:
         ## -- Actual training starts here:
 
         # - Iterate over batches
-        bFirst = True
-        bFinal = False
         nNumBatches = np.size(vnTSBatch)
-        for nBatch, nTSCurrent in enumerate(vnTSBatch):
 
+        def batch(nBatch, nTSCurrent, nNumBatches):
             if bVerbose:
                 print(
                     "Network: Training batch {} of {} from t = {:.3f} to {:.3f}.".format(
@@ -638,18 +636,28 @@ class Network:
                     ),
                     end="\r",
                 )
+
             # - Evolve network
             dtsSignal = self.evolve(
                 tsInput=tsInput.resample_within(self.t, self.t + nTSCurrent * self.tDt),
                 nNumTimeSteps=nTSCurrent,
                 bVerbose=(bHighVerbosity and bVerbose),
             )
-            # - Determine if this batch was the last of training
-            if nBatch == nNumBatches - 1:
-                bFinal = True
+
             # - Call the callback
-            fhTraining(self, dtsSignal, bFirst, bFinal)
-            bFirst = False
+            fhTraining(self, dtsSignal, nBatch == 0, nBatch == nNumBatches-1)
+
+        try:
+            from tqdm.autonotebook import tqdm
+            with tqdm(total = nNumBatches, desc = 'Training') as pbar:
+                for nBatch, nTSCurrent in enumerate(vnTSBatch):
+                    batch(nBatch, nTSCurrent, nNumBatches)
+                    pbar.update(1)
+
+        except:
+            for nBatch, nTSCurrent in enumerate(vnTSBatch):
+                batch(nBatch, nTSCurrent, nNumBatches)
+
 
         if bVerbose:
             print(
