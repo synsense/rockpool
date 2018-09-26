@@ -902,7 +902,7 @@ class RecIAFBrian(Layer):
         tDt: float = 0.1 * ms,
         fNoiseStd: float = 1 * mV,
         vtTauN: Union[float, np.ndarray] = 20 * ms,
-        vtTauSynR: Union[float, np.ndarray] = 5 * ms,
+        vtTauSynR: Union[float, np.ndarray] = 50 * ms,
         vfVThresh: Union[float, np.ndarray] = -55 * mV,
         vfVReset: Union[float, np.ndarray] = -65 * mV,
         vfVRest: Union[float, np.ndarray] = -65 * mV,
@@ -911,6 +911,7 @@ class RecIAFBrian(Layer):
         eqSynRecurrent=eqSynapseExp,
         strIntegrator: str = "rk4",
         strName: str = "unnamed",
+        bRecord: bool = False,
     ):
         """
         RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
@@ -918,8 +919,8 @@ class RecIAFBrian(Layer):
         :param mfW:             np.array NxN weight matrix. Default: [100x100] unit-lambda matrix
         :param vfBias:          np.array Nx1 bias vector. Default: 10.5mA
 
-        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 5ms
-        :param vtTauSynR:       np.array NxN vector of recurrent synaptic time constants. Default: 5ms
+        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20 ms
+        :param vtTauSynR:       np.array NxN vector of recurrent synaptic time constants. Default: 50 ms
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
@@ -933,6 +934,8 @@ class RecIAFBrian(Layer):
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
 
         :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions
         """
 
         # - Call super constructor
@@ -981,6 +984,16 @@ class RecIAFBrian(Layer):
             self._spmReservoir,
             name="recurrent_spiking_layer",
         )
+
+        if bRecord:
+            # - Monitor for recording network potential
+            self._stmVmemIsyn = b2.StateMonitor(
+                self._ngLayer,
+                ["v", "I_syn", "I_total"],
+                record=True,
+                name="layer_neurons",
+            )
+            self._net.add(self._stmVmemIsyn)
 
         # - Record neuron / synapse parameters
         self.mfW = mfW
