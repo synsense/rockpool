@@ -900,7 +900,7 @@ class RecIAFBrian(Layer):
         mfW: np.ndarray = None,
         vfBias: Union[float, np.ndarray] = 10.5 * mA,
         tDt: float = 0.1 * ms,
-        fNoiseStd: float = 1 * mV,
+        fNoiseStd: float = 0 * mV,
         vtTauN: Union[float, np.ndarray] = 20 * ms,
         vtTauSynR: Union[float, np.ndarray] = 50 * ms,
         vfVThresh: Union[float, np.ndarray] = -55 * mV,
