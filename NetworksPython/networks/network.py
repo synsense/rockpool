@@ -650,7 +650,7 @@ class Network:
         try:
             assert bVerbose
             from tqdm.autonotebook import tqdm
-            with tqdm(total = nNumBatches, desc = 'Training') as pbar:
+            with tqdm(total = nNumBatches, desc = 'Network training') as pbar:
                 for nBatch, nTSCurrent in enumerate(vnTSBatch):
                     batch(nBatch, nTSCurrent, nNumBatches)
                     pbar.update(1)
