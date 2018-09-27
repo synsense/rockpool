@@ -625,7 +625,7 @@ class Network:
         nNumBatches = np.size(vnTSBatch)
 
         def batch(nBatch, nTSCurrent, nNumBatches):
-            if bVerbose:
+            if bHighVerbosity:
                 print(
                     "Network: Training batch {} of {} from t = {:.3f} to {:.3f}.".format(
                         nBatch + 1,
@@ -648,16 +648,15 @@ class Network:
             fhTraining(self, dtsSignal, nBatch == 0, nBatch == nNumBatches-1)
 
         try:
+            assert bVerbose
             from tqdm.autonotebook import tqdm
             with tqdm(total = nNumBatches, desc = 'Training') as pbar:
                 for nBatch, nTSCurrent in enumerate(vnTSBatch):
                     batch(nBatch, nTSCurrent, nNumBatches)
                     pbar.update(1)
-
-        except:
+        except (ImportError, AssertionError):
             for nBatch, nTSCurrent in enumerate(vnTSBatch):
                 batch(nBatch, nTSCurrent, nNumBatches)
-
 
         if bVerbose:
             print(
