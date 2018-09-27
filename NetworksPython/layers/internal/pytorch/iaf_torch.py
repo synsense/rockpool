@@ -7,10 +7,9 @@
 import numpy as np
 import torch
 
-from ...timeseries import TSContinuous, TSEvent
-
-from ..layer import Layer
-from .timedarray_shift import TimedArray as TAShift
+from ....timeseries import TSContinuous, TSEvent
+from ...layer import Layer
+from ..timedarray_shift import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
 
@@ -22,6 +21,9 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Configure exports
 __all__ = [
     "FFIAFTorch",
+    "FFIAFSpkInTorch",
+    "RecIAFTorch",
+    "RecIAFSpkInTorch",
 ]
 
 # - Absolute tolerance, e.g. for comparing float values
