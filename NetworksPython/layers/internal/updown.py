@@ -32,6 +32,7 @@ class FFUpDown(Layer):
         self,
         mfW: Union[int, np.ndarray],
         tDt: float = 0.001,
+        vtTauDecay: Union[ArrayLike, float, None] = None,
         fNoiseStd: float = 0,
         vfThrUp: Union[ArrayLike, float] = 0.001,
         vfThrDown: Union[ArrayLike, float] = 0.001,
@@ -52,6 +53,9 @@ class FFUpDown(Layer):
             nSize is then set to 2*nSizeIn, i.e. n=1. Alternatively a tuple of two values,
             corresponding to nSizeIn and n can be passed.
         :param tDt:         float Time-step. Default: 0.1 ms
+        :param vtTauDecay:  array-like  States that tracks input signal for threshold comparison
+                                        decay with this time constant unless it is None
+
         :param fNoiseStd:   float Noise std. dev. per second. Default: 0
 
         :param vfThrUp:     array-like Thresholds for creating up-spikes
@@ -90,6 +94,7 @@ class FFUpDown(Layer):
         # - Store layer parameters
         self.vfThrUp = vfThrUp
         self.vfThrDown = vfThrDown
+        self.vtTauDecay = vtTauDecay
 
         self.reset_all()
 
@@ -123,6 +128,7 @@ class FFUpDown(Layer):
         # - Prepare local variables
         vfThrUp = self.vfThrUp
         vfThrDown = self.vfThrDown
+        vfDecayFactor = self._vfDecayFactor
 
         # - Lists for storing spikes
         lnTSSpike = list()
@@ -138,6 +144,8 @@ class FFUpDown(Layer):
         vState = mfInputStep[0] if self.vState is None else self.vState
 
         for iCurrentTS in rangeIterator:
+            # - Decay mechanism
+            vState *= vfDecayFactor
             # - Indices of inputs where upper threshold is passed
             viUp, = np.where(mfInputStep[iCurrentTS] > vState + vfThrUp)
             # - Indices of inputs where lower threshold is passed
@@ -220,3 +228,22 @@ class FFUpDown(Layer):
         self._vfThrDown = self._expand_to_size(
             vfNewThr, self.nSizeIn, "vfThrDown", bAllowNone=False
         )
+
+    @property
+    def vtTauDecay(self):
+        vtTau = np.repeat(None, self.nSize)
+        # - Treat decay factors of 1 as not decaying (i.e. set them 1)
+        vtTau[self._vfDecayFactor != 1] = self.tDt / (1 - self._vfDecayFactor)
+        return vtTau
+
+    @vtTauDecay.setter
+    def vtTauDecay(self, vtNewTau):
+        vtNewTau = self._expand_to_net_size(vtNewTau, "vtTauDecay", bAllowNone=True)
+        # - Find entries which are not None, indicating decay
+        vbDecay = np.array([tTau is not None for tTau in vtNewTau])
+        # - Check for too small entries
+        assert (vtNewTau[vbDecay] > self.tDt).all(), (
+            "Layer `{}`: Entries of vtTauDecay must be greater or equal to tDt ({}).".format(strName, self.tDt)
+        )
+        self._vfDecayFactor = np.ones(self.nSize)  # No decay corresponds to decay factor 1
+        self._vfDecayFactor[vbDecay] = 1 - self.tDt / vtNewTau[vbDecay]
