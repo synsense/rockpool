@@ -16,6 +16,7 @@ class TorchSumPooling2dLayer(nn.Module):
         kernel_size: ArrayLike = (1, 1),
         strides: Optional[ArrayLike] = None,
         padding: ArrayLike = (0, 0, 0, 0),
+        strName: str = "pooling2d",
     ):
         """
         Torch implementation of SumPooling using the LPPool2d module
@@ -23,6 +24,7 @@ class TorchSumPooling2dLayer(nn.Module):
         super(TorchSumPooling2dLayer, self).__init__()  # Init nn.Module
         self.padding = padding
         self.kernel_size = kernel_size
+        self.strName = strName
         if strides is None:
             strides = kernel_size
         self.strides = strides
