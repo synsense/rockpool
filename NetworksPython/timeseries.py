@@ -1316,8 +1316,10 @@ class TSEvent(TimeSeries):
         tDt: float,
         tStart: float = None,
         tStop: float = None,
+        nNumTimeSteps: int = None,
         vnSelectChannels: np.ndarray = None,
         bSamples: bool = False,
+        bAddEvents: bool = False,
     ) -> (np.ndarray, np.ndarray, np.ndarray):
 
         """
@@ -1335,13 +1337,21 @@ class TSEvent(TimeSeries):
         :param tStop:   float Time where to stop raster. This time point is
                               not included anymore. - If None, will use all
                               points until (and including) self.vtTImeTrace[-1]
+                              (unless nTimeSteps is set)
+        :param nNumTimeSteps: int Can be used to determine number of time steps
+                                  directly, instead of providing tStop
         :vnSelectedChannels: Array-like Channels, from which data is to be used.
         :bSamples:      bool If True, tplSamples is returned, otherwise None.
+        :bAddEvents:    bool If True, return integer raster containing number of 
+                             events for each time step and channel
 
         :return
             vtTimeBase:     Time base of rasterized data
-            vnSelectChannels Channel ids corresponding to columns in mbEventsRaster
-            mbEventsRaster  Boolean matrix with True indicating event
+            vnSelectChannels Channel ids corresponding to columns in mEventsRaster
+            mEventsRaster   Boolean matrix with True indicating presence of events
+                            for each time step and channel. If bAddEvents == True,
+                            the raster consists of integers, indicating the number
+                            of events per time step and channel.
                             First axis corresponds to time, second axis to channel.
             tplSamples      Tuple with one list per time step. For each event
                             corresponding to a time step the list contains a tuple
@@ -1362,34 +1372,47 @@ class TSEvent(TimeSeries):
             tsSelected = self.copy()
             vnSelectChannels = np.arange(self.nNumChannels)
 
-        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStart, tStop])
-
         # - Generate time base
+        assert (self.tStart is not None or tStart is not None), (
+            "Layer `{}`: Cannot determine tStart. Provide as argument.".format(self.strName)
+        )
+        assert (self.tStop is not None or tStop is not None or nNumTimeSteps is not None), (
+            "Layer `{}`: Cannot determine tStop or nNumTimeSteps. Provide one of them as argument.".format(self.strName)
+        )
         tStartBase = self.tStart if tStart is None else tStart
-        tStopBase = self.tStop + tDt if tStop is None else tStop
+        if nNumTimeSteps is None:
+            tStopBase = self.tStop + tDt if tStop is None else tStop
+            nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
+        vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
-        vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
+        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStartBase, tStopBase])
 
-        ## -- Convert input events and samples to boolen raster
-        mbEventsRaster = np.zeros((vtTimeBase.size, len(vnSelectChannels)), bool)
+        ## -- Convert input events and samples to boolen or integer raster
+        dtypeRaster = int if bAddEvents else bool
+        mEventsRaster = np.zeros((nNumTimeSteps, len(vnSelectChannels)), dtypeRaster)
         if bSamples:
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
         else:
             tplSamples = None
 
-        # - Only perform iteration for rasters that have non-zero length
-        if vtTimeBase.size > 0:
+        # - Only consider rasters that have non-zero length
+        if nNumTimeSteps > 0:
             # Compute indices for times
-            viTimeIndices_Raster = ((vtEventTimes - vtTimeBase[0]) / tDt).astype(int)
-            # Mark spiking indices with True
-            mbEventsRaster[viTimeIndices_Raster, vnEventChannels] = True
+            viTimeIndices_Raster = ((vtEventTimes - tStartBase) / tDt).astype(int)
+            if bAddEvents:
+                # Count events per time step and channel
+                for iTime, iChannel in zip(viTimeIndices_Raster, vnEventChannels):
+                    mEventsRaster[iTime, iChannel] += 1
+            else:
+                # Mark spiking indices with True
+                mEventsRaster[viTimeIndices_Raster, vnEventChannels] = True
 
             if bSamples:
                 # Add samples
                 for iTimeIndex, nChannel, fSample in zip(viTimeIndices_Raster, vnEventChannels, vfSamples):
                     tplSamples[iTimeIndex].append((nChannel, fSample))
 
-        return vtTimeBase, np.array(vnSelectChannels), mbEventsRaster, tplSamples
+        return vtTimeBase, np.array(vnSelectChannels), mEventsRaster, tplSamples
 
     def xraster(
         self,
@@ -1397,6 +1420,7 @@ class TSEvent(TimeSeries):
         tStart: float = None,
         tStop: float = None,
         nBatchSize: int = 1000,
+        nNumTimeSteps: int = None,
     ) -> np.ndarray:
 
         """
@@ -1413,8 +1437,11 @@ class TSEvent(TimeSeries):
         :param tStop:   float Time where to stop raster. This time point is
                               not included anymore. - If None, will use all
                               points until (and including) self.vtTImeTrace[-1]
+                              (unless nTimeSteps is set)
         :nBatchSize: int      Process one nBatchSize time steps at a time.
                               This parameter will determine the speed vs latency for this process
+        :param nNumTimeSteps: int Can be used to determine number of time steps
+                                  directly, instead of providing tStop
 
         :yields
             vbEventsRaster  Boolean matrix with True indicating event axis corresponds to channel
@@ -1423,20 +1450,28 @@ class TSEvent(TimeSeries):
         vnSelectChannels = np.arange(self.nNumChannels)
 
         # - Generate time base
+        assert (self.tStart is not None or tStart is not None), (
+            "Layer `{}`: Cannot determine tStart. Provide as argument.".format(self.strName)
+        )
+        assert (self.tStop is not None or tStop is not None), (
+            "Layer `{}`: Cannot determine tStop. Provide as argument.".format(self.strName)
+        )
         tStartBase = self.tStart if tStart is None else tStart
-        tStopBase = self.tStop + tDt if tStop is None else tStop
-        vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
+        if nNumTimeSteps is None:
+            tStopBase = self.tStop + tDt if tStop is None else tStop
+            nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
+        vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
-        vtEventTimes, vnEventChannels, _ = tsSelected.find([tStart, tStop])
+        vtEventTimes, vnEventChannels, _ = tsSelected.find([tStartBase, tStopBase])
 
         # - Convert input events and samples to boolen raster
 
-        mbEventsRaster = np.zeros((vtTimeBase.size, len(vnSelectChannels)), bool)
+        mbEventsRaster = np.zeros((nNumTimeSteps, len(vnSelectChannels)), bool)
 
-        # - Only perform iteration for rasters that have non-zero length
-        if vtTimeBase.size > 0:
+        # - Only consider rasters that have non-zero length
+        if nNumTimeSteps > 0:
             # Compute indices for times
-            viTimeIndices_Raster = ((vtEventTimes - vtTimeBase[0]) / tDt).astype(int)
+            viTimeIndices_Raster = ((vtEventTimes - tStartBase) / tDt).astype(int)
             viRowIndices_Raster = vnEventChannels
             # Mark spiking indices with True
             mbEventsRaster[viTimeIndices_Raster, viRowIndices_Raster] = True
