@@ -1380,9 +1380,11 @@ class TSEvent(TimeSeries):
             "Layer `{}`: Cannot determine tStop or nNumTimeSteps. Provide one of them as argument.".format(self.strName)
         )
         tStartBase = self.tStart if tStart is None else tStart
-        if nNumTimeSteps is None:
-            tStopBase = self.tStop + tDt if tStop is None else tStop
-            nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
+        tStopBase = self.tStop + tDt if tStop is None else tStop
+        nNumTimeSteps = (
+            int(np.floor((tStopBase - tStartBase) / tDt)) if nNumTimeSteps is None
+            else nNumTimeSteps
+        )
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
         vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStartBase, tStopBase])
@@ -1457,9 +1459,11 @@ class TSEvent(TimeSeries):
             "Layer `{}`: Cannot determine tStop. Provide as argument.".format(self.strName)
         )
         tStartBase = self.tStart if tStart is None else tStart
-        if nNumTimeSteps is None:
-            tStopBase = self.tStop + tDt if tStop is None else tStop
-            nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
+        tStopBase = self.tStop + tDt if tStop is None else tStop
+        nNumTimeSteps = (
+            int(np.floor((tStopBase - tStartBase) / tDt)) if nNumTimeSteps is None
+            else nNumTimeSteps
+        )
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
         vtEventTimes, vnEventChannels, _ = tsSelected.find([tStartBase, tStopBase])
