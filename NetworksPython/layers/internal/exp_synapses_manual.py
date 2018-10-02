@@ -138,7 +138,7 @@ class FFExpSyn(Layer):
             mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
             __, __, mSpikeTrains, __ = tsInput.raster(
                 tStart = vtTimeBase[0],
-                tStop = vtTimeBase[-1],
+                nNumTimeSteps = vtTimeBase.size,
                 tDt = self.tDt,
                 vnSelectChannels = np.arange(self.nSizeIn),
                 bSamples = False,
