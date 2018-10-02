@@ -1365,6 +1365,12 @@ class TSEvent(TimeSeries):
         vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStart, tStop])
 
         # - Generate time base
+        assert (self.tStart is not None or tStart is not None), (
+            "Layer `{}`: Cannot determine tStart. Provide as argument.".format(self.strName)
+        )
+        assert (self.tStop is not None or tStop is not None), (
+            "Layer `{}`: Cannot determine tStop. Provide as argument.".format(self.strName)
+        )
         tStartBase = self.tStart if tStart is None else tStart
         tStopBase = self.tStop + tDt if tStop is None else tStop
 
@@ -1423,6 +1429,12 @@ class TSEvent(TimeSeries):
         vnSelectChannels = np.arange(self.nNumChannels)
 
         # - Generate time base
+        assert (self.tStart is not None or tStart is not None), (
+            "Layer `{}`: Cannot determine tStart. Provide as argument.".format(self.strName)
+        )
+        assert (self.tStop is not None or tStop is not None), (
+            "Layer `{}`: Cannot determine tStop. Provide as argument.".format(self.strName)
+        )
         tStartBase = self.tStart if tStart is None else tStart
         tStopBase = self.tStop + tDt if tStop is None else tStop
         vtTimeBase = np.arange(tStartBase, tStopBase, tDt)
