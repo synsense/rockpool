@@ -48,7 +48,7 @@ class FFUpDown(Layer):
             dimension determines the number of input channels (self.nSizeIn). The second
             dimension corresponds to nSize and has to be n*2*nSizeIn, n up and n down
             channels for each input). If n>1 the up-/and down-spikes are distributed over
-            multipple channels. The values of the weight matrix do not have any effect.
+            multiple channels. The values of the weight matrix do not have any effect.
             It is also possible to pass only an integer, which will correspond to nSizeIn.
             nSize is then set to 2*nSizeIn, i.e. n=1. Alternatively a tuple of two values,
             corresponding to nSizeIn and n can be passed.
@@ -231,19 +231,20 @@ class FFUpDown(Layer):
 
     @property
     def vtTauDecay(self):
-        vtTau = np.repeat(None, self.nSize)
-        # - Treat decay factors of 1 as not decaying (i.e. set them 1)
-        vtTau[self._vfDecayFactor != 1] = self.tDt / (1 - self._vfDecayFactor)
+        vtTau = np.repeat(None, self.nSizeIn)
+        # - Treat decay factors of 1 as not decaying (i.e. set them None)
+        vbDecay = self._vfDecayFactor != 1
+        vtTau[vbDecay] = self.tDt / (1 - self._vfDecayFactor[vbDecay])
         return vtTau
 
     @vtTauDecay.setter
     def vtTauDecay(self, vtNewTau):
-        vtNewTau = self._expand_to_net_size(vtNewTau, "vtTauDecay", bAllowNone=True)
+        vtNewTau = self._expand_to_size(vtNewTau, self.nSizeIn, "vtTauDecay", bAllowNone=True)
         # - Find entries which are not None, indicating decay
         vbDecay = np.array([tTau is not None for tTau in vtNewTau])
         # - Check for too small entries
-        assert (vtNewTau[vbDecay] > self.tDt).all(), (
-            "Layer `{}`: Entries of vtTauDecay must be greater or equal to tDt ({}).".format(strName, self.tDt)
+        assert (vtNewTau[vbDecay] >= self.tDt).all(), (
+            "Layer `{}`: Entries of vtTauDecay must be greater or equal to tDt ({}).".format(self.strName, self.tDt)
         )
-        self._vfDecayFactor = np.ones(self.nSize)  # No decay corresponds to decay factor 1
+        self._vfDecayFactor = np.ones(self.nSizeIn)  # No decay corresponds to decay factor 1
         self._vfDecayFactor[vbDecay] = 1 - self.tDt / vtNewTau[vbDecay]

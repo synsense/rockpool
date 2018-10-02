@@ -34,6 +34,7 @@ class FFExpSyn(Layer):
         fNoiseStd: float = 0,
         tTauSyn: float = 0.005,
         strName: str = "unnamed",
+        bAddEvents: bool = False,
     ):
         """
         FFExpSyn - Construct an exponential synapse layer (spiking input)
@@ -48,6 +49,10 @@ class FFExpSyn(Layer):
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
 
         :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :bAddEvents:            bool     If during evolution multiple input events arrive during one
+                                         time step for a channel, count their actual number instead of
+                                         just counting them as one.
         """
 
         # - Provide default weight matrix for one-to-one conversion
@@ -69,6 +74,7 @@ class FFExpSyn(Layer):
         # - Parameters
         self.tTauSyn = tTauSyn
         self.vfBias = self._correct_param_shape(vfBias)
+        self.bAddEvents = bAddEvents
 
         # - set time and state to 0
         self.reset_all()
@@ -121,11 +127,8 @@ class FFExpSyn(Layer):
             mWeightedSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
 
         else:
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1]]
-            )
-
             # - Make sure that input channels do not exceed layer input dimensions
+            __, vnEventChannels, __ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]])
             if vnEventChannels.size > 0:
                 assert (
                     np.max(vnEventChannels) <= self.nSizeIn
@@ -133,16 +136,14 @@ class FFExpSyn(Layer):
 
             # - Convert input events to spike trains
             mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
-            #   Iterate over channel indices and create their spike trains
-            for channel in range(self.nSizeIn):
-                # Times with event in current channel
-                vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
-                # Indices of vtTimeBase corresponding to these times
-                viEventIndicesChannel = (
-                    (vtEventTimesChannel - vtTimeBase[0]) / self.tDt
-                ).astype(int)
-                # Set spike trains for current channel
-                mSpikeTrains[viEventIndicesChannel, channel] = 1
+            __, __, mSpikeTrains, __ = tsInput.raster(
+                tStart = vtTimeBase[0],
+                tStop = vtTimeBase[-1],
+                tDt = self.tDt,
+                vnSelectChannels = np.arange(self.nSizeIn),
+                bSamples = False,
+                bAddEvents = self.bAddEvents,  # Whether to count multiple input events during time step by their number
+            )
 
             # - Apply weights
             mWeightedSpikeTrains = mSpikeTrains @ self.mfW
