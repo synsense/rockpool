@@ -17,10 +17,12 @@ class TorchSpikingConv2dLayer(nn.Module):
         kernel_size: ArrayLike = (1, 1),
         strides: ArrayLike = (1, 1),
         padding: ArrayLike = (0, 0, 0, 0),
+        bias: bool = True,
         fVThresh: float = 8,
         fVThreshLow: Optional[float] = None,
         fVSubtract: Optional[float] = None,
         fVReset: float = 0,
+        strName: str = "conv2d",
     ):
         """
         Pytorch implementation of a spiking neuron with convolutional inputs
@@ -29,7 +31,11 @@ class TorchSpikingConv2dLayer(nn.Module):
         super(TorchSpikingConv2dLayer, self).__init__()  # Init nn.Module
         self.pad = nn.ZeroPad2d(padding)
         self.conv = nn.Conv2d(
-            nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
+            nInChannels,
+            nOutChannels,
+            kernel_size=kernel_size,
+            stride=strides,
+            bias=bias,
         )
         if fVThreshLow is not None:
             self.threshLower = nn.Threshold(-fVThresh, -fVThresh)  # Relu on the layer
@@ -40,6 +46,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.fVReset = fVReset
         self.fVThresh = fVThresh
         self.fVThreshLow = fVThreshLow
+        self.strName = strName
 
         # Layer convolutional properties
         self.nInChannels = nInChannels
@@ -47,6 +54,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.kernel_size = kernel_size
         self.padding = padding
         self.strides = strides
+        self.bias = bias
 
         # Blank parameter place holders
         self.tsrNumSpikes = None
@@ -56,8 +64,10 @@ class TorchSpikingConv2dLayer(nn.Module):
         """
         Reset the state of all neurons in this layer
         """
-        self.tsrState.zero_()
-        self.tsrState.zero_()
+        if self.tsrState is None:
+            return
+        else:
+            self.tsrState.zero_()
 
     def forward(self, tsrBinaryInput):
         # Determine no. of time steps from input
@@ -135,7 +145,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 "KernelMem": self.nInChannels
                 * self.nOutChannels
                 * reduce(mul, self.kernel_size, 1),
-                "BiasMem": self.nOutChannels,
+                "BiasMem": self.bias * self.nOutChannels,
             },
             index=[0],
         )
