@@ -4,9 +4,6 @@ Test pooling layer
 import sys
 import numpy as np
 
-strNetworkPath = sys.path[0] + "/../.."
-sys.path.insert(1, strNetworkPath)
-
 
 def test_import():
     """

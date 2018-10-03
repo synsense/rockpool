@@ -1,16 +1,14 @@
-'''
+"""
 Test TimeSeries methods
-'''
+"""
 import sys
 import pytest
 
-strNetworkPath = sys.path[0] + "/../.."
-sys.path.insert(1, strNetworkPath)
 
 def test_imports():
-    '''
+    """
     Test importing TimeSeries classes
-    '''
+    """
     from NetworksPython import TimeSeries
     from NetworksPython import TSContinuous
     from NetworksPython import TSEvent
@@ -23,19 +21,20 @@ def test_imports():
 
 
 def test_backends():
-    '''
+    """
     Test using the plotting backend setting functions
-    '''
+    """
     from NetworksPython.timeseries import GetPlottingBackend, SetPlottingBackend
+
     bUseMPL, bUseHV = GetPlottingBackend()
-    SetPlottingBackend('matplotlib')
-    SetPlottingBackend('holoviews')
+    SetPlottingBackend("matplotlib")
+    SetPlottingBackend("holoviews")
 
 
 def test_continuous_operators():
-    '''
+    """
     Test creation and manipulation of a continuous time series
-    '''
+    """
     from NetworksPython import TSContinuous
 
     # - Creation
@@ -77,8 +76,10 @@ def test_continuous_operators():
     ts = ts // ts2
     ts //= ts2
 
+
 def test_continuous_methods():
     from NetworksPython import TSContinuous
+
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
 
     # - Interpolation
@@ -134,9 +135,9 @@ def test_continuous_methods():
 
 
 def test_event_operators():
-    '''
+    """
     Test creation and manipulation of a continuous time series
-    '''
+    """
     from NetworksPython import TSEvent
 
     # - Creation
@@ -178,10 +179,11 @@ def test_event_operators():
     ts = ts // ts2
     ts //= ts2
 
+
 def test_TSEvent_raster():
-    '''
+    """
     Test TSEvent raster function on merging other time series events
-    '''
+    """
     from NetworksPython import TSEvent
 
     testTSEvent = TSEvent([0, 30], 0)
@@ -193,9 +195,9 @@ def test_TSEvent_raster():
 
 
 def test_TSEvent_raster_explicit_nNumChannels():
-    '''
+    """
     Test TSEvent raster method when the function is initialized with explicit number of Channels
-    '''
+    """
     from NetworksPython import TSEvent
 
     testTSEvent = TSEvent([0, 30], 0, nNumChannels=5)
@@ -205,10 +207,11 @@ def test_TSEvent_raster_explicit_nNumChannels():
     raster = testTSEvent.raster(tDt=1)[2]
     assert raster.shape == (31, 5)
 
+
 def test_TSEvent_empty():
-    '''
+    """
     Test TSEvent instantiation with empty objects or None
-    '''
+    """
     from NetworksPython import TSEvent
 
     testTSEvent = TSEvent([], [])
