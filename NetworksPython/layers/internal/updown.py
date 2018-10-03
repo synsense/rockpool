@@ -84,6 +84,8 @@ class FFUpDown(Layer):
             # - On how many output channels is the are the up-/down-spikes from each input distributed
             self._nMultiChannel = nSize / (2 * nSizeIn)
             nSize *= nRepeatOutput
+        # - Make sure self._nMultiChannel is an integer
+        self._nMultiChannel = int(self._nMultiChannel)
 
         # - Call super constructor
         super().__init__(
