@@ -163,7 +163,7 @@ class FFIAFTorch(Layer):
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (nTimeStepStart + vnSpikeTimeIndices + 1).float() * self.tDt
-        tseOut = TSEvent(
+            tseOut = TSEvent(
                 vtTimeTrace=vtSpikeTimings.numpy(),
                 vnChannels=vnChannels.numpy(),
                 nNumChannels=self.nSize,
