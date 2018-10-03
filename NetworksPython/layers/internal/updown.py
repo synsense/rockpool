@@ -180,7 +180,7 @@ class FFUpDown(Layer):
         vnSpikeIDs += vnDistribute
 
         # - Output time series
-        vtSpikeTimes = (np.array(lnTSSpike.repeat(self._nRepeatOutput)) + 1 + self._nTimeStep) * self.tDt
+        vtSpikeTimes = (np.array(lnTSSpike).repeat(self._nRepeatOutput) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
             vtTimeTrace=vtSpikeTimes,
             vnChannels=vnSpikeIDs,
