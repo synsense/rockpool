@@ -31,6 +31,7 @@ class FFUpDown(Layer):
     def __init__(
         self,
         mfW: Union[int, np.ndarray],
+        nRepeatOutput: int = 1,
         tDt: float = 0.001,
         vtTauDecay: Union[ArrayLike, float, None] = None,
         fNoiseStd: float = 0,
@@ -66,13 +67,13 @@ class FFUpDown(Layer):
 
         if np.size(mfW) == 1:
             nSizeIn = mfW
-            nSize = 2 * nSizeIn
+            nSize = 2 * nSizeIn * nRepeatOutput
             # - On how many output channels is the are the up-/down-spikes from each input distributed
             self._nMultiChannel = 1
         elif np.size(mfW) == 2:
             # - Tuple determining shape
             (nSizeIn, self._nMultiChannel) = mfW
-            nSize = 2 * self._nMultiChannel * nSizeIn
+            nSize = 2 * self._nMultiChannel * nSizeIn * nRepeatOutput
         else:
             (nSizeIn, nSize) = mfW.shape
             assert (
@@ -82,6 +83,7 @@ class FFUpDown(Layer):
             )
             # - On how many output channels is the are the up-/down-spikes from each input distributed
             self._nMultiChannel = nSize / (2 * nSizeIn)
+            nSize *= nRepeatOutput
 
         # - Call super constructor
         super().__init__(
@@ -95,6 +97,7 @@ class FFUpDown(Layer):
         self.vfThrUp = vfThrUp
         self.vfThrDown = vfThrDown
         self.vtTauDecay = vtTauDecay
+        self._nRepeatOutput = nRepeatOutput
 
         self.reset_all()
 
@@ -161,23 +164,26 @@ class FFUpDown(Layer):
         # - Store state for future evolutions
         self.vState = vState
 
-        ## -- Distribute output spikes over output channels
-        vnSpikeIDs = np.array(liSpikeIDs)
-        # - Array to hold distributed channel IDs
-        vnChannels = np.zeros(vnSpikeIDs.size, int)
-        for nSpikeID in range(2 * self.nSizeIn):
-            viSpikeIndices, = np.where(vnSpikeIDs == nSpikeID)
-            nNumEvents = viSpikeIndices.size
-            vnChannels[viSpikeIndices] = np.tile(
-                np.arange(self._nMultiChannel) + self._nMultiChannel * nSpikeID,
-                int(np.ceil(nNumEvents / self._nMultiChannel)),
-            )[:nNumEvents]
+        ## -- Distribute output spikes over output channels by assigning to each channel
+        ##    an interval of length self._nMultiChannel. 
+        # - Set each event to the first element of its corresponding interval
+        self.liSpikeIDs = liSpikeIDs
+        vnSpikeIDs = np.array(liSpikeIDs) * self._nMultiChannel
+        # - Repeat output spikes
+        vnSpikeIDs = vnSpikeIDs.repeat(self._nRepeatOutput)
+        # - Add a repeating series of (0,1,2,..,self._nMultiChannel) to distribute the
+        #   events over the interval
+        vnDistribute = np.tile(
+            np.arange(self._nMultiChannel),
+            int(np.ceil(vnSpikeIDs.size / self._nMultiChannel))
+        )[:vnSpikeIDs.size]
+        vnSpikeIDs += vnDistribute
 
         # - Output time series
-        vtSpikeTimes = (np.array(lnTSSpike) + 1 + self._nTimeStep) * self.tDt
+        vtSpikeTimes = (np.array(lnTSSpike.repeat(self._nRepeatOutput)) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
             vtTimeTrace=vtSpikeTimes,
-            vnChannels=vnChannels,
+            vnChannels=vnSpikeIDs,
             nNumChannels=2 * self.nSizeIn * self._nMultiChannel,
         )
 
