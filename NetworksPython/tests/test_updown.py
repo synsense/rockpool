@@ -22,6 +22,7 @@ def test_updown():
         tDt=0.01,
         vfThrDown=0.02,
         vfThrUp=0.01,
+        vtTauDecay=0.1,
     )
 
     # - Check layer properties
