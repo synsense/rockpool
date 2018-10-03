@@ -163,7 +163,12 @@ class FFIAFTorch(Layer):
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (nTimeStepStart + vnSpikeTimeIndices + 1).float() * self.tDt
-            tseOut = TSEvent(vtSpikeTimings.numpy(), vnChannels.numpy(), strName="Layer `{}` spikes".format(self.strName))
+            tseOut = TSEvent(
+                vtTimeTrace=vtSpikeTimings.numpy(),
+                vnChannels=vnChannels.numpy(),
+                nNumChannels=self.nSize,
+                strName="Layer `{}` spikes".format(self.strName),
+            )
 
         return tseOut
 
@@ -952,6 +957,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
+        bAddEvents: bool = True,
     ):
         """
         RecIAFSpkInTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
@@ -977,6 +983,11 @@ class RecIAFSpkInTorch(RecIAFTorch):
         :param strName:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions. Default: False
+
+        :bAddEvents:            bool     If during evolution multiple input events arrive during one
+                                         time step for a channel, count their actual number instead of
+                                         just counting them as one (This might make less sense for
+                                         refractory neurons).
         """
 
         # - Call super constructor
@@ -1008,6 +1019,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
         self.bRecord = bRecord
+        self.bAddEvents = bAddEvents
 
         # - Store "reset" state
         self.reset_all()
@@ -1091,7 +1103,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         :param nNumTimeSteps int Number of evolution time steps
 
         :return:
-            mfSpikeRaster:    Tensor Boolean raster containing spike info
+            mnSpikeRaster:    Tensor Boolean raster containing spike info
             nNumTimeSteps:    ndarray Number of evlution time steps
         """
         if nNumTimeSteps is None:
@@ -1131,21 +1143,22 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mfSpikeRaster, __ = tsInput.raster(
+            __, __, mnSpikeRaster, __ = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
                 vnSelectChannels=np.arange(self.nSizeIn), ## This causes problems when tsInput has no events in some channels
+                bAddEvents=self.bAddEvents,  # Allow for multiple input spikes per time step
             )
             # - Convert to supportedformat
-            mfSpikeRaster = mfSpikeRaster.astype(int)
+            mnSpikeRaster = mnSpikeRaster.astype(int)
             # - Make sure size is correct
-            mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+            mnSpikeRaster = mnSpikeRaster[:nNumTimeSteps, :]
 
         else:
-            mfSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
+            mnSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
 
-        return mfSpikeRaster, nNumTimeSteps
+        return mnSpikeRaster, nNumTimeSteps
 
     def reset_all(self):
         super().reset_all()
