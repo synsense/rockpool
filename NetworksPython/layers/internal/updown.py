@@ -125,17 +125,17 @@ class FFUpDown(Layer):
             tsInput, tDuration, nNumTimeSteps
         )
 
-        # - Add noise to input
-        mfInputStep += np.random.randn(*mfInputStep.shape) * self.fNoiseStd
+        if self.fNoiseStd > 0:
+            # - Add noise to input
+            mfInputStep += np.random.randn(*mfInputStep.shape) * self.fNoiseStd
 
         # - Prepare local variables
         vfThrUp = self.vfThrUp
         vfThrDown = self.vfThrDown
         vfDecayFactor = self._vfDecayFactor
 
-        # - Lists for storing spikes
-        lnTSSpike = list()
-        liSpikeIDs = list()
+        # - Arrays for collecting spikes
+        mbSpikeRaster = np.zeros((nNumTimeSteps, 2*self.nSizeIn), bool)
 
         rangeIterator = range(nNumTimeSteps)
         if bVerbose and bUseTqdm:
@@ -156,10 +156,9 @@ class FFUpDown(Layer):
             # - Update state
             vState[viUp] += vfThrUp[viUp]
             vState[viDown] -= vfThrDown[viDown]
-            # - Append spikes to lists
-            lnTSSpike += (viUp.size + viDown.size) * [iCurrentTS]
-            # - Up channels have even, down channels odd IDs
-            liSpikeIDs += list(2 * viUp) + list(2 * viDown + 1)
+            # - Append spikes to array
+            mbSpikeRaster[iCurrentTS, 2 * viUp] = True
+            mbSpikeRaster[iCurrentTS, 2 * viDown + 1] = True
 
         # - Store state for future evolutions
         self.vState = vState
@@ -167,8 +166,8 @@ class FFUpDown(Layer):
         ## -- Distribute output spikes over output channels by assigning to each channel
         ##    an interval of length self._nMultiChannel. 
         # - Set each event to the first element of its corresponding interval
-        self.liSpikeIDs = liSpikeIDs
-        vnSpikeIDs = np.array(liSpikeIDs) * self._nMultiChannel
+        vnTSSpike, vnSpikeIDs = np.where(mbSpikeRaster)
+        vnSpikeIDs *= self._nMultiChannel
         # - Repeat output spikes
         vnSpikeIDs = vnSpikeIDs.repeat(self._nRepeatOutput)
         # - Add a repeating series of (0,1,2,..,self._nMultiChannel) to distribute the
@@ -180,7 +179,7 @@ class FFUpDown(Layer):
         vnSpikeIDs += vnDistribute
 
         # - Output time series
-        vtSpikeTimes = (np.array(lnTSSpike).repeat(self._nRepeatOutput) + 1 + self._nTimeStep) * self.tDt
+        vtSpikeTimes = (vnTSSpike.repeat(self._nRepeatOutput) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
             vtTimeTrace=vtSpikeTimes,
             vnChannels=vnSpikeIDs,
