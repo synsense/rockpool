@@ -487,15 +487,17 @@ class Network:
 
             # - Determine input for current layer
             if lyr.bExternalInput:
-                # External input
+                # - External input
                 tsCurrentInput = tsInput
                 strIn = "external input"
+
             elif lyr.lyrIn is not None:
-                # Output of current layer's input layer
+                # - Output of current layer's input layer
                 tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
                 strIn = lyr.lyrIn.strName + "'s output"
+
             else:
-                # No input
+                # - No input
                 tsCurrentInput = None
                 strIn = "nothing"
 
@@ -513,7 +515,7 @@ class Network:
                 bVerbose=bVerbose,
             )
 
-            # - Set name for time series, if not already set
+            # - Set name for response time series, if not already set
             if dtsSignal[lyr.strName].strName is None:
                 dtsSignal[lyr.strName].strName = lyr.strName
 
@@ -548,13 +550,13 @@ class Network:
                 :param bFirst:      bool Is this the first batch?
                 :param bFinal:      bool Is this the final batch?
 
-        :param tsInput: TimeSeries with external input to network
+        :param tsInput:         TimeSeries with external input to network
         :param tDuration:       float - Duration over which netŵork should
                                         be evolved. If None, evolution is
                                         over the duration of tsInput
         :param vtDurBatch:      Array-like or float - Duration of one batch (can also pass array with several values)
         :param nNumTimeSteps:   int   - Total number of training time steps
-        :param vnNumTSBatch: Array-like or int - Number of time steps per batch
+        :param vnNumTSBatch:    Array-like or int - Number of time steps per batch
         :param bVerbose:        bool  - Print info about training progress
         :param bHighVerbosity:  bool  - Print info about layer evolution
                                         (only has effect if bVerbose is True)

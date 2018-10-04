@@ -1,5 +1,5 @@
 import numpy as np
-import warnings
+from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
 
@@ -153,7 +153,7 @@ class Layer(ABC):
 
                 # - Warn if evolution period is not fully contained in tsInput
                 if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
-                    print(
+                    warn(
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
                             self.strName, vtTimeBase[0], vtTimeBase[-1]
                         )
@@ -398,7 +398,7 @@ class Layer(ABC):
         try:
             assert mfNewW.ndim >= 2
         except AssertionError:
-            warnings.warn(
+            warn(
                 "Layer `{}`: `mfNewW must be at least of dimension 2".format(
                     self.strName
                 )

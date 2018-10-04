@@ -304,6 +304,7 @@ class TimeSeries:
                         between values of self.vtTimeTrace
         :return:        New TimeSeries object, resampled according to parameters
         """
+        # - Determine start time, if not supplied
         tStart = (
             min(self.vtTimeTrace)
             if tStart is None
@@ -313,6 +314,8 @@ class TimeSeries:
                 else max(tStart, min(self.vtTimeTrace))
             )
         )
+
+        # - Determine stop time, if not supplied
         tStop = (
             max(self.vtTimeTrace)
             if tStop is None
@@ -322,10 +325,14 @@ class TimeSeries:
                 else min(tStop, max(self.vtTimeTrace))
             )
         )
+
+        # - Determine time step, if not supplied
         tDt = np.mean(np.diff(self.vtTimeTrace)) if tDt is None else tDt
 
+        # - Build a time trace for the resampled time series
         vtSampleTimes = np.arange(tStart, tStop + tDt, tDt)
         vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop + fTolAbs]
+
         # - If vtSampleTimes[-1] is close to tStop, correct it, so that
         #   is exactly tStop. This ensures that the returned TimeSeries
         #   is neither too short, nor is the last sample nan
