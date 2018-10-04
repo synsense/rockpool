@@ -6,9 +6,10 @@ setup(
     packages=[
         "NetworksPython",
         "NetworksPython.layers",
+        "NetworksPython.networks",
         "NetworksPython.layers.gpl",
         "NetworksPython.layers.internal",
-        "NetworksPython.layers.internal.torch",
+        "NetworksPython.layers.internal.pytorch",
     ],
     license="All rights reserved aiCTX AG",
     install_requires=["numba", "numpy", "scipy", "tqdm", "brian2", "scikit-image"],
