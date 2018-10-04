@@ -6,6 +6,7 @@ setup(
     packages=[
         "NetworksPython",
         "NetworksPython.layers",
+        "NetworksPython.networks",
         "NetworksPython.layers.gpl",
         "NetworksPython.layers.internal",
         "NetworksPython.layers.internal.pytorch",
