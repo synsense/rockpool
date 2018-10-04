@@ -127,7 +127,7 @@ class FFIAFTorch(Layer):
         # - Layer time step before evolution
         nTimeStepStart = self._nTimeStep
 
-        # - Prepare time base
+        # - Prepare input signal
         mfInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # - Tensor for collecting output spike raster
@@ -313,7 +313,7 @@ class FFIAFTorch(Layer):
         :param nNumTimeSteps: int Number of evolution time steps
 
         :return: (vtTimeBase, mfInputStep, tDuration)
-            mfInputStep:    Tensor (T1xN) Discretised input signal for layer
+            mfInputStep:    ndarray (T1xN) Discretised input signal for layer
             nNumTimeSteps:  int Actual number of evolution time steps
         """
         if nNumTimeSteps is None:
@@ -646,7 +646,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         :param nNumTimeSteps int Number of evolution time steps
 
         :return:
-            mfSpikeRaster:    Tensor Boolean raster containing spike info
+            mfSpikeRaster:    ndarray Boolean raster containing spike info
             nNumTimeSteps:    ndarray Number of evlution time steps
         """
         if nNumTimeSteps is None:
@@ -680,9 +680,6 @@ class FFIAFSpkInTorch(FFIAFTorch):
                 nNumTimeSteps, int
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
 
-        # - End time of evolution
-        tFinal = self.t + nNumTimeSteps * self.tDt
-
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
@@ -690,9 +687,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                vnSelectChannels=np.arange(self.nSizeIn), ## This causes problems when tsInput has no events in some channels
+                vnSelectChannels=np.arange(self.nSizeIn),
             )
-            # - Convert to supportedformat
+            # - Convert to supported format
             mfSpikeRaster = mfSpikeRaster.astype(int)
             # - Make sure size is correct
             mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
@@ -1137,9 +1134,6 @@ class RecIAFSpkInTorch(RecIAFTorch):
             assert isinstance(
                 nNumTimeSteps, int
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
-
-        # - End time of evolution
-        tFinal = self.t + nNumTimeSteps * self.tDt
 
         # - Extract spike timings and channels
         if tsInput is not None:
