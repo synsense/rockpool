@@ -9,8 +9,8 @@ import numpy as np
 from scipy.signal import fftconvolve
 import torch
 
-from ...timeseries import TSContinuous, TSEvent
-from ..layer import Layer
+from ....timeseries import TSContinuous, TSEvent
+from ...layer import Layer
 
 from typing import Optional, Union, Tuple, List
 
@@ -93,7 +93,7 @@ class FFExpSynTorch(Layer):
         # - Set time and state to 0
         self.reset_all()
 
-
+    # @profile
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -173,6 +173,7 @@ class FFExpSynTorch(Layer):
 
     ### --- State evolution
 
+    # @profile
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -217,6 +218,7 @@ class FFExpSynTorch(Layer):
             vtTimeBase, (mfOutput + self._vfBias.cpu()).numpy(), strName="Filtered spikes"
         )
     
+    # @profile
     def _batch_data(
         self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None,
     ) -> (np.ndarray, int):
@@ -233,6 +235,7 @@ class FFExpSynTorch(Layer):
             # - Update nStart
             nStart = nEnd
 
+    # @profile
     def _single_batch_evolution(
         self,
         mfWeightedInput: np.ndarray,
@@ -264,6 +267,7 @@ class FFExpSynTorch(Layer):
 
         return mfFiltered
 
+    # @profile
     def train_rr(
         self,
         tsTarget: TSContinuous,
@@ -330,8 +334,6 @@ class FFExpSynTorch(Layer):
         # Empty input array with additional dimension for training biases
         mfInput = self.tensors.FloatTensor(vtTimeBase.size, self.nSizeIn + 1).fill_(0)
         mfInput[:, -1] = 1
-        print(mfTarget.shape)
-        print(mfInput.shape)
 
         # - Generate spike trains from tsInput
         if tsInput is None:
