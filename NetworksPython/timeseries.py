@@ -250,12 +250,12 @@ class TimeSeries:
                 ]
 
             if len(vhCurves) > 1:
-                return hv.Overlay(vhCurves).relabel(group = self.strName)
+                return hv.Overlay(vhCurves).relabel(group=self.strName)
             else:
                 return vhCurves[0].relabel(self.strName)
 
         elif self._bUseMatplotlib:
-            return plt.plot(vtTimes, self(vtTimes), label = self.strName, **kwargs)
+            return plt.plot(vtTimes, self(vtTimes), label=self.strName, **kwargs)
 
         else:
             warn("No plotting back-end detected.")
@@ -304,6 +304,7 @@ class TimeSeries:
                         between values of self.vtTimeTrace
         :return:        New TimeSeries object, resampled according to parameters
         """
+        # - Determine start time, if not supplied
         tStart = (
             min(self.vtTimeTrace)
             if tStart is None
@@ -313,6 +314,8 @@ class TimeSeries:
                 else max(tStart, min(self.vtTimeTrace))
             )
         )
+
+        # - Determine stop time, if not supplied
         tStop = (
             max(self.vtTimeTrace)
             if tStop is None
@@ -322,10 +325,14 @@ class TimeSeries:
                 else min(tStop, max(self.vtTimeTrace))
             )
         )
+
+        # - Determine time step, if not supplied
         tDt = np.mean(np.diff(self.vtTimeTrace)) if tDt is None else tDt
 
+        # - Build a time trace for the resampled time series
         vtSampleTimes = np.arange(tStart, tStop + tDt, tDt)
         vtSampleTimes = vtSampleTimes[vtSampleTimes <= tStop + fTolAbs]
+
         # - If vtSampleTimes[-1] is close to tStop, correct it, so that
         #   is exactly tStop. This ensures that the returned TimeSeries
         #   is neither too short, nor is the last sample nan
@@ -416,7 +423,9 @@ class TimeSeries:
         mfOtherSamples = tsOther(self.vtTimeTrace)
 
         # - Combine samples
-        self.mfSamples = np.concatenate((np.atleast_2d(self.mfSamples), mfOtherSamples), 1)
+        self.mfSamples = np.concatenate(
+            (np.atleast_2d(self.mfSamples), mfOtherSamples), 1
+        )
 
         # - Create new interpolator
         self._create_interpolator()
@@ -992,6 +1001,7 @@ class TSContinuous(TimeSeries):
         # - Create a new interpolator
         self._create_interpolator()
 
+
 ### --- Event time series
 
 
@@ -1001,7 +1011,7 @@ class TSEvent(TimeSeries):
         vtTimeTrace: ArrayLike,
         vnChannels: Union[int, ArrayLike] = None,
         vfSamples: Union[int, float, ArrayLike] = None,
-        strInterpKind = "linear",
+        strInterpKind="linear",
         bPeriodic: bool = False,
         strName: str = None,
         nNumChannels: int = None,
@@ -1174,9 +1184,11 @@ class TSEvent(TimeSeries):
         vbIncludeSamples = np.isin(self._vnChannels, vnSelectChannels)
 
         # - Return events for those samples
-        return self._vtTimeTrace[vbIncludeSamples],\
-               self._vnChannels[vbIncludeSamples], \
-               self._mfSamples[vbIncludeSamples]
+        return (
+            self._vtTimeTrace[vbIncludeSamples],
+            self._vnChannels[vbIncludeSamples],
+            self._mfSamples[vbIncludeSamples],
+        )
 
     def choose(self, vnSelectChannels: Union[list, np.ndarray]):
         """
@@ -1188,7 +1200,9 @@ class TSEvent(TimeSeries):
 
         # - Build new TS with only those samples from requested channels
         tsChosen = self.copy()
-        tsChosen._vtTimeTrace, tsChosen._vnChannels, tsChosen._mfSamples = self._choose(vnSelectChannels)
+        tsChosen._vtTimeTrace, tsChosen._vnChannels, tsChosen._mfSamples = self._choose(
+            vnSelectChannels
+        )
 
         return tsChosen
 
@@ -1203,7 +1217,6 @@ class TSEvent(TimeSeries):
         # - Use `_choose` to return time trace
         vtTimes, _, _ = self._choose(vnSelectChannels)
         return vtTimes
-
 
     def plot(self, vtTimes: np.ndarray = None, **kwargs):
         """
@@ -1373,21 +1386,28 @@ class TSEvent(TimeSeries):
             vnSelectChannels = np.arange(self.nNumChannels)
 
         # - Generate time base
-        assert (self.tStart is not None or tStart is not None), (
-            "Layer `{}`: Cannot determine tStart. Provide as argument.".format(self.strName)
+        assert (
+            self.tStart is not None or tStart is not None
+        ), "Layer `{}`: Cannot determine tStart. Provide as argument.".format(
+            self.strName
         )
-        assert (self.tStop is not None or tStop is not None or nNumTimeSteps is not None), (
-            "Layer `{}`: Cannot determine tStop or nNumTimeSteps. Provide one of them as argument.".format(self.strName)
+        assert (
+            self.tStop is not None or tStop is not None or nNumTimeSteps is not None
+        ), "Layer `{}`: Cannot determine tStop or nNumTimeSteps. Provide one of them as argument.".format(
+            self.strName
         )
         tStartBase = self.tStart if tStart is None else tStart
         tStopBase = self.tStop + tDt if tStop is None else tStop
         nNumTimeSteps = (
-            int(np.floor((tStopBase - tStartBase) / tDt)) if nNumTimeSteps is None
+            int(np.floor((tStopBase - tStartBase) / tDt))
+            if nNumTimeSteps is None
             else nNumTimeSteps
         )
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
-        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find([tStartBase, tStopBase])
+        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find(
+            [tStartBase, tStopBase]
+        )
 
         ## -- Convert input events and samples to boolen or integer raster
         dtypeRaster = int if bAddEvents else bool
@@ -1406,12 +1426,29 @@ class TSEvent(TimeSeries):
                 for iTime, iChannel in zip(viTimeIndices_Raster, vnEventChannels):
                     mEventsRaster[iTime, iChannel] += 1
             else:
+                # - Print a warning if there are multiple spikes in one time step and channel
+                if (
+                    (
+                        np.diff(np.c_[viTimeIndices_Raster, vnEventChannels], axis=0)
+                        == np.zeros(2)
+                    )
+                    .all(axis=1)
+                    .any(axis=0)
+                ):
+                    print(
+                        "TSEvent `{}`: Warning: There are channels with multiple events".format(
+                            self.strName
+                        )
+                        + " per time step. Consider smaller tDt or setting bAddEvents True."
+                    )
                 # Mark spiking indices with True
                 mEventsRaster[viTimeIndices_Raster, vnEventChannels] = True
 
             if bSamples:
                 # Add samples
-                for iTimeIndex, nChannel, fSample in zip(viTimeIndices_Raster, vnEventChannels, vfSamples):
+                for iTimeIndex, nChannel, fSample in zip(
+                    viTimeIndices_Raster, vnEventChannels, vfSamples
+                ):
                     tplSamples[iTimeIndex].append((nChannel, fSample))
 
         return vtTimeBase, np.array(vnSelectChannels), mEventsRaster, tplSamples
@@ -1452,16 +1489,21 @@ class TSEvent(TimeSeries):
         vnSelectChannels = np.arange(self.nNumChannels)
 
         # - Generate time base
-        assert (self.tStart is not None or tStart is not None), (
-            "Layer `{}`: Cannot determine tStart. Provide as argument.".format(self.strName)
+        assert (
+            self.tStart is not None or tStart is not None
+        ), "Layer `{}`: Cannot determine tStart. Provide as argument.".format(
+            self.strName
         )
-        assert (self.tStop is not None or tStop is not None), (
-            "Layer `{}`: Cannot determine tStop. Provide as argument.".format(self.strName)
+        assert (
+            self.tStop is not None or tStop is not None
+        ), "Layer `{}`: Cannot determine tStop. Provide as argument.".format(
+            self.strName
         )
         tStartBase = self.tStart if tStart is None else tStart
         tStopBase = self.tStop + tDt if tStop is None else tStop
         nNumTimeSteps = (
-            int(np.floor((tStopBase - tStartBase) / tDt)) if nNumTimeSteps is None
+            int(np.floor((tStopBase - tStartBase) / tDt))
+            if nNumTimeSteps is None
             else nNumTimeSteps
         )
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
@@ -1581,8 +1623,9 @@ class TSEvent(TimeSeries):
         mfNewSamples = np.atleast_1d(mfNewSamples)
 
         # - Check the number of samples
-        assert np.size(mfNewSamples) == np.size(self._vtTimeTrace), \
-            'The number of samples must match the number of events'
+        assert np.size(mfNewSamples) == np.size(
+            self._vtTimeTrace
+        ), "The number of samples must match the number of events"
 
         # - Assign property
         self._mfSamples = mfNewSamples.flatten()

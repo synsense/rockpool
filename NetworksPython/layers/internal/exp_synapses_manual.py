@@ -73,28 +73,11 @@ class FFExpSyn(Layer):
 
         # - Parameters
         self.tTauSyn = tTauSyn
-        self.vfBias = self._correct_param_shape(vfBias)
+        self.vfBias = vfBias
         self.bAddEvents = bAddEvents
 
         # - set time and state to 0
         self.reset_all()
-
-    def _correct_param_shape(self, v) -> np.ndarray:
-        """
-        _correct_param_shape - Convert v to 1D-np.ndarray and verify
-                              that dimensions match self.nSize
-        :param v:   Float or array-like that is to be converted
-        :return:    v as 1D-np.ndarray
-        """
-        v = np.array(v, dtype=float).flatten()
-        assert v.shape in (
-            (1,),
-            (self.nSize,),
-            (1, self.nSize),
-            (self.nSize),
-            1,
-        ), "Numbers of elements in v must be 1 or match layer size"
-        return v
 
     ### --- State evolution
 
@@ -353,3 +336,20 @@ class FFExpSyn(Layer):
     @property
     def cInput(self):
         return TSEvent
+
+    @property
+    def tTauSyn(self):
+        return self._tTauSyn
+
+    @tTauSyn.setter
+    def tTauSyn(self, tNewTau):
+        assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(self.strName)
+        self._tTauSyn = tNewTau
+    
+    @property
+    def vfBias(self):
+        return self._vfBias
+    
+    @vfBias.setter
+    def vfBias(self, vfNewBias):
+        self._vfBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
