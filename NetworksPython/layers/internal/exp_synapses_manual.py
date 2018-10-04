@@ -20,6 +20,9 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 __all__ = ["FFExpSyn"]
 
 
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
+
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
 class FFExpSyn(Layer):
     """ FFExpSyn - Class: define an exponential synapse layer (spiking input)
@@ -66,7 +69,7 @@ class FFExpSyn(Layer):
         # - Call super constructor
         super().__init__(
             mfW=mfW,
-            tDt=np.asarray(tDt),
+            tDt=tDt,
             fNoiseStd=np.asarray(fNoiseStd),
             strName=strName,
         )
@@ -78,6 +81,72 @@ class FFExpSyn(Layer):
 
         # - set time and state to 0
         self.reset_all()
+
+    def _prepare_input(
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+    ) -> (np.ndarray, int):
+        """
+        _prepare_input - Sample input and apply weights.
+
+        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:    float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps int Number of evolution time steps
+
+        :return:
+            mnWeightedInput:  ndarray Raster containing weighted spike info
+            nNumTimeSteps:    ndarray Number of evlution time steps
+        """
+        if nNumTimeSteps is None:
+            # - Determine nNumTimeSteps
+            if tDuration is None:
+                # - Determine tDuration
+                assert (
+                    tsInput is not None
+                ), "Layer {}: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
+                    self.strName
+                )
+
+                if tsInput.bPeriodic:
+                    # - Use duration of periodic TimeSeries, if possible
+                    tDuration = tsInput.tDuration
+
+                else:
+                    # - Evolve until the end of the input TImeSeries
+                    tDuration = tsInput.tStop - self.t + self.tDt
+                    assert tDuration > 0, (
+                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
+                            self.strName
+                        )
+                        + "`tsInput` finishes before the current "
+                        "evolution time."
+                    )
+            # - Discretize tDuration wrt self.tDt
+            nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
+        else:
+            assert isinstance(
+                nNumTimeSteps, int
+            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+
+        if tsInput is not None:
+            # Extract spike data from the input variable
+            mnSpikeRaster = tsInput.raster(
+                tDt=self.tDt,
+                tStart=self.t,
+                nNumTimeSteps=nNumTimeSteps,
+                vnSelectChannels=np.arange(self.nSizeIn),
+                bSamples=False,
+                bAddEvents=self.bAddEvents,
+            )[2]
+            # Apply input weights
+            mfWeightedInput = mnSpikeRaster @ self.mfW
+
+        else:
+            mfWeightedInput = np.zeros((nNumTimeSteps, self.nSize))
+
+        return mfWeightedInput, nNumTimeSteps
 
     ### --- State evolution
 
@@ -99,53 +168,25 @@ class FFExpSyn(Layer):
 
         """
 
-        # - Prepare time base
-        vtTimeBase, __, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
-        )
+        # - Prepare weighted input signal
+        mfWeightedInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
-        # - Generate spike trains from tsInput
-        if tsInput is None:
-            # - Assume zero input
-            mWeightedSpikeTrains = np.zeros((vtTimeBase.size, self.nSize))
+        # - Time base
+        vtTimeBase = (np.arange(nNumTimeSteps + 1) + self._nTimeStep) * self.tDt
 
-        else:
-            # - Make sure that input channels do not exceed layer input dimensions
-            __, vnEventChannels, __ = tsInput.find([vtTimeBase[0], vtTimeBase[-1]])
-            if vnEventChannels.size > 0:
-                assert (
-                    np.max(vnEventChannels) <= self.nSizeIn
-                ), "Number of input channels exceeds layer input dimensions "
-
-            # - Convert input events to spike trains
-            mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
-            __, __, mSpikeTrains, __ = tsInput.raster(
-                tStart = vtTimeBase[0],
-                nNumTimeSteps = vtTimeBase.size,
-                tDt = self.tDt,
-                vnSelectChannels = np.arange(self.nSizeIn),
-                bSamples = False,
-                bAddEvents = self.bAddEvents,  # Whether to count multiple input events during time step by their number
+        if self.fNoiseStd > 0:
+            # - Add a noise trace
+            # - Noise correction is slightly different than in other layers
+            mfNoise = (
+                np.random.randn(*mfWeightedInput.shape)
+                * self.fNoiseStd
+                * np.sqrt(2 * self.tDt / self.tTauSyn)
             )
+            mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
+            mfWeightedInput += mfNoise
 
-            # - Apply weights
-            mWeightedSpikeTrains = mSpikeTrains @ self.mfW
-
-        # Add current state
-        mWeightedSpikeTrains[0, :] += self.vState
-
-        # - Add a noise trace
-        # - Noise correction is slightly different than in other layers
-        mfNoise = (
-            np.random.randn(*mWeightedSpikeTrains.shape)
-            * self.fNoiseStd
-            * np.sqrt(2 * self.tDt / self.tTauSyn)
-        )
-        mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
-        # mfNoise = np.zeros_like(mWeightedSpikeTrains)
-        # mfNoise[0,:] = self.fNoiseStd
-
-        mWeightedSpikeTrains += mfNoise
+        # Add current state to input
+        mfWeightedInput[0, :] += self._vStateNoBias.copy() * np.exp(-self.tDt / self.tTauSyn)
 
         # - Define exponential kernel
         vfKernel = np.exp(-np.arange(nNumTimeSteps + 1) * self.tDt / self.tTauSyn)
@@ -153,15 +194,15 @@ class FFExpSyn(Layer):
         vfKernel = np.r_[0, vfKernel]
 
         # - Apply kernel to spike trains
-        mfFiltered = np.zeros_like(mWeightedSpikeTrains)
-        for channel, vEvents in enumerate(mWeightedSpikeTrains.T):
+        mfFiltered = np.zeros((nNumTimeSteps+1, self.nSize))
+        for channel, vEvents in enumerate(mfWeightedInput.T):
             vConv = fftconvolve(vEvents, vfKernel, "full")
             vConvShort = vConv[: vtTimeBase.size]
             mfFiltered[:, channel] = vConvShort
 
         # - Update time and state
         self._nTimeStep += nNumTimeSteps
-        self.vState = mfFiltered[-1]
+        self._vStateNoBias = mfFiltered[-1]
 
         # - Output time series with output data and bias
         return TSContinuous(
@@ -353,3 +394,16 @@ class FFExpSyn(Layer):
     @vfBias.setter
     def vfBias(self, vfNewBias):
         self._vfBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
+
+    @property
+    def vState(self):
+        return self._vStateNoBias + self._vfBias
+
+    @vState.setter
+    def vState(self, vNewState):
+        vNewState = (
+            np.asarray(self._expand_to_net_size(vNewState, "vState"))
+        )
+        self._vStateNoBias = vNewState - self._vfBias
+
+    
