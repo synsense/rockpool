@@ -1390,12 +1390,12 @@ class TSEvent(TimeSeries):
             self.strName
         )
         tStartBase = self.tStart if tStart is None else tStart
-        tStopBase = self.tStop + tDt if tStop is None else tStop
-        nNumTimeSteps = (
-            int(np.floor((tStopBase - tStartBase) / tDt))
-            if nNumTimeSteps is None
-            else nNumTimeSteps
-        )
+        if nNumTimeSteps is None:
+            tStopBase = self.tStop + tDt if tStop is None else tStop
+            nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
+        else:
+            tStopBase = tStartBase + nNumTimeSteps * tDt
+
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
         vtEventTimes, vnEventChannels, vfSamples = tsSelected.find(
