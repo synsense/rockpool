@@ -149,8 +149,6 @@ class TimeSeries:
         self.bPeriodic = bPeriodic
         self.strName = strName
 
-        self._bUseHoloviews, self._bUseMatplotlib = GetPlottingBackend()
-
         if bPeriodic:
             self._tDuration = vtTimeTrace[-1] - vtTimeTrace[0]
             self._tStart = vtTimeTrace[0]
@@ -237,7 +235,10 @@ class TimeSeries:
         if vtTimes is None:
             vtTimes = self.vtTimeTrace
 
-        if self._bUseHoloviews:
+        # - Get current plotting backend
+        _bUseHoloviews, _bUseMatplotlib = GetPlottingBackend()
+
+        if _bUseHoloviews:
             mfData = np.atleast_2d(self(vtTimes)).reshape((np.size(vtTimes), -1))
             if kwargs == {}:
                 vhCurves = [
@@ -254,7 +255,7 @@ class TimeSeries:
             else:
                 return vhCurves[0].relabel(self.strName)
 
-        elif self._bUseMatplotlib:
+        elif _bUseMatplotlib:
             return plt.plot(vtTimes, self(vtTimes), label=self.strName, **kwargs)
 
         else:
@@ -1435,7 +1436,7 @@ class TSEvent(TimeSeries):
                     .all(axis=1)
                     .any(axis=0)
                 ):
-                    print(
+                    warn(
                         "TSEvent `{}`: Warning: There are channels with multiple events".format(
                             self.strName
                         )
