@@ -4,9 +4,6 @@ Test recurrent iaf layers with constant leak
 import sys
 import numpy as np
 
-strNetworkPath = sys.path[0] + "/../.."
-sys.path.insert(1, strNetworkPath)
-
 ### --- Test iaf_cl.RecCLIAF
 
 
