@@ -1,5 +1,8 @@
 unittests:
         image: continuumio/miniconda3:latest
+        tags:
+                - python
+                - aiCTX
         script:
                 - ./requirements_conda.sh
                 - pip install -r requirements.txt
