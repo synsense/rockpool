@@ -29,7 +29,7 @@ __all__ = [
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 # - Default maximum numbers of time steps for a single evolution batch
-nDefaultMaxTimeStep = 400
+nDefaultMaxNumTimeSteps = 400
 
 ## - FFIAFTorch - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFTorch(Layer):
@@ -110,7 +110,7 @@ class FFIAFTorch(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-        nMaxTimeStep: int = nDefaultMaxTimeStep,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input. Automatically splits evolution in batches,
@@ -119,7 +119,7 @@ class FFIAFTorch(Layer):
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps:   int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
-        :param nMaxTimeStep:    int      Maximum no. of timesteps evolutions are split into.
+        :param nMaxNumTimeSteps:    int      Maximum no. of timesteps evolutions are split into.
         :return:            TSEvent  output spike series
 
         """
@@ -142,7 +142,7 @@ class FFIAFTorch(Layer):
 
         # - Iterate over batches and run evolution
         iCurrentIndex = 0
-        for mfCurrentInput, nCurrNumTS in self._batch_data(mfInput, nNumTimeSteps, nMaxTimeStep):
+        for mfCurrentInput, nCurrNumTS in self._batch_data(mfInput, nNumTimeSteps, nMaxNumTimeSteps):
             mbSpiking[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
                 mfCurrentInput, iCurrentIndex, nCurrNumTS, bVerbose
             )
@@ -175,15 +175,15 @@ class FFIAFTorch(Layer):
 
     # @profile
     def _batch_data(
-        self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxTimeStep: int = None,
+        self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None,
     ) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
-        # - Handle None for nMaxTimeStep
-        nMaxTimeStep = nNumTimeSteps if nMaxTimeStep is None else nMaxTimeStep
+        # - Handle None for nMaxNumTimeSteps
+        nMaxNumTimeSteps = nNumTimeSteps if nMaxNumTimeSteps is None else nMaxNumTimeSteps
         nStart = 0
         while nStart < nNumTimeSteps:
             # - Endpoint of current batch
-            nEnd = min(nStart + nMaxTimeStep, nNumTimeSteps)
+            nEnd = min(nStart + nMaxNumTimeSteps, nNumTimeSteps)
             # - Data for current batch
             mfCurrentInput = mfInput[nStart:nEnd]
             yield mfCurrentInput, nEnd-nStart
@@ -674,7 +674,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
                         "evolution time."
                     )
             # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+            nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
         else:
             assert isinstance(
                 nNumTimeSteps, int
@@ -1129,7 +1129,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
                         "evolution time."
                     )
             # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+            nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
         else:
             assert isinstance(
                 nNumTimeSteps, int
