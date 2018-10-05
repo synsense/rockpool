@@ -3,13 +3,14 @@ unittests:
         tags:
                 - python
                 - aiCTX
-        script:
-                - conda create --name py36_test
-                - conda activate
-                - conda activate py36_test
-                - ./requirements_conda.sh
+                
+        before_script:
+                - conda env create --name py36_test -f requirements.yml
+                - source activate py36_test
                 - pip install -r requirements.txt
                 - pip install pytest
                 - pip install .
-                - pytest 
+
+        script:
+                - pytest
         
