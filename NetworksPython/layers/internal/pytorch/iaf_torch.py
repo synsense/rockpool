@@ -50,6 +50,7 @@ class FFIAFTorch(Layer):
         tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ):
         """
         FFIAFTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
@@ -72,6 +73,9 @@ class FFIAFTorch(Layer):
         :param strName:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
+
+        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
+                                      evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -99,6 +103,7 @@ class FFIAFTorch(Layer):
         self.vfBias = vfBias
         self.mfW = mfW
         self.bRecord = bRecord
+        self.nMaxNumTimeSteps = nMaxNumTimeSteps
 
         # - Store "reset" state
         self.reset_all()
@@ -110,7 +115,6 @@ class FFIAFTorch(Layer):
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input. Automatically splits evolution in batches,
@@ -119,11 +123,10 @@ class FFIAFTorch(Layer):
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps:   int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
-        :param nMaxNumTimeSteps:    int      Maximum no. of timesteps evolutions are split into.
         :return:            TSEvent  output spike series
 
         """
-        
+
         # - Layer time step before evolution
         nTimeStepStart = self._nTimeStep
 
@@ -132,7 +135,7 @@ class FFIAFTorch(Layer):
 
         # - Tensor for collecting output spike raster
         mbSpiking = torch.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
-        
+
         # - Tensor for recording states
         if self.bRecord:
             self.mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps+1, self.nSize).fill_(0).cpu()
@@ -142,7 +145,7 @@ class FFIAFTorch(Layer):
 
         # - Iterate over batches and run evolution
         iCurrentIndex = 0
-        for mfCurrentInput, nCurrNumTS in self._batch_data(mfInput, nNumTimeSteps, nMaxNumTimeSteps):
+        for mfCurrentInput, nCurrNumTS in self._batch_data(mfInput, nNumTimeSteps, self.nMaxNumTimeSteps):
             mbSpiking[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
                 mfCurrentInput, iCurrentIndex, nCurrNumTS, bVerbose
             )
@@ -156,7 +159,7 @@ class FFIAFTorch(Layer):
             vtRecTimesSynapses = (nTimeStepStart + np.arange(nNumTimeSteps + 1)) * self.tDt
             self.tscRecStates = TSContinuous(vtRecTimesStates, self.mfRecordStates.numpy())
             self.tscRecSynapses = TSContinuous(vtRecTimesSynapses, self.mfRecordSynapses.numpy())
-        
+
         # - Output timeseries
         if (mbSpiking == 0).all():
             tseOut = TSEvent(None)
@@ -191,7 +194,7 @@ class FFIAFTorch(Layer):
             nStart = nEnd
 
     # @profile
-    def _single_batch_evolution(    
+    def _single_batch_evolution(
         self,
         mfInput: np.ndarray,
         nEvolutionTimeStep: int,
@@ -211,10 +214,10 @@ class FFIAFTorch(Layer):
 
         # - Get synapse input to neurons
         mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(mfInput, nNumTimeSteps)
-        
+
         # - Update synapse state to end of evolution before rest potential and bias are added to input
         self._vSynapseState = mfNeuralInput[-1].clone()
-        
+
         if self.bRecord:
             # - Tensor for recording synapse and neuron states
             mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps, self.nSize).fill_(0)
@@ -223,7 +226,7 @@ class FFIAFTorch(Layer):
 
         # - Tensor for collecting spike data
         mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
-        
+
         # - Get local variables
         vState = self._vState.clone()
         vfAlpha = self._vfAlpha
@@ -233,7 +236,7 @@ class FFIAFTorch(Layer):
 
         # - Include resting potential and bias in input for fewer computations
         mfNeuralInput += self._vfVRest + self._vfBias
-        
+
         # - Evolve neuron states
         for nStep in range(nNumTimeSteps):
             # - Incremental state update from input
@@ -259,7 +262,7 @@ class FFIAFTorch(Layer):
         # - Store updated state and update clock
         self._vState = vState
         self._nTimeStep += nNumTimeSteps
-        
+
         return mbSpiking.cpu()
 
     # @profile
@@ -411,7 +414,7 @@ class FFIAFTorch(Layer):
     @tRefractoryTime.setter
     def tRefractoryTime(self, tNewTime):
         self._nRefractorySteps = int(np.round(tNewTime / self.tDt))
-    
+
     @property
     def vState(self):
         return self._vState.cpu().numpy()
@@ -442,7 +445,7 @@ class FFIAFTorch(Layer):
 
     @property
     def _vfAlpha(self):
-        return self.tDt / self._vtTauN 
+        return self.tDt / self._vtTauN
 
     @property
     def vfBias(self):
@@ -533,6 +536,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ):
         """
         FFIAFSpkInTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
@@ -556,6 +560,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
         :param strName:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
+
+        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
+                                      evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -571,6 +578,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
             tRefractoryTime=tRefractoryTime,
             strName=strName,
             bRecord=bRecord,
+            nMaxNumTimeSteps=nMaxNumTimeSteps,
         )
 
         # - Record neuron parameters
@@ -734,6 +742,7 @@ class RecIAFTorch(FFIAFTorch):
         tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ):
         """
         FFIAFTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
@@ -757,12 +766,15 @@ class RecIAFTorch(FFIAFTorch):
         :param strName:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions. Default: False
+
+        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
+                                      evolution periods will automatically split in smaller batches.
         """
 
         assert np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1], (
             "Layer `{}`: mfW must be a square matrix.".format(strName)
         )
-        
+
         # - Call super constructor
         super().__init__(
             mfW=mfW,
@@ -776,6 +788,7 @@ class RecIAFTorch(FFIAFTorch):
             tRefractoryTime=tRefractoryTime,
             strName=strName,
             bRecord=bRecord,
+            nMaxNumTimeSteps=nMaxNumTimeSteps,
         )
 
         # - Record neuron parameters
@@ -799,16 +812,16 @@ class RecIAFTorch(FFIAFTorch):
         :return:            TSEvent  output spike series
 
         """
-        
+
         mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(mfInput, nNumTimeSteps)
-        
+
         if self.bRecord:
             # - Tensor for recording synapse and neuron states
             mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps, self.nSize).fill_(0)
 
         # - Tensor for collecting spike data
         mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
-        
+
         # - Get local variables
         vState = self._vState.clone()
         vfAlpha = self._vfAlpha
@@ -822,7 +835,7 @@ class RecIAFTorch(FFIAFTorch):
         # - Include resting potential and bias in input for fewer computations
         # - Omit latest time point, which is only used for carrying over synapse state to new batch
         mfNeuralInput[:-1] += self._vfVRest + self._vfBias
-        
+
         # - Evolve neuron states
         for nStep in range(nNumTimeSteps):
             # - Incremental state update from input
@@ -856,7 +869,7 @@ class RecIAFTorch(FFIAFTorch):
         self._vState = vState
         self._vSynapseState = mfNeuralInput[-1].clone()
         self._nTimeStep += nNumTimeSteps
-        
+
         return mbSpiking.cpu()
 
     # @profile
@@ -877,9 +890,9 @@ class RecIAFTorch(FFIAFTorch):
                 nNumTimeSteps   int         Number of evolution time steps
 
         """
-        
+
         nNumTimeSteps = mfInput.shape[0] if nNumTimeSteps is None else nNumTimeSteps
-        
+
         # - Prepare mfInput, with additional time step for carrying over recurrent spikes between batches
         mfNeuralInput = self.tensors.FloatTensor(nNumTimeSteps+1, self.nSize).fill_(0)
         mfNeuralInput[ : -1] = torch.from_numpy(mfInput).float()
@@ -912,9 +925,9 @@ class RecIAFTorch(FFIAFTorch):
         )
         if (vtNewTauSynR < self.tDt).any():
             print("Layer `{}`: tDt is larger than some of the vtTauSynR. This can cause numerical instabilities.".format(self.strName))
-        
+
         self._vtTauSynR = torch.from_numpy(vtNewTauSynR).to(self.device).float()
-        
+
         # - Kernel for filtering recurrent spikes
         nKernelSize = 50 * int(np.amax(vtNewTauSynR) / self.tDt) # - Values smaller than ca. 1e-21 are neglected
         vtTimes = torch.arange(nKernelSize).to(self.device).reshape(-1,1).float() * self.tDt
@@ -956,6 +969,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         strName: str = "unnamed",
         bRecord: bool = False,
         bAddEvents: bool = True,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ):
         """
         RecIAFSpkInTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
@@ -986,6 +1000,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
                                          time step for a channel, count their actual number instead of
                                          just counting them as one (This might make less sense for
                                          refractory neurons).
+
+        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
+                                      evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -1005,6 +1022,12 @@ class RecIAFSpkInTorch(RecIAFTorch):
             self.device = torch.device('cpu')
             print("Layer `{}`: Using CPU as CUDA is not available.".format(strName))
             self.tensors = torch
+
+        # - Bypass property setter to avoid unnecessary convolution kernel update
+        assert type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0., (
+            "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(self.strName)
+        )
+        self._nMaxNumTimeSteps = nMaxNumTimeSteps
 
         # - Record neuron parameters
         self.vfVThresh = vfVThresh
@@ -1039,9 +1062,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
                 nNumTimeSteps   int         Number of evolution time steps
 
         """
-        
+
         nNumTimeSteps = mfInput.shape[0] if nNumTimeSteps is None else nNumTimeSteps
-        
+
         # - Prepare external input
         mfInput = torch.from_numpy(mfInput).float().to(self.device)
         # - Weigh inputs
@@ -1064,7 +1087,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         mfFilteredExternalInput = convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
         # - Store filtered input from last time step for carry-over to next batch
         self._vSynapseStateInp = mfFilteredExternalInput[-1].clone()
-        
+
         # - Prepare input to neurons, with additional time step for carrying over recurrent spikes between batches
         mfNeuralInput = self.tensors.FloatTensor(nNumTimeSteps+1, self.nSize).fill_(0)
         # - Filtered external input
@@ -1159,6 +1182,16 @@ class RecIAFSpkInTorch(RecIAFTorch):
         super().reset_all()
         self.vSynapseStateInp = 0
 
+    def _update_rec_kernel(self):
+        # - Kernel for filtering recurrent spikes
+        nKernelSize = min(
+            50 * int(torch.max(self._vtTauSRec) / self.tDt), # - Values smaller than ca. 1e-21 are neglected
+            self._nMaxNumTimeSteps + 1,  # Kernel does not need to be larger than batch duration
+        )
+        vtTimes = torch.arange(nKernelSize).to(self.device).reshape(-1,1).float() * self.tDt
+        self._mfKernelsRec = torch.exp(-vtTimes / self._vtTauSRec.reshape(1,-1))
+        print("Layer `{}`: Recurrent filter kernels have been updated.".format(self.strName))
+
     @property
     def cInput(self):
         return TSEvent
@@ -1186,13 +1219,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
         if (vtNewTauSRec < self.tDt).any():
             print("Layer `{}`: tDt is larger than some of the vtTauSRec. This can cause numerical instabilities.".format(self.strName))
-        
+
         self._vtTauSRec = torch.from_numpy(vtNewTauSRec).to(self.device).float()
-        
-        # - Kernel for filtering recurrent spikes
-        nKernelSize = 50 * int(np.amax(vtNewTauSRec) / self.tDt) # - Values smaller than ca. 1e-21 are neglected
-        vtTimes = torch.arange(nKernelSize).to(self.device).reshape(-1,1).float() * self.tDt
-        self._mfKernelsRec = torch.exp(-vtTimes / self._vtTauSRec.reshape(1,-1))
+        self._update_rec_kernel()
 
     @property
     def vtTauSInp(self):
@@ -1227,16 +1256,16 @@ class RecIAFSpkInTorch(RecIAFTorch):
     @property
     def mfW(self):
         return self.mfWRec
-    
+
     @mfW.setter
     def mfW(self, mfNewW):
         self.mfWRec = mfNewW
-    
+
     # _mfW as alias for _mfWRec
     @property
     def _mfW(self):
         return self._mfWRec
-    
+
     @_mfW.setter
     def _mfW(self, mfNewW):
         self._mfWRec = mfNewW
@@ -1252,4 +1281,15 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
         self._vSynapseStateInp = torch.from_numpy(vfNewState).to(self.device).float()
 
-    
+    @property
+    def nMaxNumTimeSteps(self):
+        return self._nMaxNumTimeSteps
+
+    @nMaxNumTimeSteps.setter
+    def nMaxNumTimeSteps(self, nNewMax):
+        assert type(nNewMax) == int and nNewMax > 0., (
+            "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(self.strName)
+        )
+        self._nMaxNumTimeSteps = nNewMax
+        self._update_rec_kernel()
+
