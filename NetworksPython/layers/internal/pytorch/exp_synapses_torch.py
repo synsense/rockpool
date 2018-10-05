@@ -208,6 +208,17 @@ class FFExpSynTorch(Layer):
         # - Time base
         vtTimeBase = (np.arange(nNumTimeSteps + 1) + self._nTimeStep) * self.tDt
 
+        if self.fNoiseStd > 0:
+            # - Add a noise trace
+            # - Noise correction is slightly different than in other layers
+            mfNoise = (
+                np.random.randn(*mfWeightedInput.shape)
+                * self.fNoiseStd
+                * np.sqrt(2 * self.tDt / self.tTauSyn)
+            )
+            mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
+            mfWeightedInput += mfNoise
+
         # - Tensor for collecting output spike raster
         mfOutput = torch.FloatTensor(nNumTimeSteps + 1, self.nSize).fill_(0)
 
