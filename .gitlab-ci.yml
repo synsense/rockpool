@@ -3,7 +3,7 @@ unittests:
         tags:
                 - python
                 - aiCTX
-                
+
         before_script:
                 - conda env create --name py36_test -f requirements.yml
                 - source activate py36_test

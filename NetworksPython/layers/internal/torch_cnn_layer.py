@@ -1,4 +1,4 @@
-from .pytorch import TorchSpikingConv2dLayer
+from .pytorch.iaf_conv2d import TorchSpikingConv2dLayer
 import numpy as np
 import torch
 
