@@ -1436,7 +1436,7 @@ class TSEvent(TimeSeries):
                     .all(axis=1)
                     .any(axis=0)
                 ):
-                    warn(
+                    print(
                         "TSEvent `{}`: There are channels with multiple events".format(
                             self.strName
                         )
