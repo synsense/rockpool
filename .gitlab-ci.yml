@@ -1,12 +1,16 @@
 unittests:
-        image: continuumio/miniconda3:latest
-        tags:
-                - python
-                - aiCTX
-        script:
-                - ./requirements_conda.sh
-                - pip install -r requirements.txt
-                - pip install pytest
-                - pip install .
-                - pytest 
-        
+  image: continuumio/miniconda3:latest
+  tags:
+    - python
+    - aiCTX
+
+  before_script:
+  - export PIP_CACHE_DIR="/opt/cache/pip"
+  - conda env create --name py36_test -f requirements.yml
+  - source activate py36_test
+  - pip install -r requirements.txt
+  - pip install pytest
+  - pip install .
+
+  script:
+    - pytest
