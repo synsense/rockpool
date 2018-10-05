@@ -1,5 +1,11 @@
+image: continuumio/miniconda3:latest
+
+before_scirpt:
+        - export PIP_CACHE_DIR="/opt/cache/pip"
+        - conda env create -f environment.yml"
+
+
 unittests:
-        image: continuumio/miniconda3:latest
         tags:
                 - python
                 - aiCTX
