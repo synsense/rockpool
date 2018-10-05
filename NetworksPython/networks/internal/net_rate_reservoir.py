@@ -34,7 +34,11 @@ def BuildRateReservoir(
     :param vtTauRes:
     :param vfBiasInput:
     :param vfBiasRes:
-    :return:            Network A reservoir network
+    :param tDt:
+    :param fNoiseStdInput:
+    :param fNoiseStdRes:
+    :param fNoiseStdOut:
+    :return:                Network - A reservoir network
     """
 
     # - Build the input layer
@@ -120,7 +124,7 @@ def BuildRandomReservoir(
     )
 
     # - Build reservoir network
-    return BuildRandomReservoir(
+    return BuildRateReservoir(
         mfWInput,
         mfWRes,
         mfWOutput,

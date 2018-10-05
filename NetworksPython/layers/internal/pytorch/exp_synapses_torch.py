@@ -1,5 +1,5 @@
 ###
-# exp_synapses_manual.py - Class implementing a spike-to-current layer with exponential synapses
+# exp_synapses_manual.py - Class implementing a spike-to-current layer with exponential synapses with pytorch as backend
 ###
 
 
@@ -7,9 +7,10 @@
 from typing import Union
 import numpy as np
 from scipy.signal import fftconvolve
+import torch
 
-from ...timeseries import TSContinuous, TSEvent
-from ..layer import Layer
+from ....timeseries import TSContinuous, TSEvent
+from ...layer import Layer
 
 from typing import Optional, Union, Tuple, List
 
@@ -19,13 +20,14 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Configure exports
 __all__ = ["FFExpSyn"]
 
-
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
+# - Default maximum numbers of time steps for a single evolution batch
+nDefaultMaxNumTimeSteps = 400
 
-## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
-class FFExpSyn(Layer):
-    """ FFExpSyn - Class: define an exponential synapse layer (spiking input)
+## - FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
+class FFExpSynTorch(Layer):
+    """ FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
     """
 
     ## - Constructor
@@ -40,7 +42,7 @@ class FFExpSyn(Layer):
         bAddEvents: bool = False,
     ):
         """
-        FFExpSyn - Construct an exponential synapse layer (spiking input)
+        FFExpSynTorch - Construct an exponential synapse layer (spiking input, pytorch as backend)
 
         :param mfW:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
@@ -70,18 +72,28 @@ class FFExpSyn(Layer):
         super().__init__(
             mfW=mfW,
             tDt=tDt,
-            fNoiseStd=np.asarray(fNoiseStd),
+            fNoiseStd=fNoiseStd,
             strName=strName,
         )
 
-        # - Parameters
+        # - Set device to cuda if available and determine how tensors should be instantiated
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+            self.tensors = torch.cuda
+        else:
+            self.device = torch.device('cpu')
+            print("Layer `{}`: Using CPU as CUDA is not available.".format(strName))
+            self.tensors = torch
+
+        # - Record layer parameters
         self.tTauSyn = tTauSyn
         self.vfBias = vfBias
         self.bAddEvents = bAddEvents
 
-        # - set time and state to 0
+        # - Set time and state to 0
         self.reset_all()
 
+    # @profile
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -89,7 +101,7 @@ class FFExpSyn(Layer):
         nNumTimeSteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input and apply weights.
+        _prepare_input - Sample input and apply weights. Also add noise.
 
         :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
         :param tDuration:    float Duration of the desired evolution, in seconds
@@ -146,16 +158,29 @@ class FFExpSyn(Layer):
         else:
             mfWeightedInput = np.zeros((nNumTimeSteps, self.nSize))
 
+        if self.fNoiseStd > 0:
+            # - Add a noise trace
+            # - Noise correction is slightly different than in other layers
+            mfNoise = (
+                np.random.randn(*mfWeightedInput.shape)
+                * self.fNoiseStd
+                * np.sqrt(2 * self.tDt / self.tTauSyn)
+            )
+            mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
+            mfWeightedInput += mfNoise
+
         return mfWeightedInput, nNumTimeSteps
 
     ### --- State evolution
 
+    # @profile
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ) -> TSContinuous:
         """
         evolve : Function to evolve the states of this layer given an input
@@ -168,47 +193,81 @@ class FFExpSyn(Layer):
 
         """
 
-        # - Prepare weighted input signal
+        # - Prepare input signal
         mfWeightedInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
-
         # - Time base
         vtTimeBase = (np.arange(nNumTimeSteps + 1) + self._nTimeStep) * self.tDt
 
-        if self.fNoiseStd > 0:
-            # - Add a noise trace
-            # - Noise correction is slightly different than in other layers
-            mfNoise = (
-                np.random.randn(*mfWeightedInput.shape)
-                * self.fNoiseStd
-                * np.sqrt(2 * self.tDt / self.tTauSyn)
+        # - Tensor for collecting output spike raster
+        mfOutput = torch.FloatTensor(nNumTimeSteps+1, self.nSize).fill_(0)
+        
+        # - Iterate over batches and run evolution
+        iCurrentIndex = 1
+        for mfCurrentInput, nCurrNumTS in self._batch_data(
+                mfWeightedInput, nNumTimeSteps, nMaxNumTimeSteps
+            ):
+            mfOutput[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
+                torch.from_numpy(mfCurrentInput).float().to(self.device),
+                nCurrNumTS,
+                bVerbose,
             )
-            mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
-            mfWeightedInput += mfNoise
-
-        # Add current state to input
-        mfWeightedInput[0, :] += self._vStateNoBias.copy() * np.exp(-self.tDt / self.tTauSyn)
-
-        # - Define exponential kernel
-        vfKernel = np.exp(-np.arange(nNumTimeSteps + 1) * self.tDt / self.tTauSyn)
-        # - Make sure spikes only have effect on next time step
-        vfKernel = np.r_[0, vfKernel]
-
-        # - Apply kernel to spike trains
-        mfFiltered = np.zeros((nNumTimeSteps+1, self.nSize))
-        for channel, vEvents in enumerate(mfWeightedInput.T):
-            vConv = fftconvolve(vEvents, vfKernel, "full")
-            vConvShort = vConv[: vtTimeBase.size]
-            mfFiltered[:, channel] = vConvShort
-
-        # - Update time and state
-        self._nTimeStep += nNumTimeSteps
-        self._vStateNoBias = mfFiltered[-1]
+            iCurrentIndex += nCurrNumTS
 
         # - Output time series with output data and bias
         return TSContinuous(
-            vtTimeBase, mfFiltered + self.vfBias, strName="Receiver current"
+            vtTimeBase, (mfOutput + self._vfBias.cpu()).numpy(), strName="Filtered spikes"
         )
+    
+    # @profile
+    def _batch_data(
+        self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None,
+    ) -> (np.ndarray, int):
+        """_batch_data: Generator that returns the data in batches"""
+        # - Handle None for nMaxNumTimeSteps
+        nMaxNumTimeSteps = nNumTimeSteps if nMaxNumTimeSteps is None else nMaxNumTimeSteps
+        nStart = 0
+        while nStart < nNumTimeSteps:
+            # - Endpoint of current batch
+            nEnd = min(nStart + nMaxNumTimeSteps, nNumTimeSteps)
+            # - Data for current batch
+            mfCurrentInput = mfInput[nStart:nEnd]
+            yield mfCurrentInput, nEnd-nStart
+            # - Update nStart
+            nStart = nEnd
 
+    # @profile
+    def _single_batch_evolution(
+        self,
+        mfWeightedInput: np.ndarray,
+        nNumTimeSteps: int,
+        bVerbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input for a single batch
+
+        :param mfWeightedInput: np.ndarray   Weighted input
+        :param nNumTimeSteps:   int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
+
+        """
+
+        # Add current state to input
+        mfWeightedInput[0, :] += self._vStateNoBias.clone() * np.exp(-self.tDt / self.tTauSyn)
+
+        # - Reshape input for convolution
+        mfWeightedInput = mfWeightedInput.t().reshape(1,self.nSize,-1)
+        
+        # - Filter synaptic currents
+        mfFiltered = self._convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
+        
+        # - Store current state and update internal time
+        self._vStateNoBias = mfFiltered[-1].clone()
+        self._nTimeStep += nNumTimeSteps
+
+        return mfFiltered
+
+    # @profile
     def train_rr(
         self,
         tsTarget: TSContinuous,
@@ -267,10 +326,13 @@ class FFExpSyn(Layer):
             self.strName, mfTarget.shape[-1], self.nSize
         )
 
+        # - Move target data to GPU
+        mfTarget = torch.from_numpy(mfTarget).float().to(self.device)
+
         # - Prepare input data
 
         # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn + 1))
+        mfInput = self.tensors.FloatTensor(vtTimeBase.size, self.nSizeIn + 1).fill_(0)
         mfInput[:, -1] = 1
 
         # - Generate spike trains from tsInput
@@ -304,73 +366,66 @@ class FFExpSyn(Layer):
                 else:
                     raise e
 
-            # - Convert input events to spike trains
-            mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
-            #   Iterate over channel indices and create their spike trains
-            for channel in range(self.nSizeIn):
-                # Times with event in current channel
-                vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
-                # Indices of vtTimeBase corresponding to these times
-                viEventIndicesChannel = (
-                    (vtEventTimesChannel - vtTimeBase[0]) / self.tDt
-                ).astype(int)
-                # Set spike trains for current channel
-                mSpikeTrains[viEventIndicesChannel, channel] = 1
+            # Extract spike data from the input variable and bring to GPU
+            mnSpikeRaster = torch.from_numpy(
+                tsInput.raster(
+                    tDt=self.tDt,
+                    tStart=vtTimeBase[0],
+                    nNumTimeSteps=vtTimeBase.size,
+                    vnSelectChannels=np.arange(self.nSizeIn),
+                    bSamples=False,
+                    bAddEvents=self.bAddEvents,
+                )[2].astype(int)
+            ).float().to(self.device)
 
-            # - Define exponential kernel
-            vfKernel = np.exp(
-                -np.arange(0, vtTimeBase[-1] - vtTimeBase[0], self.tDt) / self.tTauSyn
-            )
-
-            # - Apply kernel to spike trains and add filtered trains to input array
-            for channel, vEvents in enumerate(mSpikeTrains.T):
-                mfInput[:, channel] = fftconvolve(vEvents, vfKernel, "full")[
-                    : vtTimeBase.size
-                ]
+            # - Reshape input for convolution
+            mnSpikeRaster = mnSpikeRaster.t().reshape(1,self.nSizeIn,-1)
+            
+            # - Filter synaptic currents and store in input tensor
+            mfInput[:, :-1] = self._convSynapsesTraining(mnSpikeRaster)[0].detach().t()[:vtTimeBase.size]
 
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros(
-                (self.nSizeIn + 1, self.nSize)
-            )  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros(
-                (self.nSizeIn + 1, self.nSizeIn + 1)
-            )  # mfInput.T (dot) mfInput
+            self._mfXTY = self.tensors.FloatTensor(
+                self.nSizeIn + 1, self.nSize
+            ).fill_(0)
+            self._mfXTX = self.tensors.FloatTensor(
+                self.nSizeIn + 1, self.nSizeIn + 1
+            ).fill_(0)
             # Corresponding Kahan compensations
-            self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
-            self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
+            self._mfKahanCompXTY = self._mfXTY.clone()
+            self._mfKahanCompXTX = self._mfXTX.clone()
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
-        mfUpdXTY = mfInput.T @ mfTarget - self.mfKahanCompXTY
-        mfUpdXTX = mfInput.T @ mfInput - self.mfKahanCompXTX
+        mfUpdXTY = torch.mm(mfInput.t(), mfTarget) - self._mfKahanCompXTY
+        mfUpdXTX = torch.mm(mfInput.t(), mfInput) - self._mfKahanCompXTX
 
         if not bFinal:
             # - Update matrices with new data
-            mfNewXTY = self.mfXTY + mfUpdXTY
-            mfNewXTX = self.mfXTX + mfUpdXTX
+            mfNewXTY = self._mfXTY + mfUpdXTY
+            mfNewXTX = self._mfXTX + mfUpdXTX
             # - Calculate rounding error for compensation in next batch
-            self.mfKahanCompXTY = (mfNewXTY - self.mfXTY) - mfUpdXTY
-            self.mfKahanCompXTX = (mfNewXTX - self.mfXTX) - mfUpdXTX
+            self._mfKahanCompXTY = (mfNewXTY - self._mfXTY) - mfUpdXTY
+            self._mfKahanCompXTX = (mfNewXTX - self._mfXTX) - mfUpdXTX
             # - Store updated matrices
-            self.mfXTY = mfNewXTY
-            self.mfXTX = mfNewXTX
+            self._mfXTY = mfNewXTY
+            self._mfXTX = mfNewXTX
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
-            self.mfXTY += mfUpdXTY
-            self.mfXTX += mfUpdXTX
+            self._mfXTY += mfUpdXTY
+            self._mfXTX += mfUpdXTX
 
             # - Weight and bias update by ridge regression
-            mfSolution = np.linalg.solve(
-                self.mfXTX + fRegularize * np.eye(self.nSizeIn + 1), self.mfXTY
-            )
+            mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(self.device)
+            mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
             self.mfW = mfSolution[:-1, :]
             self.vfBias = mfSolution[-1, :]
 
-            # - Remove dat stored during this trainig
-            self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
+            # - Remove data stored during this trainig
+            self._mfXTY = self._mfXTX = self._mfKahanCompXTY = self._mfKahanCompXTX = None
 
     ### --- Properties
 
@@ -387,23 +442,46 @@ class FFExpSyn(Layer):
         assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(self.strName)
         self._tTauSyn = tNewTau
     
+        # - Kernel for filtering recurrent spikes
+        nKernelSize = 50 * int(tNewTau / self.tDt) # - Values smaller than ca. 1e-21 are neglected
+        vtTimes = torch.arange(nKernelSize).to(self.device).reshape(1,-1).float() * self.tDt
+        mfInputKernels = torch.exp(-vtTimes / self.tensors.FloatTensor(self.nSize, 1).fill_(tNewTau))
+        # - Reverse on time axis and reshape to match convention of pytorch
+        mfInputKernels = mfInputKernels.flip(1).reshape(self.nSize, 1, nKernelSize)
+        # - Object for applying convolution
+        self._convSynapses = torch.nn.Conv1d(
+            self.nSize, self.nSize, nKernelSize, padding=nKernelSize-1, groups=self.nSize, bias=False
+        ).to(self.device)
+        self._convSynapses.weight.data = mfInputKernels
+
+        # - Kernel for filtering recurrent spikes (uses unweighted input and therefore has different dimensions)
+        mfInputKernelsTraining = torch.exp(-vtTimes / self.tensors.FloatTensor(self.nSizeIn, 1).fill_(tNewTau))
+        # - Reverse on time axis and reshape to match convention of pytorch
+        mfInputKernelsTraining = mfInputKernelsTraining.flip(1).reshape(self.nSizeIn, 1, nKernelSize)
+        # - Object for applying convolution
+        self._convSynapsesTraining = torch.nn.Conv1d(
+            self.nSizeIn, self.nSizeIn, nKernelSize, padding=nKernelSize-1, groups=self.nSizeIn, bias=False
+        ).to(self.device)
+        self._convSynapsesTraining.weight.data = mfInputKernelsTraining
+        
     @property
     def vfBias(self):
-        return self._vfBias
+        return self._vfBias.cpu().numpy()
     
     @vfBias.setter
     def vfBias(self, vfNewBias):
-        self._vfBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
+        vfNewBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
+        self._vfBias = torch.from_numpy(vfNewBias).float().to(self.device)
 
     @property
     def vState(self):
-        return self._vStateNoBias + self._vfBias
+        return (self._vStateNoBias + self._vfBias).cpu().numpy()
 
     @vState.setter
     def vState(self, vNewState):
         vNewState = (
             np.asarray(self._expand_to_net_size(vNewState, "vState"))
         )
-        self._vStateNoBias = vNewState - self._vfBias
+        self._vStateNoBias = torch.from_numpy(vNewState).float().to(self.device) - self._vfBias
 
     
