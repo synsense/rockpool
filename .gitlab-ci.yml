@@ -4,6 +4,8 @@ unittests:
                 - python
                 - aiCTX
         script:
+                - conda create --name py36_test
+                - conda activate py36_test
                 - ./requirements_conda.sh
                 - pip install -r requirements.txt
                 - pip install pytest
