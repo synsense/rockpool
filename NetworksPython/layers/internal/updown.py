@@ -184,7 +184,7 @@ class FFUpDown(Layer):
 
         return tseOut
 
-    @profile
+    # @profile
     def _batch_data(
         self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None,
     ) -> (np.ndarray, int):
@@ -201,7 +201,7 @@ class FFUpDown(Layer):
             # - Update nStart
             nStart = nEnd
 
-    @profile
+    # @profile
     def _single_batch_evolution(
         self,
         mfInput: np.ndarray,
