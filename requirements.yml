@@ -1,0 +1,21 @@
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - brian2
+  - matplotlib
+  - numpy
+  - pyqt
+  - pytest
+  - python>=3.6
+  - qt
+  - scikit-image
+  - scipy
+  - setuptools
+  - tqdm
+  - pytorch
+  - torchvision
+  - numba
+  - pandas
+
