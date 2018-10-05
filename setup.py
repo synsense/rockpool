@@ -7,6 +7,8 @@ setup(
         "NetworksPython",
         "NetworksPython.layers",
         "NetworksPython.networks",
+        "NetworksPython.networks.gpl",
+        "NetworksPython.networks.internal",
         "NetworksPython.layers.gpl",
         "NetworksPython.layers.internal",
         "NetworksPython.layers.internal.pytorch",
