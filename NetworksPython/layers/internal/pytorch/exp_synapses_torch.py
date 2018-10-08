@@ -39,7 +39,7 @@ class FFExpSynTorch(Layer):
         fNoiseStd: float = 0,
         tTauSyn: float = 0.005,
         strName: str = "unnamed",
-        bAddEvents: bool = False,
+        bAddEvents: bool = True,
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ):
         """
@@ -76,7 +76,7 @@ class FFExpSynTorch(Layer):
         super().__init__(mfW=mfW, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
 
         # - Set device to cuda if available and determine how tensors should be instantiated
-        if torch.cuda.is_available():
+        if False: #torch.cuda.is_available():
             self.device = torch.device("cuda")
             self.tensors = torch.cuda
         else:
@@ -219,22 +219,23 @@ class FFExpSynTorch(Layer):
             mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
             mfWeightedInput += mfNoise
 
-        # - Tensor for collecting output spike raster
-        mfOutput = torch.FloatTensor(nNumTimeSteps + 1, self.nSize).fill_(0)
+        with torch.no_grad():
+            # - Tensor for collecting output spike raster
+            mfOutput = torch.FloatTensor(nNumTimeSteps + 1, self.nSize).fill_(0)
 
-        # - Iterate over batches and run evolution
-        iCurrentIndex = 1
-        for mfCurrentInput, nCurrNumTS in self._batch_data(
-            mfWeightedInput, nNumTimeSteps, self.nMaxNumTimeSteps
-        ):
-            mfOutput[
-                iCurrentIndex : iCurrentIndex + nCurrNumTS
-            ] = self._single_batch_evolution(
-                mfCurrentInput,  # torch.from_numpy(mfCurrentInput).float().to(self.device),
-                nCurrNumTS,
-                bVerbose,
-            )
-            iCurrentIndex += nCurrNumTS
+            # - Iterate over batches and run evolution
+            iCurrentIndex = 1
+            for mfCurrentInput, nCurrNumTS in self._batch_data(
+                mfWeightedInput, nNumTimeSteps, self.nMaxNumTimeSteps
+            ):
+                mfOutput[
+                    iCurrentIndex : iCurrentIndex + nCurrNumTS
+                ] = self._single_batch_evolution(
+                    mfCurrentInput,  # torch.from_numpy(mfCurrentInput).float().to(self.device),
+                    nCurrNumTS,
+                    bVerbose,
+                )
+                iCurrentIndex += nCurrNumTS
 
         # - Output time series with output data and bias
         return TSContinuous(
@@ -278,20 +279,22 @@ class FFExpSynTorch(Layer):
 
         """
 
-        # Add current state to input
-        mfWeightedInput[0, :] += self._vStateNoBias.clone() * np.exp(
-            -self.tDt / self.tTauSyn
-        )
+        with torch.no_grad():
 
-        # - Reshape input for convolution
-        mfWeightedInput = mfWeightedInput.t().reshape(1, self.nSize, -1)
+            # Add current state to input
+            mfWeightedInput[0, :] += self._vStateNoBias.clone() * np.exp(
+                -self.tDt / self.tTauSyn
+            )
 
-        # - Filter synaptic currents
-        mfFiltered = self._convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
+            # - Reshape input for convolution
+            mfWeightedInput = mfWeightedInput.t().reshape(1, self.nSize, -1)
 
-        # - Store current state and update internal time
-        self._vStateNoBias = mfFiltered[-1].clone()
-        self._nTimeStep += nNumTimeSteps
+            # - Filter synaptic currents
+            mfFiltered = self._convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
+
+            # - Store current state and update internal time
+            self._vStateNoBias = mfFiltered[-1].clone()
+            self._nTimeStep += nNumTimeSteps
 
         return mfFiltered
 
@@ -354,14 +357,15 @@ class FFExpSynTorch(Layer):
             self.strName, mfTarget.shape[-1], self.nSize
         )
 
-        # - Move target data to GPU
-        mfTarget = torch.from_numpy(mfTarget).float().to(self.device)
+        with torch.no_grad():
+            # - Move target data to GPU
+            mfTarget = torch.from_numpy(mfTarget).float().to(self.device)
 
-        # - Prepare input data
+            # - Prepare input data
 
-        # Empty input array with additional dimension for training biases
-        mfInput = self.tensors.FloatTensor(vtTimeBase.size, self.nSizeIn + 1).fill_(0)
-        mfInput[:, -1] = 1
+            # Empty input array with additional dimension for training biases
+            mfInput = self.tensors.FloatTensor(vtTimeBase.size, self.nSizeIn + 1).fill_(0)
+            mfInput[:, -1] = 1
 
         # - Generate spike trains from tsInput
         if tsInput is None:
@@ -393,79 +397,80 @@ class FFExpSynTorch(Layer):
                     )
                 else:
                     raise e
-
-            # Extract spike data from the input variable and bring to GPU
-            mnSpikeRaster = (
-                torch.from_numpy(
-                    tsInput.raster(
-                        tDt=self.tDt,
-                        tStart=vtTimeBase[0],
-                        nNumTimeSteps=vtTimeBase.size,
-                        vnSelectChannels=np.arange(self.nSizeIn),
-                        bSamples=False,
-                        bAddEvents=self.bAddEvents,
-                    )[2].astype(int)
+            with torch.no_grad():
+                # Extract spike data from the input variable and bring to GPU
+                mnSpikeRaster = (
+                    torch.from_numpy(
+                        tsInput.raster(
+                            tDt=self.tDt,
+                            tStart=vtTimeBase[0],
+                            nNumTimeSteps=vtTimeBase.size,
+                            vnSelectChannels=np.arange(self.nSizeIn),
+                            bSamples=False,
+                            bAddEvents=self.bAddEvents,
+                        )[2].astype(int)
+                    )
+                    .float()
+                    .to(self.device)
                 )
-                .float()
-                .to(self.device)
-            )
 
-            # - Reshape input for convolution
-            mnSpikeRaster = mnSpikeRaster.t().reshape(1, self.nSizeIn, -1)
+                # - Reshape input for convolution
+                mnSpikeRaster = mnSpikeRaster.t().reshape(1, self.nSizeIn, -1)
 
-            # - Filter synaptic currents and store in input tensor
-            mfInput[:, :-1] = (
-                self._convSynapsesTraining(mnSpikeRaster)[0]
-                .detach()
-                .t()[: vtTimeBase.size]
-            )
+                # - Filter synaptic currents and store in input tensor
+                mfInput[:, :-1] = (
+                    self._convSynapsesTraining(mnSpikeRaster)[0]
+                    .detach()
+                    .t()[: vtTimeBase.size]
+                )
 
-        # - For first batch, initialize summands
-        if bFirst:
-            # Matrices to be updated for each batch
-            self._mfXTY = self.tensors.FloatTensor(self.nSizeIn + 1, self.nSize).fill_(
-                0
-            )
-            self._mfXTX = self.tensors.FloatTensor(
-                self.nSizeIn + 1, self.nSizeIn + 1
-            ).fill_(0)
-            # Corresponding Kahan compensations
-            self._mfKahanCompXTY = self._mfXTY.clone()
-            self._mfKahanCompXTX = self._mfXTX.clone()
+        with torch.no_grad():
+            # - For first batch, initialize summands
+            if bFirst:
+                # Matrices to be updated for each batch
+                self._mfXTY = self.tensors.FloatTensor(self.nSizeIn + 1, self.nSize).fill_(
+                    0
+                )
+                self._mfXTX = self.tensors.FloatTensor(
+                    self.nSizeIn + 1, self.nSizeIn + 1
+                ).fill_(0)
+                # Corresponding Kahan compensations
+                self._mfKahanCompXTY = self._mfXTY.clone()
+                self._mfKahanCompXTX = self._mfXTX.clone()
 
-        # - New data to be added, including compensation from last batch
-        #   (Matrix summation always runs over time)
-        mfUpdXTY = torch.mm(mfInput.t(), mfTarget) - self._mfKahanCompXTY
-        mfUpdXTX = torch.mm(mfInput.t(), mfInput) - self._mfKahanCompXTX
+            # - New data to be added, including compensation from last batch
+            #   (Matrix summation always runs over time)
+            mfUpdXTY = torch.mm(mfInput.t(), mfTarget) - self._mfKahanCompXTY
+            mfUpdXTX = torch.mm(mfInput.t(), mfInput) - self._mfKahanCompXTX
 
-        if not bFinal:
-            # - Update matrices with new data
-            mfNewXTY = self._mfXTY + mfUpdXTY
-            mfNewXTX = self._mfXTX + mfUpdXTX
-            # - Calculate rounding error for compensation in next batch
-            self._mfKahanCompXTY = (mfNewXTY - self._mfXTY) - mfUpdXTY
-            self._mfKahanCompXTX = (mfNewXTX - self._mfXTX) - mfUpdXTX
-            # - Store updated matrices
-            self._mfXTY = mfNewXTY
-            self._mfXTX = mfNewXTX
+            if not bFinal:
+                # - Update matrices with new data
+                mfNewXTY = self._mfXTY + mfUpdXTY
+                mfNewXTX = self._mfXTX + mfUpdXTX
+                # - Calculate rounding error for compensation in next batch
+                self._mfKahanCompXTY = (mfNewXTY - self._mfXTY) - mfUpdXTY
+                self._mfKahanCompXTX = (mfNewXTX - self._mfXTX) - mfUpdXTX
+                # - Store updated matrices
+                self._mfXTY = mfNewXTY
+                self._mfXTX = mfNewXTX
 
-        else:
-            # - In final step do not calculate rounding error but update matrices directly
-            self._mfXTY += mfUpdXTY
-            self._mfXTX += mfUpdXTX
+            else:
+                # - In final step do not calculate rounding error but update matrices directly
+                self._mfXTY += mfUpdXTY
+                self._mfXTX += mfUpdXTX
 
-            # - Weight and bias update by ridge regression
-            mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
-                self.device
-            )
-            mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
-            self.mfW = mfSolution[:-1, :]
-            self.vfBias = mfSolution[-1, :]
+                # - Weight and bias update by ridge regression
+                mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
+                    self.device
+                )
+                mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
+                self.mfW = mfSolution[:-1, :]
+                self.vfBias = mfSolution[-1, :]
 
-            # - Remove data stored during this trainig
-            self._mfXTY = (
-                self._mfXTX
-            ) = self._mfKahanCompXTY = self._mfKahanCompXTX = None
+                # - Remove data stored during this trainig
+                self._mfXTY = (
+                    self._mfXTX
+                ) = self._mfKahanCompXTY = self._mfKahanCompXTX = None
 
     def _update_kernels(self):
         """Generate kernels for filtering input spikes during evolution and training"""
