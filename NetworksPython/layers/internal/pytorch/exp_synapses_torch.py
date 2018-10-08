@@ -23,7 +23,7 @@ __all__ = ["FFExpSyn"]
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 # - Default maximum numbers of time steps for a single evolution batch
-nDefaultMaxNumTimeSteps = 400
+nDefaultMaxNumTimeSteps = 5000
 
 ## - FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
 class FFExpSynTorch(Layer):
@@ -102,7 +102,7 @@ class FFExpSynTorch(Layer):
         # - Set time and state to 0
         self.reset_all()
 
-    @profile
+    # @profile
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -182,7 +182,7 @@ class FFExpSynTorch(Layer):
 
     ### --- State evolution
 
-    @profile
+    # @profile
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -243,7 +243,7 @@ class FFExpSynTorch(Layer):
             strName="Filtered spikes",
         )
 
-    @profile
+    # @profile
     def _batch_data(
         self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None
     ) -> (np.ndarray, int):
@@ -264,7 +264,7 @@ class FFExpSynTorch(Layer):
             # - Update nStart
             nStart = nEnd
 
-    @profile
+    # @profile
     def _single_batch_evolution(
         self, mfWeightedInput: np.ndarray, nNumTimeSteps: int, bVerbose: bool = False
     ) -> TSEvent:
@@ -295,7 +295,7 @@ class FFExpSynTorch(Layer):
 
         return mfFiltered
 
-    @profile
+    # @profile
     def train_rr(
         self,
         tsTarget: TSContinuous,
