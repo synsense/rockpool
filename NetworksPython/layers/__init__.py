@@ -3,45 +3,52 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {".layer": "Layer",
-            ".internal.iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian", "RecIAFBrian", "RecIAFSpkInBrian"),
-            ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-            ".internal.exp_synapses_brian": "FFExpSynBrian",
-            ".internal.exp_synapses_manual": "FFExpSyn",
-            ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
-            ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
-            ".internal.iaf_cl_extd": "RecCLIAFExtd",
-            ".internal.softmaxlayer": "SoftMaxLayer",
-            ".internal.averagepooling": "AveragePooling2D",
-            ".internal.iaf_digital": "RecDIAF",
-            ".internal.spike_bt": "RecFSSpikeEulerBT",
-            ".internal.cnnweights": "CNNWeight",
-            ".internal.spiking_conv2d_torch": "CNNWeightTorch",
-            ".internal.torch_cnn_layer": "FFCLIAFTorch",
-            ".internal.updown": "FFUpDown",
-            ".internal.weights": (
-                "RndmSparseEINet",
-                "RandomEINet",
-                "WilsonCowanNet",
-                "WipeNonSwitchingEigs",
-                "UnitLambdaNet",
-                "DiscretiseWeightMatrix",
-                "DynapseConform",
-                "In_Res_Dynapse",
-                "digital",
-                "in_res_digital",
-                "IAFSparseNet",
-            ),
-            ".internal.pytorch.iaf_conv2d": "TorchSpikingConv2dLayer",
-            ".internal.pytorch.sumpool2d": "TorchSumPooling2dLayer",
-            ".internal.pytorch.crop2d": "TorchCropping2dLayer",
-            ".internal.pytorch.iaf_torch": (
-                "FFIAFTorch",
-                "FFIAFSpkInTorch",
-                "RecIAFTorch",
-                "RecIAFSpkInTorch",
-            )
-            }
+dModules = {
+    ".layer": "Layer",
+    ".internal.iaf_brian": (
+        "FFIAFBrian",
+        "FFIAFSpkInBrian",
+        "RecIAFBrian",
+        "RecIAFSpkInBrian",
+    ),
+    ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
+    ".internal.exp_synapses_brian": "FFExpSynBrian",
+    ".internal.exp_synapses_manual": "FFExpSyn",
+    ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
+    ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
+    ".internal.iaf_cl_extd": "RecCLIAFExtd",
+    ".internal.softmaxlayer": "SoftMaxLayer",
+    ".internal.averagepooling": "AveragePooling2D",
+    ".internal.iaf_digital": "RecDIAF",
+    ".internal.spike_bt": "RecFSSpikeEulerBT",
+    ".internal.cnnweights": "CNNWeight",
+    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
+    ".internal.torch_cnn_layer": "FFCLIAFTorch",
+    ".internal.updown": "FFUpDown",
+    ".internal.weights": (
+        "RndmSparseEINet",
+        "RandomEINet",
+        "WilsonCowanNet",
+        "WipeNonSwitchingEigs",
+        "UnitLambdaNet",
+        "DiscretiseWeightMatrix",
+        "DynapseConform",
+        "In_Res_Dynapse",
+        "digital",
+        "in_res_digital",
+        "IAFSparseNet",
+    ),
+    ".internal.pytorch.iaf_conv2d": "TorchSpikingConv2dLayer",
+    ".internal.pytorch.sumpool2d": "TorchSumPooling2dLayer",
+    ".internal.pytorch.crop2d": "TorchCropping2dLayer",
+    ".internal.pytorch.iaf_torch": (
+        "FFIAFTorch",
+        "FFIAFSpkInTorch",
+        "RecIAFTorch",
+        "RecIAFSpkInTorch",
+    ),
+    ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
+}
 
 
 # - Define current package
@@ -94,6 +101,6 @@ for strModule, classnames in dModules.items():
 
 # from .internal import *
 
-#from .internal import __all__ as suball
+# from .internal import __all__ as suball
 
-#__all__ += suball
+# __all__ += suball
