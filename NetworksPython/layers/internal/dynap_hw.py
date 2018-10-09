@@ -1,16 +1,25 @@
+# ----
+# dynap_hw.py - Implementation of HW FF and Rec layers for DynapSE, via ctxCTL
+# ----
+
 from ..layer import Layer
 from ...timeseries import TSEvent
 
 import numpy as np
 from warnings import warn
 
-
+# - Imports from ctxCTL
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
 from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron
 
-def init_dynapse():
+def init_dynapse() -> dict:
+    """
+    init_dynapse - Initialisation function
+
+    :return: dict Global dictionary containing DynapSE HW models
+    """
     # - Initialise HW dictionary
     dDynapse = {}
 
@@ -39,7 +48,7 @@ def init_dynapse():
     # - Return dictionary
     return dDynapse
 
-# - Create global, if required
+# -- Create global dictionary, only initialise on first import of this module
 global DHW_dDynapse
 if 'DHW_dDynapse' not in dir():
     DHW_dDynapse = init_dynapse()
@@ -73,20 +82,32 @@ class RecDynapSE(Layer):
     """
     def __init__(self,
                  mfW: np.ndarray,
+                 tDt: float = None,
+                 fNoiseStd: float = None,
                  strName: str = 'unnamed',
-                 tDt: float = 1e-6,
                  ):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
 
 
-        :param mfW:     ndarray NxN matrix of recurrent weights
-        :param strName: str     Layer name
-        :param tDt:     float   Dummy time step. Not used in layer evolution
+        :param mfW:         ndarray NxN matrix of recurrent weights
+        :param tDt:         float   Dummy time step. Not used in layer evolution
+        :param fNoiseStd    float   Dummy noise to inject. Not used in layer evolution
+        :param strName:     str     Layer name
         """
+        # - Check supplied arguments
+        if tDt is not None:
+            warn('Caution: `tDt` is ignored during DynapSE layer evolution.')
+        else:
+            tDt = 1e-6
+
+        if fNoiseStd is not None:
+            warn('Caution: `fNoiseStd` is ignored during DynapSE layer evolution.')
+        else:
+            fNoiseStd = 0.
 
         # - Initialise superclass
-        super().__init__(mfW, tDt, strName=strName)
+        super().__init__(mfW, tDt, fNoiseStd, strName)
 
         # - Convert weight matrix to connectivity list (excitatory)
         vnPreSynE, vnPostSynE = connectivity_matrix_to_prepost_lists(mfW > 0)
@@ -98,17 +119,17 @@ class RecDynapSE(Layer):
         connector = NeuronNeuronConnector.DynapseConnector()
 
         # - Map neuron indices to neurons
-        lHWNeurons = allocate_neurons(self.nSize)
+        self._lHWNeurons = allocate_neurons(self.nSize)
 
         # - Connect the excitatory neurons
-        connector.add_connection_from_list(lHWNeurons[vnPreSynE],
-                                           lHWNeurons[vnPostSynE],
+        connector.add_connection_from_list(self._lHWNeurons[vnPreSynE],
+                                           self._lHWNeurons[vnPostSynE],
                                            [SynapseTypes.SLOW_EXC]
                                            )
 
         # - Connect the inhibitory neurons
-        connector.add_connection_from_list(lHWNeurons[vnPreSynI],
-                                           lHWNeurons[vnPostSynI],
+        connector.add_connection_from_list(self._lHWNeurons[vnPreSynI],
+                                           self._lHWNeurons[vnPostSynI],
                                            [SynapseTypes.SLOW_EXC]
                                            )
 
@@ -124,6 +145,21 @@ class RecDynapSE(Layer):
         :return:
         """
         # - Get input events from tsInput
+
+        # - Convert events to fpga representation
+
+        # - Send event sequence to fpga module
+
+        # - Configure recording callback
+
+        # - Stimulate / record for desired duration
+
+        # - Trim recorded events if necessary
+        
+        # - Convert recorded events to TSEvent object
+        
+        # - Return recorded events
+
         pass
 
 
