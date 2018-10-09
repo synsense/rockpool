@@ -59,10 +59,20 @@ class RecDynapSE(Layer):
         :param tDuration:
         :return:
         """
-        # -
+        # - Get input events from tsInput
+
 
         pass
 
 
-def connectivity_matrix_to_prepost_lists(mfW):
+def connectivity_matrix_to_prepost_lists(mfW: np.ndarray):
     return np.nonzero(mfW)
+
+def TSEvent_to_spike_list(tsSeries: TSEvent):
+    """
+    TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
+
+    :param tsSeries:
+    :return:
+    """
+    pass

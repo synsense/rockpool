@@ -1270,7 +1270,7 @@ class TSEvent(TimeSeries):
 
     def merge(self, ltsOther: Union[TimeSeries, List[TimeSeries]]):
         """
-        merge - Merge another TimeSeries into this one
+        merge - Merge another TSEvent into this one
         :param ltsOther: TimeSeries (or list of TimeSeries) to merge into this one
         :return: self with new samples included
         """
@@ -1436,8 +1436,8 @@ class TSEvent(TimeSeries):
                     .all(axis=1)
                     .any(axis=0)
                 ):
-                    warn(
-                        "TSEvent `{}`: Warning: There are channels with multiple events".format(
+                    print(
+                        "TSEvent `{}`: There are channels with multiple events".format(
                             self.strName
                         )
                         + " per time step. Consider smaller tDt or setting bAddEvents True."
