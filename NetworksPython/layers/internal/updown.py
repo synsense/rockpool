@@ -155,18 +155,19 @@ class FFUpDown(Layer):
         # - Matrix for collecting output spike raster
         mbOutputSpikes = np.zeros((nNumTimeSteps, 2*self.nSizeIn))
 
-        # - Record states for debugging
-        mfRecord = np.zeros((nNumTimeSteps, self.nSizeIn))
+        # # - Record states for debugging
+        # mfRecord = np.zeros((nNumTimeSteps, self.nSizeIn))
 
         # - Iterate over batches and run evolution
         iCurrentIndex = 0
         for mfCurrentInput, nCurrNumTS in self._batch_data(
                 mfInput, nNumTimeSteps, self.nMaxNumTimeSteps
             ):
-            (
-                mbOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS],
-                mfRecord[iCurrentIndex : iCurrentIndex+nCurrNumTS]
-            ) = self._single_batch_evolution(
+            # (
+            #     mbOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS],
+            #     mfRecord[iCurrentIndex : iCurrentIndex+nCurrNumTS]
+            # ) = self._single_batch_evolution(
+            mbOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
                 mfCurrentInput,
                 nCurrNumTS,
                 bVerbose,
@@ -188,7 +189,7 @@ class FFUpDown(Layer):
         )[:vnSpikeIDs.size]
         vnSpikeIDs += vnDistribute
 
-        self.tsRecord = TSContinuous(self.tDt * (np.arange(nNumTimeSteps) + self._nTimeStep), mfRecord)
+        # self.tsRecord = TSContinuous(self.tDt * (np.arange(nNumTimeSteps) + self._nTimeStep), mfRecord)
 
         # - Output time series
         vtSpikeTimes = (vnTSSpike.repeat(self.nRepeatOutput) + 1 + self._nTimeStep) * self.tDt
@@ -246,7 +247,7 @@ class FFUpDown(Layer):
         # - Arrays for collecting spikes
         mbSpikeRaster = np.zeros((nNumTimeSteps, 2*self.nSizeIn))
 
-        mfRecord = np.zeros((nNumTimeSteps, self.nSizeIn))
+        # mfRecord = np.zeros((nNumTimeSteps, self.nSizeIn))
 
         # - Initialize state for comparing values: If self.vState exists, assume input continues from
         #   previous evolution. Otherwise start with initial input data
@@ -256,7 +257,7 @@ class FFUpDown(Layer):
             # - Decay mechanism
             vState *= vfDecayFactor
         
-            mfRecord[iCurrentTS] = vState.copy()
+            # mfRecord[iCurrentTS] = vState.copy()
         
             # - Indices of inputs where upper threshold is passed
             vbUp = mfInput[iCurrentTS] > vState + vfThrUp
@@ -272,7 +273,7 @@ class FFUpDown(Layer):
         # - Store state for future evolutions
         self._vState = vState.copy()
 
-        return mbSpikeRaster, mfRecord
+        return mbSpikeRaster #, mfRecord
 
     def reset_state(self):
         # - Store None as state to indicate that future evolutions do not continue from previous input
