@@ -1,8 +1,7 @@
-# @profile
 def test_ffexpsyn():
     # - Test FFIAFTorch
 
-    from NetworksPython.layers import FFExpSynTorch
+    # from NetworksPython.layers import FFExpSynTorch
     from NetworksPython.layers import FFExpSyn
     from NetworksPython.timeseries import TSEvent, TSContinuous
     import numpy as np
@@ -16,7 +15,7 @@ def test_ffexpsyn():
     mfW = np.linspace(-1, 1, nSizeIn*nSize).reshape(nSizeIn, nSize)
     vfBias = np.linspace(-1,1, nSize)
     tTauSyn = 0.15
-    flT = FFExpSynTorch(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
+    # flT = FFExpSynTorch(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
     flM = FFExpSyn(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
 
     # - Input signal
@@ -29,15 +28,15 @@ def test_ffexpsyn():
     tsIn = TSEvent(vtT, vnC, nNumChannels=nSizeIn)
 
     # - Evolve
-    tsT = flT.evolve(tsIn)
+    # tsT = flT.evolve(tsIn)
     tsM = flM.evolve(tsIn)
-    flT.reset_all()
+    # flT.reset_all()
     flM.reset_all()
 
-    assert(
-            np.isclose(tsT.mfSamples, tsM.mfSamples, rtol=1e-4, atol=1e-5).all()
-        # and np.isclose(tsT.vtTimeTrace, tsM.vtTimeTrace).all()
-    ), "Layer outputs are not the same."
+    # assert(
+    #         np.isclose(tsT.mfSamples, tsM.mfSamples, rtol=1e-4, atol=1e-5).all()
+    #     # and np.isclose(tsT.vtTimeTrace, tsM.vtTimeTrace).all()
+    # ), "Layer outputs are not the same."
 
     # - Training (only FFExpSyn and FFExpSynTorch)
     mfTgt = np.array([
@@ -45,7 +44,7 @@ def test_ffexpsyn():
     ]).T
     tsTgt = TSContinuous(np.arange(int(tDur/tDt)) * tDt, mfTgt)
 
-    flT.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
+    # flT.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
     flM.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
 
     # assert(

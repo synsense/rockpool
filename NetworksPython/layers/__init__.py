@@ -47,7 +47,7 @@ dModules = {
         "RecIAFTorch",
         "RecIAFSpkInTorch",
     ),
-    ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
+    # ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
 }
 
 
