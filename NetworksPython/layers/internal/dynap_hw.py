@@ -7,12 +7,13 @@ from ...timeseries import TSEvent
 
 import numpy as np
 from warnings import warn
+from typing import List
 
 # - Imports from ctxCTL
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron
+from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron, EventFilter
 
 def init_dynapse() -> dict:
     """
@@ -145,29 +146,46 @@ class RecDynapSE(Layer):
         :return:
         """
         # - Get input events from tsInput
-
         # - Convert events to fpga representation
+        spikeList = TSEvent_to_spike_list(tsInput, self._lHWNeurons)
 
         # - Send event sequence to fpga module
+        DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(spikeList)
+        DHW_dDynapse['fpgaSpikeGen'].set_repeat_mode(False)
+        DHW_dDynapse['fpgaSpikeGen'].set_base_addr(0)
+
+        # - Define recording callback
+        lEvents = []
+        def func_event_callback(events):
+            # - Append these events to list
+            lEvents.append(events)
 
         # - Configure recording callback
+        oFilter = EventFilter(DHW_dDynapse['model'],
+                              callback_function = func_event_callback,
+                              id_list = self._lHWNeurons,
+                              )
 
         # - Stimulate / record for desired duration
+        DHW_dDynapse['fpgaSpikeGen'].start()
+        # - wait for required time
+        DHW_dDynapse['fpgaSpikeGen'].stop()
+
+        # - Convert recorded events into TSEvent object
+        tsResponse = TSEvent(...)
 
         # - Trim recorded events if necessary
-        
-        # - Convert recorded events to TSEvent object
-        
-        # - Return recorded events
+        tsResponse = tsResponse.clip([0, tDuration])
 
-        pass
+        # - Return recorded events
+        return tsResponse
 
 
 def connectivity_matrix_to_prepost_lists(mfW: np.ndarray):
     return np.nonzero(mfW)
 
 
-def TSEvent_to_spike_list(tsSeries: TSEvent):
+def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[DynapseNeuron]):
     """
     TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
