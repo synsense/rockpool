@@ -70,7 +70,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 pass
         else:
             # Relu on the layer
-            self.threshLower = nn.Threshold(-fVNewThreshLow, -fVNewThreshLow)
+            self.threshLower = nn.Threshold(fVNewThreshLow, fVNewThreshLow)
 
     def reset_states(self):
         """
@@ -118,19 +118,19 @@ class TorchSpikingConv2dLayer(nn.Module):
         for iCurrentTimeStep in range(nNumTimeSteps):
             tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
 
-            # - Check threshold crossings for spikes
-            vbRecSpikeRaster = tsrState >= fVThresh
-
             # - Reset or subtract from membrane state after spikes
             if fVSubtract is not None:
-                while vbRecSpikeRaster.any():
-                    # - Subtract from states
-                    tsrState = tsrState - (fVSubtract * vbRecSpikeRaster.float())
-                    # - Add to spike counter
-                    tsrNumSpikes[iCurrentTimeStep] += vbRecSpikeRaster.int()
-                    # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = tsrState >= fVThresh
+                # Calculate number of spikes to be generated
+                tsrNumSpikes[iCurrentTimeStep] = (tsrState > 0).int() * (
+                    tsrState / fVSubtract
+                ).int()
+                ## - Subtract from states
+                tsrState = tsrState - (
+                    fVSubtract * tsrNumSpikes[iCurrentTimeStep].float()
+                )
             else:
+                # - Check threshold crossings for spikes
+                vbRecSpikeRaster = tsrState >= fVThresh
                 # - Add to spike counter
                 tsrNumSpikes[iCurrentTimeStep] = vbRecSpikeRaster
                 # - Reset neuron states
@@ -145,14 +145,12 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.tsrState = tsrState
         self.tsrNumSpikes = tsrNumSpikes
         self.outShape = tsrNumSpikes.shape[1:]
-        # Memory management
-        del (vbRecSpikeRaster)
-        del (tsrConvOut)
         return tsrNumSpikes.float()  # Float is just to keep things compatible
 
     def summary(self):
         summary = pd.DataFrame(
             {
+                "Layer": self.strName,
                 "Output Shape": str(list(self.outShape)),
                 "Padding": str(self.padding),
                 "Kernel": str(self.kernel_size),
