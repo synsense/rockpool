@@ -37,7 +37,7 @@ class FFExpSyn(Layer):
         fNoiseStd: float = 0,
         tTauSyn: float = 0.005,
         strName: str = "unnamed",
-        bAddEvents: bool = False,
+        bAddEvents: bool = True,
     ):
         """
         FFExpSyn - Construct an exponential synapse layer (spiking input)
@@ -139,7 +139,7 @@ class FFExpSyn(Layer):
                 vnSelectChannels=np.arange(self.nSizeIn),
                 bSamples=False,
                 bAddEvents=self.bAddEvents,
-            )[2]
+            )[2].astype(float)
             # Apply input weights
             mfWeightedInput = mnSpikeRaster @ self.mfW
 
@@ -304,26 +304,29 @@ class FFExpSyn(Layer):
                 else:
                     raise e
 
-            # - Convert input events to spike trains
-            mSpikeTrains = np.zeros((vtTimeBase.size, self.nSizeIn))
-            #   Iterate over channel indices and create their spike trains
-            for channel in range(self.nSizeIn):
-                # Times with event in current channel
-                vtEventTimesChannel = vtEventTimes[np.where(vnEventChannels == channel)]
-                # Indices of vtTimeBase corresponding to these times
-                viEventIndicesChannel = (
-                    (vtEventTimesChannel - vtTimeBase[0]) / self.tDt
-                ).astype(int)
-                # Set spike trains for current channel
-                mSpikeTrains[viEventIndicesChannel, channel] = 1
+            # Extract spike data from the input
+            mnSpikeRaster = (
+                tsInput.raster(
+                    tDt=self.tDt,
+                    tStart=vtTimeBase[0],
+                    nNumTimeSteps=vtTimeBase.size,
+                    vnSelectChannels=np.arange(self.nSizeIn),
+                    bSamples=False,
+                    bAddEvents=self.bAddEvents,
+                )[2]
+            ).astype(float)
+
+            if not bFirst:
+                # - Include last state from previous batch
+                mnSpikeRaster[0, :] += self._vTrainingState
 
             # - Define exponential kernel
             vfKernel = np.exp(
-                -np.arange(0, vtTimeBase[-1] - vtTimeBase[0], self.tDt) / self.tTauSyn
+                - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
             )
 
             # - Apply kernel to spike trains and add filtered trains to input array
-            for channel, vEvents in enumerate(mSpikeTrains.T):
+            for channel, vEvents in enumerate(mnSpikeRaster.T):
                 mfInput[:, channel] = fftconvolve(vEvents, vfKernel, "full")[
                     : vtTimeBase.size
                 ]
@@ -356,6 +359,8 @@ class FFExpSyn(Layer):
             # - Store updated matrices
             self.mfXTY = mfNewXTY
             self.mfXTX = mfNewXTX
+            # - Store last state for next batch
+            self._vTrainingState = mfInput[-1, :-1].copy()
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
@@ -370,7 +375,11 @@ class FFExpSyn(Layer):
             self.vfBias = mfSolution[-1, :]
 
             # - Remove dat stored during this trainig
-            self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
+            self.mfXTY = None
+            self.mfXTX = None
+            self.mfKahanCompXTY = None
+            self.mfKahanCompXTX = None
+            self._vTrainingState = None
 
     ### --- Properties
 

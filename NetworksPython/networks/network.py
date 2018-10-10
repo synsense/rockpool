@@ -7,6 +7,13 @@ import numpy as np
 from decimal import Decimal
 from copy import deepcopy
 
+try:
+    from tqdm.autonotebook import tqdm
+    bUseTqdm = True
+except ImportError:
+    bUseTqdm = False
+
+
 from typing import Callable, Union
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
@@ -627,7 +634,7 @@ class Network:
         nNumBatches = np.size(vnTSBatch)
 
         def batch(nBatch, nTSCurrent, nNumBatches):
-            if bHighVerbosity:
+            if bHighVerbosity or (bVerbose and not bUseTqdm):
                 print(
                     "Network: Training batch {} of {} from t = {:.3f} to {:.3f}.".format(
                         nBatch + 1,
@@ -643,20 +650,18 @@ class Network:
             dtsSignal = self.evolve(
                 tsInput=tsInput.resample_within(self.t, self.t + nTSCurrent * self.tDt),
                 nNumTimeSteps=nTSCurrent,
-                bVerbose=(bHighVerbosity and bVerbose),
+                bVerbose=bHighVerbosity,
             )
 
             # - Call the callback
             fhTraining(self, dtsSignal, nBatch == 0, nBatch == nNumBatches-1)
 
-        try:
-            assert bVerbose
-            from tqdm.autonotebook import tqdm
+        if bVerbose and bUseTqdm:
             with tqdm(total = nNumBatches, desc = 'Network training') as pbar:
                 for nBatch, nTSCurrent in enumerate(vnTSBatch):
                     batch(nBatch, nTSCurrent, nNumBatches)
                     pbar.update(1)
-        except (ImportError, AssertionError):
+        else:
             for nBatch, nTSCurrent in enumerate(vnTSBatch):
                 batch(nBatch, nTSCurrent, nNumBatches)
 
