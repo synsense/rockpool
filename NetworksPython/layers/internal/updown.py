@@ -43,6 +43,7 @@ class FFUpDown(Layer):
         vfThrDown: Union[ArrayLike, float] = 0.001,
         strName: str = "unnamed",
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
+        bMultiplexSpikes: int = True,
     ):
         """
         FFUpDownBatch - Construct a spiking feedforward layer to convert analogue inputs to up and down channels
@@ -69,8 +70,11 @@ class FFUpDown(Layer):
 
         :param strName:     str Name for the layer. Default: 'unnamed'
 
-        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :nMaxNumTimeSteps:  int   Maximum number of timesteps during single evolution batch. Longer
+                                  evolution periods will automatically split in smaller batches.
+
+        :bMultiplexSpikes:  int   Allow a channel to emit multiple spikes per time, according to
+                                  how much the corresponding threshold is exceeded
         """
 
         if np.size(mfW) == 1:
@@ -109,6 +113,7 @@ class FFUpDown(Layer):
         self.vtTauDecay = vtTauDecay
         self.nMaxNumTimeSteps = nMaxNumTimeSteps
         self.nRepeatOutput = nRepeatOutput
+        self.bMultiplexSpikes = bMultiplexSpikes
 
         self.reset_all()
 
@@ -153,7 +158,7 @@ class FFUpDown(Layer):
         #     )
 
         # - Matrix for collecting output spike raster
-        mbOutputSpikes = np.zeros((nNumTimeSteps, 2*self.nSizeIn))
+        mnOutputSpikes = np.zeros((nNumTimeSteps, 2*self.nSizeIn))
 
         # # - Record states for debugging
         # mfRecord = np.zeros((nNumTimeSteps, self.nSizeIn))
@@ -164,10 +169,10 @@ class FFUpDown(Layer):
                 mfInput, nNumTimeSteps, self.nMaxNumTimeSteps
             ):
             # (
-            #     mbOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS],
+            #     mnOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS],
             #     mfRecord[iCurrentIndex : iCurrentIndex+nCurrNumTS]
             # ) = self._single_batch_evolution(
-            mbOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
+            mnOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
                 mfCurrentInput,
                 nCurrNumTS,
                 bVerbose,
@@ -177,22 +182,30 @@ class FFUpDown(Layer):
         ## -- Distribute output spikes over output channels by assigning to each channel
         ##    an interval of length self._nMultiChannel.
         # - Set each event to the first element of its corresponding interval
-        vnTSSpike, vnSpikeIDs = np.where(mbOutputSpikes)
-        vnSpikeIDs *= self._nMultiChannel
-        # - Repeat output spikes
-        vnSpikeIDs = vnSpikeIDs.repeat(self.nRepeatOutput)
-        # - Add a repeating series of (0,1,2,..,self._nMultiChannel) to distribute the
-        #   events over the interval
-        vnDistribute = np.tile(
-            np.arange(self._nMultiChannel),
-            int(np.ceil(vnSpikeIDs.size / self._nMultiChannel))
-        )[:vnSpikeIDs.size]
-        vnSpikeIDs += vnDistribute
+        vnTSSpike, vnSpikeIDs = np.nonzero(mnOutputSpikes)
+        if self.bMultiplexSpikes:
+            # - How many times is each spike repeated
+            vnSpikeCounts = mnOutputSpikes[vnTSSpike, vnSpikeIDs].astype(int)
+            vnTSSpike = vnTSSpike.repeat(vnSpikeCounts)
+            vnSpikeIDs = vnSpikeIDs.repeat(vnSpikeCounts)
+        if self.nRepeatOutput > 1:
+            # - Repeat output spikes
+            vnSpikeIDs = vnSpikeIDs.repeat(self.nRepeatOutput)
+            vnTSSpike = vnTSSpike.repeat(self.nRepeatOutput)
+        if self._nMultiChannel > 1:
+            # - Add a repeating series of (0,1,2,..,self._nMultiChannel) to distribute the
+            #   events over the interval
+            vnSpikeIDs *= self._nMultiChannel
+            vnDistribute = np.tile(
+                np.arange(self._nMultiChannel),
+                int(np.ceil(vnSpikeIDs.size / self._nMultiChannel))
+            )[:vnSpikeIDs.size]
+            vnSpikeIDs += vnDistribute
 
         # self.tsRecord = TSContinuous(self.tDt * (np.arange(nNumTimeSteps) + self._nTimeStep), mfRecord)
 
         # - Output time series
-        vtSpikeTimes = (vnTSSpike.repeat(self.nRepeatOutput) + 1 + self._nTimeStep) * self.tDt
+        vtSpikeTimes = (vnTSSpike + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
             vtTimeTrace=vtSpikeTimes,
             vnChannels=vnSpikeIDs,
@@ -245,7 +258,7 @@ class FFUpDown(Layer):
         vfDecayFactor = self._vfDecayFactor
 
         # - Arrays for collecting spikes
-        mbSpikeRaster = np.zeros((nNumTimeSteps, 2*self.nSizeIn))
+        mnSpikeRaster = np.zeros((nNumTimeSteps, 2*self.nSizeIn))
 
         # mfRecord = np.zeros((nNumTimeSteps, self.nSizeIn))
 
@@ -259,21 +272,27 @@ class FFUpDown(Layer):
         
             # mfRecord[iCurrentTS] = vState.copy()
         
-            # - Indices of inputs where upper threshold is passed
-            vbUp = mfInput[iCurrentTS] > vState + vfThrUp
-            # - Indices of inputs where lower threshold is passed
-            vbDown = mfInput[iCurrentTS] < vState - vfThrDown
+            if self.bMultiplexSpikes:
+                # - By how many times are the upper thresholds exceeded for each input
+                vnUp = np.clip(np.floor((mfInput[iCurrentTS]-vState) / vfThrUp).astype(int), 0, None)
+                # - By how many times are the lower thresholds exceeded for each input
+                vnDown = np.clip(np.floor((vState-mfInput[iCurrentTS]) / vfThrUp).astype(int), 0, None)
+            else:
+                # - Inputs where upper threshold is passed
+                vnUp = mfInput[iCurrentTS] > vState + vfThrUp
+                # - Inputs where lower threshold is passed
+                vnDown = mfInput[iCurrentTS] < vState - vfThrDown
             # - Update state
-            vState += vfThrUp * vbUp
-            vState -= vfThrDown * vbDown
+            vState += vfThrUp * vnUp
+            vState -= vfThrDown * vnDown
             # - Append spikes to array
-            mbSpikeRaster[iCurrentTS, ::2] = vbUp
-            mbSpikeRaster[iCurrentTS, 1::2] = vbDown
+            mnSpikeRaster[iCurrentTS, ::2] = vnUp
+            mnSpikeRaster[iCurrentTS, 1::2] = vnDown
 
         # - Store state for future evolutions
         self._vState = vState.copy()
 
-        return mbSpikeRaster #, mfRecord
+        return mnSpikeRaster #, mfRecord
 
     def reset_state(self):
         # - Store None as state to indicate that future evolutions do not continue from previous input
