@@ -322,7 +322,12 @@ class FFIAFBrian(Layer):
         vtEventTimeOutput = self._spmLayer.t_[vbUseEvent]
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(
+            vtEventTimeOutput,
+            vnEventChannelOutput,
+            strName="Layer spikes",
+            nNumChannels=self.nSize,
+        )
 
     def stream(
         self, tDuration: float, tDt: float, bVerbose: bool = False
@@ -666,7 +671,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vtEventTimeOutput = self._spmLayer.t_[vbUseEvent]
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(
+            vtEventTimeOutput,
+            vnEventChannelOutput,
+            strName="Layer spikes",
+            nNumChannels=self.nSize,
+        )
 
     def reset_time(self):
 
@@ -938,9 +948,9 @@ class RecIAFBrian(Layer):
         :param bRecord:         bool Record membrane potential during evolutions
         """
 
-        assert np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1], (
-            "Layer `{}`: mfW must be a square matrix.".format(strName)
-        )
+        assert (
+            np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1]
+        ), "Layer `{}`: mfW must be a square matrix.".format(strName)
         # - Call super constructor
         super().__init__(
             mfW=mfW,
@@ -1119,7 +1129,12 @@ class RecIAFBrian(Layer):
         vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(
+            vtEventTimeOutput,
+            vnEventChannelOutput,
+            strName="Layer spikes",
+            nNumChannels=self.nSize,
+        )
 
     ### --- Properties
 
@@ -1449,7 +1464,12 @@ class RecIAFSpkInBrian(RecIAFBrian):
         vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(
+            vtEventTimeOutput,
+            vnEventChannelOutput,
+            strName="Layer spikes",
+            nNumChannels=self.nSize,
+        )
 
     def reset_time(self):
 
