@@ -100,7 +100,7 @@ def test_toch_activity_comparison_to_skimage_default_params():
     cnnWTorch.data = np.copy(cnnW.data)
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, vfVSubtract=None, strName="CNN")
     # Create a FFIAFTorch layer
     lyrCNNTorch = FFCLIAFTorch(mfW=cnnWTorch, fVThresh=0.5, strName="TorchCNN")
 

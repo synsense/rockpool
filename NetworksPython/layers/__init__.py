@@ -41,6 +41,7 @@ dModules = {
     ".internal.pytorch.iaf_conv2d": "TorchSpikingConv2dLayer",
     ".internal.pytorch.sumpool2d": "TorchSumPooling2dLayer",
     ".internal.pytorch.crop2d": "TorchCropping2dLayer",
+    ".internal.pytorch.zeropad2d": "TorchSpikingZeroPad2dLayer",
     ".internal.pytorch.iaf_torch": (
         "FFIAFTorch",
         "FFIAFSpkInTorch",
