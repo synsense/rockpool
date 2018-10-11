@@ -409,10 +409,13 @@ def DynapseConform(
         # - Normalize matrix according to spectral radius
         vfEigenVals = np.linalg.eigvals(mfW)
         fSpectralRad = np.amax(np.abs(vfEigenVals))
-        fScale = fNormalize / fSpectralRad
-        mfW *= fScale
-        # - Also scale keys in dmnCount accordingly
-        dmnCount = {fScale * k: v for k, v in dmnCount.items()}
+        if fSpectralRad == 0:
+            print("Matrix is 0, will not normalize.")
+        else:
+            fScale = fNormalize / fSpectralRad
+            mfW *= fScale
+            # - Also scale keys in dmnCount accordingly
+            dmnCount = {fScale * k: v for k, v in dmnCount.items()}
 
     return mfW, mnCount, dmnCount
 
