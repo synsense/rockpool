@@ -42,6 +42,7 @@ class TorchCropping2dLayer(nn.Module):
     def summary(self):
         summary = pd.DataFrame(
             {
+                "Layer": self.strName,
                 "Output Shape": str(list(self.outShape)),
                 # "Padding": str(None),
                 # "Kernel": str(None),

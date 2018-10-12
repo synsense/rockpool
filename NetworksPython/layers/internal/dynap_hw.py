@@ -41,7 +41,7 @@ def init_dynapse() -> dict:
     dDynapse['lAllNeurons'] = dDynapse['model'].get_neurons()
 
     # - Initialise neuron allocation
-    dDynapse['vbAllocatedNeurons'] = np.array(False * len(dDynapse['lAllNeurons']))
+    dDynapse['vbFreeNeurons'] = np.array(True * len(dDynapse['lAllNeurons']))
 
     # - Wipe configuration
     warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
@@ -63,14 +63,14 @@ def allocate_neurons(nNumNeurons: int) -> DynapseNeuron:
     :return:            list    A list of neurons that may be used
     """
     # - Are there sufficient unallocated neurons?
-    if np.sum(DHW_dDynapse['vbAllocatedNeurons']) < nNumNeurons:
+    if np.sum(DHW_dDynapse['vbFreeNeurons']) < nNumNeurons:
         raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
 
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbAllocatedNeurons'])[:nNumNeurons]
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeNeurons'])[:nNumNeurons]
 
     # - Mark these as allocated
-    DHW_dDynapse['vbAllocatedNeurons'][vnNeuronsToAllocate] = False
+    DHW_dDynapse['vbFreeNeurons'][vnNeuronsToAllocate] = False
 
     # - Return these neurons
     return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
@@ -131,7 +131,7 @@ class RecDynapSE(Layer):
         # - Connect the inhibitory neurons
         connector.add_connection_from_list(self._lHWNeurons[vnPreSynI],
                                            self._lHWNeurons[vnPostSynI],
-                                           [SynapseTypes.SLOW_EXC]
+                                           [SynapseTypes.XXX]
                                            )
 
     def evolve(self,
