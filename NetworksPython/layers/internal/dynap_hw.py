@@ -24,7 +24,7 @@ def init_dynapse() -> dict:
     # - Initialise HW dictionary
     dDynapse = {}
 
-    dDynapse['model'] = CtxDynapse.model()
+    dDynapse['model'] = CtxDynapse.model
     lFPGAModules = dDynapse['model'].get_fpga_modules()
 
     # - Find a spike generator module
@@ -41,7 +41,9 @@ def init_dynapse() -> dict:
     dDynapse['lAllNeurons'] = dDynapse['model'].get_neurons()
 
     # - Initialise neuron allocation
-    dDynapse['vbFreeNeurons'] = np.array(True * len(dDynapse['lAllNeurons']))
+    dDynapse['vbFreeInputNeurons'] = np.array(True * 256)
+    dDynapse['vbFreeLayerNeurons'] = np.array(True * len(dDynapse['lAllNeurons']))
+    dDynapse['vbFreeLayerNeurons'][:256] = False
 
     # - Wipe configuration
     warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
@@ -55,22 +57,43 @@ if 'DHW_dDynapse' not in dir():
     DHW_dDynapse = init_dynapse()
 
 
-def allocate_neurons(nNumNeurons: int) -> DynapseNeuron:
+def allocate_layer_neurons(nNumNeurons: int) -> DynapseNeuron:
     """
-    allocate_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
+    allocate_layer_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
     :param nNumNeurons: int     The number of neurons requested
     :return:            list    A list of neurons that may be used
     """
     # - Are there sufficient unallocated neurons?
-    if np.sum(DHW_dDynapse['vbFreeNeurons']) < nNumNeurons:
+    if np.sum(DHW_dDynapse['vbFreeLayerNeurons']) < nNumNeurons:
         raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
 
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeNeurons'])[:nNumNeurons]
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeLayerNeurons'])[:nNumNeurons]
 
     # - Mark these as allocated
-    DHW_dDynapse['vbFreeNeurons'][vnNeuronsToAllocate] = False
+    DHW_dDynapse['vbFreeLayerNeurons'][vnNeuronsToAllocate] = False
+
+    # - Return these neurons
+    return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
+
+
+def allocate_input_neurons(nNumNeurons: int) -> DynapseNeuron:
+    """
+    allocate_input_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
+
+    :param nNumNeurons: int     The number of neurons requested
+    :return:            list    A list of neurons that may be used
+    """
+    # - Are there sufficient unallocated neurons?
+    if np.sum(DHW_dDynapse['vbFreeInputNeurons']) < nNumNeurons:
+        raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
+
+    # - Pick the first available neurons
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeInputNeurons'])[:nNumNeurons]
+
+    # - Mark these as allocated
+    DHW_dDynapse['vbFreeInputNeurons'][vnNeuronsToAllocate] = False
 
     # - Return these neurons
     return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
@@ -82,10 +105,11 @@ class RecDynapSE(Layer):
     RecDynapSE - Recurrent layer implemented on DynapSE
     """
     def __init__(self,
-                 mfW: np.ndarray,
-                 tDt: float = None,
-                 fNoiseStd: float = None,
-                 strName: str = 'unnamed',
+                 mfWRec: np.ndarray,
+                 mfWIn: np.ndarray,
+                 tDt: Optional[float] = None,
+                 fNoiseStd: Optional[float] = None,
+                 strName: Optional[str] = 'unnamed',
                  ):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
@@ -108,31 +132,12 @@ class RecDynapSE(Layer):
             fNoiseStd = 0.
 
         # - Initialise superclass
-        super().__init__(mfW, tDt, fNoiseStd, strName)
-
-        # - Convert weight matrix to connectivity list (excitatory)
-        vnPreSynE, vnPostSynE = connectivity_matrix_to_prepost_lists(mfW > 0)
-
-        # - Convert weight matrix to connectivity list (inhibitory)
-        vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(mfW < 0)
-
-        # - Get a connector object
-        connector = NeuronNeuronConnector.DynapseConnector()
+        super().__init__(mfW = mfWRec, tDt = tDt, fNoiseStd = fNoiseStd, strName = strName)
+        self._nSizeIn = mfWIn.shape[0]
 
         # - Map neuron indices to neurons
-        self._lHWNeurons = allocate_neurons(self.nSize)
-
-        # - Connect the excitatory neurons
-        connector.add_connection_from_list(self._lHWNeurons[vnPreSynE],
-                                           self._lHWNeurons[vnPostSynE],
-                                           [SynapseTypes.SLOW_EXC]
-                                           )
-
-        # - Connect the inhibitory neurons
-        connector.add_connection_from_list(self._lHWNeurons[vnPreSynI],
-                                           self._lHWNeurons[vnPostSynI],
-                                           [SynapseTypes.XXX]
-                                           )
+        self._lHWInputNeurons = allocate_input_neurons(self.nSizeIn)
+        self._lHWLayerNeurons = allocate_layer_neurons(self.nSize)
 
     def evolve(self,
                tsInput: Optional[TSEvent] = None,
@@ -173,26 +178,50 @@ class RecDynapSE(Layer):
 
         # - Define recording callback
         lEvents = []
-        def func_event_callback(events):
+        def func_event_callback(lTheseEvents):
             # - Append these events to list
-            lEvents.append(events)
+            lEvents.append(lTheseEvents)
 
         # - Configure recording callback
         oFilter = EventFilter(DHW_dDynapse['model'],
                               callback_function = func_event_callback,
-                              id_list = self._lHWNeurons,
+                              id_list = [n.get_id() for n in self._lHWLayerNeurons],
                               )
+
+        # - Reset FPGA timestamp
+        warn('FPGA timestamp not reset --- IMPLEMENT ME ---')
 
         # - Stimulate / record for desired duration
         DHW_dDynapse['fpgaSpikeGen'].start()
         # - wait for required time
         DHW_dDynapse['fpgaSpikeGen'].stop()
 
+        # - Flatten list of events
+        lEvents = [event for lTheseEvents in lEvents for event in lTheseEvents]
+
+        # - Extract monitored event channels and timestamps
+        vnChannels = neurons_to_channels([e.neuron for e in lEvents],
+                                         self._lHWLayerNeurons,
+                                         )
+        vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1.e-6
+
+        # - Locate synchronisation timestamp
+        nSynchEvent = ...
+        vnChannels = vnChannels[nSynchEvent:]
+        vtTimeTrace = vtTimeTrace[nSynchEvent:]
+        vtTimeTrace -= vtTimeTrace[0]
+
         # - Convert recorded events into TSEvent object
-        tsResponse = TSEvent(...)
+        tsResponse = TSEvent(vtTimeTrace,
+                             vnChannels,
+                             strName = 'DynapSE spikes',
+                             )
 
         # - Trim recorded events if necessary
         tsResponse = tsResponse.clip([0, tDuration])
+
+        # - Shift monitored events to current layer start time
+        tsResponse.delay(self.t, bInPlace = True)
 
         # - Return recorded events
         return tsResponse
@@ -211,3 +240,97 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[DynapseNeuron]):
     """
     pass
 
+def neurons_to_channels(lNeurons: List[DynapseNeuron],
+                        lLayerNeurons: List[DynapseNeuron],
+                        ) -> np.ndarray:
+    """
+    neurons_to_channels - Convert a list of neurons into layer channel indices
+
+    :param lNeurons:        List[DynapseNeuron] Lx0 to match against layer neurons
+    :param lLayerNeurons:   List[DynapseNeuron] Nx0 HW neurons corresponding to each channel index
+    :return:                np.ndarray[int] Lx0 channel indices corresponding to each neuron in lNeurons
+    """
+    # - Initialise list to return
+    lChannelIndices = []
+
+    for neurTest in lNeurons:
+        try:
+            nChannelIndex = lLayerNeurons.index(neurTest)
+        except ValueError:
+            nChannelIndex = np.nan
+
+        # - Append discovered index
+        lChannelIndices.append(nChannelIndex)
+
+    # - Convert to numpy array
+    return np.array(lChannelIndices)
+
+
+def compile_weights_and_configure(mfWIn: np.ndarray,
+                                  mfWRec: np.ndarray,
+                                  lInputNeurons: List[DynapseNeuron],
+                                  lLayerNeurons: List[DynapseNeuron],
+                                  ):
+    """
+
+    :param mfWIn:
+    :param mfWRec:
+    :param lInputNeurons:
+    :param lLayerNeurons:
+    :return:
+    """
+
+    # - Get a connector object
+    connector = NeuronNeuronConnector.DynapseConnector()
+
+    # - Connect the excitatory neurons
+    connector.add_connection_from_list(self._lHWNeurons[vnPreSynE],
+                                       self._lHWNeurons[vnPostSynE],
+                                       [SynapseTypes.SLOW_EXC]
+                                       )
+
+    # - Connect the inhibitory neurons
+    connector.add_connection_from_list(self._lHWNeurons[vnPreSynI],
+                                       self._lHWNeurons[vnPostSynI],
+                                       [SynapseTypes.XXX]
+                                       )
+
+
+def get_input_to_layer_connection_list(mfWIn: np.ndarray,
+                                       lInputNeurons: List[DynapseNeuron],
+                                       lLayerNeurons: List[DynapseNeuron],
+                                       ) -> List:
+    """
+    get_input_to_layer_connection_list - Convert an input weight matrix to a list of input to layer neuron connections
+
+    :param mfWIn:
+    :param lInputNeurons:
+    :param lLayerNeurons:
+    :return:
+    """
+    # - Pre-allocate inputs lists
+    lInputsToNeuron = [] * mfWIn.shape[1]
+
+
+
+def get_recurrent_connection_list(mfWRec: np.ndarray,
+                                  lLayerNeurons: List[DynapseNeuron],
+                                  ) -> List:
+    """
+    get_recurrent_connection_list - Convert a recurrent weight matrix to a list of neuron connections
+
+    :param mfWRec:
+    :param lLayerNeurons:
+    :return:
+    """
+    # - Pre-allocate inputs lists
+    lInputsToNeuron = [] * mfWRec.shape[1]
+
+    # - Loop over targets
+    for nInput, vfConns in enumerate(mfWRec):
+        # - Extract excitatory and inhibitory inputs
+        vnExcInputs = np.nonzero(vfConns > 0)
+        vnInhInputs = np.nonzero(vfConns < 0)
+
+        # - Loop over inputs and add to list
+        lInputsToNeuron[nInput].append()
