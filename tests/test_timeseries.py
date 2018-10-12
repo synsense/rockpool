@@ -168,8 +168,11 @@ def test_continuous_inplace_mutation():
     # - Merge
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.merge(ts2, bInPlace = True)
-    assert np.size(ts1.mfSamples) == 6
+    ts1.merge(ts2, bRemoveDuplicates = True, bInPlace = True)
+    assert np.size(ts1.mfSamples) == 3
+
+    ts3 = ts1.merge(ts2, bRemoveDuplicates = False, bInPlace = True)
+    assert np.size(ts3.mfSamples) == 6
 
     # - Append
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])

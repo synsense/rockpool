@@ -298,8 +298,8 @@ class TimeSeries:
             tsResampled = self
 
         # - Resample time series
-        tsResampled._vtTimeTrace = vtTimes
         tsResampled._mfSamples = self(vtTimes)
+        tsResampled._vtTimeTrace = vtTimes
         tsResampled.bPeriodic = False
         tsResampled._create_interpolator()
         return tsResampled
