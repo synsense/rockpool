@@ -18,7 +18,7 @@ fTolAbs = 1e-9
 
 def to_scalar(value, sClass: str = None):
     # - Check the value is a scalar
-    assert np.size(value) == 1, "The value muste be a scalar"
+    assert np.size(value) == 1, "The value must be a scalar"
 
     if sClass is not None:
         return np.asscalar(np.array(value).astype(sClass))
@@ -33,9 +33,9 @@ class Layer(ABC):
     def __init__(
         self,
         mfW: np.ndarray,
-        tDt: float = 1,
-        fNoiseStd: float = 0,
-        strName: str = "unnamed",
+        tDt: Optional[float] = 1,
+        fNoiseStd: Optional[float] = 0,
+        strName: Optional[str] = "unnamed",
     ):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
@@ -218,14 +218,14 @@ class Layer(ABC):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mnSpikeRaster, __ = tsInput.raster(
+            mnSpikeRaster = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
                 nNumTimeSteps=nNumTimeSteps,
                 vnSelectChannels=np.arange(self.nSizeIn),
                 bSamples=False,
                 bAddEvents=(self.bAddEvents if hasattr(self, "bAddEvents") else False)
-            )
+            )[2]
             # - Make sure size is correct
             mnSpikeRaster = mnSpikeRaster[:nNumTimeSteps, :]
 
@@ -365,12 +365,17 @@ class Layer(ABC):
     ### --- State evolution methods
 
     @abstractmethod
-    def evolve(self, tsInput: TimeSeries = None, tDuration: float = None) -> TimeSeries:
+    def evolve(self,
+               tsInput: Optional[TimeSeries] = None,
+               tDuration: Optional[float] = None,
+               nNumTimeSteps: Optional[int] = None,
+               ) -> TimeSeries:
         """
         evolve - Abstract method to evolve the state of this layer
 
         :param tsInput:     TimeSeries (TxM) External input trace to use when evolving the layer
         :param tDuration:   float Duration in seconds to evolve the layer
+        :param nNumTimeSteps: int Number of time steps to evolve the layer
         :return:            TimeSeries (TxN) Output of this layer
         """
         pass

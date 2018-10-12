@@ -7,12 +7,13 @@ from ...timeseries import TSEvent
 
 import numpy as np
 from warnings import warn
+from typing import List, Optional
 
 # - Imports from ctxCTL
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron
+from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron, EventFilter
 
 def init_dynapse() -> dict:
     """
@@ -40,7 +41,7 @@ def init_dynapse() -> dict:
     dDynapse['lAllNeurons'] = dDynapse['model'].get_neurons()
 
     # - Initialise neuron allocation
-    dDynapse['vbAllocatedNeurons'] = np.array(False * len(dDynapse['lAllNeurons']))
+    dDynapse['vbFreeNeurons'] = np.array(True * len(dDynapse['lAllNeurons']))
 
     # - Wipe configuration
     warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
@@ -62,14 +63,14 @@ def allocate_neurons(nNumNeurons: int) -> DynapseNeuron:
     :return:            list    A list of neurons that may be used
     """
     # - Are there sufficient unallocated neurons?
-    if np.sum(DHW_dDynapse['vbAllocatedNeurons']) < nNumNeurons:
+    if np.sum(DHW_dDynapse['vbFreeNeurons']) < nNumNeurons:
         raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
 
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbAllocatedNeurons'])[:nNumNeurons]
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeNeurons'])[:nNumNeurons]
 
     # - Mark these as allocated
-    DHW_dDynapse['vbAllocatedNeurons'][vnNeuronsToAllocate] = False
+    DHW_dDynapse['vbFreeNeurons'][vnNeuronsToAllocate] = False
 
     # - Return these neurons
     return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
@@ -130,44 +131,78 @@ class RecDynapSE(Layer):
         # - Connect the inhibitory neurons
         connector.add_connection_from_list(self._lHWNeurons[vnPreSynI],
                                            self._lHWNeurons[vnPostSynI],
-                                           [SynapseTypes.SLOW_EXC]
+                                           [SynapseTypes.XXX]
                                            )
 
     def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
-               ):
+               tsInput: Optional[TSEvent] = None,
+               tDuration: Optional[float] = None,
+               nNumTimeSteps: Optional[int] = None,
+               ) -> TSEvent:
         """
         evolve - Evolve the layer by queueing spikes, stimulating and recording
 
-        :param tsInput:
-        :param tDuration:
-        :return:
-        """
-        # - Get input events from tsInput
+        :param tsInput:         TSEvent input time series, containing `self.nSize` channels
+        :param tDuration:       float   Desired evolution duration, in seconds
+        :param nNumTimeSteps:   int     Desired evolution duration, in integer steps of `self.tDt`
 
+        :return:                TSEvent spikes emitted by the neurons in this layer, during the evolution time
+        """
+        # - Compute duration for evolution
+        if tDuration is None:
+            if nNumTimeSteps is None:
+                # - Check that we have an input time series
+                assert tsInput is not None, \
+                    '`tsInput` must be provided, if no evolution duration is specified.'
+
+                # - Use the duration of the input time series
+                tDuration = tsInput.tDuration
+
+            else:
+                # - Compute the evolution duration using the number of supplied time steps
+                tDuration = nNumTimeSteps * self.tDt
+
+        # - Get input events from tsInput
         # - Convert events to fpga representation
+        spikeList = TSEvent_to_spike_list(tsInput, self._lHWNeurons)
 
         # - Send event sequence to fpga module
+        DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(spikeList)
+        DHW_dDynapse['fpgaSpikeGen'].set_repeat_mode(False)
+        DHW_dDynapse['fpgaSpikeGen'].set_base_addr(0)
+
+        # - Define recording callback
+        lEvents = []
+        def func_event_callback(events):
+            # - Append these events to list
+            lEvents.append(events)
 
         # - Configure recording callback
+        oFilter = EventFilter(DHW_dDynapse['model'],
+                              callback_function = func_event_callback,
+                              id_list = self._lHWNeurons,
+                              )
 
         # - Stimulate / record for desired duration
+        DHW_dDynapse['fpgaSpikeGen'].start()
+        # - wait for required time
+        DHW_dDynapse['fpgaSpikeGen'].stop()
+
+        # - Convert recorded events into TSEvent object
+        tsResponse = TSEvent(...)
 
         # - Trim recorded events if necessary
-        
-        # - Convert recorded events to TSEvent object
-        
-        # - Return recorded events
+        tsResponse = tsResponse.clip([0, tDuration])
 
-        pass
+        # - Return recorded events
+        return tsResponse
 
 
 def connectivity_matrix_to_prepost_lists(mfW: np.ndarray):
     return np.nonzero(mfW)
 
 
-def TSEvent_to_spike_list(tsSeries: TSEvent):
+def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[DynapseNeuron]):
     """
     TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 

@@ -139,7 +139,7 @@ class FFExpSyn(Layer):
                 vnSelectChannels=np.arange(self.nSizeIn),
                 bSamples=False,
                 bAddEvents=self.bAddEvents,
-            )[2]
+            )[2].astype(float)
             # Apply input weights
             mfWeightedInput = mnSpikeRaster @ self.mfW
 
@@ -314,7 +314,7 @@ class FFExpSyn(Layer):
                     bSamples=False,
                     bAddEvents=self.bAddEvents,
                 )[2]
-            )
+            ).astype(float)
 
             if not bFirst:
                 # - Include last state from previous batch
@@ -360,7 +360,7 @@ class FFExpSyn(Layer):
             self.mfXTY = mfNewXTY
             self.mfXTX = mfNewXTX
             # - Store last state for next batch
-            self._vTrainingState = mfInput[-1, :].copy()
+            self._vTrainingState = mfInput[-1, :-1].copy()
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
