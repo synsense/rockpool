@@ -210,7 +210,7 @@ class Layer(ABC):
         :param nNumTimeSteps int Number of evolution time steps
 
         :return:
-            mfSpikeRaster:    ndarray Boolean raster containing spike info
+            mnSpikeRaster:    ndarray Boolean or integer raster containing spike info
             nNumTimeSteps:    ndarray Number of evlution time steps
         """
         nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
@@ -218,21 +218,21 @@ class Layer(ABC):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mfSpikeRaster, __ = tsInput.raster(
+            __, __, mnSpikeRaster, __ = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                nNumTimeSteps=nNumTimeSteps,
                 vnSelectChannels=np.arange(self.nSizeIn),
+                bSamples=False,
+                bAddEvents=(self.bAddEvents if hasattr(self, "bAddEvents") else False)
             )
-            # - Convert to supported format
-            mfSpikeRaster = mfSpikeRaster.astype(int)
             # - Make sure size is correct
-            mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+            mnSpikeRaster = mnSpikeRaster[:nNumTimeSteps, :]
 
         else:
-            mfSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
+            mnSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
 
-        return mfSpikeRaster, nNumTimeSteps
+        return mnSpikeRaster, nNumTimeSteps
 
     def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
