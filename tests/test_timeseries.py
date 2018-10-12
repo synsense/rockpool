@@ -3,7 +3,7 @@ Test TimeSeries methods
 """
 import sys
 import pytest
-
+import numpy as np
 
 def test_imports():
     """
@@ -92,7 +92,9 @@ def test_continuous_methods():
     assert ts1.interpolate(1.5) == 1.5
 
     # - Delay
-    ts1.delay(1)
+    ts2 = ts1.delay(1)
+    assert ts1.tStart == 0
+    assert ts2.tStart == 1
 
     # - Contains
     assert ts1.contains(0)
@@ -101,37 +103,99 @@ def test_continuous_methods():
     assert ~ts1.contains([0, 1, 2, 3])
 
     # - Resample
-    ts1.resample([.1, 1.1, 1.9])
-    ts1.resample_within(0, 2, .1)
+    ts2 = ts1.resample([.1, 1.1, 1.9])
+    ts3 = ts1.resample_within(0, 2, .1)
 
     # - Merge
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.merge(ts2)
+    ts3 = ts1.merge(ts2, bRemoveDuplicates = True)
+    assert np.size(ts3.mfSamples) == 3
+    assert np.size(ts1.mfSamples) == 3
+    assert np.size(ts2.mfSamples) == 3
+
+    ts3 = ts1.merge(ts2, bRemoveDuplicates = False)
+    assert np.size(ts3.mfSamples) == 6
 
     # - Append
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.append_t(ts2)
-    ts1.append(ts2)
+    ts3 = ts1.append_t(ts2)
+    assert np.size(ts3.vtTimeTrace) == 6
+
+    ts3 = ts1.append(ts2)
+    assert ts3.nNumTraces == 2
 
     # - Concatenate
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.concatenate_t(ts2)
-    ts1.concatenate(ts2)
+    ts3 = ts1.concatenate_t(ts2)
+    assert np.size(ts3.vtTimeTrace) == 6
+
+    ts3 = ts1.concatenate(ts2)
+    assert ts3.nNumTraces == 2
 
     # - isempty
     assert ~ts1.isempty()
     assert TSContinuous([], []).isempty()
 
     # - clip
-    ts1.clip([.5, 1.5])
+    ts2 = ts1.clip([.5, 1.5])
 
     # - Min / Max
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     assert ts1.min() == 0
     assert ts1.max() == 2
+
+
+def test_continuous_inplace_mutation():
+    from NetworksPython import TSContinuous
+
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+
+    # - Delay
+    ts1.delay(1, bInPlace = True)
+    assert ts1.tStart == 1
+
+    # - Resample
+    ts1.resample([.125, 1.1, 1.9], bInPlace = True)
+    assert ts1.tStart == .125
+
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts1.resample_within(0, 1, .1, bInPlace = True)
+    assert ts1.tStop == 1
+
+    # - Merge
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
+    ts1.merge(ts2, bInPlace = True)
+    assert np.size(ts1.mfSamples) == 6
+
+    # - Append
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
+    ts1.append_t(ts2, bInPlace = True)
+    assert np.size(ts1.vtTimeTrace) == 6
+
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
+    ts1.append(ts2, bInPlace = True)
+    assert ts1.nNumTraces == 2
+
+    # - Concatenate
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
+    ts1.concatenate_t(ts2, bInPlace = True)
+    assert np.size(ts1.vtTimeTrace) == 6
+
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
+    ts1.concatenate(ts2, bInPlace = True)
+    assert ts1.nNumTraces == 2
+
+    # - clip
+    ts1.clip([.5, 1.5], bInPlace = True)
+    assert ts1.tStart == .5
 
 
 def test_event_operators():

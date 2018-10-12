@@ -387,7 +387,10 @@ class TimeSeries:
 
         # - If the other TimeSeries is empty, just return
         if tsOther.isempty():
-            return self
+            if bInPlace:
+                return self
+            else:
+                return self.copy()
 
         # - If bRemoveDuplicates==True and time ranges overlap,  find and remove
         #   time points of tsOther that are also included in self (assuming both
@@ -662,6 +665,9 @@ class TimeSeries:
         # - Get first sample
         vfFirstSample = np.atleast_1d(tsClipped(vtNewBounds[0]))
 
+        # - Get number of traces
+        nNumTraces = tsClipped.nNumTraces
+
         # - For periodic time series, resample the series
         if tsClipped.bPeriodic:
             tsClipped, _ = tsClipped._clip_periodic(vtNewBounds, bInPlace = bInPlace)
@@ -675,8 +681,8 @@ class TimeSeries:
 
         tsClipped._mfSamples = np.concatenate(
             (
-                np.reshape(vfFirstSample, (-1, tsClipped.nNumTraces)),
-                np.reshape(tsClipped._mfSamples, (-1, tsClipped.nNumTraces)),
+                np.reshape(vfFirstSample, (-1, nNumTraces)),
+                np.reshape(tsClipped._mfSamples, (-1, nNumTraces)),
             ),
             axis=0,
         )
@@ -705,9 +711,9 @@ class TimeSeries:
             tsClipped.vtTimeTrace >= vtNewBounds[0], tsClipped.vtTimeTrace < vtNewBounds[-1]
         )
 
-        # - Build and return new TimeSeries
-        tsClipped._vtTimeTrace = tsClipped.vtTimeTrace[vbIncludeSamples]
-        tsClipped._mfSamples = tsClipped.mfSamples[vbIncludeSamples]
+        # - Build and return TimeSeries
+        tsClipped._vtTimeTrace = tsClipped._vtTimeTrace[vbIncludeSamples]
+        tsClipped._mfSamples = np.reshape(tsClipped._mfSamples, (np.size(vbIncludeSamples), -1))[vbIncludeSamples, :]
 
         return tsClipped, vbIncludeSamples
 
