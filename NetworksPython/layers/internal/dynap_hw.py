@@ -7,7 +7,7 @@ from ...timeseries import TSEvent
 
 import numpy as np
 from warnings import warn
-from typing import List
+from typing import List, Optional
 
 # - Imports from ctxCTL
 import CtxDynapse
@@ -135,16 +135,33 @@ class RecDynapSE(Layer):
                                            )
 
     def evolve(self,
-               tsInput: TSEvent = None,
-               tDuration: float = None,
-               ):
+               tsInput: Optional[TSEvent] = None,
+               tDuration: Optional[float] = None,
+               nNumTimeSteps: Optional[int] = None,
+               ) -> TSEvent:
         """
         evolve - Evolve the layer by queueing spikes, stimulating and recording
 
-        :param tsInput:
-        :param tDuration:
-        :return:
+        :param tsInput:         TSEvent input time series, containing `self.nSize` channels
+        :param tDuration:       float   Desired evolution duration, in seconds
+        :param nNumTimeSteps:   int     Desired evolution duration, in integer steps of `self.tDt`
+
+        :return:                TSEvent spikes emitted by the neurons in this layer, during the evolution time
         """
+        # - Compute duration for evolution
+        if tDuration is None:
+            if nNumTimeSteps is None:
+                # - Check that we have an input time series
+                assert tsInput is not None, \
+                    '`tsInput` must be provided, if no evolution duration is specified.'
+
+                # - Use the duration of the input time series
+                tDuration = tsInput.tDuration
+
+            else:
+                # - Compute the evolution duration using the number of supplied time steps
+                tDuration = nNumTimeSteps * self.tDt
+
         # - Get input events from tsInput
         # - Convert events to fpga representation
         spikeList = TSEvent_to_spike_list(tsInput, self._lHWNeurons)
