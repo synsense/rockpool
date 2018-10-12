@@ -125,7 +125,9 @@ class RecDIAF(Layer):
         """ .reset_state() - Method: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self.vState = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(self.dtypeState)
+        self.vState = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(
+            self.dtypeState
+        )
         # - Initialize heap and for events that are to be processed in future evolution
         self._heapRemainingSpikes = []
 
@@ -173,7 +175,7 @@ class RecDIAF(Layer):
         # First leak is at multiple of self.tTauLeak
         tFirstLeak = np.ceil(self.t / self.tTauLeak) * self.tTauLeak
         # Maximum possible number of leak steps in evolution period
-        nMaxNumLeaks = np.ceil((tFinal-self.t) / self.tTauLeak) + 1
+        nMaxNumLeaks = np.ceil((tFinal - self.t) / self.tTauLeak) + 1
         vtLeak = np.arange(nMaxNumLeaks) * self.tTauLeak + tFirstLeak
         # - Do not apply leak at t=self.t, assume it has already been applied previously
         vtLeak = vtLeak[
@@ -241,7 +243,7 @@ class RecDIAF(Layer):
                 # - Record state
                 ltTimes.append(tTime)
                 lvStates.append(vState.copy())
-                
+
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = vtRefractoryEnds <= tTime
                 # - State updates after incoming spike
@@ -276,7 +278,7 @@ class RecDIAF(Layer):
                 # - Record state
                 ltTimes.append(tTime)
                 lvStates.append(vState.copy())
-                
+
                 # print("new state: ", self._vState)
 
                 # - Determine times when refractory period will end for neurons that have just fired
@@ -314,7 +316,7 @@ class RecDIAF(Layer):
         self.lvStates = lvStates
 
         # - Output time series
-        return TSEvent(ltSpikeTimes, liSpikeIDs)
+        return TSEvent(ltSpikeTimes, liSpikeIDs, nNumChannels=self.nSize)
 
     def _prepare_input(
         self,
@@ -390,9 +392,11 @@ class RecDIAF(Layer):
     def randomize_state(self):
         # - Set state to random values between reset value and theshold
         self.vState = np.clip(
-            (np.amin(self.vfVThresh) - np.amin(self.vfVReset)) * np.random.rand(self.nSize) - np.amin(self.vfVReset),
+            (np.amin(self.vfVThresh) - np.amin(self.vfVReset))
+            * np.random.rand(self.nSize)
+            - np.amin(self.vfVReset),
             self._nStateMin,
-            self._nStateMax
+            self._nStateMax,
         ).astype(self.dtypeState)
 
     ### --- Properties
@@ -549,9 +553,12 @@ class RecDIAF(Layer):
             self._nStateMin = np.finfo(dtypeNew).min
             self._nStateMax = np.finfo(dtypeNew).max
         else:
-            raise ValueError("Layer `{}`: dtypeState must be integer or float data type.".format(self.strName))
+            raise ValueError(
+                "Layer `{}`: dtypeState must be integer or float data type.".format(
+                    self.strName
+                )
+            )
         self._dtypeState = dtypeNew
         # - Convert vState to dtype
         if hasattr(self, "_vState"):
             self.vState = self.vState
-

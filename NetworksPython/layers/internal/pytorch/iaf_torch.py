@@ -19,12 +19,7 @@ from time import time
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
-__all__ = [
-    "FFIAFTorch",
-    "FFIAFSpkInTorch",
-    "RecIAFTorch",
-    "RecIAFSpkInTorch",
-]
+__all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
@@ -80,18 +75,15 @@ class FFIAFTorch(Layer):
 
         # - Call super constructor
         super().__init__(
-            mfW=np.asarray(mfW),
-            tDt=tDt,
-            fNoiseStd=fNoiseStd,
-            strName=strName,
+            mfW=np.asarray(mfW), tDt=tDt, fNoiseStd=fNoiseStd, strName=strName
         )
 
         # - Set device to cuda if available and determine how tensors should be instantiated
         if torch.cuda.is_available():
-            self.device = torch.device('cuda')
+            self.device = torch.device("cuda")
             self.tensors = torch.cuda
         else:
-            self.device = torch.device('cpu')
+            self.device = torch.device("cpu")
             print("Layer `{}`: Using CPU as CUDA is not available.".format(strName))
             self.tensors = torch
 
@@ -138,15 +130,25 @@ class FFIAFTorch(Layer):
 
         # - Tensor for recording states
         if self.bRecord:
-            self.mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps+1, self.nSize).fill_(0).cpu()
-            self.mfRecordSynapses = self.tensors.FloatTensor(nNumTimeSteps+1, self.nSize).fill_(0).cpu()
+            self.mfRecordStates = (
+                self.tensors.FloatTensor(2 * nNumTimeSteps + 1, self.nSize)
+                .fill_(0)
+                .cpu()
+            )
+            self.mfRecordSynapses = (
+                self.tensors.FloatTensor(nNumTimeSteps + 1, self.nSize).fill_(0).cpu()
+            )
             self.mfRecordStates[0] = self._vState
             self.mfRecordSynapses[0] = self._vSynapseState
 
         # - Iterate over batches and run evolution
         iCurrentIndex = 0
-        for mfCurrentInput, nCurrNumTS in self._batch_data(mfInput, nNumTimeSteps, self.nMaxNumTimeSteps):
-            mbSpiking[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
+        for mfCurrentInput, nCurrNumTS in self._batch_data(
+            mfInput, nNumTimeSteps, self.nMaxNumTimeSteps
+        ):
+            mbSpiking[
+                iCurrentIndex : iCurrentIndex + nCurrNumTS
+            ] = self._single_batch_evolution(
                 mfCurrentInput, iCurrentIndex, nCurrNumTS, bVerbose
             )
             iCurrentIndex += nCurrNumTS
@@ -154,18 +156,26 @@ class FFIAFTorch(Layer):
         # - Store recorded states in timeseries
         if self.bRecord:
             vtRecTimesStates = np.repeat(
-                (nTimeStepStart + np.arange(nNumTimeSteps + 1 )) * self.tDt, 2
+                (nTimeStepStart + np.arange(nNumTimeSteps + 1)) * self.tDt, 2
             )[1:]
-            vtRecTimesSynapses = (nTimeStepStart + np.arange(nNumTimeSteps + 1)) * self.tDt
-            self.tscRecStates = TSContinuous(vtRecTimesStates, self.mfRecordStates.numpy())
-            self.tscRecSynapses = TSContinuous(vtRecTimesSynapses, self.mfRecordSynapses.numpy())
+            vtRecTimesSynapses = (
+                nTimeStepStart + np.arange(nNumTimeSteps + 1)
+            ) * self.tDt
+            self.tscRecStates = TSContinuous(
+                vtRecTimesStates, self.mfRecordStates.numpy()
+            )
+            self.tscRecSynapses = TSContinuous(
+                vtRecTimesSynapses, self.mfRecordSynapses.numpy()
+            )
 
         # - Output timeseries
         if (mbSpiking == 0).all():
             tseOut = TSEvent(None)
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
-            vtSpikeTimings = (nTimeStepStart + vnSpikeTimeIndices + 1).float() * self.tDt
+            vtSpikeTimings = (
+                nTimeStepStart + vnSpikeTimeIndices + 1
+            ).float() * self.tDt
 
             tseOut = TSEvent(
                 vtTimeTrace=vtSpikeTimings.numpy(),
@@ -178,18 +188,20 @@ class FFIAFTorch(Layer):
 
     # @profile
     def _batch_data(
-        self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None,
+        self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None
     ) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
         # - Handle None for nMaxNumTimeSteps
-        nMaxNumTimeSteps = nNumTimeSteps if nMaxNumTimeSteps is None else nMaxNumTimeSteps
+        nMaxNumTimeSteps = (
+            nNumTimeSteps if nMaxNumTimeSteps is None else nMaxNumTimeSteps
+        )
         nStart = 0
         while nStart < nNumTimeSteps:
             # - Endpoint of current batch
             nEnd = min(nStart + nMaxNumTimeSteps, nNumTimeSteps)
             # - Data for current batch
             mfCurrentInput = mfInput[nStart:nEnd]
-            yield mfCurrentInput, nEnd-nStart
+            yield mfCurrentInput, nEnd - nStart
             # - Update nStart
             nStart = nEnd
 
@@ -213,16 +225,22 @@ class FFIAFTorch(Layer):
         """
 
         # - Get synapse input to neurons
-        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(mfInput, nNumTimeSteps)
+        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
+            mfInput, nNumTimeSteps
+        )
 
         # - Update synapse state to end of evolution before rest potential and bias are added to input
         self._vSynapseState = mfNeuralInput[-1].clone()
 
         if self.bRecord:
             # - Tensor for recording synapse and neuron states
-            mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps, self.nSize).fill_(0)
+            mfRecordStates = self.tensors.FloatTensor(
+                2 * nNumTimeSteps, self.nSize
+            ).fill_(0)
             # - Store synapse states
-            self.mfRecordSynapses[nEvolutionTimeStep+1 : nEvolutionTimeStep+nNumTimeSteps+1] = mfNeuralInput.cpu()
+            self.mfRecordSynapses[
+                nEvolutionTimeStep + 1 : nEvolutionTimeStep + nNumTimeSteps + 1
+            ] = mfNeuralInput.cpu()
 
         # - Tensor for collecting spike data
         mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
@@ -243,7 +261,7 @@ class FFIAFTorch(Layer):
             vState += vfAlpha * (mfNeuralInput[nStep] - vState)
             # - Store updated state before spike
             if bRecord:
-                mfRecordStates[2*nStep] = vState
+                mfRecordStates[2 * nStep] = vState
             # - Spiking
             vbSpiking = (vState > vfVThresh).float()
             # - State reset
@@ -252,12 +270,16 @@ class FFIAFTorch(Layer):
             mbSpiking[nStep] = vbSpiking
             # - Store updated state after spike
             if bRecord:
-                mfRecordStates[2*nStep+1] = vState
+                mfRecordStates[2 * nStep + 1] = vState
             del vbSpiking
 
         # - Store recorded neuron states
         if bRecord:
-            self.mfRecordStates[2*nEvolutionTimeStep+1 : 2*(nEvolutionTimeStep+nNumTimeSteps)+1] = mfRecordStates.cpu()
+            self.mfRecordStates[
+                2 * nEvolutionTimeStep
+                + 1 : 2 * (nEvolutionTimeStep + nNumTimeSteps)
+                + 1
+            ] = mfRecordStates.cpu()
 
         # - Store updated state and update clock
         self._vState = vState
@@ -267,9 +289,7 @@ class FFIAFTorch(Layer):
 
     # @profile
     def _prepare_neural_input(
-        self,
-        mfInput: np.array,
-        nNumTimeSteps: Optional[int] = None,
+        self, mfInput: np.array, nNumTimeSteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
         _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
@@ -390,9 +410,7 @@ class FFIAFTorch(Layer):
             # - Assume zero inputs
             mfInputStep = np.zeros((nNumTimeSteps, self.nSizeIn))
 
-        return (
-            mfInputStep, nNumTimeSteps
-        )
+        return (mfInputStep, nNumTimeSteps)
 
     def reset_state(self):
         """ .reset_state() - Method: reset the internal state of the layer
@@ -421,9 +439,7 @@ class FFIAFTorch(Layer):
 
     @vState.setter
     def vState(self, vNewState):
-        vNewState =         (
-            np.asarray(self._expand_to_net_size(vNewState, "vState"))
-        )
+        vNewState = np.asarray(self._expand_to_net_size(vNewState, "vState"))
         self._vState = torch.from_numpy(vNewState).to(self.device).float()
 
     @property
@@ -432,12 +448,14 @@ class FFIAFTorch(Layer):
 
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
-        vtNewTauN = (
-            np.asarray(self._expand_to_net_size(vtNewTauN, "vtTauN"))
-        )
+        vtNewTauN = np.asarray(self._expand_to_net_size(vtNewTauN, "vtTauN"))
         self._vtTauN = torch.from_numpy(vtNewTauN).to(self.device).float()
         if (self.tDt >= self._vtTauN).any():
-            print("Layer `{}`: tDt is larger than some of the vtTauN. This can cause numerical instabilities.".format(self.strName))
+            print(
+                "Layer `{}`: tDt is larger than some of the vtTauN. This can cause numerical instabilities.".format(
+                    self.strName
+                )
+            )
 
     @property
     def vfAlpha(self):
@@ -453,9 +471,7 @@ class FFIAFTorch(Layer):
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
-        vfNewBias = (
-            np.asarray(self._expand_to_net_size(vfNewBias, "vfBias"))
-        )
+        vfNewBias = np.asarray(self._expand_to_net_size(vfNewBias, "vfBias"))
         self._vfBias = torch.from_numpy(vfNewBias).to(self.device).float()
 
     @property
@@ -464,9 +480,7 @@ class FFIAFTorch(Layer):
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewVThresh):
-        vfNewVThresh = (
-            np.asarray(self._expand_to_net_size(vfNewVThresh, "vfVThresh"))
-        )
+        vfNewVThresh = np.asarray(self._expand_to_net_size(vfNewVThresh, "vfVThresh"))
         self._vfVThresh = torch.from_numpy(vfNewVThresh).to(self.device).float()
 
     @property
@@ -475,9 +489,7 @@ class FFIAFTorch(Layer):
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
-        vfNewVRest = (
-            np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
-        )
+        vfNewVRest = np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
         self._vfVRest = torch.from_numpy(vfNewVRest).to(self.device).float()
 
     @property
@@ -486,9 +498,7 @@ class FFIAFTorch(Layer):
 
     @vfVReset.setter
     def vfVReset(self, vfNewVReset):
-        vfNewVReset = (
-            np.asarray(self._expand_to_net_size(vfNewVReset, "vfVReset"))
-        )
+        vfNewVReset = np.asarray(self._expand_to_net_size(vfNewVReset, "vfVReset"))
         self._vfVReset = torch.from_numpy(vfNewVReset).to(self.device).float()
 
     @property
@@ -497,9 +507,7 @@ class FFIAFTorch(Layer):
 
     @vSynapseState.setter
     def vSynapseState(self, vfNewState):
-        vfNewState = (
-            np.asarray(self._expand_to_net_size(vfNewState, "vSynapseState"))
-        )
+        vfNewState = np.asarray(self._expand_to_net_size(vfNewState, "vSynapseState"))
         self._vSynapseState = torch.from_numpy(vfNewState).to(self.device).float()
 
     @property
@@ -512,7 +520,9 @@ class FFIAFTorch(Layer):
 
     @mfW.setter
     def mfW(self, mfNewW):
-        mfNewW  = self._expand_to_shape(mfNewW, (self.nSizeIn, self.nSize), "mfW", bAllowNone=False)
+        mfNewW = self._expand_to_shape(
+            mfNewW, (self.nSizeIn, self.nSize), "mfW", bAllowNone=False
+        )
         self._mfW = torch.from_numpy(mfNewW).to(self.device).float()
 
 
@@ -586,9 +596,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
     # @profile
     def _prepare_neural_input(
-        self,
-        mfInput: np.array,
-        nNumTimeSteps: Optional[int] = None,
+        self, mfInput: np.array, nNumTimeSteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
         _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
@@ -605,7 +613,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         # - Prepare mfInput
         mfInput = torch.from_numpy(mfInput).float().to(self.device)
         # - Weigh inputs
-        mfWeightedInput = torch.mm(mfInput,self._mfW)
+        mfWeightedInput = torch.mm(mfInput, self._mfW)
 
         # - Add noise trace
         if self.fNoiseStd > 0:
@@ -619,19 +627,27 @@ class FFIAFSpkInTorch(FFIAFTorch):
             )
 
         # - Include previous synaptic states
-        mfWeightedInput[0] = self._vSynapseState * torch.exp(- self.tDt / self._vtTauS)
+        mfWeightedInput[0] = self._vSynapseState * torch.exp(-self.tDt / self._vtTauS)
 
         # - Reshape input for convolution
-        mfWeightedInput = mfWeightedInput.t().reshape(1,self.nSize,-1)
+        mfWeightedInput = mfWeightedInput.t().reshape(1, self.nSize, -1)
 
         # - Apply exponential filter to input
-        vtTimes = torch.arange(nNumTimeSteps).to(self.device).reshape(1,-1).float() * self.tDt
-        mfKernels = torch.exp(-vtTimes / self._vtTauS.reshape(-1,1))
+        vtTimes = (
+            torch.arange(nNumTimeSteps).to(self.device).reshape(1, -1).float()
+            * self.tDt
+        )
+        mfKernels = torch.exp(-vtTimes / self._vtTauS.reshape(-1, 1))
         # - Reverse on time axis and reshape to match convention of pytorch
         mfKernels = mfKernels.flip(1).reshape(self.nSize, 1, nNumTimeSteps)
         # - Object for applying convolution
         convSynapses = torch.nn.Conv1d(
-            self.nSize, self.nSize, nNumTimeSteps, padding=nNumTimeSteps-1, groups=self.nSize, bias=False
+            self.nSize,
+            self.nSize,
+            nNumTimeSteps,
+            padding=nNumTimeSteps - 1,
+            groups=self.nSize,
+            bias=False,
         ).to(self.device)
         convSynapses.weight.data = mfKernels
         # - Filtered synaptic currents
@@ -717,10 +733,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
     @vtTauS.setter
     def vtTauS(self, vtNewTauS):
-        vtNewTauS = (
-            np.asarray(self._expand_to_net_size(vtNewTauS, "vtTauS"))
-        )
+        vtNewTauS = np.asarray(self._expand_to_net_size(vtNewTauS, "vtTauS"))
         self._vtTauS = torch.from_numpy(vtNewTauS).to(self.device).float()
+
 
 ## - RecIAFTorch - Class: define a spiking recurrent layer with spiking outputs
 class RecIAFTorch(FFIAFTorch):
@@ -771,9 +786,9 @@ class RecIAFTorch(FFIAFTorch):
                                       evolution periods will automatically split in smaller batches.
         """
 
-        assert np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1], (
-            "Layer `{}`: mfW must be a square matrix.".format(strName)
-        )
+        assert (
+            np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1]
+        ), "Layer `{}`: mfW must be a square matrix.".format(strName)
 
         # - Call super constructor
         super().__init__(
@@ -813,11 +828,15 @@ class RecIAFTorch(FFIAFTorch):
 
         """
 
-        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(mfInput, nNumTimeSteps)
+        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
+            mfInput, nNumTimeSteps
+        )
 
         if self.bRecord:
             # - Tensor for recording synapse and neuron states
-            mfRecordStates = self.tensors.FloatTensor(2*nNumTimeSteps, self.nSize).fill_(0)
+            mfRecordStates = self.tensors.FloatTensor(
+                2 * nNumTimeSteps, self.nSize
+            ).fill_(0)
 
         # - Tensor for collecting spike data
         mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
@@ -842,7 +861,7 @@ class RecIAFTorch(FFIAFTorch):
             vState += vfAlpha * (mfNeuralInput[nStep] - vState)
             # - Store updated state before spike
             if bRecord:
-                mfRecordStates[2*nStep] = vState
+                mfRecordStates[2 * nStep] = vState
             # - Spiking
             vbSpiking = (vState > vfVThresh).float()
             # - State reset
@@ -851,18 +870,28 @@ class RecIAFTorch(FFIAFTorch):
             mbSpiking[nStep] = vbSpiking
             # - Store updated state after spike
             if bRecord:
-                mfRecordStates[2*nStep+1] = vState
+                mfRecordStates[2 * nStep + 1] = vState
             # - Add filtered recurrent spikes to input
-            nTSRecurrent = min(nNumTSKernel, nNumTimeSteps-nStep)
-            mfNeuralInput[nStep + 1 : nStep + 1 + nTSRecurrent] += mfKernels[ : nTSRecurrent] * torch.mm(vbSpiking.reshape(1,-1), mfWRec)
+            nTSRecurrent = min(nNumTSKernel, nNumTimeSteps - nStep)
+            mfNeuralInput[nStep + 1 : nStep + 1 + nTSRecurrent] += mfKernels[
+                :nTSRecurrent
+            ] * torch.mm(vbSpiking.reshape(1, -1), mfWRec)
 
             del vbSpiking
 
         # - Store recorded neuron and synapse states
         if bRecord:
-            self.mfRecordStates[2*nEvolutionTimeStep+1 : 2*(nEvolutionTimeStep+nNumTimeSteps)+1] = mfRecordStates.cpu()
-            self.mfRecordSynapses[nEvolutionTimeStep+1 : nEvolutionTimeStep+nNumTimeSteps+1] = (
-                mfNeuralInput[ : nNumTimeSteps] - self._vfVRest - self._vfBias  # Introduces slight numerical error in stored synapses of about 1e-9
+            self.mfRecordStates[
+                2 * nEvolutionTimeStep
+                + 1 : 2 * (nEvolutionTimeStep + nNumTimeSteps)
+                + 1
+            ] = mfRecordStates.cpu()
+            self.mfRecordSynapses[
+                nEvolutionTimeStep + 1 : nEvolutionTimeStep + nNumTimeSteps + 1
+            ] = (
+                mfNeuralInput[:nNumTimeSteps]
+                - self._vfVRest
+                - self._vfBias  # Introduces slight numerical error in stored synapses of about 1e-9
             ).cpu()
 
         # - Store updated neuron and synapse states and update clock
@@ -874,9 +903,7 @@ class RecIAFTorch(FFIAFTorch):
 
     # @profile
     def _prepare_neural_input(
-        self,
-        mfInput: np.array,
-        nNumTimeSteps: Optional[int] = None,
+        self, mfInput: np.array, nNumTimeSteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
         _prepare_neural_input : Prepare the noisy synaptic input to the neurons
@@ -894,17 +921,18 @@ class RecIAFTorch(FFIAFTorch):
         nNumTimeSteps = mfInput.shape[0] if nNumTimeSteps is None else nNumTimeSteps
 
         # - Prepare mfInput, with additional time step for carrying over recurrent spikes between batches
-        mfNeuralInput = self.tensors.FloatTensor(nNumTimeSteps+1, self.nSize).fill_(0)
-        mfNeuralInput[ : -1] = torch.from_numpy(mfInput).float()
+        mfNeuralInput = self.tensors.FloatTensor(nNumTimeSteps + 1, self.nSize).fill_(0)
+        mfNeuralInput[:-1] = torch.from_numpy(mfInput).float()
         # - Carry over filtered recurrent spikes from previous batch
         nTSRecurrent = min(mfNeuralInput.shape[0], self._mfKernelsRec.shape[0])
-        mfNeuralInput[ : nTSRecurrent] += self._mfKernelsRec[ : nTSRecurrent] * self._vSynapseState
-
+        mfNeuralInput[:nTSRecurrent] += (
+            self._mfKernelsRec[:nTSRecurrent] * self._vSynapseState
+        )
 
         # - Add noise trace
         if self.fNoiseStd > 0:
             mfNeuralInput += (
-                torch.randn(nNumTimeSteps+1, self.nSize).float().to(self.device)
+                torch.randn(nNumTimeSteps + 1, self.nSize).float().to(self.device)
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
                 * self.fNoiseStd
@@ -920,18 +948,24 @@ class RecIAFTorch(FFIAFTorch):
 
     @vtTauSynR.setter
     def vtTauSynR(self, vtNewTauSynR):
-        vtNewTauSynR = (
-            np.asarray(self._expand_to_net_size(vtNewTauSynR, "vtTauSynR"))
-        )
+        vtNewTauSynR = np.asarray(self._expand_to_net_size(vtNewTauSynR, "vtTauSynR"))
         if (vtNewTauSynR < self.tDt).any():
-            print("Layer `{}`: tDt is larger than some of the vtTauSynR. This can cause numerical instabilities.".format(self.strName))
+            print(
+                "Layer `{}`: tDt is larger than some of the vtTauSynR. This can cause numerical instabilities.".format(
+                    self.strName
+                )
+            )
 
         self._vtTauSynR = torch.from_numpy(vtNewTauSynR).to(self.device).float()
 
         # - Kernel for filtering recurrent spikes
-        nKernelSize = 50 * int(np.amax(vtNewTauSynR) / self.tDt) # - Values smaller than ca. 1e-21 are neglected
-        vtTimes = torch.arange(nKernelSize).to(self.device).reshape(-1,1).float() * self.tDt
-        self._mfKernelsRec = torch.exp(-vtTimes / self._vtTauSynR.reshape(1,-1))
+        nKernelSize = 50 * int(
+            np.amax(vtNewTauSynR) / self.tDt
+        )  # - Values smaller than ca. 1e-21 are neglected
+        vtTimes = (
+            torch.arange(nKernelSize).to(self.device).reshape(-1, 1).float() * self.tDt
+        )
+        self._mfKernelsRec = torch.exp(-vtTimes / self._vtTauSynR.reshape(1, -1))
 
     @property
     def tDt(self):
@@ -939,7 +973,9 @@ class RecIAFTorch(FFIAFTorch):
 
     @tDt.setter
     def tDt(self, tNewDt):
-        assert tNewDt > 0, "Layer `{}`: tDt must be greater than 0.".format(self.strName)
+        assert tNewDt > 0, "Layer `{}`: tDt must be greater than 0.".format(
+            self.strName
+        )
         self._tDt = tNewDt
         if hasattr(self, "vtTauSynR"):
             # - Update filter for recurrent spikes if already exists
@@ -1006,26 +1042,22 @@ class RecIAFSpkInTorch(RecIAFTorch):
         """
 
         # - Call super constructor
-        Layer.__init__(
-            self,
-            mfW=mfWIn,
-            tDt=tDt,
-            fNoiseStd=fNoiseStd,
-            strName=strName,
-        )
+        Layer.__init__(self, mfW=mfWIn, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
 
         # - Set device to cuda if available and determine how tensors should be instantiated
         if torch.cuda.is_available():
-            self.device = torch.device('cuda')
+            self.device = torch.device("cuda")
             self.tensors = torch.cuda
         else:
-            self.device = torch.device('cpu')
+            self.device = torch.device("cpu")
             print("Layer `{}`: Using CPU as CUDA is not available.".format(strName))
             self.tensors = torch
 
         # - Bypass property setter to avoid unnecessary convolution kernel update
-        assert type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0., (
-            "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(self.strName)
+        assert (
+            type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0.
+        ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
+            self.strName
         )
         self._nMaxNumTimeSteps = nMaxNumTimeSteps
 
@@ -1047,9 +1079,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     # @profile
     def _prepare_neural_input(
-        self,
-        mfInput: np.array,
-        nNumTimeSteps: Optional[int] = None,
+        self, mfInput: np.array, nNumTimeSteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
         _prepare_neural_input : Prepare the noisy synaptic input to the neurons
@@ -1068,38 +1098,52 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Prepare external input
         mfInput = torch.from_numpy(mfInput).float().to(self.device)
         # - Weigh inputs
-        mfWeightedInput = torch.mm(mfInput,self._mfWIn)
+        mfWeightedInput = torch.mm(mfInput, self._mfWIn)
         # - Carry over external inputs from last batch
-        mfWeightedInput[0] = self._vSynapseStateInp.clone() * torch.exp(- self.tDt / self._vtTauSInp)
+        mfWeightedInput[0] = self._vSynapseStateInp.clone() * torch.exp(
+            -self.tDt / self._vtTauSInp
+        )
         # - Reshape input for convolution
-        mfWeightedInput = mfWeightedInput.t().reshape(1,self.nSize,-1)
+        mfWeightedInput = mfWeightedInput.t().reshape(1, self.nSize, -1)
         # - Apply exponential filter to external input
-        vtTimes = torch.arange(nNumTimeSteps).to(self.device).reshape(1,-1).float() * self.tDt
-        mfInputKernels = torch.exp(-vtTimes / self._vtTauSInp.reshape(-1,1))
+        vtTimes = (
+            torch.arange(nNumTimeSteps).to(self.device).reshape(1, -1).float()
+            * self.tDt
+        )
+        mfInputKernels = torch.exp(-vtTimes / self._vtTauSInp.reshape(-1, 1))
         # - Reverse on time axis and reshape to match convention of pytorch
         mfInputKernels = mfInputKernels.flip(1).reshape(self.nSize, 1, nNumTimeSteps)
         # - Object for applying convolution
         convSynapses = torch.nn.Conv1d(
-            self.nSize, self.nSize, nNumTimeSteps, padding=nNumTimeSteps-1, groups=self.nSize, bias=False
+            self.nSize,
+            self.nSize,
+            nNumTimeSteps,
+            padding=nNumTimeSteps - 1,
+            groups=self.nSize,
+            bias=False,
         ).to(self.device)
         convSynapses.weight.data = mfInputKernels
         # - Filtered synaptic currents
-        mfFilteredExternalInput = convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
+        mfFilteredExternalInput = (
+            convSynapses(mfWeightedInput)[0].detach().t()[:nNumTimeSteps]
+        )
         # - Store filtered input from last time step for carry-over to next batch
         self._vSynapseStateInp = mfFilteredExternalInput[-1].clone()
 
         # - Prepare input to neurons, with additional time step for carrying over recurrent spikes between batches
-        mfNeuralInput = self.tensors.FloatTensor(nNumTimeSteps+1, self.nSize).fill_(0)
+        mfNeuralInput = self.tensors.FloatTensor(nNumTimeSteps + 1, self.nSize).fill_(0)
         # - Filtered external input
-        mfNeuralInput[ : -1] = mfFilteredExternalInput
+        mfNeuralInput[:-1] = mfFilteredExternalInput
         # - Carry over filtered recurrent spikes from previous batch
         nTSRecurrent = min(mfNeuralInput.shape[0], self._mfKernelsRec.shape[0])
-        mfNeuralInput[ : nTSRecurrent] += self._mfKernelsRec[ : nTSRecurrent] * self._vSynapseState
+        mfNeuralInput[:nTSRecurrent] += (
+            self._mfKernelsRec[:nTSRecurrent] * self._vSynapseState
+        )
 
         # - Add noise trace
         if self.fNoiseStd > 0:
             mfNeuralInput += (
-                torch.randn(nNumTimeSteps+1, self.nSize).float().to(self.device)
+                torch.randn(nNumTimeSteps + 1, self.nSize).float().to(self.device)
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
                 * self.fNoiseStd
@@ -1165,7 +1209,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                vnSelectChannels=np.arange(self.nSizeIn), ## This causes problems when tsInput has no events in some channels
+                vnSelectChannels=np.arange(
+                    self.nSizeIn
+                ),  ## This causes problems when tsInput has no events in some channels
                 bAddEvents=self.bAddEvents,  # Allow for multiple input spikes per time step
             )
             # - Convert to supportedformat
@@ -1185,12 +1231,22 @@ class RecIAFSpkInTorch(RecIAFTorch):
     def _update_rec_kernel(self):
         # - Kernel for filtering recurrent spikes
         nKernelSize = min(
-            50 * int(torch.max(self._vtTauSRec) / self.tDt), # - Values smaller than ca. 1e-21 are neglected
-            self._nMaxNumTimeSteps + 1,  # Kernel does not need to be larger than batch duration
+            50
+            * int(
+                torch.max(self._vtTauSRec) / self.tDt
+            ),  # - Values smaller than ca. 1e-21 are neglected
+            self._nMaxNumTimeSteps
+            + 1,  # Kernel does not need to be larger than batch duration
         )
-        vtTimes = torch.arange(nKernelSize).to(self.device).reshape(-1,1).float() * self.tDt
-        self._mfKernelsRec = torch.exp(-vtTimes / self._vtTauSRec.reshape(1,-1))
-        print("Layer `{}`: Recurrent filter kernels have been updated.".format(self.strName))
+        vtTimes = (
+            torch.arange(nKernelSize).to(self.device).reshape(-1, 1).float() * self.tDt
+        )
+        self._mfKernelsRec = torch.exp(-vtTimes / self._vtTauSRec.reshape(1, -1))
+        print(
+            "Layer `{}`: Recurrent filter kernels have been updated.".format(
+                self.strName
+            )
+        )
 
     @property
     def cInput(self):
@@ -1202,7 +1258,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @tDt.setter
     def tDt(self, tNewDt):
-        assert tNewDt > 0, "Layer `{}`: tDt must be greater than 0.".format(self.strName)
+        assert tNewDt > 0, "Layer `{}`: tDt must be greater than 0.".format(
+            self.strName
+        )
         self._tDt = tNewDt
         if hasattr(self, "vtTauSRec"):
             # - Update filter for recurrent spikes if already exists
@@ -1214,11 +1272,13 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @vtTauSRec.setter
     def vtTauSRec(self, vtNewTauSRec):
-        vtNewTauSRec = (
-            np.asarray(self._expand_to_net_size(vtNewTauSRec, "vtTauSRec"))
-        )
+        vtNewTauSRec = np.asarray(self._expand_to_net_size(vtNewTauSRec, "vtTauSRec"))
         if (vtNewTauSRec < self.tDt).any():
-            print("Layer `{}`: tDt is larger than some of the vtTauSRec. This can cause numerical instabilities.".format(self.strName))
+            print(
+                "Layer `{}`: tDt is larger than some of the vtTauSRec. This can cause numerical instabilities.".format(
+                    self.strName
+                )
+            )
 
         self._vtTauSRec = torch.from_numpy(vtNewTauSRec).to(self.device).float()
         self._update_rec_kernel()
@@ -1229,9 +1289,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @vtTauSInp.setter
     def vtTauSInp(self, vtNewTauSInp):
-        vtNewTauSInp = (
-            np.asarray(self._expand_to_net_size(vtNewTauSInp, "vtTauSInp"))
-        )
+        vtNewTauSInp = np.asarray(self._expand_to_net_size(vtNewTauSInp, "vtTauSInp"))
         self._vtTauSInp = torch.from_numpy(vtNewTauSInp).to(self.device).float()
 
     @property
@@ -1240,7 +1298,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
-        mfNewW  = self._expand_to_shape(mfNewW, (self.nSizeIn, self.nSize), "mfWIn", bAllowNone=False)
+        mfNewW = self._expand_to_shape(
+            mfNewW, (self.nSizeIn, self.nSize), "mfWIn", bAllowNone=False
+        )
         self._mfWIn = torch.from_numpy(mfNewW).to(self.device).float()
 
     @property
@@ -1249,7 +1309,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @mfWRec.setter
     def mfWRec(self, mfNewW):
-        mfNewW  = self._expand_to_shape(mfNewW, (self.nSize, self.nSize), "mfWRec", bAllowNone=False)
+        mfNewW = self._expand_to_shape(
+            mfNewW, (self.nSize, self.nSize), "mfWRec", bAllowNone=False
+        )
         self._mfWRec = torch.from_numpy(mfNewW).to(self.device).float()
 
     # mfW as alias for mfWRec
@@ -1276,8 +1338,8 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @vSynapseStateInp.setter
     def vSynapseStateInp(self, vfNewState):
-        vfNewState = (
-            np.asarray(self._expand_to_net_size(vfNewState, "vSynapseStateInp"))
+        vfNewState = np.asarray(
+            self._expand_to_net_size(vfNewState, "vSynapseStateInp")
         )
         self._vSynapseStateInp = torch.from_numpy(vfNewState).to(self.device).float()
 
@@ -1287,9 +1349,10 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @nMaxNumTimeSteps.setter
     def nMaxNumTimeSteps(self, nNewMax):
-        assert type(nNewMax) == int and nNewMax > 0., (
-            "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(self.strName)
+        assert (
+            type(nNewMax) == int and nNewMax > 0.
+        ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
+            self.strName
         )
         self._nMaxNumTimeSteps = nNewMax
         self._update_rec_kernel()
-

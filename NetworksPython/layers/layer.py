@@ -2,6 +2,7 @@ import numpy as np
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
+from typing import Optional
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
 
@@ -17,7 +18,7 @@ fTolAbs = 1e-9
 
 def to_scalar(value, sClass: str = None):
     # - Check the value is a scalar
-    assert np.size(value) == 1, "The value muste be a scalar"
+    assert np.size(value) == 1, "The value must be a scalar"
 
     if sClass is not None:
         return np.asscalar(np.array(value).astype(sClass))
@@ -32,9 +33,9 @@ class Layer(ABC):
     def __init__(
         self,
         mfW: np.ndarray,
-        tDt: float = 1,
-        fNoiseStd: float = 0,
-        strName: str = "unnamed",
+        tDt: Optional[float] = 1,
+        fNoiseStd: Optional[float] = 0,
+        strName: Optional[str] = "unnamed",
     ):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
@@ -82,23 +83,20 @@ class Layer(ABC):
 
     ### --- Common methods
 
-    def _prepare_input(
+    def _determine_timesteps(
         self,
-        tsInput: TimeSeries = None,
-        tDuration: float = None,
-        nNumTimeSteps: int = None,
-    ) -> (np.ndarray, np.ndarray, float):
+        tsInput: Optional[TimeSeries] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+    ) -> int:
         """
-        _prepare_input - Sample input, set up time base
+        _determine_timesteps - Determine over how many time steps to evolve with the given input
 
-        :param tsInput:       TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:     float Duration of the desired evolution, in seconds
-        :param nNumTimeSteps: int Number of evolution time steps
-
-        :return: (vtTimeBase, mfInputStep, tDuration)
-            vtTimeBase:     ndarray T1 Discretised time base for evolution
-            mfInputStep:    ndarray (T1xN) Discretised input signal for layer
-            nNumTimeSteps:  int Actual number of evolution time steps
+        :param tsInput:       TimeSeries  TxM or Tx1 Input signals for this layer
+        :param tDuration:     float  Duration of the desired evolution, in seconds
+        :param nNumTimeSteps: int  Number of evolution time steps        
+        
+        :return nNumTimeSteps: int  Number of evolution time steps
         """
 
         if nNumTimeSteps is None:
@@ -126,9 +124,33 @@ class Layer(ABC):
                     )
             nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
         else:
-            assert isinstance(
-                nNumTimeSteps, int
-            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+            assert (
+                isinstance(nNumTimeSteps, int) and nNumTimeSteps >= 0
+            ), "Layer `{}`: nNumTimeSteps must be a non-negative integer.".format(self.strName)
+
+        return nNumTimeSteps
+
+        
+    def _prepare_input(
+        self,
+        tsInput: Optional[TSContinuous] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+    ) -> (np.ndarray, np.ndarray, float):
+        """
+        _prepare_input - Sample input, set up time base
+
+        :param tsInput:       TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:     float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps: int Number of evolution time steps
+
+        :return: (vtTimeBase, mfInputStep, tDuration)
+            vtTimeBase:     ndarray T1 Discretised time base for evolution
+            mfInputStep:    ndarray (T1xN) Discretised input signal for layer
+            nNumTimeSteps:  int Actual number of evolution time steps
+        """
+
+        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
 
         # - Generate discrete time base
         vtTimeBase = self._gen_time_trace(self.t, nNumTimeSteps)
@@ -173,6 +195,44 @@ class Layer(ABC):
             mfInputStep = np.zeros((np.size(vtTimeBase), self.nSizeIn))
 
         return vtTimeBase, mfInputStep, nNumTimeSteps
+
+    def _prepare_input_events(
+        self,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+    ) -> (np.ndarray, int):
+        """
+        _prepare_input_events - Sample input from TSEvent, set up time base
+
+        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param tDuration:    float Duration of the desired evolution, in seconds
+        :param nNumTimeSteps int Number of evolution time steps
+
+        :return:
+            mnSpikeRaster:    ndarray Boolean or integer raster containing spike info
+            nNumTimeSteps:    ndarray Number of evlution time steps
+        """
+        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
+
+        # - Extract spike timings and channels
+        if tsInput is not None:
+            # Extract spike data from the input variable
+            mnSpikeRaster = tsInput.raster(
+                tDt=self.tDt,
+                tStart=self.t,
+                nNumTimeSteps=nNumTimeSteps,
+                vnSelectChannels=np.arange(self.nSizeIn),
+                bSamples=False,
+                bAddEvents=(self.bAddEvents if hasattr(self, "bAddEvents") else False)
+            )[2]
+            # - Make sure size is correct
+            mnSpikeRaster = mnSpikeRaster[:nNumTimeSteps, :]
+
+        else:
+            mnSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
+
+        return mnSpikeRaster, nNumTimeSteps
 
     def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
@@ -305,12 +365,17 @@ class Layer(ABC):
     ### --- State evolution methods
 
     @abstractmethod
-    def evolve(self, tsInput: TimeSeries = None, tDuration: float = None) -> TimeSeries:
+    def evolve(self,
+               tsInput: Optional[TimeSeries] = None,
+               tDuration: Optional[float] = None,
+               nNumTimeSteps: Optional[int] = None,
+               ) -> TimeSeries:
         """
         evolve - Abstract method to evolve the state of this layer
 
         :param tsInput:     TimeSeries (TxM) External input trace to use when evolving the layer
         :param tDuration:   float Duration in seconds to evolve the layer
+        :param nNumTimeSteps: int Number of time steps to evolve the layer
         :return:            TimeSeries (TxN) Output of this layer
         """
         pass

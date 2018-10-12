@@ -45,6 +45,7 @@ class TorchSumPooling2dLayer(nn.Module):
     def summary(self):
         summary = pd.DataFrame(
             {
+                "Layer": self.strName,
                 "Output Shape": str(list(self.outShape)),
                 "Padding": str(self.padding),
                 "Kernel": str(self.kernel_size),
