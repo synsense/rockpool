@@ -13,14 +13,17 @@ from typing import Tuple, List, Optional, Union
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter
+from CtxDynapse import Dynapse, DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter, FpgaSpikeEvent
 
 # - Declare a Neuron type
 Neuron = Union[DynapseNeuron, VirtualNeuron]
 
+# - Default ISI multiplier
+DEF_FPGA_ISI_MULTIPLIER = 10
+
 def init_dynapse() -> dict:
     """
-    init_dynapse - Initialisation function
+    init_dynapse - Initialise and configure DynapSE interface
 
     :return: dict Global dictionary containing DynapSE HW models
     """
@@ -28,7 +31,7 @@ def init_dynapse() -> dict:
     dDynapse = {}
 
     dDynapse['model'] = CtxDynapse.model
-    dDynapse['virtualModel'] = CtxDynapse.VirtualModel
+    dDynapse['virtualModel'] = CtxDynapse.VirtualModel()
     lFPGAModules = dDynapse['model'].get_fpga_modules()
 
     # - Find a spike generator module
@@ -50,15 +53,41 @@ def init_dynapse() -> dict:
     dDynapse['vbFreeHWNeurons'] = np.array(True * len(dDynapse['lHWNeurons']))
 
     # - Wipe configuration
-    warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
+    for nChip in range(4):
+        Dynapse.clear_cam(nChip)
+        Dynapse.clear_sram(nChip)
+    # warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
 
     # - Return dictionary
     return dDynapse
 
+def init_fpgaSpikeGen(nMultiplier: int) -> Tuple[int, float]:
+    """
+    init_fpgaSpikeGen - Initialise and configure FPGA spike generator
+
+    :param nMultiplier: int Multiplier to set, in units of 11.11r ns
+    :return:            nMultipler, tISIBase
+    """
+    DHW_dDynapse['fpgaSpikeGen'].set_repeat_mode(False)
+    DHW_dDynapse['fpgaSpikeGen'].set_variable_isi_mode(True)
+    DHW_dDynapse['fpgaSpikeGen'].set_isi_multiplier(nMultiplier)
+
+    # - Record current multiplier and time base
+    DHW_dDynapse['nISIMultiplier'] = nMultiplier
+    DHW_dDynapse['tISIBase'] = nMultiplier * 11.11111111e-9
+
+    # - Return new multiplier and time base
+    return DHW_dDynapse['nISIMultiplier'], DHW_dDynapse['tISIBase']
+
+
 # -- Create global dictionary, only initialise on first import of this module
 global DHW_dDynapse
 if 'DHW_dDynapse' not in dir():
+    # - Initialise DynapSE
     DHW_dDynapse = init_dynapse()
+
+    # - Set ISI multiplier
+    init_fpgaSpikeGen(DEF_FPGA_ISI_MULTIPLIER)
 
 
 def allocate_layer_neurons(nNumNeurons: int) -> DynapseNeuron:
@@ -193,7 +222,7 @@ class RecDynapSE(Layer):
                 tDuration = nNumTimeSteps * self.tDt
 
         # - Clip tsInput to required duration
-        tsInput.clip([0, tDuration], bInPlace = True)
+        tsInput = tsInput.clip([0, tDuration])#, bInPlace = True)
 
         # - Convert input events to fpga spike list representation
         spikeList = TSEvent_to_spike_list(tsInput, self._lHWInputNeurons)
@@ -234,7 +263,8 @@ class RecDynapSE(Layer):
         vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1.e-6
 
         # - Locate synchronisation timestamp
-        nSynchEvent = ...
+        warn('--- FPGA synchronisation event not yet implemented --- IMPLEMENT ME ---')
+        nSynchEvent = 0
         vnChannels = vnChannels[nSynchEvent:]
         vtTimeTrace = vtTimeTrace[nSynchEvent:]
         vtTimeTrace -= vtTimeTrace[0]
@@ -249,7 +279,10 @@ class RecDynapSE(Layer):
         tsResponse = tsResponse.clip([0, tDuration])
 
         # - Shift monitored events to current layer start time
-        tsResponse.delay(self.t, bInPlace = True)
+        tsResponse = tsResponse.delay(self.t)#, bInPlace = True)
+
+        # - Set layer time
+        self.t += tDuration
 
         # - Return recorded events
         return tsResponse
@@ -334,14 +367,43 @@ def connectivity_matrix_to_prepost_lists(mnW: np.ndarray) -> Tuple[List[int], Li
     return vnPreE, vnPostE, vnPreI, vnPostI
 
 
-def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]):
+def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[FpgaSpikeEvent]:
     """
     TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
-    :param tsSeries:
+    :param tsSeries:    TSEvent         Time series of events to send as input
+    :param lNeurons:    List[Neuron]    List of neurons that should appear as sources of the events
     :return:
     """
-    pass
+    # - Check that the number of channels is the same between time series and list of neurons
+    assert tsSeries.nNumChannels <= len(lNeurons), \
+        '`tsSeries` contains more channels than the number of neurons in `lNeurons`.'
+
+    # - Get events from this time series
+    vtTimes, vnChannels, _ = tsSeries.find()
+
+    # - Convert to ISIs
+    vtISIs = np.concatenate([0], np.diff(vtTimes))
+
+    # - Get neuron information
+    vnCoreIDs = []
+    vnNeuronIDs = []
+    vnChipIDs = []
+    for n in lNeurons:
+        vnCoreIDs.append(n.get_core_id())
+        vnNeuronIDs.append(n.get_neuron_id())
+        vnChipIDs.append(n.get_chip_id())
+
+    # - Convert each event to an FpgaSpikeEvent
+    lEvents = [FpgaSpikeEvent(vnCoreIDs[nChannel],
+                              vnNeuronIDs[nChannel],
+                              vnChipIDs[nChannel],
+                              tISI)
+               for tISI, nChannel in zip(vtISIs, vnChannels)]
+
+    # - Return a list of events
+    return lEvents
+
 
 def neurons_to_channels(lNeurons: List[DynapseNeuron],
                         lLayerNeurons: List[DynapseNeuron],
