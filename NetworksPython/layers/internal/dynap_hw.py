@@ -7,13 +7,16 @@ from ...timeseries import TSEvent
 
 import numpy as np
 from warnings import warn
-from typing import List, Optional
+from typing import Tuple, List, Optional, Union
 
 # - Imports from ctxCTL
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron, EventFilter
+from CtxDynapse import DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter
+
+# - Declare a Neuron type
+Neuron = Union[DynapseNeuron, VirtualNeuron]
 
 def init_dynapse() -> dict:
     """
@@ -25,25 +28,26 @@ def init_dynapse() -> dict:
     dDynapse = {}
 
     dDynapse['model'] = CtxDynapse.model
+    dDynapse['virtualModel'] = CtxDynapse.VirtualModel
     lFPGAModules = dDynapse['model'].get_fpga_modules()
 
     # - Find a spike generator module
     vbIsSpikeGenModule = [isinstance(m, DynapseFpgaSpikeGen) for m in lFPGAModules]
     if not np.any(vbIsSpikeGenModule):
         # - There is no spike generator, so we can't use this Python layer on the HW
-        assert ModuleNotFoundError
+        raise ModuleNotFoundError('An `fpgaSpikeGen` module is required to use the DynapSE layer.')
 
     else:
         # - Get first spike generator module
         dDynapse['fpgaSpikeGen'] = lFPGAModules[np.argwhere(vbIsSpikeGenModule)[0][0]]
 
     # - Get all neurons
-    dDynapse['lAllNeurons'] = dDynapse['model'].get_neurons()
+    dDynapse['lHWNeurons'] = dDynapse['model'].get_neurons()
+    dDynapse['lVirtualNeurons'] = dDynapse['virtualModel'].get_neurons()
 
     # - Initialise neuron allocation
-    dDynapse['vbFreeInputNeurons'] = np.array(True * 256)
-    dDynapse['vbFreeLayerNeurons'] = np.array(True * len(dDynapse['lAllNeurons']))
-    dDynapse['vbFreeLayerNeurons'][:256] = False
+    dDynapse['vbFreeInputNeurons'] = np.array(True * len(dDynapse['lVirtualNeurons']))
+    dDynapse['vbFreeHWNeurons'] = np.array(True * len(dDynapse['lHWNeurons']))
 
     # - Wipe configuration
     warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
@@ -71,10 +75,13 @@ def allocate_layer_neurons(nNumNeurons: int) -> DynapseNeuron:
     # - Pick the first available neurons
     vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeLayerNeurons'])[:nNumNeurons]
 
-    # - Mark these as allocated
-    DHW_dDynapse['vbFreeLayerNeurons'][vnNeuronsToAllocate] = False
+    # - Mark these neurons as allocated
+    DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
-    # - Return these neurons
+    vnInputNeuronOverlap = vnNeuronsToAllocate[vnNeuronsToAllocate < len(DHW_dDynapse['vbFreeInputNeurons'])]
+    DHW_dDynapse['vbFreeInputNeurons'][vnInputNeuronOverlap] = False
+
+    # - Return these allocated neurons
     return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
 
 
@@ -94,6 +101,7 @@ def allocate_input_neurons(nNumNeurons: int) -> DynapseNeuron:
 
     # - Mark these as allocated
     DHW_dDynapse['vbFreeInputNeurons'][vnNeuronsToAllocate] = False
+    DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
     # - Return these neurons
     return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
@@ -105,8 +113,8 @@ class RecDynapSE(Layer):
     RecDynapSE - Recurrent layer implemented on DynapSE
     """
     def __init__(self,
-                 mfWRec: np.ndarray,
                  mfWIn: np.ndarray,
+                 mfWRec: np.ndarray,
                  tDt: Optional[float] = None,
                  fNoiseStd: Optional[float] = None,
                  strName: Optional[str] = 'unnamed',
@@ -114,8 +122,9 @@ class RecDynapSE(Layer):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
 
-
-        :param mfW:         ndarray NxN matrix of recurrent weights
+        :param mfWIn:       ndarray[int] MxN matrix of input weights
+        :param mfWRec:      ndarray[int] NxN matrix of recurrent weights. Supplied in units of synaptic connection.
+                                        Negative elements lead to inhibitory synapses
         :param tDt:         float   Dummy time step. Not used in layer evolution
         :param fNoiseStd    float   Dummy noise to inject. Not used in layer evolution
         :param strName:     str     Layer name
@@ -131,13 +140,29 @@ class RecDynapSE(Layer):
         else:
             fNoiseStd = 0.
 
+        assert mfWRec.shape[0] == mfWRec.shape[1], \
+            'The recurrent weight matrix `mnWRec` must be square.'
+
         # - Initialise superclass
-        super().__init__(mfW = mfWRec, tDt = tDt, fNoiseStd = fNoiseStd, strName = strName)
-        self._nSizeIn = mfWIn.shape[0]
+        super().__init__(mfW = np.asarray(np.round(mfWIn), 'int'), tDt = tDt, fNoiseStd = fNoiseStd, strName = strName)
+
+        # - Configure input and input-to-recurrent connections
+        if mfWIn is None:
+            mfWIn = np.ones(1, self.nSize)
+
+        # - Check weight matrices
+        assert mfWIn.shape[1] == mfWRec.shape[0], \
+            '`mnWIn` and `mnWRec` must have compatible shapes: `mnWIn` is MxN, `mnWRec` is NxN.'
 
         # - Map neuron indices to neurons
         self._lHWInputNeurons = allocate_input_neurons(self.nSizeIn)
-        self._lHWLayerNeurons = allocate_layer_neurons(self.nSize)
+        self._lHWRecLayerNeurons = allocate_layer_neurons(self.nSize)
+
+        # - Store input weights
+        self._mfWRec = np.asarray(np.round(mfWRec), 'int')
+
+        # - Configure connectivity
+        self._compile_weights_and_configure()
 
     def evolve(self,
                tsInput: Optional[TSEvent] = None,
@@ -167,9 +192,11 @@ class RecDynapSE(Layer):
                 # - Compute the evolution duration using the number of supplied time steps
                 tDuration = nNumTimeSteps * self.tDt
 
-        # - Get input events from tsInput
-        # - Convert events to fpga representation
-        spikeList = TSEvent_to_spike_list(tsInput, self._lHWNeurons)
+        # - Clip tsInput to required duration
+        tsInput.clip([0, tDuration], bInPlace = True)
+
+        # - Convert input events to fpga spike list representation
+        spikeList = TSEvent_to_spike_list(tsInput, self._lHWInputNeurons)
 
         # - Send event sequence to fpga module
         DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(spikeList)
@@ -185,7 +212,7 @@ class RecDynapSE(Layer):
         # - Configure recording callback
         oFilter = EventFilter(DHW_dDynapse['model'],
                               callback_function = func_event_callback,
-                              id_list = [n.get_id() for n in self._lHWLayerNeurons],
+                              id_list = [n.get_id() for n in self._lHWRecLayerNeurons],
                               )
 
         # - Reset FPGA timestamp
@@ -193,7 +220,8 @@ class RecDynapSE(Layer):
 
         # - Stimulate / record for desired duration
         DHW_dDynapse['fpgaSpikeGen'].start()
-        # - wait for required time
+        # - Wait for required time
+        # - Stop stimulation
         DHW_dDynapse['fpgaSpikeGen'].stop()
 
         # - Flatten list of events
@@ -201,7 +229,7 @@ class RecDynapSE(Layer):
 
         # - Extract monitored event channels and timestamps
         vnChannels = neurons_to_channels([e.neuron for e in lEvents],
-                                         self._lHWLayerNeurons,
+                                         self._lHWRecLayerNeurons,
                                          )
         vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1.e-6
 
@@ -226,12 +254,87 @@ class RecDynapSE(Layer):
         # - Return recorded events
         return tsResponse
 
+    def _compile_weights_and_configure(self):
+        """
+        _compile_weights_and_configure - Configure DynapSE weights from the weight matrices
+        """
 
-def connectivity_matrix_to_prepost_lists(mfW: np.ndarray):
-    return np.nonzero(mfW)
+        # - Get a connector object
+        connector = NeuronNeuronConnector.DynapseConnector()
+
+        # - Get input to layer connections
+        vnPreSynE, vnPostSynE,\
+            vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self._mfW)
+
+        # - Connect input to layer
+
+        # - Connect the excitatory neurons
+        connector.add_connection_from_list(self._lHWInputNeurons[vnPreSynE],
+                                           self._lHWRecLayerNeurons[vnPostSynE],
+                                           [SynapseTypes.SLOW_EXC]
+                                           )
+
+        # - Connect the inhibitory neurons
+        connector.add_connection_from_list(self._lHWInputNeurons[vnPreSynI],
+                                           self._lHWRecLayerNeurons[vnPostSynI],
+                                           [SynapseTypes.SLOW_INH]
+                                           )
+
+        # - Get layer recurrent connections
+        vnPreSynE, vnPostSynE,\
+            vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self._mfWRec)
+
+        # - Connect the excitatory neurons
+        connector.add_connection_from_list(self._lHWRecLayerNeurons[vnPreSynE],
+                                           self._lHWRecLayerNeurons[vnPostSynE],
+                                           [SynapseTypes.SLOW_EXC]
+                                           )
+
+        # - Connect the inhibitory neurons
+        connector.add_connection_from_list(self._lHWRecLayerNeurons[vnPreSynI],
+                                           self._lHWRecLayerNeurons[vnPostSynI],
+                                           [SynapseTypes.SLOW_INH]
+                                           )
+
+def connectivity_matrix_to_prepost_lists(mnW: np.ndarray) -> Tuple[List[int], List[int], List[int], List[int]]:
+    """
+    connectivity_matrix_to_prepost_lists - Convert a matrix into a set of pre-post connectivity lists
+
+    :param mnW: ndarray[int]    Matrix[pre, post] containing integer numbers of synaptic connections
+    :return:    (vnPreE,
+                 vnPostE,
+                 vnPreI,
+                 vnPostI)       Each ndarray(int), containing a single pre- and post- synaptic partner.
+                                    vnPreE and vnPostE together define excitatory connections
+                                    vnPreI and vnPostI together define inhibitory connections
+    """
+    # - Get lists of pre and post-synaptic IDs
+    vnPreECompressed, vnPostECompressed = np.nonzero(mnW > 0)
+    vnPreICompressed, vnPostICompressed = np.nonzero(mnW < 0)
+
+    # - Preallocate connection lists
+    vnPreE = []
+    vnPostE = []
+    vnPreI = []
+    vnPostI = []
+
+    # - Loop over lists, appending when necessary
+    for nPre, nPost in zip(vnPreECompressed, vnPostECompressed):
+        for _ in range(mnW[nPre, nPost]):
+            vnPreE.append(nPre)
+            vnPostE.append(nPost)
+
+    # - Loop over lists, appending when necessary
+    for nPre, nPost in zip(vnPreICompressed, vnPostICompressed):
+        for _ in range(mnW[nPre, nPost]):
+            vnPreI.append(nPre)
+            vnPostI.append(nPost)
+
+    # - Return augmented lists
+    return vnPreE, vnPostE, vnPreI, vnPostI
 
 
-def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[DynapseNeuron]):
+def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]):
     """
     TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
@@ -265,72 +368,3 @@ def neurons_to_channels(lNeurons: List[DynapseNeuron],
     # - Convert to numpy array
     return np.array(lChannelIndices)
 
-
-def compile_weights_and_configure(mfWIn: np.ndarray,
-                                  mfWRec: np.ndarray,
-                                  lInputNeurons: List[DynapseNeuron],
-                                  lLayerNeurons: List[DynapseNeuron],
-                                  ):
-    """
-
-    :param mfWIn:
-    :param mfWRec:
-    :param lInputNeurons:
-    :param lLayerNeurons:
-    :return:
-    """
-
-    # - Get a connector object
-    connector = NeuronNeuronConnector.DynapseConnector()
-
-    # - Connect the excitatory neurons
-    connector.add_connection_from_list(self._lHWNeurons[vnPreSynE],
-                                       self._lHWNeurons[vnPostSynE],
-                                       [SynapseTypes.SLOW_EXC]
-                                       )
-
-    # - Connect the inhibitory neurons
-    connector.add_connection_from_list(self._lHWNeurons[vnPreSynI],
-                                       self._lHWNeurons[vnPostSynI],
-                                       [SynapseTypes.XXX]
-                                       )
-
-
-def get_input_to_layer_connection_list(mfWIn: np.ndarray,
-                                       lInputNeurons: List[DynapseNeuron],
-                                       lLayerNeurons: List[DynapseNeuron],
-                                       ) -> List:
-    """
-    get_input_to_layer_connection_list - Convert an input weight matrix to a list of input to layer neuron connections
-
-    :param mfWIn:
-    :param lInputNeurons:
-    :param lLayerNeurons:
-    :return:
-    """
-    # - Pre-allocate inputs lists
-    lInputsToNeuron = [] * mfWIn.shape[1]
-
-
-
-def get_recurrent_connection_list(mfWRec: np.ndarray,
-                                  lLayerNeurons: List[DynapseNeuron],
-                                  ) -> List:
-    """
-    get_recurrent_connection_list - Convert a recurrent weight matrix to a list of neuron connections
-
-    :param mfWRec:
-    :param lLayerNeurons:
-    :return:
-    """
-    # - Pre-allocate inputs lists
-    lInputsToNeuron = [] * mfWRec.shape[1]
-
-    # - Loop over targets
-    for nInput, vfConns in enumerate(mfWRec):
-        # - Extract excitatory and inhibitory inputs
-        vnExcInputs = np.nonzero(vfConns > 0)
-        vnInhInputs = np.nonzero(vfConns < 0)
-
-        # - Loop over inputs and add to list
-        lInputsToNeuron[nInput].append()
