@@ -8,6 +8,7 @@ from ...timeseries import TSEvent
 import numpy as np
 from warnings import warn
 from typing import Tuple, List, Optional, Union
+import time
 
 # - Imports from ctxCTL
 import CtxDynapse
@@ -71,6 +72,7 @@ def init_fpgaSpikeGen(nMultiplier: int) -> Tuple[int, float]:
     DHW_dDynapse['fpgaSpikeGen'].set_repeat_mode(False)
     DHW_dDynapse['fpgaSpikeGen'].set_variable_isi_mode(True)
     DHW_dDynapse['fpgaSpikeGen'].set_isi_multiplier(nMultiplier)
+    DHW_dDynapse['fpgaSpikeGen'].set_base_addr(0)
 
     # - Record current multiplier and time base
     DHW_dDynapse['nISIMultiplier'] = nMultiplier
@@ -229,8 +231,6 @@ class RecDynapSE(Layer):
 
         # - Send event sequence to fpga module
         DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(spikeList)
-        DHW_dDynapse['fpgaSpikeGen'].set_repeat_mode(False)
-        DHW_dDynapse['fpgaSpikeGen'].set_base_addr(0)
 
         # - Define recording callback
         lEvents = []
@@ -240,16 +240,27 @@ class RecDynapSE(Layer):
 
         # - Configure recording callback
         oFilter = EventFilter(DHW_dDynapse['model'],
-                              callback_function = func_event_callback,
-                              id_list = [n.get_id() for n in self._lHWRecLayerNeurons],
+                              func_event_callback,
+                              [n.get_id() for n in self._lHWRecLayerNeurons],
                               )
+
+        # - Define special events callback
+        lTrigger = []
+        def special_event_callback(nTimestamp: int):
+            lTrigger.append(nTimestamp)
+
+        # - Configure special event callback
+        oFilter.set_special_event_callback(special_event_callback)
 
         # - Reset FPGA timestamp
         warn('FPGA timestamp not reset --- IMPLEMENT ME ---')
 
         # - Stimulate / record for desired duration
         DHW_dDynapse['fpgaSpikeGen'].start()
-        # - Wait for required time
+
+        # - Wait until stimulation is finished
+        time.sleep(tDuration + .1)
+
         # - Stop stimulation
         DHW_dDynapse['fpgaSpikeGen'].stop()
 
@@ -263,11 +274,11 @@ class RecDynapSE(Layer):
         vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1.e-6
 
         # - Locate synchronisation timestamp
-        warn('--- FPGA synchronisation event not yet implemented --- IMPLEMENT ME ---')
-        nSynchEvent = 0
+        tStartTime = lTrigger[0] * 1e-6
+        nSynchEvent = np.argwhere(vtTimeTrace >= tStartTime)[0]
         vnChannels = vnChannels[nSynchEvent:]
         vtTimeTrace = vtTimeTrace[nSynchEvent:]
-        vtTimeTrace -= vtTimeTrace[0]
+        vtTimeTrace -= tStartTime
 
         # - Convert recorded events into TSEvent object
         tsResponse = TSEvent(vtTimeTrace,
@@ -398,7 +409,7 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[Fpg
     lEvents = [FpgaSpikeEvent(vnCoreIDs[nChannel],
                               vnNeuronIDs[nChannel],
                               vnChipIDs[nChannel],
-                              tISI)
+                              (np.round(tISI / DHW_dDynapse['tISIBase'])).astype('int'))
                for tISI, nChannel in zip(vtISIs, vnChannels)]
 
     # - Return a list of events
