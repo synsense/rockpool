@@ -5,33 +5,6 @@ from copy import deepcopy
 from brian2.units.allunits import mvolt
 import random
 
-def combine_FF_Rec_stack(mfWFF: np.ndarray,
-                         mfWRec: np.ndarray,
-                         ) -> np.ndarray:
-    """
-    combine_FF_Rec_stack - Combine a FFwd and Recurrent weight matrix into a single recurrent weight matrix
-    :param mfWFF:   MxN np.ndarray
-    :param mfWRec:  NxN np.ndarray
-
-    :return: (M+N)x(M+N) np.ndarray combined weight matrix
-    """
-    assert mfWFF.shape[1] == mfWRec.shape[0], \
-        'FFwd and Rec weight matrices must have compatible shapes (MxN and NxN).'
-
-    assert mfWRec.shape[0] == mfWRec.shape[1], \
-        '`mfWRec` must be a square matrix.'
-
-    # - Determine matrix sizes
-    nFFSize = mfWFF.shape[0]
-    nRecSize = mfWRec.shape[0]
-    mfCombined = np.zeros((nFFSize + nRecSize, nRecSize * 2))
-
-    # - Combine matrices
-    mfCombined[-nRecSize:, -nRecSize:] = mfWRec
-    mfCombined[:nFFSize, nRecSize:] = mfWFF
-
-    return mfCombined
-
 
 def RndmSparseEINet(
     nResSize: int,
@@ -321,6 +294,35 @@ def DiscretiseWeightMatrix(
     return mfWD, mnNumConns
 
 
+def OneDimExcRes(
+    nSize,
+    nNeighbour,
+    bZeroDiagonal = True,
+):
+    mfWRes = np.zeros((nSize, nSize))
+    nBound = int(np.floor(nNeighbour/2))
+    for iPost in range(nSize):
+        mfWRes[
+            max(0, iPost-nBound) : min(iPost+nBound+1, nSize),
+            iPost
+        ] = 1
+        if bZeroDiagonal:
+            mfWRes[iPost, iPost] = 0
+
+    return mfWRes
+
+def AddRandomLongRange(
+    mfWRes,
+    nLongRange,
+):
+    for iPost in range(mfWRes.shape[0]):
+        viFarNeurons = np.where(mfWRes[:, iPost] == 0)[0]
+        # - Make sure diagonal elements are excluded
+        viFarNeurons = viFarNeurons[viFarNeurons != iPost]
+        viLongRangeConnect = np.random.choice(viFarNeurons, size=nLongRange, replace=False)
+        mfWRes[viLongRangeConnect, iPost] = 1
+    return mfWRes
+
 def DynapseConform(
     tupShape,
     fConnectivity=None,
@@ -552,6 +554,130 @@ def In_Res_Dynapse(
         vfWIn[iNeuron] = fWeight
 
     return vfWIn.reshape(-1, 1), mfWRes, mnCount, dmnCount
+
+
+
+def In_Res_Dynapse_Flex(
+    nSize: int,
+    nSizeIn: None,
+    nMaxInputConn: int=1,
+    fInputDensity=1,
+    fConnectivity=None,
+    fRatioExcRes=0.5,
+    fRatioExcIn=0.5,
+    nLimitInputs=64,
+    nLimitOutputs=1024,
+    tupfWExc=(1, 1),
+    tupfWInh=(1, 1),
+    tupfProbWExcRes=(0.5, 0.5),
+    tupfProbWInhRes=(0.5, 0.5),
+    tupfProbWExcIn=(0.5, 0.5),
+    tupfProbWInhIn=(0.5, 0.5),
+    fNormalize=None,
+    bVerbose=False,
+    bLeaveSpaceForInput=True,
+):
+    """
+    In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+
+    :param nSize:           int Reservoir size
+    :param nSizeIn:         int Number of neurons in input layer
+    :param nMaxInputConn:   int Number of presynaptic connections that are used for input connections per neuron
+    :param fInputDensity:   float Ratio of non-zero vs. zero input connections
+    :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
+    :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
+    :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
+    
+    :param nLimitInputs:    int   Maximum fan-in per neuron
+    :param nLimitOutputs:   int   Maximum fan-out per neuron
+    
+    :param tupfWEcx:        tuple Possible strengths for excitatory synapses
+    :param tupfWInh:        tuple Possible strengths for inhibitory synapses
+    :param tupfProbWEcxRes: tuple Probabilities for excitatory recurrent synapse strengths
+    :param tupfProbWInhRes: tuple Probabilities for inhibitory recurrent synapse strengths
+    :param tupfProbWEcxIn:  tuple Probabilities for excitatory input synapse strengths
+    :param tupfProbWInhIn:  tuple Probabilities for inhibitory input synapse strengths
+    
+    :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
+
+    :param bVerbose:        bool Currently unused
+
+    :param bLeaveSpaceForInput: bool Limit number of input connections to ensure fan-in
+                                     to include all all input weights
+
+    :return vfWIn:          2D-np.ndarray (Nx1) Generated input weights
+    :return mfW:            2D-np.ndarray (NxN) Generated weight matrix
+    :return mnCount:        2D-np.ndarray (NxN) Number of assigned weights per connection
+    :return dmnCount:       dict Number of assigned weights, separated by weights
+                                 Useful for re-construction of the matrix    
+    """
+
+    # - Set input size
+    nSizeIn = nSize if nSizeIn is None else nSizeIn
+    
+    # - Matrix with weights. First row corresponds to input weights, others to reservoir matrix
+    mfWRes, mnCount, dmnCount = DynapseConform(
+        tupShape=(nSize, nSize),
+        fConnectivity=fConnectivity,
+        fRatioExc=fRatioExcRes,
+        nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput)*nMaxInputConn,
+        nLimitOutputs=nLimitOutputs,
+        tupfWExc=tupfWExc,
+        tupfWInh=tupfWInh,
+        tupfProbWExc=tupfProbWExcRes,
+        tupfProbWInh=tupfProbWInhRes,
+        fNormalize=fNormalize,
+    )
+
+    # - For each reservoir neuron, check whether it still has space for an input
+    vnFree = (nLimitInputs - np.sum(mnCount, axis=0))
+    # - Total number of input weights to be assigned
+    nNumInputs = (
+        min(np.sum(vnFree), int(fInputDensity * nSize * nMaxInputConn))
+        if fInputDensity is not None
+        else np.sum(vnFree)
+    )
+
+    if nNumInputs == 0:
+        print(
+            "WARNING: Could not assign any input weights, "
+            + "try setting bLeaveSpaceForInput=True or reducing fConnectivity"
+        )
+        return np.zeros((nSize, 1)), mfWRes, mnCount, dmnCount
+
+    # - Number excitatory and inhibitory input weights
+    nNumExcIn = int(nNumInputs * fRatioExcIn)
+    nNumInhIn = nNumInputs - nNumExcIn
+
+    # - Array holding non-zero weights
+    vfWeights = np.zeros(nNumInputs)
+    
+    # - Extract normalized weight values from dmnCount
+    lfValues = sorted(dmnCount.keys())
+    tupfWInExc = tuple(lfValues[-2:])
+    tupfWInInh = tuple(lfValues[:2])
+    
+    # - Generate excitatory weights
+    vfWeights[:nNumExcIn] = np.random.choice(
+        tupfWInExc, size=nNumExcIn, p=tupfProbWExcIn, replace=True
+    )
+    # - Generate inhibitory weights
+    vfWeights[nNumExcIn:] = np.random.choice(
+        tupfWInInh, size=nNumInhIn, p=tupfProbWInhIn, replace=True
+    )
+    
+    # - Ids of neurons to which weights can be assigned, repeated according to number of free connections
+    viAvailableNeurons = np.repeat(np.arange(nSize), vnFree)
+    # - Ids of neurons to which weights will be assigned, repeated according to number assignments
+    viAssignNeurons = np.random.choice(viAvailableNeurons, size=nNumInputs, replace=False)
+    # - Ids of input neurons to be connected to reservoir neurons
+    viInputNeurons = np.random.choice(np.arange(nSizeIn), size=nNumInputs, replace=True)
+    # - Input weight matrix
+    mfWIn = np.zeros((nSizeIn, nSize))
+    mfWIn[viInputNeurons, viAssignNeurons] = vfWeights
+
+    return mfWIn, mfWRes, mnCount, dmnCount
+
 
 def digital(
     tupShape,
