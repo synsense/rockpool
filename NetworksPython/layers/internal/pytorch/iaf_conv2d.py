@@ -29,7 +29,10 @@ class TorchSpikingConv2dLayer(nn.Module):
         SUBTRACT superseeds Reset value
         """
         super(TorchSpikingConv2dLayer, self).__init__()  # Init nn.Module
-        self.pad = nn.ZeroPad2d(padding)
+        if padding != (0, 0, 0, 0):
+            self.pad = nn.ZeroPad2d(padding)
+        else:
+            self.pad = None
         self.conv = nn.Conv2d(
             nInChannels,
             nOutChannels,
@@ -72,7 +75,7 @@ class TorchSpikingConv2dLayer(nn.Module):
             # Relu on the layer
             self.threshLower = nn.Threshold(fVNewThreshLow, fVNewThreshLow)
 
-    def reset_states(self):
+    def resetStates(self):
         """
         Reset the state of all neurons in this layer
         """
@@ -86,7 +89,10 @@ class TorchSpikingConv2dLayer(nn.Module):
         nNumTimeSteps = len(tsrBinaryInput)
 
         # Convolve all inputs at once
-        tsrConvOut = self.conv(self.pad(tsrBinaryInput))
+        if self.pad is None:
+            tsrConvOut = self.conv(tsrBinaryInput)
+        else:
+            tsrConvOut = self.conv(self.pad(tsrBinaryInput))
 
         ## - Count number of spikes for each neuron in each time step
         # vnNumSpikes = np.zeros(tsrConvOut.shape[1:], int)
@@ -121,9 +127,9 @@ class TorchSpikingConv2dLayer(nn.Module):
             # - Reset or subtract from membrane state after spikes
             if fVSubtract is not None:
                 # Calculate number of spikes to be generated
-                tsrNumSpikes[iCurrentTimeStep] = (tsrState > 0).int() * (
-                    tsrState / fVSubtract
-                ).int()
+                tsrNumSpikes[iCurrentTimeStep] = (tsrState >= fVThresh).int() + (
+                    tsrState - fVThresh > 0
+                ).int() * (tsrState / fVSubtract).int()
                 ## - Subtract from states
                 tsrState = tsrState - (
                     fVSubtract * tsrNumSpikes[iCurrentTimeStep].float()

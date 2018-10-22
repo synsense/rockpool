@@ -124,7 +124,7 @@ def test_toch_activity_comparison_to_skimage_default_params():
 
     # Check that the outputs are identical
     assert evOut.nNumChannels == evOutTorch.nNumChannels
-    assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
+    assert (np.equal(evOut.vtTimeTrace, evOutTorch.vtTimeTrace)).all()
 
 
 def test_toch_activity_comparison_to_skimage():
