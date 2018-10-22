@@ -14,7 +14,7 @@ import time
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import Dynapse, DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter, FpgaSpikeEvent
+from CtxDynapse import dynapse, DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter, FpgaSpikeEvent
 
 # - Declare a Neuron type
 Neuron = Union[DynapseNeuron, VirtualNeuron]
@@ -46,17 +46,17 @@ def init_dynapse() -> dict:
         dDynapse['fpgaSpikeGen'] = lFPGAModules[np.argwhere(vbIsSpikeGenModule)[0][0]]
 
     # - Get all neurons
-    dDynapse['lHWNeurons'] = dDynapse['model'].get_neurons()
-    dDynapse['lVirtualNeurons'] = dDynapse['virtualModel'].get_neurons()
+    dDynapse['vHWNeurons'] = np.asarray(dDynapse['model'].get_neurons())
+    dDynapse['vVirtualNeurons'] = np.asarray(dDynapse['virtualModel'].get_neurons())
 
     # - Initialise neuron allocation
-    dDynapse['vbFreeInputNeurons'] = np.array(True * len(dDynapse['lVirtualNeurons']))
-    dDynapse['vbFreeHWNeurons'] = np.array(True * len(dDynapse['lHWNeurons']))
+    dDynapse['vbFreeInputNeurons'] = np.array([True for i in range(np.size(dDynapse['vVirtualNeurons']))])
+    dDynapse['vbFreeHWNeurons'] = np.array([True for i in range(np.size(dDynapse['vHWNeurons']))])
 
     # - Wipe configuration
     for nChip in range(4):
-        Dynapse.clear_cam(nChip)
-        Dynapse.clear_sram(nChip)
+        dynapse.clear_cam(int(nChip))
+        dynapse.clear_sram(int(nChip))
     # warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
 
     # - Return dictionary
@@ -70,7 +70,7 @@ def init_fpgaSpikeGen(nMultiplier: int) -> Tuple[int, float]:
     :return:            nMultipler, tISIBase
     """
     DHW_dDynapse['fpgaSpikeGen'].set_repeat_mode(False)
-    DHW_dDynapse['fpgaSpikeGen'].set_variable_isi_mode(True)
+    DHW_dDynapse['fpgaSpikeGen'].set_variable_isi(True)
     DHW_dDynapse['fpgaSpikeGen'].set_isi_multiplier(nMultiplier)
     DHW_dDynapse['fpgaSpikeGen'].set_base_addr(0)
 
@@ -100,20 +100,20 @@ def allocate_layer_neurons(nNumNeurons: int) -> DynapseNeuron:
     :return:            list    A list of neurons that may be used
     """
     # - Are there sufficient unallocated neurons?
-    if np.sum(DHW_dDynapse['vbFreeLayerNeurons']) < nNumNeurons:
+    if np.sum(DHW_dDynapse['vbFreeHWNeurons']) < nNumNeurons:
         raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
 
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeLayerNeurons'])[:nNumNeurons]
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeHWNeurons'])[0][:nNumNeurons]
 
     # - Mark these neurons as allocated
     DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
-    vnInputNeuronOverlap = vnNeuronsToAllocate[vnNeuronsToAllocate < len(DHW_dDynapse['vbFreeInputNeurons'])]
+    vnInputNeuronOverlap = vnNeuronsToAllocate[vnNeuronsToAllocate < np.size(DHW_dDynapse['vbFreeInputNeurons'])]
     DHW_dDynapse['vbFreeInputNeurons'][vnInputNeuronOverlap] = False
 
     # - Return these allocated neurons
-    return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
+    return DHW_dDynapse['vHWNeurons'][vnNeuronsToAllocate]
 
 
 def allocate_input_neurons(nNumNeurons: int) -> DynapseNeuron:
@@ -124,18 +124,20 @@ def allocate_input_neurons(nNumNeurons: int) -> DynapseNeuron:
     :return:            list    A list of neurons that may be used
     """
     # - Are there sufficient unallocated neurons?
+    # for k, v in DHW_dDynapse.items():
+    #     print("{}: {}".format(k, v))
     if np.sum(DHW_dDynapse['vbFreeInputNeurons']) < nNumNeurons:
         raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
 
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeInputNeurons'])[:nNumNeurons]
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeInputNeurons'])[0][:nNumNeurons]
 
     # - Mark these as allocated
     DHW_dDynapse['vbFreeInputNeurons'][vnNeuronsToAllocate] = False
     DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
     # - Return these neurons
-    return DHW_dDynapse['lAllNeurons'][vnNeuronsToAllocate]
+    return DHW_dDynapse['vVirtualNeurons'][vnNeuronsToAllocate]
 
 
 # -- Define the HW layer class for recurrent networks
@@ -224,7 +226,7 @@ class RecDynapSE(Layer):
                 tDuration = nNumTimeSteps * self.tDt
 
         # - Clip tsInput to required duration
-        tsInput = tsInput.clip([0, tDuration])#, bInPlace = True)
+        tsInput = tsInput.clip([self.t, self.t + tDuration])#, bInPlace = True)
 
         # - Convert input events to fpga spike list representation
         spikeList = TSEvent_to_spike_list(tsInput, self._lHWInputNeurons)
@@ -253,7 +255,7 @@ class RecDynapSE(Layer):
         oFilter.set_special_event_callback(special_event_callback)
 
         # - Reset FPGA timestamp
-        warn('FPGA timestamp not reset --- IMPLEMENT ME ---')
+        dynapse.reset_timestamp()
 
         # - Stimulate / record for desired duration
         DHW_dDynapse['fpgaSpikeGen'].start()
@@ -268,10 +270,10 @@ class RecDynapSE(Layer):
         lEvents = [event for lTheseEvents in lEvents for event in lTheseEvents]
 
         # - Extract monitored event channels and timestamps
-        vnChannels = neurons_to_channels([e.neuron for e in lEvents],
-                                         self._lHWRecLayerNeurons,
-                                         )
-        vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1.e-6
+        vnChannels = neurons_to_channels(
+            [e.neuron for e in lEvents], self._lHWRecLayerNeurons
+        )
+        vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1e-6
 
         # - Locate synchronisation timestamp
         tStartTime = lTrigger[0] * 1e-6
@@ -394,7 +396,8 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[Fpg
     vtTimes, vnChannels, _ = tsSeries.find()
 
     # - Convert to ISIs
-    vtISIs = np.concatenate([0], np.diff(vtTimes))
+    vtISIs = np.diff(np.r_[self.t, vtTimes])
+    vnDiscreteISIs = (np.round(vtISIs / DHW_dDynapse['tISIBase'])).astype('int')
 
     # - Get neuron information
     vnCoreIDs = []
@@ -406,11 +409,18 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[Fpg
         vnChipIDs.append(n.get_chip_id())
 
     # - Convert each event to an FpgaSpikeEvent
-    lEvents = [FpgaSpikeEvent(vnCoreIDs[nChannel],
-                              vnNeuronIDs[nChannel],
-                              vnChipIDs[nChannel],
-                              (np.round(tISI / DHW_dDynapse['tISIBase'])).astype('int'))
-               for tISI, nChannel in zip(vtISIs, vnChannels)]
+    def generate_fpga_event(target_chip, core_mask, neuron_id, isi) -> FpgaSpikeEvent:
+        event = FpgaSpikeEvent()
+        event.target_chip = target_chip
+        event.core_mask = core_mask
+        event.neuron_id = neuron_id
+        event.isi = isi
+        return event
+
+    lEvents = [
+        generate_fpga_event(vnCoreIDs[nChannel], vnChipIDs[nChannel], vnNeuronIDs[nChannel], nISI)
+        for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
+    ]
 
     # - Return a list of events
     return lEvents
@@ -440,4 +450,3 @@ def neurons_to_channels(lNeurons: List[DynapseNeuron],
 
     # - Convert to numpy array
     return np.array(lChannelIndices)
-
