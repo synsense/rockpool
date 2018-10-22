@@ -227,6 +227,7 @@ class RecDynapSE(Layer):
 
         # - Clip tsInput to required duration
         tsInput = tsInput.clip([self.t, self.t + tDuration])#, bInPlace = True)
+        tsInput.tStart = self.t
 
         # - Convert input events to fpga spike list representation
         spikeList = TSEvent_to_spike_list(tsInput, self._lHWInputNeurons)
@@ -396,7 +397,7 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[Fpg
     vtTimes, vnChannels, _ = tsSeries.find()
 
     # - Convert to ISIs
-    vtISIs = np.diff(np.r_[self.t, vtTimes])
+    vtISIs = np.diff(np.r_[tsEvent.tStart, vtTimes])
     vnDiscreteISIs = (np.round(vtISIs / DHW_dDynapse['tISIBase'])).astype('int')
 
     # - Get neuron information
