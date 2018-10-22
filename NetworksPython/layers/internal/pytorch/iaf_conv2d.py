@@ -126,7 +126,6 @@ class TorchSpikingConv2dLayer(nn.Module):
 
             # - Reset or subtract from membrane state after spikes
             if fVSubtract is not None:
-                print(iCurrentTimeStep, fVSubtract, tsrNumSpikes.sum(), tsrState.max())
                 # Calculate number of spikes to be generated
                 tsrNumSpikes[iCurrentTimeStep] = (tsrState >= fVThresh).int() + (
                     tsrState - fVThresh > 0
