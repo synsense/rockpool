@@ -5,6 +5,33 @@ from copy import deepcopy
 from brian2.units.allunits import mvolt
 import random
 
+def combine_FF_Rec_stack(mfWFF: np.ndarray,
+                         mfWRec: np.ndarray,
+                         ) -> np.ndarray:
+    """
+    combine_FF_Rec_stack - Combine a FFwd and Recurrent weight matrix into a single recurrent weight matrix
+    :param mfWFF:   MxN np.ndarray
+    :param mfWRec:  NxN np.ndarray
+
+    :return: (M+N)x(M+N) np.ndarray combined weight matrix
+    """
+    assert mfWFF.shape[1] == mfWRec.shape[0], \
+        'FFwd and Rec weight matrices must have compatible shapes (MxN and NxN).'
+
+    assert mfWRec.shape[0] == mfWRec.shape[1], \
+        '`mfWRec` must be a square matrix.'
+
+    # - Determine matrix sizes
+    nFFSize = mfWFF.shape[0]
+    nRecSize = mfWRec.shape[0]
+    mfCombined = np.zeros((nFFSize + nRecSize, nRecSize * 2))
+
+    # - Combine matrices
+    mfCombined[-nRecSize:, -nRecSize:] = mfWRec
+    mfCombined[:nFFSize, nRecSize:] = mfWFF
+
+    return mfCombined
+
 
 def RndmSparseEINet(
     nResSize: int,
