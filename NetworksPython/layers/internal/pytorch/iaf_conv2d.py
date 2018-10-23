@@ -161,7 +161,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 "Padding": str(self.padding),
                 "Kernel": str(self.kernel_size),
                 "Stride": str(self.strides),
-                "Neurons": reduce(mul, list(self.outShape), 1),
+                "Neurons": reduce(mul, list(self.outShape[-3:]), 1),
                 "KernelMem": self.nInChannels
                 * self.nOutChannels
                 * reduce(mul, self.kernel_size, 1),

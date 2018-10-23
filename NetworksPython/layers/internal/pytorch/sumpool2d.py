@@ -28,12 +28,18 @@ class TorchSumPooling2dLayer(nn.Module):
         if strides is None:
             strides = kernel_size
         self.strides = strides
-        self.pad = nn.ZeroPad2d(padding)
+        if padding == (0, 0, 0, 0):
+            self.pad = None
+        else:
+            self.pad = nn.ZeroPad2d(padding)
         self.pool = nn.LPPool2d(1, kernel_size=kernel_size, stride=strides)
 
     def forward(self, tsrBinaryInput):
         _, self.nInChannels, h, w = list(tsrBinaryInput.shape)
-        tsrPoolOut = self.pool(self.pad(tsrBinaryInput))
+        if self.pad is None:
+            tsrPoolOut = self.pool(tsrBinaryInput)
+        else:
+            tsrPoolOut = self.pool(self.pad(tsrBinaryInput))
         self.outShape = tsrPoolOut.shape[1:]
         self.tsrNumSpikes = tsrPoolOut
         return tsrPoolOut
