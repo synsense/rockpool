@@ -9,18 +9,21 @@ import numpy as np
 from warnings import warn
 from typing import Tuple, List, Optional, Union
 import time
+import threading
 
 # - Imports from ctxCTL
 import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import dynapse, DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter, FpgaSpikeEvent
+from CtxDynapse import dynapse, DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, EventFilter, FpgaSpikeEvent, PyTimer
 
 # - Declare a Neuron type
 Neuron = Union[DynapseNeuron, VirtualNeuron]
 
 # - Default ISI multiplier
-DEF_FPGA_ISI_MULTIPLIER = 10
+tIsiTimeStep = 2e-5
+tFpgaTimeStep = 1./9.*1e-7  # 11.111...ns 
+DEF_FPGA_ISI_MULTIPLIER = int(np.round(tIsiTimeStep / tFpgaTimeStep))
 
 def init_dynapse() -> dict:
     """
@@ -44,23 +47,44 @@ def init_dynapse() -> dict:
     else:
         # - Get first spike generator module
         dDynapse['fpgaSpikeGen'] = lFPGAModules[np.argwhere(vbIsSpikeGenModule)[0][0]]
+        print("DynapSE: Spike generator module ready.")
 
     # - Get all neurons
     dDynapse['vHWNeurons'] = np.asarray(dDynapse['model'].get_neurons())
     dDynapse['vVirtualNeurons'] = np.asarray(dDynapse['virtualModel'].get_neurons())
 
     # - Initialise neuron allocation
-    dDynapse['vbFreeInputNeurons'] = np.array([True for i in range(np.size(dDynapse['vVirtualNeurons']))])
+    dDynapse['vbFreeVirtualNeurons'] = np.array([True for i in range(np.size(dDynapse['vVirtualNeurons']))])
     dDynapse['vbFreeHWNeurons'] = np.array([True for i in range(np.size(dDynapse['vHWNeurons']))])
+    print("DynapSE: Neurons initialized.")
 
     # - Wipe configuration
-    for nChip in range(4):
+    for nChip in range(1): #range(4):
         dynapse.clear_cam(int(nChip))
+        print("DynapSE: Chip {}: CAM cleared.".format(nChip))
         dynapse.clear_sram(int(nChip))
-    # warn('DynapSE configuration is not wiped -- IMPLEMENT ME --')
+        print("DynapSE: SRAMs cleared.")
+    # - Reset neuron weights in model
+    for neuron in dDynapse["vHWNeurons"]:
+        viSrams = neuron.get_srams()
+        for iSramIndex in range(1, 4):
+            viSrams[iSramIndex].set_target_chip_id(0)
+            viSrams[iSramIndex].set_virtual_core_id(0)
+            viSrams[iSramIndex].set_used(False)
+            viSrams[iSramIndex].set_core_mask(0)
+        viCams = neuron.get_cams()
+        for cam in viCams:
+            cam.set_pre_neuron_id(0)
+            cam.set_pre_neuron_core_id(0)
+    print("Model neuron weights have been reset")
+
+    # - Lists for recording events
+    dDynapse["lEvents"] = []
+    dDynapse["lTrigger"] = []       
 
     # - Return dictionary
     return dDynapse
+
 
 def init_fpgaSpikeGen(nMultiplier: int) -> Tuple[int, float]:
     """
@@ -82,6 +106,7 @@ def init_fpgaSpikeGen(nMultiplier: int) -> Tuple[int, float]:
     return DHW_dDynapse['nISIMultiplier'], DHW_dDynapse['tISIBase']
 
 
+
 # -- Create global dictionary, only initialise on first import of this module
 global DHW_dDynapse
 if 'DHW_dDynapse' not in dir():
@@ -90,11 +115,11 @@ if 'DHW_dDynapse' not in dir():
 
     # - Set ISI multiplier
     init_fpgaSpikeGen(DEF_FPGA_ISI_MULTIPLIER)
+    print("DynapSE prepared.")
 
-
-def allocate_layer_neurons(nNumNeurons: int) -> DynapseNeuron:
+def allocate_hw_neurons(nNumNeurons: int) -> np.ndarray:
     """
-    allocate_layer_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
+    allocate_hw_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
     :param nNumNeurons: int     The number of neurons requested
     :return:            list    A list of neurons that may be used
@@ -109,16 +134,16 @@ def allocate_layer_neurons(nNumNeurons: int) -> DynapseNeuron:
     # - Mark these neurons as allocated
     DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
-    vnInputNeuronOverlap = vnNeuronsToAllocate[vnNeuronsToAllocate < np.size(DHW_dDynapse['vbFreeInputNeurons'])]
-    DHW_dDynapse['vbFreeInputNeurons'][vnInputNeuronOverlap] = False
+    vnInputNeuronOverlap = vnNeuronsToAllocate[vnNeuronsToAllocate < np.size(DHW_dDynapse['vbFreeVirtualNeurons'])]
+    DHW_dDynapse['vbFreeVirtualNeurons'][vnInputNeuronOverlap] = False
 
     # - Return these allocated neurons
     return DHW_dDynapse['vHWNeurons'][vnNeuronsToAllocate]
 
 
-def allocate_input_neurons(nNumNeurons: int) -> DynapseNeuron:
+def allocate_virtual_neurons(nNumNeurons: int) -> np.ndarray:
     """
-    allocate_input_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
+    allocate_virtual_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
     :param nNumNeurons: int     The number of neurons requested
     :return:            list    A list of neurons that may be used
@@ -126,14 +151,14 @@ def allocate_input_neurons(nNumNeurons: int) -> DynapseNeuron:
     # - Are there sufficient unallocated neurons?
     # for k, v in DHW_dDynapse.items():
     #     print("{}: {}".format(k, v))
-    if np.sum(DHW_dDynapse['vbFreeInputNeurons']) < nNumNeurons:
+    if np.sum(DHW_dDynapse['vbFreeVirtualNeurons']) < nNumNeurons:
         raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
 
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeInputNeurons'])[0][:nNumNeurons]
+    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeVirtualNeurons'])[0][:nNumNeurons]
 
     # - Mark these as allocated
-    DHW_dDynapse['vbFreeInputNeurons'][vnNeuronsToAllocate] = False
+    DHW_dDynapse['vbFreeVirtualNeurons'][vnNeuronsToAllocate] = False
     DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
     # - Return these neurons
@@ -178,6 +203,7 @@ class RecDynapSE(Layer):
 
         # - Initialise superclass
         super().__init__(mfW = np.asarray(np.round(mfWIn), 'int'), tDt = tDt, fNoiseStd = fNoiseStd, strName = strName)
+        print("Superclass initialized")
 
         # - Configure input and input-to-recurrent connections
         if mfWIn is None:
@@ -188,14 +214,22 @@ class RecDynapSE(Layer):
             '`mnWIn` and `mnWRec` must have compatible shapes: `mnWIn` is MxN, `mnWRec` is NxN.'
 
         # - Map neuron indices to neurons
-        self._lHWInputNeurons = allocate_input_neurons(self.nSizeIn)
-        self._lHWRecLayerNeurons = allocate_layer_neurons(self.nSize)
-
-        # - Store input weights
+        self._vVirtualNeurons = allocate_virtual_neurons(self.nSizeIn)
+        print("Input neurons allocated")
+        self._vHWNeurons = allocate_hw_neurons(self.nSize)
+        print("Recurrent neurons allocated")
+        # - Store recurrent weights
         self._mfWRec = np.asarray(np.round(mfWRec), 'int')
 
         # - Configure connectivity
         self._compile_weights_and_configure()
+
+        # - Lists for recording events
+        self.lEvents = []
+        self.lTrigger = []
+        self._bStimulusStarted = False
+
+        print("Layer `{}` prepared.".format(self.strName))
 
     def evolve(self,
                tsInput: Optional[TSEvent] = None,
@@ -219,69 +253,88 @@ class RecDynapSE(Layer):
                     '`tsInput` must be provided, if no evolution duration is specified.'
 
                 # - Use the duration of the input time series
-                tDuration = tsInput.tDuration
+                self._tDuration = tsInput.tDuration
 
             else:
                 # - Compute the evolution duration using the number of supplied time steps
-                tDuration = nNumTimeSteps * self.tDt
+                self._tDuration = nNumTimeSteps * self.tDt
 
         # - Clip tsInput to required duration
-        tsInput = tsInput.clip([self.t, self.t + tDuration])#, bInPlace = True)
-        tsInput.tStart = self.t
+        tsInput = tsInput.clip([self.t, self.t + self._tDuration])#, bInPlace = True)
+        tsInput.tStartTime = self.t
 
         # - Convert input events to fpga spike list representation
-        spikeList = TSEvent_to_spike_list(tsInput, self._lHWInputNeurons)
+        spikeList = TSEvent_to_spike_list(tsInput, self._vVirtualNeurons)
+        print("Layer `{}`: Prepared FGPA event list.".format(self.strName))
 
         # - Send event sequence to fpga module
         DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(spikeList)
+        print("Layer `{}`: Stimulus preloaded.".format(self.strName))
 
-        # - Define recording callback
-        lEvents = []
-        def func_event_callback(lTheseEvents):
-            # - Append these events to list
-            lEvents.append(lTheseEvents)
-
-        # - Configure recording callback
-        oFilter = EventFilter(DHW_dDynapse['model'],
-                              func_event_callback,
-                              [n.get_id() for n in self._lHWRecLayerNeurons],
-                              )
-
-        # - Define special events callback
-        lTrigger = []
-        def special_event_callback(nTimestamp: int):
-            lTrigger.append(nTimestamp)
-
-        # - Configure special event callback
-        oFilter.set_special_event_callback(special_event_callback)
-
-        # - Reset FPGA timestamp
-        dynapse.reset_timestamp()
+        # -- Set up event recording callbacks
+        self.oFilter = EventFilter(
+            DHW_dDynapse['model'],
+            self._event_callback,
+            [n.get_id() for n in self._vHWNeurons],
+        )
+        # - Configure event and special event callbacks
+        self.oFilter.set_special_event_callback(self._special_event_callback)
+        print("Layer `{}`: Event filters ready.".format(self.strName))
 
         # - Stimulate / record for desired duration
+        print("Layer `{}`: Starting stimulation. Wait for trigger event.".format(self.strName))
         DHW_dDynapse['fpgaSpikeGen'].start()
 
-        # - Wait until stimulation is finished
-        time.sleep(tDuration + .1)
+        print("Layer `{}`: Waiting for stimulation to end.".format(self.strName))
 
-        # - Stop stimulation
+    def _event_callback(self, lTheseEvents):
+        print("Layer `{}`: Received {} events".format(self.strName, len(lTheseEvents)))
+        if self._bStimulusStarted:
+            if time.time() > self._tEndStimulus:
+                # - Stop recording and stimulation
+                self.oFilter.clear()
+                DHW_dDynapse['fpgaSpikeGen'].stop()
+                print("Layer `{}`: Stimulation ended.".format(self.strName))
+                self._process_recorded_events()
+            else:
+                self.lEvents.append(lTheseEvents)
+        self.lEvents.append(lTheseEvents)
+
+    def _special_event_callback(self, nTimestamp: int):
+        print("Layer `{}`: Received special event with timestamp {}".format(self.strName, nTimestamp))
+        self.lTrigger.append(nTimestamp)
+        # self._bStimulusStarted = True
+        # self._tEndStimulus = time.time() + self._tDuration + 0.1
+        self.timer = PyTimer(self._stop_stimulation)
+        self.timer.set_single_shot(True)
+        self.timer.start(int(self._tDuration * 1000 + 500))
+
+    def _stop_stimulation(self):
+        # - Stop recording and stimulation
+        self.oFilter.clear()
         DHW_dDynapse['fpgaSpikeGen'].stop()
+        print("Layer `{}`: Stimulation ended.".format(self.strName))
+        self._process_recorded_events()        
 
+    def _process_recorded_events(self):
+        # - Stop stimulation
+        print(len(self.lEvents))
         # - Flatten list of events
-        lEvents = [event for lTheseEvents in lEvents for event in lTheseEvents]
+        lEvents = [event for lTheseEvents in self.lEvents for event in lTheseEvents]
 
         # - Extract monitored event channels and timestamps
         vnChannels = neurons_to_channels(
-            [e.neuron for e in lEvents], self._lHWRecLayerNeurons
+            [e.neuron for e in lEvents], list(self._vHWNeurons)
         )
-        vtTimeTrace = np.ndarray([e.timestamp for e in lEvents]) * 1e-6
+        vtTimeTrace = np.array([e.timestamp for e in lEvents]) * 1e-6
 
         # - Locate synchronisation timestamp
-        tStartTime = lTrigger[0] * 1e-6
-        nSynchEvent = np.argwhere(vtTimeTrace >= tStartTime)[0]
+        tStartTime = self.lTrigger[0] * 1e-6
+        nSynchEvent = np.argwhere(vtTimeTrace >= tStartTime)[0,0]
         vnChannels = vnChannels[nSynchEvent:]
         vtTimeTrace = vtTimeTrace[nSynchEvent:]
         vtTimeTrace -= tStartTime
+        print("Layer `{}`: Extracted event data".format(self.strName))
 
         # - Convert recorded events into TSEvent object
         tsResponse = TSEvent(vtTimeTrace,
@@ -290,16 +343,15 @@ class RecDynapSE(Layer):
                              )
 
         # - Trim recorded events if necessary
-        tsResponse = tsResponse.clip([0, tDuration])
+        tsResponse = tsResponse.clip([0, self._tDuration])
 
         # - Shift monitored events to current layer start time
-        tsResponse = tsResponse.delay(self.t)#, bInPlace = True)
+        self.tsResponse = tsResponse.delay(self.t)#, bInPlace = True)
 
         # - Set layer time
-        self.t += tDuration
+        self.t += self._tDuration
 
-        # - Return recorded events
-        return tsResponse
+
 
     def _compile_weights_and_configure(self):
         """
@@ -316,32 +368,33 @@ class RecDynapSE(Layer):
         # - Connect input to layer
 
         # - Connect the excitatory neurons
-        connector.add_connection_from_list(self._lHWInputNeurons[vnPreSynE],
-                                           self._lHWRecLayerNeurons[vnPostSynE],
+        connector.add_connection_from_list(self._vVirtualNeurons[vnPreSynE],
+                                           self._vHWNeurons[vnPostSynE],
                                            [SynapseTypes.SLOW_EXC]
                                            )
-
+        print("Excitatory input neurons connected")
         # - Connect the inhibitory neurons
-        connector.add_connection_from_list(self._lHWInputNeurons[vnPreSynI],
-                                           self._lHWRecLayerNeurons[vnPostSynI],
+        connector.add_connection_from_list(self._vVirtualNeurons[vnPreSynI],
+                                           self._vHWNeurons[vnPostSynI],
                                            [SynapseTypes.SLOW_INH]
                                            )
-
+        print("Inhibitory input neurons connected")
         # - Get layer recurrent connections
         vnPreSynE, vnPostSynE,\
             vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self._mfWRec)
 
         # - Connect the excitatory neurons
-        connector.add_connection_from_list(self._lHWRecLayerNeurons[vnPreSynE],
-                                           self._lHWRecLayerNeurons[vnPostSynE],
+        connector.add_connection_from_list(self._vHWNeurons[vnPreSynE],
+                                           self._vHWNeurons[vnPostSynE],
                                            [SynapseTypes.SLOW_EXC]
                                            )
-
+        print("Excitatory reservoir neurons connected")
         # - Connect the inhibitory neurons
-        connector.add_connection_from_list(self._lHWRecLayerNeurons[vnPreSynI],
-                                           self._lHWRecLayerNeurons[vnPostSynI],
+        connector.add_connection_from_list(self._vHWNeurons[vnPreSynI],
+                                           self._vHWNeurons[vnPostSynI],
                                            [SynapseTypes.SLOW_INH]
                                            )
+        print("Inhibitory reservoir neurons connected")
 
 def connectivity_matrix_to_prepost_lists(mnW: np.ndarray) -> Tuple[List[int], List[int], List[int], List[int]]:
     """
@@ -397,7 +450,7 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[Fpg
     vtTimes, vnChannels, _ = tsSeries.find()
 
     # - Convert to ISIs
-    vtISIs = np.diff(np.r_[tsEvent.tStart, vtTimes])
+    vtISIs = np.diff(np.r_[tsSeries.tStartTime, vtTimes])
     vnDiscreteISIs = (np.round(vtISIs / DHW_dDynapse['tISIBase'])).astype('int')
 
     # - Get neuron information
