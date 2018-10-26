@@ -16,6 +16,7 @@ import CtxDynapse
 import NeuronNeuronConnector
 from CtxDynapse import DynapseCamType as SynapseTypes
 from CtxDynapse import dynapse, DynapseFpgaSpikeGen, DynapseNeuron, VirtualNeuron, BufferedEventFilter, FpgaSpikeEvent, PyTimer
+print("CtxDynapse modules loaded.")
 
 # - Declare a Neuron type
 Neuron = Union[DynapseNeuron, VirtualNeuron]
@@ -24,12 +25,15 @@ Neuron = Union[DynapseNeuron, VirtualNeuron]
 tIsiTimeStep = 2e-5
 tFpgaTimeStep = 1./9.*1e-7  # 11.111...ns 
 DEF_FPGA_ISI_MULTIPLIER = int(np.round(tIsiTimeStep / tFpgaTimeStep))
-nMaxEventsPerBatch = int(2**19-1)
+nFpgaEventLimit = int(2**19-1)
 # - Default maximum numbers of time steps for a single evolution batch
 #   Assuming one input event after the maximum ISI - This is the maximally possible
 #   value. In practice there will be more events per time. Therefore the this value
 #   does not guarantee that the complete input batch fits onto the fpga
-nDefaultMaxNumTimeSteps = int(nMaxEventsPerBatch * 2**16-1)
+nDefaultMaxNumTimeSteps = int(nFpgaEventLimit * 2**16-1)
+
+# - Absolute tolerance, e.g. for comparing float values
+fTolAbs = 1e-9
 
 def init_dynapse() -> dict:
     """
@@ -37,6 +41,8 @@ def init_dynapse() -> dict:
 
     :return: dict Global dictionary containing DynapSE HW models
     """
+
+    print("Initializing DynapSE")
     # - Initialise HW dictionary
     dDynapse = {}
 
@@ -176,30 +182,38 @@ class RecDynapSE(Layer):
     """
     RecDynapSE - Recurrent layer implemented on DynapSE
     """
-    def __init__(self,
-                 mfWIn: np.ndarray,
-                 mfWRec: np.ndarray,
-                 vHWNeurons: Optional[np.ndarray] = None,
-                 vVirtualNeurons: Optional[np.ndarray] = None,
-                 tDt: Optional[float] = None,
-                 fNoiseStd: Optional[float] = None,
-                 tMaxBatchDur: float = 120,
-                 strName: Optional[str] = 'unnamed',
-                 ):
+    def __init__(
+        self,
+        mfWIn: np.ndarray,
+        mfWRec: np.ndarray,
+        vHWNeurons: Optional[np.ndarray] = None,
+        vVirtualNeurons: Optional[np.ndarray] = None,
+        tDt: Optional[float] = None,
+        fNoiseStd: Optional[float] = None,
+        nMaxTrialsPerBatch: Optional[float] = None,
+        tMaxBatchDur: Optional[float] = None,
+        nMaxNumTimeSteps: Optional[int] = None,
+        nMaxEventsPerBatch: int = nFpgaEventLimit,
+        strName: Optional[str] = 'unnamed',
+    ):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
 
-        :param mfWIn:       ndarray[int] MxN matrix of input weights from virtual to hardware neurons
-        :param mfWRec:      ndarray[int] NxN matrix of weights between hardware neurons. Supplied in units of synaptic connection.
-                                         Negative elements lead to inhibitory synapses
-        :param vHWNeurons:  ndarray  1D array of N hardware neurons that are to be used as layer neurons
-        :param vVirtualNeurons:  ndarray  1D array of M virtual neurons that are to be used as input neurons
-        :param tDt:         float   Dummy time step. Not used in layer evolution
-        :param fNoiseStd    float   Dummy noise to inject. Not used in layer evolution
-        :param tMaxBatchDur: float  Maximum duration of single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
-                                      Cannot be larger than nDefaultMaxNumTimeSteps
-        :param strName:     str     Layer name
+        :param mfWIn:               ndarray[int] MxN matrix of input weights from virtual to hardware neurons
+        :param mfWRec:              ndarray[int] NxN matrix of weights between hardware neurons.
+                                                 Supplied in units of synaptic connection. Negative elements
+                                                 lead to inhibitory synapses
+        :param vHWNeurons:          ndarray  1D array of N hardware neurons that are to be used as layer neurons
+        :param vVirtualNeurons:     ndarray  1D array of M virtual neurons that are to be used as input neurons
+        :param tDt:                 float   Time-step.
+        :param fNoiseStd:           float   Dummy noise to inject. Not used in layer evolution
+        :param nMaxTrialsPerBatch:  int  Maximum number of trials (specified in input timeseries) per batch.
+                                         Longer evolution periods will automatically split in smaller batches.
+        :param tMaxBatchDur:        float  Maximum duration of single evolution batch.
+        :param nMaxNumTimeSteps:    float  Maximum number of time steps of of single evolution batch.
+        :param nMaxEventsPerBatch:  float  Maximum number of input events per evolution batch.
+                                           Cannot be larger than nDefaultMaxNumTimeSteps.
+        :param strName:             str     Layer name
         """
         # - Check supplied arguments
         if tDt is not None:
@@ -213,7 +227,7 @@ class RecDynapSE(Layer):
             tDt = tIsiTimeStep
 
         if fNoiseStd is not None:
-            warn('Caution: `fNoiseStd` is ignored during DynapSE layer evolution.')
+            warn('Layer `{}`: Caution: `fNoiseStd` is ignored during DynapSE layer evolution.'.format(strName))
         else:
             fNoiseStd = 0.
 
@@ -224,19 +238,24 @@ class RecDynapSE(Layer):
         super().__init__(mfW = np.asarray(np.round(mfWIn), 'int'), tDt = tDt, fNoiseStd = fNoiseStd, strName = strName)
         print("Layer `{}`: Superclass initialized".format(strName))
 
-        # - Configure input and input-to-recurrent connections
-        mfWIn = np.ones((1, self.nSize), int) if mfWIn is None else np.asarray(np.round(mfWIn), int)
-
         # - Check weight matrices
         assert mfWIn.shape[1] == mfWRec.shape[0], \
             'Layer `{}`: `mnWIn` and `mnWRec` must have compatible shapes: `mnWIn` is MxN, `mnWRec` is NxN.'.format(strName)
 
-        assert nMaxNumTimeSteps <= nDefaultMaxNumTimeSteps, \
-            "Layer `{}`: nMaxNumTimeSteps must not be greater than {}.".format(nDefaultMaxNumTimeSteps)
+        # - Store weight matrices
+        self.mfWIn = mfWIn
+        self.mfWRec = mfWRec
+        # - Store evolution batch size limitations
+        self.nMaxTrialsPerBatch = nMaxTrialsPerBatch
+        self.nMaxEventsPerBatch = nMaxEventsPerBatch
+        if nMaxNumTimeSteps is not None:
+            if tMaxBatchDur is not None:
+                warn("Layer `{}`: Caution: If both `nMaxNumTimeSteps` and `tMaxBatchDur` are provided, only `nMaxNumTimeSteps` is considered.".format(strName))
+            self.nMaxNumTimeSteps = nMaxNumTimeSteps
+        else:
+            self.tMaxBatchDur = tMaxBatchDur
         
-        # - Store maximum batch duration during evolution
-        self.tMaxBatchDur = tMaxBatchDur
-
+        
         # - Map neuron indices to neurons
         self._vVirtualNeurons = (
             allocate_virtual_neurons(self.nSizeIn) if vVirtualNeurons is None
@@ -261,23 +280,118 @@ class RecDynapSE(Layer):
 
         print("Layer `{}` prepared.".format(self.strName))
 
-    def _batch_data(
-        self, mfInput: np.ndarray, nNumTimeSteps: int, nMaxNumTimeSteps: int = None
-    ) -> (np.ndarray, int):
+    def _batch_input_data(self, tsInput: TSEvent, nNumTimeSteps: int, bVerbose: bool=False) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
-        # - Handle None for nMaxNumTimeSteps
-        nMaxNumTimeSteps = (
-            nNumTimeSteps if nMaxNumTimeSteps is None else nMaxNumTimeSteps
-        )
-        nStart = 0
-        while nStart < nNumTimeSteps:
-            # - Endpoint of current batch
-            nEnd = min(nStart + nMaxNumTimeSteps, nNumTimeSteps)
-            # - Data for current batch
-            mfCurrentInput = mfInput[nStart:nEnd]
-            yield mfCurrentInput, nEnd - nStart
-            # - Update nStart
-            nStart = nEnd
+        # - Time points of input trace in discrete layer time base
+        vnInputTimeSteps = np.floor(tsInput.vtTimeTrace / self.tDt).astype(int)
+        # # - Make sure evolution is within correct interval
+        # iStartIndex = np.searchsorted(vnInputTimeSteps, self._nTimeStep)
+        # iEndIndex = np.searchsorted(vnInputTimeSteps, self._nTimeStep + nNumTimeSteps)
+        # vnInputTimeSteps = vnInputTimeSteps[iStartIndex:iEndIndex]
+        # vnInputChannels = tsInput.vnChannels[iStartIndex:iEndIndex]
+        vnInputChannels = tsInput.vnChannels
+
+        # - Check whether data for splitting by trial is available
+        if hasattr(tsInput, "vtTrialStarts") and self.nMaxTrialsPerBatch is not None:
+            ## -- Split by trials
+            vnTrialStarts = np.floor(tsInput.vtTrialStarts / self.tDt).astype(int)
+            # - Total number of trials
+            nNumTrials = vnTrialStarts.size
+            # - Array indices of tsInput.vtTimeTrace and tsInput.vnChannels where trials start
+            viTrialStartIndices = np.searchsorted(vnInputTimeSteps, vnTrialStarts)
+            # - Count number of events for each trial (np.r_ to include last trial)
+            vnCumulEventsPerTrial = np.r_[viTrialStartIndices, vnInputTimeSteps.size]
+            vnEventsPerTrial = np.diff(vnCumulEventsPerTrial)
+
+            # - First trial of current batch
+            iCurrentTrial = 0
+            while iCurrentTrial < nNumTrials:
+                # - Cumulated numbers of events per trial for coming trials
+                vnCumulNextEvents = vnCumulEventsPerTrial[iCurrentTrial+1:] - vnCumulEventsPerTrial[iCurrentTrial]
+                nMaxNumTrialsE = np.searchsorted(vnCumulNextEvents, self.nMaxEventsPerBatch)
+                if self.nMaxNumTimeSteps is not None:
+                    # - Cumulated numbers of time steps per trial for coming trials (np.r_ for including last trial)
+                    vnCumulNextTimeSteps = np.r_[vnTrialStarts[iCurrentTrial+1:], nNumTimeSteps] - vnTrialStarts[iCurrentTrial]
+                    # - Maximum number of trials before self.nMaxNumTimeSteps is exceeded
+                    nMaxNumTrialsNTS = np.searchsorted(vnCumulNextEvents, self.nMaxNumTimeSteps)
+                else:
+                    nMaxNumTrialsNTS = np.inf
+                # - Number of trials to be used in current batch, considering max. number of trials per batch,
+                #   events per batch and (if applies) time steps per batch
+                nNumTrialsBatch = min(
+                    self.nMaxTrialsPerBatch,
+                    nMaxNumTrialsE,
+                    nMaxNumTrialsNTS,
+                )
+                assert nNumTrialsBatch > 0, (
+                    "Layer `{}`: Cannot continue evolution. ".format(self.strName)
+                    + "Either too many timesteps or events in this trial."
+                )
+                # - Start and end time steps and indices (wrt vnInputTimeSteps) of this batch
+                nTSStartBatch = vnTrialStarts[iCurrentTrial]
+                iStartIndexBatch = viTrialStartIndices[iCurrentTrial]
+                try:
+                    nTSEndBatch = vnTrialStarts[iCurrentTrial + nNumTrialsBatch]
+                    iEndIndexBatch = viTrialStartIndices[iCurrentTrial + nNumTrialsBatch]
+                except IndexError as e:
+                    # - If index error occurs because final batch is included
+                    if iCurrentTrial + nNumTrialsBatch == viTrialStartIndices.size:
+                        iEndIndexBatch = -1
+                        nTSEndBatch = nNumTimeSteps + self._nTimeStep
+                    else:
+                        raise e
+                # - Generate event list for fpga
+                lInputEvents = arrays_to_spike_list(
+                    vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
+                    vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
+                    nTSStart=nTSStartBatch,
+                    lNeurons=self._vHWNeurons
+                )
+                nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch
+                if bVerbose:
+                    nNumEventsBatch = iEndIndexBatch - iStartIndexBatch 
+                    print("Layer `{}`: Current batch input: {} s ({} timesteps), {} events".format(
+                        self.strName, nNumTimeStepsBatch * self.tDt, nNumTimeStepsBatch, nNumEventsBatch
+                    ))
+                yield lInputEvents, nNumTimeStepsBatch * self.tDt
+                iCurrentTrial += nNumTrialsBatch
+        else:
+            ## -- Split by Maximum number of events and time steps
+            # - Handle None for nMaxNumTimeSteps
+            nMaxNumTimeSteps = (
+                nNumTimeSteps if self.nMaxNumTimeSteps is None else self.nMaxNumTimeSteps
+            )
+            # - Time step at which current batch starts
+            nTSStartBatch = self._nTimeStep
+            # - Corresponding index wrt vnInputTimeSteps
+            iStartIndexBatch = 0
+            # - Time step after evolution ends
+            nTSEndEvo = nTSStartBatch + nNumTimeSteps
+            while nTSStartBatch < nTSEndEvo:
+                # - Endpoint of current batch
+                nTSEndBatch = min(nTSStartBatch + nMaxNumTimeSteps, nTSEndEvo)
+                # - Corresponding intex wrt vnInputTimeSteps
+                iEndIndexBatch = np.searchsorted(vnInputTimeSteps, nTSEndBatch)
+                # - Correct if too many events are included
+                if iEndIndexBatch - iStartIndexBatch > self.nMaxEventsPerBatch:
+                    iEndIndexBatch = iStartIndexBatch + self.nMaxEventsPerBatch
+                    nTSEndBatch = vnInputTimeSteps[iEndIndexBatch]
+                # - Generate event list for fpga
+                lInputEvents = arrays_to_spike_list(
+                    vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
+                    vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
+                    nTSStart=nTSStartBatch,
+                    lNeurons=self._vHWNeurons
+                )
+                nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch
+                if bVerbose:
+                    nNumEventsBatch = iEndIndexBatch - iStartIndexBatch 
+                    print("Layer `{}`: Current batch input: {} s ({} timesteps), {} events".format(
+                        self.strName, nNumTimeStepsBatch * self.tDt, nNumTimeStepsBatch, nNumEventsBatch
+                    ))
+                yield lInputEvents, nNumTimeStepsBatch * self.tDt
+                nTSStartBatch = nTSEndBatch
+                iStartIndexBatch = iEndIndexBatch
 
     def evolve(self,
                tsInput: Optional[TSEvent] = None,
@@ -326,83 +440,82 @@ class RecDynapSE(Layer):
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
             tDuration = nNumTimeSteps * self.tDt
 
+        # - Lists for storing recorded data
+        lTimeTrace = []
+        lChannels = []
+
         # - Clip tsInput to required duration
-        tsInput = tsInput.clip([self.t, self.t + tDuration])#, bInPlace = True)
-        tsInput.tStartTime = self.t
-
-        # - Convert input events to fpga spike list representation
-        spikeList = TSEvent_to_spike_list(tsInput, self._vVirtualNeurons)
-        if bVerbose:
-            print("Layer `{}`: Prepared FGPA event list.".format(self.strName))
-
-        # - Send event sequence to fpga module
-        DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(spikeList)
-        if bVerbose:
-            print("Layer `{}`: Stimulus preloaded.".format(self.strName))
-
-        # -- Set up event recording callbacks
-        oFilter = BufferedEventFilter(
-            DHW_dDynapse['model'],
-            [n.get_id() for n in self._vHWNeurons],
-        )
-        if bVerbose:
-            print("Layer `{}`: Event filter ready.".format(self.strName))
-
-        # - Stimulate / record for desired duration
-        if bVerbose:
-            print("Layer `{}`: Starting stimulation.".format(self.strName))
-        DHW_dDynapse['fpgaSpikeGen'].start()
-        # - Wait for tDuration + some additional time
-        if bVerbose:
-            print("Layer `{}`: Waiting for stimulation to end.".format(self.strName))
-        time.sleep(tDuration + 0.5)
-        # - Stop stimulation and clear filter to stop recording events
-        DHW_dDynapse['fpgaSpikeGen'].stop()
-        oFilter.clear()
-        if bVerbose:
-            print("Layer `{}`: Stimulation ended.".format(self.strName))
-        # - Retrieve events
-        self.lEvents = list(oFilter.get_events())
-        self.lTrigger = list(oFilter.get_special_event_timestamps())
-        if bVerbose:
-            print("Layer `{}`: Recorded {} events and {} trigger events".format(self.strName, len(self.lEvents), len(self.lTrigger)))
-
-        # - Extract monitored event channels and timestamps
-        vnChannels = neurons_to_channels(
-            [e.neuron for e in self.lEvents], list(self._vHWNeurons)
-        )
-        vtTimeTrace = np.array([e.timestamp for e in self.lEvents]) * 1e-6
-
-        # - Locate synchronisation timestamp
-        tStartTime = self.lTrigger[0] * 1e-6
-        try:
-            nSynchEvent = np.argwhere(vtTimeTrace >= tStartTime)[0,0]
-        except IndexError:
+        gInputGenerator = self._batch_input_data(tsInput.clip([self.t, self.t + tDuration]), nNumTimeSteps, bVerbose)
+        tStartBatch = self.t
+        for lCurrentEventList, tDurBatch in gInputGenerator:
+            # - Send event sequence to fpga module
+            DHW_dDynapse['fpgaSpikeGen'].preload_stimulus(lCurrentEventList)
             if bVerbose:
-                print("Layer `{}`: No events recorded.".format(self.strName))
-            vnChannels = []
-            vtTimeTrace = []
-        else:
-            vnChannels = vnChannels[nSynchEvent:]
-            vtTimeTrace = vtTimeTrace[nSynchEvent:]
-            vtTimeTrace -= tStartTime
+                print("Layer `{}`: Stimulus preloaded.".format(self.strName))
+
+            # -- Set up event recording
+            oFilter = BufferedEventFilter(
+                DHW_dDynapse['model'],
+                [n.get_id() for n in self._vHWNeurons],
+            )
+            if bVerbose:
+                print("Layer `{}`: Event filter ready.".format(self.strName))
+
+            # - Stimulate / record for desired duration
+            if bVerbose:
+                print("Layer `{}`: Starting stimulation.".format(self.strName))
+            DHW_dDynapse['fpgaSpikeGen'].start()
+            # - Wait for tDuration + some additional time
+            if bVerbose:
+                print("Layer `{}`: Waiting for stimulation to end.".format(self.strName))
+            time.sleep(tDurBatch + 0.5)
+            # - Stop stimulation and clear filter to stop recording events
+            DHW_dDynapse['fpgaSpikeGen'].stop()
+            oFilter.clear()
+            if bVerbose:
+                print("Layer `{}`: Stimulation ended.".format(self.strName))
+
+            lEventsBatch = list(oFilter.get_events())
+            lTriggerBatch = list(oFilter.get_special_event_timestamps())
+            if bVerbose:
+                print("Layer `{}`: Recorded {} events and {} trigger events".format(
+                    self.strName, len(lEventsBatch), len(lTriggerBatch))
+                )
+
+            # - Extract monitored event channels and timestamps
+            vnChannelsBatch = neurons_to_channels(
+                [e.neuron for e in lEventsBatch], list(self._vHWNeurons)
+            )
+            vtTimeTraceBatch = np.array([e.timestamp for e in lEventsBatch]) * 1e-6
+
+            # - Locate synchronisation timestamp
+            tStartTriggerBatch = lTriggerBatch[0] * 1e-6
+            iStartIndex = np.searchsorted(vtTimeTraceBatch, tStartTriggerBatch)
+            iEndIndex = np.searchsorted(vtTimeTraceBatch, tStartTriggerBatch+tDurBatch)
+            lChannels.append(vnChannelsBatch[iStartIndex:iEndIndex])
+            lTimeTrace.append(vtTimeTraceBatch[iStartIndex:iEndIndex] - tStartTriggerBatch + tStartBatch)
             if bVerbose:
                 print("Layer `{}`: Extracted event data".format(self.strName))
 
+            # - Start time of next batch
+            tStartBatch += tDurBatch
+
+        # - Flatten out lTimeTrace and lChannels
+        lTimeTrace = [t for vThisTrace in lTimeTrace for t in vThisTrace]
+        lChannels = [ch for vTheseChannels in lChannels for ch in vTheseChannels]
         # - Convert recorded events into TSEvent object
-        tsResponse = TSEvent(vtTimeTrace,
-                             vnChannels,
-                             strName = 'DynapSE spikes',
-                             )
-
-        # - Trim recorded events if necessary
-        tsResponse = tsResponse.clip([0, tDuration])
-
-        # - Shift monitored events to current layer start time
-        tsResponse = tsResponse.delay(self.t)#, bInPlace = True)
+        tsResponse = TSEvent(
+            lTimeTrace,
+            lChannels,
+            nNumChannels=self.nSize,
+            strName='DynapSE spikes',
+        )
 
         # - Set layer time
         self._nTimeStep += nNumTimeSteps
+
+        if bVerbose:
+            print("Layer `{}`: Evolution successful.".format(self.strName))
 
         return tsResponse
 
@@ -417,7 +530,7 @@ class RecDynapSE(Layer):
 
         # - Get input to layer connections
         vnPreSynE, vnPostSynE,\
-            vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self._mfW)
+            vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self.mfWIn)
 
         # - Connect input to layer
 
@@ -435,7 +548,7 @@ class RecDynapSE(Layer):
         print("Layer: `{}`: Inhibitory connections from virtual neurons to layer neurons have been set.".format(self.strName))
         # - Get layer recurrent connections
         vnPreSynE, vnPostSynE,\
-            vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self._mfWRec)
+            vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(self.mfWRec)
 
         # - Connect the excitatory neurons
         connector.add_connection_from_list(self._vHWNeurons[vnPreSynE],
@@ -489,18 +602,58 @@ class RecDynapSE(Layer):
         self._mfWRec = mfNewW
 
     @property
+    def nMaxTrialsPerBatch(self):
+        return self._nMaxTrialsPerBatch
+
+    @nMaxTrialsPerBatch.setter
+    def nMaxTrialsPerBatch(self, nNewMax):
+        assert (
+            nNewMax is None or (type(nNewMax) == int and 0 < nNewMax)
+        ), "Layer `{}`: nMaxTrialsPerBatch must be an integer greater than 0 or None.".format(
+            self.strName
+        )
+        self._nMaxTrialsPerBatch = nNewMax
+
+    @property
+    def nMaxNumTimeSteps(self):
+        return self._nMaxNumTimeSteps
+
+    @nMaxNumTimeSteps.setter
+    def nMaxNumTimeSteps(self, nNewMax):
+        assert (
+            nNewMax is None or (type(nNewMax) == int and 0 < nNewMax)
+        ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0 or None.".format(
+            self.strName
+        )
+        self._nMaxNumTimeSteps = nNewMax
+
+    @property
     def tMaxBatchDur(self):
-        return self._tMaxBatchDur
+        return None if self._nMaxNumTimeSteps is None else self._nMaxNumTimeSteps * self.tDt
 
     @tMaxBatchDur.setter
     def tMaxBatchDur(self, tNewMax):
         assert (
-            type(tNewMax) == int and 0 < tNewMax
-        ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
+            tNewMax is None or (type(tNewMax) == int and 0 < tNewMax)
+        ), "Layer `{}`: tMaxBatchDur must be an integer greater than 0 or None.".format(
             self.strName
         )
-        self._tMaxBatchDur = tNewMax
+        self._nMaxNumTimeSteps = None if tNewMax is None else int(np.round(tNewMax / self.tDt))
 
+    @property
+    def nMaxEventsPerBatch(self):
+        return self._nMaxEventsPerBatch
+
+    @nMaxEventsPerBatch.setter
+    def nMaxEventsPerBatch(self, nNewMax):
+        assert (
+            type(nNewMax) == int and 0 < nNewMax <= nFpgaEventLimit
+        ), "Layer `{}`: nMaxEventsPerBatch must be an integer between 0 and {}.".format(
+            self.strName, nFpgaEventLimit
+        )
+        self._nMaxEventsPerBatch = nNewMax
+        
+        
 
 def connectivity_matrix_to_prepost_lists(mnW: np.ndarray) -> Tuple[List[int], List[int], List[int], List[int]]:
     """
@@ -556,8 +709,62 @@ def TSEvent_to_spike_list(tsSeries: TSEvent, lNeurons: List[Neuron]) -> List[Fpg
     vtTimes, vnChannels, _ = tsSeries.find()
 
     # - Convert to ISIs
-    vtISIs = np.diff(np.r_[tsSeries.tStartTime, vtTimes])
+    try:
+        tStartTime = tsSeries.tStartTime
+    except AttributeError:
+        tStartTime = 0
+    vtISIs = np.diff(np.r_[tStartTime, vtTimes])
     vnDiscreteISIs = (np.round(vtISIs / DHW_dDynapse['tISIBase'])).astype('int')
+
+    # - Get neuron information
+    vnCoreIDs = []
+    vnNeuronIDs = []
+    vnChipIDs = []
+    for n in lNeurons:
+        vnCoreIDs.append(n.get_core_id())
+        vnNeuronIDs.append(n.get_neuron_id())
+        vnChipIDs.append(n.get_chip_id())
+
+    # - Convert each event to an FpgaSpikeEvent
+    def generate_fpga_event(target_chip, core_mask, neuron_id, isi) -> FpgaSpikeEvent:
+        event = FpgaSpikeEvent()
+        event.target_chip = target_chip
+        event.core_mask = core_mask
+        event.neuron_id = neuron_id
+        event.isi = isi
+        return event
+
+    lEvents = [
+        generate_fpga_event(vnCoreIDs[nChannel], vnChipIDs[nChannel], vnNeuronIDs[nChannel], nISI)
+        for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
+    ]
+
+    # - Return a list of events
+    return lEvents
+
+def arrays_to_spike_list(
+    vnTimeSteps: np.ndarray, vnChannels: np.ndarray, lNeurons: List[Neuron], nTSStart: int = 0,
+) -> List[FpgaSpikeEvent]:
+    """
+    arrays_to_spike_list - Convert an array of input time steps and an an array
+                           of event channels to a ctxctl spike list
+
+    :param vnTimeSteps:  np.ndarray   Event time steps (Using FPGA time base)
+    :param vnChannels:   np.ndarray   Event time steps (Using FPGA time base)
+    :param lNeurons:     List[Neuron] List of neurons that should appear as sources of the events
+    :param nTSStart:     int          Time step at which to start
+    :return:
+    """
+    # - Ignore data that comes before nTSStart
+    vnTimeSteps = vnTimeSteps[vnTimeSteps >= nTSStart]
+    vnChannels = vnChannels[vnTimeSteps >= nTSStart]
+
+    # - Check that the number of channels is the same between time series and list of neurons
+    assert np.amax(vnChannels) <= np.size(lNeurons), \
+        '`vnChannels` contains more channels than the number of neurons in `lNeurons`.'
+
+    # - Convert to ISIs
+    vnDiscreteISIs = np.diff(np.r_[nTSStart, vnTimeSteps])
 
     # - Get neuron information
     vnCoreIDs = []
