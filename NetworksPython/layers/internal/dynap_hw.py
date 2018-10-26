@@ -21,6 +21,11 @@ print("CtxDynapse modules loaded.")
 # - Declare a Neuron type
 Neuron = Union[DynapseNeuron, VirtualNeuron]
 
+# - Chip properties
+# - Dimensions of single core in neurons
+nWidthCore = 16
+nHeightCore = 16
+
 # - Default ISI multiplier
 tIsiTimeStep = 2e-5
 tFpgaTimeStep = 1./9.*1e-7  # 11.111...ns 
@@ -34,6 +39,31 @@ nDefaultMaxNumTimeSteps = int(nFpgaEventLimit * 2**16-1)
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
+
+def assign_neurons_rectangle(nFirstNeuron: int, nNumNeurons: int, nWidth: int):
+    """
+    assign_neurons_rectangle: return neurons that form a rectangle on the chip
+                              with nFirstNeuron as upper left corner and width
+                              nWidth. (Last row may not be full). Neurons
+                              have to fit onto single core.
+    :param nFirstNeuron:  int ID of neuron that is in the upper left corner of the rectangle
+    :param nNumNeurons:   int Number of neurons in the rectangle
+    :param nWidth:        int Width of the rectangle (in neurons)  
+    :return vnNeuronIDs:  np.ndarray 1D array of IDs of neurons that from the rectangle.
+    """
+    nNumRows = int(np.ceil(nNumNeurons / nWidth))
+    nFirstRow = int(np.floor(nFirstNeuron / nWidthCore))
+    nFirstCol = nFirstNeuron % nWidthCore
+    # - Make sure rectangle fits on single core
+    assert(
+        nFirstCol + nWidth < nWidthCore  # not too wide
+        and nFirstCol % nHeightCore + nNumRows < nHeightCore  # not too high
+    ), "Rectangle does not fit onto single core."
+    lNeuronIDs = [
+        (nFirstRow + nRow) * nWidthCore + (nFirstCol + nID)
+        for nRow in range(nNumRows) for nID in range(nWidth)
+    ]
+    return lNeuronIDs
 
 def init_dynapse() -> dict:
     """
