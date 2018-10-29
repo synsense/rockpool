@@ -159,23 +159,34 @@ if 'DHW_dDynapse' not in dir():
     init_fpgaSpikeGen(DEF_FPGA_ISI_MULTIPLIER)
     print("DynapSE prepared.")
 
-def allocate_hw_neurons(nNumNeurons: int) -> np.ndarray:
+def allocate_hw_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
     """
     allocate_hw_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
-    :param nNumNeurons: int     The number of neurons requested
+    :param vNeurons:    int or np.ndarray    The number of neurons requested or IDs of requested neurons
     :return:            list    A list of neurons that may be used
     """
-    # - Are there sufficient unallocated neurons?
-    if np.sum(DHW_dDynapse['vbFreeHWNeurons']) < nNumNeurons:
-        raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
+    
+    if isinstance(vNeurons, int):
+        nNumNeurons = vNeurons
+        # - Are there sufficient unallocated neurons?
+        if np.sum(DHW_dDynapse['vbFreeHWNeurons']) < nNumNeurons:
+            raise MemoryError('Insufficient unallocated neurons available. {} requested.'.format(nNumNeurons))
+        # - Pick the first available neurons
+        vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeHWNeurons'])[0][:nNumNeurons]
 
-    # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeHWNeurons'])[0][:nNumNeurons]
+    else:
+        nNumNeurons = np.size(vNeurons)
+        vnNeuronsToAllocate = np.array(vNeurons).flatten()
+        # - Make sure neurons are available
+        if (DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] == False).any():
+            raise MemoryError("{} of the requested neurons are already allocated.".format(
+                np.sum(DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] == False)))
 
     # - Mark these neurons as allocated
     DHW_dDynapse['vbFreeHWNeurons'][vnNeuronsToAllocate] = False
 
+    # - Prevent allocation of virtual neurons with same ID as allocated hardware neurons
     vnInputNeuronOverlap = vnNeuronsToAllocate[vnNeuronsToAllocate < np.size(DHW_dDynapse['vbFreeVirtualNeurons'])]
     DHW_dDynapse['vbFreeVirtualNeurons'][vnInputNeuronOverlap] = False
 
@@ -183,21 +194,28 @@ def allocate_hw_neurons(nNumNeurons: int) -> np.ndarray:
     return DHW_dDynapse['vHWNeurons'][vnNeuronsToAllocate]
 
 
-def allocate_virtual_neurons(nNumNeurons: int) -> np.ndarray:
+def allocate_virtual_neurons(nNumNeurons: Union[int, np.ndarray]) -> np.ndarray:
     """
     allocate_virtual_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
-    :param nNumNeurons: int     The number of neurons requested
+    :param vNeurons:    int or np.ndarray    The number of neurons requested or IDs of requested neurons
     :return:            list    A list of neurons that may be used
     """
-    # - Are there sufficient unallocated neurons?
-    # for k, v in DHW_dDynapse.items():
-    #     print("{}: {}".format(k, v))
-    if np.sum(DHW_dDynapse['vbFreeVirtualNeurons']) < nNumNeurons:
-        raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
-
+    if isinstance(vNeurons, int):
+        nNumNeurons = vNeurons
+        # - Are there sufficient unallocated neurons?
+        if np.sum(DHW_dDynapse['vbFreeVirtualNeurons']) < nNumNeurons:
+            raise MemoryError('Insufficient unallocated neurons available. {}'.format(nNumNeurons) + ' requested.')
     # - Pick the first available neurons
-    vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeVirtualNeurons'])[0][:nNumNeurons]
+        vnNeuronsToAllocate = np.nonzero(DHW_dDynapse['vbFreeVirtualNeurons'])[0][:nNumNeurons]
+
+    else:
+        nNumNeurons = np.size(vNeurons)
+        vnNeuronsToAllocate = np.array(vNeurons).flatten()
+        # - Make sure neurons are available
+        if (DHW_dDynapse['vbFreeVirtualNeurons'][vnNeuronsToAllocate] == False).any():
+            raise MemoryError("{} of the requested neurons are already allocated.".format(
+                np.sum(DHW_dDynapse['vbFreeVirtualNeurons'][vnNeuronsToAllocate] == False)))    
 
     # - Mark these as allocated
     DHW_dDynapse['vbFreeVirtualNeurons'][vnNeuronsToAllocate] = False
