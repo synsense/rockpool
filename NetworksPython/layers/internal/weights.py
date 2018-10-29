@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Optional, Tuple, Union
 import numpy as np
 import scipy.stats as stats
 from copy import deepcopy
@@ -24,11 +24,11 @@ def combine_FF_Rec_stack(mfWFF: np.ndarray,
     # - Determine matrix sizes
     nFFSize = mfWFF.shape[0]
     nRecSize = mfWRec.shape[0]
-    mfCombined = np.zeros((nFFSize + nRecSize, nRecSize * 2))
+    mfCombined = np.zeros((nFFSize + nRecSize, nFFSize + nRecSize))
 
     # - Combine matrices
     mfCombined[-nRecSize:, -nRecSize:] = mfWRec
-    mfCombined[:nFFSize, nRecSize:] = mfWFF
+    mfCombined[:nFFSize, -nRecSize:] = mfWFF
 
     return mfCombined
 
@@ -321,11 +321,15 @@ def DiscretiseWeightMatrix(
     return mfWD, mnNumConns
 
 
-def OneDimExcRes(
+def one_dim_exc_res(
     nSize,
     nNeighbour,
     bZeroDiagonal = True,
 ):
+    """one_dim_exc_res - Recurrent weight matrix where each neuron is connected
+                         to its nNeighbour nearest neighbours on a 1D grid.
+                         Only excitatory connections.
+    """
     mfWRes = np.zeros((nSize, nSize))
     nBound = int(np.floor(nNeighbour/2))
     for iPost in range(nSize):
@@ -338,17 +342,134 @@ def OneDimExcRes(
 
     return mfWRes
 
-def AddRandomLongRange(
+def two_dim_exc_res(
+    nSize: int,
+    nNeighbour: int, 
+    tupfWidthNeighbour: Union[float, Tuple[float,float]],
+    tupnGridDim: Optional[Tuple[int,int]] = None,
+    bMultipleConn: bool = True,
+):
+    # - Determine width of connection probability distribution
+    if isinstance(tupfWidthNeighbour, int):
+        # assume isotropic probability distribution
+        tupfWidthNeighbour = (tupfWidthNeighbour, tupfWidthNeighbour)
+
+    # - Determine grid size
+    if tupnGridDim is None:
+        # - Square grid
+        nGridLength = int(np.ceil(np.sqrt(nSize)))
+        tupnGridDim = (nGridLength, nGridLength)
+    else:
+        # - Make sure grid is large enough
+        assert tupnGridDim[0] * tupnGridDim[1] >= nSize, "Grid dimensions are too small."
+        # - Make sure grid dimensions are integers
+        assert (
+            isinstance(tupnGridDim[0], int) and isinstance(tupnGridDim[1], int)
+        ), "tupnGridDim must be tuple of two positive integers."
+
+    # - Matrix for determining connection probability to any location on the grid relative to given neuron
+    #   Given neuron location corresponds to [tupnGridDim[0], tupnGridDim[1]]
+    vx = np.arange(-tupnGridDim[0]+1, tupnGridDim[0])
+    vy = np.arange(-tupnGridDim[1]+1, tupnGridDim[1])
+    mx, my = np.meshgrid(vx, vy)
+    # Gaussian Distribution of connection probability
+    mfPConnect = np.exp(-((mx/tupfWidthNeighbour[0])**2 + (my/tupfWidthNeighbour[1])**2))
+    # No self-connections
+    mfPConnect[tupnGridDim[0]-1, tupnGridDim[1]-1] = 0
+    
+    # - Weight matrix
+    mnW = np.zeros((nSize, nSize))
+
+    # - Iterate over neurons and assign their presynaptic connections
+    for iNeuron in range(nSize):
+        # Neuron coordinates in 2D grid
+        tupnGridIndex = np.unravel_index(iNeuron, tupnGridDim)
+        # Probabilities to connect to other neureons
+        vfPConnectThis = (mfPConnect[
+            (tupnGridDim[0]-1) - tupnGridIndex[0] : (2*tupnGridDim[0]-1) - tupnGridIndex[0],
+            (tupnGridDim[1]-1) - tupnGridIndex[1] : (2*tupnGridDim[1]-1) - tupnGridIndex[1],
+        ]).flatten()[:nSize]
+        # Normalize probabilities
+        vfPConnectThis /= np.sum(vfPConnectThis)
+        # Choose connections
+        viPreSyn = np.random.choice(nSize, size=nNeighbour, p=vfPConnectThis, replace=bMultipleConn)
+        for iPreSyn in viPreSyn:
+            mnW[iPreSyn, iNeuron] += 1
+
+    return mnW
+
+def add_random_long_range(
     mfWRes,
     nLongRange,
+    bAvoidExisting: bool = False,
+    bMultipleConn: bool = True,
 ):
+    assert mfWRes.shape[0] == mfWRes.shape[1], "mfWRes must be a square matrix"
+
     for iPost in range(mfWRes.shape[0]):
-        viFarNeurons = np.where(mfWRes[:, iPost] == 0)[0]
+        if bAvoidExisting:
+            viFarNeurons = np.where(mfWRes[:, iPost] == 0)[0]
+        else:
+            viFarNeurons = np.arange(mfWRes.shape[0])
         # - Make sure diagonal elements are excluded
         viFarNeurons = viFarNeurons[viFarNeurons != iPost]
-        viLongRangeConnect = np.random.choice(viFarNeurons, size=nLongRange, replace=False)
-        mfWRes[viLongRangeConnect, iPost] = 1
+        viPreSynConnect = np.random.choice(viFarNeurons, size=nLongRange, replace=bMultipleConn)
+        for iPreSyn in viPreSynConnect:
+            mfWRes[iPreSyn, iPost] += 1
     return mfWRes
+
+def partitioned_2d_reservoir(
+    nSizeIn: int = 64,
+    nSizeRec: int = 256,
+    nSizeInhib: int = 64,
+    nInToRec: int = 16,
+    nRecShort: int = 24,
+    nRecLong: int = 8,
+    nRecToInhib: int = 64,
+    nInhibToRec: int = 16,
+    nMaxInputConn: int = 64,
+    tupfWidthNeighbour: Union[float, Tuple[float,float]] = (16.,16.)
+):
+    if nMaxInputConn is not None:
+        assert(
+            (nInToRec + nRecShort + nRecLong + nInhibToRec <= nMaxInputConn)
+            and nInhibToRec <= nMaxInputConn
+        ), "Maximum number of presynaptic connections per neuron exceeded."
+
+    # - Input-To-Recurrent part
+    mnWInToRec = np.zeros((nSizeIn, nSizeRec))
+    viPreSynConnect = np.random.choice(nSizeIn, size=nInToRec*nSizeRec)
+    for iPreIndex, iPostIndex in zip(viPreSynConnect, np.repeat(np.arange(nSizeRec), nInToRec)):
+        mnWInToRec[iPreIndex, iPostIndex] += 1
+    # - Recurrent-To-Inhibitory part
+    mnWRecToInhib = np.zeros((nSizeRec, nSizeInhib))
+    viPreSynConnect = np.random.choice(nSizeRec, size=nRecToInhib*nSizeInhib)
+    for iPreIndex, iPostIndex in zip(viPreSynConnect, np.repeat(np.arange(nSizeInhib), nRecToInhib)):
+        mnWRecToInhib[iPreIndex, iPostIndex] += 1
+    # - Inhibitory-To-Recurrent part
+    mnWInhibToRec = np.zeros((nSizeInhib, nSizeRec))
+    viPreSynConnect = np.random.choice(nSizeInhib, size=nInhibToRec*nSizeRec)
+    for iPreIndex, iPostIndex in zip(viPreSynConnect, np.repeat(np.arange(nSizeRec), nInhibToRec)):
+        mnWInhibToRec[iPreIndex, iPostIndex] -= 1
+    # - Recurrent short range connecitons
+    mnWRec = two_dim_exc_res(
+        nSizeRec,
+        nNeighbour=nRecShort,
+        tupfWidthNeighbour=tupfWidthNeighbour,
+    )
+    # - Add long range connections
+    mnWRec = add_random_long_range(mnWRec, nRecLong, bAvoidExisting=False, bMultipleConn=True)
+
+    # - Put matrix together
+    nSizeTotal = nSizeIn + nSizeRec + nSizeInhib
+    mnW = np.zeros((nSizeTotal, nSizeTotal))
+    mnW[:nSizeIn, nSizeIn:nSizeIn+nSizeRec] = mnWInToRec
+    mnW[nSizeIn:nSizeIn+nSizeRec, nSizeIn:nSizeIn+nSizeRec] = mnWRec
+    mnW[nSizeIn:nSizeIn+nSizeRec, -nSizeInhib:] = mnWRecToInhib
+    mnW[-nSizeInhib:, nSizeIn:nSizeIn+nSizeRec] = mnWInhibToRec
+
+    return mnW
+
 
 def DynapseConform(
     tupShape,
