@@ -9,7 +9,6 @@ import numpy as np
 from warnings import warn
 from typing import Tuple, List, Optional, Union
 import time
-import threading
 
 # - Imports from ctxCTL
 import CtxDynapse
@@ -18,11 +17,11 @@ from CtxDynapse import DynapseCamType as SynapseTypes
 from CtxDynapse import (
     dynapse,
     DynapseFpgaSpikeGen,
+    DynapsePoissonGen,
     DynapseNeuron,
     VirtualNeuron,
     BufferedEventFilter,
     FpgaSpikeEvent,
-    PyTimer,
 )
 
 print("CtxDynapse modules loaded.")
@@ -97,7 +96,7 @@ def init_dynapse() -> dict:
     if not np.any(vbIsSpikeGenModule):
         # - There is no spike generator, so we can't use this Python layer on the HW
         raise ModuleNotFoundError(
-            "An `fpgaSpikeGen` module is required to use the DynapSE layer."
+            "DynapSE: An `fpgaSpikeGen` module is required to use the DynapSE layer."
         )
 
     else:
@@ -105,19 +104,35 @@ def init_dynapse() -> dict:
         dDynapse["fpgaSpikeGen"] = lFPGAModules[np.argwhere(vbIsSpikeGenModule)[0][0]]
         print("DynapSE: Spike generator module ready.")
 
+    # - Find a poisson spike generator module
+    vbIsPoissonGenModule = [isinstance(m, DynapsePoissonGen) for m in lFPGAModules]
+    if np.any(vbIsPoissonGenModule):
+        dDynapse["fpgaPoissonGen"] = lFPGAModules[np.argwhere(vbIsPoissonGenModule)[0][0]]
+    else:
+        raise ModuleNotFoundError(
+            "DynapSE: Could not find poisson generator module (DynapsePoissonGen)."
+        )
+
     # - Get all neurons
-    dDynapse["vHWNeurons"] = np.asarray(dDynapse["model"].get_neurons())
-    # dDynapse['vHWNeurons'] = np.asarray(dDynapse['model'].get_shadow_state_neurons())
+    # dDynapse["vHWNeurons"] = np.asarray(dDynapse["model"].get_neurons())
+    dDynapse['vHWNeurons'] = np.asarray(dDynapse['model'].get_shadow_state_neurons())
     dDynapse["vVirtualNeurons"] = np.asarray(dDynapse["virtualModel"].get_neurons())
 
     # - Initialise neuron allocation
     dDynapse["vbFreeVirtualNeurons"] = np.array(
         [True for i in range(np.size(dDynapse["vVirtualNeurons"]))]
     )
+    # Do not use virtual neuron 0
+    dDynapse["vbFreeVirtualNeurons"][0] = False
+    
     dDynapse["vbFreeHWNeurons"] = np.array(
         [True for i in range(np.size(dDynapse["vHWNeurons"]))]
     )
     print("DynapSE: Neurons initialized.")
+
+    # - Get a connector object
+    dDynapse["dcNeuronConnector"] = NeuronNeuronConnector.DynapseConnector()
+    print("DynapSE: Neuron connector initialized")
 
     # - Wipe configuration
     for nChip in range(1):  # range(4):
@@ -137,11 +152,7 @@ def init_dynapse() -> dict:
         for cam in viCams:
             cam.set_pre_neuron_id(0)
             cam.set_pre_neuron_core_id(0)
-    print("Model neuron weights have been reset")
-
-    # - Lists for recording events
-    dDynapse["lEvents"] = []
-    dDynapse["lTrigger"] = []
+    print("DynapSE: Model neuron weights have been reset")
 
     # - Return dictionary
     return dDynapse
@@ -181,7 +192,6 @@ def re_init_hardware():
 global DHW_dDynapse
 if "DHW_dDynapse" not in dir():
     re_init_hardware()
-
 
 def allocate_hw_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
     """
@@ -291,6 +301,8 @@ class RecDynapSE(Layer):
         tMaxBatchDur: Optional[float] = None,
         nMaxNumTimeSteps: Optional[int] = None,
         nMaxEventsPerBatch: int = nFpgaEventLimit,
+        lInputCoreIDs: List[int] = [0],
+        nInputChipID: int = 0,
         strName: Optional[str] = "unnamed",
     ):
         """
@@ -310,6 +322,10 @@ class RecDynapSE(Layer):
         :param nMaxNumTimeSteps:    float  Maximum number of time steps of of single evolution batch.
         :param nMaxEventsPerBatch:  float  Maximum number of input events per evolution batch.
                                            Cannot be larger than nDefaultMaxNumTimeSteps.
+        :param lInputCoreIDs:       list  IDs of the cores that contain neurons receiving external inputs.
+                                          To avoid ID collisions neurons on these cores should not receive inputs
+                                          from other neurons.
+        :param nInputChipID:        int  ID of the chip with neurons that receive external input.
         :param strName:             str     Layer name
         """
         # - Check supplied arguments
@@ -359,6 +375,9 @@ class RecDynapSE(Layer):
         # - Store weight matrices
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
+        # - Record input core mask and chip ID
+        self._nInputCoreMask = np.sum([2**nID for nID in lInputCoreIDs])
+        self._nInputChipID = nInputChipID
         # - Store evolution batch size limitations
         self.nMaxTrialsPerBatch = nMaxTrialsPerBatch
         self.nMaxEventsPerBatch = nMaxEventsPerBatch
@@ -381,7 +400,9 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Virtual neurons allocated".format(strName))
         self._vHWNeurons = (
-            allocate_hw_neurons(self.nSize) if vHWNeurons is None else vHWNeurons
+            allocate_hw_neurons(self.nSize)
+            if vHWNeurons is None
+            else vHWNeurons
         )
         print("Layer `{}`: Layer neurons allocated".format(strName))
         # - Store recurrent weights
@@ -389,11 +410,6 @@ class RecDynapSE(Layer):
 
         # - Configure connectivity
         self._compile_weights_and_configure()
-
-        # - Lists for recording events
-        self.lEvents = []
-        self.lTrigger = []
-        self._bStimulusStarted = False
 
         print("Layer `{}` prepared.".format(self.strName))
 
@@ -481,7 +497,9 @@ class RecDynapSE(Layer):
                     vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
                     vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
                     nTSStart=nTSStartBatch,
-                    lNeurons=self._vHWNeurons,
+                    lNeurons=self._vVirtualNeurons,
+                    nTargetCoreMask=self._nInputCoreMask,
+                    nTargetChipID=self._nInputChipID,
                 )
                 nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch
                 if bVerbose:
@@ -524,7 +542,9 @@ class RecDynapSE(Layer):
                     vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
                     vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
                     nTSStart=nTSStartBatch,
-                    lNeurons=self._vHWNeurons,
+                    lNeurons=self._vVirtualNeurons,
+                    nTargetCoreMask=self._nInputCoreMask,
+                    nTargetChipID=self._nInputChipID,
                 )
                 nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch
                 if bVerbose:
@@ -685,43 +705,77 @@ class RecDynapSE(Layer):
         connector = NeuronNeuronConnector.DynapseConnector()
 
         # - Get input to layer connections
-        vnPreSynE, vnPostSynE, vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(
+        liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
             self.mfWIn
         )
 
         # - Connect input to layer
 
-        # - Connect the excitatory neurons
+        # - Set excitatory input connections
         connector.add_connection_from_list(
-            self._vVirtualNeurons[vnPreSynE],
-            self._vHWNeurons[vnPostSynE],
-            [SynapseTypes.SLOW_EXC],
+            self._vVirtualNeurons[liPreSynE],
+            self._vHWNeurons[liPostSynE],
+            [SynapseTypes.FAST_EXC],
         )
         print(
             "Layer `{}`: Excitatory connections from virtual neurons to layer neurons have been set.".format(
                 self.strName
             )
         )
-        # - Connect the inhibitory neurons
+        # - Set inhibitory input connections
         connector.add_connection_from_list(
-            self._vVirtualNeurons[vnPreSynI],
-            self._vHWNeurons[vnPostSynI],
-            [SynapseTypes.SLOW_INH],
+            self._vVirtualNeurons[liPreSynI],
+            self._vHWNeurons[liPostSynI],
+            [SynapseTypes.FAST_INH],
         )
         print(
             "Layer `{}`: Inhibitory connections from virtual neurons to layer neurons have been set.".format(
                 self.strName
             )
         )
-        # - Get layer recurrent connections
-        vnPreSynE, vnPostSynE, vnPreSynI, vnPostSynI = connectivity_matrix_to_prepost_lists(
+
+        # - Infer how many input neurons there are (i.e. any neuron that receives input from a virtual neuron)
+        nNumInputNeurons = max(np.amax(liPostSynE), np.amax(liPostSynI))
+
+        ## -- Set connections wihtin hardware layer
+        liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
             self.mfWRec
         )
 
-        # - Connect the excitatory neurons
+        viPreSynE = np.array(liPreSynE)
+        viPreSynI = np.array(liPreSynI)
+        viPostSynE = np.array(liPostSynE)
+        viPostSynI = np.array(liPostSynI)
+
+        # - Connections from input neurons to exceitatory neurons
+        # Excitatory
         connector.add_connection_from_list(
-            self._vHWNeurons[vnPreSynE],
-            self._vHWNeurons[vnPostSynE],
+            self._vHWNeurons[viPreSynE[viPreSynE < nNumInputNeurons]],
+            self._vHWNeurons[viPostSynE[viPreSynE < nNumInputNeurons]],
+            [SynapseTypes.FAST_EXC],
+        )
+        print(
+            "Layer `{}`: Excitatory connections from input neurons to reservoir neurons have been set.".format(
+                self.strName
+            )
+        )
+        # Inhibitory
+        connector.add_connection_from_list(
+            self._vHWNeurons[viPreSynI[viPreSynI < nNumInputNeurons]],
+            self._vHWNeurons[viPostSynI[viPreSynI < nNumInputNeurons]],
+            [SynapseTypes.FAST_INH],
+        )
+        print(
+            "Layer `{}`: Inhibitory connections from input neurons to reservoir neurons have been set.".format(
+                self.strName
+            )
+        )
+
+        # - Connections between recurrently connected excitatory neurons and inhibitory neurons
+        # Excitatory
+        connector.add_connection_from_list(
+            self._vHWNeurons[viPreSynE[viPreSynE >= nNumInputNeurons]],
+            self._vHWNeurons[viPostSynE[viPreSynE >= nNumInputNeurons]],
             [SynapseTypes.SLOW_EXC],
         )
         print(
@@ -729,11 +783,11 @@ class RecDynapSE(Layer):
                 self.strName
             )
         )
-        # - Connect the inhibitory neurons
+        # - Set inhibitory connections
         connector.add_connection_from_list(
-            self._vHWNeurons[vnPreSynI],
-            self._vHWNeurons[vnPostSynI],
-            [SynapseTypes.SLOW_INH],
+            self._vHWNeurons[viPreSynI[viPreSynI >= nNumInputNeurons]],
+            self._vHWNeurons[viPostSynI[viPreSynI >= nNumInputNeurons]],
+            [SynapseTypes.FAST_INH],
         )
         print(
             "Layer `{}`: Inhibitory connections within layer have been set.".format(
@@ -741,8 +795,8 @@ class RecDynapSE(Layer):
             )
         )
 
-        # dDynapse['model'].apply_diff_state()
-        # print("Layer `{}`: Connections have been written to the chip.".format(self.strName))
+        DHW_dDynapse['model'].apply_diff_state()
+        print("Layer `{}`: Connections have been written to the chip.".format(self.strName))
 
     @property
     def cInput(self):
@@ -885,7 +939,7 @@ def connectivity_matrix_to_prepost_lists(
 
     # - Loop over lists, appending when necessary
     for nPre, nPost in zip(vnPreICompressed, vnPostICompressed):
-        for _ in range(mnW[nPre, nPost]):
+        for _ in range(np.abs(mnW[nPre, nPost])):
             vnPreI.append(nPre)
             vnPostI.append(nPost)
 
@@ -894,14 +948,19 @@ def connectivity_matrix_to_prepost_lists(
 
 
 def TSEvent_to_spike_list(
-    tsSeries: TSEvent, lNeurons: List[Neuron]
+    tsSeries: TSEvent,
+    lNeurons: List[Neuron],
+    nTargetCoreMask: int = 1,
+    nTargetChipID: int = 0,
 ) -> List[FpgaSpikeEvent]:
     """
     TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
-    :param tsSeries:    TSEvent         Time series of events to send as input
-    :param lNeurons:    List[Neuron]    List of neurons that should appear as sources of the events
-    :return:
+    :param tsSeries:        TSEvent         Time series of events to send as input
+    :param lNeurons:        List[Neuron]    List of neurons that should appear as sources of the events
+    :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
+    :param nTargetChipID:   int          ID of target chip
+    :return:                list of FpgaSpikeEvent objects
     """
     # - Check that the number of channels is the same between time series and list of neurons
     assert tsSeries.nNumChannels <= len(
@@ -920,26 +979,24 @@ def TSEvent_to_spike_list(
     vnDiscreteISIs = (np.round(vtISIs / DHW_dDynapse["tISIBase"])).astype("int")
 
     # - Get neuron information
-    vnCoreIDs = []
-    vnNeuronIDs = []
-    vnChipIDs = []
-    for n in lNeurons:
-        vnCoreIDs.append(n.get_core_id())
-        vnNeuronIDs.append(n.get_neuron_id())
-        vnChipIDs.append(n.get_chip_id())
+    try:
+        vnNeuronIDs = [n.get_id() for n in lNeurons]
+    except AttributeError:
+        # - If lNeurons contains virtual neurons, they do not have a get_id() method
+        vnNeuronIDs = [n.get_neuron_id() for n in lNeurons]
 
     # - Convert each event to an FpgaSpikeEvent
-    def generate_fpga_event(target_chip, core_mask, neuron_id, isi) -> FpgaSpikeEvent:
+    def generate_fpga_event(nTargetChipID, nTargetCoreMask, nNeuronID, nISI) -> FpgaSpikeEvent:
         event = FpgaSpikeEvent()
-        event.target_chip = target_chip
-        event.core_mask = core_mask
-        event.neuron_id = neuron_id
-        event.isi = isi
+        event.target_chip = nTargetChipID
+        event.core_mask = nTargetCoreMask
+        event.neuron_id = nNeuronID
+        event.isi = nISI
         return event
 
     lEvents = [
         generate_fpga_event(
-            vnCoreIDs[nChannel], vnChipIDs[nChannel], vnNeuronIDs[nChannel], nISI
+            nTargetChipID, nTargetCoreMask, vnNeuronIDs[nChannel], nISI
         )
         for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
     ]
@@ -953,16 +1010,20 @@ def arrays_to_spike_list(
     vnChannels: np.ndarray,
     lNeurons: List[Neuron],
     nTSStart: int = 0,
+    nTargetCoreMask: int = 1,
+    nTargetChipID: int = 0,
 ) -> List[FpgaSpikeEvent]:
     """
     arrays_to_spike_list - Convert an array of input time steps and an an array
                            of event channels to a ctxctl spike list
 
-    :param vnTimeSteps:  np.ndarray   Event time steps (Using FPGA time base)
-    :param vnChannels:   np.ndarray   Event time steps (Using FPGA time base)
-    :param lNeurons:     List[Neuron] List of neurons that should appear as sources of the events
-    :param nTSStart:     int          Time step at which to start
-    :return:
+    :param vnTimeSteps:     np.ndarray   Event time steps (Using FPGA time base)
+    :param vnChannels:      np.ndarray   Event time steps (Using FPGA time base)
+    :param lNeurons:        List[Neuron] List of neurons that should appear as sources of the events
+    :param nTSStart:        int          Time step at which to start
+    :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
+    :param nTargetChipID:   int          ID of target chip
+    :return:                list of FpgaSpikeEvent objects
     """
     # - Ignore data that comes before nTSStart
     vnTimeSteps = vnTimeSteps[vnTimeSteps >= nTSStart]
@@ -977,26 +1038,24 @@ def arrays_to_spike_list(
     vnDiscreteISIs = np.diff(np.r_[nTSStart, vnTimeSteps])
 
     # - Get neuron information
-    vnCoreIDs = []
-    vnNeuronIDs = []
-    vnChipIDs = []
-    for n in lNeurons:
-        vnCoreIDs.append(n.get_core_id())
-        vnNeuronIDs.append(n.get_neuron_id())
-        vnChipIDs.append(n.get_chip_id())
+    try:
+        vnNeuronIDs = [n.get_id() for n in lNeurons]
+    except AttributeError:
+        # - If lNeurons contains virtual neurons, they do not have a get_id() method
+        vnNeuronIDs = [n.get_neuron_id() for n in lNeurons]
 
     # - Convert each event to an FpgaSpikeEvent
-    def generate_fpga_event(target_chip, core_mask, neuron_id, isi) -> FpgaSpikeEvent:
+    def generate_fpga_event(nTargetChipID, nTargetCoreMask, nNeuronID, nISI) -> FpgaSpikeEvent:
         event = FpgaSpikeEvent()
-        event.target_chip = target_chip
-        event.core_mask = core_mask
-        event.neuron_id = neuron_id
-        event.isi = isi
+        event.target_chip = nTargetChipID
+        event.core_mask = nTargetCoreMask
+        event.neuron_id = nNeuronID
+        event.isi = nISI
         return event
 
     lEvents = [
         generate_fpga_event(
-            vnCoreIDs[nChannel], vnChipIDs[nChannel], vnNeuronIDs[nChannel], nISI
+            nTargetChipID, nTargetCoreMask, vnNeuronIDs[nChannel], nISI
         )
         for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
     ]
