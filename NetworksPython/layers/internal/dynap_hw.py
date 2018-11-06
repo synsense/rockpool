@@ -43,7 +43,7 @@ nFpgaEventLimit = int(2 ** 19 - 1)
 #   Assuming one input event after the maximum ISI - This is the maximally possible
 #   value. In practice there will be more events per time. Therefore the this value
 #   does not guarantee that the complete input batch fits onto the fpga
-nDefaultMaxNumTimeSteps = int(nFpgaEventLimit * 2 ** 16 - 1)
+nDefaultMaxNumTimeSteps = int(nFpgaEventLimit * (2 ** 16 - 1))
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
@@ -65,8 +65,8 @@ def assign_neurons_rectangle(nFirstNeuron: int, nNumNeurons: int, nWidth: int):
     nFirstCol = nFirstNeuron % nWidthCore
     # - Make sure rectangle fits on single core
     assert (
-        nFirstCol + nWidth < nWidthCore  # not too wide
-        and nFirstCol % nHeightCore + nNumRows < nHeightCore  # not too high
+        nFirstCol + nWidth <= nWidthCore  # not too wide
+        and nFirstRow % nHeightCore + nNumRows <= nHeightCore  # not too high
     ), "Rectangle does not fit onto single core."
     lNeuronIDs = [
         (nFirstRow + nRow) * nWidthCore + (nFirstCol + nID)
@@ -114,20 +114,18 @@ def init_dynapse() -> dict:
         )
 
     # - Get all neurons
-    # dDynapse["vHWNeurons"] = np.asarray(dDynapse["model"].get_neurons())
-    dDynapse['vHWNeurons'] = np.asarray(dDynapse['model'].get_shadow_state_neurons())
+    dDynapse["vHWNeurons"] = np.asarray(dDynapse["model"].get_neurons())
+    dDynapse["vShadowNeurons"] = np.asarray(dDynapse['model'].get_shadow_state_neurons())
     dDynapse["vVirtualNeurons"] = np.asarray(dDynapse["virtualModel"].get_neurons())
 
     # - Initialise neuron allocation
-    dDynapse["vbFreeVirtualNeurons"] = np.array(
-        [True for i in range(np.size(dDynapse["vVirtualNeurons"]))]
-    )
+    dDynapse["vbFreeVirtualNeurons"] = np.ones(dDynapse["vVirtualNeurons"].size, bool)
     # Do not use virtual neuron 0
     dDynapse["vbFreeVirtualNeurons"][0] = False
     
-    dDynapse["vbFreeHWNeurons"] = np.array(
-        [True for i in range(np.size(dDynapse["vHWNeurons"]))]
-    )
+    dDynapse["vbFreeHWNeurons"] = np.ones(dDynapse["vHWNeurons"].size, bool)
+    # Do not use hardware neurons with ID 0 and core ID 0 (first of each core)
+    dDynapse["vbFreeHWNeurons"][0::1024] = False
     print("DynapSE: Neurons initialized.")
 
     # - Get a connector object
@@ -141,7 +139,7 @@ def init_dynapse() -> dict:
         dynapse.clear_sram(int(nChip))
         print("DynapSE: SRAMs cleared.")
     # - Reset neuron weights in model
-    for neuron in dDynapse["vHWNeurons"]:
+    for neuron in dDynapse["vShadowNeurons"]:
         viSrams = neuron.get_srams()
         for iSramIndex in range(1, 4):
             viSrams[iSramIndex].set_target_chip_id(0)
@@ -193,16 +191,16 @@ global DHW_dDynapse
 if "DHW_dDynapse" not in dir():
     re_init_hardware()
 
-def allocate_hw_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
+def allocate_hw_neurons(vnNeuronIDs: Union[int, np.ndarray]) -> (np.ndarray, np.ndarray):
     """
     allocate_hw_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
-    :param vNeurons:    int or np.ndarray    The number of neurons requested or IDs of requested neurons
-    :return:            list    A list of neurons that may be used
+    :param vnNeuronIDs:  int or np.ndarray    The number of neurons requested or IDs of requested neurons
+    :return:             list    A list of neurons that may be used
     """
 
-    if isinstance(vNeurons, int):
-        nNumNeurons = vNeurons
+    if isinstance(vnNeuronIDs, int):
+        nNumNeurons = vnNeuronIDs
         # - Are there sufficient unallocated neurons?
         if np.sum(DHW_dDynapse["vbFreeHWNeurons"]) < nNumNeurons:
             raise MemoryError(
@@ -211,13 +209,10 @@ def allocate_hw_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
                 )
             )
         # - Pick the first available neurons
-        vnNeuronsToAllocate = np.nonzero(DHW_dDynapse["vbFreeHWNeurons"])[0][
-            :nNumNeurons
-        ]
+        vnNeuronsToAllocate = np.nonzero(DHW_dDynapse["vbFreeHWNeurons"])[0][:nNumNeurons]
 
     else:
-        nNumNeurons = np.size(vNeurons)
-        vnNeuronsToAllocate = np.array(vNeurons).flatten()
+        vnNeuronsToAllocate = np.array(vnNeuronIDs).flatten()
         # - Make sure neurons are available
         if (DHW_dDynapse["vbFreeHWNeurons"][vnNeuronsToAllocate] == False).any():
             raise MemoryError(
@@ -238,18 +233,21 @@ def allocate_hw_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
     DHW_dDynapse["vbFreeVirtualNeurons"][vnInputNeuronOverlap] = False
 
     # - Return these allocated neurons
-    return DHW_dDynapse["vHWNeurons"][vnNeuronsToAllocate]
+    return (
+        DHW_dDynapse["vHWNeurons"][vnNeuronsToAllocate],
+        DHW_dDynapse["vShadowNeurons"][vnNeuronsToAllocate]
+    )
 
 
-def allocate_virtual_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
+def allocate_virtual_neurons(vnNeuronIDs: Union[int, np.ndarray]) -> np.ndarray:
     """
     allocate_virtual_neurons - Return a list of neurons that may be used. These are guaranteed not to already be assigned.
 
-    :param vNeurons:    int or np.ndarray    The number of neurons requested or IDs of requested neurons
-    :return:            list    A list of neurons that may be used
+    :param vnNeuronIDs:  int or np.ndarray    The number of neurons requested or IDs of requested neurons
+    :return:             list    A list of neurons that may be used
     """
-    if isinstance(vNeurons, int):
-        nNumNeurons = vNeurons
+    if isinstance(vnNeuronIDs, int):
+        nNumNeurons = vnNeuronIDs
         # - Are there sufficient unallocated neurons?
         if np.sum(DHW_dDynapse["vbFreeVirtualNeurons"]) < nNumNeurons:
             raise MemoryError(
@@ -262,8 +260,7 @@ def allocate_virtual_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
         ]
 
     else:
-        nNumNeurons = np.size(vNeurons)
-        vnNeuronsToAllocate = np.array(vNeurons).flatten()
+        vnNeuronsToAllocate = np.array(vnNeuronIDs).flatten()
         # - Make sure neurons are available
         if (DHW_dDynapse["vbFreeVirtualNeurons"][vnNeuronsToAllocate] == False).any():
             raise MemoryError(
@@ -277,6 +274,7 @@ def allocate_virtual_neurons(vNeurons: Union[int, np.ndarray]) -> np.ndarray:
 
     # - Mark these as allocated
     DHW_dDynapse["vbFreeVirtualNeurons"][vnNeuronsToAllocate] = False
+    # - Prevent allocation of hardware neurons with same ID as allocated virtual neurons
     DHW_dDynapse["vbFreeHWNeurons"][vnNeuronsToAllocate] = False
 
     # - Return these neurons
@@ -293,8 +291,8 @@ class RecDynapSE(Layer):
         self,
         mfWIn: np.ndarray,
         mfWRec: np.ndarray,
-        vHWNeurons: Optional[np.ndarray] = None,
-        vVirtualNeurons: Optional[np.ndarray] = None,
+        vnLayerNeuronIDs: Optional[np.ndarray] = None,
+        vnVirtualNeuronIDs: Optional[np.ndarray] = None,
         tDt: Optional[float] = None,
         fNoiseStd: Optional[float] = None,
         nMaxTrialsPerBatch: Optional[float] = None,
@@ -312,8 +310,8 @@ class RecDynapSE(Layer):
         :param mfWRec:              ndarray[int] NxN matrix of weights between hardware neurons.
                                                  Supplied in units of synaptic connection. Negative elements
                                                  lead to inhibitory synapses
-        :param vHWNeurons:          ndarray  1D array of N hardware neurons that are to be used as layer neurons
-        :param vVirtualNeurons:     ndarray  1D array of M virtual neurons that are to be used as input neurons
+        :param vnLayerNeuronIDs:    ndarray  1D array of IDs of N hardware neurons that are to be used as layer neurons
+        :param vnVirtualNeuronIDs:  ndarray  1D array of IDs of M virtual neurons that are to be used as input neurons
         :param tDt:                 float   Time-step.
         :param fNoiseStd:           float   Dummy noise to inject. Not used in layer evolution
         :param nMaxTrialsPerBatch:  int  Maximum number of trials (specified in input timeseries) per batch.
@@ -392,19 +390,28 @@ class RecDynapSE(Layer):
         else:
             self.tMaxBatchDur = tMaxBatchDur
 
-        # - Map neuron indices to neurons
-        self._vVirtualNeurons = (
-            allocate_virtual_neurons(self.nSizeIn)
-            if vVirtualNeurons is None
-            else vVirtualNeurons
+        # - Allocate layer neurons
+        self._vHWNeurons, self._vShadowNeurons = (
+            allocate_hw_neurons(self.nSize) if vnLayerNeuronIDs is None
+            else allocate_hw_neurons(vnLayerNeuronIDs)
         )
-        print("Layer `{}`: Virtual neurons allocated".format(strName))
-        self._vHWNeurons = (
-            allocate_hw_neurons(self.nSize)
-            if vHWNeurons is None
-            else vHWNeurons
+        # Make sure number of neurons is correct
+        assert self._vHWNeurons.size == self.nSize, (
+            "Layer `{}`: `vnLayerNeuronIDs` must be of size {} or None.".format(strName, self.nSize)
         )
         print("Layer `{}`: Layer neurons allocated".format(strName))
+
+        # - Allocate virtual neurons
+        self._vVirtualNeurons = (
+            allocate_virtual_neurons(self.nSizeIn) if vnVirtualNeuronIDs is None
+            else allocate_virtual_neurons(vnVirtualNeuronIDs)
+        )
+        # Make sure number of neurons is correct
+        assert self._vVirtualNeurons.size == self.nSizeIn, (
+            "Layer `{}`: `vnVirtualNeuronIDs` must be of size {} or None.".format(strName, self.nSizeIn)
+        )
+        print("Layer `{}`: Virtual neurons allocated".format(strName))
+        
         # - Store recurrent weights
         self._mfWRec = np.asarray(np.round(mfWRec), int)
 
@@ -618,9 +625,9 @@ class RecDynapSE(Layer):
             tsInput.clip([self.t, self.t + tDuration]), nNumTimeSteps, bVerbose
         )
         tStartBatch = self.t
-        for lCurrentEventList, tDurBatch in gInputGenerator:
+        for lCurrentEvents, tDurBatch in gInputGenerator:
             # - Send event sequence to fpga module
-            DHW_dDynapse["fpgaSpikeGen"].preload_stimulus(lCurrentEventList)
+            DHW_dDynapse["fpgaSpikeGen"].preload_stimulus(lCurrentEvents)
             if bVerbose:
                 print("Layer `{}`: Stimulus preloaded.".format(self.strName))
 
@@ -683,6 +690,7 @@ class RecDynapSE(Layer):
         # - Flatten out lTimeTrace and lChannels
         lTimeTrace = [t for vThisTrace in lTimeTrace for t in vThisTrace]
         lChannels = [ch for vTheseChannels in lChannels for ch in vTheseChannels]
+        print(np.amax(lChannels))
         # - Convert recorded events into TSEvent object
         tsResponse = TSEvent(
             lTimeTrace, lChannels, nNumChannels=self.nSize, strName="DynapSE spikes"
@@ -714,7 +722,7 @@ class RecDynapSE(Layer):
         # - Set excitatory input connections
         connector.add_connection_from_list(
             self._vVirtualNeurons[liPreSynE],
-            self._vHWNeurons[liPostSynE],
+            self._vShadowNeurons[liPostSynE],
             [SynapseTypes.FAST_EXC],
         )
         print(
@@ -725,7 +733,7 @@ class RecDynapSE(Layer):
         # - Set inhibitory input connections
         connector.add_connection_from_list(
             self._vVirtualNeurons[liPreSynI],
-            self._vHWNeurons[liPostSynI],
+            self._vShadowNeurons[liPostSynI],
             [SynapseTypes.FAST_INH],
         )
         print(
@@ -750,8 +758,8 @@ class RecDynapSE(Layer):
         # - Connections from input neurons to exceitatory neurons
         # Excitatory
         connector.add_connection_from_list(
-            self._vHWNeurons[viPreSynE[viPreSynE < nNumInputNeurons]],
-            self._vHWNeurons[viPostSynE[viPreSynE < nNumInputNeurons]],
+            self._vShadowNeurons[viPreSynE[viPreSynE < nNumInputNeurons]],
+            self._vShadowNeurons[viPostSynE[viPreSynE < nNumInputNeurons]],
             [SynapseTypes.FAST_EXC],
         )
         print(
@@ -761,8 +769,8 @@ class RecDynapSE(Layer):
         )
         # Inhibitory
         connector.add_connection_from_list(
-            self._vHWNeurons[viPreSynI[viPreSynI < nNumInputNeurons]],
-            self._vHWNeurons[viPostSynI[viPreSynI < nNumInputNeurons]],
+            self._vShadowNeurons[viPreSynI[viPreSynI < nNumInputNeurons]],
+            self._vShadowNeurons[viPostSynI[viPreSynI < nNumInputNeurons]],
             [SynapseTypes.FAST_INH],
         )
         print(
@@ -774,8 +782,8 @@ class RecDynapSE(Layer):
         # - Connections between recurrently connected excitatory neurons and inhibitory neurons
         # Excitatory
         connector.add_connection_from_list(
-            self._vHWNeurons[viPreSynE[viPreSynE >= nNumInputNeurons]],
-            self._vHWNeurons[viPostSynE[viPreSynE >= nNumInputNeurons]],
+            self._vShadowNeurons[viPreSynE[viPreSynE >= nNumInputNeurons]],
+            self._vShadowNeurons[viPostSynE[viPreSynE >= nNumInputNeurons]],
             [SynapseTypes.SLOW_EXC],
         )
         print(
@@ -785,8 +793,8 @@ class RecDynapSE(Layer):
         )
         # - Set inhibitory connections
         connector.add_connection_from_list(
-            self._vHWNeurons[viPreSynI[viPreSynI >= nNumInputNeurons]],
-            self._vHWNeurons[viPostSynI[viPreSynI >= nNumInputNeurons]],
+            self._vShadowNeurons[viPreSynI[viPreSynI >= nNumInputNeurons]],
+            self._vShadowNeurons[viPostSynI[viPreSynI >= nNumInputNeurons]],
             [SynapseTypes.FAST_INH],
         )
         print(
