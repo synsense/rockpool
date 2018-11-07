@@ -1096,3 +1096,22 @@ def neurons_to_channels(
 
     # - Convert to numpy array
     return np.array(lChannelIndices)
+
+def collect_spiking_neurons(liRecordNeuronIDs, tDuration):
+    if isinstance(liRecordNeuronIDs, int):
+        liRecordNeuronIDs = range(liRecordNeuronIDs)
+    liRecordNeuronIDs = list(liRecordNeuronIDs)
+    print("DHW: Collecting IDs of neurons that spike within the next {} seconds".format(tDuration))
+    oFilter = BufferedEventFilter(DHW_dDynapse["model"], liRecordNeuronIDs)
+    time.sleep(tDuration)
+    oFilter.clear()
+    lnNeuronIDs = sorted(set((event.neuron.get_id() for event in oFilter.get_events())))
+    print("DHW: {} neurons spiked".format(len(lnNeuronIDs)))
+    return lnNeuronIDs
+
+def silence_hot_neurons(vnNeuronIDs, tDuration):
+    lnHotNeurons = collect_spiking_neurons(vnNeuronIDs, tDuration=tDuration)
+    # - Silence these neurons by assigning different Tau bias
+    for nID in lnHotNeurons:
+        dynapse.set_tau_2(0, nID)
+    print("DHW: Neurons {} have been silenced".format(lnHotNeurons))
