@@ -24,6 +24,7 @@ dModules = {
         "arrays_to_spike_list",
         "neurons_to_channels",
     ),
+    ".internal.event_pass": "PassThroughEvents",
     ".internal.exp_synapses_brian": "FFExpSynBrian",
     ".internal.exp_synapses_manual": "FFExpSyn",
     ".internal.evSpikeLayer": "EventDrivenSpikingLayer",

@@ -11,6 +11,27 @@ def test_import():
     Test import of the class
     """
     from NetworksPython.layers import FFCLIAF
+    from NetworksPython.layers import PassThroughEvents
+
+def test_pt_events():
+    """ Test PassThroughEvents layer"""
+    from NetworksPython.layers import PassThroughEvents
+    from NetworksPython import TSEvent
+
+    # - Input signal
+    vtTimeTrace = [0.1, 0.2, 0.7, 0.8, 0.9]
+    vnChannels = [1, 2, 0, 1, 1]
+    tsInput = TSEvent(vtTimeTrace, vnChannels)
+
+    # - Layer
+    lpt = PassThroughEvents(np.array([[0,2],[1,1],[0,0]]), tDt=0.4)
+
+    # - Evolution
+    tsOut = lpt.evolve(tsInput)
+
+    assert (tsOut.vnChannels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
+        "Output channels incorrect"
+    )
 
 
 def test_cnn_initialization():
