@@ -1,16 +1,13 @@
 import numpy as np
-from ...timeseries import TimeSeries
+from ...timeseries import TSEvent
 from ..layer import Layer
 from typing import Optional, Union, Tuple, List, Callable
 from warnings import warn
-from NetworksPython import TSEvent
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-# - Relative tolerance for float comparions
-fTolerance = 1e-5
-
+__all__ = ["PassThroughEvents"]
 
 class PassThroughEvents(Layer):
     def __init__(
@@ -107,11 +104,11 @@ class PassThroughEvents(Layer):
 
     @property
     def cInput(self):
-        return self.TSEvent
+        return TSEvent
 
     @property
     def cOutput(self):
-        return self.TSEvent    
+        return TSEvent    
 
     @property
     def mnW(self):
