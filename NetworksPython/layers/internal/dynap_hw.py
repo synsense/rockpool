@@ -10,24 +10,50 @@ from warnings import warn
 from typing import Tuple, List, Optional, Union
 import time
 
+# - Programmatic imports for CtxCtl
+try:
+    import CtxDynapse
+    import NeuronNeuronConnector
+
+except ModuleNotFoundError:
+    # - Try with RPyC
+    try:
+        import rpyc
+        conn = rpyc.classic.connect('localhost', '1300')
+        CtxDynapse = conn.modules.CtxDynapse
+        NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
+    except:
+        raise
+
 # - Imports from ctxCTL
-import CtxDynapse
-import NeuronNeuronConnector
-from CtxDynapse import DynapseCamType as SynapseTypes
-from CtxDynapse import (
-    dynapse,
-    DynapseFpgaSpikeGen,
-    DynapsePoissonGen,
-    DynapseNeuron,
-    VirtualNeuron,
-    BufferedEventFilter,
-    FpgaSpikeEvent,
-)
+# import CtxDynapse
+# import NeuronNeuronConnector
+
+# - Remaining imports
+SynapseTypes = CtxDynapse.DynapseCamType
+dynapse = CtxDynapse.dynapse
+DynapseFpgaSpikeGen = CtxDynapse.DynapseFpgaSpikeGen
+DynapsePoissonGen = CtxDynapse.DynapsePoissonGen
+DynapseNeuron = CtxDynapse.DynapseNeuron
+VirtualNeuron = CtxDynapse.VirtualNeuron
+BufferedEventFilter = CtxDynapse.BufferedEventFilter
+FpgaSpikeEvent = CtxDynapse.FpgaSpikeEvent
+
+# from CtxDynapse import DynapseCamType as SynapseTypes
+# from CtxDynapse import (
+#     dynapse,
+#     DynapseFpgaSpikeGen,
+#     DynapsePoissonGen,
+#     DynapseNeuron,
+#     VirtualNeuron,
+#     BufferedEventFilter,
+#     FpgaSpikeEvent,
+# )
 
 print("CtxDynapse modules loaded.")
 
 # - Declare a Neuron type
-Neuron = Union[DynapseNeuron, VirtualNeuron]
+# Neuron = Union[DynapseNeuron, VirtualNeuron]
 
 # - Chip properties
 # - Dimensions of single core in neurons
@@ -49,7 +75,7 @@ nDefaultMaxNumTimeSteps = int(nFpgaEventLimit * (2 ** 16 - 1))
 fTolAbs = 1e-9
 
 
-def assign_neurons_rectangle(nFirstNeuron: int, nNumNeurons: int, nWidth: int):
+def assign_neurons_rectangle(nFirstNeuron: int, nNumNeurons: int, nWidth: int) -> List[int]:
     """
     assign_neurons_rectangle: return neurons that form a rectangle on the chip
                               with nFirstNeuron as upper left corner and width
@@ -58,7 +84,7 @@ def assign_neurons_rectangle(nFirstNeuron: int, nNumNeurons: int, nWidth: int):
     :param nFirstNeuron:  int ID of neuron that is in the upper left corner of the rectangle
     :param nNumNeurons:   int Number of neurons in the rectangle
     :param nWidth:        int Width of the rectangle (in neurons)  
-    :return vnNeuronIDs:  np.ndarray 1D array of IDs of neurons that from the rectangle.
+    :return lNeuronIDs:   list 1D array of IDs of neurons that from the rectangle.
     """
     nNumRows = int(np.ceil(nNumNeurons / nWidth))
     nFirstRow = int(np.floor(nFirstNeuron / nWidthCore))
@@ -957,10 +983,10 @@ def connectivity_matrix_to_prepost_lists(
 
 def TSEvent_to_spike_list(
     tsSeries: TSEvent,
-    lNeurons: List[Neuron],
+    lNeurons: List,
     nTargetCoreMask: int = 1,
     nTargetChipID: int = 0,
-) -> List[FpgaSpikeEvent]:
+) -> List:
     """
     TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
@@ -1020,7 +1046,7 @@ def arrays_to_spike_list(
     nTSStart: int = 0,
     nTargetCoreMask: int = 1,
     nTargetChipID: int = 0,
-) -> List[FpgaSpikeEvent]:
+) -> List:
     """
     arrays_to_spike_list - Convert an array of input time steps and an an array
                            of event channels to a ctxctl spike list
