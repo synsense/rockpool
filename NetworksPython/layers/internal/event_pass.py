@@ -9,13 +9,14 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 __all__ = ["PassThroughEvents"]
 
+
 class PassThroughEvents(Layer):
     def __init__(
         self,
         mnW: np.ndarray,
-        tDt: float=0.001,
-        fNoiseStd: Optional[float]=None,
-        strName: str="unnamed",
+        tDt: float = 0.001,
+        fNoiseStd: Optional[float] = None,
+        strName: str = "unnamed",
     ):
         """
         PassThroughEvents class - route events to different channels
@@ -31,14 +32,9 @@ class PassThroughEvents(Layer):
 
         if fNoiseStd is not None:
             warn("Layer `{}`: fNoiseStd is not used in this layer.".format(strName))
-        
+
         # - Initialize parent class
-        super().__init__(
-            mfW=mnW,
-            tDt=tDt,
-            fNoiseStd=fNoiseStd,
-            strName=strName,
-        )
+        super().__init__(mfW=mnW, tDt=tDt, fNoiseStd=fNoiseStd, strName=strName)
 
         self.reset_all()
 
@@ -65,8 +61,10 @@ class PassThroughEvents(Layer):
 
         # - Handle empty inputs
         if tsInput is None or tsInput.vtTimeTrace.size == 0:
-            return TSEvent(None, None, nNumChannels=self.nSize)#, tStart=self.t, tStop=tEnd)
-        
+            return TSEvent(
+                None, None, nNumChannels=self.nSize
+            )  # , tStart=self.t, tStop=tEnd)
+
         nNumInputEvents = tsInput.vtTimeTrace.size
         # - Boolean raster of input events - each row corresponds to one event (not timepoint)
         mbInputChannelRaster = np.zeros((nNumInputEvents, self.nSizeIn), bool)
@@ -94,7 +92,7 @@ class PassThroughEvents(Layer):
             nNumChannels=self.nSize,
             # tStart=self.t,
             # tStop=tEnd,
-            strName="transformed event raster"
+            strName="transformed event raster",
         )
 
         # - Update clock
@@ -108,7 +106,7 @@ class PassThroughEvents(Layer):
 
     @property
     def cOutput(self):
-        return TSEvent    
+        return TSEvent
 
     @property
     def mnW(self):
@@ -117,4 +115,3 @@ class PassThroughEvents(Layer):
     @mnW.setter
     def mnW(self, mnNewW):
         self.mfW = np.asarray(mnNewW, int)
-
