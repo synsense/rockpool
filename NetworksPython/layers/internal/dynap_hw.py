@@ -1042,7 +1042,7 @@ def TSEvent_to_spike_list(
 def arrays_to_spike_list(
     vnTimeSteps: np.ndarray,
     vnChannels: np.ndarray,
-    lNeurons: List[Neuron],
+    lNeurons: List,
     nTSStart: int = 0,
     nTargetCoreMask: int = 1,
     nTargetChipID: int = 0,
