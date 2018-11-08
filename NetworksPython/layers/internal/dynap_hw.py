@@ -23,8 +23,7 @@ except ModuleNotFoundError:
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
     except:
-        # raise
-        pass
+        raise
 
 # - Imports from ctxCTL
 # import CtxDynapse
