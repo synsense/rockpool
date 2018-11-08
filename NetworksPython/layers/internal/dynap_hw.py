@@ -23,7 +23,8 @@ except ModuleNotFoundError:
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
     except:
-        raise
+        # raise
+        pass
 
 # - Imports from ctxCTL
 # import CtxDynapse
@@ -75,12 +76,12 @@ nDefaultMaxNumTimeSteps = int(nFpgaEventLimit * (2 ** 16 - 1))
 fTolAbs = 1e-9
 
 
-def assign_neurons_rectangle(nFirstNeuron: int, nNumNeurons: int, nWidth: int) -> List[int]:
+def rectangular_neuron_arrangement(nFirstNeuron: int, nNumNeurons: int, nWidth: int) -> List[int]:
     """
-    assign_neurons_rectangle: return neurons that form a rectangle on the chip
-                              with nFirstNeuron as upper left corner and width
-                              nWidth. (Last row may not be full). Neurons
-                              have to fit onto single core.
+    rectangular_neuron_arrangement: return neurons that form a rectangle on the chip
+                                    with nFirstNeuron as upper left corner and width
+                                    nWidth. (Last row may not be full). Neurons
+                                    have to fit onto single core.
     :param nFirstNeuron:  int ID of neuron that is in the upper left corner of the rectangle
     :param nNumNeurons:   int Number of neurons in the rectangle
     :param nWidth:        int Width of the rectangle (in neurons)  
@@ -211,11 +212,6 @@ def re_init_hardware():
     init_fpgaSpikeGen(DEF_FPGA_ISI_MULTIPLIER)
     print("DynapSE prepared.")
 
-
-# -- Create global dictionary, only initialise on first import of this module
-global DHW_dDynapse
-if "DHW_dDynapse" not in dir():
-    re_init_hardware()
 
 def allocate_hw_neurons(vnNeuronIDs: Union[int, np.ndarray]) -> (np.ndarray, np.ndarray):
     """
@@ -716,7 +712,7 @@ class RecDynapSE(Layer):
         # - Flatten out lTimeTrace and lChannels
         lTimeTrace = [t for vThisTrace in lTimeTrace for t in vThisTrace]
         lChannels = [ch for vTheseChannels in lChannels for ch in vTheseChannels]
-        print(np.amax(lChannels))
+        
         # - Convert recorded events into TSEvent object
         tsResponse = TSEvent(
             lTimeTrace, lChannels, nNumChannels=self.nSize, strName="DynapSE spikes"
@@ -1099,13 +1095,13 @@ def arrays_to_spike_list(
 
 
 def neurons_to_channels(
-    lNeurons: List[DynapseNeuron], lLayerNeurons: List[DynapseNeuron]
+    lNeurons: List, lLayerNeurons: List
 ) -> np.ndarray:
     """
     neurons_to_channels - Convert a list of neurons into layer channel indices
 
-    :param lNeurons:        List[DynapseNeuron] Lx0 to match against layer neurons
-    :param lLayerNeurons:   List[DynapseNeuron] Nx0 HW neurons corresponding to each channel index
+    :param lNeurons:        List Lx0 to match against layer neurons
+    :param lLayerNeurons:   List Nx0 HW neurons corresponding to each channel index
     :return:                np.ndarray[int] Lx0 channel indices corresponding to each neuron in lNeurons
     """
     # - Initialise list to return
@@ -1141,3 +1137,10 @@ def silence_hot_neurons(vnNeuronIDs, tDuration):
     for nID in lnHotNeurons:
         dynapse.set_tau_2(0, nID)
     print("DHW: Neurons {} have been silenced".format(lnHotNeurons))
+
+
+
+# -- Create global dictionary, only initialise on first import of this module
+global DHW_dDynapse
+if "DHW_dDynapse" not in dir():
+    re_init_hardware()

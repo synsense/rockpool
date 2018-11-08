@@ -13,7 +13,7 @@ dModules = {
     ),
     ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
     ".internal.dynap_hw": (
-        "assign_neurons_rectangle",
+        "rectangular_neuron_arrangement",
         "init_dynapse",
         "init_fpgaSpikeGen",
         "allocate_hw_neurons",
