@@ -42,7 +42,7 @@ class FFIAFTorch(Layer):
         vfVThresh: Union[float, np.ndarray] = -0.055,
         vfVReset: Union[float, np.ndarray] = -0.065,
         vfVRest: Union[float, np.ndarray] = -0.065,
-        tRefractoryTime=0,
+        # tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
@@ -63,7 +63,7 @@ class FFIAFTorch(Layer):
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
         :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+        # :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
         :param strName:         str Name for the layer. Default: 'unnamed'
 
@@ -425,13 +425,13 @@ class FFIAFTorch(Layer):
     def cOutput(self):
         return TSEvent
 
-    @property
-    def tRefractoryTime(self):
-        return self._nRefractorySteps * self.tDt
+    # @property
+    # def tRefractoryTime(self):
+    #     return self._nRefractorySteps * self.tDt
 
-    @tRefractoryTime.setter
-    def tRefractoryTime(self, tNewTime):
-        self._nRefractorySteps = int(np.round(tNewTime / self.tDt))
+    # @tRefractoryTime.setter
+    # def tRefractoryTime(self, tNewTime):
+    #     self._nRefractorySteps = int(np.round(tNewTime / self.tDt))
 
     @property
     def vState(self):
@@ -543,7 +543,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         vfVThresh: np.ndarray = -0.055,
         vfVReset: np.ndarray = -0.065,
         vfVRest: np.ndarray = -0.065,
-        tRefractoryTime=0,
+        # tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
@@ -565,7 +565,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
         :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+        # :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
         :param strName:         str Name for the layer. Default: 'unnamed'
 
@@ -585,7 +585,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
             vfVThresh=vfVThresh,
             vfVReset=vfVReset,
             vfVRest=vfVRest,
-            tRefractoryTime=tRefractoryTime,
+            # tRefractoryTime=tRefractoryTime,
             strName=strName,
             bRecord=bRecord,
             nMaxNumTimeSteps=nMaxNumTimeSteps,
@@ -754,7 +754,7 @@ class RecIAFTorch(FFIAFTorch):
         vfVThresh: Union[float, np.ndarray] = -0.055,
         vfVReset: Union[float, np.ndarray] = -0.065,
         vfVRest: Union[float, np.ndarray] = -0.065,
-        tRefractoryTime=0,
+        # tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
@@ -776,7 +776,7 @@ class RecIAFTorch(FFIAFTorch):
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
         :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0
+        # :param tRefractoryTime: float Refractory period after each spike. Default: 0
 
         :param strName:         str Name for the layer. Default: 'unnamed'
 
@@ -800,7 +800,7 @@ class RecIAFTorch(FFIAFTorch):
             vfVThresh=vfVThresh,
             vfVReset=vfVReset,
             vfVRest=vfVRest,
-            tRefractoryTime=tRefractoryTime,
+            # tRefractoryTime=tRefractoryTime,
             strName=strName,
             bRecord=bRecord,
             nMaxNumTimeSteps=nMaxNumTimeSteps,
@@ -1001,7 +1001,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         vfVThresh: Union[float, np.ndarray] = -0.055,
         vfVReset: Union[float, np.ndarray] = -0.065,
         vfVRest: Union[float, np.ndarray] = -0.065,
-        tRefractoryTime=0,
+        # tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
         bAddEvents: bool = True,
@@ -1026,7 +1026,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
         :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0
+        # :param tRefractoryTime: float Refractory period after each spike. Default: 0
 
         :param strName:         str Name for the layer. Default: 'unnamed'
 
