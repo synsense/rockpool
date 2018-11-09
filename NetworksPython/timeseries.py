@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Optional
 import collections
 from functools import reduce
 
@@ -117,6 +117,8 @@ class TimeSeries:
         mfSamples: ArrayLike,
         strInterpKind: str = "linear",
         bPeriodic: bool = False,
+        tStart: Optional[float] = None,
+        tStop: Optional[float] = None,
         strName=None,
     ):
         """
@@ -126,6 +128,8 @@ class TimeSeries:
         :param mfSamples:       [TxM] matrix of values corresponding to each time sample
         :param strInterpKind:   str: Specify the interpolation type. Default: 'linear'
         :param bPeriodic:       bool: Treat the time series as periodic around the end points. Default: False
+        :param tStart:          float: If not None, the series start time is tStart, otherwise vtTimeTrace[0]
+        :param tStop:           float: If not None, the series stop time is tStop, otherwise vtTimeTrace[-1]
 
         If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
         """
@@ -148,10 +152,12 @@ class TimeSeries:
         self.strInterpKind = strInterpKind
         self.bPeriodic = bPeriodic
         self.strName = strName
-
-        if bPeriodic:
-            self._tDuration = vtTimeTrace[-1] - vtTimeTrace[0]
-            self._tStart = vtTimeTrace[0]
+        if np.size(vtTimeTrace) == 0:
+            self.tStart = 0
+            self.tStop = 0
+        else:
+            self.tStart = vtTimeTrace[0] if tStart is None else tStart
+            self.tStop = vtTimeTrace[-1] if tStop is None else tStop
 
         self._create_interpolator()
 
@@ -208,7 +214,7 @@ class TimeSeries:
         if self.bPeriodic:
             vtTimes = (
                 np.asarray(vtTimes) - self._tStart
-            ) % self._tDuration + self._tStart
+            ) % self.tDuration + self._tStart
 
         return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
 
@@ -219,9 +225,15 @@ class TimeSeries:
         :param tOffset: float Time offset
         :return: New TimeSeries, delayed
         """
-        tsCopy = self.copy()
-        tsCopy.vtTimeTrace += tOffset
-        return tsCopy
+        if not bInPlace:
+            tsObj = self.copy()
+        else:
+            tsObj = self
+
+        tsObj.vtTimeTrace += tOffset
+        tsObj.tStart += tOffset
+        tsObj.tStop += tOffset
+        return tsObj
 
     def plot(self, vtTimes: Union[int, float, ArrayLike] = None, **kwargs):
         """
@@ -285,7 +297,8 @@ class TimeSeries:
         # - Return a new time series
         tsResampled = self.copy()
         tsResampled._vtTimeTrace = vtTimes
-        tsResampled._mfSamples = self(vtTimes)
+        tsResampled._tStart = vtTimes[0]
+        tsResampled._tStop = vtTimes[-1]
         tsResampled.bPeriodic = False
         tsResampled._create_interpolator()
         return tsResampled
@@ -307,23 +320,23 @@ class TimeSeries:
         """
         # - Determine start time, if not supplied
         tStart = (
-            min(self.vtTimeTrace)
+            self.tStart
             if tStart is None
             else (
                 tStart
                 if self.bPeriodic  # - Allow for tStart < self.tStart if self.bPeriodic
-                else max(tStart, min(self.vtTimeTrace))
+                else max(tStart, self.tStart)
             )
         )
 
         # - Determine stop time, if not supplied
         tStop = (
-            max(self.vtTimeTrace)
+            self.tStop
             if tStop is None
             else (
                 tStop
                 if self.bPeriodic  # - Allow for tStop > self.tStop if self.bPeriodic
-                else min(tStop, max(self.vtTimeTrace))
+                else min(tStop, self.tStop)
             )
         )
 
@@ -396,13 +409,21 @@ class TimeSeries:
         mfSamplesNew = np.concatenate((self.mfSamples, mfSamplesOther), axis=0)
         #  - Indices for sorting new time trace and samples. Use mergesort as stable sorting algorithm.
         viSorted = np.argsort(vtTimeTraceNew, kind="mergesort")
-        self._vtTimeTrace = vtTimeTraceNew[viSorted]
-        self._mfSamples = mfSamplesNew[viSorted]
 
-        # - Fix up periodicity, if the time trace is periodic
-        if self.bPeriodic:
-            self._tDuration = vtTimeTraceNew[-1] - vtTimeTraceNew[0]
-            self._tStart = vtTimeTraceNew[0]
+        # - Take care of tStart and tStop
+        tStart = min(self.tStart, tsOther.tStart)
+        tStop = min(self.tStop, tsOther.tStop)
+
+        # - Create a new time series, or modify this time series
+        if not bInPlace:
+            tsMerged = self.copy()
+        else:
+            tsMerged = self
+
+        tsMerged._vtTimeTrace = vtTimeTraceNew[viSorted]
+        tsMerged._mfSamples = mfSamplesNew[viSorted]
+        tsMerged._tStart = tStart
+        tsMerged._tStop = tStop
 
         # - Create new interpolator
         self._create_interpolator()
@@ -447,8 +468,8 @@ class TimeSeries:
         """
         append_t() - Append another time series to this one, in time
 
-        :param tsOther: Another time series. WIll be tacked on to the end of the called series object
-        :return: Self, with other TS appended
+        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :return: Time series containing current data, with other TS appended in time
         """
 
         # - Check tsOther
@@ -468,19 +489,17 @@ class TimeSeries:
             (
                 self._vtTimeTrace,
                 tsOther.vtTimeTrace
-                + self._vtTimeTrace[-1]
+                + tsAppended.tStop
                 + tMedianDT
-                - tsOther.vtTimeTrace[0],
+                - tsOther.tStart,
             ),
             axis=0,
         )
-
-        # - Check and correct periodicity
-        if self.bPeriodic:
-            self._tDuration = self._vtTimeTrace[-1]
-
+        # - Fix tStop
+        tsAppended._tStop += tsOther.tDuration + tMedianDT
+        
         # - Recreate interpolator
-        self._create_interpolator()
+        tsAppended._create_interpolator()
 
         # - Return self
         return self
@@ -616,7 +635,10 @@ class TimeSeries:
             axis=0,
         )
 
-        return tsClip
+        # - Update tStart to contain initial time point
+        tsClipped._tStart = min(tsClipped._tStart, vtNewBounds[0])
+
+        return tsClipped
 
     def _clip(self, vtNewBounds: ArrayLike):
         """
@@ -635,7 +657,10 @@ class TimeSeries:
         tsClip._vtTimeTrace = self.vtTimeTrace[vbIncludeSamples]
         tsClip._mfSamples = self.mfSamples[vbIncludeSamples]
 
-        return tsClip, vbIncludeSamples
+        # - Update tStart and tStop
+        tsClipped._tStart, tsClipped._tStop = vtNewBounds
+        
+        return tsClipped, vbIncludeSamples
 
     def _clip_periodic(self, vtNewBounds: ArrayLike):
         """
@@ -654,8 +679,8 @@ class TimeSeries:
         # - Map time bounds to periodic bounds
         vtNewBoundsPeriodic = copy.deepcopy(vtNewBounds)
         vtNewBoundsPeriodic[0] = (
-            np.asarray(vtNewBoundsPeriodic[0]) - self._tStart
-        ) % self._tDuration + self._tStart
+            np.asarray(vtNewBoundsPeriodic[0]) - tsClipped._tStart
+        ) % tsClipped.tDuration + tsClipped._tStart
         vtNewBoundsPeriodic[1] = vtNewBoundsPeriodic[0] + tDuration
 
         # - Build new time trace
@@ -674,6 +699,10 @@ class TimeSeries:
         # - Restore to original time base
         vtNewTimeTrace = vtNewTimeTrace - vtNewTimeTrace[0] + vtNewBounds[0]
 
+        # - Update tStart and tStop
+        tsClipped._tStart = vtNewTimeTrace[0]
+        tsClipped._tStop = vtNewTimeTrace[-1]
+        
         # - Return a new clipped time series
         tsClip = self.resample(vtNewTimeTrace)
         return tsClip, None
@@ -859,10 +888,9 @@ class TimeSeries:
         # - Store new time trace
         self._vtTimeTrace = np.reshape(vtNewTrace, -1)
 
-        # - Fix up periodicity, if the time trace is periodic
-        if self.bPeriodic:
-            self._tDuration = vtNewTrace[-1] - vtNewTrace[0]
-            self._tStart = vtNewTrace[0]
+        # - Fix tStart and tStop
+        self._tStart = min(self._tStart, vtNewTrace[0])
+        self._tStop = max(self._tStop, vtNewTrace[-1])
 
         # - Create a new interpolator
         self._create_interpolator()
@@ -929,30 +957,43 @@ class TimeSeries:
         """
         .tDuration: float Duration of TimeSeries
         """
-        try:
-            return self._vtTimeTrace[-1] - self._vtTimeTrace[0]
-        except IndexError:
-            return None
+        return self._tStop - self._tStart
 
     @property
     def tStart(self) -> float:
         """
         .tStart: float Start time
         """
-        try:
-            return self._vtTimeTrace[0]
-        except IndexError:
-            return None
+        return self._tStart
+
+    @tStart.setter
+    def tStart(self, tNewStart):
+        if np.size(self._vtTimeTrace) == 0 or tNewStart <= self._vtTimeTrace[0]:
+            self._tStart = tNewStart
+        else:            
+            raise ValueError(
+                "TimeSeries `{}`: tStart must be less or equal to {}.".format(
+                    self.strName, self._vtTimeTrace[0]
+                )
+            )
 
     @property
     def tStop(self) -> float:
         """
         .tStop: float Stop time
         """
-        try:
-            return self._vtTimeTrace[-1]
-        except IndexError:
-            return None
+        return self._tStop
+
+    @tStop.setter
+    def tStop(self, tNewStop):
+        if np.size(self._vtTimeTrace) == 0 or tNewStop >= self._vtTimeTrace[-1]:
+            self._tStop = tNewStop
+        else:
+            raise ValueError(
+                "TimeSeries `{}`: tStop must be greater or equal to {}.".format(
+                    self.strName, self._vtTimeTrace[-1]
+                )
+            )            
 
     def _compatibleShape(self, other) -> np.ndarray:
         try:
@@ -1014,6 +1055,8 @@ class TSEvent(TimeSeries):
         vfSamples: Union[int, float, ArrayLike] = None,
         strInterpKind="linear",
         bPeriodic: bool = False,
+        tStart: Optional[float] = None,
+        tStop: Optional[float] = None,
         strName: str = None,
         nNumChannels: int = None,
     ):
@@ -1026,6 +1069,9 @@ class TSEvent(TimeSeries):
 
         :param strInterpKind:   str Interpolation kind for event values (Default: "linear")
         :param bPeriodic:       bool Is this a periodic TimeSeries (Default: False)
+
+        :param tStart:          float: If not None, the series start time is tStart, otherwise vtTimeTrace[0]
+        :param tStop:           float: If not None, the series stop time is tStop, otherwise vtTimeTrace[-1]
 
         :param strName:         str Name of the time series (Default: None)
 
@@ -1087,6 +1133,8 @@ class TSEvent(TimeSeries):
             vfSamples,
             strInterpKind=strInterpKind,
             bPeriodic=bPeriodic,
+            tStart=tStart,
+            tStop=tStop,
             strName=strName,
         )
 
@@ -1300,12 +1348,16 @@ class TSEvent(TimeSeries):
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
         vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
         vfNewSamples = np.concatenate([tsOther.mfSamples for tsOther in ltsOther])
+        tNewStart = min(tsOther.tStart for tsOther in ltsOther)
+        tNewStop = max(tsOther.tStop for tsOther in ltsOther)
 
         # - Sort on time and merge
         vnOrder = np.argsort(vtNewTimeBase)
         self._vtTimeTrace = vtNewTimeBase[vnOrder]
         self._vnChannels = vnNewChannels[vnOrder]
         self._mfSamples = vfNewSamples[vnOrder]
+        self._tStart = tNewStart
+        self._tStop = tNewStop
 
         return self
 
