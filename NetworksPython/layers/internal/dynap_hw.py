@@ -6,7 +6,6 @@ from ..layer import Layer
 from ...timeseries import TSEvent
 from ...dynapse_control import (
     DynapseControl,
-    arrays_to_spike_list,
     neurons_to_channels,
     connectivity_matrix_to_prepost_lists,
 )
@@ -42,6 +41,7 @@ class RecDynapSE(Layer):
         lInputCoreIDs: List[int] = [0],
         nInputChipID: int = 0,
         controller: DynapseControl=None,
+        lCearChips: Optional[list]=[0],
         strName: Optional[str] = "unnamed",
     ):
         """
@@ -65,6 +65,7 @@ class RecDynapSE(Layer):
                                                 from other neurons.
         :param nInputChipID:        int  ID of the chip with neurons that receive external input.
         :param controller:          DynapseControl object to interface the hardware
+        :param lClearChips:         list or None  IDs of chips where configurations should be cleared.
         :param strName:             str     Layer name
         """
 
@@ -72,10 +73,11 @@ class RecDynapSE(Layer):
         if controller is None:
             if tDt is None:
                 raise ValueError("Layer `{}` Either tDt or controller must be provided".format(strName))
-            self.controller = DynapseControl(tDt)
+            self.controller = DynapseControl(tDt, lCearChips)
         else:
             self.controller = controller
             self.controller.tFpgaIsiBase = tDt
+            self.controller.clear_chips(lCearChips)
 
         # - Check supplied arguments
         if fNoiseStd is not None:
@@ -141,6 +143,8 @@ class RecDynapSE(Layer):
         assert self._vHWNeurons.size == self.nSize, (
             "Layer `{}`: `vnLayerNeuronIDs` must be of size {} or None.".format(strName, self.nSize)
         )
+        # - Keep list of neuron IDs
+        self._vnHWNeuronIDs = np.array([neuron.get_id() for neuron in self._vHWNeurons])
         print("Layer `{}`: Layer neurons allocated".format(strName))
 
         # - Allocate virtual neurons
@@ -152,6 +156,8 @@ class RecDynapSE(Layer):
         assert self._vVirtualNeurons.size == self.nSizeIn, (
             "Layer `{}`: `vnVirtualNeuronIDs` must be of size {} or None.".format(strName, self.nSizeIn)
         )
+        # - Keep list of neuron IDs
+        self._vnVirtualNeuronIDs = np.array([neuron.get_neuron_id() for neuron in self._vVirtualNeurons])
         print("Layer `{}`: Virtual neurons allocated".format(strName))
         
         # - Store recurrent weights
@@ -242,11 +248,11 @@ class RecDynapSE(Layer):
                     else:
                         raise e
                 # - Generate event list for fpga
-                lInputEvents = arrays_to_spike_list(
+                lInputEvents = self.controller.arrays_to_spike_list(
                     vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
                     vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
                     nTSStart=nTSStartBatch,
-                    lNeurons=self._vVirtualNeurons,
+                    vnNeuronIDs=self._vVirtualNeuronIDs,
                     nTargetCoreMask=self._nInputCoreMask,
                     nTargetChipID=self._nInputChipID,
                 )
@@ -287,11 +293,11 @@ class RecDynapSE(Layer):
                     iEndIndexBatch = iStartIndexBatch + self.nMaxEventsPerBatch
                     nTSEndBatch = vnInputTimeSteps[iEndIndexBatch]
                 # - Generate event list for fpga
-                lInputEvents = arrays_to_spike_list(
+                lInputEvents = self.controller.arrays_to_spike_list(
                     vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
                     vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
                     nTSStart=nTSStartBatch,
-                    lNeurons=self._vVirtualNeurons,
+                    vnNeuronIDs=self._vVirtualNeuronIDs,
                     nTargetCoreMask=self._nInputCoreMask,
                     nTargetChipID=self._nInputChipID,
                 )
