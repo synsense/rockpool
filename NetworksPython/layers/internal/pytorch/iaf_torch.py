@@ -596,8 +596,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
         """
         # - Prepare mfInput
-        mfInput = torch.from_numpy(mfInput).float().to(self.device)
-        # - Weigh inputs
+        mfNeuralInput = torch.from_numpy(mfInput).float().to(self.device)
+
+        # - Weight inputs
         mfWeightedInput = torch.mm(mfInput, self._mfW)
 
         # - Add noise trace

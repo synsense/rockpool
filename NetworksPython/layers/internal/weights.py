@@ -1,4 +1,9 @@
-from typing import Callable
+###
+# weights.py -- Utility functions for generating and manipulating networks
+###
+
+
+from typing import Callable, Optional, Tuple, Union
 import numpy as np
 import scipy.stats as stats
 from copy import deepcopy

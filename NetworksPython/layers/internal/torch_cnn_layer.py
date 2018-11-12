@@ -1,3 +1,7 @@
+##
+# torch_cnn_layer.py - Torch implementation of a FF layer using convolutional weights
+##
+
 from .pytorch.iaf_conv2d import TorchSpikingConv2dLayer
 import numpy as np
 import torch
