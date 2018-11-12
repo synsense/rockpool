@@ -1,6 +1,6 @@
 """
-updwon.py - Feedforward layer that converts each analogue input channel to one spiking up and one down channel
-            Run in batch mode like FFUpDownTorch to save memory, but do not use pytorch. FFUpDownTorch seems
+updown.py - Feedforward layer that converts each analogue input channel to one spiking up and one down channel
+            Runs in batch mode like FFUpDownTorch to save memory, but does not use pytorch. FFUpDownTorch seems
             to be slower..
 """
 
