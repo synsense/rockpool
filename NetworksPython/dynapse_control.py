@@ -86,6 +86,7 @@ def neurons_to_channels(
         try:
             nChannelIndex = lLayerNeurons.index(neurTest)
         except ValueError:
+            warn("Unexpected neuron ID {}".format(neurTest.get_id()))
             nChannelIndex = np.nan
 
         # - Append discovered index
@@ -752,7 +753,7 @@ class DynapseControl():
             tRecordTime: float=3,
             nInputNeuronID: int=0,
             vnRecordNeuronIDs: Union[int, np.ndarray]=0,
-            nTargetCoreMask: int=1,
+            nTargetCoreMask: int=15,
             nTargetChipID: int=0,
         ) -> TSEvent:
         """
@@ -798,8 +799,8 @@ class DynapseControl():
         # - Set up event recording
         if np.size(vnRecordNeuronIDs) == 1:
             vnRecordNeuronIDs = np.array(vnRecordNeuronIDs)
-        liRecordNeuronIDs = list(vnRecordNeuronIDs)
-        oFilter = BufferedEventFilter(self.model, liRecordNeuronIDs)
+        lnRecordNeuronIDs = list(vnRecordNeuronIDs)
+        oFilter = BufferedEventFilter(self.model, lnRecordNeuronIDs)
         print("DynapseControl: Event filter ready.")
 
         # - Stimulate / record
@@ -822,7 +823,7 @@ class DynapseControl():
 
         # - Extract monitored event channels and timestamps
         vnChannels = neurons_to_channels(
-            [e.neuron for e in lEvents], liRecordNeuronIDs
+            [e.neuron for e in lEvents], lnRecordNeuronIDs
         )
         vtTimeTrace = np.array([e.timestamp for e in lEvents]) * 1e-6
 
@@ -833,7 +834,13 @@ class DynapseControl():
         vtTimeTrace = vtTimeTrace[iStartIndex:] - tStartTrigger
         print("DynapseControl: Extracted event data")
 
-        return TSEvent(vtTimeTrace, vnChannels)
+        return TSEvent(
+            vtTimeTrace,
+            vnChannels,
+            tStart=0,
+            tStop=tRecordTime,
+            nNumChannels=len(lnRecordNeuronIDs)
+        )
 
     def send_TSEvent(
         self,
@@ -889,6 +896,13 @@ class DynapseControl():
     ### --- Tools for tuning and observing activities
 
     def add_buffered_event_filter(self, vnNeuronIDs):
+        """
+        add_buffered_event_filter - Add a BufferedEventFilter to record from
+                                    neurons defined in vnNeuronIDs
+        :param vnNeuronIDs:   array-like  IDs of neurons to be recorded
+        :return:
+            Reference to selfbufferedfilter, the BufferedEventFilter that has been created.
+        """
         # - Convert vnNeuronIDs to list
         if isinstance(vnNeuronIDs, int):
             lnNeuronIDs = range(vnNeuronIDs)
@@ -906,11 +920,58 @@ class DynapseControl():
         return bufferedfilter
 
     def clear_buffered_event_filter(self):
+        """ clear_buffered_event_filter - Clear self.bufferedfilter if it exists."""
         if hasattr(self, "_bufferedfilter") and self.bufferedfilter is not None:
             self.bufferedfilter.clear()
             print("DynapseControl: Buffered event filter cleared")
         else:
             warn("DynapseControl: No buffered event filter found.")
+
+    def buffered_events_to_TSEvent(self, vnNeuronIDs=range(4096), tDuration=None):
+        """
+        buffered_events_to_TSEvent - Fetch events from self.bufferedfilter and 
+                                     convert them to a TSEvnet
+        :param vnNeuronIDs:     
+        """
+        # - Fetch events from filter
+        lEvents = list(TR_oFilter.get_events())
+        lTrigger = list(TR_oFilter.get_special_event_timestamps())
+        print(
+            "DynapseControl: Recorded {} events and {} trigger events".format(
+                len(lEvents), len(lTrigger)
+            )
+        )
+
+        # - Extract monitored event channels and timestamps
+        vnNeuronIDs = np.array(vnNeuronIDs)
+        vnChannels = DHW.neurons_to_channels(
+            [e.neuron for e in lEvents], list(self._vHWNeurons[vnNeuronIDs])
+        )
+        # - Remove events that are not from neurons defined in vnNeuronIDs
+        vnChannels = vnChannels[np.isnan(vnChannels) == False]
+        # - TIme trace
+        vtTimeTrace = (
+            np.array([e.timestamp for e in lEvents]) * 1e-6
+        )[np.isnan(vnChannels) == False]
+
+        # - Locate synchronisation timestamp
+        tStartTrigger = lTrigger[0] * 1e-6
+        iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
+        iEndIndex = (
+            None if tDuration is None
+            else np.searchsorted(vtTimeTrace, tStartTrigger+tDuration)
+        )
+        vnChannels = vnChannels[iStartIndex:iEndIndex]
+        vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
+        print("DynapseControl: Extracted event data")
+
+        return TSEvent(
+            vtTimeTrace,
+            vnChannels,
+            tStart=0,
+            tStop=tDuration,
+            nNumChannels=np.size(vnNeuronIDs)
+        )
 
     def collect_spiking_neurons(self, vnNeuronIDs, tDuration):
         """
