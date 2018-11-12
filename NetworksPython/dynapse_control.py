@@ -23,9 +23,10 @@ except ModuleNotFoundError:
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
         print("dynapse_control: RPyC connection established.")
+
     except:
-        pass
-        # raise
+        # - Raise an ImportError (so that the smart __init__.py module can skip over missing CtxCtl
+        raise ImportError
 
 # - Imports from ctxCTL
 SynapseTypes = CtxDynapse.DynapseCamType
@@ -279,6 +280,7 @@ class DynapseControl():
 
         ## -- Modules for sending input to FPGA
         lFPGAModules = self.model.get_fpga_modules()
+
         # - Find a spike generator module
         vbIsSpikeGenModule = [isinstance(m, DynapseFpgaSpikeGen) for m in lFPGAModules]
         if not np.any(vbIsSpikeGenModule):
@@ -290,6 +292,7 @@ class DynapseControl():
             # Get first spike generator module
             self.fpgaSpikeGen = lFPGAModules[np.argwhere(vbIsSpikeGenModule)[0][0]]
             print("DynapseControl: Spike generator module ready.")
+
         # - Find a poisson spike generator module
         vbIsPoissonGenModule = [isinstance(m, DynapsePoissonGen) for m in lFPGAModules]
         if np.any(vbIsPoissonGenModule):
