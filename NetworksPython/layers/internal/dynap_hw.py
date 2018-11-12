@@ -41,7 +41,7 @@ class RecDynapSE(Layer):
         lInputCoreIDs: List[int] = [0],
         nInputChipID: int = 0,
         controller: DynapseControl=None,
-        lCearChips: Optional[list]=[0],
+        lClearChips: Optional[list]=[0],
         strName: Optional[str] = "unnamed",
     ):
         """
@@ -73,11 +73,11 @@ class RecDynapSE(Layer):
         if controller is None:
             if tDt is None:
                 raise ValueError("Layer `{}` Either tDt or controller must be provided".format(strName))
-            self.controller = DynapseControl(tDt, lCearChips)
+            self.controller = DynapseControl(tDt, lClearChips)
         else:
             self.controller = controller
             self.controller.tFpgaIsiBase = tDt
-            self.controller.clear_chips(lCearChips)
+            self.controller.clear_chips(lClearChips)
 
         # - Check supplied arguments
         if fNoiseStd is not None:
@@ -468,7 +468,7 @@ class RecDynapSE(Layer):
         self.controller.dcNeuronConnector.add_connection_from_list(
             self._vVirtualNeurons[liPreSynE],
             self._vShadowNeurons[liPostSynE],
-            [SynapseTypes.FAST_EXC],
+            [self.controller.synFE],
         )
         print(
             "Layer `{}`: Excitatory connections from virtual neurons to layer neurons have been set.".format(
@@ -479,7 +479,7 @@ class RecDynapSE(Layer):
         self.controller.dcNeuronConnector.add_connection_from_list(
             self._vVirtualNeurons[liPreSynI],
             self._vShadowNeurons[liPostSynI],
-            [SynapseTypes.FAST_INH],
+            [self.controller.synFI],
         )
         print(
             "Layer `{}`: Inhibitory connections from virtual neurons to layer neurons have been set.".format(
@@ -505,7 +505,7 @@ class RecDynapSE(Layer):
         self.controller.dcNeuronConnector.add_connection_from_list(
             self._vShadowNeurons[viPreSynE[viPreSynE < nNumInputNeurons]],
             self._vShadowNeurons[viPostSynE[viPreSynE < nNumInputNeurons]],
-            [SynapseTypes.FAST_EXC],
+            [self.controller.synFE],
         )
         print(
             "Layer `{}`: Excitatory connections from input neurons to reservoir neurons have been set.".format(
@@ -516,7 +516,7 @@ class RecDynapSE(Layer):
         self.controller.dcNeuronConnector.add_connection_from_list(
             self._vShadowNeurons[viPreSynI[viPreSynI < nNumInputNeurons]],
             self._vShadowNeurons[viPostSynI[viPreSynI < nNumInputNeurons]],
-            [SynapseTypes.FAST_INH],
+            [self.controller.synFI],
         )
         print(
             "Layer `{}`: Inhibitory connections from input neurons to reservoir neurons have been set.".format(
@@ -529,7 +529,7 @@ class RecDynapSE(Layer):
         self.controller.dcNeuronConnector.add_connection_from_list(
             self._vShadowNeurons[viPreSynE[viPreSynE >= nNumInputNeurons]],
             self._vShadowNeurons[viPostSynE[viPreSynE >= nNumInputNeurons]],
-            [SynapseTypes.SLOW_EXC],
+            [self.controller.synSE],
         )
         print(
             "Layer `{}`: Excitatory connections within layer have been set.".format(
@@ -540,7 +540,7 @@ class RecDynapSE(Layer):
         self.controller.dcNeuronConnector.add_connection_from_list(
             self._vShadowNeurons[viPreSynI[viPreSynI >= nNumInputNeurons]],
             self._vShadowNeurons[viPostSynI[viPreSynI >= nNumInputNeurons]],
-            [SynapseTypes.FAST_INH],
+            [self.controller.synFI],
         )
         print(
             "Layer `{}`: Inhibitory connections within layer have been set.".format(
@@ -548,7 +548,7 @@ class RecDynapSE(Layer):
             )
         )
 
-        DHW_dDynapse['model'].apply_diff_state()
+        self.controller.model.apply_diff_state()
         print("Layer `{}`: Connections have been written to the chip.".format(self.strName))
 
     @property

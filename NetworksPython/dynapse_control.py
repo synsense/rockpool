@@ -567,8 +567,8 @@ class DynapseControl():
         """
         # - Check that the number of channels is the same between time series and list of neurons
         assert tsSeries.nNumChannels <= np.size(
-            lNeurons
-        ), "`tsSeries` contains more channels than the number of neurons in `lNeurons`."
+            vnNeuronIDs
+        ), "`tsSeries` contains more channels than the number of neurons in `vnNeuronIDs`."
 
         if np.size(vnNeuronIDs == 1):
             # - Make sure vnNeuronIDs is iterable
@@ -930,7 +930,7 @@ class DynapseControl():
     def buffered_events_to_TSEvent(self, vnNeuronIDs=range(4096), tDuration=None):
         """
         buffered_events_to_TSEvent - Fetch events from self.bufferedfilter and 
-                                     convert them to a TSEvnet
+                                     convert them to a TSEvent
         :param vnNeuronIDs:     
         """
         # - Fetch events from filter
@@ -984,13 +984,12 @@ class DynapseControl():
 
         # - Convert vnNeuronIDs to list
         if isinstance(vnNeuronIDs, int):
-            lnNeuronIDs = range(vnNeuronIDs)
-        lnRecordNeuronIDs = list(vnNeuronIDs)
+            vnNeuronIDs = range(vnNeuronIDs)
         
         print("DynapseControl: Collecting IDs of neurons that spike within the next {} seconds".format(tDuration))
         
         # - Filter for recording neurons
-        oFilter = BufferedEventFilter(self.model, lnNeuronIDs)
+        oFilter = BufferedEventFilter(self.model, list(vnNeuronIDs))
         
         # - Wait and record spiking neurons
         time.sleep(tDuration)
@@ -1001,7 +1000,7 @@ class DynapseControl():
         lnRecordedNeuronIDs = sorted(set((event.neuron.get_id() for event in oFilter.get_events())))
         print("DynapseControl: {} neurons spiked: {}".format(len(lnRecordedNeuronIDs), lnRecordedNeuronIDs))
 
-        return lnNeuronIDs
+        return lnRecordedNeuronIDs
 
     def silence_hot_neurons(self, vnNeuronIDs, tDuration):
         """
