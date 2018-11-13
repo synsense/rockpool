@@ -62,6 +62,7 @@ nDefaultMaxNumTimeSteps = int(FPGA_EVENT_LIMIT * (2 ** 16 - 1))
 ### --- Utility functions
 
 def generate_fpga_event(nTargetChipID, nTargetCoreMask, nNeuronID, nISI) -> FpgaSpikeEvent:
+    # print(nNeuronID)
     event = FpgaSpikeEvent()
     event.target_chip = nTargetChipID
     event.core_mask = nTargetCoreMask
@@ -81,6 +82,8 @@ def neurons_to_channels(
     """
     # - Initialise list to return
     lChannelIndices = []
+
+    lLayerNeurons = list(lLayerNeurons)
 
     for neurTest in lNeurons:
         try:
@@ -570,9 +573,8 @@ class DynapseControl():
             vnNeuronIDs
         ), "`tsSeries` contains more channels than the number of neurons in `vnNeuronIDs`."
 
-        if np.size(vnNeuronIDs == 1):
-            # - Make sure vnNeuronIDs is iterable
-            vnNeuronIDs = (vnNeuronIDs,)
+        # - Make sure vnNeuronIDs is iterable
+        vnNeuronIDs = np.array(vnNeuronIDs)
 
         # - Get events from this time series
         vtTimes, vnChannels, _ = tsSeries.find()
@@ -594,6 +596,7 @@ class DynapseControl():
         return lEvents
 
     def arrays_to_spike_list(
+        self,
         vnTimeSteps: np.ndarray,
         vnChannels: np.ndarray,
         vnNeuronIDs: np.ndarray,
@@ -622,9 +625,8 @@ class DynapseControl():
             vnNeuronIDs
         ), "`vnChannels` contains more channels than the number of neurons in `vnNeuronIDs`."
 
-        if np.size(vnNeuronIDs == 1):
-            # - Make sure vnNeuronIDs is iterable
-            vnNeuronIDs = (vnNeuronIDs,)
+        # - Make sure vnNeuronIDs is iterable
+        vnNeuronIDs = np.array(vnNeuronIDs)
 
         # - Convert to ISIs
         vnDiscreteISIs = np.diff(np.r_[nTSStart, vnTimeSteps])
@@ -778,11 +780,11 @@ class DynapseControl():
         nAdd = int(np.ceil(tRecordTime / tISILimit))
         vnTimeSteps = np.r_[vnTimeSteps, vnTimeSteps[-1] + np.arange(1, nAdd+1)*self.nFpgaIsiLimit]
         
-        lEvents = arrays_to_spike_list(
+        lEvents = self.arrays_to_spike_list(
             vnTimeSteps=vnTimeSteps,
             vnChannels=np.repeat(nInputNeuronID, vnTimeSteps.size),
+            vnNeuronIDs=range(self.vVirtualNeurons.size),
             nTSStart=0,
-            lNeurons=self.vHWNeurons,
             nTargetCoreMask=nTargetCoreMask,
             nTargetChipID=nTargetChipID,        
         )
@@ -797,10 +799,8 @@ class DynapseControl():
         print("DynapseControl: Stimulus preloaded.")
 
         # - Set up event recording
-        if np.size(vnRecordNeuronIDs) == 1:
-            vnRecordNeuronIDs = np.array(vnRecordNeuronIDs)
-        lnRecordNeuronIDs = list(vnRecordNeuronIDs)
-        oFilter = BufferedEventFilter(self.model, lnRecordNeuronIDs)
+        vnRecordNeuronIDs = np.atleast_1d(np.array(vnRecordNeuronIDs))  # Also handles integer arguments
+        oFilter = BufferedEventFilter(self.model, list(vnRecordNeuronIDs))
         print("DynapseControl: Event filter ready.")
 
         # - Stimulate / record
@@ -818,12 +818,13 @@ class DynapseControl():
         lEvents = list(oFilter.get_events())
         lTrigger = list(oFilter.get_special_event_timestamps())
         print(
-            "DynapseControl: Recorded {} events and {} trigger events".format(len(lEvents), len(lTrigger))
+            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
         )
 
         # - Extract monitored event channels and timestamps
         vnChannels = neurons_to_channels(
-            [e.neuron for e in lEvents], lnRecordNeuronIDs
+            [e.neuron for e in lEvents],
+            self.vHWNeurons[vnRecordNeuronIDs],
         )
         vtTimeTrace = np.array([e.timestamp for e in lEvents]) * 1e-6
 
@@ -839,7 +840,7 @@ class DynapseControl():
             vnChannels,
             tStart=0,
             tStop=tRecordTime,
-            nNumChannels=len(lnRecordNeuronIDs)
+            nNumChannels=np.size(vnRecordNeuronIDs)
         )
 
     def send_TSEvent(
@@ -905,8 +906,9 @@ class DynapseControl():
         """
         # - Convert vnNeuronIDs to list
         if isinstance(vnNeuronIDs, int):
-            lnNeuronIDs = range(vnNeuronIDs)
-        lnRecordNeuronIDs = list(vnNeuronIDs)
+            lnRecordNeuronIDs = list(range(vnNeuronIDs))
+        else:
+            lnRecordNeuronIDs = list(vnNeuronIDs)
         
         # - Does a filter already exist?
         if hasattr(self, "_bufferedfilter") and self.bufferedfilter is not None:
@@ -914,10 +916,10 @@ class DynapseControl():
             self.bufferedfilter.add_ids(lnRecordNeuronIDs)
             print("DynapseControl: Updated existing buffered event filter.")
         else:
-            self.bufferedfilter = BufferedEventFilter(self.model, lnNeuronIDs)
+            self.bufferedfilter = BufferedEventFilter(self.model, lnRecordNeuronIDs)
             print("DynapseControl: Generated new buffered event filter.")
         
-        return bufferedfilter
+        return self.bufferedfilter
 
     def clear_buffered_event_filter(self):
         """ clear_buffered_event_filter - Clear self.bufferedfilter if it exists."""
@@ -937,7 +939,7 @@ class DynapseControl():
         lEvents = list(TR_oFilter.get_events())
         lTrigger = list(TR_oFilter.get_special_event_timestamps())
         print(
-            "DynapseControl: Recorded {} events and {} trigger events".format(
+            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
                 len(lEvents), len(lTrigger)
             )
         )
@@ -970,7 +972,8 @@ class DynapseControl():
             vnChannels,
             tStart=0,
             tStop=tDuration,
-            nNumChannels=np.size(vnNeuronIDs)
+            nNumChannels=np.size(vnNeuronIDs),
+            strName="pulse_response"
         )
 
     def collect_spiking_neurons(self, vnNeuronIDs, tDuration):
@@ -1142,6 +1145,18 @@ class DynapseControl():
     def save_biases(strFilename):
         """save_biases - Save biases in python file under path strFilename"""
         PyCtxUtils.save_biases(strFilename)
+        bias_groups = CtxDynapse.model.get_bias_groups()
+        with open(strFilename, "w") as save_file:
+            save_file.write("import CtxDynapse\n")
+            save_file.write("save_file_model_ = CtxDynapse.model\n")
+            for i, bias_group in enumerate(bias_groups):
+                biases = bias_group.get_biases()
+                for bias in biases:
+                    save_file.write(
+                        "save_file_model_.get_bias_groups()[{0}].set_bias(\"{1}\", {2}, {3})\n".format(
+                            i, bias.bias_name, bias.fine_value, bias.coarse_value
+                        )
+                    )
         print("DynapseControl: Biases have been saved under {}.".format(strFilename))
 
     def copy_biases(self, nSourceCoreID: int=0, vnTargetCoreIDs: Optional[List[int]]=None):

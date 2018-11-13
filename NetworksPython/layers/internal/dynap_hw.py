@@ -252,7 +252,7 @@ class RecDynapSE(Layer):
                     vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
                     vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
                     nTSStart=nTSStartBatch,
-                    vnNeuronIDs=self._vVirtualNeuronIDs,
+                    vnNeuronIDs=self._vnVirtualNeuronIDs,
                     nTargetCoreMask=self._nInputCoreMask,
                     nTargetChipID=self._nInputChipID,
                 )
@@ -297,7 +297,7 @@ class RecDynapSE(Layer):
                     vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
                     vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
                     nTSStart=nTSStartBatch,
-                    vnNeuronIDs=self._vVirtualNeuronIDs,
+                    vnNeuronIDs=self._vnVirtualNeuronIDs,
                     nTargetCoreMask=self._nInputCoreMask,
                     nTargetChipID=self._nInputChipID,
                 )
@@ -380,8 +380,8 @@ class RecDynapSE(Layer):
                 print("Layer `{}`: Stimulus preloaded.".format(self.strName))
 
             # -- Set up event recording
-            oFilter = BufferedEventFilter(
-                self.controller.model, [n.get_id() for n in self._vHWNeurons]
+            oFilter = self.controller.add_buffered_event_filter(
+                [n.get_id() for n in self._vHWNeurons]
             )
             if bVerbose:
                 print("Layer `{}`: Event filter ready.".format(self.strName))
