@@ -61,8 +61,23 @@ nDefaultMaxNumTimeSteps = int(FPGA_EVENT_LIMIT * (2 ** 16 - 1))
 
 ### --- Utility functions
 
-def generate_fpga_event(nTargetChipID, nTargetCoreMask, nNeuronID, nISI) -> FpgaSpikeEvent:
-    # print(nNeuronID)
+def generate_fpga_event(
+    nTargetChipID: int,
+    nTargetCoreMask: int,
+    nNeuronID: int,
+    nISI: int,
+) -> FpgaSpikeEvent:
+    """
+    generate_fpga_event - Generate a single FpgaSpikeEventObject
+    :param nTargetChipID:   int ID of chip where event will be sent to
+    :param nTargetCoreMask: int Coremask to determine target cores
+    :param nNeuronID:       int ID of source neuron
+    :param nISI:            int Timesteps after previous event before
+                                this event will be sent
+
+    :return:
+        event  FpgaSpikeEvent
+    """
     event = FpgaSpikeEvent()
     event.target_chip = nTargetChipID
     event.core_mask = nTargetCoreMask
@@ -1144,7 +1159,6 @@ class DynapseControl():
     @staticmethod
     def save_biases(strFilename):
         """save_biases - Save biases in python file under path strFilename"""
-        PyCtxUtils.save_biases(strFilename)
         bias_groups = CtxDynapse.model.get_bias_groups()
         with open(strFilename, "w") as save_file:
             save_file.write("import CtxDynapse\n")
