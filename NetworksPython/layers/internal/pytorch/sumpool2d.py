@@ -1,6 +1,8 @@
 import torch.nn as nn
 import numpy as np
 import pandas as pd
+from operator import mul
+from functools import reduce
 from typing import Optional, Union, List, Tuple
 
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -21,7 +23,7 @@ class TorchSumPooling2dLayer(nn.Module):
         """
         Torch implementation of SumPooling using the LPPool2d module
         """
-        super(TorchSumPooling2dLayer, self).__init__()  # Init nn.Module
+        nn.Module.__init__(self)  # Init nn.Module
         self.padding = padding
         self.kernel_size = kernel_size
         self.strName = strName
@@ -56,6 +58,9 @@ class TorchSumPooling2dLayer(nn.Module):
                 "Padding": str(self.padding),
                 "Kernel": str(self.kernel_size),
                 "Stride": str(self.strides),
+                "FanOutPrev": reduce(
+                    mul, np.array(self.kernel_size) / np.array(self.strides), 1
+                ),
                 "Neurons": 0,
                 "KernelMem": 0,
                 "BiasMem": 0,
