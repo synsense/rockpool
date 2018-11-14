@@ -43,7 +43,7 @@ print("dynapse_control: CtxDynapse modules loaded.")
 
 ### --- Parameters
 # - Fix (hardware)
-FPGA_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be sent to FPGA
+FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
 FPGA_ISI_LIMIT = int(2 ** 16 - 1)  # Max. number of timesteps for single inter-spike interval between FPGA events
 FPGA_TIMESTEP = 1. / 9. * 1e-7  # Internal clock of FPGA, 11.111...ns
 CORE_DIMENSIONS = (16, 16)  # Numbers of neurons in core (rows, columns)
@@ -56,7 +56,7 @@ DEF_FPGA_ISI_MULTIPLIER = int(np.round(DEF_FPGA_ISI_BASE / FPGA_TIMESTEP))
 #   Assuming one input event after the maximum ISI - This is the maximally possible
 #   value. In practice there will be more events per time. Therefore the this value
 #   does not guarantee that the complete input batch fits onto the fpga
-nDefaultMaxNumTimeSteps = int(FPGA_EVENT_LIMIT * (2 ** 16 - 1))
+nDefaultMaxNumTimeSteps = int(FPGA_EVENT_LIMIT * FPGA_ISI_LIMIT)
 
 
 ### --- Utility functions
