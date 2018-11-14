@@ -5,9 +5,9 @@ setup(
     version="0.1dev",
     packages=[
         "NetworksPython",
-        "Networks.weights",
-        "Networks.weights.gpl",
-        "Networks.weights.internal",
+        "NetworksPython.weights",
+        "NetworksPython.weights.gpl",
+        "NetworksPython.weights.internal",
         "NetworksPython.networks",
         "NetworksPython.networks.gpl",
         "NetworksPython.networks.internal",
