@@ -14,7 +14,7 @@ from ...timeseries import TSEvent
 
 # from ..layer import Layer
 from .iaf_cl import CLIAF
-from .cnnweights import CNNWeight
+from ...weights.internal.cnnweights import CNNWeight
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
