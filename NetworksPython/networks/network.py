@@ -488,6 +488,8 @@ class Network:
                 vtTrialStarts = tsInput.vtTrialStarts
             except AttributeError:
                 vtTrialStarts = None
+        else:
+            vtTrialStarts = None
 
         # - Dict to store external input and each layer's output time series
         dtsSignal = {"external": tsInput}

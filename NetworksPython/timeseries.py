@@ -722,10 +722,15 @@ class TimeSeries:
         vbIncludeSamples = np.logical_and(
             tsClipped.vtTimeTrace >= vtNewBounds[0], tsClipped.vtTimeTrace < vtNewBounds[-1]
         )
-
+        
         # - Build and return TimeSeries
         tsClipped._vtTimeTrace = tsClipped._vtTimeTrace[vbIncludeSamples]
-        tsClipped._mfSamples = np.reshape(tsClipped._mfSamples, (np.size(vbIncludeSamples), -1))[vbIncludeSamples, :]
+        
+        if np.size(vbIncludeSamples) == 0:
+            # - Handle empty data
+            tsClipped._mfSamples = np.zeros((0, tsClipped.mfSamples.shape[1]))
+        else:
+            tsClipped._mfSamples = np.reshape(tsClipped._mfSamples, (np.size(vbIncludeSamples), -1))[vbIncludeSamples, :]
 
         # - Update tStart and tStop
         tsClipped._tStart, tsClipped._tStop = vtNewBounds

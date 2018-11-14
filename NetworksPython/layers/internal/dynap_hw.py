@@ -374,6 +374,7 @@ class RecDynapSE(Layer):
         )
         tStartBatch = self.t
         for lCurrentEvents, tDurBatch in gInputGenerator:
+            self.lCE = lCurrentEvents
             # - Send event sequence to fpga module
             self.controller.fpgaSpikeGen.preload_stimulus(lCurrentEvents)
             if bVerbose:
