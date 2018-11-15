@@ -64,30 +64,6 @@ nDefaultMaxNumTimeSteps = int(FPGA_EVENT_LIMIT * FPGA_ISI_LIMIT)
 
 ### --- Utility functions
 
-def generate_fpga_event(
-    nTargetChipID: int,
-    nTargetCoreMask: int,
-    nNeuronID: int,
-    nISI: int,
-) -> FpgaSpikeEvent:
-    """
-    generate_fpga_event - Generate a single FpgaSpikeEventObject
-    :param nTargetChipID:   int ID of chip where event will be sent to
-    :param nTargetCoreMask: int Coremask to determine target cores
-    :param nNeuronID:       int ID of source neuron
-    :param nISI:            int Timesteps after previous event before
-                                this event will be sent
-
-    :return:
-        event  FpgaSpikeEvent
-    """
-    event = FpgaSpikeEvent()
-    event.target_chip = nTargetChipID
-    event.core_mask = nTargetCoreMask
-    event.neuron_id = nNeuronID
-    event.isi = nISI
-    return event
-
 def neurons_to_channels(
     lNeurons: List, lLayerNeurons: List
 ) -> np.ndarray:
@@ -286,6 +262,50 @@ def teleport_function(func):
     else:
         # - Otherwise just return the undecorated function
         return func
+
+@teleport_function
+def generate_fpga_event_list(
+    vnDiscreteISIs: np.ndarray,
+    vnChannels: np.ndarray,
+    vnNeuronIDs: np.ndarray,
+    nTargetCoreMask: int,
+    nTargetChipID: int,
+) -> list:
+
+    from CtxDynapse import FpgaSpikeEvent
+
+    def generate_fpga_event(
+        nTargetChipID: int,
+        nTargetCoreMask: int,
+        nNeuronID: int,
+        nISI: int,
+    ) -> FpgaSpikeEvent:
+        """
+        generate_fpga_event - Generate a single FpgaSpikeEventObject
+        :param nTargetChipID:   int ID of chip where event will be sent to
+        :param nTargetCoreMask: int Coremask to determine target cores
+        :param nNeuronID:       int ID of source neuron
+        :param nISI:            int Timesteps after previous event before
+                                    this event will be sent
+
+        :return:
+            event  FpgaSpikeEvent
+        """
+        event = FpgaSpikeEvent()
+        event.target_chip = nTargetChipID
+        event.core_mask = nTargetCoreMask
+        event.neuron_id = nNeuronID
+        event.isi = nISI
+        return event        
+
+    # - Generate events
+    lEvents = [
+        generate_fpga_event(
+            nTargetChipID, nTargetCoreMask, vnNeuronIDs[nChannel], nISI
+        )
+        for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
+    ]
+    return lEvents
 
 @teleport_function
 def clear_chips(oDynapse,
@@ -662,14 +682,14 @@ class DynapseControl():
         vtISIs = np.diff(np.r_[tStartTime, vtTimes])
         vnDiscreteISIs = (np.round(vtISIs / self.tFpgaIsiBase)).astype("int")
 
-        # - Convert each event to an FpgaSpikeEvent
-        lEvents = [
-            generate_fpga_event(
-                nTargetChipID, nTargetCoreMask, vnNeuronIDs[nChannel], nISI
-            )
-            for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
-        ]
-
+        # - Convert events to an FpgaSpikeEvent
+        lEvents = generate_fpga_event_list(
+            vnDiscreteISIs,
+            vnChannels,
+            vnNeuronIDs,
+            nTargetCoreMask,
+            nTargetChipID,
+        )
         # - Return a list of events
         return lEvents
 
@@ -709,13 +729,14 @@ class DynapseControl():
         # - Convert to ISIs
         vnDiscreteISIs = np.diff(np.r_[nTSStart, vnTimeSteps])
 
-        # - Convert each event to an FpgaSpikeEvent
-        lEvents = [
-            generate_fpga_event(
-                nTargetChipID, nTargetCoreMask, vnNeuronIDs[nChannel], nISI
-            )
-            for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
-        ]
+        # - Convert events to an FpgaSpikeEvent
+        lEvents = generate_fpga_event_list(
+            vnDiscreteISIs,
+            vnChannels,
+            vnNeuronIDs,
+            nTargetCoreMask,
+            nTargetChipID,
+        )
 
         # - Return a list of events
         return lEvents
@@ -744,16 +765,19 @@ class DynapseControl():
         # - ISI in units of fpga time step
         nISIfpga = int(np.round(tISI / self.tFpgaIsiBase))
 
-        # - Handle integers for vnNeuronIDs
-        if isinstance(vnNeuronIDs, int):
-            vnNeuronIDs = [vnNeuronIDs]
+        # # - Handle integers for vnNeuronIDs
+        # if isinstance(vnNeuronIDs, int):
+        #     vnNeuronIDs = [vnNeuronIDs]
 
         # - Generate events
         # List for events to be sent to fpga
-        lEvents = [
-            generate_fpga_event(nChipID, nCoreMask, vnNeuronIDs, nISIfpga)
-        ]
-
+        lEvents = generate_fpga_event_list(
+            [nISIfpga],
+            [0],
+            [vnNeuronIDs],
+            nCoreMask,
+            nChipID,
+        )
         self.fpgaSpikeGen.preload_stimulus(lEvents)
         print("DynapseControl: Stimulus prepared with {} Hz".format(
             1. / (nISIfpga * self.tFpgaIsiBase))
@@ -971,6 +995,7 @@ class DynapseControl():
                 )
             )
         self.fpgaSpikeGen.start()
+
 
     ### --- Tools for tuning and observing activities
 
@@ -1213,10 +1238,13 @@ class DynapseControl():
     
     ### - Load and save biases
 
-    @staticmethod
-    def load_biases(strFilename):
+    def load_biases(self, strFilename):
         """load_biases - Load biases from python file under path strFilename"""
-        exec(open(strFilename).read())
+        with open(strFilename) as file:
+            lstrBiasCommands = file.readlines()[2:]
+            save_file_model_ = self.model
+            for strCommand in lstrBiasCommands:
+                exec(strCommand)
         print("DynapseControl: Biases have been loaded from {}.".format(strFilename))
     
     @staticmethod
