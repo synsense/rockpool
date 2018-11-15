@@ -11,6 +11,8 @@ import time
 from .timeseries import TSEvent
 
 # - Programmatic imports for CtxCtl
+bUsing_rPyC = False
+
 try:
     import CtxDynapse
     import NeuronNeuronConnector
@@ -23,6 +25,7 @@ except ModuleNotFoundError:
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
         print("dynapse_control: RPyC connection established.")
+        bUsing_rPyC = True
 
     except:
         # - Raise an ImportError (so that the smart __init__.py module can skip over missing CtxCtl
@@ -269,6 +272,21 @@ def evaluate_firing_rates(
 
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
+def teleport_function(func):
+    """
+    telport_function - Decorator. If using RPyC, then teleport the resulting function
+
+    :param func:            Function to maybe teleport
+    :return:                Maybe teleported function
+    """
+    # - Teleport if bUsing_RPyC flag is set
+    if bUsing_rPyC:
+        return rpyc.classic.teleport_function(conn, func)
+
+    else:
+        # - Otherwise just return the undecorated function
+        return func
+
 
 class DynapseControl():
 
@@ -276,16 +294,15 @@ class DynapseControl():
     _nFpgaIsiLimit = FPGA_ISI_LIMIT
     _tFpgaTimestep = FPGA_TIMESTEP
 
-    def __init__(
-        self, tFpgaIsiBase: float=DEF_FPGA_ISI_BASE, lClearChips: Optional[list]=None
+    def __init__(self,
+                 tFpgaIsiBase: float=DEF_FPGA_ISI_BASE,
+                 lClearChips: Optional[list] = None,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
 
-        :param tFpgaIsiBase:  float  Time step for inter-spike intervalls when
-                                     sending events to FPGA
-        :param lClearChips:    list or None  IDs of chips where configurations
-                                             should be cleared.
+        :param tFpgaIsiBase:    float           Time step for inter-spike intervals when sending events to FPGA
+        :param lClearChips:     list or None    IDs of chips where configurations should be cleared.
         """
 
         print("DynapseControl: Initializing DynapSE")
@@ -345,24 +362,27 @@ class DynapseControl():
 
         print("DynapseControl ready.")
 
-    def clear_chips(self, lClearChips: Optional[list]=None):
+    @teleport_function
+    def clear_chips(self, lClearChips: Optional[list]=None, dyModule = dynapse):
         """
         clear_cams - Clear the CAM and SRAM cells of chips defined in lClearCam.
         :param lClearChips:  list or None  IDs of chips where configurations 
                                            should be cleared.
         """
+        # - Make sure lClearChips is a list
         if lClearChips is None:
             return
         elif isinstance(lClearChips, int):
-            lClearChips = (lClearChips, )
+            lClearChips = [lClearChips, ]
+
         for nChip in lClearChips:
             print("DynapseControl: Clearing chip {}.".format(nChip))
             # - Clear SRAMs
-            dynapse.clear_cam(int(nChip))
+            dyModule.clear_cam(int(nChip))
             print("\t CAMs cleared.")
             # - Clear SRAMs
             print("\t SRAMs cleared.")
-            dynapse.clear_sram(int(nChip))
+            dyModule.clear_sram(int(nChip))
             # - Reset neuron weights in model
             for neuron in self.vShadowNeurons[nChip*1024: (nChip+1)*1024]:
                 vSrams = neuron.get_srams()
@@ -532,6 +552,7 @@ class DynapseControl():
         self.model.apply_diff_state()
         print("DynapseControl: Connections set")
 
+    @teleport_function
     def remove_all_connections_to(self, vnNeuronIDs, bApplyDiff: bool=True):
         """
         remove_all_connections_to - Remove all presynaptic connections
@@ -660,7 +681,7 @@ class DynapseControl():
     def start_cont_stim(
         self,
         fFrequency: float,
-        nNeuronID: int,
+        vnNeuronIDs: int,
         nChipID: int=0,
         nCoreMask: int=15,
     ):
@@ -668,7 +689,7 @@ class DynapseControl():
         start_cont_stim - Start sending events with fixed frequency.
                           FPGA repeat mode will be set True.
         :param fFrequency:  float  Frequency at which events are sent
-        :param nNeuronID:   int  Event neuron ID(s)
+        :param vnNeuronIDs:   int  Event neuron ID(s)
         :param nChipID:     int  Target chip ID
         :param nCoreMask:   int  Target core mask
         """
@@ -688,7 +709,7 @@ class DynapseControl():
         # - Generate events
         # List for events to be sent to fpga
         lEvents = [
-            generate_fpga_event(nChipID, nCoreMask, nID, nISIfpga)
+            generate_fpga_event(nChipID, nCoreMask, vnNeuronIDs, nISIfpga)
         ]
 
         self.fpgaSpikeGen.preload_stimulus(lEvents)
@@ -1131,13 +1152,13 @@ class DynapseControl():
         """
 
         # - Arrays for collecting firing rates
-        mfFiringRates = np.zeros((np.size(lfFreq), np.size(vnTargetNeuronIDs)))
-        vfMeanRates = np.zeros(np.size(lfFreq))
-        vfMaxRates = np.zeros(np.size(lfFreq))
-        vfMinRates = np.zeros(np.size(lfFreq))
+        mfFiringRates = np.zeros((np.size(vfFreq), np.size(vnTargetNeuronIDs)))
+        vfMeanRates = np.zeros(np.size(vfFreq))
+        vfMaxRates = np.zeros(np.size(vfFreq))
+        vfMinRates = np.zeros(np.size(vfFreq))
 
         # - Sweep over frequencies
-        for iTrial, fFreq in enumerate(lfFreq):
+        for iTrial, fFreq in enumerate(vfFreq):
             print("DynapseControl: Stimulating with {} Hz input".format(fFreq))
             self.start_cont_stim(fFreq, vnInputNeuronIDs, bVirtual)
             mfFiringRates[iTrial, :], vfMeanRates[iTrial], vfMaxRates[iTrial], vfMinRates[iTrial] = (
