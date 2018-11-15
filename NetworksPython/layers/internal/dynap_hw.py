@@ -19,6 +19,8 @@ import time
 # - Default timestep
 DEF_TIMESTEP = 2e-5
 
+# - Absolute tolerance, e.g. for comparing float values
+ABS_TOLERANCE = 1e-9
 
 # -- Define the HW layer class for recurrent networks
 class RecDynapSE(Layer):
@@ -357,7 +359,7 @@ class RecDynapSE(Layer):
                         )
                         + " `tsInput` finishes before the current evolution time."
                     )
-            nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
+            nNumTimeSteps = int(np.floor((tDuration + ABS_TOLERANCE) / self.tDt))
         else:
             assert isinstance(
                 nNumTimeSteps, int
