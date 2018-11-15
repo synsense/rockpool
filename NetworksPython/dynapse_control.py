@@ -287,6 +287,88 @@ def teleport_function(func):
         # - Otherwise just return the undecorated function
         return func
 
+@teleport_function
+def clear_chips(oDynapse,
+                lClearChips: Optional[list]=None,
+                vShadowNeurons: Optional[list] = None,
+                ):
+    """
+    clear_chips - Clear the CAM and SRAM cells of chips defined in lClearCam.
+
+    :param oDynapse:     dynapse object
+    :param lClearChips:  list or None  IDs of chips where configurations
+                                       should be cleared.
+    """
+    # - Make sure lClearChips is a list
+    if lClearChips is None:
+        return
+    elif isinstance(lClearChips, int):
+        lClearChips = [lClearChips, ]
+
+    for nChip in lClearChips:
+        print("DynapseControl: Clearing chip {}.".format(nChip))
+        # - Clear CAMs
+        oDynapse.clear_cam(int(nChip))
+        print("\t CAMs cleared.")
+
+        # - Clear SRAMs
+        print("\t SRAMs cleared.")
+        oDynapse.clear_sram(int(nChip))
+
+        # - Reset neuron weights in model
+        for neuron in vShadowNeurons[nChip*1024: (nChip+1)*1024]:
+            # - Reset SRAMs for this neuron
+            vSrams = neuron.get_srams()
+            for iSramIndex in range(1, 4):
+                vSrams[iSramIndex].set_target_chip_id(0)
+                vSrams[iSramIndex].set_virtual_core_id(0)
+                vSrams[iSramIndex].set_used(False)
+                vSrams[iSramIndex].set_core_mask(0)
+
+            # - Reset CAMs for this neuron
+            for cam in neuron.get_cams():
+                cam.set_pre_neuron_id(0)
+                cam.set_pre_neuron_core_id(0)
+        print("\t Model neuron weights have been reset.")
+
+    print("DynapseControl: Chips cleared.")
+
+@teleport_function
+def remove_all_connections_to(vNeurons: List, oModel, bApplyDiff: bool = True):
+    """
+    remove_all_connections_to - Remove all presynaptic connections
+                                to neurons defined in vnNeuronIDs
+    :param vnNeuronIDs:     np.ndarray IDs of neurons whose presynaptic
+                                       connections should be removed
+    :param oModel:          CtxDynapse.model
+    :param bApplyDiff:      bool If False do not apply the changes to
+                                 chip but only to shadow states of the
+                                 neurons. Useful if new connections are
+                                 going to be added to the given neurons.
+    """
+    # - Reset neuron weights in model
+    for neuron in vNeurons:
+        # - Reset SRAMs
+        viSrams = neuron.get_srams()
+        for iSramIndex in range(1, 4):
+            viSrams[iSramIndex].set_target_chip_id(0)
+            viSrams[iSramIndex].set_virtual_core_id(0)
+            viSrams[iSramIndex].set_used(False)
+            viSrams[iSramIndex].set_core_mask(0)
+
+        # - Reset CAMs
+        viCams = neuron.get_cams()
+        for cam in viCams:
+            cam.set_pre_neuron_id(0)
+            cam.set_pre_neuron_core_id(0)
+
+    print("DynapseControl: Shadow state neuron weights have been reset")
+
+    if bApplyDiff:
+        # - Apply changes to the connections on chip
+        oModel.apply_diff_state()
+        print("DynapseControl: New state has been applied to the hardware")
+
 
 class DynapseControl():
 
@@ -362,40 +444,15 @@ class DynapseControl():
 
         print("DynapseControl ready.")
 
-    @teleport_function
-    def clear_chips(self, lClearChips: Optional[list]=None, dyModule = dynapse):
+    def clear_chips(self, lClearChips: Optional[list]=None):
         """
-        clear_cams - Clear the CAM and SRAM cells of chips defined in lClearCam.
-        :param lClearChips:  list or None  IDs of chips where configurations 
+        clear_chips - Clear the CAM and SRAM cells of chips defined in lClearCam.
+
+        :param lClearChips:  list or None  IDs of chips where configurations
                                            should be cleared.
         """
-        # - Make sure lClearChips is a list
-        if lClearChips is None:
-            return
-        elif isinstance(lClearChips, int):
-            lClearChips = [lClearChips, ]
-
-        for nChip in lClearChips:
-            print("DynapseControl: Clearing chip {}.".format(nChip))
-            # - Clear SRAMs
-            dyModule.clear_cam(int(nChip))
-            print("\t CAMs cleared.")
-            # - Clear SRAMs
-            print("\t SRAMs cleared.")
-            dyModule.clear_sram(int(nChip))
-            # - Reset neuron weights in model
-            for neuron in self.vShadowNeurons[nChip*1024: (nChip+1)*1024]:
-                vSrams = neuron.get_srams()
-                for iSramIndex in range(1, 4):
-                    vSrams[iSramIndex].set_target_chip_id(0)
-                    vSrams[iSramIndex].set_virtual_core_id(0)
-                    vSrams[iSramIndex].set_used(False)
-                    vSrams[iSramIndex].set_core_mask(0)
-                for cam in neuron.get_cams():
-                    cam.set_pre_neuron_id(0)
-                    cam.set_pre_neuron_core_id(0)
-            print("\t Model neuron weights have been reset.")
-        print("DynapseControl: Chips cleared.")
+        # - Use `clear_chips` function
+        clear_chips(self.dynapse, lClearChips, self.vShadowNeurons)
 
 
     ### --- Neuron allocation and connections
@@ -412,6 +469,7 @@ class DynapseControl():
             # Do not use hardware neurons with ID 0 and core ID 0 (first of each core)
             self.vbFreeHWNeurons[0::1024] = False
             print("DynapseControl: {} hardware neurons available.".format(np.sum(self.vbFreeHWNeurons)))
+
         if bVirtual:
             # - Virtual neurons
             self.vbFreeVirtualNeurons = np.ones(self.vVirtualNeurons.size, bool)
@@ -552,7 +610,6 @@ class DynapseControl():
         self.model.apply_diff_state()
         print("DynapseControl: Connections set")
 
-    @teleport_function
     def remove_all_connections_to(self, vnNeuronIDs, bApplyDiff: bool=True):
         """
         remove_all_connections_to - Remove all presynaptic connections
@@ -567,23 +624,8 @@ class DynapseControl():
         # - Make sure neurons vnNeuronIDs is an array
         vnNeuronIDs = np.asarray(vnNeuronIDs)
 
-        # - Reset neuron weights in model
-        for neuron in self.vShadowNeurons[vnNeuronIDs]:
-            viSrams = neuron.get_srams()
-            for iSramIndex in range(1, 4):
-                viSrams[iSramIndex].set_target_chip_id(0)
-                viSrams[iSramIndex].set_virtual_core_id(0)
-                viSrams[iSramIndex].set_used(False)
-                viSrams[iSramIndex].set_core_mask(0)
-            viCams = neuron.get_cams()
-            for cam in viCams:
-                cam.set_pre_neuron_id(0)
-                cam.set_pre_neuron_core_id(0)
-        print("DynapseControl: Shadow state neuron weights have been reset")
-        if bApplyDiff:
-            # - Apply changes to the connections on chip
-            self.model.apply_diff_state()
-            print("DynapseControl: New state has been applied to the hardware")
+        # - Call `remove_all_connections_to` function
+        remove_all_connections_to(self.vShadowNeurons[vnNeuronIDs], self.model, bApplyDiff)
 
 
     ### --- Stimulation and event generation
