@@ -6,7 +6,7 @@ from ..layer import Layer
 from ...timeseries import TSEvent
 from ...dynapse_control import (
     DynapseControl,
-    neurons_to_channels,
+    event_list_to_timestamps_and_channels,
     connectivity_matrix_to_prepost_lists,
 )
 
@@ -262,11 +262,17 @@ class RecDynapSE(Layer):
                 if bVerbose:
                     nNumEventsBatch = iEndIndexBatch - iStartIndexBatch
                     print(
-                        "Layer `{}`: Current batch input: {} s ({} timesteps), {} events".format(
+                        "Layer `{}`: Current batch input: {} s ({} timesteps)".format(
                             self.strName,
                             nNumTimeStepsBatch * self.tDt,
                             nNumTimeStepsBatch,
+                        )
+
+                        + ", {} events, trials {} to {} of {}".format(
                             nNumEventsBatch,
+                            iCurrentTrial+1,
+                            iCurrentTrial+nNumTrialsBatch+1
+                            nNumTrials,
                         )
                     )
                 yield lInputEvents, nNumTimeStepsBatch * self.tDt
@@ -307,11 +313,15 @@ class RecDynapSE(Layer):
                 if bVerbose:
                     nNumEventsBatch = iEndIndexBatch - iStartIndexBatch
                     print(
-                        "Layer `{}`: Current batch input: {} s ({} timesteps), {} events".format(
+                        "Layer `{}`: Current batch input: {} s ({} timesteps)".format(
                             self.strName,
                             nNumTimeStepsBatch * self.tDt,
                             nNumTimeStepsBatch,
+                        )
+                        + ", {} events, starting with at {} s of {} s".format(
                             nNumEventsBatch,
+                            nTSEndBatch * self.tDt,
+                            nNumTimeSteps * self.tDt,
                         )
                     )
                 yield lInputEvents, nNumTimeStepsBatch * self.tDt
@@ -376,7 +386,6 @@ class RecDynapSE(Layer):
         )
         tStartBatch = self.t
         for lCurrentEvents, tDurBatch in gInputGenerator:
-            self.lCE = lCurrentEvents
             # - Send event sequence to fpga module
             self.controller.fpgaSpikeGen.preload_stimulus(lCurrentEvents)
             if bVerbose:
@@ -415,10 +424,12 @@ class RecDynapSE(Layer):
                 )
 
             # - Extract monitored event channels and timestamps
-            vnChannelsBatch = neurons_to_channels(
-                [e.neuron for e in lEventsBatch], list(self._vHWNeurons)
+            lnTimeStampsBatch, lnChannelsBatch = event_list_to_timestamps_and_channels(
+                lEventsBatch, list(self._vHWNeurons)
             )
-            vtTimeTraceBatch = np.array([e.timestamp for e in lEventsBatch]) * 1e-6
+            print("Layer `{}`: Extracted events.".format(self.strName))
+            vtTimeTraceBatch = np.array(lnTimeStampsBatch) * 1e-6
+            vnChannelsBatch = np.array(lnChannelsBatch)
 
             # - Locate synchronisation timestamp
             tStartTriggerBatch = lTriggerBatch[0] * 1e-6
@@ -665,3 +676,12 @@ class RecDynapSE(Layer):
             self.strName, self.controller.nFpgaEventLimit
         )
         self._nMaxEventsPerBatch = nNewMax
+
+    @property
+    def vnVirtualNeuronIDs(self):
+        return self._vnVirtualNeuronIDs
+
+    @property
+    def vnHWNeuronIDs(self):
+        return self._vnHWNeuronIDs
+    

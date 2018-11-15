@@ -63,35 +63,6 @@ nDefaultMaxNumTimeSteps = int(FPGA_EVENT_LIMIT * FPGA_ISI_LIMIT)
 
 
 ### --- Utility functions
-
-def neurons_to_channels(
-    lNeurons: List, lLayerNeurons: List
-) -> np.ndarray:
-    """
-    neurons_to_channels - Convert a list of neurons into layer channel indices
-
-    :param lNeurons:        List Lx0 to match against layer neurons
-    :param lLayerNeurons:   List Nx0 HW neurons corresponding to each channel index
-    :return:                np.ndarray[int] Lx0 channel indices corresponding to each neuron in lNeurons
-    """
-    # - Initialise list to return
-    lChannelIndices = []
-
-    lLayerNeurons = list(lLayerNeurons)
-
-    for neurTest in lNeurons:
-        try:
-            nChannelIndex = lLayerNeurons.index(neurTest)
-        except ValueError:
-            warn("Unexpected neuron ID {}".format(neurTest.get_id()))
-            nChannelIndex = np.nan
-
-        # - Append discovered index
-        lChannelIndices.append(nChannelIndex)
-
-    # - Convert to numpy array
-    return np.array(lChannelIndices)
-
 def connectivity_matrix_to_prepost_lists(
     mnW: np.ndarray
 ) -> Tuple[List[int], List[int], List[int], List[int]]:
@@ -264,6 +235,44 @@ def teleport_function(func):
         return func
 
 @teleport_function
+def neurons_to_channels(
+    lNeurons: List, lLayerNeurons: List
+) -> list:
+    """
+    neurons_to_channels - Convert a list of neurons into layer channel indices
+
+    :param lNeurons:        List Lx0 to match against layer neurons
+    :param lLayerNeurons:   List Nx0 HW neurons corresponding to each channel index
+    :return:                List[int] Lx0 channel indices corresponding to each neuron in lNeurons
+    """
+    # - Initialise list to return
+    lChannelIndices = []
+
+    lLayerNeurons = list(lLayerNeurons)
+
+    for neurTest in lNeurons:
+        try:
+            nChannelIndex = lLayerNeurons.index(neurTest)
+        except ValueError:
+            print("Unexpected neuron ID {}".format(neurTest.get_id()))
+            nChannelIndex = float('nan')
+
+        # - Append discovered index
+        lChannelIndices.append(nChannelIndex)
+
+    # - Convert to numpy array
+    return lChannelIndices
+
+@teleport_function
+def event_list_to_timestamps_and_channels(
+    lEvents: List, lLayerNeurons: List
+) -> (list, list):
+    lTimeStamps = [e.timestamp for e in lEvents]
+    lNeurons = [event.neuron for event in lEvents]
+    lChannelIndices = neurons_to_channels(lNeurons, lLayerNeurons)
+    return lTimeStamps, lChannelIndices
+
+@teleport_function
 def generate_fpga_event_list(
     vnDiscreteISIs: np.ndarray,
     vnChannels: np.ndarray,
@@ -388,6 +397,13 @@ def remove_all_connections_to(vNeurons: List, oModel, bApplyDiff: bool = True):
         # - Apply changes to the connections on chip
         oModel.apply_diff_state()
         print("DynapseControl: New state has been applied to the hardware")
+
+@teleport_function
+def generate_buffered_filter(
+    model, lnRecordNeuronIDs
+):
+    from CtxDynapse import BufferedEventFilter
+    return BufferedEventFilter(model, lnRecordNeuronIDs)
 
 
 class DynapseControl():
@@ -854,7 +870,8 @@ class DynapseControl():
             self,
             tWidth: float=0.1,
             fFreq: float=1000,
-            tRecordTime: float=3,
+            tRecord: float=3,
+            tBuffer: float=0.5,
             nInputNeuronID: int=0,
             vnRecordNeuronIDs: Union[int, np.ndarray]=0,
             nTargetCoreMask: int=15,
@@ -864,10 +881,11 @@ class DynapseControl():
         send_pulse - Send a pulse of periodic input events to the chip.
                      Return a TSEvent wih the recorded hardware activity.
         :param tWidth:              float  Duration of the input pulse
-        :param tFreq:               float  Frequency of the events that constitute the pulse
+        :param fFreq:               float  Frequency of the events that constitute the pulse
+        :param tRecord:             float  Duration of the recording (including stimulus)
         :param nInputNeuronID:      int    ID of input neuron
         :param vnRecordNeuronIDs:   array-like  ID(s) of neuron(s) to be recorded
-        :param tRecordTime:         float  Duration of the recording (including stimulus)
+        :param tBuffer:     float  Record slightly longer than tRecord to make sure to catch all relevant events
         :param nChipID:     int  Target chip ID
         :param nCoreMask:   int  Target core mask
 
@@ -879,7 +897,7 @@ class DynapseControl():
         vnTimeSteps = np.floor(np.arange(0, tWidth, 1./fFreq) / self.tFpgaIsiBase).astype(int)
         # Add dummy events at end to avoid repeated stimulation due to "2-trigger-bug"
         tISILimit = self.nFpgaIsiLimit * self.tFpgaIsiBase
-        nAdd = int(np.ceil(tRecordTime / tISILimit))
+        nAdd = int(np.ceil(tRecord / tISILimit))
         vnTimeSteps = np.r_[vnTimeSteps, vnTimeSteps[-1] + np.arange(1, nAdd+1)*self.nFpgaIsiLimit]
         
         lEvents = self.arrays_to_spike_list(
@@ -902,7 +920,7 @@ class DynapseControl():
 
         # - Set up event recording
         vnRecordNeuronIDs = np.atleast_1d(np.array(vnRecordNeuronIDs))  # Also handles integer arguments
-        oFilter = BufferedEventFilter(self.model, list(vnRecordNeuronIDs))
+        oFilter = self.add_buffered_event_filter(vnRecordNeuronIDs)
         print("DynapseControl: Event filter ready.")
 
         # - Stimulate / record
@@ -910,40 +928,69 @@ class DynapseControl():
         self.fpgaSpikeGen.start()
 
         # - Run stimulation and record
-        time.sleep(tRecordTime)
+        time.sleep(tRecord + tBuffer)
 
         # - Stop stimulation and clear filter to stop recording events
         self.fpgaSpikeGen.stop()
         oFilter.clear()
         print("DynapseControl: Stimulation ended.")
 
-        lEvents = list(oFilter.get_events())
-        lTrigger = list(oFilter.get_special_event_timestamps())
+        # - Extract TSEvent from recorded data
+        return recorded_data_to_TSEvent(vnRecordNeuronIDs, tRecord)
+
+    def recorded_data_to_TSEvent(vnNeuronIDs: np.ndarray, tRecord: float) -> TSEvent:
+        lEvents = list(self.bufferedfilter.get_events())
+        lTrigger = list(self.bufferedfilter.get_special_event_timestamps())
         print(
             "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
         )
 
         # - Extract monitored event channels and timestamps
-        vnChannels = neurons_to_channels(
-            [e.neuron for e in lEvents],
-            self.vHWNeurons[vnRecordNeuronIDs],
+        lTimeStamps, lChannels = event_list_to_timestamps_and_channels(
+            lEvents, self.vHWNeurons[vnNeuronIDs],
         )
-        vtTimeTrace = np.array([e.timestamp for e in lEvents]) * 1e-6
+        vtTimeTrace = np.array(lTimeStamps) * 1e-6
+        vnChannels = np.array(lChannels)
 
         # - Locate synchronisation timestamp
         tStartTrigger = lTrigger[0] * 1e-6
         iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
-        vnChannels = vnChannels[iStartIndex:]
-        vtTimeTrace = vtTimeTrace[iStartIndex:] - tStartTrigger
+        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger+tRecord)
+        vtTimeTrace = vtTimeTrace[iStartIndex: iEndIndex] - tStartTrigger
+        vnChannels = vnChannels[iStartIndex: iEndIndex]
         print("DynapseControl: Extracted event data")
 
         return TSEvent(
             vtTimeTrace,
             vnChannels,
             tStart=0,
-            tStop=tRecordTime,
-            nNumChannels=np.size(vnRecordNeuronIDs)
+            tStop=tRecord,
+            nNumChannels=np.size(vnNeuronIDs)
         )
+
+    def recorded_data_to_arrays(vnNeuronIDs: np.ndarray, tRecord: float) -> TSEvent:
+        lEvents = list(self.bufferedfilter.get_events())
+        lTrigger = list(self.bufferedfilter.get_special_event_timestamps())
+        print(
+            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
+        )
+
+        # - Extract monitored event channels and timestamps
+        lTimeStamps, lChannels = event_list_to_timestamps_and_channels(
+            lEvents, self.vHWNeurons[vnNeuronIDs],
+        )
+        vtTimeTrace = np.array(lTimeStamps) * 1e-6
+        vnChannels = np.array(lChannels)
+
+        # - Locate synchronisation timestamp
+        tStartTrigger = lTrigger[0] * 1e-6
+        iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
+        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger+tRecord)
+        vtTimeTrace = vtTimeTrace[iStartIndex: iEndIndex] - tStartTrigger
+        vnChannels = vnChannels[iStartIndex: iEndIndex]
+        print("DynapseControl: Extracted event data")
+
+        return vtTimeTrace, vnChannels
 
     def send_TSEvent(
         self,
@@ -953,6 +1000,7 @@ class DynapseControl():
         nTargetChipID: int=0,
         bPeriodic=False,
         bRecord=False,
+        bTSEvent=False,
     ):
         """
         send_TSEvent - Extract events from a TSEvent object and send them to FPGA.
@@ -964,6 +1012,7 @@ class DynapseControl():
         :param bPeriodic:       bool         Repeat the stimulus indefinitely
         :param bRecord:         bool         Set up buffered event filter that records events
                                              from neurons defined in vnNeuronIDs
+        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
         """
         lEvents = self.TSEvent_to_spike_list(
             tsSeries,
@@ -996,6 +1045,22 @@ class DynapseControl():
             )
         self.fpgaSpikeGen.start()
 
+        # - Run stimulation (and record)
+        time.sleep(tRecord + tBuffer)
+
+        # - Stop stimulation and clear filter to stop recording events
+        self.fpgaSpikeGen.stop()
+        print("DynapseControl: Stimulation ended.")
+
+        if bRecord:
+            oFilter.clear()
+            if bTSEvent:
+                # - Extract TSEvent from recorded data
+                return recorded_data_to_TSEvent(vnRecordNeuronIDs, tRecord)          
+            else:
+                # - Extract arrays from recorded data
+                return recorded_data_to_arrays(vnRecordNeuronIDs, tRecord)
+
 
     ### --- Tools for tuning and observing activities
 
@@ -1014,12 +1079,12 @@ class DynapseControl():
             lnRecordNeuronIDs = list(vnNeuronIDs)
         
         # - Does a filter already exist?
-        if hasattr(self, "_bufferedfilter") and self.bufferedfilter is not None:
+        if hasattr(self, "bufferedfilter") and self.bufferedfilter is not None:
             self.bufferedfilter.clear()
             self.bufferedfilter.add_ids(lnRecordNeuronIDs)
             print("DynapseControl: Updated existing buffered event filter.")
         else:
-            self.bufferedfilter = BufferedEventFilter(self.model, lnRecordNeuronIDs)
+            self.bufferedfilter = generate_buffered_filter(self.model, lnRecordNeuronIDs)
             print("DynapseControl: Generated new buffered event filter.")
         
         return self.bufferedfilter
@@ -1095,7 +1160,7 @@ class DynapseControl():
         print("DynapseControl: Collecting IDs of neurons that spike within the next {} seconds".format(tDuration))
         
         # - Filter for recording neurons
-        oFilter = BufferedEventFilter(self.model, list(vnNeuronIDs))
+        oFilter = self.add_buffered_event_filter(vnNeuronIDs)
         
         # - Wait and record spiking neurons
         time.sleep(tDuration)
@@ -1176,7 +1241,7 @@ class DynapseControl():
         if isinstance(vnNeuronIDs, int):
             vnNeuronIDs = [vnNeuronIDs]
         # - Filter for recording events
-        oFilter = BufferedEventFilter(self.model, list(vnNeuronIDs))
+        oFilter = self.add_buffered_event_filter(vnNeuronIDs)
         # - Record events for tDuration
         time.sleep(tDuration)
         # - Stop recording
