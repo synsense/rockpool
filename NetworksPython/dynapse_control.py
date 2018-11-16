@@ -867,30 +867,40 @@ class DynapseControl():
         print("DynapseControl: Firing rates for poisson generator have been set to 0.")
 
     def send_pulse(
-            self,
-            tWidth: float=0.1,
-            fFreq: float=1000,
-            tRecord: float=3,
-            tBuffer: float=0.5,
-            nInputNeuronID: int=0,
-            vnRecordNeuronIDs: Union[int, np.ndarray]=0,
-            nTargetCoreMask: int=15,
-            nTargetChipID: int=0,
-        ) -> TSEvent:
+        self,
+        tWidth: float=0.1,
+        fFreq: float=1000,
+        tRecord: float=3,
+        tBuffer: float=0.5,
+        nInputNeuronID: int=0,
+        vnRecordNeuronIDs: Union[int, np.ndarray]=0,
+        nTargetCoreMask: int=15,
+        nTargetChipID: int=0,
+        bPeriodic: bool=False,
+        bRecord: bool=False,
+        bTSEvent: bool=False,
+    ) -> TSEvent:
         """
         send_pulse - Send a pulse of periodic input events to the chip.
                      Return a TSEvent wih the recorded hardware activity.
         :param tWidth:              float  Duration of the input pulse
         :param fFreq:               float  Frequency of the events that constitute the pulse
         :param tRecord:             float  Duration of the recording (including stimulus)
+        :param tBuffer:             float  Record slightly longer than tRecord to
+                                           make sure to catch all relevant events
         :param nInputNeuronID:      int    ID of input neuron
         :param vnRecordNeuronIDs:   array-like  ID(s) of neuron(s) to be recorded
-        :param tBuffer:     float  Record slightly longer than tRecord to make sure to catch all relevant events
         :param nChipID:     int  Target chip ID
         :param nCoreMask:   int  Target core mask
+        :param bPeriodic:   bool    Repeat the stimulus indefinitely
+        :param bRecord:     bool    Set up buffered event filter that records events
+                                    from neurons defined in vnRecordNeuronIDs
+        :param bTSEvent:    bool    If True and bRecord==True: output TSEvent instead of arrays of times and channels
 
         :return:
-            TSEvent  Recorded events
+            if bRecord==False:  None
+            elif bTSEvent:      TSEvent object of recorded data
+            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
         # - Prepare input events
         # Actual input time steps
@@ -911,34 +921,231 @@ class DynapseControl():
         # - Do not send dummy events to any core
         for event in lEvents[-nAdd:]:
             event.core_mask = 0
-        print("DynapseControl: Stimulus prepared")
+        print("DynapseControl: Stimulus pulse prepared")
+
+        # - Stimulate and return recorded data if any
+        return self.send_stimulus_list(
+            lEvents=lEvents,
+            tDuration=tRecord,
+            tBuffer=tBuffer,
+            vnRecordNeuronIDs=vnRecordNeuronIDs,
+            bPeriodic=bPeriodic,
+            bRecord=bRecord,
+            bTSEvent=bTSEvent,
+        )
+
+    def send_TSEvent(
+        self,
+        tsSeries,
+        tRecord: Optional[float]=None,
+        tBuffer: float=0.5,
+        vnNeuronIDs: Optional[np.ndarray]=None,
+        vnRecordNeuronIDs: Optional[np.ndarray]=None,
+        nTargetCoreMask: int=15,
+        nTargetChipID: int=0,
+        bPeriodic=False,
+        bRecord=False,
+        bTSEvent=False,
+    ):
+        """
+        send_TSEvent - Extract events from a TSEvent object and send them to FPGA.
+
+        :param tsSeries:        TSEvent      Time series of events to send as input
+        :param tRecord:         float  Duration of the recording (including stimulus)
+                                       If None, use tsSeries.tDuration
+        :param tBuffer:         float  Record slightly longer than tRecord to
+                                       make sure to catch all relevant events
+        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
+                                             If None, use channels from tsSeries
+        :param vnRecordNeuronIDs: ArrayLike    IDs of neurons that should be recorded (if bRecord==True)
+                                               If None and bRecord==True, record neurons in vnNeuronIDs
+        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
+        :param nTargetChipID:   int          ID of target chip
+        :param bPeriodic:       bool         Repeat the stimulus indefinitely
+        :param bRecord:         bool         Set up buffered event filter that records events
+                                             from neurons defined in vnNeuronIDs
+        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
+
+        :return:
+            if bRecord==False:  None
+            elif bTSEvent:      TSEvent object of recorded data
+            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+        """
         
+        # - Process input arguments
+        vnNeuronIDs = (
+            np.arange(tsSeries.nNumChannels) if vnNeuronIDs is None
+            else np.array(vnNeuronIDs)
+        )
+        vnRecordNeuronIDs = vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
+        tRecord = tsSeries.tDuration if tRecord is None else tRecord
+
+        # - Prepare event list
+        lEvents = self.TSEvent_to_spike_list(
+            tsSeries,
+            vnNeuronIDs=vnNeuronIDs,
+            nTargetCoreMask=nTargetCoreMask,
+            nTargetChipID=nTargetChipID,        
+        )
+        print("DynapseControl: Stimulus prepared from TSEvent `{}`.".format(
+            tsSeries.strName
+        ))
+
+        # - Stimulate and return recorded data if any
+        return self.send_stimulus_list(
+            lEvents=lEvents,
+            tDuration=tRecord,
+            tBuffer=tBuffer,
+            vnRecordNeuronIDs=vnRecordNeuronIDs,
+            bPeriodic=bPeriodic,
+            bRecord=bRecord,
+            bTSEvent=bTSEvent,
+        )
+
+    def send_arrays(
+        self,
+        vtTimeTrace,
+        vnChannels,
+        tRecord: Optional[float]=None,
+        tBuffer: float=0.5,
+        vnNeuronIDs: Optional[np.ndarray]=None,
+        vnRecordNeuronIDs: Optional[np.ndarray]=None,
+        nTargetCoreMask: int=15,
+        nTargetChipID: int=0,
+        bPeriodic=False,
+        bRecord=False,
+        bTSEvent=False,
+    ):
+        """
+        send_arrays - Send events defined in timetrace and channel arrays to FPGA.
+
+        :param vtTimeTrace:     np.ndarray  Event times
+        :param vnChannels:      np.ndarray  Event channels
+        :param tRecord:         float  Duration of the recording (including stimulus)
+                                       If None, use vtTimeTrace[-1]
+        :param tBuffer:         float  Record slightly longer than tRecord to
+                                       make sure to catch all relevant events
+        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
+                                             If None, use channels from vnChannels
+        :param vnRecordNeuronIDs: ArrayLike    IDs of neurons that should be recorded (if bRecord==True)
+                                               If None and bRecord==True, record neurons in vnNeuronIDs
+        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
+        :param nTargetChipID:   int          ID of target chip
+        :param bPeriodic:       bool         Repeat the stimulus indefinitely
+        :param bRecord:         bool         Set up buffered event filter that records events
+                                             from neurons defined in vnNeuronIDs
+        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
+
+        :return:
+            if bRecord==False:  None
+            elif bTSEvent:      TSEvent object of recorded data
+            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+        """
+        
+        # - Process input arguments
+        vnNeuronIDs = (
+            np.amax(vnChannels) if vnNeuronIDs is None
+            else np.array(vnNeuronIDs)
+        )
+        vnRecordNeuronIDs = vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
+        tRecord = vtTimeTrace[-1] if tRecord is None else tRecord
+
+        # - Prepare event list
+        lEvents = self.arrays_to_spike_list(
+            vnTimeSteps=vtTimeTrace,
+            vnChannels=vnChannels,
+            vnNeuronIDs=vnNeuronIDs,
+            nTSStart=0,
+            nTargetCoreMask=nTargetCoreMask,
+            nTargetChipID=nTargetChipID,        
+        )
+        print("DynapseControl: Stimulus prepared from arrays.")
+
+        # - Stimulate and return recorded data if any
+        return self.send_stimulus_list(
+            lEvents=lEvents,
+            tDuration=tRecord,
+            tBuffer=tBuffer,
+            vnRecordNeuronIDs=vnRecordNeuronIDs,
+            bPeriodic=bPeriodic,
+            bRecord=bRecord,
+            bTSEvent=bTSEvent,
+        )
+
+    def send_stimulus_list(
+        self,
+        lEvents,
+        tDuration,
+        tBuffer,
+        vnRecordNeuronIDs: Optional[np.ndarray]=None,
+        bPeriodic: bool=False,
+        bRecord: bool=False,
+        bTSEvent: bool=False,
+    ):
+        """
+        send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
+
+        :param lEvents:           list   List of FpgaSpikeEvent objects to be sent to hardware
+        :param tDuration:         float  Duration of the stimulation and recording
+                                         If None, record indefinitely
+        :param tBuffer:           float  Record slightly longer than tDuration to
+                                         make sure to catch all relevant events
+        :param vnRecordNeuronIDs: ArrayLike    IDs of neurons that should be recorded (if bRecord==True)
+                                               If None and bRecord==True, no neurons will be recorded
+        :param bPeriodic:       bool         Repeat the stimulus indefinitely
+        :param bRecord:         bool         Set up buffered event filter that records events
+                                             from neurons defined in vnRecordNeuronIDs
+        :param bTSEvent:        bool         If True and bRecord==True: output TSEvent instead of arrays of times and channels
+
+        :return:
+            if bRecord==False:  None
+            elif bTSEvent:      TSEvent object of recorded data
+            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+        """
         # - Prepare FPGA
-        self.fpgaSpikeGen.set_repeat_mode(False)
-        self.fpgaSpikeGen.preload_stimulus(lEvents)
+        self.fpgaSpikeGen.set_repeat_mode(bPeriodic)
+        self.fpgaSpikeGen.preload_stimulus(list(lEvents))
         print("DynapseControl: Stimulus preloaded.")
 
-        # - Set up event recording
-        vnRecordNeuronIDs = np.atleast_1d(np.array(vnRecordNeuronIDs))  # Also handles integer arguments
-        oFilter = self.add_buffered_event_filter(vnRecordNeuronIDs)
-        print("DynapseControl: Event filter ready.")
+        if bRecord:
+            vnNeuronIDs = [] if vnNeuronIDs is None else vnNeuronIDs
+            warn("DynapseControl: No neuron IDs specified for recording.")
+            self.add_buffered_event_filter(vnNeuronIDs)
 
-        # - Stimulate / record
-        print("DynapseControl: Starting stimulation.")
+        # - Stimulate
+        print(
+            "DynapseControl: Starting{} stimulation{}.".format(
+                bPeriodic * " periodic",
+                (not bPeriodic) * " for {}".format(tDuration),
+            )
+        )
         self.fpgaSpikeGen.start()
 
-        # - Run stimulation and record
-        time.sleep(tRecord + tBuffer)
+        if tDuration is None:
+            return
+
+        # - Run stimulation (and record)
+        tBuffer = 0 if tBuffer is None else tBuffer
+        time.sleep(tDuration + tBuffer)
 
         # - Stop stimulation and clear filter to stop recording events
         self.fpgaSpikeGen.stop()
-        oFilter.clear()
         print("DynapseControl: Stimulation ended.")
 
-        # - Extract TSEvent from recorded data
-        return recorded_data_to_TSEvent(vnRecordNeuronIDs, tRecord)
+        if bRecord:
+            self.bufferedfilter.clear()
+            if bTSEvent:
+                # - Extract TSEvent from recorded data
+                return recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)          
+            else:
+                # - Extract arrays from recorded data
+                return recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
 
-    def recorded_data_to_TSEvent(vnNeuronIDs: np.ndarray, tRecord: float) -> TSEvent:
+    def recorded_data_to_TSEvent(
+        self,
+        vnNeuronIDs: np.ndarray,
+        tRecord: float
+    ) -> TSEvent:
         lEvents = list(self.bufferedfilter.get_events())
         lTrigger = list(self.bufferedfilter.get_special_event_timestamps())
         print(
@@ -968,7 +1175,11 @@ class DynapseControl():
             nNumChannels=np.size(vnNeuronIDs)
         )
 
-    def recorded_data_to_arrays(vnNeuronIDs: np.ndarray, tRecord: float) -> TSEvent:
+    def recorded_data_to_arrays(
+        self,
+        vnNeuronIDs: np.ndarray,
+        tRecord: float
+    ) -> TSEvent:
         lEvents = list(self.bufferedfilter.get_events())
         lTrigger = list(self.bufferedfilter.get_special_event_timestamps())
         print(
@@ -991,76 +1202,6 @@ class DynapseControl():
         print("DynapseControl: Extracted event data")
 
         return vtTimeTrace, vnChannels
-
-    def send_TSEvent(
-        self,
-        tsSeries,
-        vnNeuronIDs,
-        nTargetCoreMask: int=15,
-        nTargetChipID: int=0,
-        bPeriodic=False,
-        bRecord=False,
-        bTSEvent=False,
-    ):
-        """
-        send_TSEvent - Extract events from a TSEvent object and send them to FPGA.
-
-        :param tsSeries:        TSEvent      Time series of events to send as input
-        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
-        :param nTargetChipID:   int          ID of target chip
-        :param bPeriodic:       bool         Repeat the stimulus indefinitely
-        :param bRecord:         bool         Set up buffered event filter that records events
-                                             from neurons defined in vnNeuronIDs
-        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
-        """
-        lEvents = self.TSEvent_to_spike_list(
-            tsSeries,
-            vnNeuronIDs=vnNeuronIDs,
-            nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,        
-        )
-        print("DynapseControl: Stimulus prepared")
-    
-        # - Prepare FPGA
-        self.fpgaSpikeGen.set_repeat_mode(bPeriodic)
-        self.fpgaSpikeGen.preload_stimulus(lEvents)
-        print("DynapseControl: Stimulus preloaded.")
-
-        if bRecord:
-            self.add_buffered_event_filter(vnNeuronIDs)
-
-        # - Stimulate
-        if bPeriodic:
-            print(
-                "DynapseControl: Starting periodic stimulation with TSEvent `{}`.".format(
-                    tsSeries.strName
-                )
-            )
-        else:
-            print(
-                "DynapseControl: Starting stimulation with TSEvent `{}` for {} s.".format(
-                    tsSeries.strName, tsSeries.tDuration
-                )
-            )
-        self.fpgaSpikeGen.start()
-
-        # - Run stimulation (and record)
-        time.sleep(tRecord + tBuffer)
-
-        # - Stop stimulation and clear filter to stop recording events
-        self.fpgaSpikeGen.stop()
-        print("DynapseControl: Stimulation ended.")
-
-        if bRecord:
-            oFilter.clear()
-            if bTSEvent:
-                # - Extract TSEvent from recorded data
-                return recorded_data_to_TSEvent(vnRecordNeuronIDs, tRecord)          
-            else:
-                # - Extract arrays from recorded data
-                return recorded_data_to_arrays(vnRecordNeuronIDs, tRecord)
-
 
     ### --- Tools for tuning and observing activities
 

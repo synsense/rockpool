@@ -175,12 +175,12 @@ class RecDynapSE(Layer):
     ) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
         # - Time points of input trace in discrete layer time base
-        vnInputTimeSteps = np.floor(tsInput.vtTimeTrace / self.tDt).astype(int)
+        vnTSInputEvents = np.floor(tsInput.vtTimeTrace / self.tDt).astype(int)
         # - Make sure evolution is within correct interval
-        iStartIndex = np.searchsorted(vnInputTimeSteps, self._nTimeStep)
-        iEndIndex = np.searchsorted(vnInputTimeSteps, self._nTimeStep + nNumTimeSteps)
-        vnInputTimeSteps = vnInputTimeSteps[iStartIndex:iEndIndex]
-        vnInputChannels = tsInput.vnChannels[iStartIndex:iEndIndex]
+        iStartAll = np.searchsorted(vnTSInputEvents, self._nTimeStep)
+        iEndAll = np.searchsorted(vnTSInputEvents, self._nTimeStep + nNumTimeSteps)
+        vnTSInputEvents = vnTSInputEvents[iStartAll:iEndAll]
+        vnInputChannels = tsInput.vnChannels[iStartAll:iEndAll]
         # vnInputChannels = tsInput.vnChannels
 
         # - Check whether data for splitting by trial is available
@@ -197,9 +197,9 @@ class RecDynapSE(Layer):
             # - Total number of trials
             nNumTrials = vnTrialStarts.size
             # - Array indices of tsInput.vtTimeTrace and tsInput.vnChannels where trials start
-            viTrialStartIndices = np.searchsorted(vnInputTimeSteps, vnTrialStarts)
+            viTrialStartIndices = np.searchsorted(vnTSInputEvents, vnTrialStarts)
             # - Count number of events for each trial (np.r_ to include last trial)
-            vnCumulEventsPerTrial = np.r_[viTrialStartIndices, vnInputTimeSteps.size]
+            vnCumulEventsPerTrial = np.r_[viTrialStartIndices, vnTSInputEvents.size]
             vnEventsPerTrial = np.diff(vnCumulEventsPerTrial)
 
             # - First trial of current batch
@@ -234,33 +234,27 @@ class RecDynapSE(Layer):
                     "Layer `{}`: Cannot continue evolution. ".format(self.strName)
                     + "Either too many timesteps or events in this trial."
                 )
-                # - Start and end time steps and indices (wrt vnInputTimeSteps) of this batch
+                # - Start and end time steps and indices (wrt vnTSInputEvents) of this batch
                 nTSStartBatch = vnTrialStarts[iCurrentTrial]
-                iStartIndexBatch = viTrialStartIndices[iCurrentTrial]
+                iStartBatch = viTrialStartIndices[iCurrentTrial]
                 try:
                     nTSEndBatch = vnTrialStarts[iCurrentTrial + nNumTrialsBatch]
-                    iEndIndexBatch = viTrialStartIndices[
+                    iEndBatch = viTrialStartIndices[
                         iCurrentTrial + nNumTrialsBatch
                     ]
                 except IndexError as e:
                     # - If index error occurs because final batch is included
                     if iCurrentTrial + nNumTrialsBatch == viTrialStartIndices.size:
-                        iEndIndexBatch = vnInputTimeSteps.size
+                        iEndBatch = vnTSInputEvents.size
                         nTSEndBatch = nNumTimeSteps + self._nTimeStep
                     else:
                         raise e
-                # - Generate event list for fpga
-                lInputEvents = self.controller.arrays_to_spike_list(
-                    vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
-                    vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
-                    nTSStart=nTSStartBatch,
-                    vnNeuronIDs=self._vnVirtualNeuronIDs,
-                    nTargetCoreMask=self._nInputCoreMask,
-                    nTargetChipID=self._nInputChipID,
-                )
-                nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch
+                # - Event data to be sent to FPGA
+                vnTSInputEventsBatch = vnTSInputEvents[iStartBatch:iEndBatch]
+                vnInputChannelsBatch = vnInputChannels[iStartBatch:iEndBatch]
+                nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch  # This is not the same as vnTSInputEventsBatch.size as the latter only contains events and not the complete time base
                 if bVerbose:
-                    nNumEventsBatch = iEndIndexBatch - iStartIndexBatch
+                    nNumEventsBatch = iEndBatch - iStartBatch
                     print(
                         "Layer `{}`: Current batch input: {} s ({} timesteps)".format(
                             self.strName,
@@ -271,11 +265,16 @@ class RecDynapSE(Layer):
                         + ", {} events, trials {} to {} of {}".format(
                             nNumEventsBatch,
                             iCurrentTrial+1,
-                            iCurrentTrial+nNumTrialsBatch+1
+                            iCurrentTrial+nNumTrialsBatch,
                             nNumTrials,
                         )
                     )
-                yield lInputEvents, nNumTimeStepsBatch * self.tDt
+                yield (
+                    vnTSInputEventsBatch * self.tDt,
+                    vnInputChannelsBatch,
+                    nTSStartBatch * self.tDt,
+                    nNumTimeStepsBatch * self.tDt
+                )
                 iCurrentTrial += nNumTrialsBatch
         else:
             ## -- Split by Maximum number of events and time steps
@@ -287,31 +286,25 @@ class RecDynapSE(Layer):
             )
             # - Time step at which current batch starts
             nTSStartBatch = self._nTimeStep
-            # - Corresponding index wrt vnInputTimeSteps
-            iStartIndexBatch = 0
+            # - Corresponding index wrt vnTSInputEvents
+            iStartBatch = 0
             # - Time step after evolution ends
             nTSEndEvo = nTSStartBatch + nNumTimeSteps
             while nTSStartBatch < nTSEndEvo:
                 # - Endpoint of current batch
                 nTSEndBatch = min(nTSStartBatch + nMaxNumTimeSteps, nTSEndEvo)
-                # - Corresponding intex wrt vnInputTimeSteps
-                iEndIndexBatch = np.searchsorted(vnInputTimeSteps, nTSEndBatch)
+                # - Corresponding intex wrt vnTSInputEvents
+                iEndBatch = np.searchsorted(vnTSInputEvents, nTSEndBatch)
                 # - Correct if too many events are included
-                if iEndIndexBatch - iStartIndexBatch > self.nMaxEventsPerBatch:
-                    iEndIndexBatch = iStartIndexBatch + self.nMaxEventsPerBatch
-                    nTSEndBatch = vnInputTimeSteps[iEndIndexBatch]
-                # - Generate event list for fpga
-                lInputEvents = self.controller.arrays_to_spike_list(
-                    vnTimeSteps=vnInputTimeSteps[iStartIndexBatch:iEndIndexBatch],
-                    vnChannels=vnInputChannels[iStartIndexBatch:iEndIndexBatch],
-                    nTSStart=nTSStartBatch,
-                    vnNeuronIDs=self._vnVirtualNeuronIDs,
-                    nTargetCoreMask=self._nInputCoreMask,
-                    nTargetChipID=self._nInputChipID,
-                )
-                nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch
+                if iEndBatch - iStartBatch > self.nMaxEventsPerBatch:
+                    iEndBatch = iStartBatch + self.nMaxEventsPerBatch
+                    nTSEndBatch = vnTSInputEvents[iEndBatch]
+                # - Event data to be sent to FPGA
+                vnTSInputEventsBatch = vnTSInputEvents[iStartBatch:iEndBatch]
+                vnInputChannelsBatch = vnInputChannels[iStartBatch:iEndBatch]
+                nNumTimeStepsBatch = nTSEndBatch - nTSStartBatch  # This is not the same as vnTSInputEventsBatch.size as the latter only contains events and not the complete time base
                 if bVerbose:
-                    nNumEventsBatch = iEndIndexBatch - iStartIndexBatch
+                    nNumEventsBatch = iEndBatch - iStartBatch
                     print(
                         "Layer `{}`: Current batch input: {} s ({} timesteps)".format(
                             self.strName,
@@ -324,9 +317,14 @@ class RecDynapSE(Layer):
                             nNumTimeSteps * self.tDt,
                         )
                     )
-                yield lInputEvents, nNumTimeStepsBatch * self.tDt
+                yield (
+                    vnTSInputEventsBatch * self.tDt,
+                    vnInputChannelsBatch,
+                    nTSStartBatch * self.tDt,
+                    nNumTimeStepsBatch * self.tDt
+                )
                 nTSStartBatch = nTSEndBatch
-                iStartIndexBatch = iEndIndexBatch
+                iStartBatch = iEndBatch
 
     def evolve(
         self,
@@ -380,74 +378,36 @@ class RecDynapSE(Layer):
         lTimeTrace = []
         lChannels = []
 
-        # - Clip tsInput to required duration
+        # - Generator that splits inupt into batches
         gInputGenerator = self._batch_input_data(
+            # - Clip tsInput to required duration
             tsInput.clip([self.t, self.t + tDuration]), nNumTimeSteps, bVerbose
         )
-        tStartBatch = self.t
-        for lCurrentEvents, tDurBatch in gInputGenerator:
-            # - Send event sequence to fpga module
-            self.controller.fpgaSpikeGen.preload_stimulus(lCurrentEvents)
-            if bVerbose:
-                print("Layer `{}`: Stimulus preloaded.".format(self.strName))
-
-            # -- Set up event recording
-            oFilter = self.controller.add_buffered_event_filter(
-                [n.get_id() for n in self._vHWNeurons]
+        
+        # - Iterate over input batches
+        for (
+            vtInputEventsBatch,
+            vnInputChannelsBatch,
+            tStartBatch,
+            tDurBatch,
+        ) in gInputGenerator:
+            vtTimeTraceBatch, vnChannelsBatch = self.controller.send_arrays(
+                vtTimeTrace=vtInputEventsBatch - tStartBatch,
+                vnChannels=vnInputChannelsBatch,
+                tRecord=tDurBatch,
+                vnNeuronIDs=self.vnVirtualNeuronIDs,
+                vnRecordNeuronIDs=self.vnHWNeuronIDs,
+                nTargetCoreMask=self._nInputCoreMask,
+                nTargetChipID=self._nInputChipID,
+                bPeriodic=False,
+                bRecord=True,
+                bTSEvent=False,
             )
+            
+            lChannels.append(vnChannelsBatch)
+            lTimeTrace.append(vtTimeTraceBatch + tStartBatch)
             if bVerbose:
-                print("Layer `{}`: Event filter ready.".format(self.strName))
-
-            # - Stimulate / record for desired duration
-            if bVerbose:
-                print("Layer `{}`: Starting stimulation.".format(self.strName))
-            self.controller.fpgaSpikeGen.start()
-            # - Wait for tDuration + some additional time
-            if bVerbose:
-                print(
-                    "Layer `{}`: Waiting for stimulation to end.".format(self.strName)
-                )
-            time.sleep(tDurBatch + 0.5)
-            # - Stop stimulation and clear filter to stop recording events
-            self.controller.fpgaSpikeGen.stop()
-            oFilter.clear()
-            if bVerbose:
-                print("Layer `{}`: Stimulation ended.".format(self.strName))
-
-            lEventsBatch = list(oFilter.get_events())
-            lTriggerBatch = list(oFilter.get_special_event_timestamps())
-            if bVerbose:
-                print(
-                    "Layer `{}`: Recorded {} events and {} trigger events".format(
-                        self.strName, len(lEventsBatch), len(lTriggerBatch)
-                    )
-                )
-
-            # - Extract monitored event channels and timestamps
-            lnTimeStampsBatch, lnChannelsBatch = event_list_to_timestamps_and_channels(
-                lEventsBatch, list(self._vHWNeurons)
-            )
-            print("Layer `{}`: Extracted events.".format(self.strName))
-            vtTimeTraceBatch = np.array(lnTimeStampsBatch) * 1e-6
-            vnChannelsBatch = np.array(lnChannelsBatch)
-
-            # - Locate synchronisation timestamp
-            tStartTriggerBatch = lTriggerBatch[0] * 1e-6
-            iStartIndex = np.searchsorted(vtTimeTraceBatch, tStartTriggerBatch)
-            iEndIndex = np.searchsorted(
-                vtTimeTraceBatch, tStartTriggerBatch + tDurBatch
-            )
-            lChannels.append(vnChannelsBatch[iStartIndex:iEndIndex])
-            lTimeTrace.append(
-                vtTimeTraceBatch[iStartIndex:iEndIndex]
-                - tStartTriggerBatch
-                + tStartBatch
-            )
-            if bVerbose:
-                print("Layer `{}`: Extracted event data".format(self.strName))
-
-            # - Start time of next batch
-            tStartBatch += tDurBatch
+                print("Layer `{}`: Received event data".format(self.strName))
 
         # - Flatten out lTimeTrace and lChannels
         lTimeTrace = [t for vThisTrace in lTimeTrace for t in vThisTrace]
