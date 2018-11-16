@@ -270,10 +270,10 @@ class RecDynapSE(Layer):
                         )
                     )
                 yield (
-                    vnTSInputEventsBatch * self.tDt,
+                    vnTSInputEventsBatch,
                     vnInputChannelsBatch,
-                    nTSStartBatch * self.tDt,
-                    nNumTimeStepsBatch * self.tDt
+                    nTSStartBatch,
+                    nNumTimeStepsBatch * self.tDt,
                 )
                 iCurrentTrial += nNumTrialsBatch
         else:
@@ -318,10 +318,10 @@ class RecDynapSE(Layer):
                         )
                     )
                 yield (
-                    vnTSInputEventsBatch * self.tDt,
+                    vnTSInputEventsBatch,
                     vnInputChannelsBatch,
-                    nTSStartBatch * self.tDt,
-                    nNumTimeStepsBatch * self.tDt
+                    nTSStartBatch,
+                    nNumTimeStepsBatch * self.tDt,
                 )
                 nTSStartBatch = nTSEndBatch
                 iStartBatch = iEndBatch
@@ -386,13 +386,13 @@ class RecDynapSE(Layer):
         
         # - Iterate over input batches
         for (
-            vtInputEventsBatch,
+            vnTSInputEventsBatch,
             vnInputChannelsBatch,
-            tStartBatch,
+            nTSStartBatch,
             tDurBatch,
         ) in gInputGenerator:
             vtTimeTraceBatch, vnChannelsBatch = self.controller.send_arrays(
-                vtTimeTrace=vtInputEventsBatch - tStartBatch,
+                vnTimeSteps=vnTSInputEventsBatch - nTSStartBatch,
                 vnChannels=vnInputChannelsBatch,
                 tRecord=tDurBatch,
                 vnNeuronIDs=self.vnVirtualNeuronIDs,
@@ -405,7 +405,7 @@ class RecDynapSE(Layer):
             )
             
             lChannels.append(vnChannelsBatch)
-            lTimeTrace.append(vtTimeTraceBatch + tStartBatch)
+            lTimeTrace.append(vtTimeTraceBatch + nTSStartBatch * self.tDt)
             if bVerbose:
                 print("Layer `{}`: Received event data".format(self.strName))
 

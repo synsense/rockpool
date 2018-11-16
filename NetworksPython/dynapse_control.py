@@ -12,6 +12,7 @@ from .timeseries import TSEvent
 
 # - Programmatic imports for CtxCtl
 bUsing_rPyC = False
+RPYC_TIMEOUT = 300
 
 try:
     import CtxDynapse
@@ -22,6 +23,7 @@ except ModuleNotFoundError:
     try:
         import rpyc
         conn = rpyc.classic.connect('localhost', '1300')
+        conn._config["sync_request_timeout"] = RPYC_TIMEOUT
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
         print("dynapse_control: RPyC connection established.")
@@ -275,28 +277,34 @@ def event_list_to_timestamps_and_channels(
 @teleport_function
 def generate_fpga_event_list(
     vnDiscreteISIs: np.ndarray,
-    vnChannels: np.ndarray,
     vnNeuronIDs: np.ndarray,
     nTargetCoreMask: int,
     nTargetChipID: int,
 ) -> list:
+    """
+    generate_fpga_event_list - Generate a list of FpgaSpikeEvent objects
+    :param vnDiscreteISIs:  array-like  Inter-spike intervalls in Fpga time base
+    :param vnNeuronIDs:     array-like  IDs of neurons corresponding to events
+    :param nNeuronID:       int ID of source neuron
+    :param nTargetCoreMask: int Coremask to determine target cores
 
+    :return:
+        event  list of generated FpgaSpikeEvent objects.
+    """
+    from time import time
+    t0 = time()
     from CtxDynapse import FpgaSpikeEvent
+    from copy import deepcopy
 
     def generate_fpga_event(
-        nTargetChipID: int,
-        nTargetCoreMask: int,
         nNeuronID: int,
         nISI: int,
     ) -> FpgaSpikeEvent:
         """
-        generate_fpga_event - Generate a single FpgaSpikeEventObject
-        :param nTargetChipID:   int ID of chip where event will be sent to
-        :param nTargetCoreMask: int Coremask to determine target cores
+        generate_fpga_event - Generate a single FpgaSpikeEvent objects.
         :param nNeuronID:       int ID of source neuron
         :param nISI:            int Timesteps after previous event before
                                     this event will be sent
-
         :return:
             event  FpgaSpikeEvent
         """
@@ -307,13 +315,17 @@ def generate_fpga_event_list(
         event.isi = nISI
         return event        
 
+    vnNeuronIDs = deepcopy(vnNeuronIDs)
+    vnDiscreteISIs = deepcopy(vnDiscreteISIs)
+
+    t1 = time()
     # - Generate events
+    print("dynapse_control: Generating event list")
     lEvents = [
-        generate_fpga_event(
-            nTargetChipID, nTargetCoreMask, vnNeuronIDs[nChannel], nISI
-        )
-        for nChannel, nISI in zip(vnChannels, vnDiscreteISIs)
+        generate_fpga_event(nNeuronID, nISI)
+        for nNeuronID, nISI in zip(vnNeuronIDs, vnDiscreteISIs)
     ]
+    print("Took {} s and {} s".format(t1-t0, time()-t1))
     return lEvents
 
 @teleport_function
@@ -699,10 +711,10 @@ class DynapseControl():
         vnDiscreteISIs = (np.round(vtISIs / self.tFpgaIsiBase)).astype("int")
 
         # - Convert events to an FpgaSpikeEvent
+        print("dynapse_control: Generating FPGA event list from TSEvent.")
         lEvents = generate_fpga_event_list(
             vnDiscreteISIs,
-            vnChannels,
-            vnNeuronIDs,
+            vnNeuronIDs[vnChannels],
             nTargetCoreMask,
             nTargetChipID,
         )
@@ -711,10 +723,12 @@ class DynapseControl():
 
     def arrays_to_spike_list(
         self,
-        vnTimeSteps: np.ndarray,
         vnChannels: np.ndarray,
         vnNeuronIDs: np.ndarray,
-        nTSStart: int = 0,
+        vnTimeSteps: Optional[np.ndarray]=None,
+        vtTimeTrace: Optional[np.ndarray]=None,
+        nTSStart: Optional[int] = None,
+        tStart: Optional[int] = 0,
         nTargetCoreMask: int = 1,
         nTargetChipID: int = 0,
     ) -> List:
@@ -722,14 +736,28 @@ class DynapseControl():
         arrays_to_spike_list - Convert an array of input time steps and an an array
                                of event channels to a ctxctl spike list
 
-        :param vnTimeSteps:     np.ndarray   Event time steps (Using FPGA time base)
-        :param vnChannels:      np.ndarray   Event time steps (Using FPGA time base)
+        :param vnChannels:      np.ndarray   Event channels
         :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-        :param nTSStart:        int          Time step at which to start
+        :param vnTimeSteps:     np.ndarray   Event time steps (Using FPGA time base, overwrites vtTimeTrace if not None)
+        :param vtTimeTrace:     np.ndarray   Event time points (in seconds)
+        :param nTSStart:        int          Time step at which to start (overwrites tStart if not None)
+        :param tStart:          float        Time at which to start
         :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
         :param nTargetChipID:   int          ID of target chip
         :return:                list of FpgaSpikeEvent objects
         """
+        # - Process input arguments
+        if vnTimeSteps is None:
+            assert vtTimeTrace is not None, (
+                "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` must be provided."
+            )
+            vnTimeSteps = np.floor(vtTimeTrace / self.tFpgaIsiBase).astype(int)
+        if nTSStart is None:
+            assert tStart is not None, (
+                "DynapseControl: Either `nTSStart` or `tStart` must be provided."
+            )
+            nTSStart = int(np.floor(tStart / self.tFpgaIsiBase))
+
         # - Ignore data that comes before nTSStart
         vnTimeSteps = vnTimeSteps[vnTimeSteps >= nTSStart]
         vnChannels = vnChannels[vnTimeSteps >= nTSStart]
@@ -737,7 +765,7 @@ class DynapseControl():
         # - Check that the number of channels is the same between time series and list of neurons
         assert np.amax(vnChannels) <= np.size(
             vnNeuronIDs
-        ), "`vnChannels` contains more channels than the number of neurons in `vnNeuronIDs`."
+        ), "DynapseControl: `vnChannels` contains more channels than the number of neurons in `vnNeuronIDs`."
 
         # - Make sure vnNeuronIDs is iterable
         vnNeuronIDs = np.array(vnNeuronIDs)
@@ -745,11 +773,11 @@ class DynapseControl():
         # - Convert to ISIs
         vnDiscreteISIs = np.diff(np.r_[nTSStart, vnTimeSteps])
 
+        print("DynapseControl: Generating FPGA event list from arrays.")
         # - Convert events to an FpgaSpikeEvent
         lEvents = generate_fpga_event_list(
-            vnDiscreteISIs,
-            vnChannels,
-            vnNeuronIDs,
+            list(vnDiscreteISIs),
+            list(vnNeuronIDs[vnChannels]),
             nTargetCoreMask,
             nTargetChipID,
         )
@@ -788,9 +816,8 @@ class DynapseControl():
         # - Generate events
         # List for events to be sent to fpga
         lEvents = generate_fpga_event_list(
-            [nISIfpga],
-            [0],
-            [vnNeuronIDs],
+            np.array([nISIfpga]),
+            np.array(vnNeuronIDs).reshape(1, -1),
             nCoreMask,
             nChipID,
         )
@@ -1004,8 +1031,9 @@ class DynapseControl():
 
     def send_arrays(
         self,
-        vtTimeTrace,
-        vnChannels,
+        vnChannels: np.ndarray,
+        vnTimeSteps: Optional[np.ndarray],
+        vtTimeTrace: Optional[np.ndarray],
         tRecord: Optional[float]=None,
         tBuffer: float=0.5,
         vnNeuronIDs: Optional[np.ndarray]=None,
@@ -1019,8 +1047,9 @@ class DynapseControl():
         """
         send_arrays - Send events defined in timetrace and channel arrays to FPGA.
 
-        :param vtTimeTrace:     np.ndarray  Event times
         :param vnChannels:      np.ndarray  Event channels
+        :param vnTimeSeops:     np.ndarray  Event times in Fpga time base (overwrites vtTimeTrace if not None)
+        :param vtTimeTrace:     np.ndarray  Event times in seconds
         :param tRecord:         float  Duration of the recording (including stimulus)
                                        If None, use vtTimeTrace[-1]
         :param tBuffer:         float  Record slightly longer than tRecord to
@@ -1048,11 +1077,22 @@ class DynapseControl():
             else np.array(vnNeuronIDs)
         )
         vnRecordNeuronIDs = vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
-        tRecord = vtTimeTrace[-1] if tRecord is None else tRecord
+        if tRecord is None:
+            try:
+                tRecord = vtTimeTrace[-1]
+            except TypeError:  # vtTimeTrace is None
+                try:
+                    tRecord = vnTimeSteps[-1] * self.tFpgaIsiBase
+                except TypeError:  # vnTimeSteps is also None
+                    raise ValueError(
+                        "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` has to be provided."
+                    )
+            print("DynapseControl: Stimulus/recording time inferred to be {} s.".format(tRecord))
 
         # - Prepare event list
         lEvents = self.arrays_to_spike_list(
-            vnTimeSteps=vtTimeTrace,
+            vtTimeTrace=vtTimeTrace,
+            vnTimeSteps=vnTimeSteps,
             vnChannels=vnChannels,
             vnNeuronIDs=vnNeuronIDs,
             nTSStart=0,
@@ -1108,9 +1148,10 @@ class DynapseControl():
         print("DynapseControl: Stimulus preloaded.")
 
         if bRecord:
-            vnNeuronIDs = [] if vnNeuronIDs is None else vnNeuronIDs
-            warn("DynapseControl: No neuron IDs specified for recording.")
-            self.add_buffered_event_filter(vnNeuronIDs)
+            if vnRecordNeuronIDs is None:
+                vnRecordNeuronIDs = []
+                warn("DynapseControl: No neuron IDs specified for recording.")
+            self.add_buffered_event_filter(vnRecordNeuronIDs)
 
         # - Stimulate
         print(
@@ -1136,10 +1177,10 @@ class DynapseControl():
             self.bufferedfilter.clear()
             if bTSEvent:
                 # - Extract TSEvent from recorded data
-                return recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)          
+                return self.recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)          
             else:
                 # - Extract arrays from recorded data
-                return recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
+                return self.recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
 
     def recorded_data_to_TSEvent(
         self,
