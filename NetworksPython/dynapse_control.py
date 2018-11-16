@@ -237,47 +237,32 @@ def teleport_function(func):
         return func
 
 @teleport_function
-def neurons_to_channels(
-    lNeurons: List, lLayerNeurons: List
-) -> list:
-    """
-    neurons_to_channels - Convert a list of neurons into layer channel indices
+def extract_event_data(lEvents):
+    from time import time
+    ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
+    lTimeStamps, lNeuronIDs = zip(*ltupEvents)
+    return lTimeStamps, lNeuronIDs
 
-    :param lNeurons:        List Lx0 to match against layer neurons
-    :param lLayerNeurons:   List Nx0 HW neurons corresponding to each channel index
-    :return:                List[int] Lx0 channel indices corresponding to each neuron in lNeurons
-    """
-    # - Initialise list to return
-    lChannelIndices = []
-
-    lLayerNeurons = list(lLayerNeurons)
-
-    for neurTest in lNeurons:
-        try:
-            nChannelIndex = lLayerNeurons.index(neurTest)
-        except ValueError:
-            print("Unexpected neuron ID {}".format(neurTest.get_id()))
-            nChannelIndex = float('nan')
-
-        # - Append discovered index
-        lChannelIndices.append(nChannelIndex)
-
-    # - Convert to numpy array
-    return lChannelIndices
-
-@teleport_function
-def event_list_to_timestamps_and_channels(
-    lEvents: List, lLayerNeurons: List
-) -> (list, list):
-    lTimeStamps = [e.timestamp for e in lEvents]
-    lNeurons = [event.neuron for event in lEvents]
-    lChannelIndices = neurons_to_channels(lNeurons, lLayerNeurons)
-    return lTimeStamps, lChannelIndices
+def event_data_to_channels(
+    lEvents: List, lLayerNeuronIDs: List
+) -> (np.ndarray, np.ndarray):
+    lTimeStamps, lNeuronIDs = extract_event_data(lEvents)
+    # - Convert to numpy array and thereby fetch data from connection if using RPyC
+    vTimeStamps = np.array(lTimeStamps)
+    vNeuronIDs = np.array(lNeuronIDs)
+    # - Convert neuron IDs to channels
+    dChannels = {nID: iChannel for iChannel, nID in enumerate(lLayerNeuronIDs)}
+    vChannelIndices = np.array(list(
+        map(lambda nID: dChannels.get(nID, float("nan")), vNeuronIDs)
+    ))
+    if np.isnan(vChannelIndices).any():
+        warn("dynapse_control: Some events did not match `lLayerNeuronIDs`")
+    return vTimeStamps, vChannelIndices
 
 @teleport_function
 def generate_fpga_event_list(
-    vnDiscreteISIs: np.ndarray,
-    vnNeuronIDs: np.ndarray,
+    vnDiscreteISIs: list,
+    vnNeuronIDs: list,
     nTargetCoreMask: int,
     nTargetChipID: int,
 ) -> list:
@@ -291,11 +276,17 @@ def generate_fpga_event_list(
     :return:
         event  list of generated FpgaSpikeEvent objects.
     """
-    from time import time
-    t0 = time()
-    from CtxDynapse import FpgaSpikeEvent
-    from copy import deepcopy
-
+    bUsing_RPyC = True
+    if bUsing_RPyC:
+        from CtxDynapse import FpgaSpikeEvent
+        from copy import deepcopy
+        
+        # - Make sure objects live on required side of RPyC connection
+        nTargetCoreMask = int(nTargetCoreMask)
+        nTargetChipID = int(nTargetChipID)
+        vnNeuronIDs = deepcopy(vnNeuronIDs)
+        vnDiscreteISIs = deepcopy(vnDiscreteISIs)
+    
     def generate_fpga_event(
         nNeuronID: int,
         nISI: int,
@@ -313,19 +304,15 @@ def generate_fpga_event_list(
         event.core_mask = nTargetCoreMask
         event.neuron_id = nNeuronID
         event.isi = nISI
-        return event        
-
-    vnNeuronIDs = deepcopy(vnNeuronIDs)
-    vnDiscreteISIs = deepcopy(vnDiscreteISIs)
-
-    t1 = time()
+        return event
+    
     # - Generate events
     print("dynapse_control: Generating event list")
     lEvents = [
         generate_fpga_event(nNeuronID, nISI)
         for nNeuronID, nISI in zip(vnNeuronIDs, vnDiscreteISIs)
     ]
-    print("Took {} s and {} s".format(t1-t0, time()-t1))
+    
     return lEvents
 
 @teleport_function
@@ -713,10 +700,10 @@ class DynapseControl():
         # - Convert events to an FpgaSpikeEvent
         print("dynapse_control: Generating FPGA event list from TSEvent.")
         lEvents = generate_fpga_event_list(
-            vnDiscreteISIs,
-            vnNeuronIDs[vnChannels],
-            nTargetCoreMask,
-            nTargetChipID,
+            list(vnDiscreteISIs),
+            list(vnNeuronIDs[vnChannels]),
+            int(nTargetCoreMask),  # This makes sure that no np.int64 or other non-basic type is passed
+            int(nTargetChipID),
         )
         # - Return a list of events
         return lEvents
@@ -778,8 +765,8 @@ class DynapseControl():
         lEvents = generate_fpga_event_list(
             list(vnDiscreteISIs),
             list(vnNeuronIDs[vnChannels]),
-            nTargetCoreMask,
-            nTargetChipID,
+            int(nTargetCoreMask),  # This makes sure that no np.int64 or other non-basic type is passed
+            int(nTargetChipID),
         )
 
         # - Return a list of events
@@ -816,10 +803,10 @@ class DynapseControl():
         # - Generate events
         # List for events to be sent to fpga
         lEvents = generate_fpga_event_list(
-            np.array([nISIfpga]),
-            np.array(vnNeuronIDs).reshape(1, -1),
-            nCoreMask,
-            nChipID,
+            list(np.array([nISIfpga])),
+            list(np.array(vnNeuronIDs).reshape(1, -1)),
+            int(nCoreMask),
+            int(nChipID),
         )
         self.fpgaSpikeGen.preload_stimulus(lEvents)
         print("DynapseControl: Stimulus prepared with {} Hz".format(
@@ -1073,7 +1060,7 @@ class DynapseControl():
         
         # - Process input arguments
         vnNeuronIDs = (
-            np.amax(vnChannels) if vnNeuronIDs is None
+            np.arange(np.amax(vnChannels)) if vnNeuronIDs is None
             else np.array(vnNeuronIDs)
         )
         vnRecordNeuronIDs = vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
@@ -1144,9 +1131,8 @@ class DynapseControl():
         """
         # - Prepare FPGA
         self.fpgaSpikeGen.set_repeat_mode(bPeriodic)
-        self.fpgaSpikeGen.preload_stimulus(list(lEvents))
+        self.fpgaSpikeGen.preload_stimulus(lEvents)
         print("DynapseControl: Stimulus preloaded.")
-
         if bRecord:
             if vnRecordNeuronIDs is None:
                 vnRecordNeuronIDs = []
@@ -1157,7 +1143,7 @@ class DynapseControl():
         print(
             "DynapseControl: Starting{} stimulation{}.".format(
                 bPeriodic * " periodic",
-                (not bPeriodic) * " for {}".format(tDuration),
+                (not bPeriodic) * " for {} s".format(tDuration),
             )
         )
         self.fpgaSpikeGen.start()
@@ -1167,6 +1153,10 @@ class DynapseControl():
 
         # - Run stimulation (and record)
         tBuffer = 0 if tBuffer is None else tBuffer
+
+        if bPeriodic:
+            return
+
         time.sleep(tDuration + tBuffer)
 
         # - Stop stimulation and clear filter to stop recording events
@@ -1187,18 +1177,18 @@ class DynapseControl():
         vnNeuronIDs: np.ndarray,
         tRecord: float
     ) -> TSEvent:
-        lEvents = list(self.bufferedfilter.get_events())
-        lTrigger = list(self.bufferedfilter.get_special_event_timestamps())
+        lEvents = self.bufferedfilter.get_events()
+        lTrigger = self.bufferedfilter.get_special_event_timestamps()
         print(
             "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
         )
 
         # - Extract monitored event channels and timestamps
-        lTimeStamps, lChannels = event_list_to_timestamps_and_channels(
-            lEvents, self.vHWNeurons[vnNeuronIDs],
+        vnTimeStamps, vnChannels = event_data_to_channels(
+            lEvents, vnNeuronIDs,
         )
-        vtTimeTrace = np.array(lTimeStamps) * 1e-6
-        vnChannels = np.array(lChannels)
+        vtTimeTrace = np.array(vnTimeStamps) * 1e-6
+        vnChannels = np.array(vnChannels)
 
         # - Locate synchronisation timestamp
         tStartTrigger = lTrigger[0] * 1e-6
@@ -1221,18 +1211,19 @@ class DynapseControl():
         vnNeuronIDs: np.ndarray,
         tRecord: float
     ) -> TSEvent:
-        lEvents = list(self.bufferedfilter.get_events())
-        lTrigger = list(self.bufferedfilter.get_special_event_timestamps())
+        lEvents = self.bufferedfilter.get_events()
+        lTrigger = self.bufferedfilter.get_special_event_timestamps()
+        
         print(
             "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
         )
 
         # - Extract monitored event channels and timestamps
-        lTimeStamps, lChannels = event_list_to_timestamps_and_channels(
-            lEvents, self.vHWNeurons[vnNeuronIDs],
+        vnTimeStamps, vnChannels = event_data_to_channels(
+            lEvents, vnNeuronIDs,
         )
-        vtTimeTrace = np.array(lTimeStamps) * 1e-6
-        vnChannels = np.array(lChannels)
+        vtTimeTrace = np.array(vnTimeStamps) * 1e-6
+        vnChannels = np.array(vnChannels)
 
         # - Locate synchronisation timestamp
         tStartTrigger = lTrigger[0] * 1e-6
@@ -1241,7 +1232,6 @@ class DynapseControl():
         vtTimeTrace = vtTimeTrace[iStartIndex: iEndIndex] - tStartTrigger
         vnChannels = vnChannels[iStartIndex: iEndIndex]
         print("DynapseControl: Extracted event data")
-
         return vtTimeTrace, vnChannels
 
     ### --- Tools for tuning and observing activities

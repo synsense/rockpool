@@ -6,7 +6,6 @@ from ..layer import Layer
 from ...timeseries import TSEvent
 from ...dynapse_control import (
     DynapseControl,
-    event_list_to_timestamps_and_channels,
     connectivity_matrix_to_prepost_lists,
 )
 
@@ -117,7 +116,7 @@ class RecDynapSE(Layer):
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
         # - Record input core mask and chip ID
-        self._nInputCoreMask = np.sum([2**nID for nID in lInputCoreIDs])
+        self._nInputCoreMask = int(np.sum([2**nID for nID in lInputCoreIDs]))
         self._nInputChipID = nInputChipID
         # - Store evolution batch size limitations
         self.nMaxTrialsPerBatch = nMaxTrialsPerBatch
