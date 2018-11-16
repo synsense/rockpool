@@ -348,13 +348,14 @@ def clear_chips(oDynapse,
 
     for nChip in lClearChips:
         print("DynapseControl: Clearing chip {}.".format(nChip))
+
         # - Clear CAMs
         oDynapse.clear_cam(int(nChip))
         print("\t CAMs cleared.")
 
         # - Clear SRAMs
-        print("\t SRAMs cleared.")
         oDynapse.clear_sram(int(nChip))
+        print("\t SRAMs cleared.")
 
         # - Reset neuron weights in model
         for neuron in vShadowNeurons[nChip*1024: (nChip+1)*1024]:
