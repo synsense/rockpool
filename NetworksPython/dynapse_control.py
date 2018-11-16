@@ -1032,8 +1032,8 @@ class DynapseControl():
     def send_arrays(
         self,
         vnChannels: np.ndarray,
-        vnTimeSteps: Optional[np.ndarray],
-        vtTimeTrace: Optional[np.ndarray],
+        vnTimeSteps: Optional[np.ndarray]=None,
+        vtTimeTrace: Optional[np.ndarray]=None,
         tRecord: Optional[float]=None,
         tBuffer: float=0.5,
         vnNeuronIDs: Optional[np.ndarray]=None,
