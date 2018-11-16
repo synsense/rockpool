@@ -656,7 +656,7 @@ class TimeSeries:
              bInPlace: bool = False,
              ):
         """
-        clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end)
+        clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
 
         :param vtNewBounds: ArrayLike   [tStart tStop] defining new bounds
         :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
@@ -1291,9 +1291,19 @@ class TSEvent(TimeSeries):
             # - Return all samples
             return self.vtTimeTrace, self.vnChannels, self.mfSamples.flatten()
 
-    def clip(self, vtNewBounds: Union[list, np.ndarray]):
+    def clip(self,
+             vtNewBounds: Union[list, np.ndarray],
+             bInPlace: bool = False,
+             ):
+        """
+        clip - Clip a time series in time, to a specified start and stop time
+
+        :param vtNewBounds:
+        :param bInPlace:         bool Specify whether operation should be performed in place (Default: False)
+        :return:                 TSEvent Including only clipped events
+        """
         # - Call super-class clipper
-        tsClip, vbIncludeSamples = super()._clip(vtNewBounds)
+        tsClip, vbIncludeSamples = super()._clip(vtNewBounds, bInPlace = bInPlace)
 
         # - Fix up channels variable
         tsClip._vnChannels = self._vnChannels[vbIncludeSamples]
@@ -1330,17 +1340,25 @@ class TSEvent(TimeSeries):
             self._mfSamples[vbIncludeSamples],
         )
 
-    def choose(self, vnSelectChannels: Union[list, np.ndarray]):
+    def choose(self,
+               vnSelectChannels: Union[list, np.ndarray],
+               bInPlace: bool = False,
+               ):
         """
         choose - Select and return only the requested channels
 
         :param vnSelectChannels: array-like of channel indices
-        :return: new TSEvent containing events from the requested channels
+        :param bInPlace:         bool Specify whether operation should be performed in place (Default: False)
+        :return: TSEvent containing events from the requested channels
         """
 
         # - Build new TS with only those samples from requested channels
-        tsChosen = self.copy()
-        tsChosen._vtTimeTrace, tsChosen._vnChannels, tsChosen._mfSamples = self._choose(
+        if not bInPlace:
+            tsChosen = self.copy()
+        else:
+            tsChosen = self
+
+        tsChosen._vtTimeTrace, tsChosen._vnChannels, tsChosen._mfSamples = tsChosen._choose(
             vnSelectChannels
         )
 
@@ -1358,44 +1376,54 @@ class TSEvent(TimeSeries):
         vtTimes, _, _ = self._choose(vnSelectChannels)
         return vtTimes
 
-    def plot(self, vtTimes: np.ndarray = None, **kwargs):
+    def plot(self, vtTimes: np.ndarray = None, *args, **kwargs):
         """
         plot - Visualise a time series on plot
 
-        :param vtTimes: Optional. Time base on which to plot. Default: time base of time series
-        :param kwargs:  Optional arguments to pass to plotting function
+        :param vtTimes:         Optional. Time base on which to plot. Default: time base of time series
+        :param args, kwargs:    Optional arguments to pass to plotting function
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
         """
 
+        # - Get current plotting backend
+        _bUseHoloviews, _bUseMatplotlib = GetPlottingBackend()
+
         # - Get samples
         vtTimes, vnChannels, _ = self.find(vtTimes)
 
-        if self._bUseHoloviews:
+        if _bUseHoloviews:
             return (
-                hv.Scatter((vtTimes, vnChannels))
+                hv.Scatter((vtTimes, vnChannels), *args, **kwargs)
                 .redim(x="Time", y="Channel")
                 .relabel(self.strName)
             )
 
-        elif self._bUseMatplotlib:
-            return plt.scatter(vtTimes, self(vtTimes), **kwargs)
+        elif _bUseMatplotlib:
+            return plt.scatter(vtTimes, vnChannels, *args, **kwargs)
 
         else:
             warn("No plotting back-end detected.")
 
-    def resample(self, vtTimes: np.ndarray):
-        return self.clip(vtTimes)
+    def resample(self,
+                 vtTimes: np.ndarray,
+                 bInPlace: bool = False,
+                 ):
+        return self.clip(vtTimes, bInPlace = bInPlace)
 
-    def resample_within(
-        self, tStart: float = None, tStop: float = None, tDt: float = None
-    ):
+    def resample_within(self,
+                        tStart: float = None,
+                        tStop: float = None,
+                        tDt: float = None,
+                        bInPlace: bool = False,
+                        ):
         """
         resample_within - Resample a TimeSeries, within bounds
 
-        :param tStart:  float Start time (inclusive)
-        :param tStop:   float Stop time (inclusive)
-        :param tDt:     Unused for event TimeSeries
+        :param tStart:      float Start time (inclusive)
+        :param tStop:       float Stop time (inclusive)
+        :param tDt:         Unused for event TimeSeries
+        :param bInPlace:    bool Specify whether operation should be performed in place (Default: False)
 
         :return:        New TimeSeries containing events within [tStart, tStop]
         """
@@ -1405,23 +1433,34 @@ class TSEvent(TimeSeries):
         if tStop is None:
             tStop = self.tStop + np.finfo(float).eps
 
-        return self.clip([tStart, tStop])
+        return self.clip([tStart, tStop], bInPlace = bInPlace)
 
-    def merge(self, ltsOther: Union[TimeSeries, List[TimeSeries]]):
+    def merge(self,
+              ltsOther: Union[TimeSeries, List[TimeSeries]],
+              bRemoveDuplicates: Optional[bool] = None,
+              bInPlace: bool = False,
+              ):
         """
         merge - Merge another TSEvent into this one
-        :param ltsOther: TimeSeries (or list of TimeSeries) to merge into this one
+        :param ltsOther:            TimeSeries (or list of TimeSeries) to merge into this one
+        :params bRemoveDuplicates:  bool Remove duplicate events (unused in TSEvent)
+        :param bInPlace:            bool Specify whether operation should be performed in place (Default: False)
         :return: self with new samples included
         """
 
+        if bInPlace:
+            tsMerged = self
+        else:
+            tsMerged = self.copy()
+
         # - Ensure we have a list of objects to work on
         if not isinstance(ltsOther, collections.Iterable):
-            ltsOther = [self, ltsOther]
+            ltsOther = [tsMerged, ltsOther]
         else:
-            ltsOther = [self] + list(ltsOther)
+            ltsOther = [tsMerged] + list(ltsOther)
 
         # - Determine number of channels
-        self.nNumChannels = np.amax([tsOther.nNumChannels for tsOther in ltsOther])
+            tsMerged.nNumChannels = np.amax([tsOther.nNumChannels for tsOther in ltsOther])
 
         # - Check tsOther class
         assert all(
@@ -1433,7 +1472,7 @@ class TSEvent(TimeSeries):
 
         # - Stop if no non-empty series is left
         if not ltsOther:
-            return self
+            return tsMerged
 
         # - Merge all samples
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
@@ -1444,13 +1483,13 @@ class TSEvent(TimeSeries):
 
         # - Sort on time and merge
         vnOrder = np.argsort(vtNewTimeBase)
-        self._vtTimeTrace = vtNewTimeBase[vnOrder]
-        self._vnChannels = vnNewChannels[vnOrder]
-        self._mfSamples = vfNewSamples[vnOrder]
-        self._tStart = tNewStart
-        self._tStop = tNewStop
+        tsMerged._vtTimeTrace = vtNewTimeBase[vnOrder]
+        tsMerged._vnChannels = vnNewChannels[vnOrder]
+        tsMerged._mfSamples = vfNewSamples[vnOrder]
+        tsMerged._tStart = tNewStart
+        tsMerged._tStop = tNewStop
 
-        return self
+        return tsMerged
 
     def _compatibleShape(self, other) -> np.ndarray:
         try:
