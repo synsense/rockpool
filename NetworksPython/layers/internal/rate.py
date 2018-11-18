@@ -1,3 +1,7 @@
+##
+# rate.py - Non-spiking rate-coded dynamical layers, with ReLu / LT neurons. Euler solvers
+##
+
 import numpy as np
 from typing import Callable
 from numba import njit
@@ -13,6 +17,12 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Relative tolerance for float comparions
 fTolerance = 1e-5
+
+### --- Configure exports
+
+__all__ = [
+    "FFRateEuler", "PassThrough", "RecRateEuler"
+]
 
 
 ### --- Helper functions

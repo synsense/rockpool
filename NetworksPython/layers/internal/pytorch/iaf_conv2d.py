@@ -1,3 +1,7 @@
+##
+# iaf_conv2d.py - Torch implementation of a spiking 2D convolutional layer
+##
+
 import numpy as np
 import pandas as pd
 import torch.nn as nn

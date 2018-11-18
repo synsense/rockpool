@@ -1,3 +1,7 @@
+##
+# sumpool2d.py -- Torch implementation of SumPooling2D layer (CNN architectures)
+##
+
 import torch.nn as nn
 import numpy as np
 import pandas as pd

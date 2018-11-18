@@ -1,5 +1,5 @@
 ###
-# digital_brian.py - Class implementing a recurrent layer consisting of
+# iaf_digital.py - Class implementing a recurrent layer consisting of
 #                    digital neurons with constant leak and fixed-size
 #                    integer as state. Event based.
 ###
@@ -35,11 +35,11 @@ tMinRefractory = 1e-9
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-# - RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
+# - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
 
 class RecDIAF(Layer):
-    """ RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
+    """ RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
     """
 
     ## - Constructor
@@ -59,7 +59,7 @@ class RecDIAF(Layer):
         strName: str = "unnamed",
     ):
         """
-        RecDIAFBrian - Construct a spiking recurrent layer with digital IAF neurons
+        RecDIAF - Construct a spiking recurrent layer with digital IAF neurons
 
         :param mfWIn:           np.array nSizeInxN input weight matrix.
         :param mfWRec:          np.array NxN weight matrix
