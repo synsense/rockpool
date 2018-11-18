@@ -18,7 +18,7 @@ def test_cnn_initialization():
     Test initialization of the layer
     """
     from NetworksPython.layers import EventDrivenSpikingLayer
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
@@ -33,7 +33,7 @@ def test_cnn_evolve():
     """
     from NetworksPython import TSEvent
     from NetworksPython.layers import EventDrivenSpikingLayer
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
@@ -57,7 +57,7 @@ def test_cnn_multilayer():
     """
     from NetworksPython import TSEvent, Network
     from NetworksPython.layers import EventDrivenSpikingLayer
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeight
 
     # Parameters
     imageShape = (10, 10)

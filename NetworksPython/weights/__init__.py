@@ -4,41 +4,26 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".layer": "Layer",
-    ".internal.iaf_brian": (
-        "FFIAFBrian",
-        "FFIAFSpkInBrian",
-        "RecIAFBrian",
-        "RecIAFSpkInBrian",
-    ),
-    ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-    ".internal.exp_synapses_brian": "FFExpSynBrian",
-    ".internal.exp_synapses_manual": "FFExpSyn",
-    ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
-    ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
-    ".internal.iaf_cl_extd": "RecCLIAFExtd",
-    ".internal.softmaxlayer": "SoftMaxLayer",
-    ".internal.averagepooling": "AveragePooling2D",
-    ".internal.iaf_digital": "RecDIAF",
-    ".internal.spike_bt": "RecFSSpikeEulerBT",
-    ".internal.updown": "FFUpDown",
-    ".internal.pytorch.torch_cnn_layer": "FFCLIAFCNNTorch",  # For SNN layer convolutional weights
-    ".internal.pytorch.iaf_conv2d": "TorchSpikingConv2dLayer",
-    ".internal.pytorch.sumpool2d": "TorchSumPooling2dLayer",
-    ".internal.pytorch.crop2d": "TorchCropping2dLayer",
-    ".internal.pytorch.zeropad2d": "TorchZeroPad2dLayer",
-    ".internal.pytorch.flatten": "TorchFlatten2dLayer",
-    ".internal.pytorch.iaf_torch": (
-        "FFIAFTorch",
-        "FFIAFSpkInTorch",
-        "RecIAFTorch",
-        "RecIAFSpkInTorch",
+    ".internal.cnnweights": "CNNWeight",
+    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
+    ".internal.reservoirweights": (
+        "RndmSparseEINet",
+        "RandomEINet",
+        "WilsonCowanNet",
+        "WipeNonSwitchingEigs",
+        "UnitLambdaNet",
+        "DiscretiseWeightMatrix",
+        "DynapseConform",
+        "In_Res_Dynapse",
+        "digital",
+        "in_res_digital",
+        "IAFSparseNet",
     ),
 }
 
 
 # - Define current package
-strBasePackage = "NetworksPython.layers"
+strBasePackage = "NetworksPython.weights"
 
 # - Initialise list of available modules
 __all__ = []

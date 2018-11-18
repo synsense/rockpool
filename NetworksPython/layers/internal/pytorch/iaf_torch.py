@@ -587,8 +587,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
                                 and return it together with number of evolution time steps
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
+        :param mfInput:         np.ndarray    Input data
         :param nNumTimeSteps    int      Number of evolution time steps
         :return:
                 mfNeuralInput   np.ndarray  Input to neurons
@@ -599,7 +598,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
         mfNeuralInput = torch.from_numpy(mfInput).float().to(self.device)
 
         # - Weight inputs
-        mfWeightedInput = torch.mm(mfInput, self._mfW)
+        mfWeightedInput = torch.mm(
+            torch.from_numpy(mfInput).float().to(self.device), self._mfW
+        )
 
         # - Add noise trace
         if self.fNoiseStd > 0:

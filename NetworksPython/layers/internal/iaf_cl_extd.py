@@ -7,7 +7,7 @@ from typing import Optional, Union, List, Tuple
 import numpy as np
 from tqdm import tqdm
 from collections import deque
-from .cnnweights import CNNWeight
+from ...weights.internal.cnnweights import CNNWeight
 from ...timeseries import TSEvent, TSContinuous
 from .iaf_cl import CLIAF
 
