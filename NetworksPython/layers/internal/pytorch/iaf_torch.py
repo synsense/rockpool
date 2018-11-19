@@ -596,14 +596,14 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
         """
         # - Prepare mfInput
-        mfNeuralInput = torch.from_numpy(mfInput).float().to(self.device)
+        mfInput = torch.from_numpy(mfInput).float().to(self.device)
 
         # - Weight inputs
         mfWeightedInput = torch.mm(mfInput, self._mfW)
 
         # - Add noise trace
         if self.fNoiseStd > 0:
-            mfNeuralInput += (
+            mfInput += (
                 torch.randn(nNumTimeSteps, self.nSize).float().to(self.device)
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
