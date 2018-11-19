@@ -230,8 +230,8 @@ class FFExpSyn(Layer):
         :param bFirst:         bool - True if current batch is the first in training
         :param bFinal:         bool - True if current batch is the last in training
         :param bTrainBiases:   bool - If True, train biases as if they were weights
-                                      Otherwise present biases will be considered in
-                                      training but will not be changed.   
+                                      Otherwise present biases will be ignored in
+                                      training and not be changed.   
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -335,10 +335,6 @@ class FFExpSyn(Layer):
                 mfInput[:, channel] = fftconvolve(vEvents, vfKernel, "full")[
                     : vtTimeBase.size
                 ]
-
-        if not bTrainBiases:
-            # - Include (constant) biases in input
-            mfInput += self.vfBias
 
         # - For first batch, initialize summands
         if bFirst:
