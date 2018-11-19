@@ -429,100 +429,56 @@ class RecDynapSE(Layer):
         """
         _compile_weights_and_configure - Configure DynapSE weights from the weight matrices
         """
-
-        # - Get input to layer connections
-        liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
-            self.mfWIn
+        from time import time
+        lTimes = [time()]
+        
+        # - Connect virtual neurons to hardware neurons
+        self.controller.set_virtual_connections_from_weights(
+            mnW=self.mfWIn,
+            vnVirtualNeuronIDs=self.vnVirtualNeuronIDs,
+            vnHWNeuronIDs=self.vnHWNeuronIDs,
+            synExcitatory=self.controller.synFE,
+            synInhibitory=self.controller.synFI,
+            bApplyDiff=False,
         )
+        print("Layer `{}`: Connections to virtual neurons have been set.".format(self.strName))
 
-        # - Connect input to layer
-
-        # - Set excitatory input connections
-        self.controller.dcNeuronConnector.add_connection_from_list(
-            self._vVirtualNeurons[liPreSynE],
-            self._vShadowNeurons[liPostSynE],
-            [self.controller.synFE],
-        )
-        print(
-            "Layer `{}`: Excitatory connections from virtual neurons to layer neurons have been set.".format(
-                self.strName
-            )
-        )
-        # - Set inhibitory input connections
-        self.controller.dcNeuronConnector.add_connection_from_list(
-            self._vVirtualNeurons[liPreSynI],
-            self._vShadowNeurons[liPostSynI],
-            [self.controller.synFI],
-        )
-        print(
-            "Layer `{}`: Inhibitory connections from virtual neurons to layer neurons have been set.".format(
-                self.strName
-            )
-        )
-
-        # - Infer how many input neurons there are (i.e. any neuron that receives input from a virtual neuron)
-        nNumInputNeurons = max(np.amax(liPostSynE), np.amax(liPostSynI))
-
+        lTimes.append(time())
+        
         ## -- Set connections wihtin hardware layer
-        liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
-            self.mfWRec
-        )
+        
+        # - Infer how many input neurons there are (i.e. neurons that receive input from a virtual neuron)
+        nNumInputNeurons = np.sum((self.mfWIn != 0).any(axis=0))
 
-        viPreSynE = np.array(liPreSynE)
-        viPreSynI = np.array(liPreSynI)
-        viPostSynE = np.array(liPostSynE)
-        viPostSynI = np.array(liPostSynI)
+        lTimes.append(time())
+        # - Connections from input layer neurons to excitatory neurons
+        self.controller.set_connections_from_weights(
+            mnW=self.mfW[: nNumInputNeurons, :],  # Assume input neurons are first in weight matrix
+            vnHWNeuronIDs=self.vnHWNeuronIDs,
+            synExcitatory=self.controller.synFE,
+            synInhibitory=self.controller.synFI,
+            bApplyDiff=False,
+        )
+        print("Layer `{}`: Connections from input neurons to reservoir have been set.".format(self.strName))
 
-        # - Connections from input neurons to exceitatory neurons
-        # Excitatory
-        self.controller.dcNeuronConnector.add_connection_from_list(
-            self._vShadowNeurons[viPreSynE[viPreSynE < nNumInputNeurons]],
-            self._vShadowNeurons[viPostSynE[viPreSynE < nNumInputNeurons]],
-            [self.controller.synFE],
+        lTimes.append(time())
+        # - Connections between recurrently connected neurons
+        # Ignore outgoing connections of input neurons
+        mnWRec = np.r_[
+            np.zeros((nNumInputNeurons, self.nSize), int),
+            self.mfW[nNumInputNeurons: , :],
+        ]
+        self.controller.set_connections_from_weights(
+            mnW=mnWRec,
+            vnHWNeuronIDs=self.vnHWNeuronIDs,
+            synExcitatory=self.controller.synSE,
+            synInhibitory=self.controller.synFI,
+            bApplyDiff=True,
         )
-        print(
-            "Layer `{}`: Excitatory connections from input neurons to reservoir neurons have been set.".format(
-                self.strName
-            )
-        )
-        # Inhibitory
-        self.controller.dcNeuronConnector.add_connection_from_list(
-            self._vShadowNeurons[viPreSynI[viPreSynI < nNumInputNeurons]],
-            self._vShadowNeurons[viPostSynI[viPreSynI < nNumInputNeurons]],
-            [self.controller.synFI],
-        )
-        print(
-            "Layer `{}`: Inhibitory connections from input neurons to reservoir neurons have been set.".format(
-                self.strName
-            )
-        )
+        print("Layer `{}`: Recurrent connections have been set.".format(self.strName))
 
-        # - Connections between recurrently connected excitatory neurons and inhibitory neurons
-        # Excitatory
-        self.controller.dcNeuronConnector.add_connection_from_list(
-            self._vShadowNeurons[viPreSynE[viPreSynE >= nNumInputNeurons]],
-            self._vShadowNeurons[viPostSynE[viPreSynE >= nNumInputNeurons]],
-            [self.controller.synSE],
-        )
-        print(
-            "Layer `{}`: Excitatory connections within layer have been set.".format(
-                self.strName
-            )
-        )
-        # - Set inhibitory connections
-        self.controller.dcNeuronConnector.add_connection_from_list(
-            self._vShadowNeurons[viPreSynI[viPreSynI >= nNumInputNeurons]],
-            self._vShadowNeurons[viPostSynI[viPreSynI >= nNumInputNeurons]],
-            [self.controller.synFI],
-        )
-        print(
-            "Layer `{}`: Inhibitory connections within layer have been set.".format(
-                self.strName
-            )
-        )
-
-        self.controller.model.apply_diff_state()
-        print("Layer `{}`: Connections have been written to the chip.".format(self.strName))
+        lTimes.append(time())
+        print([lTimes[i+1] - lTimes[i] for i in range(len(lTimes) - 1)])
 
     @property
     def cInput(self):

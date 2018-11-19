@@ -238,7 +238,6 @@ def teleport_function(func):
 
 @teleport_function
 def extract_event_data(lEvents):
-    from time import time
     ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
     lTimeStamps, lNeuronIDs = zip(*ltupEvents)
     return lTimeStamps, lNeuronIDs
@@ -276,16 +275,14 @@ def generate_fpga_event_list(
     :return:
         event  list of generated FpgaSpikeEvent objects.
     """
-    bUsing_RPyC = True
-    if bUsing_RPyC:
-        from CtxDynapse import FpgaSpikeEvent
-        from copy import deepcopy
-        
-        # - Make sure objects live on required side of RPyC connection
-        nTargetCoreMask = int(nTargetCoreMask)
-        nTargetChipID = int(nTargetChipID)
-        vnNeuronIDs = deepcopy(vnNeuronIDs)
-        vnDiscreteISIs = deepcopy(vnDiscreteISIs)
+    from CtxDynapse import FpgaSpikeEvent
+    from copy import deepcopy
+    
+    # - Make sure objects live on required side of RPyC connection
+    nTargetCoreMask = int(nTargetCoreMask)
+    nTargetChipID = int(nTargetChipID)
+    vnNeuronIDs = deepcopy(vnNeuronIDs)
+    vnDiscreteISIs = deepcopy(vnDiscreteISIs)
     
     def generate_fpga_event(
         nNeuronID: int,
@@ -316,10 +313,11 @@ def generate_fpga_event_list(
     return lEvents
 
 @teleport_function
-def clear_chips(oDynapse,
-                lClearChips: Optional[list]=None,
-                vShadowNeurons: Optional[list] = None,
-                ):
+def clear_chips(
+    oDynapse,
+    lClearChips: Optional[list]=None,
+    lShadowNeurons: Optional[list] = None,
+):
     """
     clear_chips - Clear the CAM and SRAM cells of chips defined in lClearCam.
 
@@ -330,9 +328,14 @@ def clear_chips(oDynapse,
     # - Make sure lClearChips is a list
     if lClearChips is None:
         return
-    elif isinstance(lClearChips, int):
+    
+    if isinstance(lClearChips, int):
         lClearChips = [lClearChips, ]
 
+    from copy import deepcopy
+    # - Make sure that lClearChips is on correct side of RPyC connection
+    lClearChips = deepcopy(lClearChips)
+    
     for nChip in lClearChips:
         print("DynapseControl: Clearing chip {}.".format(nChip))
 
@@ -345,7 +348,7 @@ def clear_chips(oDynapse,
         print("\t SRAMs cleared.")
 
         # - Reset neuron weights in model
-        for neuron in vShadowNeurons[nChip*1024: (nChip+1)*1024]:
+        for neuron in lShadowNeurons[nChip*1024: (nChip+1)*1024]:
             # - Reset SRAMs for this neuron
             vSrams = neuron.get_srams()
             for iSramIndex in range(1, 4):
@@ -361,6 +364,28 @@ def clear_chips(oDynapse,
         print("\t Model neuron weights have been reset.")
 
     print("DynapseControl: Chips cleared.")
+
+@teleport_function
+def get_all_neurons(
+    oModel: CtxDynapse.Model,
+    oVirtualModel: CtxDynapse.VirtualModel
+) -> (np.ndarray, np.ndarray, np.ndarray):
+    """
+    get_all_neurons - Get hardware, virtual and shadow state neurons
+                      from oModel and oVirtualModel and return them
+                      in arrays.
+    :param oModel:  CtxDynapse.Model
+    :param oVirtualModel: CtxDynapse.VirtualModel
+    :return:
+        np.ndarray  Hardware neurons
+        np.ndarray  Virtual neurons
+        np.ndarray  Shadow state neurons
+    """
+    lHWNeurons = oModel.get_neurons()
+    lVirtualNeurons = oVirtualModel.get_neurons()
+    lShadowNeurons = oModel.get_shadow_state_neurons()
+    print("dynapse_control: Fetched all neurons from models.")
+    return lHWNeurons, lVirtualNeurons, lShadowNeurons
 
 @teleport_function
 def remove_all_connections_to(vNeurons: List, oModel, bApplyDiff: bool = True):
@@ -405,6 +430,8 @@ def generate_buffered_filter(
     from CtxDynapse import BufferedEventFilter
     return BufferedEventFilter(model, lnRecordNeuronIDs)
 
+@teleport_function
+def 
 
 class DynapseControl():
 
@@ -454,10 +481,10 @@ class DynapseControl():
         else:
             warn("DynapseControl: Could not find poisson generator module (DynapsePoissonGen).")
 
-        # - Get all neurons
-        self.vHWNeurons = np.asarray(self.model.get_neurons())
-        self.vShadowNeurons = np.asarray(self.model.get_shadow_state_neurons())
-        self.vVirtualNeurons = np.asarray(self.virtualModel.get_neurons())
+        # - Get all neurons from models
+        self.lHWNeurons, self.lVirtualNeurons, self.lShadowNeurons = get_all_neurons(
+            self.model, self.virtualModel
+        )
 
         # - Initialise neuron allocation
         self.clear_neuron_assignments(True, True)
@@ -488,7 +515,7 @@ class DynapseControl():
                                            should be cleared.
         """
         # - Use `clear_chips` function
-        clear_chips(self.dynapse, lClearChips, self.vShadowNeurons)
+        clear_chips(self.dynapse, lClearChips, self.lShadowNeurons)
 
 
     ### --- Neuron allocation and connections
@@ -501,14 +528,14 @@ class DynapseControl():
         """
         if bHardware:
             # - Hardware neurons
-            self.vbFreeHWNeurons = np.ones(self.vHWNeurons.size, bool)
+            self.vbFreeHWNeurons = np.ones(len(self.lHWNeurons), bool)
             # Do not use hardware neurons with ID 0 and core ID 0 (first of each core)
             self.vbFreeHWNeurons[0::1024] = False
             print("DynapseControl: {} hardware neurons available.".format(np.sum(self.vbFreeHWNeurons)))
 
         if bVirtual:
             # - Virtual neurons
-            self.vbFreeVirtualNeurons = np.ones(self.vVirtualNeurons.size, bool)
+            self.vbFreeVirtualNeurons = np.ones(len(self.lVirtualNeurons), bool)
             # Do not use virtual neuron 0
             self.vbFreeVirtualNeurons[0] = False
             print("DynapseControl: {} virtual neurons available.".format(np.sum(self.vbFreeVirtualNeurons)))        
@@ -533,8 +560,9 @@ class DynapseControl():
                         nNumNeurons
                     )
                 )
-            # - Pick the first available neurons
-            vnNeuronsToAllocate = np.nonzero(self.vbFreeHWNeurons)[0][:nNumNeurons]
+            else:
+                # - Pick the first available neurons
+                vnNeuronsToAllocate = np.nonzero(self.vbFreeHWNeurons)[0][:nNumNeurons]
 
         else:
             # - Choose neurons defined in vnNeuronIDs
@@ -560,8 +588,8 @@ class DynapseControl():
 
         # - Return these allocated neurons
         return (
-            self.vHWNeurons[vnNeuronsToAllocate],
-            self.vShadowNeurons[vnNeuronsToAllocate]
+            np.array([self.lHWNeurons[i] for i in  vnNeuronsToAllocate]),
+            np.array([self.lShadowNeurons[i] for i in vnNeuronsToAllocate]),
         )
 
     def allocate_virtual_neurons(self, vnNeuronIDs: Union[int, np.ndarray]) -> np.ndarray:
@@ -604,7 +632,7 @@ class DynapseControl():
         self.vbFreeHWNeurons[vnNeuronsToAllocate] = False
 
         # - Return these neurons
-        return self.vVirtualNeurons[vnNeuronsToAllocate]
+        return np.array([self.lVirtualNeurons[i] for i in vnNeuronsToAllocate])
 
     def connect_to_virtual(
         self,
@@ -633,8 +661,8 @@ class DynapseControl():
             lSynapseTypes = list(lSynapseTypes)
 
         # - Get neurons that are to be connected
-        lPreNeurons = list(self.vVirtualNeurons[vnVirtualNeuronIDs])
-        lPostNeurons = list(self.vShadowNeurons[vnNeuronIDs])
+        lPreNeurons = [self.lVirtualNeurons[i] for i in vnVirtualNeuronIDs]
+        lPostNeurons = [self.lShadowNeurons[i] for i in vnNeuronIDs]
         
         # - Set connections
         self.dcNeuronConnector.add_connection_from_list(
@@ -645,6 +673,136 @@ class DynapseControl():
         print("DynapseControl: Setting up {} connections".format(np.size(vnNeuronIDs)))
         self.model.apply_diff_state()
         print("DynapseControl: Connections set")
+
+    def set_virtual_connections_from_weights(
+        self,
+        mnW: np.ndarray,
+        vnVirtualNeuronIDs: np.ndarray,
+        vnHWNeuronIDs: np.ndarray,
+        synExcitatory: CtxDynapse.DynapseCamType,
+        synInhibitory: CtxDynapse.DynapseCamType,
+        bApplyDiff: bool=True,
+    ):
+        """
+        set_virtual_connections_from_weights - Set connections from virtual to hardware
+                                               neurons based on discrete weight matrix
+        :param mnW:                 np.ndarray  Weights for connections from
+                                                virtual to layer neurons
+        :param vnVirtualNeuronIDs:  np.ndarray  Virtual neuron IDs
+        :param vnHWNeuronIDs:       np.ndarray  Hardware neuron IDs
+        :param synExcitatory:       DynapseCamType  Excitatory synapse type
+        :param synInhibitory:       DynapseCamType  Inhibitory synapse type
+        :param bApplyDiff:          bool   If False, do not apply the changes to
+                                           chip but only to shadow states of the
+                                           neurons. Useful if new connections are
+                                           going to be added to the given neurons.
+        """
+        
+        lTimes = [time.time()]
+
+        # - Get connection lists
+        liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
+            mnW
+        )
+        lTimes.append(time.time())
+
+        # - Set excitatory connections
+        self.dcNeuronConnector.add_connection_from_list(
+            [self.lVirtualNeurons[i] for i in liPreSynE],
+            [self.  lShadowNeurons[i] for i in liPostSynE],
+            [synExcitatory],
+        )
+        print(
+            "DynapseControl: Excitatory connections of type `{}`".format(
+                str(synExcitatory).split('.')[1]
+            )
+            + " from virtual neurons to hardware neurons have been set."
+        )
+        # - Set inhibitory connections
+        self.dcNeuronConnector.add_connection_from_list(
+            [self.lVirtualNeurons[i] for i in liPreSynI],
+            [self.lShadowNeurons[i] for i in liPostSynI],
+            [synInhibitory],
+        )
+        print(
+            "DynapseControl: Inhibitory connections of type `{}`".format(
+                str(synInhibitory).split('.')[1]
+            )
+            + " from virtual neurons to hardware neurons have been set."
+        )
+        lTimes.append(time.time())
+
+        if bApplyDiff:
+            self.model.apply_diff_state()
+            print("DynapseControl: Connections have been written to the chip.")
+
+        lTimes.append(time.time())
+        print(np.diff(lTimes)) 
+
+    def set_connections_from_weights(
+        self,
+        mnW: np.ndarray,
+        vnHWNeuronIDs: np.ndarray,
+        synExcitatory: CtxDynapse.DynapseCamType,
+        synInhibitory: CtxDynapse.DynapseCamType,
+        bApplyDiff: bool=True,
+    ):
+        """
+        set_connections_from_weights - Set connections between hardware neurons
+                                       based on  discrete weight matrix
+        :param mnW:                 np.ndarray  Weights for connections between
+                                                hardware neurons
+        :param vnHWNeuronIDs:       np.ndarray  Hardware neuron IDs
+        :param synExcitatory:       DynapseCamType  Excitatory synapse type
+        :param synInhibitory:       DynapseCamType  Inhibitory synapse type
+        :param bApplyDiff:          bool   If False, do not apply the changes to
+                                           chip but only to shadow states of the
+                                           neurons. Useful if new connections are
+                                           going to be added to the given neurons.
+        """
+        
+        lTimes = [time.time()]
+
+        ## -- Connect virtual neurons to hardware neurons
+        
+        # - Get virtual to hardware connections
+        liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
+            mnW
+        )
+        lTimes.append(time.time())
+
+        # - Set excitatory input connections
+        self.dcNeuronConnector.add_connection_from_list(
+            [self.lShadowNeurons[i] for i in liPreSynE],
+            [self.lShadowNeurons[i] for i in liPostSynE],
+            [synExcitatory],
+        )
+        print(
+            "DynapseControl: Excitatory connections of type `{}`".format(
+                str(synExcitatory).split('.')[1]
+            )
+            + " between hardware neurons have been set."
+        )
+        # - Set inhibitory input connections
+        self.dcNeuronConnector.add_connection_from_list(
+            [self.lShadowNeurons[i] for i in liPreSynI],
+            [self.lShadowNeurons[i] for i in liPostSynI],
+            [synInhibitory],
+        )
+        print(
+            "DynapseControl: Inhibitory connections of type `{}`".format(
+                str(synInhibitory).split('.')[1]
+            )
+            + " between hardware neurons have been set."
+        )
+        lTimes.append(time.time())
+
+        if bApplyDiff:
+            self.model.apply_diff_state()
+            print("DynapseControl: Connections have been written to the chip.")
+
+        lTimes.append(time.time())
+        print(np.diff(lTimes))    
 
     def remove_all_connections_to(self, vnNeuronIDs, bApplyDiff: bool=True):
         """
@@ -661,7 +819,9 @@ class DynapseControl():
         vnNeuronIDs = np.asarray(vnNeuronIDs)
 
         # - Call `remove_all_connections_to` function
-        remove_all_connections_to(self.vShadowNeurons[vnNeuronIDs], self.model, bApplyDiff)
+        remove_all_connections_to(
+            [self.lShadowNeurons[i] for i in vnNeuronIDs], self.model, bApplyDiff
+        )
 
 
     ### --- Stimulation and event generation
@@ -928,7 +1088,7 @@ class DynapseControl():
         lEvents = self.arrays_to_spike_list(
             vnTimeSteps=vnTimeSteps,
             vnChannels=np.repeat(nInputNeuronID, vnTimeSteps.size),
-            vnNeuronIDs=range(self.vVirtualNeurons.size),
+            vnNeuronIDs=range(len(self.lVirtualNeurons)),
             nTSStart=0,
             nTargetCoreMask=nTargetCoreMask,
             nTargetChipID=nTargetChipID,        
@@ -1288,7 +1448,8 @@ class DynapseControl():
         # - Extract monitored event channels and timestamps
         vnNeuronIDs = np.array(vnNeuronIDs)
         vnChannels = DHW.neurons_to_channels(
-            [e.neuron for e in lEvents], list(self._vHWNeurons[vnNeuronIDs])
+            [e.neuron for e in lEvents],
+            [self.lHWNeurons[i] for i in vnNeuronIDs],
         )
         # - Remove events that are not from neurons defined in vnNeuronIDs
         vnChannels = vnChannels[np.isnan(vnChannels) == False]
