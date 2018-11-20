@@ -11,7 +11,8 @@ import time
 from .timeseries import TSEvent
 
 # - Programmatic imports for CtxCtl
-bUsing_rPyC = False
+bUsing_RPyC = False
+bUsing_deepcopy = False
 RPYC_TIMEOUT = 300
 
 try:
@@ -27,7 +28,7 @@ except ModuleNotFoundError:
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
         print("dynapse_control: RPyC connection established.")
-        bUsing_rPyC = True
+        bUsing_RPyC = True
 
     except:
         # - Raise an ImportError (so that the smart __init__.py module can skip over missing CtxCtl
@@ -221,21 +222,6 @@ def evaluate_firing_rates(
 
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
-def teleport_function(func):
-    """
-    telport_function - Decorator. If using RPyC, then teleport the resulting function
-
-    :param func:            Function to maybe teleport
-    :return:                Maybe teleported function
-    """
-    # - Teleport if bUsing_RPyC flag is set
-    if bUsing_rPyC:
-        return rpyc.classic.teleport_function(conn, func)
-
-    else:
-        # - Otherwise just return the undecorated function
-        return func
-
 def event_data_to_channels(
     lEvents: List, lLayerNeuronIDs: List
 ) -> (np.ndarray, np.ndarray):
@@ -249,10 +235,10 @@ def event_data_to_channels(
         vTimeStamps         np.ndarray  Extracted timestam
         vChannelIndices     np.ndarray  Extracted channel indices
     """
-    lTimeStamps, lNeuronIDs = extract_event_data(lEvents)
+    tupTimeStamps, tupNeuronIDs = extract_event_data(lEvents)
     # - Convert to numpy array and thereby fetch data from connection if using RPyC
-    vTimeStamps = np.array(lTimeStamps)
-    vNeuronIDs = np.array(lNeuronIDs)
+    vTimeStamps = np.array(tupTimeStamps)
+    vNeuronIDs = np.array(tupNeuronIDs)
     # - Convert neuron IDs to channels
     dChannels = {nID: iChannel for iChannel, nID in enumerate(lLayerNeuronIDs)}
     vChannelIndices = np.array(list(
@@ -263,8 +249,131 @@ def event_data_to_channels(
 
     return vTimeStamps, vChannelIndices
 
+def correct_type(obj):
+    """
+    correct_type - Check if an object is of a type or contains objects of a
+                   type that is not supported by cortexcontrol or contains
+                   and convert them where possible.
+    :param obj:    object to be tested
+    :return:
+        object with corrected type
+    """
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.complexfloating):
+        return complex(obj)
+    elif isinstance(obj, np.str_):
+        return str(obj)
+    elif isinstance(obj, (np.ndarray, list)):
+        return [correct_type(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(correct_type(item) for item in obj)
+    elif isinstance(obj, set):
+        return set(correct_type(item) for item in obj)
+    elif isinstance(obj, frozenset):
+        return frozenset(correct_type(item) for item in obj)
+    elif isinstance(obj, dict):
+        return {
+            correct_type(key) : correct_type(val)
+            for  key, val in obj.items()
+        }
+    # Extend for types like bytes, unicode, char,... if necessary
+    elif type(obj).__module__ not in ["builtins", "CtxDynapse", "rpyc"]:
+        warn("Unrecognized type: {}".format(type(obj)))
+    return(obj)
+
+def correct_argument_types_and_teleport(func):
+    """
+    correct_argument_types_and_teleport -  Wrapper for functions that tries to
+            correct argument types that are not supported by cortexcontrol and
+            teleports the function via rpyc. Returns original function if 
+            bUsing_RPyC == False
+    :param func:  function to be teleported
+    :return:      teleported function
+    """
+
+    if bUsing_RPyC:
+        func = rpyc.classic.teleport_function(conn, func)
+
+        def clean_func(*args, **kwargs):
+            """Return a function with corrected argument types"""
+            newargs = list(args)
+            for i, argument in enumerate(args):
+                newargs[i] = correct_type(argument)
+            for key, val in kwargs.items():
+                kwargs[key] = correct_type(val)
+            return func(*newargs, **kwargs)
+
+        return clean_func
+
+    else:
+        return func
+
+def correct_argument_types(func):
+    """
+    correct_argument_types - If bUsing_RPyC is not False, try changing the 
+                             arguments to a function to types that are 
+                             supported by cortexcontrol
+    :param func:    funciton where arguments should be corrected
+    :return:        functions with possibly corrected arguments
+    """
+    if bUsing_RPyC:
+
+        def clean_func(*args, **kwargs):
+            """Return a function with corrected argument types"""
+            newargs = list(args)
+            for i, argument in enumerate(args):
+                newargs[i] = correct_type(argument)
+            for key, val in kwargs.items():
+                kwargs[key] = correct_type(val)
+            return func(*newargs, **kwargs)
+
+        return clean_func
+
+    else:
+        return func
+
+def local_arguments(func):  # This doe not work
+    from copy import copy
+
+    def local_func(*args, **kwargs):
+        for i, argument in enumerate(args):
+            newargs = list(args)
+            if isinstance(argument, rpyc.core.netref.BaseNetref):
+                newargs[i] = copy(argument)
+        for key, val in kwargs.items():
+            if isinstance(key, rpyc.core.netref.BaseNetref):
+                del kwargs[key]
+                kwargs[copy(key)] = copy(val)
+            elif isinstance(val, rpyc.core.netref.BaseNetref):
+                kwargs[key] = copy(val)
+
+        return func(*newargs, **kwargs)
+
+    return local_func
+
+def teleport_function(func):
+    """
+    telport_function - Decorator. If using RPyC, then teleport the resulting function
+
+    :param func:            Function to maybe teleport
+    :return:                Maybe teleported function
+    """
+    # - Teleport if bUsing_RPyC flag is set
+    if bUsing_RPyC:
+        func = rpyc.classic.teleport_function(conn, func)
+        return func
+
+    else:
+        # - Otherwise just return the undecorated function
+        return func
+
 @teleport_function
-def extract_event_data(lEvents):
+def extract_event_data(lEvents) -> (tuple, tuple):
     """
     extract_event_data - Extract timestamps and neuron IDs from list of recorded events.
     :param lEvents:     list  SpikeEvent objects from BufferedEventFilter
@@ -274,8 +383,8 @@ def extract_event_data(lEvents):
     """
 
     ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
-    lTimeStamps, lNeuronIDs = zip(*ltupEvents)
-    return lTimeStamps, lNeuronIDs
+    tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
+    return tupTimeStamps, tupNeuronIDs
 
 @teleport_function
 def generate_fpga_event_list(
@@ -468,27 +577,19 @@ def set_connections(
                                       otherwise virtual neurons from this list.
     :param dcNeuronConnector:   NeuronNeuronConnector.DynapseConnector
     """
-    print("1")
     from copy import copy
-    print("2")
-    print(type(lPreNeuronIDs))
-    ltest = list(lPreNeuronIDs)
-    print("2a")
     lPreNeuronIDs = copy(lPreNeuronIDs)
-    print("3")
     lPostNeuronIDs = copy(lPostNeuronIDs)
-    print("4")
     lSynapseTypes = copy(lSynapseTypes)
-    print("5")
     
     lPresynapticNeurons = lShadowNeurons if lVirtualNeurons is None else lVirtualNeurons
-    print("6")
+    
     dcNeuronConnector.add_connection_from_list(
         [lPresynapticNeurons[i] for i in lPreNeuronIDs],
         [lShadowNeurons[i] for i in lPostNeuronIDs],
         lSynapseTypes,
     )
-    print("7")
+    
     print("dynapse_control: {} connections have been set.".format(len(lPreNeuronIDs)))
 
 
