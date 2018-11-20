@@ -429,8 +429,6 @@ class RecDynapSE(Layer):
         """
         _compile_weights_and_configure - Configure DynapSE weights from the weight matrices
         """
-        from time import time
-        lTimes = [time()]
         
         # - Connect virtual neurons to hardware neurons
         self.controller.set_virtual_connections_from_weights(
@@ -443,14 +441,11 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Connections to virtual neurons have been set.".format(self.strName))
 
-        lTimes.append(time())
-        
         ## -- Set connections wihtin hardware layer
         
         # - Infer how many input neurons there are (i.e. neurons that receive input from a virtual neuron)
         nNumInputNeurons = np.sum((self.mfWIn != 0).any(axis=0))
 
-        lTimes.append(time())
         # - Connections from input layer neurons to excitatory neurons
         self.controller.set_connections_from_weights(
             mnW=self.mfW[: nNumInputNeurons, :],  # Assume input neurons are first in weight matrix
@@ -461,7 +456,6 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Connections from input neurons to reservoir have been set.".format(self.strName))
 
-        lTimes.append(time())
         # - Connections between recurrently connected neurons
         # Ignore outgoing connections of input neurons
         mnWRec = np.r_[
@@ -476,9 +470,6 @@ class RecDynapSE(Layer):
             bApplyDiff=True,
         )
         print("Layer `{}`: Recurrent connections have been set.".format(self.strName))
-
-        lTimes.append(time())
-        print([lTimes[i+1] - lTimes[i] for i in range(len(lTimes) - 1)])
 
     @property
     def cInput(self):

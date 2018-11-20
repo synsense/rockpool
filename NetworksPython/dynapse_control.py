@@ -92,14 +92,14 @@ def connectivity_matrix_to_prepost_lists(
     # - Loop over lists, appending when necessary
     for nPre, nPost in zip(vnPreECompressed, vnPostECompressed):
         for _ in range(mnW[nPre, nPost]):
-            vnPreE.append(nPre)
-            vnPostE.append(nPost)
+            vnPreE.append(nPre.item())  # avoid using np.int64 type for integers
+            vnPostE.append(nPost.item())
 
     # - Loop over lists, appending when necessary
     for nPre, nPost in zip(vnPreICompressed, vnPostICompressed):
         for _ in range(np.abs(mnW[nPre, nPost])):
-            vnPreI.append(nPre)
-            vnPostI.append(nPost)
+            vnPreI.append(nPre.item())
+            vnPostI.append(nPost.item())
 
     # - Return augmented lists
     return vnPreE, vnPostE, vnPreI, vnPostI
@@ -236,15 +236,19 @@ def teleport_function(func):
         # - Otherwise just return the undecorated function
         return func
 
-@teleport_function
-def extract_event_data(lEvents):
-    ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
-    lTimeStamps, lNeuronIDs = zip(*ltupEvents)
-    return lTimeStamps, lNeuronIDs
-
 def event_data_to_channels(
     lEvents: List, lLayerNeuronIDs: List
 ) -> (np.ndarray, np.ndarray):
+    """
+    event_data_to_channels - Convert timestamps and neuron IDs from list of Events
+                             to arrays with timestamps and channel indices wrt lLayerNeuronIDs
+                             Fill in nan where event does not correspond to any given ID.
+    :param lEvents:         list  SpikeEvent objects from BufferedEventFilter
+    :param lLayerNeuronIDs: list  Neuron IDs corresponding to channels
+    :return:
+        vTimeStamps         np.ndarray  Extracted timestam
+        vChannelIndices     np.ndarray  Extracted channel indices
+    """
     lTimeStamps, lNeuronIDs = extract_event_data(lEvents)
     # - Convert to numpy array and thereby fetch data from connection if using RPyC
     vTimeStamps = np.array(lTimeStamps)
@@ -256,19 +260,34 @@ def event_data_to_channels(
     ))
     if np.isnan(vChannelIndices).any():
         warn("dynapse_control: Some events did not match `lLayerNeuronIDs`")
+
     return vTimeStamps, vChannelIndices
 
 @teleport_function
+def extract_event_data(lEvents):
+    """
+    extract_event_data - Extract timestamps and neuron IDs from list of recorded events.
+    :param lEvents:     list  SpikeEvent objects from BufferedEventFilter
+    :return:
+        lTimeStamps     list  Timestamps of events
+        lNeuronIDs      list  Neuron IDs of events
+    """
+
+    ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
+    lTimeStamps, lNeuronIDs = zip(*ltupEvents)
+    return lTimeStamps, lNeuronIDs
+
+@teleport_function
 def generate_fpga_event_list(
-    vnDiscreteISIs: list,
-    vnNeuronIDs: list,
+    lnDiscreteISIs: list,
+    lnNeuronIDs: list,
     nTargetCoreMask: int,
     nTargetChipID: int,
 ) -> list:
     """
     generate_fpga_event_list - Generate a list of FpgaSpikeEvent objects
-    :param vnDiscreteISIs:  array-like  Inter-spike intervalls in Fpga time base
-    :param vnNeuronIDs:     array-like  IDs of neurons corresponding to events
+    :param lnDiscreteISIs:  array-like  Inter-spike intervalls in Fpga time base
+    :param lnNeuronIDs:     array-like  IDs of neurons corresponding to events
     :param nNeuronID:       int ID of source neuron
     :param nTargetCoreMask: int Coremask to determine target cores
 
@@ -276,13 +295,13 @@ def generate_fpga_event_list(
         event  list of generated FpgaSpikeEvent objects.
     """
     from CtxDynapse import FpgaSpikeEvent
-    from copy import deepcopy
+    from copy import copy
     
     # - Make sure objects live on required side of RPyC connection
     nTargetCoreMask = int(nTargetCoreMask)
     nTargetChipID = int(nTargetChipID)
-    vnNeuronIDs = deepcopy(vnNeuronIDs)
-    vnDiscreteISIs = deepcopy(vnDiscreteISIs)
+    lnNeuronIDs = copy(lnNeuronIDs)
+    lnDiscreteISIs = copy(lnDiscreteISIs)
     
     def generate_fpga_event(
         nNeuronID: int,
@@ -307,7 +326,7 @@ def generate_fpga_event_list(
     print("dynapse_control: Generating event list")
     lEvents = [
         generate_fpga_event(nNeuronID, nISI)
-        for nNeuronID, nISI in zip(vnNeuronIDs, vnDiscreteISIs)
+        for nNeuronID, nISI in zip(lnNeuronIDs, lnDiscreteISIs)
     ]
     
     return lEvents
@@ -332,9 +351,9 @@ def clear_chips(
     if isinstance(lClearChips, int):
         lClearChips = [lClearChips, ]
 
-    from copy import deepcopy
+    from copy import copy
     # - Make sure that lClearChips is on correct side of RPyC connection
-    lClearChips = deepcopy(lClearChips)
+    lClearChips = copy(lClearChips)
     
     for nChip in lClearChips:
         print("DynapseControl: Clearing chip {}.".format(nChip))
@@ -363,7 +382,7 @@ def clear_chips(
                 cam.set_pre_neuron_core_id(0)
         print("\t Model neuron weights have been reset.")
 
-    print("DynapseControl: Chips cleared.")
+    print("dynapse_control: {} chip(s) cleared.".format(len(lClearChips)))
 
 @teleport_function
 def get_all_neurons(
@@ -431,7 +450,47 @@ def generate_buffered_filter(
     return BufferedEventFilter(model, lnRecordNeuronIDs)
 
 @teleport_function
-def 
+def set_connections(
+    lPreNeuronIDs: list,
+    lPostNeuronIDs: list,
+    lSynapseTypes: list,
+    lShadowNeurons: list,
+    lVirtualNeurons: Optional[list],
+    dcNeuronConnector: NeuronNeuronConnector.DynapseConnector,
+):
+    """
+    set_connections - Set connections between pre- and post synaptic neurons from lists.
+    :param lPreNeuronIDs:       list  N Presynaptic neurons
+    :param lPostNeuronIDs:      list  N Postsynaptic neurons
+    :param lSynapseTypes:       list  N or 1 Synapse type(s)
+    :param lShadowNeurons:      list  Shadow neurons that the indices correspond to.
+    :param lVirtualNeurons:     list  If None, presynaptic neurons are shadow neurons,
+                                      otherwise virtual neurons from this list.
+    :param dcNeuronConnector:   NeuronNeuronConnector.DynapseConnector
+    """
+    print("1")
+    from copy import copy
+    print("2")
+    print(type(lPreNeuronIDs))
+    ltest = list(lPreNeuronIDs)
+    print("2a")
+    lPreNeuronIDs = copy(lPreNeuronIDs)
+    print("3")
+    lPostNeuronIDs = copy(lPostNeuronIDs)
+    print("4")
+    lSynapseTypes = copy(lSynapseTypes)
+    print("5")
+    
+    lPresynapticNeurons = lShadowNeurons if lVirtualNeurons is None else lVirtualNeurons
+    print("6")
+    dcNeuronConnector.add_connection_from_list(
+        [lPresynapticNeurons[i] for i in lPreNeuronIDs],
+        [lShadowNeurons[i] for i in lPostNeuronIDs],
+        lSynapseTypes,
+    )
+    print("7")
+    print("dynapse_control: {} connections have been set.".format(len(lPreNeuronIDs)))
+
 
 class DynapseControl():
 
@@ -660,15 +719,14 @@ class DynapseControl():
         else:
             lSynapseTypes = list(lSynapseTypes)
 
-        # - Get neurons that are to be connected
-        lPreNeurons = [self.lVirtualNeurons[i] for i in vnVirtualNeuronIDs]
-        lPostNeurons = [self.lShadowNeurons[i] for i in vnNeuronIDs]
-        
         # - Set connections
-        self.dcNeuronConnector.add_connection_from_list(
-            lPreNeurons,
-            lPostNeurons,
-            lSynapseTypes,
+        set_connections(
+            lPreNeuronIDs=list(vnVirtualNeuronIDs),
+            lPostNeuronIDs=list(vnNeuronIDs),
+            lSynapseTypes=lSynapseTypes,
+            lShadowNeurons=self.lShadowNeurons,
+            lVirtualNeurons=self.lVirtualNeurons,
+            dcNeuronConnector=self.dcNeuronConnector,
         )
         print("DynapseControl: Setting up {} connections".format(np.size(vnNeuronIDs)))
         self.model.apply_diff_state()
@@ -698,19 +756,27 @@ class DynapseControl():
                                            going to be added to the given neurons.
         """
         
-        lTimes = [time.time()]
-
         # - Get connection lists
         liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
             mnW
         )
-        lTimes.append(time.time())
+
+        # - Extract neuron IDs and remove numpy wrapper around int type
+        lPreNeuronIDsExc = [int(vnVirtualNeuronIDs[i]) for i in liPreSynE]
+        lPostNeuronIDsExc = [int(vnHWNeuronIDs[i]) for i in liPostSynE]
+        lPreNeuronIDsInh = [int(vnVirtualNeuronIDs[i]) for i in liPreSynI]
+        lPostNeuronIDsInh = [int(vnHWNeuronIDs[i]) for i in liPostSynI]
 
         # - Set excitatory connections
-        self.dcNeuronConnector.add_connection_from_list(
-            [self.lVirtualNeurons[i] for i in liPreSynE],
-            [self.  lShadowNeurons[i] for i in liPostSynE],
-            [synExcitatory],
+        # for obj in (lPreNeuronIDs[0], lPostNeuronIDs[0], synExcitatory, self.lShadowNeurons[0], self.lVirtualNeurons[0], self.dcNeuronConnector):
+        #     print(type(obj))
+        set_connections(
+            lPreNeuronIDs=lPreNeuronIDsExc,
+            lPostNeuronIDs=lPostNeuronIDsExc,
+            lSynapseTypes=[synExcitatory],
+            lShadowNeurons=self.lShadowNeurons,
+            lVirtualNeurons=self.lVirtualNeurons,
+            dcNeuronConnector=self.dcNeuronConnector,
         )
         print(
             "DynapseControl: Excitatory connections of type `{}`".format(
@@ -719,10 +785,13 @@ class DynapseControl():
             + " from virtual neurons to hardware neurons have been set."
         )
         # - Set inhibitory connections
-        self.dcNeuronConnector.add_connection_from_list(
-            [self.lVirtualNeurons[i] for i in liPreSynI],
-            [self.lShadowNeurons[i] for i in liPostSynI],
-            [synInhibitory],
+        set_connections(
+            lPreNeuronIDs=lPreNeuronIDsInh,
+            lPostNeuronIDs=lPostNeuronIDsInh,
+            lSynapseTypes=[synInhibitory],
+            lShadowNeurons=self.lShadowNeurons,
+            lVirtualNeurons=self.lVirtualNeurons,
+            dcNeuronConnector=self.dcNeuronConnector,
         )
         print(
             "DynapseControl: Inhibitory connections of type `{}`".format(
@@ -730,15 +799,12 @@ class DynapseControl():
             )
             + " from virtual neurons to hardware neurons have been set."
         )
-        lTimes.append(time.time())
-
+        
         if bApplyDiff:
             self.model.apply_diff_state()
             print("DynapseControl: Connections have been written to the chip.")
 
-        lTimes.append(time.time())
-        print(np.diff(lTimes)) 
-
+        
     def set_connections_from_weights(
         self,
         mnW: np.ndarray,
@@ -761,21 +827,27 @@ class DynapseControl():
                                            going to be added to the given neurons.
         """
         
-        lTimes = [time.time()]
-
         ## -- Connect virtual neurons to hardware neurons
         
         # - Get virtual to hardware connections
         liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
             mnW
         )
-        lTimes.append(time.time())
+        
+        # - Extract neuron IDs and remove numpy wrapper around int type
+        lPreNeuronIDsExc = [int(vnHWNeuronIDs[i]) for i in liPreSynE]
+        lPostNeuronIDsExc = [int(vnHWNeuronIDs[i]) for i in liPostSynE]
+        lPreNeuronIDsInh = [int(vnHWNeuronIDs[i]) for i in liPreSynI]
+        lPostNeuronIDsInh = [int(vnHWNeuronIDs[i]) for i in liPostSynI]
 
         # - Set excitatory input connections
-        self.dcNeuronConnector.add_connection_from_list(
-            [self.lShadowNeurons[i] for i in liPreSynE],
-            [self.lShadowNeurons[i] for i in liPostSynE],
-            [synExcitatory],
+        set_connections(
+            lPreNeuronIDs=lPreNeuronIDsExc,
+            lPostNeuronIDs=lPostNeuronIDsExc,
+            lSynapseTypes=[synExcitatory],
+            lShadowNeurons=self.lShadowNeurons,
+            lVirtualNeurons=None,
+            dcNeuronConnector=self.dcNeuronConnector,
         )
         print(
             "DynapseControl: Excitatory connections of type `{}`".format(
@@ -784,10 +856,13 @@ class DynapseControl():
             + " between hardware neurons have been set."
         )
         # - Set inhibitory input connections
-        self.dcNeuronConnector.add_connection_from_list(
-            [self.lShadowNeurons[i] for i in liPreSynI],
-            [self.lShadowNeurons[i] for i in liPostSynI],
-            [synInhibitory],
+        set_connections(
+            lPreNeuronIDs=lPreNeuronIDsInh,
+            lPostNeuronIDs=lPostNeuronIDsInh,
+            lSynapseTypes=[synInhibitory],
+            lShadowNeurons=self.lShadowNeurons,
+            lVirtualNeurons=None,
+            dcNeuronConnector=self.dcNeuronConnector,
         )
         print(
             "DynapseControl: Inhibitory connections of type `{}`".format(
@@ -795,14 +870,10 @@ class DynapseControl():
             )
             + " between hardware neurons have been set."
         )
-        lTimes.append(time.time())
-
+        
         if bApplyDiff:
             self.model.apply_diff_state()
             print("DynapseControl: Connections have been written to the chip.")
-
-        lTimes.append(time.time())
-        print(np.diff(lTimes))    
 
     def remove_all_connections_to(self, vnNeuronIDs, bApplyDiff: bool=True):
         """
@@ -861,9 +932,10 @@ class DynapseControl():
         # - Convert events to an FpgaSpikeEvent
         print("dynapse_control: Generating FPGA event list from TSEvent.")
         lEvents = generate_fpga_event_list(
-            list(vnDiscreteISIs),
-            list(vnNeuronIDs[vnChannels]),
-            int(nTargetCoreMask),  # This makes sure that no np.int64 or other non-basic type is passed
+            # Make sure that no np.int64 or other non-native type is passed
+            [int(nISI) for nISI in vnDiscreteISIs],
+            [int(vnNeuronIDs[i]) for i in vnChannels],
+            int(nTargetCoreMask),
             int(nTargetChipID),
         )
         # - Return a list of events
@@ -924,9 +996,10 @@ class DynapseControl():
         print("DynapseControl: Generating FPGA event list from arrays.")
         # - Convert events to an FpgaSpikeEvent
         lEvents = generate_fpga_event_list(
-            list(vnDiscreteISIs),
-            list(vnNeuronIDs[vnChannels]),
-            int(nTargetCoreMask),  # This makes sure that no np.int64 or other non-basic type is passed
+            # Make sure that no np.int64 or other non-native type is passed
+            [int(nISI) for nISI in vnDiscreteISIs],
+            [int(vnNeuronIDs[i]) for i in vnChannels],
+            int(nTargetCoreMask),
             int(nTargetChipID),
         )
 
@@ -964,8 +1037,8 @@ class DynapseControl():
         # - Generate events
         # List for events to be sent to fpga
         lEvents = generate_fpga_event_list(
-            list(np.array([nISIfpga])),
-            list(np.array(vnNeuronIDs).reshape(1, -1)),
+            [nISIfpga],
+            [[int(nID) for nID in vnNeuronIDs]],
             int(nCoreMask),
             int(nChipID),
         )
