@@ -133,7 +133,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 # Calculate number of spikes to be generated
                 tsrNumSpikes[iCurrentTimeStep] = (tsrState >= fVThresh).int() + (
                     tsrState - fVThresh > 0
-                ).int() * (tsrState / fVSubtract).int()
+                ).int() * ((tsrState - fVThresh) / fVSubtract).int()
                 ## - Subtract from states
                 tsrState = tsrState - (
                     fVSubtract * tsrNumSpikes[iCurrentTimeStep].float()
