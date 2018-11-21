@@ -42,7 +42,7 @@ class RecDynapSE(Layer):
         lInputCoreIDs: List[int] = [0],
         nInputChipID: int = 0,
         controller: DynapseControl=None,
-        lClearChips: Optional[list]=[0],
+        lnClearCores: Optional[list]=None,
         strName: Optional[str] = "unnamed",
     ):
         """
@@ -66,7 +66,7 @@ class RecDynapSE(Layer):
                                                 from other neurons.
         :param nInputChipID:        int  ID of the chip with neurons that receive external input.
         :param controller:          DynapseControl object to interface the hardware
-        :param lClearChips:         list or None  IDs of chips where configurations should be cleared.
+        :param lnClearCores:        list or None  IDs of chips where configurations should be cleared.
         :param strName:             str     Layer name
         """
 
@@ -74,11 +74,11 @@ class RecDynapSE(Layer):
         if controller is None:
             if tDt is None:
                 raise ValueError("Layer `{}` Either tDt or controller must be provided".format(strName))
-            self.controller = DynapseControl(tDt, lClearChips)
+            self.controller = DynapseControl(tDt, lnClearCores)
         else:
             self.controller = controller
             self.controller.tFpgaIsiBase = tDt
-            self.controller.clear_chips(lClearChips)
+            self.controller.clear_connections(lnClearCores)
 
         # - Check supplied arguments
         if fNoiseStd is not None:
