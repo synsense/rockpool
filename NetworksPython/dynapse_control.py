@@ -24,8 +24,11 @@ except ModuleNotFoundError:
     # - Try with RPyC
     try:
         import rpyc
-        conn = rpyc.classic.connect('localhost', '1300')
-        conn._config["sync_request_timeout"] = RPYC_TIMEOUT  # Set timeout to higher level
+
+        conn = rpyc.classic.connect("localhost", "1300")
+        conn._config[
+            "sync_request_timeout"
+        ] = RPYC_TIMEOUT  # Set timeout to higher level
         CtxDynapse = conn.modules.CtxDynapse
         NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
         print("dynapse_control: RPyC connection established.")
@@ -50,10 +53,14 @@ print("dynapse_control: CtxDynapse modules loaded.")
 ### --- Parameters
 # - Fix (hardware)
 FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
-FPGA_ISI_LIMIT = int(2 ** 16 - 1)  # Max. number of timesteps for single inter-spike interval between FPGA events
+FPGA_ISI_LIMIT = int(
+    2 ** 16 - 1
+)  # Max. number of timesteps for single inter-spike interval between FPGA events
 FPGA_TIMESTEP = 1. / 9. * 1e-7  # Internal clock of FPGA, 11.111...ns
 CORE_DIMENSIONS = (16, 16)  # Numbers of neurons in core (rows, columns)
-NUM_CORE_NEURONS = CORE_DIMENSIONS[0] * CORE_DIMENSIONS[1]  # Number of neurons on one core
+NUM_CORE_NEURONS = (
+    CORE_DIMENSIONS[0] * CORE_DIMENSIONS[1]
+)  # Number of neurons on one core
 NUM_CHIP_CORES = 4  # Number of cores per chip
 NUM_CHIPS = 4  # Number of available chips
 # - Default values, can be changed
@@ -109,11 +116,12 @@ def connectivity_matrix_to_prepost_lists(
     # - Return augmented lists
     return vnPreE, vnPostE, vnPreI, vnPostI
 
+
 def rectangular_neuron_arrangement(
     nFirstNeuron: int,
     nNumNeurons: int,
     nWidth: int,
-    tupCoreDimensions: tuple=CORE_DIMENSIONS,
+    tupCoreDimensions: tuple = CORE_DIMENSIONS,
 ) -> List[int]:
     """
     rectangular_neuron_arrangement: return neurons that form a rectangle on the chip
@@ -142,10 +150,9 @@ def rectangular_neuron_arrangement(
     ]
     return lNeuronIDs
 
+
 def generate_event_raster(
-    lEvents: list,
-    tDuration: float,
-    vnNeuronIDs: list,
+    lEvents: list, tDuration: float, vnNeuronIDs: list
 ) -> np.ndarray:
     """
     generate_event_raster - Generate a boolean spike raster of a list of events with timestep 0.001ms
@@ -156,25 +163,28 @@ def generate_event_raster(
     :return:
         mbEventRaster   np.ndarray  - Boolean event raster
     """
-    vnNeuronIDs = list(vnNeuronIDs)        
+    vnNeuronIDs = list(vnNeuronIDs)
     # - Extract event timestamps and neuron IDs
-    tupTimestamps, tupEventNeuronIDs = zip(*((event.timestamp, event.neuron.get_id()) for event in lEvents))
+    tupTimestamps, tupEventNeuronIDs = zip(
+        *((event.timestamp, event.neuron.get_id()) for event in lEvents)
+    )
     # - Event times in microseconds
     vnEventTimes = np.array(tupTimestamps, int)
     # - Set time of first event to 0
     vnEventTimes -= vnEventTimes[0]
     # - Convert neuron IDs of event to index starting from 0
-    viEventIndices = np.array([vnNeuronIDs.index(nNeuronID) for nNeuronID in tupEventNeuronIDs])
+    viEventIndices = np.array(
+        [vnNeuronIDs.index(nNeuronID) for nNeuronID in tupEventNeuronIDs]
+    )
     # - Convert events to binary raster
-    nTimeSteps = int(np.ceil(tDuration*1e6))
+    nTimeSteps = int(np.ceil(tDuration * 1e6))
     mbEventRaster = np.zeros((nTimeSteps, np.size(viEventIndices)), bool)
     mbEventRaster[vnEventTimes, viEventIndices] = True
     return mbEventRaster
 
+
 def evaluate_firing_rates(
-    lEvents: list,
-    tDuration: float,
-    vnNeuronIDs: Optional[list] = None,
+    lEvents: list, tDuration: float, vnNeuronIDs: Optional[list] = None
 ) -> (np.ndarray, float, float):
     """
     evaluate_firing_rates - Determine the neuron-wise firing rates from a
@@ -192,18 +202,22 @@ def evaluate_firing_rates(
         fMinRate       float - Lowest firing rate of all neurons            
     """
     # - Extract event timestamps and neuron IDs
-    tupTimestamps, tupEventNeuronIDs = zip(*((event.timestamp, event.neuron.get_id()) for event in lEvents))
-    
+    tupTimestamps, tupEventNeuronIDs = zip(
+        *((event.timestamp, event.neuron.get_id()) for event in lEvents)
+    )
+
     # - Count events for each neuron
     viUniqueEventIDs, vnEventCounts = np.unique(tupEventNeuronIDs, return_counts=True)
-    
+
     if vnNeuronIDs is None:
         # - lNeuronIDs as list of neurons that have spiked
         vnNeuronIDs = viUniqueEventIDs
-    
+
     # - Neurons that have not spiked
-    viNoEvents = (np.asarray(vnNeuronIDs))[np.isin(vnNeuronIDs, viUniqueEventIDs) == False]
-    
+    viNoEvents = (np.asarray(vnNeuronIDs))[
+        np.isin(vnNeuronIDs, viUniqueEventIDs) == False
+    ]
+
     # - Count events
     viUniqueEventIDs = np.r_[viUniqueEventIDs, viNoEvents]
     vnEventCounts = np.r_[vnEventCounts, np.zeros(viNoEvents.size)]
@@ -219,12 +233,21 @@ def evaluate_firing_rates(
     print("Mean firing rate: {} Hz".format(fMeanRate))
     iMaxRateNeuron = np.argmax(vnEventCounts)
     fMaxRate = vfFiringRates[iMaxRateNeuron]
-    print("Maximum firing rate: {} Hz (neuron {})".format(fMaxRate, vnNeuronIDs[iMaxRateNeuron]))
+    print(
+        "Maximum firing rate: {} Hz (neuron {})".format(
+            fMaxRate, vnNeuronIDs[iMaxRateNeuron]
+        )
+    )
     iMinRateNeuron = np.argmin(vnEventCounts)
     fMinRate = vfFiringRates[iMinRateNeuron]
-    print("Minimum firing rate: {} Hz (neuron {})".format(fMinRate, vnNeuronIDs[iMinRateNeuron]))
+    print(
+        "Minimum firing rate: {} Hz (neuron {})".format(
+            fMinRate, vnNeuronIDs[iMinRateNeuron]
+        )
+    )
 
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
+
 
 def event_data_to_channels(
     lEvents: List, lLayerNeuronIDs: List
@@ -245,13 +268,14 @@ def event_data_to_channels(
     vNeuronIDs = np.array(tupNeuronIDs)
     # - Convert neuron IDs to channels
     dChannels = {nID: iChannel for iChannel, nID in enumerate(lLayerNeuronIDs)}
-    vChannelIndices = np.array(list(
-        map(lambda nID: dChannels.get(nID, float("nan")), vNeuronIDs)
-    ))
+    vChannelIndices = np.array(
+        list(map(lambda nID: dChannels.get(nID, float("nan")), vNeuronIDs))
+    )
     if np.isnan(vChannelIndices).any():
         warn("dynapse_control: Some events did not match `lLayerNeuronIDs`")
 
     return vTimeStamps, vChannelIndices
+
 
 def correct_type(obj):
     """
@@ -281,14 +305,12 @@ def correct_type(obj):
     elif isinstance(obj, frozenset):
         return frozenset(correct_type(item) for item in obj)
     elif isinstance(obj, dict):
-        return {
-            correct_type(key) : correct_type(val)
-            for  key, val in obj.items()
-        }
+        return {correct_type(key): correct_type(val) for key, val in obj.items()}
     # Extend for types like bytes, unicode, char,... if necessary
     elif type(obj).__module__ not in ["builtins", "CtxDynapse", "rpyc"]:
         warn("Unrecognized type: {}".format(type(obj)))
-    return(obj)
+    return obj
+
 
 def correct_argument_types_and_teleport(func):
     """
@@ -317,6 +339,7 @@ def correct_argument_types_and_teleport(func):
     else:
         return func
 
+
 def correct_argument_types(func):
     """
     correct_argument_types - If bUsing_RPyC is not False, try changing the 
@@ -341,22 +364,6 @@ def correct_argument_types(func):
     else:
         return func
 
-def local_arguments(func):  # This doe not work
-    def local_func(*args, **kwargs):
-        for i, argument in enumerate(args):
-            newargs = list(args)
-            if isinstance(argument, rpyc.core.netref.BaseNetref):
-                newargs[i] = copy.copy(argument)
-        for key, val in kwargs.items():
-            if isinstance(key, rpyc.core.netref.BaseNetref):
-                del kwargs[key]
-                kwargs[copy.copy(key)] = copy.copy(val)
-            elif isinstance(val, rpyc.core.netref.BaseNetref):
-                kwargs[key] = copy.copy(val)
-
-        return func(*newargs, **kwargs)
-
-    return local_func
 
 def teleport_function(func):
     """
@@ -374,6 +381,56 @@ def teleport_function(func):
         # - Otherwise just return the undecorated function
         return func
 
+
+def remote_function(func):
+    """
+    remote_function - If using RPyC then teleport the resulting function and
+                      and register it in the remote namespace.
+
+    :param func:            Function to maybe teleport
+    :return:                Maybe teleported function    
+    """
+    # - Teleport if bUsing_RPyC flag is set
+    if bUsing_RPyC:
+        func = rpyc.classic.teleport_function(conn, func)
+        conn.namespace[func.__name__] = func
+        return func
+
+    else:
+        # - Otherwise just return the undecorated function
+        return func
+
+
+@remote_function
+def local_arguments_rpyc(func):  # This doe not work
+    def local_func(*args, **kwargs):
+        for i, argument in enumerate(args):
+            newargs = list(args)
+            if isinstance(argument, rpyc.core.netref.BaseNetref):
+                newargs[i] = copy.copy(argument)
+        for key, val in kwargs.items():
+            if isinstance(key, rpyc.core.netref.BaseNetref):
+                del kwargs[key]
+                kwargs[copy.copy(key)] = copy.copy(val)
+            elif isinstance(val, rpyc.core.netref.BaseNetref):
+                kwargs[key] = copy.copy(val)
+
+        return func(*newargs, **kwargs)
+
+    return local_func
+
+
+# - Example on how to use local_arguments_rpyc decorator
+def define_foo():
+    def foo(obj):
+        print(type(obj))
+
+    return foo
+
+
+foo = define_foo()
+
+
 @teleport_function
 def extract_event_data(lEvents) -> (tuple, tuple):
     """
@@ -388,12 +445,10 @@ def extract_event_data(lEvents) -> (tuple, tuple):
     tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
     return tupTimeStamps, tupNeuronIDs
 
+
 @teleport_function
 def generate_fpga_event_list(
-    lnDiscreteISIs: list,
-    lnNeuronIDs: list,
-    nTargetCoreMask: int,
-    nTargetChipID: int,
+    lnDiscreteISIs: list, lnNeuronIDs: list, nTargetCoreMask: int, nTargetChipID: int
 ) -> list:
     """
     generate_fpga_event_list - Generate a list of FpgaSpikeEvent objects
@@ -405,17 +460,14 @@ def generate_fpga_event_list(
     :return:
         event  list of generated FpgaSpikeEvent objects.
     """
-    
+
     # - Make sure objects live on required side of RPyC connection
     nTargetCoreMask = int(nTargetCoreMask)
     nTargetChipID = int(nTargetChipID)
     lnNeuronIDs = copy.copy(lnNeuronIDs)
     lnDiscreteISIs = copy.copy(lnDiscreteISIs)
-    
-    def generate_fpga_event(
-        nNeuronID: int,
-        nISI: int,
-    ) -> CtxDynapse.FpgaSpikeEvent:
+
+    def generate_fpga_event(nNeuronID: int, nISI: int) -> CtxDynapse.FpgaSpikeEvent:
         """
         generate_fpga_event - Generate a single FpgaSpikeEvent objects.
         :param nNeuronID:       int ID of source neuron
@@ -430,20 +482,19 @@ def generate_fpga_event_list(
         event.neuron_id = nNeuronID
         event.isi = nISI
         return event
-    
+
     # - Generate events
     print("dynapse_control: Generating event list")
     lEvents = [
         generate_fpga_event(nNeuronID, nISI)
         for nNeuronID, nISI in zip(lnNeuronIDs, lnDiscreteISIs)
     ]
-    
+
     return lEvents
 
+
 @teleport_function
-def _generate_buffered_filter(
-    oModel: CtxDynapse.Model, lnRecordNeuronIDs: list
-):
+def _generate_buffered_filter(oModel: CtxDynapse.Model, lnRecordNeuronIDs: list):
     """
     _generate_buffered_filter - Generate and return a BufferedEventFilter object that
                                records from neurons specified in lnRecordNeuronIDs.
@@ -452,8 +503,9 @@ def _generate_buffered_filter(
     """
     return CtxDynapse.BufferedEventFilter(oModel, lnRecordNeuronIDs)
 
+
 @teleport_function
-def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
+def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]] = None):
     """
     load_biases - Load biases from python file under path strFilename
     :param strFilename:  str  Path to file where biases are stored.
@@ -461,7 +513,7 @@ def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
                                             should be loaded. Load all if
                                             None.
     """
-    
+
     def use_line(strCodeLine):
         """
         use_line - Determine whether strCodeLine should be executed considering
@@ -476,8 +528,7 @@ def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
             return True
         else:
             # - Return true if addressed core is in lnCoreIDs
-            return (nCore in lnCoreIDs)
-
+            return nCore in lnCoreIDs
 
     if lnCoreIDs is None:
         lnCoreIDs = list(range(NUM_CHIPS * NUM_CHIP_CORES))
@@ -485,9 +536,9 @@ def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
     else:
         # - Handle integer arguments
         if isinstance(lnCoreIDs, int):
-            lnCoreIDs = [lnCoreIDs, ]
+            lnCoreIDs = [lnCoreIDs]
         bAllCores = False
-    
+
     with open(os.path.abspath(strFilename)) as file:
         # list of lines of code of the file. Skip import statement.
         lstrCodeLines = file.readlines()[1:]
@@ -496,12 +547,15 @@ def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
             if bAllCores or use_line(strCommand):
                 exec(strCommand)
 
-    print("dynapse_control: Biases have been loaded from {}.".format(
-        os.path.abspath(strFilename)
-    ))
+    print(
+        "dynapse_control: Biases have been loaded from {}.".format(
+            os.path.abspath(strFilename)
+        )
+    )
+
 
 @teleport_function
-def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
+def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]] = None):
     """
     save_biases - Save biases in python file under path strFilename
     :param strFilename:  str  Path to file where biases should be saved.
@@ -515,7 +569,7 @@ def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
     else:
         # - Handle integer arguments
         if isinstance(lnCoreIDs, int):
-            lnCoreIDs = [lnCoreIDs, ]
+            lnCoreIDs = [lnCoreIDs]
         # - Include cores in filename, consider possible file endings
         lstrFilenameParts = strFilename.split(".")
         # Information to be inserted in filename
@@ -538,16 +592,19 @@ def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
             biases = bias_group.get_biases()
             for bias in biases:
                 file.write(
-                    "save_file_model_.get_bias_groups()[{0}].set_bias(\"{1}\", {2}, {3})\n".format(
+                    'save_file_model_.get_bias_groups()[{0}].set_bias("{1}", {2}, {3})\n'.format(
                         nCore, bias.bias_name, bias.fine_value, bias.coarse_value
                     )
                 )
-    print("dynapse_control: Biases have been saved under {}.".format(
-        os.path.abspath(strFilename)
-    ))
+    print(
+        "dynapse_control: Biases have been saved under {}.".format(
+            os.path.abspath(strFilename)
+        )
+    )
+
 
 @teleport_function
-def copy_biases(nSourceCoreID: int=0, lnTargetCoreIDs: Optional[List[int]]=None):
+def copy_biases(nSourceCoreID: int = 0, lnTargetCoreIDs: Optional[List[int]] = None):
     """
     copy_biases - Copy biases from one core to one or more other cores.
     :param nSourceCoreID:   int  ID of core from which biases are copied
@@ -572,16 +629,20 @@ def copy_biases(nSourceCoreID: int=0, lnTargetCoreIDs: Optional[List[int]]=None)
     # - Set biases for target cores
     for nTargetCoreID in lnTargetCoreIDs:
         for bias in sourcebiases:
-            lBiasgroups[nTargetCoreID].set_bias(bias.bias_name, bias.fine_value, bias.coarse_value)
-    
-    print("dynapse_control: Biases have been copied from core {} to core(s) {}".format(
-        nSourceCoreID, lnTargetCoreIDs
-    ))
+            lBiasgroups[nTargetCoreID].set_bias(
+                bias.bias_name, bias.fine_value, bias.coarse_value
+            )
+
+    print(
+        "dynapse_control: Biases have been copied from core {} to core(s) {}".format(
+            nSourceCoreID, lnTargetCoreIDs
+        )
+    )
+
 
 @teleport_function
 def get_all_neurons(
-    oModel: CtxDynapse.Model,
-    oVirtualModel: CtxDynapse.VirtualModel
+    oModel: CtxDynapse.Model, oVirtualModel: CtxDynapse.VirtualModel
 ) -> (np.ndarray, np.ndarray, np.ndarray):
     """
     get_all_neurons - Get hardware, virtual and shadow state neurons
@@ -600,11 +661,9 @@ def get_all_neurons(
     print("dynapse_control: Fetched all neurons from models.")
     return lHWNeurons, lVirtualNeurons, lShadowNeurons
 
+
 @teleport_function
-def _clear_chips(
-    oDynapse: CtxDynapse.Dynapse,
-    lnChipIDs: Optional[list]=None,
-):
+def _clear_chips(oDynapse: CtxDynapse.Dynapse, lnChipIDs: Optional[list] = None):
     """
     _clear_chips - Clear the physical CAM and SRAM cells of the chips defined
                    in lnChipIDs.
@@ -619,13 +678,13 @@ def _clear_chips(
     # - Make sure lnChipIDs is a list
     if lnChipIDs is None:
         return
-    
+
     if isinstance(lnChipIDs, int):
-        lnChipIDs = [lnChipIDs, ]
+        lnChipIDs = [lnChipIDs]
 
     # - Make sure that lnChipIDs is on correct side of RPyC connection
     lnChipIDs = copy.copy(lnChipIDs)
-    
+
     for nChip in lnChipIDs:
         print("dynapse_control: Clearing chip {}.".format(nChip))
 
@@ -639,11 +698,11 @@ def _clear_chips(
 
     print("dynapse_control: {} chip(s) cleared.".format(len(lnChipIDs)))
 
+
 @teleport_function
 def _reset_connections(
-    oModel: CtxDynapse.Model,
-    lnCoreIDs: Optional[list]=None,
-    bApplyDiff=True):
+    oModel: CtxDynapse.Model, lnCoreIDs: Optional[list] = None, bApplyDiff=True
+):
     """
     _reset_connections - Reset connections going to all nerons of cores defined
                          in lnCoreIDs. Core IDs from 0 to 15.
@@ -655,13 +714,13 @@ def _reset_connections(
     # - Make sure lnCoreIDs is a list
     if lnCoreIDs is None:
         return
-    
+
     if isinstance(lnCoreIDs, int):
-        lnCoreIDs = [lnCoreIDs, ]
+        lnCoreIDs = [lnCoreIDs]
 
     # - Make sure that lnCoreIDs is on correct side of RPyC connection
     lnCoreIDs = copy.copy(lnCoreIDs)
-    
+
     # - Get shadow state neurons
     lShadowNeurons = oModel.get_shadow_state_neurons()
 
@@ -669,7 +728,9 @@ def _reset_connections(
         print("dynapse_control: Clearing connections of core {}.".format(nCore))
 
         # - Reset neuron weights in model
-        for neuron in lShadowNeurons[nCore*NUM_CORE_NEURONS: (nCore+1)*NUM_CORE_NEURONS]:
+        for neuron in lShadowNeurons[
+            nCore * NUM_CORE_NEURONS : (nCore + 1) * NUM_CORE_NEURONS
+        ]:
             # - Reset SRAMs for this neuron
             vSrams = neuron.get_srams()
             for iSramIndex in range(1, 4):
@@ -690,11 +751,10 @@ def _reset_connections(
         oModel.apply_diff_state()
         print("dynapse_control: New state has been applied to the hardware")
 
+
 @teleport_function
 def remove_all_connections_to(
-    lNeuronIDs: List,
-    oModel: CtxDynapse.Model,
-    bApplyDiff: bool=True
+    lNeuronIDs: List, oModel: CtxDynapse.Model, bApplyDiff: bool = True
 ):
     """
     remove_all_connections_to - Remove all presynaptic connections
@@ -732,6 +792,7 @@ def remove_all_connections_to(
         oModel.apply_diff_state()
         print("dynapse_control: New state has been applied to the hardware")
 
+
 @teleport_function
 def set_connections(
     lPreNeuronIDs: list,
@@ -754,15 +815,15 @@ def set_connections(
     lPreNeuronIDs = copy.copy(lPreNeuronIDs)
     lPostNeuronIDs = copy.copy(lPostNeuronIDs)
     lSynapseTypes = copy.copy(lSynapseTypes)
-    
+
     lPresynapticNeurons = lShadowNeurons if lVirtualNeurons is None else lVirtualNeurons
-    
+
     dcNeuronConnector.add_connection_from_list(
         [lPresynapticNeurons[i] for i in lPreNeuronIDs],
         [lShadowNeurons[i] for i in lPostNeuronIDs],
         lSynapseTypes,
     )
-    
+
     print("dynapse_control: {} connections have been set.".format(len(lPreNeuronIDs)))
 
 
@@ -770,7 +831,7 @@ def set_connections(
 _clear_chips(list(range(4)))
 
 
-class DynapseControl():
+class DynapseControl:
 
     _nFpgaEventLimit = FPGA_EVENT_LIMIT
     _nFpgaIsiLimit = FPGA_ISI_LIMIT
@@ -779,9 +840,10 @@ class DynapseControl():
     _nNumChipCores = NUM_CHIP_CORES
     _nNumChips = NUM_CHIPS
 
-    def __init__(self,
-                 tFpgaIsiBase: float=DEF_FPGA_ISI_BASE,
-                 lnClearCores: Optional[list] = None,
+    def __init__(
+        self,
+        tFpgaIsiBase: float = DEF_FPGA_ISI_BASE,
+        lnClearCores: Optional[list] = None,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
@@ -791,7 +853,7 @@ class DynapseControl():
         """
 
         print("DynapseControl: Initializing DynapSE")
-       
+
         # - Chip model and virtual model
         self.model = CtxDynapse.model
         self.virtualModel = CtxDynapse.VirtualModel()
@@ -819,7 +881,9 @@ class DynapseControl():
         if np.any(vbIsPoissonGenModule):
             self.fpgaPoissonGen = lFPGAModules[np.argwhere(vbIsPoissonGenModule)[0][0]]
         else:
-            warn("DynapseControl: Could not find poisson generator module (DynapsePoissonGen).")
+            warn(
+                "DynapseControl: Could not find poisson generator module (DynapsePoissonGen)."
+            )
 
         # - Get all neurons from models
         self.lHWNeurons, self.lVirtualNeurons, self.lShadowNeurons = get_all_neurons(
@@ -827,11 +891,16 @@ class DynapseControl():
         )
 
         # - Initialise neuron allocation
-        self.vbFreeHWNeurons, self.vbFreeVirtualNeurons = self._initial_free_neuron_lists()
+        self.vbFreeHWNeurons, self.vbFreeVirtualNeurons = (
+            self._initial_free_neuron_lists()
+        )
 
         print("DynapseControl: Neurons initialized.")
-        print("\t {} hardware neurons and {} virtual neurons available.".format(
-            np.sum(self.vbFreeHWNeurons), np.sum(self.vbFreeHWNeurons)))
+        print(
+            "\t {} hardware neurons and {} virtual neurons available.".format(
+                np.sum(self.vbFreeHWNeurons), np.sum(self.vbFreeHWNeurons)
+            )
+        )
 
         # - Get a connector object
         self.dcNeuronConnector = NeuronNeuronConnector.DynapseConnector()
@@ -849,7 +918,7 @@ class DynapseControl():
 
         print("DynapseControl ready.")
 
-    def clear_connections(self, lnCoreIDs: Optional[list]=None):
+    def clear_connections(self, lnCoreIDs: Optional[list] = None):
         """
         clear_connections - Reset connections for cores defined in lnCoreIDs.
 
@@ -858,12 +927,14 @@ class DynapseControl():
         """
         # - Use `_reset_connections` function
         _reset_connections(self.model, lnCoreIDs)
-        print("DynapseControl: Connections to cores {} have been cleared.".format(lnCoreIDs))
+        print(
+            "DynapseControl: Connections to cores {} have been cleared.".format(
+                lnCoreIDs
+            )
+        )
 
     def reset(
-        self,
-        lnCoreIDs: Optional[Union[list, int]]=None,
-        bVirtual: bool=True
+        self, lnCoreIDs: Optional[Union[list, int]] = None, bVirtual: bool = True
     ):
         """
         reset - Reset neuron assginments and connections for specified cores
@@ -897,7 +968,7 @@ class DynapseControl():
         # - Hardware neurons
         vbFreeHWNeurons = np.ones(len(self.lHWNeurons), bool)
         # Do not use hardware neurons with ID 0 and core ID 0 (first of each core)
-        vbFreeHWNeurons[0::self.nNumChipNeurons] = False
+        vbFreeHWNeurons[0 :: self.nNumChipNeurons] = False
 
         # - Virtual neurons
         vbFreeVirtualNeurons = np.ones(len(self.lVirtualNeurons), bool)
@@ -907,9 +978,7 @@ class DynapseControl():
         return vbFreeHWNeurons, vbFreeVirtualNeurons
 
     def clear_neuron_assignments(
-        self,
-        lnCoreIDs: Optional[Union[list, int]]=None,
-        bVirtual: bool=True
+        self, lnCoreIDs: Optional[Union[list, int]] = None, bVirtual: bool = True
     ):
         """
         clear_neuron_assignments - Mark neurons as free again.
@@ -922,23 +991,35 @@ class DynapseControl():
 
         if lnCoreIDs is not None:
             # - Hardware neurons
-            
+
             # Make lnCoreIDs iterable if integer
             if isinstance(lnCoreIDs, int):
-                lnCoreIDs = [lnCoreIDs,]
+                lnCoreIDs = [lnCoreIDs]
 
             for nCore in lnCoreIDs:
                 iStartClear = nCore * self.nNumCoreNeurons
                 iEndClear = iStartClear + self.nNumCoreNeurons
-                self.vbFreeHWNeurons[iStartClear: iEndClear] = vbFreeHWNeurons0[iStartClear: iEndClear]
-            print("DynapseControl: {} hardware neurons available.".format(np.sum(self.vbFreeHWNeurons)))
+                self.vbFreeHWNeurons[iStartClear:iEndClear] = vbFreeHWNeurons0[
+                    iStartClear:iEndClear
+                ]
+            print(
+                "DynapseControl: {} hardware neurons available.".format(
+                    np.sum(self.vbFreeHWNeurons)
+                )
+            )
 
         if bVirtual:
             # - Virtual neurons
             self.vbFreeVirtualNeurons = vbFreeVirtualNeurons0
-            print("DynapseControl: {} virtual neurons available.".format(np.sum(self.vbFreeVirtualNeurons)))        
+            print(
+                "DynapseControl: {} virtual neurons available.".format(
+                    np.sum(self.vbFreeVirtualNeurons)
+                )
+            )
 
-    def allocate_hw_neurons(self, vnNeuronIDs: Union[int, np.ndarray]) -> (np.ndarray, np.ndarray):
+    def allocate_hw_neurons(
+        self, vnNeuronIDs: Union[int, np.ndarray]
+    ) -> (np.ndarray, np.ndarray):
         """
         allocate_hw_neurons - Return a list of neurons that may be used.
                               These are guaranteed not to already be assigned.
@@ -969,9 +1050,7 @@ class DynapseControl():
             if (self.vbFreeHWNeurons[vnNeuronsToAllocate] == False).any():
                 raise MemoryError(
                     "{} of the requested neurons are already allocated.".format(
-                        np.sum(
-                            self.vbFreeHWNeurons[vnNeuronsToAllocate] == False
-                        )
+                        np.sum(self.vbFreeHWNeurons[vnNeuronsToAllocate] == False)
                     )
                 )
 
@@ -986,11 +1065,13 @@ class DynapseControl():
 
         # - Return these allocated neurons
         return (
-            np.array([self.lHWNeurons[i] for i in  vnNeuronsToAllocate]),
+            np.array([self.lHWNeurons[i] for i in vnNeuronsToAllocate]),
             np.array([self.lShadowNeurons[i] for i in vnNeuronsToAllocate]),
         )
 
-    def allocate_virtual_neurons(self, vnNeuronIDs: Union[int, np.ndarray]) -> np.ndarray:
+    def allocate_virtual_neurons(
+        self, vnNeuronIDs: Union[int, np.ndarray]
+    ) -> np.ndarray:
         """
         allocate_virtual_neurons - Return a list of neurons that may be used.
                                    These are guaranteed not to already be assigned.
@@ -1007,9 +1088,7 @@ class DynapseControl():
                     + " requested."
                 )
             # - Pick the first available neurons
-            vnNeuronsToAllocate = np.nonzero(self.vbFreeVirtualNeurons)[0][
-                :nNumNeurons
-            ]
+            vnNeuronsToAllocate = np.nonzero(self.vbFreeVirtualNeurons)[0][:nNumNeurons]
 
         else:
             vnNeuronsToAllocate = np.array(vnNeuronIDs).flatten()
@@ -1017,10 +1096,7 @@ class DynapseControl():
             if (self.vbFreeVirtualNeurons[vnNeuronsToAllocate] == False).any():
                 raise MemoryError(
                     "{} of the requested neurons are already allocated.".format(
-                        np.sum(
-                            self.vbFreeVirtualNeurons[vnNeuronsToAllocate]
-                            == False
-                        )
+                        np.sum(self.vbFreeVirtualNeurons[vnNeuronsToAllocate] == False)
                     )
                 )
 
@@ -1036,7 +1112,7 @@ class DynapseControl():
         self,
         vnVirtualNeuronIDs: Union[int, np.ndarray],
         vnNeuronIDs: Union[int, np.ndarray],
-        lSynapseTypes: List
+        lSynapseTypes: List,
     ):
         """
         conncect_to_virtual - Connect a group of hardware neurons or
@@ -1078,7 +1154,7 @@ class DynapseControl():
         vnHWNeuronIDs: np.ndarray,
         synExcitatory: CtxDynapse.DynapseCamType,
         synInhibitory: CtxDynapse.DynapseCamType,
-        bApplyDiff: bool=True,
+        bApplyDiff: bool = True,
     ):
         """
         set_virtual_connections_from_weights - Set connections from virtual to hardware
@@ -1094,7 +1170,7 @@ class DynapseControl():
                                            neurons. Useful if new connections are
                                            going to be added to the given neurons.
         """
-        
+
         # - Get connection lists
         liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
             mnW
@@ -1117,7 +1193,7 @@ class DynapseControl():
         )
         print(
             "DynapseControl: Excitatory connections of type `{}`".format(
-                str(synExcitatory).split('.')[1]
+                str(synExcitatory).split(".")[1]
             )
             + " from virtual neurons to hardware neurons have been set."
         )
@@ -1132,22 +1208,22 @@ class DynapseControl():
         )
         print(
             "DynapseControl: Inhibitory connections of type `{}`".format(
-                str(synInhibitory).split('.')[1]
+                str(synInhibitory).split(".")[1]
             )
             + " from virtual neurons to hardware neurons have been set."
         )
-        
+
         if bApplyDiff:
             self.model.apply_diff_state()
             print("DynapseControl: Connections have been written to the chip.")
-        
+
     def set_connections_from_weights(
         self,
         mnW: np.ndarray,
         vnHWNeuronIDs: np.ndarray,
         synExcitatory: CtxDynapse.DynapseCamType,
         synInhibitory: CtxDynapse.DynapseCamType,
-        bApplyDiff: bool=True,
+        bApplyDiff: bool = True,
     ):
         """
         set_connections_from_weights - Set connections between hardware neurons
@@ -1162,14 +1238,14 @@ class DynapseControl():
                                            neurons. Useful if new connections are
                                            going to be added to the given neurons.
         """
-        
+
         ## -- Connect virtual neurons to hardware neurons
-        
+
         # - Get virtual to hardware connections
         liPreSynE, liPostSynE, liPreSynI, liPostSynI = connectivity_matrix_to_prepost_lists(
             mnW
         )
-        
+
         # - Extract neuron IDs and remove numpy wrapper around int type
         lPreNeuronIDsExc = [int(vnHWNeuronIDs[i]) for i in liPreSynE]
         lPostNeuronIDsExc = [int(vnHWNeuronIDs[i]) for i in liPostSynE]
@@ -1187,7 +1263,7 @@ class DynapseControl():
         )
         print(
             "DynapseControl: Excitatory connections of type `{}`".format(
-                str(synExcitatory).split('.')[1]
+                str(synExcitatory).split(".")[1]
             )
             + " between hardware neurons have been set."
         )
@@ -1202,16 +1278,16 @@ class DynapseControl():
         )
         print(
             "DynapseControl: Inhibitory connections of type `{}`".format(
-                str(synInhibitory).split('.')[1]
+                str(synInhibitory).split(".")[1]
             )
             + " between hardware neurons have been set."
         )
-        
+
         if bApplyDiff:
             self.model.apply_diff_state()
             print("DynapseControl: Connections have been written to the chip.")
 
-    def remove_all_connections_to(self, vnNeuronIDs, bApplyDiff: bool=True):
+    def remove_all_connections_to(self, vnNeuronIDs, bApplyDiff: bool = True):
         """
         remove_all_connections_to - Remove all presynaptic connections
                                     to neurons defined in vnNeuronIDs
@@ -1221,7 +1297,7 @@ class DynapseControl():
                                      chip but only to shadow states of the
                                      neurons. Useful if new connections are
                                      going to be added to the given neurons.
-        """     
+        """
         # - Make sure neurons vnNeuronIDs is an array
         vnNeuronIDs = np.asarray(vnNeuronIDs)
 
@@ -1229,7 +1305,6 @@ class DynapseControl():
         remove_all_connections_to(
             [self.lShadowNeurons[i] for i in vnNeuronIDs], self.model, bApplyDiff
         )
-
 
     ### --- Stimulation and event generation
 
@@ -1281,8 +1356,8 @@ class DynapseControl():
         self,
         vnChannels: np.ndarray,
         vnNeuronIDs: np.ndarray,
-        vnTimeSteps: Optional[np.ndarray]=None,
-        vtTimeTrace: Optional[np.ndarray]=None,
+        vnTimeSteps: Optional[np.ndarray] = None,
+        vtTimeTrace: Optional[np.ndarray] = None,
         nTSStart: Optional[int] = None,
         tStart: Optional[int] = 0,
         nTargetCoreMask: int = 1,
@@ -1304,14 +1379,14 @@ class DynapseControl():
         """
         # - Process input arguments
         if vnTimeSteps is None:
-            assert vtTimeTrace is not None, (
-                "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` must be provided."
-            )
+            assert (
+                vtTimeTrace is not None
+            ), "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` must be provided."
             vnTimeSteps = np.floor(vtTimeTrace / self.tFpgaIsiBase).astype(int)
         if nTSStart is None:
-            assert tStart is not None, (
-                "DynapseControl: Either `nTSStart` or `tStart` must be provided."
-            )
+            assert (
+                tStart is not None
+            ), "DynapseControl: Either `nTSStart` or `tStart` must be provided."
             nTSStart = int(np.floor(tStart / self.tFpgaIsiBase))
 
         # - Ignore data that comes before nTSStart
@@ -1343,11 +1418,7 @@ class DynapseControl():
         return lEvents
 
     def start_cont_stim(
-        self,
-        fFrequency: float,
-        vnNeuronIDs: int,
-        nChipID: int=0,
-        nCoreMask: int=15,
+        self, fFrequency: float, vnNeuronIDs: int, nChipID: int = 0, nCoreMask: int = 15
     ):
         """
         start_cont_stim - Start sending events with fixed frequency.
@@ -1357,7 +1428,7 @@ class DynapseControl():
         :param nChipID:     int  Target chip ID
         :param nCoreMask:   int  Target core mask
         """
-        
+
         # - Set FPGA to repeating mode
         self.fpgaSpikeGen.set_repeat_mode(True)
 
@@ -1373,21 +1444,20 @@ class DynapseControl():
         # - Generate events
         # List for events to be sent to fpga
         lEvents = generate_fpga_event_list(
-            [nISIfpga],
-            [int(nID) for nID in vnNeuronIDs],
-            int(nCoreMask),
-            int(nChipID),
+            [nISIfpga], [int(nID) for nID in vnNeuronIDs], int(nCoreMask), int(nChipID)
         )
         self.fpgaSpikeGen.preload_stimulus(lEvents)
-        print("DynapseControl: Stimulus prepared with {} Hz".format(
-            1. / (nISIfpga * self.tFpgaIsiBase))
+        print(
+            "DynapseControl: Stimulus prepared with {} Hz".format(
+                1. / (nISIfpga * self.tFpgaIsiBase)
+            )
         )
-        
+
         # - Start stimulation
         self.fpgaSpikeGen.start()
         print("DynapseControl: Stimulation started")
 
-    def stop_stim(self, bClearFilter: bool=False):
+    def stop_stim(self, bClearFilter: bool = False):
         """
         stop_stim - Stop stimulation with FGPA spke generator. 
                     FPGA repeat mode will be set False.
@@ -1413,15 +1483,16 @@ class DynapseControl():
         :param vnNeuronIDs: int or array-like  Event neuron ID(s)
         :param nChipID:     int  Target chip ID
         """
-        
+
         # - Handle single values for frequencies and neurons
         if np.size(vnNeuronIDs) == 1:
             vnNeuronIDs = np.repeat(vnNeuronIDs, np.size(vfFrequencies))
         if np.size(vfFrequencies) == 1:
             vfFrequencies = np.repeat(vfFrequencies, np.size(vnNeuronIDs))
         else:
-            assert np.size(vfFrequencies) == np.size(vnNeuronIDs), \
-                "DynapseControl: Length of `vfFrequencies must be same as length of `vnNeuronIDs` or 1."
+            assert np.size(vfFrequencies) == np.size(
+                vnNeuronIDs
+            ), "DynapseControl: Length of `vfFrequencies must be same as length of `vnNeuronIDs` or 1."
 
         # - Set firing rates for selected neurons
         for fFreq, nNeuronID in zip(vfFrequencies, vnNeuronIDs):
@@ -1431,7 +1502,7 @@ class DynapseControl():
         self.fpgaPoissonGen.set_chip_id(nChipID)
 
         print("DynapseControl: Poisson stimuli prepared for chip {}.".format(nChipID))
-        
+
         # - Start stimulation
         self.fpgaPoissonGen.start()
         print("DynapseControl: Poisson rate stimulation started")
@@ -1452,17 +1523,17 @@ class DynapseControl():
 
     def send_pulse(
         self,
-        tWidth: float=0.1,
-        fFreq: float=1000,
-        tRecord: float=3,
-        tBuffer: float=0.5,
-        nInputNeuronID: int=0,
-        vnRecordNeuronIDs: Union[int, np.ndarray]=0,
-        nTargetCoreMask: int=15,
-        nTargetChipID: int=0,
-        bPeriodic: bool=False,
-        bRecord: bool=False,
-        bTSEvent: bool=False,
+        tWidth: float = 0.1,
+        fFreq: float = 1000,
+        tRecord: float = 3,
+        tBuffer: float = 0.5,
+        nInputNeuronID: int = 0,
+        vnRecordNeuronIDs: Union[int, np.ndarray] = 0,
+        nTargetCoreMask: int = 15,
+        nTargetChipID: int = 0,
+        bPeriodic: bool = False,
+        bRecord: bool = False,
+        bTSEvent: bool = False,
     ) -> TSEvent:
         """
         send_pulse - Send a pulse of periodic input events to the chip.
@@ -1488,19 +1559,23 @@ class DynapseControl():
         """
         # - Prepare input events
         # Actual input time steps
-        vnTimeSteps = np.floor(np.arange(0, tWidth, 1./fFreq) / self.tFpgaIsiBase).astype(int)
+        vnTimeSteps = np.floor(
+            np.arange(0, tWidth, 1. / fFreq) / self.tFpgaIsiBase
+        ).astype(int)
         # Add dummy events at end to avoid repeated stimulation due to "2-trigger-bug"
         tISILimit = self.nFpgaIsiLimit * self.tFpgaIsiBase
         nAdd = int(np.ceil(tRecord / tISILimit))
-        vnTimeSteps = np.r_[vnTimeSteps, vnTimeSteps[-1] + np.arange(1, nAdd+1)*self.nFpgaIsiLimit]
-        
+        vnTimeSteps = np.r_[
+            vnTimeSteps, vnTimeSteps[-1] + np.arange(1, nAdd + 1) * self.nFpgaIsiLimit
+        ]
+
         lEvents = self.arrays_to_spike_list(
             vnTimeSteps=vnTimeSteps,
             vnChannels=np.repeat(nInputNeuronID, vnTimeSteps.size),
             vnNeuronIDs=range(len(self.lVirtualNeurons)),
             nTSStart=0,
             nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,        
+            nTargetChipID=nTargetChipID,
         )
         # - Do not send dummy events to any core
         for event in lEvents[-nAdd:]:
@@ -1521,12 +1596,12 @@ class DynapseControl():
     def send_TSEvent(
         self,
         tsSeries,
-        tRecord: Optional[float]=None,
-        tBuffer: float=0.5,
-        vnNeuronIDs: Optional[np.ndarray]=None,
-        vnRecordNeuronIDs: Optional[np.ndarray]=None,
-        nTargetCoreMask: int=15,
-        nTargetChipID: int=0,
+        tRecord: Optional[float] = None,
+        tBuffer: float = 0.5,
+        vnNeuronIDs: Optional[np.ndarray] = None,
+        vnRecordNeuronIDs: Optional[np.ndarray] = None,
+        nTargetCoreMask: int = 15,
+        nTargetChipID: int = 0,
         bPeriodic=False,
         bRecord=False,
         bTSEvent=False,
@@ -1555,13 +1630,16 @@ class DynapseControl():
             elif bTSEvent:      TSEvent object of recorded data
             else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
-        
+
         # - Process input arguments
         vnNeuronIDs = (
-            np.arange(tsSeries.nNumChannels) if vnNeuronIDs is None
+            np.arange(tsSeries.nNumChannels)
+            if vnNeuronIDs is None
             else np.array(vnNeuronIDs)
         )
-        vnRecordNeuronIDs = vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
+        vnRecordNeuronIDs = (
+            vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
+        )
         tRecord = tsSeries.tDuration if tRecord is None else tRecord
 
         # - Prepare event list
@@ -1569,11 +1647,13 @@ class DynapseControl():
             tsSeries,
             vnNeuronIDs=vnNeuronIDs,
             nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,        
+            nTargetChipID=nTargetChipID,
         )
-        print("DynapseControl: Stimulus prepared from TSEvent `{}`.".format(
-            tsSeries.strName
-        ))
+        print(
+            "DynapseControl: Stimulus prepared from TSEvent `{}`.".format(
+                tsSeries.strName
+            )
+        )
 
         # - Stimulate and return recorded data if any
         return self.send_stimulus_list(
@@ -1589,14 +1669,14 @@ class DynapseControl():
     def send_arrays(
         self,
         vnChannels: np.ndarray,
-        vnTimeSteps: Optional[np.ndarray]=None,
-        vtTimeTrace: Optional[np.ndarray]=None,
-        tRecord: Optional[float]=None,
-        tBuffer: float=0.5,
-        vnNeuronIDs: Optional[np.ndarray]=None,
-        vnRecordNeuronIDs: Optional[np.ndarray]=None,
-        nTargetCoreMask: int=15,
-        nTargetChipID: int=0,
+        vnTimeSteps: Optional[np.ndarray] = None,
+        vtTimeTrace: Optional[np.ndarray] = None,
+        tRecord: Optional[float] = None,
+        tBuffer: float = 0.5,
+        vnNeuronIDs: Optional[np.ndarray] = None,
+        vnRecordNeuronIDs: Optional[np.ndarray] = None,
+        nTargetCoreMask: int = 15,
+        nTargetChipID: int = 0,
         bPeriodic=False,
         bRecord=False,
         bTSEvent=False,
@@ -1627,13 +1707,16 @@ class DynapseControl():
             elif bTSEvent:      TSEvent object of recorded data
             else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
-        
+
         # - Process input arguments
         vnNeuronIDs = (
-            np.arange(np.amax(vnChannels)) if vnNeuronIDs is None
+            np.arange(np.amax(vnChannels))
+            if vnNeuronIDs is None
             else np.array(vnNeuronIDs)
         )
-        vnRecordNeuronIDs = vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
+        vnRecordNeuronIDs = (
+            vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
+        )
         if tRecord is None:
             try:
                 tRecord = vtTimeTrace[-1]
@@ -1644,7 +1727,11 @@ class DynapseControl():
                     raise ValueError(
                         "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` has to be provided."
                     )
-            print("DynapseControl: Stimulus/recording time inferred to be {} s.".format(tRecord))
+            print(
+                "DynapseControl: Stimulus/recording time inferred to be {} s.".format(
+                    tRecord
+                )
+            )
 
         # - Prepare event list
         lEvents = self.arrays_to_spike_list(
@@ -1654,7 +1741,7 @@ class DynapseControl():
             vnNeuronIDs=vnNeuronIDs,
             nTSStart=0,
             nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,        
+            nTargetChipID=nTargetChipID,
         )
         print("DynapseControl: Stimulus prepared from arrays.")
 
@@ -1674,10 +1761,10 @@ class DynapseControl():
         lEvents,
         tDuration,
         tBuffer,
-        vnRecordNeuronIDs: Optional[np.ndarray]=None,
-        bPeriodic: bool=False,
-        bRecord: bool=False,
-        bTSEvent: bool=False,
+        vnRecordNeuronIDs: Optional[np.ndarray] = None,
+        bPeriodic: bool = False,
+        bRecord: bool = False,
+        bTSEvent: bool = False,
     ):
         """
         send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
@@ -1712,8 +1799,7 @@ class DynapseControl():
         # - Stimulate
         print(
             "DynapseControl: Starting{} stimulation{}.".format(
-                bPeriodic * " periodic",
-                (not bPeriodic) * " for {} s".format(tDuration),
+                bPeriodic * " periodic", (not bPeriodic) * " for {} s".format(tDuration)
             )
         )
         self.fpgaSpikeGen.start()
@@ -1737,35 +1823,33 @@ class DynapseControl():
             self.bufferedfilter.clear()
             if bTSEvent:
                 # - Extract TSEvent from recorded data
-                return self.recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)          
+                return self.recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)
             else:
                 # - Extract arrays from recorded data
                 return self.recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
 
     def recorded_data_to_TSEvent(
-        self,
-        vnNeuronIDs: np.ndarray,
-        tRecord: float
+        self, vnNeuronIDs: np.ndarray, tRecord: float
     ) -> TSEvent:
         lEvents = self.bufferedfilter.get_events()
         lTrigger = self.bufferedfilter.get_special_event_timestamps()
         print(
-            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
+            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
+                len(lEvents), len(lTrigger)
+            )
         )
 
         # - Extract monitored event channels and timestamps
-        vnTimeStamps, vnChannels = event_data_to_channels(
-            lEvents, vnNeuronIDs,
-        )
+        vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
         vtTimeTrace = np.array(vnTimeStamps) * 1e-6
         vnChannels = np.array(vnChannels)
 
         # - Locate synchronisation timestamp
         tStartTrigger = lTrigger[0] * 1e-6
         iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
-        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger+tRecord)
-        vtTimeTrace = vtTimeTrace[iStartIndex: iEndIndex] - tStartTrigger
-        vnChannels = vnChannels[iStartIndex: iEndIndex]
+        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger + tRecord)
+        vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
+        vnChannels = vnChannels[iStartIndex:iEndIndex]
         print("DynapseControl: Extracted event data")
 
         return TSEvent(
@@ -1773,34 +1857,32 @@ class DynapseControl():
             vnChannels,
             tStart=0,
             tStop=tRecord,
-            nNumChannels=np.size(vnNeuronIDs)
+            nNumChannels=np.size(vnNeuronIDs),
         )
 
     def recorded_data_to_arrays(
-        self,
-        vnNeuronIDs: np.ndarray,
-        tRecord: float
+        self, vnNeuronIDs: np.ndarray, tRecord: float
     ) -> TSEvent:
         lEvents = self.bufferedfilter.get_events()
         lTrigger = self.bufferedfilter.get_special_event_timestamps()
-        
+
         print(
-            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(len(lEvents), len(lTrigger))
+            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
+                len(lEvents), len(lTrigger)
+            )
         )
 
         # - Extract monitored event channels and timestamps
-        vnTimeStamps, vnChannels = event_data_to_channels(
-            lEvents, vnNeuronIDs,
-        )
+        vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
         vtTimeTrace = np.array(vnTimeStamps) * 1e-6
         vnChannels = np.array(vnChannels)
 
         # - Locate synchronisation timestamp
         tStartTrigger = lTrigger[0] * 1e-6
         iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
-        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger+tRecord)
-        vtTimeTrace = vtTimeTrace[iStartIndex: iEndIndex] - tStartTrigger
-        vnChannels = vnChannels[iStartIndex: iEndIndex]
+        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger + tRecord)
+        vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
+        vnChannels = vnChannels[iStartIndex:iEndIndex]
         print("DynapseControl: Extracted event data")
         return vtTimeTrace, vnChannels
 
@@ -1819,16 +1901,18 @@ class DynapseControl():
             lnRecordNeuronIDs = list(range(vnNeuronIDs))
         else:
             lnRecordNeuronIDs = list(vnNeuronIDs)
-        
+
         # - Does a filter already exist?
         if hasattr(self, "bufferedfilter") and self.bufferedfilter is not None:
             self.bufferedfilter.clear()
             self.bufferedfilter.add_ids(lnRecordNeuronIDs)
             print("DynapseControl: Updated existing buffered event filter.")
         else:
-            self.bufferedfilter = _generate_buffered_filter(self.model, lnRecordNeuronIDs)
+            self.bufferedfilter = _generate_buffered_filter(
+                self.model, lnRecordNeuronIDs
+            )
             print("DynapseControl: Generated new buffered event filter.")
-        
+
         return self.bufferedfilter
 
     def clear_buffered_event_filter(self):
@@ -1857,22 +1941,22 @@ class DynapseControl():
         # - Extract monitored event channels and timestamps
         vnNeuronIDs = np.array(vnNeuronIDs)
         vnChannels = DHW.neurons_to_channels(
-            [e.neuron for e in lEvents],
-            [self.lHWNeurons[i] for i in vnNeuronIDs],
+            [e.neuron for e in lEvents], [self.lHWNeurons[i] for i in vnNeuronIDs]
         )
         # - Remove events that are not from neurons defined in vnNeuronIDs
         vnChannels = vnChannels[np.isnan(vnChannels) == False]
         # - TIme trace
-        vtTimeTrace = (
-            np.array([e.timestamp for e in lEvents]) * 1e-6
-        )[np.isnan(vnChannels) == False]
+        vtTimeTrace = (np.array([e.timestamp for e in lEvents]) * 1e-6)[
+            np.isnan(vnChannels) == False
+        ]
 
         # - Locate synchronisation timestamp
         tStartTrigger = lTrigger[0] * 1e-6
         iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
         iEndIndex = (
-            None if tDuration is None
-            else np.searchsorted(vtTimeTrace, tStartTrigger+tDuration)
+            None
+            if tDuration is None
+            else np.searchsorted(vtTimeTrace, tStartTrigger + tDuration)
         )
         vnChannels = vnChannels[iStartIndex:iEndIndex]
         vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
@@ -1884,7 +1968,7 @@ class DynapseControl():
             tStart=0,
             tStop=tDuration,
             nNumChannels=np.size(vnNeuronIDs),
-            strName="pulse_response"
+            strName="pulse_response",
         )
 
     def collect_spiking_neurons(self, vnNeuronIDs, tDuration):
@@ -1899,20 +1983,30 @@ class DynapseControl():
         # - Convert vnNeuronIDs to list
         if isinstance(vnNeuronIDs, int):
             vnNeuronIDs = range(vnNeuronIDs)
-        
-        print("DynapseControl: Collecting IDs of neurons that spike within the next {} seconds".format(tDuration))
-        
+
+        print(
+            "DynapseControl: Collecting IDs of neurons that spike within the next {} seconds".format(
+                tDuration
+            )
+        )
+
         # - Filter for recording neurons
         oFilter = self.add_buffered_event_filter(vnNeuronIDs)
-        
+
         # - Wait and record spiking neurons
         time.sleep(tDuration)
-        
+
         oFilter.clear()
-        
+
         # - Sorted unique list of neurons' IDs that have spiked
-        lnRecordedNeuronIDs = sorted(set((event.neuron.get_id() for event in oFilter.get_events())))
-        print("DynapseControl: {} neurons spiked: {}".format(len(lnRecordedNeuronIDs), lnRecordedNeuronIDs))
+        lnRecordedNeuronIDs = sorted(
+            set((event.neuron.get_id() for event in oFilter.get_events()))
+        )
+        print(
+            "DynapseControl: {} neurons spiked: {}".format(
+                len(lnRecordedNeuronIDs), lnRecordedNeuronIDs
+            )
+        )
 
         return lnRecordedNeuronIDs
 
@@ -1932,10 +2026,7 @@ class DynapseControl():
         print("DynapseControl: Neurons {} have been silenced".format(lnHotNeurons))
 
     def measure_population_firing_rates(
-        self,
-        llnPopulationIDs: list,
-        tDuration: float,
-        bVerbose=False
+        self, llnPopulationIDs: list, tDuration: float, bVerbose=False
     ) -> (np.ndarray, np.ndarray, np.ndarray):
         """
         measure_population_firing_rates - Measure the mean, maximum and minimum
@@ -1958,16 +2049,16 @@ class DynapseControl():
 
         for i, lnNeuronIDs in enumerate(llnPopulationIDs):
             print("DynapseControl: Population {}".format(i))
-            vfFiringRates, vfMeanRates[i], vfMaxRates[i], vfMinRates[i] = self.measure_firing_rates(lnNeuronIDs, tDuration)
+            vfFiringRates, vfMeanRates[i], vfMaxRates[i], vfMinRates[
+                i
+            ] = self.measure_firing_rates(lnNeuronIDs, tDuration)
             if bVerbose:
                 print(vfFiringRates)
 
         return vfMeanRates, vfMaxRates, vfMinRates
 
     def measure_firing_rates(
-        self,
-        vnNeuronIDs: Optional[Union[int, np.ndarray]],
-        tDuration: float
+        self, vnNeuronIDs: Optional[Union[int, np.ndarray]], tDuration: float
     ) -> (np.ndarray, float, float, float):
         """
         measure_firing_rates - Measure the mean, maximum and minimum firing rate
@@ -2000,12 +2091,12 @@ class DynapseControl():
 
     def sweep_freq_measure_rate(
         self,
-        vfFreq: list=[1, 10, 20, 50, 100, 200, 500, 1000, 2000],
-        tDuration: float=1,
-        vnTargetNeuronIDs: Union[int,np.ndarray]=range(128),
-        vnInputNeuronIDs: Union[int,np.ndarray]=1,
-        nChipID: int=0,
-        nCoreMask: int=15,
+        vfFreq: list = [1, 10, 20, 50, 100, 200, 500, 1000, 2000],
+        tDuration: float = 1,
+        vnTargetNeuronIDs: Union[int, np.ndarray] = range(128),
+        vnInputNeuronIDs: Union[int, np.ndarray] = 1,
+        nChipID: int = 0,
+        nCoreMask: int = 15,
     ):
         """
         sweep_freq_measure_rate - Stimulate a group of neurons by sweeping
@@ -2036,44 +2127,47 @@ class DynapseControl():
         for iTrial, fFreq in enumerate(vfFreq):
             print("DynapseControl: Stimulating with {} Hz input".format(fFreq))
             self.start_cont_stim(fFreq, vnInputNeuronIDs, bVirtual)
-            mfFiringRates[iTrial, :], vfMeanRates[iTrial], vfMaxRates[iTrial], vfMinRates[iTrial] = (
-                self.measure_firing_rates(vnTargetNeuronIDs, tDuration)
+            mfFiringRates[iTrial, :], vfMeanRates[iTrial], vfMaxRates[
+                iTrial
+            ], vfMinRates[iTrial] = self.measure_firing_rates(
+                vnTargetNeuronIDs, tDuration
             )
             self.stop_stim()
 
         return mfFiringRates, vfMeanRates, vfMaxRates, vfMinRates
 
-    
     ### - Load and save biases
 
     @staticmethod
-    def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
-    """
-    load_biases - Load biases from python file under path strFilename.
-                  Convenience function. Same as global load_biases.
-    :param strFilename:  str  Path to file where biases are stored.
-    :param lnCoreIDs:    list, int or None  IDs of cores for which biases
-                                            should be loaded. Load all if
-                                            None.
-    """
+    def load_biases(strFilename, lnCoreIDs: Optional[Union[list, int]] = None):
+        """
+        load_biases - Load biases from python file under path strFilename.
+                      Convenience function. Same as global load_biases.
+        :param strFilename:  str  Path to file where biases are stored.
+        :param lnCoreIDs:    list, int or None  IDs of cores for which biases
+                                                should be loaded. Load all if
+                                                None.
+        """
         load_biases(os.path.abspath(strFilename), lnCoreIDs)
         print("DynapseControl: Biases have been loaded from {}.".format(strFilename))
-    
+
     @staticmethod
-    def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]]=None):
-    """
-    save_biases - Save biases in python file under path strFilename
-                  Convenience function. Same as global save_biases.
-    :param strFilename:  str  Path to file where biases should be saved.
-    :param lnCoreIDs:    list, int or None  ID(s) of cores whose biases
-                                            should be saved. If None,
-                                            save all cores.
-    """
+    def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]] = None):
+        """
+        save_biases - Save biases in python file under path strFilename
+                      Convenience function. Same as global save_biases.
+        :param strFilename:  str  Path to file where biases should be saved.
+        :param lnCoreIDs:    list, int or None  ID(s) of cores whose biases
+                                                should be saved. If None,
+                                                save all cores.
+        """
         save_biases(os.path.abspath(strFilename), lnCoreIDs)
         print("DynapseControl: Biases have been saved under {}.".format(strFilename))
 
     @staticmethod
-    def copy_biases(nSourceCoreID: int=0, lnTargetCoreIDs: Optional[List[int]]=None):
+    def copy_biases(
+        nSourceCoreID: int = 0, lnTargetCoreIDs: Optional[List[int]] = None
+    ):
         """
         copy_biases - Copy biases from one core to one or more other cores.
                       Convenience function. Same as global copy_biases.
@@ -2082,22 +2176,26 @@ class DynapseControl():
                                 If None, will copy to all other neurons
         """
         copy_biases(nSourceCoreID, lnTargetCoreIDs)
-        print("DynapseControl: Biases have been copied from core {} to core(s) {}".format(
-            nSourceCoreID, lnTargetCoreIDs
-        ))
-
+        print(
+            "DynapseControl: Biases have been copied from core {} to core(s) {}".format(
+                nSourceCoreID, lnTargetCoreIDs
+            )
+        )
 
     ### --- Class properties
 
     @property
     def synSE(self):
         return SynapseTypes.SLOW_EXC
+
     @property
     def synSI(self):
         return SynapseTypes.SLOW_INH
+
     @property
     def synFE(self):
         return SynapseTypes.FAST_EXC
+
     @property
     def synFI(self):
         return SynapseTypes.FAST_INH
@@ -2146,7 +2244,9 @@ class DynapseControl():
     def tFpgaIsiBase(self, tNewBase):
         if not tNewBase > self.tFpgaTimestep:
             raise ValueError(
-                "DynapseControl: `tFpgaTimestep` must be at least {}".format(self.tFpgaTimestep)
+                "DynapseControl: `tFpgaTimestep` must be at least {}".format(
+                    self.tFpgaTimestep
+                )
             )
         else:
             self._nFpgaIsiMultiplier = int(np.floor(tNewBase / self.tFpgaTimestep))
