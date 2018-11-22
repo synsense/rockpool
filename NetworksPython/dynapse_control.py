@@ -74,7 +74,9 @@ if bUsing_RPyC:
     conn.namespace["NUM_CHIP_CORES"] = NUM_CHIP_CORES
     conn.namespace["NUM_CHIPS"] = NUM_CHIPS
     conn.namespace["copy"] = conn.modules.copy
+    conn.namespace["os"] = conn.modules.os
     conn.namespace["CtxDynapse"] = conn.modules.CtxDynapse
+    conn.namespace["rpyc"] = conn.modules.rpyc
 
 ### --- Utility functions
 def connectivity_matrix_to_prepost_lists(
@@ -202,50 +204,47 @@ def evaluate_firing_rates(
         fMinRate       float - Lowest firing rate of all neurons            
     """
     # - Extract event timestamps and neuron IDs
-    tupTimestamps, tupEventNeuronIDs = zip(
-        *((event.timestamp, event.neuron.get_id()) for event in lEvents)
-    )
-
+    tupTimestamps, tupEventNeuronIDs = extract_event_data(lEvents)
     # - Count events for each neuron
     viUniqueEventIDs, vnEventCounts = np.unique(tupEventNeuronIDs, return_counts=True)
-
+    
     if vnNeuronIDs is None:
         # - lNeuronIDs as list of neurons that have spiked
         vnNeuronIDs = viUniqueEventIDs
-
+    
     # - Neurons that have not spiked
     viNoEvents = (np.asarray(vnNeuronIDs))[
         np.isin(vnNeuronIDs, viUniqueEventIDs) == False
     ]
-
+    
     # - Count events
     viUniqueEventIDs = np.r_[viUniqueEventIDs, viNoEvents]
     vnEventCounts = np.r_[vnEventCounts, np.zeros(viNoEvents.size)]
-
+    
     # - Sort event counts to same order as in vnNeuronIDs
     liUniqueEventIDs = list(viUniqueEventIDs)
     lSort = [liUniqueEventIDs.index(nNeuronID) for nNeuronID in vnNeuronIDs]
     vnEventCounts = vnEventCounts[lSort]
     vfFiringRates = vnEventCounts / tDuration
-
+    
     # - Calculate mean, max and min rates
-    fMeanRate = np.size(lEvents) / tDuration / len(vnNeuronIDs)
-    print("Mean firing rate: {} Hz".format(fMeanRate))
+    fMeanRate = len(tupTimestamps) / tDuration / len(vnNeuronIDs)
+    print("\tMean firing rate: {} Hz".format(fMeanRate))
     iMaxRateNeuron = np.argmax(vnEventCounts)
     fMaxRate = vfFiringRates[iMaxRateNeuron]
     print(
-        "Maximum firing rate: {} Hz (neuron {})".format(
+        "\tMaximum firing rate: {} Hz (neuron {})".format(
             fMaxRate, vnNeuronIDs[iMaxRateNeuron]
         )
     )
     iMinRateNeuron = np.argmin(vnEventCounts)
     fMinRate = vfFiringRates[iMinRateNeuron]
     print(
-        "Minimum firing rate: {} Hz (neuron {})".format(
+        "\tMinimum firing rate: {} Hz (neuron {})".format(
             fMinRate, vnNeuronIDs[iMinRateNeuron]
         )
     )
-
+    
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
 
@@ -402,7 +401,7 @@ def remote_function(func):
 
 
 @remote_function
-def local_arguments_rpyc(func):  # This doe not work
+def local_arguments(func):  # This doe not work
     def local_func(*args, **kwargs):
         for i, argument in enumerate(args):
             newargs = list(args)
@@ -421,14 +420,15 @@ def local_arguments_rpyc(func):  # This doe not work
 
 
 # - Example on how to use local_arguments_rpyc decorator
-def define_foo():
-    def foo(obj):
+@teleport_function
+def _define_print_type():
+    @local_arguments
+    def print_type(obj):
         print(type(obj))
 
-    return foo
+    return print_type
 
-
-foo = define_foo()
+print_type = correct_argument_types(_define_print_type())  # or just return foo
 
 
 @teleport_function
@@ -663,7 +663,7 @@ def get_all_neurons(
 
 
 @teleport_function
-def _clear_chips(oDynapse: CtxDynapse.Dynapse, lnChipIDs: Optional[list] = None):
+def _clear_chips(lnChipIDs: Optional[list] = None):
     """
     _clear_chips - Clear the physical CAM and SRAM cells of the chips defined
                    in lnChipIDs.
@@ -671,7 +671,6 @@ def _clear_chips(oDynapse: CtxDynapse.Dynapse, lnChipIDs: Optional[list] = None)
                    to make sure that the configuration of the model neurons
                    matches the hardware.
 
-    :param oDynapse:    list  CtxControl dynapse object
     :param lnChipIDs:   list  IDs of chips to be cleared.
     """
 
@@ -689,11 +688,11 @@ def _clear_chips(oDynapse: CtxDynapse.Dynapse, lnChipIDs: Optional[list] = None)
         print("dynapse_control: Clearing chip {}.".format(nChip))
 
         # - Clear CAMs
-        oDynapse.clear_cam(int(nChip))
+        CtxDynapse.dynapse.clear_cam(int(nChip))
         print("\t CAMs cleared.")
 
         # - Clear SRAMs
-        oDynapse.clear_sram(int(nChip))
+        CtxDynapse.dynapse.clear_sram(int(nChip))
         print("\t SRAMs cleared.")
 
     print("dynapse_control: {} chip(s) cleared.".format(len(lnChipIDs)))
@@ -701,12 +700,11 @@ def _clear_chips(oDynapse: CtxDynapse.Dynapse, lnChipIDs: Optional[list] = None)
 
 @teleport_function
 def _reset_connections(
-    oModel: CtxDynapse.Model, lnCoreIDs: Optional[list] = None, bApplyDiff=True
+    lnCoreIDs: Optional[list] = None, bApplyDiff=True
 ):
     """
     _reset_connections - Reset connections going to all nerons of cores defined
                          in lnCoreIDs. Core IDs from 0 to 15.
-    :param oModel:      CtxControl dynapse model
     :param lnCoreIDs:   list  IDs of cores to be reset
     :param bApplyDiff:  bool  Apply changes to hardware. Setting False is useful
                               if new connections will be set afterwards.
@@ -722,7 +720,7 @@ def _reset_connections(
     lnCoreIDs = copy.copy(lnCoreIDs)
 
     # - Get shadow state neurons
-    lShadowNeurons = oModel.get_shadow_state_neurons()
+    lShadowNeurons = CtxDynapse.model.get_shadow_state_neurons()
 
     for nCore in lnCoreIDs:
         print("dynapse_control: Clearing connections of core {}.".format(nCore))
@@ -748,7 +746,7 @@ def _reset_connections(
 
     if bApplyDiff:
         # - Apply changes to the connections on chip
-        oModel.apply_diff_state()
+        CtxDynapse.model.apply_diff_state()
         print("dynapse_control: New state has been applied to the hardware")
 
 
@@ -827,8 +825,56 @@ def set_connections(
     print("dynapse_control: {} connections have been set.".format(len(lPreNeuronIDs)))
 
 
+@teleport_function
+def _define_silence_neurons():
+    @local_arguments
+    def silence_neurons(lnNeuronIDs):
+        """
+        silence_neurons - Assign time contant tau2 to neurons definedin lnNeuronIDs
+                          to make them silent.
+        :param lnNeuronIDs:  list  IDs of neurons to be silenced
+        """
+        if isinstance(lnNeuronIDs, int):
+            lnNeuronIDs = (lnNeuronIDs, )
+        nNeuronsPerChip = NUM_CHIP_CORES * NUM_CORE_NEURONS
+        for nID in lnNeuronIDs:
+            CtxDynapse.dynapse.set_tau_2(
+                nID // nNeuronsPerChip,  # Chip ID
+                nID % nNeuronsPerChip,  # Neuron ID on chip
+            )
+        print("dynapse_control: Set {} neurons to tau 2.".format(len(lnNeuronIDs)))
+    return silence_neurons
+_silence_neurons = correct_argument_types(_define_silence_neurons())
+
+
+@teleport_function
+def _define_reset_silencing():
+    @local_arguments
+    def reset_silencing(lnCoreIDs):
+        """
+        reset_silencing - Assign time constant tau1 to all neurons on cores defined
+                          in lnCoreIDs. Convenience function that does the same as
+                          global _reset_silencing but also updates self._vbSilenced.
+        :param lnCoreIDs:   list  IDs of cores to be reset
+        """
+        if isinstance(lnCoreIDs, int):
+            lnCoreIDs = (lnCoreIDs, )
+        for nID in lnCoreIDs:
+            CtxDynapse.dynapse.reset_tau_1(
+                nID // NUM_CHIP_CORES,  # Chip ID
+                nID % NUM_CHIP_CORES,  # Core ID on chip
+            )
+        print("dynapse_control: Set neurons of cores {} to tau 1.".format(
+            lnCoreIDs
+        ))
+    return reset_silencing
+_reset_silencing = correct_argument_types(_define_reset_silencing())
+
+
 # - Clear hardware configuration at startup
-_clear_chips(list(range(4)))
+print("dynapse_control: Initializing hardware.")
+#_clear_chips(range(4))
+print("dynapse_control: Hardware initialized.")
 
 
 class DynapseControl:
@@ -894,6 +940,11 @@ class DynapseControl:
         self.vbFreeHWNeurons, self.vbFreeVirtualNeurons = (
             self._initial_free_neuron_lists()
         )
+        
+        # - Store which neurons have been assigned tau 2 (i.e. are silenced)
+        self._vbSilenced = np.zeros_like(self.vbFreeHWNeurons, bool)
+        # - Make sure no neuron is silenced, yet
+        self.reset_silencing(range(16))
 
         print("DynapseControl: Neurons initialized.")
         print(
@@ -918,7 +969,8 @@ class DynapseControl:
 
         print("DynapseControl ready.")
 
-    def clear_connections(self, lnCoreIDs: Optional[list] = None):
+    @staticmethod
+    def clear_connections(lnCoreIDs: Optional[list] = None):
         """
         clear_connections - Reset connections for cores defined in lnCoreIDs.
 
@@ -926,32 +978,68 @@ class DynapseControl:
                                          should be cleared (0-15).
         """
         # - Use `_reset_connections` function
-        _reset_connections(self.model, lnCoreIDs)
+        _reset_connections(lnCoreIDs)
         print(
             "DynapseControl: Connections to cores {} have been cleared.".format(
                 lnCoreIDs
             )
         )
 
-    def reset(
-        self, lnCoreIDs: Optional[Union[list, int]] = None, bVirtual: bool = True
+    def silence_neurons(self, lnNeuronIDs: list):
+        """
+        silence_neurons - Assign time contant tau2 to neurons definedin lnNeuronIDs
+                          to make them silent. Convenience function that does the
+                          same as global _silence_neurons but also stores silenced
+                          neurons in self._vbSilenced.
+        :param lnNeuronIDs:  list  IDs of neurons to be silenced
+        """
+        _silence_neurons(lnNeuronIDs)
+        # - Mark that neurons have been silenced
+        self._vbSilenced[lnNeuronIDs] = True
+        print("DynapseControl: {} neurons have been silenced.".format(len(lnNeuronIDs)))
+
+    def reset_silencing(self, lnCoreIDs: list):
+        """
+        reset_silencing - Assign time constant tau1 to all neurons on cores defined
+                          in lnCoreIDs. Convenience function that does the same as
+                          global _reset_silencing but also updates self._vbSilenced.
+        :param lnCoreIDs:   list  IDs of cores to be reset
+        """
+        if isinstance(lnCoreIDs, int):
+            lnCoreIDs = (lnCoreIDs, )
+        _reset_silencing(lnCoreIDs)
+        # - Mark that neurons are not silenced anymore
+        for nID in lnCoreIDs:
+            self._vbSilenced[nID*self.nNumCoreNeurons: (nID+1)*self.nNumCoreNeurons] = False
+        print("DynapseControl: Time constants of cores {} have been reset.".format(
+            lnCoreIDs
+        ))
+
+    def reset_cores(
+        self,
+        lnCoreIDs: Optional[Union[list, int]] = None,
+        bVirtual: bool = True,
+        bSilence: bool = True,
     ):
         """
-        reset - Reset neuron assginments and connections for specified cores
-                and virtual neurons if requested.
+        reset_cores - Reset neuron assginments and connections for specified cores
+                      and virtual neurons if requested.
         """
         # - Clear neuron assignments
         self.clear_neuron_assignments(lnCoreIDs, bVirtual)
         # - Reset connections
         self.clear_connections(lnCoreIDs)
+        if bSilence:
+            # - Reset neuron silencing
+            self.reset_silencing(lnCoreIDs)
 
     def reset_all(self):
         """
-        reset - Convenience function to reset neuron assginments and connections
-                for all cores and virtual neurons.
+        reset_all - Convenience function to reset neuron assginments and connections
+                    for all cores and virtual neurons.
         """
         # - Clear neuron assignments
-        self.reset(range(self.nNumCores), True)
+        self.reset_cores(range(self.nNumCores), True)
 
     ### --- Neuron allocation and connections
 
@@ -1858,6 +1946,7 @@ class DynapseControl:
             tStart=0,
             tStop=tRecord,
             nNumChannels=np.size(vnNeuronIDs),
+            strName="DynapSE"
         )
 
     def recorded_data_to_arrays(
@@ -1923,54 +2012,6 @@ class DynapseControl:
         else:
             warn("DynapseControl: No buffered event filter found.")
 
-    def buffered_events_to_TSEvent(self, vnNeuronIDs=range(4096), tDuration=None):
-        """
-        buffered_events_to_TSEvent - Fetch events from self.bufferedfilter and 
-                                     convert them to a TSEvent
-        :param vnNeuronIDs:     
-        """
-        # - Fetch events from filter
-        lEvents = list(TR_oFilter.get_events())
-        lTrigger = list(TR_oFilter.get_special_event_timestamps())
-        print(
-            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
-                len(lEvents), len(lTrigger)
-            )
-        )
-
-        # - Extract monitored event channels and timestamps
-        vnNeuronIDs = np.array(vnNeuronIDs)
-        vnChannels = DHW.neurons_to_channels(
-            [e.neuron for e in lEvents], [self.lHWNeurons[i] for i in vnNeuronIDs]
-        )
-        # - Remove events that are not from neurons defined in vnNeuronIDs
-        vnChannels = vnChannels[np.isnan(vnChannels) == False]
-        # - TIme trace
-        vtTimeTrace = (np.array([e.timestamp for e in lEvents]) * 1e-6)[
-            np.isnan(vnChannels) == False
-        ]
-
-        # - Locate synchronisation timestamp
-        tStartTrigger = lTrigger[0] * 1e-6
-        iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
-        iEndIndex = (
-            None
-            if tDuration is None
-            else np.searchsorted(vtTimeTrace, tStartTrigger + tDuration)
-        )
-        vnChannels = vnChannels[iStartIndex:iEndIndex]
-        vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
-        print("DynapseControl: Extracted event data")
-
-        return TSEvent(
-            vtTimeTrace,
-            vnChannels,
-            tStart=0,
-            tStop=tDuration,
-            nNumChannels=np.size(vnNeuronIDs),
-            strName="pulse_response",
-        )
-
     def collect_spiking_neurons(self, vnNeuronIDs, tDuration):
         """
         collect_spiking_neurons - Return a list of IDs of neurons that
@@ -2021,9 +2062,8 @@ class DynapseControl:
         # - Neurons that spike within tDuration
         lnHotNeurons = self.collect_spiking_neurons(vnNeuronIDs, tDuration=tDuration)
         # - Silence these neurons by assigning different Tau bias
-        for nID in lnHotNeurons:
-            self.dynapse.set_tau_2(0, nID)
-        print("DynapseControl: Neurons {} have been silenced".format(lnHotNeurons))
+        print("DynapseControl: Neurons {} will be silenced".format(lnHotNeurons))
+        self.silence_neurons(lnHotNeurons)
 
     def measure_population_firing_rates(
         self, llnPopulationIDs: list, tDuration: float, bVerbose=False
@@ -2081,7 +2121,7 @@ class DynapseControl:
         # - Stop recording
         oFilter.clear()
         # - Retrieve recorded events
-        lEvents = list(oFilter.get_events())
+        lEvents = oFilter.get_events()
         if not lEvents:
             # - Handle empty event lists
             print("DynapseControl: No events recorded")
@@ -2223,6 +2263,19 @@ class DynapseControl:
     @property
     def nNumNeurons(self):
         return self._nNumChips * self.nNumChipNeurons
+
+    @property
+    def vbSilenced(self):
+        return self._vbSilenced
+
+    @property
+    def vnSilencedIndices(self):
+        return np.where(self._vbSilenced)[0]  
+
+    @property
+    def mnConnections(self, vnNeuronIDs):
+        return self._foo
+    
 
     @property
     def nFpgaEventLimit(self):
