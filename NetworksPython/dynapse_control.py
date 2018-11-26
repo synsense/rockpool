@@ -9,6 +9,7 @@ from warnings import warn
 from typing import Tuple, List, Optional, Union
 import time
 import os.path
+import threading
 from .timeseries import TSEvent
 
 # - Programmatic imports for CtxCtl
@@ -51,6 +52,7 @@ FpgaSpikeEvent = CtxDynapse.FpgaSpikeEvent
 print("dynapse_control: CtxDynapse modules loaded.")
 
 ### --- Parameters
+lnChipIDs = [0]  # Chips to be used
 # - Fix (hardware)
 FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
 FPGA_ISI_LIMIT = int(
@@ -186,8 +188,11 @@ def generate_event_raster(
 
 
 def evaluate_firing_rates(
-    lEvents: list, tDuration: float, vnNeuronIDs: Optional[list] = None
-) -> (np.ndarray, float, float):
+    lEvents: list,
+    tDuration: float,
+    vnNeuronIDs: Optional[list] = None,
+    bVerbose: bool=True,
+) -> (np.ndarray, float, float, float):
     """
     evaluate_firing_rates - Determine the neuron-wise firing rates from a
                             list of events. Calculate mean, max and min.
@@ -196,6 +201,7 @@ def evaluate_firing_rates(
     :param vnNeuronIDs:     array-like of neuron IDs corresponding to events.
                             If None, vnNeuronIDs will consists of to the neurons
                             corresponding to the events in lEvents.
+    :param bVerbose:        bool  Print out information about firing rates.
 
     :return:
         vfFiringRates  np.ndarray - Each neuron's firing rate
@@ -229,21 +235,24 @@ def evaluate_firing_rates(
     
     # - Calculate mean, max and min rates
     fMeanRate = len(tupTimestamps) / tDuration / len(vnNeuronIDs)
-    print("\tMean firing rate: {} Hz".format(fMeanRate))
     iMaxRateNeuron = np.argmax(vnEventCounts)
     fMaxRate = vfFiringRates[iMaxRateNeuron]
-    print(
-        "\tMaximum firing rate: {} Hz (neuron {})".format(
-            fMaxRate, vnNeuronIDs[iMaxRateNeuron]
-        )
-    )
     iMinRateNeuron = np.argmin(vnEventCounts)
     fMinRate = vfFiringRates[iMinRateNeuron]
-    print(
-        "\tMinimum firing rate: {} Hz (neuron {})".format(
-            fMinRate, vnNeuronIDs[iMinRateNeuron]
+    
+    if bVerbose:
+        # - Print results
+        print("\tMean firing rate: {} Hz".format(fMeanRate))
+        print(
+            "\tMaximum firing rate: {} Hz (neuron {})".format(
+                fMaxRate, vnNeuronIDs[iMaxRateNeuron]
+            )
         )
-    )
+        print(
+            "\tMinimum firing rate: {} Hz (neuron {})".format(
+                fMinRate, vnNeuronIDs[iMinRateNeuron]
+            )
+        )
     
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
@@ -442,7 +451,15 @@ def extract_event_data(lEvents) -> (tuple, tuple):
     """
 
     ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
-    tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
+    try:
+        tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
+    except ValueError as e:
+        # - Handle emptly event lists
+        if len(ltupEvents) == 0:
+            tupTimeStamps = ()
+            tupNeuronIDs = ()
+        else:
+            raise e
     return tupTimeStamps, tupNeuronIDs
 
 
@@ -612,15 +629,13 @@ def copy_biases(nSourceCoreID: int = 0, lnTargetCoreIDs: Optional[List[int]] = N
                             If None, will copy to all other neurons
     """
 
-    lnTargetCoreIDs = copy(lnTargetCoreIDs)
+    lnTargetCoreIDs = copy.copy(lnTargetCoreIDs)
     if lnTargetCoreIDs is None:
         # - Copy biases to all other cores except the source core
         lnTargetCoreIDs = list(range(16))
         lnTargetCoreIDs.remove(nSourceCoreID)
-    elif np.size(lnTargetCoreIDs) == 1:
-        lnTargetCoreIDs = list(np.array(lnTargetCoreIDs))
-    else:
-        lnTargetCoreIDs = list(lnTargetCoreIDs)
+    elif isinstance(lnTargetCoreIDs, int):
+        lnTargetCoreIDs = [lnTargetCoreIDs]
 
     # - List of bias groups from all cores
     lBiasgroups = CtxDynapse.model.get_bias_groups()
@@ -873,7 +888,7 @@ _reset_silencing = correct_argument_types(_define_reset_silencing())
 
 # - Clear hardware configuration at startup
 print("dynapse_control: Initializing hardware.")
-#_clear_chips(range(4))
+_clear_chips(lnChipIDs)
 print("dynapse_control: Hardware initialized.")
 
 
@@ -1616,7 +1631,7 @@ class DynapseControl:
         tRecord: float = 3,
         tBuffer: float = 0.5,
         nInputNeuronID: int = 0,
-        vnRecordNeuronIDs: Union[int, np.ndarray] = 0,
+        vnRecordNeuronIDs: Union[int, np.ndarray] = np.arange(1024),
         nTargetCoreMask: int = 15,
         nTargetChipID: int = 0,
         bPeriodic: bool = False,
@@ -2128,6 +2143,57 @@ class DynapseControl:
             return np.zeros(np.size(vnNeuronIDs)), 0, 0, 0
         # - Evaluate non-empty event lists
         return evaluate_firing_rates(lEvents, tDuration, vnNeuronIDs)
+
+    def _monitor_firing_rates_inner(self, vnNeuronIDs, tInterval):
+        """
+        monitor_firing_rates - Continuously monitor the activity of a population
+                               and periodically output the average firing rate.
+        """
+
+        self._bMonitoring = True
+        # - Set up event filter
+        self.add_buffered_event_filter(vnNeuronIDs)
+        print("DynapseControl: Start monitoring firing rates of {} neurons.".format(
+            np.size(vnNeuronIDs)
+        ))
+        while self._bMonitoring:
+            # - Flush event stack
+            __ = self.bufferedfilter.get_events()
+            # - Collect events
+            time.sleep(tInterval)
+            lEvents = self.bufferedfilter.get_events()
+            # - Process events
+            if not lEvents:
+                # - Handle empty event lists
+                print("DynapseControl: No events recorded")
+            else:
+                # - Evaluate non-empty event lists
+                fMeanRate = evaluate_firing_rates(lEvents, tInterval, vnNeuronIDs, bVerbose=False)[2]
+                print("DynapseControl: Mean firing rate: {} Hz".format(fMeanRate))
+
+    def monitor_firing_rates(self, vnNeuronIDs, tInterval):
+        """
+        monitor_firing_rates - Create a thread that continuously monitors the
+                               activity of a population and periodically output
+                               the average firing rate.
+        """
+
+        self.thrMonitor = threading.Thread(
+            target=self._monitor_firing_rates_inner,
+            kwargs={
+                "vnNeuronIDs": vnNeuronIDs,
+                "tInterval": tInterval,
+            }
+        )
+        self.thrMonitor.start()
+
+    def stop_monitor(self):
+        self._bMonitoring = False
+        self.bufferedfilter.clear()
+        self.thrMonitor.join(timeout=5)
+        del self.thrMonitor
+        print("DynapseControl: Stopped monitoring.")
+
 
     def sweep_freq_measure_rate(
         self,

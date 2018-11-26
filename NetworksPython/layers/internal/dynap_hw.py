@@ -310,8 +310,9 @@ class RecDynapSE(Layer):
                             nNumTimeStepsBatch * self.tDt,
                             nNumTimeStepsBatch,
                         )
-                        + ", {} events, starting with at {} s of {} s".format(
+                        + ", {} events, from {} s to {} s of {} s".format(
                             nNumEventsBatch,
+                            nTSStartBatch * self.tDt,
                             nTSEndBatch * self.tDt,
                             nNumTimeSteps * self.tDt,
                         )
