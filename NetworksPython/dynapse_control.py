@@ -888,8 +888,12 @@ _reset_silencing = correct_argument_types(_define_reset_silencing())
 
 # - Clear hardware configuration at startup
 print("dynapse_control: Initializing hardware.")
-_clear_chips(lnChipIDs)
-print("dynapse_control: Hardware initialized.")
+if False: #not bUsing_RPyC or not "bInitialized" in conn.namespace.keys():
+    _clear_chips(lnChipIDs)
+    conn.namespace["bInitialized"] = True
+    print("dynapse_control: Hardware initialized.")
+else:
+    print("dynapse_control: Hardware has already been initialized.")
 
 
 class DynapseControl:
@@ -2066,7 +2070,7 @@ class DynapseControl:
 
         return lnRecordedNeuronIDs
 
-    def silence_hot_neurons(self, vnNeuronIDs: ArrayLike, tDuration: float) -> list:
+    def silence_hot_neurons(self, vnNeuronIDs: Union[list, np.ndarray], tDuration: float) -> list:
         """
         silence_hot_neurons - Collect IDs of all neurons that spike 
                               within tDuration. Assign them different
