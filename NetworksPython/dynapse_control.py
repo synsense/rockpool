@@ -2066,19 +2066,22 @@ class DynapseControl:
 
         return lnRecordedNeuronIDs
 
-    def silence_hot_neurons(self, vnNeuronIDs, tDuration):
+    def silence_hot_neurons(self, vnNeuronIDs: ArrayLike, tDuration: float) -> list:
         """
         silence_hot_neurons - Collect IDs of all neurons that spike 
                               within tDuration. Assign them different
                               time constant to silence them.
         :param vnNeuronIDs:  list   IDs of neurons to be observed.
         :param tDuration:    float  How long to wait for spiking neurons 
+        :return:
+            lnHotNeurons    list  IDs of hot neurons that have been silenced.
         """
         # - Neurons that spike within tDuration
         lnHotNeurons = self.collect_spiking_neurons(vnNeuronIDs, tDuration=tDuration)
         # - Silence these neurons by assigning different Tau bias
         print("DynapseControl: Neurons {} will be silenced".format(lnHotNeurons))
         self.silence_neurons(lnHotNeurons)
+        return lnHotNeurons
 
     def measure_population_firing_rates(
         self, llnPopulationIDs: list, tDuration: float, bVerbose=False
