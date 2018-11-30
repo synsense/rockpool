@@ -888,7 +888,7 @@ _reset_silencing = correct_argument_types(_define_reset_silencing())
 
 # - Clear hardware configuration at startup
 print("dynapse_control: Initializing hardware.")
-if False: #not bUsing_RPyC or not "bInitialized" in conn.namespace.keys():
+if not bUsing_RPyC or not "bInitialized" in conn.namespace.keys():
     _clear_chips(lnChipIDs)
     conn.namespace["bInitialized"] = True
     print("dynapse_control: Hardware initialized.")
