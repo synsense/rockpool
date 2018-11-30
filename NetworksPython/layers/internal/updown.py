@@ -43,7 +43,7 @@ class FFUpDown(Layer):
         vfThrDown: Union[ArrayLike, float] = 0.001,
         strName: str = "unnamed",
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
-        bMultiplexSpikes: int = True,
+        bMultiplexSpikes: bool = True,
     ):
         """
         FFUpDownBatch - Construct a spiking feedforward layer to convert analogue inputs to up and down channels
@@ -73,7 +73,7 @@ class FFUpDown(Layer):
         :nMaxNumTimeSteps:  int   Maximum number of timesteps during single evolution batch. Longer
                                   evolution periods will automatically split in smaller batches.
 
-        :bMultiplexSpikes:  int   Allow a channel to emit multiple spikes per time, according to
+        :bMultiplexSpikes:  bool  Allow a channel to emit multiple spikes per time, according to
                                   how much the corresponding threshold is exceeded
         """
 
