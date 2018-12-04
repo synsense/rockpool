@@ -370,9 +370,12 @@ class TimeSeries:
         return self.resample(vtSampleTimes,
                              bInPlace = bInPlace)
 
-    def merge(self, tsOther, bRemoveDuplicates = True,
-              bInPlace: bool = False,
-              ):
+    def merge(
+        self,
+        tsOther,
+        bRemoveDuplicates = True,
+        bInPlace: bool = False,
+    ):
         """
         merge - Merge another time series to this one, in time. Maintain
                 each time series' time values.
@@ -445,6 +448,9 @@ class TimeSeries:
         tsMerged._mfSamples = mfSamplesNew[viSorted]
         tsMerged._tStart = tStart
         tsMerged._tStop = tStop
+
+        # - Determine number of channels
+        tsMerged._nNumChannels = max(tsOther.nNumChannels, self.nNumChannels)
 
         # - Create new interpolator
         tsMerged._create_interpolator()
@@ -1019,6 +1025,26 @@ class TimeSeries:
         return copy.deepcopy(self)
 
     @property
+    def nNumChannels(self):
+        if hasattr(self, "_nNumChannels") and self._nNumChannels is not None:
+            return self._nNumChannels
+        else:
+            return self.nNumTraces
+
+    @nNumChannels.setter
+    def nNumChannels(self, nNewNumChannels):
+        if self.nNumTraces == 0:
+            assert nNewNumChannels >= 0, "nNumChannels cannot be negative."
+        else:
+            nMinNumChannels = self.nNumTraces
+            assert (
+                nNewNumChannels >= nMinNumChannels
+            ), "nNumChannels must be at least {}.".format(
+                nMinNumChannels
+            )
+        self._nNumChannels = nNewNumChannels
+
+    @property
     def mfSamples(self):
         return self._mfSamples
 
@@ -1228,7 +1254,7 @@ class TSEvent(TimeSeries):
         self.vnChannels = np.array(vnChannels, "int").flatten()
 
         # - Store total number of channels
-        self.nNumChannels = int(nNumChannels)
+        self._nNumChannels = int(nNumChannels)
 
     def interpolate(self, vtTimes: np.ndarray):
         """
@@ -1455,7 +1481,7 @@ class TSEvent(TimeSeries):
             ltsOther = [tsMerged] + list(ltsOther)
 
         # - Determine number of channels
-            tsMerged.nNumChannels = np.amax([tsOther.nNumChannels for tsOther in ltsOther])
+        tsMerged._nNumChannels = np.amax([tsOther.nNumChannels for tsOther in ltsOther])
 
         # - Check tsOther class
         assert all(
@@ -1576,8 +1602,8 @@ class TSEvent(TimeSeries):
         )
         tStartBase = self.tStart if tStart is None else tStart
         if nNumTimeSteps is None:
-            tStopBase = self.tStop + tDt if tStop is None else tStop
-            nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
+            tStopBase = self.tStop if tStop is None else tStop
+            nNumTimeSteps = int(np.ceil((tStopBase - tStartBase) / tDt))
         else:
             tStopBase = tStartBase + nNumTimeSteps * tDt
 
@@ -1598,7 +1624,7 @@ class TSEvent(TimeSeries):
         # - Only consider rasters that have non-zero length
         if nNumTimeSteps > 0:
             # Compute indices for times
-            viTimeIndices_Raster = ((vtEventTimes - tStartBase) / tDt).astype(int)
+            viTimeIndices_Raster = np.floor((vtEventTimes - tStartBase) / tDt).astype(int)
             if bAddEvents:
                 # Count events per time step and channel
                 for iTime, iChannel in zip(viTimeIndices_Raster, vnEventChannels):
@@ -1768,28 +1794,6 @@ class TSEvent(TimeSeries):
 
         # - Assign vnChannels
         self._vnChannels = vnNewChannels
-
-    @property
-    def nNumChannels(self):
-        if hasattr(self, "_nNumChannels") and self._nNumChannels is not None:
-            return self._nNumChannels
-        else:
-            return np.amax(self.vnChannels) + 1
-
-    @nNumChannels.setter
-    def nNumChannels(self, nNewNumChannels):
-        if np.size(self.vnChannels) == 0:
-            assert nNewNumChannels >= 0, "nNumChannels cannot be negative."
-        else:
-            nMinNumChannels = (
-                0 if np.size(self.vnChannels) == 0 else np.amax(self.vnChannels) + 1
-            )
-            assert (
-                nNewNumChannels >= nMinNumChannels
-            ), "nNumChannels must be at least {}.".format(
-                nMinNumChannels
-            )
-        self._nNumChannels = nNewNumChannels
 
     @property
     def mfSamples(self):

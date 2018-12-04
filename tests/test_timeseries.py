@@ -255,10 +255,10 @@ def test_TSEvent_raster():
 
     testTSEvent = TSEvent([0, 30], 0)
     for i in range(1, 4):
-        testTSEvent.merge(TSEvent(None, i))
+        testTSEvent.merge(TSEvent(None, i), bInPlace=True)
 
     raster = testTSEvent.raster(tDt=1)[2]
-    assert raster.shape == (31, 4)
+    assert raster.shape == (30, 4)
 
 
 def test_TSEvent_raster_explicit_nNumChannels():
@@ -269,10 +269,10 @@ def test_TSEvent_raster_explicit_nNumChannels():
 
     testTSEvent = TSEvent([0, 30], 0, nNumChannels=5)
     for i in range(1, 4):
-        testTSEvent.merge(TSEvent(None, i))
+        testTSEvent.merge(TSEvent(None, i), bInPlace=True)
 
     raster = testTSEvent.raster(tDt=1)[2]
-    assert raster.shape == (31, 5)
+    assert raster.shape == (30, 5)
 
 
 def test_TSEvent_empty():
