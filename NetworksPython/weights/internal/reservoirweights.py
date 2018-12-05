@@ -542,7 +542,7 @@ def digital(
     fNormalize=None,
 ):
     """
-    DynapseConform - Create a weight matrix that conforms the specifications of the Dynapse Chip
+    digital - Create a weight matrix that conforms the specifications of the Dynapse Chip
 
     :param tupShape:        tuple Shape of the weight matrix
     :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
@@ -664,7 +664,7 @@ def in_res_digital(
     bLeaveSpaceForInput=False,
 ):
     """
-    In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+    in_res_digital - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
 
     :param nSize:           int Reservoir size
     :param fInputDensity:   float Ratio of non-zero vs. zero input connections
