@@ -170,7 +170,7 @@ class FFIAFTorch(Layer):
             tseOut = TSEvent(
                 None,
                 tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+                tStop=(self._nTimeStep + nNumTimeSteps) * self.tDt,
             )
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
@@ -184,7 +184,7 @@ class FFIAFTorch(Layer):
                 nNumChannels=self.nSize,
                 strName="Layer `{}` spikes".format(self.strName),
                 tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+                tStop=(self._nTimeStep + nNumTimeSteps) * self.tDt,
             )
 
         return tseOut

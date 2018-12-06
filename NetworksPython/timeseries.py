@@ -1084,8 +1084,8 @@ class TimeSeries:
             self._tStart = tNewStart
         else:            
             raise ValueError(
-                "TimeSeries `{}`: tStart must be less or equal to {}.".format(
-                    self.strName, self._vtTimeTrace[0]
+                "TimeSeries `{}`: tStart must be less or equal to {}. It was {}.".format(
+                    self.strName, self._vtTimeTrace[0], tNewStart
                 )
             )
 

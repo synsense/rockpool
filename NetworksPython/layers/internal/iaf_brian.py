@@ -328,7 +328,7 @@ class FFIAFBrian(Layer):
             strName="Layer spikes",
             nNumChannels=self.nSize,
             tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStop=(self._nTimeStep + nNumTimeSteps) * self.tDt,
         )
 
     def stream(
@@ -679,7 +679,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
             strName="Layer spikes",
             nNumChannels=self.nSize,
             tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStop=(self._nTimeStep + nNumTimeSteps) * self.tDt,
         )
 
     def reset_time(self):
@@ -1139,7 +1139,7 @@ class RecIAFBrian(Layer):
             strName="Layer spikes",
             nNumChannels=self.nSize,
             tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStop=(self._nTimeStep + nNumTimeSteps) * self.tDt,
         )
 
     ### --- Properties
@@ -1476,7 +1476,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             strName="Layer spikes",
             nNumChannels=self.nSize,
             tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStop=(self._nTimeStep + nNumTimeSteps) * self.tDt,
         )
 
     def reset_time(self):
