@@ -441,7 +441,11 @@ class FFCLIAF(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            vtTimeTrace=ltSpikeTimes,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=self.t,
+            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
         )
 
         # TODO: Is there a time series object for this too?
@@ -633,7 +637,11 @@ class RecCLIAF(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            vtTimeTrace=ltSpikeTimes,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=self.t,
+            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
         )
 
         # TODO: Is there a time series object for this too?

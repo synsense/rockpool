@@ -167,7 +167,11 @@ class FFIAFTorch(Layer):
 
         # - Output timeseries
         if (mbSpiking == 0).all():
-            tseOut = TSEvent(None)
+            tseOut = TSEvent(
+                None,
+                tStart=self.t,
+                tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            )
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (
@@ -179,6 +183,8 @@ class FFIAFTorch(Layer):
                 vnChannels=vnChannels.numpy(),
                 nNumChannels=self.nSize,
                 strName="Layer `{}` spikes".format(self.strName),
+                tStart=self.t,
+                tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
             )
 
         return tseOut
