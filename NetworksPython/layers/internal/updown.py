@@ -211,6 +211,8 @@ class FFUpDown(Layer):
             vnChannels=vnSpikeIDs,
             nNumChannels=2 * self.nSizeIn * self._nMultiChannel,
             strName="Spikes from analogue",
+            tStart=self.t,
+            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
         )
 
         # - Update time

@@ -316,7 +316,13 @@ class RecDIAF(Layer):
         self.lvStates = lvStates
 
         # - Output time series
-        return TSEvent(ltSpikeTimes, liSpikeIDs, nNumChannels=self.nSize)
+        return TSEvent(
+            ltSpikeTimes,
+            liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=self.t,
+            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+        )
 
     def _prepare_input(
         self,

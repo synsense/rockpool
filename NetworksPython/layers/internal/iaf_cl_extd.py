@@ -260,7 +260,11 @@ class RecCLIAFExtd(CLIAF):
         # Generate output sime series
         vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=vtSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            vtTimeTrace=vtSpikeTimes,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=self.t,
+            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
         )
 
         if vnIdMonitor is not None:
