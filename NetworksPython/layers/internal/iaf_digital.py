@@ -308,6 +308,10 @@ class RecDIAF(Layer):
         # - Store remaining spikes (happening after tFinal) for next call of evolution
         self._heapRemainingSpikes = heapSpikes
 
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * self.tDt
+        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+
         # - Update time
         self._nTimeStep += nNumTimeSteps
 
@@ -317,11 +321,11 @@ class RecDIAF(Layer):
 
         # - Output time series
         return TSEvent(
-            ltSpikeTimes,
+            np.clip(ltSpikeTimes, tStart, tStop),
             liSpikeIDs,
             nNumChannels=self.nSize,
-            tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStart=tStart,
+            tStop=tStop,
         )
 
     def _prepare_input(

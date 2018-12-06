@@ -257,16 +257,20 @@ class RecCLIAFExtd(CLIAF):
         # - Store refractoriness of neurons
         self._vnTSUntilRefrEnds = vnTSUntilRefrEnds
 
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * self.tDt
+        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+
         # Generate output sime series
         vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=vtSpikeTimes,
+            vtTimeTrace=np.clip(vtSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
             vnChannels=liSpikeIDs,
             nNumChannels=self.nSize,
-            tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStart=tStart,
+            tStop=tStop,
         )
-
+        
         if vnIdMonitor is not None:
             # - Store recorded data in timeseries
             vtRecordTimes = np.repeat(

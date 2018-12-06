@@ -61,8 +61,9 @@ def RndmSparseEINet(
     if bPartitioned:
         # - Number of excitatory neurons
         nNumExcNeurons = int(nResSize * fRatioExc)
+
         # - All rows with index > nNumExcNeurons correspond to inhibitory neurons
-        #   Multiply coresponding elements with -1 and scale with fScaleInh
+        #   Multiply corresponding elements with -1 and scale with fScaleInh
         mfWeights[nNumExcNeurons:] *= -fScaleInh
 
     if fNormalize is not None:
@@ -96,15 +97,15 @@ def RandomEINet(
     vnExc = range(nNumExc)
     vnInh = [n + nNumExc for n in range(nNumInh)]
 
-    mfWE = mfW[:, vnExc]
+    mfWE = mfW[vnExc, :]
     mfWE[mfWE < 0] = 0
     mfWE /= np.sum(mfWE, 0)
 
-    mfWI = mfW[:, vnInh]
+    mfWI = mfW[vnInh, :]
     mfWI[mfWI > 0] = 0
     mfWI = mfWI / np.sum(mfWI, 0) * -np.abs(fInhWFactor)
 
-    mfW = np.concatenate((mfWE, mfWI), 1)
+    mfW = np.concatenate((mfWE, mfWI), 0)
 
     return mfW
 
