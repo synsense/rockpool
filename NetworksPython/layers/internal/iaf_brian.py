@@ -315,6 +315,12 @@ class FFIAFBrian(Layer):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_inp}, level=0
         )
+        
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * np.asscalar(self.tDt)
+        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+
+        # - Update layer time step
         self._nTimeStep += nNumTimeSteps
 
         # - Build response TimeSeries
@@ -323,12 +329,12 @@ class FFIAFBrian(Layer):
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
         return TSEvent(
-            vtEventTimeOutput,
+            np.clip(vtEventTimeOutput, tStart, tStop),
             vnEventChannelOutput,
             strName="Layer spikes",
             nNumChannels=self.nSize,
-            tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStart=tStart,
+            tStop=tStop,
         )
 
     def stream(
@@ -666,6 +672,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
         )
+        
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * np.asscalar(self.tDt)
+        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+
+        # - Update layer time
         self._nTimeStep += nNumTimeSteps
 
         # - Build response TimeSeries
@@ -674,12 +686,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
         return TSEvent(
-            vtEventTimeOutput,
+            np.clip(vtEventTimeOutput, tStart, tStop),
             vnEventChannelOutput,
             strName="Layer spikes",
             nNumChannels=self.nSize,
-            tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStart=tStart,
+            tStop=tStop,
         )
 
     def reset_time(self):
@@ -1126,20 +1138,26 @@ class RecIAFBrian(Layer):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_inp}, level=0
         )
+        
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * np.asscalar(self.tDt)
+        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+
+        # - Update layer time step
         self._nTimeStep += nNumTimeSteps
 
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
-        vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
+        vtEventTimeOutput = self._spmReservoir.t_[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
         return TSEvent(
-            vtEventTimeOutput,
+            np.clip(vtEventTimeOutput, tStart, tStop),
             vnEventChannelOutput,
             strName="Layer spikes",
             nNumChannels=self.nSize,
-            tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStart=tStart,
+            tStop=tStop,
         )
 
     ### --- Properties
@@ -1464,19 +1482,26 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
         )
+        
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * np.asscalar(self.tDt)
+        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+
+        # - Update layer time step
         self._nTimeStep += nNumTimeSteps
+
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
-        vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
+        vtEventTimeOutput = self._spmReservoir.t_[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
         return TSEvent(
-            vtEventTimeOutput,
+            np.clip(vtEventTimeOutput, tStart, tStop),
             vnEventChannelOutput,
             strName="Layer spikes",
             nNumChannels=self.nSize,
-            tStart=self.t,
-            tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+            tStart=tStart,
+            tStop=tStop,
         )
 
     def reset_time(self):

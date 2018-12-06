@@ -164,27 +164,33 @@ class FFIAFTorch(Layer):
             self.tscRecSynapses = TSContinuous(
                 vtRecTimesSynapses, self.mfRecordSynapses.numpy()
             )
+        print("a", nTimeStepStart)
+        print("b", nTimeStepStart*self.tDt)
+        print("c", (nTimeStepStart+nNumTimeSteps)*self.tDt)
+
+        # - Start and stop times for output time series
+        tStart = nTimeStepStart * self.tDt
+        tStop = (nTimeStepStart + nNumTimeSteps) * self.tDt
 
         # - Output timeseries
         if (mbSpiking == 0).all():
             tseOut = TSEvent(
-                None,
-                tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+                None, tStart=tStart, tStop=tStop,
             )
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (
                 nTimeStepStart + vnSpikeTimeIndices + 1
             ).float() * self.tDt
-
+            print(vtSpikeTimings)
+            
             tseOut = TSEvent(
-                vtTimeTrace=vtSpikeTimings.numpy(),
+                vtTimeTrace=np.clip(vtSpikeTimings.numpy(), tStart, tStop),  # Clip due to possible numerical errors
                 vnChannels=vnChannels.numpy(),
                 nNumChannels=self.nSize,
                 strName="Layer `{}` spikes".format(self.strName),
-                tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * tDt,
+                tStart=tStart,
+                tStop=tStop,
             )
 
         return tseOut
