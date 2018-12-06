@@ -378,7 +378,7 @@ class FFRateEuler(Layer):
     def train_rr(
         self,
         tsTarget: TimeSeries,
-        tsInput: TimeSeries = None,
+        tsInput: TimeSeries,
         fRegularize=0,
         bFirst=True,
         bFinal=False,
@@ -396,15 +396,15 @@ class FFRateEuler(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
+        nNumTimeSteps = int(np.round(tsInput.tDuration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsInput.tStart, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
-        # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+        # - Make sure vtTimeBase does not exceed tsInput
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsInput.tStop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -432,77 +432,76 @@ class FFRateEuler(Layer):
         mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn + 1))
         mfInput[:, -1] = 1
 
-        if tsInput is not None:
-            # Warn if input time range does not cover whole target time range
-            if (
-                not tsInput.contains(vtTimeBase)
-                and not tsInput.bPeriodic
-                and not tsTarget.bPeriodic
-            ):
-                warn(
-                    "WARNING: tsInput (t = {} to {}) does not cover ".format(
-                        tsInput.tStart, tsInput.tStop
-                    )
-                    + "full time range of tsTarget (t = {} to {})\n".format(
-                        tsTarget.tStart, tsTarget.tStop
-                    )
-                    + "Assuming input to be 0 outside of defined range.\n"
-                    + "If you are training by batches, check that the target signal is also split by batch.\n"
+        # Warn if input time range does not cover whole target time range
+        if (
+            not tsTarget.contains(vtTimeBase)
+            and not tsInput.bPeriodic
+            and not tsTarget.bPeriodic
+        ):
+            warn(
+                "WARNING: tsInput (t = {} to {}) does not cover ".format(
+                    tsInput.tStart, tsInput.tStop
                 )
-
-            # - Sample input trace and check for correct dimensions
-            mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
-            # - Treat "NaN" as zero inputs
-            mfInput[np.where(np.isnan(mfInput))] = 0
-
-        else:
-            print(
-                "No tsInput defined, assuming input to be 0 and only training biases."
+                + "full time range of tsTarget (t = {} to {})\n".format(
+                    tsTarget.tStart, tsTarget.tStop
+                )
+                + "Assuming input to be 0 outside of defined range.\n"
+                + "If you are training by batches, check that the target signal is also split by batch.\n"
             )
+
+        # - Sample input trace and check for correct dimensions
+        mfInput[:, :-1] = self._check_input_dims(tsInput(vtTimeBase))
+
+        # - Treat "NaN" as zero inputs
+        mfInput[np.where(np.isnan(mfInput))] = 0
 
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros(
+            self._mfXTY = np.zeros(
                 (self.nSizeIn + 1, self.nSize)
             )  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros(
+            self._mfXTX = np.zeros(
                 (self.nSizeIn + 1, self.nSizeIn + 1)
             )  # mfInput.T (dot) mfInput
+
             # Corresponding Kahan compensations
-            self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
-            self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
+            self._mfKahanCompXTY = np.zeros_like(self._mfXTY)
+            self._mfKahanCompXTX = np.zeros_like(self._mfXTX)
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
-        mfUpdXTY = mfInput.T @ mfTarget - self.mfKahanCompXTY
-        mfUpdXTX = mfInput.T @ mfInput - self.mfKahanCompXTX
+        mfUpdXTY = mfInput.T @ mfTarget - self._mfKahanCompXTY
+        mfUpdXTX = mfInput.T @ mfInput - self._mfKahanCompXTX
 
         if not bFinal:
             # - Update matrices with new data
-            mfNewXTY = self.mfXTY + mfUpdXTY
-            mfNewXTX = self.mfXTX + mfUpdXTX
+            mfNewXTY = self._mfXTY + mfUpdXTY
+            mfNewXTX = self._mfXTX + mfUpdXTX
+
             # - Calculate rounding error for compensation in next batch
-            self.mfKahanCompXTY = (mfNewXTY - self.mfXTY) - mfUpdXTY
-            self.mfKahanCompXTX = (mfNewXTX - self.mfXTX) - mfUpdXTX
+            self._mfKahanCompXTY = (mfNewXTY - self._mfXTY) - mfUpdXTY
+            self._mfKahanCompXTX = (mfNewXTX - self._mfXTX) - mfUpdXTX
+
             # - Store updated matrices
-            self.mfXTY = mfNewXTY
-            self.mfXTX = mfNewXTX
+            self._mfXTY = mfNewXTY
+            self._mfXTX = mfNewXTX
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
-            self.mfXTY += mfUpdXTY
-            self.mfXTX += mfUpdXTX
+            self._mfXTY += mfUpdXTY
+            self._mfXTX += mfUpdXTX
 
             # - Weight and bias update by ridge regression
             mfSolution = np.linalg.solve(
-                self.mfXTX + fRegularize * np.eye(self.nSizeIn + 1), self.mfXTY
+                self._mfXTX + fRegularize * np.eye(self.nSizeIn + 1), self._mfXTY
             )
+
             self.mfW = mfSolution[:-1, :]
             self.vfBias = mfSolution[-1, :]
 
-            # - Remove dat stored during this trainig
-            self.mfXTY = self.mfXTX = self.mfKahanCompXTY = self.mfKahanCompXTX = None
+            # - Remove data stored during this training
+            self._mfXTY = self._mfXTX = self._mfKahanCompXTY = self._mfKahanCompXTX = None
 
     # @njit
     # def potential(self, vInput: np.ndarray) -> np.ndarray:

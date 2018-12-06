@@ -8,8 +8,8 @@
 import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
-from ...weights.internal.cnnweights import CNNWeight
-from ...weights.internal.spiking_conv2d_torch import CNNWeightTorch
+from ...weights import CNNWeight
+from ...weights import CNNWeightTorch
 from ...timeseries import TSEvent
 from abc import abstractmethod
 from .. import Layer
