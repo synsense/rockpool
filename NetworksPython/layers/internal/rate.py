@@ -158,7 +158,7 @@ def get_rec_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray])
        for nStep in range(nNumSteps):
            # - Evolve network state
            vfThisAct = fhActivation(vState + vfBias)
-           vDState = -vState + mfInputStep[nStep, :] + mfW @ vfThisAct
+           vDState = -vState + mfInputStep[nStep, :] + vfThisAct @ mfW
            vState += vDState * vfLambda
 
            # - Store network state
@@ -606,7 +606,7 @@ class PassThrough(FFRateEuler):
 
         # - Call super-class initialiser
         super().__init__(
-            mfW=mfW,
+            mfW=np.asarray(mfW, float),
             tDt=tDt,
             fNoiseStd=fNoiseStd,
             fhActivation=lambda x: x,
@@ -745,7 +745,7 @@ class RecRateEuler(Layer):
         """
 
         # - Call super-class init
-        super().__init__(mfW=mfW, strName=strName)
+        super().__init__(mfW=np.asarray(mfW, float), strName=strName)
 
         # - Check size and shape of `mfW`
         assert len(mfW.shape) == 2, \
@@ -809,7 +809,7 @@ class RecRateEuler(Layer):
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps    int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
-        :return:            TimeSeries  output spike series
+        :return:                TimeSeries  output spike series
 
         """
 
