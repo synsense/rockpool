@@ -536,9 +536,12 @@ class FFExpSyn(Layer):
                 self.mfW = self.mfW - fLearningRate * mfGradients[: -1, :]
                 self.vfBias = self.vfBias - fLearningRate * mfGradients[-1, :]
             if bVerbose:
-                print("Layer `{}`: Training epoch {} of {}".format(self.strName, iEpoch+1, nEpochs))
+                print("Layer `{}`: Training epoch {} of {}".format(self.strName, iEpoch+1, nEpochs), end="\r")
             # - Shuffle samples
             np.random.shuffle(viSampleOrder)
+        
+        if bVerbose:
+            print("Layer `{}`: Finished trainig.              ".format(self.strName))
         
         if bStoreState:    
             # - Store last state for next batch
