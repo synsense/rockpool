@@ -4,10 +4,7 @@
 
 from ..layer import Layer
 from ...timeseries import TSEvent
-from ...dynapse_control import (
-    DynapseControl,
-    connectivity_matrix_to_prepost_lists,
-)
+from ...dynapse_control import  DynapseControl
 
 import numpy as np
 from warnings import warn
