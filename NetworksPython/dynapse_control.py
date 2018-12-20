@@ -772,7 +772,7 @@ def remove_all_connections_to(
     """
     remove_all_connections_to - Remove all presynaptic connections
                                 to neurons defined in vnNeuronIDs
-    :param vNeurons       :     list  IDs of neurons whose presynaptic
+    :param lNeuronIDs:      list  IDs of neurons whose presynaptic
                                       connections should be removed
     :param oModel:          CtxDynapse.model
     :param bApplyDiff:      bool If False do not apply the changes to
@@ -783,8 +783,11 @@ def remove_all_connections_to(
     # - Make sure that lNeuronIDs is on correct side of RPyC connection
     lNeuronIDs = copy.copy(lNeuronIDs)
 
+    # - Get shadow state neurons
+    lShadowNeurons = CtxDynapse.model.get_shadow_state_neurons()
+
     # - Reset neuron weights in model
-    for neuron in lNeuronIDs:
+    for neuron in lShadowNeurons:
         # - Reset SRAMs
         viSrams = neuron.get_srams()
         for iSramIndex in range(1, 4):
@@ -828,7 +831,6 @@ def set_connections(
     lPreNeuronIDs = copy.copy(lPreNeuronIDs)
     lPostNeuronIDs = copy.copy(lPostNeuronIDs)
     lSynapseTypes = copy.copy(lSynapseTypes)
-
     lPresynapticNeurons = lShadowNeurons if lVirtualNeurons is None else lVirtualNeurons
 
     dcNeuronConnector.add_connection_from_list(
@@ -1232,10 +1234,10 @@ class DynapseControl:
         """
 
         # - Handle single neurons
-        if np.size(vnVirtualNeuronIDs) == 1:
-            vnVirtualNeuronIDs = np.repeat(vnVirtualNeuronIDs, np.size(vnNeuronIDs))
-        if np.size(vnNeuronIDs) == 1:
-            vnNeuronIDs = np.repeat(vnNeuronIDs, np.size(vnVirtualNeuronIDs))
+        if isinstance(vnVirtualNeuronIDs, int):
+            vnVirtualNeuronIDs = [vnVirtualNeuronIDs for _ in range(np.size(vnNeuronIDs))]
+        if isinstance(vnNeuronIDs, int):
+            vnNeuronIDs = [vnNeuronIDs for _ in range(np.size(vnVirtualNeuronIDs))]
         if np.size(lSynapseTypes) == 1:
             lSynapseTypes = list(np.repeat(lSynapseTypes, np.size(vnNeuronIDs)))
         else:
@@ -1406,11 +1408,11 @@ class DynapseControl:
                                      going to be added to the given neurons.
         """
         # - Make sure neurons vnNeuronIDs is an array
-        vnNeuronIDs = np.asarray(vnNeuronIDs)
+        vnNeuronIDs = [int(nID) for nID in np.asarray(vnNeuronIDs)]
 
         # - Call `remove_all_connections_to` function
         remove_all_connections_to(
-            [self.lShadowNeurons[i] for i in vnNeuronIDs], self.model, bApplyDiff
+            vnNeuronIDs, self.model, bApplyDiff
         )
 
     ### --- Stimulation and event generation
