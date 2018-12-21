@@ -31,15 +31,14 @@ class RecDynapSE(Layer):
         vnLayerNeuronIDs: Optional[np.ndarray] = None,
         vnVirtualNeuronIDs: Optional[np.ndarray] = None,
         tDt: Optional[float] = DEF_TIMESTEP,
-        fNoiseStd: Optional[float] = None,
         nMaxTrialsPerBatch: Optional[float] = None,
         tMaxBatchDur: Optional[float] = None,
         nMaxNumTimeSteps: Optional[int] = None,
         nMaxEventsPerBatch: Optional[int] = None,
-        lInputCoreIDs: List[int] = [0],
+        lnInputCoreIDs: List[int] = [0],
         nInputChipID: int = 0,
-        controller: DynapseControl=None,
         lnClearCores: Optional[list]=None,
+        controller: DynapseControl=None,
         strName: Optional[str] = "unnamed",
     ):
         """
@@ -52,18 +51,17 @@ class RecDynapSE(Layer):
         :param vnLayerNeuronIDs:    ndarray  1D array of IDs of N hardware neurons that are to be used as layer neurons
         :param vnVirtualNeuronIDs:  ndarray  1D array of IDs of M virtual neurons that are to be used as input neurons
         :param tDt:                 float   Time-step.
-        :param fNoiseStd:           float   Dummy noise to inject. Not used in layer evolution
         :param nMaxTrialsPerBatch:  int  Maximum number of trials (specified in input timeseries) per batch.
                                          Longer evolution periods will automatically split in smaller batches.
         :param tMaxBatchDur:        float  Maximum duration of single evolution batch.
         :param nMaxNumTimeSteps:    float  Maximum number of time steps of of single evolution batch.
         :param nMaxEventsPerBatch:  float  Maximum number of input events per evolution batch.
-        :param lInputCoreIDs:       array-like  IDs of the cores that contain neurons receiving external inputs.
+        :param lnInputCoreIDs:      array-like  IDs of the cores that contain neurons receiving external inputs.
                                                 To avoid ID collisions neurons on these cores should not receive inputs
                                                 from other neurons.
         :param nInputChipID:        int  ID of the chip with neurons that receive external input.
-        :param controller:          DynapseControl object to interface the hardware
         :param lnClearCores:        list or None  IDs of chips where configurations should be cleared.
+        :param controller:          DynapseControl object to interface the hardware
         :param strName:             str     Layer name
         """
 
@@ -78,15 +76,6 @@ class RecDynapSE(Layer):
             self.controller.clear_connections(lnClearCores)
 
         # - Check supplied arguments
-        if fNoiseStd is not None:
-            warn(
-                "Layer `{}`: Caution: `fNoiseStd` is ignored during DynapSE layer evolution.".format(
-                    strName
-                )
-            )
-        else:
-            fNoiseStd = 0.
-
         assert (
             mfWRec.shape[0] == mfWRec.shape[1]
         ), "Layer `{}`: The recurrent weight matrix `mnWRec` must be square.".format(
@@ -97,7 +86,6 @@ class RecDynapSE(Layer):
         super().__init__(
             mfW=np.asarray(np.round(mfWIn), "int"),
             tDt=tDt,
-            fNoiseStd=fNoiseStd,
             strName=strName,
         )
         print("Layer `{}`: Superclass initialized".format(strName))
@@ -113,7 +101,7 @@ class RecDynapSE(Layer):
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
         # - Record input core mask and chip ID
-        self._nInputCoreMask = int(np.sum([2**nID for nID in lInputCoreIDs]))
+        self._nInputCoreMask = int(np.sum([2**nID for nID in lnInputCoreIDs]))
         self._nInputChipID = nInputChipID
         # - Store evolution batch size limitations
         self.nMaxTrialsPerBatch = nMaxTrialsPerBatch
