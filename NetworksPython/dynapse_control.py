@@ -1166,7 +1166,8 @@ class DynapseControl:
         # - Mark these neurons as allocated
         self.vbFreeHWNeurons[vnNeuronsToAllocate] = False
 
-        # - Prevent allocation of virtual neurons with same ID as allocated hardware neurons
+        # - Prevent allocation of virtual neurons with same (logical) ID as allocated hardware neurons
+        #  IS THIS REALLY NECESSARY?
         vnInputNeuronOverlap = vnNeuronsToAllocate[
             vnNeuronsToAllocate < np.size(self.vbFreeVirtualNeurons)
         ]
@@ -1212,6 +1213,7 @@ class DynapseControl:
         # - Mark these as allocated
         self.vbFreeVirtualNeurons[vnNeuronsToAllocate] = False
         # - Prevent allocation of hardware neurons with same ID as allocated virtual neurons
+        #  IS THIS REALLY NECESSARY?
         self.vbFreeHWNeurons[vnNeuronsToAllocate] = False
 
         # - Return these neurons
