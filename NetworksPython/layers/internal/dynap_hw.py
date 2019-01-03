@@ -107,7 +107,7 @@ class RecDynapSE(Layer):
         self.nMaxTrialsPerBatch = nMaxTrialsPerBatch
         self.nMaxEventsPerBatch = (
             self.controller.nFpgaEventLimit if nMaxEventsPerBatch is None
-            else nMaxTrialsPerBatch
+            else nMaxEventsPerBatch
         )
         if nMaxNumTimeSteps is not None:
             if tMaxBatchDur is not None:
@@ -576,4 +576,10 @@ class RecDynapSE(Layer):
     @property
     def vnHWNeuronIDs(self):
         return self._vnHWNeuronIDs
+    
+    @property
+    def lnInputCoreIDs(self):
+        # - Core mask as reversed binary string
+        strBinCoreMask = resersed(bin(self._nInputCoreMask)[-4:])
+        return [nCoreID for nCoreID, bMask in enumerate(strBinCoreMask) if int(bMask)]
     
