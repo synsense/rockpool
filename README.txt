@@ -10,12 +10,12 @@ Checkout the repository
 `$ cd network-architectures`
 
 Install packages in requirements_conda.sh
-If you are a conda user, you can simply edecute this file
+If you are a conda user, you can simply execute this file
 `$ ./requirements_conda.sh`
 
 If not, it is advisable to install these packages using your system package manager to ensure compatibility.
 
-The rest of the requirements call be installed using pip.
+The rest of the requirements can be installed using pip.
 
 `$ pip install -r requirements.txt --user`
 `$ pip install -e . --user`
