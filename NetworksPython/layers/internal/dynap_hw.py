@@ -157,7 +157,7 @@ class RecDynapSE(Layer):
     def _batch_input_data(
         self, tsInput: TSEvent, nNumTimeSteps: int, bVerbose: bool = False
     ) -> (np.ndarray, int):
-        """_batch_data: Generator that returns the data in batches"""
+        """_batch_input_data: Generator that returns the data in batches"""
         # - Time points of input trace in discrete layer time base
         vnTSInputEvents = np.floor(tsInput.vtTimeTrace / self.tDt).astype(int)
         # - Make sure evolution is within correct interval
@@ -429,12 +429,14 @@ class RecDynapSE(Layer):
 
         ## -- Set connections wihtin hardware layer
         
-        # - Infer how many input neurons there are (i.e. neurons that receive input from a virtual neuron)
-        nNumInputNeurons = np.sum((self.mfWIn != 0).any(axis=0))
+        # - Infer which neurons are "input neurons" (i.e. neurons that receive input from a virtual neuron)
+        vbInputNeurons = (self.mfWIn != 0).any(axis=0)
 
-        # - Connections from input layer neurons to excitatory neurons
+        # - Connections from input neurons to remaining neurons
+        mnWInToRec = self.mfW.copy()
+        mnWInToRec[vbInputNeurons==False] = 0
         self.controller.set_connections_from_weights(
-            mnW=self.mfW[: nNumInputNeurons, :],  # Assume input neurons are first in weight matrix
+            mnW=mnWInToRec,
             vnHWNeuronIDs=self.vnHWNeuronIDs,
             synExcitatory=self.controller.synFE,
             synInhibitory=self.controller.synFI,
@@ -442,12 +444,9 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Connections from input neurons to reservoir have been set.".format(self.strName))
 
-        # - Connections between recurrently connected neurons
-        # Ignore outgoing connections of input neurons
-        mnWRec = np.r_[
-            np.zeros((nNumInputNeurons, self.nSize), int),
-            self.mfW[nNumInputNeurons: , :],
-        ]
+        # - Connections going out from neurons that are not input neurons
+        mnWRec = self.mfW.copy()
+        mnWRec[vbInputNeurons] = 0
         self.controller.set_connections_from_weights(
             mnW=mnWRec,
             vnHWNeuronIDs=self.vnHWNeuronIDs,
