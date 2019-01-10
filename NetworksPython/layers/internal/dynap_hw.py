@@ -400,7 +400,12 @@ class RecDynapSE(Layer):
         
         # - Convert recorded events into TSEvent object
         tsResponse = TSEvent(
-            lTimeTrace, lChannels, nNumChannels=self.nSize, strName="DynapSE spikes"
+            lTimeTrace,
+            lChannels,
+            tStart=self.t,
+            tStop=self.t + self.tDt * nNumTimeSteps,
+            nNumChannels=self.nSize,
+            strName="DynapSE spikes",
         )
 
         # - Set layer time
