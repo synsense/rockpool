@@ -235,7 +235,11 @@ class TimeSeries:
             tsObj = self
 
         tsObj.vtTimeTrace += tOffset
-        tsObj.tStop += tOffset
+        # - Depending on sign of tOffset, either tStart or tStop is already updated by updating vtTimeTrace
+        if tOffset < 0:
+            tsObj.tStop += tOffset
+        elif tOffset > 0:
+            tsObj.tStart += tOffset
         return tsObj
 
     def plot(self, vtTimes: Union[int, float, ArrayLike] = None, **kwargs):
@@ -1555,11 +1559,6 @@ class TSEvent(TimeSeries):
                             If bSamples is False, then None is returned.
         """
 
-        # - Handle empty series
-        if len(self.vtTimeTrace) == 0:
-            tplSamples = tuple() if bSamples else None
-            return np.array([]), np.array([], int), np.zeros((0, 0), bool), tplSamples
-
         # - Get data from selected channels and time range
         if vnSelectChannels is not None:
             tsSelected = self.choose(vnSelectChannels)
@@ -1584,16 +1583,22 @@ class TSEvent(TimeSeries):
             nNumTimeSteps = int(np.floor((tStopBase - tStartBase) / tDt))
         else:
             tStopBase = tStartBase + nNumTimeSteps * tDt
-
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
+
+        # - Raster for storing event data
+        dtypeRaster = int if bAddEvents else bool
+        mEventsRaster = np.zeros((nNumTimeSteps, len(vnSelectChannels)), dtypeRaster)
+        
+        # - Handle empty series
+        if len(self.vtTimeTrace) == 0:
+            tplSamples = tuple() if bSamples else None
+            return vtTimeBase, vnSelectChannels, mEventsRaster, tplSamples
 
         vtEventTimes, vnEventChannels, vfSamples = tsSelected.find(
             [tStartBase, tStopBase]
         )
 
         ## -- Convert input events and samples to boolen or integer raster
-        dtypeRaster = int if bAddEvents else bool
-        mEventsRaster = np.zeros((nNumTimeSteps, len(vnSelectChannels)), dtypeRaster)
         if bSamples:
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
         else:
