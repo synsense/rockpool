@@ -1957,6 +1957,12 @@ class DynapseControl:
             elif bTSEvent:      TSEvent object of recorded data
             else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
+        # - Make sure event list is not too long
+        if len(lEvents) > self.nFpgaEventLimit:
+            raise MemoryError("DynapseControl: lEvents can have at most {} elements (has {}).".format(
+                self.nFpgaEventLimit, len(lEvents)
+            ))
+
         # - Prepare FPGA
         self.fpgaSpikeGen.set_repeat_mode(bPeriodic)
         self.fpgaSpikeGen.preload_stimulus(lEvents)
