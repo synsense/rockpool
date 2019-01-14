@@ -410,7 +410,7 @@ def remote_function(func):
 
 
 @remote_function
-def local_arguments(func):  # This doe not work
+def local_arguments(func):
     def local_func(*args, **kwargs):
         for i, argument in enumerate(args):
             newargs = list(args)
@@ -427,7 +427,6 @@ def local_arguments(func):  # This doe not work
 
     return local_func
 
-
 # - Example on how to use local_arguments_rpyc decorator
 @teleport_function
 def _define_print_type():
@@ -437,7 +436,7 @@ def _define_print_type():
 
     return print_type
 
-print_type = correct_argument_types(_define_print_type())  # or just return foo
+print_type = correct_argument_types(_define_print_type())  # or just print_type = _define_print_type()
 
 
 @teleport_function
@@ -462,10 +461,64 @@ def extract_event_data(lEvents) -> (tuple, tuple):
             raise e
     return tupTimeStamps, tupNeuronIDs
 
+@remote_function
+def _replace_too_large_value(nVal, nLimit: int=FPGA_ISI_LIMIT):
+    """
+    replace_too_large_entry - Return a list of integers <= nLimit, that sum up to nVal
+    :param nVal:    int  Value to be replaced
+    :param nLimit:  int  Maximum allowed value
+    :return:
+        lnReplace   list  Values to replace nVal
+    """
+    if nVal > nLimit:
+        nReps = (nVal-1) // nLimit
+        # - Return nReps times nLimit, then the remainder
+        #   For modulus shift nVal to avoid replacing with 0 if nVal==nLimit
+        return [*(nLimit for _ in range(nReps)), (nVal-1) % nLimit + 1]
+    else:
+        # - If clause in particular for case where nVal <= 0
+        return [nVal]
+
+@remote_function
+def _auto_insert_dummies(
+    lnDiscreteISIs: list,
+    lnNeuronIDs: list,
+    nFpgaIsiLimit: int = FPGA_ISI_LIMIT
+) -> (list, list):
+    """
+    auto_insert_dummies - Insert dummy events where ISI limit is exceeded
+    :param lnDiscreteISIs:  list  Inter-spike intervals of events
+    :param lnNeuronIDs:     list  IDs of neurons corresponding to the ISIs
+
+    :return:
+        lnCorrectedISIs     list  ISIs that do not exceed limit, including dummies
+        lnCorrectedIDs      list  Neuron IDs corresponding to corrected ISIs. Dummy events have None.
+        lbDummy             list  Boolean indicating which events are dummy events
+    """
+    # - List of lists with corrected entries
+    llCorrected = [_replace_too_large_value(nISI, nFpgaIsiLimit) for nISI in lnDiscreteISIs]
+    # - Number of new entries for each old entry
+    lnNumNew = [len(l) for l in llCorrected]
+    # - List of lists with neuron IDs corresponding to ISIs. Dummy events have ID None
+    llIDs = [
+        [nID, *(None for _ in range(nLen - 1))]
+        for nID, nLen in zip(lnNeuronIDs, lnNumNew)
+    ]
+    # - Flatten out lists
+    lnCorrectedISIs = [nISI for l in llCorrected for nISI in l]
+    lnCorrectedIDs = [nID for l in llIDs for nID in l]
+
+    return lnCorrectedISIs, lnCorrectedIDs
+
 
 @teleport_function
 def generate_fpga_event_list(
-    lnDiscreteISIs: list, lnNeuronIDs: list, nTargetCoreMask: int, nTargetChipID: int
+    lnDiscreteISIs: list,
+    lnNeuronIDs: list,
+    nTargetCoreMask: int,
+    nTargetChipID: int,
+    nFpgaIsiLimit: int = FPGA_ISI_LIMIT,
+    bCorrectISI: bool = True,
 ) -> list:
     """
     generate_fpga_event_list - Generate a list of FpgaSpikeEvent objects
@@ -473,6 +526,8 @@ def generate_fpga_event_list(
     :param lnNeuronIDs:     array-like  IDs of neurons corresponding to events
     :param nNeuronID:       int ID of source neuron
     :param nTargetCoreMask: int Coremask to determine target cores
+    :nFpgaIsiLimit:         int Maximum ISI size (in time steps)
+    :bCorrectISI:           bool Correct too large ISIs in lnDiscreteISIs
 
     :return:
         event  list of generated FpgaSpikeEvent objects.
@@ -483,6 +538,11 @@ def generate_fpga_event_list(
     nTargetChipID = int(nTargetChipID)
     lnNeuronIDs = copy.copy(lnNeuronIDs)
     lnDiscreteISIs = copy.copy(lnDiscreteISIs)
+
+    if bCorrectISI:
+        lnDiscreteISIs, lnNeuronIDs = _auto_insert_dummies(
+            lnDiscreteISIs, lnNeuronIDs, nFpgaIsiLimit
+        )
 
     def generate_fpga_event(nNeuronID: int, nISI: int) -> CtxDynapse.FpgaSpikeEvent:
         """
@@ -495,8 +555,8 @@ def generate_fpga_event_list(
         """
         event = CtxDynapse.FpgaSpikeEvent()
         event.target_chip = nTargetChipID
-        event.core_mask = nTargetCoreMask
-        event.neuron_id = nNeuronID
+        event.core_mask = 0 if nNeuronID is None else nTargetCoreMask
+        event.neuron_id = 0 if nNeuronID is None else nNeuronID
         event.isi = nISI
         return event
 
