@@ -2027,7 +2027,7 @@ class DynapseControl:
         viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tRecord)
         # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
         iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
-        print("\ŧ\ŧ Using trigger event {}".format(iTrigger))
+        print("\t\t Using trigger event {}".format(iTrigger))
         tStartTrigger = vtStartTriggers[iTrigger]
         iStartIndex = viStartIndices[iTrigger]
         iEndIndex = viEndIndices[iTrigger]
