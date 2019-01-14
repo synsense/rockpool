@@ -1957,7 +1957,7 @@ class DynapseControl:
             elif bTSEvent:      TSEvent object of recorded data
             else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
-        # - Make sure event list is not too long
+        # - Throw an exception if event list is too long
         if len(lEvents) > self.nFpgaEventLimit:
             raise MemoryError("DynapseControl: lEvents can have at most {} elements (has {}).".format(
                 self.nFpgaEventLimit, len(lEvents)
@@ -2022,9 +2022,16 @@ class DynapseControl:
         vnChannels = np.array(vnChannels)
 
         # - Locate synchronisation timestamp
-        tStartTrigger = lTrigger[0] * 1e-6
-        iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
-        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger + tRecord)
+        vtStartTriggers = np.array(lTrigger) * 1e-6
+        viStartIndices = np.searchsorted(vtTimeTrace, vtStartTriggers)
+        viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tRecord)
+        # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
+        iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
+        print("\ŧ\ŧ Using trigger event {}".format(iTrigger))
+        tStartTrigger = vtStartTriggers[iTrigger]
+        iStartIndex = viStartIndices[iTrigger]
+        iEndIndex = viEndIndices[iTrigger]
+        # - Filter time trace
         vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
         vnChannels = vnChannels[iStartIndex:iEndIndex]
         print("DynapseControl: Extracted event data")
@@ -2056,12 +2063,20 @@ class DynapseControl:
         vnChannels = np.array(vnChannels)
 
         # - Locate synchronisation timestamp
-        tStartTrigger = lTrigger[0] * 1e-6
-        iStartIndex = np.searchsorted(vtTimeTrace, tStartTrigger)
-        iEndIndex = np.searchsorted(vtTimeTrace, tStartTrigger + tRecord)
+        vtStartTriggers = np.array(lTrigger) * 1e-6
+        viStartIndices = np.searchsorted(vtTimeTrace, vtStartTriggers)
+        viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tRecord)
+        # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
+        iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
+        print("\ŧ\ŧ Using trigger event {}".format(iTrigger))
+        tStartTrigger = vtStartTriggers[iTrigger]
+        iStartIndex = viStartIndices[iTrigger]
+        iEndIndex = viEndIndices[iTrigger]
+        # - Filter time trace
         vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
         vnChannels = vnChannels[iStartIndex:iEndIndex]
         print("DynapseControl: Extracted event data")
+        
         return vtTimeTrace, vnChannels
 
     ### --- Tools for tuning and observing activities
