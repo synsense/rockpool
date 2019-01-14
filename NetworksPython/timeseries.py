@@ -235,7 +235,6 @@ class TimeSeries:
             tsObj = self
 
         tsObj.vtTimeTrace += tOffset
-        tsObj.tStart += tOffset
         tsObj.tStop += tOffset
         return tsObj
 
