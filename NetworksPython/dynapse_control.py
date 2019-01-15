@@ -1190,8 +1190,10 @@ class DynapseControl:
         self, vnNeuronIDs: Union[int, np.ndarray]
     ) -> (np.ndarray, np.ndarray):
         """
-        allocate_hw_neurons - Return a list of neurons that may be used.
-                              These are guaranteed not to already be assigned.
+        allocate_hw_neurons - If vnNeuronIDs is ArrayLike, verify that neurons have not
+                              been assigned yet and mark them as assigned and return a
+                              list of corresponding hardware and shadow state neurons.
+                              If vnNeuronIDs is an integer, assing first n available neurons.
 
         :param vnNeuronIDs:  int or np.ndarray    The number of neurons requested or IDs of requested neurons
         :return:             list                 A list of neurons that may be used
@@ -1243,8 +1245,10 @@ class DynapseControl:
         self, vnNeuronIDs: Union[int, np.ndarray]
     ) -> np.ndarray:
         """
-        allocate_virtual_neurons - Return a list of neurons that may be used.
-                                   These are guaranteed not to already be assigned.
+        allocate_virtual_neurons - If vnNeuronIDs is ArrayLike, verify that virtual neurons have not
+                                   been assigned yet and mark them as assigned and return a
+                                   list of virtual neurons neurons.
+                                   If vnNeuronIDs is an integer, assing first n available virtual neurons.
 
         :param vnNeuronIDs:  int or np.ndarray    The number of neurons requested or IDs of requested neurons
         :return:             list    A list of neurons that may be used
@@ -1287,7 +1291,7 @@ class DynapseControl:
     ):
         """
         conncect_to_virtual - Connect a group of hardware neurons or
-                              single hardware neuron to a groupd of
+                              single hardware neuron to a group of
                               virtual neurons (1 to 1) or to a single
                               virtual neuron.
         :param vnVirtualNeuronIDs:   np.ndarray  IDs of virtual neurons
@@ -1479,7 +1483,7 @@ class DynapseControl:
 
     ### --- Stimulation and event generation
 
-    def TSEvent_to_spike_list(
+    def _TSEvent_to_spike_list(
         self,
         tsSeries: TSEvent,
         vnNeuronIDs: np.ndarray,
@@ -1487,7 +1491,7 @@ class DynapseControl:
         nTargetChipID: int = 0,
     ) -> List:
         """
-        TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
+        _TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
         :param tsSeries:        TSEvent      Time series of events to send as input
         :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
@@ -1523,7 +1527,7 @@ class DynapseControl:
         # - Return a list of events
         return lEvents
 
-    def arrays_to_spike_list(
+    def _arrays_to_spike_list(
         self,
         vnChannels: np.ndarray,
         vnNeuronIDs: np.ndarray,
@@ -1535,7 +1539,7 @@ class DynapseControl:
         nTargetChipID: int = 0,
     ) -> List:
         """
-        arrays_to_spike_list - Convert an array of input time steps and an an array
+        _arrays_to_spike_list - Convert an array of input time steps and an an array
                                of event channels to a ctxctl spike list
 
         :param vnChannels:      np.ndarray   Event channels
@@ -1649,7 +1653,7 @@ class DynapseControl:
         nChipID: int = 0,
     ):
         """
-        start_poisson_stim - Start generated events by poisson processes and send them.
+        start_poisson_stim - Start generating events by poisson processes and send them.
         :param vfFrequency: int or array-like  Frequencies of poisson processes
         :param vnNeuronIDs: int or array-like  Event neuron ID(s)
         :param nChipID:     int  Target chip ID
@@ -1740,7 +1744,7 @@ class DynapseControl:
             vnTimeSteps, vnTimeSteps[-1] + np.arange(1, nAdd + 1) * self.nFpgaIsiLimit
         ]
 
-        lEvents = self.arrays_to_spike_list(
+        lEvents = self._arrays_to_spike_list(
             vnTimeSteps=vnTimeSteps,
             vnChannels=np.repeat(nInputNeuronID, vnTimeSteps.size),
             vnNeuronIDs=range(len(self.lVirtualNeurons)),
@@ -1754,7 +1758,7 @@ class DynapseControl:
         print("DynapseControl: Stimulus pulse prepared")
 
         # - Stimulate and return recorded data if any
-        return self.send_stimulus_list(
+        return self._send_stimulus_list(
             lEvents=lEvents,
             tDuration=tRecord,
             tBuffer=tBuffer,
@@ -1814,7 +1818,7 @@ class DynapseControl:
         tRecord = tsSeries.tDuration if tRecord is None else tRecord
 
         # - Prepare event list
-        lEvents = self.TSEvent_to_spike_list(
+        lEvents = self._TSEvent_to_spike_list(
             tsSeries,
             vnNeuronIDs=vnNeuronIDs,
             nTargetCoreMask=nTargetCoreMask,
@@ -1827,7 +1831,7 @@ class DynapseControl:
         )
 
         # - Stimulate and return recorded data if any
-        return self.send_stimulus_list(
+        return self._send_stimulus_list(
             lEvents=lEvents,
             tDuration=tRecord,
             tBuffer=tBuffer,
@@ -1905,7 +1909,7 @@ class DynapseControl:
             )
 
         # - Prepare event list
-        lEvents = self.arrays_to_spike_list(
+        lEvents = self._arrays_to_spike_list(
             vtTimeTrace=vtTimeTrace,
             vnTimeSteps=vnTimeSteps,
             vnChannels=vnChannels,
@@ -1917,7 +1921,7 @@ class DynapseControl:
         print("DynapseControl: Stimulus prepared from arrays.")
 
         # - Stimulate and return recorded data if any
-        return self.send_stimulus_list(
+        return self._send_stimulus_list(
             lEvents=lEvents,
             tDuration=tRecord,
             tBuffer=tBuffer,
@@ -1927,7 +1931,7 @@ class DynapseControl:
             bTSEvent=bTSEvent,
         )
 
-    def send_stimulus_list(
+    def _send_stimulus_list(
         self,
         lEvents,
         tDuration,
@@ -1938,7 +1942,7 @@ class DynapseControl:
         bTSEvent: bool = False,
     ):
         """
-        send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
+        _send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
 
         :param lEvents:           list   List of FpgaSpikeEvent objects to be sent to hardware
         :param tDuration:         float  Duration of the stimulation and recording
@@ -2000,12 +2004,12 @@ class DynapseControl:
             self.bufferedfilter.clear()
             if bTSEvent:
                 # - Extract TSEvent from recorded data
-                return self.recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)
+                return self._recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)
             else:
                 # - Extract arrays from recorded data
-                return self.recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
+                return self._recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
 
-    def recorded_data_to_TSEvent(
+    def _recorded_data_to_TSEvent(
         self, vnNeuronIDs: np.ndarray, tRecord: float
     ) -> TSEvent:
         lEvents = self.bufferedfilter.get_events()
@@ -2045,7 +2049,7 @@ class DynapseControl:
             strName="DynapSE"
         )
 
-    def recorded_data_to_arrays(
+    def _recorded_data_to_arrays(
         self, vnNeuronIDs: np.ndarray, tRecord: float
     ) -> TSEvent:
         lEvents = self.bufferedfilter.get_events()
@@ -2068,7 +2072,7 @@ class DynapseControl:
         viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tRecord)
         # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
         iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
-        print("\ŧ\ŧ Using trigger event {}".format(iTrigger))
+        print("\t\t Using trigger event {}".format(iTrigger))
         tStartTrigger = vtStartTriggers[iTrigger]
         iStartIndex = viStartIndices[iTrigger]
         iEndIndex = viEndIndices[iTrigger]
