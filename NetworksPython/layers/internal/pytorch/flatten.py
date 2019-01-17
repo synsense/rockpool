@@ -20,7 +20,9 @@ class TorchFlatten2dLayer(nn.Module):
 
     def forward(self, tsrBinaryInput):
         nBatch = len(tsrBinaryInput)
-        tsrFlattenOut = tsrBinaryInput.view(nBatch, -1)
+        # Temporary modify LQ, due to keras weights generation change
+        #tsrBinaryInput = tsrBinaryInput.permute(0, 2, 3, 1)
+        tsrFlattenOut = tsrBinaryInput.contiguous().view(nBatch, -1)
         self.outShape = tsrFlattenOut.shape[1:]
         self.tsrNumSpikes = tsrFlattenOut
         return tsrFlattenOut

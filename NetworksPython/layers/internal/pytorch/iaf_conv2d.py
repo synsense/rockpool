@@ -136,7 +136,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 ).int() * ((tsrState - fVThresh) / fVSubtract).int()
                 ## - Subtract from states
                 tsrState = tsrState - (
-                    fVSubtract * tsrNumSpikes[iCurrentTimeStep].float()
+                    fVSubtract * tsrNumSpikes[iCurrentTimeStep].double()
                 )
             else:
                 # - Check threshold crossings for spikes
@@ -145,8 +145,8 @@ class TorchSpikingConv2dLayer(nn.Module):
                 tsrNumSpikes[iCurrentTimeStep] = vbRecSpikeRaster
                 # - Reset neuron states
                 tsrState = (
-                    vbRecSpikeRaster.float() * fVReset
-                    + tsrState * (vbRecSpikeRaster ^ 1).float()
+                    vbRecSpikeRaster.double() * fVReset
+                    + tsrState * (vbRecSpikeRaster ^ 1).double()
                 )
 
             if fVThreshLow is not None:
@@ -155,7 +155,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.tsrState = tsrState
         self.tsrNumSpikes = tsrNumSpikes
         self.outShape = tsrNumSpikes.shape[1:]
-        return tsrNumSpikes.float()  # Float is just to keep things compatible
+        return tsrNumSpikes.double()  # Float is just to keep things compatible
 
     def summary(self):
         summary = pd.DataFrame(
