@@ -509,8 +509,8 @@ def _auto_insert_dummies(
     lnCorrectedIDs = [nID for l in llIDs for nID in l]
     # - Count number of added dummy events (each one has None as ID)
     nNumDummies = len(tuple(filter(lambda x: x is None, lnCorrectedIDs)))
-    if nNumDummies > 0:
-        print("dynapse_control: Inserted {} dummy events.".format(nNumDummies))
+    # if nNumDummies > 0:
+    print("dynapse_control: Inserted {} dummy events.".format(nNumDummies))
 
     return lnCorrectedISIs, lnCorrectedIDs
 
@@ -1889,7 +1889,7 @@ class DynapseControl:
 
         # - Process input arguments
         vnNeuronIDs = (
-            np.arange(np.amax(vnChannels))
+            np.arange(np.amax(vnChannels) + 1)
             if vnNeuronIDs is None
             else np.array(vnNeuronIDs)
         )

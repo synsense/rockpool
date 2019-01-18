@@ -359,18 +359,6 @@ class RecDynapSE(Layer):
             ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
             tDuration = nNumTimeSteps * self.tDt
 
-        if tsInput is not None:
-            # - Make sure that no inter-spike interval is too long
-            #   BETTER: LET DC HANDLE THIS, HAVE METHOD FOR SENDING ARRAYS SAFELY THAT REACTS TO EXCEPTIONS FOR TOO MANY events
-            vnDiscreteISIs = np.diff(np.r_[
-                self._nTimeStep,
-                np.floor(tsInput.vtTimeTrace / self.tDt).astype(int)
-            ])
-            if (vnDiscreteISIs > self.controller.nFpgaIsiLimit).any():
-                raise MemoryError("Layer `{}`: Inter-spike intervals must not exceed {} timesteps.".format(
-                    self.strName, self.controller.nFpgaIsiLimit)
-                )
-
         # - Lists for storing recorded data
         lTimeTrace = []
         lChannels = []
@@ -422,6 +410,7 @@ class RecDynapSE(Layer):
         return tsResponse
 
     def _send_batch(
+        self,
         vnTimeSteps: np.ndarray,
         vnChannels: np.ndarray,
         tDurBatch: float,
@@ -442,6 +431,7 @@ class RecDynapSE(Layer):
         # - It can happen that DynapseControl inserts dummy events to make sure ISI limit is not exceeded.
         #   This may result in too many events in single batch, in which case a MemoryError is raised.
         except MemoryError:
+            print("Layer `{}`: Split current batch into two, due to large number of events.".format(strName))
             ## -- Split the batch in two parts, then set it together
             # - Total number of time steps in batch
             nNumTSBatch = int(np.round(tDurBatch / self.tDt))
