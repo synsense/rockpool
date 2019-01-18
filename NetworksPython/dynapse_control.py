@@ -507,6 +507,10 @@ def _auto_insert_dummies(
     # - Flatten out lists
     lnCorrectedISIs = [nISI for l in llCorrected for nISI in l]
     lnCorrectedIDs = [nID for l in llIDs for nID in l]
+    # - Count number of added dummy events (each one has None as ID)
+    nNumDummies = len(tuple(filter(lambda x: x is None, lnCorrectedIDs)))
+    if nNumDummies > 0:
+        print("dynapse_control: Inserted {} dummy events.".format(nNumDummies))
 
     return lnCorrectedISIs, lnCorrectedIDs
 

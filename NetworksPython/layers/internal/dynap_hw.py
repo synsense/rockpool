@@ -388,17 +388,10 @@ class RecDynapSE(Layer):
             nTSStartBatch,
             tDurBatch,
         ) in gInputGenerator:
-            vtTimeTraceBatch, vnChannelsBatch = self.controller.send_arrays(
+            vtTimeTraceBatch, vnChannelsBatch = self._send_batch(
                 vnTimeSteps=vnTSInputEventsBatch - nTSStartBatch,
                 vnChannels=vnInputChannelsBatch,
-                tRecord=tDurBatch,
-                vnNeuronIDs=self.vnVirtualNeuronIDs,
-                vnRecordNeuronIDs=self.vnHWNeuronIDs,
-                nTargetCoreMask=self._nInputCoreMask,
-                nTargetChipID=self._nInputChipID,
-                bPeriodic=False,
-                bRecord=True,
-                bTSEvent=False,
+                tDurBatch=tDurBatch,
             )
             
             lChannels.append(vnChannelsBatch)
@@ -427,6 +420,59 @@ class RecDynapSE(Layer):
             print("Layer `{}`: Evolution successful.".format(self.strName))
 
         return tsResponse
+
+    def _send_batch(
+        vnTimeSteps: np.ndarray,
+        vnChannels: np.ndarray,
+        tDurBatch: float,
+    ):
+        try:
+            vtTimeTraceOut, vnChannelsOut = self.controller.send_arrays(
+                vnTimeSteps=vnTimeSteps,
+                vnChannels=vnChannels,
+                tRecord=tDurBatch,
+                vnNeuronIDs=self.vnVirtualNeuronIDs,
+                vnRecordNeuronIDs=self.vnHWNeuronIDs,
+                nTargetCoreMask=self._nInputCoreMask,
+                nTargetChipID=self._nInputChipID,
+                bPeriodic=False,
+                bRecord=True,
+                bTSEvent=False,
+            )
+        # - It can happen that DynapseControl inserts dummy events to make sure ISI limit is not exceeded.
+        #   This may result in too many events in single batch, in which case a MemoryError is raised.
+        except MemoryError:
+            ## -- Split the batch in two parts, then set it together
+            # - Total number of time steps in batch
+            nNumTSBatch = int(np.round(tDurBatch / self.tDt))
+            # - Number of time steps and durations of first and second part:
+            nNumTSPart1 = nNumTSBatch // 2
+            nNumTSPart2 = nNumTSBatch - nNumTSPart1
+            tplDurations = (self.tDt * nNumTSPart1,  self.tDt * nNumTSPart2)
+            # - Determine where to split arrays of input time steps and channels
+            iSplit = np.searchsorted(vnTimeSteps, nNumTSPart1)
+            # - Event time steps for each part
+            tplvnTimeSteps = (vnTimeSteps[: iSplit], vnTimeSteps[iSplit: ] - nNumTSPart1)
+            # - Event channels for each part$
+            tplvnChannels = (vnChannels[: iSplit], vnChannels[iSplit: ])
+            # - Evolve the two parts. lOutputs is list with two tuples, each tuple corresponding to one part
+            lOutputs = [
+                list(  # - Wrap in list to be able to modify elements (add time) later on
+                    self._send_batch(
+                        vnTimeSteps=vnTS,
+                        vnChannels=vnC,
+                        tDurBatch=tDur,
+                    )
+                )
+                for vnTS, vnC, tDur in zip(tplvnTimeSteps, tplvnChannels, tplDurations)
+            ]
+            # - Correct time of second part
+            lOutputs[-1][0] += tplDurations[0]
+            # - Separate output into arrays
+            vtTimeTraceOut, vnChannelsOut = [np.hstack(tplOut) for tplOut in zip(*lOutputs)]
+
+        return vtTimeTraceOut, vnChannelsOut
+
 
     def _compile_weights_and_configure(self):
         """
