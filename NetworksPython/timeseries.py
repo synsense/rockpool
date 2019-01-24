@@ -152,12 +152,14 @@ class TimeSeries:
         self.strInterpKind = strInterpKind
         self.bPeriodic = bPeriodic
         self.strName = strName
-        if np.size(vtTimeTrace) == 0:
-            self.tStart = 0
-            self.tStop = 0
-        else:
-            self.tStart = vtTimeTrace[0] if tStart is None else tStart
-            self.tStop = vtTimeTrace[-1] if tStop is None else tStop
+        self.tStart = (
+            0 if np.size(vtTimeTrace) == 0
+            else vtTimeTrace[0]
+        ) if tStart is None else tStart
+        self.tStop = (
+            0 if np.size(vtTimeTrace) == 0
+            else vtTimeTrace[-1]
+        ) if tStop is None else tStop
 
         self._create_interpolator()
 
