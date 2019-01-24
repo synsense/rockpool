@@ -1,3 +1,7 @@
+##
+# spiking_conv2d_torch.py - Torch implementation of spiking convolution operation for CNNs
+##
+
 import numpy as np
 import warnings
 from collections import UserList
@@ -13,7 +17,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 class TorchConv2dLayer(nn.Module):
     def __init__(self, kernel, strides, padding, img_data_format="channels_last"):
         """
-        PyTorch Layer that does convolution
+        TorchConv2dLayer - PyTorch Layer that does convolution
         :param kernel: numpy array kernel weights
         :param strides: tuple strides along each axis
         :param padding: padding along each axis
@@ -71,7 +75,7 @@ class CNNWeightTorch(UserList):
         img_data_format="channels_last",
     ):
         """
-        CNNWeight class is virtual array that allows convolutions on the input through indexing
+        CNNWeightTorch class  - virtual array that allows convolutions on the input through indexing
         :param inShape:     tuple Shape of input
         :param nKernels:    int No. of kernels for this convolutial weight matrix
         :param kernel_size: tuple Shape of each kernel, eg (5,5)
@@ -81,7 +85,7 @@ class CNNWeightTorch(UserList):
         (For more information on convolution parameters look into scipy.convolve2d documentation
 
         Important Note: inShape needs to be set before the use of indexing on this object.
-        If left undefine/None, the input dimension is inferred from input dimensions, if the data is binary.
+        If left undefined/None, the input dimension is inferred from input dimensions, if the data is binary.
         If it is an integer index, then an IndexError is raised
         """
         # Initialize placeholder variables

@@ -8,8 +8,8 @@
 import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
-from .cnnweights import CNNWeight
-from .spiking_conv2d_torch import CNNWeightTorch
+from ...weights import CNNWeight
+from ...weights import CNNWeightTorch
 from ...timeseries import TSEvent
 from abc import abstractmethod
 from .. import Layer
@@ -374,8 +374,6 @@ class FFCLIAF(CLIAF):
             # Record initial state of the network
             self._add_to_record(aStateTimeSeries, tCurrentTime)
 
-        print(sum(mfInptSpikeRaster))
-
         # Iterate over all time steps
         for iCurrentTimeStep in tqdm(range(mfInptSpikeRaster.shape[0])):
 
@@ -436,13 +434,21 @@ class FFCLIAF(CLIAF):
         # - Update state
         self._vState = vState
 
-        # Update time
-        self._nTimeStep += nNumTimeSteps
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * self.tDt
+        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            vtTimeTrace=np.clip(ltSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=tStart,
+            tStop=tStop,
         )
+
+        # Update time
+        self._nTimeStep += nNumTimeSteps
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
@@ -628,13 +634,21 @@ class RecCLIAF(CLIAF):
         # - Store IDs of neurons that would spike in next time step
         self._vnNumRecSpikes = vnNumRecSpikes
 
-        # Update time
-        self._nTimeStep += nNumTimeSteps
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * self.tDt
+        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            vtTimeTrace=np.clip(ltSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=tStart,
+            tStop=tStop,
         )
+
+        # Update time
+        self._nTimeStep += nNumTimeSteps
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)

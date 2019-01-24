@@ -10,14 +10,14 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
 
 def test_raise_exception_on_incorrect_shape():
     """
     Test exception on size incompatibility
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(inShape=(1, 200, 200), img_data_format="channels_first")
 
@@ -33,7 +33,7 @@ def test_raise_exception_on_undefined_shape():
     """
     Test exception on size incompatibility
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch()
 
@@ -50,7 +50,7 @@ def test_convolution_full_image():
     """
     Test convolution of full image
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(inShape=(1, 400, 400), img_data_format="channels_first")
 
@@ -66,7 +66,7 @@ def test_convolutionl_nonzero_index():
     """
     Test convolution when the indexing is done by non-zero pixels
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(inShape=(400, 400, 1))
 
@@ -83,7 +83,7 @@ def test_data_format_channels_last():
     """
     Test indexing and output dimensions with channels last data format
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
         inShape=(400, 400, 1),
@@ -114,7 +114,7 @@ def test_data_format_channels_first():
     """
     Test indexing and output dimensions with channels last data format
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
         inShape=(1, 400, 400),
@@ -145,7 +145,7 @@ def test_strides_on_convolution():
     """
     Test the convolution upon a custom stride specified by user
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
         inShape=(1, 10, 10),
@@ -163,7 +163,7 @@ def test_strides_on_convolution_channels_last():
     """
     Test the convolution upon a custom stride specified by user
     """
-    from NetworksPython.layers import CNNWeightTorch
+    from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
         inShape=(10, 10, 1),
@@ -181,8 +181,8 @@ def test_compare_skimage_torch_channels_first():
     """
     Compare convolution results for torch vs skimage with channels first format
     """
-    from NetworksPython.layers import CNNWeightTorch
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeightTorch
+    from NetworksPython.weights import CNNWeight
 
     Wtorch = CNNWeightTorch(
         inShape=(1, 60, 60),
@@ -225,8 +225,8 @@ def test_compare_skimage_torch_channels_last():
     """
     Compare convolution results for torch vs skimage with channels first format
     """
-    from NetworksPython.layers import CNNWeightTorch
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeightTorch
+    from NetworksPython.weights import CNNWeight
 
     Wtorch = CNNWeightTorch(
         inShape=(60, 60, 1),

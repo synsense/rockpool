@@ -1,5 +1,5 @@
 ###
-# digital_brian.py - Class implementing a recurrent layer consisting of
+# iaf_digital.py - Class implementing a recurrent layer consisting of
 #                    digital neurons with constant leak and fixed-size
 #                    integer as state. Event based.
 ###
@@ -35,11 +35,11 @@ tMinRefractory = 1e-9
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-# - RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
+# - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
 
 class RecDIAF(Layer):
-    """ RecDIAFBrian - Class: define a spiking recurrent layer based on digital IAF neurons
+    """ RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
     """
 
     ## - Constructor
@@ -59,7 +59,7 @@ class RecDIAF(Layer):
         strName: str = "unnamed",
     ):
         """
-        RecDIAFBrian - Construct a spiking recurrent layer with digital IAF neurons
+        RecDIAF - Construct a spiking recurrent layer with digital IAF neurons
 
         :param mfWIn:           np.array nSizeInxN input weight matrix.
         :param mfWRec:          np.array NxN weight matrix
@@ -308,6 +308,10 @@ class RecDIAF(Layer):
         # - Store remaining spikes (happening after tFinal) for next call of evolution
         self._heapRemainingSpikes = heapSpikes
 
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * self.tDt
+        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+
         # - Update time
         self._nTimeStep += nNumTimeSteps
 
@@ -316,7 +320,13 @@ class RecDIAF(Layer):
         self.lvStates = lvStates
 
         # - Output time series
-        return TSEvent(ltSpikeTimes, liSpikeIDs, nNumChannels=self.nSize)
+        return TSEvent(
+            np.clip(ltSpikeTimes, tStart, tStop),
+            liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=tStart,
+            tStop=tStop,
+        )
 
     def _prepare_input(
         self,

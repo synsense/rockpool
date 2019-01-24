@@ -1,11 +1,15 @@
-from .pytorch.iaf_conv2d import TorchSpikingConv2dLayer
+##
+# torch_cnn_layer.py - Torch implementation of a FF NetworksPython layer using convolutional weights
+##
+
+from .iaf_conv2d import TorchSpikingConv2dLayer
 import numpy as np
 import torch
 
 # Internal class dependencies
-from ...timeseries import TSEvent
-from .spiking_conv2d_torch import CNNWeightTorch
-from .iaf_cl import FFCLIAF
+from ....timeseries import TSEvent
+from ....weights.internal.spiking_conv2d_torch import CNNWeightTorch
+from ..iaf_cl import FFCLIAF
 
 from typing import Optional, Union, List, Tuple
 from warnings import warn
@@ -17,7 +21,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 fTolAbs = 1e-9
 
 
-class FFCLIAFTorch(FFCLIAF):
+class FFCLIAFCNNTorch(FFCLIAF):
     """
     FFCLIAFTorch - Feedforward layer of integrate and fire neurons with constant leak
     Implemented using pytorch for speed and is meant to be used for convolutions

@@ -1,5 +1,5 @@
 ###
-# iaf_brian.py - Classes implementing recurrent and feedforward layers consisting of standard IAF neurons in brian2genn
+# iaf_gfbrian.py - Classes implementing recurrent and feedforward layers consisting of standard IAF neurons in brian2genn
 ###
 
 
@@ -24,8 +24,8 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
 __all__ = [
+    "FFIAFBrian",
     "FFIAFSpkInBrian",
-    "RecIAFSpkInBrian",
     "eqNeuronIAFSpkInFF",
     "eqNeuronIAFSpkInRec",
     "eqSynapseExp",
@@ -94,9 +94,6 @@ eqSynapseExpSpkInRec = b2.Equations(
     tau_syn_rec                                     : second                    # Synapse time constant, recurrent
 """
 )
-
-## - FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
-
 
 ## - FFIAFBrian - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFBrian(Layer):

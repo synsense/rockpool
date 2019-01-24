@@ -18,7 +18,7 @@ def test_cnn_initialization():
     Test initialization of the layer
     """
     from NetworksPython.layers import EventDrivenSpikingLayer
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
@@ -33,7 +33,7 @@ def test_cnn_evolve():
     """
     from NetworksPython import TSEvent
     from NetworksPython.layers import EventDrivenSpikingLayer
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeight
 
     # Initialize weights
     cnnW = CNNWeight(inShape=(20, 20))
@@ -45,7 +45,8 @@ def test_cnn_evolve():
     evInput = TSEvent(None, strName="Input")
     for nId in range(lyrCNN.nSize):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace = True)
+
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
     print(evOut.find())
@@ -57,7 +58,7 @@ def test_cnn_multilayer():
     """
     from NetworksPython import TSEvent, Network
     from NetworksPython.layers import EventDrivenSpikingLayer
-    from NetworksPython.layers import CNNWeight
+    from NetworksPython.weights import CNNWeight
 
     # Parameters
     imageShape = (10, 10)
@@ -76,7 +77,8 @@ def test_cnn_multilayer():
     evInput = TSEvent(None, strName="Input")
     for nId in range(imageShape[0] * imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace = True)
+
     # Evolve
     evOut = net.evolve(tsInput=evInput, tDuration=100)
     print(evOut)

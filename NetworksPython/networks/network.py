@@ -24,7 +24,7 @@ RealValue = Union[float, Decimal, str]
 # - Configure exports
 __all__ = ["Network"]
 
-# - Relative tolerance for float comparions
+# - Relative tolerance for float comparisons
 fTolRel = 1e-5
 fTolAbs = 1e-10
 
@@ -65,9 +65,9 @@ def gcd(a: RealValue, b: RealValue) -> Decimal:
 
 def lcm(a: RealValue, b: RealValue) -> Decimal:
     """ lcm - Return the least common multiple of two values a and b"""
-    a = Decimal(str(a))
-    b = Decimal(str(b))
-    return a / gcd(a, b) * b
+    a = Decimal(str(np.round(float(a) / fTolRel)))
+    b = Decimal(str(np.round(float(b) / fTolRel)))
+    return a / gcd(a, b) * b * Decimal(fTolRel)
 
 
 ### --- Network class
@@ -95,9 +95,11 @@ class Network:
 
         # Maintain set of all layers
         self.setLayers = set()
+        self.dLayers = dict()
+        self.lLayers = list()
 
         if tDt is not None:
-            assert tDt > 0, "Network: tDt must be positie."
+            assert tDt > 0, "Network: tDt must be positive."
             # - Force tDt
             self._tDt = tDt
             self._bForceDt = True
@@ -190,6 +192,8 @@ class Network:
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
+        self.dLayers[lyr.strName] = lyr
+        self.lLayers.append(lyr)
 
         # - Update global tDt
         self._set_tDt()
@@ -390,15 +394,18 @@ class Network:
                 )
         else:
             ## -- Try to determine self._tDt from layer time steps
-            # - Collectt layer time steps, convert to Decimals for numerical stability
+            # - Collect layer time steps, convert to Decimals for numerical stability
             ltDt = [Decimal(str(lyr.tDt)) for lyr in self.setLayers]
+
             # - If list is empty, there are no layers in the network
             if not ltDt:
                 return None
+
             # - Determine lcm
             tLCM = ltDt[0]
             for tDt in ltDt[1:]:
                 tLCM = lcm(tLCM, tDt)
+
             #   Also
             assert (
                 # - If result is way larger than largest tDt, assume it hasn't worked

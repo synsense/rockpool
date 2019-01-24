@@ -7,7 +7,7 @@ from typing import Optional, Union, List, Tuple
 import numpy as np
 from tqdm import tqdm
 from collections import deque
-from .cnnweights import CNNWeight
+from ...weights import CNNWeight
 from ...timeseries import TSEvent, TSContinuous
 from .iaf_cl import CLIAF
 
@@ -257,12 +257,20 @@ class RecCLIAFExtd(CLIAF):
         # - Store refractoriness of neurons
         self._vnTSUntilRefrEnds = vnTSUntilRefrEnds
 
+        # - Start and stop times for output time series
+        tStart = self._nTimeStep * self.tDt
+        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+
         # Generate output sime series
         vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=vtSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            vtTimeTrace=np.clip(vtSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
+            vnChannels=liSpikeIDs,
+            nNumChannels=self.nSize,
+            tStart=tStart,
+            tStop=tStop,
         )
-
+        
         if vnIdMonitor is not None:
             # - Store recorded data in timeseries
             vtRecordTimes = np.repeat(

@@ -1,3 +1,7 @@
+###
+# weights.py -- Utility functions for generating and manipulating networks
+###
+
 from typing import Callable, Optional, Tuple, Union
 import numpy as np
 import scipy.stats as stats
@@ -83,8 +87,9 @@ def RndmSparseEINet(
     if bPartitioned:
         # - Number of excitatory neurons
         nNumExcNeurons = int(nResSize * fRatioExc)
+
         # - All rows with index > nNumExcNeurons correspond to inhibitory neurons
-        #   Multiply coresponding elements with -1 and scale with fScaleInh
+        #   Multiply corresponding elements with -1 and scale with fScaleInh
         mfWeights[nNumExcNeurons:] *= -fScaleInh
 
     if fNormalize is not None:
@@ -118,15 +123,15 @@ def RandomEINet(
     vnExc = range(nNumExc)
     vnInh = [n + nNumExc for n in range(nNumInh)]
 
-    mfWE = mfW[:, vnExc]
+    mfWE = mfW[vnExc, :]
     mfWE[mfWE < 0] = 0
     mfWE /= np.sum(mfWE, 0)
 
-    mfWI = mfW[:, vnInh]
+    mfWI = mfW[vnInh, :]
     mfWI[mfWI > 0] = 0
     mfWI = mfWI / np.sum(mfWI, 0) * -np.abs(fInhWFactor)
 
-    mfW = np.concatenate((mfWE, mfWI), 1)
+    mfW = np.concatenate((mfWE, mfWI), 0)
 
     return mfW
 
@@ -838,7 +843,7 @@ def digital(
     fNormalize=None,
 ):
     """
-    DynapseConform - Create a weight matrix that conforms the specifications of the Dynapse Chip
+    digital - Create a weight matrix that conforms the specifications of the Dynapse Chip
 
     :param tupShape:        tuple Shape of the weight matrix
     :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
@@ -960,7 +965,7 @@ def in_res_digital(
     bLeaveSpaceForInput=False,
 ):
     """
-    In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+    in_res_digital - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
 
     :param nSize:           int Reservoir size
     :param fInputDensity:   float Ratio of non-zero vs. zero input connections

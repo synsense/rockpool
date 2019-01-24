@@ -228,6 +228,7 @@ class FFExpSyn(Layer):
         bFirst: bool = True,
         bFinal: bool = False,
         bStoreState: bool = True,
+        bTrainBiases: bool = True,
     ):
 
         """
@@ -235,14 +236,17 @@ class FFExpSyn(Layer):
                    many batches. Use Kahan summation to reduce rounding
                    errors when adding data to existing matrices from
                    previous batches.
-        :param tsTarget:    TimeSeries - target for current batch
-        :param tsInput:     TimeSeries - input to self for current batch
-        :fRegularize:       float - regularization for ridge regression
-        :bFirst:            bool - True if current batch is the first in training
-        :bFinal:            bool - True if current batch is the last in training
-        :bStoreState:       bool - Include last state from previous training and store state from this 
-                                   traning. This has the same effect as if data from both trainings
-                                   were presented at once.
+        :param tsTarget:        TimeSeries - target for current batch
+        :param tsInput:         TimeSeries - input to self for current batch
+        :fRegularize:           float - regularization for ridge regression
+        :bFirst:                bool - True if current batch is the first in training
+        :bFinal:                bool - True if current batch is the last in training
+        :bStoreState:           bool - Include last state from previous training and store state from this 
+                                       traning. This has the same effect as if data from both trainings
+                                       were presented at once.
+        :param bTrainBiases:    bool - If True, train biases as if they were weights
+                                       Otherwise present biases will be ignored in
+                                       training and not be changed.   
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -277,10 +281,11 @@ class FFExpSyn(Layer):
         )
 
         # - Prepare input data
-
+        nInputSize = self.nSizeIn + int(bTrainBiases)
         # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn + 1))
-        mfInput[:, -1] = 1
+        mfInput = np.zeros((np.size(vtTimeBase), nInputSize))
+        if bTrainBiases:
+            mfInput[:, -1] = 1
 
         # - Generate spike trains from tsInput
         if tsInput is None:
@@ -347,10 +352,10 @@ class FFExpSyn(Layer):
         if bFirst:
             # Matrices to be updated for each batch
             self.mfXTY = np.zeros(
-                (self.nSizeIn + 1, self.nSize)
+                (nInputSize, self.nSize)
             )  # mfInput.T (dot) mfTarget
             self.mfXTX = np.zeros(
-                (self.nSizeIn + 1, self.nSizeIn + 1)
+                (nInputSize, nInputSize)
             )  # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations
             self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
@@ -374,7 +379,10 @@ class FFExpSyn(Layer):
             
             if bStoreState:
                 # - Store last state for next batch
-                self._vTrainingState = mfInput[-1, :-1].copy()
+                if bTrainBiases:
+                    self._vTrainingState = mfInput[-1, :-1].copy()
+                else:
+                    self._vTrainingState = mfInput[-1, :].copy()
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
@@ -383,10 +391,13 @@ class FFExpSyn(Layer):
 
             # - Weight and bias update by ridge regression
             mfSolution = np.linalg.solve(
-                self.mfXTX + fRegularize * np.eye(self.nSizeIn + 1), self.mfXTY
+                self.mfXTX + fRegularize * np.eye(nInputSize), self.mfXTY
             )
-            self.mfW = mfSolution[:-1, :]
-            self.vfBias = mfSolution[-1, :]
+            if bTrainBiases:
+                self.mfW = mfSolution[:-1, :]
+                self.vfBias = mfSolution[-1, :]
+            else:
+                self.mfW = mfSolution
 
             # - Remove dat stored during this trainig
             self.mfXTY = None
