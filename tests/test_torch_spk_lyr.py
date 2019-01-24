@@ -76,7 +76,7 @@ def test_toch_activity_comparison_to_skimage_default_params():
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=tSim)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
@@ -133,7 +133,7 @@ def test_toch_activity_comparison_to_skimage():
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
@@ -189,7 +189,7 @@ def test_toch_activity_comparison_to_skimage_channels_last():
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(

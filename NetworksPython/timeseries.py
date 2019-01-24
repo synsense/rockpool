@@ -743,10 +743,6 @@ class TimeSeries:
         else:
             tsClipped._mfSamples = np.reshape(tsClipped._mfSamples, (np.size(vbIncludeSamples), -1))[vbIncludeSamples, :]
 
-        # - Build and return TimeSeries
-        tsClipped._vtTimeTrace = tsClipped._vtTimeTrace[vbIncludeSamples]
-        tsClipped._mfSamples = np.reshape(tsClipped._mfSamples, (np.size(vbIncludeSamples), -1))[vbIncludeSamples, :]
-
         # - Update tStart and tStop
         tsClipped._tStart, tsClipped._tStop = vtNewBounds
         
@@ -1355,12 +1351,13 @@ class TSEvent(TimeSeries):
         """
 
         # - Check vnSelectChannels
-        assert (
+        if not (
             np.min(vnSelectChannels) >= 0
             and np.max(vnSelectChannels) < self.nNumChannels
-        ), "`vnSelectChannels` must be between 0 and {}".format(
-            np.max(self.vnChannels - 1)
-        )
+        ):
+            raise IndexError(
+                "`vnSelectChannels` must be between 0 and {}".format(self.nNumChannels)
+            )
 
         # - Make sure elements in vnSelectChannels are unique for better performance
         vnSelectChannels = np.unique(vnSelectChannels)
@@ -1489,7 +1486,7 @@ class TSEvent(TimeSeries):
             tsMerged = self.copy()
 
         # - Ensure we have a list of objects to work on
-        if not isinstance(ltsOther, collections.Iterable):
+        if not isinstance(ltsOther, collections.abc.Iterable):
             ltsOther = [tsMerged, ltsOther]
         else:
             ltsOther = [tsMerged] + list(ltsOther)
