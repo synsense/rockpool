@@ -1609,7 +1609,7 @@ class TSEvent(TimeSeries):
         tStartBase = self.tStart if tStart is None else tStart
         if nNumTimeSteps is None:
             tStopBase = self.tStop if tStop is None else tStop
-            nNumTimeSteps = int(np.ceil((tStopBase - tStartBase) / tDt))
+            nNumTimeSteps = int(np.round((tStopBase - tStartBase) / tDt))
         else:
             tStopBase = tStartBase + nNumTimeSteps * tDt
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
@@ -1623,9 +1623,14 @@ class TSEvent(TimeSeries):
             tplSamples = tuple() if bSamples else None
             return vtTimeBase, vnSelectChannels, mEventsRaster, tplSamples
 
-        vtEventTimes, vnEventChannels, vfSamples = tsSelected.find(
-            [tStartBase, tStopBase]
+        # - Select data according to time base
+        vbChoose = (
+            (tsSelected.vtTimeTrace >= tStartBase)
+            & (tsSelected.vtTimeTrace < tStopBase)
         )
+        vtEventTimes = tsSelected.vtTimeTrace[vbChoose]
+        vnEventChannels = tsSelected.vnChannels[vbChoose]
+        vfSamples = tsSelected.mfSamples[vbChoose]
 
         ## -- Convert input events and samples to boolen or integer raster
         if bSamples:
