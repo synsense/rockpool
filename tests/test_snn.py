@@ -11,6 +11,27 @@ def test_import():
     Test import of the class
     """
     from NetworksPython.layers import FFCLIAF
+    from NetworksPython.layers import PassThroughEvents
+
+def test_pt_events():
+    """ Test PassThroughEvents layer"""
+    from NetworksPython.layers import PassThroughEvents
+    from NetworksPython import TSEvent
+
+    # - Input signal
+    vtTimeTrace = [0.1, 0.2, 0.7, 0.8, 0.9]
+    vnChannels = [1, 2, 0, 1, 1]
+    tsInput = TSEvent(vtTimeTrace, vnChannels)
+
+    # - Layer
+    lpt = PassThroughEvents(np.array([[0,2],[1,1],[0,0]]), tDt=0.4)
+
+    # - Evolution
+    tsOut = lpt.evolve(tsInput)
+
+    assert (tsOut.vnChannels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
+        "Output channels incorrect"
+    )
 
 
 def test_cnn_initialization():
@@ -45,10 +66,32 @@ def test_cnn_evolve():
     evInput = TSEvent(None, strName="Input")
     for nId in range(lyrCNN.nSize):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
     print(evOut.find())
+
+
+def test_cnn_evolve_empty():
+    """
+    Test initialization of the layer
+    """
+    from NetworksPython import TSEvent
+    from NetworksPython.layers import FFCLIAF
+    from NetworksPython.weights import CNNWeight
+
+    # Initialize weights
+    cnnW = CNNWeight(inShape=(20, 20))
+
+    # Initialize a CNN layer with CN weights
+    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+
+    # Generate time series input
+    evInput = TSEvent(None, strName="Input", nNumChannels=lyrCNN.nSize)
+    # Evolve
+    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+    print(evOut.find())
+
 
 
 def test_cnn_multilayer():
@@ -76,7 +119,7 @@ def test_cnn_multilayer():
     evInput = TSEvent(None, strName="Input")
     for nId in range(imageShape[0] * imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
     # Evolve
     evOut = net.evolve(tsInput=evInput, tDuration=100)
     print(evOut)

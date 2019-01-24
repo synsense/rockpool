@@ -486,9 +486,17 @@ class Network:
                     )
             nNumTimeSteps = int(np.floor(tDuration / self.tDt))
 
-        # - Set external input name if not set already
-        if tsInput.strName is None:
-            tsInput.strName = "External input"
+        if tsInput is not None:
+            # - Set external input name if not set already
+            if tsInput.strName is None:
+                tsInput.strName = "External input"
+            # - Check if input contains information about trial timings
+            try:
+                vtTrialStarts = tsInput.vtTrialStarts
+            except AttributeError:
+                vtTrialStarts = None
+        else:
+            vtTrialStarts = None
 
         # - Dict to store external input and each layer's output time series
         dtsSignal = {"external": tsInput}
@@ -528,6 +536,10 @@ class Network:
                 nNumTimeSteps=int(nNumTimeSteps * lyr._nNumTimeStepsPerGlobal),
                 bVerbose=bVerbose,
             )
+
+            # - Add information about trial timings if present
+            if vtTrialStarts is not None:
+                dtsSignal[lyr.strName].vtTrialStarts = vtTrialStarts.copy()
 
             # - Set name for response time series, if not already set
             if dtsSignal[lyr.strName].strName is None:

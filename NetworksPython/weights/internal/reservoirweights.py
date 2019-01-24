@@ -2,13 +2,39 @@
 # weights.py -- Utility functions for generating and manipulating networks
 ###
 
-
 from typing import Callable, Optional, Tuple, Union
 import numpy as np
 import scipy.stats as stats
 from copy import deepcopy
 from brian2.units.allunits import mvolt
 import random
+
+def combine_FF_Rec_stack(mfWFF: np.ndarray,
+                         mfWRec: np.ndarray,
+                         ) -> np.ndarray:
+    """
+    combine_FF_Rec_stack - Combine a FFwd and Recurrent weight matrix into a single recurrent weight matrix
+    :param mfWFF:   MxN np.ndarray
+    :param mfWRec:  NxN np.ndarray
+
+    :return: (M+N)x(M+N) np.ndarray combined weight matrix
+    """
+    assert mfWFF.shape[1] == mfWRec.shape[0], \
+        'FFwd and Rec weight matrices must have compatible shapes (MxN and NxN).'
+
+    assert mfWRec.shape[0] == mfWRec.shape[1], \
+        '`mfWRec` must be a square matrix.'
+
+    # - Determine matrix sizes
+    nFFSize = mfWFF.shape[0]
+    nRecSize = mfWRec.shape[0]
+    mfCombined = np.zeros((nFFSize + nRecSize, nFFSize + nRecSize))
+
+    # - Combine matrices
+    mfCombined[-nRecSize:, -nRecSize:] = mfWRec
+    mfCombined[:nFFSize, -nRecSize:] = mfWFF
+
+    return mfCombined
 
 
 def RndmSparseEINet(
@@ -300,6 +326,156 @@ def DiscretiseWeightMatrix(
     return mfWD, mnNumConns
 
 
+def one_dim_exc_res(
+    nSize,
+    nNeighbour,
+    bZeroDiagonal = True,
+):
+    """one_dim_exc_res - Recurrent weight matrix where each neuron is connected
+                         to its nNeighbour nearest neighbours on a 1D grid.
+                         Only excitatory connections.
+    """
+    mfWRes = np.zeros((nSize, nSize))
+    nBound = int(np.floor(nNeighbour/2))
+    for iPost in range(nSize):
+        mfWRes[
+            max(0, iPost-nBound) : min(iPost+nBound+1, nSize),
+            iPost
+        ] = 1
+        if bZeroDiagonal:
+            mfWRes[iPost, iPost] = 0
+
+    return mfWRes
+
+def two_dim_exc_res(
+    nSize: int,
+    nNeighbour: int, 
+    tupfWidthNeighbour: Union[float, Tuple[float,float]],
+    tupnGridDim: Optional[Tuple[int,int]] = None,
+    bMultipleConn: bool = True,
+):
+    # - Determine width of connection probability distribution
+    if isinstance(tupfWidthNeighbour, int):
+        # assume isotropic probability distribution
+        tupfWidthNeighbour = (tupfWidthNeighbour, tupfWidthNeighbour)
+
+    # - Determine grid size
+    if tupnGridDim is None:
+        # - Square grid
+        nGridLength = int(np.ceil(np.sqrt(nSize)))
+        tupnGridDim = (nGridLength, nGridLength)
+    else:
+        # - Make sure grid is large enough
+        assert tupnGridDim[0] * tupnGridDim[1] >= nSize, "Grid dimensions are too small."
+        # - Make sure grid dimensions are integers
+        assert (
+            isinstance(tupnGridDim[0], int) and isinstance(tupnGridDim[1], int)
+        ), "tupnGridDim must be tuple of two positive integers."
+
+    # - Matrix for determining connection probability to any location on the grid relative to given neuron
+    #   Given neuron location corresponds to [tupnGridDim[0], tupnGridDim[1]]
+    vx = np.arange(-tupnGridDim[0]+1, tupnGridDim[0])
+    vy = np.arange(-tupnGridDim[1]+1, tupnGridDim[1])
+    mx, my = np.meshgrid(vx, vy)
+    # Gaussian Distribution of connection probability
+    mfPConnect = np.exp(-((mx/tupfWidthNeighbour[0])**2 + (my/tupfWidthNeighbour[1])**2))
+    # No self-connections
+    mfPConnect[tupnGridDim[0]-1, tupnGridDim[1]-1] = 0
+    
+    # - Weight matrix
+    mnW = np.zeros((nSize, nSize))
+
+    # - Iterate over neurons and assign their presynaptic connections
+    for iNeuron in range(nSize):
+        # Neuron coordinates in 2D grid
+        tupnGridIndex = np.unravel_index(iNeuron, tupnGridDim)
+        # Probabilities to connect to other neureons
+        vfPConnectThis = (mfPConnect[
+            (tupnGridDim[0]-1) - tupnGridIndex[0] : (2*tupnGridDim[0]-1) - tupnGridIndex[0],
+            (tupnGridDim[1]-1) - tupnGridIndex[1] : (2*tupnGridDim[1]-1) - tupnGridIndex[1],
+        ]).flatten()[:nSize]
+        # Normalize probabilities
+        vfPConnectThis /= np.sum(vfPConnectThis)
+        # Choose connections
+        viPreSyn = np.random.choice(nSize, size=nNeighbour, p=vfPConnectThis, replace=bMultipleConn)
+        for iPreSyn in viPreSyn:
+            mnW[iPreSyn, iNeuron] += 1
+
+    return mnW
+
+def add_random_long_range(
+    mfWRes,
+    nLongRange,
+    bAvoidExisting: bool = False,
+    bMultipleConn: bool = True,
+):
+    assert mfWRes.shape[0] == mfWRes.shape[1], "mfWRes must be a square matrix"
+
+    for iPost in range(mfWRes.shape[0]):
+        if bAvoidExisting:
+            viFarNeurons = np.where(mfWRes[:, iPost] == 0)[0]
+        else:
+            viFarNeurons = np.arange(mfWRes.shape[0])
+        # - Make sure diagonal elements are excluded
+        viFarNeurons = viFarNeurons[viFarNeurons != iPost]
+        viPreSynConnect = np.random.choice(viFarNeurons, size=nLongRange, replace=bMultipleConn)
+        for iPreSyn in viPreSynConnect:
+            mfWRes[iPreSyn, iPost] += 1
+    return mfWRes
+
+def partitioned_2d_reservoir(
+    nSizeIn: int = 64,
+    nSizeRec: int = 256,
+    nSizeInhib: int = 64,
+    nInToRec: int = 16,
+    nRecShort: int = 24,
+    nRecLong: int = 8,
+    nRecToInhib: int = 64,
+    nInhibToRec: int = 16,
+    nMaxInputConn: int = 64,
+    tupfWidthNeighbour: Union[float, Tuple[float,float]] = (16.,16.)
+):
+    if nMaxInputConn is not None:
+        assert(
+            (nInToRec + nRecShort + nRecLong + nInhibToRec <= nMaxInputConn)
+            and nInhibToRec <= nMaxInputConn
+        ), "Maximum number of presynaptic connections per neuron exceeded."
+
+    # - Input-To-Recurrent part
+    mnWInToRec = np.zeros((nSizeIn, nSizeRec))
+    viPreSynConnect = np.random.choice(nSizeIn, size=nInToRec*nSizeRec)
+    for iPreIndex, iPostIndex in zip(viPreSynConnect, np.repeat(np.arange(nSizeRec), nInToRec)):
+        mnWInToRec[iPreIndex, iPostIndex] += 1
+    # - Recurrent-To-Inhibitory part
+    mnWRecToInhib = np.zeros((nSizeRec, nSizeInhib))
+    viPreSynConnect = np.random.choice(nSizeRec, size=nRecToInhib*nSizeInhib)
+    for iPreIndex, iPostIndex in zip(viPreSynConnect, np.repeat(np.arange(nSizeInhib), nRecToInhib)):
+        mnWRecToInhib[iPreIndex, iPostIndex] += 1
+    # - Inhibitory-To-Recurrent part
+    mnWInhibToRec = np.zeros((nSizeInhib, nSizeRec))
+    viPreSynConnect = np.random.choice(nSizeInhib, size=nInhibToRec*nSizeRec)
+    for iPreIndex, iPostIndex in zip(viPreSynConnect, np.repeat(np.arange(nSizeRec), nInhibToRec)):
+        mnWInhibToRec[iPreIndex, iPostIndex] -= 1
+    # - Recurrent short range connecitons
+    mnWRec = two_dim_exc_res(
+        nSizeRec,
+        nNeighbour=nRecShort,
+        tupfWidthNeighbour=tupfWidthNeighbour,
+    )
+    # - Add long range connections
+    mnWRec = add_random_long_range(mnWRec, nRecLong, bAvoidExisting=False, bMultipleConn=True)
+
+    # - Put matrix together
+    nSizeTotal = nSizeIn + nSizeRec + nSizeInhib
+    mnW = np.zeros((nSizeTotal, nSizeTotal))
+    mnW[:nSizeIn, nSizeIn:nSizeIn+nSizeRec] = mnWInToRec
+    mnW[nSizeIn:nSizeIn+nSizeRec, nSizeIn:nSizeIn+nSizeRec] = mnWRec
+    mnW[nSizeIn:nSizeIn+nSizeRec, -nSizeInhib:] = mnWRecToInhib
+    mnW[-nSizeInhib:, nSizeIn:nSizeIn+nSizeRec] = mnWInhibToRec
+
+    return mnW
+
+
 def DynapseConform(
     tupShape,
     fConnectivity=None,
@@ -531,6 +707,130 @@ def In_Res_Dynapse(
         vfWIn[iNeuron] = fWeight
 
     return vfWIn.reshape(-1, 1), mfWRes, mnCount, dmnCount
+
+
+
+def In_Res_Dynapse_Flex(
+    nSize: int,
+    nSizeIn: None,
+    nMaxInputConn: int=1,
+    fInputDensity=1,
+    fConnectivity=None,
+    fRatioExcRes=0.5,
+    fRatioExcIn=0.5,
+    nLimitInputs=64,
+    nLimitOutputs=1024,
+    tupfWExc=(1, 1),
+    tupfWInh=(1, 1),
+    tupfProbWExcRes=(0.5, 0.5),
+    tupfProbWInhRes=(0.5, 0.5),
+    tupfProbWExcIn=(0.5, 0.5),
+    tupfProbWInhIn=(0.5, 0.5),
+    fNormalize=None,
+    bVerbose=False,
+    bLeaveSpaceForInput=True,
+):
+    """
+    In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+
+    :param nSize:           int Reservoir size
+    :param nSizeIn:         int Number of neurons in input layer
+    :param nMaxInputConn:   int Number of presynaptic connections that are used for input connections per neuron
+    :param fInputDensity:   float Ratio of non-zero vs. zero input connections
+    :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
+    :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
+    :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
+    
+    :param nLimitInputs:    int   Maximum fan-in per neuron
+    :param nLimitOutputs:   int   Maximum fan-out per neuron
+    
+    :param tupfWEcx:        tuple Possible strengths for excitatory synapses
+    :param tupfWInh:        tuple Possible strengths for inhibitory synapses
+    :param tupfProbWEcxRes: tuple Probabilities for excitatory recurrent synapse strengths
+    :param tupfProbWInhRes: tuple Probabilities for inhibitory recurrent synapse strengths
+    :param tupfProbWEcxIn:  tuple Probabilities for excitatory input synapse strengths
+    :param tupfProbWInhIn:  tuple Probabilities for inhibitory input synapse strengths
+    
+    :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
+
+    :param bVerbose:        bool Currently unused
+
+    :param bLeaveSpaceForInput: bool Limit number of input connections to ensure fan-in
+                                     to include all all input weights
+
+    :return vfWIn:          2D-np.ndarray (Nx1) Generated input weights
+    :return mfW:            2D-np.ndarray (NxN) Generated weight matrix
+    :return mnCount:        2D-np.ndarray (NxN) Number of assigned weights per connection
+    :return dmnCount:       dict Number of assigned weights, separated by weights
+                                 Useful for re-construction of the matrix    
+    """
+
+    # - Set input size
+    nSizeIn = nSize if nSizeIn is None else nSizeIn
+    
+    # - Matrix with weights. First row corresponds to input weights, others to reservoir matrix
+    mfWRes, mnCount, dmnCount = DynapseConform(
+        tupShape=(nSize, nSize),
+        fConnectivity=fConnectivity,
+        fRatioExc=fRatioExcRes,
+        nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput)*nMaxInputConn,
+        nLimitOutputs=nLimitOutputs,
+        tupfWExc=tupfWExc,
+        tupfWInh=tupfWInh,
+        tupfProbWExc=tupfProbWExcRes,
+        tupfProbWInh=tupfProbWInhRes,
+        fNormalize=fNormalize,
+    )
+
+    # - For each reservoir neuron, check whether it still has space for an input
+    vnFree = (nLimitInputs - np.sum(mnCount, axis=0))
+    # - Total number of input weights to be assigned
+    nNumInputs = (
+        min(np.sum(vnFree), int(fInputDensity * nSize * nMaxInputConn))
+        if fInputDensity is not None
+        else np.sum(vnFree)
+    )
+
+    if nNumInputs == 0:
+        print(
+            "WARNING: Could not assign any input weights, "
+            + "try setting bLeaveSpaceForInput=True or reducing fConnectivity"
+        )
+        return np.zeros((nSize, 1)), mfWRes, mnCount, dmnCount
+
+    # - Number excitatory and inhibitory input weights
+    nNumExcIn = int(nNumInputs * fRatioExcIn)
+    nNumInhIn = nNumInputs - nNumExcIn
+
+    # - Array holding non-zero weights
+    vfWeights = np.zeros(nNumInputs)
+    
+    # - Extract normalized weight values from dmnCount
+    lfValues = sorted(dmnCount.keys())
+    tupfWInExc = tuple(lfValues[-2:])
+    tupfWInInh = tuple(lfValues[:2])
+    
+    # - Generate excitatory weights
+    vfWeights[:nNumExcIn] = np.random.choice(
+        tupfWInExc, size=nNumExcIn, p=tupfProbWExcIn, replace=True
+    )
+    # - Generate inhibitory weights
+    vfWeights[nNumExcIn:] = np.random.choice(
+        tupfWInInh, size=nNumInhIn, p=tupfProbWInhIn, replace=True
+    )
+    
+    # - Ids of neurons to which weights can be assigned, repeated according to number of free connections
+    viAvailableNeurons = np.repeat(np.arange(nSize), vnFree)
+    # - Ids of neurons to which weights will be assigned, repeated according to number assignments
+    viAssignNeurons = np.random.choice(viAvailableNeurons, size=nNumInputs, replace=False)
+    # - Ids of input neurons to be connected to reservoir neurons
+    viInputNeurons = np.random.choice(np.arange(nSizeIn), size=nNumInputs, replace=True)
+    # - Input weight matrix
+    mfWIn = np.zeros((nSizeIn, nSize))
+    mfWIn[viInputNeurons, viAssignNeurons] = vfWeights
+
+    return mfWIn, mfWRes, mnCount, dmnCount
+
 
 def digital(
     tupShape,

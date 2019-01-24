@@ -12,6 +12,10 @@ dModules = {
         "RecIAFSpkInBrian",
     ),
     ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
+    ".internal.dynap_hw": (
+        "RecDynapSE",
+    ),
+    ".internal.event_pass": "PassThroughEvents",
     ".internal.exp_synapses_brian": "FFExpSynBrian",
     ".internal.exp_synapses_manual": "FFExpSyn",
     ".internal.evSpikeLayer": "EventDrivenSpikingLayer",

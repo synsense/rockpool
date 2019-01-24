@@ -55,6 +55,8 @@ class CNNWeight(UserList):
         img_data_format = self.img_data_format  # Local variable
         data = self.data  # Local variable
         try:
+            if np.size(index) == 0:
+                return np.zeros(self.outShape, float)
             if (type(index) is int) or (type(index) is list):
                 # indexed by integer
                 bIndex = np.zeros(self.inShape).astype(bool).flatten()
