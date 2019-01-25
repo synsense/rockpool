@@ -1611,7 +1611,9 @@ class TSEvent(TimeSeries):
         tStartBase = self.tStart if tStart is None else tStart
         if nNumTimeSteps is None:
             tStopBase = self.tStop if tStop is None else tStop
-            nNumTimeSteps = int(np.round((tStopBase - tStartBase) / tDt))
+            nNumTimeSteps = int(np.ceil((tStopBase - tStartBase) / tDt))
+            # - Make sure tStopBase is multiple of nNumTimeSteps
+            tStopBase = nNumTimeSteps * tDt
         else:
             tStopBase = tStartBase + nNumTimeSteps * tDt
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
