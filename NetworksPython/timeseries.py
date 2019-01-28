@@ -1589,7 +1589,6 @@ class TSEvent(TimeSeries):
                             the sample.
                             If bSamples is False, then None is returned.
         """
-
         # - Get data from selected channels and time range
         if vnSelectChannels is not None:
             tsSelected = self.choose(vnSelectChannels)
@@ -1613,7 +1612,7 @@ class TSEvent(TimeSeries):
             tStopBase = self.tStop if tStop is None else tStop
             nNumTimeSteps = int(np.ceil((tStopBase - tStartBase) / tDt))
             # - Make sure tStopBase is multiple of nNumTimeSteps
-            tStopBase = nNumTimeSteps * tDt
+            tStopBase = tStartBase + nNumTimeSteps * tDt
         else:
             tStopBase = tStartBase + nNumTimeSteps * tDt
         vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
@@ -1641,7 +1640,6 @@ class TSEvent(TimeSeries):
             tplSamples = tuple(([] for i in range(vtTimeBase.size)))
         else:
             tplSamples = None
-
         # - Only consider rasters that have non-zero length
         if nNumTimeSteps > 0:
             # Compute indices for times
