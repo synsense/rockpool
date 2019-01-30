@@ -185,7 +185,7 @@ class FFIAFTorch(Layer):
             ).float() * self.tDt
 
             tseOut = TSEvent(
-                vtTimeTrace=np.clip(vtSpikeTimings.numpy(), tStart, tStop),  # Clip due to possible numerical errors
+                vtTimeTrace=np.clip(vtSpikeTimings.numpy(), tStart, tStop-fTolAbs*10**4),  # Clip due to possible numerical errors
                 vnChannels=vnChannels.numpy(),
                 nNumChannels=self.nSize,
                 strName="Layer `{}` spikes".format(self.strName),
