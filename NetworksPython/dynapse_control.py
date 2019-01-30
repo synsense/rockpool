@@ -234,7 +234,7 @@ def evaluate_firing_rates(
     vfFiringRates = vnEventCounts / tDuration
     
     # - Calculate mean, max and min rates
-    fMeanRate = len(tupTimestamps) / tDuration / len(vnNeuronIDs)
+    fMeanRate = np.mean(vfFiringRates)
     iMaxRateNeuron = np.argmax(vnEventCounts)
     fMaxRate = vfFiringRates[iMaxRateNeuron]
     iMinRateNeuron = np.argmin(vnEventCounts)
@@ -509,8 +509,8 @@ def _auto_insert_dummies(
     lnCorrectedIDs = [nID for l in llIDs for nID in l]
     # - Count number of added dummy events (each one has None as ID)
     nNumDummies = len(tuple(filter(lambda x: x is None, lnCorrectedIDs)))
-    # if nNumDummies > 0:
-    print("dynapse_control: Inserted {} dummy events.".format(nNumDummies))
+    if nNumDummies > 0:
+        print("dynapse_control: Inserted {} dummy events.".format(nNumDummies))
 
     return lnCorrectedISIs, lnCorrectedIDs
 
@@ -1611,19 +1611,24 @@ class DynapseControl:
         # - Set FPGA to repeating mode
         self.fpgaSpikeGen.set_repeat_mode(True)
 
+        # - Handle integers for vnNeuronIDs
+        if isinstance(vnNeuronIDs, int):
+            lnNeuronIDs = [vnNeuronIDs]
+        else:
+            lnNeuronIDs = [int(nID) for nID in vnNeuronIDs]
+
         # - Interspike interval
         tISI = 1. / fFrequency
         # - ISI in units of fpga time step
         nISIfpga = int(np.round(tISI / self.tFpgaIsiBase))
+        # - ISI for neurons other than first is zero as they are simultaneous
+        lnISI = [nISIfpga] + [0] * (len(lnNeuronIDs) - 1)
 
-        # - Handle integers for vnNeuronIDs
-        if isinstance(vnNeuronIDs, int):
-            vnNeuronIDs = [vnNeuronIDs]
 
         # - Generate events
         # List for events to be sent to fpga
         lEvents = generate_fpga_event_list(
-            [nISIfpga], [int(nID) for nID in vnNeuronIDs], int(nCoreMask), int(nChipID)
+            lnISI, lnNeuronIDs, int(nCoreMask), int(nChipID)
         )
         self.fpgaSpikeGen.preload_stimulus(lEvents)
         print(
@@ -2332,7 +2337,7 @@ class DynapseControl:
         # - Sweep over frequencies
         for iTrial, fFreq in enumerate(vfFreq):
             print("DynapseControl: Stimulating with {} Hz input".format(fFreq))
-            self.start_cont_stim(fFreq, vnInputNeuronIDs, bVirtual)
+            self.start_cont_stim(fFreq, vnInputNeuronIDs, nChipID, nCoreMask)
             mfFiringRates[iTrial, :], vfMeanRates[iTrial], vfMaxRates[
                 iTrial
             ], vfMinRates[iTrial] = self.measure_firing_rates(
