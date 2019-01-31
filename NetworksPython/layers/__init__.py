@@ -32,9 +32,13 @@ dModules = {
     ".internal.pytorch.flatten": "TorchFlatten2dLayer",
     ".internal.pytorch.iaf_torch": (
         "FFIAFTorch",
+        "FFIAFRefrTorch",
         "FFIAFSpkInTorch",
+        "FFIAFSpkInRefrTorch",
         "RecIAFTorch",
+        "RecIAFRefrTorch",
         "RecIAFSpkInTorch",
+        "RecIAFSpkInRefrTorch",
     ),
 }
 

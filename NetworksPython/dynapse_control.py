@@ -25,19 +25,24 @@ except ModuleNotFoundError:
     # - Try with RPyC
     try:
         import rpyc
-
         conn = rpyc.classic.connect("localhost", "1300")
-        conn._config[
-            "sync_request_timeout"
-        ] = RPYC_TIMEOUT  # Set timeout to higher level
-        CtxDynapse = conn.modules.CtxDynapse
-        NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
-        print("dynapse_control: RPyC connection established.")
-        bUsing_RPyC = True
-
-    except:
+        print("dynapse_control: RPyC connection established through port 1300.")
+    except ModuleNotFoundError:
         # - Raise an ImportError (so that the smart __init__.py module can skip over missing CtxCtl
-        raise ImportError
+        raise ImportError("dynapse_control: rpyc not found")
+    except:
+        try:
+            conn = rpyc.classic.connect("localhost", "1301")
+            print("dynapse_control: RPyC connection established through port 1301.")
+        except:
+            raise ImportError("dynapse_control: Connection not possible")
+    # - Set up rpyc conneciton settings
+    conn._config[
+        "sync_request_timeout"
+    ] = RPYC_TIMEOUT  # Set timeout to higher level
+    CtxDynapse = conn.modules.CtxDynapse
+    NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
+    bUsing_RPyC = True
 
 # - Imports from ctxCTL
 SynapseTypes = CtxDynapse.DynapseCamType
