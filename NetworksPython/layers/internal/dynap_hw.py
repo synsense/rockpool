@@ -4,7 +4,7 @@
 
 from ..layer import Layer
 from ...timeseries import TSEvent
-from ...dynapse_control import  DynapseControl
+from ...dynapse_control import  DynapseControl, CtxDynapse
 
 import numpy as np
 from warnings import warn
@@ -634,4 +634,112 @@ class RecDynapSE(Layer):
         # - Core mask as reversed binary string
         strBinCoreMask = resersed(bin(self._nInputCoreMask)[-4:])
         return [nCoreID for nCoreID, bMask in enumerate(strBinCoreMask) if int(bMask)]
+
+
+# -- Define subclass of RecDynapSE to be used in demos with preloaded events
+class RecDynapSEDemo(RecDynapSE):
+    """
+    RecDynapSE - Recurrent layer implemented on DynapSE, using preloaded events during evolution
+    """
+
+    def __init__(self, *args, **kwargs):
+        
+        # - Call parent initializer
+        super().__init__(*args, **kwargs)
+
+        # - Set up filter for recording spikes
+        self.controller.add_buffered_event_filter(self.vnHWNeuronIDs)
     
+    def load_events(self, tsAS, vtRhythmStart):
+        # - Indices corresponding to first event of each rhythm
+        viRhythmStarts = np.searchsorted(tsAS.vtTimeTrace, vtRhythmStart)
+        
+        # - Convert timeseries to events for FPGA
+        lEvents = self.controller._TSEvent_to_spike_list(
+            tsSeries=tsAS,
+            vnNeuronIDs=self.vnVirtualNeuronIDs,
+            nTargetCoreMask=1,
+            nTargetChipID=0,
+        )
+        # - Set interspike interval of first event of each rhythm so that it corresponds
+        #   to the rhythm start and not the last event from the previous rhythm
+        for iRhythm, iEvent in enumerate(viRhythmStarts):
+            lEvents[iEvent].isi = np.round((tsAS.vtTimeTrace[iEvent] - vtRhythmStart[iRhythm]) / self.controller.tFpgaIsiBase).astype(int)
+        # - Insert dummy events at ends of rhythms to avoid bug where sequence is played more than once
+        for iEvent in np.r_[viRhythmStarts[1: ], len(lEvents)][::-1]:
+            event = CtxDynapse.FpgaSpikeEvent()
+            event.target_chip = 0
+            event.core_mask = 0
+            event.neuron_id = 0
+            event.isi = 10000
+            lEvents.insert(iEvent, event)
+
+
+        print("Layer `{}`: {} events have been generated.".format(self.strName, len(lEvents)))
+
+        # - Upload input events to processor
+        iEvent = 0
+        while iEvent<tsAS.vtTimeTrace.size:
+            self.controller.fpgaSpikeGen.set_base_addr(2*iEvent)
+            self.controller.fpgaSpikeGen.preload_stimulus(
+                lEvents[iEvent: min(iEvent+self.controller.nFpgaEventLimit, len(lEvents))]
+            )
+            iEvent += self.controller.nFpgaEventLimit
+        print("Layer `{}`: Events have been loaded.".format(self.strName))
+
+        # - Fpga adresses where beats start
+        #   Shift adress for each rhythm due to inserted dummy events
+        self.vnRhythmAddress = 2 * (viRhythmStarts + np.arange(viRhythmStarts.size))
+        # - Number of events per rhythm
+        self.vnEventsPerRhythm = np.diff(np.r_[viRhythmStarts + np.arange(viRhythmStarts.size), len(lEvents)])
+
+    def evolve(
+        self,
+        tDuration: float,
+        iRhythm: int,
+        bVerbose: bool=True,
+    ) -> TSEvent:
+        """
+        evolve - Evolve the layer by playing back from the given base address and recording
+
+        :param tDuration:   float   Desired evolution duration, in seconds
+        :param iRhythm:     int     Index of the rhythm to be played back
+        :param nNumEvents:  int     Number of input events to play back on FPGA starting from base address
+
+        :return:                TSEvent spikes emitted by the neurons in this layer, during the evolution time
+        """
+        nNumTimeSteps = int(np.floor((tDuration + ABS_TOLERANCE) / self.tDt))
+        
+        # - Stop possible previous stimulation to be able to change base address
+        self.controller.fpgaSpikeGen.stop()
+        
+        # - Clear event filter
+        self.controller.bufferedfilter.get_events()
+        self.controller.bufferedfilter.get_special_event_timestamps()
+
+        # - Instruct FPGA to spike
+        # set new base adress and number of input events for stimulation
+        self.controller.fpgaSpikeGen.set_base_addr(self.vnRhythmAddress[iRhythm])
+        self.controller.fpgaSpikeGen.set_stim_count(self.vnEventsPerRhythm[iRhythm])
+        # Start stimulation
+        self.controller.fpgaSpikeGen.start()
+
+        # - Wait and record
+        time.sleep(tDuration)
+
+        # - Stop stimulation
+        self.controller.fpgaSpikeGen.stop()
+
+        # - Generate TSEvent from recorded data
+        tsResponse = self.controller._recorded_data_to_TSEvent(
+            vnNeuronIDs=self.vnHWNeuronIDs,
+            tRecord=tDuration
+        ).delay(self.t)
+
+        # - Set layer time
+        self._nTimeStep += nNumTimeSteps
+
+        if bVerbose:
+            print("Layer `{}`: Evolution successful.".format(self.strName))
+
+        return tsResponse
