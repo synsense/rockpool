@@ -40,6 +40,7 @@ class RecDynapSE(Layer):
         lnClearCores: Optional[list]=None,
         controller: DynapseControl=None,
         strName: Optional[str] = "unnamed",
+        bSkipWeights: bool = False,
     ):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
@@ -63,6 +64,7 @@ class RecDynapSE(Layer):
         :param lnClearCores:        list or None  IDs of chips where configurations should be cleared.
         :param controller:          DynapseControl object to interface the hardware
         :param strName:             str     Layer name
+        :param bSkipWeights:        bool    Do not upload weight configuration to chip. (Use carecully)
         """
 
         # - Instantiate DynapseControl
@@ -149,8 +151,9 @@ class RecDynapSE(Layer):
         # - Store recurrent weights
         self._mfWRec = np.asarray(np.round(mfWRec), int)
 
-        # - Configure connectivity
-        self._compile_weights_and_configure()
+        if not bSkipWeights:
+            # - Configure connectivity
+            self._compile_weights_and_configure()
 
         print("Layer `{}` prepared.".format(self.strName))
 

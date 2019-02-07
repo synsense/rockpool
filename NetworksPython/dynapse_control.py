@@ -679,7 +679,7 @@ def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]] = None):
             for bias in biases:
                 file.write(
                     'save_file_model_.get_bias_groups()[{0}].set_bias("{1}", {2}, {3})\n'.format(
-                        nCore, bias.bias_name, bias.fine_value, bias.coarse_value
+                        nCore, bias.get_bias_name(), bias.get_fine_value(), bias.get_coarse_value()
                     )
                 )
     print(
