@@ -236,13 +236,15 @@ class TimeSeries:
         else:
             tsObj = self
 
-        tsObj.vtTimeTrace += tOffset
+        # - Store previous tStart and tStop
+        tStartOld = tsObj.tStart
+        tStopOld = tsObj.tStop
 
-        # - Depending on sign of tOffset, either tStart or tStop is already updated by updating vtTimeTrace
-        if tOffset < 0:
-            tsObj.tStop += tOffset
-        elif tOffset > 0:
-            tsObj.tStart += tOffset
+        # - Shift time trace
+        tsObj.vtTimeTrace += tOffset
+        # - Shift tStart and tStop
+        tsObj.tStart = tStartOld + tOffset
+        tsObj.tStop = tStopOld + tOffset
 
         return tsObj
 

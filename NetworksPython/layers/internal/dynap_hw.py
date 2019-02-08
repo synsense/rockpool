@@ -5,6 +5,7 @@
 from ..layer import Layer
 from ...timeseries import TSEvent
 from ...dynapse_control import  DynapseControl, CtxDynapse
+from ... import dynapse_control as DC
 
 import numpy as np
 from warnings import warn
@@ -560,7 +561,7 @@ class RecDynapSE(Layer):
 
     @_mfW.setter
     def _mfW(self, mfNewW):
-        self._mfWRec = mfNewW
+        self._mfWRec = mfNewW    
 
     @property
     def nMaxTrialsPerBatch(self):
@@ -654,6 +655,11 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.add_buffered_event_filter(self.vnHWNeuronIDs)
     
     def load_events(self, tsAS, vtRhythmStart):
+        if tsAS.vtTimeTrace.size > self.controller.nSramEventLimit:
+            raise MemoryError("Layer `{}`: Can upload at most {} events. {} are too many.".format(
+                self.strName, self.controller.nSramEventLimit, tsAS.vtTimeTrace.size
+            ))
+
         # - Indices corresponding to first event of each rhythm
         viRhythmStarts = np.searchsorted(tsAS.vtTimeTrace, vtRhythmStart)
         
@@ -696,6 +702,7 @@ class RecDynapSEDemo(RecDynapSE):
         # - Number of events per rhythm
         self.vnEventsPerRhythm = np.diff(np.r_[viRhythmStarts + np.arange(viRhythmStarts.size), len(lEvents)])
 
+    #@profile
     def evolve(
         self,
         tDuration: float,
@@ -720,24 +727,71 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.bufferedfilter.get_events()
         self.controller.bufferedfilter.get_special_event_timestamps()
 
+
         # - Instruct FPGA to spike
         # set new base adress and number of input events for stimulation
         self.controller.fpgaSpikeGen.set_base_addr(self.vnRhythmAddress[iRhythm])
         self.controller.fpgaSpikeGen.set_stim_count(self.vnEventsPerRhythm[iRhythm])
+
+        # - Lists for storing collected events
+        lvTimeStamps = []
+        lvChannels = []
+        lTriggerEvents = []
+
+        # - Time at which stimulation stops
+        tStop = time.time() + tDuration
+
         # Start stimulation
         self.controller.fpgaSpikeGen.start()
 
-        # - Wait and record
-        time.sleep(tDuration)
+        # - Until duration is over, record events and process in quick succession
+        while time.time() < tStop:
+            # time.sleep(tDuration / 10000)
+            
+            # - Collect events and possibly trigger events
+            lTriggerEvents += self.controller.bufferedfilter.get_special_event_timestamps()
+            lCurrentEvents = self.controller.bufferedfilter.get_events()
+
+            vtTimeStamps, vnChannels = DC.event_data_to_channels(lCurrentEvents, self.vnHWNeuronIDs)
+            lvTimeStamps += list(vtTimeStamps)
+            lvChannels += list(vnChannels)
 
         # - Stop stimulation
         self.controller.fpgaSpikeGen.stop()
+        print(
+            "Layer `{}`: Recorded {} event(s) and {} trigger event(s)".format(
+                self.strName, len(lvTimeStamps), len(lTriggerEvents)
+            )
+        )
+
+        # - Post-processing of collected events
+        vtTimeTrace = np.array(lvTimeStamps) * 1e-6
+        vnChannels = np.array(lvChannels)
+
+        # - Locate synchronisation timestamp
+        vtStartTriggers = np.array(lTriggerEvents) * 1e-6
+        viStartIndices = np.searchsorted(vtTimeTrace, vtStartTriggers)
+        viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tDuration)
+        # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
+        iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
+        print("\t\t Using trigger event {}".format(iTrigger))
+        tStartTrigger = vtStartTriggers[iTrigger]
+        iStartIndex = viStartIndices[iTrigger]
+        iEndIndex = viEndIndices[iTrigger]
+        # - Filter time trace
+        vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger + self.t
+        vnChannels = vnChannels[iStartIndex:iEndIndex]
+        print("Layer `{}`: Extracted event data".format(self.strName))
 
         # - Generate TSEvent from recorded data
-        tsResponse = self.controller._recorded_data_to_TSEvent(
-            vnNeuronIDs=self.vnHWNeuronIDs,
-            tRecord=tDuration
-        ).delay(self.t)
+        tsResponse = TSEvent(
+            vtTimeTrace,
+            vnChannels,
+            tStart=self.t,
+            tStop=self.t + tDuration,
+            nNumChannels=self.nSize,
+            strName="DynapSEDemoBeat"
+        )
 
         # - Set layer time
         self._nTimeStep += nNumTimeSteps

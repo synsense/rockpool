@@ -59,6 +59,7 @@ print("dynapse_control: CtxDynapse modules loaded.")
 ### --- Parameters
 lnChipIDs = [0]  # Chips to be used
 # - Fix (hardware)
+SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded to SRAM
 FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
 FPGA_ISI_LIMIT = int(
     2 ** 16 - 1
@@ -261,7 +262,7 @@ def evaluate_firing_rates(
     
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
-
+#@profile
 def event_data_to_channels(
     lEvents: List, lLayerNeuronIDs: List
 ) -> (np.ndarray, np.ndarray):
@@ -443,7 +444,6 @@ def _define_print_type():
 
 print_type = correct_argument_types(_define_print_type())  # or just print_type = _define_print_type()
 
-
 @teleport_function
 def extract_event_data(lEvents) -> (tuple, tuple):
     """
@@ -453,7 +453,6 @@ def extract_event_data(lEvents) -> (tuple, tuple):
         lTimeStamps     list  Timestamps of events
         lNeuronIDs      list  Neuron IDs of events
     """
-
     ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
     try:
         tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
@@ -969,6 +968,7 @@ else:
 
 class DynapseControl:
 
+    _nSramEventLimit = SRAM_EVENT_LIMIT
     _nFpgaEventLimit = FPGA_EVENT_LIMIT
     _nFpgaIsiLimit = FPGA_ISI_LIMIT
     _tFpgaTimestep = FPGA_TIMESTEP
@@ -2023,6 +2023,7 @@ class DynapseControl:
                 # - Extract arrays from recorded data
                 return self._recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
 
+    #@profile
     def _recorded_data_to_TSEvent(
         self, vnNeuronIDs: np.ndarray, tRecord: float
     ) -> TSEvent:
@@ -2450,8 +2451,11 @@ class DynapseControl:
 
     @property
     def mnConnections(self, vnNeuronIDs):
-        return self._foo
-    
+        return self._foo    
+
+    @property
+    def nSramEventLimit(self):
+        return self._nSramEventLimit
 
     @property
     def nFpgaEventLimit(self):
