@@ -723,11 +723,6 @@ class RecDynapSEDemo(RecDynapSE):
         # - Stop possible previous stimulation to be able to change base address
         self.controller.fpgaSpikeGen.stop()
         
-        # - Clear event filter
-        self.controller.bufferedfilter.get_events()
-        self.controller.bufferedfilter.get_special_event_timestamps()
-
-
         # - Instruct FPGA to spike
         # set new base adress and number of input events for stimulation
         self.controller.fpgaSpikeGen.set_base_addr(self.vnRhythmAddress[iRhythm])
@@ -738,6 +733,10 @@ class RecDynapSEDemo(RecDynapSE):
         lvChannels = []
         lTriggerEvents = []
 
+        # - Clear event filter
+        self.controller.bufferedfilter.get_events()
+        self.controller.bufferedfilter.get_special_event_timestamps()
+        
         # - Time at which stimulation stops
         tStop = time.time() + tDuration
 
@@ -746,8 +745,8 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Until duration is over, record events and process in quick succession
         while time.time() < tStop:
-            # time.sleep(tDuration / 10000)
             
+            # time.sleep(tDuration / 1000)
             # - Collect events and possibly trigger events
             lTriggerEvents += self.controller.bufferedfilter.get_special_event_timestamps()
             lCurrentEvents = self.controller.bufferedfilter.get_events()
@@ -773,11 +772,18 @@ class RecDynapSEDemo(RecDynapSE):
         viStartIndices = np.searchsorted(vtTimeTrace, vtStartTriggers)
         viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tDuration)
         # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
-        iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
-        print("\t\t Using trigger event {}".format(iTrigger))
-        tStartTrigger = vtStartTriggers[iTrigger]
-        iStartIndex = viStartIndices[iTrigger]
-        iEndIndex = viEndIndices[iTrigger]
+        try:
+            iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
+            print("\t\t Using trigger event {}".format(iTrigger))
+        except ValueError:
+            print("\t\t No Trigger found, using recording from beginning")
+            iStartIndex = 0
+            tStartTrigger = vtTimeTrace[0]
+            iEndIndex = np.searchsorted(vtTimeTrace, vtTimeTrace[0] + tDuration)
+        else:
+            tStartTrigger = vtStartTriggers[iTrigger]
+            iStartIndex = viStartIndices[iTrigger]
+            iEndIndex = viEndIndices[iTrigger]
         # - Filter time trace
         vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger + self.t
         vnChannels = vnChannels[iStartIndex:iEndIndex]
