@@ -987,9 +987,10 @@ class TimeSeries:
         # - Store new time trace
         self._vtTimeTrace = np.reshape(vtNewTrace, -1)
 
-        # - Fix tStart and tStop
-        self._tStart = min(self._tStart, vtNewTrace[0])
-        self._tStop = max(self._tStop, vtNewTrace[-1])
+        if np.size(self._vtTimeTrace) > 0:
+            # - Fix tStart and tStop
+            self._tStart = min(self._tStart, vtNewTrace[0])
+            self._tStop = max(self._tStop, vtNewTrace[-1])
 
         # - Create a new interpolator
         self._create_interpolator()
