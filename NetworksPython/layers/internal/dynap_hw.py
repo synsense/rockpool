@@ -654,7 +654,12 @@ class RecDynapSEDemo(RecDynapSE):
         # - Set up filter for recording spikes
         self.controller.add_buffered_event_filter(self.vnHWNeuronIDs)
     
-    def load_events(self, tsAS, vtRhythmStart):
+    def load_events(
+        self,
+        tsAS,
+        vtRhythmStart,
+        tTotalDuration: float,
+    ):
         if tsAS.vtTimeTrace.size > self.controller.nSramEventLimit:
             raise MemoryError("Layer `{}`: Can upload at most {} events. {} are too many.".format(
                 self.strName, self.controller.nSramEventLimit, tsAS.vtTimeTrace.size
@@ -662,6 +667,9 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Indices corresponding to first event of each rhythm
         viRhythmStarts = np.searchsorted(tsAS.vtTimeTrace, vtRhythmStart)
+        
+        # - Durations of each rhythm
+        self.vtRhythmDurations = np.diff(np.r_[vtRhythmStart, tTotalDuration])
         
         # - Convert timeseries to events for FPGA
         lEvents = self.controller._TSEvent_to_spike_list(
@@ -674,15 +682,6 @@ class RecDynapSEDemo(RecDynapSE):
         #   to the rhythm start and not the last event from the previous rhythm
         for iRhythm, iEvent in enumerate(viRhythmStarts):
             lEvents[iEvent].isi = np.round((tsAS.vtTimeTrace[iEvent] - vtRhythmStart[iRhythm]) / self.controller.tFpgaIsiBase).astype(int)
-        # - Insert dummy events at ends of rhythms to avoid bug where sequence is played more than once
-        for iEvent in np.r_[viRhythmStarts[1: ], len(lEvents)][::-1]:
-            event = CtxDynapse.FpgaSpikeEvent()
-            event.target_chip = 0
-            event.core_mask = 0
-            event.neuron_id = 0
-            event.isi = 10000
-            lEvents.insert(iEvent, event)
-
 
         print("Layer `{}`: {} events have been generated.".format(self.strName, len(lEvents)))
 
@@ -697,31 +696,30 @@ class RecDynapSEDemo(RecDynapSE):
         print("Layer `{}`: Events have been loaded.".format(self.strName))
 
         # - Fpga adresses where beats start
-        #   Shift adress for each rhythm due to inserted dummy events
-        self.vnRhythmAddress = 2 * (viRhythmStarts + np.arange(viRhythmStarts.size))
-        # - Number of events per rhythm
-        self.vnEventsPerRhythm = np.diff(np.r_[viRhythmStarts + np.arange(viRhythmStarts.size), len(lEvents)])
+        self.vnRhythmAddress = 2 * (viRhythmStarts)
+        # - Number of events per rhythm: do -1 for each rhythm, due to ctxctl syntax
+        self.vnEventsPerRhythm = np.diff(np.r_[viRhythmStarts, len(lEvents)]) - 1
 
     #@profile
     def evolve(
         self,
-        tDuration: float,
         iRhythm: int,
+        tDuration: Optional[float] = None,
         bVerbose: bool=True,
     ) -> TSEvent:
         """
         evolve - Evolve the layer by playing back from the given base address and recording
 
-        :param tDuration:   float   Desired evolution duration, in seconds
         :param iRhythm:     int     Index of the rhythm to be played back
+        :param tDuration:   float   Desired evolution duration, in seconds, use rhythm duration if None
         :param nNumEvents:  int     Number of input events to play back on FPGA starting from base address
 
         :return:                TSEvent spikes emitted by the neurons in this layer, during the evolution time
         """
-        nNumTimeSteps = int(np.floor((tDuration + ABS_TOLERANCE) / self.tDt))
         
-        # - Stop possible previous stimulation to be able to change base address
-        self.controller.fpgaSpikeGen.stop()
+        # - Determine evolution duration
+        tDuration = self.vtRhythmDurations[iRhythm] if tDuration is None else tDuration
+        nNumTimeSteps = int(np.floor((tDuration + ABS_TOLERANCE) / self.tDt))
         
         # - Instruct FPGA to spike
         # set new base adress and number of input events for stimulation
@@ -745,8 +743,6 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Until duration is over, record events and process in quick succession
         while time.time() < tStop:
-            
-            # time.sleep(tDuration / 1000)
             # - Collect events and possibly trigger events
             lTriggerEvents += self.controller.bufferedfilter.get_special_event_timestamps()
             lCurrentEvents = self.controller.bufferedfilter.get_events()
@@ -755,8 +751,6 @@ class RecDynapSEDemo(RecDynapSE):
             lvTimeStamps += list(vtTimeStamps)
             lvChannels += list(vnChannels)
 
-        # - Stop stimulation
-        self.controller.fpgaSpikeGen.stop()
         print(
             "Layer `{}`: Recorded {} event(s) and {} trigger event(s)".format(
                 self.strName, len(lvTimeStamps), len(lTriggerEvents)
