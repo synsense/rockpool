@@ -100,14 +100,14 @@ class FFExpSyn(Layer):
         nNumTimeSteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input and apply weights.
+        _prepare_input - Sample input and return as raster.
 
         :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
         :param tDuration:    float Duration of the desired evolution, in seconds
         :param nNumTimeSteps int Number of evolution time steps
 
         :return:
-            mnWeightedInput:  ndarray Raster containing weighted spike info
+            mnInput:          ndarray Raster containing spike info
             nNumTimeSteps:    ndarray Number of evlution time steps
         """
         if nNumTimeSteps is None:
@@ -151,13 +151,11 @@ class FFExpSyn(Layer):
                 bSamples=False,
                 bAddEvents=self.bAddEvents,
             )[2].astype(float)
-            # Apply input weights
-            mfWeightedInput = mnSpikeRaster @ self.mfW
 
         else:
-            mfWeightedInput = np.zeros((nNumTimeSteps, self.nSize))
+            mnSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
 
-        return mfWeightedInput, nNumTimeSteps
+        return mnSpikeRaster, nNumTimeSteps
 
     ### --- State evolution
 
@@ -180,7 +178,8 @@ class FFExpSyn(Layer):
         """
 
         # - Prepare weighted input signal
-        mfWeightedInput, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        mnInputRaster, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        mfWeightedInput = mnInputRaster @ self.mfW
 
         # - Time base
         vtTimeBase = (np.arange(nNumTimeSteps + 1) + self._nTimeStep) * self.tDt
@@ -219,6 +218,90 @@ class FFExpSyn(Layer):
         return TSContinuous(
             vtTimeBase, mfFiltered + self.vfBias, strName="Receiver current"
         )
+
+    def evolve_train(
+        self,
+        tsTarget: TSContinuous,
+        tsInput: Optional[TSEvent] = None,
+        tDuration: Optional[float] = None,
+        nNumTimeSteps: Optional[int] = None,
+        fRegularize: float = 0,
+        fLearningRate: float = 0.01,
+        bVerbose: bool = False,
+    ) -> TSContinuous:
+        """
+        evolve : Function to evolve the states of this layer given an input
+
+        :param tsTarget:        TSContinuous  Target time series
+        :param tsSpkInput:      TSEvent  Input spike trian
+        :param tDuration:       float    Simulation/Evolution time
+        :param nNumTimeSteps    int      Number of evolution time steps
+        :param fRegularize:     float    Regularization parameter
+        :param fLearningRate:   flaot    Factor determining scale of weight increments at each step
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSContinuous  output spike series
+
+        """
+
+        # - Prepare input signal
+        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        mnInputRaster, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+
+        # - Time base
+        vtTimeBase = (np.arange(nNumTimeSteps + 1) + self._nTimeStep) * self.tDt
+
+        # - Define exponential kernel
+        vfKernel = np.exp(
+            - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
+        )
+
+        # Empty input array with additional dimension for training biases
+        mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn + 1))
+        mfInput[:, -1] = 1
+
+        # - Apply kernel to spike trains and add filtered trains to input array
+        for channel, vEvents in enumerate(mnInputRaster.T):
+            mfInput[:, channel] = fftconvolve(vEvents, vfKernel, "full")[
+                : vtTimeBase.size
+            ]
+
+        # - Evolution:
+        mfFiltered = mfInput[:, :-1] @ self.mfW
+        mfOut = mfFiltered + self.vfBias
+
+        # - Update time and state
+        self._nTimeStep += nNumTimeSteps
+
+        ## -- Training
+        # - Prepare target data
+        mfTarget = tsTarget(vtTimeBase)
+
+        # - Make sure no nan is in target, as this causes learning to fail
+        assert not np.isnan(
+            mfTarget
+        ).any(), "Layer `{}`: nan values have been found in mfTarget (where: {})".format(
+            self.strName, np.where(np.isnan(mfTarget))
+        )
+
+        # - Check target dimensions
+        if mfTarget.ndim == 1 and self.nSize == 1:
+            mfTarget = mfTarget.reshape(-1, 1)
+
+        assert (
+            mfTarget.shape[-1] == self.nSize
+        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
+            self.strName, mfTarget.shape[-1], self.nSize
+        )
+        # - Weight update
+        mfUpdate = mfInput.T @ (mfTarget - mfOut)
+        self.mfW += fLearningRate * (mfUpdate[:-1] - fRegularize * self.mfW)
+        self.vfBias += fLearningRate * (mfUpdate[-1] - fRegularize * self.vfBias)
+
+        # - Output time series with output data and bias
+        return TSContinuous(
+            vtTimeBase, mfFiltered + self.vfBias, strName="Receiver current"
+        )
+
 
     def train_rr(
         self,
