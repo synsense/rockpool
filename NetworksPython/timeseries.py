@@ -1472,6 +1472,54 @@ class TSEvent(TimeSeries):
 
         return self.clip([tStart, tStop], bInPlace = bInPlace)
 
+    def append_t(
+        self, 
+        tsOther,
+        bInPlace: bool = False,
+    ):
+        """
+        append_t() - Append another time series to this one, in time
+
+        :param tsOther: Another time series. Will be tacked on to the end of the called series object
+        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :return: Time series containing current data, with other TS appended in time
+        """
+
+        # - Check tsOther
+        assert isinstance(tsOther, TSEvent), "`tsOther` must be a TSEvent object."
+
+        assert tsOther.nNumTraces == self.nNumTraces, (
+            "`tsOther` must include the same number of traces ("
+            + str(self.nNumTraces)
+            + ")."
+        )
+
+        # - Create a new time series, or modify this time series
+        if not bInPlace:
+            tsAppended = self.copy()
+        else:
+            tsAppended = self
+
+        # - Concatenate time trace and samples
+        tsAppended._mfSamples = np.concatenate((tsAppended.mfSamples, tsOther.mfSamples), axis=0)
+        tsAppended._vnChannels = np.concatenate((tsAppended.vnChannels, tsOther.vnChannels), axis=0)
+        tsAppended._vtTimeTrace = np.concatenate(
+            (
+                tsAppended._vtTimeTrace,
+                tsOther.vtTimeTrace + tsAppended.tStop - tsOther.tStart,
+            ),
+            axis=0,
+        )
+
+        # - Fix tStop
+        tsAppended._tStop += tsOther.tDuration
+        
+        # - Recreate interpolator
+        tsAppended._create_interpolator()
+
+        # - Return appended time series
+        return tsAppended
+
     def merge(self,
               ltsOther: Union[TimeSeries, List[TimeSeries]],
               bRemoveDuplicates: Optional[bool] = None,
