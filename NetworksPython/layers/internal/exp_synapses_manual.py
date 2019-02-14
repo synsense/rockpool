@@ -252,8 +252,10 @@ class FFExpSyn(Layer):
 
         # - Define exponential kernel
         vfKernel = np.exp(
-            - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
+            - (np.arange(nNumTimeSteps) * self.tDt) / self.tTauSyn
         )
+        # - Make sure spikes only have effect on next time step
+        vfKernel = np.r_[0, vfKernel]
 
         # Empty input array with additional dimension for training biases
         mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn + 1))
@@ -266,8 +268,8 @@ class FFExpSyn(Layer):
             ]
 
         # - Evolution:
-        mfFiltered = mfInput[:, :-1] @ self.mfW
-        mfOut = mfFiltered + self.vfBias
+        mfWeighted = mfInput[:, :-1] @ self.mfW
+        mfOut = mfWeighted + self.vfBias
 
         # - Update time and state
         self._nTimeStep += nNumTimeSteps
@@ -292,14 +294,25 @@ class FFExpSyn(Layer):
         ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
             self.strName, mfTarget.shape[-1], self.nSize
         )
+
         # - Weight update
-        mfUpdate = mfInput.T @ (mfTarget - mfOut)
-        self.mfW += fLearningRate * (mfUpdate[:-1] - fRegularize * self.mfW)
-        self.vfBias += fLearningRate * (mfUpdate[-1] - fRegularize * self.vfBias)
+        # mfUpdate = mfInput.T @ (mfTarget - mfOut)
+        # print(np.linalg.norm(mfTarget-mfOut))
+        # # Normalize learning rate by number of inputs
+        # fLearningRate /= (self.nSizeIn * mfInput.shape[0] * vfG)
+        # self.mfW += fLearningRate * (mfUpdate[:-1]) - fRegularize * self.mfW
+        # self.vfBias += fLearningRate * (mfUpdate[-1]) - fRegularize * self.vfBias
+
+        mfXTX = mfInput.T @ mfInput
+        mfXTY = mfInput.T @ mfTarget
+        mfNewWeights = np.linalg.solve(mfXTX + fRegularize * np.eye(mfInput.shape[1]), mfXTY)
+        print(np.linalg.norm(mfTarget-mfOut))
+        self.mfW = (self.mfW + fLearningRate * mfNewWeights[:-1]) / (1. + fLearningRate)
+        self.vfBias = (self.vfBias + fLearningRate * mfNewWeights[-1]) / (1. + fLearningRate)
 
         # - Output time series with output data and bias
         return TSContinuous(
-            vtTimeBase, mfFiltered + self.vfBias, strName="Receiver current"
+            vtTimeBase, mfOut, strName="Receiver current"
         )
 
 
@@ -424,6 +437,8 @@ class FFExpSyn(Layer):
             vfKernel = np.exp(
                 - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
             )
+            # - Make sure spikes only have effect on next time step
+            vfKernel = np.r_[0, vfKernel]
 
             # - Apply kernel to spike trains and add filtered trains to input array
             for channel, vEvents in enumerate(mnSpikeRaster.T):
