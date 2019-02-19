@@ -2,10 +2,10 @@
 # dynap_hw.py - Implementation of HW FF and Rec layers for DynapSE, via ctxCTL
 # ----
 
-from ..layer import Layer
-from ...timeseries import TSEvent
-from ...dynapse_control import  DynapseControl, CtxDynapse
-from ... import dynapse_control as DC
+from ...layer import Layer
+from ....timeseries import TSEvent
+from ....devices.dynapse_control import  DynapseControl, CtxDynapse
+from ....devices import dynapse_control as DC
 
 import numpy as np
 from warnings import warn

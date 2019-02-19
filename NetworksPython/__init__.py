@@ -10,7 +10,6 @@ dModules = {
         "TSContinuous",
         "TSEvent",
     ),
-    ".dynapse_control": "DynapseControl",
 }
 
 # - Define current package

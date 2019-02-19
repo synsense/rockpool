@@ -10,7 +10,7 @@ from typing import Tuple, List, Optional, Union
 import time
 import os.path
 import threading
-from .timeseries import TSEvent
+from ..timeseries import TSEvent
 
 # - Programmatic imports for CtxCtl
 bUsing_RPyC = False
@@ -453,7 +453,8 @@ def extract_event_data(lEvents) -> (tuple, tuple):
         lTimeStamps     list  Timestamps of events
         lNeuronIDs      list  Neuron IDs of events
     """
-    ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents]
+    # Extract event timestamps and neuron IDs. Skip events with neuron None.
+    ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents if event.neuron is not None]
     try:
         tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
     except ValueError as e:
