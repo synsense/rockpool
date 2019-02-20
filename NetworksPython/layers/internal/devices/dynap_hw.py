@@ -727,8 +727,8 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.fpgaSpikeGen.set_stim_count(self.vnEventsPerRhythm[iRhythm])
 
         # - Lists for storing collected events
-        lvTimeStamps = []
-        lvChannels = []
+        lnTimeStamps = []
+        lnChannels = []
         lTriggerEvents = []
 
         # - Clear event filter
@@ -748,18 +748,18 @@ class RecDynapSEDemo(RecDynapSE):
             lCurrentEvents = self.controller.bufferedfilter.get_events()
 
             vtTimeStamps, vnChannels = DC.event_data_to_channels(lCurrentEvents, self.vnHWNeuronIDs)
-            lvTimeStamps += list(vtTimeStamps)
-            lvChannels += list(vnChannels)
+            lnTimeStamps += list(vtTimeStamps)
+            lnChannels += list(vnChannels)
 
         print(
             "Layer `{}`: Recorded {} event(s) and {} trigger event(s)".format(
-                self.strName, len(lvTimeStamps), len(lTriggerEvents)
+                self.strName, len(lnTimeStamps), len(lTriggerEvents)
             )
         )
 
         # - Post-processing of collected events
-        vtTimeTrace = np.array(lvTimeStamps) * 1e-6
-        vnChannels = np.array(lvChannels)
+        vtTimeTrace = np.array(lnTimeStamps) * 1e-6
+        vnChannels = np.array(lnChannels)
 
         # - Locate synchronisation timestamp
         vtStartTriggers = np.array(lTriggerEvents) * 1e-6

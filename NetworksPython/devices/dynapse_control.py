@@ -1991,113 +1991,161 @@ class DynapseControl:
                 vnRecordNeuronIDs = []
                 warn("DynapseControl: No neuron IDs specified for recording.")
             self.add_buffered_event_filter(vnRecordNeuronIDs)
+        
+        # - Lists for storing collected events
+        lnTimeStamps = []
+        lnChannels = []
+        lTriggerEvents = []
 
-        # - Stimulate
         print(
             "DynapseControl: Starting{} stimulation{}.".format(
                 bPeriodic * " periodic", (not bPeriodic) * " for {} s".format(tDuration)
             )
         )
+        # - Clear event filter
+        self.bufferedfilter.get_events()
+        self.bufferedfilter.get_special_event_timestamps()
+
+        # Time at which stimulation stops, including buffer
+        tStop = time.time() + tDuration + (0. if tBuffer is None else tBuffer)
+
+        # - Stimulate
         self.fpgaSpikeGen.start()
 
-        if tDuration is None:
+        if (tDuration is None) or bPeriodic:
+            # - Keep running indefinitely
             return
 
-        # - Run stimulation (and record)
-        tBuffer = 0 if tBuffer is None else tBuffer
+        # - Until duration is over, record events and process in quick succession
+        while time.time() < tStop:
+            if bRecord:
+                # - Collect events and possibly trigger events
+                lTriggerEvents += self.bufferedfilter.get_special_event_timestamps()
+                lCurrentEvents = self.bufferedfilter.get_events()
 
-        if bPeriodic:
-            return
+                vtTimeStamps, vnChannels = event_data_to_channels(lCurrentEvents, vnRecordNeuronIDs)
+                lnTimeStamps += list(vtTimeStamps)
+                lnChannels += list(vnChannels)
 
-        time.sleep(tDuration + tBuffer)
-
-        # - Stop stimulation and clear filter to stop recording events
-        self.fpgaSpikeGen.stop()
         print("DynapseControl: Stimulation ended.")
 
         if bRecord:
             self.bufferedfilter.clear()
-            if bTSEvent:
-                # - Extract TSEvent from recorded data
-                return self._recorded_data_to_TSEvent(vnRecordNeuronIDs, tDuration)
-            else:
-                # - Extract arrays from recorded data
-                return self._recorded_data_to_arrays(vnRecordNeuronIDs, tDuration)
-
-    #@profile
-    def _recorded_data_to_TSEvent(
-        self, vnNeuronIDs: np.ndarray, tRecord: float
-    ) -> TSEvent:
-        lEvents = self.bufferedfilter.get_events()
-        lTrigger = self.bufferedfilter.get_special_event_timestamps()
-        print(
-            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
-                len(lEvents), len(lTrigger)
+            print("\tRecorded {} event(s) and {} trigger event(s)".format(
+                len(lnTimeStamps), len(lTriggerEvents)
+            ))
+            return self._process_extracted_events(
+                lnTimeStamps=lnTimeStamps,
+                lnChannels=lnChannels,
+                lTriggerEvents=lTriggerEvents,
+                tDuration=tDuration,
+                vnNeuronIDs=vnRecordNeuronIDs,
+                bTSEvent=bTSEvent,
             )
-        )
 
-        # - Extract monitored event channels and timestamps
-        vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
-        vtTimeTrace = np.array(vnTimeStamps) * 1e-6
-        vnChannels = np.array(vnChannels)
+    def _process_extracted_events(
+        self,
+        lnTimeStamps: List,
+        lnChannels: List,
+        lTriggerEvents: List,
+        tDuration: float,
+        vnNeuronIDs: np.ndarray,
+        bTSEvent: bool=False
+    ) -> (np.array, np.array):
+
+        # - Post-processing of collected events
+        vtTimeTrace = np.asarray(lnTimeStamps) * 1e-6
+        vnChannels = np.asarray(lnChannels)
+
+        if vtTimeTrace.size == 0:
+            return (
+                TSEvent([], [], tStart=0) if bTSEvent
+                else (np.array([]), np.array([]))
+            )
 
         # - Locate synchronisation timestamp
-        vtStartTriggers = np.array(lTrigger) * 1e-6
+        vtStartTriggers = np.array(lTriggerEvents) * 1e-6
         viStartIndices = np.searchsorted(vtTimeTrace, vtStartTriggers)
-        viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tRecord)
+        viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tDuration)
         # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
-        iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
-        print("\t\t Using trigger event {}".format(iTrigger))
-        tStartTrigger = vtStartTriggers[iTrigger]
-        iStartIndex = viStartIndices[iTrigger]
-        iEndIndex = viEndIndices[iTrigger]
+        try:
+            iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
+            print("\t\t Using trigger event {}".format(iTrigger))
+        except ValueError:
+            print("\t\t No Trigger found, using recording from beginning")
+            iStartIndex = 0
+            tStartTrigger = vtTimeTrace[0]
+            iEndIndex = np.searchsorted(vtTimeTrace, vtTimeTrace[0] + tDuration)
+        else:
+            tStartTrigger = vtStartTriggers[iTrigger]
+            iStartIndex = viStartIndices[iTrigger]
+            iEndIndex = viEndIndices[iTrigger]
         # - Filter time trace
         vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
         vnChannels = vnChannels[iStartIndex:iEndIndex]
         print("DynapseControl: Extracted event data")
 
-        return TSEvent(
-            vtTimeTrace,
-            vnChannels,
-            tStart=0,
-            tStop=tRecord,
-            nNumChannels=np.size(vnNeuronIDs),
-            strName="DynapSE"
+        if bTSEvent:
+            return TSEvent(
+                vtTimeTrace,
+                vnChannels,
+                tStart=0,
+                tStop=tDuration,
+                nNumChannels=(
+                    np.amax(vnChannels) if vnNeuronIDs is None
+                    else np.size(vnNeuronIDs)
+                ),
+                strName="DynapSE"
+            )
+        else:
+            return vtTimeTrace, vnChannels
+
+    def _recorded_data_to_TSEvent(
+        self, vnNeuronIDs: np.ndarray, tRecord: float
+    ) -> TSEvent:
+        lEvents = self.bufferedfilter.get_events()
+        lTriggerEvents = self.bufferedfilter.get_special_event_timestamps()
+        print(
+            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
+                len(lEvents), len(lTriggerEvents)
+            )
+        )
+
+        # - Extract monitored event channels and timestamps
+        vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
+        
+        return self._process_extracted_events(
+            lnTimeStamps=vnTimeStamps,
+            lnChannels=vnChannels,
+            lTriggerEvents=lTriggerEvents,
+            tDuration=tRecord,
+            vnNeuronIDs=vnNeuronIDs,
+            bTSEvent=True,
         )
 
     def _recorded_data_to_arrays(
         self, vnNeuronIDs: np.ndarray, tRecord: float
     ) -> TSEvent:
         lEvents = self.bufferedfilter.get_events()
-        lTrigger = self.bufferedfilter.get_special_event_timestamps()
+        lTriggerEvents = self.bufferedfilter.get_special_event_timestamps()
 
         print(
             "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
-                len(lEvents), len(lTrigger)
+                len(lEvents), len(lTriggerEvents)
             )
         )
 
         # - Extract monitored event channels and timestamps
         vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
-        vtTimeTrace = np.array(vnTimeStamps) * 1e-6
-        vnChannels = np.array(vnChannels)
-
-        # - Locate synchronisation timestamp
-        vtStartTriggers = np.array(lTrigger) * 1e-6
-        viStartIndices = np.searchsorted(vtTimeTrace, vtStartTriggers)
-        viEndIndices = np.searchsorted(vtTimeTrace, vtStartTriggers + tRecord)
-        # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
-        iTrigger = np.argmax((viEndIndices - viStartIndices) > 0)
-        print("\t\t Using trigger event {}".format(iTrigger))
-        tStartTrigger = vtStartTriggers[iTrigger]
-        iStartIndex = viStartIndices[iTrigger]
-        iEndIndex = viEndIndices[iTrigger]
-        # - Filter time trace
-        vtTimeTrace = vtTimeTrace[iStartIndex:iEndIndex] - tStartTrigger
-        vnChannels = vnChannels[iStartIndex:iEndIndex]
-        print("DynapseControl: Extracted event data")
         
-        return vtTimeTrace, vnChannels
+        return self._process_extracted_events(
+            lnTimeStamps=vnTimeStamps,
+            lnChannels=vnChannels,
+            lTriggerEvents=lTriggerEvents,
+            tDuration=tRecord,
+            vnNeuronIDs=vnNeuronIDs,
+            bTSEvent=False,
+        )
 
     ### --- Tools for tuning and observing activities
 
