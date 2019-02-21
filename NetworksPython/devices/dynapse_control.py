@@ -454,7 +454,10 @@ def extract_event_data(lEvents) -> (tuple, tuple):
         lNeuronIDs      list  Neuron IDs of events
     """
     # Extract event timestamps and neuron IDs. Skip events with neuron None.
-    ltupEvents = [(event.timestamp, event.neuron.get_id()) for event in lEvents if event.neuron is not None]
+    ltupEvents = [
+        (event.timestamp, event.neuron.get_id())
+        for event in lEvents if isinstance(event.neuron, CtxDynapse.DynapseNeuron)
+    ]
     try:
         tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
     except ValueError as e:
