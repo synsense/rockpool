@@ -36,40 +36,6 @@ def test_torch_lyr_prepare_input_empty():
     lyrConv2d.evolve(evInput, tDuration=10)
 
 
-def test_torch_lyr_prepare_input_partial():
-    """
-    Test basic layer evolution of this layer
-    """
-    from NetworksPython import TSEvent
-    from NetworksPython.weights import CNNWeightTorch
-    from NetworksPython.layers import FFCLIAFCNNTorch
-
-    # Create weights
-    cnnWTorch = CNNWeightTorch(
-        inShape=(1, 20, 20),
-        nKernels=3,
-        kernel_size=(1, 1),
-        mode="same",
-        img_data_format="channels_first",
-    )
-
-    # Create a FFIAFTorch layer
-    lyrCNNTorch = FFCLIAFCNNTorch(mfW=cnnWTorch, fVThresh=0.5, strName="TorchCNN")
-
-    # Generate time series input
-    evInput = TSEvent(None, strName="Input")
-    for nId in range(20):
-        vSpk = poisson_generator(40.0, t_stop=10)
-        evInput.merge(TSEvent(vSpk, nId))
-
-    # Check that a warning is raised on expanding the input
-    with pytest.warns(UserWarning, match="Expanding input"):
-        # Evolve
-        evOut = lyrCNNTorch.evolve(tsInput=evInput, tDuration=100)
-
-    assert evOut.nNumChannels == lyrCNNTorch.nSize
-
-
 def test_toch_activity_comparison_to_skimage_default_params():
     """
     Test basic layer evolution of this layer
@@ -110,7 +76,7 @@ def test_toch_activity_comparison_to_skimage_default_params():
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=tSim)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
@@ -167,7 +133,7 @@ def test_toch_activity_comparison_to_skimage():
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
@@ -223,7 +189,7 @@ def test_toch_activity_comparison_to_skimage_channels_last():
     evInput = TSEvent(None, strName="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(

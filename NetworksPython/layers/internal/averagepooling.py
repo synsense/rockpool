@@ -12,9 +12,8 @@ import torch.nn as nn
 # from typing import Optional, Union, List, Tuple
 from ...timeseries import TSEvent
 
-# from ..layer import Layer
 from .iaf_cl import CLIAF
-from ...weights.internal.cnnweights import CNNWeight
+from ...weights import CNNWeight
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9

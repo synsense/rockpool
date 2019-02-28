@@ -45,7 +45,8 @@ def test_cnn_evolve():
     evInput = TSEvent(None, strName="Input")
     for nId in range(lyrCNN.nSize):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace = True)
+
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
     print(evOut.find())
@@ -76,7 +77,8 @@ def test_cnn_multilayer():
     evInput = TSEvent(None, strName="Input")
     for nId in range(imageShape[0] * imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId))
+        evInput.merge(TSEvent(vSpk, nId), bInPlace = True)
+
     # Evolve
     evOut = net.evolve(tsInput=evInput, tDuration=100)
     print(evOut)

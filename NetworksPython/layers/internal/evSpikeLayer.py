@@ -54,7 +54,8 @@ class EventDrivenSpikingLayer(FFCLIAF):
         __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
 
         # Extract spike data from the input variable
-        vSpk = tsInput.vtTimeTrace  # !! What if tsInput is None??
+        # TODO: Handle empty input time series
+        vSpk = tsInput.vtTimeTrace
         vIdInput = tsInput.vnChannels
 
         # Hold the sate of network at any time step when updated
@@ -108,6 +109,7 @@ class EventDrivenSpikingLayer(FFCLIAF):
                 )
 
         # Convert arrays to TimeSeries objects
+
         mfSpk = np.row_stack(aSpk)
         evOut = TSEvent(
             mfSpk[:, 0], mfSpk[:, 1], strName="Output", nNumChannels=self.nSize

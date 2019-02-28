@@ -169,9 +169,15 @@ class FFIAFTorch(Layer):
                 vtRecTimesSynapses, self.mfRecordSynapses.numpy()
             )
 
+        # - Start and stop times for output time series
+        tStart = nTimeStepStart * self.tDt
+        tStop = (nTimeStepStart + nNumTimeSteps) * self.tDt
+
         # - Output timeseries
         if (mbSpiking == 0).all():
-            tseOut = TSEvent(None)
+            tseOut = TSEvent(
+                None, tStart=tStart, tStop=tStop, nNumChannels=self.nSize,
+            )
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (
@@ -179,10 +185,12 @@ class FFIAFTorch(Layer):
             ).float() * self.tDt
 
             tseOut = TSEvent(
-                vtTimeTrace=vtSpikeTimings.numpy(),
+                vtTimeTrace=np.clip(vtSpikeTimings.numpy(), tStart, tStop-fTolAbs*10**6),  # Clip due to possible numerical errors
                 vnChannels=vnChannels.numpy(),
                 nNumChannels=self.nSize,
                 strName="Layer `{}` spikes".format(self.strName),
+                tStart=tStart,
+                tStop=tStop,
             )
 
         return tseOut
@@ -307,8 +315,7 @@ class FFIAFTorch(Layer):
         _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
                                 and return it together with number of evolution time steps
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
+        :param mfInput          np.ndarray  External input spike raster
         :param nNumTimeSteps    int      Number of evolution time steps
         :return:
                 mfNeuralInput   np.ndarray  Input to neurons
@@ -619,8 +626,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
                                 and return it together with number of evolution time steps
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
+        :param mfInput:     np.ndarray   Input to layer as matrix
         :param nNumTimeSteps    int      Number of evolution time steps
         :return:
                 mfNeuralInput   np.ndarray  Input to neurons
@@ -629,12 +635,12 @@ class FFIAFSpkInTorch(FFIAFTorch):
         """
         # - Prepare mfInput
         mfInput = torch.from_numpy(mfInput).float().to(self.device)
-        # - Weigh inputs
+        # - Weight inputs
         mfWeightedInput = torch.mm(mfInput, self._mfW)
 
         # - Add noise trace
         if self.fNoiseStd > 0:
-            mfNeuralInput += (
+            mfWeightedInput += (
                 torch.randn(nNumTimeSteps, self.nSize).float().to(self.device)
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
@@ -1103,7 +1109,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
         # - Store "reset" state
         self.reset_all()
-
+        
     # @profile
     def _prepare_neural_input(
         self, mfInput: np.array, nNumTimeSteps: Optional[int] = None
