@@ -7,13 +7,13 @@
 from typing import Union
 import numpy as np
 from scipy.signal import fftconvolve
+import torch
 
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
 
 from typing import Optional, Union, Tuple, List
 
-import torch
 from warnings import warn
 
 # - Type alias for array-like objects
@@ -22,11 +22,8 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Configure exports
 __all__ = ["FFExpSyn"]
 
-
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
-
-
 
 def sigmoid(z):
     return 1. / (1. + np.exp(-z))
@@ -337,12 +334,12 @@ class FFExpSyn(Layer):
         :fRegularize:           float - regularization for ridge regression
         :bFirst:                bool - True if current batch is the first in training
         :bFinal:                bool - True if current batch is the last in training
-        :bStoreState:           bool - Include last state from previous training and store state from this 
+        :bStoreState:           bool - Include last state from previous training and store state from this
                                        traning. This has the same effect as if data from both trainings
                                        were presented at once.
         :param bTrainBiases:    bool - If True, train biases as if they were weights
                                        Otherwise present biases will be ignored in
-                                       training and not be changed.   
+                                       training and not be changed.
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -474,7 +471,7 @@ class FFExpSyn(Layer):
             # - Store updated matrices
             self.mfXTY = mfNewXTY
             self.mfXTX = mfNewXTX
-            
+
             if bStoreState:
                 # - Store last state for next batch
                 if bTrainBiases:
@@ -527,7 +524,7 @@ class FFExpSyn(Layer):
         :fRegularize:       float - regularization parameter
         :nBatchSize:        int - Number of samples per batch. If None, train with all samples at once
         :nEpochs:           int - How many times is training repeated
-        :bStoreState:       bool - Include last state from previous training and store state from this 
+        :bStoreState:       bool - Include last state from previous training and store state from this
                                    traning. This has the same effect as if data from both trainings
                                    were presented at once.
         :bVerbose:          bool - Print output about training progress
@@ -636,7 +633,7 @@ class FFExpSyn(Layer):
             nBatchSize = nNumTimeSteps
         else:
             nNumBatches = int(np.ceil(nNumTimeSteps / float(nBatchSize)))
-        
+
         viSampleOrder = np.arange(nNumTimeSteps)  # Indices to choose samples - shuffle for random order
 
         # - Iterate over epochs
@@ -654,11 +651,11 @@ class FFExpSyn(Layer):
                 print("Layer `{}`: Training epoch {} of {}".format(self.strName, iEpoch+1, nEpochs), end="\r")
             # - Shuffle samples
             np.random.shuffle(viSampleOrder)
-        
+
         if bVerbose:
             print("Layer `{}`: Finished trainig.              ".format(self.strName))
-        
-        if bStoreState:    
+
+        if bStoreState:
             # - Store last state for next batch
             self._vTrainingState = mfInput[-1, :-1].copy()
 
@@ -674,194 +671,8 @@ class FFExpSyn(Layer):
         # - Regularization of weights
         if fRegularize > 0:
             mfGradients[: -1, :] += fRegularize / float(self.nSizeIn) * self.mfW
-        
+
         return mfGradients
-
-    def train_logreg_torch(
-        self,
-        tsTarget: TSContinuous,
-        tsInput: TSEvent = None,
-        fLearningRate: float = 0,
-        fRegularize: float = 0,
-        nBatchSize: Optional[int] = None,
-        nEpochs: int = 1,
-        bStoreState: bool = True,
-        bVerbose: bool = False,
-    ):
-
-        """
-        train_logreg - Train self with logistic regression over one of possibly many batches.
-                       Note that this training method assumes that a sigmoid funciton is applied
-                       to the layer output, which is not the case in self.evolve.
-                       Use pytorch as backend
-        :param tsTarget:    TimeSeries - target for current batch
-        :param tsInput:     TimeSeries - input to self for current batch
-        :fLearningRate:     flaot - Factor determining scale of weight increments at each step
-        :fRegularize:       float - regularization parameter
-        :nBatchSize:        int - Number of samples per batch. If None, train with all samples at once
-        :nEpochs:           int - How many times is training repeated
-        :bStoreState:       bool - Include last state from previous training and store state from this 
-                                   traning. This has the same effect as if data from both trainings
-                                   were presented at once.
-        :bVerbose:          bool - Print output about training progress
-        """
-
-        if not torch.cuda.is_available():
-            warn("Layer `{}`: CUDA not available. Will use cpu".format(self.strName))
-            self.train_logreg(
-                tsTarget, tsInput, fLearningRate, fRegularize, nBatchSize, nEpochs, bStoreState, bVerbose
-            )
-            return
-
-        # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
-
-        # - Discard last sample to avoid counting time points twice
-        vtTimeBase = vtTimeBase[:-1]
-
-        # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
-
-        # - Prepare target data
-        mfTarget = tsTarget(vtTimeBase)
-
-        # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            mfTarget
-        ).any(), "Layer `{}`: nan values have been found in mfTarget (where: {})".format(
-            self.strName, np.where(np.isnan(mfTarget))
-        )
-
-        # - Check target dimensions
-        if mfTarget.ndim == 1 and self.nSize == 1:
-            mfTarget = mfTarget.reshape(-1, 1)
-
-        assert (
-            mfTarget.shape[-1] == self.nSize
-        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.strName, mfTarget.shape[-1], self.nSize
-        )
-
-        # - Prepare input data
-
-        # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeBase), self.nSizeIn + 1))
-        mfInput[:, -1] = 1
-
-        # - Generate spike trains from tsInput
-        if tsInput is None:
-            # - Assume zero input
-            print(
-                "Layer `{}`: No tsInput defined, assuming input to be 0.".format(
-                    self.strName
-                )
-            )
-
-        else:
-            # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1]]
-            )
-
-            # - Make sure that input channels do not exceed layer input dimensions
-            try:
-                assert (
-                    np.amax(vnEventChannels) <= self.nSizeIn - 1
-                ), "Layer `{}`: Number of input channels exceeds layer input dimensions.".format(
-                    self.strName
-                )
-            except ValueError as e:
-                # - No events in input data
-                if vnEventChannels.size == 0:
-                    print(
-                        "Layer `{}`: No input spikes for training.".format(self.strName)
-                    )
-                else:
-                    raise e
-
-            # Extract spike data from the input
-            mnSpikeRaster = (
-                tsInput.raster(
-                    tDt=self.tDt,
-                    tStart=vtTimeBase[0],
-                    nNumTimeSteps=vtTimeBase.size,
-                    vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
-                    bAddEvents=self.bAddEvents,
-                )[2]
-            ).astype(float)
-
-            if bStoreState:
-                try:
-                    # - Include last state from previous batch
-                    mnSpikeRaster[0, :] += self._vTrainingState
-                except AttributeError:
-                    pass
-
-            # - Define exponential kernel
-            vfKernel = np.exp(
-                - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
-            )
-
-            # - Apply kernel to spike trains and add filtered trains to input array
-            for channel, vEvents in enumerate(mnSpikeRaster.T):
-                mfInput[:, channel] = fftconvolve(vEvents, vfKernel, "full")[
-                    : vtTimeBase.size
-                ]
-
-        # - Move data to cuda
-        ctTarget = torch.from_numpy(mfTarget).float().to("cuda")
-        ctInput = torch.from_numpy(mfInput).float().to("cuda")
-        ctWeights = torch.from_numpy(self.mfW).float().to("cuda")
-        ctBiases = torch.from_numpy(self.vfBias).float().to("cuda")
-
-        # - Prepare batches for training
-        if nBatchSize is None:
-            nNumBatches = 1
-            nBatchSize = nNumTimeSteps
-        else:
-            nNumBatches = int(np.ceil(nNumTimeSteps / float(nBatchSize)))
-        
-        ctSampleOrder = torch.arange(nNumTimeSteps)  # Indices to choose samples - shuffle for random order
-
-        # - Iterate over epochs
-        for iEpoch in range(nEpochs):
-            # - Iterate over batches and optimize
-            for iBatch in range(nNumBatches):
-                ctSampleIndices = ctSampleOrder[iBatch * nBatchSize: (iBatch+1) * nBatchSize]
-                # - Gradients
-                ctGradients = self._gradients_torch(
-                    ctWeights, ctBiases, ctInput[ctSampleIndices], ctTarget[ctSampleIndices], fRegularize
-                )
-                ctWeights -= fLearningRate * ctGradients[: -1, :]
-                ctBiases -= fLearningRate * ctGradients[-1, :]
-            if bVerbose:
-                print("Layer `{}`: Training epoch {} of {}".format(self.strName, iEpoch+1, nEpochs), end="\r")
-            # - Shuffle samples
-            ctSampleOrder = torch.randperm(nNumTimeSteps)
-        
-        if bVerbose:
-            print("Layer `{}`: Finished trainig.              ".format(self.strName))
-        
-        if bStoreState:    
-            # - Store last state for next batch
-            self._vTrainingState = ctInput[-1, :-1].cpu().numpy()
-
-
-    def _gradients_torch(self, ctWeights, ctBiases, ctInput, ctTarget, fRegularize):
-        # - Output with current weights
-        ctLinear = torch.mm(ctInput[:, : -1], ctWeights) + ctBiases
-        ctOutput = sigmoid_torch(ctLinear)
-        # - Gradients for weights
-        nNumSamples = ctInput.size()[0]
-        ctError = ctOutput - ctTarget
-        ctGradients = torch.mm(ctInput.t(), ctError) / float(nNumSamples)
-        # - Regularization of weights
-        if fRegularize > 0:
-            ctGradients[: -1, :] += fRegularize / float(self.nSizeIn) * ctWeights
-        
-        return ctGradients
 
 
     ### --- Properties
@@ -878,11 +689,11 @@ class FFExpSyn(Layer):
     def tTauSyn(self, tNewTau):
         assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(self.strName)
         self._tTauSyn = tNewTau
-    
+
     @property
     def vfBias(self):
         return self._vfBias
-    
+
     @vfBias.setter
     def vfBias(self, vfNewBias):
         self._vfBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
