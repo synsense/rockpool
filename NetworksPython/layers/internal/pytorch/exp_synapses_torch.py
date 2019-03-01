@@ -655,6 +655,10 @@ class FFExpSynTorch(FFExpSyn):
 
     ### --- Properties
 
+    @property
+    def tTauSyn(self):
+        return self._tTauSyn
+
     @tTauSyn.setter
     def tTauSyn(self, tNewTau, bNoKernelUpdate=False):
         assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(
