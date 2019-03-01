@@ -48,7 +48,6 @@ class _RefractoryBase():
         :return:            TSEvent  output spike series
 
         """
-
         # - Get synapse input to neurons
         mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
             mfInput, nNumTimeSteps
@@ -299,7 +298,7 @@ class FFIAFTorch(Layer):
             vtSpikeTimings = (
                 nTimeStepStart + vnSpikeTimeIndices + 1
             ).float() * self.tDt
-            
+
             tseOut = TSEvent(
                 vtTimeTrace=np.clip(vtSpikeTimings.numpy(), tStart, tStop - fTolAbs*10**6),  # Clip due to possible numerical errors
                 vnChannels=vnChannels.numpy(),
@@ -1307,7 +1306,6 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         :return:            TSEvent  output spike series
 
         """
-
         mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
             mfInput, nNumTimeSteps
         )
@@ -1842,3 +1840,104 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         )
 
         self.tRefractoryTime = tRefractoryTime
+
+
+    def _single_batch_evolution(
+        self,
+        mfInput: np.ndarray,
+        nEvolutionTimeStep: int,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input for a single batch
+
+        :param mfInput:     np.ndarray   Input to layer as matrix
+        :param nEvolutionTimeStep int    Time step within current evolution at beginning of current batch
+        :param nNumTimeSteps:   int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
+
+        """
+        print("SBE: RecIAFRefrTorch")
+        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
+            mfInput, nNumTimeSteps
+        )
+
+        if self.bRecord:
+            # - Tensor for recording synapse and neuron states
+            mfRecordStates = self.tensors.FloatTensor(
+                2 * nNumTimeSteps, self.nSize
+            ).fill_(0)
+
+        # - Tensor for collecting spike data
+        mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
+
+        # - Get local variables
+        vState = self._vState.clone()
+        vfAlpha = self._vfAlpha
+        vfVThresh = self._vfVThresh
+        vfVReset = self._vfVReset
+        bRecord = self.bRecord
+        mfKernels = self._mfKernelsRec
+        nNumTSKernel = mfKernels.shape[0]
+        mfWRec = self._mfW
+        nRefractorySteps = self._nRefractorySteps
+        vnRefractoryCountdownSteps = self._vnRefractoryCountdownSteps.clone()
+
+        # - Include resting potential and bias in input for fewer computations
+        # - Omit latest time point, which is only used for carrying over synapse state to new batch
+        mfNeuralInput[:-1] += self._vfVRest + self._vfBias
+
+        # - Evolve neuron states
+        for nStep in range(nNumTimeSteps):
+            # - Determine refractory neurons
+            vbNotRefractory = (vnRefractoryCountdownSteps == 0).float()
+            # - Decrement refractory countdown
+            vnRefractoryCountdownSteps -= 1
+            vnRefractoryCountdownSteps.clamp_(min=0)
+            # - Incremental state update from input
+            vState += vfAlpha * (mfNeuralInput[nStep] - vState) * vbNotRefractory
+            # - Store updated state before spike
+            if bRecord:
+                mfRecordStates[2 * nStep] = vState
+            # - Spiking
+            vbSpiking = (vState > vfVThresh).float()
+            # - State reset
+            vState += (vfVReset - vState) * vbSpiking
+            # - Store spikes
+            mbSpiking[nStep] = vbSpiking
+            # - Update refractory countdown
+            vnRefractoryCountdownSteps += nRefractorySteps * vbSpiking
+            # - Store updated state after spike
+            if bRecord:
+                mfRecordStates[2 * nStep + 1] = vState
+            # - Add filtered recurrent spikes to input
+            nTSRecurrent = min(nNumTSKernel, nNumTimeSteps - nStep)
+            mfNeuralInput[nStep + 1 : nStep + 1 + nTSRecurrent] += mfKernels[
+                :nTSRecurrent
+            ] * torch.mm(vbSpiking.reshape(1, -1), mfWRec)
+
+            del vbSpiking
+
+        # - Store recorded neuron and synapse states
+        if bRecord:
+            self.mfRecordStates[
+                2 * nEvolutionTimeStep
+                + 1 : 2 * (nEvolutionTimeStep + nNumTimeSteps)
+                + 1
+            ] = mfRecordStates.cpu()
+            self.mfRecordSynapses[
+                nEvolutionTimeStep + 1 : nEvolutionTimeStep + nNumTimeSteps + 1
+            ] = (
+                mfNeuralInput[:nNumTimeSteps]
+                - self._vfVRest
+                - self._vfBias  # Introduces slight numerical error in stored synapses of about 1e-9
+            ).cpu()
+
+        # - Store updated neuron and synapse states and update clock
+        self._vState = vState
+        self._vSynapseState = mfNeuralInput[-1].clone()
+        self._nTimeStep += nNumTimeSteps
+
+        return mbSpiking.cpu()

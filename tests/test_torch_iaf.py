@@ -18,7 +18,7 @@ def test_ffiaf_torch():
 
     mfW = np.random.randn(nSizeIn,nSize)
     fl = FFIAFTorch(mfW, tDt=tDt, bRecord=False)
-    
+
     mfIn = 0.005 * np.array([
         np.sin(np.linspace(0,10*tDur,int(tDur/tDt)) + fPhase) for fPhase in np.linspace(0,3, nSizeIn)
     ]).T
@@ -122,7 +122,7 @@ def test_reciaf_spkin_torch():
     mfWIn = 0.1*np.random.randn(nSizeIn, nSize)
     mfWRec = 0.001*np.random.randn(nSize, nSize)
     rl = RecIAFSpkInTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
-    
+
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.vState)
@@ -150,7 +150,7 @@ def test_ffiaf_refr_torch():
     mfW = np.random.randn(nSizeIn,nSize)
     fl = FFIAFTorch(mfW, tDt=tDt, bRecord=False)
     flr = FFIAFRefrTorch(mfW, tDt=tDt, bRecord=False)
-    
+
     mfIn = 0.005 * np.array([
         np.sin(np.linspace(0,10*tDur,int(tDur/tDt)) + fPhase) for fPhase in np.linspace(0,3, nSizeIn)
     ]).T
@@ -313,7 +313,7 @@ def test_reciaf_spkin_refr_torch():
     mfWRec = 0.001*np.random.randn(nSize, nSize)
     rl = RecIAFSpkInTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
     rlr = RecIAFSpkInRefrTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
-    
+
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.vState)
