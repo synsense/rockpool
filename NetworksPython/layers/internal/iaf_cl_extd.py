@@ -264,13 +264,15 @@ class RecCLIAFExtd(CLIAF):
         # Generate output sime series
         vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=np.clip(vtSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
+            vtTimeTrace=np.clip(
+                vtSpikeTimes, tStart, tStop
+            ),  # Clip due to possible numerical errors,
             vnChannels=liSpikeIDs,
             nNumChannels=self.nSize,
             tStart=tStart,
             tStop=tStop,
         )
-        
+
         if vnIdMonitor is not None:
             # - Store recorded data in timeseries
             vtRecordTimes = np.repeat(

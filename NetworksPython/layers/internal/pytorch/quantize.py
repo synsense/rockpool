@@ -6,26 +6,24 @@ from typing import Optional, Union, List, Tuple
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 
-class TorchFlatten2dLayer(nn.Module):
+class TorchQuantizeLayer(nn.Module):
     """
     Equivalent to keras flatten
     """
 
-    def __init__(self, strName="crop2d"):
+    def __init__(self, strName="quantize"):
         """
-        Torch implementation of SumPooling using the LPPool2d module
+        Torch implementation of Quantizing the output spike count.
         """
         nn.Module.__init__(self)  # Init nn.Module
         self.strName = strName
 
-    def forward(self, tsrBinaryInput):
-        nBatch = len(tsrBinaryInput)
-        # Temporary modify LQ, due to keras weights generation change
-        #tsrBinaryInput = tsrBinaryInput.permute(0, 2, 3, 1)
-        tsrFlattenOut = tsrBinaryInput.contiguous().view(nBatch, -1)
-        self.outShape = tsrFlattenOut.shape[1:]
-        self.tsrNumSpikes = tsrFlattenOut
-        return tsrFlattenOut
+    def forward(self, tsrInput):
+        nBatch = len(tsrInput)
+        tsrOut = tsrInput.int().float()
+        self.outShape = tsrOut.shape[1:]
+        self.tsrNumSpikes = tsrOut
+        return tsrOut
 
     @property
     def nOutChannels(self):

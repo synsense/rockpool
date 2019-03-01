@@ -30,6 +30,7 @@ dModules = {
     ".internal.pytorch.crop2d": "TorchCropping2dLayer",
     ".internal.pytorch.zeropad2d": "TorchZeroPad2dLayer",
     ".internal.pytorch.flatten": "TorchFlatten2dLayer",
+    ".internal.pytorch.quantize": "TorchQuantizeLayer",
     ".internal.pytorch.iaf_torch": (
         "FFIAFTorch",
         "FFIAFRefrTorch",

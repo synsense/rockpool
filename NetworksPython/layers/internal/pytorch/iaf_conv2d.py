@@ -133,7 +133,7 @@ class TorchSpikingConv2dLayer(nn.Module):
                 # Calculate number of spikes to be generated
                 tsrNumSpikes[iCurrentTimeStep] = (tsrState >= fVThresh).int() + (
                     tsrState - fVThresh > 0
-                ).int() * (tsrState / fVSubtract).int()
+                ).int() * ((tsrState - fVThresh) / fVSubtract).int()
                 ## - Subtract from states
                 tsrState = tsrState - (
                     fVSubtract * tsrNumSpikes[iCurrentTimeStep].float()
@@ -165,6 +165,10 @@ class TorchSpikingConv2dLayer(nn.Module):
                 "Padding": str(self.padding),
                 "Kernel": str(self.kernel_size),
                 "Stride": str(self.strides),
+                "FanOutPrev": reduce(
+                    mul, np.array(self.kernel_size) / np.array(self.strides), 1
+                )
+                * self.nOutChannels,
                 "Neurons": reduce(mul, list(self.outShape[-3:]), 1),
                 "KernelMem": self.nInChannels
                 * self.nOutChannels
