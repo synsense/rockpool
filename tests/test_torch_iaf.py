@@ -2,6 +2,7 @@
 Test torch-based IAF layers
 """
 
+fTol = 1e-7  # - Tolerance for numerical comparisons
 
 def test_ffiaf_torch():
     # - Test FFIAFTorch
@@ -175,7 +176,7 @@ def test_ffiaf_refr_torch():
     tsOutR2 = flr.evolve(tsIn, tDuration=0.08)
     assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
     for iChannel in range(flr.nSize):
-        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01).all()
+        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01 - fTol).all()
 
     flr2 = FFIAFRefrTorch(mfW, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
     tsOutR3 = flr2.evolve(tsIn, tDuration=0.08)
@@ -226,7 +227,7 @@ def test_ffiaf_spkin_refr_torch():
     tsOutR2 = flr.evolve(tsIn, tDuration=0.08)
     assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
     for iChannel in range(flr.nSize):
-        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01).all()
+        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01 - fTol).all()
 
     flr2 = FFIAFSpkInRefrTorch(mfW, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
     tsOutR3 = flr2.evolve(tsIn, tDuration=0.08)
@@ -277,7 +278,7 @@ def test_reciaf_refr_torch():
     tsOutR2 = rlr.evolve(tsIn, tDuration=0.4)
     assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
     for iChannel in range(rlr.nSize):
-        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01).all()
+        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01 - fTol).all()
 
     rlr2 = RecIAFRefrTorch(mfW, tDt=tDt, vfBias=0.0101, bRecord=False, tRefractoryTime=0.01)
     tsOutR3 = rlr2.evolve(tsIn, tDuration=0.4)
@@ -332,7 +333,7 @@ def test_reciaf_spkin_refr_torch():
     tsOutR2 = rlr.evolve(tsIn, tDuration=0.08)
     assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
     for iChannel in range(rlr.nSize):
-        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01).all()
+        assert (np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels==iChannel]) >= 0.01 - fTol).all()
 
     rlr2 = RecIAFSpkInRefrTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
     tsOutR3 = rlr2.evolve(tsIn, tDuration=0.08)
