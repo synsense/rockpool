@@ -12,7 +12,6 @@ dModules = {
         "RecIAFSpkInBrian",
     ),
     ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-    # ".internal.dynap_hw": ("RecDynapSE", "RecDynapSEDemo"),
     ".internal.event_pass": "PassThroughEvents",
     ".internal.exp_synapses_brian": "FFExpSynBrian",
     ".internal.exp_synapses_manual": "FFExpSyn",
@@ -31,6 +30,7 @@ dModules = {
     ".internal.pytorch.zeropad2d": "TorchZeroPad2dLayer",
     ".internal.pytorch.flatten": "TorchFlatten2dLayer",
     ".internal.pytorch.quantize": "TorchQuantizeLayer",
+    ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
     ".internal.pytorch.iaf_torch": (
         "FFIAFTorch",
         "FFIAFRefrTorch",

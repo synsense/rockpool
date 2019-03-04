@@ -25,11 +25,10 @@ __all__ = ["FFExpSyn"]
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 
-def sigmoid(z):
-    return 1. / (1. + np.exp(-z))
 
-def sigmoid_torch(z):
-    return 1. / (1. + torch.exp(-z))
+def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
 class FFExpSyn(Layer):
@@ -76,10 +75,7 @@ class FFExpSyn(Layer):
 
         # - Call super constructor
         super().__init__(
-            mfW=mfW,
-            tDt=tDt,
-            fNoiseStd=np.asarray(fNoiseStd),
-            strName=strName,
+            mfW=mfW, tDt=tDt, fNoiseStd=np.asarray(fNoiseStd), strName=strName
         )
 
         # - Parameters
@@ -175,7 +171,9 @@ class FFExpSyn(Layer):
         """
 
         # - Prepare weighted input signal
-        mnInputRaster, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        mnInputRaster, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
         mfWeightedInput = mnInputRaster @ self.mfW
 
         # - Time base
@@ -193,7 +191,9 @@ class FFExpSyn(Layer):
             mfWeightedInput += mfNoise
 
         # Add current state to input
-        mfWeightedInput[0, :] += self._vStateNoBias.copy() * np.exp(-self.tDt / self.tTauSyn)
+        mfWeightedInput[0, :] += self._vStateNoBias.copy() * np.exp(
+            -self.tDt / self.tTauSyn
+        )
 
         # - Define exponential kernel
         vfKernel = np.exp(-np.arange(nNumTimeSteps + 1) * self.tDt / self.tTauSyn)
@@ -201,7 +201,7 @@ class FFExpSyn(Layer):
         vfKernel = np.r_[0, vfKernel]
 
         # - Apply kernel to spike trains
-        mfFiltered = np.zeros((nNumTimeSteps+1, self.nSize))
+        mfFiltered = np.zeros((nNumTimeSteps + 1, self.nSize))
         for channel, vEvents in enumerate(mfWeightedInput.T):
             vConv = fftconvolve(vEvents, vfKernel, "full")
             vConvShort = vConv[: vtTimeBase.size]
@@ -242,15 +242,15 @@ class FFExpSyn(Layer):
 
         # - Prepare input signal
         nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        mnInputRaster, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        mnInputRaster, nNumTimeSteps = self._prepare_input(
+            tsInput, tDuration, nNumTimeSteps
+        )
 
         # - Time base
         vtTimeBase = (np.arange(nNumTimeSteps + 1) + self._nTimeStep) * self.tDt
 
         # - Define exponential kernel
-        vfKernel = np.exp(
-            - (np.arange(nNumTimeSteps) * self.tDt) / self.tTauSyn
-        )
+        vfKernel = np.exp(-(np.arange(nNumTimeSteps) * self.tDt) / self.tTauSyn)
         # - Make sure spikes only have effect on next time step
         vfKernel = np.r_[0, vfKernel]
 
@@ -302,16 +302,19 @@ class FFExpSyn(Layer):
 
         mfXTX = mfInput.T @ mfInput
         mfXTY = mfInput.T @ mfTarget
-        mfNewWeights = np.linalg.solve(mfXTX + fRegularize * np.eye(mfInput.shape[1]), mfXTY)
-        print(np.linalg.norm(mfTarget-mfOut))
-        self.mfW = (self.mfW + fLearningRate * mfNewWeights[:-1]) / (1. + fLearningRate)
-        self.vfBias = (self.vfBias + fLearningRate * mfNewWeights[-1]) / (1. + fLearningRate)
-
-        # - Output time series with output data and bias
-        return TSContinuous(
-            vtTimeBase, mfOut, strName="Receiver current"
+        mfNewWeights = np.linalg.solve(
+            mfXTX + fRegularize * np.eye(mfInput.shape[1]), mfXTY
+        )
+        print(np.linalg.norm(mfTarget - mfOut))
+        self.mfW = (self.mfW + fLearningRate * mfNewWeights[:-1]) / (
+            1.0 + fLearningRate
+        )
+        self.vfBias = (self.vfBias + fLearningRate * mfNewWeights[-1]) / (
+            1.0 + fLearningRate
         )
 
+        # - Output time series with output data and bias
+        return TSContinuous(vtTimeBase, mfOut, strName="Receiver current")
 
     def train_rr(
         self,
@@ -432,7 +435,7 @@ class FFExpSyn(Layer):
 
             # - Define exponential kernel
             vfKernel = np.exp(
-                - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
+                -(np.arange(vtTimeBase.size - 1) * self.tDt) / self.tTauSyn
             )
             # - Make sure spikes only have effect on next time step
             vfKernel = np.r_[0, vfKernel]
@@ -446,12 +449,8 @@ class FFExpSyn(Layer):
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros(
-                (nInputSize, self.nSize)
-            )  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros(
-                (nInputSize, nInputSize)
-            )  # mfInput.T (dot) mfInput
+            self.mfXTY = np.zeros((nInputSize, self.nSize))  # mfInput.T (dot) mfTarget
+            self.mfXTX = np.zeros((nInputSize, nInputSize))  # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations
             self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
             self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
@@ -500,7 +499,6 @@ class FFExpSyn(Layer):
             self.mfKahanCompXTY = None
             self.mfKahanCompXTX = None
             self._vTrainingState = None
-
 
     def train_logreg(
         self,
@@ -618,7 +616,7 @@ class FFExpSyn(Layer):
 
             # - Define exponential kernel
             vfKernel = np.exp(
-                - (np.arange(vtTimeBase.size-1) * self.tDt) / self.tTauSyn
+                -(np.arange(vtTimeBase.size - 1) * self.tDt) / self.tTauSyn
             )
 
             # - Apply kernel to spike trains and add filtered trains to input array
@@ -634,21 +632,30 @@ class FFExpSyn(Layer):
         else:
             nNumBatches = int(np.ceil(nNumTimeSteps / float(nBatchSize)))
 
-        viSampleOrder = np.arange(nNumTimeSteps)  # Indices to choose samples - shuffle for random order
+        viSampleOrder = np.arange(
+            nNumTimeSteps
+        )  # Indices to choose samples - shuffle for random order
 
         # - Iterate over epochs
         for iEpoch in range(nEpochs):
             # - Iterate over batches and optimize
             for iBatch in range(nNumBatches):
-                viSampleIndices = viSampleOrder[iBatch * nBatchSize: (iBatch+1) * nBatchSize]
+                viSampleIndices = viSampleOrder[
+                    iBatch * nBatchSize : (iBatch + 1) * nBatchSize
+                ]
                 # - Gradients
                 mfGradients = self._gradients(
                     mfInput[viSampleIndices], mfTarget[viSampleIndices], fRegularize
                 )
-                self.mfW = self.mfW - fLearningRate * mfGradients[: -1, :]
+                self.mfW = self.mfW - fLearningRate * mfGradients[:-1, :]
                 self.vfBias = self.vfBias - fLearningRate * mfGradients[-1, :]
             if bVerbose:
-                print("Layer `{}`: Training epoch {} of {}".format(self.strName, iEpoch+1, nEpochs), end="\r")
+                print(
+                    "Layer `{}`: Training epoch {} of {}".format(
+                        self.strName, iEpoch + 1, nEpochs
+                    ),
+                    end="\r",
+                )
             # - Shuffle samples
             np.random.shuffle(viSampleOrder)
 
@@ -659,10 +666,9 @@ class FFExpSyn(Layer):
             # - Store last state for next batch
             self._vTrainingState = mfInput[-1, :-1].copy()
 
-
     def _gradients(self, mfInput, mfTarget, fRegularize):
         # - Output with current weights
-        mfLinear = mfInput[:, : -1] @ self.mfW + self.vfBias
+        mfLinear = mfInput[:, :-1] @ self.mfW + self.vfBias
         mfOutput = sigmoid(mfLinear)
         # - Gradients for weights
         nNumSamples = mfInput.shape[0]
@@ -670,10 +676,9 @@ class FFExpSyn(Layer):
         mfGradients = (mfInput.T @ mfError) / float(nNumSamples)
         # - Regularization of weights
         if fRegularize > 0:
-            mfGradients[: -1, :] += fRegularize / float(self.nSizeIn) * self.mfW
+            mfGradients[:-1, :] += fRegularize / float(self.nSizeIn) * self.mfW
 
         return mfGradients
-
 
     ### --- Properties
 
@@ -687,7 +692,9 @@ class FFExpSyn(Layer):
 
     @tTauSyn.setter
     def tTauSyn(self, tNewTau):
-        assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(self.strName)
+        assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(
+            self.strName
+        )
         self._tTauSyn = tNewTau
 
     @property
@@ -704,7 +711,5 @@ class FFExpSyn(Layer):
 
     @vState.setter
     def vState(self, vNewState):
-        vNewState = (
-            np.asarray(self._expand_to_net_size(vNewState, "vState"))
-        )
+        vNewState = np.asarray(self._expand_to_net_size(vNewState, "vState"))
         self._vStateNoBias = vNewState - self._vfBias
