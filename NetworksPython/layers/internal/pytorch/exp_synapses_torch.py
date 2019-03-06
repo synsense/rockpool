@@ -699,6 +699,14 @@ class FFExpSynTorch(FFExpSyn):
         self._vfBias = torch.from_numpy(vfNewBias).float().to(self.device)
 
     @property
+    def mfXTX(self):
+        return self._mfXTX.cpu().numpy()
+
+    @property
+    def mfXTY(self):
+        return self._mfXTY.cpu().numpy()
+
+    @property
     def vState(self):
         return (self._vStateNoBias + self._vfBias).cpu().numpy()
 
