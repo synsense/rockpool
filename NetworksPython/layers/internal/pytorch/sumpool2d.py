@@ -55,20 +55,22 @@ class TorchSumPooling2dLayer(nn.Module):
         return self.nInChannels
 
     def summary(self):
-        summary = pd.DataFrame(
+        """
+        Returns the summary of this layer as a pandas Series
+        """
+        summary = pd.Series(
             {
                 "Layer": self.strName,
-                "Output Shape": str(list(self.outShape)),
-                "Padding": str(self.padding),
-                "Kernel": str(self.kernel_size),
-                "Stride": str(self.strides),
+                "Output Shape": (tuple(self.outShape)),
+                "Padding": tuple(self.padding),
+                "Kernel": tuple(self.kernel_size),
+                "Stride": tuple(self.strides),
                 "FanOutPrev": reduce(
                     mul, np.array(self.kernel_size) / np.array(self.strides), 1
                 ),
                 "Neurons": 0,
                 "KernelMem": 0,
                 "BiasMem": 0,
-            },
-            index=[0],
+            }
         )
         return summary

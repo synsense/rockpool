@@ -21,7 +21,7 @@ class TorchFlatten2dLayer(nn.Module):
     def forward(self, tsrBinaryInput):
         nBatch = len(tsrBinaryInput)
         # Temporary modify LQ, due to keras weights generation change
-        #tsrBinaryInput = tsrBinaryInput.permute(0, 2, 3, 1)
+        # tsrBinaryInput = tsrBinaryInput.permute(0, 2, 3, 1)
         tsrFlattenOut = tsrBinaryInput.contiguous().view(nBatch, -1)
         self.outShape = tsrFlattenOut.shape[1:]
         self.tsrNumSpikes = tsrFlattenOut
@@ -32,7 +32,10 @@ class TorchFlatten2dLayer(nn.Module):
         return 1
 
     def summary(self):
-        summary = pd.DataFrame(
+        """
+        Returns a summary of this layer as a pandas Series
+        """
+        summary = pd.Series(
             {
                 "Layer": self.strName,
                 "Output Shape": str(list(self.outShape)),
@@ -42,7 +45,6 @@ class TorchFlatten2dLayer(nn.Module):
                 "Neurons": 0,
                 "KernelMem": 0,
                 "BiasMem": 0,
-            },
-            index=[0],
+            }
         )
         return summary
