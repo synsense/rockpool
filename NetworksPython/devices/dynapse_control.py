@@ -140,7 +140,7 @@ def rectangular_neuron_arrangement(
                                     have to fit onto single core.
     :param nFirstNeuron:  int ID of neuron that is in the upper left corner of the rectangle
     :param nNumNeurons:   int Number of neurons in the rectangle
-    :param nWidth:        int Width of the rectangle (in neurons) 
+    :param nWidth:        int Width of the rectangle (in neurons)
     :param tupCoreDimensions:  tuple (number of neuron rows in core, number of neurons in row)
     :return lNeuronIDs:   list 1D array of IDs of neurons that from the rectangle.
     """
@@ -169,7 +169,7 @@ def generate_event_raster(
     :param lEvents:         list of Spike objects
     :param tDuration:       float Overall time covered by the raster
     :param vnNeuronIDs:     array-like of neuron IDs corresponding to events.
-    
+
     :return:
         mbEventRaster   np.ndarray  - Boolean event raster
     """
@@ -213,39 +213,39 @@ def evaluate_firing_rates(
         vfFiringRates  np.ndarray - Each neuron's firing rate
         fMeanRate      float - Average firing rate over all neurons
         fMaxRate       float - Highest firing rate of all neurons
-        fMinRate       float - Lowest firing rate of all neurons            
+        fMinRate       float - Lowest firing rate of all neurons
     """
     # - Extract event timestamps and neuron IDs
     tupTimestamps, tupEventNeuronIDs = extract_event_data(lEvents)
     # - Count events for each neuron
     viUniqueEventIDs, vnEventCounts = np.unique(tupEventNeuronIDs, return_counts=True)
-    
+
     if vnNeuronIDs is None:
         # - lNeuronIDs as list of neurons that have spiked
         vnNeuronIDs = viUniqueEventIDs
-    
+
     # - Neurons that have not spiked
     viNoEvents = (np.asarray(vnNeuronIDs))[
         np.isin(vnNeuronIDs, viUniqueEventIDs) == False
     ]
-    
+
     # - Count events
     viUniqueEventIDs = np.r_[viUniqueEventIDs, viNoEvents]
     vnEventCounts = np.r_[vnEventCounts, np.zeros(viNoEvents.size)]
-    
+
     # - Sort event counts to same order as in vnNeuronIDs
     liUniqueEventIDs = list(viUniqueEventIDs)
     lSort = [liUniqueEventIDs.index(nNeuronID) for nNeuronID in vnNeuronIDs]
     vnEventCounts = vnEventCounts[lSort]
     vfFiringRates = vnEventCounts / tDuration
-    
+
     # - Calculate mean, max and min rates
     fMeanRate = np.mean(vfFiringRates)
     iMaxRateNeuron = np.argmax(vnEventCounts)
     fMaxRate = vfFiringRates[iMaxRateNeuron]
     iMinRateNeuron = np.argmin(vnEventCounts)
     fMinRate = vfFiringRates[iMinRateNeuron]
-    
+
     if bVerbose:
         # - Print results
         print("\tMean firing rate: {} Hz".format(fMeanRate))
@@ -259,7 +259,7 @@ def evaluate_firing_rates(
                 fMinRate, vnNeuronIDs[iMinRateNeuron]
             )
         )
-    
+
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
 #@profile
@@ -330,7 +330,7 @@ def correct_argument_types_and_teleport(func):
     """
     correct_argument_types_and_teleport -  Wrapper for functions that tries to
             correct argument types that are not supported by cortexcontrol and
-            teleports the function via rpyc. Returns original function if 
+            teleports the function via rpyc. Returns original function if
             bUsing_RPyC == False
     :param func:  function to be teleported
     :return:      teleported function
@@ -356,8 +356,8 @@ def correct_argument_types_and_teleport(func):
 
 def correct_argument_types(func):
     """
-    correct_argument_types - If bUsing_RPyC is not False, try changing the 
-                             arguments to a function to types that are 
+    correct_argument_types - If bUsing_RPyC is not False, try changing the
+                             arguments to a function to types that are
                              supported by cortexcontrol
     :param func:    funciton where arguments should be corrected
     :return:        functions with possibly corrected arguments
@@ -402,7 +402,7 @@ def remote_function(func):
                       and register it in the remote namespace.
 
     :param func:            Function to maybe teleport
-    :return:                Maybe teleported function    
+    :return:                Maybe teleported function
     """
     # - Teleport if bUsing_RPyC flag is set
     if bUsing_RPyC:
@@ -1034,7 +1034,7 @@ class DynapseControl:
         self.vbFreeHWNeurons, self.vbFreeVirtualNeurons = (
             self._initial_free_neuron_lists()
         )
-        
+
         # - Store which neurons have been assigned tau 2 (i.e. are silenced)
         self._vbSilenced = np.zeros_like(self.vbFreeHWNeurons, bool)
         # - Make sure no neuron is silenced, yet
@@ -1652,7 +1652,7 @@ class DynapseControl:
 
     def stop_stim(self, bClearFilter: bool = False):
         """
-        stop_stim - Stop stimulation with FGPA spke generator. 
+        stop_stim - Stop stimulation with FGPA spke generator.
                     FPGA repeat mode will be set False.
         :param bStopRecording:  bool  Clear buffered event filter if present.
         """
@@ -1994,7 +1994,7 @@ class DynapseControl:
                 vnRecordNeuronIDs = []
                 warn("DynapseControl: No neuron IDs specified for recording.")
             self.add_buffered_event_filter(vnRecordNeuronIDs)
-        
+
         # - Lists for storing collected events
         lnTimeStamps = []
         lnChannels = []
@@ -2116,7 +2116,7 @@ class DynapseControl:
 
         # - Extract monitored event channels and timestamps
         vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
-        
+
         return self._process_extracted_events(
             lnTimeStamps=vnTimeStamps,
             lnChannels=vnChannels,
@@ -2140,7 +2140,7 @@ class DynapseControl:
 
         # - Extract monitored event channels and timestamps
         vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
-        
+
         return self._process_extracted_events(
             lnTimeStamps=vnTimeStamps,
             lnChannels=vnChannels,
@@ -2192,7 +2192,7 @@ class DynapseControl:
         collect_spiking_neurons - Return a list of IDs of neurons that
                                   that spike within tDuration
         :param vnNeuronIDs:   list   IDs of neurons to be observed.
-        :param tDuration:     float  How long to wait for spiking neurons 
+        :param tDuration:     float  How long to wait for spiking neurons
         :return  lnRecordedNeuronIDs:  list IDs of neurons that have spiked.
         """
 
@@ -2228,11 +2228,11 @@ class DynapseControl:
 
     def silence_hot_neurons(self, vnNeuronIDs: Union[list, np.ndarray], tDuration: float) -> list:
         """
-        silence_hot_neurons - Collect IDs of all neurons that spike 
+        silence_hot_neurons - Collect IDs of all neurons that spike
                               within tDuration. Assign them different
                               time constant to silence them.
         :param vnNeuronIDs:  list   IDs of neurons to be observed.
-        :param tDuration:    float  How long to wait for spiking neurons 
+        :param tDuration:    float  How long to wait for spiking neurons
         :return:
             lnHotNeurons    list  IDs of hot neurons that have been silenced.
         """
@@ -2374,7 +2374,7 @@ class DynapseControl:
         :param vfFreq:      array-like Stimulus frequencies
         :param tDuration:   float  Stimulus duration for each frequency
         :param vnTargetNeuronIDs: array-like  source neuron IDs
-        :param vnInputNeuronIDs:  array-like  IDs of neurons 
+        :param vnInputNeuronIDs:  array-like  IDs of neurons
         :param nChipID:     int  Target chip ID
         :param nCoreMask:   int  Target core mask
 
@@ -2499,11 +2499,11 @@ class DynapseControl:
 
     @property
     def vnSilencedIndices(self):
-        return np.where(self._vbSilenced)[0]  
+        return np.where(self._vbSilenced)[0]
 
     @property
     def mnConnections(self, vnNeuronIDs):
-        return self._foo    
+        return self._foo
 
     @property
     def nSramEventLimit(self):
