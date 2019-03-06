@@ -29,8 +29,7 @@ nDefaultMaxNumTimeSteps = 400
 
 ## - _RefractoryBase - Class: Base class for providing refractoriness-related properties
 ##                            and methods so that refractory layers can inherit them
-class _RefractoryBase():
-
+class _RefractoryBase:
     def _single_batch_evolution(
         self,
         mfInput: np.ndarray,
@@ -77,7 +76,6 @@ class _RefractoryBase():
         bRecord = self.bRecord
         nRefractorySteps = self._nRefractorySteps
         vnRefractoryCountdownSteps = self._vnRefractoryCountdownSteps.clone()
-
 
         # - Include resting potential and bias in input for fewer computations
         mfNeuralInput += self._vfVRest + self._vfBias
@@ -290,9 +288,7 @@ class FFIAFTorch(Layer):
 
         # - Output timeseries
         if (mbSpiking == 0).all():
-            tseOut = TSEvent(
-                None, tStart=tStart, tStop=tStop, nNumChannels=self.nSize,
-            )
+            tseOut = TSEvent(None, tStart=tStart, tStop=tStop, nNumChannels=self.nSize)
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (
@@ -300,7 +296,9 @@ class FFIAFTorch(Layer):
             ).float() * self.tDt
 
             tseOut = TSEvent(
-                vtTimeTrace=np.clip(vtSpikeTimings.numpy(), tStart, tStop - fTolAbs*10**6),  # Clip due to possible numerical errors
+                vtTimeTrace=np.clip(
+                    vtSpikeTimings.numpy(), tStart, tStop - fTolAbs * 10 ** 6
+                ),  # Clip due to possible numerical errors
                 vnChannels=vnChannels.numpy(),
                 nNumChannels=self.nSize,
                 strName="Layer `{}` spikes".format(self.strName),
@@ -438,7 +436,7 @@ class FFIAFTorch(Layer):
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
                 * self.fNoiseStd
-                * torch.sqrt(2. * self._vtTauN / self.tDt)
+                * torch.sqrt(2.0 * self._vtTauN / self.tDt)
                 * 1.63
             )
 
@@ -657,7 +655,7 @@ class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
         vfVThresh: Union[float, np.ndarray] = -0.055,
         vfVReset: Union[float, np.ndarray] = -0.065,
         vfVRest: Union[float, np.ndarray] = -0.065,
-        tRefractoryTime = 0,
+        tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
@@ -798,7 +796,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
                 * self.fNoiseStd
-                * torch.sqrt(2. * self._vtTauN / self.tDt)
+                * torch.sqrt(2.0 * self._vtTauN / self.tDt)
                 * 1.63
             )
 
@@ -1176,7 +1174,7 @@ class RecIAFTorch(FFIAFTorch):
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
                 * self.fNoiseStd
-                * torch.sqrt(2. * self._vtTauN / self.tDt)
+                * torch.sqrt(2.0 * self._vtTauN / self.tDt)
                 * 1.63
             )
 
@@ -1459,7 +1457,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
         # - Bypass property setter to avoid unnecessary convolution kernel update
         assert (
-            type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0.
+            type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0.0
         ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
             self.strName
         )
@@ -1551,7 +1549,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
                 # - Standard deviation slightly smaller than expected (due to brian??),
                 #   therefore correct with empirically found factor 1.63
                 * self.fNoiseStd
-                * torch.sqrt(2. * self._vtTauN / self.tDt)
+                * torch.sqrt(2.0 * self._vtTauN / self.tDt)
                 * 1.63
             )
 
@@ -1754,7 +1752,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
     @nMaxNumTimeSteps.setter
     def nMaxNumTimeSteps(self, nNewMax):
         assert (
-            type(nNewMax) == int and nNewMax > 0.
+            type(nNewMax) == int and nNewMax > 0.0
         ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
             self.strName
         )
@@ -1841,7 +1839,6 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
 
         self.tRefractoryTime = tRefractoryTime
 
-
     def _single_batch_evolution(
         self,
         mfInput: np.ndarray,
@@ -1859,7 +1856,6 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         :return:            TSEvent  output spike series
 
         """
-        print("SBE: RecIAFRefrTorch")
         mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
             mfInput, nNumTimeSteps
         )
