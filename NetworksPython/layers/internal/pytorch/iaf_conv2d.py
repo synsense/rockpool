@@ -158,13 +158,13 @@ class TorchSpikingConv2dLayer(nn.Module):
         return tsrNumSpikes.float()  # Float is just to keep things compatible
 
     def summary(self):
-        summary = pd.DataFrame(
+        summary = pd.Series(
             {
                 "Layer": self.strName,
-                "Output Shape": str(list(self.outShape)),
-                "Padding": str(self.padding),
-                "Kernel": str(self.kernel_size),
-                "Stride": str(self.strides),
+                "Output Shape": (tuple(self.outShape)),
+                "Padding": tuple(self.padding),
+                "Kernel": tuple(self.kernel_size),
+                "Stride": tuple(self.strides),
                 "FanOutPrev": reduce(
                     mul, np.array(self.kernel_size) / np.array(self.strides), 1
                 )
@@ -174,7 +174,6 @@ class TorchSpikingConv2dLayer(nn.Module):
                 * self.nOutChannels
                 * reduce(mul, self.kernel_size, 1),
                 "BiasMem": self.bias * self.nOutChannels,
-            },
-            index=[0],
+            }
         )
         return summary

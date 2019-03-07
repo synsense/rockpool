@@ -30,6 +30,9 @@ class TorchQuantizeLayer(nn.Module):
         return 1
 
     def summary(self):
+        """
+        Returns a summary of this layer as a pandas Series
+        """
         summary = pd.DataFrame(
             {
                 "Layer": self.strName,
@@ -40,7 +43,6 @@ class TorchQuantizeLayer(nn.Module):
                 "Neurons": 0,
                 "KernelMem": 0,
                 "BiasMem": 0,
-            },
-            index=[0],
+            }
         )
         return summary

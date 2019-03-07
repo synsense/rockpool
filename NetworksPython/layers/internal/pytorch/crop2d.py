@@ -40,17 +40,19 @@ class TorchCropping2dLayer(nn.Module):
         return self.nInChannels
 
     def summary(self):
-        summary = pd.DataFrame(
+        """
+        Returns a summary of this layer as a pandas Series
+        """
+        summary = pd.Series(
             {
                 "Layer": self.strName,
-                "Output Shape": str(list(self.outShape)),
-                # "Padding": str(None),
-                # "Kernel": str(None),
-                # "Stride": str(None),
-                "Neurons": 0,
-                "KernelMem": 0,
-                "BiasMem": 0,
-            },
-            index=[0],
+                "Output Shape": tuple(self.outShape),
+                "Cropping": (
+                    self.top_crop,
+                    self.bottom_crop,
+                    self.left_crop,
+                    self.right_crop,
+                ),
+            }
         )
         return summary

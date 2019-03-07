@@ -38,7 +38,10 @@ class TorchZeroPad2dLayer(nn.Module):
         return self.nInChannels
 
     def summary(self):
-        summary = pd.DataFrame(
+        """
+        Returns the summary of this layer as a pandas Series
+        """
+        summary = pd.Series(
             {
                 "Layer": self.strName,
                 "Output Shape": str(list(self.outShape)),
