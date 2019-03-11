@@ -46,13 +46,13 @@ class RecCLIAFExtd(CLIAF):
 
         :param mfWIn:       array-like  nSizeInxN input weight matrix.
         :param mfWRec:      array-like  Weight matrix
-        
+
         :param vfVBias:     array-like  Constant bias to be added to state at each time step
         :param vfVThresh:   array-like  Spiking threshold
         :param vfVReset:    array-like  Reset potential after spike (also see param bSubtract)
         :param vfVSubtract: array-like  If not None, subtract provided values
                                         from neuron state after spike. Otherwise will reset.
-        
+
         :param vtRefractoryTime: array-like Nx1 vector of refractory times.
         :param tDt:         float       time step size
         :param tSpikeDelay: float       Time after which a spike within the
@@ -62,7 +62,7 @@ class RecCLIAFExtd(CLIAF):
                                         Must be at least tDt.
         :param tTauBias:    float       Perioud for applying bias. Must be at least tDt.
                                         Is rounded down to multiple of tDt.
-        
+
         :vnIdMonitor:       array-like  IDs of neurons to be recorded
 
         :param dtypeState:  type data type for the membrane potential
