@@ -263,6 +263,8 @@ class RecDIAF(Layer):
                     vbStateBelowRest = vState < vfVRest
                     # Flip sign of leak for corresponding neurons
                     vnSign = -2 * vbStateBelowRest + 1
+                    # Make sure leak is 0 when resting potential is reached
+                    vnSign[vState == vfVRest] = 0
                 else:
                     vnSign = 1
                 # - State updates after incoming spike
