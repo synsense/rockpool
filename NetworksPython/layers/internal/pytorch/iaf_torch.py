@@ -5,19 +5,16 @@
 
 
 # - Imports
+from typing import Optional, Union
+from warnings import warn
 import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ...layer import Layer
+from ...layer import Layer, RefProperty, ArrayLike
 from ..timedarray_shift import TimedArray as TAShift
 
-from typing import Optional, Union, Tuple, List
-
 from time import time
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
@@ -26,6 +23,7 @@ __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
 fTolAbs = 1e-9
 # - Default maximum numbers of time steps for a single evolution batch
 nDefaultMaxNumTimeSteps = 400
+
 
 ## - _RefractoryBase - Class: Base class for providing refractoriness-related properties
 ##                            and methods so that refractory layers can inherit them
@@ -546,18 +544,18 @@ class FFIAFTorch(Layer):
     def cOutput(self):
         return TSEvent
 
-    @property
+    @RefProperty
     def vState(self):
-        return self._vState.cpu().numpy()
+        return self._vState
 
     @vState.setter
     def vState(self, vNewState):
         vNewState = np.asarray(self._expand_to_net_size(vNewState, "vState"))
         self._vState = torch.from_numpy(vNewState).to(self.device).float()
 
-    @property
+    @RefProperty
     def vtTauN(self):
-        return self._vtTauN.cpu().numpy()
+        return self._vtTauN
 
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
@@ -576,47 +574,52 @@ class FFIAFTorch(Layer):
 
     @property
     def _vfAlpha(self):
+        warn(
+            "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's vfAlpha".format(
+                self.strName
+            )
+        )
         return self.tDt / self._vtTauN
 
-    @property
+    @RefProperty
     def vfBias(self):
-        return self._vfBias.cpu().numpy()
+        return self._vfBias
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
         vfNewBias = np.asarray(self._expand_to_net_size(vfNewBias, "vfBias"))
         self._vfBias = torch.from_numpy(vfNewBias).to(self.device).float()
 
-    @property
+    @RefProperty
     def vfVThresh(self):
-        return self._vfVThresh.cpu().numpy()
+        return self._vfVThresh
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewVThresh):
         vfNewVThresh = np.asarray(self._expand_to_net_size(vfNewVThresh, "vfVThresh"))
         self._vfVThresh = torch.from_numpy(vfNewVThresh).to(self.device).float()
 
-    @property
+    @RefProperty
     def vfVRest(self):
-        return self._vfVRest.cpu().numpy()
+        return self._vfVRest
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
         vfNewVRest = np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
         self._vfVRest = torch.from_numpy(vfNewVRest).to(self.device).float()
 
-    @property
+    @RefProperty
     def vfVReset(self):
-        return self._vfVReset.cpu().numpy()
+        return self._vfVReset
 
     @vfVReset.setter
     def vfVReset(self, vfNewVReset):
         vfNewVReset = np.asarray(self._expand_to_net_size(vfNewVReset, "vfVReset"))
         self._vfVReset = torch.from_numpy(vfNewVReset).to(self.device).float()
 
-    @property
+    @RefProperty
     def vSynapseState(self):
-        return self._vSynapseState.cpu().numpy()
+        return self._vSynapseState
 
     @vSynapseState.setter
     def vSynapseState(self, vfNewState):
@@ -627,9 +630,9 @@ class FFIAFTorch(Layer):
     def t(self):
         return self._nTimeStep * self.tDt
 
-    @property
+    @RefProperty
     def mfW(self):
-        return self._mfW.cpu().numpy()
+        return self._mfW
 
     @mfW.setter
     def mfW(self, mfNewW):
@@ -901,9 +904,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
     def cInput(self):
         return TSEvent
 
-    @property
+    @RefProperty
     def vtTauS(self):
-        return self._vtTauS.cpu().numpy()
+        return self._vtTauS
 
     @vtTauS.setter
     def vtTauS(self, vtNewTauS):
@@ -1668,9 +1671,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
             # - Update filter for recurrent spikes if already exists
             self.vtTauSRec = self.vtTauSRec
 
-    @property
+    @RefProperty
     def vtTauSRec(self):
-        return self._vtTauSRec.cpu().numpy()
+        return self._vtTauSRec
 
     @vtTauSRec.setter
     def vtTauSRec(self, vtNewTauSRec):
@@ -1685,18 +1688,18 @@ class RecIAFSpkInTorch(RecIAFTorch):
         self._vtTauSRec = torch.from_numpy(vtNewTauSRec).to(self.device).float()
         self._update_rec_kernel()
 
-    @property
+    @RefProperty
     def vtTauSInp(self):
-        return self._vtTauSInp.cpu().numpy()
+        return self._vtTauSInp
 
     @vtTauSInp.setter
     def vtTauSInp(self, vtNewTauSInp):
         vtNewTauSInp = np.asarray(self._expand_to_net_size(vtNewTauSInp, "vtTauSInp"))
         self._vtTauSInp = torch.from_numpy(vtNewTauSInp).to(self.device).float()
 
-    @property
+    @RefProperty
     def mfWIn(self):
-        return self._mfWIn.cpu().numpy()
+        return self._mfWIn
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
@@ -1705,9 +1708,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
         self._mfWIn = torch.from_numpy(mfNewW).to(self.device).float()
 
-    @property
+    @RefProperty
     def mfWRec(self):
-        return self._mfWRec.cpu().numpy()
+        return self._mfWRec
 
     @mfWRec.setter
     def mfWRec(self, mfNewW):
@@ -1734,9 +1737,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
     def _mfW(self, mfNewW):
         self._mfWRec = mfNewW
 
-    @property
+    @RefProperty
     def vSynapseStateInp(self):
-        return self._vSynapseStateInp.cpu().numpy()
+        return self._vSynapseStateInp
 
     @vSynapseStateInp.setter
     def vSynapseStateInp(self, vfNewState):

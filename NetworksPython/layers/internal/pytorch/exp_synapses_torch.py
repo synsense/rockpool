@@ -4,18 +4,16 @@
 
 
 # - Imports
-from typing import Union
+from warnings import warn
+from typing import Union, Optional
 import numpy as np
 from scipy.signal import fftconvolve
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
 from ..exp_synapses_manual import FFExpSyn
+from ...layer import ArrayLike, RefProperty
 
-from typing import Optional, Union, Tuple, List
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
 __all__ = ["FFExpSyn"]
@@ -689,25 +687,30 @@ class FFExpSynTorch(FFExpSyn):
         self._tTauSyn = tNewTau
         self._update_kernels()
 
-    @property
+    @RefProperty
     def vfBias(self):
-        return self._vfBias.cpu().numpy()
+        return self._vfBias
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
         vfNewBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
         self._vfBias = torch.from_numpy(vfNewBias).float().to(self.device)
 
-    @property
+    @RefProperty
     def mfXTX(self):
-        return self._mfXTX.cpu().numpy()
+        return self._mfXTX
 
-    @property
+    @RefProperty
     def mfXTY(self):
-        return self._mfXTY.cpu().numpy()
+        return self._mfXTY
 
     @property
     def vState(self):
+        warn(
+            "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's vState".format(
+                self.strName
+            )
+        )
         return (self._vStateNoBias + self._vfBias).cpu().numpy()
 
     @vState.setter
