@@ -859,6 +859,7 @@ def digital(
     nLimitOutputs=1024,
     fRangeUse=1,
     fNormalize=None,
+    fRescale: Optional[float] = None,
 ):
     """
     digital - Create a weight matrix that conforms the specifications of the Dynapse Chip
@@ -877,10 +878,11 @@ def digital(
                                   than 1, input weights can be larger than recurrent weights, later on.
 
     :param fNormalize:      float If not None, matrix will be normalized wrt spectral radius
+    :param fRescale:        float If not None, multiply weights with this constant
 
     :return mnW:            2D-np.ndarray Generated weight matrix
     :return mnCount:        2D-np.ndarray Number of assigned weights per connection
-    :return fScale:         float Factor used for normalization
+    :return fScale:         float Factor used for normalization and rescaling
     """
 
     # - Determine size of matrix
@@ -971,6 +973,10 @@ def digital(
         mnW *= fScale
         # - Also scale keys in dmnCount accordingly
         # dmnCount = {fScale * k: v for k, v in dmnCount.items()}
+    if fRescale is not None:
+        # - Rescale weights by factor fRescale
+        mnW *= fRescale
+        fScale *= fRescale
 
     return mnW, mnCount, fScale  # , dmnCount
 
