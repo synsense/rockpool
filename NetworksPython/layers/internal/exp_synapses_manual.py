@@ -86,6 +86,10 @@ class FFExpSyn(Layer):
         # - set time and state to 0
         self.reset_all()
 
+        # - Objects for training
+        self._mfXTX = None
+        self._mfXTY = None
+
     def _prepare_input(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -449,11 +453,11 @@ class FFExpSyn(Layer):
         # - For first batch, initialize summands
         if bFirst:
             # Matrices to be updated for each batch
-            self.mfXTY = np.zeros((nInputSize, self.nSize))  # mfInput.T (dot) mfTarget
-            self.mfXTX = np.zeros((nInputSize, nInputSize))  # mfInput.T (dot) mfInput
+            self._mfXTY = np.zeros((nInputSize, self.nSize))  # mfInput.T (dot) mfTarget
+            self._mfXTX = np.zeros((nInputSize, nInputSize))  # mfInput.T (dot) mfInput
             # Corresponding Kahan compensations
-            self.mfKahanCompXTY = np.zeros_like(self.mfXTY)
-            self.mfKahanCompXTX = np.zeros_like(self.mfXTX)
+            self.mfKahanCompXTY = np.zeros_like(self._mfXTY)
+            self.mfKahanCompXTX = np.zeros_like(self._mfXTX)
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
@@ -462,14 +466,14 @@ class FFExpSyn(Layer):
 
         if not bFinal:
             # - Update matrices with new data
-            mfNewXTY = self.mfXTY + mfUpdXTY
-            mfNewXTX = self.mfXTX + mfUpdXTX
+            mfNewXTY = self._mfXTY + mfUpdXTY
+            mfNewXTX = self._mfXTX + mfUpdXTX
             # - Calculate rounding error for compensation in next batch
-            self.mfKahanCompXTY = (mfNewXTY - self.mfXTY) - mfUpdXTY
-            self.mfKahanCompXTX = (mfNewXTX - self.mfXTX) - mfUpdXTX
+            self.mfKahanCompXTY = (mfNewXTY - self._mfXTY) - mfUpdXTY
+            self.mfKahanCompXTX = (mfNewXTX - self._mfXTX) - mfUpdXTX
             # - Store updated matrices
-            self.mfXTY = mfNewXTY
-            self.mfXTX = mfNewXTX
+            self._mfXTY = mfNewXTY
+            self._mfXTX = mfNewXTX
 
             if bStoreState:
                 # - Store last state for next batch
@@ -480,12 +484,12 @@ class FFExpSyn(Layer):
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
-            self.mfXTY += mfUpdXTY
-            self.mfXTX += mfUpdXTX
+            self._mfXTY += mfUpdXTY
+            self._mfXTX += mfUpdXTX
 
             # - Weight and bias update by ridge regression
             mfSolution = np.linalg.solve(
-                self.mfXTX + fRegularize * np.eye(nInputSize), self.mfXTY
+                self._mfXTX + fRegularize * np.eye(nInputSize), self._mfXTY
             )
             if bTrainBiases:
                 self.mfW = mfSolution[:-1, :]
@@ -494,8 +498,8 @@ class FFExpSyn(Layer):
                 self.mfW = mfSolution
 
             # - Remove dat stored during this trainig
-            self.mfXTY = None
-            self.mfXTX = None
+            self._mfXTY = None
+            self._mfXTX = None
             self.mfKahanCompXTY = None
             self.mfKahanCompXTX = None
             self._vTrainingState = None
@@ -713,3 +717,11 @@ class FFExpSyn(Layer):
     def vState(self, vNewState):
         vNewState = np.asarray(self._expand_to_net_size(vNewState, "vState"))
         self._vStateNoBias = vNewState - self._vfBias
+
+    @property
+    def mfXTX(self):
+        return self._mfXTX
+
+    @property
+    def mfXTY(self):
+        return self._mfXTY
