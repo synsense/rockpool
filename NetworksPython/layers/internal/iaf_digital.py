@@ -151,7 +151,6 @@ class RecDIAF(Layer):
         self._nTimeStep = 0
 
     ### --- State evolution
-
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -233,6 +232,7 @@ class RecDIAF(Layer):
         nSizeIn = self.nSizeIn
         vfVSubtract = self.vfVSubtract
         vnIdMonitor = None if self._vnIdMonitor.size == 0 else self._vnIdMonitor
+        strName = self.strName
 
         if vnIdMonitor is not None:
             # - Lists for storing states and times
@@ -244,7 +244,13 @@ class RecDIAF(Layer):
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
                 # print(i, tTime, nChannel, "                       ", end="\r")
-
+                if bVerbose:
+                    print(
+                        "Layer `{}`: Time passed: {:10.4f} of {} s.  Channel: {:4d}.  On heap: {:5d} events".format(
+                            strName, tTime, tDuration, nChannel, len(heapSpikes)
+                        ),
+                        end="\r",
+                    )
             except IndexError:
                 # - Stop if there are no spikes left
                 break
@@ -260,11 +266,13 @@ class RecDIAF(Layer):
                 vbNotRefractory = vtRefractoryEnds <= tTime
                 # - Resting potential: Sign of leat so that it drives neuron states to vfVRest
                 if vfVRest is not None and nChannel == nLeakChannel:
-                    vbStateBelowRest = vState < vfVRest
+                    vbStateBelowRest = (
+                        vState[vbNotRefractory] < vfVRest[vbNotRefractory]
+                    )
                     # Flip sign of leak for corresponding neurons
                     vnSign = -2 * vbStateBelowRest + 1
                     # Make sure leak is 0 when resting potential is reached
-                    vnSign[vState == vfVRest] = 0
+                    vnSign[vState[vbNotRefractory] == vfVRest[vbNotRefractory]] = 0
                 else:
                     vnSign = 1
                 # - State updates after incoming spike
@@ -283,16 +291,17 @@ class RecDIAF(Layer):
                     vState[vbSpiking] = np.clip(
                         vState[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
                     ).astype(dtypeState)
-                    # - Check if there are still states above threshold
-                    for iStillAboveThresh in np.where(vState >= vfVThresh)[0]:
-                        # - Add the time when they stop being refractory to the heap
-                        #   on the last channel, where weights are 0, so that no states
-                        #   are updated, only respective states are subtracted
-                        heapq.heappush(
-                            heapSpikes,
-                            (tTime + vtRefr[iStillAboveThresh] + fTolAbs, -1),
-                        )
-
+                    # - Check if among the neurons that are spiking there are still states above threshold
+                    vbStillAboveThresh = (vState >= vfVThresh) & vbSpiking
+                    # - Add the time(s) when they stop being refractory to the heap
+                    #   on the last channel, where weights are 0, so that no neuron
+                    #   states are updated but neurons that are still above threshold
+                    #   can spike immediately after they stop being refractory
+                    vtStopRefr = vtRefr[vbStillAboveThresh] + tTime + fTolAbs
+                    # - Could use np.unique to only add each time once, but is very slow
+                    # vtStopRefr = np.unique(vtRefr[vbStillAboveThresh]) + tTime + fTolAbs
+                    for tStopRefr in vtStopRefr:
+                        heapq.heappush(heapSpikes, (tStopRefr, -1))
                 else:
                     # - Set states to reset potential
                     vState[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
