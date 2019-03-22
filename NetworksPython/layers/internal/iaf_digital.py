@@ -27,13 +27,11 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Configure exports
 __all__ = ["RecDIAF"]
 
-
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-10
 # - Minimum refractory time
 tMinRefractory = 1e-9
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
+
 
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
@@ -235,9 +233,10 @@ class RecDIAF(Layer):
         strName = self.strName
 
         if vnIdMonitor is not None:
-            # - Lists for storing states and times
+            # - Lists for storing states, times and the channel from the heap
             lvStates = [vState[vnIdMonitor].copy()]
             ltTimes = [tTime]
+            lnChannels = [np.nan]
 
         while tTime <= tFinal:
             try:
@@ -261,6 +260,7 @@ class RecDIAF(Layer):
                     # - Record state
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(nChannel)
 
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = vtRefractoryEnds <= tTime
@@ -310,6 +310,7 @@ class RecDIAF(Layer):
                     # - Record state
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(np.nan)
 
                 # print("new state: ", self._vState)
 
@@ -349,9 +350,10 @@ class RecDIAF(Layer):
 
         if vnIdMonitor is not None:
             # - Store evolution of states in lists
-            self.tsRecorded = TSContinuous(ltTimes, lvStates)
+            mStates = np.hstack((lvStates, np.reshape(lnChannels, (-1, 1))))
+            self.tsRecorded = TSContinuous(ltTimes, mStates)
 
-        # - Output time series
+            # - Output time series
         return TSEvent(
             np.clip(ltSpikeTimes, tStart, tStop),
             liSpikeIDs,
