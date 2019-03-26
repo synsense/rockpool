@@ -1,4 +1,3 @@
-
 ###
 # iaf_cl.py - Classes implementing feedforward and recurrent
 #             layers consisting of I&F-neurons with constant
@@ -158,7 +157,7 @@ class CLIAF(Layer):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mfSpikeRaster, __ = tsInput.raster(
+            __, __, mfSpikeRaster = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
@@ -203,9 +202,7 @@ class CLIAF(Layer):
         else:
             assert (
                 np.size(mfNewW) == self.nSizeIn * self.nSize
-            ), "`mfWIn` must have [{}] elements.".format(
-                self.nSizeIn * self.nSize
-            )
+            ), "`mfWIn` must have [{}] elements.".format(self.nSizeIn * self.nSize)
             self._mfWIn = np.array(mfNewW).reshape(self.nSizeIn, self.nSize)
 
     @property
@@ -440,7 +437,9 @@ class FFCLIAF(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=np.clip(ltSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
+            vtTimeTrace=np.clip(
+                ltSpikeTimes, tStart, tStop
+            ),  # Clip due to possible numerical errors,
             vnChannels=liSpikeIDs,
             nNumChannels=self.nSize,
             tStart=tStart,
@@ -640,7 +639,9 @@ class RecCLIAF(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=np.clip(ltSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
+            vtTimeTrace=np.clip(
+                ltSpikeTimes, tStart, tStop
+            ),  # Clip due to possible numerical errors,
             vnChannels=liSpikeIDs,
             nNumChannels=self.nSize,
             tStart=tStart,

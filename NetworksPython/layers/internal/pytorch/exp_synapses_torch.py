@@ -302,7 +302,7 @@ class FFExpSynTorch(FFExpSyn):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [vtTimeBase[0], vtTimeBase[-1]]
             )
 
@@ -331,7 +331,6 @@ class FFExpSynTorch(FFExpSyn):
                             tStart=vtTimeBase[0],
                             nNumTimeSteps=vtTimeBase.size,
                             vnSelectChannels=np.arange(self.nSizeIn),
-                            bSamples=False,
                             bAddEvents=self.bAddEvents,
                         )[2].astype(float)
                     )
@@ -502,7 +501,7 @@ class FFExpSynTorch(FFExpSyn):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [vtTimeBase[0], vtTimeBase[-1]]
             )
 
@@ -529,7 +528,6 @@ class FFExpSynTorch(FFExpSyn):
                     tStart=vtTimeBase[0],
                     nNumTimeSteps=vtTimeBase.size,
                     vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
                     bAddEvents=self.bAddEvents,
                 )[2]
             ).astype(float)

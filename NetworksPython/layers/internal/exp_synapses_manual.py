@@ -145,7 +145,6 @@ class FFExpSyn(Layer):
                 tStart=self.t,
                 nNumTimeSteps=nNumTimeSteps,
                 vnSelectChannels=np.arange(self.nSizeIn),
-                bSamples=False,
                 bAddEvents=self.bAddEvents,
             )[2].astype(float)
 
@@ -398,7 +397,7 @@ class FFExpSyn(Layer):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [vtTimeBase[0], vtTimeBase[-1]]
             )
 
@@ -425,7 +424,6 @@ class FFExpSyn(Layer):
                     tStart=vtTimeBase[0],
                     nNumTimeSteps=vtTimeBase.size,
                     vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
                     bAddEvents=self.bAddEvents,
                 )[2]
             ).astype(float)
@@ -579,7 +577,7 @@ class FFExpSyn(Layer):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [vtTimeBase[0], vtTimeBase[-1]]
             )
 
@@ -606,7 +604,6 @@ class FFExpSyn(Layer):
                     tStart=vtTimeBase[0],
                     nNumTimeSteps=vtTimeBase.size,
                     vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
                     bAddEvents=self.bAddEvents,
                 )[2]
             ).astype(float)

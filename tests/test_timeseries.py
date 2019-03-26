@@ -215,7 +215,7 @@ def test_event_operators():
 
     # - Samples don't match time
     with pytest.raises(AssertionError):
-        TSEvent([0, 1, 2], 0, [0])
+        TSEvent([0, 1, 2], [0, 1])
 
     # - Addition
     ts = ts + 1
@@ -306,7 +306,6 @@ def test_save_load():
     tse = TSEvent(
         vtTimeTrace,
         vnChannels,
-        mfSamples,
         nNumChannels=3,
         tStart=-1,
         tStop=8,
@@ -330,7 +329,6 @@ def test_save_load():
     assert tscl.bPeriodic, "TSContinuous: bPeriodic changed."
     assert (tsel.vtTimeTrace == vtTimeTrace).all(), "TSEvent: vtTimeTrace changed."
     assert (tsel.vnChannels == vnChannels).all(), "TSEvent: vnChannels changed."
-    assert (tsel.mfSamples == mfSamples).all(), "TSEvent: mfSamples changed."
     assert tsel.strName == "events", "TSEvent: strName changed."
     assert tsel.tStart == -1, "TSEvent: tStart changed."
     assert tsel.tStop == 8, "TSEvent: tStop changed."

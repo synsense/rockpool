@@ -570,15 +570,15 @@ class FFIAFTorch(Layer):
 
     @property
     def vfAlpha(self):
-        return self._vfAlpha.cpu().numpy()
-
-    @property
-    def _vfAlpha(self):
         warn(
             "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's vfAlpha".format(
                 self.strName
             )
         )
+        return self._vfAlpha.cpu().numpy()
+
+    @property
+    def _vfAlpha(self):
         return self.tDt / self._vtTauN
 
     @RefProperty
@@ -884,7 +884,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mfSpikeRaster, __ = tsInput.raster(
+            __, __, mfSpikeRaster = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
@@ -1610,7 +1610,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mnSpikeRaster, __ = tsInput.raster(
+            __, __, mnSpikeRaster = tsInput.raster(
                 tDt=self.tDt,
                 tStart=self.t,
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,

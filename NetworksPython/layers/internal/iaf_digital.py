@@ -27,13 +27,13 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Configure exports
 __all__ = ["RecDIAF"]
 
-
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-10
 # - Minimum refractory time
 tMinRefractory = 1e-9
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
+
 
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
@@ -416,7 +416,7 @@ class RecDIAF(Layer):
 
         # - Extract spike timings and channels
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [self.t, (self._nTimeStep + nNumTimeSteps) * self.tDt]
             )
             if np.size(vnEventChannels) > 0:

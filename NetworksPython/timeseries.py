@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple, Optional
+from typing import Union, List, Tuple, Optional, TypeVar
 import collections
 from functools import reduce
 
@@ -19,8 +19,9 @@ __all__ = [
     "TSContinuous",
 ]
 
-# - Type alias for array-like objects
+# - Type alias for array-like objects and for yet undefined objects
 ArrayLike = Union[np.ndarray, List, Tuple]
+TSEventType = TypeVar("TSEvent")
 
 ### -- Code for setting plotting backend
 
@@ -55,15 +56,15 @@ def SetPlottingBackend(strBackend):
     global __bUseHoloviews
     global __bUseMatplotlib
     if (
-        strBackend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv")
-        and __bHoloviewsDetected
+            strBackend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv")
+            and __bHoloviewsDetected
     ):
         __bUseHoloviews = True
         __bUseMatplotlib = False
 
     elif (
-        strBackend in ("matplotlib", "mpl", "mp", "pyplot", "plt")
-        and __bMatplotlibDetected
+            strBackend in ("matplotlib", "mpl", "mp", "pyplot", "plt")
+            and __bMatplotlibDetected
     ):
         __bUseHoloviews = False
         __bUseMatplotlib = True
@@ -101,56 +102,37 @@ def full_nan(vnShape: Union[tuple, int]):
 
 class TimeSeries:
     """
-    TimeSeries - Class represent a multi-series time series, with temporal interpolation and periodicity supported
-    ts = TimeSeries(vtTimeTrace, mfSamples <, strInterpKind, bPeriodic>)
-
-    ts[tInterpTime]:
-    ts(tInterpTime):
-    ts.interpolate(tInterpTime): Interpolate to a time point `tInterpTime`
-
-    ts.oInterp:         scipy.interpolate.interp1d object, interpolator
+    TimeSeries - Class represent a continuous or event-based time series
     """
 
     def __init__(
-        self,
-        vtTimeTrace: ArrayLike,
-        mfSamples: ArrayLike,
-        strInterpKind: str = "linear",
-        bPeriodic: bool = False,
-        tStart: Optional[float] = None,
-        tStop: Optional[float] = None,
-        strName=None,
+            self,
+            vtTimeTrace: ArrayLike,
+            bPeriodic: bool = False,
+            tStart: Optional[float] = None,
+            tStop: Optional[float] = None,
+            strName: str = "unnamed",
     ):
         """
-        TimeSeries - Class represent a multi-series time series, with temporal interpolation and periodicity supported
+        TimeSeries - Class represent a continuous or event-based time series
 
         :param vtTimeTrace:     [Tx1] vector of time samples
-        :param mfSamples:       [TxM] matrix of values corresponding to each time sample
-        :param strInterpKind:   str: Specify the interpolation type. Default: 'linear'
         :param bPeriodic:       bool: Treat the time series as periodic around the end points. Default: False
         :param tStart:          float: If not None, the series start time is tStart, otherwise vtTimeTrace[0]
         :param tStop:           float: If not None, the series stop time is tStop, otherwise vtTimeTrace[-1]
-
-        If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
+        :param strName:         str: Name of the TimeSeries object. Default: `unnamed`
         """
 
-        # - Convert everything to numpy arrays
+        # - Convert time trace to numpy arrays
         vtTimeTrace = np.asarray(vtTimeTrace).flatten().astype(float)
-        mfSamples = np.atleast_1d(mfSamples).astype(float)
 
-        # - Check arguments
-        assert np.size(vtTimeTrace) == mfSamples.shape[0], (
-            "The number of time samples must be equal to the first "
-            "dimension of `mfSamples`"
-        )
-        assert np.all(
-            np.diff(vtTimeTrace) >= 0
-        ), "The time trace must be sorted and not decreasing"
+        if (np.diff(vtTimeTrace) < 0).any():
+            raise ValueError(
+                f"TimeSeries `{strName}`: The time trace must be not decreasing"
+            )
 
         # - Assign attributes
         self._vtTimeTrace = vtTimeTrace
-        self._mfSamples = mfSamples.astype("float")
-        self.strInterpKind = strInterpKind
         self.bPeriodic = bPeriodic
         self.strName = strName
         self.tStart = (
@@ -163,8 +145,6 @@ class TimeSeries:
             if tStop is None
             else tStop
         )
-
-        self._create_interpolator()
 
     def __getitem__(self, vtTimes: Union[ArrayLike, slice]):
         """
@@ -188,7 +168,7 @@ class TimeSeries:
             )
 
             assert (
-                fStart >= self._vtTimeTrace[0]
+                    fStart >= self._vtTimeTrace[0]
             ), "This TimeSeries only starts at t={}".format(self._vtTimeTrace[0])
             assert fStop <= self._vtTimeTrace[-1] + abs(
                 fStep
@@ -198,30 +178,6 @@ class TimeSeries:
             return self.interpolate(vTimeIndices)
         else:
             return self.interpolate(vtTimes)
-
-    def __call__(self, vtTimes: Union[int, float, ArrayLike]):
-        """
-        ts(tTime1, tTime2, ...) - Interpolate the time series to the provided time points
-
-        :param tTime: Scalar, list or np.array of T desired interpolated time points
-        :return:      np.array of interpolated values. Will have the shape TxN
-        """
-        return self.interpolate(vtTimes)
-
-    def interpolate(self, vtTimes: Union[int, float, ArrayLike]):
-        """
-        interpolate - Interpolate the time series to the provided time points
-
-        :param vtTimes: np.ndarray of T desired interpolated time points
-        :return:        np.ndarray of interpolated values. Will have the shape TxN
-        """
-        # - Enforce periodicity
-        if self.bPeriodic:
-            vtTimes = (
-                np.asarray(vtTimes) - self._tStart
-            ) % self.tDuration + self._tStart
-
-        return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
 
     def delay(self, tOffset: Union[int, float], bInPlace: bool = False):
         """
@@ -323,11 +279,11 @@ class TimeSeries:
         return tsResampled
 
     def resample_within(
-        self,
-        tStart: float = None,
-        tStop: float = None,
-        tDt: float = None,
-        bInPlace: bool = False,
+            self,
+            tStart: float = None,
+            tStop: float = None,
+            tDt: float = None,
+            bInPlace: bool = False,
     ):
         """
         resample_within - Return a new time series sampled between tStart
@@ -398,9 +354,9 @@ class TimeSeries:
         assert isinstance(tsOther, TimeSeries), "`tsOther` must be a TimeSeries object."
 
         assert tsOther.nNumTraces == self.nNumTraces, (
-            "`tsOther` must include the same number of traces ("
-            + str(self.nNumTraces)
-            + ")."
+                "`tsOther` must include the same number of traces ("
+                + str(self.nNumTraces)
+                + ")."
         )
 
         # - If the other TimeSeries is empty, just return
@@ -414,7 +370,7 @@ class TimeSeries:
         #   time points of tsOther that are also included in self (assuming both
         #   TimeSeries have a sorted vTimeTrace)
         if bRemoveDuplicates and not (
-            self.tStart > tsOther.tStop or self.tStop < tsOther.tStart
+                self.tStart > tsOther.tStop or self.tStop < tsOther.tStart
         ):
             # Determine region of overlap
             viOverlap = np.where(
@@ -518,9 +474,9 @@ class TimeSeries:
         assert isinstance(tsOther, TimeSeries), "`tsOther` must be a TimeSeries object."
 
         assert tsOther.nNumTraces == self.nNumTraces, (
-            "`tsOther` must include the same number of traces ("
-            + str(self.nNumTraces)
-            + ")."
+                "`tsOther` must include the same number of traces ("
+                + str(self.nNumTraces)
+                + ")."
         )
 
         # - Create a new time series, or modify this time series
@@ -595,25 +551,8 @@ class TimeSeries:
             bounds_error=False,
         )
 
-    def __repr__(self):
-        """
-        __repr__() - Return a string representation of this object
-        :return: str String description
-        """
-        if self.isempty():
-            return "Empty {} object".format(self.__class__.__name__)
-        else:
-            return "{}periodic {} object `{}` from t={} to {}. Shape: {}".format(
-                int(not self.bPeriodic) * "non-",
-                self.__class__.__name__,
-                self.strName,
-                self.tStart,
-                self.tStop,
-                self.mfSamples.shape,
-            )
-
     def print(
-        self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
+            self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
     ):
         """
         print - Print an overview of the time series and its values.
@@ -640,16 +579,16 @@ class TimeSeries:
                 [
                     "{}: \t {}".format(t, vSamples)
                     for t, vSamples in zip(
-                        self.vtTimeTrace[:nFirst], self.mfSamples[:nFirst]
-                    )
+                    self.vtTimeTrace[:nFirst], self.mfSamples[:nFirst]
+                )
                 ]
             )
             strSummary1 = s.join(
                 [
                     "{}: \t {}".format(t, vSamples)
                     for t, vSamples in zip(
-                        self.vtTimeTrace[-nLast:], self.mfSamples[-nLast:]
-                    )
+                    self.vtTimeTrace[-nLast:], self.mfSamples[-nLast:]
+                )
                 ]
             )
             strSummary = strSummary0 + "\n\t...\n" + strSummary1
@@ -765,8 +704,8 @@ class TimeSeries:
         # - Map time bounds to periodic bounds
         vtNewBoundsPeriodic = copy.deepcopy(vtNewBounds)
         vtNewBoundsPeriodic[0] = (
-            np.asarray(vtNewBoundsPeriodic[0]) - tsClipped._tStart
-        ) % tsClipped.tDuration + tsClipped._tStart
+                                         np.asarray(vtNewBoundsPeriodic[0]) - tsClipped._tStart
+                                 ) % tsClipped.tDuration + tsClipped._tStart
         vtNewBoundsPeriodic[1] = vtNewBoundsPeriodic[0] + tDuration
 
         # - Build new time trace
@@ -982,17 +921,6 @@ class TimeSeries:
         # - Create a new interpolator
         self._create_interpolator()
 
-    @property
-    def nNumTraces(self):
-        """
-        .nNumTraces: int Number of traces in this TimeSeries object
-        """
-        try:
-            return self.mfSamples.shape[1]
-        # If mfSamples is 1d:
-        except IndexError:
-            return 1
-
     def choose(self, vnTraces: Union[int, ArrayLike], bInPlace: bool = False):
         """
         choose() - Select from one of several sub-traces; return a TimeSeries containing these traces
@@ -1004,7 +932,7 @@ class TimeSeries:
         # - Convert to a numpy array and check extents
         vnTraces = np.atleast_1d(vnTraces)
         assert (
-            min(vnTraces) >= 0 and max(vnTraces) <= self.nNumTraces
+                min(vnTraces) >= 0 and max(vnTraces) <= self.nNumTraces
         ), "`vnTraces` must be between 0 and " + str(self.nNumTraces)
 
         if not bInPlace:
@@ -1023,44 +951,6 @@ class TimeSeries:
         :return: tsCopy
         """
         return copy.deepcopy(self)
-
-    @property
-    def nNumChannels(self):
-        if hasattr(self, "_nNumChannels") and self._nNumChannels is not None:
-            return self._nNumChannels
-        else:
-            return self.nNumTraces
-
-    @nNumChannels.setter
-    def nNumChannels(self, nNewNumChannels):
-        if self.nNumTraces == 0:
-            assert nNewNumChannels >= 0, "nNumChannels cannot be negative."
-        else:
-            nMinNumChannels = self.nNumTraces
-            assert (
-                nNewNumChannels >= nMinNumChannels
-            ), "nNumChannels must be at least {}.".format(nMinNumChannels)
-        self._nNumChannels = nNewNumChannels
-
-    @property
-    def mfSamples(self):
-        return self._mfSamples
-
-    @mfSamples.setter
-    def mfSamples(self, mfNewSamples: ArrayLike):
-        # - Promote to 1d
-        mfNewSamples = np.atleast_1d(mfNewSamples)
-
-        # - Check samples for correct size
-        assert mfNewSamples.shape[0] == np.size(
-            self.vtTimeTrace
-        ), "New samples matrix must have the same number of samples as `.vtTimeTrace`."
-
-        # - Store new time trace
-        self._mfSamples = mfNewSamples
-
-        # - Create a new interpolator
-        self._create_interpolator()
 
     @property
     def tDuration(self) -> float:
@@ -1124,6 +1014,63 @@ class TimeSeries:
 
 
 class TSContinuous(TimeSeries):
+    """
+    TSContinuous - Class represent a multi-series time series, with temporal interpolation
+                   and periodicity supported
+    """
+
+    def __init__(
+            self,
+            vtTimeTrace: ArrayLike,
+            mfSamples: ArrayLike,
+            bPeriodic: bool = False,
+            tStart: Optional[float] = None,
+            tStop: Optional[float] = None,
+            strName: str = "unnamed",
+            strInterpKind: str = "linear",
+    ):
+        """
+        TSContinuous - Class represent a multi-series time series, with temporal interpolation and periodicity supported
+
+        :param vtTimeTrace:     [Tx1] vector of time samples
+        :param mfSamples:       [TxM] matrix of values corresponding to each time sample
+        :param bPeriodic:       bool: Treat the time series as periodic around the end points. Default: False
+        :param tStart:          float: If not None, the series start time is tStart, otherwise vtTimeTrace[0]
+        :param tStop:           float: If not None, the series stop time is tStop, otherwise vtTimeTrace[-1]
+        :param strName:         str: Name of the TSContinuous object. Default: `unnamed`
+        :param strInterpKind:   str: Specify the interpolation type. Default: 'linear'
+
+        If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
+        """
+
+        # - Convert everything to numpy arrays
+        vtTimeTrace = np.asarray(vtTimeTrace).flatten().astype(float)
+        mfSamples = np.atleast_1d(mfSamples).astype(float)
+
+        # - Check arguments
+        assert np.size(vtTimeTrace) == mfSamples.shape[0], (
+            f"TSContinuous `{strName}`: The number of time samples must be equal to the"
+            " first dimension of `mfSamples`"
+        )
+        assert np.all(
+            np.diff(vtTimeTrace) >= 0
+        ), f"TSContinuous `{strName}`: The time trace must be sorted and not decreasing"
+
+        # - Initialize superclass
+        super().__init__(
+            vtTimeTrace=vtTimeTrace,
+            bPeriodic=bPeriodic,
+            tStart=tStart,
+            tStop=tStop,
+            strName=strName,
+        )
+
+        # - Assign attributes
+        self._mfSamples = mfSamples.astype("float")
+        self.strInterpKind = strInterpKind
+        # - Interpolator for samples
+        self._create_interpolator()
+
     def find(self, ttTimes: ArrayLike):
         vtTime = list(ttTimes)
         mfSamples = self(vtTime)
@@ -1152,6 +1099,47 @@ class TSContinuous(TimeSeries):
             )
         )
 
+    def interpolate(self, vtTimes: Union[int, float, ArrayLike]):
+        """
+        interpolate - Interpolate the time series to the provided time points
+
+        :param vtTimes: np.ndarray of T desired interpolated time points
+        :return:        np.ndarray of interpolated values. Will have the shape TxN
+        """
+        # - Enforce periodicity
+        if self.bPeriodic:
+            vtTimes = (
+                              np.asarray(vtTimes) - self._tStart
+                      ) % self.tDuration + self._tStart
+
+        return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
+
+    def __call__(self, vtTimes: Union[int, float, ArrayLike]):
+        """
+        ts(tTime1, tTime2, ...) - Interpolate the time series to the provided time points
+
+        :param tTime: Scalar, list or np.array of T desired interpolated time points
+        :return:      np.array of interpolated values. Will have the shape TxN
+        """
+        return self.interpolate(vtTimes)
+
+    def __repr__(self):
+        """
+        __repr__() - Return a string representation of this object
+        :return: str String description
+        """
+        if self.isempty():
+            return f"Empty TSContinuous object `{self.strName}`"
+        else:
+            return "{}periodic TSContinuous object `{}` from t={} to {}. Shape: {}".format(
+                int(not self.bPeriodic) * "non-",
+                self.__class__.__name__,
+                self.strName,
+                self.tStart,
+                self.tStop,
+                self.mfSamples.shape,
+            )
+
     @property
     def mfSamples(self):
         return np.reshape(self._mfSamples, (np.size(self.vtTimeTrace), -1))
@@ -1176,31 +1164,57 @@ class TSContinuous(TimeSeries):
         # - Create a new interpolator
         self._create_interpolator()
 
+    @property
+    def nNumTraces(self):
+        """
+        .nNumTraces: int Number of traces in this TimeSeries object
+        """
+        try:
+            return self.mfSamples.shape[1]
+        # If mfSamples is 1d:
+        except IndexError:
+            return 1
+
+    @property
+    def nNumChannels(self):
+        if hasattr(self, "_nNumChannels") and self._nNumChannels is not None:
+            return self._nNumChannels
+        else:
+            return self.nNumTraces
+
+    @nNumChannels.setter
+    def nNumChannels(self, nNewNumChannels):
+        if self.nNumTraces == 0:
+            if nNewNumChannels < 0:
+                raise ValueError(f"TSContinuous `{self.strName}`: `nNumChannels` cannot be negative.")
+        elif nNewNumChannels < self.nNumTraces:
+            raise ValueError(
+                f"TSContinuous `{self.strName}`: `nNumChannels` must be at least {self.nNumTraces}."
+            )
+        else:
+            self._nNumChannels = nNewNumChannels
+
 
 ### --- Event time series
 
 
 class TSEvent(TimeSeries):
     def __init__(
-        self,
-        vtTimeTrace: ArrayLike,
-        vnChannels: Union[int, ArrayLike] = None,
-        vfSamples: Union[int, float, ArrayLike] = None,
-        strInterpKind="linear",
-        bPeriodic: bool = False,
-        tStart: Optional[float] = None,
-        tStop: Optional[float] = None,
-        strName: str = None,
-        nNumChannels: int = None,
+            self,
+            vtTimeTrace: ArrayLike,
+            vnChannels: Union[int, ArrayLike] = None,
+            bPeriodic: bool = False,
+            tStart: Optional[float] = None,
+            tStop: Optional[float] = None,
+            strName: str = None,
+            nNumChannels: int = None,
     ):
         """
         TSEvent - Represent discrete events in time
 
         :param vtTimeTrace:     np.array float Tx1 vector of event times
         :param vnChannels:      np.array int Tx1 vector of event channels (Default: channel 0)
-        :param vfSamples:       np.array float Tx1 vector of event values (Default: nan)
 
-        :param strInterpKind:   str Interpolation kind for event values (Default: "linear")
         :param bPeriodic:       bool Is this a periodic TimeSeries (Default: False)
 
         :param tStart:          float: If not None, the series start time is tStart, otherwise vtTimeTrace[0]
@@ -1212,28 +1226,11 @@ class TSEvent(TimeSeries):
                                     it is inferred from the max channel ID in vnChannels
         """
 
-        # - Samples, channels and time must all have the same number of elements
-        if vfSamples is not None:
-            assert (
-                np.size(vfSamples) == np.size(vtTimeTrace) or np.size(vfSamples) == 1
-            ), "`vfSamples` must have the same number of elements as `vtTimeTrace`."
-
-        if vnChannels is not None:
-            assert (
-                np.size(vnChannels) == np.size(vtTimeTrace) or np.size(vnChannels) == 1
-            ), "`vnChannels` must have the same number of elements as `vtTimeTrace`."
-
         # - Default time trace: empty
         if vtTimeTrace is None:
             vtTimeTrace = np.array([])
         else:
             vtTimeTrace = np.array(vtTimeTrace, "float").flatten()
-
-        # - Default samples: NaN
-        if vfSamples is None:
-            vfSamples = full_nan((np.size(vtTimeTrace), 1))
-        else:
-            vfSamples = np.array(vfSamples, "float").flatten()
 
         # - Default channel: zero
         if vnChannels is None or np.size(vnChannels) == 0:
@@ -1245,26 +1242,27 @@ class TSEvent(TimeSeries):
             vnChannels = np.array([vnChannels for _ in vtTimeTrace])
         # - Array-like of channels
         else:
-            nMinNumChannels = np.amax(vnChannels) + 1
+            if np.size(vnChannels) != np.size(vtTimeTrace):
+                # - Make sure item sizes match
+                raise ValueError(
+                    f"TSEvent `{strName}`: `vnChannels` must have the same number of "
+                    + "elements as `vtTimeTrace`, be an integer or None."
+                )
+            else:
+                nMinNumChannels = np.amax(vnChannels) + 1
 
         if nNumChannels is None:
             # - Infer number of channels from maximum channel id in vnChannels
             nNumChannels = nMinNumChannels
         else:
-            assert (
-                nNumChannels >= nMinNumChannels
-            ), "nNumChannels must be None or greater than the highest channel ID."
+            if nNumChannels < nMinNumChannels:
+                raise ValueError(
+                    f"TSEvent `{strName}`: nNumChannels must be None or greater than the highest channel ID."
+                )
 
-        # - Check size of inputs
-        assert (
-            np.size(vtTimeTrace) == np.size(vnChannels) == np.size(vfSamples)
-        ), "`vnChannels` and `vfSamples` must match the size of `vtTimeTrace` or be None."
-
-        # - Initialise superclass
+        # - Initialize superclass
         super().__init__(
-            vtTimeTrace,
-            vfSamples,
-            strInterpKind=strInterpKind,
+            vtTimeTrace=vtTimeTrace,
             bPeriodic=bPeriodic,
             tStart=tStart,
             tStop=tStop,
@@ -1277,16 +1275,9 @@ class TSEvent(TimeSeries):
         # - Store total number of channels
         self._nNumChannels = int(nNumChannels)
 
-    def interpolate(self, vtTimes: np.ndarray):
-        """
-        interpolate - Return sample values interpolated to new time base
-
-        :param vtTimes: np.ndarray Time points to interpolate to
-        :return:        np.ndarray Interpolated sample values
-        """
-        return super().interpolate(vtTimes).flatten()
-
-    def find(self, vtTimeBounds: Union[list, np.ndarray] = None):
+    def find(
+            self, vtTimeBounds: Optional[ArrayLike] = None
+    ) -> (np.ndarray, np.ndarray):
         """
         find - Return events that fall within a range
 
@@ -1300,11 +1291,14 @@ class TSEvent(TimeSeries):
 
         # - Handle empty TSEvent
         if len(self.vtTimeTrace) == 0:
-            return (np.array([]), np.array([], int), np.array([]))
+            return np.array([]), np.array([], int)
 
-        if vtTimeBounds is not None:
-            # - Map None to time trace bounds
+        if vtTimeBounds is None:
+            # - Return all samples
+            return self.vtTimeTrace, self.vnChannels
+        else:
             vtTimeBounds = np.array(vtTimeBounds)
+            # - Map None to time trace bounds
             if vtTimeBounds[0] is None:
                 vtTimeBounds[0] = self.vtTimeTrace[0]
             if vtTimeBounds[-1] is None:
@@ -1323,23 +1317,15 @@ class TSEvent(TimeSeries):
             )
 
             # - Return matching samples
-            return (
-                self.vtTimeTrace[vbMatchingTimes],
-                self.vnChannels[vbMatchingTimes],
-                self.mfSamples[vbMatchingTimes].flatten(),
-            )
+            return self.vtTimeTrace[vbMatchingTimes], self.vnChannels[vbMatchingTimes]
 
-        else:
-            # - Return all samples
-            return self.vtTimeTrace, self.vnChannels, self.mfSamples.flatten()
-
-    def clip(self, vtNewBounds: Union[list, np.ndarray], bInPlace: bool = False):
+    def clip(self, vtNewBounds: ArrayLike, bInPlace: bool = False) -> TSEventType:
         """
         clip - Clip a time series in time, to a specified start and stop time
 
-        :param vtNewBounds:
-        :param bInPlace:         bool Specify whether operation should be performed in place (Default: False)
-        :return:                 TSEvent Including only clipped events
+        :param vtNewBounds:     Array-like  Bounds between object is clipped
+        :param bInPlace:        bool Specify whether operation should be performed in place (Default: False)
+        :return:                TSEvent Including only clipped events
         """
         # - Call super-class clipper
         tsClip, vbIncludeSamples = super()._clip(vtNewBounds, bInPlace=bInPlace)
@@ -1350,21 +1336,21 @@ class TSEvent(TimeSeries):
         # - Return new TimeSeries
         return tsClip
 
-    def _choose(self, vnSelectChannels: Union[list, np.ndarray]):
+    def _choose(self, vnSelectChannels: ArrayLike) -> (np.ndarray, np.ndarray):
         """
         _choose - Select and return raw event data for the requested channels
 
         :param vnSelectChannels: array-like of channel indices
-        :return: (vtTimeTrace, vnChannels, mfSamples) containing events form the requested channels
+        :return: (vtTimeTrace, vnChannels) containing events form the requested channels
         """
 
         # - Check vnSelectChannels
         if not (
-            np.min(vnSelectChannels) >= 0
-            and np.max(vnSelectChannels) < self.nNumChannels
+                np.min(vnSelectChannels) >= 0
+                and np.max(vnSelectChannels) < self.nNumChannels
         ):
             raise IndexError(
-                "`vnSelectChannels` must be between 0 and {}".format(self.nNumChannels)
+                f"TSEvent `{self.strName}`: `vnSelectChannels` must be between 0 and {self.nNumChannels}."
             )
 
         # - Make sure elements in vnSelectChannels are unique for better performance
@@ -1374,13 +1360,9 @@ class TSEvent(TimeSeries):
         vbIncludeSamples = np.isin(self._vnChannels, vnSelectChannels)
 
         # - Return events for those samples
-        return (
-            self._vtTimeTrace[vbIncludeSamples],
-            self._vnChannels[vbIncludeSamples],
-            self._mfSamples[vbIncludeSamples],
-        )
+        return self._vtTimeTrace[vbIncludeSamples], self._vnChannels[vbIncludeSamples]
 
-    def choose(self, vnSelectChannels: Union[list, np.ndarray], bInPlace: bool = False):
+    def choose(self, vnSelectChannels: ArrayLike, bInPlace: bool = False) -> TSEventType:
         """
         choose - Select and return only the requested channels
 
@@ -1395,13 +1377,11 @@ class TSEvent(TimeSeries):
         else:
             tsChosen = self
 
-        tsChosen._vtTimeTrace, tsChosen._vnChannels, tsChosen._mfSamples = tsChosen._choose(
-            vnSelectChannels
-        )
+        tsChosen._vtTimeTrace, tsChosen._vnChannels = tsChosen._choose(vnSelectChannels)
 
         return tsChosen
 
-    def choose_times(self, vnSelectChannels: Union[list, np.ndarray]):
+    def choose_times(self, vnSelectChannels: ArrayLike) -> np.ndarray:
         """
         choose_times - like choose but only return vtTimeTrace instead of time series
 
@@ -1410,10 +1390,10 @@ class TSEvent(TimeSeries):
         """
 
         # - Use `_choose` to return time trace
-        vtTimes, _, _ = self._choose(vnSelectChannels)
+        vtTimes, __ = self._choose(vnSelectChannels)
         return vtTimes
 
-    def plot(self, vtTimes: np.ndarray = None, *args, **kwargs):
+    def plot(self, vtTimes: Optional[ArrayLike] = None, *args, **kwargs):
         """
         plot - Visualise a time series on plot
 
@@ -1427,31 +1407,31 @@ class TSEvent(TimeSeries):
         _bUseHoloviews, _bUseMatplotlib = GetPlottingBackend()
 
         # - Get samples
-        vtTimes, vnChannels, _ = self.find(vtTimes)
+        vtTimes, vnChannels = self.find(vtTimes)
 
         if _bUseHoloviews:
             return (
                 hv.Scatter((vtTimes, vnChannels), *args, **kwargs)
-                .redim(x="Time", y="Channel")
-                .relabel(self.strName)
+                    .redim(x="Time", y="Channel")
+                    .relabel(self.strName)
             )
 
         elif _bUseMatplotlib:
             return plt.scatter(vtTimes, vnChannels, *args, **kwargs)
 
         else:
-            warn("No plotting back-end detected.")
+            warn(f"TSEvent `{self.strName}`: No plotting back-end detected.")
 
-    def resample(self, vtTimes: np.ndarray, bInPlace: bool = False):
+    def resample(self, vtTimes: np.ndarray, bInPlace: bool = False) -> TSEventType:
         return self.clip(vtTimes, bInPlace=bInPlace)
 
     def resample_within(
-        self,
-        tStart: float = None,
-        tStop: float = None,
-        tDt: float = None,
-        bInPlace: bool = False,
-    ):
+            self,
+            tStart: Optional[float] = None,
+            tStop: Optional[float] = None,
+            tDt: Optional[float] = None,
+            bInPlace: bool = False,
+    ) -> TSEventType:
         """
         resample_within - Resample a TimeSeries, within bounds
 
@@ -1470,23 +1450,24 @@ class TSEvent(TimeSeries):
 
         return self.clip([tStart, tStop], bInPlace=bInPlace)
 
-    def append_t(self, tsOther, bInPlace: bool = False):
+    def append_t(self, tsOther: TSEventType, bInPlace: bool = False) -> TSEventType:
         """
         append_t() - Append another time series to this one, in time
 
         :param tsOther: Another time series. Will be tacked on to the end of the called series object
         :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
-        :return: Time series containing current data, with other TS appended in time
+        :return: TSEvent containing current data, with other TS appended in time
         """
 
         # - Check tsOther
-        assert isinstance(tsOther, TSEvent), "`tsOther` must be a TSEvent object."
+        if not isinstance(tsOther, TSEvent):
+            raise TypeError(f"TSEvent `{self.strName}`: `tsOther` must be a TSEvent object.")
 
-        assert tsOther.nNumTraces == self.nNumTraces, (
-            "`tsOther` must include the same number of traces ("
-            + str(self.nNumTraces)
-            + ")."
-        )
+        if tsOther.nNumTraces != self.nNumTraces:
+            raise ValueError(
+                f"TSEvent `{self.strName}`: `tsOther` must include the same number of"
+                + f"traces ({self.nNumTraces}))."
+            )
 
         # - Create a new time series, or modify this time series
         if not bInPlace:
@@ -1494,10 +1475,7 @@ class TSEvent(TimeSeries):
         else:
             tsAppended = self
 
-        # - Concatenate time trace and samples
-        tsAppended._mfSamples = np.concatenate(
-            (tsAppended.mfSamples, tsOther.mfSamples), axis=0
-        )
+        # - Concatenate time trace and channels
         tsAppended._vnChannels = np.concatenate(
             (tsAppended.vnChannels, tsOther.vnChannels), axis=0
         )
@@ -1512,22 +1490,19 @@ class TSEvent(TimeSeries):
         # - Fix tStop
         tsAppended._tStop += tsOther.tDuration
 
-        # - Recreate interpolator
-        tsAppended._create_interpolator()
-
         # - Return appended time series
         return tsAppended
 
     def merge(
-        self,
-        ltsOther: Union[TimeSeries, List[TimeSeries]],
-        bRemoveDuplicates: Optional[bool] = None,
-        bInPlace: bool = False,
-    ):
+            self,
+            ltsOther: Union[TimeSeries, List[TimeSeries]],
+            bRemoveDuplicates: Optional[bool] = None,
+            bInPlace: bool = False,
+    ) -> TSEventType:
         """
         merge - Merge another TSEvent into this one
         :param ltsOther:            TimeSeries (or list of TimeSeries) to merge into this one
-        :params bRemoveDuplicates:  bool Remove duplicate events (unused in TSEvent)
+        :param bRemoveDuplicates:   bool Remove duplicate events (unused in TSEvent)
         :param bInPlace:            bool Specify whether operation should be performed in place (Default: False)
         :return: self with new samples included
         """
@@ -1549,7 +1524,7 @@ class TSEvent(TimeSeries):
         # - Check tsOther class
         assert all(
             map(lambda tsOther: isinstance(tsOther, TSEvent), ltsOther)
-        ), "`tsOther` must be a `TSEvent` object."
+        ), f"TSEvent `{self.strName}`: `tsOther` must be a `TSEvent` object."
 
         # - Filter out empty series
         ltsOther = list(filter(lambda ts: not ts.isempty(), ltsOther))
@@ -1561,7 +1536,6 @@ class TSEvent(TimeSeries):
         # - Merge all samples
         vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
         vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
-        vfNewSamples = np.concatenate([tsOther.mfSamples for tsOther in ltsOther])
         tNewStart = min(tsOther.tStart for tsOther in ltsOther)
         tNewStop = max(tsOther.tStop for tsOther in ltsOther)
 
@@ -1569,13 +1543,12 @@ class TSEvent(TimeSeries):
         vnOrder = np.argsort(vtNewTimeBase)
         tsMerged._vtTimeTrace = vtNewTimeBase[vnOrder]
         tsMerged._vnChannels = vnNewChannels[vnOrder]
-        tsMerged._mfSamples = vfNewSamples[vnOrder]
         tsMerged._tStart = tNewStart
         tsMerged._tStop = tNewStop
 
         return tsMerged
 
-    def _compatibleShape(self, other) -> np.ndarray:
+    def _compatibleShape(self, other: Union[ArrayLike, int, float]) -> np.ndarray:
         try:
             if np.size(other) == 1:
                 return copy.copy(np.broadcast_to(other, self.vtTimeTrace.shape))
@@ -1586,31 +1559,30 @@ class TSEvent(TimeSeries):
                 else:
                     return np.reshape(other, self.vtTimeTrace.shape)
 
-        except Exception:
+        except:
             raise ValueError(
-                "Input data must have shape " + str(self.vtTimeTrace.shape)
+                f"TSEvent `{self.strName}`: Input data must have shape {self.vtTimeTrace.shape}."
             )
 
     def raster(
-        self,
-        tDt: float,
-        tStart: float = None,
-        tStop: float = None,
-        nNumTimeSteps: int = None,
-        vnSelectChannels: np.ndarray = None,
-        bSamples: bool = False,
-        bAddEvents: bool = False,
+            self,
+            tDt: float,
+            tStart: float = None,
+            tStop: float = None,
+            nNumTimeSteps: int = None,
+            vnSelectChannels: np.ndarray = None,
+            bAddEvents: bool = False,
     ) -> (np.ndarray, np.ndarray, np.ndarray):
 
         """
         raster - Return rasterized time series data, where each data point
-                 represents a time step. Events are represented in a boolen
+                 represents a time step. Events are represented in a boolean
                  matrix, where the first axis corresponds to time, the second
-                 axis to the channel. If bSamples is True, Samples are
-                 returned in a tuple of lists (see description below).
+                 axis to the channel.
                  Events that happen between time steps are projected to the
                  preceding one. If two events happen during one time step
-                 within a single channel, they are counted as one.
+                 within a single channel, they are counted as one, unless
+                 bAddEvents is True.
         :param tDt:     float Length of single time step in raster
         :param tStart:  float Time where to start raster - Will start
                               at self.vtTImeTrace[0] if None
@@ -1620,10 +1592,9 @@ class TSEvent(TimeSeries):
                               (unless nTimeSteps is set)
         :param nNumTimeSteps: int Can be used to determine number of time steps
                                   directly, instead of providing tStop
-        :vnSelectedChannels: Array-like Channels, from which data is to be used.
-        :bSamples:      bool If True, tplSamples is returned, otherwise None.
-        :bAddEvents:    bool If True, return integer raster containing number of
-                             events for each time step and channel
+        :param vnSelectedChannels: Array-like Channels, from which data is to be used.
+        :param bAddEvents:    bool If True, return integer raster containing number of
+                              events for each time step and channel
 
         :return
             vtTimeBase:     Time base of rasterized data
@@ -1633,11 +1604,6 @@ class TSEvent(TimeSeries):
                             the raster consists of integers, indicating the number
                             of events per time step and channel.
                             First axis corresponds to time, second axis to channel.
-            tplSamples      Tuple with one list per time step. For each event
-                            corresponding to a time step the list contains a tuple
-                            whose first entry is the channel, the second entry is
-                            the sample.
-                            If bSamples is False, then None is returned.
         """
         # - Get data from selected channels and time range
         if vnSelectChannels is not None:
@@ -1647,16 +1613,15 @@ class TSEvent(TimeSeries):
             vnSelectChannels = np.arange(self.nNumChannels)
 
         # - Generate time base
-        assert (
-            self.tStart is not None or tStart is not None
-        ), "Layer `{}`: Cannot determine tStart. Provide as argument.".format(
-            self.strName
-        )
-        assert (
-            self.tStop is not None or tStop is not None or nNumTimeSteps is not None
-        ), "Layer `{}`: Cannot determine tStop or nNumTimeSteps. Provide one of them as argument.".format(
-            self.strName
-        )
+        if self.tStart is None and tStart is None:
+            raise ValueError(
+                f"TSEvent `{self.strName}`: Cannot determine tStart. Provide as argument."
+            )
+        if self.tStop is None and tStop is None and nNumTimeSteps is None:
+            raise ValueError(
+                f"TSEvent `{self.strName}`: Cannot determine tStop or nNumTimeSteps. "
+                + f"Provide one of them as argument."
+            )
         tStartBase = self.tStart if tStart is None else tStart
         if nNumTimeSteps is None:
             tStopBase = self.tStop if tStop is None else tStop
@@ -1673,22 +1638,16 @@ class TSEvent(TimeSeries):
 
         # - Handle empty series
         if len(self.vtTimeTrace) == 0:
-            tplSamples = tuple() if bSamples else None
-            return vtTimeBase, vnSelectChannels, mEventsRaster, tplSamples
+            return vtTimeBase, vnSelectChannels, mEventsRaster
 
         # - Select data according to time base
         vbChoose = (tsSelected.vtTimeTrace >= tStartBase) & (
-            tsSelected.vtTimeTrace < tStopBase
+                tsSelected.vtTimeTrace < tStopBase
         )
         vtEventTimes = tsSelected.vtTimeTrace[vbChoose]
         vnEventChannels = tsSelected.vnChannels[vbChoose]
-        vfSamples = tsSelected.mfSamples[vbChoose]
 
         ## -- Convert input events and samples to boolen or integer raster
-        if bSamples:
-            tplSamples = tuple(([] for i in range(vtTimeBase.size)))
-        else:
-            tplSamples = None
         # - Only consider rasters that have non-zero length
         if nNumTimeSteps > 0:
             # Compute indices for times
@@ -1702,12 +1661,12 @@ class TSEvent(TimeSeries):
             else:
                 # - Print a warning if there are multiple spikes in one time step and channel
                 if (
-                    (
-                        np.diff(np.c_[viTimeIndices_Raster, vnEventChannels], axis=0)
-                        == np.zeros(2)
-                    )
-                    .all(axis=1)
-                    .any(axis=0)
+                        (
+                                np.diff(np.c_[viTimeIndices_Raster, vnEventChannels], axis=0)
+                                == np.zeros(2)
+                        )
+                                .all(axis=1)
+                                .any(axis=0)
                 ):
                     print(
                         "TSEvent `{}`: There are channels with multiple events".format(
@@ -1718,27 +1677,19 @@ class TSEvent(TimeSeries):
                 # Mark spiking indices with True
                 mEventsRaster[viTimeIndices_Raster, vnEventChannels] = True
 
-            if bSamples:
-                # Add samples
-                for iTimeIndex, nChannel, fSample in zip(
-                    viTimeIndices_Raster, vnEventChannels, vfSamples
-                ):
-                    tplSamples[iTimeIndex].append((nChannel, fSample))
-
-        return vtTimeBase, np.array(vnSelectChannels), mEventsRaster, tplSamples
+        return vtTimeBase, np.array(vnSelectChannels), mEventsRaster
 
     def xraster(
-        self,
-        tDt: float,
-        tStart: float = None,
-        tStop: float = None,
-        nBatchSize: int = 1000,
-        nNumTimeSteps: int = None,
+            self,
+            tDt: float,
+            tStart: Optional[float] = None,
+            tStop: Optional[float] = None,
+            nNumTimeSteps: int = None,
     ) -> np.ndarray:
 
         """
         xraster - Yields a rasterized time series data, where each data point
-                 represents a time step. Events are represented in a boolen
+                 represents a time step. Events are represented in a boolean
                  matrix, where the first axis corresponds to time, the second
                  axis to the channel.
                  Events that happen between time steps are projected to the
@@ -1751,7 +1702,7 @@ class TSEvent(TimeSeries):
                               not included anymore. - If None, will use all
                               points until (and including) self.vtTImeTrace[-1]
                               (unless nTimeSteps is set)
-        :nBatchSize: int      Process one nBatchSize time steps at a time.
+        :param nBatchSize: int      Process one nBatchSize time steps at a time.
                               This parameter will determine the speed vs latency for this process
         :param nNumTimeSteps: int Can be used to determine number of time steps
                                   directly, instead of providing tStop
@@ -1763,16 +1714,15 @@ class TSEvent(TimeSeries):
         vnSelectChannels = np.arange(self.nNumChannels)
 
         # - Generate time base
-        assert (
-            self.tStart is not None or tStart is not None
-        ), "Layer `{}`: Cannot determine tStart. Provide as argument.".format(
-            self.strName
-        )
-        assert (
-            self.tStop is not None or tStop is not None
-        ), "Layer `{}`: Cannot determine tStop. Provide as argument.".format(
-            self.strName
-        )
+        if self.tStart is None and tStart is None:
+            raise ValueError(
+                f"TSEvent `{self.strName}`: Cannot determine tStart. Provide as argument."
+            )
+        if self.tStop is None and tStop is None and nNumTimeSteps is None:
+            raise ValueError(
+                f"TSEvent `{self.strName}`: Cannot determine tStop or nNumTimeSteps. "
+                + f"Provide one of them as argument."
+            )
         tStartBase = self.tStart if tStart is None else tStart
         tStopBase = self.tStop + tDt if tStop is None else tStop
         nNumTimeSteps = (
@@ -1780,9 +1730,8 @@ class TSEvent(TimeSeries):
             if nNumTimeSteps is None
             else nNumTimeSteps
         )
-        vtTimeBase = np.arange(nNumTimeSteps) * tDt + tStartBase
 
-        vtEventTimes, vnEventChannels, _ = tsSelected.find([tStartBase, tStopBase])
+        vtEventTimes, vnEventChannels = tsSelected.find([tStartBase, tStopBase])
 
         # - Convert input events and samples to boolen raster
 
@@ -1799,7 +1748,7 @@ class TSEvent(TimeSeries):
         yield from mbEventsRaster  # Yield one row at a time
 
     def print(
-        self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
+            self, bFull: bool = False, nFirst: int = 4, nLast: int = 4, nShorten: int = 10
     ):
         """
         print - Print an overview of the time series and its values.
@@ -1817,35 +1766,25 @@ class TSEvent(TimeSeries):
         if len(self.vtTimeTrace) <= 10 or bFull:
             strSummary = s.join(
                 [
-                    "{}: \t {} \t {}".format(t, nChannel, fSample)
-                    for t, nChannel, fSample in zip(
-                        self.vtTimeTrace, self.vnChannels, self.mfSamples
-                    )
+                    f"{t}: \t {nChannel}"
+                    for t, nChannel in zip(self.vtTimeTrace, self.vnChannels)
                 ]
             )
         else:
             strSummary0 = s.join(
                 [
-                    "{}: \t {} \t {}".format(t, nChannel, fSample)
-                    for t, nChannel, fSample in zip(
-                        self.vtTimeTrace[:nFirst],
-                        self.vnChannels[:nFirst],
-                        self.mfSamples[:nFirst],
-                    )
+                    f"{t}: \t {nChannel}"
+                    for t, nChannel, fSample in zip(self.vtTimeTrace[:nFirst], self.vnChannels[:nFirst])
                 ]
             )
             strSummary1 = s.join(
                 [
-                    "{}: \t {} \t {}".format(t, nChannel, fSample)
-                    for t, nChannel, fSample in zip(
-                        self.vtTimeTrace[-nLast:],
-                        self.vnChannels[-nLast:],
-                        self.mfSamples[-nLast:],
-                    )
+                    f"{t}: \t {nChannel}"
+                    for t, nChannel in zip(self.vtTimeTrace[-nLast:], self.vnChannels[-nLast:])
                 ]
             )
             strSummary = strSummary0 + "\n\t...\n" + strSummary1
-        print(self.__repr__() + "\nTime \t Ch.-ID  Sample" + "\n" + strSummary)
+        print(self.__repr__() + "\nTime \t Ch.-ID" + "\n" + strSummary)
 
     def save(self, strPath: str):
         """
@@ -1856,10 +1795,8 @@ class TSEvent(TimeSeries):
             strPath,
             vtTimeTrace=self.vtTimeTrace,
             vnChannels=self.vnChannels,
-            mfSamples=self.mfSamples,
             tStart=self.tStart,
             tStop=self.tStop,
-            strInterpKind=self.strInterpKind,
             bPeriodic=self.bPeriodic,
             nNumChannels=self.nNumChannels,
             strName=self.strName,
@@ -1871,6 +1808,24 @@ class TSEvent(TimeSeries):
                 self.strName, strPath + bPathMissesEnding * ".npz"
             )
         )
+
+    def __repr__(self):
+        """
+        __repr__() - Return a string representation of this object
+        :return: str String description
+        """
+        if self.isempty():
+            return f"Empty TSEvent object `{self.strName}`"
+        else:
+            return "{}periodic TSEvent object `{}` from t={} to {}. Channels: {}. Events: {}".format(
+                int(not self.bPeriodic) * "non-",
+                self.__class__.__name__,
+                self.strName,
+                self.tStart,
+                self.tStop,
+                self.vnChannels,
+                self.vtTimeTrace.size
+            )
 
     @property
     def vnChannels(self):
@@ -1891,25 +1846,22 @@ class TSEvent(TimeSeries):
         self._vnChannels = vnNewChannels
 
     @property
-    def mfSamples(self):
-        return self._mfSamples.flatten()
+    def nNumChannels(self):
+        return self._nNumChannels
 
-    @mfSamples.setter
-    def mfSamples(self, mfNewSamples):
-        # - Promote to 1d
-        mfNewSamples = np.atleast_1d(mfNewSamples)
-
-        # - Check the number of samples
-        assert np.size(mfNewSamples) == np.size(
-            self._vtTimeTrace
-        ), "The number of samples must match the number of events"
-
-        # - Assign property
-        self._mfSamples = mfNewSamples.flatten()
+    @nNumChannels.setter
+    def nNumChannels(self, nNewNumChannels):
+        nMinNumChannels = np.amax(self.vnChannels)
+        if nNewNumChannels < nMinNumChannels:
+            raise ValueError(
+                f"TSContinuous `{self.strName}`: `nNumChannels` must be at least {nMinNumChannels}."
+            )
+        else:
+            self._nNumChannels = nNewNumChannels
 
 
 def load_ts_from_file(
-    strPath: str, strExpectedType: Optional[str] = None
+        strPath: str, strExpectedType: Optional[str] = None
 ) -> TimeSeries:
     """
     load_ts_from_file - Load a timeseries object from an npz file.
@@ -1943,10 +1895,8 @@ def load_ts_from_file(
         return TSEvent(
             vtTimeTrace=dLoaded["vtTimeTrace"],
             vnChannels=dLoaded["vnChannels"],
-            vfSamples=dLoaded["mfSamples"],
             tStart=dLoaded["tStart"].item(),
             tStop=dLoaded["tStop"].item(),
-            strInterpKind=dLoaded["strInterpKind"].item(),
             bPeriodic=dLoaded["bPeriodic"].item(),
             nNumChannels=dLoaded["nNumChannels"].item(),
             strName=dLoaded["strName"].item(),

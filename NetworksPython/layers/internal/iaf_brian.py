@@ -299,7 +299,7 @@ class FFIAFBrian(Layer):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.tDt)
+            * np.sqrt(2.0 * self.vtTauN / self.tDt)
             * 1.63
         )
 
@@ -315,7 +315,7 @@ class FFIAFBrian(Layer):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_inp}, level=0
         )
-        
+
         # - Start and stop times for output time series
         tStart = self._nTimeStep * np.asscalar(self.tDt)
         tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
@@ -363,7 +363,7 @@ class FFIAFBrian(Layer):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.tDt)
+            * np.sqrt(2.0 * self.vtTauN / self.tDt)
             * 1.63
         )
 
@@ -635,13 +635,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
         """
 
         # - Prepare time base
-        vtTimeBase, __, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
-        )
+        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
+        vtTimeBase = self.t + np.arange(nNumTimeSteps) * self.tDt
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [vtTimeBase[0], vtTimeBase[-1] + self.tDt]
             )
             self._sggInput.set_spikes(
@@ -656,7 +655,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.tDt)
+            * np.sqrt(2.0 * self.vtTauN / self.tDt)
             * 1.63
         )
 
@@ -672,7 +671,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
         )
-        
+
         # - Start and stop times for output time series
         tStart = self._nTimeStep * np.asscalar(self.tDt)
         tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
@@ -802,7 +801,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         tStop = tStart + tDuration
 
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find([tStart, tStop])
+            vtEventTimes, vnEventChannels = tsInput.find([tStart, tStop])
         else:
             print("No tsInput defined, assuming input to be 0.")
             vtEventTimes, vnEventChannels = [], []
@@ -813,9 +812,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         else:
             assert (
                 np.size(vnTargetCounts) == self.nSize
-            ), "Target array size must match layer size ({}).".format(
-                self.nSize
-            )
+            ), "Target array size must match layer size ({}).".format(self.nSize)
 
         ## -- Determine eligibility for each neuron and synapse
         mfEligibiity = np.zeros((self.nSizeIn, self.nSize))
@@ -1122,7 +1119,7 @@ class RecIAFBrian(Layer):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.tDt)
+            * np.sqrt(2.0 * self.vtTauN / self.tDt)
             * 1.63
         )
 
@@ -1138,7 +1135,7 @@ class RecIAFBrian(Layer):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_inp}, level=0
         )
-        
+
         # - Start and stop times for output time series
         tStart = self._nTimeStep * np.asscalar(self.tDt)
         tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
@@ -1445,13 +1442,12 @@ class RecIAFSpkInBrian(RecIAFBrian):
         """
 
         # - Prepare time base
-        vtTimeBase, __, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
-        )
+        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
+        vtTimeBase = self.t + np.arange(nNumTimeSteps) * self.tDt
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find(
+            vtEventTimes, vnEventChannels = tsInput.find(
                 [vtTimeBase[0], vtTimeBase[-1] + self.tDt]
             )
             self._sggInput.set_spikes(
@@ -1466,7 +1462,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.tDt)
+            * np.sqrt(2.0 * self.vtTauN / self.tDt)
             * 1.63
         )
 
@@ -1482,7 +1478,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self._net.run(
             nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
         )
-        
+
         # - Start and stop times for output time series
         tStart = self._nTimeStep * np.asscalar(self.tDt)
         tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
