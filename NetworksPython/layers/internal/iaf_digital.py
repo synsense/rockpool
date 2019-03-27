@@ -313,7 +313,6 @@ class RecDIAF(Layer):
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
                     lnChannels.append(np.nan)
-                print("hello")
 
                 # - Determine times when refractory period will end for neurons that have just fired
                 vtRefractoryEnds[vbSpiking] = tTime + vtRefr[vbSpiking]
