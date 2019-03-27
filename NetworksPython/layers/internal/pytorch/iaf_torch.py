@@ -11,10 +11,7 @@ import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ...layer import Layer, RefProperty, ArrayLike
-from ..timedarray_shift import TimedArray as TAShift
-
-from time import time
+from ...layer import Layer, RefProperty
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
@@ -570,15 +567,15 @@ class FFIAFTorch(Layer):
 
     @property
     def vfAlpha(self):
-        return self._vfAlpha.cpu().numpy()
-
-    @property
-    def _vfAlpha(self):
         warn(
             "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's vfAlpha".format(
                 self.strName
             )
         )
+        return self._vfAlpha.cpu().numpy()
+
+    @property
+    def _vfAlpha(self):
         return self.tDt / self._vtTauN
 
     @RefProperty
