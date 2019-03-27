@@ -17,10 +17,6 @@ from ...timeseries import TSEvent, TSContinuous
 
 from ..layer import Layer
 
-from .timedarray_shift import TimedArray as TAShift
-
-from typing import Optional, Union, Tuple, List
-
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -257,7 +253,7 @@ class RecDIAF(Layer):
                 # print("update: ", self._mfWTotal[nChannel])
 
                 if vnIdMonitor is not None:
-                    # - Record state
+                    # - Record state before updates
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
                     lnChannels.append(nChannel)
@@ -286,6 +282,12 @@ class RecDIAF(Layer):
                 # - Neurons above threshold that are not refractory will spike
                 vbSpiking = np.logical_and(vState >= vfVThresh, vbNotRefractory)
 
+                if vnIdMonitor is not None:
+                    # - Record state after update but before subtraction/resetting
+                    ltTimes.append(tTime)
+                    lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(np.nan)
+
                 if vfVSubtract is not None:
                     # - Subtract from states of spiking neurons
                     vState[vbSpiking] = np.clip(
@@ -307,12 +309,11 @@ class RecDIAF(Layer):
                     vState[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
 
                 if vnIdMonitor is not None:
-                    # - Record state
+                    # - Record state after subtraction/resetting
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
                     lnChannels.append(np.nan)
-
-                # print("new state: ", self._vState)
+                print("hello")
 
                 # - Determine times when refractory period will end for neurons that have just fired
                 vtRefractoryEnds[vbSpiking] = tTime + vtRefr[vbSpiking]
