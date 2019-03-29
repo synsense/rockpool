@@ -1613,7 +1613,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
                 vnSelectChannels=np.arange(
                     self.nSizeIn
-                ),  ## This causes problems when tsInput has no events in some channels
+                ),  # This causes problems when tsInput has no events in some channels
                 bAddEvents=self.bAddEvents,  # Allow for multiple input spikes per time step
             )
             # - Convert to supportedformat
@@ -1937,3 +1937,221 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         self._nTimeStep += nNumTimeSteps
 
         return mbSpiking.cpu()
+
+
+## - RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that is constant over time.
+class REcIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
+    """ RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that
+                                        is constant over time.
+    """
+
+    ## - Constructor
+    def __init__(
+        self,
+        mfWIn: np.ndarray,
+        mfWRec: np.ndarray,
+        vfBias: Union[float, np.ndarray] = 0.0105,
+        tDt: float = 0.0001,
+        vfLeakRate: Union[float, np.ndarray] = 0.02,
+        vtTauSInp: Union[float, np.ndarray] = 0.05,
+        vtTauSRec: Union[float, np.ndarray] = 0.05,
+        vfVThresh: Union[float, np.ndarray] = -0.055,
+        vfVReset: Union[float, np.ndarray] = -0.065,
+        vfVRest: Union[float, np.ndarray] = -0.065,
+        tRefractoryTime=0,
+        strName: str = "unnamed",
+        bRecord: bool = False,
+        bAddEvents: bool = True,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
+    ):
+        """
+        RecIAFSpkInRefrCLTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
+                                 Inputs and outputs are spiking events. Support refractoriness. Constant leak
+
+        :param mfWIn:           np.array MxN input weight matrix.
+        :param mfWRec:          np.array NxN recurrent weight matrix.
+        :param vfBias:          np.array Nx1 bias vector. Default: 0.0105
+
+        :param tDt:             float Time-step. Default: 0.0001
+
+        :param vfLeakReate:     np.array Nx1 vector of constant neuron leakage in V/s. Default: 0.02
+        :param vtTauSInp:       np.array Nx1 vector of synapse time constants. Default: 0.05
+        :param vtTauSRec:       np.array Nx1 vector of synapse time constants. Default: 0.05
+
+        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
+        :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
+        :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
+
+        :param tRefractoryTime: float Refractory period after each spike. Default: 0
+
+        :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions. Default: False
+
+        :bAddEvents:            bool     If during evolution multiple input events arrive during one
+                                         time step for a channel, count their actual number instead of
+                                         just counting them as one (This might make less sense for
+                                         refractory neurons).
+
+        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
+                                      evolution periods will automatically split in smaller batches.
+        """
+
+        # - Call super constructor
+        super().__init__(
+            mfWIn=mfWIn,
+            mfWRec=mfWRec,
+            vfBias=vfBias,
+            tDt=tDt,
+            fNoiseStd=0,
+            vtTauN=0,
+            vtTauSInp=vtTauSInp,
+            vtTauSRec=vtTauSRec,
+            vfVThresh=vfVThresh,
+            vfVReset=vfVReset,
+            vfVRest=vfVRest,
+            tRefractoryTime=tRefractoryTime,
+            strName=strName,
+            bRecord=bRecord,
+            nMaxNumTimeSteps=nMaxNumTimeSteps,
+        )
+        self.vfLeakRate = vfLeakRate
+
+    def _single_batch_evolution(
+        self,
+        mfInput: np.ndarray,
+        nEvolutionTimeStep: int,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input for a single batch
+
+        :param mfInput:     np.ndarray   Input to layer as matrix
+        :param nEvolutionTimeStep int    Time step within current evolution at beginning of current batch
+        :param nNumTimeSteps:   int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
+
+        """
+        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
+            mfInput, nNumTimeSteps
+        )
+
+        if self.bRecord:
+            # - Tensor for recording synapse and neuron states
+            mfRecordStates = self.tensors.FloatTensor(
+                2 * nNumTimeSteps, self.nSize
+            ).fill_(0)
+
+        # - Tensor for collecting spike data
+        mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
+
+        # - Get local variables
+        vState = self._vState.clone()
+        vLeak = self._vfLeakRate * self.tDt
+        vfVThresh = self._vfVThresh
+        vfVReset = self._vfVReset
+        bRecord = self.bRecord
+        mfKernels = self._mfKernelsRec
+        nNumTSKernel = mfKernels.shape[0]
+        mfWRec = self._mfW
+        nRefractorySteps = self._nRefractorySteps
+        vnRefractoryCountdownSteps = self._vnRefractoryCountdownSteps.clone()
+
+        # - Include resting potential and bias in input for fewer computations
+        # - Omit latest time point, which is only used for carrying over synapse state to new batch
+        mfNeuralInput[:-1] += self._vfVRest + self._vfBias
+
+        # - Evolve neuron states
+        for nStep in range(nNumTimeSteps):
+            # - Determine refractory neurons
+            vbNotRefractory = (vnRefractoryCountdownSteps == 0).float()
+            # - Decrement refractory countdown
+            vnRefractoryCountdownSteps -= 1
+            vnRefractoryCountdownSteps.clamp_(min=0)
+            # - Incremental state update from input
+            vState += (mfNeuralInput[nStep] - vLeak) * vbNotRefractory
+            # - Store updated state before spike
+            if bRecord:
+                mfRecordStates[2 * nStep] = vState
+            # - Spiking
+            vbSpiking = (vState > vfVThresh).float()
+            # - State reset
+            vState += (vfVReset - vState) * vbSpiking
+            # - Store spikes
+            mbSpiking[nStep] = vbSpiking
+            # - Update refractory countdown
+            vnRefractoryCountdownSteps += nRefractorySteps * vbSpiking
+            # - Store updated state after spike
+            if bRecord:
+                mfRecordStates[2 * nStep + 1] = vState
+            # - Add filtered recurrent spikes to input
+            nTSRecurrent = min(nNumTSKernel, nNumTimeSteps - nStep)
+            mfNeuralInput[nStep + 1 : nStep + 1 + nTSRecurrent] += mfKernels[
+                :nTSRecurrent
+            ] * torch.mm(vbSpiking.reshape(1, -1), mfWRec)
+
+            del vbSpiking
+
+        # - Store recorded neuron and synapse states
+        if bRecord:
+            self.mfRecordStates[
+                2 * nEvolutionTimeStep
+                + 1 : 2 * (nEvolutionTimeStep + nNumTimeSteps)
+                + 1
+            ] = mfRecordStates.cpu()
+            self.mfRecordSynapses[
+                nEvolutionTimeStep + 1 : nEvolutionTimeStep + nNumTimeSteps + 1
+            ] = (
+                mfNeuralInput[:nNumTimeSteps]
+                - self._vfVRest
+                - self._vfBias  # Introduces slight numerical error in stored synapses of about 1e-9
+            ).cpu()
+
+        # - Store updated neuron and synapse states and update clock
+        self._vState = vState
+        self._vSynapseState = mfNeuralInput[-1].clone()
+        self._nTimeStep += nNumTimeSteps
+
+        return mbSpiking.cpu()
+
+    @RefProperty
+    def vfLeakReate(self):
+        return self._vfLeakRate
+
+    @vfLeakReate.setter
+    def vfLeakReate(self, vfNewRate):
+        vfNewRate = np.asarray(self._expand_to_net_size(vfNewRate, "vfLeakReate"))
+        self._vfLeakRate = torch.from_numpy(vfNewRate).to(self.device).float()
+
+    # - Disable vtTauN and vfAlpha properties that are inherited from parent classes.
+    @property
+    def vtTauN(self):
+        raise AttributeError(
+            f"Layer `{self.strName}`: This class does not use `vtTauN`."
+            + " Are you looking for `vfLeakRate`?"
+        )
+
+    @vtTauN.setter
+    def vtTauN(self, vtNewTau):
+        if vtNewTau != 0:
+            raise AttributeError(
+                f"Layer `{self.strName}`: This class does not use `vtTauN`."
+                + " Are you looking for `vfLeakRate`?"
+            )
+
+    @property
+    def vfAlpha(self):
+        raise AttributeError(
+            f"Layer `{self.strName}`: This class does not use `vfAlpha`."
+            + " Are you looking for `vfLeakRate`?"
+        )
+
+    @vtTauN.setter
+    def vtTauN(self, vtNewAlpha):
+        if vtNewAlpha != 0:
+            raise AttributeError(
+                f"Layer `{self.strName}`: This class does not use `vfAlpha`."
+                + " Are you looking for `vfLeakRate`?"
+            )
