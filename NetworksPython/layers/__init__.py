@@ -17,7 +17,6 @@ dModules = {
     ".internal.exp_synapses_manual": "FFExpSyn",
     ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
     ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
-    ".internal.iaf_cl_extd": "RecCLIAFExtd",
     ".internal.softmaxlayer": "SoftMaxLayer",
     ".internal.averagepooling": "AveragePooling2D",
     ".internal.iaf_digital": "RecDIAF",
