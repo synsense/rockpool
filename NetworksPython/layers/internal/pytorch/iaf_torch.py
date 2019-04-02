@@ -1958,8 +1958,8 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         vtTauSRec: Union[float, np.ndarray] = 0.05,
         vfVThresh: Union[float, np.ndarray] = -0.055,
         vfVReset: Union[float, np.ndarray] = -0.065,
-        vfVRest: Union[float, np.ndarray] = -0.065,
-        vfStateMin: Union[float, np.ndarray] = -0.085,
+        vfVRest: Union[float, np.ndarray, None] = -0.065,
+        vfStateMin: Union[float, np.ndarray, None] = -0.085,
         tRefractoryTime=0,
         strName: str = "unnamed",
         bRecord: bool = False,
@@ -1984,7 +1984,9 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
         :param vfVReset:        np.array Nx1 vector of neuron reset potential. Default: -0.065
         :param vfVRest:         np.array Nx1 vector of neuron resting potential. Default: -0.065
+                                If None, leak will always be negative (for positive entries of vfLeakRate)
         :param vfStateMin:      np.array Nx1 vector of lower limits for neuron states. Default: -0.85
+                                If None, there are no lower limits
 
         :param tRefractoryTime: float Refractory period after each spike. Default: 0
 
@@ -2084,8 +2086,9 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
                     (vState < vfVRest).float() - (vState > vfVRest).float()
                 )
             vState += vbNotRefractory * vfAlpha * (mfNeuralInput[nStep] + vLeakUpdate)
-            # - Keep states above lower limits
-            vState = torch.max(vState, vfStateMin)
+            if vfStateMin is not None:
+                # - Keep states above lower limits
+                vState = torch.max(vState, vfStateMin)
             # - Store updated state before spike
             if bRecord:
                 mfRecordStates[2 * nStep] = vState
@@ -2146,5 +2149,20 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
 
     @vfStateMin.setter
     def vfStateMin(self, vfNewMin):
-        vfNewMin = np.asarray(self._expand_to_net_size(vfNewMin, "vfStateMin"))
-        self._vfStateMin = torch.from_numpy(vfNewMin).to(self.device).float()
+        if vfNewMin is None:
+            self._vfStateMin = None
+        else:
+            vfNewMin = np.asarray(self._expand_to_net_size(vfNewMin, "vfStateMin"))
+            self._vfStateMin = torch.from_numpy(vfNewMin).to(self.device).float()
+
+    @RefProperty
+    def vfVRest(self):
+        return self._vfVRest
+
+    @vfVRest.setter
+    def vfVRest(self, vfNewVRest):
+        if vfNewVRest is None:
+            self._vfVRest = None
+        else:
+            vfNewVRest = np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
+            self._vfVRest = torch.from_numpy(vfNewVRest).to(self.device).float()
