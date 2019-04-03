@@ -534,7 +534,11 @@ class TimeSeries:
             (tsAppended.mfSamples, tsOther.mfSamples), axis=0
         )
 
-        tMedianDT = np.median(np.diff(self._vtTimeTrace))
+        # - If `self` is empty append new elements directly. Otherwise leafe space
+        #   corresponding to median distance between time points in `self._vtTimeTrace`.
+        tMedianDT = (
+            np.median(np.diff(self._vtTimeTrace)) if self.vtTimeTrace.size > 0 else 0
+        )
         tsAppended._vtTimeTrace = np.concatenate(
             (
                 tsAppended._vtTimeTrace,
@@ -1154,12 +1158,17 @@ class TSContinuous(TimeSeries):
 
     @property
     def mfSamples(self):
-        return np.reshape(self._mfSamples, (np.size(self.vtTimeTrace), -1))
+        try:
+            return np.reshape(self._mfSamples, (np.size(self.vtTimeTrace), -1))
+        # - When `_mfSamples` is empty, reshaping this way doesn't work
+        except ValueError as e:
+            if np.size(self.vtTimeTrace) == 0:
+                return np.reshape(self._mfSamples, (0, self._mfSamples.shape[1]))
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples: ArrayLike):
-        # - Promote to 1d
-        mfNewSamples = np.atleast_1d(mfNewSamples)
+        # - Promote to 2d
+        mfNewSamples = np.atleast_2d(mfNewSamples)
 
         # - Permit a one-dimensional sample input, promote to 2d
         if (mfNewSamples.shape[0] == 1) and (np.size(self.vtTimeTrace) > 1):
