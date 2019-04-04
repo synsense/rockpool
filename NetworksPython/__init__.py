@@ -9,6 +9,7 @@ dModules = {
         "TimeSeries",
         "TSContinuous",
         "TSEvent",
+        "load_ts_from_file",
     ),
 }
 

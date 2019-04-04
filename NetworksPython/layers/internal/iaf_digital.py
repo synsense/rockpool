@@ -13,13 +13,9 @@ from typing import Union, Optional, List, Tuple
 import numpy as np
 import heapq
 
-from ...timeseries import TSEvent
+from ...timeseries import TSEvent, TSContinuous
 
 from ..layer import Layer
-
-from .timedarray_shift import TimedArray as TAShift
-
-from typing import Optional, Union, Tuple, List
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -27,13 +23,11 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 # - Configure exports
 __all__ = ["RecDIAF"]
 
-
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-10
 # - Minimum refractory time
 tMinRefractory = 1e-9
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
+
 
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
@@ -53,9 +47,11 @@ class RecDIAF(Layer):
         vtRefractoryTime: Union[ArrayLike, float] = tMinRefractory,
         vfVThresh: Union[ArrayLike, float] = 100,
         vfVReset: Union[ArrayLike, float] = 0,
+        vfVRest: Union[ArrayLike, float, None] = None,
         vfCleak: Union[ArrayLike, float] = 1,
         vfVSubtract: Union[ArrayLike, float, None] = None,
         dtypeState: Union[type, str] = "int8",
+        vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
         strName: str = "unnamed",
     ):
         """
@@ -75,6 +71,9 @@ class RecDIAF(Layer):
 
         :param vfVThresh:       np.array Nx1 vector of neuron thresholds.
         :param vfVReset:        np.array Nx1 vector of neuron reset potentials.
+        :param vfVRest:         np.array Nx1 vector of neuron resting potentials.
+                                Leak will change sign for neurons with state below this.
+                                If None, leak will not change sign
         :param vfCleak:         np.array Nx1 vector of leak values.
 
         :param vfVSubtract:     np.array If not None, subtract provided values
@@ -82,6 +81,7 @@ class RecDIAF(Layer):
                                          Otherwise will reset.
 
         :param dtypeState:      type data type for the membrane potential
+        :param vnIdMonitor:     array-like  IDs of neurons to be recorded
 
         :param strName:         str Name for the layer. Default: 'unnamed'
         """
@@ -92,9 +92,7 @@ class RecDIAF(Layer):
         # - Input weights must be provided
         assert (
             mfWRec is not None
-        ), "Layer {}: Recurrent weights mfWRec must be provided.".format(
-            self.strName
-        )
+        ), "Layer {}: Recurrent weights mfWRec must be provided.".format(self.strName)
 
         # - Channel for leak
         self._nLeakChannel = self.nSizeIn + self.nSize
@@ -113,11 +111,14 @@ class RecDIAF(Layer):
         self.vfVSubtract = vfVSubtract
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
+        self.vfVRest = vfVRest
         self.vfCleak = vfCleak
         self.tSpikeDelay = tSpikeDelay
         self.tTauLeak = tTauLeak
         self.vtRefractoryTime = vtRefractoryTime
         self.dtypeState = dtypeState
+        # - Record states of these neurons
+        self.vnIdMonitor = vnIdMonitor
 
         self.reset_state()
 
@@ -144,7 +145,6 @@ class RecDIAF(Layer):
         self._nTimeStep = 0
 
     ### --- State evolution
-
     def evolve(
         self,
         tsInput: Optional[TSEvent] = None,
@@ -216,70 +216,103 @@ class RecDIAF(Layer):
         mfWTotal = self._mfWTotal
         nStateMin = self._nStateMin
         nStateMax = self._nStateMax
+        nLeakChannel = self._nLeakChannel
         dtypeState = self.dtypeState
+        vfVRest = self.vfVRest
         vfVThresh = self.vfVThresh
         vfVReset = self.vfVReset
         vtRefr = self.vtRefractoryTime
         tDelay = self.tSpikeDelay
         nSizeIn = self.nSizeIn
         vfVSubtract = self.vfVSubtract
+        vnIdMonitor = None if self._vnIdMonitor.size == 0 else self._vnIdMonitor
+        strName = self.strName
 
-        # - Lists for storing states and times
-        lvStates = [vState]
-        ltTimes = [tTime]
+        if vnIdMonitor is not None:
+            # - Lists for storing states, times and the channel from the heap
+            lvStates = [vState[vnIdMonitor].copy()]
+            ltTimes = [tTime]
+            lnChannels = [np.nan]
 
         while tTime <= tFinal:
             try:
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
-                print(i, tTime, nChannel, "                       ", end="\r")
-
+                # print(i, tTime, nChannel, "                       ", end="\r")
+                if bVerbose:
+                    print(
+                        "Layer `{}`: Time passed: {:10.4f} of {} s.  Channel: {:4d}.  On heap: {:5d} events".format(
+                            strName, tTime, tDuration, nChannel, len(heapSpikes)
+                        ),
+                        end="\r",
+                    )
             except IndexError:
                 # - Stop if there are no spikes left
                 break
             else:
                 # print("update: ", self._mfWTotal[nChannel])
 
-                # - Record state
-                ltTimes.append(tTime)
-                lvStates.append(vState.copy())
+                if vnIdMonitor is not None:
+                    # - Record state before updates
+                    ltTimes.append(tTime)
+                    lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(nChannel)
 
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = vtRefractoryEnds <= tTime
+                # - Resting potential: Sign of leat so that it drives neuron states to vfVRest
+                if vfVRest is not None and nChannel == nLeakChannel:
+                    vbStateBelowRest = (
+                        vState[vbNotRefractory] < vfVRest[vbNotRefractory]
+                    )
+                    # Flip sign of leak for corresponding neurons
+                    vnSign = -2 * vbStateBelowRest + 1
+                    # Make sure leak is 0 when resting potential is reached
+                    vnSign[vState[vbNotRefractory] == vfVRest[vbNotRefractory]] = 0
+                else:
+                    vnSign = 1
                 # - State updates after incoming spike
                 vState[vbNotRefractory] = np.clip(
-                    vState[vbNotRefractory] + mfWTotal[nChannel, vbNotRefractory],
+                    vState[vbNotRefractory]
+                    + mfWTotal[nChannel, vbNotRefractory] * vnSign,
                     nStateMin,
                     nStateMax,
                 ).astype(dtypeState)
 
-                # - Neurons above threshold and not refractory
+                # - Neurons above threshold that are not refractory will spike
                 vbSpiking = np.logical_and(vState >= vfVThresh, vbNotRefractory)
+
+                if vnIdMonitor is not None:
+                    # - Record state after update but before subtraction/resetting
+                    ltTimes.append(tTime)
+                    lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(np.nan)
 
                 if vfVSubtract is not None:
                     # - Subtract from states of spiking neurons
                     vState[vbSpiking] = np.clip(
                         vState[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
                     ).astype(dtypeState)
-                    # - Check if there are still states above threshold
-                    for iStillAboveThresh in np.where(vState >= vfVThresh)[0]:
-                        # - Add the time when they stop being refractory to the heap
-                        #   on the last channel, where weights are 0, so that no states
-                        #   are updated, only respective states are subtracted
-                        heapq.heappush(
-                            heapSpikes,
-                            (tTime + vtRefr[iStillAboveThresh] + fTolAbs, -1),
-                        )
-
+                    # - Check if among the neurons that are spiking there are still states above threshold
+                    vbStillAboveThresh = (vState >= vfVThresh) & vbSpiking
+                    # - Add the time(s) when they stop being refractory to the heap
+                    #   on the last channel, where weights are 0, so that no neuron
+                    #   states are updated but neurons that are still above threshold
+                    #   can spike immediately after they stop being refractory
+                    vtStopRefr = vtRefr[vbStillAboveThresh] + tTime + fTolAbs
+                    # - Could use np.unique to only add each time once, but is very slow
+                    # vtStopRefr = np.unique(vtRefr[vbStillAboveThresh]) + tTime + fTolAbs
+                    for tStopRefr in vtStopRefr:
+                        heapq.heappush(heapSpikes, (tStopRefr, -1))
                 else:
                     # - Set states to reset potential
                     vState[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
 
-                # - Record state
-                ltTimes.append(tTime)
-                lvStates.append(vState.copy())
-
-                # print("new state: ", self._vState)
+                if vnIdMonitor is not None:
+                    # - Record state after subtraction/resetting
+                    ltTimes.append(tTime)
+                    lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(np.nan)
 
                 # - Determine times when refractory period will end for neurons that have just fired
                 vtRefractoryEnds[vbSpiking] = tTime + vtRefr[vbSpiking]
@@ -315,11 +348,12 @@ class RecDIAF(Layer):
         # - Update time
         self._nTimeStep += nNumTimeSteps
 
-        # - Store evolution of states in lists
-        self.ltTimes = ltTimes
-        self.lvStates = lvStates
+        if vnIdMonitor is not None:
+            # - Store evolution of states in lists
+            mStates = np.hstack((lvStates, np.reshape(lnChannels, (-1, 1))))
+            self.tsRecorded = TSContinuous(ltTimes, mStates)
 
-        # - Output time series
+            # - Output time series
         return TSEvent(
             np.clip(ltSpikeTimes, tStart, tStop),
             liSpikeIDs,
@@ -446,9 +480,7 @@ class RecDIAF(Layer):
     def mfWIn(self, mfNewW):
         assert (
             np.size(mfNewW) == self.nSizeIn * self.nSize
-        ), "`mfNewW` must have [{}] elements.".format(
-            self.nSizeIn * self.nSize
-        )
+        ), "`mfNewW` must have [{}] elements.".format(self.nSizeIn * self.nSize)
 
         self._mfWTotal[: self.nSizeIn, :] = np.array(mfNewW)
 
@@ -479,6 +511,17 @@ class RecDIAF(Layer):
     @vfVReset.setter
     def vfVReset(self, vfNewReset):
         self._vfVReset = self._expand_to_net_size(vfNewReset, "vfVReset")
+
+    @property
+    def vfVRest(self):
+        return self._vfVRest
+
+    @vfVRest.setter
+    def vfVRest(self, vfNewRest):
+        if vfNewRest is None:
+            self._vfVRest = None
+        else:
+            self._vfVRest = self._expand_to_net_size(vfNewRest, "vfVRest")
 
     @property
     def vfCleak(self):
@@ -572,3 +615,16 @@ class RecDIAF(Layer):
         # - Convert vState to dtype
         if hasattr(self, "_vState"):
             self.vState = self.vState
+
+    @property
+    def vnIdMonitor(self):
+        return self._vnIdMonitor
+
+    @vnIdMonitor.setter
+    def vnIdMonitor(self, vnNewIDs):
+        if vnNewIDs is True:
+            self._vnIdMonitor = np.arange(self.nSize)
+        elif vnNewIDs is None or vnNewIDs is False or np.size(vnNewIDs) == 0:
+            self._vnIdMonitor = np.array([])
+        else:
+            self._vnIdMonitor = np.array(vnNewIDs)

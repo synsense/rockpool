@@ -202,3 +202,44 @@ def test_diaf_evolve_resetting():
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
     assert (rl.vState == 0).all(), "State has not been reset correctly"
+
+
+def test_diaf_evolve_vfvrest():
+    """
+    Test initialization and evolution of RecDIAF layer with resting potential and monitor.
+    """
+
+    from NetworksPython.layers import RecDIAF
+    from NetworksPython.timeseries import TSEvent
+
+    # - Input weight matrix
+    mfWIn = np.array([[16, 0, -10], [0, 90, 0]])
+    # - Recurrent weight matrix
+    mfWRec = np.array([[0, 5, 0], [7, 0, 0], [1, 0, -4]])
+
+    # - Generate layer
+    rl = RecDIAF(
+        mfWIn=mfWIn,
+        mfWRec=mfWRec,
+        vfVThresh=50,
+        tDt=0.001,
+        vfVReset=0,
+        vfVSubtract=None,  # Reset instead of subtracting
+        tSpikeDelay=0.04,
+        vtRefractoryTime=0.01,
+        tTauLeak=0.02,  # - Subtract vfCleak every 0.2 seconds
+        vfCleak=1,
+        vfVRest=0,
+        vnIdMonitor=True,
+    )
+
+    # - Input spike
+    tsInput = TSEvent(vtTimeTrace=[0.55], vnChannels=[0])
+
+    # - Evolution
+    tsOutput = rl.evolve(tsInput, tDuration=0.9)
+
+    # - Expectation: Input spike will cause the potential of neuron 0 to increase
+    #                and of neuron 2 to decrease. Due to the leak, both potentials
+    #                should have moved back to 0 after 0.32 s.
+    assert np.allclose(rl.vState, np.zeros(3)), "Final state not as expected"

@@ -5,19 +5,13 @@
 
 
 # - Imports
+from typing import Optional, Union
+from warnings import warn
 import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ...layer import Layer
-from ..timedarray_shift import TimedArray as TAShift
-
-from typing import Optional, Union, Tuple, List
-
-from time import time
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
+from ...layer import Layer, RefProperty
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
@@ -26,6 +20,7 @@ __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
 fTolAbs = 1e-9
 # - Default maximum numbers of time steps for a single evolution batch
 nDefaultMaxNumTimeSteps = 400
+
 
 ## - _RefractoryBase - Class: Base class for providing refractoriness-related properties
 ##                            and methods so that refractory layers can inherit them
@@ -546,18 +541,18 @@ class FFIAFTorch(Layer):
     def cOutput(self):
         return TSEvent
 
-    @property
+    @RefProperty
     def vState(self):
-        return self._vState.cpu().numpy()
+        return self._vState
 
     @vState.setter
     def vState(self, vNewState):
         vNewState = np.asarray(self._expand_to_net_size(vNewState, "vState"))
         self._vState = torch.from_numpy(vNewState).to(self.device).float()
 
-    @property
+    @RefProperty
     def vtTauN(self):
-        return self._vtTauN.cpu().numpy()
+        return self._vtTauN
 
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
@@ -572,51 +567,56 @@ class FFIAFTorch(Layer):
 
     @property
     def vfAlpha(self):
+        warn(
+            "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's vfAlpha".format(
+                self.strName
+            )
+        )
         return self._vfAlpha.cpu().numpy()
 
     @property
     def _vfAlpha(self):
         return self.tDt / self._vtTauN
 
-    @property
+    @RefProperty
     def vfBias(self):
-        return self._vfBias.cpu().numpy()
+        return self._vfBias
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
         vfNewBias = np.asarray(self._expand_to_net_size(vfNewBias, "vfBias"))
         self._vfBias = torch.from_numpy(vfNewBias).to(self.device).float()
 
-    @property
+    @RefProperty
     def vfVThresh(self):
-        return self._vfVThresh.cpu().numpy()
+        return self._vfVThresh
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewVThresh):
         vfNewVThresh = np.asarray(self._expand_to_net_size(vfNewVThresh, "vfVThresh"))
         self._vfVThresh = torch.from_numpy(vfNewVThresh).to(self.device).float()
 
-    @property
+    @RefProperty
     def vfVRest(self):
-        return self._vfVRest.cpu().numpy()
+        return self._vfVRest
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
         vfNewVRest = np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
         self._vfVRest = torch.from_numpy(vfNewVRest).to(self.device).float()
 
-    @property
+    @RefProperty
     def vfVReset(self):
-        return self._vfVReset.cpu().numpy()
+        return self._vfVReset
 
     @vfVReset.setter
     def vfVReset(self, vfNewVReset):
         vfNewVReset = np.asarray(self._expand_to_net_size(vfNewVReset, "vfVReset"))
         self._vfVReset = torch.from_numpy(vfNewVReset).to(self.device).float()
 
-    @property
+    @RefProperty
     def vSynapseState(self):
-        return self._vSynapseState.cpu().numpy()
+        return self._vSynapseState
 
     @vSynapseState.setter
     def vSynapseState(self, vfNewState):
@@ -627,9 +627,9 @@ class FFIAFTorch(Layer):
     def t(self):
         return self._nTimeStep * self.tDt
 
-    @property
+    @RefProperty
     def mfW(self):
-        return self._mfW.cpu().numpy()
+        return self._mfW
 
     @mfW.setter
     def mfW(self, mfNewW):
@@ -901,9 +901,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
     def cInput(self):
         return TSEvent
 
-    @property
+    @RefProperty
     def vtTauS(self):
-        return self._vtTauS.cpu().numpy()
+        return self._vtTauS
 
     @vtTauS.setter
     def vtTauS(self, vtNewTauS):
@@ -1613,7 +1613,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
                 tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
                 vnSelectChannels=np.arange(
                     self.nSizeIn
-                ),  ## This causes problems when tsInput has no events in some channels
+                ),  # This causes problems when tsInput has no events in some channels
                 bAddEvents=self.bAddEvents,  # Allow for multiple input spikes per time step
             )
             # - Convert to supportedformat
@@ -1668,9 +1668,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
             # - Update filter for recurrent spikes if already exists
             self.vtTauSRec = self.vtTauSRec
 
-    @property
+    @RefProperty
     def vtTauSRec(self):
-        return self._vtTauSRec.cpu().numpy()
+        return self._vtTauSRec
 
     @vtTauSRec.setter
     def vtTauSRec(self, vtNewTauSRec):
@@ -1685,18 +1685,18 @@ class RecIAFSpkInTorch(RecIAFTorch):
         self._vtTauSRec = torch.from_numpy(vtNewTauSRec).to(self.device).float()
         self._update_rec_kernel()
 
-    @property
+    @RefProperty
     def vtTauSInp(self):
-        return self._vtTauSInp.cpu().numpy()
+        return self._vtTauSInp
 
     @vtTauSInp.setter
     def vtTauSInp(self, vtNewTauSInp):
         vtNewTauSInp = np.asarray(self._expand_to_net_size(vtNewTauSInp, "vtTauSInp"))
         self._vtTauSInp = torch.from_numpy(vtNewTauSInp).to(self.device).float()
 
-    @property
+    @RefProperty
     def mfWIn(self):
-        return self._mfWIn.cpu().numpy()
+        return self._mfWIn
 
     @mfWIn.setter
     def mfWIn(self, mfNewW):
@@ -1705,9 +1705,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
         self._mfWIn = torch.from_numpy(mfNewW).to(self.device).float()
 
-    @property
+    @RefProperty
     def mfWRec(self):
-        return self._mfWRec.cpu().numpy()
+        return self._mfWRec
 
     @mfWRec.setter
     def mfWRec(self, mfNewW):
@@ -1734,9 +1734,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
     def _mfW(self, mfNewW):
         self._mfWRec = mfNewW
 
-    @property
+    @RefProperty
     def vSynapseStateInp(self):
-        return self._vSynapseStateInp.cpu().numpy()
+        return self._vSynapseStateInp
 
     @vSynapseStateInp.setter
     def vSynapseStateInp(self, vfNewState):
@@ -1849,11 +1849,11 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         """
         evolve : Function to evolve the states of this layer given an input for a single batch
 
-        :param mfInput:     np.ndarray   Input to layer as matrix
-        :param nEvolutionTimeStep int    Time step within current evolution at beginning of current batch
-        :param nNumTimeSteps:   int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param mfInput:            Input to layer as matrix
+        :param nEvolutionTimeStep  Time step within current evolution at beginning of current batch
+        :param nNumTimeSteps:      Number of evolution time steps
+        :param bVerbose:           Currently no effect, just for conformity
+        :return:                   output spike series
 
         """
         mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
@@ -1937,3 +1937,232 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         self._nTimeStep += nNumTimeSteps
 
         return mbSpiking.cpu()
+
+
+## - RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that is constant over time.
+class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
+    """ RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that
+                                        is constant over time.
+    """
+
+    ## - Constructor
+    def __init__(
+        self,
+        mfWIn: np.ndarray,
+        mfWRec: np.ndarray,
+        vfBias: Union[float, np.ndarray] = 0.0105,
+        tDt: float = 0.0001,
+        vfLeakRate: Union[float, np.ndarray] = 0.02,
+        vtTauN: Union[float, np.ndarray] = 0.02,
+        vtTauSInp: Union[float, np.ndarray] = 0.05,
+        vtTauSRec: Union[float, np.ndarray] = 0.05,
+        vfVThresh: Union[float, np.ndarray] = -0.055,
+        vfVReset: Union[float, np.ndarray] = -0.065,
+        vfVRest: Union[float, np.ndarray, None] = -0.065,
+        vfStateMin: Union[float, np.ndarray, None] = -0.085,
+        tRefractoryTime=0,
+        strName: str = "unnamed",
+        bRecord: bool = False,
+        bAddEvents: bool = True,
+        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
+    ):
+        """
+        RecIAFSpkInRefrCLTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
+                                 Inputs and outputs are spiking events. Support refractoriness. Constant leak
+
+        :param mfWIn:           np.array MxN input weight matrix.
+        :param mfWRec:          np.array NxN recurrent weight matrix.
+        :param vfBias:          np.array Nx1 bias vector. Default: 0.0105
+
+        :param tDt:             float Time-step. Default: 0.0001
+        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 0.02
+
+        :param vfLeakRate:      np.array Nx1 vector of constant neuron leakage in V/s. Default: 0.02
+        :param vtTauSInp:       np.array Nx1 vector of synapse time constants. Default: 0.05
+        :param vtTauSRec:       np.array Nx1 vector of synapse time constants. Default: 0.05
+
+        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
+        :param vfVReset:        np.array Nx1 vector of neuron reset potential. Default: -0.065
+        :param vfVRest:         np.array Nx1 vector of neuron resting potential. Default: -0.065
+                                If None, leak will always be negative (for positive entries of vfLeakRate)
+        :param vfStateMin:      np.array Nx1 vector of lower limits for neuron states. Default: -0.85
+                                If None, there are no lower limits
+
+        :param tRefractoryTime: float Refractory period after each spike. Default: 0
+
+        :param strName:         str Name for the layer. Default: 'unnamed'
+
+        :param bRecord:         bool Record membrane potential during evolutions. Default: False
+
+        :bAddEvents:            bool     If during evolution multiple input events arrive during one
+                                         time step for a channel, count their actual number instead of
+                                         just counting them as one (This might make less sense for
+                                         refractory neurons).
+
+        :nMaxNumTimeSteps:      int   Maximum number of timesteps during single evolution batch. Longer
+                                      evolution periods will automatically split in smaller batches.
+        """
+
+        # - Call super constructor
+        super().__init__(
+            mfWIn=mfWIn,
+            mfWRec=mfWRec,
+            vfBias=vfBias,
+            tDt=tDt,
+            fNoiseStd=0,
+            vtTauN=vtTauN,
+            vtTauSInp=vtTauSInp,
+            vtTauSRec=vtTauSRec,
+            vfVThresh=vfVThresh,
+            vfVReset=vfVReset,
+            vfVRest=vfVRest,
+            tRefractoryTime=tRefractoryTime,
+            strName=strName,
+            bRecord=bRecord,
+            nMaxNumTimeSteps=nMaxNumTimeSteps,
+        )
+        self.vfLeakRate = vfLeakRate
+        self.vfStateMin = vfStateMin
+
+    def _single_batch_evolution(
+        self,
+        mfInput: np.ndarray,
+        nEvolutionTimeStep: int,
+        nNumTimeSteps: Optional[int] = None,
+        bVerbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input for a single batch
+
+        :param mfInput:     np.ndarray   Input to layer as matrix
+        :param nEvolutionTimeStep int    Time step within current evolution at beginning of current batch
+        :param nNumTimeSteps:   int      Number of evolution time steps
+        :param bVerbose:        bool     Currently no effect, just for conformity
+        :return:            TSEvent  output spike series
+
+        """
+        mfNeuralInput, nNumTimeSteps = self._prepare_neural_input(
+            mfInput, nNumTimeSteps
+        )
+
+        if self.bRecord:
+            # - Tensor for recording synapse and neuron states
+            mfRecordStates = self.tensors.FloatTensor(
+                2 * nNumTimeSteps, self.nSize
+            ).fill_(0)
+
+        # - Tensor for collecting spike data
+        mbSpiking = self.tensors.ByteTensor(nNumTimeSteps, self.nSize).fill_(0)
+
+        # - Get local variables
+        vState = self._vState.clone()
+        vfAlpha = self._vfAlpha
+        vLeak = self._vfLeakRate * self.tDt
+        vfVThresh = self._vfVThresh
+        vfVReset = self._vfVReset
+        vfVRest = self._vfVRest
+        vfStateMin = self._vfStateMin
+        bRecord = self.bRecord
+        mfKernels = self._mfKernelsRec
+        nNumTSKernel = mfKernels.shape[0]
+        mfWRec = self._mfW
+        nRefractorySteps = self._nRefractorySteps
+        vnRefractoryCountdownSteps = self._vnRefractoryCountdownSteps.clone()
+
+        if vfVRest is None:
+            vLeakUpdate = vLeak
+
+        # - Evolve neuron states
+        for nStep in range(nNumTimeSteps):
+            # - Determine refractory neurons
+            vbNotRefractory = (vnRefractoryCountdownSteps == 0).float()
+            # - Decrement refractory countdown
+            vnRefractoryCountdownSteps -= 1
+            vnRefractoryCountdownSteps.clamp_(min=0)
+            # - Incremental state update from input
+            if vfVRest is not None:
+                # - Leak moves state towards `vfVRest`
+                vLeakUpdate = vLeak * (
+                    (vState < vfVRest).float() - (vState > vfVRest).float()
+                )
+            vState += vbNotRefractory * vfAlpha * (mfNeuralInput[nStep] + vLeakUpdate)
+            if vfStateMin is not None:
+                # - Keep states above lower limits
+                vState = torch.max(vState, vfStateMin)
+            # - Store updated state before spike
+            if bRecord:
+                mfRecordStates[2 * nStep] = vState
+            # - Spiking
+            vbSpiking = (vState > vfVThresh).float()
+            # - State reset
+            vState += (vfVReset - vState) * vbSpiking
+            # - Store spikes
+            mbSpiking[nStep] = vbSpiking
+            # - Update refractory countdown
+            vnRefractoryCountdownSteps += nRefractorySteps * vbSpiking
+            # - Store updated state after spike
+            if bRecord:
+                mfRecordStates[2 * nStep + 1] = vState
+            # - Add filtered recurrent spikes to input
+            nTSRecurrent = min(nNumTSKernel, nNumTimeSteps - nStep)
+            mfNeuralInput[nStep + 1 : nStep + 1 + nTSRecurrent] += mfKernels[
+                :nTSRecurrent
+            ] * torch.mm(vbSpiking.reshape(1, -1), mfWRec)
+
+            del vbSpiking
+
+        # - Store recorded neuron and synapse states
+        if bRecord:
+            self.mfRecordStates[
+                2 * nEvolutionTimeStep
+                + 1 : 2 * (nEvolutionTimeStep + nNumTimeSteps)
+                + 1
+            ] = mfRecordStates.cpu()
+            self.mfRecordSynapses[
+                nEvolutionTimeStep + 1 : nEvolutionTimeStep + nNumTimeSteps + 1
+            ] = (mfNeuralInput[:nNumTimeSteps]).cpu()
+
+        # - Store updated neuron and synapse states and update clock
+        self._vState = vState
+        self._vSynapseState = mfNeuralInput[-1].clone()
+        self._nTimeStep += nNumTimeSteps
+
+        return mbSpiking.cpu()
+
+    def reset_state(self):
+        super().reset_state()
+        # - Set previous synaptic input to 0
+        self._last_synaptic = self.tensors.FloatTensor(self._vState.size()).fill_(0)
+
+    @RefProperty
+    def vfLeakRate(self):
+        return self._vfLeakRate
+
+    @vfLeakRate.setter
+    def vfLeakRate(self, vfNewRate):
+        vfNewRate = np.asarray(self._expand_to_net_size(vfNewRate, "vfLeakRate"))
+        self._vfLeakRate = torch.from_numpy(vfNewRate).to(self.device).float()
+
+    @RefProperty
+    def vfStateMin(self):
+        return self._vfStateMin
+
+    @vfStateMin.setter
+    def vfStateMin(self, vfNewMin):
+        if vfNewMin is None:
+            self._vfStateMin = None
+        else:
+            vfNewMin = np.asarray(self._expand_to_net_size(vfNewMin, "vfStateMin"))
+            self._vfStateMin = torch.from_numpy(vfNewMin).to(self.device).float()
+
+    @RefProperty
+    def vfVRest(self):
+        return self._vfVRest
+
+    @vfVRest.setter
+    def vfVRest(self, vfNewVRest):
+        if vfNewVRest is None:
+            self._vfVRest = None
+        else:
+            vfNewVRest = np.asarray(self._expand_to_net_size(vfNewVRest, "vfVRest"))
+            self._vfVRest = torch.from_numpy(vfNewVRest).to(self.device).float()
