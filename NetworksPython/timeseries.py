@@ -1475,12 +1475,6 @@ class TSEvent(TimeSeries):
                 f"TSEvent `{self.strName}`: `tsOther` must be a TSEvent object."
             )
 
-        if tsOther.nNumTraces != self.nNumTraces:
-            raise ValueError(
-                f"TSEvent `{self.strName}`: `tsOther` must include the same number of"
-                + f"traces ({self.nNumTraces}))."
-            )
-
         # - Create a new time series, or modify this time series
         if not bInPlace:
             tsAppended = self.copy()
@@ -1501,6 +1495,9 @@ class TSEvent(TimeSeries):
 
         # - Fix tStop
         tsAppended._tStop += tsOther.tDuration
+
+        # - Update `nNumChannels`
+        tsAppended._nNumChannels = max(self.nNumChannels, tsOther.nNumChannels)
 
         # - Return appended time series
         return tsAppended
@@ -1835,11 +1832,10 @@ class TSEvent(TimeSeries):
         else:
             return "{}periodic TSEvent object `{}` from t={} to {}. Channels: {}. Events: {}".format(
                 int(not self.bPeriodic) * "non-",
-                self.__class__.__name__,
                 self.strName,
                 self.tStart,
                 self.tStop,
-                self.vnChannels,
+                self.nNumChannels,
                 self.vtTimeTrace.size,
             )
 
