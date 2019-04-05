@@ -8,63 +8,42 @@ from warnings import warn
 import copy
 from typing import Union, List, Tuple, Optional, TypeVar
 import collections
+import matplotlib as mpl
+from matplotlib import pyplot as plt
+import holoviews as hv
 
 # - Define exports
 __all__ = [
     "TimeSeries",
-    "SetPlottingBackend",
-    "GetPlottingBackend",
+    "set_plotting_backend",
+    "get_plotting_backend",
     "TSEvent",
     "TSContinuous",
 ]
 
 # - Type alias for array-like objects and for yet undefined objects
 ArrayLike = Union[np.ndarray, List, Tuple]
+ArrayType = TypeVar("ndarray")
 TSEventType = TypeVar("TSEvent")
 
 ### -- Code for setting plotting backend
 
-__bHoloviewsDetected = False
-__bMatplotlibDetected = False
 __bUseHoloviews = False
 __bUseMatplotlib = False
 
-try:
-    import holoviews as hv
-
-    __bHoloviewsDetected = True
-
-except Exception:
-    pass
-
-try:
-    import matplotlib.pyplot as plt
-
-    __bMatplotlibDetected = True
-
-except Exception:
-    pass
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
 
 
-def SetPlottingBackend(strBackend):
-    global __bHoloviewsDetected
-    global __bMatplotlibDetected
+def set_plotting_backend(backend: str):
     global __bUseHoloviews
     global __bUseMatplotlib
-    if (
-        strBackend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv")
-        and __bHoloviewsDetected
-    ):
+    if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
         __bUseHoloviews = True
         __bUseMatplotlib = False
 
-    elif (
-        strBackend in ("matplotlib", "mpl", "mp", "pyplot", "plt")
-        and __bMatplotlibDetected
-    ):
+    elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
         __bUseHoloviews = False
         __bUseMatplotlib = True
 
@@ -73,20 +52,12 @@ def SetPlottingBackend(strBackend):
         __bUseMatplotlib = False
 
 
-def plotting_backend(strBackend):
-    SetPlottingBackend(strBackend)
-
-
-def GetPlottingBackend():
+def set_plotting_backend():
     return __bUseHoloviews, __bUseMatplotlib
 
 
 ## - Set default plotting backend
-if __bHoloviewsDetected:
-    SetPlottingBackend("holoviews")
-
-elif __bMatplotlibDetected:
-    SetPlottingBackend("matplotlib")
+set_plotting_backend("matplotlib")
 
 
 ### - Convenience method to return a nan array
@@ -166,51 +137,10 @@ class TimeSeries:
         # - Shift time trace
         tsObj.vtTimeTrace += tOffset
         # - Shift tStart and tStop
-        tsObj.tStart = tStartOld + tOffset
-        tsObj.tStop = tStopOld + tOffset
+        tsObj._tStart = tStartOld + tOffset
+        tsObj._tStop = tStopOld + tOffset
 
         return tsObj
-
-    def plot(self, vtTimes: Union[int, float, ArrayLike] = None, **kwargs):
-        """
-        plot - Visualise a time series on a line plot
-
-        :param vtTimes: Optional. Time base on which to plot. Default: time base of time series
-        :param kwargs:  Optional arguments to pass to plotting function
-
-        :return: Plot object. Either holoviews Layout, or matplotlib plot
-        """
-        if vtTimes is None:
-            vtTimes = self.vtTimeTrace
-            mfSamples = self.mfSamples
-        else:
-            mfSamples = self(vtTimes)
-
-        # - Get current plotting backend
-        _bUseHoloviews, _bUseMatplotlib = GetPlottingBackend()
-
-        if _bUseHoloviews:
-            mfData = np.atleast_2d(mfSamples).reshape((np.size(vtTimes), -1))
-            if kwargs == {}:
-                vhCurves = [
-                    hv.Curve((vtTimes, vfData)).redim(x="Time") for vfData in mfData.T
-                ]
-            else:
-                vhCurves = [
-                    hv.Curve((vtTimes, vfData)).redim(x="Time").options(**kwargs)
-                    for vfData in mfData.T
-                ]
-
-            if len(vhCurves) > 1:
-                return hv.Overlay(vhCurves).relabel(group=self.strName)
-            else:
-                return vhCurves[0].relabel(self.strName)
-
-        elif _bUseMatplotlib:
-            return plt.plot(vtTimes, mfSamples, label=self.strName, **kwargs)
-
-        else:
-            warn("No plotting back-end detected.")
 
     def contains(self, vtTimeTrace: Union[int, float, ArrayLike]):
         """
@@ -1047,6 +977,86 @@ class TSContinuous(TimeSeries):
         # - Interpolator for samples
         self._create_interpolator()
 
+    def plot(
+        self,
+        vtTimes: Union[int, float, ArrayLike] = None,
+        target: Union[mpl.axes.Axes, hv.Curve, hv.Overlay, None] = None,
+        channels: Union[ArrayLike, int, None] = None,
+        *args,
+        **kwargs,
+    ):
+        """
+        plot - Visualise a time series on a line plot
+
+        :param vtTimes: Optional. Time base on which to plot. Default: time base of time series
+        :param target:  Optional. Object to which plot will be added.
+        :param channels:  Optional. Channels that are to be plotted.
+        :param args, kwargs:  Optional arguments to pass to plotting function
+
+        :return: Plot object. Either holoviews Layout, or matplotlib plot
+        """
+        if vtTimes is None:
+            vtTimes = self.vtTimeTrace
+            mfSamples = self.mfSamples
+        else:
+            mfSamples = self(vtTimes)
+        if channels is not None:
+            mfSamples = mfSamples[:, channels]
+
+        if target is None:
+            # - Get current plotting backend from global settings
+            _bUseHoloviews, _bUseMatplotlib = GetPlottingBackend()
+
+            if _bUseHoloviews:
+                if kwargs == {}:
+                    vhCurves = [
+                        hv.Curve((vtTimes, vfData)).redim(x="Time")
+                        for vfData in mfSamples.T
+                    ]
+                else:
+                    vhCurves = [
+                        hv.Curve((vtTimes, vfData))
+                        .redim(x="Time")
+                        .options(*args, **kwargs)
+                        for vfData in mfSamples.T
+                    ]
+
+                if len(vhCurves) > 1:
+                    return hv.Overlay(vhCurves).relabel(group=self.strName)
+                else:
+                    return vhCurves[0].relabel(self.strName)
+
+            elif _bUseMatplotlib:
+                return plt.plot(vtTimes, mfSamples, label=self.strName, **kwargs)
+
+            else:
+                raise RuntimeError(
+                    f"TSContinuous: `{self.strName}`: No plotting back-end detected."
+                )
+
+        else:
+            # - Infer current plotting backend from type of `target`
+            if isinstance(target, (hv.Curve, hv.Overlay)):
+                if kwargs == {}:
+                    for vfData in mfSamples.T:
+                        target *= hv.Curve((vtTimes, vfData)).redim(x="Time")
+                else:
+                    for vfData in mfSamples.T:
+                        target *= (
+                            hv.Curve((vtTimes, vfData))
+                            .redim(x="Time")
+                            .options(*args, **kwargs)
+                        )
+                return target.relabel(group=self.strName)
+            elif isinstance(target, mpl.axes.Axes):
+                target.plot(vtTimes, mfSamples, label=self.strName, **kwargs)
+                return target
+            else:
+                raise TypeError(
+                    f"TSContinuous: `{self.strName}`: Unrecognized type for `target`. "
+                    + "It must be matplotlib Axes or holoviews Curve or Overlay."
+                )
+
     def find(self, ttTimes: ArrayLike):
         vtTime = list(ttTimes)
         mfSamples = self(vtTime)
@@ -1099,7 +1109,7 @@ class TSContinuous(TimeSeries):
         """
         return self.interpolate(vtTimes)
 
-    def __getitem__(self, vtTimes: Union[ArrayLike, slice]):
+    def __getitem__(self, vtTimes: Union[ArrayLike, slice]) -> np.ndarray:
         """
         ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
         NOTE that ts[:] uses as (fixed) step size the mean step size of self.vtTimeTrace
@@ -1115,11 +1125,11 @@ class TSContinuous(TimeSeries):
             )
             fStart: float = self._vtTimeTrace[
                 0
-            ] if vtTimes.start is None else vtTimes.start
+            ] if vtTimes.tStart is None else vtTimes.tStart
             fStop: float = (
                 self._vtTimeTrace[-1] + abs(fStep)
-                if vtTimes.stop is None
-                else vtTimes.stop
+                if vtTimes.tStop is None
+                else vtTimes.tStop
             )
 
             if fStart < self._vtTimeTrace[0]:
@@ -1296,6 +1306,90 @@ class TSEvent(TimeSeries):
 
         # - Store total number of channels
         self._nNumChannels = int(nNumChannels)
+
+    def plot(
+        self,
+        time_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
+        target: Union[mpl.axes.Axes, hv.Scatter, hv.Overlay, None] = None,
+        channels: Union[ArrayLike, int, None] = None,
+        *args,
+        **kwargs,
+    ):
+        """
+        plot - Visualise a time series on a line plot
+
+        :param time_limits: Optional. Tuple with times between which to plot
+        :param target:  Optional. Object to which plot will be added.
+        :param channels:  Optional. Channels that are to be plotted.
+        :param args, kwargs:  Optional arguments to pass to plotting function
+
+        :return: Plot object. Either holoviews Layout, or matplotlib plot
+        """
+        # - Filter spikes by time
+        if vtTimes is None:
+            t_start = self.tStart
+            t_stop = self.tStop
+        else:
+            execption_limits = (
+                f"TSEvent `{self.strName}`: `time_limits` must be None or tuple "
+                + "of length 2."
+            )
+            try:
+                # - Make sure `time_limits` has correct length
+                if len(time_limits) != 2 or not isin:
+                    raise ValueError(execption_limits)
+                else:
+                    t_start = self.tStart if time_limits[0] is None else time_limits[0]
+                    t_start = self.tStop if time_limits[1] is None else time_limits[1]
+            except TypeError:
+                raise TypeError(exception_limits)
+        # - Choose matching events
+        times, channels = self(t_start, t_stop, channels)
+
+        if target is None:
+            # - Get current plotting backend from global settings
+            _bUseHoloviews, _bUseMatplotlib = GetPlottingBackend()
+
+            if _bUseHoloviews:
+                return (
+                    hv.Scatter((vtTimes, vnChannels), *args, **kwargs)
+                    .redim(x="Time", y="Channel")
+                    .relabel(self.strName)
+                )
+
+            elif _bUseMatplotlib:
+                return plt.scatter(
+                    vtTimes, mfSamples, label=self.strName, *args, **kwargs
+                )
+
+            else:
+                raise RuntimeError(
+                    f"TSEvent: `{self.strName}`: No plotting back-end detected."
+                )
+
+        else:
+            # - Infer current plotting backend from type of `target`
+            if isinstance(target, (hv.Curve, hv.Overlay)):
+                if kwargs == {}:
+                    for vfData in mfSamples.T:
+                        target *= hv.Scatter((vtTimes, vfData)).redim(
+                            x="Time", y="Channel"
+                        )
+                else:
+                    target *= (
+                        hv.Scatter((vtTimes, vnChannels), *args, **kwargs)
+                        .redim(x="Time", y="Channel")
+                        .relabel(self.strName)
+                    )
+                return target.relabel(group=self.strName)
+            elif isinstance(target, mpl.axes.Axes):
+                target.scatter(vtTimes, mfSamples, label=self.strName, *args, **kwargs)
+                return target
+            else:
+                raise TypeError(
+                    f"TSEvent: `{self.strName}`: Unrecognized type for `target`. "
+                    + "It must be matplotlib Axes or holoviews Curve or Overlay."
+                )
 
     def find(
         self, vtTimeBounds: Optional[ArrayLike] = None
@@ -1833,6 +1927,48 @@ class TSEvent(TimeSeries):
                 self.strName, strPath + bPathMissesEnding * ".npz"
             )
         )
+
+    def __call__(
+        self,
+        t_start: Optional[float] = None,
+        t_stop: Optional[float] = None,
+        channels: Union[int, ArrayLike, None] = None,
+    ) -> (np.ndarray, np.ndarray):
+        """
+        ts(t_start, t_stop) - Return events in interval between indicated times
+
+        :param t_start:     Time from which on events are returned
+        :param t_stop:      Time until (and including) which events are returned
+        :param channels:  Channels of which events are returned
+        :return:
+            np.ndarray  Times of events
+            np.ndarray  Channels of events
+        """
+        if t_start is None:
+            t_start = self.tStart
+        if t_stop is None:
+            t_stop = self.tStop
+        if channels is None:
+            channels = np.arange(self.nNumChannels)
+        choose_events: ArrayType[bool] = np.logical_and(
+            self._vtTimeTrace >= t_start,
+            self._vtTimeTrace <= t_stop,
+            np.isin(self._vnChannels, channels),
+        )
+        return self.vtTimeTrace[choose_events], self.vnChannels[choose_events]
+
+    def __getitem__(self, ind: Union[ArrayLike, slice]) -> (np.ndarray, np.ndarray):
+        """
+        ts[tTime1, tTime2, ...] - Index the events of `self` by with the argument
+                                  and return two arrays with the corresponding
+                                  times and channels.`
+        :return:
+            np.array of indexed event times
+            np.array of indexed event channels
+        """
+        indexed_times: np.ndarray = self.vtTimeTrace[ind]
+        indexed_channels: np.ndarray = self.vnChannels[ind]
+        return indexed_times, indexed_channels
 
     def __repr__(self):
         """
