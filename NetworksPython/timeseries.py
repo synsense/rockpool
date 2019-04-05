@@ -145,39 +145,6 @@ class TimeSeries:
             else tStop
         )
 
-    def __getitem__(self, vtTimes: Union[ArrayLike, slice]):
-        """
-        ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
-        NOTE that ts[:] uses as (fixed) step size the mean step size of self.vtTimeTrace
-        and thus can return different values than those in ts.mfSamples!
-        :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
-        :return:        np.array of interpolated values. Will have the shape TxN
-        """
-        if isinstance(vtTimes, slice):
-            fStep = (
-                np.mean(np.diff(self._vtTimeTrace))
-                if vtTimes.step is None
-                else vtTimes.step
-            )
-            fStart = self._vtTimeTrace[0] if vtTimes.start is None else vtTimes.start
-            fStop = (
-                self._vtTimeTrace[-1] + abs(fStep)
-                if vtTimes.stop is None
-                else vtTimes.stop
-            )
-
-            assert (
-                fStart >= self._vtTimeTrace[0]
-            ), "This TimeSeries only starts at t={}".format(self._vtTimeTrace[0])
-            assert fStop <= self._vtTimeTrace[-1] + abs(
-                fStep
-            ), "This TimeSeries already ends at t={}".format(self._vtTimeTrace[-1])
-
-            vTimeIndices = np.arange(fStart, fStop, abs(fStep))[:: int(np.sign(fStep))]
-            return self.interpolate(vTimeIndices)
-        else:
-            return self.interpolate(vtTimes)
-
     def delay(self, tOffset: Union[int, float], bInPlace: bool = False):
         """
         delay - Return a copy of self that is delayed by an offset.
@@ -355,9 +322,9 @@ class TimeSeries:
         # - Check tsOther
         assert isinstance(tsOther, TimeSeries), "`tsOther` must be a TimeSeries object."
 
-        assert tsOther.nNumTraces == self.nNumTraces, (
+        assert tsOther.nNumChannels == self.nNumChannels, (
             "`tsOther` must include the same number of traces ("
-            + str(self.nNumTraces)
+            + str(self.nNumChannels)
             + ")."
         )
 
@@ -475,9 +442,9 @@ class TimeSeries:
         # - Check tsOther
         assert isinstance(tsOther, TimeSeries), "`tsOther` must be a TimeSeries object."
 
-        assert tsOther.nNumTraces == self.nNumTraces, (
+        assert tsOther.nNumChannels == self.nNumChannels, (
             "`tsOther` must include the same number of traces ("
-            + str(self.nNumTraces)
+            + str(self.nNumChannels)
             + ")."
         )
 
@@ -621,7 +588,7 @@ class TimeSeries:
         vfFirstSample = np.atleast_1d(tsClipped(vtNewBounds[0]))
 
         # - Get number of traces
-        nNumTraces = tsClipped.nNumTraces
+        nNumChannels = tsClipped.nNumChannels
 
         # - For periodic time series, resample the series
         if tsClipped.bPeriodic:
@@ -638,8 +605,8 @@ class TimeSeries:
 
         tsClipped._mfSamples = np.concatenate(
             (
-                np.reshape(vfFirstSample, (-1, nNumTraces)),
-                np.reshape(tsClipped._mfSamples, (-1, nNumTraces)),
+                np.reshape(vfFirstSample, (-1, nNumChannels)),
+                np.reshape(tsClipped._mfSamples, (-1, nNumChannels)),
             ),
             axis=0,
         )
@@ -835,9 +802,6 @@ class TimeSeries:
         return tsCopy // (1 / other)
 
     def __ifloordiv__(self, other):
-        # - Get nan mask
-        mbIsNan = np.isnan(self.mfSamples)
-
         # - Should we handle TimeSeries subtraction?
         if isinstance(other, TimeSeries):
             mfOtherSamples = self._compatibleShape(other(self.vtTimeTrace))
@@ -912,9 +876,18 @@ class TimeSeries:
     @vtTimeTrace.setter
     def vtTimeTrace(self, vtNewTrace: ArrayLike):
         # - Check time trace for correct size
-        assert np.size(vtNewTrace) == np.size(
-            self._vtTimeTrace
-        ), "New time trace must have the same number of elements as the original trace."
+        if np.size(vtNewTrace) != np.size(self._vtTimeTrace):
+            raise ValueError(
+                f"TSContinuous `{self.strName}`: "
+                + "New time trace must have the same number of elements as the original trace."
+            )
+
+        # - Make sure time trace is sorted
+        if (np.diff(vtNewTrace) < 0).any():
+            raise ValueError(
+                f"TSContinuous `{self.strName}`: "
+                + "The time trace must be sorted and not decreasing"
+            )
 
         # - Store new time trace
         self._vtTimeTrace = np.reshape(vtNewTrace, -1)
@@ -923,9 +896,6 @@ class TimeSeries:
             # - Fix tStart and tStop
             self._tStart = min(self._tStart, vtNewTrace[0])
             self._tStop = max(self._tStop, vtNewTrace[-1])
-
-        # - Create a new interpolator
-        self._create_interpolator()
 
     def choose(self, vnTraces: Union[int, ArrayLike], bInPlace: bool = False):
         """
@@ -938,8 +908,8 @@ class TimeSeries:
         # - Convert to a numpy array and check extents
         vnTraces = np.atleast_1d(vnTraces)
         assert (
-            min(vnTraces) >= 0 and max(vnTraces) <= self.nNumTraces
-        ), "`vnTraces` must be between 0 and " + str(self.nNumTraces)
+            min(vnTraces) >= 0 and max(vnTraces) <= self.nNumChannels
+        ), "`vnTraces` must be between 0 and " + str(self.nNumChannels)
 
         if not bInPlace:
             tsChosen = self.copy()
@@ -1072,8 +1042,8 @@ class TSContinuous(TimeSeries):
         )
 
         # - Assign attributes
-        self._mfSamples = mfSamples.astype("float")
         self.strInterpKind = strInterpKind
+        self._mfSamples = mfSamples.astype("float")
         # - Interpolator for samples
         self._create_interpolator()
 
@@ -1118,7 +1088,7 @@ class TSContinuous(TimeSeries):
                 np.asarray(vtTimes) - self._tStart
             ) % self.tDuration + self._tStart
 
-        return np.reshape(self.oInterp(vtTimes), (-1, self.nNumTraces))
+        return np.reshape(self.oInterp(vtTimes), (-1, self.nNumChannels))
 
     def __call__(self, vtTimes: Union[int, float, ArrayLike]):
         """
@@ -1128,6 +1098,51 @@ class TSContinuous(TimeSeries):
         :return:      np.array of interpolated values. Will have the shape TxN
         """
         return self.interpolate(vtTimes)
+
+    def __getitem__(self, vtTimes: Union[ArrayLike, slice]):
+        """
+        ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
+        NOTE that ts[:] uses as (fixed) step size the mean step size of self.vtTimeTrace
+        and thus can return different values than those in ts.mfSamples!
+        :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
+        :return:        np.array of interpolated values. Will have the shape TxN
+        """
+        if isinstance(vtTimes, slice):
+            fStep: np.float = (
+                np.mean(np.diff(self._vtTimeTrace))
+                if vtTimes.step is None
+                else vtTimes.step
+            )
+            fStart: float = self._vtTimeTrace[
+                0
+            ] if vtTimes.start is None else vtTimes.start
+            fStop: float = (
+                self._vtTimeTrace[-1] + abs(fStep)
+                if vtTimes.stop is None
+                else vtTimes.stop
+            )
+
+            if fStart < self._vtTimeTrace[0]:
+                raise ValueError(
+                    f"TSContinuous `{self.strName}`: "
+                    f"This TimeSeries only starts at t={self._vtTimeTrace[0]}"
+                )
+            if fStop > self._vtTimeTrace[-1] + abs(fStep):
+                raise ValueError(
+                    f"TSContinuous `{self.strName}`: "
+                    f"This TimeSeries already ends at t={self._vtTimeTrace[-1]}"
+                )
+
+            # - Determine time points at which series is sampled
+            time_points: np.ndarray = np.arange(fStart, fStop, abs(fStep))
+            # - Invert order if fStep is negative
+            if fStep < 0:
+                time_points = time_points[::-1]
+
+            return self.interpolate(vTimeIndices)
+
+        else:
+            return self.interpolate(vtTimes)
 
     def __repr__(self):
         """
@@ -1152,6 +1167,14 @@ class TSContinuous(TimeSeries):
 
     @mfSamples.setter
     def mfSamples(self, mfNewSamples: ArrayLike):
+        # - Make sure that if assigned empty samples array, number of traces is implicityly
+        #   with as second dimension of `mfNewSamples`
+        if np.size(mfNewSamples) == 0 and np.ndim(mfNewSamples) > 2:
+            raise ValueError(
+                f"TSContinuous `{self.strName}`: "
+                + "Empty mfSampels object must be 2D to allow infering the number of channels."
+            )
+
         # - Promote to 2d
         mfNewSamples = np.atleast_2d(mfNewSamples)
 
@@ -1160,9 +1183,11 @@ class TSContinuous(TimeSeries):
             mfNewSamples = np.reshape(mfNewSamples, (np.size(self.vtTimeTrace), 1))
 
         # - Check samples for correct size
-        assert mfNewSamples.shape[0] == np.size(
-            self.vtTimeTrace
-        ), "New samples matrix must have the same number of samples as `.vtTimeTrace`."
+        if mfNewSamples.shape[0] != np.size(self.vtTimeTrace):
+            raise ValueError(
+                f"TSContinuous `{self.strName}`: "
+                + "New samples matrix must have the same number of samples as `.vtTimeTrace`."
+            )
 
         # - Store new time trace
         self._mfSamples = mfNewSamples
@@ -1170,37 +1195,26 @@ class TSContinuous(TimeSeries):
         # - Create a new interpolator
         self._create_interpolator()
 
+    # - Extend setter of vtTimeTrace to update interpolator
+    @property
+    def vtTimeTrace(self):
+        return super().vtTimeTrace
+
+    @vtTimeTrace.setter
+    def vtTimeTrace(self, vtNewTrace: ArrayLike):
+        super().vtTimeTrace.fset(self, vtNewTrace)
+        # - Create a new interpolator
+        self._create_interpolator()
+
     @property
     def nNumTraces(self):
-        """
-        .nNumTraces: int Number of traces in this TimeSeries object
-        """
-        try:
-            return self.mfSamples.shape[1]
-        # If mfSamples is 1d:
-        except IndexError:
-            return 1
+        """nNumTraces - Synonymous to nNumChannels"""
+        return self.mfSamples.shape[1]
 
     @property
     def nNumChannels(self):
-        if hasattr(self, "_nNumChannels") and self._nNumChannels is not None:
-            return self._nNumChannels
-        else:
-            return self.nNumTraces
-
-    @nNumChannels.setter
-    def nNumChannels(self, nNewNumChannels):
-        if self.nNumTraces == 0:
-            if nNewNumChannels < 0:
-                raise ValueError(
-                    f"TSContinuous `{self.strName}`: `nNumChannels` cannot be negative."
-                )
-        elif nNewNumChannels < self.nNumTraces:
-            raise ValueError(
-                f"TSContinuous `{self.strName}`: `nNumChannels` must be at least {self.nNumTraces}."
-            )
-        else:
-            self._nNumChannels = nNewNumChannels
+        """nNumChannels: int Number of channels (dimension of sample vectors) in this TimeSeries object"""
+        return self.mfSamples.shape[1]
 
 
 ### --- Event time series
