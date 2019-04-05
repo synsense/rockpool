@@ -65,15 +65,6 @@ def test_ffiaf_spkin_torch():
     mfW = np.random.randn(nSizeIn, nSize)
     fl = FFIAFSpkInTorch(mfW, tDt=tDt, bRecord=False)
 
-    mfIn = (
-        0.005
-        * np.array(
-            [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSizeIn)
-            ]
-        ).T
-    )
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
     tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
@@ -152,15 +143,6 @@ def test_reciaf_spkin_torch():
     tDt = 0.001
     nSpikesIn = 50
 
-    mfIn = (
-        0.005
-        * np.array(
-            [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSizeIn)
-            ]
-        ).T
-    )
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
     tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
@@ -269,15 +251,6 @@ def test_ffiaf_spkin_refr_torch():
     fl = FFIAFSpkInTorch(mfW, tDt=tDt, bRecord=False)
     flr = FFIAFSpkInRefrTorch(mfW, tDt=tDt, bRecord=False)
 
-    mfIn = (
-        0.005
-        * np.array(
-            [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSizeIn)
-            ]
-        ).T
-    )
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
     tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
@@ -401,15 +374,6 @@ def test_reciaf_spkin_refr_torch():
     tDt = 0.001
     nSpikesIn = 50
 
-    mfIn = (
-        0.01
-        * np.array(
-            [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSizeIn)
-            ]
-        ).T
-    )
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
     tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
@@ -448,6 +412,46 @@ def test_reciaf_spkin_refr_torch():
 
     assert (tsOutR2.vtTimeTrace == tsOutR3.vtTimeTrace).all()
     assert (tsOutR2.vnChannels == tsOutR3.vnChannels).all()
+
+    # - Make sure item assignment works
+    mfWTarget = rl.mfW.copy()
+    mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
+    rl.mfW[0] = mfWTarget[0]
+    assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
+
+
+def test_reciaf_spkin_refr_cl_torch():
+    # - Test RecIAFSpkInTorch
+    from NetworksPython.layers import RecIAFSpkInRefrCLTorch
+    from NetworksPython.timeseries import TSEvent
+    import numpy as np
+
+    np.random.seed(1)
+
+    nSizeIn = 4
+    nSize = 5
+
+    tDur = 0.01
+    tDt = 0.001
+    nSpikesIn = 50
+
+    vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
+    vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
+    tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
+
+    mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
+    mfWRec = 0.001 * np.random.randn(nSize, nSize)
+    rl = RecIAFSpkInRefrCLTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
+
+    # - Compare states and time before and after
+    vStateBefore = np.copy(rl.vState)
+    rl.evolve(tsIn, tDuration=0.08)
+    assert rl.t == 0.08
+    assert (vStateBefore != rl.vState).any()
+
+    rl.reset_all()
+    assert rl.t == 0
+    assert (vStateBefore == rl.vState).all()
 
     # - Make sure item assignment works
     mfWTarget = rl.mfW.copy()
