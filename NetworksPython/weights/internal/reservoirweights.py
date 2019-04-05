@@ -6,7 +6,6 @@ from typing import Callable, Optional, Tuple, Union
 import numpy as np
 import scipy.stats as stats
 from copy import deepcopy
-from brian2.units.allunits import mvolt
 import random
 
 
@@ -623,14 +622,14 @@ def In_Res_Dynapse(
     nSize: int,
     fInputDensity=1,
     fConnectivity=None,
-    fRatioExcRes=0.5,
+    fRatioExcRec=0.5,
     fRatioExcIn=0.5,
     nLimitInputs=64,
     nLimitOutputs=1024,
     tupfWExc=(1, 2),
     tupfWInh=(1, 2),
-    tupfProbWExcRes=(0.5, 0.5),
-    tupfProbWInhRes=(0.5, 0.5),
+    tupfProbWExcRec=(0.5, 0.5),
+    tupfProbWInhRec=(0.5, 0.5),
     tupfProbWExcIn=(0.5, 0.5),
     tupfProbWInhIn=(0.5, 0.5),
     fNormalize=None,
@@ -643,7 +642,7 @@ def In_Res_Dynapse(
     :param nSize:           int Reservoir size
     :param fInputDensity:   float Ratio of non-zero vs. zero input connections
     :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
-    :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
+    :param fRatioExcRec:    float Ratio of excitatory vs. inhibitory recurrent synapses
     :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
 
     :param nLimitInputs:    int   Maximum fan-in per neuron
@@ -652,7 +651,7 @@ def In_Res_Dynapse(
     :param tupfWEcx:        tuple Possible strengths for excitatory synapses
     :param tupfWInh:        tuple Possible strengths for inhibitory synapses
     :param tupfProbWEcxRes: tuple Probabilities for excitatory recurrent synapse strengths
-    :param tupfProbWInhRes: tuple Probabilities for inhibitory recurrent synapse strengths
+    :param tupfProbWInhRec: tuple Probabilities for inhibitory recurrent synapse strengths
     :param tupfProbWEcxIn:  tuple Probabilities for excitatory input synapse strengths
     :param tupfProbWInhIn:  tuple Probabilities for inhibitory input synapse strengths
 
@@ -674,13 +673,13 @@ def In_Res_Dynapse(
     mfWRes, mnCount, dmnCount = DynapseConform(
         tupShape=(nSize, nSize),
         fConnectivity=fConnectivity,
-        fRatioExc=fRatioExcRes,
+        fRatioExc=fRatioExcRec,
         nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput),
         nLimitOutputs=nLimitOutputs,
         tupfWExc=tupfWExc,
         tupfWInh=tupfWInh,
-        tupfProbWExc=tupfProbWExcRes,
-        tupfProbWInh=tupfProbWInhRes,
+        tupfProbWExc=tupfProbWExcRec,
+        tupfProbWInh=tupfProbWInhRec,
         fNormalize=fNormalize,
     )
 
@@ -732,14 +731,14 @@ def In_Res_Dynapse_Flex(
     nMaxInputConn: int = 1,
     fInputDensity=1,
     fConnectivity=None,
-    fRatioExcRes=0.5,
+    fRatioExcRec=0.5,
     fRatioExcIn=0.5,
     nLimitInputs=64,
     nLimitOutputs=1024,
     tupfWExc=(1, 1),
     tupfWInh=(1, 1),
-    tupfProbWExcRes=(0.5, 0.5),
-    tupfProbWInhRes=(0.5, 0.5),
+    tupfProbWExcRec=(0.5, 0.5),
+    tupfProbWInhRec=(0.5, 0.5),
     tupfProbWExcIn=(0.5, 0.5),
     tupfProbWInhIn=(0.5, 0.5),
     fNormalize=None,
@@ -747,14 +746,14 @@ def In_Res_Dynapse_Flex(
     bLeaveSpaceForInput=True,
 ):
     """
-    In_Res_Dynapse - Create input weights and recurrent weights for reservoir, respecting dynapse specifications
+    In_Res_Dynapse_Flex - Like In_Res_Dynapse but number of input weights can be chosen
 
     :param nSize:           int Reservoir size
     :param nSizeIn:         int Number of neurons in input layer
     :param nMaxInputConn:   int Number of presynaptic connections that are used for input connections per neuron
     :param fInputDensity:   float Ratio of non-zero vs. zero input connections
     :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
-    :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
+    :param fRatioExcRec:    float Ratio of excitatory vs. inhibitory recurrent synapses
     :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
 
     :param nLimitInputs:    int   Maximum fan-in per neuron
@@ -763,7 +762,7 @@ def In_Res_Dynapse_Flex(
     :param tupfWEcx:        tuple Possible strengths for excitatory synapses
     :param tupfWInh:        tuple Possible strengths for inhibitory synapses
     :param tupfProbWEcxRes: tuple Probabilities for excitatory recurrent synapse strengths
-    :param tupfProbWInhRes: tuple Probabilities for inhibitory recurrent synapse strengths
+    :param tupfProbWInhRec: tuple Probabilities for inhibitory recurrent synapse strengths
     :param tupfProbWEcxIn:  tuple Probabilities for excitatory input synapse strengths
     :param tupfProbWInhIn:  tuple Probabilities for inhibitory input synapse strengths
 
@@ -788,13 +787,13 @@ def In_Res_Dynapse_Flex(
     mfWRes, mnCount, dmnCount = DynapseConform(
         tupShape=(nSize, nSize),
         fConnectivity=fConnectivity,
-        fRatioExc=fRatioExcRes,
+        fRatioExc=fRatioExcRec,
         nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput) * nMaxInputConn,
         nLimitOutputs=nLimitOutputs,
         tupfWExc=tupfWExc,
         tupfWInh=tupfWInh,
-        tupfProbWExc=tupfProbWExcRes,
-        tupfProbWInh=tupfProbWInhRes,
+        tupfProbWExc=tupfProbWExcRec,
+        tupfProbWInh=tupfProbWInhRec,
         fNormalize=fNormalize,
     )
 
@@ -985,7 +984,7 @@ def in_res_digital(
     nSize: int,
     fInputDensity=1,
     fConnectivity=None,
-    fRatioExcRes=0.5,
+    fRatioExcRec=0.5,
     fRatioExcIn=0.5,
     nBitResolution=4,
     nLimitInputs=64,
@@ -1002,7 +1001,7 @@ def in_res_digital(
     :param fInputDensity:   float Ratio of non-zero vs. zero input connections
     :param fConnectivity:   float Ratio of non-zero vs. zero weights - limited by nLimitInputs/tupShape[0]
 
-    :param fRatioExcRes:    float Ratio of excitatory vs. inhibitory recurrent synapses
+    :param fRatioExcRec:    float Ratio of excitatory vs. inhibitory recurrent synapses
     :param fRatioExcIn:     float Ratio of excitatory vs. inhibitory input synapses
 
     :param nBitResolution:  int   Weight resolution in bits. Before normalization, weights will
@@ -1031,7 +1030,7 @@ def in_res_digital(
     mnWRes, mnCount, fScale = digital(
         tupShape=(nSize, nSize),
         fConnectivity=fConnectivity,
-        fRatioExc=fRatioExcRes,
+        fRatioExc=fRatioExcRec,
         nBitResolution=nBitResolution,
         nLimitInputs=nLimitInputs - int(bLeaveSpaceForInput),
         nLimitOutputs=nLimitOutputs,

@@ -17,10 +17,6 @@ from ...timeseries import TSEvent, TSContinuous
 
 from ..layer import Layer
 
-from .timedarray_shift import TimedArray as TAShift
-
-from typing import Optional, Union, Tuple, List
-
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -31,8 +27,7 @@ __all__ = ["RecDIAF"]
 fTolAbs = 1e-10
 # - Minimum refractory time
 tMinRefractory = 1e-9
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
+
 
 
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
@@ -235,9 +230,10 @@ class RecDIAF(Layer):
         strName = self.strName
 
         if vnIdMonitor is not None:
-            # - Lists for storing states and times
+            # - Lists for storing states, times and the channel from the heap
             lvStates = [vState[vnIdMonitor].copy()]
             ltTimes = [tTime]
+            lnChannels = [np.nan]
 
         while tTime <= tFinal:
             try:
@@ -258,9 +254,10 @@ class RecDIAF(Layer):
                 # print("update: ", self._mfWTotal[nChannel])
 
                 if vnIdMonitor is not None:
-                    # - Record state
+                    # - Record state before updates
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(nChannel)
 
                 # - Only neurons that are not refractory can receive inputs
                 vbNotRefractory = vtRefractoryEnds <= tTime
@@ -286,6 +283,12 @@ class RecDIAF(Layer):
                 # - Neurons above threshold that are not refractory will spike
                 vbSpiking = np.logical_and(vState >= vfVThresh, vbNotRefractory)
 
+                if vnIdMonitor is not None:
+                    # - Record state after update but before subtraction/resetting
+                    ltTimes.append(tTime)
+                    lvStates.append(vState[vnIdMonitor].copy())
+                    lnChannels.append(np.nan)
+
                 if vfVSubtract is not None:
                     # - Subtract from states of spiking neurons
                     vState[vbSpiking] = np.clip(
@@ -307,11 +310,10 @@ class RecDIAF(Layer):
                     vState[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
 
                 if vnIdMonitor is not None:
-                    # - Record state
+                    # - Record state after subtraction/resetting
                     ltTimes.append(tTime)
                     lvStates.append(vState[vnIdMonitor].copy())
-
-                # print("new state: ", self._vState)
+                    lnChannels.append(np.nan)
 
                 # - Determine times when refractory period will end for neurons that have just fired
                 vtRefractoryEnds[vbSpiking] = tTime + vtRefr[vbSpiking]
@@ -349,9 +351,10 @@ class RecDIAF(Layer):
 
         if vnIdMonitor is not None:
             # - Store evolution of states in lists
-            self.tsRecorded = TSContinuous(ltTimes, lvStates)
+            mStates = np.hstack((lvStates, np.reshape(lnChannels, (-1, 1))))
+            self.tsRecorded = TSContinuous(ltTimes, mStates)
 
-        # - Output time series
+            # - Output time series
         return TSEvent(
             np.clip(ltSpikeTimes, tStart, tStop),
             liSpikeIDs,

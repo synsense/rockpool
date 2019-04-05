@@ -1582,7 +1582,6 @@ class TSEvent(TimeSeries):
         vnSelectChannels: np.ndarray = None,
         bAddEvents: bool = False,
     ) -> (np.ndarray, np.ndarray, np.ndarray):
-
         """
         raster - Return rasterized time series data, where each data point
                  represents a time step. Events are represented in a boolean
@@ -1695,7 +1694,6 @@ class TSEvent(TimeSeries):
         tStop: Optional[float] = None,
         nNumTimeSteps: int = None,
     ) -> np.ndarray:
-
         """
         xraster - Yields a rasterized time series data, where each data point
                  represents a time step. Events are represented in a boolean
