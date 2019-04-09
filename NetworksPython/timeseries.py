@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple, Optional, TypeVar
+from typing import Union, List, Tuple, Optional, TypeVar, Iterable
 import collections
 import matplotlib as mpl
 from matplotlib import pyplot as plt
@@ -129,42 +129,43 @@ class TimeSeries:
         )
 
     def delay(
-        self, tOffset: Union[int, float], bInPlace: bool = False
+        self, offset: Union[int, float], inplace: bool = False
     ) -> Union[None, TSType]:
         """
         delay - Return a copy of self that is delayed by an offset.
                 For delaying self, use ".vtTimeTrace += ..." instead.
 
         :param tOffset:     float   Time offset
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return: New TimeSeries, delayed
         """
-        if not bInPlace:
-            tsObj = self.copy()
+        if not inplace:
+            series = self.copy()
         else:
-            tsObj = self
+            series = self
 
         # - Store previous tStart and tStop
-        tStartOld = tsObj.tStart
-        tStopOld = tsObj.tStop
+        t_start_old = series.tStart
+        t_stop_old = series.tStop
 
         # - Shift time trace
-        tsObj.vtTimeTrace += tOffset
+        if not self.isempty():
+            series.vtTimeTrace += offset
         # - Shift tStart and tStop
-        tsObj._tStart = tStartOld + tOffset
-        tsObj._tStop = tStopOld + tOffset
+        series._tStart = t_start_old + offset
+        series._tStop = t_stop_old + offset
 
-        return tsObj
+        return series
 
-    def resample(self, vtTimes: Union[int, float, ArrayLike], bInPlace: bool = False):
+    def resample(self, vtTimes: Union[int, float, ArrayLike], inplace: bool = False):
         """
         resample - Return a new time series sampled to the supplied time base
 
         :param vtTimes:     Array-like of T desired time points to resample
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return:            TimeSeries object, resampled to new time base
         """
-        if not bInPlace:
+        if not inplace:
             tsResampled = self.copy()
         else:
             tsResampled = self
@@ -183,7 +184,7 @@ class TimeSeries:
         tStart: float = None,
         tStop: float = None,
         tDt: float = None,
-        bInPlace: bool = False,
+        inplace: bool = False,
     ):
         """
         resample_within - Return a new time series sampled between tStart
@@ -195,7 +196,7 @@ class TimeSeries:
                         of self.vtTimeTrace
         :param tDt:     Sampling time step - defaults to mean difference
                         between values of self.vtTimeTrace
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return:        New TimeSeries object, resampled according to parameters
         """
         # - Determine start time, if not supplied
@@ -234,19 +235,19 @@ class TimeSeries:
             vtSampleTimes[-1] = tStop
 
         # - Return a resampled time series
-        return self.resample(vtSampleTimes, bInPlace=bInPlace)
+        return self.resample(vtSampleTimes, inplace=inplace)
 
-    def merge(self, tsOther, bRemoveDuplicates=True, bInPlace: bool = False):
+    def merge(self, tsOther, remove_duplicates=True, inplace: bool = False):
         """
         merge - Merge another time series to this one, in time. Maintain
                 each time series' time values.
         :param tsOther:             TimeSeries that is merged to self
-        :param bRemoveDuplicates:   bool - If true, time points in tsOther.vtTimeTrace
+        :param remove_duplicates:   bool - If true, time points in tsOther.vtTimeTrace
                                            that are also in self.vtTimeTrace are
                                            discarded. Otherwise they are included in
                                            the new time trace and come after the
                                            corresponding points of self.vtTimeTrace.
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return:         The merged time series
         """
 
@@ -261,15 +262,15 @@ class TimeSeries:
 
         # - If the other TimeSeries is empty, just return
         if tsOther.isempty():
-            if bInPlace:
+            if inplace:
                 return self
             else:
                 return self.copy()
 
-        # - If bRemoveDuplicates==True and time ranges overlap,  find and remove
+        # - If remove_duplicates==True and time ranges overlap,  find and remove
         #   time points of tsOther that are also included in self (assuming both
         #   TimeSeries have a sorted vTimeTrace)
-        if bRemoveDuplicates and not (
+        if remove_duplicates and not (
             self.tStart > tsOther.tStop or self.tStop < tsOther.tStart
         ):
             # Determine region of overlap
@@ -300,31 +301,31 @@ class TimeSeries:
         tStop = min(self.tStop, tsOther.tStop)
 
         # - Create a new time series, or modify this time series
-        if not bInPlace:
-            tsMerged = self.copy()
+        if not inplace:
+            merged_series = self.copy()
         else:
-            tsMerged = self
+            merged_series = self
 
-        tsMerged._vtTimeTrace = vtTimeTraceNew[viSorted]
-        tsMerged._mfSamples = mfSamplesNew[viSorted]
-        tsMerged._tStart = tStart
-        tsMerged._tStop = tStop
+        merged_series._vtTimeTrace = vtTimeTraceNew[viSorted]
+        merged_series._mfSamples = mfSamplesNew[viSorted]
+        merged_series._tStart = tStart
+        merged_series._tStop = tStop
 
         # - Determine number of channels
-        tsMerged._nNumChannels = max(tsOther.nNumChannels, self.nNumChannels)
+        merged_series._nNumChannels = max(tsOther.nNumChannels, self.nNumChannels)
 
         # - Create new interpolator
-        tsMerged._create_interpolator()
+        merged_series._create_interpolator()
 
         # - Return merged TS
-        return tsMerged
+        return merged_series
 
-    def append(self, tsOther, bInPlace: bool = False):
+    def append(self, tsOther, inplace: bool = False):
         """
         append() - Combine another time series into this one, along samples axis
 
         :param tsOther: Another time series. Will be resampled to the time base of the called series object
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return:        Current time series,
         """
         # - Check tsOther
@@ -334,7 +335,7 @@ class TimeSeries:
         mfOtherSamples = tsOther(self.vtTimeTrace)
 
         # - Create a new time series, or modify this time series
-        if not bInPlace:
+        if not inplace:
             tsAppended = self.copy()
         else:
             tsAppended = self
@@ -350,23 +351,23 @@ class TimeSeries:
         # - Return appended TS
         return tsAppended
 
-    def concatenate(self, tsOther, bInPlace: bool = False):
+    def concatenate(self, tsOther, inplace: bool = False):
         """
         concatenate() - Combine another time series with this one, along samples axis
 
         :param tsOther: Another time series. Will be resampled to the time base of the called series object
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return: Time series, with series from both source and other time series
         """
         # - Create a new time series, or modify this time series
-        return self.append(tsOther, bInPlace=bInPlace)
+        return self.append(tsOther, inplace=inplace)
 
-    def append_t(self, tsOther, bInPlace: bool = False):
+    def append_t(self, tsOther, inplace: bool = False):
         """
         append_t() - Append another time series to this one, in time
 
         :param tsOther: Another time series. Will be tacked on to the end of the called series object
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return: Time series containing current data, with other TS appended in time
         """
 
@@ -380,7 +381,7 @@ class TimeSeries:
         )
 
         # - Create a new time series, or modify this time series
-        if not bInPlace:
+        if not inplace:
             tsAppended = self.copy()
         else:
             tsAppended = self
@@ -411,15 +412,15 @@ class TimeSeries:
         # - Return appended time series
         return tsAppended
 
-    def concatenate_t(self, tsOther, bInPlace: bool = False):
+    def concatenate_t(self, tsOther, inplace: bool = False):
         """
         concatenate_t() - Join together two time series in time
 
         :param tsOther: Another time series. Will be tacked on to the end of the called series object
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return: New concatenated time series
         """
-        return self.append_t(tsOther, bInPlace=bInPlace)
+        return self.append_t(tsOther, inplace=inplace)
 
     def isempty(self):
         """
@@ -502,19 +503,19 @@ class TimeSeries:
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def clip(self, vtNewBounds: ArrayLike, bInPlace: bool = False):
+    def clip(self, vtNewBounds: ArrayLike, inplace: bool = False):
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
 
         :param vtNewBounds: ArrayLike   [tStart tStop] defining new bounds
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
 
         :return: tsClip, vbIncludeSamples)
                 tsClip:             New TimeSeries clipped to bounds
                 vbIncludeSamples:   boolean ndarray indicating which original samples are included
         """
         # - Create a new time series, or modify this time series
-        if not bInPlace:
+        if not inplace:
             tsClipped = self.copy()
         else:
             tsClipped = self
@@ -527,9 +528,9 @@ class TimeSeries:
 
         # - For periodic time series, resample the series
         if tsClipped.bPeriodic:
-            tsClipped, _ = tsClipped._clip_periodic(vtNewBounds, bInPlace=bInPlace)
+            tsClipped, _ = tsClipped._clip_periodic(vtNewBounds, inplace=inplace)
         else:
-            tsClipped, _ = tsClipped._clip(vtNewBounds, bInPlace=bInPlace)
+            tsClipped, _ = tsClipped._clip(vtNewBounds, inplace=inplace)
 
         # - Insert initial time point
         tsClipped._vtTimeTrace = np.concatenate(
@@ -551,16 +552,16 @@ class TimeSeries:
 
         return tsClipped
 
-    def _clip(self, vtNewBounds: ArrayLike, bInPlace: bool = False):
+    def _clip(self, vtNewBounds: ArrayLike, inplace: bool = False):
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
 
         :param vtNewBounds: ArrayLike   [tStart tStop] defining new bounds
-        :param bInPlace:    bool        Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool        Conduct operation in-place (Default: False; create a copy)
         :return:  TimeSeries clipped to bounds
         """
         # - Create a new time series, or use self
-        if not bInPlace:
+        if not inplace:
             tsClipped = self.copy()
         else:
             tsClipped = self
@@ -588,11 +589,11 @@ class TimeSeries:
 
         return tsClipped, vbIncludeSamples
 
-    def _clip_periodic(self, vtNewBounds: ArrayLike, bInPlace: bool = False):
+    def _clip_periodic(self, vtNewBounds: ArrayLike, inplace: bool = False):
         """
         _clip_periodic - Clip a periodic TimeSeries
         :param vtNewBounds: ArrayLike   [tStart tStop] defining new bounds
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return:
         """
         # - Ensure time bounds are sorted
@@ -600,14 +601,14 @@ class TimeSeries:
         tDuration = np.diff(vtNewBounds)
 
         # - Create a new time series, or use self
-        if not bInPlace:
+        if not inplace:
             tsClipped = self.copy()
         else:
             tsClipped = self
 
         # - Catch sinlgeton time point
         if vtNewBounds[0] == vtNewBounds[1]:
-            return tsClipped.resample(vtNewBounds[0], bInPlace=bInPlace)
+            return tsClipped.resample(vtNewBounds[0], inplace=inplace)
 
         # - Map time bounds to periodic bounds
         vtNewBoundsPeriodic = copy.deepcopy(vtNewBounds)
@@ -637,7 +638,7 @@ class TimeSeries:
         tsClipped._tStop = vtNewTimeTrace[-1]
 
         # - Return a new clipped time series
-        tsClip = tsClipped.resample(vtNewTimeTrace, bInPlace=bInPlace)
+        tsClip = tsClipped.resample(vtNewTimeTrace, inplace=inplace)
         return tsClip, None
 
     def __add__(self, other):
@@ -832,12 +833,12 @@ class TimeSeries:
             self._tStart = min(self._tStart, vtNewTrace[0])
             self._tStop = max(self._tStop, vtNewTrace[-1])
 
-    def choose(self, vnTraces: Union[int, ArrayLike], bInPlace: bool = False):
+    def choose(self, vnTraces: Union[int, ArrayLike], inplace: bool = False):
         """
         choose() - Select from one of several sub-traces; return a TimeSeries containing these traces
 
         :param vnTraces:    array-like of indices within source TimeSeries
-        :param bInPlace:    bool    Conduct operation in-place (Default: False; create a copy)
+        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
         :return:            TimeSeries containing only the selected traces
         """
         # - Convert to a numpy array and check extents
@@ -846,7 +847,7 @@ class TimeSeries:
             min(vnTraces) >= 0 and max(vnTraces) <= self.nNumChannels
         ), "`vnTraces` must be between 0 and " + str(self.nNumChannels)
 
-        if not bInPlace:
+        if not inplace:
             tsChosen = self.copy()
         else:
             tsChosen = self
@@ -1708,109 +1709,217 @@ class TSEvent(TimeSeries):
 
     ## -- Methods for manipulating or combining time series
 
+    def append_c(self, other_series: TSEventType, inplace: bool = False) -> TSEventType:
+        """
+        merge - Merge another TSEvent into this one so that they may overlap in time
+        :param other_series:       TimeSeries (or list of TimeSeries) to merge into this one
+        :param delay:             Scalar or iterable with at least the number of elements
+                                   as other_series. If scalar, use same value for all
+                                   timeseries. If None, delay is 0. Delay corresponding
+                                   series by this value.
+        :param remove_duplicates:  Remove duplicate events in resulting timeseries
+        :param inplace:            Specify whether operation should be performed in place (Default: False)
+        :return: self with new samples included
+        """
+
+        # - Create a new time series, or modify this time series
+        if not inplace:
+            appended_series = self.copy()
+        else:
+            appended_series = self
+
+        # - Ensure we have a list of timeseries to work on
+        if not isinstance(other_series, collections.abc.Iterable):
+            series_list = [appended_series, other_series]
+        else:
+            series_list = [appended_series] + list(other_series)
+
+        # - Check series class
+        if not all(isinstance(series, TSEvent) for series in series_list):
+            raise TypeError(
+                f"TSEvent `{self.strName}`: Can only append `TSEvent` objects."
+            )
+
+        # - Determine tStart and tStop
+        t_start_new = min(series.tStart for series in series_list)
+        t_stop_new = max(series.tStop for series in series_list)
+
+        # - Determine number of channels for each series
+        nums_channels = [series.nNumChannels for series in series_list]
+        print(nums_channels)
+        # - Shift for each TSEvent's vnChannels
+        channel_shifts = np.cumsum([0] + nums_channels[:-1])
+        print(channel_shifts)
+
+        # - Stop if no non-empty series is left
+        if not series_list:
+            return appended_series
+
+        # - Merge all samples
+        times_new = np.concatenate([series.vtTimeTrace for series in series_list])
+        channels_new = np.concatenate(
+            [
+                series.vnChannels + shift
+                for series, shift in zip(series_list, channel_shifts)
+            ]
+        )
+        print(*(series.vnChannels for series in series_list))
+        print(channels_new)
+
+        # - Sort on time and merge
+        sort_indices = np.argsort(times_new)
+        appended_series._vtTimeTrace = times_new[sort_indices]
+        appended_series._vnChannels = channels_new[sort_indices].astype(int)
+        appended_series._tStart = t_start_new
+        appended_series._tStop = t_stop_new
+        appended_series._nNumChannels = int(np.sum(nums_channels))
+
+        return appended_series
+
     def append_t(
-        self, other_series: TSEventType, offset: flaot = 0, inplace: bool = False
+        self,
+        other_series: Union[TimeSeries, Iterable[TimeSeries]],
+        offset: float = 0,
+        remove_duplicates: bool = False,
+        inplace: bool = False,
     ) -> TSEventType:
         """
         append_t - Append another time series to this one, in time, so that the other
                    series' `tStart` is shifted to `tStop+offset` of `self`.
 
-        :param other_series: Another time series. Will be tacked on to the end of the called series object
-        :param offset:       How much is `tStart` of `other_series` shifted from `self.tStop`
+        :param other_series: TSEvent or list thereof that will be tacked on to the end of `self`
+        :param offset:       Scalar or iterable with at least the same number of elements as
+                             other_series. If scalar, use same value for all timeseries.
+                             Shift `tStart` of corresponding series from `self.tStop` by this value.
+        :param remove_duplicates:  Remove duplicate events in resulting timeseries
         :param inplace:      Conduct operation in-place (Default: False; create a copy)
         :return: TSEvent containing current data, with other TS appended in time
         """
 
-        # - Check other_series
-        if not isinstance(other_series, TSEvent):
-            raise TypeError(
-                f"TSEvent `{self.strName}`: `other_series` must be a TSEvent object."
-            )
-
-        # - Create a new time series, or modify this time series
-        if not inplace:
-            series = self.copy()
+        # - Ensure we have a list of timeseries to work on
+        if not isinstance(other_series, collections.abc.Iterable):
+            other_series = [other_series]
         else:
-            series = self
+            other_series = list(other_series)
+        # - Same for offsets
+        if not isinstance(offset, collections.abc.Iterable):
+            offset_list = [offset] * len(other_series)
+        else:
+            offset_list = list(offset)
+            if len(offset_list) != len(other_series):
+                warn(
+                    f"TSEvent `{self.strName}`: Numbers of provided offsets and TSEvent "
+                    + "objects do not match. Will ignore excess elements."
+                )
 
-        # - Concatenate time trace and channels
-        series._vnChannels = np.concatenate(
-            (series.vnChannels, other_series.vnChannels), axis=0
-        )
-        series._vtTimeTrace = np.concatenate(
-            (
-                series._vtTimeTrace,
-                other_series.vtTimeTrace + series.tStop - other_series.tStart + offset,
-            ),
-            axis=0,
-        )
-
-        # - Fix tStop
-        series._tStop += other_series.tDuration + offset
-
-        # - Update `nNumChannels`
-        series._nNumChannels = max(self.nNumChannels, other_series.nNumChannels)
-
-        # - Return appended time series
-        return series
-
-    def append_c(self, other_series: TSEventType, inplace: bool = False) -> TSEventType:
-        NotImplemented
+        # - Translate offsets so that they correspond to indiviual delays for each series
+        # Delay for first appended series:
+        delay1 = offset_list[0] + self.tStop - other_series[0].tStart
+        delay_list = [delay1]
+        # Add delays for other lists
+        for prev_series, curr_series, offset in zip(
+            other_series[:-1], other_series[1:], offset_list[1:]
+        ):
+            # Time at which previous series stops
+            stop_previous = delay_list[-1] + prev_series.tStop
+            # Delay for current series
+            delay_list.append(stop_previous + offset - curr_series.tStart)
+        print(delay_list)
+        # - Let self.merge do the rest
+        try:
+            return self.merge(
+                other_series=other_series,
+                delay=delay_list,
+                remove_duplicates=remove_duplicates,
+                inplace=inplace,
+            )
+        except TypeError:
+            # - Provide matching exception
+            raise TypeError(
+                f"TSEvent `{self.strName}`: Can only append `TSEvent` objects."
+            )
 
     def merge(
         self,
-        ltsOther: Union[TimeSeries, List[TimeSeries]],
-        bRemoveDuplicates: Optional[bool] = None,
-        bInPlace: bool = False,
+        other_series: Union[TimeSeries, Iterable[TimeSeries]],
+        delay: Union[float, Iterable[float]] = 0,
+        remove_duplicates: bool = False,
+        inplace: bool = False,
     ) -> TSEventType:
         """
-        merge - Merge another TSEvent into this one
-        :param ltsOther:            TimeSeries (or list of TimeSeries) to merge into this one
-        :param bRemoveDuplicates:   bool Remove duplicate events (unused in TSEvent)
-        :param bInPlace:            bool Specify whether operation should be performed in place (Default: False)
+        merge - Merge another TSEvent into this one so that they may overlap in time
+        :param other_series:       TimeSeries (or list of TimeSeries) to merge into this one
+        :param delay:             Scalar or iterable with at least the number of elements
+                                   as other_series. If scalar, use same value for all
+                                   timeseries. Delay corresponding series by this value.
+        :param remove_duplicates:  Remove duplicate events in resulting timeseries
+        :param inplace:            Specify whether operation should be performed in place (Default: False)
         :return: self with new samples included
         """
 
-        if bInPlace:
-            tsMerged = self
+        # - Create a new time series, or modify this time series
+        if not inplace:
+            merged_series = self.copy()
         else:
-            tsMerged = self.copy()
+            merged_series = self
 
-        # - Ensure we have a list of objects to work on
-        if not isinstance(ltsOther, collections.abc.Iterable):
-            ltsOther = [tsMerged, ltsOther]
+        # - Ensure we have a list of timeseries to work on
+        if not isinstance(other_series, collections.abc.Iterable):
+            series_list = [merged_series, other_series]
         else:
-            ltsOther = [tsMerged] + list(ltsOther)
+            series_list = [merged_series] + list(other_series)
+        # - Same for offsets
+        if not isinstance(delay, collections.abc.Iterable):
+            delay_list = [0] + [delay] * (len(series_list) - 1)
+        else:
+            delay_list = [0] + list(delay)
+            if len(delay_list) != len(series_list):
+                warn(
+                    f"TSEvent `{self.strName}`: Numbers of provided offsets and TSEvent "
+                    + "objects do not match. Will ignore excess elements."
+                )
+
+        # - Check series class
+        if not all(isinstance(series, TSEvent) for series in series_list):
+            raise TypeError(
+                f"TSEvent `{self.strName}`: Can only merge with `TSEvent` objects."
+            )
 
         # - Determine number of channels
-        tsMerged._nNumChannels = np.amax([tsOther.nNumChannels for tsOther in ltsOther])
+        merged_series._nNumChannels = int(
+            np.amax([series.nNumChannels for series in series_list])
+        )
+        # - Determine tStart and tStop
+        t_start_new = min(series.tStart for series in series_list)
+        t_stop_new = max(series.tStop for series in series_list)
 
-        # - Check tsOther class
-        assert all(
-            map(lambda tsOther: isinstance(tsOther, TSEvent), ltsOther)
-        ), f"TSEvent `{self.strName}`: `tsOther` must be a `TSEvent` object."
-
-        # - Filter out empty series
-        ltsOther = list(filter(lambda ts: not ts.isempty(), ltsOther))
+        # - Filter out empty series and apply delay
+        series_list = [
+            series.delay(delay)
+            for series, delay in zip(series_list, delay_list)
+            if not series.isempty()
+        ]
 
         # - Stop if no non-empty series is left
-        if not ltsOther:
-            return tsMerged
+        if not series_list:
+            return merged_series
 
         # - Merge all samples
-        vtNewTimeBase = np.concatenate([tsOther.vtTimeTrace for tsOther in ltsOther])
-        vnNewChannels = np.concatenate([tsOther.vnChannels for tsOther in ltsOther])
-        tNewStart = min(tsOther.tStart for tsOther in ltsOther)
-        tNewStop = max(tsOther.tStop for tsOther in ltsOther)
+        times_new = np.concatenate([series.vtTimeTrace for series in series_list])
+        channels_new = np.concatenate([series.vnChannels for series in series_list])
+
+        # - Remove events with same times and channels
+        if remove_duplicates:
+            times_new, channels_new = np.unique((times_new, channels_new), axis=1)
 
         # - Sort on time and merge
-        vnOrder = np.argsort(vtNewTimeBase)
-        tsMerged._vtTimeTrace = vtNewTimeBase[vnOrder]
-        tsMerged._vnChannels = vnNewChannels[vnOrder]
-        tsMerged._tStart = tNewStart
-        tsMerged._tStop = tNewStop
+        sort_indices = np.argsort(times_new)
+        merged_series._vtTimeTrace = times_new[sort_indices]
+        merged_series._vnChannels = channels_new[sort_indices].astype(int)
+        merged_series._tStart = t_start_new
+        merged_series._tStop = t_stop_new
 
-        return tsMerged
+        return merged_series
 
     ## -- Internal methods
 
@@ -1866,7 +1975,7 @@ class TSEvent(TimeSeries):
             np.ndarray  Channels of events
         """
         # - Handle empty TSEvent
-        if len(self.vtTimeTrace) == 0:
+        if self.isempty():
             return np.array([]), np.array([], int)
 
         if t_start is None:
@@ -1914,7 +2023,7 @@ class TSEvent(TimeSeries):
         )
         return all_times[choose_events], all_channels[choose_events]
 
-    def __getitem__(self, ind: Union[ArrayLike, slice]) -> TSEventType:
+    def __getitem__(self, ind: Union[ArrayLike, slice, int]) -> TSEventType:
         """
         ts[tTime1, tTime2, ...] - Index the events of `self` by with the argument
                                   and return TSEvent with corresponding events.
@@ -1924,8 +2033,8 @@ class TSEvent(TimeSeries):
             np.array of indexed event times
             np.array of indexed event channels
         """
-        indexed_times: np.ndarray = self.vtTimeTrace[ind]
-        indexed_channels: np.ndarray = self.vnChannels[ind]
+        indexed_times: np.ndarray = np.atleast_1d(self.vtTimeTrace[ind])
+        indexed_channels: np.ndarray = np.atleast_1d(self.vnChannels[ind])
         # - New TSEvent with the selected events
         new_series = self.copy()
         new_series._vtTimeTrace = indexed_times
@@ -1938,9 +2047,9 @@ class TSEvent(TimeSeries):
         :return: str String description
         """
         if self.isempty():
-            return f"Empty TSEvent object `{self.strName}`"
+            return f"Empty `TSEvent` object `{self.strName}`"
         else:
-            return "{}periodic TSEvent object `{}` from t={} to {}. Channels: {}. Events: {}".format(
+            return "{}periodic `TSEvent` object `{}` from t={} to {}. Channels: {}. Events: {}".format(
                 int(not self.bPeriodic) * "non-",
                 self.strName,
                 self.tStart,
