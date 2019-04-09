@@ -1711,15 +1711,13 @@ class TSEvent(TimeSeries):
 
     def append_c(self, other_series: TSEventType, inplace: bool = False) -> TSEventType:
         """
-        merge - Merge another TSEvent into this one so that they may overlap in time
-        :param other_series:       TimeSeries (or list of TimeSeries) to merge into this one
-        :param delay:             Scalar or iterable with at least the number of elements
-                                   as other_series. If scalar, use same value for all
-                                   timeseries. If None, delay is 0. Delay corresponding
-                                   series by this value.
-        :param remove_duplicates:  Remove duplicate events in resulting timeseries
-        :param inplace:            Specify whether operation should be performed in place (Default: False)
-        :return: self with new samples included
+        append_c - Spatially append another time series to this one, so that the other
+                   series' channel IDs are shifted by `self.nNumChannels`. The event
+                   times remain the same.
+
+        :param other_series: TSEvent or list thereof that will be included in `self`.
+        :param inplace:      Conduct operation in-place (Default: False; create a copy)
+        :return: TSEvent containing current data, with other TS appended spatially
         """
 
         # - Create a new time series, or modify this time series
