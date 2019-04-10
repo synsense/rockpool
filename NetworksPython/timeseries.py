@@ -36,7 +36,7 @@ __bUseMatplotlib = False
 fTolAbs = 1e-9
 
 
-def set_plotting_backend(backend: str):
+def set_plotting_backend(backend: Union[str, None]):
     global __bUseHoloviews
     global __bUseMatplotlib
     if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
@@ -47,9 +47,12 @@ def set_plotting_backend(backend: str):
         __bUseHoloviews = False
         __bUseMatplotlib = True
 
-    else:
+    elif backend is None:
         __bUseHoloviews = False
         __bUseMatplotlib = False
+
+    else:
+        raise ValueError("Plotting backend not recognized.")
 
 
 def get_plotting_backend():
@@ -1274,7 +1277,7 @@ class TSContinuous(TimeSeries):
 class TSEvent(TimeSeries):
     def __init__(
         self,
-        vtTimeTrace: ArrayLike,
+        vtTimeTrace: ArrayLike = None,
         vnChannels: Union[int, ArrayLike] = None,
         bPeriodic: bool = False,
         tStart: Optional[float] = None,
@@ -1588,6 +1591,8 @@ class TSEvent(TimeSeries):
         """
         # - Filter time and channels
         t_start = self.tStart if t_start is None else t_start
+        if channels is None:
+            channels = np.arange(self.nNumChannels)
         if num_timesteps is None:
             series = self.clip(
                 t_start=t_start,
@@ -1609,7 +1614,7 @@ class TSEvent(TimeSeries):
 
         # - Raster for storing event data
         raster_type = int if add_events else bool
-        event_raster = np.zeros((num_timesteps, series.nNumChannels), raster_type)
+        event_raster = np.zeros((num_timesteps, channels.size), raster_type)
 
         # - Handle empty series
         if len(series) == 0:
@@ -1883,25 +1888,15 @@ class TSEvent(TimeSeries):
                 f"TSEvent `{self.strName}`: Can only merge with `TSEvent` objects."
             )
 
+        # - Apply delay
+        series_list = [
+            series.delay(delay) for series, delay in zip(series_list, delay_list)
+        ]
         # - Determine number of channels
-        merged_series._nNumChannels = int(
-            np.amax([series.nNumChannels for series in series_list])
-        )
+        merged_series._nNumChannels = max(series.nNumChannels for series in series_list)
         # - Determine tStart and tStop
         t_start_new = min(series.tStart for series in series_list)
         t_stop_new = max(series.tStop for series in series_list)
-
-        # - Filter out empty series and apply delay
-        series_list = [
-            series.delay(delay)
-            for series, delay in zip(series_list, delay_list)
-            if not series.isempty()
-        ]
-
-        # - Stop if no non-empty series is left
-        if not series_list:
-            return merged_series
-
         # - Merge all samples
         times_new = np.concatenate([series.vtTimeTrace for series in series_list])
         channels_new = np.concatenate([series.vnChannels for series in series_list])
@@ -2045,7 +2040,9 @@ class TSEvent(TimeSeries):
         :return: str String description
         """
         if self.isempty():
-            return f"Empty `TSEvent` object `{self.strName}`"
+            return "Empty `TSEvent` object `{}` from t={} to t={}.".format(
+                self.strName, self.tStart, self.tStop
+            )
         else:
             return "{}periodic `TSEvent` object `{}` from t={} to {}. Channels: {}. Events: {}".format(
                 int(not self.bPeriodic) * "non-",
