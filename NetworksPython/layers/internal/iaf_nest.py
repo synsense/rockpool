@@ -42,7 +42,7 @@ class FFIAFNest(Layer):
                      bRecord: bool = False,
                      numCores: int = 1):
 
-            multiprocessing.Process.__init__(self)
+            multiprocessing.Process.__init__(self, daemon=True)
 
             self.requestQ = requestQ
             self.resultQ = resultQ
@@ -327,7 +327,6 @@ class FFIAFNest(Layer):
                                             bRecord,
                                             nNumCores)
 
-        self.nestProcess.deamon = True
         self.nestProcess.start()
 
 
@@ -536,7 +535,7 @@ class RecIAFSpkInNest(Layer):
                      numCores: int = 1):
 
 
-            multiprocessing.Process.__init__(self)
+            multiprocessing.Process.__init__(self, daemon=True)
 
             self.requestQ = requestQ
             self.resultQ = resultQ
@@ -865,7 +864,6 @@ class RecIAFSpkInNest(Layer):
                                             bRecord,
                                             nNumCores)
 
-        self.nestProcess.deamon = True
         self.nestProcess.start()
 
 

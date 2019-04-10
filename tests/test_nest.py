@@ -43,7 +43,6 @@ def test_chargeSingleNeuron():
     assert(fl0.vState[0] <= vTh)
     assert(dFl0.isempty())
 
-    fl0.terminate()
 
 
 def test_chargeAndSpikeSingleNeuron():
@@ -93,7 +92,6 @@ def test_chargeAndSpikeSingleNeuron():
 
     assert(not dFl0.isempty())
 
-    fl0.terminate()
 
 
 def test_FFNestLayer():
@@ -134,7 +132,6 @@ def test_FFNestLayer():
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
 
-    fl0.terminate()
 
 
 
@@ -174,7 +171,6 @@ def test_Multithreading():
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
 
-    fl0.terminate()
 
 
 
@@ -213,7 +209,6 @@ def test_RecNestLayer():
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
 
-    fl0.terminate()
 
 
 def test_FFToRecLayer():
@@ -289,6 +284,4 @@ def test_FFToRecLayer():
     assert fl1.t == 0
     assert (vStateBefore == fl1.vState).all()
 
-    fl0.terminate()
-    fl1.terminate()
 
