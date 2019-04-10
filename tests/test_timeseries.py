@@ -339,3 +339,18 @@ def test_save_load():
     # - Remove saved files
     remove("test_tsc.npz")
     remove("test_tse.npz")
+
+def test_lv_FF():
+
+    from NetworksPython import TSEvent
+
+    vtTimeTrace = np.random.rand(100)
+    vnChannels = np.repeat([0,1,2,3], 25)
+    idx = vtTimeTrace.argsort()
+    vtTimeTrace = vtTimeTrace[idx]
+    vnChannels = vnChannels[idx]
+
+    tse = TSEvent(vtTimeTrace, vnChannels)
+
+    assert np.abs(tse.lv().all() - 1) < 0.5
+    assert np.abs(tse.FanoFactor().all() - 1) < 0.5

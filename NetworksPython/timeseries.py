@@ -708,6 +708,7 @@ class TimeSeries:
 
         return tsClipped
 
+
     def _clip(self, vtNewBounds: ArrayLike, bInPlace: bool = False):
         """
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
@@ -1358,6 +1359,31 @@ class TSEvent(TimeSeries):
 
         # - Return new TimeSeries
         return tsClip
+
+    def lv(self):
+        """
+        lv - Calculates the lv measure for each channel
+
+        :return: list with lv measure for each channel
+        """
+        lvList = np.zeros(self.nNumChannels)
+        for id in range(self.nNumChannels):
+            times = self.choose(id).vtTimeTrace
+            timeInterval = np.diff(times)
+            loVar = 3. * np.mean(np.power(np.diff(timeInterval) / (timeInterval[:-1] + timeInterval[1:]), 2))
+            lvList[id] = loVar
+
+        return lvList
+
+    def FanoFactor(self, tDt=0.01):
+        """
+        FanoFactor() - put as input a spike detector nest object and return mean FanoFactor of the network
+
+        :param tDt: float raster timestep in sec
+        :return: np.ndarray FanoFactor of every channel
+        """
+        raster = self.raster(tDt= tDt, bAddEvents=True)[2].T
+        return np.var(raster, axis=1) / np.mean(raster, axis=1)
 
     def _choose(self, vnSelectChannels: Union[list, np.ndarray]):
         """
