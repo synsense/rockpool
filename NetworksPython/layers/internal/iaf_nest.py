@@ -136,7 +136,7 @@ class FFIAFNest(Layer):
             self._scg = nest.Create(
                 "step_current_generator", self.mfW.shape[0])
             nest.Connect(self._scg, self._pop, 'all_to_all',
-                         {'weight': self.mfW.T})
+                         {'weight': V2mV(self.mfW.T)})
 
             if self.bRecord:
                 # - Monitor for recording network potential
@@ -619,7 +619,7 @@ class RecIAFSpkInNest(Layer):
 
             nest.Connect(pres, posts, 'one_to_one')
             nest.SetStatus(nest.GetConnections(self._sg, self._pop), [
-                           {'weight': w, 'delay': s2ms(self.tDt)} for w in weights])
+                           {'weight': V2mV(w), 'delay': s2ms(self.tDt)} for w in weights])
 
             # - Create recurrent connections
             pres = []
@@ -636,7 +636,7 @@ class RecIAFSpkInNest(Layer):
 
             nest.Connect(pres, posts, 'one_to_one')
             nest.SetStatus(nest.GetConnections(self._pop, self._pop), [
-                           {'weight': w, 'delay': s2ms(self.tDt)} for w in weights])
+                           {'weight': V2mV(w), 'delay': s2ms(self.tDt)} for w in weights])
 
             if self.bRecord:
                 # - Monitor for recording network potential

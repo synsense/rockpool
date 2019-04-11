@@ -131,9 +131,9 @@ def test_Multithreading():
     import numpy as np
 
     # - Generic parameters
-    mfWIn = np.random.rand(1, 1024) * 0.01
-    mfWRec = np.random.rand(1024, 1024) * 0.01
-    vfBias = 0.2
+    mfWIn = np.random.rand(1, 1024) * 0.001
+    mfWRec = np.random.rand(1024, 1024) * 0.001
+    vfBias = 0.02
     vtTauN = 0.01
     vtTauS = 0.01
 
@@ -206,7 +206,7 @@ def test_FFToRecLayer():
     from NetworksPython.networks import network as nw
     import numpy as np
 
-    mfW = [[0., 1., 0.]]
+    mfW = [[0., 0.001, 0.]]
     vfBias = 0.375
     vtTauN = 0.01
     vReset = -70.
@@ -228,8 +228,8 @@ def test_FFToRecLayer():
                     bRecord=True,
                     strName="FF")
 
-    mfWIn = [[0., 0., 0.], [0., 0., 600.], [0., 0., 0.]]
-    mfWRec = np.random.rand(3, 3)
+    mfWIn = [[0., 0., 0.], [0., 0., 0.6], [0., 0., 0.]]
+    mfWRec = np.random.rand(3, 3) * 0.001
     vfBiasRec = 0.0
     vtTauNRec = [0.02, 0.05, 0.1]
     vtTauSRec = [0.2, 0.01, 0.01]
