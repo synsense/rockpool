@@ -175,6 +175,7 @@ class FFIAFNest(Layer):
                 """
 
                 nest.ResetNetwork()
+                nest.SetKernelStatus({"time": 0.})
 
             def evolve(vtTimeBase,
                        mfInputStep,
@@ -679,8 +680,8 @@ class RecIAFSpkInNest(Layer):
                 """
                 reset_all - IPC command which resets time and state
                 """
-
                 nest.ResetNetwork()
+                nest.SetKernelStatus({"time": 0.})
 
             def evolve(vtEventTimes,
                        vnEventChannels,
@@ -701,7 +702,7 @@ class RecIAFSpkInNest(Layer):
                 if startTime == 0:
                     # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
                     # the recording has one entry less in the first batch
-                    nest.Simulate(nNumTimeSteps * s2ms(self.tDt) + 1.0)
+                    nest.Simulate(nNumTimeSteps * s2ms(self.tDt) + 1.)
                 else:
                     nest.Simulate(nNumTimeSteps * s2ms(self.tDt))
 
