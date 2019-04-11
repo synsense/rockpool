@@ -32,6 +32,7 @@ class FFIAFNest(Layer):
     """
 
     class NestProcess(multiprocessing.Process):
+        """ Class for running NEST in its own process """
 
         def __init__(self,
                      requestQ,
@@ -47,6 +48,7 @@ class FFIAFNest(Layer):
                      tRefractoryTime=1.,
                      bRecord: bool = False,
                      numCores: int = 1):
+            """ initialize the process"""
 
             multiprocessing.Process.__init__(self, daemon=True)
 
@@ -68,6 +70,7 @@ class FFIAFNest(Layer):
             self.numCores = numCores
 
         def run(self):
+            """ start the process. Initializes the network, defines IPC commands and waits for commands. """
 
             #### INITIALIZE NEST ####
             import nest
@@ -144,13 +147,15 @@ class FFIAFNest(Layer):
                                        'V_m'], 'interval': s2ms(self.tDt)})
                 nest.Connect(self._mm, self._pop)
 
-            ######### DEFINE ICP COMMANDS ######
+            ######### DEFINE IPC COMMANDS ######
 
             def getParam(name):
+                """ IPC command for getting a parameter """
                 vms = nest.GetStatus(self._pop, name)
                 return vms
 
             def setParam(name, value):
+                """ IPC command for setting a parameter """
                 params = []
 
                 for n in range(self.nSize):
@@ -166,7 +171,7 @@ class FFIAFNest(Layer):
 
             def reset():
                 """
-                reset_all - resets time and state
+                reset_all - IPC command which resets time and state
                 """
 
                 nest.ResetNetwork()
@@ -175,6 +180,7 @@ class FFIAFNest(Layer):
                        mfInputStep,
                        nNumTimeSteps: Optional[int] = None,
                        ):
+                """ IPC command running the network for nNumTimeSteps with mfInputStep as input """
 
                 # NEST time starts with 1 (not with 0)
 
@@ -217,7 +223,7 @@ class FFIAFNest(Layer):
                 else:
                     return [vtEventTimeOutput, vnEventChannelOutput, None]
 
-            ICP_switcher = {COMMAND_GET: getParam,
+            IPC_switcher = {COMMAND_GET: getParam,
                             COMMAND_SET: setParam,
                             COMMAND_RESET: reset,
                             COMMAND_EVOLVE: evolve}
@@ -226,7 +232,7 @@ class FFIAFNest(Layer):
 
             while True:
                 req = self.requestQ.get()
-                func = ICP_switcher.get(req[0])
+                func = IPC_switcher.get(req[0])
 
                 result = func(*req[1:])
 
@@ -498,6 +504,7 @@ class RecIAFSpkInNest(Layer):
     """
 
     class NestProcess(multiprocessing.Process):
+        """ Class for running NEST in its own process """
 
         def __init__(self,
                      requestQ,
@@ -515,6 +522,7 @@ class RecIAFSpkInNest(Layer):
                      tRefractoryTime=1.,
                      bRecord: bool = False,
                      numCores: int = 1):
+            """ initializes the process """
 
             multiprocessing.Process.__init__(self, daemon=True)
 
@@ -537,6 +545,7 @@ class RecIAFSpkInNest(Layer):
             self.numCores = numCores
 
         def run(self):
+            """ start the process. Initializes the network, defines IPC commands and waits for commands. """
 
             #### INITIALIZE NEST ####
             import nest
@@ -644,13 +653,15 @@ class RecIAFSpkInNest(Layer):
                                        'V_m'], 'interval': s2ms(self.tDt)})
                 nest.Connect(self._mm, self._pop)
 
-            ######### DEFINE ICP COMMANDS ######
+            ######### DEFINE IPC COMMANDS ######
 
             def getParam(name):
+                """ IPC command for getting a parameter """
                 vms = nest.GetStatus(self._pop, name)
                 return vms
 
             def setParam(name, value):
+                """ IPC command for setting a parameter """
                 params = []
 
                 for n in range(self.nSize):
@@ -666,7 +677,7 @@ class RecIAFSpkInNest(Layer):
 
             def reset():
                 """
-                reset_all - resets time and state
+                reset_all - IPC command which resets time and state
                 """
 
                 nest.ResetNetwork()
@@ -675,6 +686,7 @@ class RecIAFSpkInNest(Layer):
                        vnEventChannels,
                        nNumTimeSteps: Optional[int] = None,
                        ):
+                """ IPC command running the network for nNumTimeSteps with mfInputStep as input """
 
                 if len(vnEventChannels > 0):
                     # convert input index to NEST id
@@ -720,7 +732,7 @@ class RecIAFSpkInNest(Layer):
                 else:
                     return [vtEventTimeOutput, vnEventChannelOutput, None]
 
-            ICP_switcher = {COMMAND_GET: getParam,
+            IPC_switcher = {COMMAND_GET: getParam,
                             COMMAND_SET: setParam,
                             COMMAND_RESET: reset,
                             COMMAND_EVOLVE: evolve}
@@ -729,7 +741,7 @@ class RecIAFSpkInNest(Layer):
 
             while True:
                 req = self.requestQ.get()
-                func = ICP_switcher.get(req[0])
+                func = IPC_switcher.get(req[0])
 
                 result = func(*req[1:])
 
