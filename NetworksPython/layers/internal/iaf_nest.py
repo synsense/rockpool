@@ -144,7 +144,7 @@ class FFIAFNest(Layer):
             if self.bRecord:
                 # - Monitor for recording network potential
                 self._mm = nest.Create("multimeter", 1, {'record_from': [
-                                       'V_m'], 'interval': s2ms(self.tDt)})
+                                       'V_m'], 'interval': 1.0})
                 nest.Connect(self._mm, self._pop)
 
             ######### DEFINE IPC COMMANDS ######
@@ -192,7 +192,7 @@ class FFIAFNest(Layer):
                 if nest.GetKernelStatus("time") == 0:
                     # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
                     # the recording has one entry less in the first batch
-                    nest.Simulate(nNumTimeSteps * s2ms(self.tDt) + 1)
+                    nest.Simulate(nNumTimeSteps * s2ms(self.tDt) + 1.0)
                 else:
                     nest.Simulate(nNumTimeSteps * s2ms(self.tDt))
 
@@ -202,7 +202,7 @@ class FFIAFNest(Layer):
                     vbUseEvent = events['times'] >= vtTimeBase[0]
                     vms = events['V_m'][vbUseEvent]
                     mfRecordStates = np.reshape(
-                        vms, [self.nSize, nNumTimeSteps], order="F")
+                        vms, [self.nSize, int(nNumTimeSteps * s2ms(self.tDt))], order="F")
 
                 # - Build response TimeSeries
                 events = nest.GetStatus(self._sd, 'events')[0]
@@ -650,7 +650,7 @@ class RecIAFSpkInNest(Layer):
             if self.bRecord:
                 # - Monitor for recording network potential
                 self._mm = nest.Create("multimeter", 1, {'record_from': [
-                                       'V_m'], 'interval': s2ms(self.tDt)})
+                                       'V_m'], 'interval': 1.0})
                 nest.Connect(self._mm, self._pop)
 
             ######### DEFINE IPC COMMANDS ######
@@ -701,7 +701,7 @@ class RecIAFSpkInNest(Layer):
                 if startTime == 0:
                     # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
                     # the recording has one entry less in the first batch
-                    nest.Simulate(nNumTimeSteps * s2ms(self.tDt) + 1)
+                    nest.Simulate(nNumTimeSteps * s2ms(self.tDt) + 1.0)
                 else:
                     nest.Simulate(nNumTimeSteps * s2ms(self.tDt))
 
@@ -711,7 +711,7 @@ class RecIAFSpkInNest(Layer):
                     vbUseEvent = events['times'] >= startTime
                     vms = events['V_m'][vbUseEvent]
                     mfRecordStates = np.reshape(
-                        vms, [self.nSize, nNumTimeSteps], order="F")
+                        vms, [self.nSize, int(nNumTimeSteps * s2ms(self.tDt))], order="F")
 
                 # - Build response TimeSeries
                 events = nest.GetStatus(self._sd, 'events')[0]

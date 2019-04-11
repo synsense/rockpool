@@ -289,7 +289,7 @@ def test_randomizeStateRec():
     fl0 = RecIAFSpkInNest(
         mfWIn=mfWIn,
         mfWRec=mfWRec,
-        tDt=0.001,
+        tDt=0.0001,
         vfBias=vfBias,
         vtTauN=vtTauN,
         vtTauS=vtTauS,
@@ -331,3 +331,37 @@ def test_randomizeStateFF():
     fl0.randomize_state()
 
     assert (vStateBefore != fl0.vState).any()
+
+
+def test_recording():
+    """ tests if the shape of recording is correct """
+
+    import numpy as np
+    from NetworksPython import timeseries as ts
+    from NetworksPython.layers import FFIAFNest
+
+    # - Generic parameters
+    mfW = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
+    vfBias = 0.01
+    vtTauN = [0.02, 0.05, 0.1]
+
+    # - Layer generation
+    fl0 = FFIAFNest(
+        mfW=mfW,
+        tDt=0.0001,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        tRefractoryTime=0.001,
+        bRecord=True,
+    )
+
+    # - Input signal
+    tsInCont = ts.TSContinuous(
+        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
+    )
+
+    # - Compare states and time before and after
+    vStateBefore = np.copy(fl0.vState)
+    dFl0 = fl0.evolve(tsInCont, tDuration=0.1)
+
+    assert(np.shape(fl0.mfRecordStates) == (3, 100))
