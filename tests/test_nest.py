@@ -6,7 +6,6 @@ import numpy as np
 
 
 def test_chargeSingleNeuron():
-
     """
     single neuron test
     charge neuron exactly to threshold without crossing using the bias
@@ -36,7 +35,6 @@ def test_chargeSingleNeuron():
                     bRecord=True,
                     strName="test")
 
-
     dFl0 = fl0.evolve(tDuration=1.)
 
     assert(fl0.vState[0] > vTh - 0.00001)
@@ -44,9 +42,7 @@ def test_chargeSingleNeuron():
     assert(dFl0.isempty())
 
 
-
 def test_chargeAndSpikeSingleNeuron():
-
     """
     single neuron test
     charge neuron exactly to threshold without crossing using the bias
@@ -56,7 +52,6 @@ def test_chargeAndSpikeSingleNeuron():
     from NetworksPython import timeseries as ts
     from NetworksPython.layers import FFIAFNest
 
-
     mfW = [[1.]]
     vfBias = [0.375]
     vtTauN = [0.01]
@@ -79,7 +74,6 @@ def test_chargeAndSpikeSingleNeuron():
                     bRecord=True,
                     strName="test")
 
-
     # - Input signal
     vTime = np.arange(0, 1, tDt)
     vVal = np.zeros([len(vTime), 1])
@@ -87,11 +81,9 @@ def test_chargeAndSpikeSingleNeuron():
 
     tsInCont = ts.TSContinuous(vTime, vVal)
 
-
     dFl0 = fl0.evolve(tsInCont, tDuration=1.)
 
     assert(not dFl0.isempty())
-
 
 
 def test_FFNestLayer():
@@ -133,8 +125,6 @@ def test_FFNestLayer():
     assert (vStateBefore == fl0.vState).all()
 
 
-
-
 def test_Multithreading():
     """ Test RecIAFNest"""
     from NetworksPython.layers import RecIAFSpkInNest
@@ -162,16 +152,14 @@ def test_Multithreading():
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.vState)
-    dFl0 = fl0.evolve(tDuration=10.0)
+    dFl0 = fl0.evolve(tDuration=1.0)
 
-    assert fl0.t == 10.
+    assert fl0.t == 1.
     assert (vStateBefore != fl0.vState).any()
 
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.vState).all()
-
-
 
 
 def test_RecNestLayer():
@@ -210,7 +198,6 @@ def test_RecNestLayer():
     assert (vStateBefore == fl0.vState).all()
 
 
-
 def test_FFToRecLayer():
     """ Test FFToRecNest"""
 
@@ -240,7 +227,6 @@ def test_FFToRecLayer():
                     tRefractoryTime=tRef,
                     bRecord=True,
                     strName="FF")
-
 
     mfWIn = [[0., 0., 0.], [0., 0., 600.], [0., 0., 0.]]
     mfWRec = np.random.rand(3, 3)
@@ -285,3 +271,63 @@ def test_FFToRecLayer():
     assert (vStateBefore == fl1.vState).all()
 
 
+def test_randomizeStateRec():
+    """ test Randomize State """
+
+    """ Test RecIAFNest"""
+    from NetworksPython.layers import RecIAFSpkInNest
+    import numpy as np
+
+    # - Generic parameters
+    mfWIn = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
+    mfWRec = np.random.rand(3, 3) * 0.01
+    vfBias = 0.01
+    vtTauN = [0.02, 0.05, 0.1]
+    vtTauS = [0.2, 0.01, 0.01]
+
+    # - Layer generation
+    fl0 = RecIAFSpkInNest(
+        mfWIn=mfWIn,
+        mfWRec=mfWRec,
+        tDt=0.001,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        vtTauS=vtTauS,
+        tRefractoryTime=0.001,
+        bRecord=True,
+    )
+
+    # - Compare states before and after
+    vStateBefore = np.copy(fl0.vState)
+
+    fl0.randomize_state()
+
+    assert (vStateBefore != fl0.vState).any()
+
+
+def test_randomizeStateFF():
+    """ Test FFIAFNest"""
+    from NetworksPython import timeseries as ts
+    from NetworksPython.layers import FFIAFNest
+
+    # - Generic parameters
+    mfW = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
+    vfBias = 0.01
+    vtTauN = [0.02, 0.05, 0.1]
+
+    # - Layer generation
+    fl0 = FFIAFNest(
+        mfW=mfW,
+        tDt=0.001,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        tRefractoryTime=0.001,
+        bRecord=True,
+    )
+
+    # - Compare states before and after
+    vStateBefore = np.copy(fl0.vState)
+
+    fl0.randomize_state()
+
+    assert (vStateBefore != fl0.vState).any()
