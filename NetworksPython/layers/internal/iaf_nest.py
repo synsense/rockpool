@@ -203,7 +203,7 @@ class FFIAFNest(Layer):
                     vbUseEvent = events['times'] >= vtTimeBase[0]
                     vms = events['V_m'][vbUseEvent]
                     mfRecordStates = np.reshape(
-                        vms, [self.nSize, int(nNumTimeSteps * s2ms(self.tDt))], order="F")
+                        vms, [self.nSize, int(len(vms) / self.nSize)], order="F")
 
                 # - Build response TimeSeries
                 events = nest.GetStatus(self._sd, 'events')[0]
@@ -712,7 +712,7 @@ class RecIAFSpkInNest(Layer):
                     vbUseEvent = events['times'] >= startTime
                     vms = events['V_m'][vbUseEvent]
                     mfRecordStates = np.reshape(
-                        vms, [self.nSize, int(nNumTimeSteps * s2ms(self.tDt))], order="F")
+                        vms, [self.nSize, int(len(vms)/self.nSize)], order="F")
 
                 # - Build response TimeSeries
                 events = nest.GetStatus(self._sd, 'events')[0]
