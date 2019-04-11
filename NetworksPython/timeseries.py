@@ -1380,10 +1380,11 @@ class TSEvent(TimeSeries):
         FanoFactor() - put as input a spike detector nest object and return mean FanoFactor of the network
 
         :param tDt: float raster timestep in sec
-        :return: np.ndarray FanoFactor of every channel
+        :return: float FanoFactor
         """
         raster = self.raster(tDt= tDt, bAddEvents=True)[2].T
-        return np.var(raster, axis=1) / np.mean(raster, axis=1)
+        hist = raster.sum(axis=0)
+        return np.var(hist) / np.mean(hist)
 
     def _choose(self, vnSelectChannels: Union[list, np.ndarray]):
         """
