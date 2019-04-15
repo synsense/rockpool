@@ -119,7 +119,7 @@ class FFExpSyn(Layer):
 
                 if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
@@ -244,7 +244,7 @@ class FFExpSyn(Layer):
         """
 
         # - Prepare input signal
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
         mnInputRaster, nNumTimeSteps = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
         )
@@ -349,7 +349,7 @@ class FFExpSyn(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
         vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         if not bFinal:
@@ -531,7 +531,7 @@ class FFExpSyn(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
         vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         # - Discard last sample to avoid counting time points twice

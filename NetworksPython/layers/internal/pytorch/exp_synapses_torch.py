@@ -249,7 +249,7 @@ class FFExpSynTorch(FFExpSyn):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
         vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         if not bFinal:
@@ -455,7 +455,7 @@ class FFExpSynTorch(FFExpSyn):
             return
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
         vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         # - Discard last sample to avoid counting time points twice

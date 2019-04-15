@@ -390,7 +390,7 @@ class FFRateEuler(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsInput.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsInput.duration / self.tDt))
         vtTimeBase = self._gen_time_trace(tsInput.t_start, nNumTimeSteps)
 
         if not bFinal:

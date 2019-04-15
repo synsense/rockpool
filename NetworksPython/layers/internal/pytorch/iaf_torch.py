@@ -467,7 +467,7 @@ class FFIAFTorch(Layer):
 
                 if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
@@ -859,7 +859,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
                 if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
@@ -1585,7 +1585,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
                 if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries

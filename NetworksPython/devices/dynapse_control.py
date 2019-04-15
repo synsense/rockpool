@@ -1804,7 +1804,7 @@ class DynapseControl:
 
         :param tsSeries:        TSEvent      Time series of events to send as input
         :param tRecord:         float  Duration of the recording (including stimulus)
-                                       If None, use tsSeries.tDuration
+                                       If None, use tsSeries.duration
         :param tBuffer:         float  Record slightly longer than tRecord to
                                        make sure to catch all relevant events
         :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
@@ -1833,7 +1833,7 @@ class DynapseControl:
         vnRecordNeuronIDs = (
             vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
         )
-        tRecord = tsSeries.tDuration if tRecord is None else tRecord
+        tRecord = tsSeries.duration if tRecord is None else tRecord
 
         # - Prepare event list
         lEvents = self._TSEvent_to_spike_list(

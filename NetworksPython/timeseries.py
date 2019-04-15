@@ -65,12 +65,12 @@ def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.
     # - Repeat events sufficiently often
     # Number of additional required repetitions to append before and after
     num_reps_after = (
-        int(np.ceil((t_stop - series.t_start) / series.tDuration))
+        int(np.ceil((t_stop - series.t_start) / series.duration))
         if t_stop > series.t_stop
         else 1
     )
     num_reps_before = (
-        int(np.ceil((series.t_start - t_start) / series.tDuration))
+        int(np.ceil((series.t_start - t_start) / series.duration))
         if t_start < series.t_start
         else 0
     )
@@ -78,7 +78,7 @@ def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.
     # - Correct times so they extend over the prolongued period and do not repeat
     # Enumerate periods so that originally defined period is 0
     periods = np.arange(num_reps_total) - num_reps_before
-    correct_periods = series.tDuration * np.repeat(periods, series.times.size)
+    correct_periods = series.duration * np.repeat(periods, series.times.size)
     return np.tile(series.times, num_reps_total) + correct_periods
 
 
@@ -187,8 +187,8 @@ class TimeSeries:
     def _modulo_period(
         self, times: Union[ArrayLike, float, int]
     ) -> Union[ArrayLike, float, int]:
-        """_modulo_period - Calculate provided times modulo `self.tDuration`"""
-        return self.t_start + np.modulo(times - self.t_start, self.tDuration)
+        """_modulo_period - Calculate provided times modulo `self.duration`"""
+        return self.t_start + np.modulo(times - self.t_start, self.duration)
 
     @property
     def times(self):
@@ -255,9 +255,9 @@ class TimeSeries:
             )
 
     @property
-    def tDuration(self) -> float:
+    def duration(self) -> float:
         """
-        .tDuration: float Duration of TimeSeries
+        .duration: float Duration of TimeSeries
         """
         return self._t_stop - self._t_start
 
@@ -501,21 +501,6 @@ class TSContinuous(TimeSeries):
             else False
         )
 
-    def find(
-        self, times: ArrayLike, channels: Union[int, ArrayLike, None] = None
-    ) -> (np.ndarray, np.ndarray):
-        """find - Convenience function that returns arrays with given times and corresponding
-                  samples.
-        :param times:  Times of samples that should be returned
-        :param channels:      Channels of which events are returned
-            :return:
-                np.ndarray  Provided times
-                np.ndarray  Corresponding samples
-        """
-        if channels is None:
-            channels = np.arange(self.num_channels)
-        return np.asarray(times), self(times)[:, channels]
-
     def clip(
         self,
         t_start: Optional[float] = None,
@@ -609,6 +594,9 @@ class TSContinuous(TimeSeries):
         else:
             resampled_series = self
 
+        # - Make sure `times` is array
+        times = np.atleast_1d(times)
+
         # - Resample time series
         resampled_series._samples = self(times)
         resampled_series._times = times
@@ -617,6 +605,8 @@ class TSContinuous(TimeSeries):
         resampled_series.periodic = False
         resampled_series._create_interpolator()
         return resampled_series
+
+    ## -- Methods for combining time series
 
     def merge(
         self,
@@ -820,7 +810,7 @@ class TSContinuous(TimeSeries):
         """
         # - Enforce periodicity
         if self.periodic:
-            times = (np.asarray(times) - self._t_start) % self.tDuration + self._t_start
+            times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
 
         return np.reshape(self.interp(times), (-1, self.num_channels))
 
@@ -844,48 +834,44 @@ class TSContinuous(TimeSeries):
         """
         return self._interpolate(times)
 
-    def __getitem__(self, vtTimes: Union[ArrayLike, slice]) -> np.ndarray:
+    def __getitem__(self, indices: Union[ArrayLike, slice]) -> np.ndarray:
         """
         ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
-        NOTE that ts[:] uses as (fixed) step size the mean step size of self.times
-        and thus can return different values than those in ts.samples!
-        :param vtTimes: Slice, scalar, list or np.array of T desired interpolated time points
+                                  or, if slice is provided between given limits with given
+                                  step size.
+        :param indices: Slice, scalar, list or np.array of T desired interpolated time points
         :return:        np.array of interpolated values. Will have the shape TxN
         """
-        if isinstance(vtTimes, slice):
-            fStep: np.float = (
-                np.mean(np.diff(self._times)) if vtTimes.step is None else vtTimes.step
-            )
-            fStart: float = (
-                self._times[0] if vtTimes.t_start is None else vtTimes.t_start
-            )
-            fStop: float = (
-                self._times[-1] + abs(fStep)
-                if vtTimes.t_stop is None
-                else vtTimes.t_stop
-            )
-
-            if fStart < self._times[0]:
-                raise ValueError(
-                    f"TSContinuous `{self.name}`: "
-                    f"This TimeSeries only starts at t={self._times[0]}"
+        if isinstance(indices, slice):
+            # - Use `self.clip`
+            if indices.step is None:
+                return self.clip(
+                    t_start=indices.start,
+                    t_stop=indices.stop,
+                    inplace=False,
+                    include_stop=False,
                 )
-            if fStop > self._times[-1] + abs(fStep):
-                raise ValueError(
-                    f"TSContinuous `{self.name}`: "
-                    f"This TimeSeries already ends at t={self._times[-1]}"
+            # - Prepare time points for `self.resample`
+            else:
+                t_start: float = (
+                    self.t_start if indices.start is None else indices.start
                 )
-
-            # - Determine time points at which series is sampled
-            time_points: np.ndarray = np.arange(fStart, fStop, abs(fStep))
-            # - Invert order if fStep is negative
-            if fStep < 0:
-                time_points = time_points[::-1]
-
-            return self._interpolate(vTimeIndices)
-
+                t_stop: float = (self.t_stop if indices.stop is None else indices.stop)
+                # - Determine time points at which series is sampled
+                time_points: np.ndarray = np.arange(t_start, t_stop, indices.step)
+                # - Make sure time points are within limits
+                time_points = time_points[
+                    np.logical_and(
+                        time_points >= self.t_start, time_points < self.t_stop
+                    )
+                ]
+                # - Invert order if step is negative
+                if indices.step < 0:
+                    time_points = time_points[::-1]
         else:
-            return self._interpolate(vtTimes)
+            time_points = indices
+
+        return self.resample(time_points, inplace=False)
 
     def __repr__(self):
         """
@@ -1471,9 +1457,9 @@ class TSEvent(TimeSeries):
                 channels=channels,
                 compress_channels=False,
             )
-            # - Make sure that last point is also included if `tDuration` is a
+            # - Make sure that last point is also included if `duration` is a
             #   multiple of dt. Therefore floor(...) + 1
-            num_timesteps = int(np.floor((series.tDuration) / dt)) + 1
+            num_timesteps = int(np.floor((series.duration) / dt)) + 1
         else:
             t_stop = t_start + num_timesteps * dt
             series = self.clip(
@@ -1583,7 +1569,7 @@ class TSEvent(TimeSeries):
             )
         )
 
-    ## -- Methods for manipulating or combining time series
+    ## -- Methods for combining time series
 
     def append_c(self, other_series: TSEventType, inplace: bool = False) -> TSEventType:
         """
@@ -1870,7 +1856,7 @@ class TSEvent(TimeSeries):
         """
         ts[tTime1, tTime2, ...] - Index the events of `self` by with the argument
                                   and return TSEvent with corresponding events.
-                                  Other attributes, including `num_channels` and `tDuration`
+                                  Other attributes, including `num_channels` and `duration`
                                   are the same as in `self`.
         :return:
             np.array of indexed event times
