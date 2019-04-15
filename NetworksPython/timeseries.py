@@ -79,7 +79,7 @@ def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.
     # Enumerate periods so that originally defined period is 0
     periods = np.arange(num_reps_total) - num_reps_before
     correct_periods = series.tDuration * np.repeat(periods, series.times.size)
-    return np.tile(self.times, num_reps_total) + correct_periods
+    return np.tile(series.times, num_reps_total) + correct_periods
 
 
 ## - Set default plotting backend
@@ -120,7 +120,7 @@ class TimeSeries:
         """
 
         # - Convert time trace to numpy arrays
-        times = np.asarray(times).flatten().astype(float)
+        times = np.atleast_1d(times).flatten().astype(float)
 
         if (np.diff(times) < 0).any():
             raise ValueError(
@@ -180,7 +180,7 @@ class TimeSeries:
     def copy(self) -> TSType:
         """
         copy() - Return a deep copy of this time series
-        :return: tsCopy
+        :return: copy of `self`
         """
         return copy.deepcopy(self)
 
@@ -211,7 +211,7 @@ class TimeSeries:
             )
 
         # - Store new time trace
-        self._times = np.atleast_1d(new_times).flatten()
+        self._times = np.atleast_1d(new_times).flatten().astype(float)
 
         if np.size(self._times) > 0:
             # - Fix t_start and t_stop
@@ -273,8 +273,9 @@ class TSContinuous(TimeSeries):
 
     def __init__(
         self,
-        times: ArrayLike,
-        samples: ArrayLike,
+        times: ArrayLike = None,
+        samples: ArrayLike = None,
+        num_channels: int = None,
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
@@ -286,6 +287,8 @@ class TSContinuous(TimeSeries):
 
         :param times:     [Tx1] vector of time samples
         :param samples:       [TxM] matrix of values corresponding to each time sample
+        :param num_channels:  If `samples` is None, determines the number of channels of
+                              `self`. Otherwise it has no effect at all.
         :param periodic:       bool: Treat the time series as periodic around the end points. Default: False
         :param t_start:          float: If not None, the series start time is t_start, otherwise times[0]
         :param t_stop:           float: If not None, the series stop time is t_stop, otherwise times[-1]
@@ -295,9 +298,15 @@ class TSContinuous(TimeSeries):
         If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
         """
 
+        if times is None:
+            times = np.array([])
+        if samples is None:
+            num_channels = 0 if num_channels is None else num_channels
+            samples = np.zeros((0, num_channels))
+
         # - Convert everything to numpy arrays
-        times = np.asarray(times).flatten().astype(float)
-        samples = np.atleast_1d(samples).astype(float)
+        times = np.atleast_1d(times).flatten().astype(float)
+        samples = np.atleast_1d(samples)
 
         # - Check arguments
         assert np.size(times) == samples.shape[0], (
@@ -315,9 +324,7 @@ class TSContinuous(TimeSeries):
 
         # - Assign attributes
         self.interp_kind = interp_kind
-        self._samples = samples.astype("float")
-        # - Interpolator for samples
-        self._create_interpolator()
+        self.samples = samples.astype("float")
 
     ## -- Methods for plotting and printing
 
@@ -494,42 +501,20 @@ class TSContinuous(TimeSeries):
             else False
         )
 
-    # REDUNDANT?
-    def find(self, times: ArrayLike) -> (np.ndarray, np.ndarray):
+    def find(
+        self, times: ArrayLike, channels: Union[int, ArrayLike, None] = None
+    ) -> (np.ndarray, np.ndarray):
         """find - Convenience function that returns arrays with given times and corresponding
                   samples.
-            :param times:  Times of samples that should be returned
+        :param times:  Times of samples that should be returned
+        :param channels:      Channels of which events are returned
             :return:
                 np.ndarray  Provided times
                 np.ndarray  Corresponding samples
         """
-        return np.asarray(times), self(times)
-
-    def choose(self, traces: Union[int, ArrayLike], inplace: bool = False):
-        """
-        choose() - Select from one of several sub-traces; return a TimeSeries containing these traces
-
-        :param traces:    array-like of indices within source TimeSeries
-        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
-        :return:            TimeSeries containing only the selected traces
-        """
-        # - Convert to a numpy array and check extents
-        traces = np.atleast_1d(traces)
-        if min(traces) < 0 or max(traces) > self.num_channels:
-            raise ValueError(
-                f"TSContinuous `{self.name}`: "
-                f"`traces` must be between 0 and {self.num_channels}"
-            )
-
-        if not inplace:
-            tsChosen = self.copy()
-        else:
-            tsChosen = self
-
-        # - Return a TimeSeries with the subselected traces
-        tsChosen.samples = tsChosen.samples[:, traces]
-        tsChosen._create_interpolator()
-        return tsChosen
+        if channels is None:
+            channels = np.arange(self.num_channels)
+        return np.asarray(times), self(times)[:, channels]
 
     def clip(
         self,
@@ -537,68 +522,7 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
         include_stop: bool = False,
-        compress_channels: bool = False,
-        inplace: bool = False,
-    ) -> TSEventType:
-        """
-        clip - Return a TSEvent which is restricted to given time limits and only
-                 contains events of selected channels. If time limits are provided,
-                 t_start and t_stop attributes will correspond to those. If
-                 `compress_channels` is true, channels IDs will be mapped to continuous
-                 sequence of integers starting from 0 (e.g. [1,3,6]->[0,1,2]). In this
-                 case `num_channels` will be set to the largest new channel ID + 1.
-                 Otherwise it will keep its original values, which is also the case for
-                 all other attributes.
-                 If `inplace` is True, modify `self` accordingly.
-
-        :param t_start:       Time from which on events are returned
-        :param t_stop:        Time until which events are returned
-        :param channels:      Channels of which events are returned
-        :param include_stop:  If there are events with time t_stop include them or not
-        :param compress_channels:  Map channel IDs to continuous sequence startign from 0.
-                                   Set `num_channels` to largest new ID + 1.
-        :param inplase:       Specify whether operation should be performed in place (Default: False)
-        :return: TSEvent containing events from the requested channels
-        """
-
-        if not inplace:
-            new_series = self.copy()
-        else:
-            new_series = self
-
-        if self.periodic:
-
-            times_to_choose = np.tile(new_series.times, num_reps_total) + correct_periods
-        else:
-            times_to_choose = new_series.times
-            times = repeated_times[choose_samples]
-
-        # - Extract matching events
-        times, channels = new_series(t_start, t_stop, channels, include_stop)
-
-        # - Update new timeseries
-        new_series._times = times
-        if t_start is not None:
-            new_series._t_start = t_start
-        if t_stop is not None:
-            new_series._t_stop = t_stop
-        if compress_channels and channels.size > 0:
-            # - Set channel IDs to sequence starting from 0
-            unique_channels, channel_indices = np.unique(channels, return_inverse=True)
-            num_channels = unique_channels.size
-            new_series._channels = np.arange(num_channels)[channel_indices]
-            new_series.num_channels = num_channels
-        else:
-            new_series._channels = channels
-
-        return new_series
-
-    def clip(
-        self,
-        t_start: Optional[float] = None,
-        t_stop: Optional[float] = None,
-        channels: Union[int, ArrayLike, None] = None,
-        include_stop: bool = False,
+        sample_limits: bool = True,
         inplace: bool = False,
     ) -> TSContType:
         """
@@ -611,7 +535,9 @@ class TSContinuous(TimeSeries):
         :param t_start:       Time from which on events are returned
         :param t_stop:        Time until which events are returned
         :param channels:      Channels of which events are returned
-        :param include_stop:  If there are events with time t_stop include them or not
+        :param include_stop:  If there are events with time t_stop include them or not.
+        :param sample_limits: If True, make sure that a sample exists at `t_start` and, if
+                              `include_stop` is True, at `t_stop`, as long as not both are None.
         :param inplace:       Conduct operation in-place (Default: False; create a copy)
 
         :return:
@@ -628,147 +554,45 @@ class TSContinuous(TimeSeries):
             clipped_series._samples = clipped_series._samples[:, channels]
             clipped_series._num_channels = clipped_series._samples.shape[1]
 
+        # - Handle `None` time bounds
+        if t_start is None and t_stop is None:
+            # - Skip time clipping and return
+            return clipped_series
+        else:
+            t_start: float = self.t_start if t_start is None else t_start
+            t_stop: float = self.t_stop if t_stop is None else t_stop
+
         # - Ensure time bounds are sorted
         t_start, t_stop = sorted((t_start, t_stop))
-        tDuration = t_stop - t_start
 
         # - Handle periodic time series
-        times_to_choose = (
+        times_to_choose: np.ndarray = (
             _extend_periodic_times(t_start, t_stop, clipped_series)
             if clipped_series.periodic
             else clipped_series.times
         )
 
-        # - Catch sinlgeton time point
-        if t_start == t_stop:
-            return self.resample(vtNewBounds[0], inplace=inplace)
-
-        # - Get first sample
-        vfFirstSample = np.atleast_1d(clipped_series(vtNewBounds[0]))
-
-        # - Get number of traces
-        num_channels = clipped_series.num_channels
-
-        # - For periodic time series, resample the series
-        if clipped_series.periodic:
-            clipped_series, _ = clipped_series._clip_periodic(
-                vtNewBounds, inplace=inplace
-            )
-        else:
-            clipped_series, _ = clipped_series._clip(vtNewBounds, inplace=inplace)
-
-        # - Insert initial time point
-        clipped_series._times = np.concatenate(
-            ([vtNewBounds[0]], clipped_series._times)
-        )
-
-        # - Insert initial samples
-
-        clipped_series._samples = np.concatenate(
-            (
-                np.reshape(vfFirstSample, (-1, num_channels)),
-                np.reshape(clipped_series._samples, (-1, num_channels)),
-            ),
-            axis=0,
-        )
-
-        # - Update t_start to contain initial time point
-        clipped_series._t_start = min(clipped_series._t_start, vtNewBounds[0])
-
-        return clipped_series
-
-    def _clip(self, vtNewBounds: ArrayLike, inplace: bool = False):
-        """
-        clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
-
-        :param vtNewBounds: ArrayLike   [t_start t_stop] defining new bounds
-        :param inplace:    bool        Conduct operation in-place (Default: False; create a copy)
-        :return:  TimeSeries clipped to bounds
-        """
-        # - Create a new time series, or use self
-        if not inplace:
-            clipped_series = self.copy()
-        else:
-            clipped_series = self
-
-        # - Find samples included in new time bounds
-        vtNewBounds = np.sort(vtNewBounds)
-        vbIncludeSamples = np.logical_and(
-            clipped_series.times >= vtNewBounds[0],
-            clipped_series.times < vtNewBounds[-1],
-        )
-
-        # - Build and return TimeSeries
-        clipped_series._times = clipped_series._times[vbIncludeSamples]
-
-        if np.size(vbIncludeSamples) == 0:
-            # - Handle empty data
-            clipped_series._samples = np.zeros((0, clipped_series.samples.shape[1]))
-        else:
-            clipped_series._samples = np.reshape(
-                clipped_series._samples, (np.size(vbIncludeSamples), -1)
-            )[vbIncludeSamples, :]
-
-        # - Update t_start and t_stop
-        clipped_series._t_start, clipped_series._t_stop = vtNewBounds
-
-        return clipped_series, vbIncludeSamples
-
-    def _clip_periodic(self, t_start: float, t_stop: float, inplace: bool = False):
-        """
-        _clip_periodic - Clip a periodic TimeSeries
-        :param vtNewBounds: ArrayLike   [t_start t_stop] defining new bounds
-        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
-        :return:
-        """
-        else:
-            all_times = self.times
-            all_channels = self.channels
-
+        # - Mark which times lie within bounds
+        times_in_limits: np.ndarray = times_to_choose >= t_start
+        times_in_limits[times_to_choose > t_stop] = True
         if include_stop:
-            choose_events_stop: np.ndarray = all_times <= t_stop
-        else:
-            choose_events_stop: np.ndarray = all_times < t_stop
+            # - Include samples at time `t_stop`
+            times_in_limits[times_to_choose == t_stop] = True
+        # - Pick matching times
+        times: np.ndarray = times_to_choose[times_in_limits]
+        if sample_limits:
+            add_start = times[0] > t_start
+            add_stop = times[-1] < t_stop and include_stop
+            # - Only generate new array once
+            if add_start and add_stop:
+                times = np.r_[t_start, times, t_stop]
+            elif add_start:
+                times = np.r_[t_start, times]
+            elif add_stop:
+                times = np.r_[times, t_stop]
 
-        choose_events: np.ndarray = (
-            (all_times >= t_start) & (choose_events_stop) & channel_matches
-        )
-
-        # - Map time bounds to periodic bounds
-        vtNewBoundsPeriodic = copy.deepcopy(vtNewBounds)
-        t_start_periodic = self._modulo_period(
-
-
-            (
-            t_start - clipped_series._t_start
-        ) % clipped_series.tDuration + clipped_series._t_start
-        vtNewBoundsPeriodic[1] = vtNewBoundsPeriodic[0] + tDuration
-
-        # - Build new time trace
-        vtNewTimeTrace = copy.deepcopy(clipped_series._times)
-        vtNewTimeTrace = vtNewTimeTrace[vtNewTimeTrace >= vtNewBoundsPeriodic[0]]
-
-        # - Keep appending copies of periodic time base until required duration is reached
-        while vtNewTimeTrace[-1] < vtNewBoundsPeriodic[1]:
-            vtNewTimeTrace = np.concatenate(
-                (vtNewTimeTrace, clipped_series._times + vtNewTimeTrace[-1])
-            )
-
-        # - Trim new time base to end point
-        vtNewTimeTrace = vtNewTimeTrace[vtNewTimeTrace <= vtNewBoundsPeriodic[1]]
-
-        # - Restore to original time base
-        vtNewTimeTrace = vtNewTimeTrace - vtNewTimeTrace[0] + vtNewBounds[0]
-
-        # - Update t_start and t_stop
-        clipped_series._t_start = vtNewTimeTrace[0]
-        clipped_series._t_stop = vtNewTimeTrace[-1]
-
-        # - Return a new clipped time series
-        tsClip = clipped_series.resample(vtNewTimeTrace, inplace=inplace)
-        return tsClip, None
-
-    ## -- Methods for manipulating or combining time series
+        # - Sample at the chosen time points and return
+        return clipped_series.resample(times, inplace=True)
 
     def resample(
         self, times: Union[int, float, ArrayLike], inplace: bool = False
@@ -793,64 +617,6 @@ class TSContinuous(TimeSeries):
         resampled_series.periodic = False
         resampled_series._create_interpolator()
         return resampled_series
-
-    def resample_within(
-        self,
-        t_start: float = None,
-        t_stop: float = None,
-        tDt: float = None,
-        inplace: bool = False,
-    ):
-        """
-        resample_within - Return a new time series sampled between t_start
-                          and t_stop with step size tDt
-
-        :param t_start:  Start time for sampling - defaults to minimum value
-                        of self.times
-        :param t_stop:   Stop time for sampling - defaults to maximum value
-                        of self.times
-        :param tDt:     Sampling time step - defaults to mean difference
-                        between values of self.times
-        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
-        :return:        New TimeSeries object, resampled according to parameters
-        """
-        # - Determine start time, if not supplied
-        t_start = (
-            self.t_start
-            if t_start is None
-            else (
-                t_start
-                if self.periodic  # - Allow for t_start < self.t_start if self.periodic
-                else max(t_start, self.t_start)
-            )
-        )
-
-        # - Determine stop time, if not supplied
-        t_stop = (
-            self.t_stop
-            if t_stop is None
-            else (
-                t_stop
-                if self.periodic  # - Allow for t_stop > self.t_stop if self.periodic
-                else min(t_stop, self.t_stop)
-            )
-        )
-
-        # - Determine time step, if not supplied
-        tDt = np.mean(np.diff(self.times)) if tDt is None else tDt
-
-        # - Build a time trace for the resampled time series
-        vtSampleTimes = np.arange(t_start, t_stop + tDt, tDt)
-        vtSampleTimes = vtSampleTimes[vtSampleTimes <= t_stop + fTolAbs]
-
-        # - If vtSampleTimes[-1] is close to t_stop, correct it, so that
-        #   is exactly t_stop. This ensures that the returned TimeSeries
-        #   is neither too short, nor is the last sample nan
-        if np.isclose(vtSampleTimes[-1], t_stop, atol=fTolAbs):
-            vtSampleTimes[-1] = t_stop
-
-        # - Return a resampled time series
-        return self.resample(vtSampleTimes, inplace=inplace)
 
     def merge(
         self,
@@ -1090,9 +856,9 @@ class TSContinuous(TimeSeries):
             fStep: np.float = (
                 np.mean(np.diff(self._times)) if vtTimes.step is None else vtTimes.step
             )
-            fStart: float = self._times[
-                0
-            ] if vtTimes.t_start is None else vtTimes.t_start
+            fStart: float = (
+                self._times[0] if vtTimes.t_start is None else vtTimes.t_start
+            )
             fStop: float = (
                 self._times[-1] + abs(fStep)
                 if vtTimes.t_stop is None
@@ -1138,163 +904,204 @@ class TSContinuous(TimeSeries):
                 self.samples.shape,
             )
 
-    def __add__(self, other):
-        return self.copy().__iadd__(other)
+    ## -- Operator overloading
 
-    def __radd__(self, other):
-        return self + other
+    # - Addition
 
-    def __iadd__(self, other):
-        # - Should we handle TimeSeries addition?
-        if isinstance(other, TimeSeries):
-            other_samples = self._compatible_shape(other(self.times))
+    def __add__(self, other_samples):
+        return self.copy().__iadd__(other_samples)
+
+    def __radd__(self, other_samples):
+        return self + other_samples
+
+    def __iadd__(self, other_samples):
+        if isinstance(other_samples, TSContinuous):
+            other_samples = self._compatible_shape(other_samples(self.times))
         else:
-            other_samples = self._compatible_shape(other)
+            other_samples = self._compatible_shape(other_samples)
 
         # - Treat NaNs as zero
-        mbIsNanSelf = np.isnan(self.samples)
-        mbIsNanOther = np.isnan(other_samples)
-        self.samples[mbIsNanSelf] = 0
-        other_samples[mbIsNanOther] = 0
+        is_nan_self = np.isnan(self.samples)
+        is_nan_other = np.isnan(other_samples)
+        self.samples[is_nan_self] = 0
+        other_samples[is_nan_other] = 0
 
         # - Perform addition
-        mfNewSamples = self.samples + other_samples
-        self.samples = mfNewSamples
+        new_samples = self.samples + other_samples
+        self.samples = new_samples
 
         # - Fill in nans
-        self.samples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
+        self.samples[np.logical_and(is_nan_self, is_nan_other)] = np.nan
 
-        # - Re-create interpolator
-        self._create_interpolator()
         return self
 
-    def __mul__(self, other):
-        return self.copy().__imul__(other)
+    # - Subtraction
 
-    def __rmul__(self, other):
-        return self * other
+    def __sub__(self, other_samples):
+        return self.copy().__isub__(other_samples)
 
-    def __imul__(self, other):
-        # - Should we handle TimeSeries subtraction?
-        if isinstance(other, TimeSeries):
-            other_samples = self._compatible_shape(other(self.times))
+    def __rsub__(self, other_samples):
+        return -(self - other_samples)
+
+    def __isub__(self, other_samples):
+        if isinstance(other_samples, TSContinuous):
+            other_samples = self._compatible_shape(other_samples(self.times))
         else:
-            other_samples = self._compatible_shape(other)
-
-        # - Propagate NaNs
-        mbIsNanSelf = np.isnan(self.samples)
-        mbIsNanOther = np.isnan(other_samples)
-
-        # - Perform multiplication
-        self.samples *= other_samples
-
-        # - Fill in nans
-        self.samples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
-
-        # - Re-create interpolator
-        self._create_interpolator()
-        return self
-
-    def __truediv__(self, other):
-        return self.copy().__idiv__(other)
-
-    def __rdiv__(self, other):
-        tsCopy = self.copy()
-        tsCopy.samples = 1 / tsCopy.samples
-        return tsCopy * other
-
-    def __idiv__(self, other):
-        # - Should we handle TimeSeries subtraction?
-        if isinstance(other, TimeSeries):
-            other_samples = self._compatible_shape(
-                np.reshape(other(self.times), (np.size(self.times), -1))
-            )
-        else:
-            other_samples = self._compatible_shape(other)
-
-        # - Propagate NaNs
-        mbIsNanSelf = np.isnan(self.samples)
-        mbIsNanOther = np.isnan(other_samples)
-
-        # - Perform division
-        self.samples /= other_samples
-
-        # - Fill in nans
-        self.samples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
-
-        # - Re-create interpolator
-        self._create_interpolator()
-        return self
-
-    def __floordiv__(self, other):
-        return self.copy().__ifloordiv__(other)
-
-    def __rfloordiv__(self, other):
-        tsCopy = self.copy()
-        tsCopy.samples = 1 / tsCopy.samples
-        return tsCopy // (1 / other)
-
-    def __ifloordiv__(self, other):
-        # - Should we handle TimeSeries subtraction?
-        if isinstance(other, TimeSeries):
-            other_samples = self._compatible_shape(other(self.times))
-        else:
-            other_samples = self._compatible_shape(other)
-
-        # - Propagate NaNs
-        mbIsNanSelf = np.isnan(self.samples)
-        mbIsNanOther = np.isnan(other_samples)
-
-        # - Perform division
-        self.samples //= other_samples
-
-        # - Fill in nans
-        self.samples[np.logical_or(mbIsNanSelf, mbIsNanOther)] = np.nan
-
-        # - Re-create interpolator
-        self._create_interpolator()
-        return self
-
-    def __abs__(self):
-        tsCopy = self.copy()
-        tsCopy.samples = np.abs(tsCopy.samples)
-        tsCopy._create_interpolator()
-        return tsCopy
-
-    def __sub__(self, other):
-        return self.copy().__isub__(other)
-
-    def __rsub__(self, other):
-        return -(self - other)
-
-    def __isub__(self, other):
-        # - Should we handle TimeSeries subtraction?
-        if isinstance(other, TimeSeries):
-            other_samples = self._compatible_shape(other(self.times))
-        else:
-            other_samples = self._compatible_shape(other)
+            other_samples = self._compatible_shape(other_samples)
 
         # - Treat NaNs as zero
-        mbIsNanSelf = np.isnan(self.samples)
-        mbIsNanOther = np.isnan(other_samples)
-        self.samples[mbIsNanSelf] = 0
-        other_samples[mbIsNanOther] = 0
+        is_nan_self = np.isnan(self.samples)
+        is_nan_other = np.isnan(other_samples)
+        self.samples[is_nan_self] = 0
+        other_samples[is_nan_other] = 0
 
         # - Perform subtraction
         self.samples -= other_samples
 
         # - Fill in nans
-        self.samples[np.logical_and(mbIsNanSelf, mbIsNanOther)] = np.nan
+        self.samples[np.logical_and(is_nan_self, is_nan_other)] = np.nan
+
+        return self
+
+    # - Multiplication
+
+    def __mul__(self, other_samples):
+        return self.copy().__imul__(other_samples)
+
+    def __rmul__(self, other_samples):
+        return self * other_samples
+
+    def __imul__(self, other_samples):
+        if isinstance(other_samples, TSContinuous):
+            other_samples = self._compatible_shape(other_samples(self.times))
+        else:
+            other_samples = self._compatible_shape(other_samples)
+
+        # - Propagate NaNs
+        is_nan_self = np.isnan(self.samples)
+        is_nan_other = np.isnan(other_samples)
+
+        # - Perform multiplication
+        self.samples *= other_samples
+
+        # - Fill in nans
+        self.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
+
+        return self
+
+    # - Division
+
+    def __truediv__(self, other_samples):
+        return self.copy().__itruediv__(other_samples)
+
+    def __rtruediv__(self, other_samples):
+        self_copy = self.copy()
+        self_copy.samples = 1 / self_copy.samples
+        return self_copy * other_samples
+
+    def __itruediv__(self, other_samples):
+        if isinstance(other_samples, TSContinuous):
+            other_samples = self._compatible_shape(
+                np.reshape(other_samples(self.times), (np.size(self.times), -1))
+            )
+        else:
+            other_samples = self._compatible_shape(other_samples)
+
+        # - Propagate NaNs
+        is_nan_self = np.isnan(self.samples)
+        is_nan_other = np.isnan(other_samples)
+
+        # - Perform division
+        self.samples /= other_samples
+
+        # - Fill in nans
+        self.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
 
         # - Re-create interpolator
         self._create_interpolator()
         return self
 
+    # - Floor division
+
+    def __floordiv__(self, other_samples):
+        return self.copy().__ifloordiv__(other_samples)
+
+    def __rfloordiv__(self, other_samples):
+        self_copy = self.copy()
+        self_copy.samples = 1 / self_copy.samples
+        return self_copy // (1 / other_samples)
+
+    def __ifloordiv__(self, other_samples):
+        if isinstance(other_samples, TSContinuous):
+            other_samples = self._compatible_shape(other_samples(self.times))
+        else:
+            other_samples = self._compatible_shape(other_samples)
+
+        # - Propagate NaNs
+        is_nan_self = np.isnan(self.samples)
+        is_nan_other = np.isnan(other_samples)
+
+        # - Perform division
+        self.samples //= other_samples
+
+        # - Fill in nans
+        self.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
+
+        return self
+
+    # - Exponentiation
+
+    def __pow__(self, exponent):
+        return self.copy().__ipow__(exponent)
+
+    def __rpow__(self, base):
+        new_series = self.copy()
+
+        base = new_series._compatible_shape(base)
+
+        # - Propagate NaNs
+        is_nan_self = np.isnan(new_series.samples)
+        is_nan_other = np.isnan(base)
+
+        # - Perform exponentiation
+        new_series.samples = base ** new_series.samples
+
+        # - Fill in nans
+        new_series.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
+
+        return new_series
+
+    def __ipow__(self, exponent):
+        if isinstance(exponent, TSContinuous):
+            exponent = self._compatible_shape(exponent(self.times))
+        else:
+            exponent = self._compatible_shape(exponent)
+
+        # - Propagate NaNs
+        is_nan_self = np.isnan(self.samples)
+        is_nan_other = np.isnan(exponent)
+
+        # - Perform exponentiation
+        self.samples **= exponent
+
+        # - Fill in nans
+        self.samples[np.logical_or(is_nan_self, is_nan_other)] = np.nan
+
+        return self
+
+    # - Absolute
+
+    def __abs__(self):
+        self_copy = self.copy()
+        self_copy.samples = np.abs(self_copy.samples)
+        return self_copy
+
+    # - Negative
+
     def __neg__(self):
-        tsCopy = self.copy()
-        tsCopy.samples = -tsCopy.samples
-        tsCopy._create_interpolator()
-        return tsCopy
+        self_copy = self.copy()
+        self_copy.samples = -self_copy.samples
+        return self_copy
 
     ## -- Properties
 
@@ -1303,31 +1110,31 @@ class TSContinuous(TimeSeries):
         return self._samples
 
     @samples.setter
-    def samples(self, mfNewSamples: ArrayLike):
+    def samples(self, new_samples: ArrayLike):
         # - Make sure that if assigned empty samples array, number of traces is implicityly
-        #   with as second dimension of `mfNewSamples`
-        if np.size(mfNewSamples) == 0 and np.ndim(mfNewSamples) > 2:
+        #   with as second dimension of `new_samples`
+        if np.size(new_samples) == 0 and np.ndim(new_samples) < 2:
             raise ValueError(
                 f"TSContinuous `{self.name}`: "
-                + "Empty mfSampels object must be 2D to allow infering the number of channels."
+                + "Empty samples object must be 2D to allow infering the number of channels."
             )
 
         # - Promote to 2d
-        mfNewSamples = np.atleast_2d(mfNewSamples)
+        new_samples = np.atleast_2d(new_samples)
 
         # - Permit a one-dimensional sample input, promote to 2d
-        if (mfNewSamples.shape[0] == 1) and (np.size(self.times) > 1):
-            mfNewSamples = np.reshape(mfNewSamples, (np.size(self.times), 1))
+        if (new_samples.shape[0] == 1) and (np.size(self.times) > 1):
+            new_samples = np.reshape(new_samples, (np.size(self.times), -1))
 
         # - Check samples for correct size
-        if mfNewSamples.shape[0] != np.size(self.times):
+        if new_samples.shape[0] != np.size(self.times):
             raise ValueError(
                 f"TSContinuous `{self.name}`: "
                 + "New samples matrix must have the same number of samples as `.times`."
             )
 
         # - Store new time trace
-        self._samples = mfNewSamples
+        self._samples = new_samples
 
         # - Create a new interpolator
         self._create_interpolator()
@@ -1339,13 +1146,13 @@ class TSContinuous(TimeSeries):
 
     @times.setter
     def times(self, new_times: ArrayLike):
-        super().times.fset(self, new_times)
+        super(TSContinuous, self.__class__).times.fset(self, new_times)
         # - Create a new interpolator
         self._create_interpolator()
 
     @property
-    def nNumTraces(self):
-        """nNumTraces - Synonymous to num_channels"""
+    def num_traces(self):
+        """num_traces - Synonymous to num_channels"""
         return self.samples.shape[1]
 
     @property
@@ -1397,7 +1204,7 @@ class TSEvent(TimeSeries):
         if times is None:
             times = np.array([])
         else:
-            times = np.array(times, "float").flatten()
+            times = np.atleast_1d(times).flatten().astype(float)
 
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
@@ -1466,17 +1273,13 @@ class TSEvent(TimeSeries):
             summary0 = s.join(
                 [
                     f"{t}: \t {ch}"
-                    for t, ch in zip(
-                        self.times[:num_first], self.channels[:num_first]
-                    )
+                    for t, ch in zip(self.times[:num_first], self.channels[:num_first])
                 ]
             )
             summary1 = s.join(
                 [
                     f"{t}: \t {ch}"
-                    for t, ch in zip(
-                        self.times[-num_last:], self.channels[-num_last:]
-                    )
+                    for t, ch in zip(self.times[-num_last:], self.channels[-num_last:])
                 ]
             )
             summary = summary0 + "\n\t...\n" + summary1
@@ -1666,7 +1469,7 @@ class TSEvent(TimeSeries):
                 t_start=t_start,
                 t_stop=t_stop,
                 channels=channels,
-                compress_channels=True,
+                compress_channels=False,
             )
             # - Make sure that last point is also included if `tDuration` is a
             #   multiple of dt. Therefore floor(...) + 1
@@ -1677,7 +1480,7 @@ class TSEvent(TimeSeries):
                 t_start=t_start,
                 t_stop=t_stop,
                 channels=channels,
-                compress_channels=True,
+                compress_channels=False,
             )
 
         # - Raster for storing event data
