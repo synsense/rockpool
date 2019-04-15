@@ -45,6 +45,7 @@ dModules = {
         "FFIAFNest",
         "RecIAFSpkInNest",
     ),
+    ".internal.filter_layer": "Filter",
 }
 
 
