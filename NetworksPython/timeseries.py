@@ -135,8 +135,8 @@ class TimeSeries:
         """
 
         # - Convert everything to numpy arrays
-        vtTimeTrace = np.asarray(vtTimeTrace).flatten().astype(float)
-        mfSamples = np.atleast_1d(mfSamples).astype(float)
+        vtTimeTrace = np.asarray(vtTimeTrace).flatten()#.astype(float)
+        mfSamples = np.atleast_1d(mfSamples)#.astype(float)
 
         # - Check arguments
         assert np.size(vtTimeTrace) == mfSamples.shape[0], (
@@ -149,7 +149,7 @@ class TimeSeries:
 
         # - Assign attributes
         self._vtTimeTrace = vtTimeTrace
-        self._mfSamples = mfSamples.astype("float")
+        self._mfSamples = mfSamples#.astype("float")
         self.strInterpKind = strInterpKind
         self.bPeriodic = bPeriodic
         self.strName = strName
