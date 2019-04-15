@@ -187,8 +187,8 @@ class FFExpSynBrian(Layer):
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1] + self.tDt]
+            vtEventTimes, vnEventChannels, _ = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.tDt
             )
             self._sggInput.set_spikes(
                 vnEventChannels, vtEventTimes * second, sorted=False
@@ -231,7 +231,7 @@ class FFExpSynBrian(Layer):
             vtTimeBaseOutput = np.concatenate((vtTimeBaseOutput, [self.t]))
             mfA = np.concatenate((mfA, np.reshape(self.vState, (1, self.nSize))))
 
-        return TSContinuous(vtTimeBaseOutput, mfA, strName="Receiver current")
+        return TSContinuous(vtTimeBaseOutput, mfA, name="Receiver current")
 
     ### --- Properties
 

@@ -1513,7 +1513,7 @@ class DynapseControl:
         :return:                list of FpgaSpikeEvent objects
         """
         # - Check that the number of channels is the same between time series and list of neurons
-        assert tsSeries.nNumChannels <= np.size(
+        assert tsSeries.num_channels <= np.size(
             vnNeuronIDs
         ), "`tsSeries` contains more channels than the number of neurons in `vnNeuronIDs`."
 
@@ -1521,10 +1521,10 @@ class DynapseControl:
         vnNeuronIDs = np.array(vnNeuronIDs)
 
         # - Get events from this time series
-        vtTimes, vnChannels, _ = tsSeries.find()
+        vtTimes, vnChannels = tsSeries()
 
         # - Convert to ISIs
-        tStartTime = tsSeries.tStart
+        tStartTime = tsSeries.t_start
         vtISIs = np.diff(np.r_[tStartTime, vtTimes])
         vnDiscreteISIs = (np.round(vtISIs / self.tFpgaIsiBase)).astype("int")
 
@@ -1826,7 +1826,7 @@ class DynapseControl:
 
         # - Process input arguments
         vnNeuronIDs = (
-            np.arange(tsSeries.nNumChannels)
+            np.arange(tsSeries.num_channels)
             if vnNeuronIDs is None
             else np.array(vnNeuronIDs)
         )
@@ -1928,7 +1928,7 @@ class DynapseControl:
 
         # - Prepare event list
         lEvents = self._arrays_to_spike_list(
-            vtTimeTrace=vtTimeTrace,
+            times=vtTimeTrace,
             vnTimeSteps=vnTimeSteps,
             vnChannels=vnChannels,
             vnNeuronIDs=vnNeuronIDs,
@@ -2010,7 +2010,7 @@ class DynapseControl:
         self.bufferedfilter.get_special_event_timestamps()
 
         # Time at which stimulation stops, including buffer
-        tStop = time.time() + tDuration + (0. if tBuffer is None else tBuffer)
+        t_stop = time.time() + tDuration + (0. if tBuffer is None else tBuffer)
 
         # - Stimulate
         self.fpgaSpikeGen.start()
@@ -2020,7 +2020,7 @@ class DynapseControl:
             return
 
         # - Until duration is over, record events and process in quick succession
-        while time.time() < tStop:
+        while time.time() < t_stop:
             if bRecord:
                 # - Collect events and possibly trigger events
                 lTriggerEvents += self.bufferedfilter.get_special_event_timestamps()
@@ -2062,7 +2062,7 @@ class DynapseControl:
 
         if vtTimeTrace.size == 0:
             return (
-                TSEvent([], [], tStart=0) if bTSEvent
+                TSEvent([], [], t_start=0) if bTSEvent
                 else (np.array([]), np.array([]))
             )
 
@@ -2090,15 +2090,15 @@ class DynapseControl:
 
         if bTSEvent:
             return TSEvent(
-                vtTimeTrace,
+                times,
                 vnChannels,
-                tStart=0,
-                tStop=tDuration,
-                nNumChannels=(
+                t_start=0,
+                t_stop=tDuration,
+                num_channels=(
                     np.amax(vnChannels) if vnNeuronIDs is None
                     else np.size(vnNeuronIDs)
                 ),
-                strName="DynapSE"
+                name="DynapSE"
             )
         else:
             return vtTimeTrace, vnChannels

@@ -317,8 +317,8 @@ class FFIAFBrian(Layer):
         )
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * np.asscalar(self.tDt)
-        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._nTimeStep * np.asscalar(self.tDt)
+        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
 
         # - Update layer time step
         self._nTimeStep += nNumTimeSteps
@@ -329,12 +329,12 @@ class FFIAFBrian(Layer):
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
         return TSEvent(
-            np.clip(vtEventTimeOutput, tStart, tStop),
+            np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
-            strName="Layer spikes",
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            name="Layer spikes",
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
     def stream(
@@ -640,8 +640,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1] + self.tDt]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.tDt
             )
             self._sggInput.set_spikes(
                 vnEventChannels, vtEventTimes * second, sorted=False
@@ -673,8 +673,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * np.asscalar(self.tDt)
-        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._nTimeStep * np.asscalar(self.tDt)
+        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
 
         # - Update layer time
         self._nTimeStep += nNumTimeSteps
@@ -685,12 +685,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
         return TSEvent(
-            np.clip(vtEventTimeOutput, tStart, tStop),
+            np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
-            strName="Layer spikes",
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            name="Layer spikes",
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
     def reset_time(self):
@@ -798,10 +798,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - End time of current batch
-        tStop = tStart + tDuration
+        t_stop = tStart + tDuration
 
         if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput.find([tStart, tStop])
+            vtEventTimes, vnEventChannels = tsInput(t_start=tStart, t_stop=t_stop)
         else:
             print("No tsInput defined, assuming input to be 0.")
             vtEventTimes, vnEventChannels = [], []
@@ -846,7 +846,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         ##  -- Compare target number of events with spikes and perform weight updates for chosen synapses
         # - Numbers of (output) spike times for each neuron
-        vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= tStop)
+        vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= t_stop)
         viSpkNeuronOut = self._spmLayer.i[vbUseEventOut]
         vnSpikeCount = np.array(
             [np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.nSize)]
@@ -1137,8 +1137,8 @@ class RecIAFBrian(Layer):
         )
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * np.asscalar(self.tDt)
-        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._nTimeStep * np.asscalar(self.tDt)
+        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
 
         # - Update layer time step
         self._nTimeStep += nNumTimeSteps
@@ -1149,12 +1149,12 @@ class RecIAFBrian(Layer):
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
         return TSEvent(
-            np.clip(vtEventTimeOutput, tStart, tStop),
+            np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
-            strName="Layer spikes",
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            name="Layer spikes",
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
     ### --- Properties
@@ -1447,8 +1447,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1] + self.tDt]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.tDt
             )
             self._sggInput.set_spikes(
                 vnEventChannels, vtEventTimes * second, sorted=False
@@ -1480,8 +1480,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
         )
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * np.asscalar(self.tDt)
-        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._nTimeStep * np.asscalar(self.tDt)
+        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
 
         # - Update layer time step
         self._nTimeStep += nNumTimeSteps
@@ -1492,12 +1492,12 @@ class RecIAFSpkInBrian(RecIAFBrian):
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
         return TSEvent(
-            np.clip(vtEventTimeOutput, tStart, tStop),
+            np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
-            strName="Layer spikes",
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            name="Layer spikes",
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
     def reset_time(self):

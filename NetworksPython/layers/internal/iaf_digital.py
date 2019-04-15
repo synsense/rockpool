@@ -343,8 +343,8 @@ class RecDIAF(Layer):
         self._heapRemainingSpikes = heapSpikes
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * self.tDt
-        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._nTimeStep * self.tDt
+        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
 
         # - Update time
         self._nTimeStep += nNumTimeSteps
@@ -356,11 +356,11 @@ class RecDIAF(Layer):
 
             # - Output time series
         return TSEvent(
-            np.clip(ltSpikeTimes, tStart, tStop),
+            np.clip(ltSpikeTimes, t_start, t_stop),
             liSpikeIDs,
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
     def _prepare_input(
@@ -393,13 +393,13 @@ class RecDIAF(Layer):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
                     tDuration = tsInput.tDuration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -419,8 +419,8 @@ class RecDIAF(Layer):
 
         # - Extract spike timings and channels
         if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput.find(
-                [self.t, (self._nTimeStep + nNumTimeSteps) * self.tDt]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=self.t, t_stop=(self._nTimeStep + nNumTimeSteps) * self.tDt
             )
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range

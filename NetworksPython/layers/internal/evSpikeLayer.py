@@ -55,8 +55,8 @@ class EventDrivenSpikingLayer(FFCLIAF):
 
         # Extract spike data from the input variable
         # TODO: Handle empty input time series
-        vSpk = tsInput.vtTimeTrace
-        vIdInput = tsInput.vnChannels
+        vSpk = tsInput.times
+        vIdInput = tsInput.channels
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -112,7 +112,7 @@ class EventDrivenSpikingLayer(FFCLIAF):
 
         mfSpk = np.row_stack(aSpk)
         evOut = TSEvent(
-            mfSpk[:, 0], mfSpk[:, 1], strName="Output", nNumChannels=self.nSize
+            mfSpk[:, 0], mfSpk[:, 1], name="Output", num_channels=self.nSize
         )
 
         # TODO: Is there a time series object for this too?

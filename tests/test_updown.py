@@ -28,8 +28,8 @@ def test_updown():
 
     # - Input signal
     tsInCont = TSContinuous(
-        vtTimeTrace=np.arange(15) * 0.01,
-        mfSamples=np.vstack(
+        times=np.arange(15) * 0.01,
+        samples=np.vstack(
             (np.sin(np.linspace(0, 1, 15)), np.cos(np.linspace(0, 1, 15)))
         ).T,
     )
@@ -63,8 +63,8 @@ def test_updown_in_net():
 
     # - Input signal
     tsInCont = TSContinuous(
-        vtTimeTrace=np.arange(15) * 0.01,
-        mfSamples=np.vstack(
+        times=np.arange(15) * 0.01,
+        samples=np.vstack(
             (np.sin(np.linspace(0, 1, 15)), np.cos(np.linspace(0, 1, 15)))
         ).T,
     )

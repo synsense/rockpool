@@ -88,14 +88,14 @@ def test_continuous_methods():
     assert ts1(2) == 2
     assert ts1(1.5) == 1.5
 
-    assert ts1.interpolate(0) == 0
-    assert ts1.interpolate(2) == 2
-    assert ts1.interpolate(1.5) == 1.5
+    assert ts1._interpolate(0) == 0
+    assert ts1._interpolate(2) == 2
+    assert ts1._interpolate(1.5) == 1.5
 
     # - Delay
     ts2 = ts1.delay(1)
-    assert ts1.tStart == 0
-    assert ts2.tStart == 1
+    assert ts1.t_start == 0
+    assert ts2.t_start == 1
 
     # - Contains
     assert ts1.contains(0)
@@ -105,48 +105,38 @@ def test_continuous_methods():
 
     # - Resample
     ts2 = ts1.resample([0.1, 1.1, 1.9])
-    ts3 = ts1.resample_within(0, 2, 0.1)
 
     # - Merge
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts3 = ts1.merge(ts2, bRemoveDuplicates=True)
-    assert np.size(ts3.mfSamples) == 3
-    assert np.size(ts1.mfSamples) == 3
-    assert np.size(ts2.mfSamples) == 3
+    ts3 = ts1.merge(ts2, remove_duplicates=True)
+    assert np.size(ts3.samples) == 3
+    assert np.size(ts1.samples) == 3
+    assert np.size(ts2.samples) == 3
 
-    ts3 = ts1.merge(ts2, bRemoveDuplicates=False)
-    assert np.size(ts3.mfSamples) == 6
+    ts3 = ts1.merge(ts2, remove_duplicates=False)
+    assert np.size(ts3.samples) == 6
 
     # - Append
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
     ts3 = ts1.append_t(ts2)
-    assert np.size(ts3.vtTimeTrace) == 6
+    assert np.size(ts3.times) == 6
 
-    ts3 = ts1.append(ts2)
-    assert ts3.nNumTraces == 2
-
-    # - Concatenate
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
-    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts3 = ts1.concatenate_t(ts2)
-    assert np.size(ts3.vtTimeTrace) == 6
-
-    ts3 = ts1.concatenate(ts2)
-    assert ts3.nNumTraces == 2
+    ts3 = ts1.append_c(ts2)
+    assert ts3.num_channels == 2
 
     # - isempty
     assert ~ts1.isempty()
-    assert TSContinuous([], []).isempty()
+    assert TSContinuous().isempty()
 
     # - clip
-    ts2 = ts1.clip([0.5, 1.5])
+    ts2 = ts1.clip(0.5, 1.5)
 
     # - Min / Max
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
-    assert ts1.min() == 0
-    assert ts1.max() == 2
+    assert ts1.min == 0
+    assert ts1.max == 2
 
 
 def test_continuous_inplace_mutation():
@@ -156,96 +146,35 @@ def test_continuous_inplace_mutation():
 
     # - Delay
     ts1.delay(1, inplace=True)
-    assert ts1.tStart == 1
+    assert ts1.t_start == 1
 
     # - Resample
     ts1.resample([0.125, 1.1, 1.9], inplace=True)
-    assert ts1.tStart == 0.125
-
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
-    ts1.resample_within(0, 1, 0.1, inplace=True)
-    assert ts1.tStop == 1
+    assert ts1.t_start == 0.125
 
     # - Merge
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.merge(ts2, bRemoveDuplicates=True, inplace=True)
-    assert np.size(ts1.mfSamples) == 3
+    ts1.merge(ts2, remove_duplicates=True, inplace=True)
+    assert np.size(ts1.samples) == 3
 
-    ts3 = ts1.merge(ts2, bRemoveDuplicates=False, inplace=True)
-    assert np.size(ts3.mfSamples) == 6
+    ts3 = ts1.merge(ts2, remove_duplicates=False, inplace=True)
+    assert np.size(ts3.samples) == 6
 
     # - Append
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
     ts1.append_t(ts2, inplace=True)
-    assert np.size(ts1.vtTimeTrace) == 6
+    assert np.size(ts1.times) == 6
 
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.append(ts2, inplace=True)
-    assert ts1.nNumTraces == 2
-
-    # - Concatenate
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
-    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.concatenate_t(ts2, inplace=True)
-    assert np.size(ts1.vtTimeTrace) == 6
-
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
-    ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
-    ts1.concatenate(ts2, inplace=True)
-    assert ts1.nNumTraces == 2
+    ts1.append_c(ts2, inplace=True)
+    assert ts1.num_channels == 2
 
     # - clip
-    ts1.clip([0.5, 1.5], inplace=True)
-    assert ts1.tStart == 0.5
-
-
-def test_event_operators():
-    """
-    Test creation and manipulation of a continuous time series
-    """
-    from NetworksPython import TSEvent
-
-    # - Creation
-    ts = TSEvent([0], [0])
-    ts = TSEvent([0, 1, 2, 3], [1, 2, 3, 4])
-    ts2 = TSEvent([1, 2, 3, 4], [5, 6, 7, 8])
-
-    # - Samples don't match time
-    with pytest.raises(AssertionError):
-        TSEvent([0, 1, 2], [0, 1])
-
-    # - Addition
-    ts = ts + 1
-    ts += 5
-    ts = ts + ts2
-    ts += ts2
-
-    # - Subtraction
-    ts = ts - 3
-    ts -= 2
-    ts = ts - ts2
-    ts -= ts2
-
-    # - Multiplication
-    ts = ts * 0.9
-    ts *= 0.2
-    ts = ts * ts2
-    ts *= ts2
-
-    # - Division
-    ts = ts / 2.0
-    ts /= 1.0
-    ts = ts / ts2
-    ts /= ts2
-
-    # - Floor division
-    ts = ts // 1.0
-    ts //= 1.0
-    ts = ts // ts2
-    ts //= ts2
+    ts1.clip(0.5, 1.5, inplace=True)
+    assert ts1.t_start == 0.5
 
 
 def test_TSEvent_raster():
@@ -262,13 +191,13 @@ def test_TSEvent_raster():
     assert raster.shape == (31, 4)
 
 
-def test_TSEvent_raster_explicit_nNumChannels():
+def test_TSEvent_raster_explicit_num_channels():
     """
     Test TSEvent raster method when the function is initialized with explicit number of Channels
     """
     from NetworksPython import TSEvent
 
-    testTSEvent = TSEvent([0, 30], 0, nNumChannels=5)
+    testTSEvent = TSEvent([0, 30], 0, num_channels=5)
     for i in range(1, 4):
         testTSEvent.merge(TSEvent(None, i), inplace=True)
 
@@ -283,13 +212,13 @@ def test_TSEvent_empty():
     from NetworksPython import TSEvent
 
     testTSEvent = TSEvent([], [])
-    assert testTSEvent.nNumChannels == 0
+    assert testTSEvent.num_channels == 0
 
     testTSEvent = TSEvent(None, None)
-    assert testTSEvent.nNumChannels == 0
+    assert testTSEvent.num_channels == 0
 
     testTSEvent = TSEvent()
-    assert testTSEvent.nNumChannels == 0
+    assert testTSEvent.num_channels == 0
 
 
 def test_TSEvent_append_c():
@@ -301,72 +230,72 @@ def test_TSEvent_append_c():
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
     series_list = []
-    series_list.append(TSEvent([1, 2], [2, 0], tStart=-1, tStop=2))
-    series_list.append(TSEvent([0, 1, 4], [1, 1, 0], tStart=0, tStop=6))
-    series_list.append(TSEvent([1], [0], tStart=0, tStop=2, nNumChannels=5))
+    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=2))
+    series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
+    series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
     # Merging two series
     appended_fromtwo = series_list[0].append_c(series_list[2])
     assert (
-        appended_fromtwo.nNumChannels == 8
+        appended_fromtwo.num_channels == 8
     ), "Wrong channel count for appended series."
-    assert appended_fromtwo.tStart == -1, "Wrong tStart for appended series."
-    assert appended_fromtwo.tStop == 2, "Wrong tStop for appended series."
+    assert appended_fromtwo.t_start == -1, "Wrong t_start for appended series."
+    assert appended_fromtwo.t_stop == 2, "Wrong t_stop for appended series."
     assert (
-        appended_fromtwo.vtTimeTrace == np.array([1, 1, 2])
+        appended_fromtwo.times == np.array([1, 1, 2])
     ).all(), "Wrong time trace for appended series."
-    assert (appended_fromtwo.vnChannels == np.array([2, 3, 0])).all() or (
-        appended_fromtwo.vnChannels == np.array([3, 2, 0])
+    assert (appended_fromtwo.channels == np.array([2, 3, 0])).all() or (
+        appended_fromtwo.channels == np.array([3, 2, 0])
     ).all(), "Wrong channels for appended series."
 
     # Merging with empty series
     appended_empty_first = empty_series.append_c(series_list[0])
     assert (
-        appended_empty_first.tStart == series_list[0].tStart
-    ), "Wrong tStart when appending with empty."
+        appended_empty_first.t_start == series_list[0].t_start
+    ), "Wrong t_start when appending with empty."
     assert (
-        appended_empty_first.tStop == series_list[0].tStop
-    ), "Wrong tStop when appending with empty."
+        appended_empty_first.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when appending with empty."
     assert (
-        appended_empty_first.nNumChannels == series_list[0].nNumChannels
+        appended_empty_first.num_channels == series_list[0].num_channels
     ), "Wrong channel count when appending with empty."
     assert (
-        appended_empty_first.vnChannels == series_list[0].vnChannels
+        appended_empty_first.channels == series_list[0].channels
     ).all(), "Wrong channels when appending with empty"
     assert (
-        appended_empty_first.vtTimeTrace == series_list[0].vtTimeTrace
+        appended_empty_first.times == series_list[0].times
     ).all(), "Wrong time trace when appending with empty"
     appended_empty_last = series_list[0].append_c(empty_series)
     assert (
-        appended_empty_last.tStart == series_list[0].tStart
-    ), "Wrong tStart when appending with empty."
+        appended_empty_last.t_start == series_list[0].t_start
+    ), "Wrong t_start when appending with empty."
     assert (
-        appended_empty_last.tStop == series_list[0].tStop
-    ), "Wrong tStop when appending with empty."
+        appended_empty_last.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when appending with empty."
     assert (
-        appended_empty_last.nNumChannels == series_list[0].nNumChannels
+        appended_empty_last.num_channels == series_list[0].num_channels
     ), "Wrong channel count when appending with empty."
     assert (
-        appended_empty_last.vnChannels == series_list[0].vnChannels
+        appended_empty_last.channels == series_list[0].channels
     ).all(), "Wrong channels when appending with empty"
     assert (
-        appended_empty_last.vtTimeTrace == series_list[0].vtTimeTrace
+        appended_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when appending with empty"
 
     # Merging with list of series
     appended_with_list = empty_series.append_c(series_list)
     assert (
-        appended_with_list.nNumChannels == 10
+        appended_with_list.num_channels == 10
     ), "Wrong channel count when appending with list."
-    assert appended_with_list.tStart == -1, "Wrong tStart when appending with list."
-    assert appended_with_list.tStop == 6, "Wrong tStop when appending with list."
+    assert appended_with_list.t_start == -1, "Wrong t_start when appending with list."
+    assert appended_with_list.t_stop == 6, "Wrong t_stop when appending with list."
     assert (
-        appended_with_list.vtTimeTrace == np.array([0, 1, 1, 1, 2, 4])
+        appended_with_list.times == np.array([0, 1, 1, 1, 2, 4])
     ).all(), "Wrong time trace when appending with list."
     # Allow permutations of events 1 to 3 because they have same time
     assert (
-        appended_with_list.vnChannels[[0, 4, 5]] == np.array([4, 0, 3])
-    ).all() and set(appended_with_list.vnChannels[1:4]) == set(
+        appended_with_list.channels[[0, 4, 5]] == np.array([4, 0, 3])
+    ).all() and set(appended_with_list.channels[1:4]) == set(
         (2, 4, 5)
     ), "Wrong channels when appending with list."
 
@@ -380,70 +309,70 @@ def test_TSEvent_append_t():
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
     series_list = []
-    series_list.append(TSEvent([1, 2], [2, 0], tStart=-1, tStop=2))
-    series_list.append(TSEvent([0, 1, 4], [1, 1, 0], tStart=0, tStop=6))
-    series_list.append(TSEvent([1], [0], tStart=0, tStop=2, nNumChannels=5))
+    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=2))
+    series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
+    series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
     # Merging two series
     appended_fromtwo = series_list[0].append_t(series_list[2])
     assert (
-        appended_fromtwo.nNumChannels == 5
+        appended_fromtwo.num_channels == 5
     ), "Wrong channel count for appended series."
-    assert appended_fromtwo.tStart == -1, "Wrong tStart for appended series."
-    assert appended_fromtwo.tStop == 4, "Wrong tStop for appended series."
+    assert appended_fromtwo.t_start == -1, "Wrong t_start for appended series."
+    assert appended_fromtwo.t_stop == 4, "Wrong t_stop for appended series."
     assert (
-        appended_fromtwo.vtTimeTrace == np.array([1, 2, 3])
+        appended_fromtwo.times == np.array([1, 2, 3])
     ).all(), "Wrong time trace for appended series."
     assert (
-        appended_fromtwo.vnChannels == np.array([2, 0, 0])
+        appended_fromtwo.channels == np.array([2, 0, 0])
     ).all(), "Wrong channels for appended series."
 
     # Merging with empty series
     appended_empty_first = empty_series.append_t(series_list[0])
     assert (
-        appended_empty_first.tStart == empty_series.tStart
-    ), "Wrong tStart when appending with empty."
+        appended_empty_first.t_start == empty_series.t_start
+    ), "Wrong t_start when appending with empty."
     assert (
-        appended_empty_first.tStop == series_list[0].tDuration + empty_series.tStart
-    ), "Wrong tStop when appending with empty."
+        appended_empty_first.t_stop == series_list[0].tDuration + empty_series.t_start
+    ), "Wrong t_stop when appending with empty."
     assert (
-        appended_empty_first.nNumChannels == series_list[0].nNumChannels
+        appended_empty_first.num_channels == series_list[0].num_channels
     ), "Wrong channel count when appending with empty."
     assert (
-        appended_empty_first.vnChannels == series_list[0].vnChannels
+        appended_empty_first.channels == series_list[0].channels
     ).all(), "Wrong channels when appending with empty"
     assert (
-        appended_empty_first.vtTimeTrace == np.array([2, 3])
+        appended_empty_first.times == np.array([2, 3])
     ).all(), "Wrong time trace when appending with empty"
     appended_empty_last = series_list[0].append_t(empty_series)
     assert (
-        appended_empty_last.tStart == series_list[0].tStart
-    ), "Wrong tStart when appending with empty."
+        appended_empty_last.t_start == series_list[0].t_start
+    ), "Wrong t_start when appending with empty."
     assert (
-        appended_empty_last.tStop == series_list[0].tStop
-    ), "Wrong tStop when appending with empty."
+        appended_empty_last.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when appending with empty."
     assert (
-        appended_empty_last.nNumChannels == series_list[0].nNumChannels
+        appended_empty_last.num_channels == series_list[0].num_channels
     ), "Wrong channel count when appending with empty."
     assert (
-        appended_empty_last.vnChannels == series_list[0].vnChannels
+        appended_empty_last.channels == series_list[0].channels
     ).all(), "Wrong channels when appending with empty"
     assert (
-        appended_empty_last.vtTimeTrace == series_list[0].vtTimeTrace
+        appended_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when appending with empty"
 
     # Merging with list of series
     appended_with_list = empty_series.append_t(series_list, offset=[3, 2, 1])
     assert (
-        appended_with_list.nNumChannels == 5
+        appended_with_list.num_channels == 5
     ), "Wrong channel count when appending with list."
-    assert appended_with_list.tStart == 0, "Wrong tStart when appending with list."
-    assert appended_with_list.tStop == 17, "Wrong tStop when appending with list."
+    assert appended_with_list.t_start == 0, "Wrong t_start when appending with list."
+    assert appended_with_list.t_stop == 17, "Wrong t_stop when appending with list."
     assert (
-        appended_with_list.vtTimeTrace == np.array([5, 6, 8, 9, 12, 16])
+        appended_with_list.times == np.array([5, 6, 8, 9, 12, 16])
     ).all(), "Wrong time trace when appending with list."
     assert (
-        appended_with_list.vnChannels == np.array([2, 0, 1, 1, 0, 0])
+        appended_with_list.channels == np.array([2, 0, 1, 1, 0, 0])
     ).all(), "Wrong channels when appending with list."
 
 
@@ -456,68 +385,68 @@ def test_TSEvent_merge():
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
     series_list = []
-    series_list.append(TSEvent([1, 2], [2, 0], tStart=-1, tStop=2))
-    series_list.append(TSEvent([0, 1, 4], [1, 1, 0], tStart=0, tStop=6))
-    series_list.append(TSEvent([1], [0], tStart=0, tStop=2, nNumChannels=5))
+    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=2))
+    series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
+    series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
     # Merging two series
     merged_fromtwo = series_list[0].merge(series_list[2])
-    assert merged_fromtwo.nNumChannels == 5, "Wrong channel count for merged series."
-    assert merged_fromtwo.tStart == -1, "Wrong tStart for merged series."
-    assert merged_fromtwo.tStop == 2, "Wrong tStop for merged series."
+    assert merged_fromtwo.num_channels == 5, "Wrong channel count for merged series."
+    assert merged_fromtwo.t_start == -1, "Wrong t_start for merged series."
+    assert merged_fromtwo.t_stop == 2, "Wrong t_stop for merged series."
     assert (
-        merged_fromtwo.vtTimeTrace == np.array([1, 1, 2])
+        merged_fromtwo.times == np.array([1, 1, 2])
     ).all(), "Wrong time trace for merged series."
-    assert (merged_fromtwo.vnChannels == np.array([2, 0, 0])).all() or (
-        merged_fromtwo.vnChannels == np.array([0, 2, 0])
+    assert (merged_fromtwo.channels == np.array([2, 0, 0])).all() or (
+        merged_fromtwo.channels == np.array([0, 2, 0])
     ).all(), "Wrong channels for merged series."
 
     # Merging with empty series
     merged_empty_first = empty_series.merge(series_list[0])
     assert (
-        merged_empty_first.tStart == series_list[0].tStart
-    ), "Wrong tStart when merging with empty."
+        merged_empty_first.t_start == series_list[0].t_start
+    ), "Wrong t_start when merging with empty."
     assert (
-        merged_empty_first.tStop == series_list[0].tStop
-    ), "Wrong tStop when merging with empty."
+        merged_empty_first.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when merging with empty."
     assert (
-        merged_empty_first.nNumChannels == series_list[0].nNumChannels
+        merged_empty_first.num_channels == series_list[0].num_channels
     ), "Wrong channel count when merging with empty."
     assert (
-        merged_empty_first.vnChannels == series_list[0].vnChannels
+        merged_empty_first.channels == series_list[0].channels
     ).all(), "Wrong channels when merging with empty"
     assert (
-        merged_empty_first.vtTimeTrace == series_list[0].vtTimeTrace
+        merged_empty_first.times == series_list[0].times
     ).all(), "Wrong time trace when merging with empty"
     merged_empty_last = series_list[0].merge(empty_series)
     assert (
-        merged_empty_last.tStart == series_list[0].tStart
-    ), "Wrong tStart when merging with empty."
+        merged_empty_last.t_start == series_list[0].t_start
+    ), "Wrong t_start when merging with empty."
     assert (
-        merged_empty_last.tStop == series_list[0].tStop
-    ), "Wrong tStop when merging with empty."
+        merged_empty_last.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when merging with empty."
     assert (
-        merged_empty_last.nNumChannels == series_list[0].nNumChannels
+        merged_empty_last.num_channels == series_list[0].num_channels
     ), "Wrong channel count when merging with empty."
     assert (
-        merged_empty_last.vnChannels == series_list[0].vnChannels
+        merged_empty_last.channels == series_list[0].channels
     ).all(), "Wrong channels when merging with empty"
     assert (
-        merged_empty_last.vtTimeTrace == series_list[0].vtTimeTrace
+        merged_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when merging with empty"
 
     # Merging with list of series
     merged_with_list = empty_series.merge(series_list, delay=[3, 2, 1])
     assert (
-        merged_with_list.nNumChannels == 5
+        merged_with_list.num_channels == 5
     ), "Wrong channel count when merging with list."
-    assert merged_with_list.tStart == 0, "Wrong tStart when merging with list."
-    assert merged_with_list.tStop == 8, "Wrong tStop when merging with list."
+    assert merged_with_list.t_start == 0, "Wrong t_start when merging with list."
+    assert merged_with_list.t_stop == 8, "Wrong t_stop when merging with list."
     assert (
-        merged_with_list.vtTimeTrace == np.array([2, 2, 3, 4, 5, 6])
+        merged_with_list.times == np.array([2, 2, 3, 4, 5, 6])
     ).all(), "Wrong time trace when merging with list."
-    assert (merged_with_list.vnChannels == np.array([1, 0, 1, 2, 0, 0])).all() or (
-        merged_with_list.vnChannels == np.array([0, 1, 1, 2, 0, 0])
+    assert (merged_with_list.channels == np.array([1, 0, 1, 2, 0, 0])).all() or (
+        merged_with_list.channels == np.array([0, 1, 1, 2, 0, 0])
     ).all(), "Wrong channels when merging with list."
 
 
@@ -529,20 +458,20 @@ def test_save_load():
     from os import remove
 
     # - Generate time series objects
-    vtTimeTrace = [1, 3, 6]
-    mfSamples = np.random.randn(3)
-    vnChannels = [0, 1, 1]
+    times = [1, 3, 6]
+    samples = np.random.randn(3)
+    channels = [0, 1, 1]
     tsc = TSContinuous(
-        vtTimeTrace, mfSamples, tStart=-1, tStop=8, bPeriodic=True, strName="continuous"
+        times, samples, t_start=-1, t_stop=8, periodic=True, name="continuous"
     )
     tse = TSEvent(
-        vtTimeTrace,
-        vnChannels,
-        nNumChannels=3,
-        tStart=-1,
-        tStop=8,
-        bPeriodic=True,
-        strName="events",
+        times,
+        channels,
+        num_channels=3,
+        t_start=-1,
+        t_stop=8,
+        periodic=True,
+        name="events",
     )
     # - Store objects
     tsc.save("test_tsc")
@@ -551,21 +480,21 @@ def test_save_load():
     tscl = load_ts_from_file("test_tsc.npz")
     tsel = load_ts_from_file("test_tse.npz")
     # - Verify that attributes are still correct
-    assert (tscl.vtTimeTrace == vtTimeTrace).all(), "TSContinuous: vtTimeTrace changed."
+    assert (tscl.times == times).all(), "TSContinuous: times changed."
     assert (
-        tscl.mfSamples == mfSamples.reshape(-1, 1)
-    ).all(), "TSContinuous: mfSamples changed."
-    assert tscl.strName == "continuous", "TSContinuous: strName changed."
-    assert tscl.tStart == -1, "TSContinuous: tStart changed."
-    assert tscl.tStop == 8, "TSContinuous: tStop changed."
-    assert tscl.bPeriodic, "TSContinuous: bPeriodic changed."
-    assert (tsel.vtTimeTrace == vtTimeTrace).all(), "TSEvent: vtTimeTrace changed."
-    assert (tsel.vnChannels == vnChannels).all(), "TSEvent: vnChannels changed."
-    assert tsel.strName == "events", "TSEvent: strName changed."
-    assert tsel.tStart == -1, "TSEvent: tStart changed."
-    assert tsel.tStop == 8, "TSEvent: tStop changed."
-    assert tsel.bPeriodic, "TSEvent: bPeriodic changed."
-    assert tsel.nNumChannels == 3, "TSEvent: nNumChannels changed."
+        tscl.samples == samples.reshape(-1, 1)
+    ).all(), "TSContinuous: samples changed."
+    assert tscl.name == "continuous", "TSContinuous: name changed."
+    assert tscl.t_start == -1, "TSContinuous: t_start changed."
+    assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
+    assert tscl.periodic, "TSContinuous: periodic changed."
+    assert (tsel.times == times).all(), "TSEvent: times changed."
+    assert (tsel.channels == channels).all(), "TSEvent: channels changed."
+    assert tsel.name == "events", "TSEvent: name changed."
+    assert tsel.t_start == -1, "TSEvent: t_start changed."
+    assert tsel.t_stop == 8, "TSEvent: t_stop changed."
+    assert tsel.periodic, "TSEvent: periodic changed."
+    assert tsel.num_channels == 3, "TSEvent: num_channels changed."
     # - Remove saved files
     remove("test_tsc.npz")
     remove("test_tse.npz")

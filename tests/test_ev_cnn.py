@@ -42,14 +42,14 @@ def test_cnn_evolve():
     lyrCNN = EventDrivenSpikingLayer(mfW=cnnW, vfVThresh=0.5, strName="CNN")
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(lyrCNN.nSize):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace = True)
+        evInput.merge(TSEvent(vSpk, nId), inplace = True)
 
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
-    print(evOut.find())
+    print(evOut())
 
 
 def test_cnn_multilayer():
@@ -74,10 +74,10 @@ def test_cnn_multilayer():
     net = Network(*[lyrCnn1, lyrCnn2])
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(imageShape[0] * imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace = True)
+        evInput.merge(TSEvent(vSpk, nId), inplace = True)
 
     # Evolve
     evOut = net.evolve(tsInput=evInput, tDuration=100)

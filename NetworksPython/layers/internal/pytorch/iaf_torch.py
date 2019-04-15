@@ -278,12 +278,12 @@ class FFIAFTorch(Layer):
             )
 
         # - Start and stop times for output time series
-        tStart = nTimeStepStart * self.tDt
-        tStop = (nTimeStepStart + nNumTimeSteps) * self.tDt
+        t_start = nTimeStepStart * self.tDt
+        t_stop = (nTimeStepStart + nNumTimeSteps) * self.tDt
 
         # - Output timeseries
         if (mbSpiking == 0).all():
-            tseOut = TSEvent(None, tStart=tStart, tStop=tStop, nNumChannels=self.nSize)
+            tseOut = TSEvent(None, t_start=t_start, t_stop=t_stop, num_channels=self.nSize)
         else:
             vnSpikeTimeIndices, vnChannels = torch.nonzero(mbSpiking).t()
             vtSpikeTimings = (
@@ -291,14 +291,14 @@ class FFIAFTorch(Layer):
             ).float() * self.tDt
 
             tseOut = TSEvent(
-                vtTimeTrace=np.clip(
-                    vtSpikeTimings.numpy(), tStart, tStop - fTolAbs * 10 ** 6
+                times=np.clip(
+                    vtSpikeTimings.numpy(), t_start, t_stop - fTolAbs * 10 ** 6
                 ),  # Clip due to possible numerical errors
-                vnChannels=vnChannels.numpy(),
-                nNumChannels=self.nSize,
-                strName="Layer `{}` spikes".format(self.strName),
-                tStart=tStart,
-                tStop=tStop,
+                channels=vnChannels.numpy(),
+                num_channels=self.nSize,
+                name="Layer `{}` spikes".format(self.strName),
+                t_start=t_start,
+                t_stop=t_stop,
             )
 
         return tseOut
@@ -465,13 +465,13 @@ class FFIAFTorch(Layer):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
                     tDuration = tsInput.tDuration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -490,29 +490,29 @@ class FFIAFTorch(Layer):
         if tsInput is not None:
             # - Make sure vtTimeBase matches tsInput
             if not isinstance(tsInput, TSEvent):
-                if not tsInput.bPeriodic:
-                    # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
+                if not tsInput.periodic:
+                    # - If time base limits are very slightly beyond tsInput.t_start and tsInput.t_stop, match them
                     if (
-                        tsInput.tStart - 1e-3 * self.tDt
+                        tsInput.t_start - 1e-3 * self.tDt
                         <= vtTimeBase[0]
-                        <= tsInput.tStart
+                        <= tsInput.t_start
                     ):
-                        vtTimeBase[0] = tsInput.tStart
+                        vtTimeBase[0] = tsInput.t_start
                     if (
-                        tsInput.tStop
+                        tsInput.t_stop
                         <= vtTimeBase[-1]
-                        <= tsInput.tStop + 1e-3 * self.tDt
+                        <= tsInput.t_stop + 1e-3 * self.tDt
                     ):
-                        vtTimeBase[-1] = tsInput.tStop
+                        vtTimeBase[-1] = tsInput.t_stop
 
                 # - Warn if evolution period is not fully contained in tsInput
-                if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
+                if not (tsInput.contains(vtTimeBase) or tsInput.periodic):
                     print(
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
                             self.strName, vtTimeBase[0], vtTimeBase[-1]
                         )
                         + "not fully contained in input signal (t = {} to {})".format(
-                            tsInput.tStart, tsInput.tStop
+                            tsInput.t_start, tsInput.t_stop
                         )
                     )
 
@@ -857,13 +857,13 @@ class FFIAFSpkInTorch(FFIAFTorch):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
                     tDuration = tsInput.tDuration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -881,11 +881,11 @@ class FFIAFSpkInTorch(FFIAFTorch):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mfSpikeRaster = tsInput.raster(
-                tDt=self.tDt,
-                tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                vnSelectChannels=np.arange(self.nSizeIn),
+            mfSpikeRaster = tsInput.raster(
+                dt=self.tDt,
+                t_start=self.t,
+                t_stop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                channels=np.arange(self.nSizeIn),
             )
             # - Convert to supported format
             mfSpikeRaster = mfSpikeRaster.astype(int)
@@ -1583,13 +1583,13 @@ class RecIAFSpkInTorch(RecIAFTorch):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
                     tDuration = tsInput.tDuration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -1607,14 +1607,14 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mnSpikeRaster = tsInput.raster(
-                tDt=self.tDt,
-                tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                vnSelectChannels=np.arange(
+            mnSpikeRaster = tsInput.raster(
+                dt=self.tDt,
+                t_start=self.t,
+                t_stop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                channels=np.arange(
                     self.nSizeIn
                 ),  # This causes problems when tsInput has no events in some channels
-                bAddEvents=self.bAddEvents,  # Allow for multiple input spikes per time step
+                add_events=self.bAddEvents,  # Allow for multiple input spikes per time step
             )
             # - Convert to supportedformat
             mnSpikeRaster = mnSpikeRaster.astype(int)

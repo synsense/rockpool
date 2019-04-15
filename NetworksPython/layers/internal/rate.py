@@ -391,14 +391,14 @@ class FFRateEuler(Layer):
 
         # - Discrete time steps for evaluating input and target time series
         nNumTimeSteps = int(np.round(tsInput.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsInput.tStart, nNumTimeSteps)
+        vtTimeBase = self._gen_time_trace(tsInput.t_start, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
         # - Make sure vtTimeBase does not exceed tsInput
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsInput.tStop]
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsInput.t_stop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -429,15 +429,15 @@ class FFRateEuler(Layer):
         # Warn if input time range does not cover whole target time range
         if (
             not tsTarget.contains(vtTimeBase)
-            and not tsInput.bPeriodic
-            and not tsTarget.bPeriodic
+            and not tsInput.periodic
+            and not tsTarget.periodic
         ):
             warn(
                 "WARNING: tsInput (t = {} to {}) does not cover ".format(
-                    tsInput.tStart, tsInput.tStop
+                    tsInput.t_start, tsInput.t_stop
                 )
                 + "full time range of tsTarget (t = {} to {})\n".format(
-                    tsTarget.tStart, tsTarget.tStop
+                    tsTarget.t_start, tsTarget.t_stop
                 )
                 + "Assuming input to be 0 outside of defined range.\n"
                 + "If you are training by batches, check that the target signal is also split by batch.\n"
@@ -658,7 +658,7 @@ class PassThrough(FFRateEuler):
 
             # - Buffered data: last point of buffer data corresponds to self.t,
             #   which is also part of current input
-            mfSamplesComb[:-nStepsIn] = self.tsBuffer.mfSamples[:-1]
+            mfSamplesComb[:-nStepsIn] = self.tsBuffer.samples[:-1]
 
             # - Processed input data (weights and noise)
             mfSamplesComb[-nStepsIn:] = mfInProcessed
@@ -667,7 +667,7 @@ class PassThrough(FFRateEuler):
             mfSamplesOut = mfSamplesComb[:nStepsIn]
 
             # - Update buffer with new data
-            self.tsBuffer.mfSamples = mfSamplesComb[nStepsIn - 1 :]
+            self.tsBuffer.samples = mfSamplesComb[nStepsIn - 1 :]
 
         else:
             # - Undelayed processed input
@@ -694,7 +694,7 @@ class PassThrough(FFRateEuler):
     @property
     def mfBuffer(self):
         if self.tsBuffer is not None:
-            return self.tsBuffer.mfSamples
+            return self.tsBuffer.samples
         else:
             print("This layer does not use a delay.")
 
