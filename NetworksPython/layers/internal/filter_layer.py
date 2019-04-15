@@ -13,8 +13,7 @@ class Filter(Layer):
         mfW: np.ndarray,
         filterName: str,
         fs: float,
-        vfBias: Union[float, np.ndarray] = 0,
-        tDt: float = 0.1 ,
+        tDt: float = 0.001 ,
         strName: str = "unnamed",
     ):
         """
@@ -41,13 +40,11 @@ class Filter(Layer):
         self.fs = fs
         self.nNumTraces = mfW.shape[1]
         self.filtFunct = function_Filterbank(filterName)
-        self.vfBias = vfBias
         self.mfW = mfW
         self._nTimeStep = 0
 
     def reset_all(self):
         self.mfW = np.copy(self.mfW)
-        vfBias = np.copy(self.vfBias)
         self._nTimeStep = 0
 
     def evolve(
@@ -63,13 +60,15 @@ class Filter(Layer):
             tsInput, tDuration, nNumTimeSteps
         )
 
-        filtOuput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.fs, bSamelength=False, order=2)
+
+        filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.fs, bSamelength=False, order=2)
+        filtOutput= self.mfW * filtOutput
 
         self._nTimeStep += mfInputStep.shape[0] - 1
 
         return TSContinuous(
             vtTimeBase,
-            filtOuput,
+            filtOutput,
             strName="filteredInput",
         )
 
