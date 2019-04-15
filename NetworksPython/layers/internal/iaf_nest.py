@@ -76,8 +76,9 @@ class FFIAFNest(Layer):
             import nest
 
             numCPUs = multiprocessing.cpu_count()
-            if self.numCores >= numCPUs:
-                self.numCores = numCPUs
+            print("NEST: avail cores", numCPUs)
+            # if self.numCores >= numCPUs:
+            #    self.numCores = numCPUs
 
             nest.ResetKernel()
             nest.hl_api.set_verbosity("M_FATAL")
@@ -190,7 +191,9 @@ class FFIAFNest(Layer):
                 nest.SetStatus(self._scg, [{'amplitude_times': vtTimeBase, 'amplitude_values': V2mV(
                     mfInputStep[:, i])} for i in range(len(self._scg))])
 
-                if nest.GetKernelStatus("time") == 0:
+                startTime = nest.GetKernelStatus("time")
+
+                if startTime == 0:
                     # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
                     # the recording has one entry less in the first batch
                     nest.Simulate(nNumTimeSteps * self.tDt + 1.0)
@@ -200,14 +203,27 @@ class FFIAFNest(Layer):
                 # - record states
                 if self.bRecord:
                     events = nest.GetStatus(self._mm, 'events')[0]
-                    vbUseEvent = events['times'] >= vtTimeBase[0]
+                    vbUseEvent = events['times'] >= startTime
+
+                    senders = events['senders'][vbUseEvent]
+                    times = events['times'][vbUseEvent]
                     vms = events['V_m'][vbUseEvent]
-                    mfRecordStates = np.reshape(
-                        vms, [self.nSize, int(len(vms) / self.nSize)], order="F")
+
+                    mfRecordStates = []
+                    u_senders = np.unique(senders)
+                    for i, nid in enumerate(u_senders):
+                        ind = np.where(senders == nid)[0]
+                        _times = times[ind]
+
+                        order = np.argsort(_times)
+                        _vms = vms[ind][order]
+                        mfRecordStates.append(_vms)
+
+                    mfRecordStates = np.array(mfRecordStates)
 
                 # - Build response TimeSeries
                 events = nest.GetStatus(self._sd, 'events')[0]
-                vbUseEvent = events['times'] >= vtTimeBase[0]
+                vbUseEvent = events['times'] >= startTime
                 vtEventTimeOutput = ms2s(events['times'][vbUseEvent])
                 vnEventChannelOutput = events['senders'][vbUseEvent]
 
@@ -233,6 +249,7 @@ class FFIAFNest(Layer):
 
             while True:
                 req = self.requestQ.get()
+
                 func = IPC_switcher.get(req[0])
 
                 result = func(*req[1:])
@@ -391,6 +408,7 @@ class FFIAFNest(Layer):
         :return:                TSEvent  output spike series
 
         """
+        print("NetworkPython Evolve FF")
         # - Prepare time base
         vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
@@ -421,6 +439,10 @@ class FFIAFNest(Layer):
         )
 
     def terminate(self):
+        self.requestQ.close()
+        self.resultQ.close()
+        self.requestQ.cancel_join_thread()
+        self.resultQ.cancel_join_thread()
         self.nestProcess.terminate()
         self.nestProcess.join()
 
@@ -553,8 +575,10 @@ class RecIAFSpkInNest(Layer):
             import nest
 
             numCPUs = multiprocessing.cpu_count()
-            if self.numCores >= numCPUs:
-                self.numCores = numCPUs
+            # if self.numCores >= numCPUs:
+            #    self.numCores = numCPUs
+
+            print("NEST: avail cores", numCPUs)
 
             nest.ResetKernel()
             nest.hl_api.set_verbosity("M_FATAL")
@@ -622,7 +646,7 @@ class RecIAFSpkInNest(Layer):
             # - Add stimulation device
             self._sg = nest.Create("spike_generator", self.mfWIn.shape[0])
 
-            # - Create stimulation connections
+            # - Create recurrent connections
             pres = []
             posts = []
             weights = []
@@ -633,11 +657,17 @@ class RecIAFSpkInNest(Layer):
                         continue
                     pres.append(self._sg[pre])
                     posts.append(self._pop[post])
-                    weights.append(w)
 
             nest.Connect(pres, posts, 'one_to_one')
-            nest.SetStatus(nest.GetConnections(self._sg, self._pop), [
-                           {'weight': w, 'delay': self.tDt} for w in weights])
+            conns = nest.GetConnections(self._sg, self._pop)
+            connsPrePost = nest.GetStatus(conns, ['source', 'target'])
+            for i, c in enumerate(conns):
+                pre = connsPrePost[i][0] - np.min(self._sg)
+                post = connsPrePost[i][1] - np.min(self._pop)
+                weights.append(self.mfWIn[pre, post])
+
+            nest.SetStatus(
+                conns, [{'weight': w, 'delay': self.tDt} for w in weights])
 
             # - Create recurrent connections
             pres = []
@@ -650,11 +680,17 @@ class RecIAFSpkInNest(Layer):
                         continue
                     pres.append(self._pop[pre])
                     posts.append(self._pop[post])
-                    weights.append(w)
 
             nest.Connect(pres, posts, 'one_to_one')
-            nest.SetStatus(nest.GetConnections(self._pop, self._pop), [
-                           {'weight': w, 'delay': self.tDt} for w in weights])
+            conns = nest.GetConnections(self._pop, self._pop)
+            connsPrePost = nest.GetStatus(conns, ['source', 'target'])
+            for i, c in enumerate(conns):
+                pre = connsPrePost[i][0] - np.min(self._pop)
+                post = connsPrePost[i][1] - np.min(self._pop)
+                weights.append(self.mfWRec[pre, post])
+
+            nest.SetStatus(
+                conns, [{'weight': w, 'delay': self.tDt} for w in weights])
 
             if self.bRecord:
                 # - Monitor for recording network potential
@@ -718,9 +754,21 @@ class RecIAFSpkInNest(Layer):
                 if self.bRecord:
                     events = nest.GetStatus(self._mm, 'events')[0]
                     vbUseEvent = events['times'] >= startTime
+
+                    senders = events['senders'][vbUseEvent]
+                    times = events['times'][vbUseEvent]
                     vms = events['V_m'][vbUseEvent]
-                    mfRecordStates = np.reshape(
-                        vms, [self.nSize, int(len(vms)/self.nSize)], order="F")
+
+                    mfRecordStates = []
+                    u_senders = np.unique(senders)
+                    for i, nid in enumerate(u_senders):
+                        ind = np.where(senders == nid)[0]
+                        _times = times[ind]
+                        order = np.argsort(_times)
+                        _vms = vms[ind][order]
+                        mfRecordStates.append(_vms)
+
+                    mfRecordStates = np.array(mfRecordStates)
 
                 # - Build response TimeSeries
                 events = nest.GetStatus(self._sd, 'events')[0]
@@ -922,6 +970,8 @@ class RecIAFSpkInNest(Layer):
 
         """
 
+        print("NetworkPython Evolve")
+
         # - Prepare time base
         nNumTimeSteps = self._determine_timesteps(
             tsInput, tDuration, nNumTimeSteps)
@@ -963,6 +1013,10 @@ class RecIAFSpkInNest(Layer):
         )
 
     def terminate(self):
+        self.requestQ.close()
+        self.resultQ.close()
+        self.requestQ.cancel_join_thread()
+        self.resultQ.cancel_join_thread()
         self.nestProcess.terminate()
         self.nestProcess.join()
 

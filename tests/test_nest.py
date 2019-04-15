@@ -3,6 +3,7 @@ Test Nest-based spiking layers from layers.internal.iaf_nest
 """
 
 import numpy as np
+import time
 import pylab as plt
 
 from NetworksPython.timeseries import SetPlottingBackend
@@ -115,50 +116,13 @@ def test_FFNestLayer():
         vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
     )
 
-    # - Compare states and time before and after
+    # - Compare states before and after
     vStateBefore = np.copy(fl0.vState)
     dFl0 = fl0.evolve(tsInCont, tDuration=0.1)
 
     dFl0 = fl0.evolve(tsInCont, tDuration=0.1)
 
     assert fl0.t == 0.2
-    assert (vStateBefore != fl0.vState).any()
-
-    fl0.reset_all()
-    assert fl0.t == 0
-    assert (vStateBefore == fl0.vState).all()
-
-
-def test_Multithreading():
-    """ Test RecIAFNest"""
-    from NetworksPython.layers import RecIAFSpkInNest
-    import numpy as np
-
-    # - Generic parameters
-    mfWIn = np.random.rand(1, 1024) * 0.001
-    mfWRec = np.random.rand(1024, 1024) * 0.001
-    vfBias = 0.02
-    vtTauN = 0.01
-    vtTauS = 0.01
-
-    # - Layer generation
-    fl0 = RecIAFSpkInNest(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
-        tDt=0.001,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        tRefractoryTime=0.001,
-        bRecord=True,
-        nNumCores=10,
-    )
-
-    # - Compare states and time before and after
-    vStateBefore = np.copy(fl0.vState)
-    dFl0 = fl0.evolve(tDuration=1.0)
-
-    assert fl0.t == 1.
     assert (vStateBefore != fl0.vState).any()
 
     fl0.reset_all()
@@ -190,7 +154,7 @@ def test_RecNestLayer():
         bRecord=True,
     )
 
-    # - Compare states and time before and after
+    # - Compare states before and after
     vStateBefore = np.copy(fl0.vState)
     dFl0 = fl0.evolve(tDuration=0.2)
 
@@ -259,7 +223,7 @@ def test_FFToRecLayer():
 
     tsInCont = ts.TSContinuous(vTime, vVal)
 
-    # - Compare states and time before and after
+    # - Compare states before and after
     vStateBefore = np.copy(fl1.vState)
 
     dAct = net.evolve(tsInCont, tDuration=1.0)
@@ -364,7 +328,7 @@ def test_recording():
         vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
     )
 
-    # - Compare states and time before and after
+    # - Compare states before and after
     vStateBefore = np.copy(fl0.vState)
     dFl0 = fl0.evolve(tsInCont, tDuration=0.1)
 
@@ -428,7 +392,7 @@ def test_FFToRecLayerRepeat():
 
     tsInCont = ts.TSContinuous(vTime, vVal)
 
-    # - Compare states and time before and after
+    # - Compare states before and after
     vStateBefore = np.copy(fl1.vState)
 
     for _ in range(10):
@@ -515,9 +479,206 @@ def test_DefaultParams():
     assert (fl0.vState == fl2.vState).all()
     assert (fl1.vState == fl3.vState).all()
 
-    # - Compare states and time before and after
+    # - Compare states before and after
     dAct0 = net0.evolve(tsInCont, tDuration=1.0)
     dAct1 = net1.evolve(tsInCont, tDuration=1.0)
 
     assert (fl0.vState == fl2.vState).all()
     assert (fl1.vState == fl3.vState).all()
+
+
+def test_Multithreading():
+    """ Test RecIAFNest"""
+    from NetworksPython.layers import RecIAFSpkInNest, FFIAFNest
+    from NetworksPython import timeseries as ts
+    from NetworksPython.networks import network as nw
+    import numpy as np
+
+    # - Generic parameters
+    mfW = np.ones([1, 200]) * 0.01
+    mfWIn = np.random.rand(200, 300) * 0.001
+    mfWRec = np.random.rand(300, 300) * 0.001
+    vfBias = 0.01
+    tDt = 0.0001
+    vtTauN = 0.02
+    vtTauS = 0.05
+    vfVThresh = -0.055
+    vfVReset = -0.065
+    vfVRest = -0.065
+    vfCapacity = 100.
+    tRef = 0.001
+
+    np.random.seed(0)
+
+    fl0 = FFIAFNest(mfW=mfW,
+                    tDt=tDt,
+                    vfBias=vfBias,
+                    vtTauN=vtTauN,
+                    vfVReset=vfVReset,
+                    vfVRest=vfVRest,
+                    vfVThresh=vfVThresh,
+                    vfCapacity=vfCapacity,
+                    tRefractoryTime=tRef,
+                    nNumCores=1,
+                    bRecord=True,
+                    strName="FF")
+
+    fl1 = RecIAFSpkInNest(mfWIn=mfWIn,
+                          mfWRec=mfWRec,
+                          tDt=tDt,
+                          vfBias=vfBias,
+                          vtTauN=vtTauN,
+                          vtTauS=vtTauS,
+                          vfVThresh=vfVThresh,
+                          vfVReset=vfVReset,
+                          vfVRest=vfVRest,
+                          vfCapacity=vfCapacity,
+                          tRefractoryTime=tRef,
+                          nNumCores=1,
+                          bRecord=True,
+                          strName="Rec")
+
+    net0 = nw.Network(fl0, fl1)
+
+    np.random.seed(0)
+
+    fl2 = FFIAFNest(mfW=mfW,
+                    tDt=tDt,
+                    vfBias=vfBias,
+                    vtTauN=vtTauN,
+                    vfVReset=vfVReset,
+                    vfVRest=vfVRest,
+                    vfVThresh=vfVThresh,
+                    vfCapacity=vfCapacity,
+                    tRefractoryTime=tRef,
+                    bRecord=True,
+                    nNumCores=4,
+                    strName="FF")
+
+    fl3 = RecIAFSpkInNest(mfWIn=mfWIn,
+                          mfWRec=mfWRec,
+                          tDt=tDt,
+                          vfBias=vfBias,
+                          vtTauN=vtTauN,
+                          vtTauS=vtTauS,
+                          vfVThresh=vfVThresh,
+                          vfVReset=vfVReset,
+                          vfVRest=vfVRest,
+                          vfCapacity=vfCapacity,
+                          tRefractoryTime=tRef,
+                          bRecord=True,
+                          nNumCores=4,
+                          strName="Rec")
+
+    net1 = nw.Network(fl2, fl3)
+
+    # - Input signal
+    vTime = np.arange(0, 1, tDt)
+    vVal = np.zeros([len(vTime), 1])
+    vVal[2000:7000] = 0.01
+
+    tsInCont = ts.TSContinuous(vTime, vVal)
+
+    epsilon = 0.0000001
+
+    assert (np.abs(fl0.vState - fl2.vState) < epsilon).all()
+    assert (np.abs(fl1.vState - fl3.vState) < epsilon).all()
+
+    # - Compare states before and after
+    tStart0 = time.time()
+    np.random.seed(0)
+    dAct0 = net0.evolve(tsInCont, tDuration=10.0)
+    tStop0 = time.time()
+
+    tStart1 = time.time()
+    np.random.seed(0)
+    dAct1 = net1.evolve(tsInCont, tDuration=10.0)
+    tStop1 = time.time()
+
+
+    assert (tStop1 - tStart1 < tStop0 - tStart0) #multithreading is faster
+    assert (np.abs(fl0.vState - fl2.vState) < epsilon).all()
+    assert (np.abs(fl1.vState - fl3.vState) < epsilon).all()
+
+
+
+def test_functionCall():
+
+    from NetworksPython import timeseries as ts
+    tDt = 0.0001
+
+    def createNetwork():
+        from NetworksPython.layers import RecIAFSpkInNest, FFIAFNest
+        from NetworksPython.networks import network as nw
+        import numpy as np
+
+        # - Generic parameters
+        mfW = np.ones([1, 2]) * 0.01
+        mfWIn = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
+        mfWRec = np.random.rand(3, 3) * 0.001
+        vfBias = 0.01
+        vtTauN = 0.02
+        vtTauS = 0.05
+        vfVThresh = -0.055
+        vfVReset = -0.065
+        vfVRest = -0.065
+        vfCapacity = 100.
+        tRef = 0.001
+
+        np.random.seed(0)
+
+        fl0 = FFIAFNest(mfW=mfW,
+                        tDt=tDt,
+                        vfBias=vfBias,
+                        vtTauN=vtTauN,
+                        vfVReset=vfVReset,
+                        vfVRest=vfVRest,
+                        vfVThresh=vfVThresh,
+                        vfCapacity=vfCapacity,
+                        tRefractoryTime=tRef,
+                        nNumCores=8,
+                        bRecord=True,
+                        strName="FF")
+
+        fl1 = RecIAFSpkInNest(mfWIn=mfWIn,
+                              mfWRec=mfWRec,
+                              tDt=tDt,
+                              vfBias=vfBias,
+                              vtTauN=vtTauN,
+                              vtTauS=vtTauS,
+                              vfVThresh=vfVThresh,
+                              vfVReset=vfVReset,
+                              vfVRest=vfVRest,
+                              vfCapacity=vfCapacity,
+                              tRefractoryTime=tRef,
+                              nNumCores=8,
+                              bRecord=True,
+                              strName="Rec")
+
+        net = nw.Network(fl0, fl1)
+
+        return net
+
+    net0 = createNetwork()
+
+    # - Input signal
+    vTime = np.arange(0, 1, tDt)
+    vVal = np.zeros([len(vTime), 1])
+    vVal[2000:7000] = 0.01
+
+    tsInCont = ts.TSContinuous(vTime, vVal)
+
+    dAct0 = net0.evolve(tsInCont)
+
+    net0.FF.terminate()
+    net0.Rec.terminate()
+
+    net0 = createNetwork()
+
+    dAct1 = net0.evolve(tsInCont)
+
+    net0.FF.terminate()
+    net0.Rec.terminate()
+
+
+
