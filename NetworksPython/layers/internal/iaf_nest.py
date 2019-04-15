@@ -76,7 +76,6 @@ class FFIAFNest(Layer):
             import nest
 
             numCPUs = multiprocessing.cpu_count()
-            print("NEST: avail cores", numCPUs)
             # if self.numCores >= numCPUs:
             #    self.numCores = numCPUs
 
@@ -408,7 +407,6 @@ class FFIAFNest(Layer):
         :return:                TSEvent  output spike series
 
         """
-        print("NetworkPython Evolve FF")
         # - Prepare time base
         vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
@@ -577,8 +575,6 @@ class RecIAFSpkInNest(Layer):
             numCPUs = multiprocessing.cpu_count()
             # if self.numCores >= numCPUs:
             #    self.numCores = numCPUs
-
-            print("NEST: avail cores", numCPUs)
 
             nest.ResetKernel()
             nest.hl_api.set_verbosity("M_FATAL")
@@ -969,8 +965,6 @@ class RecIAFSpkInNest(Layer):
         :return:                TSEvent  output spike series
 
         """
-
-        print("NetworkPython Evolve")
 
         # - Prepare time base
         nNumTimeSteps = self._determine_timesteps(

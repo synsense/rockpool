@@ -6,6 +6,8 @@ import numpy as np
 import time
 import pylab as plt
 
+from hyperopt import hp
+from hyperopt import fmin, tpe, space_eval, Trials
 from NetworksPython.timeseries import SetPlottingBackend
 SetPlottingBackend("plt")
 
@@ -595,19 +597,17 @@ def test_Multithreading():
     dAct1 = net1.evolve(tsInCont, tDuration=10.0)
     tStop1 = time.time()
 
-
-    assert (tStop1 - tStart1 < tStop0 - tStart0) #multithreading is faster
+    assert (tStop1 - tStart1 < tStop0 - tStart0)  # multithreading is faster
     assert (np.abs(fl0.vState - fl2.vState) < epsilon).all()
     assert (np.abs(fl1.vState - fl3.vState) < epsilon).all()
 
 
-
-def test_functionCall():
+def test_hyperopt():
 
     from NetworksPython import timeseries as ts
     tDt = 0.0001
 
-    def createNetwork():
+    def createNetwork(bias):
         from NetworksPython.layers import RecIAFSpkInNest, FFIAFNest
         from NetworksPython.networks import network as nw
         import numpy as np
@@ -616,7 +616,7 @@ def test_functionCall():
         mfW = np.ones([1, 2]) * 0.01
         mfWIn = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
         mfWRec = np.random.rand(3, 3) * 0.001
-        vfBias = 0.01
+        vfBias = bias
         vtTauN = 0.02
         vtTauS = 0.05
         vfVThresh = -0.055
@@ -659,26 +659,32 @@ def test_functionCall():
 
         return net
 
-    net0 = createNetwork()
+    def objective(param):
+        bias = param['bias']
+        net = createNetwork(bias)
 
-    # - Input signal
-    vTime = np.arange(0, 1, tDt)
-    vVal = np.zeros([len(vTime), 1])
-    vVal[2000:7000] = 0.01
+        # - Input signal
+        vTime = np.arange(0, 1, tDt)
+        vVal = np.zeros([len(vTime), 1])
+        vVal[2000:7000] = 0.01
 
-    tsInCont = ts.TSContinuous(vTime, vVal)
+        tsInCont = ts.TSContinuous(vTime, vVal)
 
-    dAct0 = net0.evolve(tsInCont)
+        dAct = net.evolve(tsInCont)
 
-    net0.FF.terminate()
-    net0.Rec.terminate()
+        net.lLayers[0].terminate()
+        net.lLayers[1].terminate()
 
-    net0 = createNetwork()
+        act = dAct['Rec']
+        frate = 1 * len(act.vtTimeTrace)
+        print(frate)
 
-    dAct1 = net0.evolve(tsInCont)
+        return frate
 
-    net0.FF.terminate()
-    net0.Rec.terminate()
+    space = {'bias': hp.uniform("bias", 0, 0.5)}
 
+    ongoingTrials = Trials()
+    best = fmin(objective, space, algo=tpe.suggest,
+                max_evals=100, trials=ongoingTrials)
 
-
+    assert (best['bias'] < 0.1)
