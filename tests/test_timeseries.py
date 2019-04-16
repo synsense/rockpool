@@ -139,6 +139,61 @@ def test_continuous_methods():
     assert ts1.max == 2
 
 
+def test_continuous_indexing():
+    from NetworksPython import TSContinuous
+
+    # - Generate series
+    times = np.arange(6) * 0.1
+    samples = np.arange(6).reshape(-1, 1) + np.arange(4)
+    ts = TSContinuous(times, samples)
+
+    # - Indexing time
+    ts0 = ts[:]
+    assert (ts0.times == times).all()
+    assert (ts0.samples == samples).all()
+
+    ts1 = ts[0.2:0.5]
+    assert (ts1.times == times[[2, 3, 4]]).all()
+    assert (ts1.samples == samples[[2, 3, 4]]).all()
+
+    ts2 = ts[0.1:0.5:-0.2]
+    assert (ts2.times == times[[3, 1]]).all()
+    assert (ts2.samples == samples[[3, 1]]).all()
+
+    ts3 = ts[[0.5, 0, 0.1]]
+    assert (ts3.times == times[[5, 0, 1]]).all()
+    assert (ts3.samples == samples[[5, 0, 1]]).all()
+    ts4 = ts[0.2]
+    assert (ts4.times == times[[2]]).all()
+    assert (ts4.samples == samples[2]).all()
+
+    # - Indexing channels
+    ts0 = ts[:, :]
+    assert (ts0.times == times).all()
+    assert (ts0.samples == samples).all()
+
+    ts1 = ts[None, 1:3]
+    assert (ts1.times == times).all()
+    assert (ts1.samples == samples[:, 1:3]).all()
+
+    ts2 = ts[:, 1::-2]
+    assert (ts2.times == times).all()
+    assert (ts2.samples == samples[:, [3, 1]]).all()
+
+    ts3 = ts[None, [2, 0, 3]]
+    assert (ts3.times == times).all()
+    assert (ts3.samples == samples[:, [2, 0, 3]]).all()
+
+    ts4 = ts[:, 2]
+    assert (ts4.times == times).all()
+    assert (ts4.samples == samples[:, [2]]).all()
+
+    # - Indexing channels and time
+    ts0 = ts[:0.4, [3, 1]]
+    assert (ts0.times == times[:4]).all()
+    assert (ts0.samples == samples[:4, [3, 1]]).all()
+
+
 def test_continuous_inplace_mutation():
     from NetworksPython import TSContinuous
 
@@ -333,7 +388,7 @@ def test_TSEvent_append_t():
         appended_empty_first.t_start == empty_series.t_start
     ), "Wrong t_start when appending with empty."
     assert (
-        appended_empty_first.t_stop == series_list[0].tDuration + empty_series.t_start
+        appended_empty_first.t_stop == series_list[0].duration + empty_series.t_start
     ), "Wrong t_stop when appending with empty."
     assert (
         appended_empty_first.num_channels == series_list[0].num_channels

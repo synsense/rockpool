@@ -534,18 +534,9 @@ class TSContinuous(TimeSeries):
         else:
             clipped_series = self
 
-        # - Select channels
-        if channels is not None:
-            clipped_series._samples = clipped_series._samples[:, channels]
-            clipped_series._num_channels = clipped_series._samples.shape[1]
-
-        # - Handle `None` time bounds
-        if t_start is None and t_stop is None:
-            # - Skip time clipping and return
-            return clipped_series
-        else:
-            t_start: float = self.t_start if t_start is None else t_start
-            t_stop: float = self.t_stop if t_stop is None else t_stop
+        # Handle `None` time limits
+        t_start: float = self.t_start if t_start is None else t_start
+        t_stop: float = self.t_stop if t_stop is None else t_stop
 
         # - Ensure time bounds are sorted
         t_start, t_stop = sorted((t_start, t_stop))
@@ -558,8 +549,9 @@ class TSContinuous(TimeSeries):
         )
 
         # - Mark which times lie within bounds
-        times_in_limits: np.ndarray = times_to_choose >= t_start
-        times_in_limits[times_to_choose > t_stop] = True
+        times_in_limits: np.ndarray = np.logical_and(
+            times_to_choose >= t_start, times_to_choose < t_stop
+        )
         if include_stop:
             # - Include samples at time `t_stop`
             times_in_limits[times_to_choose == t_stop] = True
@@ -577,17 +569,21 @@ class TSContinuous(TimeSeries):
                 times = np.r_[times, t_stop]
 
         # - Sample at the chosen time points and return
-        return clipped_series.resample(times, inplace=True)
+        return clipped_series.resample(times, channels, inplace=True)
 
     def resample(
-        self, times: Union[int, float, ArrayLike], inplace: bool = False
+        self,
+        times: Union[int, float, ArrayLike],
+        channels: Union[int, float, ArrayLike, None] = None,
+        inplace: bool = False,
     ) -> TSContType:
         """
         resample - Return a new time series sampled to the supplied time base
 
         :param times:     Array-like of T desired time points to resample
-        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
-        :return:            TimeSeries object, resampled to new time base
+        :param channels:  Channels to be used. Use all if None.
+        :param inplace:   Conduct operation in-place (Default: False; create a copy)
+        :return:          TSContinuous, resampled to new time base and with desired channels.
         """
         if not inplace:
             resampled_series = self.copy()
@@ -598,7 +594,18 @@ class TSContinuous(TimeSeries):
         times = np.atleast_1d(times)
 
         # - Resample time series
-        resampled_series._samples = self(times)
+        if channels is None:
+            resampled_series._samples = self(times)
+        else:
+            try:
+                # - Convert to 1d array so that integer as index also results in 2D samples
+                channels = np.atleast_1d(channels)
+                resampled_series._samples = self(times)[:, channels]
+            except IndexError:
+                raise IndexError(
+                    f"TSContinuous `{self.name}`: "
+                    + f"Channels must be between 0 and {self.num_channels - 1}."
+                )
         resampled_series._times = times
         resampled_series._t_start = times[0]
         resampled_series._t_stop = times[-1]
@@ -834,31 +841,95 @@ class TSContinuous(TimeSeries):
         """
         return self._interpolate(times)
 
-    def __getitem__(self, indices: Union[ArrayLike, slice]) -> np.ndarray:
+    def __getitem__(
+        self,
+        # indices_time: Union[ArrayLike, float, slice, None] = None,
+        # indices_channel: Union[ArrayLike, int, slice, None] = None,
+        indices: Union[
+            Tuple[
+                Union[ArrayLike, float, slice, None], Union[ArrayLike, int, slice, None]
+            ],
+            ArrayLike,
+            float,
+            slice,
+            None,
+        ] = None,
+    ) -> TSContType:
         """
-        ts[tTime1, tTime2, ...] - Interpolate the time series to the provided time points
-                                  or, if slice is provided between given limits with given
-                                  step size.
-        :param indices: Slice, scalar, list or np.array of T desired interpolated time points
-        :return:        np.array of interpolated values. Will have the shape TxN
+        ts[indices_time, indices_channel] - Interpolate the time series to the provided
+                                            time points or, if slice is provided between
+                                            given limits with given step size. Use channels
+                                            provided in indices_channel, in matching order
+
+        :param indices_time:    float, array-like or slice of T desired interpolated time points
+        :param indices_channel: int, array-like or slice of desired channels in desired order
+        :return:
+            TSContinuous with chosen time points and channels
         """
-        if isinstance(indices, slice):
-            # - Use `self.clip`
-            if indices.step is None:
-                return self.clip(
-                    t_start=indices.start,
-                    t_stop=indices.stop,
-                    inplace=False,
-                    include_stop=False,
-                )
-            # - Prepare time points for `self.resample`
+        # - Handle format of funciton argument
+        if isinstance(indices, tuple):
+            if len(indices) == 0:
+                indices_time = indices_channel = None
+            elif len(indices) == 1:
+                # Assume indices refer to time
+                indices_time = indices[0]
+                indices_channel = None
+            elif len(indices) == 2:
+                # Both time and channel indices are given
+                indices_time, indices_channel = indices
             else:
-                t_start: float = (
-                    self.t_start if indices.start is None else indices.start
+                raise IndexError(
+                    f"TSContinuous: `{self.name}`: Supports at most 2 indices"
+                    + " (times and channels)."
                 )
-                t_stop: float = (self.t_stop if indices.stop is None else indices.stop)
+        else:
+            # Assume indices refer to time
+            indices_time = indices
+            indices_channel = None
+
+        # - Handle channel indices
+        if isinstance(indices_channel, slice):
+            ch_start = 0 if indices_channel.start is None else indices_channel.start
+            ch_stop = (
+                self.num_channels
+                if indices_channel.stop is None
+                else indices_channel.stop
+            )
+            ch_step = 1 if indices_channel.step is None else indices_channel.step
+            channels = np.arange(ch_start, ch_stop, abs(ch_step))
+            if ch_step < 0:
+                # - Invert order of channels
+                channels = channels[::-1]
+        else:
+            channels = indices_channel
+
+        # - Handle time indices
+        if indices_time is None:
+            indices_time = slice(None)
+
+        if isinstance(indices_time, slice):
+            if indices_time.step is None:
+                # - Use `self.clip`
+                return self.clip(
+                    t_start=indices_time.start,
+                    t_stop=indices_time.stop,
+                    channels=channels,
+                    inplace=False,
+                    include_stop=indices_time.stop is None,
+                    sample_limits=False,
+                )
+            else:
+                # - Prepare time points for `self.resample`
+                t_start: float = (
+                    self.t_start if indices_time.start is None else indices_time.start
+                )
+                t_stop: float = (
+                    self.t_stop if indices_time.stop is None else indices_time.stop
+                )
                 # - Determine time points at which series is sampled
-                time_points: np.ndarray = np.arange(t_start, t_stop, indices.step)
+                time_points: np.ndarray = np.arange(
+                    t_start, t_stop, abs(indices_time.step)
+                )
                 # - Make sure time points are within limits
                 time_points = time_points[
                     np.logical_and(
@@ -866,12 +937,12 @@ class TSContinuous(TimeSeries):
                     )
                 ]
                 # - Invert order if step is negative
-                if indices.step < 0:
+                if indices_time.step < 0:
                     time_points = time_points[::-1]
         else:
-            time_points = indices
+            time_points = indices_time
 
-        return self.resample(time_points, inplace=False)
+        return self.resample(time_points, channels, inplace=False)
 
     def __repr__(self):
         """
@@ -1808,7 +1879,7 @@ class TSEvent(TimeSeries):
         include_stop: bool = False,
     ) -> (np.ndarray, np.ndarray):
         """
-        ts(t_start, t_stop) - Return events in interval between indicated times
+        ts(...) - Return events in interval between indicated times
 
         :param t_start:     Time from which on events are returned
         :param t_stop:      Time until which events are returned
