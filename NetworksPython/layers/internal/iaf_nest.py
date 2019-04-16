@@ -6,6 +6,8 @@ from ..layer import Layer
 
 
 from typing import Optional, Union, Tuple, List
+from numba import njit
+import time
 
 
 def s2ms(t): return t * 1000.
@@ -82,7 +84,7 @@ class FFIAFNest(Layer):
             nest.ResetKernel()
             nest.hl_api.set_verbosity("M_FATAL")
             nest.SetKernelStatus(
-                {"resolution": self.tDt, "local_num_threads": self.numCores})
+                {"resolution": self.tDt, "local_num_threads": self.numCores, 'print_time': True})
 
             self._pop = nest.Create("iaf_psc_exp", self.nSize)
 
@@ -579,7 +581,7 @@ class RecIAFSpkInNest(Layer):
             nest.ResetKernel()
             nest.hl_api.set_verbosity("M_FATAL")
             nest.SetKernelStatus(
-                {"resolution": self.tDt, "local_num_threads": self.numCores})
+                {"resolution": self.tDt, "local_num_threads": self.numCores, 'print_time': True})
 
             self._pop = nest.Create("iaf_psc_exp", self.nSize)
 
@@ -645,7 +647,6 @@ class RecIAFSpkInNest(Layer):
             # - Create recurrent connections
             pres = []
             posts = []
-            weights = []
 
             for pre, row in enumerate(self.mfWIn):
                 for post, w in enumerate(row):
@@ -656,19 +657,20 @@ class RecIAFSpkInNest(Layer):
 
             nest.Connect(pres, posts, 'one_to_one')
             conns = nest.GetConnections(self._sg, self._pop)
-            connsPrePost = nest.GetStatus(conns, ['source', 'target'])
-            for i, c in enumerate(conns):
-                pre = connsPrePost[i][0] - np.min(self._sg)
-                post = connsPrePost[i][1] - np.min(self._pop)
-                weights.append(self.mfWIn[pre, post])
+            connsPrePost = np.array(
+                nest.GetStatus(conns, ['source', 'target']))
+            connsPrePost[:, 0] -= np.min(self._sd)
+            connsPrePost[:, 1] -= np.min(self._pop)
+
+            weights = [self.mfWRec[conn[0], conn[1]] for conn in connsPrePost]
 
             nest.SetStatus(
                 conns, [{'weight': w, 'delay': self.tDt} for w in weights])
 
+            t1 = time.time()
             # - Create recurrent connections
             pres = []
             posts = []
-            weights = []
 
             for pre, row in enumerate(self.mfWRec):
                 for post, w in enumerate(row):
@@ -678,12 +680,12 @@ class RecIAFSpkInNest(Layer):
                     posts.append(self._pop[post])
 
             nest.Connect(pres, posts, 'one_to_one')
+
             conns = nest.GetConnections(self._pop, self._pop)
             connsPrePost = nest.GetStatus(conns, ['source', 'target'])
-            for i, c in enumerate(conns):
-                pre = connsPrePost[i][0] - np.min(self._pop)
-                post = connsPrePost[i][1] - np.min(self._pop)
-                weights.append(self.mfWRec[pre, post])
+            connsPrePost -= np.min(self._pop)
+
+            weights = [self.mfWRec[conn[0], conn[1]] for conn in connsPrePost]
 
             nest.SetStatus(
                 conns, [{'weight': w, 'delay': self.tDt} for w in weights])
@@ -794,6 +796,7 @@ class RecIAFSpkInNest(Layer):
 
             while True:
                 req = self.requestQ.get()
+
                 func = IPC_switcher.get(req[0])
 
                 result = func(*req[1:])
