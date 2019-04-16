@@ -29,8 +29,8 @@ TSContType = TypeVar("TSContinuous")
 
 ### -- Code for setting plotting backend
 
-__bUseHoloviews = False
-__bUseMatplotlib = False
+__use_holoviews = False
+__use_matplotlib = True
 
 
 # - Absolute tolerance, e.g. for comparing float values
@@ -38,26 +38,29 @@ fTolAbs = 1e-9
 
 
 def set_plotting_backend(backend: Union[str, None]):
-    global __bUseHoloviews
-    global __bUseMatplotlib
+    global __use_holoviews
+    global __use_matplotlib
     if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
-        __bUseHoloviews = True
-        __bUseMatplotlib = False
+        __use_holoviews = True
+        __use_matplotlib = False
+        print("Plotting backend has been set to holoviews.")
 
     elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
-        __bUseHoloviews = False
-        __bUseMatplotlib = True
+        __use_holoviews = False
+        __use_matplotlib = True
+        print("Plotting backend has been set to matplotlib.")
 
     elif backend is None:
-        __bUseHoloviews = False
-        __bUseMatplotlib = False
+        __use_holoviews = False
+        __use_matplotlib = False
+        print("No plotting backend is set.")
 
     else:
         raise ValueError("Plotting backend not recognized.")
 
 
-def get_plotting_backend():
-    return __bUseHoloviews, __bUseMatplotlib
+def get_plotting_backend() -> (bool, bool):
+    return __use_holoviews, __use_matplotlib
 
 
 def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.ndarray:
@@ -80,10 +83,6 @@ def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.
     periods = np.arange(num_reps_total) - num_reps_before
     correct_periods = series.duration * np.repeat(periods, series.times.size)
     return np.tile(series.times, num_reps_total) + correct_periods
-
-
-## - Set default plotting backend
-set_plotting_backend("matplotlib")
 
 
 ## - Convenience method to return a nan array
@@ -176,6 +175,12 @@ class TimeSeries:
     def print(self):
         """print - Print an overview of the time series."""
         print(self.__repr__())
+
+    def get_plotting_backend(self) -> (bool, bool):
+        return get_plotting_backend()
+
+    def set_plotting_backend(self, backend: Union[str, None]):
+        set_plotting_backend(backend)
 
     def copy(self) -> TSType:
         """
@@ -273,9 +278,9 @@ class TSContinuous(TimeSeries):
 
     def __init__(
         self,
-        times: ArrayLike = None,
-        samples: ArrayLike = None,
-        num_channels: int = None,
+        times: Optional[ArrayLike] = None,
+        samples: Optional[ArrayLike] = None,
+        num_channels: Optional[int] = None,
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
@@ -356,9 +361,9 @@ class TSContinuous(TimeSeries):
 
         if target is None:
             # - Get current plotting backend from global settings
-            _use_holoviews, _use_matplotlib = get_plotting_backend()
+            ___use_holoviews, _use_matplotlib = get_plotting_backend()
 
-            if _use_holoviews:
+            if ___use_holoviews:
                 if kwargs == {}:
                     vhCurves = [
                         hv.Curve((times, vfData)).redim(x="Time")
@@ -536,6 +541,7 @@ class TSContinuous(TimeSeries):
 
         # Handle `None` time limits
         t_start: float = self.t_start if t_start is None else t_start
+        include_stop = True if t_stop is None else include_stop
         t_stop: float = self.t_stop if t_stop is None else t_stop
 
         # - Ensure time bounds are sorted
@@ -609,7 +615,6 @@ class TSContinuous(TimeSeries):
         resampled_series._times = times
         resampled_series._t_start = times[0]
         resampled_series._t_stop = times[-1]
-        resampled_series.periodic = False
         resampled_series._create_interpolator()
         return resampled_series
 
@@ -954,7 +959,6 @@ class TSContinuous(TimeSeries):
         else:
             return "{}periodic TSContinuous object `{}` from t={} to {}. Shape: {}".format(
                 int(not self.periodic) * "non-",
-                self.__class__.__name__,
                 self.name,
                 self.t_start,
                 self.t_stop,
@@ -1385,9 +1389,9 @@ class TSEvent(TimeSeries):
 
         if target is None:
             # - Get current plotting backend from global settings
-            _use_holoviews, _use_matplotlib = get_plotting_backend()
+            ___use_holoviews, _use_matplotlib = get_plotting_backend()
 
-            if _use_holoviews:
+            if ___use_holoviews:
                 return (
                     hv.Scatter((times, channels), *args, **kwargs)
                     .redim(x="Time", y="Channel")

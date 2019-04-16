@@ -668,7 +668,9 @@ class Network:
 
             # - Evolve network
             dtsSignal = self.evolve(
-                tsInput=tsInput.resample_within(self.t, self.t + nTSCurrent * self.tDt),
+                tsInput=tsInput.clip(
+                    self.t, self.t + nTSCurrent * self.tDt, include_stop=True
+                ),
                 nNumTimeSteps=nTSCurrent,
                 bVerbose=bHighVerbosity,
             )
