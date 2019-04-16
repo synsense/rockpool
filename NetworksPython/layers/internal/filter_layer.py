@@ -39,7 +39,8 @@ class Filter(Layer):
 
         self.fs = fs
         self.nNumTraces = mfW.shape[1]
-        self.filtFunct = function_Filterbank(filterName)
+        self.filterName = filterName
+        self.filtFunct = function_Filterbank(self.filterName)
         self.mfW = mfW
         self._nTimeStep = 0
 
@@ -60,17 +61,28 @@ class Filter(Layer):
             tsInput, tDuration, nNumTimeSteps
         )
 
+        if "sos" in self.filterName or "butter" in self.filterName:
+            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.fs)
+            self._nTimeStep += mfInputStep.shape[0] - 1
 
-        filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.fs, bSamelength=False, order=2)
-        filtOutput= self.mfW * filtOutput
+            return TSContinuous(
+                vtTimeBase,
+                filtOutput,
+                strName="filteredInput",
+            )
 
-        self._nTimeStep += mfInputStep.shape[0] - 1
+        elif "mfcc" in self.filterName or "fft" in self.filterName:
+            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces)
+            self._nTimeStep += mfInputStep.shape[0] - 1
+            vtTimeBase = np.arange(filtOutput.shape[0]) * 0.01
 
-        return TSContinuous(
-            vtTimeBase,
-            filtOutput,
-            strName="filteredInput",
-        )
+            return TSContinuous(
+                vtTimeBase,
+                filtOutput,
+                strName="filteredInput",
+            )
+
+
 
 
 
