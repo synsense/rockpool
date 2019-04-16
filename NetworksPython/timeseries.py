@@ -130,11 +130,15 @@ class TimeSeries:
         self._times = times
         self.periodic = periodic
         self.name = name
-        self.t_start = (
-            (0 if np.size(times) == 0 else times[0]) if t_start is None else t_start
+        self._t_start = (
+            (0 if np.size(times) == 0 else times[0])
+            if t_start is None
+            else float(t_start)
         )
         self.t_stop = (
-            (0 if np.size(times) == 0 else times[-1]) if t_stop is None else t_stop
+            (self.t_start if np.size(times) == 0 else times[-1])
+            if t_stop is None
+            else float(t_stop)
         )
 
     def delay(self, offset: Union[int, float], inplace: bool = False) -> TSType:
@@ -195,6 +199,9 @@ class TimeSeries:
         """_modulo_period - Calculate provided times modulo `self.duration`"""
         return self.t_start + np.modulo(times - self.t_start, self.duration)
 
+    def __len__(self):
+        return self._times.size
+
     @property
     def times(self):
         return self._times
@@ -232,14 +239,20 @@ class TimeSeries:
 
     @t_start.setter
     def t_start(self, new_start):
-        if np.size(self._times) == 0 or new_start <= self._times[0]:
-            self._t_start = new_start
-        else:
-            raise ValueError(
-                "TimeSeries `{}`: t_start must be less or equal to {}. It was {}.".format(
-                    self.name, self._times[0], new_start
+        try:
+            # - Largest allowed value for new_start
+            max_start = self._times[0] if self._times.size > 0 else self._t_stop
+            if new_start <= max_start:
+                self._t_start = float(new_start)
+            else:
+                raise ValueError(
+                    "TimeSeries `{}`: t_start must be less or equal to {}. It was {}.".format(
+                        self.name, max_start, new_start
+                    )
                 )
-            )
+        except AttributeError:
+            # - If self._t_stop is not defined yet (instantiation)
+            self._t_start = float(new_start)
 
     @property
     def t_stop(self) -> float:
@@ -250,12 +263,14 @@ class TimeSeries:
 
     @t_stop.setter
     def t_stop(self, new_stop):
-        if np.size(self._times) == 0 or new_stop >= self._times[-1]:
+        # - Smallest allowed value for new_stop
+        min_stop = self._times[-1] if self._times.size > 0 else self._t_start
+        if new_stop >= min_stop:
             self._t_stop = new_stop
         else:
             raise ValueError(
-                "TimeSeries `{}`: t_stop must be greater or equal to {}.".format(
-                    self.name, self._times[-1]
+                "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
+                    self.name, min_stop, new_stop
                 )
             )
 
@@ -314,13 +329,10 @@ class TSContinuous(TimeSeries):
         samples = np.atleast_1d(samples)
 
         # - Check arguments
-        assert np.size(times) == samples.shape[0], (
-            f"TSContinuous `{name}`: The number of time samples must be equal to the"
-            " first dimension of `samples`"
-        )
-        assert np.all(
-            np.diff(times) >= 0
-        ), f"TSContinuous `{name}`: The time trace must be sorted and not decreasing"
+        if np.any(np.diff(times) < 0):
+            raise ValueError(
+                f"TSContinuous `{name}`: The time trace must be sorted and not decreasing."
+            )
 
         # - Initialize superclass
         super().__init__(
@@ -646,6 +658,10 @@ class TSContinuous(TimeSeries):
                 + "`other_series` must be a TSContinuous object."
             )
 
+        if self.num_channels == 0 and len(self) == 0:
+            # - Handle empty `self`
+            self._samples = np.zeros((0, other_series.num_channels))
+
         if other_series.num_channels != self.num_channels:
             raise ValueError(
                 f"TSContinuous `{self.name}`: `other_series` must include "
@@ -755,30 +771,12 @@ class TSContinuous(TimeSeries):
         :return: Time series containing current data, with other TS appended in time
         """
 
-        # - Check other_series
-        if not isinstance(other_series, TSContinuous):
-            raise TypeError(
-                f"TSContinuous `{self.name}`: "
-                + "`other_series` must be a TSContinuous object."
-            )
-
-        # - Create a new time series, or modify this time series
-        if not inplace:
-            appended_series = self.copy()
-        else:
-            appended_series = self
-
-        # - Concatenate time trace and samples
-        appended_series._samples = np.concatenate(
-            (appended_series.samples, other_series.samples), axis=0
-        )
-
         if offset is None:
             # - If `self` is empty append new elements directly. Otherwise leafe space
             #   corresponding to median distance between time points in `self._times`.
             offset = np.median(np.diff(self._times)) if self.times.size > 0 else 0
         # - Time by which `other_series` has to be delayed
-        delay = appended_series.t_stop + offset - other_series.t_start
+        delay = self.t_stop + offset - other_series.t_start
 
         # - Let `self.merge` do the rest
         return self.merge(
@@ -792,26 +790,27 @@ class TSContinuous(TimeSeries):
         _create_interpolator - Build an interpolator for the samples in this TimeSeries
         """
         if np.size(self.times) == 0:
-            self.interp = lambda o: None
-            return
-
+            self.interp = lambda t: None
         elif np.size(self.times) == 1:
-            # - Replicate to avoid error in `interp1d`
-            times = np.repeat(self.times, 2, axis=0)
-            samples = np.repeat(self.samples, 2, axis=0)
-        else:
-            times = self._times
-            samples = self._samples
+            # - Handle sample for single time step (`interp1d` would cause error)
+            def single_sample(t):
+                times = np.array(t).flatten()
+                samples = np.empty((times.size, self.num_channels))
+                samples.fill(np.nan)
+                samples[times == self.times[0]] = self.samples[0]
+                return samples
 
-        # - Construct interpolator
-        self.interp = spint.interp1d(
-            times,
-            samples,
-            kind=self.interp_kind,
-            axis=0,
-            assume_sorted=True,
-            bounds_error=False,
-        )
+            self.interp = single_sample
+        else:
+            # - Construct interpolator
+            self.interp = spint.interp1d(
+                self._times,
+                self._samples,
+                kind=self.interp_kind,
+                axis=0,
+                assume_sorted=True,
+                bounds_error=False,
+            )
 
     def _interpolate(self, times: Union[int, float, ArrayLike]) -> np.ndarray:
         """
@@ -821,10 +820,16 @@ class TSContinuous(TimeSeries):
         :return:        np.ndarray of interpolated values. Will have the shape TxN
         """
         # - Enforce periodicity
-        if self.periodic:
+        if self.periodic and self.duration > 0:
             times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
 
-        return np.reshape(self.interp(times), (-1, self.num_channels))
+        samples = self.interp(times)
+
+        # - Handle empty series
+        if samples is None:
+            return np.zeros((times.size, 0))
+        else:
+            return np.reshape(self.interp(times), (-1, self.num_channels))
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
         try:
@@ -955,15 +960,14 @@ class TSContinuous(TimeSeries):
         :return: str String description
         """
         if self.isempty():
-            return f"Empty TSContinuous object `{self.name}`"
+            beginning: str = f"Empty TSContinuous object `{self.name}` "
         else:
-            return "{}periodic TSContinuous object `{}` from t={} to {}. Shape: {}".format(
-                int(not self.periodic) * "non-",
-                self.name,
-                self.t_start,
-                self.t_stop,
-                self.samples.shape,
+            beginnging: str = "{}periodic TSContinuous object `{}` ".format(
+                int(not self.periodic) * "non-", self.name
             )
+        return beginnging + "from t={} to {}. Samples: {}. Channels: {}".format(
+            self.t_start, self.t_stop, self.samples.shape[0], self.num_channels
+        )
 
     ## -- Operator overloading
 
@@ -1175,10 +1179,7 @@ class TSContinuous(TimeSeries):
         # - Make sure that if assigned empty samples array, number of traces is implicityly
         #   with as second dimension of `new_samples`
         if np.size(new_samples) == 0 and np.ndim(new_samples) < 2:
-            raise ValueError(
-                f"TSContinuous `{self.name}`: "
-                + "Empty samples object must be 2D to allow infering the number of channels."
-            )
+            new_samples = new_samples.reshape(0, 0)
 
         # - Promote to 2d
         new_samples = np.atleast_2d(new_samples)
@@ -1963,9 +1964,6 @@ class TSEvent(TimeSeries):
                 self.num_channels,
                 self.times.size,
             )
-
-    def __len__(self):
-        return self._times.size
 
     ## -- Properties
 

@@ -232,6 +232,174 @@ def test_continuous_inplace_mutation():
     assert ts1.t_start == 0.5
 
 
+def test_continuous_append_c():
+    """
+    Test append_c method of TSContinuous
+    """
+    from NetworksPython import TSContinuous
+
+    # - Generate a few TSContinuous objects
+    samples = np.random.randint(10, size=(2, 4))
+    empty_series = TSContinuous()
+    series_list = []
+    series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=2))
+    series_list.append(TSContinuous([1], samples[0, -2:], t_start=0, t_stop=2))
+
+    # Appending two series
+    appended_fromtwo = series_list[0].append_c(series_list[1])
+    assert appended_fromtwo.t_start == -1, "Wrong t_start for appended series."
+    assert appended_fromtwo.t_stop == 2, "Wrong t_stop for appended series."
+    assert (
+        appended_fromtwo.times == np.array([1, 2])
+    ).all(), "Wrong time trace for appended series."
+    assert (
+        (appended_fromtwo.samples[:, :2] == samples[:2, :2]).all()
+        and (appended_fromtwo.samples[0, -2:] == samples[0, -2:]).all()
+        and (np.isnan(appended_fromtwo.samples[1, -2:])).all()
+    ), "Wrong samples for appended series."
+
+    # Appending with empty series
+    appended_empty_first = empty_series.append_c(series_list[0])
+    assert (
+        appended_empty_first.t_start == empty_series.t_start
+    ), "Wrong t_start when appending with empty."
+    assert (
+        appended_empty_first.t_stop == empty_series.t_stop
+    ), "Wrong t_stop when appending with empty."
+    assert (
+        appended_empty_first.samples.flatten() == empty_series.samples.flatten()
+    ).all(), "Wrong samples when appending with empty"
+    assert (
+        appended_empty_first.times == empty_series.times
+    ).all(), "Wrong time trace when appending with empty"
+
+    appended_empty_last = series_list[0].append_c(empty_series)
+    assert (
+        appended_empty_last.t_start == series_list[0].t_start
+    ), "Wrong t_start when appending with empty."
+    assert (
+        appended_empty_last.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when appending with empty."
+    assert (
+        appended_empty_last.samples == series_list[0].samples
+    ).all(), "Wrong samples when appending with empty"
+    assert (
+        appended_empty_last.times == series_list[0].times
+    ).all(), "Wrong time trace when appending with empty"
+
+
+def test_continuous_append_t():
+    """
+    Test append method of TSEvent
+    """
+    from NetworksPython import TSContinuous
+
+    # - Generate a few TSEvent objects
+    samples = np.random.randint(10, size=(2, 4))
+    empty_series = TSContinuous(t_start=1)
+    series_list = []
+    series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=3))
+    series_list.append(TSContinuous([1], samples[0, 2:], t_start=0, t_stop=2))
+
+    # Appending two series
+    appended_fromtwo = series_list[0].append_t(series_list[1])
+    assert appended_fromtwo.t_start == -1, "Wrong t_start for appended series."
+    assert appended_fromtwo.t_stop == 6, "Wrong t_stop for appended series."
+    assert (
+        appended_fromtwo.times == np.array([1, 2, 5])
+    ).all(), "Wrong time trace for appended series."
+    assert (
+        (appended_fromtwo.samples[:2] == samples[:2, :2]).all()
+        and (appended_fromtwo.samples[2:] == samples[[0], 2:])
+    ).all(), "Wrong samples for appended series."
+
+    # Appending with empty series
+    appended_empty_first = empty_series.append_t(series_list[0])
+    assert (
+        appended_empty_first.t_start == empty_series.t_start
+    ), "Wrong t_start when appending with empty."
+    assert (
+        appended_empty_first.t_stop == series_list[0].duration + empty_series.t_start
+    ), "Wrong t_stop when appending with empty."
+    assert (
+        appended_empty_first.samples == series_list[0].samples
+    ).all(), "Wrong samples when appending with empty"
+    assert (
+        appended_empty_first.times == series_list[0].times + 2
+    ).all(), "Wrong time trace when appending with empty"
+
+    appended_empty_last = series_list[0].append_t(empty_series)
+    assert (
+        appended_empty_last.t_start == series_list[0].t_start
+    ), "Wrong t_start when appending with empty."
+    assert (
+        # - 1 is offset, which is np.median(np.diff(series_list[0].times))=1
+        appended_empty_last.t_stop
+        == series_list[0].t_stop + empty_series.duration
+    ), "Wrong t_stop when appending with empty."
+    assert (
+        appended_empty_last.samples == series_list[0].samples
+    ).all(), "Wrong samples when appending with empty"
+    assert (
+        appended_empty_last.times == series_list[0].times
+    ).all(), "Wrong time trace when appending with empty"
+
+
+def test_continuous_merge():
+    """
+    Test merge method of TSContinuous
+    """
+    from NetworksPython import TSContinuous
+
+    # - Generate a few TSEvent objects
+    samples = np.random.randint(10, size=(2, 4))
+    empty_series = TSContinuous(t_start=1)
+    series_list = []
+    series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=3))
+    series_list.append(TSContinuous([1.5], samples[0, 2:], t_start=0, t_stop=4))
+
+    # Merging two series
+    merged_fromtwo = series_list[0].merge(series_list[1])
+    assert merged_fromtwo.t_start == -1, "Wrong t_start for merged series."
+    assert merged_fromtwo.t_stop == 4, "Wrong t_stop for merged series."
+    assert (
+        merged_fromtwo.times == np.array([1, 1.5, 2])
+    ).all(), "Wrong time trace for merged series."
+    correct_samples = np.vstack((samples[0, :2], samples[0, 2:], samples[1, :2]))
+    assert (
+        merged_fromtwo.samples == correct_samples
+    ).all(), "Wrong samples for merged series."
+
+    # Merging with empty series
+    merged_empty_first = empty_series.merge(series_list[0])
+    assert (
+        merged_empty_first.t_start == series_list[0].t_start
+    ), "Wrong t_start when merging with empty."
+    assert (
+        merged_empty_first.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when merging with empty."
+    assert (
+        merged_empty_first.samples == series_list[0].samples
+    ).all(), "Wrong samples when merging with empty"
+    assert (
+        merged_empty_first.times == series_list[0].times
+    ).all(), "Wrong time trace when merging with empty"
+
+    merged_empty_last = series_list[0].merge(empty_series)
+    assert (
+        merged_empty_last.t_start == series_list[0].t_start
+    ), "Wrong t_start when merging with empty."
+    assert (
+        merged_empty_last.t_stop == series_list[0].t_stop
+    ), "Wrong t_stop when merging with empty."
+    assert (
+        merged_empty_last.samples == series_list[0].samples
+    ).all(), "Wrong samples when merging with empty"
+    assert (
+        merged_empty_last.times == series_list[0].times
+    ).all(), "Wrong time trace when merging with empty"
+
+
 def test_TSEvent_raster():
     """
     Test TSEvent raster function on merging other time series events
@@ -278,7 +446,7 @@ def test_TSEvent_empty():
 
 def test_TSEvent_append_c():
     """
-    Test merge method of TSEvent
+    Test append_c method of TSEvent
     """
     from NetworksPython import TSEvent
 
@@ -289,7 +457,7 @@ def test_TSEvent_append_c():
     series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
     series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
-    # Merging two series
+    # Appending two series
     appended_fromtwo = series_list[0].append_c(series_list[2])
     assert (
         appended_fromtwo.num_channels == 8
@@ -303,7 +471,7 @@ def test_TSEvent_append_c():
         appended_fromtwo.channels == np.array([3, 2, 0])
     ).all(), "Wrong channels for appended series."
 
-    # Merging with empty series
+    # Appending with empty series
     appended_empty_first = empty_series.append_c(series_list[0])
     assert (
         appended_empty_first.t_start == series_list[0].t_start
@@ -337,7 +505,7 @@ def test_TSEvent_append_c():
         appended_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when appending with empty"
 
-    # Merging with list of series
+    # Appending with list of series
     appended_with_list = empty_series.append_c(series_list)
     assert (
         appended_with_list.num_channels == 10
@@ -357,7 +525,7 @@ def test_TSEvent_append_c():
 
 def test_TSEvent_append_t():
     """
-    Test merge method of TSEvent
+    Test append_t method of TSEvent
     """
     from NetworksPython import TSEvent
 
@@ -368,7 +536,7 @@ def test_TSEvent_append_t():
     series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
     series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
-    # Merging two series
+    # Appending two series
     appended_fromtwo = series_list[0].append_t(series_list[2])
     assert (
         appended_fromtwo.num_channels == 5
@@ -382,7 +550,7 @@ def test_TSEvent_append_t():
         appended_fromtwo.channels == np.array([2, 0, 0])
     ).all(), "Wrong channels for appended series."
 
-    # Merging with empty series
+    # Appending with empty series
     appended_empty_first = empty_series.append_t(series_list[0])
     assert (
         appended_empty_first.t_start == empty_series.t_start
@@ -416,7 +584,7 @@ def test_TSEvent_append_t():
         appended_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when appending with empty"
 
-    # Merging with list of series
+    # Appending with list of series
     appended_with_list = empty_series.append_t(series_list, offset=[3, 2, 1])
     assert (
         appended_with_list.num_channels == 5
