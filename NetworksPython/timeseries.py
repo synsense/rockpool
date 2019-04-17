@@ -523,7 +523,7 @@ class TSContinuous(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
-        include_stop: bool = False,
+        include_stop: bool = True,
         sample_limits: bool = True,
         inplace: bool = False,
     ) -> TSContType:
@@ -576,8 +576,16 @@ class TSContinuous(TimeSeries):
         # - Pick matching times
         times: np.ndarray = times_to_choose[times_in_limits]
         if sample_limits:
-            add_start = times[0] > t_start
-            add_stop = times[-1] < t_stop and include_stop
+            add_start: bool = times.size == 0 or times[0] > t_start
+            if not clipped_series.contains(t_start):
+                warn(
+                    f"TSContinuous '{self.name}`: `t_start` beyond interpolation-range. "
+                )
+            add_stop: bool = times.size == 0 or (times[-1] < t_stop and include_stop)
+            if not clipped_series.contains(t_stop):
+                warn(
+                    f"TSContinuous '{self.name}`: `t_stop` beyond interpolation-range. "
+                )
             # - Only generate new array once
             if add_start and add_stop:
                 times = np.r_[t_start, times, t_stop]
@@ -587,7 +595,12 @@ class TSContinuous(TimeSeries):
                 times = np.r_[times, t_stop]
 
         # - Sample at the chosen time points and return
-        return clipped_series.resample(times, channels, inplace=True)
+        clipped_series.resample(times, channels, inplace=True)
+        # - Update t_start and t_stop
+        clipped_series._t_start = t_start
+        clipped_series._t_stop = t_stop
+
+        return clipped_series
 
     def resample(
         self,
@@ -620,13 +633,19 @@ class TSContinuous(TimeSeries):
                 channels = np.atleast_1d(channels)
                 resampled_series._samples = self(times)[:, channels]
             except IndexError:
-                raise IndexError(
-                    f"TSContinuous `{self.name}`: "
-                    + f"Channels must be between 0 and {self.num_channels - 1}."
-                )
+                if self.num_channels == 0:
+                    raise IndexError(
+                        f"TSContinuous `{self.name}` does not have any channels."
+                    )
+                else:
+                    raise IndexError(
+                        f"TSContinuous `{self.name}`: "
+                        + f"Channels must be between 0 and {self.num_channels - 1}."
+                    )
         resampled_series._times = times
-        resampled_series._t_start = times[0]
-        resampled_series._t_stop = times[-1]
+        if times.size > 0:
+            resampled_series._t_start = times[0]
+            resampled_series._t_stop = times[-1]
         resampled_series._create_interpolator()
         return resampled_series
 
@@ -827,7 +846,7 @@ class TSContinuous(TimeSeries):
 
         # - Handle empty series
         if samples is None:
-            return np.zeros((times.size, 0))
+            return np.zeros((np.size(times), 0))
         else:
             return np.reshape(self.interp(times), (-1, self.num_channels))
 
@@ -962,10 +981,10 @@ class TSContinuous(TimeSeries):
         if self.isempty():
             beginning: str = f"Empty TSContinuous object `{self.name}` "
         else:
-            beginnging: str = "{}periodic TSContinuous object `{}` ".format(
+            beginning: str = "{}periodic TSContinuous object `{}` ".format(
                 int(not self.periodic) * "non-", self.name
             )
-        return beginnging + "from t={} to {}. Samples: {}. Channels: {}".format(
+        return beginning + "from t={} to {}. Samples: {}. Channels: {}".format(
             self.t_start, self.t_stop, self.samples.shape[0], self.num_channels
         )
 
@@ -1446,7 +1465,7 @@ class TSEvent(TimeSeries):
                  t_start and t_stop attributes will correspond to those. If
                  `compress_channels` is true, channels IDs will be mapped to continuous
                  sequence of integers starting from 0 (e.g. [1,3,6]->[0,1,2]). In this
-                 case `num_channels` will be set to the largest new channel ID + 1.
+                 case `num_channels` will be set to the number of different channels in `channels`.
                  Otherwise it will keep its original values, which is also the case for
                  all other attributes.
                  If `inplace` is True, modify `self` accordingly.
@@ -1467,22 +1486,31 @@ class TSEvent(TimeSeries):
             new_series = self
 
         # - Extract matching events
-        times, channels = new_series(t_start, t_stop, channels, include_stop)
+        time_data, channel_data = new_series(t_start, t_stop, channels, include_stop)
 
         # - Update new timeseries
-        new_series._times = times
+        new_series._times = time_data
         if t_start is not None:
             new_series._t_start = t_start
         if t_stop is not None:
             new_series._t_stop = t_stop
-        if compress_channels and channels.size > 0:
-            # - Set channel IDs to sequence starting from 0
-            unique_channels, channel_indices = np.unique(channels, return_inverse=True)
-            num_channels = unique_channels.size
-            new_series._channels = np.arange(num_channels)[channel_indices]
-            new_series.num_channels = num_channels
+        if compress_channels:
+            if channel_data.size > 0:
+                # - Set channel IDs to sequence starting from 0
+                unique_channels, channel_indices = np.unique(
+                    channel_data, return_inverse=True
+                )
+                num_channels = unique_channels.size
+                new_series._channels = np.arange(num_channels)[channel_indices]
+            else:
+                new_series._channels = channel_data
+            new_series._num_channels = (
+                np.unique(channels).size
+                if channels is not None
+                else np.unique(channel_data).size
+            )
         else:
-            new_series._channels = channels
+            new_series._channels = channel_data
 
         return new_series
 
@@ -1991,7 +2019,10 @@ class TSEvent(TimeSeries):
 
     @num_channels.setter
     def num_channels(self, nNewNumChannels):
-        nMinNumChannels = np.amax(self.channels)
+        if self.channels.size > 0:
+            nMinNumChannels = np.amax(self.channels)
+        else:
+            nMinNumChannels = 0
         if nNewNumChannels < nMinNumChannels:
             raise ValueError(
                 f"TSContinuous `{self.name}`: `num_channels` must be at least {nMinNumChannels}."

@@ -44,7 +44,7 @@ def test_continuous_operators():
     ts2 = TSContinuous([1, 2, 3, 4], [5, 6, 7, 8])
 
     # - Samples don't match time
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         TSContinuous([0, 1, 2], [0])
 
     # - Addition
@@ -192,6 +192,82 @@ def test_continuous_indexing():
     ts0 = ts[:0.4, [3, 1]]
     assert (ts0.times == times[:4]).all()
     assert (ts0.samples == samples[:4, [3, 1]]).all()
+
+
+def test_continuous_call():
+    from NetworksPython import TSContinuous
+
+    # - Generate series
+    times = np.arange(1, 5) * 0.1
+    samples = np.arange(4).reshape(-1, 1) + np.arange(2) * 2
+    ts = TSContinuous(times, samples)
+    ts_empty = TSContinuous()
+    ts_single = TSContinuous(2, [3, 2])
+
+    # - Call ts
+    assert np.allclose(ts(0.1), np.array([[0, 2]]))
+    assert np.allclose(ts(0.25), np.array([[1.5, 3.5]]))
+    assert (np.isnan(ts(0))).all() and ts(0).shape == (1, 2)
+    samples_ts = ts([0, 0.1, 0.25])
+    assert np.allclose(samples_ts[1:], np.array([[0, 2], [1.5, 3.5]]))
+    assert (np.isnan(samples_ts[0])).all() and samples_ts.shape == (3, 2)
+
+    # - Call ts_empty
+    assert ts_empty(1).shape == (1, 0)
+    assert ts_empty([0, 1, 4]).shape == (3, 0)
+
+    # - Call ts_single
+    assert (ts_single(2) == np.array([[3, 2]])).all()
+    assert np.isnan(ts_single(0)).all() and ts_single(0).shape == (1, 2)
+    samples_single = ts_single([0, 2, 1, 3, 2, 4])
+    assert (
+        np.isnan(samples_single)
+        == np.array(
+            [2 * [True], 2 * [False], 2 * [True], 2 * [True], 2 * [False], 2 * [True]]
+        )
+    ).all()
+    assert (samples_single[1] == np.array([3, 2])).all()
+    assert (samples_single[4] == np.array([3, 2])).all()
+
+
+def test_continuous_clip():
+    from NetworksPython import TSContinuous
+
+    # - Generate series
+    times = np.arange(1, 6) * 0.1
+    samples = np.arange(5).reshape(-1, 1) + np.arange(2) * 2
+    ts = TSContinuous(times, samples)
+    ts_empty = TSContinuous()
+
+    # - Clip ts in time
+    assert (ts.clip(0.2, 0.4, include_stop=True).times == times[1:4]).all()
+    assert (ts.clip(0.2, 0.4, include_stop=True).samples == samples[1:4]).all()
+    assert (ts.clip(0.2, 0.4, include_stop=False).times == times[1:3]).all()
+    assert (ts.clip(0.2, 0.4, include_stop=False).samples == samples[1:3]).all()
+    ts_limits = ts.clip(0.2, 0.35, include_stop=True, sample_limits=True)
+    assert np.allclose(ts_limits.times, np.array([0.2, 0.3, 0.35]))
+    expected_samples = np.vstack((samples[1:3], [2.5, 4.5]))
+    assert np.allclose(ts_limits.samples, expected_samples)
+    ts_beyond = ts.clip(0.4, 0.6, sample_limits=False)
+    assert (ts_beyond.times == times[-2:]).all()
+    assert (ts_beyond.samples == samples[-2:]).all()
+    # - Clip ts channels
+    assert (ts.clip(channels=1).times == times).all()
+    assert (ts.clip(channels=1).samples == samples[:, [1]]).all()
+    assert (ts.clip(channels=[1, 0]).times == times).all()
+    assert (ts.clip(channels=[1, 0]).samples == samples[:, [1, 0]]).all()
+    # - Clip ts channels and time
+    ts_ch_t = ts.clip(0.2, 0.4, channels=1, include_stop=True)
+    assert (ts_ch_t.times == times[1:4]).all()
+    assert (ts_ch_t.samples == samples[1:4, [1]]).all()
+
+    # - Clip empty
+    ts_et = ts_empty.clip(0.2, 0.4, sample_limits=False)
+    assert ts_et.isempty()
+    assert ts_et.t_start == 0.2 and ts_et.t_stop == 0.4
+    with pytest.raises(IndexError):
+        ts_empty.clip(channels=0)
+        ts_empty.clip(2, 4, channels=0)
 
 
 def test_continuous_inplace_mutation():
@@ -400,7 +476,69 @@ def test_continuous_merge():
     ).all(), "Wrong time trace when merging with empty"
 
 
-def test_TSEvent_raster():
+def test_event_call():
+    from NetworksPython import TSEvent
+
+    # - Generate series
+    times = [1, 3, 4, 5, 7]
+    channels = [0, 0, 1, 2, 1]
+    ts = TSEvent(times, channels)
+    ts_empty = TSEvent()
+
+    # - Call ts with times
+    assert (ts()[0] == times).all()
+    assert (ts()[1] == channels).all()
+    assert (ts(5)[0] == times[-2:]).all()
+    assert (ts(5)[1] == channels[-2:]).all()
+    assert (ts(None, 5)[0] == times[:-2]).all()
+    assert (ts(None, 5)[1] == channels[:-2]).all()
+    assert (ts(2, 5)[0] == times[1:3]).all()
+    assert (ts(2, 5)[1] == channels[1:3]).all()
+    assert (ts(2, 5, include_stop=True)[0] == times[1:4]).all()
+    assert (ts(2, 5, include_stop=True)[1] == channels[1:4]).all()
+    assert (ts(8, 9)[0] == []).all()
+    assert (ts(8, 9)[1] == []).all()
+    # - Call ts with channels
+    assert (ts(channels=[0, 2])[0] == [1, 3, 5]).all()
+    assert (ts(channels=[0, 2])[1] == [0, 0, 2]).all()
+    assert (ts(channels=0)[0] == [1, 3]).all()
+    assert (ts(channels=0)[1] == [0, 0]).all()
+    with pytest.raises(IndexError):
+        ts(channels=4)
+    # - Call ts with channels and time
+    assert (ts(2, 6, channels=[0, 2])[0] == [3, 5]).all()
+    assert (ts(2, 6, channels=[0, 2])[1] == [0, 2]).all()
+
+    # - Call empty
+    assert (ts_empty(2, 5, channels=4)[0] == []).all()
+    assert (ts_empty(2, 5, channels=4)[1] == []).all()
+
+
+def test_event_indexing():
+    from NetworksPython import TSEvent
+
+    # - Generate series
+    times = [1, 3, 4, 5, 7]
+    channels = [0, 0, 1, 2, 1]
+    ts = TSEvent(times, channels)
+    ts_empty = TSEvent()
+
+    # - Indexing ts
+    assert (ts[2].times == [4]).all()
+    assert (ts[2].channels == [1]).all()
+    assert (ts[2:5].times == times[2:5]).all()
+    assert (ts[2:5].channels == channels[2:5]).all()
+    assert (ts[[4, 0, 1]].times == np.asarray(times)[[4, 0, 1]]).all()
+    assert (ts[[4, 0, 1]].channels == np.asarray(channels)[[4, 0, 1]]).all()
+
+    # - Indexing empty
+    with pytest.raises(IndexError):
+        ts_empty[0]
+    with pytest.raises(IndexError):
+        ts_empty[[0, 1]]
+
+
+def test_event_raster():
     """
     Test TSEvent raster function on merging other time series events
     """
@@ -414,7 +552,7 @@ def test_TSEvent_raster():
     assert raster.shape == (31, 4)
 
 
-def test_TSEvent_raster_explicit_num_channels():
+def test_event_raster_explicit_num_channels():
     """
     Test TSEvent raster method when the function is initialized with explicit number of Channels
     """
@@ -428,7 +566,7 @@ def test_TSEvent_raster_explicit_num_channels():
     assert raster.shape == (31, 5)
 
 
-def test_TSEvent_empty():
+def test_event_empty():
     """
     Test TSEvent instantiation with empty objects or None
     """
@@ -444,7 +582,48 @@ def test_TSEvent_empty():
     assert testTSEvent.num_channels == 0
 
 
-def test_TSEvent_append_c():
+def test_event_clip():
+    from NetworksPython import TSEvent
+
+    # - Generate series
+    times = [1, 3, 4, 5, 7]
+    channels = [0, 0, 1, 2, 1]
+    ts = TSEvent(times, channels)
+    ts_empty = TSEvent(num_channels=2)
+
+    # - Clip ts in time
+    assert (ts.clip(2, 4, include_stop=True).times == times[1:3]).all()
+    assert (ts.clip(2, 4, include_stop=True).channels == channels[1:3]).all()
+    assert (ts.clip(2, 4, include_stop=False).times == times[1:2]).all()
+    assert (ts.clip(2, 4, include_stop=False).channels == channels[1:2]).all()
+    assert ts.clip(2, 4, include_stop=False).num_channels == 3
+    assert (ts.clip(4, 6, compress_channels=True).times == times[2:4]).all()
+    assert (ts.clip(4, 6, compress_channels=True).channels == [0, 1]).all()
+    assert ts.clip(8, 9).isempty()
+    # - Clip ts channels
+    assert (ts.clip(channels=[0, 1]).times == np.array([1, 3, 4, 7])).all()
+    assert (ts.clip(channels=[0, 1]).channels == np.array([0, 0, 1, 1])).all()
+    # - Clip ts channels and time
+    assert (ts.clip(2, 6, channels=[0, 2]).times == np.array([3, 5])).all()
+    assert (ts.clip(2, 6, channels=[0, 2]).channels == np.array([0, 2])).all()
+
+    # - Clip empty
+    assert ts_empty.clip(2, 3).isempty()
+    assert ts_empty.clip(2, 3).num_channels == 2
+    assert ts_empty.clip(2, 3).t_start == 2
+    assert ts_empty.clip(2, 3).t_stop == 3
+    assert ts_empty.clip(channels=0).isempty()
+    assert ts_empty.clip(channels=0).num_channels == 2
+    assert ts_empty.clip(channels=0).t_start == 0
+    assert ts_empty.clip(channels=0).t_stop == 0
+    assert ts_empty.clip(2, 3, channels=0).isempty()
+    assert ts_empty.clip(2, 3, channels=0).num_channels == 2
+    assert ts_empty.clip(2, 3, channels=0, compress_channels=True).num_channels == 1
+    assert ts_empty.clip(2, 3, channels=0).t_start == 2
+    assert ts_empty.clip(2, 3, channels=0).t_stop == 3
+
+
+def test_event_append_c():
     """
     Test append_c method of TSEvent
     """
@@ -523,7 +702,7 @@ def test_TSEvent_append_c():
     ), "Wrong channels when appending with list."
 
 
-def test_TSEvent_append_t():
+def test_event_append_t():
     """
     Test append_t method of TSEvent
     """
@@ -599,7 +778,7 @@ def test_TSEvent_append_t():
     ).all(), "Wrong channels when appending with list."
 
 
-def test_TSEvent_merge():
+def test_event_merge():
     """
     Test merge method of TSEvent
     """
