@@ -35,9 +35,7 @@ def test_ffiaf():
     )
 
     # - Input signal
-    tsInCont = ts.TSContinuous(
-        times=np.arange(15) * 0.01, samples=np.ones((15, 2))
-    )
+    tsInCont = ts.TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 2)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.vState)
@@ -72,9 +70,7 @@ def test_ffiaf_spkin():
     )
 
     # - Input signal
-    tsInEvt = ts.TSEvent(
-        times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 1, 1, 0]
-    )
+    tsInEvt = ts.TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 1, 1, 0])
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl1.vState)
@@ -84,7 +80,7 @@ def test_ffiaf_spkin():
 
     fl1.reset_all()
     assert fl1.t == 0
-    assert (vStateBefore == fl1.vState).all()
+    assert np.allclose(vStateBefore == fl1.vState)
 
 
 def test_reciaf():
@@ -111,9 +107,7 @@ def test_reciaf():
     )
 
     # - Input signal
-    tsInCont = ts.TSContinuous(
-        times=np.arange(15) * 0.01, samples=np.ones((15, 3))
-    )
+    tsInCont = ts.TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 3)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl0.vState)
@@ -153,9 +147,7 @@ def test_reciaf_spkin():
     )
 
     # - Input signal
-    tsInEvt = ts.TSEvent(
-        times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 1, 1, 0]
-    )
+    tsInEvt = ts.TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 1, 1, 0])
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl1.vState)
