@@ -3,18 +3,9 @@ Test filtering layers from layers.internal.filter_layer
 """
 
 import numpy as np
-import time
-import pylab as plt
-
-from hyperopt import hp
-from hyperopt import fmin, tpe, space_eval, Trials
-from NetworksPython.timeseries import SetPlottingBackend
-
-SetPlottingBackend("plt")
 
 
-
-def test_chargeSingleNeuron():
+def test_filter_layer():
     """
     single neuron test
     charge neuron exactly to threshold without crossing using the bias
@@ -22,11 +13,15 @@ def test_chargeSingleNeuron():
 
     from NetworksPython.layers import Filter
     from NetworksPython.timeseries import TSContinuous
+    from AudiotoryProcessing.preprocessing import butter_mel
 
     fs = 1000
-    filterName = "butter"
-    mfW = np.ones((1,5))
-    tsInp = TSContinuous(np.arange(1000) /fs, np.random.rand(1000))
+    filterName = "butter_mel"
+    numInputChannels = 5
+    mfW = np.ones((1,numInputChannels))
+    times = np.arange(1000) /fs
+    signal = np.random.rand(1000)
+    tsInp = TSContinuous(times, signal)
 
 
     fl0 = Filter(
@@ -39,5 +34,9 @@ def test_chargeSingleNeuron():
 
     dFl0 = fl0.evolve(tsInp)
 
+    filterOutput = butter_mel(signal, fs, numInputChannels, fs, False, 2)
+    tsFilt = TSContinuous(times, filterOutput)
+
+    assert np.all(np.isclose(tsFilt.mfSamples, dFl0.mfSamples))
     assert(fl0.nNumTraces == 5)
     assert(dFl0.mfSamples.mean() != 0)

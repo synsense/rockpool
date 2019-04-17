@@ -228,6 +228,7 @@ class FFExpSynTorch(FFExpSyn):
         bFinal: bool = False,
         bStoreState: bool = True,
         bTrainBiases: bool = True,
+        bIntermediateResults: bool = False
     ):
 
         """
@@ -246,6 +247,7 @@ class FFExpSynTorch(FFExpSyn):
         :param bTrainBiases:    bool - If True, train biases as if they were weights
                                        Otherwise present biases will be ignored in
                                        training and not be changed.
+        :param bIntermediateResults: bool - If True, calculates the intermediate weights not in the final batch
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -389,6 +391,16 @@ class FFExpSynTorch(FFExpSyn):
                     else:
                         self._vTrainingState = mfInput[-1, :].clone()
 
+                if bIntermediateResults:
+                    mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
+                        self.device
+                    )
+                    mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
+                    if bTrainBiases:
+                        self.mfW = mfSolution[:-1, :]
+                        self.vfBias = mfSolution[-1, :]
+                    else:
+                        self.mfW = mfSolution
             else:
                 # - In final step do not calculate rounding error but update matrices directly
                 self._mfXTY += mfUpdXTY
