@@ -644,7 +644,7 @@ class RecIAFSpkInNest(Layer):
             # - Add stimulation device
             self._sg = nest.Create("spike_generator", self.mfWIn.shape[0])
 
-            # - Create recurrent connections
+            # - Create input connections
             pres = []
             posts = []
 
@@ -659,10 +659,10 @@ class RecIAFSpkInNest(Layer):
             conns = nest.GetConnections(self._sg, self._pop)
             connsPrePost = np.array(
                 nest.GetStatus(conns, ['source', 'target']))
-            connsPrePost[:, 0] -= np.min(self._sd)
+            connsPrePost[:, 0] -= np.min(self._sg)
             connsPrePost[:, 1] -= np.min(self._pop)
 
-            weights = [self.mfWRec[conn[0], conn[1]] for conn in connsPrePost]
+            weights = [self.mfWIn[conn[0], conn[1]] for conn in connsPrePost]
 
             nest.SetStatus(
                 conns, [{'weight': w, 'delay': self.tDt} for w in weights])
