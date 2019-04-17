@@ -4,12 +4,12 @@
 
 from ...layer import Layer
 from ....timeseries import TSEvent
-from ....devices.dynapse_control import DynapseControl, CtxDynapse
+from ....devices.dynapse_control_extd import DynapseControlExtd
 from ....devices import dynapse_control as DC
 
 import numpy as np
 from warnings import warn
-from typing import Tuple, List, Optional, Union
+from typing import List, Optional
 import time
 
 
@@ -39,7 +39,7 @@ class RecDynapSE(Layer):
         lnInputCoreIDs: List[int] = [0],
         nInputChipID: int = 0,
         lnClearCores: Optional[list] = None,
-        controller: DynapseControl = None,
+        controller: DynapseControlExtd = None,
         strName: Optional[str] = "unnamed",
         bSkipWeights: bool = False,
     ):
@@ -76,7 +76,7 @@ class RecDynapSE(Layer):
                         strName
                     )
                 )
-            self.controller = DynapseControl(tDt, lnClearCores)
+            self.controller = DynapseControlExtd(tDt, lnClearCores)
         else:
             self.controller = controller
             self.controller.tFpgaIsiBase = tDt
@@ -199,7 +199,6 @@ class RecDynapSE(Layer):
             viTrialStartIndices = np.searchsorted(vnTSInputEvents, vnTrialStarts)
             # - Count number of events for each trial (np.r_ to include last trial)
             vnCumulEventsPerTrial = np.r_[viTrialStartIndices, vnTSInputEvents.size]
-            vnEventsPerTrial = np.diff(vnCumulEventsPerTrial)
 
             # - First trial of current batch
             iCurrentTrial = 0
@@ -213,11 +212,6 @@ class RecDynapSE(Layer):
                     vnCumulNextEvents, self.nMaxEventsPerBatch
                 )
                 if self.nMaxNumTimeSteps is not None:
-                    # - Cumulated numbers of time steps per trial for coming trials (np.r_ for including last trial)
-                    vnCumulNextTimeSteps = (
-                        np.r_[vnTrialStarts[iCurrentTrial + 1 :], nNumTimeSteps]
-                        - vnTrialStarts[iCurrentTrial]
-                    )
                     # - Maximum number of trials before self.nMaxNumTimeSteps is exceeded
                     nMaxNumTrialsNTS = np.searchsorted(
                         vnCumulNextEvents, self.nMaxNumTimeSteps
@@ -448,7 +442,7 @@ class RecDynapSE(Layer):
         except MemoryError:
             print(
                 "Layer `{}`: Split current batch into two, due to large number of events.".format(
-                    strName
+                    self.strName
                 )
             )
             ## -- Split the batch in two parts, then set it together
@@ -658,7 +652,7 @@ class RecDynapSE(Layer):
     @property
     def lnInputCoreIDs(self):
         # - Core mask as reversed binary string
-        strBinCoreMask = resersed(bin(self._nInputCoreMask)[-4:])
+        strBinCoreMask = reversed(bin(self._nInputCoreMask)[-4:])
         return [nCoreID for nCoreID, bMask in enumerate(strBinCoreMask) if int(bMask)]
 
 
