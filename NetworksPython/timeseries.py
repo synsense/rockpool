@@ -197,7 +197,7 @@ class TimeSeries:
         self, times: Union[ArrayLike, float, int]
     ) -> Union[ArrayLike, float, int]:
         """_modulo_period - Calculate provided times modulo `self.duration`"""
-        return self.t_start + np.modulo(times - self.t_start, self.duration)
+        return self.t_start + np.mod(times - self.t_start, self.duration)
 
     def __len__(self):
         return self._times.size
@@ -524,7 +524,7 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
         include_stop: bool = True,
-        sample_limits: bool = True,
+        sample_limits: bool = False,
         inplace: bool = False,
     ) -> TSContType:
         """
@@ -1710,10 +1710,8 @@ class TSEvent(TimeSeries):
 
         # - Determine number of channels for each series
         nums_channels = [series.num_channels for series in series_list]
-        print(nums_channels)
         # - Shift for each TSEvent's channels
         channel_shifts = np.cumsum([0] + nums_channels[:-1])
-        print(channel_shifts)
 
         # - Stop if no non-empty series is left
         if not series_list:
@@ -1727,8 +1725,6 @@ class TSEvent(TimeSeries):
                 for series, shift in zip(series_list, channel_shifts)
             ]
         )
-        print(*(series.channels for series in series_list))
-        print(channels_new)
 
         # - Sort on time and merge
         sort_indices = np.argsort(times_new)
