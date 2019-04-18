@@ -510,8 +510,11 @@ def test_event_call():
     assert (ts(2, 6, channels=[0, 2])[1] == [0, 2]).all()
 
     # - Call empty
-    assert (ts_empty(2, 5, channels=4)[0] == []).all()
-    assert (ts_empty(2, 5, channels=4)[1] == []).all()
+    assert (ts_empty(2, 5)[0] == []).all()
+    assert (ts_empty(2, 5)[1] == []).all()
+    with pytest.raises(IndexError):
+        assert (ts_empty(2, 5, channels=4)[0] == []).all()
+        assert (ts_empty(2, 5, channels=4)[1] == []).all()
 
 
 def test_event_indexing():

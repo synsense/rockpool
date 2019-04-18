@@ -628,20 +628,20 @@ class TSContinuous(TimeSeries):
         if channels is None:
             resampled_series._samples = self(times)
         else:
+            # - Convert to 1d array so that integer as index also results in 2D samples
+            channels = np.atleast_1d(channels)
+            if self.num_channels == 0 and channels.size > 0:
+                # - Handle empty series
+                raise IndexError(
+                    f"TSContinuous `{self.name}` does not have any channels."
+                )
             try:
-                # - Convert to 1d array so that integer as index also results in 2D samples
-                channels = np.atleast_1d(channels)
                 resampled_series._samples = self(times)[:, channels]
             except IndexError:
-                if self.num_channels == 0:
-                    raise IndexError(
-                        f"TSContinuous `{self.name}` does not have any channels."
-                    )
-                else:
-                    raise IndexError(
-                        f"TSContinuous `{self.name}`: "
-                        + f"Channels must be between 0 and {self.num_channels - 1}."
-                    )
+                raise IndexError(
+                    f"TSContinuous `{self.name}`: "
+                    + f"Channels must be between 0 and {self.num_channels - 1}."
+                )
         resampled_series._times = times
         if times.size > 0:
             resampled_series._t_start = times[0]
@@ -1918,10 +1918,6 @@ class TSEvent(TimeSeries):
             np.ndarray  Times of events
             np.ndarray  Channels of events
         """
-        # - Handle empty TSEvent
-        if self.isempty():
-            return np.array([]), np.array([], int)
-
         if t_start is None:
             t_start: float = self.t_start
         if t_stop is None:

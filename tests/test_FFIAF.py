@@ -50,7 +50,6 @@ def test_ffiaf():
 
 def test_ffiaf_spkin():
     """ Test FFIAFSpkInBrian """
-    from brian2 import second
     from NetworksPython import timeseries as ts
     from NetworksPython.layers import FFIAFSpkInBrian
 
@@ -80,7 +79,7 @@ def test_ffiaf_spkin():
 
     fl1.reset_all()
     assert fl1.t == 0
-    assert np.allclose(vStateBefore == fl1.vState)
+    assert np.allclose(vStateBefore, fl1.vState)
 
 
 def test_reciaf():
@@ -122,7 +121,6 @@ def test_reciaf():
 
 def test_reciaf_spkin():
     """ Test RecIAFSpkInBrian """
-    from brian2 import second
     from NetworksPython import timeseries as ts
     from NetworksPython.layers import RecIAFSpkInBrian
 
