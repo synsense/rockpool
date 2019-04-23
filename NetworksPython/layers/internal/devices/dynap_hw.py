@@ -439,7 +439,7 @@ class RecDynapSE(Layer):
             )
         # - It can happen that DynapseControl inserts dummy events to make sure ISI limit is not exceeded.
         #   This may result in too many events in single batch, in which case a MemoryError is raised.
-        except MemoryError:
+        except ValueError:
             print(
                 "Layer `{}`: Split current batch into two, due to large number of events.".format(
                     self.strName

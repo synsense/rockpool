@@ -1900,7 +1900,7 @@ class DynapseControl:
         self.bufferedfilter.get_special_event_timestamps()
 
         # Time at which stimulation stops, including buffer
-        tStop = time.time() + tDuration + (0.0 if tBuffer is None else tBuffer)
+        t_stop = time.time() + tDuration + (0.0 if tBuffer is None else tBuffer)
 
         # - Stimulate
         self.fpgaSpikeGen.start()
@@ -1910,7 +1910,7 @@ class DynapseControl:
             return
 
         # - Until duration is over, record events and process in quick succession
-        while time.time() < tStop:
+        while time.time() < t_stop:
             if bRecord:
                 # - Collect events and possibly trigger events
                 lTriggerEvents += self.bufferedfilter.get_special_event_timestamps()

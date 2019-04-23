@@ -7,7 +7,7 @@ from typing import List, Union, Optional, Tuple
 
 import numpy as np
 
-from .dynapse_control_ctx import DynapseControl, generate_fpga_event_list
+from .dynapse_control import DynapseControl, generate_fpga_event_list
 from ..timeseries import TSEvent
 
 __all__ = ["DynapseControlExtd"]
