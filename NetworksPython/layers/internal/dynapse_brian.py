@@ -252,7 +252,7 @@ class RecDynapseBrian(Layer):
         vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
         vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, name="Layer spikes")
 
     ### --- Properties
 

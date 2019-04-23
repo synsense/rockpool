@@ -1,5 +1,6 @@
 # ----
-# dynapse_control.py - Class to interface the DynapSE chip
+# dynapse_control.py - Module to interface cortexcontrol and the DynapSE chip
+# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
 # ----
 
 ### --- Imports
@@ -10,13 +11,14 @@ from typing import Tuple, List, Optional, Union
 import time
 import os.path
 import threading
-from ..timeseries import TSEvent
 
-# - Programmatic imports for CtxCtl
+# - Global settings
 bUsing_RPyC = False
 bUsing_deepcopy = False
 RPYC_TIMEOUT = 300
 
+
+## -- Import cortexcontrol modules or establish connection via RPyC
 try:
     import CtxDynapse
     import NeuronNeuronConnector
@@ -25,6 +27,7 @@ except ModuleNotFoundError:
     # - Try with RPyC
     try:
         import rpyc
+
         conn = rpyc.classic.connect("localhost", "1300")
         print("dynapse_control: RPyC connection established through port 1300.")
     except ModuleNotFoundError:
@@ -37,9 +40,7 @@ except ModuleNotFoundError:
         except:
             raise ImportError("dynapse_control: Connection not possible")
     # - Set up rpyc conneciton settings
-    conn._config[
-        "sync_request_timeout"
-    ] = RPYC_TIMEOUT  # Set timeout to higher level
+    conn._config["sync_request_timeout"] = RPYC_TIMEOUT  # Set timeout to higher level
     CtxDynapse = conn.modules.CtxDynapse
     NeuronNeuronConnector = conn.modules.NeuronNeuronConnector
     bUsing_RPyC = True
@@ -64,7 +65,7 @@ FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to
 FPGA_ISI_LIMIT = int(
     2 ** 16 - 1
 )  # Max. number of timesteps for single inter-spike interval between FPGA events
-FPGA_TIMESTEP = 1. / 9. * 1e-7  # Internal clock of FPGA, 11.111...ns
+FPGA_TIMESTEP = 1.0 / 9.0 * 1e-7  # Internal clock of FPGA, 11.111...ns
 CORE_DIMENSIONS = (16, 16)  # Numbers of neurons in core (rows, columns)
 NUM_CORE_NEURONS = (
     CORE_DIMENSIONS[0] * CORE_DIMENSIONS[1]
@@ -149,10 +150,11 @@ def rectangular_neuron_arrangement(
     nFirstRow = int(np.floor(nFirstNeuron / nWidthCore))
     nFirstCol = nFirstNeuron % nWidthCore
     # - Make sure rectangle fits on single core
-    assert (
-        nFirstCol + nWidth <= nWidthCore  # not too wide
-        and nFirstRow % nHeightCore + nNumRows <= nHeightCore  # not too high
-    ), "Rectangle does not fit onto single core."
+    if (
+        nFirstCol + nWidth > nWidthCore
+        or nFirstRow % nHeightCore + nNumRows > nHeightCore
+    ):
+        raise ValueError("dynapse_control: Rectangle does not fit onto single core.")
     lNeuronIDs = [
         (nFirstRow + nRow) * nWidthCore + (nFirstCol + nID)
         for nRow in range(nNumRows)
@@ -197,7 +199,7 @@ def evaluate_firing_rates(
     lEvents: list,
     tDuration: float,
     vnNeuronIDs: Optional[list] = None,
-    bVerbose: bool=True,
+    bVerbose: bool = True,
 ) -> (np.ndarray, float, float, float):
     """
     evaluate_firing_rates - Determine the neuron-wise firing rates from a
@@ -262,7 +264,8 @@ def evaluate_firing_rates(
 
     return vfFiringRates, fMeanRate, fMaxRate, fMinRate
 
-#@profile
+
+# @profile
 def event_data_to_channels(
     lEvents: List, lLayerNeuronIDs: List
 ) -> (np.ndarray, np.ndarray):
@@ -321,6 +324,7 @@ def correct_type(obj):
     elif isinstance(obj, dict):
         return {correct_type(key): correct_type(val) for key, val in obj.items()}
     # Extend for types like bytes, unicode, char,... if necessary
+    # - Check if object type is defined in remote namespace
     elif type(obj).__module__ not in ["builtins", "CtxDynapse", "rpyc"]:
         warn("Unrecognized type: {}".format(type(obj)))
     return obj
@@ -433,16 +437,18 @@ def local_arguments(func):
 
     return local_func
 
-# - Example on how to use local_arguments_rpyc decorator
-@teleport_function
-def _define_print_type():
-    @local_arguments
-    def print_type(obj):
-        print(type(obj))
 
-    return print_type
+# # - Example on how to use local_arguments_rpyc decorator
+# @teleport_function
+# def _define_print_type():
+#     @local_arguments
+#     def print_type(obj):
+#         print(type(obj))
+#     return print_type
+# print_type = correct_argument_types(
+#     _define_print_type()
+# )  # or just print_type = _define_print_type()
 
-print_type = correct_argument_types(_define_print_type())  # or just print_type = _define_print_type()
 
 @teleport_function
 def extract_event_data(lEvents) -> (tuple, tuple):
@@ -456,7 +462,8 @@ def extract_event_data(lEvents) -> (tuple, tuple):
     # Extract event timestamps and neuron IDs. Skip events with neuron None.
     ltupEvents = [
         (event.timestamp, event.neuron.get_id())
-        for event in lEvents if isinstance(event.neuron, CtxDynapse.DynapseNeuron)
+        for event in lEvents
+        if isinstance(event.neuron, CtxDynapse.DynapseNeuron)
     ]
     try:
         tupTimeStamps, tupNeuronIDs = zip(*ltupEvents)
@@ -469,8 +476,9 @@ def extract_event_data(lEvents) -> (tuple, tuple):
             raise e
     return tupTimeStamps, tupNeuronIDs
 
+
 @remote_function
-def _replace_too_large_value(nVal, nLimit: int=FPGA_ISI_LIMIT):
+def _replace_too_large_value(nVal, nLimit: int = FPGA_ISI_LIMIT):
     """
     replace_too_large_entry - Return a list of integers <= nLimit, that sum up to nVal
     :param nVal:    int  Value to be replaced
@@ -479,19 +487,18 @@ def _replace_too_large_value(nVal, nLimit: int=FPGA_ISI_LIMIT):
         lnReplace   list  Values to replace nVal
     """
     if nVal > nLimit:
-        nReps = (nVal-1) // nLimit
+        nReps = (nVal - 1) // nLimit
         # - Return nReps times nLimit, then the remainder
         #   For modulus shift nVal to avoid replacing with 0 if nVal==nLimit
-        return [*(nLimit for _ in range(nReps)), (nVal-1) % nLimit + 1]
+        return [*(nLimit for _ in range(nReps)), (nVal - 1) % nLimit + 1]
     else:
         # - If clause in particular for case where nVal <= 0
         return [nVal]
 
+
 @remote_function
 def _auto_insert_dummies(
-    lnDiscreteISIs: list,
-    lnNeuronIDs: list,
-    nFpgaIsiLimit: int = FPGA_ISI_LIMIT
+    lnDiscreteISIs: list, lnNeuronIDs: list, nFpgaIsiLimit: int = FPGA_ISI_LIMIT
 ) -> (list, list):
     """
     auto_insert_dummies - Insert dummy events where ISI limit is exceeded
@@ -504,7 +511,9 @@ def _auto_insert_dummies(
         lbDummy             list  Boolean indicating which events are dummy events
     """
     # - List of lists with corrected entries
-    llCorrected = [_replace_too_large_value(nISI, nFpgaIsiLimit) for nISI in lnDiscreteISIs]
+    llCorrected = [
+        _replace_too_large_value(nISI, nFpgaIsiLimit) for nISI in lnDiscreteISIs
+    ]
     # - Number of new entries for each old entry
     lnNumNew = [len(l) for l in llCorrected]
     # - List of lists with neuron IDs corresponding to ISIs. Dummy events have ID None
@@ -682,7 +691,10 @@ def save_biases(strFilename, lnCoreIDs: Optional[Union[list, int]] = None):
             for bias in biases:
                 file.write(
                     'save_file_model_.get_bias_groups()[{0}].set_bias("{1}", {2}, {3})\n'.format(
-                        nCore, bias.get_bias_name(), bias.get_fine_value(), bias.get_coarse_value()
+                        nCore,
+                        bias.get_bias_name(),
+                        bias.get_fine_value(),
+                        bias.get_coarse_value(),
                     )
                 )
     print(
@@ -786,9 +798,7 @@ def _clear_chips(lnChipIDs: Optional[list] = None):
 
 
 @teleport_function
-def _reset_connections(
-    lnCoreIDs: Optional[list] = None, bApplyDiff=True
-):
+def _reset_connections(lnCoreIDs: Optional[list] = None, bApplyDiff=True):
     """
     _reset_connections - Reset connections going to all nerons of cores defined
                          in lnCoreIDs. Core IDs from 0 to 15.
@@ -924,7 +934,7 @@ def _define_silence_neurons():
         :param lnNeuronIDs:  list  IDs of neurons to be silenced
         """
         if isinstance(lnNeuronIDs, int):
-            lnNeuronIDs = (lnNeuronIDs, )
+            lnNeuronIDs = (lnNeuronIDs,)
         nNeuronsPerChip = NUM_CHIP_CORES * NUM_CORE_NEURONS
         for nID in lnNeuronIDs:
             CtxDynapse.dynapse.set_tau_2(
@@ -932,7 +942,10 @@ def _define_silence_neurons():
                 nID % nNeuronsPerChip,  # Neuron ID on chip
             )
         print("dynapse_control: Set {} neurons to tau 2.".format(len(lnNeuronIDs)))
+
     return silence_neurons
+
+
 _silence_neurons = correct_argument_types(_define_silence_neurons())
 
 
@@ -947,22 +960,23 @@ def _define_reset_silencing():
         :param lnCoreIDs:   list  IDs of cores to be reset
         """
         if isinstance(lnCoreIDs, int):
-            lnCoreIDs = (lnCoreIDs, )
+            lnCoreIDs = (lnCoreIDs,)
         for nID in lnCoreIDs:
             CtxDynapse.dynapse.reset_tau_1(
                 nID // NUM_CHIP_CORES,  # Chip ID
                 nID % NUM_CHIP_CORES,  # Core ID on chip
             )
-        print("dynapse_control: Set neurons of cores {} to tau 1.".format(
-            lnCoreIDs
-        ))
+        print("dynapse_control: Set neurons of cores {} to tau 1.".format(lnCoreIDs))
+
     return reset_silencing
+
+
 _reset_silencing = correct_argument_types(_define_reset_silencing())
 
 
 # - Clear hardware configuration at startup
 print("dynapse_control: Initializing hardware.")
-if not bUsing_RPyC or not "bInitialized" in conn.namespace.keys():
+if not bUsing_RPyC or "bInitialized" not in conn.namespace.keys():
     _clear_chips(lnChipIDs)
     conn.namespace["bInitialized"] = True
     print("dynapse_control: Hardware initialized.")
@@ -1100,14 +1114,18 @@ class DynapseControl:
         :param lnCoreIDs:   list  IDs of cores to be reset
         """
         if isinstance(lnCoreIDs, int):
-            lnCoreIDs = (lnCoreIDs, )
+            lnCoreIDs = (lnCoreIDs,)
         _reset_silencing(lnCoreIDs)
         # - Mark that neurons are not silenced anymore
         for nID in lnCoreIDs:
-            self._vbSilenced[nID*self.nNumCoreNeurons: (nID+1)*self.nNumCoreNeurons] = False
-        print("DynapseControl: Time constants of cores {} have been reset.".format(
-            lnCoreIDs
-        ))
+            self._vbSilenced[
+                nID * self.nNumCoreNeurons : (nID + 1) * self.nNumCoreNeurons
+            ] = False
+        print(
+            "DynapseControl: Time constants of cores {} have been reset.".format(
+                lnCoreIDs
+            )
+        )
 
     def reset_cores(
         self,
@@ -1218,7 +1236,7 @@ class DynapseControl:
             nNumNeurons = vnNeuronIDs
             # - Are there sufficient unallocated neurons?
             if np.sum(self.vbFreeHWNeurons) < nNumNeurons:
-                raise MemoryError(
+                raise ValueError(
                     "Insufficient unallocated neurons available. {} requested.".format(
                         nNumNeurons
                     )
@@ -1232,7 +1250,7 @@ class DynapseControl:
             vnNeuronsToAllocate = np.array(vnNeuronIDs).flatten()
             # - Make sure neurons are available
             if (self.vbFreeHWNeurons[vnNeuronsToAllocate] == False).any():
-                raise MemoryError(
+                raise ValueError(
                     "{} of the requested neurons are already allocated.".format(
                         np.sum(self.vbFreeHWNeurons[vnNeuronsToAllocate] == False)
                     )
@@ -1270,7 +1288,7 @@ class DynapseControl:
             nNumNeurons = vnNeuronIDs
             # - Are there sufficient unallocated neurons?
             if np.sum(self.vbFreeVirtualNeurons) < nNumNeurons:
-                raise MemoryError(
+                raise ValueError(
                     "Insufficient unallocated neurons available. {}".format(nNumNeurons)
                     + " requested."
                 )
@@ -1281,7 +1299,7 @@ class DynapseControl:
             vnNeuronsToAllocate = np.array(vnNeuronIDs).flatten()
             # - Make sure neurons are available
             if (self.vbFreeVirtualNeurons[vnNeuronsToAllocate] == False).any():
-                raise MemoryError(
+                raise ValueError(
                     "{} of the requested neurons are already allocated.".format(
                         np.sum(self.vbFreeVirtualNeurons[vnNeuronsToAllocate] == False)
                     )
@@ -1314,7 +1332,9 @@ class DynapseControl:
 
         # - Handle single neurons
         if isinstance(vnVirtualNeuronIDs, int):
-            vnVirtualNeuronIDs = [vnVirtualNeuronIDs for _ in range(np.size(vnNeuronIDs))]
+            vnVirtualNeuronIDs = [
+                vnVirtualNeuronIDs for _ in range(np.size(vnNeuronIDs))
+            ]
         if isinstance(vnNeuronIDs, int):
             vnNeuronIDs = [vnNeuronIDs for _ in range(np.size(vnVirtualNeuronIDs))]
         if np.size(lSynapseTypes) == 1:
@@ -1490,55 +1510,9 @@ class DynapseControl:
         vnNeuronIDs = [int(nID) for nID in np.asarray(vnNeuronIDs)]
 
         # - Call `remove_all_connections_to` function
-        remove_all_connections_to(
-            vnNeuronIDs, self.model, bApplyDiff
-        )
+        remove_all_connections_to(vnNeuronIDs, self.model, bApplyDiff)
 
     ### --- Stimulation and event generation
-
-    def _TSEvent_to_spike_list(
-        self,
-        tsSeries: TSEvent,
-        vnNeuronIDs: np.ndarray,
-        nTargetCoreMask: int = 1,
-        nTargetChipID: int = 0,
-    ) -> List:
-        """
-        _TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
-
-        :param tsSeries:        TSEvent      Time series of events to send as input
-        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
-        :param nTargetChipID:   int          ID of target chip
-        :return:                list of FpgaSpikeEvent objects
-        """
-        # - Check that the number of channels is the same between time series and list of neurons
-        assert tsSeries.nNumChannels <= np.size(
-            vnNeuronIDs
-        ), "`tsSeries` contains more channels than the number of neurons in `vnNeuronIDs`."
-
-        # - Make sure vnNeuronIDs is iterable
-        vnNeuronIDs = np.array(vnNeuronIDs)
-
-        # - Get events from this time series
-        vtTimes, vnChannels, _ = tsSeries.find()
-
-        # - Convert to ISIs
-        tStartTime = tsSeries.tStart
-        vtISIs = np.diff(np.r_[tStartTime, vtTimes])
-        vnDiscreteISIs = (np.round(vtISIs / self.tFpgaIsiBase)).astype("int")
-
-        # - Convert events to an FpgaSpikeEvent
-        print("dynapse_control: Generating FPGA event list from TSEvent.")
-        lEvents = generate_fpga_event_list(
-            # Make sure that no np.int64 or other non-native type is passed
-            [int(nISI) for nISI in vnDiscreteISIs],
-            [int(vnNeuronIDs[i]) for i in vnChannels],
-            int(nTargetCoreMask),
-            int(nTargetChipID),
-        )
-        # - Return a list of events
-        return lEvents
 
     def _arrays_to_spike_list(
         self,
@@ -1567,14 +1541,16 @@ class DynapseControl:
         """
         # - Process input arguments
         if vnTimeSteps is None:
-            assert (
-                vtTimeTrace is not None
-            ), "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` must be provided."
+            if vtTimeTrace is None:
+                raise ValueError(
+                    "DynapseControl: Either `vnTimeSteps` or `vtTimeTrace` must be provided."
+                )
             vnTimeSteps = np.floor(vtTimeTrace / self.tFpgaIsiBase).astype(int)
         if nTSStart is None:
-            assert (
-                tStart is not None
-            ), "DynapseControl: Either `nTSStart` or `tStart` must be provided."
+            if tStart is None:
+                raise ValueError(
+                    "DynapseControl: Either `nTSStart` or `tStart` must be provided."
+                )
             nTSStart = int(np.floor(tStart / self.tFpgaIsiBase))
 
         # - Ignore data that comes before nTSStart
@@ -1582,9 +1558,10 @@ class DynapseControl:
         vnChannels = vnChannels[vnTimeSteps >= nTSStart]
 
         # - Check that the number of channels is the same between time series and list of neurons
-        assert np.amax(vnChannels) <= np.size(
-            vnNeuronIDs
-        ), "DynapseControl: `vnChannels` contains more channels than the number of neurons in `vnNeuronIDs`."
+        if np.amax(vnChannels) > np.size(vnNeuronIDs):
+            raise ValueError(
+                "DynapseControl: `vnChannels` contains more channels than the number of neurons in `vnNeuronIDs`."
+            )
 
         # - Make sure vnNeuronIDs is iterable
         vnNeuronIDs = np.array(vnNeuronIDs)
@@ -1627,12 +1604,11 @@ class DynapseControl:
             lnNeuronIDs = [int(nID) for nID in vnNeuronIDs]
 
         # - Interspike interval
-        tISI = 1. / fFrequency
+        tISI = 1.0 / fFrequency
         # - ISI in units of fpga time step
         nISIfpga = int(np.round(tISI / self.tFpgaIsiBase))
         # - ISI for neurons other than first is zero as they are simultaneous
         lnISI = [nISIfpga] + [0] * (len(lnNeuronIDs) - 1)
-
 
         # - Generate events
         # List for events to be sent to fpga
@@ -1642,7 +1618,7 @@ class DynapseControl:
         self.fpgaSpikeGen.preload_stimulus(lEvents)
         print(
             "DynapseControl: Stimulus prepared with {} Hz".format(
-                1. / (nISIfpga * self.tFpgaIsiBase)
+                1.0 / (nISIfpga * self.tFpgaIsiBase)
             )
         )
 
@@ -1683,9 +1659,10 @@ class DynapseControl:
         if np.size(vfFrequencies) == 1:
             vfFrequencies = np.repeat(vfFrequencies, np.size(vnNeuronIDs))
         else:
-            assert np.size(vfFrequencies) == np.size(
-                vnNeuronIDs
-            ), "DynapseControl: Length of `vfFrequencies must be same as length of `vnNeuronIDs` or 1."
+            if np.size(vfFrequencies) != np.size(vnNeuronIDs):
+                raise ValueError(
+                    "DynapseControl: Length of `vfFrequencies must be same as length of `vnNeuronIDs` or 1."
+                )
 
         # - Set firing rates for selected neurons
         for fFreq, nNeuronID in zip(vfFrequencies, vnNeuronIDs):
@@ -1726,11 +1703,10 @@ class DynapseControl:
         nTargetChipID: int = 0,
         bPeriodic: bool = False,
         bRecord: bool = False,
-        bTSEvent: bool = False,
-    ) -> TSEvent:
+    ) -> (np.ndarray, np.ndarray):
         """
         send_pulse - Send a pulse of periodic input events to the chip.
-                     Return a TSEvent wih the recorded hardware activity.
+                     Return a arrays with times and channels of the recorded hardware activity.
         :param tWidth:              float  Duration of the input pulse
         :param fFreq:               float  Frequency of the events that constitute the pulse
         :param tRecord:             float  Duration of the recording (including stimulus)
@@ -1743,17 +1719,14 @@ class DynapseControl:
         :param bPeriodic:   bool    Repeat the stimulus indefinitely
         :param bRecord:     bool    Set up buffered event filter that records events
                                     from neurons defined in vnRecordNeuronIDs
-        :param bTSEvent:    bool    If True and bRecord==True: output TSEvent instead of arrays of times and channels
 
         :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+            (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
         # - Prepare input events
         # Actual input time steps
         vnTimeSteps = np.floor(
-            np.arange(0, tWidth, 1. / fFreq) / self.tFpgaIsiBase
+            np.arange(0, tWidth, 1.0 / fFreq) / self.tFpgaIsiBase
         ).astype(int)
         # Add dummy events at end to avoid repeated stimulation due to "2-trigger-bug"
         tISILimit = self.nFpgaIsiLimit * self.tFpgaIsiBase
@@ -1783,80 +1756,6 @@ class DynapseControl:
             vnRecordNeuronIDs=vnRecordNeuronIDs,
             bPeriodic=bPeriodic,
             bRecord=bRecord,
-            bTSEvent=bTSEvent,
-        )
-
-    def send_TSEvent(
-        self,
-        tsSeries,
-        tRecord: Optional[float] = None,
-        tBuffer: float = 0.5,
-        vnNeuronIDs: Optional[np.ndarray] = None,
-        vnRecordNeuronIDs: Optional[np.ndarray] = None,
-        nTargetCoreMask: int = 15,
-        nTargetChipID: int = 0,
-        bPeriodic=False,
-        bRecord=False,
-        bTSEvent=False,
-    ):
-        """
-        send_TSEvent - Extract events from a TSEvent object and send them to FPGA.
-
-        :param tsSeries:        TSEvent      Time series of events to send as input
-        :param tRecord:         float  Duration of the recording (including stimulus)
-                                       If None, use tsSeries.tDuration
-        :param tBuffer:         float  Record slightly longer than tRecord to
-                                       make sure to catch all relevant events
-        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-                                             If None, use channels from tsSeries
-        :param vnRecordNeuronIDs: ArrayLike    IDs of neurons that should be recorded (if bRecord==True)
-                                               If None and bRecord==True, record neurons in vnNeuronIDs
-        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
-        :param nTargetChipID:   int          ID of target chip
-        :param bPeriodic:       bool         Repeat the stimulus indefinitely
-        :param bRecord:         bool         Set up buffered event filter that records events
-                                             from neurons defined in vnNeuronIDs
-        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
-
-        :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
-        """
-
-        # - Process input arguments
-        vnNeuronIDs = (
-            np.arange(tsSeries.nNumChannels)
-            if vnNeuronIDs is None
-            else np.array(vnNeuronIDs)
-        )
-        vnRecordNeuronIDs = (
-            vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
-        )
-        tRecord = tsSeries.tDuration if tRecord is None else tRecord
-
-        # - Prepare event list
-        lEvents = self._TSEvent_to_spike_list(
-            tsSeries,
-            vnNeuronIDs=vnNeuronIDs,
-            nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,
-        )
-        print(
-            "DynapseControl: Stimulus prepared from TSEvent `{}`.".format(
-                tsSeries.strName
-            )
-        )
-
-        # - Stimulate and return recorded data if any
-        return self._send_stimulus_list(
-            lEvents=lEvents,
-            tDuration=tRecord,
-            tBuffer=tBuffer,
-            vnRecordNeuronIDs=vnRecordNeuronIDs,
-            bPeriodic=bPeriodic,
-            bRecord=bRecord,
-            bTSEvent=bTSEvent,
         )
 
     def send_arrays(
@@ -1872,10 +1771,9 @@ class DynapseControl:
         nTargetChipID: int = 0,
         bPeriodic=False,
         bRecord=False,
-        bTSEvent=False,
-    ):
+    ) -> (np.ndarray, np.ndarray):
         """
-        send_arrays - Send events defined in timetrace and channel arrays to FPGA.
+        send_arrays - Send events defined in arrays to FPGA.
 
         :param vnChannels:      np.ndarray  Event channels
         :param vnTimeSeops:     np.ndarray  Event times in Fpga time base (overwrites vtTimeTrace if not None)
@@ -1893,12 +1791,9 @@ class DynapseControl:
         :param bPeriodic:       bool         Repeat the stimulus indefinitely
         :param bRecord:         bool         Set up buffered event filter that records events
                                              from neurons defined in vnNeuronIDs
-        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
 
         :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+            (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
 
         # - Process input arguments
@@ -1928,7 +1823,7 @@ class DynapseControl:
 
         # - Prepare event list
         lEvents = self._arrays_to_spike_list(
-            vtTimeTrace=vtTimeTrace,
+            times=vtTimeTrace,
             vnTimeSteps=vnTimeSteps,
             vnChannels=vnChannels,
             vnNeuronIDs=vnNeuronIDs,
@@ -1946,7 +1841,6 @@ class DynapseControl:
             vnRecordNeuronIDs=vnRecordNeuronIDs,
             bPeriodic=bPeriodic,
             bRecord=bRecord,
-            bTSEvent=bTSEvent,
         )
 
     def _send_stimulus_list(
@@ -1957,7 +1851,6 @@ class DynapseControl:
         vnRecordNeuronIDs: Optional[np.ndarray] = None,
         bPeriodic: bool = False,
         bRecord: bool = False,
-        bTSEvent: bool = False,
     ):
         """
         _send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
@@ -1972,18 +1865,17 @@ class DynapseControl:
         :param bPeriodic:       bool         Repeat the stimulus indefinitely
         :param bRecord:         bool         Set up buffered event filter that records events
                                              from neurons defined in vnRecordNeuronIDs
-        :param bTSEvent:        bool         If True and bRecord==True: output TSEvent instead of arrays of times and channels
 
         :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+            (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
         """
         # - Throw an exception if event list is too long
         if len(lEvents) > self.nFpgaEventLimit:
-            raise MemoryError("DynapseControl: lEvents can have at most {} elements (has {}).".format(
-                self.nFpgaEventLimit, len(lEvents)
-            ))
+            raise ValueError(
+                "DynapseControl: lEvents can have at most {} elements (has {}).".format(
+                    self.nFpgaEventLimit, len(lEvents)
+                )
+            )
 
         # - Prepare FPGA
         self.fpgaSpikeGen.set_repeat_mode(bPeriodic)
@@ -2010,7 +1902,7 @@ class DynapseControl:
         self.bufferedfilter.get_special_event_timestamps()
 
         # Time at which stimulation stops, including buffer
-        tStop = time.time() + tDuration + (0. if tBuffer is None else tBuffer)
+        t_stop = time.time() + tDuration + (0.0 if tBuffer is None else tBuffer)
 
         # - Stimulate
         self.fpgaSpikeGen.start()
@@ -2020,13 +1912,15 @@ class DynapseControl:
             return
 
         # - Until duration is over, record events and process in quick succession
-        while time.time() < tStop:
+        while time.time() < t_stop:
             if bRecord:
                 # - Collect events and possibly trigger events
                 lTriggerEvents += self.bufferedfilter.get_special_event_timestamps()
                 lCurrentEvents = self.bufferedfilter.get_events()
 
-                vtTimeStamps, vnChannels = event_data_to_channels(lCurrentEvents, vnRecordNeuronIDs)
+                vtTimeStamps, vnChannels = event_data_to_channels(
+                    lCurrentEvents, vnRecordNeuronIDs
+                )
                 lnTimeStamps += list(vtTimeStamps)
                 lnChannels += list(vnChannels)
 
@@ -2034,16 +1928,16 @@ class DynapseControl:
 
         if bRecord:
             self.bufferedfilter.clear()
-            print("\tRecorded {} event(s) and {} trigger event(s)".format(
-                len(lnTimeStamps), len(lTriggerEvents)
-            ))
+            print(
+                "\tRecorded {} event(s) and {} trigger event(s)".format(
+                    len(lnTimeStamps), len(lTriggerEvents)
+                )
+            )
             return self._process_extracted_events(
                 lnTimeStamps=lnTimeStamps,
                 lnChannels=lnChannels,
                 lTriggerEvents=lTriggerEvents,
                 tDuration=tDuration,
-                vnNeuronIDs=vnRecordNeuronIDs,
-                bTSEvent=bTSEvent,
             )
 
     def _process_extracted_events(
@@ -2052,8 +1946,6 @@ class DynapseControl:
         lnChannels: List,
         lTriggerEvents: List,
         tDuration: float,
-        vnNeuronIDs: np.ndarray,
-        bTSEvent: bool=False
     ) -> (np.array, np.array):
 
         # - Post-processing of collected events
@@ -2061,10 +1953,7 @@ class DynapseControl:
         vnChannels = np.asarray(lnChannels)
 
         if vtTimeTrace.size == 0:
-            return (
-                TSEvent([], [], tStart=0) if bTSEvent
-                else (np.array([]), np.array([]))
-            )
+            return np.array([]), np.array([])
 
         # - Locate synchronisation timestamp
         vtStartTriggers = np.array(lTriggerEvents) * 1e-6
@@ -2088,47 +1977,11 @@ class DynapseControl:
         vnChannels = vnChannels[iStartIndex:iEndIndex]
         print("DynapseControl: Extracted event data")
 
-        if bTSEvent:
-            return TSEvent(
-                vtTimeTrace,
-                vnChannels,
-                tStart=0,
-                tStop=tDuration,
-                nNumChannels=(
-                    np.amax(vnChannels) if vnNeuronIDs is None
-                    else np.size(vnNeuronIDs)
-                ),
-                strName="DynapSE"
-            )
-        else:
-            return vtTimeTrace, vnChannels
-
-    def _recorded_data_to_TSEvent(
-        self, vnNeuronIDs: np.ndarray, tRecord: float
-    ) -> TSEvent:
-        lEvents = self.bufferedfilter.get_events()
-        lTriggerEvents = self.bufferedfilter.get_special_event_timestamps()
-        print(
-            "DynapseControl: Recorded {} event(s) and {} trigger event(s)".format(
-                len(lEvents), len(lTriggerEvents)
-            )
-        )
-
-        # - Extract monitored event channels and timestamps
-        vnTimeStamps, vnChannels = event_data_to_channels(lEvents, vnNeuronIDs)
-
-        return self._process_extracted_events(
-            lnTimeStamps=vnTimeStamps,
-            lnChannels=vnChannels,
-            lTriggerEvents=lTriggerEvents,
-            tDuration=tRecord,
-            vnNeuronIDs=vnNeuronIDs,
-            bTSEvent=True,
-        )
+        return vtTimeTrace, vnChannels
 
     def _recorded_data_to_arrays(
         self, vnNeuronIDs: np.ndarray, tRecord: float
-    ) -> TSEvent:
+    ) -> (np.ndarray, np.ndarray):
         lEvents = self.bufferedfilter.get_events()
         lTriggerEvents = self.bufferedfilter.get_special_event_timestamps()
 
@@ -2146,8 +1999,6 @@ class DynapseControl:
             lnChannels=vnChannels,
             lTriggerEvents=lTriggerEvents,
             tDuration=tRecord,
-            vnNeuronIDs=vnNeuronIDs,
-            bTSEvent=False,
         )
 
     ### --- Tools for tuning and observing activities
@@ -2226,7 +2077,9 @@ class DynapseControl:
 
         return lnRecordedNeuronIDs
 
-    def silence_hot_neurons(self, vnNeuronIDs: Union[list, np.ndarray], tDuration: float) -> list:
+    def silence_hot_neurons(
+        self, vnNeuronIDs: Union[list, np.ndarray], tDuration: float
+    ) -> list:
         """
         silence_hot_neurons - Collect IDs of all neurons that spike
                               within tDuration. Assign them different
@@ -2316,12 +2169,14 @@ class DynapseControl:
         self._bMonitoring = True
         # - Set up event filter
         self.add_buffered_event_filter(vnNeuronIDs)
-        print("DynapseControl: Start monitoring firing rates of {} neurons.".format(
-            np.size(vnNeuronIDs)
-        ))
+        print(
+            "DynapseControl: Start monitoring firing rates of {} neurons.".format(
+                np.size(vnNeuronIDs)
+            )
+        )
         while self._bMonitoring:
             # - Flush event stack
-            __ = self.bufferedfilter.get_events()
+            self.bufferedfilter.get_events()
             # - Collect events
             time.sleep(tInterval)
             lEvents = self.bufferedfilter.get_events()
@@ -2331,7 +2186,9 @@ class DynapseControl:
                 print("DynapseControl: No events recorded")
             else:
                 # - Evaluate non-empty event lists
-                fMeanRate = evaluate_firing_rates(lEvents, tInterval, vnNeuronIDs, bVerbose=False)[2]
+                fMeanRate = evaluate_firing_rates(
+                    lEvents, tInterval, vnNeuronIDs, bVerbose=False
+                )[2]
                 print("DynapseControl: Mean firing rate: {} Hz".format(fMeanRate))
 
     def monitor_firing_rates(self, vnNeuronIDs, tInterval):
@@ -2343,10 +2200,7 @@ class DynapseControl:
 
         self.thrMonitor = threading.Thread(
             target=self._monitor_firing_rates_inner,
-            kwargs={
-                "vnNeuronIDs": vnNeuronIDs,
-                "tInterval": tInterval,
-            }
+            kwargs={"vnNeuronIDs": vnNeuronIDs, "tInterval": tInterval},
         )
         self.thrMonitor.start()
 
@@ -2356,7 +2210,6 @@ class DynapseControl:
         self.thrMonitor.join(timeout=5)
         del self.thrMonitor
         print("DynapseControl: Stopped monitoring.")
-
 
     def sweep_freq_measure_rate(
         self,

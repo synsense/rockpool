@@ -25,7 +25,7 @@ def test_ffexpsyn():
 
     vnC = np.tile(np.arange(nSizeIn), int(np.ceil(1.0 / nSpikes * nSize)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtT, vnC, num_channels=nSizeIn)
 
     # - Evolve
     # tsT = flT.evolve(tsIn)
@@ -34,8 +34,8 @@ def test_ffexpsyn():
     flM.reset_all()
 
     # assert(
-    #         np.isclose(tsT.mfSamples, tsM.mfSamples, rtol=1e-4, atol=1e-5).all()
-    #     # and np.isclose(tsT.vtTimeTrace, tsM.vtTimeTrace).all()
+    #         np.isclose(tsT.samples, tsM.samples, rtol=1e-4, atol=1e-5).all()
+    #     # and np.isclose(tsT.times, tsM.times).all()
     # ), "Layer outputs are not the same."
 
     # - Training (only FFExpSyn and FFExpSynTorch)
@@ -84,7 +84,7 @@ def test_ffexpsyntorch():
 
     vnC = np.tile(np.arange(nSizeIn), int(np.ceil(1.0 / nSpikes * nSize)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtT, vnC, num_channels=nSizeIn)
 
     # - Evolve
     try:
@@ -98,8 +98,8 @@ def test_ffexpsyntorch():
         flM.reset_all()
 
         assert (
-            np.isclose(tsT.mfSamples, tsM.mfSamples, rtol=1e-4, atol=1e-5).all()
-            # and np.isclose(tsT.vtTimeTrace, tsM.vtTimeTrace).all()
+            np.isclose(tsT.samples, tsM.samples, rtol=1e-4, atol=1e-5).all()
+            # and np.isclose(tsT.times, tsM.times).all()
         ), "Layer outputs are not the same."
 
         # - Training

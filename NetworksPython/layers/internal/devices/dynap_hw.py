@@ -4,12 +4,12 @@
 
 from ...layer import Layer
 from ....timeseries import TSEvent
-from ....devices.dynapse_control import DynapseControl, CtxDynapse
+from ....devices.dynapse_control_extd import DynapseControlExtd
 from ....devices import dynapse_control as DC
 
 import numpy as np
 from warnings import warn
-from typing import Tuple, List, Optional, Union
+from typing import List, Optional
 import time
 
 
@@ -39,7 +39,7 @@ class RecDynapSE(Layer):
         lnInputCoreIDs: List[int] = [0],
         nInputChipID: int = 0,
         lnClearCores: Optional[list] = None,
-        controller: DynapseControl = None,
+        controller: DynapseControlExtd = None,
         strName: Optional[str] = "unnamed",
         bSkipWeights: bool = False,
     ):
@@ -76,7 +76,7 @@ class RecDynapSE(Layer):
                         strName
                     )
                 )
-            self.controller = DynapseControl(tDt, lnClearCores)
+            self.controller = DynapseControlExtd(tDt, lnClearCores)
         else:
             self.controller = controller
             self.controller.tFpgaIsiBase = tDt
@@ -174,13 +174,13 @@ class RecDynapSE(Layer):
     ) -> (np.ndarray, int):
         """_batch_input_data: Generator that returns the data in batches"""
         # - Time points of input trace in discrete layer time base
-        vnTSInputEvents = np.floor(tsInput.vtTimeTrace / self.tDt).astype(int)
+        vnTSInputEvents = np.floor(tsInput.times / self.tDt).astype(int)
         # - Make sure evolution is within correct interval
         iStartAll = np.searchsorted(vnTSInputEvents, self._nTimeStep)
         iEndAll = np.searchsorted(vnTSInputEvents, self._nTimeStep + nNumTimeSteps)
         vnTSInputEvents = vnTSInputEvents[iStartAll:iEndAll]
-        vnInputChannels = tsInput.vnChannels[iStartAll:iEndAll]
-        # vnInputChannels = tsInput.vnChannels
+        vnInputChannels = tsInput.channels[iStartAll:iEndAll]
+        # vnInputChannels = tsInput.channels
 
         # - Check whether data for splitting by trial is available
         if hasattr(tsInput, "vtTrialStarts") and self.nMaxTrialsPerBatch is not None:
@@ -195,11 +195,10 @@ class RecDynapSE(Layer):
             ]
             # - Total number of trials
             nNumTrials = vnTrialStarts.size
-            # - Array indices of tsInput.vtTimeTrace and tsInput.vnChannels where trials start
+            # - Array indices of tsInput.times and tsInput.channels where trials start
             viTrialStartIndices = np.searchsorted(vnTSInputEvents, vnTrialStarts)
             # - Count number of events for each trial (np.r_ to include last trial)
             vnCumulEventsPerTrial = np.r_[viTrialStartIndices, vnTSInputEvents.size]
-            vnEventsPerTrial = np.diff(vnCumulEventsPerTrial)
 
             # - First trial of current batch
             iCurrentTrial = 0
@@ -213,11 +212,6 @@ class RecDynapSE(Layer):
                     vnCumulNextEvents, self.nMaxEventsPerBatch
                 )
                 if self.nMaxNumTimeSteps is not None:
-                    # - Cumulated numbers of time steps per trial for coming trials (np.r_ for including last trial)
-                    vnCumulNextTimeSteps = (
-                        np.r_[vnTrialStarts[iCurrentTrial + 1 :], nNumTimeSteps]
-                        - vnTrialStarts[iCurrentTrial]
-                    )
                     # - Maximum number of trials before self.nMaxNumTimeSteps is exceeded
                     nMaxNumTrialsNTS = np.searchsorted(
                         vnCumulNextEvents, self.nMaxNumTimeSteps
@@ -355,13 +349,13 @@ class RecDynapSE(Layer):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -413,10 +407,10 @@ class RecDynapSE(Layer):
         tsResponse = TSEvent(
             lTimeTrace,
             lChannels,
-            tStart=self.t,
-            tStop=self.t + self.tDt * nNumTimeSteps,
-            nNumChannels=self.nSize,
-            strName="DynapSE spikes",
+            t_start=self.t,
+            t_stop=self.t + self.tDt * nNumTimeSteps,
+            num_channels=self.nSize,
+            name="DynapSE spikes",
         )
 
         # - Set layer time
@@ -448,7 +442,7 @@ class RecDynapSE(Layer):
         except MemoryError:
             print(
                 "Layer `{}`: Split current batch into two, due to large number of events.".format(
-                    strName
+                    self.strName
                 )
             )
             ## -- Split the batch in two parts, then set it together
@@ -658,7 +652,7 @@ class RecDynapSE(Layer):
     @property
     def lnInputCoreIDs(self):
         # - Core mask as reversed binary string
-        strBinCoreMask = resersed(bin(self._nInputCoreMask)[-4:])
+        strBinCoreMask = reversed(bin(self._nInputCoreMask)[-4:])
         return [nCoreID for nCoreID, bMask in enumerate(strBinCoreMask) if int(bMask)]
 
 
@@ -677,15 +671,15 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.add_buffered_event_filter(self.vnHWNeuronIDs)
 
     def load_events(self, tsAS, vtRhythmStart, tTotalDuration: float):
-        if tsAS.vtTimeTrace.size > self.controller.nSramEventLimit:
+        if tsAS.times.size > self.controller.nSramEventLimit:
             raise MemoryError(
                 "Layer `{}`: Can upload at most {} events. {} are too many.".format(
-                    self.strName, self.controller.nSramEventLimit, tsAS.vtTimeTrace.size
+                    self.strName, self.controller.nSramEventLimit, tsAS.times.size
                 )
             )
 
         # - Indices corresponding to first event of each rhythm
-        viRhythmStarts = np.searchsorted(tsAS.vtTimeTrace, vtRhythmStart)
+        viRhythmStarts = np.searchsorted(tsAS.times, vtRhythmStart)
 
         # - Durations of each rhythm
         self.vtRhythmDurations = np.diff(np.r_[vtRhythmStart, tTotalDuration])
@@ -701,7 +695,7 @@ class RecDynapSEDemo(RecDynapSE):
         #   to the rhythm start and not the last event from the previous rhythm
         for iRhythm, iEvent in enumerate(viRhythmStarts):
             lEvents[iEvent].isi = np.round(
-                (tsAS.vtTimeTrace[iEvent] - vtRhythmStart[iRhythm])
+                (tsAS.times[iEvent] - vtRhythmStart[iRhythm])
                 / self.controller.tFpgaIsiBase
             ).astype(int)
 
@@ -713,7 +707,7 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Upload input events to processor
         iEvent = 0
-        while iEvent < tsAS.vtTimeTrace.size:
+        while iEvent < tsAS.times.size:
             self.controller.fpgaSpikeGen.set_base_addr(2 * iEvent)
             self.controller.fpgaSpikeGen.preload_stimulus(
                 lEvents[
@@ -761,13 +755,13 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.bufferedfilter.get_special_event_timestamps()
 
         # - Time at which stimulation stops
-        tStop = time.time() + tDuration
+        t_stop = time.time() + tDuration
 
         # Start stimulation
         self.controller.fpgaSpikeGen.start()
 
         # - Until duration is over, record events and process in quick succession
-        while time.time() < tStop:
+        while time.time() < t_stop:
             # - Collect events and possibly trigger events
             lTriggerEvents += (
                 self.controller.bufferedfilter.get_special_event_timestamps()
@@ -816,10 +810,10 @@ class RecDynapSEDemo(RecDynapSE):
         tsResponse = TSEvent(
             vtTimeTrace,
             vnChannels,
-            tStart=self.t,
-            tStop=self.t + tDuration,
-            nNumChannels=self.nSize,
-            strName="DynapSEDemoBeat",
+            t_start=self.t,
+            t_stop=self.t + tDuration,
+            num_channels=self.nSize,
+            name="DynapSEDemoBeat",
         )
 
         # - Set layer time

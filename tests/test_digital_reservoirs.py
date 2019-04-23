@@ -31,7 +31,7 @@ def test_cliaf_evolve_subtracting():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55, 0.8], vnChannels=[0, 1])
+    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
     tsOutput = rl.evolve(tsInput, tDuration=0.75)
@@ -40,12 +40,12 @@ def test_cliaf_evolve_subtracting():
     #                These spikes will cause neuron 1 to spike once at t=0.7
     #                Last input spike will not have effect because evolution
     #                stops beforehand
-    print(tsOutput.vtTimeTrace)
+    print(tsOutput.times)
     assert np.allclose(
-        tsOutput.vtTimeTrace, np.array([0.6, 0.6, 0.7])
+        tsOutput.times, np.array([0.6, 0.6, 0.7])
     ), "Output spike times not as expected"
     assert (
-        tsOutput.vnChannels == np.array([0, 0, 1])
+        tsOutput.channels == np.array([0, 0, 1])
     ).all(), "Output spike channels not as expected"
 
     # - Reset
@@ -78,7 +78,7 @@ def test_cliaf_evolve_resetting():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55, 0.8], vnChannels=[0, 1])
+    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
     tsOutput = rl.evolve(tsInput, tDuration=0.7)
@@ -88,10 +88,10 @@ def test_cliaf_evolve_resetting():
     #                Last input spike will not have any effect do anything
     #                either because evolution stops beforehand
     assert np.allclose(
-        tsOutput.vtTimeTrace, np.array([0.6])
+        tsOutput.times, np.array([0.6])
     ), "Output spike times not as expected"
     assert (
-        tsOutput.vnChannels == np.array([0])
+        tsOutput.channels == np.array([0])
     ).all(), "Output spike channels not as expected"
 
     # - Reset
@@ -129,7 +129,7 @@ def test_diaf_evolve_subtracting():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55, 0.8], vnChannels=[0, 1])
+    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
     tsOutput = rl.evolve(tsInput, tDuration=0.7)
@@ -141,12 +141,12 @@ def test_diaf_evolve_subtracting():
     #                t = 0.56 + tSpikeDelay = 0.6.
     #                Last input spike will not have effect because evolution
     #                stops beforehand
-    print(tsOutput.vtTimeTrace)
+    print(tsOutput.times)
     assert np.allclose(
-        tsOutput.vtTimeTrace, np.array([0.55, 0.56, 0.6])
+        tsOutput.times, np.array([0.55, 0.56, 0.6])
     ), "Output spike times not as expected"
     assert (
-        tsOutput.vnChannels == np.array([0, 0, 1])
+        tsOutput.channels == np.array([0, 0, 1])
     ).all(), "Output spike channels not as expected"
 
     # - Reset
@@ -182,7 +182,7 @@ def test_diaf_evolve_resetting():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55, 0.8], vnChannels=[0, 1])
+    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
     tsOutput = rl.evolve(tsInput, tDuration=0.7)
@@ -192,10 +192,10 @@ def test_diaf_evolve_resetting():
     #                Last input spike will not have any effect do anything
     #                either because evolution stops beforehand
     assert np.allclose(
-        tsOutput.vtTimeTrace, np.array([0.55])
+        tsOutput.times, np.array([0.55])
     ), "Output spike times not as expected"
     assert (
-        tsOutput.vnChannels == np.array([0])
+        tsOutput.channels == np.array([0])
     ).all(), "Output spike channels not as expected"
 
     # - Reset
@@ -234,7 +234,7 @@ def test_diaf_evolve_vfvrest():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55], vnChannels=[0])
+    tsInput = TSEvent(times=[0.55], channels=[0])
 
     # - Evolution
     tsOutput = rl.evolve(tsInput, tDuration=0.9)

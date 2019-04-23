@@ -26,15 +26,15 @@ def test_averagepooling():
     assert lyrAverage.nSize == 10
 
     # Process some input
-    tseInput = TSEvent([0, 1, 2, 3], [1, 2, 19, 18], nNumChannels=(10 * 10))
+    tseInput = TSEvent([0, 1, 2, 3], [1, 2, 19, 18], num_channels=(10 * 10))
 
     tseOutput = lyrAverage.evolve(tseInput, tDuration=100)
 
     # Spike times are still the same
-    assert np.array_equal(tseOutput.vtTimeTrace, np.array([0, 1, 2, 3]))
+    assert np.array_equal(tseOutput.times, np.array([0, 1, 2, 3]))
 
     # Neuron indices are updated
-    assert np.array_equal(tseOutput.vnChannels, np.array([0, 0, 1, 1]))
+    assert np.array_equal(tseOutput.channels, np.array([0, 0, 1, 1]))
 
 
 def test_torch_sumpooling():

@@ -27,7 +27,7 @@ def test_FFRateEuler():
 
     # - Input signal
     tsInCont = TSContinuous(
-        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
+        times=np.arange(15) * 0.01, samples=np.ones((15, 2))
     )
 
     # - Compare states and time before and after
@@ -72,7 +72,7 @@ def test_RecRateEuler():
 
     # - Input signal
     tsInCont = TSContinuous(
-        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
+        times=np.arange(15) * 0.01, samples=np.ones((15, 2))
     )
 
     # - Compare states and time before and after
