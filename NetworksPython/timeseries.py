@@ -399,7 +399,7 @@ class TSContinuous(TimeSeries):
     def plot(
         self,
         times: Union[int, float, ArrayLike] = None,
-        target: "Union[mpl.axes.Axes, hv.Curve, hv.Overlay, None]" = None,
+        target: Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay", None] = None,
         channels: Union[ArrayLike, int, None] = None,
         *args,
         **kwargs,
@@ -1431,7 +1431,7 @@ class TSEvent(TimeSeries):
     def plot(
         self,
         time_limits: Optional[Tuple[Optional[float], Optional[float]]] = None,
-        target: Union[mpl.axes.Axes, hv.Scatter, hv.Overlay, None] = None,
+        target: Union["mpl.axes.Axes", "hv.Scatter", "hv.Overlay", None] = None,
         channels: Union[ArrayLike, int, None] = None,
         *args,
         **kwargs,
