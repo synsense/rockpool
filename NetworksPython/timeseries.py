@@ -14,41 +14,67 @@ try:
     from matplotlib import pyplot as plt
 
     _MPL_AVAILABLE = True
+    _global_plotting_backend = "matplotlib"
 except ModuleNotFoundError:
     _MPL_AVAILABLE = False
 try:
     import holoviews as hv
 
     _HV_AVAILABLE = True
+    if not _MPL_AVAILABLE:
+        _global_plotting_backend = "holoviews"
 except ModuleNotFoundError:
     _HV_AVAILABLE = False
+    if not _MPL_AVAILABLE:
+        _global_plotting_backend = None
 
 # - Define exports
 __all__ = [
     "TimeSeries",
-    "set_plotting_backend",
-    "get_plotting_backend",
     "TSEvent",
     "TSContinuous",
+    "set_plotting_backend",
+    "get_plotting_backend",
 ]
 
-# - Type alias for array-like objects and for yet undefined objects
+# - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
-TSType = TypeVar("TimeSeries")
-TSEventType = TypeVar("TSEvent")
-TSContType = TypeVar("TSContinuous")
 
 ### -- Code for setting plotting backend
 
-__use_matplotlib = _MPL_AVAILABLE
-__use_holoviews = False if _MPL_AVAILABLE else _HV_AVAILABLE
-
-
 # - Absolute tolerance, e.g. for comparing float values
-fTolAbs = 1e-9
+_TOLERANCE_ABSOLUTE = 1e-9
+
+# - Global plotting backend
+def set_plotting_backend(backend: Union[str, None]):
+    if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
+        if _HV_AVAILABLE:
+            _global_plotting_backend = "holoViews"
+            print("Global plotting backend has been set to holoviews.")
+        else:
+            raise RuntimeError("Holoviews is not available.")
+    elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
+        if _MPL_AVAILABLE:
+            _global_plotting_backend = "matplotlib"
+            print("Global plotting backend has been set to matplotlib.")
+        else:
+            raise RuntimeError("Matplotlib is not available.")
+
+    elif backend is None:
+        _global_plotting_backend = None
+        print("No global plotting backend is set.")
+
+    else:
+        raise ValueError("Plotting backend not recognized.")
 
 
-def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.ndarray:
+def get_plotting_backend() -> str:
+    return _global_plotting_backend
+
+
+def _extend_periodic_times(
+    t_start: float, t_stop: float, series: "TimeSeries"
+) -> np.ndarray:
     # TODO: docstring
     # - Repeat events sufficiently often
     # Number of additional required repetitions to append before and after
@@ -128,17 +154,13 @@ class TimeSeries:
             if t_stop is None
             else float(t_stop)
         )
-        if plotting_backend is not None:
-            self.set_plotting_backend(plotting_backend)
-        else:
-            if _MPL_AVAILABLE:
-                self.set_plotting_backend("matplotlib")
-            elif _HV_AVAILABLE:
-                self.set_plotting_backend("holoViews")
-            else:
-                self.set_plotting_backend(None)
+        self.set_plotting_backend(
+            plotting_backend
+            if plotting_backend is not None
+            else _global_plotting_backend
+        )
 
-    def delay(self, offset: Union[int, float], inplace: bool = False) -> TSType:
+    def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
         """
         delay - Return a copy of self that is delayed by an offset.
                 For delaying self, use ".times += ..." instead.
@@ -182,7 +204,9 @@ class TimeSeries:
             if _HV_AVAILABLE:
                 self._plotting_backend = "holoViews"
                 print(
-                    f"{self.cls} `{self.name}`: Plotting backend has been set to holoviews."
+                    "{} `{}`: Plotting backend has been set to holoviews.".format(
+                        type(self).__name__, self.name
+                    )
                 )
             else:
                 raise RuntimeError("Holoviews is not available.")
@@ -191,19 +215,25 @@ class TimeSeries:
             if _MPL_AVAILABLE:
                 self._plotting_backend = "matplotlib"
                 print(
-                    f"{self.cls} `{self.name}`: Plotting backend has been set to matplotlib."
+                    "{} `{}`: Plotting backend has been set to matplotlib.".format(
+                        type(self).__name__, self.name
+                    )
                 )
             else:
                 raise RuntimeError("Matplotlib is not available.")
 
         elif backend is None:
             self._plotting_backend = None
-            print(f"{self.cls} `{self.name}`: No plotting backend is set.")
+            print(
+                "{} `{}`: No plotting backend is set.".format(
+                    type(self).__name__, self.name
+                )
+            )
 
         else:
             raise ValueError("Plotting backend not recognized.")
 
-    def copy(self) -> TSType:
+    def copy(self) -> "TimeSeries":
         """
         copy() - Return a deep copy of this time series
         :return: copy of `self`
@@ -369,7 +399,7 @@ class TSContinuous(TimeSeries):
     def plot(
         self,
         times: Union[int, float, ArrayLike] = None,
-        target: Union[mpl.axes.Axes, hv.Curve, hv.Overlay, None] = None,
+        target: "Union[mpl.axes.Axes, hv.Curve, hv.Overlay, None]" = None,
         channels: Union[ArrayLike, int, None] = None,
         *args,
         **kwargs,
@@ -554,7 +584,7 @@ class TSContinuous(TimeSeries):
         include_stop: bool = True,
         sample_limits: bool = False,
         inplace: bool = False,
-    ) -> TSContType:
+    ) -> "TSContinuous":
         """
         clip - Return a TSContinuous which is restricted to given time limits and only
                contains events of selected channels. If no time limits are provided,
@@ -635,7 +665,7 @@ class TSContinuous(TimeSeries):
         times: Union[int, float, ArrayLike],
         channels: Union[int, float, ArrayLike, None] = None,
         inplace: bool = False,
-    ) -> TSContType:
+    ) -> "TSContinuous":
         """
         resample - Return a new time series sampled to the supplied time base
 
@@ -681,10 +711,10 @@ class TSContinuous(TimeSeries):
 
     def merge(
         self,
-        other_series: TSContType,
+        other_series: "TSContinuous",
         remove_duplicates: bool = True,
         inplace: bool = False,
-    ) -> TSContType:
+    ) -> "TSContinuous":
         """
         merge - Merge another time series to this one, in time. Maintain
                 each time series' time values and channel IDs.
@@ -766,7 +796,9 @@ class TSContinuous(TimeSeries):
         # - Return merged TS
         return merged_series
 
-    def append_c(self, other_series: TSContType, inplace: bool = False) -> TSContType:
+    def append_c(
+        self, other_series: "TSContinuous", inplace: bool = False
+    ) -> "TSContinuous":
         """
         append() - Combine another time series into this one, along samples axis
 
@@ -803,10 +835,10 @@ class TSContinuous(TimeSeries):
 
     def append_t(
         self,
-        other_series: TSContType,
+        other_series: "TSContinuous",
         offset: Optional[float] = None,
         inplace: bool = False,
-    ) -> TSContType:
+    ) -> "TSContinuous":
         """
         append_t() - Append another time series to this one, in time
 
@@ -911,7 +943,7 @@ class TSContinuous(TimeSeries):
             slice,
             None,
         ] = None,
-    ) -> TSContType:
+    ) -> "TSContinuous":
         """
         ts[indices_time, indices_channel] - Interpolate the time series to the provided
                                             time points or, if slice is provided between
@@ -1491,7 +1523,7 @@ class TSEvent(TimeSeries):
         include_stop: bool = False,
         compress_channels: bool = False,
         inplace: bool = False,
-    ) -> TSEventType:
+    ) -> "TSEvent":
         """
         clip - Return a TSEvent which is restricted to given time limits and only
                  contains events of selected channels. If time limits are provided,
@@ -1708,7 +1740,7 @@ class TSEvent(TimeSeries):
 
     ## -- Methods for combining time series
 
-    def append_c(self, other_series: TSEventType, inplace: bool = False) -> TSEventType:
+    def append_c(self, other_series: "TSEvent", inplace: bool = False) -> "TSEvent":
         """
         append_c - Spatially append another time series to this one, so that the other
                    series' channel IDs are shifted by `self.num_channels`. The event
@@ -1775,7 +1807,7 @@ class TSEvent(TimeSeries):
         offset: float = 0,
         remove_duplicates: bool = False,
         inplace: bool = False,
-    ) -> TSEventType:
+    ) -> "TSEvent":
         """
         append_t - Append another time series to this one, in time, so that the other
                    series' `t_start` is shifted to `t_stop+offset` of `self`.
@@ -1838,7 +1870,7 @@ class TSEvent(TimeSeries):
         delay: Union[float, Iterable[float]] = 0,
         remove_duplicates: bool = False,
         inplace: bool = False,
-    ) -> TSEventType:
+    ) -> "TSEvent":
         """
         merge - Merge another TSEvent into this one so that they may overlap in time
         :param other_series:       TimeSeries (or list of TimeSeries) to merge into this one
@@ -1981,7 +2013,7 @@ class TSEvent(TimeSeries):
         )
         return all_times[choose_events], all_channels[choose_events]
 
-    def __getitem__(self, ind: Union[ArrayLike, slice, int]) -> TSEventType:
+    def __getitem__(self, ind: Union[ArrayLike, slice, int]) -> "TSEvent":
         """
         ts[tTime1, tTime2, ...] - Index the events of `self` by with the argument
                                   and return TSEvent with corresponding events.
