@@ -39,6 +39,7 @@ dModules = {
         "RecIAFRefrTorch",
         "RecIAFSpkInTorch",
         "RecIAFSpkInRefrTorch",
+        "RecIAFSpkInRefrCLTorch",
     ),
 }
 
