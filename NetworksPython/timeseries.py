@@ -13,15 +13,15 @@ try:
     import matplotlib as mpl
     from matplotlib import pyplot as plt
 
-    MPL_AVAILABLE = True
+    _MPL_AVAILABLE = True
 except ModuleNotFoundError:
-    MPL_AVAILABLE = False
+    _MPL_AVAILABLE = False
 try:
     import holoviews as hv
 
-    HV_AVAILABLE = True
+    _HV_AVAILABLE = True
 except ModuleNotFoundError:
-    HV_AVAILABLE = False
+    _HV_AVAILABLE = False
 
 # - Define exports
 __all__ = [
@@ -40,38 +40,12 @@ TSContType = TypeVar("TSContinuous")
 
 ### -- Code for setting plotting backend
 
-__use_matplotlib = MPL_AVAILABLE
-__use_holoviews = False if MPL_AVAILABLE else HV_AVAILABLE
+__use_matplotlib = _MPL_AVAILABLE
+__use_holoviews = False if _MPL_AVAILABLE else _HV_AVAILABLE
 
 
 # - Absolute tolerance, e.g. for comparing float values
 fTolAbs = 1e-9
-
-
-def set_plotting_backend(backend: Union[str, None]):
-    global __use_holoviews
-    global __use_matplotlib
-    if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
-        __use_holoviews = True
-        __use_matplotlib = False
-        print("Plotting backend has been set to holoviews.")
-
-    elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
-        __use_holoviews = False
-        __use_matplotlib = True
-        print("Plotting backend has been set to matplotlib.")
-
-    elif backend is None:
-        __use_holoviews = False
-        __use_matplotlib = False
-        print("No plotting backend is set.")
-
-    else:
-        raise ValueError("Plotting backend not recognized.")
-
-
-def get_plotting_backend() -> (bool, bool):
-    return __use_holoviews, __use_matplotlib
 
 
 def _extend_periodic_times(t_start: float, t_stop: float, series: TSType) -> np.ndarray:
@@ -117,15 +91,18 @@ class TimeSeries:
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
+        plotting_backend: Optional[str] = None,
         name: str = "unnamed",
     ):
         """
         TimeSeries - Class represent a continuous or event-based time series
 
         :param times:     [Tx1] vector of time samples
-        :param periodic:       bool: Treat the time series as periodic around the end points. Default: False
-        :param t_start:          float: If not None, the series start time is t_start, otherwise times[0]
-        :param t_stop:           float: If not None, the series stop time is t_stop, otherwise times[-1]
+        :param periodic:          Treat the time series as periodic around the end points. Default: False
+        :param t_start:           If not None, the series start time is t_start, otherwise times[0]
+        :param t_stop:            If not None, the series stop time is t_stop, otherwise times[-1]
+        :param plotting_backend:  Determines plotting backend. If None, backend will be
+                                  chosen automatically based on what is available.
         :param name:         str: Name of the TimeSeries object. Default: `unnamed`
         """
 
@@ -151,6 +128,15 @@ class TimeSeries:
             if t_stop is None
             else float(t_stop)
         )
+        if plotting_backend is not None:
+            self.set_plotting_backend(plotting_backend)
+        else:
+            if _MPL_AVAILABLE:
+                self.set_plotting_backend("matplotlib")
+            elif _HV_AVAILABLE:
+                self.set_plotting_backend("holoViews")
+            else:
+                self.set_plotting_backend(None)
 
     def delay(self, offset: Union[int, float], inplace: bool = False) -> TSType:
         """
@@ -191,11 +177,31 @@ class TimeSeries:
         """print - Print an overview of the time series."""
         print(self.__repr__())
 
-    def get_plotting_backend(self) -> (bool, bool):
-        return get_plotting_backend()
-
     def set_plotting_backend(self, backend: Union[str, None]):
-        set_plotting_backend(backend)
+        if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
+            if _HV_AVAILABLE:
+                self._plotting_backend = "holoViews"
+                print(
+                    f"{self.cls} `{self.name}`: Plotting backend has been set to holoviews."
+                )
+            else:
+                raise RuntimeError("Holoviews is not available.")
+
+        elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
+            if _MPL_AVAILABLE:
+                self._plotting_backend = "matplotlib"
+                print(
+                    f"{self.cls} `{self.name}`: Plotting backend has been set to matplotlib."
+                )
+            else:
+                raise RuntimeError("Matplotlib is not available.")
+
+        elif backend is None:
+            self._plotting_backend = None
+            print(f"{self.cls} `{self.name}`: No plotting backend is set.")
+
+        else:
+            raise ValueError("Plotting backend not recognized.")
 
     def copy(self) -> TSType:
         """
@@ -292,6 +298,10 @@ class TimeSeries:
         """
         return self._t_stop - self._t_start
 
+    @property
+    def plotting_backend(self):
+        return self._plotting_backend
+
 
 ### --- Continuous-valued time series
 
@@ -383,10 +393,7 @@ class TSContinuous(TimeSeries):
             samples = samples[:, channels]
 
         if target is None:
-            # - Get current plotting backend from global settings
-            ___use_holoviews, _use_matplotlib = get_plotting_backend()
-
-            if ___use_holoviews:
+            if self._plotting_backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
                         hv.Curve((times, vfData)).redim(x="Time")
@@ -405,35 +412,45 @@ class TSContinuous(TimeSeries):
                 else:
                     return vhCurves[0].relabel(self.name)
 
-            elif _use_matplotlib:
+            elif self._plotting_backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
                 return plt.plot(times, samples, **kwargs)
-
             else:
                 raise RuntimeError(
-                    f"TSContinuous: `{self.name}`: No plotting back-end detected."
+                    f"TSContinuous: `{self.name}`: No plotting back-end set."
                 )
 
         else:
             # - Infer current plotting backend from type of `target`
             if isinstance(target, (hv.Curve, hv.Overlay)):
-                if kwargs == {}:
-                    for vfData in samples.T:
-                        target *= hv.Curve((times, vfData)).redim(x="Time")
+                if _HV_AVAILABLE:
+                    if kwargs == {}:
+                        for vfData in samples.T:
+                            target *= hv.Curve((times, vfData)).redim(x="Time")
+                    else:
+                        for vfData in samples.T:
+                            target *= (
+                                hv.Curve((times, vfData))
+                                .redim(x="Time")
+                                .options(*args, **kwargs)
+                            )
+                    return target.relabel(group=self.name)
                 else:
-                    for vfData in samples.T:
-                        target *= (
-                            hv.Curve((times, vfData))
-                            .redim(x="Time")
-                            .options(*args, **kwargs)
-                        )
-                return target.relabel(group=self.name)
+                    raise RuntimeError(
+                        f"TSContinuous `{self.name}`: Holoviews is not available."
+                    )
+
             elif isinstance(target, mpl.axes.Axes):
-                # - Add `self.name` as label only if a label is not already present
-                kwargs["label"] = kwargs.get("label", self.name)
-                target.plot(times, samples, **kwargs)
-                return target
+                if _MPL_AVAILABLE:
+                    # - Add `self.name` as label only if a label is not already present
+                    kwargs["label"] = kwargs.get("label", self.name)
+                    target.plot(times, samples, **kwargs)
+                    return target
+                else:
+                    raise RuntimeError(
+                        f"TSContinuous `{self.name}`: Holoviews is not available."
+                    )
             else:
                 raise TypeError(
                     f"TSContinuous: `{self.name}`: Unrecognized type for `target`. "
@@ -1419,40 +1436,45 @@ class TSEvent(TimeSeries):
         times, channels = self(t_start, t_stop, channels)
 
         if target is None:
-            # - Get current plotting backend from global settings
-            ___use_holoviews, _use_matplotlib = get_plotting_backend()
-
-            if ___use_holoviews:
+            if self._plotting_backend == "holoviews":
                 return (
                     hv.Scatter((times, channels), *args, **kwargs)
                     .redim(x="Time", y="Channel")
                     .relabel(self.name)
                 )
 
-            elif _use_matplotlib:
+            elif self._plotting_backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
                 return plt.scatter(times, channels, *args, **kwargs)
 
             else:
-                raise RuntimeError(
-                    f"TSEvent: `{self.name}`: No plotting back-end detected."
-                )
+                raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
 
         else:
             # - Infer current plotting backend from type of `target`
             if isinstance(target, (hv.Curve, hv.Overlay)):
-                target *= (
-                    hv.Scatter((times, channels), *args, **kwargs)
-                    .redim(x="Time", y="Channel")
-                    .relabel(self.name)
-                )
-                return target.relabel(group=self.name)
+                if _HV_AVAILABLE:
+                    target *= (
+                        hv.Scatter((times, channels), *args, **kwargs)
+                        .redim(x="Time", y="Channel")
+                        .relabel(self.name)
+                    )
+                    return target.relabel(group=self.name)
+                else:
+                    raise RuntimeError(
+                        f"TSEvent: `{self.name}`: Holoviews not available."
+                    )
             elif isinstance(target, mpl.axes.Axes):
-                # - Add `self.name` as label only if a label is not already present
-                kwargs["label"] = kwargs.get("label", self.name)
-                target.scatter(times, channels, *args, **kwargs)
-                return target
+                if _MPL_AVAILABLE:
+                    # - Add `self.name` as label only if a label is not already present
+                    kwargs["label"] = kwargs.get("label", self.name)
+                    target.scatter(times, channels, *args, **kwargs)
+                    return target
+                else:
+                    raise RuntimeError(
+                        f"TSEvent: `{self.name}`: Matplotlib not available."
+                    )
             else:
                 raise TypeError(
                     f"TSEvent: `{self.name}`: Unrecognized type for `target`. "
