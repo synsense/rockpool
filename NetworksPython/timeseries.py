@@ -8,9 +8,20 @@ from warnings import warn
 import copy
 from typing import Union, List, Tuple, Optional, TypeVar, Iterable
 import collections
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-import holoviews as hv
+
+try:
+    import matplotlib as mpl
+    from matplotlib import pyplot as plt
+
+    MPL_AVAILABLE = True
+except ModuleNotFoundError:
+    MPL_AVAILABLE = False
+try:
+    import holoviews as hv
+
+    HV_AVAILABLE = True
+except ModuleNotFoundError:
+    HV_AVAILABLE = False
 
 # - Define exports
 __all__ = [
@@ -29,8 +40,8 @@ TSContType = TypeVar("TSContinuous")
 
 ### -- Code for setting plotting backend
 
-__use_holoviews = False
-__use_matplotlib = True
+__use_matplotlib = MPL_AVAILABLE
+__use_holoviews = False if MPL_AVAILABLE else HV_AVAILABLE
 
 
 # - Absolute tolerance, e.g. for comparing float values
