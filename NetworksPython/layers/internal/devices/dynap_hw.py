@@ -484,8 +484,8 @@ class RecDynapSE(Layer):
             weights=self.mfWIn,
             virtualneuron_ids=self.vnVirtualNeuronIDs,
             hwneuron_ids=self.vnHWNeuronIDs,
-            syn_exc=self.controller.synFE,
-            syn_inh=self.controller.synFI,
+            syn_exc=self.controller.syn_exc_fast,
+            syn_inh=self.controller.syn_inh_fast,
             apply_diff=False,
         )
         print(
@@ -505,8 +505,8 @@ class RecDynapSE(Layer):
         self.controller.set_connections_from_weights(
             weights=mnWInToRec,
             hwneuron_ids=self.vnHWNeuronIDs,
-            syn_exc=self.controller.synFE,
-            syn_inh=self.controller.synFI,
+            syn_exc=self.controller.syn_exc_fast,
+            syn_inh=self.controller.syn_inh_fast,
             apply_diff=False,
         )
         print(
@@ -521,8 +521,8 @@ class RecDynapSE(Layer):
         self.controller.set_connections_from_weights(
             weights=mnWRec,
             hwneuron_ids=self.vnHWNeuronIDs,
-            syn_exc=self.controller.synSE,
-            syn_inh=self.controller.synFI,
+            syn_exc=self.controller.syn_exc_slow,
+            syn_inh=self.controller.syn_inh_fast,
             apply_diff=True,
         )
         print("Layer `{}`: Recurrent connections have been set.".format(self.strName))
