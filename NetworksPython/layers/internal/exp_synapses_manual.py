@@ -513,7 +513,6 @@ class FFExpSyn(Layer):
         bStoreState: bool = True,
         bVerbose: bool = False,
     ):
-
         """
         train_logreg - Train self with logistic regression over one of possibly many batches.
                        Note that this training method assumes that a sigmoid funciton is applied

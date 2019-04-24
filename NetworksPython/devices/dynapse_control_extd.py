@@ -16,299 +16,297 @@ __all__ = ["DynapseControlExtd"]
 class DynapseControlExtd(DynapseControl):
     def _TSEvent_to_spike_list(
         self,
-        tsSeries: TSEvent,
-        vnNeuronIDs: np.ndarray,
-        nTargetCoreMask: int = 1,
-        nTargetChipID: int = 0,
+        series: TSEvent,
+        neuron_ids: np.ndarray,
+        targetcore_mask: int = 1,
+        targetchip_id: int = 0,
     ) -> List:
         """
         _TSEvent_to_spike_list - Convert a TSEvent object to a ctxctl spike list
 
-        :param tsSeries:        TSEvent      Time series of events to send as input
-        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
-        :param nTargetChipID:   int          ID of target chip
+        :param series:        TSEvent      Time series of events to send as input
+        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+        :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
+        :param targetchip_id:   int          ID of target chip
         :return:                list of FpgaSpikeEvent objects
         """
         # - Check that the number of channels is the same between time series and list of neurons
-        assert tsSeries.num_channels <= np.size(
-            vnNeuronIDs
-        ), "`tsSeries` contains more channels than the number of neurons in `vnNeuronIDs`."
+        assert series.num_channels <= np.size(
+            neuron_ids
+        ), "`series` contains more channels than the number of neurons in `neuron_ids`."
 
-        # - Make sure vnNeuronIDs is iterable
-        vnNeuronIDs = np.array(vnNeuronIDs)
+        # - Make sure neuron_ids is iterable
+        neuron_ids = np.array(neuron_ids)
 
         # - Get events from this time series
-        vtTimes, vnChannels = tsSeries()
+        times, channels = series()
 
         # - Convert to ISIs
-        tStartTime = tsSeries.t_start
-        vtISIs = np.diff(np.r_[tStartTime, vtTimes])
-        vnDiscreteISIs = (np.round(vtISIs / self.tFpgaIsiBase)).astype("int")
+        t_start = series.t_start
+        isi_array = np.diff(np.r_[t_start, times])
+        isi_array_discrete = (np.round(isi_array / self.fpga_isibase)).astype("int")
 
         # - Convert events to an FpgaSpikeEvent
         print("dynapse_control: Generating FPGA event list from TSEvent.")
-        lEvents = generate_fpga_event_list(
+        events: List = generate_fpga_event_list(
             # Make sure that no np.int64 or other non-native type is passed
-            [int(nISI) for nISI in vnDiscreteISIs],
-            [int(vnNeuronIDs[i]) for i in vnChannels],
-            int(nTargetCoreMask),
-            int(nTargetChipID),
+            [int(isi) for isi in isi_array_discrete],
+            [int(neuron_ids[i]) for i in channels],
+            int(targetcore_mask),
+            int(targetchip_id),
         )
         # - Return a list of events
-        return lEvents
+        return events
 
     def send_pulse(
         self,
-        tWidth: float = 0.1,
-        fFreq: float = 1000,
-        tRecord: float = 3,
-        tBuffer: float = 0.5,
-        nInputNeuronID: int = 0,
-        vnRecordNeuronIDs: Union[int, np.ndarray] = np.arange(1024),
-        nTargetCoreMask: int = 15,
-        nTargetChipID: int = 0,
-        bPeriodic: bool = False,
-        bRecord: bool = False,
-        bTSEvent: bool = False,
+        width: float = 0.1,
+        frequency: float = 1000,
+        t_record: float = 3,
+        t_buffer: float = 0.5,
+        inputneur_id: int = 0,
+        record_neur_ids: Union[int, np.ndarray] = np.arange(1024),
+        targetcore_mask: int = 15,
+        targetchip_id: int = 0,
+        periodic: bool = False,
+        record: bool = False,
+        return_ts: bool = False,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_pulse - Send a pulse of periodic input events to the chip.
                      Return a TSEvent wih the recorded hardware activity.
-        :param tWidth:              float  Duration of the input pulse
-        :param fFreq:               float  Frequency of the events that constitute the pulse
-        :param tRecord:             float  Duration of the recording (including stimulus)
-        :param tBuffer:             float  Record slightly longer than tRecord to
-                                           make sure to catch all relevant events
-        :param nInputNeuronID:      int    ID of input neuron
-        :param vnRecordNeuronIDs:   array-like  ID(s) of neuron(s) to be recorded
-        :param nChipID:     int  Target chip ID
-        :param nCoreMask:   int  Target core mask
-        :param bPeriodic:   bool    Repeat the stimulus indefinitely
-        :param bRecord:     bool    Set up buffered event filter that records events
-                                    from neurons defined in vnRecordNeuronIDs
-        :param bTSEvent:    bool    If True and bRecord==True: output TSEvent instead of arrays of times and channels
+        :param width:            float  Duration of the input pulse
+        :param frequency:               float  Frequency of the events that constitute the pulse
+        :param t_record:         float  Duration of the recording (including stimulus)
+        :param t_buffer:         float  Record slightly longer than t_record to
+                                        make sure to catch all relevant events
+        :param inputneur_id:     int    ID of input neuron
+        :param record_neur_ids:  array-like  ID(s) of neuron(s) to be recorded
+        :param nChipID:          int  Target chip ID
+        :param nCoreMask:        int  Target core mask
+        :param periodic:         bool  Repeat the stimulus indefinitely
+        :param record:           bool  Set up buffered event filter that records events
+                                       from neurons defined in record_neur_ids
+        :param return_ts:        bool    If True and record==True: output TSEvent instead of arrays of times and channels
 
         :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+            if record==False:  None
+            elif return_ts:    TSEvent object of recorded data
+            else:              (times_out, channels_out)  np.ndarrays that contain recorded data
         """
         # - Stimulate and obtain recorded data if any
         recorded_data = super().send_pulse(
-            tWidth=tWidth,
-            fFreq=fFreq,
-            tRecord=tRecord,
-            tBuffer=tBuffer,
-            nInputNeuronID=nInputNeuronID,
-            vnRecordNeuronIDs=vnRecordNeuronIDs,
-            nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,
-            bPeriodic=bPeriodic,
-            bRecord=bRecord,
+            width=width,
+            frequency=frequency,
+            t_record=t_record,
+            t_buffer=t_buffer,
+            inputneur_id=inputneur_id,
+            record_neur_ids=record_neur_ids,
+            targetcore_mask=targetcore_mask,
+            targetchip_id=targetchip_id,
+            periodic=periodic,
+            record=record,
         )
 
         if recorded_data is not None:
-            times, channels = recorded_data
+            times_out, channels_out = recorded_data
 
-            if bTSEvent:
+            if return_ts:
                 return TSEvent(
-                    times,
-                    channels,
+                    times_out,
+                    channels_out,
                     t_start=0,
-                    t_stop=tRecord,
+                    t_stop=t_record,
                     num_channels=(
-                        np.amax(channels)
-                        if vnRecordNeuronIDs is None
-                        else np.size(vnRecordNeuronIDs)
+                        np.amax(channels_out)
+                        if record_neur_ids is None
+                        else np.size(record_neur_ids)
                     ),
                     name="DynapSE",
                 )
             else:
-                return times, channels
+                return times_out, channels_out
 
     def send_TSEvent(
         self,
-        tsSeries,
-        tRecord: Optional[float] = None,
-        tBuffer: float = 0.5,
-        vnNeuronIDs: Optional[np.ndarray] = None,
-        vnRecordNeuronIDs: Optional[np.ndarray] = None,
-        nTargetCoreMask: int = 15,
-        nTargetChipID: int = 0,
-        bPeriodic=False,
-        bRecord=False,
-        bTSEvent=False,
+        series,
+        t_record: Optional[float] = None,
+        t_buffer: float = 0.5,
+        neuron_ids: Optional[np.ndarray] = None,
+        record_neur_ids: Optional[np.ndarray] = None,
+        targetcore_mask: int = 15,
+        targetchip_id: int = 0,
+        periodic=False,
+        record=False,
+        return_ts=False,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_TSEvent - Extract events from a TSEvent object and send them to FPGA.
 
-        :param tsSeries:        TSEvent      Time series of events to send as input
-        :param tRecord:         float  Duration of the recording (including stimulus)
-                                       If None, use tsSeries.duration
-        :param tBuffer:         float  Record slightly longer than tRecord to
+        :param series:        TSEvent      Time series of events to send as input
+        :param t_record:         float  Duration of the recording (including stimulus)
+                                       If None, use series.duration
+        :param t_buffer:         float  Record slightly longer than t_record to
                                        make sure to catch all relevant events
-        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-                                             If None, use channels from tsSeries
-        :param vnRecordNeuronIDs: ArrayLike    IDs of neurons that should be recorded (if bRecord==True)
-                                               If None and bRecord==True, record neurons in vnNeuronIDs
-        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
-        :param nTargetChipID:   int          ID of target chip
-        :param bPeriodic:       bool         Repeat the stimulus indefinitely
-        :param bRecord:         bool         Set up buffered event filter that records events
-                                             from neurons defined in vnNeuronIDs
-        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
+        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+                                             If None, use channels from series
+        :param record_neur_ids: ArrayLike    IDs of neurons that should be recorded (if record==True)
+                                               If None and record==True, record neurons in neuron_ids
+        :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
+        :param targetchip_id:   int          ID of target chip
+        :param periodic:       bool         Repeat the stimulus indefinitely
+        :param record:         bool         Set up buffered event filter that records events
+                                             from neurons defined in neuron_ids
+        :param return_ts:        bool         If record: output TSEvent instead of arrays of times and channels
 
         :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+            if record==False:  None
+            elif return_ts:      TSEvent object of recorded data
+            else:               (times_out, channels_out)  np.ndarrays that contain recorded data
         """
 
         # - Process input arguments
-        vnNeuronIDs = (
-            np.arange(tsSeries.num_channels)
-            if vnNeuronIDs is None
-            else np.array(vnNeuronIDs)
+        neuron_ids = (
+            np.arange(series.num_channels)
+            if neuron_ids is None
+            else np.array(neuron_ids)
         )
-        vnRecordNeuronIDs = (
-            vnNeuronIDs if vnRecordNeuronIDs is None else vnRecordNeuronIDs
-        )
-        tRecord = tsSeries.duration if tRecord is None else tRecord
+        record_neur_ids = neuron_ids if record_neur_ids is None else record_neur_ids
+        t_record = series.duration if t_record is None else t_record
 
         # - Prepare event list
-        lEvents = self._TSEvent_to_spike_list(
-            tsSeries,
-            vnNeuronIDs=vnNeuronIDs,
-            nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,
+        events = self._TSEvent_to_spike_list(
+            series,
+            neuron_ids=neuron_ids,
+            targetcore_mask=targetcore_mask,
+            targetchip_id=targetchip_id,
         )
         print(
             "DynapseControl: Stimulus prepared from TSEvent `{}`.".format(
-                tsSeries.strName
+                series.strName
             )
         )
 
         # - Stimulate and obtain recorded data if any
         recorded_data = self._send_stimulus_list(
-            lEvents=lEvents,
-            tDuration=tRecord,
-            tBuffer=tBuffer,
-            vnRecordNeuronIDs=vnRecordNeuronIDs,
-            bPeriodic=bPeriodic,
-            bRecord=bRecord,
+            events=events,
+            tDuration=t_record,
+            t_buffer=t_buffer,
+            record_neur_ids=record_neur_ids,
+            periodic=periodic,
+            record=record,
         )
 
         if recorded_data is not None:
-            times, channels = recorded_data
+            times_out, channels_out = recorded_data
 
-            if bTSEvent:
+            if return_ts:
                 return TSEvent(
-                    times,
-                    channels,
+                    times_out,
+                    channels_out,
                     t_start=0,
-                    t_stop=tRecord,
+                    t_stop=t_record,
                     num_channels=(
-                        np.amax(channels)
-                        if vnRecordNeuronIDs is None
-                        else np.size(vnRecordNeuronIDs)
+                        np.amax(channels_out)
+                        if record_neur_ids is None
+                        else np.size(record_neur_ids)
                     ),
                     name="DynapSE",
                 )
             else:
-                return times, channels
+                return times_out, channels_out
 
     def send_arrays(
         self,
-        vnChannels: np.ndarray,
-        vnTimeSteps: Optional[np.ndarray] = None,
-        vtTimeTrace: Optional[np.ndarray] = None,
-        tRecord: Optional[float] = None,
-        tBuffer: float = 0.5,
-        vnNeuronIDs: Optional[np.ndarray] = None,
-        vnRecordNeuronIDs: Optional[np.ndarray] = None,
-        nTargetCoreMask: int = 15,
-        nTargetChipID: int = 0,
-        bPeriodic=False,
-        bRecord=False,
-        bTSEvent=False,
+        channels: np.ndarray,
+        timesteps: Optional[np.ndarray] = None,
+        times: Optional[np.ndarray] = None,
+        t_record: Optional[float] = None,
+        t_buffer: float = 0.5,
+        neuron_ids: Optional[np.ndarray] = None,
+        record_neur_ids: Optional[np.ndarray] = None,
+        targetcore_mask: int = 15,
+        targetchip_id: int = 0,
+        periodic=False,
+        record=False,
+        return_ts=False,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_arrays - Send events defined in timetrace and channel arrays to FPGA.
 
-        :param vnChannels:      np.ndarray  Event channels
-        :param vnTimeSeops:     np.ndarray  Event times in Fpga time base (overwrites vtTimeTrace if not None)
-        :param vtTimeTrace:     np.ndarray  Event times in seconds
-        :param tRecord:         float  Duration of the recording (including stimulus)
-                                       If None, use vtTimeTrace[-1]
-        :param tBuffer:         float  Record slightly longer than tRecord to
+        :param channels:      np.ndarray  Event channels
+        :param vnTimeSeops:     np.ndarray  Event times in Fpga time base (overwrites times if not None)
+        :param times:     np.ndarray  Event times in seconds
+        :param t_record:         float  Duration of the recording (including stimulus)
+                                       If None, use times[-1]
+        :param t_buffer:         float  Record slightly longer than t_record to
                                        make sure to catch all relevant events
-        :param vnNeuronIDs:     ArrayLike    IDs of neurons that should appear as sources of the events
-                                             If None, use channels from vnChannels
-        :param vnRecordNeuronIDs: ArrayLike    IDs of neurons that should be recorded (if bRecord==True)
-                                               If None and bRecord==True, record neurons in vnNeuronIDs
-        :param nTargetCoreMask: int          Mask defining target cores (sum of 2**core_id)
-        :param nTargetChipID:   int          ID of target chip
-        :param bPeriodic:       bool         Repeat the stimulus indefinitely
-        :param bRecord:         bool         Set up buffered event filter that records events
-                                             from neurons defined in vnNeuronIDs
-        :param bTSEvent:        bool         If bRecord: output TSEvent instead of arrays of times and channels
+        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+                                             If None, use channels from channels
+        :param record_neur_ids: ArrayLike    IDs of neurons that should be recorded (if record==True)
+                                               If None and record==True, record neurons in neuron_ids
+        :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
+        :param targetchip_id:   int          ID of target chip
+        :param periodic:       bool         Repeat the stimulus indefinitely
+        :param record:         bool         Set up buffered event filter that records events
+                                             from neurons defined in neuron_ids
+        :param return_ts:        bool         If record: output TSEvent instead of arrays of times and channels
 
         :return:
-            if bRecord==False:  None
-            elif bTSEvent:      TSEvent object of recorded data
-            else:               (vtTimeTrace, vnChannels)  np.ndarrays that contain recorded data
+            if record==False:  None
+            elif return_ts:      TSEvent object of recorded data
+            else:               (times_out, channels_out)  np.ndarrays that contain recorded data
         """
 
         # - Stimulate and obtain recorded data if any
         recorded_data = super().send_arrays(
-            vnChannels=vnChannels,
-            vnTimeSteps=vnTimeSteps,
-            vtTimeTrace=vtTimeTrace,
-            tRecord=tRecord,
-            tBuffer=tBuffer,
-            vnNeuronIDs=vnNeuronIDs,
-            vnRecordNeuronIDs=vnRecordNeuronIDs,
-            nTargetCoreMask=nTargetCoreMask,
-            nTargetChipID=nTargetChipID,
-            bPeriodic=bPeriodic,
-            bRecord=bRecord,
+            channels=channels,
+            timesteps=timesteps,
+            times=times,
+            t_record=t_record,
+            t_buffer=t_buffer,
+            neuron_ids=neuron_ids,
+            record_neur_ids=record_neur_ids,
+            targetcore_mask=targetcore_mask,
+            targetchip_id=targetchip_id,
+            periodic=periodic,
+            record=record,
         )
 
         if recorded_data is not None:
-            times, channels = recorded_data
+            times_out, channels_out = recorded_data
 
-            if bTSEvent:
+            if return_ts:
                 return TSEvent(
-                    times,
-                    channels,
+                    times_out,
+                    channels_out,
                     t_start=0,
-                    t_stop=tRecord,
+                    t_stop=t_record,
                     num_channels=(
-                        np.amax(channels)
-                        if vnRecordNeuronIDs is None
-                        else np.size(vnRecordNeuronIDs)
+                        np.amax(channels_out)
+                        if record_neur_ids is None
+                        else np.size(record_neur_ids)
                     ),
                     name="DynapSE",
                 )
             else:
-                return times, channels
+                return times_out, channels_out
 
     def _recorded_data_to_TSEvent(
-        self, vnNeuronIDs: np.ndarray, tRecord: float
+        self, neuron_ids: np.ndarray, t_record: float
     ) -> TSEvent:
         # - Retrieve recorded data and convert to arrays
-        vtTimeTrace, vnChannels = super()._recorded_data_to_arrays(
-            vnNeuronIDs=vnNeuronIDs, tRecord=tRecord
+        times_out, channels_out = super()._recorded_data_to_arrays(
+            neuron_ids=neuron_ids, t_record=t_record
         )
 
         return TSEvent(
-            vtTimeTrace,
-            vnChannels,
+            times_out,
+            channels_out,
             t_start=0,
-            t_stop=tRecord,
+            t_stop=t_record,
             num_channels=(
-                np.amax(vnChannels) if vnNeuronIDs is None else np.size(vnNeuronIDs)
+                np.amax(channels_out) if neuron_ids is None else np.size(neuron_ids)
             ),
             name="DynapSE",
         )

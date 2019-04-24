@@ -79,7 +79,7 @@ class RecDynapSE(Layer):
             self.controller = DynapseControlExtd(tDt, lnClearCores)
         else:
             self.controller = controller
-            self.controller.tFpgaIsiBase = tDt
+            self.controller.fpga_isibase = tDt
             self.controller.clear_connections(lnClearCores)
 
         # - Check supplied arguments
@@ -111,7 +111,7 @@ class RecDynapSE(Layer):
         # - Store evolution batch size limitations
         self.nMaxTrialsPerBatch = nMaxTrialsPerBatch
         self.nMaxEventsPerBatch = (
-            self.controller.nFpgaEventLimit
+            self.controller.fpga_event_limit
             if nMaxEventsPerBatch is None
             else nMaxEventsPerBatch
         )
@@ -426,16 +426,16 @@ class RecDynapSE(Layer):
     ):
         try:
             vtTimeTraceOut, vnChannelsOut = self.controller.send_arrays(
-                vnTimeSteps=vnTimeSteps,
-                vnChannels=vnChannels,
-                tRecord=tDurBatch,
-                vnNeuronIDs=self.vnVirtualNeuronIDs,
-                vnRecordNeuronIDs=self.vnHWNeuronIDs,
-                nTargetCoreMask=self._nInputCoreMask,
-                nTargetChipID=self._nInputChipID,
-                bPeriodic=False,
-                bRecord=True,
-                bTSEvent=False,
+                times=vnTimeSteps,
+                channels=vnChannels,
+                t_record=tDurBatch,
+                neuron_ids=self.vnVirtualNeuronIDs,
+                record_neur_ids=self.vnHWNeuronIDs,
+                targetcore_mask=self._nInputCoreMask,
+                targetchip_id=self._nInputChipID,
+                periodic=False,
+                record=True,
+                return_ts=False,
             )
         # - It can happen that DynapseControl inserts dummy events to make sure ISI limit is not exceeded.
         #   This may result in too many events in single batch, in which case a MemoryError is raised.
@@ -481,12 +481,12 @@ class RecDynapSE(Layer):
 
         # - Connect virtual neurons to hardware neurons
         self.controller.set_virtual_connections_from_weights(
-            mnW=self.mfWIn,
-            vnVirtualNeuronIDs=self.vnVirtualNeuronIDs,
-            vnHWNeuronIDs=self.vnHWNeuronIDs,
-            synExcitatory=self.controller.synFE,
-            synInhibitory=self.controller.synFI,
-            bApplyDiff=False,
+            weights=self.mfWIn,
+            virtualneuron_ids=self.vnVirtualNeuronIDs,
+            hwneuron_ids=self.vnHWNeuronIDs,
+            syn_exc=self.controller.synFE,
+            syn_inh=self.controller.synFI,
+            apply_diff=False,
         )
         print(
             "Layer `{}`: Connections to virtual neurons have been set.".format(
@@ -503,11 +503,11 @@ class RecDynapSE(Layer):
         mnWInToRec = self.mfW.copy()
         mnWInToRec[vbInputNeurons == False] = 0
         self.controller.set_connections_from_weights(
-            mnW=mnWInToRec,
-            vnHWNeuronIDs=self.vnHWNeuronIDs,
-            synExcitatory=self.controller.synFE,
-            synInhibitory=self.controller.synFI,
-            bApplyDiff=False,
+            weights=mnWInToRec,
+            hwneuron_ids=self.vnHWNeuronIDs,
+            syn_exc=self.controller.synFE,
+            syn_inh=self.controller.synFI,
+            apply_diff=False,
         )
         print(
             "Layer `{}`: Connections from input neurons to reservoir have been set.".format(
@@ -519,11 +519,11 @@ class RecDynapSE(Layer):
         mnWRec = self.mfW.copy()
         mnWRec[vbInputNeurons] = 0
         self.controller.set_connections_from_weights(
-            mnW=mnWRec,
-            vnHWNeuronIDs=self.vnHWNeuronIDs,
-            synExcitatory=self.controller.synSE,
-            synInhibitory=self.controller.synFI,
-            bApplyDiff=True,
+            weights=mnWRec,
+            hwneuron_ids=self.vnHWNeuronIDs,
+            syn_exc=self.controller.synSE,
+            syn_inh=self.controller.synFI,
+            apply_diff=True,
         )
         print("Layer `{}`: Recurrent connections have been set.".format(self.strName))
 
@@ -601,10 +601,11 @@ class RecDynapSE(Layer):
         ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0 or None.".format(
             self.strName
         )
-        if nNewMax > self.controller.nFpgaEventLimit * self.controller:
+        if nNewMax > self.controller.fpga_event_limit * self.controller.fpga_isi_limit:
             warn(
-                "Layer `{}`: nMaxNumTimeSteps is larger than nFpgaEventLimit * nFpgaIsiLimit ({}).".format(
-                    self.strName, self.controller.nFpgaEventLimit * self.controller
+                "Layer `{}`: nMaxNumTimeSteps is larger than fpga_event_limit * fpga_isi_limit ({}).".format(
+                    self.strName,
+                    self.controller.fpga_event_limit * self.controller.fpga_isi_limit,
                 )
             )
         self._nMaxNumTimeSteps = nNewMax
@@ -635,9 +636,9 @@ class RecDynapSE(Layer):
     @nMaxEventsPerBatch.setter
     def nMaxEventsPerBatch(self, nNewMax):
         assert (
-            type(nNewMax) == int and 0 < nNewMax <= self.controller.nFpgaEventLimit
+            type(nNewMax) == int and 0 < nNewMax <= self.controller.fpga_event_limit
         ), "Layer `{}`: nMaxEventsPerBatch must be an integer between 0 and {}.".format(
-            self.strName, self.controller.nFpgaEventLimit
+            self.strName, self.controller.fpga_event_limit
         )
         self._nMaxEventsPerBatch = nNewMax
 
@@ -671,10 +672,10 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.add_buffered_event_filter(self.vnHWNeuronIDs)
 
     def load_events(self, tsAS, vtRhythmStart, tTotalDuration: float):
-        if tsAS.times.size > self.controller.nSramEventLimit:
+        if tsAS.times.size > self.controller.sram_event_limit:
             raise MemoryError(
                 "Layer `{}`: Can upload at most {} events. {} are too many.".format(
-                    self.strName, self.controller.nSramEventLimit, tsAS.times.size
+                    self.strName, self.controller.sram_event_limit, tsAS.times.size
                 )
             )
 
@@ -686,17 +687,17 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Convert timeseries to events for FPGA
         lEvents = self.controller._TSEvent_to_spike_list(
-            tsSeries=tsAS,
-            vnNeuronIDs=self.vnVirtualNeuronIDs,
-            nTargetCoreMask=1,
-            nTargetChipID=0,
+            series=tsAS,
+            neuron_ids=self.vnVirtualNeuronIDs,
+            targetcore_mask=1,
+            targetchip_id=0,
         )
         # - Set interspike interval of first event of each rhythm so that it corresponds
         #   to the rhythm start and not the last event from the previous rhythm
         for iRhythm, iEvent in enumerate(viRhythmStarts):
             lEvents[iEvent].isi = np.round(
                 (tsAS.times[iEvent] - vtRhythmStart[iRhythm])
-                / self.controller.tFpgaIsiBase
+                / self.controller.fpga_isibase
             ).astype(int)
 
         print(
@@ -708,13 +709,15 @@ class RecDynapSEDemo(RecDynapSE):
         # - Upload input events to processor
         iEvent = 0
         while iEvent < tsAS.times.size:
-            self.controller.fpgaSpikeGen.set_base_addr(2 * iEvent)
-            self.controller.fpgaSpikeGen.preload_stimulus(
+            self.controller.fpga_spikegen.set_base_addr(2 * iEvent)
+            self.controller.fpga_spikegen.preload_stimulus(
                 lEvents[
-                    iEvent : min(iEvent + self.controller.nFpgaEventLimit, len(lEvents))
+                    iEvent : min(
+                        iEvent + self.controller.fpga_event_limit, len(lEvents)
+                    )
                 ]
             )
-            iEvent += self.controller.nFpgaEventLimit
+            iEvent += self.controller.fpga_event_limit
         print("Layer `{}`: Events have been loaded.".format(self.strName))
 
         # - Fpga adresses where beats start
@@ -742,8 +745,8 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Instruct FPGA to spike
         # set new base adress and number of input events for stimulation
-        self.controller.fpgaSpikeGen.set_base_addr(self.vnRhythmAddress[iRhythm])
-        self.controller.fpgaSpikeGen.set_stim_count(self.vnEventsPerRhythm[iRhythm])
+        self.controller.fpga_spikegen.set_base_addr(self.vnRhythmAddress[iRhythm])
+        self.controller.fpga_spikegen.set_stim_count(self.vnEventsPerRhythm[iRhythm])
 
         # - Lists for storing collected events
         lnTimeStamps = []
@@ -758,7 +761,7 @@ class RecDynapSEDemo(RecDynapSE):
         t_stop = time.time() + tDuration
 
         # Start stimulation
-        self.controller.fpgaSpikeGen.start()
+        self.controller.fpga_spikegen.start()
 
         # - Until duration is over, record events and process in quick succession
         while time.time() < t_stop:
