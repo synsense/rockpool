@@ -78,17 +78,17 @@ class AveragePooling2D(CLIAF):
             else:
                 # Ensure number of channels is atleast as many as required
                 try:
-                    assert tsInput.nNumChannels >= self.nSizeIn
+                    assert tsInput.num_channels >= self.nSizeIn
                 except AssertionError as err:
                     warn(
                         self.strName
                         + ": Expanding input dimensions to match layer size."
                     )
-                    tsInput.nNumChannels = self.nSizeIn
+                    tsInput.num_channels = self.nSizeIn
 
                 # Extract spike data from the input variable
                 mfSpikeRaster = tsInput.xraster(
-                    tDt=self.tDt, tStart=self.t, tStop=tFinal
+                    dt=self.tDt, t_start=self.t, t_stop=tFinal
                 )
 
                 ## - Make sure size is correct
@@ -148,7 +148,7 @@ class AveragePooling2D(CLIAF):
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=ltSpikeTimes, vnChannels=liSpikeIDs, nNumChannels=self.nSize
+            times=ltSpikeTimes, channels=liSpikeIDs, num_channels=self.nSize
         )
 
         # Update time

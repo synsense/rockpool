@@ -6,7 +6,7 @@ import numpy as np
 from typing import Callable
 from numba import njit
 
-from ...timeseries import TimeSeries
+from ...timeseries import TSContinuous
 from ..layer import Layer
 from typing import Optional, Union, Tuple, List
 
@@ -20,9 +20,7 @@ fTolerance = 1e-5
 
 ### --- Configure exports
 
-__all__ = [
-    "FFRateEuler", "PassThrough", "RecRateEuler"
-]
+__all__ = ["FFRateEuler", "PassThrough", "RecRateEuler"]
 
 
 ### --- Helper functions
@@ -129,48 +127,48 @@ def get_ff_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
 
 
 def get_rec_evolution_function(fhActivation: Callable[[np.ndarray], np.ndarray]):
-   """
+    """
    get_rec_evolution_function: Construct a compiled Euler solver for a given activation function
 
    :param fhActivation: Callable (x) -> f(x)
    :return: Compiled function evolve_Euler_complete(vState, nSize, mfW, mfInputStep, tDt, nNumSteps, vfBias, vtTau)
    """
 
-   # - Compile an Euler solver for the desired activation function
-   @njit
-   def evolve_Euler_complete(
-       vState: np.ndarray,
-       nSize: int,
-       mfW: np.ndarray,
-       mfInputStep: np.ndarray,
-       nNumSteps: int,
-       tDt: float,
-       vfBias: np.ndarray,
-       vtTau: np.ndarray,
-   ) -> np.ndarray:
-       # - Initialise storage of network output
-       mfActivity = np.zeros((nNumSteps + 1, nSize))
+    # - Compile an Euler solver for the desired activation function
+    @njit
+    def evolve_Euler_complete(
+        vState: np.ndarray,
+        nSize: int,
+        mfW: np.ndarray,
+        mfInputStep: np.ndarray,
+        nNumSteps: int,
+        tDt: float,
+        vfBias: np.ndarray,
+        vtTau: np.ndarray,
+    ) -> np.ndarray:
+        # - Initialise storage of network output
+        mfActivity = np.zeros((nNumSteps + 1, nSize))
 
-       # - Precompute tDt / vtTau
-       vfLambda = tDt / vtTau
+        # - Precompute tDt / vtTau
+        vfLambda = tDt / vtTau
 
-       # - Loop over time steps
-       for nStep in range(nNumSteps):
-           # - Evolve network state
-           vfThisAct = fhActivation(vState + vfBias)
-           vDState = -vState + mfInputStep[nStep, :] + vfThisAct @ mfW
-           vState += vDState * vfLambda
+        # - Loop over time steps
+        for nStep in range(nNumSteps):
+            # - Evolve network state
+            vfThisAct = fhActivation(vState + vfBias)
+            vDState = -vState + mfInputStep[nStep, :] + vfThisAct @ mfW
+            vState += vDState * vfLambda
 
-           # - Store network state
-           mfActivity[nStep, :] = vfThisAct
+            # - Store network state
+            mfActivity[nStep, :] = vfThisAct
 
-       # - Get final activation
-       mfActivity[-1, :] = fhActivation(vState + vfBias)
+        # - Get final activation
+        mfActivity[-1, :] = fhActivation(vState + vfBias)
 
-       return mfActivity
+        return mfActivity
 
-   # - Return the compiled function
-   return evolve_Euler_complete
+    # - Return the compiled function
+    return evolve_Euler_complete
 
 
 ### --- FFRateEuler class
@@ -184,11 +182,11 @@ class FFRateEuler(Layer):
         mfW: np.ndarray,
         tDt: float = None,
         strName: str = None,
-        fNoiseStd: float = 0.,
+        fNoiseStd: float = 0.0,
         fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLU,
-        vtTau: Union[float, np.ndarray] = 10.,
-        vfGain: Union[float, np.ndarray] = 1.,
-        vfBias: Union[float, np.ndarray] = 0.,
+        vtTau: Union[float, np.ndarray] = 10.0,
+        vfGain: Union[float, np.ndarray] = 1.0,
+        vfBias: Union[float, np.ndarray] = 0.0,
     ):
         """
         FFRateEuler - Implement a feed-forward non-spiking neuron layer, with an Euler method solver
@@ -204,17 +202,13 @@ class FFRateEuler(Layer):
         """
 
         # - Make sure some required parameters are set
-        assert mfW is not None, \
-            '`mfW` is required'
+        assert mfW is not None, "`mfW` is required"
 
-        assert vtTau is not None, \
-            '`vtTau` is required'
+        assert vtTau is not None, "`vtTau` is required"
 
-        assert vfBias is not None, \
-            '`vfBias` is required'
+        assert vfBias is not None, "`vfBias` is required"
 
-        assert vfGain is not None, \
-            '`vfGain` is required'
+        assert vfGain is not None, "`vfGain` is required"
 
         # - Set a reasonable tDt
         if tDt is None:
@@ -261,19 +255,19 @@ class FFRateEuler(Layer):
 
     def evolve(
         self,
-        tsInput: Optional[TimeSeries] = None,
+        tsInput: Optional[TSContinuous] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> TimeSeries:
+    ) -> TSContinuous:
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TimeSeries  Input spike trian
+        :param tsSpkInput:      TSContinuous  Input spike trian
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps    int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
-        :return:            TimeSeries  output spike series
+        :return:            TSContinuous  output spike series
 
         """
 
@@ -293,13 +287,13 @@ class FFRateEuler(Layer):
             vfAlpha=self._vfAlpha,
             # Without correction, standard deviation after some time will be
             # self._fNoiseStd * sqrt(self._vfAlpha/2)
-            fNoiseStd=self._fNoiseStd * np.sqrt(2. / self._vfAlpha),
+            fNoiseStd=self._fNoiseStd * np.sqrt(2.0 / self._vfAlpha),
         )
 
         # - Increment internal time representation
         self._nTimeStep += nNumTimeSteps
 
-        return TimeSeries(vtTimeBase, mSamplesAct)
+        return TSContinuous(vtTimeBase, mSamplesAct)
 
     def stream(
         self, tDuration: float, tDt: float, bVerbose: bool = False
@@ -363,7 +357,7 @@ class FFRateEuler(Layer):
                 vfAlpha=self._vfAlpha,
                 # Without correction, standard deviation after some time will be
                 # self._fNoiseStd * sqrt(self._vfAlpha/2)
-                fNoiseStd=self._fNoiseStd * np.sqrt(2. / self._vfAlpha),
+                fNoiseStd=self._fNoiseStd * np.sqrt(2.0 / self._vfAlpha),
             )
 
             # - Increment time
@@ -377,8 +371,8 @@ class FFRateEuler(Layer):
 
     def train_rr(
         self,
-        tsTarget: TimeSeries,
-        tsInput: TimeSeries,
+        tsTarget: TSContinuous,
+        tsInput: TSContinuous,
         fRegularize=0,
         bFirst=True,
         bFinal=False,
@@ -388,23 +382,23 @@ class FFRateEuler(Layer):
                    many batches. Use Kahan summation to reduce rounding
                    errors when adding data to existing matrices from
                    previous batches.
-        :param tsTarget:    TimeSeries - target for current batch
-        :param tsInput:     TimeSeries - input to self for current batch
+        :param tsTarget:    TSContinuous - target for current batch
+        :param tsInput:     TSContinuous - input to self for current batch
         :fRegularize:       float - regularization for ridge regression
         :bFirst:            bool - True if current batch is the first in training
         :bFinal:            bool - True if current batch is the last in training
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsInput.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsInput.tStart, nNumTimeSteps)
+        nNumTimeSteps = int(np.round(tsInput.duration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsInput.t_start, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
         # - Make sure vtTimeBase does not exceed tsInput
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsInput.tStop]
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsInput.t_stop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -435,15 +429,15 @@ class FFRateEuler(Layer):
         # Warn if input time range does not cover whole target time range
         if (
             not tsTarget.contains(vtTimeBase)
-            and not tsInput.bPeriodic
-            and not tsTarget.bPeriodic
+            and not tsInput.periodic
+            and not tsTarget.periodic
         ):
             warn(
                 "WARNING: tsInput (t = {} to {}) does not cover ".format(
-                    tsInput.tStart, tsInput.tStop
+                    tsInput.t_start, tsInput.t_stop
                 )
                 + "full time range of tsTarget (t = {} to {})\n".format(
-                    tsTarget.tStart, tsTarget.tStop
+                    tsTarget.t_start, tsTarget.t_stop
                 )
                 + "Assuming input to be 0 outside of defined range.\n"
                 + "If you are training by batches, check that the target signal is also split by batch.\n"
@@ -501,7 +495,9 @@ class FFRateEuler(Layer):
             self.vfBias = mfSolution[-1, :]
 
             # - Remove data stored during this training
-            self._mfXTY = self._mfXTX = self._mfKahanCompXTY = self._mfKahanCompXTX = None
+            self._mfXTY = (
+                self._mfXTX
+            ) = self._mfKahanCompXTY = self._mfKahanCompXTX = None
 
     # @njit
     # def potential(self, vInput: np.ndarray) -> np.ndarray:
@@ -585,10 +581,10 @@ class PassThrough(FFRateEuler):
     def __init__(
         self,
         mfW: np.ndarray,
-        tDt: float = 1.,
-        fNoiseStd: float = 0.,
-        vfBias: Union[float, np.ndarray] = 0.,
-        tDelay: float = 0.,
+        tDt: float = 1.0,
+        fNoiseStd: float = 0.0,
+        vfBias: Union[float, np.ndarray] = 0.0,
+        tDelay: float = 0.0,
         strName: str = None,
     ):
         """
@@ -619,25 +615,27 @@ class PassThrough(FFRateEuler):
     def reset_buffer(self):
         if self.tDelay != 0:
             vtBuffer = np.arange(self._nDelaySteps + 1) * self._tDt
-            self.tsBuffer = TimeSeries(vtBuffer, np.zeros((len(vtBuffer), self.nSize)))
+            self.tsBuffer = TSContinuous(
+                vtBuffer, np.zeros((len(vtBuffer), self.nSize))
+            )
         else:
             self.tsBuffer = None
 
     def evolve(
         self,
-        tsInput: Optional[TimeSeries] = None,
+        tsInput: Optional[TSContinuous] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> TimeSeries:
+    ) -> TSContinuous:
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TimeSeries  Input spike trian
+        :param tsSpkInput:      TSContinuous  Input spike trian
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps    int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
-        :return:            TimeSeries  output spike series
+        :return:            TSContinuous  output spike series
 
         """
 
@@ -660,7 +658,7 @@ class PassThrough(FFRateEuler):
 
             # - Buffered data: last point of buffer data corresponds to self.t,
             #   which is also part of current input
-            mfSamplesComb[:-nStepsIn] = self.tsBuffer.mfSamples[:-1]
+            mfSamplesComb[:-nStepsIn] = self.tsBuffer.samples[:-1]
 
             # - Processed input data (weights and noise)
             mfSamplesComb[-nStepsIn:] = mfInProcessed
@@ -669,7 +667,7 @@ class PassThrough(FFRateEuler):
             mfSamplesOut = mfSamplesComb[:nStepsIn]
 
             # - Update buffer with new data
-            self.tsBuffer.mfSamples = mfSamplesComb[nStepsIn - 1 :]
+            self.tsBuffer.samples = mfSamplesComb[nStepsIn - 1 :]
 
         else:
             # - Undelayed processed input
@@ -680,7 +678,7 @@ class PassThrough(FFRateEuler):
         self._nTimeStep += nNumTimeSteps
 
         # - Return time series with output data and bias
-        return TimeSeries(vtTimeBase, mfSamplesOut + self.vfBias)
+        return TSContinuous(vtTimeBase, mfSamplesOut + self.vfBias)
 
     def __repr__(self):
         return "PassThrough layer object `{}`.\nnSize: {}, nSizeIn: {}, tDelay: {}".format(
@@ -696,7 +694,7 @@ class PassThrough(FFRateEuler):
     @property
     def mfBuffer(self):
         if self.tsBuffer is not None:
-            return self.tsBuffer.mfSamples
+            return self.tsBuffer.samples
         else:
             print("This layer does not use a delay.")
 
@@ -725,11 +723,11 @@ class RecRateEuler(Layer):
     def __init__(
         self,
         mfW: np.ndarray,
-        vfBias: np.ndarray = 0.,
-        vtTau: np.ndarray = 1.,
+        vfBias: np.ndarray = 0.0,
+        vtTau: np.ndarray = 1.0,
         fhActivation: Callable[[np.ndarray], np.ndarray] = fhReLu,
         tDt: float = None,
-        fNoiseStd: float = 0.,
+        fNoiseStd: float = 0.0,
         strName: str = None,
     ):
         """
@@ -748,17 +746,13 @@ class RecRateEuler(Layer):
         super().__init__(mfW=np.asarray(mfW, float), strName=strName)
 
         # - Check size and shape of `mfW`
-        assert len(mfW.shape) == 2, \
-            '`mfW` must be a matrix with 2 dimensions'
-        assert mfW.shape[0] == mfW.shape[1], \
-            '`mfW` must be a square matrix'
+        assert len(mfW.shape) == 2, "`mfW` must be a matrix with 2 dimensions"
+        assert mfW.shape[0] == mfW.shape[1], "`mfW` must be a square matrix"
 
         # - Check arguments
-        assert vtTau is not None, \
-            '`vtTau` may not be None'
+        assert vtTau is not None, "`vtTau` may not be None"
 
-        assert fNoiseStd is not None, \
-            '`fNoiseStd` may not be None'
+        assert fNoiseStd is not None, "`fNoiseStd` may not be None"
 
         # - Assign properties
         self.vfBias = vfBias
@@ -797,19 +791,19 @@ class RecRateEuler(Layer):
 
     def evolve(
         self,
-        tsInput: Optional[TimeSeries] = None,
+        tsInput: Optional[TSContinuous] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
-    ) -> TimeSeries:
+    ) -> TSContinuous:
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TimeSeries  Input spike trian
+        :param tsSpkInput:      TSContinuous  Input spike trian
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps    int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
-        :return:                TimeSeries  output spike series
+        :return:                TSContinuous  output spike series
 
         """
 
@@ -823,7 +817,7 @@ class RecRateEuler(Layer):
         mfNoiseStep = (
             np.random.randn(np.size(vtTimeBase), self.nSize)
             * self.fNoiseStd
-            * np.sqrt(2. * self._vtTau / self._tDt)
+            * np.sqrt(2.0 * self._vtTau / self._tDt)
         )
 
         # - Call Euler method integrator
@@ -843,7 +837,7 @@ class RecRateEuler(Layer):
         self._nTimeStep += nNumTimeSteps
 
         # - Construct a return TimeSeries
-        return TimeSeries(vtTimeBase, mfActivity)
+        return TSContinuous(vtTimeBase, mfActivity)
 
     def stream(
         self, tDuration: float, tDt: float, bVerbose: bool = False
@@ -870,7 +864,7 @@ class RecRateEuler(Layer):
         mfNoiseStep = (
             np.random.randn(np.size(vtTimeBase), self.nSize)
             * self.fNoiseStd
-            * np.sqrt(2. * self._vtTau / self._tDt)
+            * np.sqrt(2.0 * self._vtTau / self._tDt)
         )
 
         if bVerbose:

@@ -9,6 +9,7 @@ from copy import deepcopy
 
 try:
     from tqdm.autonotebook import tqdm
+
     bUseTqdm = True
 except ImportError:
     bUseTqdm = False
@@ -35,7 +36,7 @@ def is_multiple(
     a: RealValue,
     b: RealValue,
     fTolRel: RealValue = fTolRel,
-    fTolAbs: RealValue = fTolAbs
+    fTolAbs: RealValue = fTolAbs,
 ) -> bool:
     """
     is_multiple - Check whether a%b is 0 within some tolerance.
@@ -85,7 +86,7 @@ class Network:
                          receive external input
         :param tDt:      float If not none, network time step is forced to
                                this values. Layers that are added must have
-                               time step that is multiple of tDt. 
+                               time step that is multiple of tDt.
                                If None, network will try to determine
                                suitable tDt each time a layer is added.
         """
@@ -473,13 +474,13 @@ class Network:
                     tsInput is not None
                 ), "Network: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied"
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TimeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`tsInput` finishes before the current evolution time."
@@ -488,8 +489,8 @@ class Network:
 
         if tsInput is not None:
             # - Set external input name if not set already
-            if tsInput.strName is None:
-                tsInput.strName = "External input"
+            if tsInput.name is None:
+                tsInput.name = "External input"
             # - Check if input contains information about trial timings
             try:
                 vtTrialStarts = tsInput.vtTrialStarts
@@ -542,8 +543,8 @@ class Network:
                 dtsSignal[lyr.strName].vtTrialStarts = vtTrialStarts.copy()
 
             # - Set name for response time series, if not already set
-            if dtsSignal[lyr.strName].strName is None:
-                dtsSignal[lyr.strName].strName = lyr.strName
+            if dtsSignal[lyr.strName].name is None:
+                dtsSignal[lyr.strName].name = lyr.strName
 
         # - Update network time
         self._nTimeStep += nNumTimeSteps
@@ -596,13 +597,13 @@ class Network:
                     tsInput is not None
                 ), "Network: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied"
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TimeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`tsInput` finishes before the current evolution time."
@@ -667,16 +668,18 @@ class Network:
 
             # - Evolve network
             dtsSignal = self.evolve(
-                tsInput=tsInput.resample_within(self.t, self.t + nTSCurrent * self.tDt),
+                tsInput=tsInput.clip(
+                    self.t, self.t + nTSCurrent * self.tDt, include_stop=True
+                ),
                 nNumTimeSteps=nTSCurrent,
                 bVerbose=bHighVerbosity,
             )
 
             # - Call the callback
-            fhTraining(self, dtsSignal, nBatch == 0, nBatch == nNumBatches-1)
+            fhTraining(self, dtsSignal, nBatch == 0, nBatch == nNumBatches - 1)
 
         if bVerbose and bUseTqdm:
-            with tqdm(total = nNumBatches, desc = 'Network training') as pbar:
+            with tqdm(total=nNumBatches, desc="Network training") as pbar:
                 for nBatch, nTSCurrent in enumerate(vnTSBatch):
                     batch(nBatch, nTSCurrent, nNumBatches)
                     pbar.update(1)
@@ -722,7 +725,7 @@ class Network:
 
         # - Check that external input has the correct size
         assert (
-            tsInput.nNumTraces == self.lyrInput.nSizeIn
+            tsInput.num_channels == self.lyrInput.nSizeIn
         ), "Network: External input must have {} traces for this network.".format(
             self.lyrInput.nSizeIn
         )
@@ -747,7 +750,7 @@ class Network:
 
         # - Prepare external input
         if tsInput is not None:
-            lInput = [tsInput.find((t, t + self.tDt)) for t in vtTimeBase]
+            lInput = [tsInput(t, t + self.tDt) for t in vtTimeBase]
         else:
             lInput = [None] * nNumTimeSteps
 
@@ -833,8 +836,8 @@ class Network:
             ].cOutput(*tupData)
 
             # - Set name for time series, if not already set
-            if dtsSignal[self.lEvolOrder[nLayer].strName].strName is None:
-                dtsSignal[self.lEvolOrder[nLayer].strName].strName = self.lEvolOrder[
+            if dtsSignal[self.lEvolOrder[nLayer].strName].name is None:
+                dtsSignal[self.lEvolOrder[nLayer].strName].name = self.lEvolOrder[
                     nLayer
                 ].strName
 

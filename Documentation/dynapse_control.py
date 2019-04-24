@@ -837,7 +837,7 @@ def _reset_connections(core_ids: Optional[list] = None, apply_diff=True):
             # - Reset SRAMs for this neuron
             srams = neuron.get_srams()
             for sram_idx in range(1, 4):
-                srams[sram_idx].set_target_chip_id(0)
+                srams[sram_idx].set_targetchip_id(0)
                 srams[sram_idx].set_virtual_core_id(0)
                 srams[sram_idx].set_used(False)
                 srams[sram_idx].set_core_mask(0)
@@ -881,7 +881,7 @@ def remove_all_connections_to(
         # - Reset SRAMs
         srams = neuron.get_srams()
         for sram_idx in range(1, 4):
-            srams[sram_idx].set_target_chip_id(0)
+            srams[sram_idx].set_targetchip_id(0)
             srams[sram_idx].set_virtual_core_id(0)
             srams[sram_idx].set_used(False)
             srams[sram_idx].set_core_mask(0)

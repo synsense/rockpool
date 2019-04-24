@@ -131,17 +131,17 @@ class FFCLIAFCNNTorch(FFCLIAF):
             else:
                 # Ensure number of channels is atleast as many as required
                 try:
-                    assert tsInput.nNumChannels >= self.nSizeIn
+                    assert tsInput.num_channels >= self.nSizeIn
                 except AssertionError as err:
                     warn(
                         self.strName
                         + ": Expanding input dimensions to match layer size."
                     )
-                    tsInput.nNumChannels = self.nSizeIn
+                    tsInput.num_channels = self.nSizeIn
 
                 # Extract spike data from the input variable
                 mfSpikeRaster = tsInput.xraster(
-                    tDt=self.tDt, tStart=self.t, tStop=tFinal
+                    dt=self.tDt, t_start=self.t, t_stop=tFinal
                 )
 
                 ## - Make sure size is correct
@@ -210,12 +210,12 @@ class FFCLIAFCNNTorch(FFCLIAF):
 
         # Create time series from raster
         vnTimeSteps, vnChannels = np.nonzero(mbOutRaster)
-        vtTimeTrace = self.t + (vnTimeSteps + 1) * self.tDt
+        times = self.t + (vnTimeSteps + 1) * self.tDt
 
         # Update time
         self._nTimeStep += nNumTimeSteps
 
         evOut = TSEvent(
-            vtTimeTrace, vnChannels, nNumChannels=self.nSize, strName=self.strName
+            times, vnChannels, num_channels=self.nSize, name=self.strName
         )
         return evOut

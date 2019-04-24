@@ -283,7 +283,7 @@ class FFIAFBrian(Layer):
         vtEventTimeOutput = self._spmLayer.t_[vbUseEvent]
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, name="Layer spikes")
 
     def stream(
         self, tDuration: float, tDt: float, bVerbose: bool = False
@@ -627,7 +627,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vtEventTimeOutput = self._spmLayer.t_[vbUseEvent]
         vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, strName="Layer spikes")
+        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, name="Layer spikes")
 
     def reset_time(self):
 
@@ -734,10 +734,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - End time of current batch
-        tStop = tStart + tDuration
+        t_stop = tStart + tDuration
 
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find([tStart, tStop])
+            vtEventTimes, vnEventChannels, _ = tsInput.find([tStart, t_stop])
         else:
             print("No tsInput defined, assuming input to be 0.")
             vtEventTimes, vnEventChannels = [], []
@@ -784,7 +784,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         ##  -- Compare target number of events with spikes and perform weight updates for chosen synapses
         # - Numbers of (output) spike times for each neuron
-        vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= tStop)
+        vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= t_stop)
         viSpkNeuronOut = self._spmLayer.i[vbUseEventOut]
         vnSpikeCount = np.array(
             [np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.nSize)]

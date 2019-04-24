@@ -28,7 +28,7 @@ def test_torch_lyr_prepare_input_empty():
     myImg[0, 5, 0] = 1  # One pixel in image active
 
     # Create an empty TSEvent
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
 
     # Create a FFIAFTorch layer
     lyrConv2d = FFCLIAFCNNTorch(mfW=W, strName="TorchConv2d")
@@ -73,14 +73,14 @@ def test_toch_activity_comparison_to_skimage_default_params():
     # Generate time series input
     tSim = 100
 
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=tSim)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
+        evInput.merge(TSEvent(vSpk, nId), inplace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
-        evInput.vtTimeTrace.copy(), evInput.vnChannels.copy(), strName="Input copy"
+        evInput.times.copy(), evInput.channels.copy(), name="Input copy"
     )
 
     # Evolve
@@ -89,8 +89,8 @@ def test_toch_activity_comparison_to_skimage_default_params():
     evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=tSim)
 
     # Check that the outputs are identical
-    assert evOut.nNumChannels == evOutTorch.nNumChannels
-    assert (np.equal(evOut.vtTimeTrace, evOutTorch.vtTimeTrace)).all()
+    assert evOut.num_channels == evOutTorch.num_channels
+    assert (np.equal(evOut.times, evOutTorch.times)).all()
 
 
 def test_toch_activity_comparison_to_skimage():
@@ -130,14 +130,14 @@ def test_toch_activity_comparison_to_skimage():
     )
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
+        evInput.merge(TSEvent(vSpk, nId), inplace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
-        evInput.vtTimeTrace.copy(), evInput.vnChannels.copy(), strName="Input copy"
+        evInput.times.copy(), evInput.channels.copy(), name="Input copy"
     )
 
     # Evolve
@@ -146,7 +146,7 @@ def test_toch_activity_comparison_to_skimage():
     evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
 
     # Check that the outputs are identical
-    assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
+    assert (evOut.times == evOutTorch.times).all()
 
 
 def test_toch_activity_comparison_to_skimage_channels_last():
@@ -186,14 +186,14 @@ def test_toch_activity_comparison_to_skimage_channels_last():
     )
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(20 * 20):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
+        evInput.merge(TSEvent(vSpk, nId), inplace=True)
 
     # Create a copy of the input
     evInputTorch = TSEvent(
-        evInput.vtTimeTrace.copy(), evInput.vnChannels.copy(), strName="Input copy"
+        evInput.times.copy(), evInput.channels.copy(), name="Input copy"
     )
 
     # Evolve
@@ -202,7 +202,7 @@ def test_toch_activity_comparison_to_skimage_channels_last():
     evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
 
     # Check that the outputs are identical
-    assert (evOut.vtTimeTrace == evOutTorch.vtTimeTrace).all()
+    assert (evOut.times == evOutTorch.times).all()
 
 
 def test_TorchSpikingConv2dLayer():

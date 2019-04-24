@@ -68,7 +68,7 @@ class SoftMaxLayer(FFCLIAF):
         _evOut = FFCLIAF.evolve(
             self, tsInput=tsInput, tDuration=tDuration, nNumTimeSteps=nNumTimeSteps
         )
-        assert len(_evOut.vtTimeTrace) == 0
+        assert len(_evOut.times) == 0
 
         # - Analyse states
         mfStateHistoryLog = self._mfStateTimeSeries[10:]
@@ -82,9 +82,9 @@ class SoftMaxLayer(FFCLIAF):
         # - Compute softmax over the input states
         mfSoftMax = softmax(mfStateTimeSeries)
         tsOut = TSContinuous(
-            vtTimeTrace=np.arange(tDuration),
-            mfSamples=mfSoftMax,
-            strName="SoftMaxOutput",
+            times=np.arange(tDuration),
+            samples=mfSoftMax,
+            name="SoftMaxOutput",
         )
         return tsOut
 

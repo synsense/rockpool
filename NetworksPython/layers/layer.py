@@ -228,13 +228,13 @@ class Layer(ABC):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -278,29 +278,29 @@ class Layer(ABC):
         if tsInput is not None:
             # - Make sure vtTimeBase matches tsInput
             if not isinstance(tsInput, TSEvent):
-                if not tsInput.bPeriodic:
-                    # - If time base limits are very slightly beyond tsInput.tStart and tsInput.tStop, match them
+                if not tsInput.periodic:
+                    # - If time base limits are very slightly beyond tsInput.t_start and tsInput.t_stop, match them
                     if (
-                        tsInput.tStart - 1e-3 * self.tDt
+                        tsInput.t_start - 1e-3 * self.tDt
                         <= vtTimeBase[0]
-                        <= tsInput.tStart
+                        <= tsInput.t_start
                     ):
-                        vtTimeBase[0] = tsInput.tStart
+                        vtTimeBase[0] = tsInput.t_start
                     if (
-                        tsInput.tStop
+                        tsInput.t_stop
                         <= vtTimeBase[-1]
-                        <= tsInput.tStop + 1e-3 * self.tDt
+                        <= tsInput.t_stop + 1e-3 * self.tDt
                     ):
-                        vtTimeBase[-1] = tsInput.tStop
+                        vtTimeBase[-1] = tsInput.t_stop
 
                 # - Warn if evolution period is not fully contained in tsInput
-                if not (tsInput.contains(vtTimeBase) or tsInput.bPeriodic):
+                if not (tsInput.contains(vtTimeBase) or tsInput.periodic):
                     warn(
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
                             self.strName, vtTimeBase[0], vtTimeBase[-1]
                         )
                         + "not fully contained in input signal (t = {} to {})".format(
-                            tsInput.tStart, tsInput.tStop
+                            tsInput.t_start, tsInput.t_stop
                         )
                     )
 
@@ -339,12 +339,11 @@ class Layer(ABC):
         if tsInput is not None:
             # Extract spike data from the input variable
             mnSpikeRaster = tsInput.raster(
-                tDt=self.tDt,
-                tStart=self.t,
-                nNumTimeSteps=nNumTimeSteps,
-                vnSelectChannels=np.arange(self.nSizeIn),
-                bSamples=False,
-                bAddEvents=(self.bAddEvents if hasattr(self, "bAddEvents") else False),
+                dt=self.tDt,
+                t_start=self.t,
+                num_timesteps=nNumTimeSteps,
+                channels=np.arange(self.nSizeIn),
+                add_events=(self.bAddEvents if hasattr(self, "bAddEvents") else False),
             )[2]
             # - Make sure size is correct
             mnSpikeRaster = mnSpikeRaster[:nNumTimeSteps, :]

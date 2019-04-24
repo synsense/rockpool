@@ -212,7 +212,7 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Initialise step and "previous step" variables
         tTime = self._t
-        tStart = self._t
+        t_start = self._t
         nStep = 0
         tLast = 0.
         VLast = self._vState.copy()
@@ -322,7 +322,7 @@ class RecFSSpikeEulerBT(Layer):
                 dotI_s_F = Syn_dotI(tTime, I_s_F, tDt, I_spike_fast, vtTauSynR_f)
                 I_s_F += dotI_s_F * tDt
 
-                nIntTime = int((tTime - tStart) // tDt)
+                nIntTime = int((tTime - t_start) // tDt)
                 I_ext = mfStaticInput[nIntTime, :]
                 dotV = Neuron_dotV(
                     tTime,
@@ -477,11 +477,11 @@ class RecFSSpikeEulerBT(Layer):
             dResp["spReservoir"] = dict(vtTimes=vtSpikeTimes, vnNeuron=vnSpikeIndices)
 
         # - Convert some elements to time series
-        dResp["tsX"] = TimeSeries(
-            dResp["vt"], dResp["mfX"].T, strName="Membrane potential"
+        dResp["tsX"] = TSContinuous(
+            dResp["vt"], dResp["mfX"].T, name="Membrane potential"
         )
-        dResp["tsA"] = TimeSeries(
-            dResp["vt"], dResp["mfA"].T, strName="Slow synaptic state"
+        dResp["tsA"] = TSContinuous(
+            dResp["vt"], dResp["mfA"].T, name="Slow synaptic state"
         )
 
         # - Store "last evolution" state
