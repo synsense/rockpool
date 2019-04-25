@@ -50,7 +50,7 @@ class SignalGen:
         return signal, target
 
 
-def signal_to_spikes(signal, spikes_per_edge: int, ts_per_spike: int):
+def signal_to_spikes(signal, spikes_per_edge: int, ts_per_spike: int, dt: float=1):
     """
     signal_to_spikes - Convert input signal (pulses) to spikes, usind delta modulation.
                        Effectively, when there is a rising edge a bunch of spikes is
@@ -58,7 +58,8 @@ def signal_to_spikes(signal, spikes_per_edge: int, ts_per_spike: int):
     :param signal:  The signal to be converted. Must be of the form as produced when
                     calling SignalGen class instance.
     :param spikes_per_edge:  Spikes to be generated per edge of a pulse
-    :ts_per_spike:  (Minimum) number of timesteps between individual spikes
+    :param ts_per_spike:  (Minimum) number of timesteps between individual spikes
+    :param dt:  Time step size. Default: 1
     """
     # - Determine positions of rising and falling edges
     rising_idx = np.where(np.diff(signal) > 0)[0] + 1
@@ -74,7 +75,7 @@ def signal_to_spikes(signal, spikes_per_edge: int, ts_per_spike: int):
     channels_01[-len(times_1) * spikes_per_edge :] = 1
     # - Sort by time
     sort_idx = np.argsort(times_01)
-    times = times_01[sort_idx]
+    times = times_01[sort_idx] * dt
     channels = channels_01[sort_idx]
 
     return times, channels
