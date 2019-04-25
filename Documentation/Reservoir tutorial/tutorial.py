@@ -67,20 +67,14 @@ def signal_to_spikes(signal, spikes_per_edge: int, ts_per_spike: int):
     spiketimes_single = np.arange(spikes_per_edge) * ts_per_spike
     # - Spike times for channel 0 (rising) and for channel 1 (falling)
     times_0 = [spiketimes_single + edgetime for edgetime in rising_idx]
-    # print(times_0)
     times_1 = [spiketimes_single + edgetime for edgetime in falling_idx]
-    # print(times_1)
     times_01 = np.array(times_0 + times_1).flatten()
     # - Channels
     channels_01 = np.zeros(times_01.size)
     channels_01[-len(times_1) * spikes_per_edge :] = 1
-    print(np.array(times_1).flatten())
-    print(np.array(times_0).flatten())
     # - Sort by time
     sort_idx = np.argsort(times_01)
-    print(sort_idx)
     times = times_01[sort_idx]
-    print(times.size)
     channels = channels_01[sort_idx]
 
     return times, channels
