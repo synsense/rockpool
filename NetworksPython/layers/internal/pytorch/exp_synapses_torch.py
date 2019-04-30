@@ -351,11 +351,19 @@ class FFExpSynTorch(FFExpSyn):
                 mnSpikeRaster = mnSpikeRaster.t().reshape(1, self.nSizeIn, -1)
 
                 # - Filter synaptic currents and store in input tensor
-                mfInput[:, :-1] = (
-                    self._convSynapsesTraining(mnSpikeRaster)[0]
-                    .detach()
-                    .t()[: vtTimeBase.size]
-                )
+                if bTrainBiases:
+                    mfInput[:, :-1] = (
+                        self._convSynapsesTraining(mnSpikeRaster)[0]
+                        .detach()
+                        .t()[: vtTimeBase.size]
+                    )
+                else:
+                    mfInput[:, :] = (
+                        self._convSynapsesTraining(mnSpikeRaster)[0]
+                            .detach()
+                            .t()[: vtTimeBase.size]
+                    )
+
 
         with torch.no_grad():
             # - For first batch, initialize summands
@@ -406,9 +414,15 @@ class FFExpSynTorch(FFExpSyn):
                 self._mfXTX += mfUpdXTX
 
                 # - Weight and bias update by ridge regression
-                mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
-                    self.device
-                )
+                if bTrainBiases:
+                    mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
+                        self.device
+                    )
+                else:
+                    mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn).to(
+                        self.device
+                    )
+
                 mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
                 if bTrainBiases:
                     self.mfW = mfSolution[:-1, :]

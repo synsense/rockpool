@@ -8,8 +8,8 @@ import pylab as plt
 
 from hyperopt import hp
 from hyperopt import fmin, tpe, space_eval, Trials
-from NetworksPython.timeseries import SetPlottingBackend
-SetPlottingBackend("plt")
+from NetworksPython.timeseries import set_plotting_backend
+set_plotting_backend("plt")
 
 
 def test_chargeSingleNeuron():
@@ -115,7 +115,7 @@ def test_FFNestLayer():
 
     # - Input signal
     tsInCont = ts.TSContinuous(
-        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
+        times=np.arange(15) * 0.01, samples=np.ones((15, 2))
     )
 
     # - Compare states before and after
@@ -327,7 +327,7 @@ def test_recording():
 
     # - Input signal
     tsInCont = ts.TSContinuous(
-        vtTimeTrace=np.arange(15) * 0.01, mfSamples=np.ones((15, 2))
+        times=np.arange(15) * 0.01, samples=np.ones((15, 2))
     )
 
     # - Compare states before and after
@@ -676,7 +676,7 @@ def test_hyperopt():
         net.lLayers[1].terminate()
 
         act = dAct['Rec']
-        frate = 1 * len(act.vtTimeTrace)
+        frate = 1 * len(act.times)
         print(frate)
 
         return frate

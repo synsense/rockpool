@@ -432,10 +432,10 @@ class FFIAFNest(Layer):
         return TSEvent(
             np.clip(vtEventTimeOutput, tStart, tStop),
             vnEventChannelOutput,
-            strName="Layer spikes",
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            name="Layer spikes",
+            num_channels=self.nSize,
+            t_start=tStart,
+            t_stop=tStop,
         )
 
     def terminate(self):
@@ -659,13 +659,14 @@ class RecIAFSpkInNest(Layer):
             conns = nest.GetConnections(self._sg, self._pop)
             connsPrePost = np.array(
                 nest.GetStatus(conns, ['source', 'target']))
-            connsPrePost[:, 0] -= np.min(self._sg)
-            connsPrePost[:, 1] -= np.min(self._pop)
 
-            weights = [self.mfWIn[conn[0], conn[1]] for conn in connsPrePost]
+            if not len(connsPrePost) == 0:
+                connsPrePost[:, 0] -= np.min(self._sg)
+                connsPrePost[:, 1] -= np.min(self._pop)
 
-            nest.SetStatus(
-                conns, [{'weight': w, 'delay': self.tDt} for w in weights])
+                weights = [self.mfWIn[conn[0], conn[1]] for conn in connsPrePost]
+
+                nest.SetStatus(conns, [{'weight': w, 'delay': self.tDt} for w in weights])
 
             t1 = time.time()
             # - Create recurrent connections
@@ -683,12 +684,13 @@ class RecIAFSpkInNest(Layer):
 
             conns = nest.GetConnections(self._pop, self._pop)
             connsPrePost = nest.GetStatus(conns, ['source', 'target'])
-            connsPrePost -= np.min(self._pop)
 
-            weights = [self.mfWRec[conn[0], conn[1]] for conn in connsPrePost]
+            if not len(connsPrePost) == 0:
+                connsPrePost -= np.min(self._pop)
 
-            nest.SetStatus(
-                conns, [{'weight': w, 'delay': self.tDt} for w in weights])
+                weights = [self.mfWRec[conn[0], conn[1]] for conn in connsPrePost]
+
+                nest.SetStatus(conns, [{'weight': w, 'delay': self.tDt} for w in weights])
 
             if self.bRecord:
                 # - Monitor for recording network potential
@@ -978,8 +980,7 @@ class RecIAFSpkInNest(Layer):
 
         # - Set spikes for spike generator
         if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1] + self.tDt])
+            vtEventTimes, vnEventChannels = tsInput(vtTimeBase[0], vtTimeBase[-1] + self.tDt)
 
         else:
             vtEventTimes = np.array([])
@@ -1003,10 +1004,10 @@ class RecIAFSpkInNest(Layer):
         return TSEvent(
             np.clip(vtEventTimeOutput, tStart, tStop),
             vnEventChannelOutput,
-            strName="Layer spikes",
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            name="Layer spikes",
+            num_channels=self.nSize,
+            t_start=tStart,
+            t_stop=tStop,
         )
 
     def terminate(self):

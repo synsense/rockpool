@@ -68,7 +68,7 @@ class Filter(Layer):
             return TSContinuous(
                 vtTimeBase,
                 filtOutput,
-                strName="filteredInput",
+                name="filteredInput",
             )
 
         elif "mfcc" in self.filterName or "fft" in self.filterName:
@@ -79,7 +79,7 @@ class Filter(Layer):
             return TSContinuous(
                 vtTimeBase,
                 filtOutput,
-                strName="filteredInput",
+                name="filteredInput",
             )
 
 

@@ -1446,6 +1446,33 @@ class TSEvent(TimeSeries):
         # - Return new TimeSeries
         return tsClip
 
+    def lv(self):
+        """
+        lv - Calculates the lv measure for each channel
+
+        :return: list with lv measure for each channel
+        """
+        lvList = np.zeros(self.num_channels)
+        for id in range(self.num_channels):
+            times = self.times[np.where(self.channels == id)[0]]
+            timeInterval = np.diff(times)
+            loVar = 3. * np.mean(np.power(np.diff(timeInterval) / (timeInterval[:-1] + timeInterval[1:]), 2))
+            lvList[id] = loVar
+
+        return lvList
+
+    def FanoFactor(self, dt=0.001):
+        """
+        FanoFactor() - put as input a spike detector nest object and return mean FanoFactor of the network
+
+        :param tDt: float raster timestep in sec
+        :return: float FanoFactor
+        """
+        raster = self.raster(dt, add_events=True).T
+        hist = raster.sum(axis=0)
+        return np.var(hist) / np.mean(hist)
+
+
     def _choose(self, vnSelectChannels: Union[list, np.ndarray]):
         """
         _choose - Select and return raw event data for the requested channels
