@@ -13,7 +13,7 @@ def test_filter_layer():
 
     from NetworksPython.layers import Filter
     from NetworksPython.timeseries import TSContinuous
-    from AudiotoryProcessing.preprocessing import butter_mel
+    from AuditoryProcessing.preprocessing import butter_mel
 
     fs = 1000
     filterName = "butter_mel"
