@@ -2,7 +2,7 @@ import numpy as np
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
 from typing import Optional, Union, Tuple, List
-from AudiotoryProcessing.preprocessing import *
+from AuditoryProcessing.preprocessing import *
 
 class Filter(Layer):
     """ Filter - Class: define a filtering layer with continuous time series output
