@@ -4,6 +4,7 @@
 
 
 # - Imports
+import json
 from warnings import warn
 from typing import Union, Optional
 import numpy as np
@@ -757,3 +758,35 @@ class FFExpSynTorch(FFExpSyn):
         )
         self._nMaxNumTimeSteps = nNewMax
         self._update_kernels()
+
+    def to_dict(self):
+
+        config = {}
+        config["mfW"] = self.mfW.tolist()
+        config["bias"] = self._vfBias if type(self._vfBias) is float else self._vfBias.tolist()
+        config["dt"] = self.tDt
+        config["fNoiseStd"] = self.fNoiseStd
+        config["tauS"] = self.tTauSyn if type(self.tTauSyn) is float else self.tTauSyn.tolist()
+        config["strName"] = self.strName
+        config["bAddEvents"] = self.bAddEvents
+        config["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
+        config["ClassName"] = "FFExpSynTorch"
+
+        return config
+
+    def save(self, config, filename):
+        with open(filename, "w") as f:
+            json.dump(config, f)
+
+    @staticmethod
+    def load_from_dict(config):
+        return FFExpSynTorch(
+            mfW = config["mfW"],
+            vfBias = config["bias"],
+            tDt = config["dt"],
+            fNoiseStd = config["fNoiseStd"],
+            tTauSyn = config["tauS"],
+            strName = config["strName"],
+            bAddEvents = config["bAddEvents"],
+            nMaxNumTimeSteps = config["ClassName"],
+        )

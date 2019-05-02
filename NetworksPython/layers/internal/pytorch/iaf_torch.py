@@ -536,6 +536,51 @@ class FFIAFTorch(Layer):
         self.vState = self.vfVReset
         self.vSynapseState = 0
 
+
+    def to_dict(self):
+
+        essentialDict = {}
+        essentialDict["strName"] = self.strName
+        essentialDict["mfW"] = self._mfW.cpu().tolist()
+        essentialDict["tDt"] = self.tDt
+        essentialDict["fNoiseStd"] = self.fNoiseStd
+        essentialDict["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
+        essentialDict["vfVThresh"] = self._vfVThresh.cpu().tolist()
+        essentialDict["vfVReset"] = self._vfVReset.cpu().tolist()
+        essentialDict["vfVRest"] = self._vfVReset.cpu().tolist()
+        essentialDict["vtTauN"] = self._vtTauN.cpu().tolist()
+        essentialDict["vfBias"] = self._vfBias.cpu().tolist()
+        essentialDict["bRecord"] = self.bRecord
+        essentialDict["ClassName"] = "FFIAFTorch"
+
+        return essentialDict
+
+    def save(self, essentialDict, filename):
+        with open(filename, "w") as f:
+            json.dump(essentialDict, f)
+
+    @staticmethod
+    def load(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
+        return RecIAFSpkInTorch(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vtTauSInp=config["vtTauSInp"],
+            vtTauSRec=config["vtTauSRec"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            bAddEvents=config["bAddEvents"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
+
     ### --- Properties
 
     @property
@@ -1631,26 +1676,29 @@ class RecIAFSpkInTorch(RecIAFTorch):
         super().reset_all()
         self.vSynapseStateInp = 0
 
-    def save(self, filename):
+    def to_dict(self):
 
-        essentialDict = {
-            "strName": self.strName,
-            "mfWRec": self._mfWRec.cpu().tolist(),
-            "tDt": self.tDt,
-            "fNoiseStd": self.fNoiseStd,
-            "nMaxNumTimeSteps": self.nMaxNumTimeSteps,
-            "vfVThresh": self._vfVThresh.cpu().tolist(),
-            "vfVReset": self._vfVReset.cpu().tolist(),
-            "vfVRest": self._vfVReset.cpu().tolist(),
-            "vtTauN": self._vtTauN.cpu().tolist(),
-            "vtTauSRec": self._vtTauSRec.cpu().tolist(),
-            "vtTauSInp": self._vtTauSInp.cpu().tolist(),
-            "vfBias": self._vfBias.cpu().tolist(),
-            "mfWIn": self._mfWIn.cpu().tolist(),
-            "bRecord": self.bRecord,
-            "bAddEvents": self.bAddEvents
-        }
+        essentialDict = {}
+        essentialDict["strName"] = self.strName
+        essentialDict["mfWRec"] = self._mfWRec.cpu().tolist()
+        essentialDict["tDt"] = self.tDt
+        essentialDict["fNoiseStd"] = self.fNoiseStd
+        essentialDict["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
+        essentialDict["vfVThresh"] = self._vfVThresh.cpu().tolist()
+        essentialDict["vfVReset"] = self._vfVReset.cpu().tolist()
+        essentialDict["vfVRest"] = self._vfVReset.cpu().tolist()
+        essentialDict["vtTauN"] = self._vtTauN.cpu().tolist()
+        essentialDict["vtTauSRec"] = self._vtTauSRec.cpu().tolist()
+        essentialDict["vtTauSInp"] = self._vtTauSInp.cpu().tolist()
+        essentialDict["vfBias"] = self._vfBias.cpu().tolist()
+        essentialDict["mfWIn"] = self._mfWIn.cpu().tolist()
+        essentialDict["bRecord"] = self.bRecord
+        essentialDict["bAddEvents"] = self.bAddEvents
+        essentialDict["ClassName"] = "RecIAFSpkInTorch"
 
+        return essentialDict
+
+    def save(self, essentialDict, filename):
         with open(filename, "w") as f:
             json.dump(essentialDict, f)
 

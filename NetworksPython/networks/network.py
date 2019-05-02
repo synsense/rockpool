@@ -3,9 +3,12 @@
 ###
 
 ### --- Imports
+import json
+
 import numpy as np
 from decimal import Decimal
 from copy import deepcopy
+from NetworksPython.layers import *
 
 try:
     from tqdm.autonotebook import tqdm
@@ -934,7 +937,43 @@ class Network:
     #     for lyr in self.setLayers:
     #         lyr.fDt = self.__fDt
 
+    def save(self, filename):
+        listofLayers = []
+        for lyr in self.lLayers:
+            listofLayers.append(lyr.to_dict())
+        with open(filename, "w") as f:
+            json.dump(listofLayers, f)
 
+    @staticmethod
+    def load(filename):
+        with open(filename, "r") as f:
+            listofLayers = json.load(f)
+        lLayers = []
+        for lyr in listofLayers:
+            classLyr = str_to_class(lyr["ClassName"])
+            print(classLyr)
+            lLayers.append(classLyr.load_from_dict(lyr))
+
+        return Network(*lLayers)
+
+def str_to_class(string):
+    if "Filter" in string:
+        return Filter
+    elif "FFIAF"in string:
+        if "Torch" in string:
+            return FFIAFTorch
+        elif "Nest" in string:
+            return FFIAFNest
+    elif "RecIAFSpkIn" in string:
+        if "Torch" in string:
+            return RecIAFSpkInTorch
+        elif "Nest" in string:
+            return RecIAFSpkInNest
+    elif "FFExpSyn" in string:
+        if "Torch" in string:
+            return FFExpSynTorch
+        else:
+            return FFExpSyn
 ### --- NetworkError exception class
 class NetworkError(Exception):
     pass

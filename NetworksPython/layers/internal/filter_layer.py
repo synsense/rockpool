@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
@@ -82,9 +84,38 @@ class Filter(Layer):
                 name="filteredInput",
             )
 
+    def to_dict(self):
 
+        config = {}
+        config["mfW"] = self.mfW.tolist()
+        config["filterName"] = self.filterName
+        config["fs"] = self.fs
+        config["tDt"] = self.tDt if type(self.tDt) is float else self.tDt.tolist()
+        config["strName"] = self.strName
+        config["ClassName"] = "Filter"
 
+        return config
 
+    @staticmethod
+    def load_from_dict(config):
 
+        return Filter(
+            mfW = np.array(config["mfW"]),
+            tDt = config['tDt'],
+            filterName=config["filterName"],
+            fs = config["fs"],
+            strName = config['strName'],
+        )
 
+    @staticmethod
+    def load_from_file(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
 
+        return Filter(
+            mfW = np.array(config["mfW"]),
+            tDt = config['tDt'],
+            filterName=config["filterName"],
+            fs = config["fs"],
+            strName = config['strName'],
+        )

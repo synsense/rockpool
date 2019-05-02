@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 from ...timeseries import TSContinuous, TSEvent
 import multiprocessing
@@ -326,6 +328,8 @@ class FFIAFNest(Layer):
             strName=strName,
         )
 
+        self.nNumCores = nNumCores
+
         self.requestQ = multiprocessing.Queue()
         self.resultQ = multiprocessing.Queue()
 
@@ -520,23 +524,66 @@ class FFIAFNest(Layer):
     def tDt(self, _):
         raise ValueError("The `tDt` property cannot be set for this layer")
 
+    def to_dict(self):
 
+        config = {}
+        config['strName'] = self.strName
+        config['mfWIn'] = self.mfW.tolist()
+        config['tDt'] = self.tDt if type(self.tDt) is float else self.tDt.tolist()
+        config['vfVThresh'] = self.vfVThresh if type(self.vfVThresh) is float else self.vfVThresh.tolist()
+        config['vfVReset'] = self.vfVReset if type(self.vfVReset) is float else self.vfVReset.tolist()
+        config['vfVRest'] = self.vfVRest if type(self.vfVRest) is float else self.vfVRest.tolist()
+        config['vfCapacity'] = self._vfCapacity if type(self._vfCapacity) is float else self._vfCapacity.tolist()
+        config['tRef'] = self.tRefractoryTime if type(self.tRefractoryTime) is float else self.tRefractoryTime.tolist()
+        config['tauN'] = self.vtTauN if type(self.vtTauN) is float else self.vtTauN.tolist()
+        config['nNumCores'] = self.nNumCores
+        config['bRecord'] = self.bRecord
+        config['bias'] = self.vfBias if type(self.vfBias) is float else self.vfBias.tolist()
+        config["ClassName"] = "FFIAFNest"
 
-    def save(self):
-        dict = {}
-        dict['strName'] = self.strName
-        dict['nSizeIn'] = self.nSizeIn
-        dict['nSize'] = self.nSize
-        dict['mfWIn'] = self.mfWIn.tolist()
-        dict['tDt'] = self.tDt
-        dict['vfVThresh'] = self.vfVThresh
-        dict['vfVReset'] = self.vfVReset
-        dict['vfCapacity'] = self.vfCapacity
-        dict['tRef'] = self.tRefractoryTime
-        dict['tauN'] = self.vtTauN
+        return config
 
-        return dict
+    def save(self, config, filename):
+        with open(filename, "w") as f:
+            json.dump(config, f)
 
+    @staticmethod
+    def load_from_dict(config):
+
+        return FFIAFNest(
+            mfW = config["mfWIn"],
+            vfBias = config["bias"],
+            tDt = config['tDt'],
+            vtTauN = config['tauN'],
+            vfCapacity = config['vfCapacity'],
+            vfVThresh = config['vfVThresh'],
+            vfVReset = config['vfVReset'],
+            vfVRest = config['vfVRest'],
+            tRefractoryTime = config['tRef'],
+            strName = config['strName'],
+            bRecord = config['bRecord'],
+            nNumCores = config['nNumCores'],
+        )
+
+    @staticmethod
+    def load_from_file(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
+
+        return FFIAFNest(
+            mfW = config["mfWIn"],
+            vfBias = config["bias"],
+            tDt = config['tDt'],
+            vtTauN = config['tauN'],
+            vfCapacity = config['vfCapacity'],
+            vfVThresh = config['vfVThresh'],
+            vfVReset = config['vfVReset'],
+            vfVRest = config['vfVRest'],
+            tRefractoryTime = config['tRef'],
+            strName = config['strName'],
+            bRecord = config['bRecord'],
+            nNumCores = config['nNumCores'],
+        )
 
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
@@ -902,6 +949,8 @@ class RecIAFSpkInNest(Layer):
             strName=strName,
         )
 
+        self.nNumCores = nNumCores
+
         self.requestQ = multiprocessing.Queue()
         self.resultQ = multiprocessing.Queue()
 
@@ -926,10 +975,10 @@ class RecIAFSpkInNest(Layer):
         # - Record neuron parameters
         self._vfVThresh = vfVThresh
         self._vfVReset = vfVReset
-        self.vfVRest = vfVRest
-        self.vtTauN = vtTauN
-        self.vtTauS = vtTauS
-        self.vfBias = vfBias
+        self._vfVRest = vfVRest
+        self._vtTauN = vtTauN
+        self._vtTauS = vtTauS
+        self._vfBias = vfBias
         self.vfCapacity = vfCapacity
         self.mfWIn = mfWIn
         self.mfWRec = mfWRec
@@ -1122,25 +1171,72 @@ class RecIAFSpkInNest(Layer):
         return self._nTimeStep * self.tDt
 
     @Layer.tDt.setter
-    def tDt(self, _):
+    def tDt(self):
         raise ValueError("The `tDt` property cannot be set for this layer")
 
-    def save(self):
-        dict = {}
-        dict['strName'] = self.strName
-        dict['nSizeIn'] = self.nSizeIn
-        dict['nSize'] = self.nSize
-        dict['mfWIn'] = self.mfWIn.tolist()
-        dict['mfWRec'] = self.mfWRec.tolist()
-        dict['tDt'] = self.tDt
-        dict['vfVThresh'] = self.vfVThresh
-        dict['vfVReset'] = self.vfVReset
-        dict['vfCapacity'] = self.vfCapacity
-        dict['tRef'] = self.tRefractoryTime
-        dict['tauN'] = self.vtTauN
-        dict['tauS'] = self.vtTauS
+    def to_dict(self):
 
-        return dict
+        config = {}
+        config['strName'] = self.strName
+        config['mfWIn'] = self.mfWIn.tolist()
+        config['mfWRec'] = self.mfWRec.tolist()
+        config['vfBias'] = self.vfBias if type(self.vfBias) is float else self.vfBias.tolist()
+        config['tDt'] = self.tDt if type(self.tDt) is float else self.tDt.tolist()
+        config['vfVThresh'] = self.vfVThresh if type(self.vfVThresh) is float else self.vfVThresh.tolist()
+        config['vfVReset'] = self.vfVReset if type(self.vfVReset) is float else self.vfVReset.tolist()
+        config['vfVRest'] = self.vfVRest if type(self.vfVRest) is float else self.vfVRest.tolist()
+        config['vfCapacity'] = self.vfCapacity if type(self.vfCapacity) is float else self.vfCapacity.tolist()
+        config['tRef'] = self.tRefractoryTime if type(self.tRefractoryTime) is float else self.tRefractoryTime.tolist()
+        config['nNumCores'] = self.nNumCores
+        config['tauN'] = self.vtTauN if type(self.vtTauN) is float else self.vtTauN.tolist()
+        config['tauS'] = self.vtTauS if type(self.vtTauS) is float else self.vtTauS.tolist()
+        config['bRecord'] = self.bRecord
+        config["ClassName"] = "RecIAFSpkInNest"
 
+        return config
 
+    def save(self, config, filename):
+        with open(filename, "w") as f:
+            json.dump(config, f)
 
+    @staticmethod
+    def load_from_dict(config):
+
+        return RecIAFSpkInNest(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config['vfBias'],
+            tDt=config['tDt'],
+            vtTauN=config['tauN'],
+            vtTauS=config['tauS'],
+            vfCapacity=config['vfCapacity'],
+            vfVThresh=config['vfVThresh'],
+            vfVReset=config['vfVReset'],
+            vfVRest=config['vfVRest'],
+            tRefractoryTime=config['tRef'],
+            strName=config['strName'],
+            bRecord=config['bRecord'],
+            nNumCores=config['nNumCores'],
+        )
+
+    @staticmethod
+    def load_from_file(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
+
+        return RecIAFSpkInNest(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config['vfBias'],
+            tDt=config['tDt'],
+            vtTauN=config['tauN'],
+            vtTauS=config['tauS'],
+            vfCapacity=config['vfCapacity'],
+            vfVThresh=config['vfVThresh'],
+            vfVReset=config['vfVReset'],
+            vfVRest=config['vfVRest'],
+            tRefractoryTime=config['tRef'],
+            strName=config['strName'],
+            bRecord=config['bRecord'],
+            nNumCores=config['nNumCores'],
+        )
