@@ -521,6 +521,24 @@ class FFIAFNest(Layer):
         raise ValueError("The `tDt` property cannot be set for this layer")
 
 
+
+    def save(self):
+        dict = {}
+        dict['strName'] = self.strName
+        dict['nSizeIn'] = self.nSizeIn
+        dict['nSize'] = self.nSize
+        dict['mfWIn'] = self.mfWIn.tolist()
+        dict['tDt'] = self.tDt
+        dict['vfVThresh'] = self.vfVThresh
+        dict['vfVReset'] = self.vfVReset
+        dict['vfCapacity'] = self.vfCapacity
+        dict['tRef'] = self.tRefractoryTime
+        dict['tauN'] = self.vtTauN
+
+        return dict
+
+
+
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecIAFSpkInNest(Layer):
     """ RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
@@ -589,7 +607,7 @@ class RecIAFSpkInNest(Layer):
             for n in range(self.nSize):
                 p = {}
 
-                if type(self.vtTauN) is np.ndarray:
+                if type(self.vtTauS) is np.ndarray:
                     p['tau_syn_ex'] = self.vtTauS[n]
                     p['tau_syn_in'] = self.vtTauS[n]
                 else:
@@ -910,6 +928,7 @@ class RecIAFSpkInNest(Layer):
         self._vfVReset = vfVReset
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
+        self.vtTauS = vtTauS
         self.vfBias = vfBias
         self.vfCapacity = vfCapacity
         self.mfWIn = mfWIn
@@ -1053,6 +1072,16 @@ class RecIAFSpkInNest(Layer):
         self.requestQ.put([COMMAND_SET, "tau_m", s2ms(vtNewTauN)])
 
     @property
+    def vtTauS(self):
+        return self._vtTauS
+
+    @vtTauN.setter
+    def vtTauS(self, vtNewTauS):
+
+        self.requestQ.put([COMMAND_SET, "tau_syn_ex", s2ms(vtNewTauS)])
+        self.requestQ.put([COMMAND_SET, "tau_syn_in", s2ms(vtNewTauS)])
+
+    @property
     def vfBias(self):
         return self._vfBias
 
@@ -1095,3 +1124,23 @@ class RecIAFSpkInNest(Layer):
     @Layer.tDt.setter
     def tDt(self, _):
         raise ValueError("The `tDt` property cannot be set for this layer")
+
+    def save(self):
+        dict = {}
+        dict['strName'] = self.strName
+        dict['nSizeIn'] = self.nSizeIn
+        dict['nSize'] = self.nSize
+        dict['mfWIn'] = self.mfWIn.tolist()
+        dict['mfWRec'] = self.mfWRec.tolist()
+        dict['tDt'] = self.tDt
+        dict['vfVThresh'] = self.vfVThresh
+        dict['vfVReset'] = self.vfVReset
+        dict['vfCapacity'] = self.vfCapacity
+        dict['tRef'] = self.tRefractoryTime
+        dict['tauN'] = self.vtTauN
+        dict['tauS'] = self.vtTauS
+
+        return dict
+
+
+
