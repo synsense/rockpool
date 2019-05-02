@@ -79,11 +79,12 @@ class FFExpSynTorch(FFExpSyn):
             )
             self.tensors = torch
 
+
         # - Bypass property setter to avoid unnecessary convolution kernel update
         assert (
             type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0.0
-        ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
-            self.strName
+        ), "Layer `{}`: nMaxNumTimeSteps ({nStep}) must be an integer greater than 0.".format(
+            strName, nStep=nMaxNumTimeSteps
         )
         self._nMaxNumTimeSteps = nMaxNumTimeSteps
 
@@ -788,5 +789,5 @@ class FFExpSynTorch(FFExpSyn):
             tTauSyn = config["tauS"],
             strName = config["strName"],
             bAddEvents = config["bAddEvents"],
-            nMaxNumTimeSteps = config["ClassName"],
+            nMaxNumTimeSteps = config["nMaxNumTimeSteps"],
         )
