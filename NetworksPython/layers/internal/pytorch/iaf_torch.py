@@ -5,6 +5,7 @@
 
 
 # - Imports
+import json
 from typing import Optional, Union
 from warnings import warn
 import numpy as np
@@ -1629,6 +1630,52 @@ class RecIAFSpkInTorch(RecIAFTorch):
     def reset_all(self):
         super().reset_all()
         self.vSynapseStateInp = 0
+
+    def save(self, filename):
+
+        essentialDict = {
+            "strName": self.strName,
+            "mfWRec": self._mfWRec.cpu().tolist(),
+            "tDt": self.tDt,
+            "fNoiseStd": self.fNoiseStd,
+            "nMaxNumTimeSteps": self.nMaxNumTimeSteps,
+            "vfVThresh": self._vfVThresh.cpu().tolist(),
+            "vfVReset": self._vfVReset.cpu().tolist(),
+            "vfVRest": self._vfVReset.cpu().tolist(),
+            "vtTauN": self._vtTauN.cpu().tolist(),
+            "vtTauSRec": self._vtTauSRec.cpu().tolist(),
+            "vtTauSInp": self._vtTauSInp.cpu().tolist(),
+            "vfBias": self._vfBias.cpu().tolist(),
+            "mfWIn": self._mfWIn.cpu().tolist(),
+            "bRecord": self.bRecord,
+            "bAddEvents": self.bAddEvents
+        }
+
+        with open(filename, "w") as f:
+            json.dump(essentialDict, f)
+
+    @staticmethod
+    def load(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
+        return RecIAFSpkInTorch(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vtTauSInp=config["vtTauSInp"],
+            vtTauSRec=config["vtTauSRec"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            bAddEvents=config["bAddEvents"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
+
 
     def _update_rec_kernel(self):
         # - Kernel for filtering recurrent spikes
