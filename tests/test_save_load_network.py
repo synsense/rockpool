@@ -17,11 +17,11 @@ def test_load_save_net():
 
     net1 = nw.Network.load("test_net_torch_config")
 
-    assert net.dLayers.keys() == net1.dLayers.keys()
+    assert net.lEvolOrder[0].strName == net1.lEvolOrder[0].strName
     net = nw.Network(lfftorch, lrectorch)
 
     net.save("test_net_nest_config")
 
     net1 = nw.Network.load("test_net_nest_config")
 
-    assert net.dLayers.keys() == net1.dLayers.keys()
+    assert net.lEvolOrder[0].strName == net1.lEvolOrder[0].strName

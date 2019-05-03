@@ -560,24 +560,46 @@ class FFIAFTorch(Layer):
             json.dump(essentialDict, f)
 
     @staticmethod
-    def load(filename):
+    def load_from_file(filename):
+        """
+        load the layer from a file
+        :param filename: str with the filename that includes the dict that initializes the layer
+        :return: FFIAFTorch layer
+        """
         with open(filename, "r") as f:
             config = json.load(f)
-        return RecIAFSpkInTorch(
-            mfWIn=config["mfWIn"],
-            mfWRec=config["mfWRec"],
+        return FFIAFTorch(
+            mfW=config["mfW"],
             vfBias=config["vfBias"],
             tDt=config["tDt"],
             fNoiseStd=config["fNoiseStd"],
             vtTauN=config["vtTauN"],
-            vtTauSInp=config["vtTauSInp"],
-            vtTauSRec=config["vtTauSRec"],
             vfVThresh=config["vfVThresh"],
             vfVReset=config["vfVReset"],
             vfVRest=config["vfVRest"],
             strName=config["strName"],
             bRecord=config["bRecord"],
-            bAddEvents=config["bAddEvents"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
+
+    @staticmethod
+    def load_from_dict(config):
+        """
+        load the layer from a dict
+        :param config: dict information for the initialization
+        :return: FFIAFTorch layer
+        """
+        return FFIAFTorch(
+            mfW=config["mfW"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
             nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
         )
 
@@ -1723,7 +1745,26 @@ class RecIAFSpkInTorch(RecIAFTorch):
             bAddEvents=config["bAddEvents"],
             nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
         )
+    @staticmethod
+    def load_from_dict(config):
 
+        return RecIAFSpkInTorch(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vtTauSInp=config["vtTauSInp"],
+            vtTauSRec=config["vtTauSRec"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            bAddEvents=config["bAddEvents"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
 
     def _update_rec_kernel(self):
         # - Kernel for filtering recurrent spikes
