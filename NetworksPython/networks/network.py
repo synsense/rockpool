@@ -8,7 +8,7 @@ import json
 import numpy as np
 from decimal import Decimal
 from copy import deepcopy
-from NetworksPython.layers import *
+from NetworksPython import layers
 
 try:
     from tqdm.autonotebook import tqdm
@@ -78,12 +78,12 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
 
 
 class Network:
-    def __init__(self, *layers: Layer, tDt=None):
+    def __init__(self, *layers: Layer, tDt=None, inp2out=False):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
         :param layers:   Layers to be added to the network. They will
-                         be connected in series. The Order in which
+                         be connected in series (or not). The Order in which
                          they are received determines the order in
                          which they are connected. First layer will
                          receive external input
@@ -92,15 +92,16 @@ class Network:
                                time step that is multiple of tDt.
                                If None, network will try to determine
                                suitable tDt each time a layer is added.
+        :param inp2out:  bool if true input connects to output else not
         """
+
+        self.inp2out = inp2out
 
         # - Network time
         self._nTimeStep = 0
 
         # Maintain set of all layers
         self.setLayers = set()
-        self.dLayers = dict()
-        self.lLayers = list()
 
         if tDt is not None:
             assert tDt > 0, "Network: tDt must be positive."
@@ -111,6 +112,9 @@ class Network:
             self._bForceDt = False
 
         if layers:
+            for lyr in layers:
+                if lyr.strName == "input":
+                    self.inputLayer = lyr
             # - First layer receives external input
             self.lyrInput = self.add_layer(layers[0], bExternalInput=True)
 
@@ -196,8 +200,6 @@ class Network:
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
-        self.dLayers[lyr.strName] = lyr
-        self.lLayers.append(lyr)
 
         # - Update global tDt
         self._set_tDt()
@@ -269,9 +271,16 @@ class Network:
         :param lyrTarget:   The target layer
         :param bVerbose:    bool Flag indicating whether to print feedback
         """
-
         # - Make sure that layer dimensions match
-        if lyrSource.nSize != lyrTarget.nSizeIn:
+
+        if lyrSource.nSize != lyrTarget.nSizeIn and lyrTarget.strName != "output":
+            raise NetworkError(
+                "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
+                    lyrSource.strName, lyrSource.nSize, lyrTarget.strName
+                )
+                + " (nSizeIn={}) do not match".format(lyrTarget.nSizeIn)
+            )
+        elif lyrSource.nSize + int(self.inp2out) * self.inputLayer.nSize != lyrTarget.nSizeIn and lyrTarget.strName == "output":
             raise NetworkError(
                 "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
                     lyrSource.strName, lyrSource.nSize, lyrTarget.strName
@@ -291,6 +300,8 @@ class Network:
             )
 
         # - Add source layer to target's set of inputs
+        if lyrTarget.strName == 'output':
+            pass
         lyrTarget.lyrIn = lyrSource
 
         # - Make sure that the network remains a directed acyclic graph
@@ -518,9 +529,16 @@ class Network:
                 strIn = "external input"
 
             elif lyr.lyrIn is not None:
-                # - Output of current layer's input layer
-                tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
-                strIn = lyr.lyrIn.strName + "'s output"
+                if lyr.strName == "output" and self.inp2out:
+                    strIn = ''
+                    tsCurrentInput = dtsSignal["input"]
+                    strIn += "input" + "'s output"
+                    tsCurrentInput = tsCurrentInput.append_c(dtsSignal[lyr.lyrIn.strName])
+                    strIn += lyr.lyrIn.strName + "'s output"
+                else:
+                    # - Output of current layer's input layer
+                    tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
+                    strIn = lyr.lyrIn.strName + "'s output"
 
             else:
                 # - No input
@@ -533,7 +551,6 @@ class Network:
                         lyr.strName, strIn
                     )
                 )
-
             # - Evolve layer and store output in dtsSignal
             dtsSignal[lyr.strName] = lyr.evolve(
                 tsInput=tsCurrentInput,
@@ -939,41 +956,33 @@ class Network:
 
     def save(self, filename):
         listofLayers = []
-        for lyr in self.lLayers:
+        for lyr in self.lEvolOrder:
             listofLayers.append(lyr.to_dict())
         with open(filename, "w") as f:
             json.dump(listofLayers, f)
 
     @staticmethod
     def load(filename):
+        """
+        load the network from a json file
+        :param filename: filename of json that contains
+        :return: returns a network object with all the layers
+        """
+
         with open(filename, "r") as f:
             listofLayers = json.load(f)
-        lLayers = []
+        lEvolOrder = []
         for lyr in listofLayers:
-            classLyr = str_to_class(lyr["ClassName"])
-            print(classLyr)
-            lLayers.append(classLyr.load_from_dict(lyr))
+            classLyr = getattr(layers, lyr["ClassName"])
+            lEvolOrder.append(classLyr.load_from_dict(lyr))
+            print(lEvolOrder[-1].strName)
+        inp2out = False
+        if lEvolOrder[-1].mfW.shape[0] != lEvolOrder[-2].mfW.shape[1]:
+            inp2out = True
+        return Network(*lEvolOrder, inp2out=inp2out)
 
-        return Network(*lLayers)
 
-def str_to_class(string):
-    if "Filter" in string:
-        return Filter
-    elif "FFIAF"in string:
-        if "Torch" in string:
-            return FFIAFTorch
-        elif "Nest" in string:
-            return FFIAFNest
-    elif "RecIAFSpkIn" in string:
-        if "Torch" in string:
-            return RecIAFSpkInTorch
-        elif "Nest" in string:
-            return RecIAFSpkInNest
-    elif "FFExpSyn" in string:
-        if "Torch" in string:
-            return FFExpSynTorch
-        else:
-            return FFExpSyn
+
 ### --- NetworkError exception class
 class NetworkError(Exception):
     pass
