@@ -15,8 +15,9 @@ class Filter(Layer):
         mfW: np.ndarray,
         filterName: str,
         fs: float,
-        tDt: float = 0.001 ,
+        tDt: float = None ,
         strName: str = "unnamed",
+        downSampleFs: float = None,
     ):
         """
         FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
@@ -29,7 +30,7 @@ class Filter(Layer):
         :param tDt:             float Time-step. Default: 0.1 ms
         :param fNoiseStd:       float Noise std. dev. per second. Default: 0
         :param strName:         str Name for the layer. Default: 'unnamed'
-
+        :param downSampleFs:    float frequency to downsample the output of the filters. Default: 'unnamed'
         """
 
         # - Call super constructor (`asarray` is used to strip units)
@@ -45,7 +46,14 @@ class Filter(Layer):
         self.filtFunct = function_Filterbank(self.filterName)
         self.mfW = mfW
         self._nTimeStep = 0
-
+        if downSampleFs != None:
+            self.downSampleFs = downSampleFs
+        else:
+            self.downSampleFs = fs
+        if tDt == None:
+            self.tDt = 1/fs
+        else:
+            self.tDt = tDt
     def reset_all(self):
         self.mfW = np.copy(self.mfW)
         self._nTimeStep = 0
@@ -64,7 +72,7 @@ class Filter(Layer):
         )
 
         if "sos" in self.filterName or "butter" in self.filterName:
-            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.fs)
+            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.downSampleFs)
             self._nTimeStep += mfInputStep.shape[0] - 1
 
             return TSContinuous(
