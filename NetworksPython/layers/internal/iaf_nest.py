@@ -1124,7 +1124,7 @@ class RecIAFSpkInNest(Layer):
     def vtTauS(self):
         return self._vtTauS
 
-    @vtTauN.setter
+    @vtTauS.setter
     def vtTauS(self, vtNewTauS):
 
         self.requestQ.put([COMMAND_SET, "tau_syn_ex", s2ms(vtNewTauS)])
