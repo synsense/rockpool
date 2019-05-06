@@ -595,7 +595,6 @@ def generate_fpga_event_list(
         generate_fpga_event(neuron_id, isi)
         for neuron_id, isi in zip(neuron_ids, discrete_isi_list)
     ]
-
     return events
 
 
@@ -1396,7 +1395,7 @@ class DynapseControl:
 
         # - Get connection lists
         presyn_exc_list, postsyn_exc_list, presyn_inh_list, postsyn_inh_list = connectivity_matrix_to_prepost_lists(
-            weights
+            weights.astype(int)
         )
 
         # - Extract neuron IDs and remove numpy wrapper around int type
@@ -1466,7 +1465,7 @@ class DynapseControl:
 
         # - Get virtual to hardware connections
         presyn_exc_list, postsyn_exc_list, presyn_inh_list, postsyn_inh_list = connectivity_matrix_to_prepost_lists(
-            weights
+            weights.astype(int)
         )
 
         # - Extract neuron IDs and remove numpy wrapper around int type
@@ -1845,8 +1844,7 @@ class DynapseControl:
             targetchip_id=targetchip_id,
         )
         print("DynapseControl: Stimulus prepared from arrays.")
-
-        # - Stimulate and return recorded data if any
+	# - Stimulate and return recorded data if any
         return self._send_stimulus_list(
             events=events,
             duration=t_record,
@@ -1943,7 +1941,7 @@ class DynapseControl:
             self.bufferedfilter.clear()
             print(
                 "\tRecorded {} event(s) and {} trigger event(s)".format(
-                    len(timestamps), len(triggerevents)
+                    len(timestamps_full), len(triggerevents)
                 )
             )
             return self._process_extracted_events(
