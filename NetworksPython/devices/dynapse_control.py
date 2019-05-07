@@ -58,7 +58,7 @@ FpgaSpikeEvent = CtxDynapse.FpgaSpikeEvent
 print("dynapse_control: CtxDynapse modules loaded.")
 
 ### --- Parameters
-chip_ids = [0]  # Chips to be used
+USE_CHIPS = [0]  # Chips to be used
 # - Fix (hardware)
 SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded to SRAM
 FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
@@ -71,6 +71,7 @@ NUM_NEURONS_CORE = (
     CORE_DIMENSIONS[0] * CORE_DIMENSIONS[1]
 )  # Number of neurons on one core
 NUM_CORES_CHIP = 4  # Number of cores per chip
+NUM_NEURONS_CHIP = NUM_NEURONS_CORE * NUM_CORES_CHIP  # Number of neurons per chip
 NUM_CHIPS = 4  # Number of available chips
 # - Default values, can be changed
 DEF_FPGA_ISI_BASE = 2e-5  # Default timestep between events sent to FPGA
@@ -81,11 +82,17 @@ if _USE_RPYC:
     conn.namespace["_USE_RPYC"] = True
     conn.namespace["NUM_NEURONS_CORE"] = NUM_NEURONS_CORE
     conn.namespace["NUM_CORES_CHIP"] = NUM_CORES_CHIP
+    conn.namespace["NUM_NEURONS_CHIP"] = NUM_NEURONS_CHIP
     conn.namespace["NUM_CHIPS"] = NUM_CHIPS
     conn.namespace["copy"] = conn.modules.copy
     conn.namespace["os"] = conn.modules.os
     conn.namespace["CtxDynapse"] = conn.modules.CtxDynapse
     conn.namespace["rpyc"] = conn.modules.rpyc
+    conn.namespace["initialized_chips"] = []
+    conn.namespace["initialized_neurons"] = []
+else:
+    initialized_chips = []
+    initialized_neurons = []
 
 ### --- Utility functions
 def connectivity_matrix_to_prepost_lists(
@@ -769,13 +776,13 @@ def get_all_neurons(
 
 
 @teleport_function
-def _clear_chips(chip_ids: Optional[list] = None):
+def clear_chips(chip_ids: Optional[list] = None):
     """
-    _clear_chips - Clear the physical CAM and SRAM cells of the chips defined
-                   in chip_ids.
-                   This is necessary when CtxControl is loaded (and only then)
-                   to make sure that the configuration of the model neurons
-                   matches the hardware.
+    clear_chips - Clear the physical CAM and SRAM cells of the chips defined
+                  in chip_ids.
+                  This is necessary when CtxControl is loaded (and only then)
+                  to make sure that the configuration of the model neurons
+                  matches the hardware.
 
     :param chip_ids:   list  IDs of chips to be cleared.
     """
@@ -800,6 +807,22 @@ def _clear_chips(chip_ids: Optional[list] = None):
         # - Clear SRAMs
         CtxDynapse.dynapse.clear_sram(int(nchip))
         print("\t SRAMs cleared.")
+
+    # - Update list of initialized chips
+    global initialized_chips
+    for nchip in chip_ids:
+        # Mark chips as initialized
+        if nchip not in initialized_chips:
+            initialized_chips.append(nchip)
+    # Sort list of initialized chips
+    initialized_chips = sorted(initialized_chips)
+    # - Update list of initialized neurons
+    global initialized_neurons
+    initialized_neurons = [
+        neuron_id
+        for nchip in initialized_chips
+        for neuron_id in range(NUM_NEURONS_CHIP * nchip, NUM_NEURONS_CHIP * (nchip + 1))
+    ]
 
     print("dynapse_control: {} chip(s) cleared.".format(len(chip_ids)))
 
@@ -920,13 +943,33 @@ def set_connections(
     preneuron_ids = copy.copy(preneuron_ids)
     postneuron_ids = copy.copy(postneuron_ids)
     syntypes = copy.copy(syntypes)
-    presyn_neurons: List = shadow_neurons if virtual_neurons is None else virtual_neurons
+    presyn_neuron_population: List = shadow_neurons if virtual_neurons is None else virtual_neurons
 
-    neuronconnector.add_connection_from_list(
-        [presyn_neurons[i] for i in preneuron_ids],
-        [shadow_neurons[i] for i in postneuron_ids],
-        syntypes,
-    )
+    # - Neurons to be connected
+    presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
+    postsyn_neurons = [shadow_neurons[i] for i in preneuron_ids]
+
+    # - Logical IDs of pre adn post neurons
+    logical_pre_ids = [neuron.get_id() for neuron in presyn_neurons]
+    logical_post_ids = [neuron.get_id() for neuron in postsyn_neurons]
+    # - Make sure that neurons are on initialized chips
+    if virtual_neurons is None and not set(logical_pre_ids).issubset(
+        initialized_neurons
+    ):
+        raise ValueError(
+            "dynapse_control: Some of the presynaptic neurons are on chips that have not"
+            + " been cleared since starting cortexcontrol. This may result in unexpected"
+            + " behavior. Clear those chips first."
+        )
+    if not set(logical_post_ids).issubset(initialized_neurons):
+        raise ValueError(
+            "dynapse_control: Some of the postsynaptic neurons are on chips that have not"
+            + " been cleared since starting cortexcontrol. This may result in unexpected"
+            + " behavior. Clear those chips first."
+        )
+
+    # - Set connections
+    neuronconnector.add_connection_from_list(presyn_neurons, postsyn_neurons, syntypes)
 
     print("dynapse_control: {} connections have been set.".format(len(preneuron_ids)))
 
@@ -983,9 +1026,8 @@ _reset_silencing = correct_argument_types(_define_reset_silencing())
 
 # - Clear hardware configuration at startup
 print("dynapse_control: Initializing hardware.")
-if not _USE_RPYC or "bInitialized" not in conn.namespace.keys():
-    _clear_chips(chip_ids)
-    conn.namespace["bInitialized"] = True
+if not _USE_RPYC or not set(USE_CHIPS).issubset(conn.namespace["initialized_chips"]):
+    clear_chips(USE_CHIPS)
     print("dynapse_control: Hardware initialized.")
 else:
     print("dynapse_control: Hardware has already been initialized.")
@@ -1177,7 +1219,12 @@ class DynapseControl:
                                                 neurons are available
         """
         # - Hardware neurons
-        hwneurons_isfree = np.ones(len(self.hw_neurons), bool)
+        hwneurons_isfree = np.zeros(len(self.hw_neurons), bool)
+        # Only use chips that have previously been initialized (i.e. cleared)
+        for chip_id in conn.namespace["initialized_chips"]:
+            hwneurons_isfree[
+                self.num_neur_chip * chip_id : self.num_neur_chip * (chip_id + 1)
+            ] = True
         # Do not use hardware neurons with ID 0 and core ID 0 (first of each core)
         hwneurons_isfree[0 :: self.num_neur_chip] = False
 
@@ -1844,7 +1891,7 @@ class DynapseControl:
             targetchip_id=targetchip_id,
         )
         print("DynapseControl: Stimulus prepared from arrays.")
-	# - Stimulate and return recorded data if any
+        # - Stimulate and return recorded data if any
         return self._send_stimulus_list(
             events=events,
             duration=t_record,
