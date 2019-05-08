@@ -7,9 +7,10 @@
 
 import numpy as np
 from warnings import warn
-from typing import Tuple, List, Optional, Union
+from typing import Tuple, List, Optional, Union, ModuleType
 import time
-import os.path
+import os
+import copy
 import threading
 
 # - Global settings
@@ -20,42 +21,14 @@ RPYC_TIMEOUT = 300
 
 ## -- Import cortexcontrol modules or establish connection via RPyC
 try:
-    import CtxDynapse
+    import CtxDynapse as ctxdynapse
     import NeuronNeuronConnector as nnconnector
 
 except ModuleNotFoundError:
     # - Try with RPyC
     try:
         import rpyc
-
-        conn = rpyc.classic.connect("localhost", "1300")
-        print("dynapse_control: RPyC connection established through port 1300.")
-    except ModuleNotFoundError:
-        # - Raise an ImportError (so that the smart __init__.py module can skip over missing CtxCtl
-        raise ImportError("dynapse_control: rpyc not found")
-    except:
-        try:
-            conn = rpyc.classic.connect("localhost", "1301")
-            print("dynapse_control: RPyC connection established through port 1301.")
-        except:
-            raise ImportError("dynapse_control: Connection not possible")
-    # - Set up rpyc conneciton settings
-    conn._config["sync_request_timeout"] = RPYC_TIMEOUT  # Set timeout to higher level
-    CtxDynapse = conn.modules.CtxDynapse
-    nn_connector = conn.modules.NeuronNeuronConnector
-    _USE_RPYC = True
-
-# - Imports from ctxCTL
-SynapseTypes = CtxDynapse.DynapseCamType
-dynapse = CtxDynapse.dynapse
-DynapseFpgaSpikeGen = CtxDynapse.DynapseFpgaSpikeGen
-DynapsePoissonGen = CtxDynapse.DynapsePoissonGen
-DynapseNeuron = CtxDynapse.DynapseNeuron
-VirtualNeuron = CtxDynapse.VirtualNeuron
-BufferedEventFilter = CtxDynapse.BufferedEventFilter
-FpgaSpikeEvent = CtxDynapse.FpgaSpikeEvent
-
-print("dynapse_control: CtxDynapse modules loaded.")
+        _USE_RPYC = True
 
 ### --- Parameters
 USE_CHIPS = [0]  # Chips to be used
@@ -77,7 +50,40 @@ NUM_CHIPS = 4  # Number of available chips
 DEF_FPGA_ISI_BASE = 2e-5  # Default timestep between events sent to FPGA
 DEF_FPGA_ISI_MULTIPLIER = int(np.round(DEF_FPGA_ISI_BASE / FPGA_TIMESTEP))
 
-if _USE_RPYC:
+if not _USE_RPYC:
+    # - Keep track of which chips have been initialized
+    initialized_chips = []
+    initialized_neurons = []
+
+
+def connect_rpyc(port=Union[int, str, None]):
+    if not _USE_RPYC:
+        raise RuntimeError(
+            "dynapse_control: Connection to RPyC only possible from outside cortexcontrol"
+        )
+
+    try:
+        if port is None:
+            try:
+                conn = rpyc.classic.connect("localhost", "1300")
+                port = "1300"
+            except (TimeoutError, ConnectionRefusedError):
+                # - Connection with port 1300 is either occupied or does not exist
+                conn = rpyc.classic.connect("localhost", "1301")
+                port = "1301"
+        else:
+            conn = rpyc.classic.connect("localhost", str(port))
+    except TimeoutError:
+        raise TimeoutError(
+            f"dynapse_control: RPyC connection on port {port} seems to be in use already."
+        )
+    except ConnectionRefusedError:
+        raise ConnectionRefusedError(
+            f"dynapse_control: No available RPyC connection on port {port}."
+        )
+    else:
+        print(f"dynapse_control: RPyC connection established through port {port}.")
+
     # - Setup parameters on RPyC server
     conn.namespace["_USE_RPYC"] = True
     conn.namespace["NUM_NEURONS_CORE"] = NUM_NEURONS_CORE
@@ -86,15 +92,19 @@ if _USE_RPYC:
     conn.namespace["NUM_CHIPS"] = NUM_CHIPS
     conn.namespace["copy"] = conn.modules.copy
     conn.namespace["os"] = conn.modules.os
-    conn.namespace["CtxDynapse"] = conn.modules.CtxDynapse
+    conn.namespace["ctxdynapse"] = conn.modules.CtxDynapse
     conn.namespace["rpyc"] = conn.modules.rpyc
-    conn.namespace["initialized_chips"] = []
-    conn.namespace["initialized_neurons"] = []
-else:
-    initialized_chips = []
-    initialized_neurons = []
+    if "initialized_chips" not in conn.namespace.keys():
+        conn.namespace["initialized_chips"] = []
+    if "initialized_neurons" not in conn.namespace.keys():
+        conn.namespace["initialized_neurons"] = []
 
-### --- Utility functions
+    # - Set up rpyc conneciton settings
+    conn._config["sync_request_timeout"] = RPYC_TIMEOUT  # Increase timeout limit
+
+    return conn
+
+
 def connectivity_matrix_to_prepost_lists(
     weights: np.ndarray
 ) -> Tuple[List[int], List[int], List[int], List[int]]:
@@ -478,7 +488,7 @@ def extract_event_data(events) -> (tuple, tuple):
     event_tuples: List[Tuple] = [
         (event.timestamp, event.neuron.get_id())
         for event in events
-        if isinstance(event.neuron, CtxDynapse.DynapseNeuron)
+        if isinstance(event.neuron, ctxdynapse.DynapseNeuron)
     ]
     try:
         timestamps, neuron_ids = zip(*event_tuples)
@@ -580,16 +590,16 @@ def generate_fpga_event_list(
             discrete_isi_list, neuron_ids, fpga_isi_limit
         )
 
-    def generate_fpga_event(neuron_id: int, isi: int) -> CtxDynapse.FpgaSpikeEvent:
+    def generate_fpga_event(neuron_id: int, isi: int) -> ctxdynapse.FpgaSpikeEvent:
         """
         generate_fpga_event - Generate a single FpgaSpikeEvent objects.
         :param neuron_id:       int ID of source neuron
         :param isi:            int Timesteps after previous event before
                                     this event will be sent
         :return:
-            event  CtxDynapse.FpgaSpikeEvent
+            event  ctxdynapse.FpgaSpikeEvent
         """
-        event = CtxDynapse.FpgaSpikeEvent()
+        event = ctxdynapse.FpgaSpikeEvent()
         event.target_chip = targetchip_id
         event.core_mask = 0 if neuron_id is None else targetcore_mask
         event.neuron_id = 0 if neuron_id is None else neuron_id
@@ -606,14 +616,14 @@ def generate_fpga_event_list(
 
 
 @teleport_function
-def _generate_buffered_filter(model: CtxDynapse.Model, record_neuron_ids: list):
+def _generate_buffered_filter(model: ctxdynapse.Model, record_neuron_ids: list):
     """
     _generate_buffered_filter - Generate and return a BufferedEventFilter object that
                                records from neurons specified in record_neuron_ids.
-    :param model:               CtxDynapse model
+    :param model:               ctxdynapse model
     :param record_neuron_ids:    list  IDs of neurons to be recorded.
     """
-    return CtxDynapse.BufferedEventFilter(model, record_neuron_ids)
+    return ctxdynapse.BufferedEventFilter(model, record_neuron_ids)
 
 
 @teleport_function
@@ -694,12 +704,12 @@ def save_biases(filename: str, core_ids: Optional[Union[list, int]] = None):
             filename_parts.append("py")
         filename = ".".join(filename_parts)
 
-    biasgroup_list = CtxDynapse.model.get_bias_groups()
+    biasgroup_list = ctxdynapse.model.get_bias_groups()
     # - Only save specified cores
     biasgroup_list = [biasgroup_list[i] for i in core_ids]
     with open(filename, "w") as file:
-        file.write("import CtxDynapse\n")
-        file.write("save_file_model_ = CtxDynapse.model\n")
+        file.write("import ctxdynapse\n")
+        file.write("save_file_model_ = ctxdynapse.model\n")
         for core_id, bias_group in zip(core_ids, biasgroup_list):
             biases = bias_group.get_biases()
             for bias in biases:
@@ -736,7 +746,7 @@ def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = No
         targetcore_ids = [targetcore_ids]
 
     # - List of bias groups from all cores
-    biasgroup_list = CtxDynapse.model.get_bias_groups()
+    biasgroup_list = ctxdynapse.model.get_bias_groups()
     sourcebiases = biasgroup_list[sourcecore_id].get_biases()
 
     # - Set biases for target cores
@@ -755,14 +765,14 @@ def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = No
 
 @teleport_function
 def get_all_neurons(
-    model: CtxDynapse.Model, virtual_model: CtxDynapse.VirtualModel
+    model: ctxdynapse.Model, virtual_model: ctxdynapse.VirtualModel
 ) -> (np.ndarray, np.ndarray, np.ndarray):
     """
     get_all_neurons - Get hardware, virtual and shadow state neurons
                       from model and virtual_model and return them
                       in arrays.
-    :param model:  CtxDynapse.Model
-    :param virtual_model: CtxDynapse.VirtualModel
+    :param model:  ctxdynapse.Model
+    :param virtual_model: ctxdynapse.VirtualModel
     :return:
         np.ndarray  Hardware neurons
         np.ndarray  Virtual neurons
@@ -801,11 +811,11 @@ def clear_chips(chip_ids: Optional[list] = None):
         print("dynapse_control: Clearing chip {}.".format(nchip))
 
         # - Clear CAMs
-        CtxDynapse.dynapse.clear_cam(int(nchip))
+        ctxdynapse.dynapse.clear_cam(int(nchip))
         print("\t CAMs cleared.")
 
         # - Clear SRAMs
-        CtxDynapse.dynapse.clear_sram(int(nchip))
+        ctxdynapse.dynapse.clear_sram(int(nchip))
         print("\t SRAMs cleared.")
 
     # - Update list of initialized chips
@@ -847,7 +857,7 @@ def _reset_connections(core_ids: Optional[list] = None, apply_diff=True):
     core_ids = copy.copy(core_ids)
 
     # - Get shadow state neurons
-    shadow_neurons = CtxDynapse.model.get_shadow_state_neurons()
+    shadow_neurons = ctxdynapse.model.get_shadow_state_neurons()
 
     for core_id in core_ids:
         print("dynapse_control: Clearing connections of core {}.".format(core_id))
@@ -873,20 +883,20 @@ def _reset_connections(core_ids: Optional[list] = None, apply_diff=True):
 
     if apply_diff:
         # - Apply changes to the connections on chip
-        CtxDynapse.model.apply_diff_state()
+        ctxdynapse.model.apply_diff_state()
         print("dynapse_control: New state has been applied to the hardware")
 
 
 @teleport_function
 def remove_all_connections_to(
-    neuron_ids: List, model: CtxDynapse.Model, apply_diff: bool = True
+    neuron_ids: List, model: ctxdynapse.Model, apply_diff: bool = True
 ):
     """
     remove_all_connections_to - Remove all presynaptic connections
                                 to neurons defined in neuron_ids
     :param neuron_ids:      list  IDs of neurons whose presynaptic
                                       connections should be removed
-    :param model:          CtxDynapse.model
+    :param model:          ctxdynapse.model
     :param apply_diff:      bool If False do not apply the changes to
                                  chip but only to shadow states of the
                                  neurons. Useful if new connections are
@@ -896,7 +906,7 @@ def remove_all_connections_to(
     neuron_ids = copy.copy(neuron_ids)
 
     # - Get shadow state neurons
-    shadow_neurons = CtxDynapse.model.get_shadow_state_neurons()
+    shadow_neurons = ctxdynapse.model.get_shadow_state_neurons()
 
     # - Reset neuron weights in model
     for neuron in shadow_neurons:
@@ -928,7 +938,7 @@ def set_connections(
     syntypes: list,
     shadow_neurons: list,
     virtual_neurons: Optional[list],
-    neuronconnector: nn_connector.DynapseConnector,
+    connector: nnconnector.DynapseConnector,
 ):
     """
     set_connections - Set connections between pre- and post synaptic neurons from lists.
@@ -938,7 +948,7 @@ def set_connections(
     :param shadow_neurons:      list  Shadow neurons that the indices correspond to.
     :param virtual_neurons:     list  If None, presynaptic neurons are shadow neurons,
                                       otherwise virtual neurons from this list.
-    :param neuronconnector:   nn_connector.DynapseConnector
+    :param connector:   nnconnector.DynapseConnector
     """
     preneuron_ids = copy.copy(preneuron_ids)
     postneuron_ids = copy.copy(postneuron_ids)
@@ -969,7 +979,7 @@ def set_connections(
         )
 
     # - Set connections
-    neuronconnector.add_connection_from_list(presyn_neurons, postsyn_neurons, syntypes)
+    connector.add_connection_from_list(presyn_neurons, postsyn_neurons, syntypes)
 
     print("dynapse_control: {} connections have been set.".format(len(preneuron_ids)))
 
@@ -987,7 +997,7 @@ def _define_silence_neurons():
             neuron_ids = (neuron_ids,)
         neurons_per_chip = NUM_CORES_CHIP * NUM_NEURONS_CORE
         for id_neur in neuron_ids:
-            CtxDynapse.dynapse.set_tau_2(
+            ctxdynapse.dynapse.set_tau_2(
                 id_neur // neurons_per_chip,  # Chip ID
                 id_neur % neurons_per_chip,  # Neuron ID on chip
             )
@@ -1012,7 +1022,7 @@ def _define_reset_silencing():
         if isinstance(core_ids, int):
             core_ids = (core_ids,)
         for id_neur in core_ids:
-            CtxDynapse.dynapse.reset_tau_1(
+            ctxdynapse.dynapse.reset_tau_1(
                 id_neur // NUM_CORES_CHIP,  # Chip ID
                 id_neur % NUM_CORES_CHIP,  # Core ID on chip
             )
@@ -1047,6 +1057,7 @@ class DynapseControl:
         self,
         fpga_isibase: float = DEF_FPGA_ISI_BASE,
         clearcores_list: Optional[list] = None,
+        rpyc_connection: Union[None, str, int, rpyc.core.protocol.Connection] = None,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
@@ -1055,21 +1066,30 @@ class DynapseControl:
         :param clearcores_list:     list or None    IDs of cores where configurations should be cleared.
         """
 
+        # - Store pointer to ctxdynapse and nnconnector modules
+        if _USE_RPYC:
+            if not isinstance(rpyc_connection, rpyc.core.protocol.Connection):
+                rpyc_connection = connect_rpyc(rpyc_connection)
+            self.rpyc_connection = rpyc_connection
+            self.ctxdynapse: ModuleType = rpyc_connection.modules.ctxdynapse
+            self.nnconnector: ModuleType = rpyc_connection.modules.NeuronNeuronConnector
+        else:
+            self.rpyc_connection = None
+            self.ctxdynapse = ctxdynapse
+            self.nnconnector = nnconnector
+
         print("DynapseControl: Initializing DynapSE")
 
         # - Chip model and virtual model
-        self.model = CtxDynapse.model
-        self.virtual_model = CtxDynapse.VirtualModel()
-
-        # - dynapse object from CtxDynapse
-        self.dynapse = dynapse
+        self.model = self.ctxdynapse.model
+        self.virtual_model = self.ctxdynapse.VirtualModel()
 
         ## -- Modules for sending input to FPGA
         fpga_modules = self.model.get_fpga_modules()
 
         # - Find a spike generator module
         is_spikegen: List[bool] = [
-            isinstance(m, DynapseFpgaSpikeGen) for m in fpga_modules
+            isinstance(m, self.ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
         ]
         if not np.any(is_spikegen):
             # There is no spike generator, so we can't use this Python layer on the HW
@@ -1083,7 +1103,7 @@ class DynapseControl:
 
         # - Find a poisson spike generator module
         is_poissongen: List[bool] = [
-            isinstance(m, DynapsePoissonGen) for m in fpga_modules
+            isinstance(m, self.ctxdynapse.DynapsePoissonGen) for m in fpga_modules
         ]
         if np.any(is_poissongen):
             self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
@@ -1115,7 +1135,7 @@ class DynapseControl:
         )
 
         # - Get a connector object
-        self.neuronconnector = nn_connector.DynapseConnector()
+        self.connector = nnconnector.DynapseConnector()
         print("DynapseControl: Neuron connector initialized")
 
         # - Wipe configuration
@@ -1410,7 +1430,7 @@ class DynapseControl:
             syntypes=syntypes,
             shadow_neurons=self.shadow_neurons,
             virtual_neurons=self.virtual_neurons,
-            neuronconnector=self.neuronconnector,
+            connector=self.connector,
         )
         print("DynapseControl: Setting up {} connections".format(np.size(neuron_ids)))
         self.model.apply_diff_state()
@@ -1458,7 +1478,7 @@ class DynapseControl:
             syntypes=[syn_exc],
             shadow_neurons=self.shadow_neurons,
             virtual_neurons=self.virtual_neurons,
-            neuronconnector=self.neuronconnector,
+            connector=self.connector,
         )
         print(
             "DynapseControl: Excitatory connections of type `{}`".format(
@@ -1473,7 +1493,7 @@ class DynapseControl:
             syntypes=[syn_inh],
             shadow_neurons=self.shadow_neurons,
             virtual_neurons=self.virtual_neurons,
-            neuronconnector=self.neuronconnector,
+            connector=self.connector,
         )
         print(
             "DynapseControl: Inhibitory connections of type `{}`".format(
@@ -1528,7 +1548,7 @@ class DynapseControl:
             syntypes=[syn_exc],
             shadow_neurons=self.shadow_neurons,
             virtual_neurons=None,
-            neuronconnector=self.neuronconnector,
+            connector=self.connector,
         )
         print(
             "DynapseControl: Excitatory connections of type `{}`".format(
@@ -1543,7 +1563,7 @@ class DynapseControl:
             syntypes=[syn_inh],
             shadow_neurons=self.shadow_neurons,
             virtual_neurons=None,
-            neuronconnector=self.neuronconnector,
+            connector=self.connector,
         )
         print(
             "DynapseControl: Inhibitory connections of type `{}`".format(
@@ -2358,19 +2378,19 @@ class DynapseControl:
 
     @property
     def syn_exc_slow(self):
-        return SynapseTypes.SLOW_EXC
+        return self.ctxdynapse.DynapseCamType.SLOW_EXC
 
     @property
     def syn_inh_slow(self):
-        return SynapseTypes.SLOW_INH
+        return self.ctxdynapse.DynapseCamType.SLOW_INH
 
     @property
     def syn_exc_fast(self):
-        return SynapseTypes.FAST_EXC
+        return self.ctxdynapse.DynapseCamType.FAST_EXC
 
     @property
     def syn_inh_fast(self):
-        return SynapseTypes.FAST_INH
+        return self.ctxdynapse.DynapseCamType.FAST_INH
 
     @property
     def num_neur_core(self):
