@@ -531,9 +531,11 @@ class Network:
             elif lyr.lyrIn is not None:
                 if lyr.strName == "output" and self.inp2out:
                     strIn = ''
-                    tsCurrentInput = dtsSignal["input"]
+
+                    tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
+                    tsCurrentInput.append_c(dtsSignal['input'], inplace=True)
+
                     strIn += "input" + "'s output"
-                    tsCurrentInput = tsCurrentInput.append_c(dtsSignal[lyr.lyrIn.strName])
                     strIn += lyr.lyrIn.strName + "'s output"
                 else:
                     # - Output of current layer's input layer
