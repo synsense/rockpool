@@ -160,7 +160,7 @@ class FFExpSynTorch(FFExpSyn):
         return TSContinuous(
             vtTimeBase,
             (mfOutput + self._vfBias.cpu()).numpy(),
-            strName="Filtered spikes",
+            name="Filtered spikes",
         )
 
     # @profile
@@ -249,15 +249,15 @@ class FFExpSynTorch(FFExpSyn):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
         # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.t_stop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -302,8 +302,8 @@ class FFExpSynTorch(FFExpSyn):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1]]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
@@ -327,13 +327,12 @@ class FFExpSynTorch(FFExpSyn):
                 mnSpikeRaster = (
                     torch.from_numpy(
                         tsInput.raster(
-                            tDt=self.tDt,
-                            tStart=vtTimeBase[0],
-                            nNumTimeSteps=vtTimeBase.size,
-                            vnSelectChannels=np.arange(self.nSizeIn),
-                            bSamples=False,
-                            bAddEvents=self.bAddEvents,
-                        )[2].astype(float)
+                            dt=self.tDt,
+                            t_start=vtTimeBase[0],
+                            num_timesteps=vtTimeBase.size,
+                            channels=np.arange(self.nSizeIn),
+                            add_events=self.bAddEvents,
+                        ).astype(float)
                     )
                     .float()
                     .to(self.device)
@@ -456,14 +455,14 @@ class FFExpSynTorch(FFExpSyn):
             return
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         # - Discard last sample to avoid counting time points twice
         vtTimeBase = vtTimeBase[:-1]
 
         # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.t_stop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -502,8 +501,8 @@ class FFExpSynTorch(FFExpSyn):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1]]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
@@ -525,13 +524,12 @@ class FFExpSynTorch(FFExpSyn):
             # Extract spike data from the input
             mnSpikeRaster = (
                 tsInput.raster(
-                    tDt=self.tDt,
-                    tStart=vtTimeBase[0],
-                    nNumTimeSteps=vtTimeBase.size,
-                    vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
-                    bAddEvents=self.bAddEvents,
-                )[2]
+                    dt=self.tDt,
+                    t_start=vtTimeBase[0],
+                    num_timesteps=vtTimeBase.size,
+                    channels=np.arange(self.nSizeIn),
+                    add_events=self.bAddEvents,
+                )
             ).astype(float)
 
             if bStoreState:

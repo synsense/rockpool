@@ -67,7 +67,7 @@ def test_ffiaf_spkin_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl.vState)
@@ -145,7 +145,7 @@ def test_reciaf_spkin_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
 
     mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
     mfWRec = 0.001 * np.random.randn(nSize, nSize)
@@ -204,8 +204,8 @@ def test_ffiaf_refr_torch():
 
     assert flr.t == 0.08
     assert (vStateBefore != flr.vState).any()
-    assert (tsOut.vtTimeTrace == tsOutR.vtTimeTrace).all()
-    assert (tsOut.vnChannels == tsOutR.vnChannels).all()
+    assert (tsOut.times == tsOutR.times).all()
+    assert (tsOut.channels == tsOutR.channels).all()
 
     flr.reset_all()
     assert flr.t == 0
@@ -214,17 +214,17 @@ def test_ffiaf_refr_torch():
     flr.tRefractoryTime = 0.01
 
     tsOutR2 = flr.evolve(tsIn, tDuration=0.08)
-    assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
+    assert tsOutR2.times.size < tsOutR.times.size
     for iChannel in range(flr.nSize):
         assert (
-            np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels == iChannel]) >= 0.01 - fTol
+            np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
     flr2 = FFIAFRefrTorch(mfW, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
     tsOutR3 = flr2.evolve(tsIn, tDuration=0.08)
 
-    assert (tsOutR2.vtTimeTrace == tsOutR3.vtTimeTrace).all()
-    assert (tsOutR2.vnChannels == tsOutR3.vnChannels).all()
+    assert (tsOutR2.times == tsOutR3.times).all()
+    assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
     mfWTarget = flr.mfW.copy()
@@ -253,7 +253,7 @@ def test_ffiaf_spkin_refr_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(flr.vState)
@@ -261,8 +261,8 @@ def test_ffiaf_spkin_refr_torch():
     tsOutR = flr.evolve(tsIn, tDuration=0.08)
     assert flr.t == 0.08
     assert (vStateBefore != flr.vState).any()
-    assert (tsOut.vtTimeTrace == tsOutR.vtTimeTrace).all()
-    assert (tsOut.vnChannels == tsOutR.vnChannels).all()
+    assert (tsOut.times == tsOutR.times).all()
+    assert (tsOut.channels == tsOutR.channels).all()
 
     flr.reset_all()
     assert flr.t == 0
@@ -271,17 +271,17 @@ def test_ffiaf_spkin_refr_torch():
     flr.tRefractoryTime = 0.01
 
     tsOutR2 = flr.evolve(tsIn, tDuration=0.08)
-    assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
+    assert tsOutR2.times.size < tsOutR.times.size
     for iChannel in range(flr.nSize):
         assert (
-            np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels == iChannel]) >= 0.01 - fTol
+            np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
     flr2 = FFIAFSpkInRefrTorch(mfW, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
     tsOutR3 = flr2.evolve(tsIn, tDuration=0.08)
 
-    assert (tsOutR2.vtTimeTrace == tsOutR3.vtTimeTrace).all()
-    assert (tsOutR2.vnChannels == tsOutR3.vnChannels).all()
+    assert (tsOutR2.times == tsOutR3.times).all()
+    assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
     mfWTarget = flr.mfW.copy()
@@ -327,8 +327,8 @@ def test_reciaf_refr_torch():
     tsOutR = rlr.evolve(tsIn, tDuration=0.4)
     assert rlr.t == 0.4
     assert (vStateBefore != rlr.vState).any()
-    assert (tsOut.vtTimeTrace == tsOutR.vtTimeTrace).all()
-    assert (tsOut.vnChannels == tsOutR.vnChannels).all()
+    assert (tsOut.times == tsOutR.times).all()
+    assert (tsOut.channels == tsOutR.channels).all()
 
     rlr.reset_all()
     assert rlr.t == 0
@@ -337,10 +337,10 @@ def test_reciaf_refr_torch():
     rlr.tRefractoryTime = 0.01
 
     tsOutR2 = rlr.evolve(tsIn, tDuration=0.4)
-    assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
+    assert tsOutR2.times.size < tsOutR.times.size
     for iChannel in range(rlr.nSize):
         assert (
-            np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels == iChannel]) >= 0.01 - fTol
+            np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
     rlr2 = RecIAFRefrTorch(
@@ -348,8 +348,8 @@ def test_reciaf_refr_torch():
     )
     tsOutR3 = rlr2.evolve(tsIn, tDuration=0.4)
 
-    assert (tsOutR2.vtTimeTrace == tsOutR3.vtTimeTrace).all()
-    assert (tsOutR2.vnChannels == tsOutR3.vnChannels).all()
+    assert (tsOutR2.times == tsOutR3.times).all()
+    assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
     mfWTarget = rl.mfW.copy()
@@ -376,7 +376,7 @@ def test_reciaf_spkin_refr_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
 
     mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
     mfWRec = 0.001 * np.random.randn(nSize, nSize)
@@ -389,8 +389,8 @@ def test_reciaf_spkin_refr_torch():
     tsOutR = rlr.evolve(tsIn, tDuration=0.08)
     assert rlr.t == 0.08
     assert (vStateBefore != rlr.vState).any()
-    assert (tsOut.vtTimeTrace == tsOutR.vtTimeTrace).all()
-    assert (tsOut.vnChannels == tsOutR.vnChannels).all()
+    assert (tsOut.times == tsOutR.times).all()
+    assert (tsOut.channels == tsOutR.channels).all()
 
     rlr.reset_all()
     assert rlr.t == 0
@@ -399,10 +399,10 @@ def test_reciaf_spkin_refr_torch():
     rlr.tRefractoryTime = 0.01
 
     tsOutR2 = rlr.evolve(tsIn, tDuration=0.08)
-    assert tsOutR2.vtTimeTrace.size < tsOutR.vtTimeTrace.size
+    assert tsOutR2.times.size < tsOutR.times.size
     for iChannel in range(rlr.nSize):
         assert (
-            np.diff(tsOutR2.vtTimeTrace[tsOutR2.vnChannels == iChannel]) >= 0.01 - fTol
+            np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
     rlr2 = RecIAFSpkInRefrTorch(
@@ -410,8 +410,8 @@ def test_reciaf_spkin_refr_torch():
     )
     tsOutR3 = rlr2.evolve(tsIn, tDuration=0.08)
 
-    assert (tsOutR2.vtTimeTrace == tsOutR3.vtTimeTrace).all()
-    assert (tsOutR2.vnChannels == tsOutR3.vnChannels).all()
+    assert (tsOutR2.times == tsOutR3.times).all()
+    assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
     mfWTarget = rl.mfW.copy()
@@ -437,7 +437,7 @@ def test_reciaf_spkin_refr_cl_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, nNumChannels=nSizeIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
 
     mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
     mfWRec = 0.001 * np.random.randn(nSize, nSize)

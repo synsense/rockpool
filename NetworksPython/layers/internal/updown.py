@@ -205,18 +205,18 @@ class FFUpDown(Layer):
         # self.tsRecord = TSContinuous(self.tDt * (np.arange(nNumTimeSteps) + self._nTimeStep), mfRecord)
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * self.tDt
-        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._nTimeStep * self.tDt
+        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
 
         # - Output time series
         vtSpikeTimes = (vnTSSpike + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=np.clip(vtSpikeTimes, tStart, tStop),  # Clip due to possible numerical errors,
-            vnChannels=vnSpikeIDs,
-            nNumChannels=2 * self.nSizeIn * self._nMultiChannel,
-            strName="Spikes from analogue",
-            tStart=tStart,
-            tStop=tStop,
+            times=np.clip(vtSpikeTimes, t_start, t_stop),  # Clip due to possible numerical errors,
+            channels=vnSpikeIDs,
+            num_channels=2 * self.nSizeIn * self._nMultiChannel,
+            name="Spikes from analogue",
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
         # - Update time

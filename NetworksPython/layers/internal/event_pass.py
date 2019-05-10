@@ -60,15 +60,15 @@ class PassThroughEvents(Layer):
         tEnd = self.t + self.tDt * nNumTimeSteps
 
         # - Handle empty inputs
-        if tsInput is None or tsInput.vtTimeTrace.size == 0:
+        if tsInput is None or tsInput.times.size == 0:
             return TSEvent(
-                None, None, nNumChannels=self.nSize
-            )  # , tStart=self.t, tStop=tEnd)
+                None, None, num_channels=self.nSize
+            )  # , t_start=self.t, t_stop=tEnd)
 
-        nNumInputEvents = tsInput.vtTimeTrace.size
+        nNumInputEvents = tsInput.times.size
         # - Boolean raster of input events - each row corresponds to one event (not timepoint)
         mbInputChannelRaster = np.zeros((nNumInputEvents, self.nSizeIn), bool)
-        mbInputChannelRaster[np.arange(nNumInputEvents), tsInput.vnChannels] = True
+        mbInputChannelRaster[np.arange(nNumInputEvents), tsInput.channels] = True
         # - Integer raster of output events with number of occurences
         #   Each row corresponds to one input event (not timepoint)
         mnOutputChannelRaster = mbInputChannelRaster @ self.mnW
@@ -83,16 +83,16 @@ class PassThroughEvents(Layer):
         # - Output time trace consits of elements from input time trace
         #   repeated by the number of output events they result in
         vnNumOutputEventsPerInputEvent = np.sum(mnOutputChannelRaster, axis=1)
-        vtTimeTraceOut = np.repeat(tsInput.vtTimeTrace, vnNumOutputEventsPerInputEvent)
+        vtTimeTraceOut = np.repeat(tsInput.times, vnNumOutputEventsPerInputEvent)
 
         # - Output time series
         tseOut = TSEvent(
-            vtTimeTrace=vtTimeTraceOut,
-            vnChannels=vnChannelsOut,
-            nNumChannels=self.nSize,
-            # tStart=self.t,
-            # tStop=tEnd,
-            strName="transformed event raster",
+            times=vtTimeTraceOut,
+            channels=vnChannelsOut,
+            num_channels=self.nSize,
+            # t_start=self.t,
+            # t_stop=tEnd,
+            name="transformed event raster",
         )
 
         # - Update clock

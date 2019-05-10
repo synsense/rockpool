@@ -129,13 +129,13 @@ class CLIAF(Layer):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t
+                    tDuration = tsInput.t_stop - self.t
                     assert tDuration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -153,11 +153,11 @@ class CLIAF(Layer):
         # - Extract spike timings and channels
         if tsInput is not None:
             # Extract spike data from the input variable
-            __, __, mfSpikeRaster, __ = tsInput.raster(
-                tDt=self.tDt,
-                tStart=self.t,
-                tStop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                vnSelectChannels=np.arange(self.nSizeIn),
+            mfSpikeRaster = tsInput.raster(
+                dt=self.tDt,
+                t_start=self.t,
+                t_stop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
+                channels=np.arange(self.nSizeIn),
             )
             # - Make sure size is correct
             mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
@@ -423,18 +423,18 @@ class FFCLIAF(CLIAF):
         self._vState = vState
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * self.tDt
-        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._nTimeStep * self.tDt
+        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
-            vtTimeTrace=np.clip(
-                ltSpikeTimes, tStart, tStop
+            times=np.clip(
+                ltSpikeTimes, t_start, t_stop
             ),  # Clip due to possible numerical errors,
-            vnChannels=liSpikeIDs,
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            channels=liSpikeIDs,
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
         # Update time
@@ -694,19 +694,18 @@ class RecCLIAF(CLIAF):
         self._vnTSUntilRefrEnds = vnTSUntilRefrEnds
 
         # - Start and stop times for output time series
-        tStart = self._nTimeStep * self.tDt
-        tStop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._nTimeStep * self.tDt
+        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
 
         # Generate output sime series
         vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._nTimeStep) * self.tDt
         tseOut = TSEvent(
-            vtTimeTrace=np.clip(
-                vtSpikeTimes, tStart, tStop
-            ),  # Clip due to possible numerical errors,
-            vnChannels=liSpikeIDs,
-            nNumChannels=self.nSize,
-            tStart=tStart,
-            tStop=tStop,
+            # Clip due to possible numerical errors,
+            times=np.clip(vtSpikeTimes, t_start, t_stop),
+            channels=liSpikeIDs,
+            num_channels=self.nSize,
+            t_start=t_start,
+            t_stop=t_stop,
         )
 
         if vnIdMonitor is not None:

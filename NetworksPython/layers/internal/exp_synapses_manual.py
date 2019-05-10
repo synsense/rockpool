@@ -117,13 +117,13 @@ class FFExpSyn(Layer):
                     self.strName
                 )
 
-                if tsInput.bPeriodic:
+                if tsInput.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.tDuration
+                    tDuration = tsInput.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.tStop - self.t + self.tDt
+                    tDuration = tsInput.t_stop - self.t + self.tDt
                     assert tDuration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
                             self.strName
@@ -141,13 +141,12 @@ class FFExpSyn(Layer):
         if tsInput is not None:
             # Extract spike data from the input variable
             mnSpikeRaster = tsInput.raster(
-                tDt=self.tDt,
-                tStart=self.t,
-                nNumTimeSteps=nNumTimeSteps,
-                vnSelectChannels=np.arange(self.nSizeIn),
-                bSamples=False,
-                bAddEvents=self.bAddEvents,
-            )[2].astype(float)
+                dt=self.tDt,
+                t_start=self.t,
+                num_timesteps=nNumTimeSteps,
+                channels=np.arange(self.nSizeIn),
+                add_events=self.bAddEvents,
+            ).astype(float)
 
         else:
             mnSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
@@ -217,7 +216,7 @@ class FFExpSyn(Layer):
 
         # - Output time series with output data and bias
         return TSContinuous(
-            vtTimeBase, mfFiltered + self.vfBias, strName="Receiver current"
+            vtTimeBase, mfFiltered + self.vfBias, name="Receiver current"
         )
 
     def evolve_train(
@@ -245,7 +244,7 @@ class FFExpSyn(Layer):
         """
 
         # - Prepare input signal
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
         mnInputRaster, nNumTimeSteps = self._prepare_input(
             tsInput, tDuration, nNumTimeSteps
         )
@@ -318,7 +317,7 @@ class FFExpSyn(Layer):
         )
 
         # - Output time series with output data and bias
-        return TSContinuous(vtTimeBase, mfOut, strName="Receiver current")
+        return TSContinuous(vtTimeBase, mfOut, name="Receiver current")
 
     def train_rr(
         self,
@@ -350,15 +349,15 @@ class FFExpSyn(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         if not bFinal:
             # - Discard last sample to avoid counting time points twice
             vtTimeBase = vtTimeBase[:-1]
 
         # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.t_stop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -398,8 +397,8 @@ class FFExpSyn(Layer):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1]]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
@@ -421,13 +420,12 @@ class FFExpSyn(Layer):
             # Extract spike data from the input
             mnSpikeRaster = (
                 tsInput.raster(
-                    tDt=self.tDt,
-                    tStart=vtTimeBase[0],
-                    nNumTimeSteps=vtTimeBase.size,
-                    vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
-                    bAddEvents=self.bAddEvents,
-                )[2]
+                    dt=self.tDt,
+                    t_start=vtTimeBase[0],
+                    num_timesteps=vtTimeBase.size,
+                    channels=np.arange(self.nSizeIn),
+                    add_events=self.bAddEvents,
+                )
             ).astype(float)
 
             if bStoreState and not bFirst:
@@ -515,7 +513,6 @@ class FFExpSyn(Layer):
         bStoreState: bool = True,
         bVerbose: bool = False,
     ):
-
         """
         train_logreg - Train self with logistic regression over one of possibly many batches.
                        Note that this training method assumes that a sigmoid funciton is applied
@@ -533,14 +530,14 @@ class FFExpSyn(Layer):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        nNumTimeSteps = int(np.round(tsTarget.tDuration / self.tDt))
-        vtTimeBase = self._gen_time_trace(tsTarget.tStart, nNumTimeSteps)
+        nNumTimeSteps = int(np.round(tsTarget.duration / self.tDt))
+        vtTimeBase = self._gen_time_trace(tsTarget.t_start, nNumTimeSteps)
 
         # - Discard last sample to avoid counting time points twice
         vtTimeBase = vtTimeBase[:-1]
 
         # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.tStop]
+        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.t_stop]
 
         # - Prepare target data
         mfTarget = tsTarget(vtTimeBase)
@@ -579,8 +576,8 @@ class FFExpSyn(Layer):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels, __ = tsInput.find(
-                [vtTimeBase[0], vtTimeBase[-1]]
+            vtEventTimes, vnEventChannels = tsInput(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
@@ -602,13 +599,12 @@ class FFExpSyn(Layer):
             # Extract spike data from the input
             mnSpikeRaster = (
                 tsInput.raster(
-                    tDt=self.tDt,
-                    tStart=vtTimeBase[0],
-                    nNumTimeSteps=vtTimeBase.size,
-                    vnSelectChannels=np.arange(self.nSizeIn),
-                    bSamples=False,
-                    bAddEvents=self.bAddEvents,
-                )[2]
+                    dt=self.tDt,
+                    t_start=vtTimeBase[0],
+                    num_timesteps=vtTimeBase.size,
+                    channels=np.arange(self.nSizeIn),
+                    add_events=self.bAddEvents,
+                )
             ).astype(float)
 
             if bStoreState:

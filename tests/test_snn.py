@@ -29,7 +29,7 @@ def test_pt_events():
     # - Evolution
     tsOut = lpt.evolve(tsInput)
 
-    assert (tsOut.vnChannels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
+    assert (tsOut.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
         "Output channels incorrect"
     )
 
@@ -63,13 +63,13 @@ def test_cnn_evolve():
     lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(lyrCNN.nSize):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
+        evInput.merge(TSEvent(vSpk, nId), inplace=True)
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
-    print(evOut.find())
+    print(evOut())
 
 
 def test_cnn_evolve_empty():
@@ -87,10 +87,10 @@ def test_cnn_evolve_empty():
     lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input", nNumChannels=lyrCNN.nSize)
+    evInput = TSEvent(None, name="Input", num_channels=lyrCNN.nSize)
     # Evolve
     evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
-    print(evOut.find())
+    print(evOut())
 
 
 
@@ -116,10 +116,10 @@ def test_cnn_multilayer():
     net = Network(*[lyrCnn1, lyrCnn2])
 
     # Generate time series input
-    evInput = TSEvent(None, strName="Input")
+    evInput = TSEvent(None, name="Input")
     for nId in range(imageShape[0] * imageShape[1]):
         vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), bInPlace=True)
+        evInput.merge(TSEvent(vSpk, nId), inplace=True)
     # Evolve
     evOut = net.evolve(tsInput=evInput, tDuration=100)
     print(evOut)
@@ -165,7 +165,7 @@ def test_ffcliaf_evolve_subtracting():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55, 0.7, 0.8], vnChannels=[0, 1, 1])
+    tsInput = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
 
     # - Evolution
     tsOutput = lyrFF.evolve(tsInput, tDuration=0.75)
@@ -177,12 +177,12 @@ def test_ffcliaf_evolve_subtracting():
     #                Second input spike will cause neuron 2 to spike at t=0.7
     #                Last input spike will not have effect because evolution
     #                stops beforehand
-    print(tsOutput.vtTimeTrace)
+    print(tsOutput.times)
     assert np.allclose(
-        tsOutput.vtTimeTrace, np.array([0.6, 0.6, 0.7])
+        tsOutput.times, np.array([0.6, 0.6, 0.7])
     ), "Output spike times not as expected"
     assert (
-        tsOutput.vnChannels == np.array([0, 0, 2])
+        tsOutput.channels == np.array([0, 0, 2])
     ).all(), "Output spike channels not as expected"
 
     # - Reset
@@ -212,7 +212,7 @@ def test_cliaf_evolve_resetting():
     )
 
     # - Input spike
-    tsInput = TSEvent(vtTimeTrace=[0.55, 0.7, 0.8], vnChannels=[0, 1, 1])
+    tsInput = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
 
     # - Evolution
     tsOutput = lyrFF.evolve(tsInput, tDuration=0.8)
@@ -225,10 +225,10 @@ def test_cliaf_evolve_resetting():
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     assert np.allclose(
-        tsOutput.vtTimeTrace, np.array([0.6, 0.7])
+        tsOutput.times, np.array([0.6, 0.7])
     ), "Output spike times not as expected"
     assert (
-        tsOutput.vnChannels == np.array([0, 2])
+        tsOutput.channels == np.array([0, 2])
     ).all(), "Output spike channels not as expected"
 
     # - Reset
