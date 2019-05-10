@@ -1,11 +1,12 @@
 unittests:
-  image: aictx/alpine-python:latest
+  image: aictx/arch-python:latest
   tags:
     - python
     - aiCTX
 
   before_script:
-  - pip3 install .
+  - pip install --upgrade pip
+  - pip install . --no-cache-dir
 
   script:
-    - pytest
+    - pytest 
