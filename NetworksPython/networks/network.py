@@ -17,7 +17,7 @@ except ImportError:
 
 from typing import Callable, Union
 
-from ..timeseries import TimeSeries, TSContinuous, TSEvent
+from ..timeseries import TimeSeries
 from ..layers import Layer
 
 RealValue = Union[float, Decimal, str]
@@ -26,7 +26,7 @@ RealValue = Union[float, Decimal, str]
 __all__ = ["Network"]
 
 # - Relative tolerance for float comparisons
-fTolRel = 1e-5
+fTolRel = 1e-7
 fTolAbs = 1e-10
 
 ### --- Helper functions
@@ -68,7 +68,7 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
     """ lcm - Return the least common multiple of two values a and b"""
     a = Decimal(str(np.round(float(a) / fTolRel)))
     b = Decimal(str(np.round(float(b) / fTolRel)))
-    return a / gcd(a, b) * b * Decimal(fTolRel)
+    return a / gcd(a, b) * b * Decimal(str(fTolRel))
 
 
 ### --- Network class
