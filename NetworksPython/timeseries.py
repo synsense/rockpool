@@ -46,23 +46,26 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 _TOLERANCE_ABSOLUTE = 1e-9
 
 # - Global plotting backend
-def set_plotting_backend(backend: Union[str, None]):
+def set_plotting_backend(backend: Union[str, None], verbose=True):
     if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
         if _HV_AVAILABLE:
             _global_plotting_backend = "holoViews"
-            print("Global plotting backend has been set to holoviews.")
+            if verbose:
+                print("Global plotting backend has been set to holoviews.")
         else:
             raise RuntimeError("Holoviews is not available.")
     elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
         if _MPL_AVAILABLE:
             _global_plotting_backend = "matplotlib"
-            print("Global plotting backend has been set to matplotlib.")
+            if verbose:
+                print("Global plotting backend has been set to matplotlib.")
         else:
             raise RuntimeError("Matplotlib is not available.")
 
     elif backend is None:
         _global_plotting_backend = None
-        print("No global plotting backend is set.")
+        if verbose:
+            print("No global plotting backend is set.")
 
     else:
         raise ValueError("Plotting backend not recognized.")
@@ -157,7 +160,8 @@ class TimeSeries:
         self.set_plotting_backend(
             plotting_backend
             if plotting_backend is not None
-            else _global_plotting_backend
+            else _global_plotting_backend,
+            verbose=False,
         )
 
     def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
@@ -199,36 +203,39 @@ class TimeSeries:
         """print - Print an overview of the time series."""
         print(self.__repr__())
 
-    def set_plotting_backend(self, backend: Union[str, None]):
+    def set_plotting_backend(self, backend: Union[str, None], verbose=True):
         if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
             if _HV_AVAILABLE:
                 self._plotting_backend = "holoViews"
-                print(
-                    "{} `{}`: Plotting backend has been set to holoviews.".format(
-                        type(self).__name__, self.name
+                if verbose:
+                    print(
+                        "{} `{}`: Plotting backend has been set to holoviews.".format(
+                            type(self).__name__, self.name
+                        )
                     )
-                )
             else:
                 raise RuntimeError("Holoviews is not available.")
 
         elif backend in ("matplotlib", "mpl", "mp", "pyplot", "plt"):
             if _MPL_AVAILABLE:
                 self._plotting_backend = "matplotlib"
-                print(
-                    "{} `{}`: Plotting backend has been set to matplotlib.".format(
-                        type(self).__name__, self.name
+                if verbose:
+                    print(
+                        "{} `{}`: Plotting backend has been set to matplotlib.".format(
+                            type(self).__name__, self.name
+                        )
                     )
-                )
             else:
                 raise RuntimeError("Matplotlib is not available.")
 
         elif backend is None:
             self._plotting_backend = None
-            print(
-                "{} `{}`: No plotting backend is set.".format(
-                    type(self).__name__, self.name
+            if verbose:
+                print(
+                    "{} `{}`: No plotting backend is set.".format(
+                        type(self).__name__, self.name
+                    )
                 )
-            )
 
         else:
             raise ValueError("Plotting backend not recognized.")
@@ -582,7 +589,7 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
         include_stop: bool = True,
-        sample_limits: bool = False,
+        sample_limits: bool = True,
         inplace: bool = False,
     ) -> "TSContinuous":
         """
