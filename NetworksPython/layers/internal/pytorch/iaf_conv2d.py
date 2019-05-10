@@ -89,6 +89,7 @@ class TorchSpikingConv2dLayer(nn.Module):
             self.tsrState.zero_()
 
     def forward(self, tsrBinaryInput):
+        self.inShape = tuple(tsrBinaryInput.shape)
         # Determine no. of time steps from input
         nNumTimeSteps = len(tsrBinaryInput)
 
@@ -161,7 +162,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         summary = pd.Series(
             {
                 "Layer": self.strName,
-                "Output Shape": (tuple(self.outShape)),
+                "Output Shape": tuple(self.outShape),
                 "Padding": tuple(self.padding),
                 "Kernel": tuple(self.kernel_size),
                 "Stride": tuple(self.strides),
