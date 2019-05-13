@@ -13,50 +13,54 @@ import time
 import os
 import copy
 import threading
-from .params import (
-    SRAM_EVENT_LIMIT,
-    FPGA_EVENT_LIMIT,
-    FPGA_ISI_LIMIT,
-    FPGA_TIMESTEP,
-    CORE_DIMENSIONS,
-    NUM_NEURONS_CORE,
-    NUM_CORES_CHIP,
-    NUM_CHIPS,
-)
-from . import telefunctions
-from . import remotefunctions
+
+from . import params
 
 # - Global settings
 _USE_DEEPCOPY = False
 RPYC_TIMEOUT = 300
 # - Default values, can be changed
 DEF_FPGA_ISI_BASE = 2e-5  # Default timestep between events sent to FPGA
-DEF_FPGA_ISI_MULTIPLIER = int(np.round(DEF_FPGA_ISI_BASE / FPGA_TIMESTEP))
-# - Chips to be initialized for use
-USE_CHIPS = [0]
+DEF_FPGA_ISI_MULTIPLIER = int(np.round(DEF_FPGA_ISI_BASE / params.FPGA_TIMESTEP))
+USE_CHIPS = [0]  # Chips to be initialized for use
 
 
 ## -- Import cortexcontrol modules or establish connection via RPyC
 try:
     import CtxDynapse as ctxdynapse
     import NeuronNeuronConnector as nnconnector
+    import tools
+    import params
 
     _USE_RPYC = False
-    # - Keep track of which chips have been initialized
-    initialized_chips = []
-    initialized_neurons = []
-    # - Include ctxdynapse and nnconnector in namespace of telefuncitons
-    telefunctions.ctxdynapse = ctxdynapse
-    telefunctions.nnconnector = nnconnector
-
 except ModuleNotFoundError:
     # - Try with RPyC
     import rpyc
 
     _USE_RPYC = True
 
+# # - Keep track of which chips have been initialized
+# initialized_chips = []
+# initialized_neurons = []
+# print(initialized_chips)
 
-def connect_rpyc(port=Union[int, str, None]):
+
+class ensure_defined:
+    def __enter__(self, obj):
+        try:
+            obj
+        except NameError as e:
+            raise NameError(
+                "dynapse_control: "
+                + e
+                + ". Run `setup_rpyc` with your RPyC connection as argument."
+            )
+
+    def __exit__(self, type, value, traceback):
+        pass
+
+
+def connect_rpyc(port: Union[int, str, None] = None):
     if not _USE_RPYC:
         raise RuntimeError(
             "dynapse_control: Connection to RPyC only possible from outside cortexcontrol"
@@ -65,10 +69,11 @@ def connect_rpyc(port=Union[int, str, None]):
     try:
         if port is None:
             try:
-                connection = rpyc.classic.connect("localhost", "1300")
                 port = "1300"
+                connection = rpyc.classic.connect("localhost", "1300")
             except (TimeoutError, ConnectionRefusedError):
                 # - Connection with port 1300 is either occupied or does not exist
+                port = "1300 or 1301"  # This is just for print statements
                 connection = rpyc.classic.connect("localhost", "1301")
                 port = "1301"
         else:
@@ -93,14 +98,12 @@ def connect_rpyc(port=Union[int, str, None]):
 def setup_rpyc_namespace(connection):
     # - Setup parameters on RPyC server
     connection.namespace["_USE_RPYC"] = True
-    connection.namespace["NUM_NEURONS_CORE"] = NUM_NEURONS_CORE
-    connection.namespace["NUM_CORES_CHIP"] = NUM_CORES_CHIP
-    connection.namespace["NUM_NEURONS_CHIP"] = NUM_NEURONS_CHIP
-    connection.namespace["NUM_CHIPS"] = NUM_CHIPS
     connection.namespace["copy"] = connection.modules.copy
     connection.namespace["os"] = connection.modules.os
     connection.namespace["ctxdynapse"] = connection.modules.CtxDynapse
     connection.namespace["rpyc"] = connection.modules.rpyc
+    connection.namespace["tools"] = connection.modules.tools
+    connection.namespace["params"] = connection.modules.params
     if "initialized_chips" not in connection.namespace.keys():
         connection.namespace["initialized_chips"] = []
     if "initialized_neurons" not in connection.namespace.keys():
@@ -109,26 +112,86 @@ def setup_rpyc_namespace(connection):
     print("dynapse_control: RPyC namespace complete.")
 
 
-def set_remote_fcts_rpyc(connection):
-    for name_fct in remotefunctions.__all__:
-        func = rpyc.classic.teleport_function(
-            connection, remotefunctions.__dict__[name_fct]
+def initialize_hardware(
+    use_chips: List = [],
+    connection: Optional["rpyc.core.protocol.Connection"] = None,
+    enforce: bool = False,
+):
+    print("dynapse_control: Initializing hardware...", end="\r")
+    if not _USE_RPYC:
+        tools.clear_chips(use_chips)
+        # - Update lists of initialized chips and neurons
+        global initialized_chips, initialized_neurons
+        cleared_chips = set(use_chips).difference(initialized_chips)
+        initialized_chips = sorted(initialized_chips + cleared_chips)
+        initialized_neurons += [
+            neuron
+            for chip in cleared_chips
+            for neuron in range(NUM_NEURONS_CHIP * chip, NUM_NEURONS_CHIP * (chip + 1))
+        ]
+        print(
+            f"dynapse_control: Chips {', '.join((str(chip) for chip in do_chips))} have been cleared."
         )
-        conn.namespace["remotefunctions." + name_fct] = func
-        remotefunctions.__dict__[name_fct] = func
+    else:
+        # - If using rpyc, make sure, connection is given
+        if connection is None:
+            raise TypeError(
+                "dynapse_control: If using RPyC, `conneciton` argument cannot be `None`."
+            )
+        else:
+            # - Chips that have already been initialized. If `initialized_chips`
+            #   doesn't exist, assume that no chips have been initialized yet.
+            initialized_chips = connection.namespace.get("initialized_chips", [])
+            # - Find chips that are to be used and have not been initialized yet.
+            if enforce:
+                do_chips = use_chips
+            else:
+                do_chips = list(set(use_chips).difference(initialized_chips))
+            already_done = list(set(use_chips).difference(do_chips))
+            # - Clear those chips and add them to list of initialized chips.
+            connection.modules.tools.clear_chips(do_chips)
+            connection.namespace["initialized_chips"] = initialized_chips + do_chips
+            # - Also update list of initialized neurons
+            initialized_neurons = connection.namespace.get("initialized_neurons", [])
+            initialized_neurons += [
+                neuron_id
+                for chip_id in do_chips
+                for neuron_id in range(
+                    params.NUM_NEURONS_CHIP * chip_id,
+                    params.NUM_NEURONS_CHIP * (chip_id + 1),
+                )
+            ]
+            connection.namespace["initialized_neurons"] = initialized_neurons
+            # - Print which chips have been cleared.
+            print_statement = "dynapse_control: Chips {} have been cleared.".format(
+                ", ".join((str(chip) for chip in do_chips))
+            )
+            if already_done:
+                print_statement += " Chips {} had been cleared previously.".format(
+                    ", ".join((str(chip) for chip in already_done))
+                )
+            print(print_statement)
 
-    print("dynapse_control: Remote functions have been set.")
 
-
-def teleport_fcts_rpyc(connection):
-    # - Include ctxdynapse and nnconnector in namespace of telefuncitons
-    telefunctions.ctxdynapse = ctxdynapse
-    telefunctions.nnconnector = nnconnector
-    # - Teleport functions and set references in telefunctions module
-    for name_fct in telefunctions.__all__:
-        telefunctions.__dict__[name_fct] = rpyc.classic.teleport_function(
-            connection, telefunctions.__dict__[name_fct]
-        )
+def setup_rpyc(
+    port: Union["rpyc.core.protocol.Connection", int, str, None] = None,
+    clear_chips: Optional[List] = USE_CHIPS,
+):
+    connection = (
+        port if isinstance(port, rpyc.core.protocol.Connection) else connect_rpyc(port)
+    )
+    setup_rpyc_namespace(connection)
+    if clear_chips is not None:
+        initialize_hardware(clear_chips, connection, enforce=False)
+    # - Make same objects available as when working wihtin cortexcontrol
+    global tools, params, ctxdynapse, nnconnector, initialized_chips, initialized_neurons
+    tools = connection.modules.tools
+    params = connection.modules.params
+    ctxdynapse = connection.modules.CtxDynapse
+    nnconnector = connection.modules.NeuronNeuronConnector
+    initialized_chips = connection.namespace["initialized_chips"]
+    initialized_neurons = connection.namespace["initialized_neurons"]
+    print("dynapse_control: RPyC connection has been setup successfully.")
 
 
 def connectivity_matrix_to_prepost_lists(
@@ -177,7 +240,7 @@ def rectangular_neuron_arrangement(
     first_neuron: int,
     num_neurons: int,
     width: int,
-    core_dimensions: tuple = CORE_DIMENSIONS,
+    core_dimensions: tuple = params.CORE_DIMENSIONS,
 ) -> List[int]:
     """
     rectangular_neuron_arrangement: return neurons that form a rectangle on the chip
@@ -265,7 +328,8 @@ def evaluate_firing_rates(
         rate_min       float - Lowest firing rate of all neurons
     """
     # - Extract event timestamps and neuron IDs
-    timestamps, event_neuron_ids = telefunctions.extract_event_data(events)
+    with ensure_defined(tools):
+        timestamps, event_neuron_ids = tools.extract_event_data(events)
     # - Count events for each neuron
     unique_event_ids, event_counts = np.unique(event_neuron_ids, return_counts=True)
 
@@ -328,7 +392,9 @@ def event_data_to_channels(
     """
     timestamps: tuple
     neuron_ids: tuple
-    timestamps, neuron_ids = telefunctions.extract_event_data(events)
+
+    with ensure_defined(tools):
+        timestamps, neuron_ids = tools.extract_event_data(events)
     # - Convert to numpy array and thereby fetch data from connection if using RPyC
     timestamps = np.array(timestamps)
     neuron_ids = np.array(neuron_ids)
@@ -381,7 +447,7 @@ def correct_type(obj):
     return obj
 
 
-def correct_argument_types_and_teleport(func):
+def correct_argument_types_and_teleport(conn, func):
     """
     correct_argument_types_and_teleport -  Wrapper for functions that tries to
             correct argument types that are not supported by cortexcontrol and
@@ -412,10 +478,10 @@ def correct_argument_types_and_teleport(func):
 def correct_argument_types(func):
     """
     correct_argument_types - If _USE_RPYC is not False, try changing the
-                             arguments to a function to types that are
+                             arguments of a function to types that are
                              supported by cortexcontrol
-    :param func:    funciton where arguments should be corrected
-    :return:        functions with possibly corrected arguments
+    :param func:    function whose arguments should be corrected
+    :return:        function with possibly corrected arguments
     """
     if _USE_RPYC:
 
@@ -434,7 +500,7 @@ def correct_argument_types(func):
         return func
 
 
-def teleport_function(func):
+def teleport_function(conn, func):
     """
     telport_function - Decorator. If using RPyC, then teleport the resulting function
 
@@ -451,7 +517,7 @@ def teleport_function(func):
         return func
 
 
-def remote_function(func):
+def remote_function(conn, func):
     """
     remote_function - If using RPyC then teleport the resulting function and
                       and register it in the remote namespace.
@@ -470,36 +536,22 @@ def remote_function(func):
         return func
 
 
-# # TODO
-# _silence_neurons = correct_argument_types(telefunctions._define_silence_neurons())
-
-# _reset_silencing = correct_argument_types(telefunctions._define_reset_silencing())
-
-
-# - Clear hardware configuration at startup
-print("dynapse_control: Initializing hardware.")
-if not _USE_RPYC or not set(USE_CHIPS).issubset(conn.namespace["initialized_chips"]):
-    telefunctions.clear_chips(USE_CHIPS)
-    print("dynapse_control: Hardware initialized.")
-else:
-    print("dynapse_control: Hardware has already been initialized.")
-
-
 class DynapseControl:
 
-    _sram_event_limit = SRAM_EVENT_LIMIT
-    _fpga_event_limit = FPGA_EVENT_LIMIT
-    _fpga_isi_limit = FPGA_ISI_LIMIT
-    _fpga_timestep = FPGA_TIMESTEP
-    _num_neur_core = NUM_NEURONS_CORE
-    _num_cores_chip = NUM_CORES_CHIP
-    _num_chips = NUM_CHIPS
+    _sram_event_limit = params.SRAM_EVENT_LIMIT
+    _fpga_event_limit = params.FPGA_EVENT_LIMIT
+    _fpga_isi_limit = params.FPGA_ISI_LIMIT
+    _fpga_timestep = params.FPGA_TIMESTEP
+    _num_neur_core = params.NUM_NEURONS_CORE
+    _num_cores_chip = params.NUM_CORES_CHIP
+    _num_chips = params.NUM_CHIPS
 
     def __init__(
         self,
         fpga_isibase: float = DEF_FPGA_ISI_BASE,
         clearcores_list: Optional[list] = None,
-        rpyc_connection: Union[None, str, int, rpyc.core.protocol.Connection] = None,
+        rpyc_connection: Union[None, str, int, "rpyc.core.protocol.Connection"] = None,
+        clear_chips: Optional[List] = USE_CHIPS,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
@@ -510,31 +562,26 @@ class DynapseControl:
 
         # - Store pointer to ctxdynapse and nnconnector modules
         if _USE_RPYC:
-            if not isinstance(rpyc_connection, rpyc.core.protocol.Connection):
-                rpyc_connection = connect_rpyc(rpyc_connection)
+            # - Set up connection. Make sure rpyc namespace is complete and hardware initialized.
+            self.rpyc_connection = setup_rpyc(rpyc_connection, clear_chips=clear_chips)
             self.rpyc_connection = rpyc_connection
-            # - Make sure funcitons are defined in cortexcontrol
-            set_remote_fcts_rpyc(self.rpyc_connection)
-            teleport_fcts_rpyc(self.rpyc_connection)
-            self.ctxdynapse: ModuleType = rpyc_connection.modules.ctxdynapse
-            self.nnconnector: ModuleType = rpyc_connection.modules.NeuronNeuronConnector
         else:
             self.rpyc_connection = None
-            self.ctxdynapse = ctxdynapse
-            self.nnconnector = nnconnector
+            if clear_chips:
+                initialize_hardware(clear_chips)
 
         print("DynapseControl: Initializing DynapSE")
 
         # - Chip model and virtual model
-        self.model = self.ctxdynapse.model
-        self.virtual_model = self.ctxdynapse.VirtualModel()
+        self.model = ctxdynapse.model
+        self.virtual_model = ctxdynapse.VirtualModel()
 
         ## -- Modules for sending input to FPGA
         fpga_modules = self.model.get_fpga_modules()
 
         # - Find a spike generator module
         is_spikegen: List[bool] = [
-            isinstance(m, self.ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
+            isinstance(m, ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
         ]
         if not np.any(is_spikegen):
             # There is no spike generator, so we can't use this Python layer on the HW
@@ -548,7 +595,7 @@ class DynapseControl:
 
         # - Find a poisson spike generator module
         is_poissongen: List[bool] = [
-            isinstance(m, self.ctxdynapse.DynapsePoissonGen) for m in fpga_modules
+            isinstance(m, ctxdynapse.DynapsePoissonGen) for m in fpga_modules
         ]
         if np.any(is_poissongen):
             self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
@@ -558,7 +605,7 @@ class DynapseControl:
             )
 
         # - Get all neurons from models
-        self.hw_neurons, self.virtual_neurons, self.shadow_neurons = telefunctions.get_all_neurons(
+        self.hw_neurons, self.virtual_neurons, self.shadow_neurons = tools.get_all_neurons(
             self.model, self.virtual_model
         )
 
@@ -603,8 +650,8 @@ class DynapseControl:
         :param core_ids:  list or None  IDs of cores where configurations
                                          should be cleared (0-15).
         """
-        # - Use `_reset_connections` function
-        telefunctions._reset_connections(core_ids)
+        # - Use `reset_connections` function
+        tools.reset_connections(core_ids)
         print(
             "DynapseControl: Connections to cores {} have been cleared.".format(
                 core_ids
@@ -619,7 +666,7 @@ class DynapseControl:
                           neurons in self._is_silenced.
         :param neuron_ids:  list  IDs of neurons to be silenced
         """
-        _silence_neurons(neuron_ids)
+        tools.silence_neurons(neuron_ids)
         # - Mark that neurons have been silenced
         self._is_silenced[neuron_ids] = True
         print("DynapseControl: {} neurons have been silenced.".format(len(neuron_ids)))
@@ -633,7 +680,7 @@ class DynapseControl:
         """
         if isinstance(core_ids, int):
             core_ids = (core_ids,)
-        _reset_silencing(core_ids)
+        tools.reset_silencing(core_ids)
         # - Mark that neurons are not silenced anymore
         for id_neur in core_ids:
             self._is_silenced[
@@ -686,7 +733,7 @@ class DynapseControl:
         # - Hardware neurons
         hwneurons_isfree = np.zeros(len(self.hw_neurons), bool)
         # Only use chips that have previously been initialized (i.e. cleared)
-        for chip_id in conn.namespace["initialized_chips"]:
+        for chip_id in initialized_chips:
             hwneurons_isfree[
                 self.num_neur_chip * chip_id : self.num_neur_chip * (chip_id + 1)
             ] = True
@@ -869,7 +916,7 @@ class DynapseControl:
             syntypes = list(syntypes)
 
         # - Set connections
-        telefunctions.set_connections(
+        tools.set_connections(
             preneuron_ids=list(virtualneuron_ids),
             postneuron_ids=list(neuron_ids),
             syntypes=syntypes,
@@ -886,8 +933,8 @@ class DynapseControl:
         weights: np.ndarray,
         virtualneuron_ids: np.ndarray,
         hwneuron_ids: np.ndarray,
-        syn_exc: CtxDynapse.DynapseCamType,
-        syn_inh: CtxDynapse.DynapseCamType,
+        syn_exc: "ctxdynapse.DynapseCamType",
+        syn_inh: "ctxdynapse.DynapseCamType",
         apply_diff: bool = True,
     ):
         """
@@ -917,7 +964,7 @@ class DynapseControl:
         postneur_ids_inh = [int(hwneuron_ids[i]) for i in postsyn_inh_list]
 
         # - Set excitatory connections
-        telefunctions.set_connections(
+        tools.set_connections(
             preneuron_ids=preneur_ids_exc,
             postneuron_ids=postneur_ids_exc,
             syntypes=[syn_exc],
@@ -932,7 +979,7 @@ class DynapseControl:
             + " from virtual neurons to hardware neurons have been set."
         )
         # - Set inhibitory connections
-        telefunctions.set_connections(
+        tools.set_connections(
             preneuron_ids=preneur_ids_inh,
             postneuron_ids=postneur_ids_inh,
             syntypes=[syn_inh],
@@ -955,8 +1002,8 @@ class DynapseControl:
         self,
         weights: np.ndarray,
         hwneuron_ids: np.ndarray,
-        syn_exc: CtxDynapse.DynapseCamType,
-        syn_inh: CtxDynapse.DynapseCamType,
+        syn_exc: "ctxdynapse.DynapseCamType",
+        syn_inh: "ctxdynapse.DynapseCamType",
         apply_diff: bool = True,
     ):
         """
@@ -987,7 +1034,7 @@ class DynapseControl:
         postneur_ids_inh = [int(hwneuron_ids[i]) for i in postsyn_inh_list]
 
         # - Set excitatory input connections
-        telefunctions.set_connections(
+        tools.set_connections(
             preneuron_ids=preneur_ids_exc,
             postneuron_ids=postneur_ids_exc,
             syntypes=[syn_exc],
@@ -1002,7 +1049,7 @@ class DynapseControl:
             + " between hardware neurons have been set."
         )
         # - Set inhibitory input connections
-        telefunctions.set_connections(
+        tools.set_connections(
             preneuron_ids=preneur_ids_inh,
             postneuron_ids=postneur_ids_inh,
             syntypes=[syn_inh],
@@ -1036,7 +1083,7 @@ class DynapseControl:
         neuron_ids = [int(id_neur) for id_neur in np.asarray(neuron_ids)]
 
         # - Call `remove_all_connections_to` function
-        telefunctions.remove_all_connections_to(neuron_ids, self.model, apply_diff)
+        tools.remove_all_connections_to(neuron_ids, self.model, apply_diff)
 
     ### --- Stimulation and event generation
 
@@ -1097,7 +1144,7 @@ class DynapseControl:
 
         print("DynapseControl: Generating FPGA event list from arrays.")
         # - Convert events to an FpgaSpikeEvent
-        events = telefunctions.generate_fpga_event_list(
+        events = tools.generate_fpga_event_list(
             # Make sure that no np.int64 or other non-native type is passed
             [int(isi) for isi in discrete_isi_list],
             [int(neuron_ids[i]) for i in channels],
@@ -1138,7 +1185,7 @@ class DynapseControl:
 
         # - Generate events
         # List for events to be sent to fpga
-        events = telefunctions.generate_fpga_event_list(
+        events = tools.generate_fpga_event_list(
             isistep_list, neuron_ids, int(coremask), int(chip_id)
         )
         self.fpga_spikegen.preload_stimulus(events)
@@ -1542,7 +1589,7 @@ class DynapseControl:
             self.bufferedfilter.add_ids(record_neuron_ids)
             print("DynapseControl: Updated existing buffered event filter.")
         else:
-            self.bufferedfilter = telefunctions._generate_buffered_filter(
+            self.bufferedfilter = tools.generate_buffered_filter(
                 self.model, record_neuron_ids
             )
             print("DynapseControl: Generated new buffered event filter.")
@@ -1781,38 +1828,38 @@ class DynapseControl:
     def load_biases(filename, core_ids: Optional[Union[list, int]] = None):
         """
         load_biases - Load biases from python file under path filename.
-                      Convenience function. Same load_biases from telefunctions.
+                      Convenience function. Same load_biases from tools.
         :param filename:  str  Path to file where biases are stored.
         :param core_ids:    list, int or None  IDs of cores for which biases
                                                 should be loaded. Load all if
                                                 None.
         """
-        telefunctions.load_biases(os.path.abspath(filename), core_ids)
+        tools.load_biases(os.path.abspath(filename), core_ids)
         print("DynapseControl: Biases have been loaded from {}.".format(filename))
 
     @staticmethod
     def save_biases(filename, core_ids: Optional[Union[list, int]] = None):
         """
         save_biases - Save biases in python file under path filename
-                      Convenience function. Same as save_biases from telefunctions.
+                      Convenience function. Same as save_biases from tools.
         :param filename:  str  Path to file where biases should be saved.
         :param core_ids:    list, int or None  ID(s) of cores whose biases
                                                 should be saved. If None,
                                                 save all cores.
         """
-        telefunctions.save_biases(os.path.abspath(filename), core_ids)
+        tools.save_biases(os.path.abspath(filename), core_ids)
         print("DynapseControl: Biases have been saved under {}.".format(filename))
 
     @staticmethod
     def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = None):
         """
         copy_biases - Copy biases from one core to one or more other cores.
-                      Convenience function. Same as copy_biases from telefunctions.
+                      Convenience function. Same as copy_biases from tools.
         :param sourcecore_id:   int  ID of core from which biases are copied
         :param vnTargetCoreIDs: int or array-like ID(s) of core(s) to which biases are copied
                                 If None, will copy to all other neurons
         """
-        telefunctions.copy_biases(sourcecore_id, targetcore_ids)
+        tools.copy_biases(sourcecore_id, targetcore_ids)
         print(
             "DynapseControl: Biases have been copied from core {} to core(s) {}".format(
                 sourcecore_id, targetcore_ids
@@ -1823,19 +1870,19 @@ class DynapseControl:
 
     @property
     def syn_exc_slow(self):
-        return self.ctxdynapse.DynapseCamType.SLOW_EXC
+        return ctxdynapse.DynapseCamType.SLOW_EXC
 
     @property
     def syn_inh_slow(self):
-        return self.ctxdynapse.DynapseCamType.SLOW_INH
+        return ctxdynapse.DynapseCamType.SLOW_INH
 
     @property
     def syn_exc_fast(self):
-        return self.ctxdynapse.DynapseCamType.FAST_EXC
+        return ctxdynapse.DynapseCamType.FAST_EXC
 
     @property
     def syn_inh_fast(self):
-        return self.ctxdynapse.DynapseCamType.FAST_INH
+        return ctxdynapse.DynapseCamType.FAST_INH
 
     @property
     def num_neur_core(self):
@@ -1900,3 +1947,7 @@ class DynapseControl:
         else:
             self._nFpgaIsiMultiplier = int(np.floor(tNewBase / self.fpga_timestep))
             self.fpga_spikegen.set_isi_multiplier(self._nFpgaIsiMultiplier)
+
+
+if not _USE_RPYC:
+    initialize_hardware(USE_CHIPS)
