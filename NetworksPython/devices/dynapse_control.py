@@ -7,12 +7,13 @@
 
 import numpy as np
 from warnings import warn
-from typing import Tuple, List, Optional, Union, ModuleType
+from typing import Tuple, List, Optional, Union
+from types import ModuleType
 import time
 import os
 import copy
 import threading
-from params import (
+from .params import (
     SRAM_EVENT_LIMIT,
     FPGA_EVENT_LIMIT,
     FPGA_ISI_LIMIT,
@@ -31,6 +32,8 @@ RPYC_TIMEOUT = 300
 # - Default values, can be changed
 DEF_FPGA_ISI_BASE = 2e-5  # Default timestep between events sent to FPGA
 DEF_FPGA_ISI_MULTIPLIER = int(np.round(DEF_FPGA_ISI_BASE / FPGA_TIMESTEP))
+# - Chips to be initialized for use
+USE_CHIPS = [0]
 
 
 ## -- Import cortexcontrol modules or establish connection via RPyC
@@ -39,18 +42,18 @@ try:
     import NeuronNeuronConnector as nnconnector
 
     _USE_RPYC = False
+    # - Keep track of which chips have been initialized
+    initialized_chips = []
+    initialized_neurons = []
+    # - Include ctxdynapse and nnconnector in namespace of telefuncitons
+    telefunctions.ctxdynapse = ctxdynapse
+    telefunctions.nnconnector = nnconnector
 
 except ModuleNotFoundError:
     # - Try with RPyC
     import rpyc
 
     _USE_RPYC = True
-
-
-if not _USE_RPYC:
-    # - Keep track of which chips have been initialized
-    initialized_chips = []
-    initialized_neurons = []
 
 
 def connect_rpyc(port=Union[int, str, None]):
@@ -118,6 +121,10 @@ def set_remote_fcts_rpyc(connection):
 
 
 def teleport_fcts_rpyc(connection):
+    # - Include ctxdynapse and nnconnector in namespace of telefuncitons
+    telefunctions.ctxdynapse = ctxdynapse
+    telefunctions.nnconnector = nnconnector
+    # - Teleport functions and set references in telefunctions module
     for name_fct in telefunctions.__all__:
         telefunctions.__dict__[name_fct] = rpyc.classic.teleport_function(
             connection, telefunctions.__dict__[name_fct]
@@ -463,10 +470,10 @@ def remote_function(func):
         return func
 
 
-# TODO
-_silence_neurons = correct_argument_types(telefunctions._define_silence_neurons())
+# # TODO
+# _silence_neurons = correct_argument_types(telefunctions._define_silence_neurons())
 
-_reset_silencing = correct_argument_types(telefunctions._define_reset_silencing())
+# _reset_silencing = correct_argument_types(telefunctions._define_reset_silencing())
 
 
 # - Clear hardware configuration at startup
@@ -506,6 +513,9 @@ class DynapseControl:
             if not isinstance(rpyc_connection, rpyc.core.protocol.Connection):
                 rpyc_connection = connect_rpyc(rpyc_connection)
             self.rpyc_connection = rpyc_connection
+            # - Make sure funcitons are defined in cortexcontrol
+            set_remote_fcts_rpyc(self.rpyc_connection)
+            teleport_fcts_rpyc(self.rpyc_connection)
             self.ctxdynapse: ModuleType = rpyc_connection.modules.ctxdynapse
             self.nnconnector: ModuleType = rpyc_connection.modules.NeuronNeuronConnector
         else:
