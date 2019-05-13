@@ -161,7 +161,7 @@ def generate_fpga_event_list(
     discrete_isi_list = copy.copy(discrete_isi_list)
 
     if correct_isi:
-        discrete_isi_list, neuron_ids = remotefunctions._auto_insert_dummies(
+        discrete_isi_list, neuron_ids = _auto_insert_dummies(
             discrete_isi_list, neuron_ids, fpga_isi_limit
         )
 

@@ -193,6 +193,8 @@ def setup_rpyc(
     initialized_neurons = connection.namespace["initialized_neurons"]
     print("dynapse_control: RPyC connection has been setup successfully.")
 
+    return connection
+
 
 def connectivity_matrix_to_prepost_lists(
     weights: np.ndarray
@@ -551,7 +553,7 @@ class DynapseControl:
         fpga_isibase: float = DEF_FPGA_ISI_BASE,
         clearcores_list: Optional[list] = None,
         rpyc_connection: Union[None, str, int, "rpyc.core.protocol.Connection"] = None,
-        clear_chips: Optional[List] = USE_CHIPS,
+        clear_chips: Optional[List] = None,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
