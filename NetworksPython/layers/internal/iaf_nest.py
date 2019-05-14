@@ -734,8 +734,14 @@ class RecIAFSpkInNest(Layer):
                 connsPrePost[:, 1] -= np.min(self._pop)
 
                 weights = [self.mfWIn[conn[0], conn[1]] for conn in connsPrePost]
+                if type(self.mfDelayIn) is np.ndarray:
+                    delays = [self.mfDelayIn[conn[0], conn[1]] for conn in connsPrePost]
+                else:
+                    delays = np.array([self.mfDelayIn] * len(weights))
 
-                nest.SetStatus(conns, [{'weight': w, 'delay': self.tDt} for w in weights])
+                delays = np.clip(delays, self.tDt, np.max(delays))
+
+                nest.SetStatus(conns, [{'weight': w, 'delay': d} for w, d in zip(weights, delays)])
 
             t1 = time.time()
             # - Create recurrent connections
@@ -758,8 +764,14 @@ class RecIAFSpkInNest(Layer):
                 connsPrePost -= np.min(self._pop)
 
                 weights = [self.mfWRec[conn[0], conn[1]] for conn in connsPrePost]
+                if type(self.mfDelayRec) is np.ndarray:
+                    delays = [self.mfDelayRec[conn[0], conn[1]] for conn in connsPrePost]
+                else:
+                    delays = np.array([self.mfDelayRec] * len(weights))
 
-                nest.SetStatus(conns, [{'weight': w, 'delay': self.tDt} for w in weights])
+                delays = np.clip(delays, self.tDt, np.max(delays))
+
+                nest.SetStatus(conns, [{'weight': w, 'delay': d} for w, d in zip(weights, delays)])
 
             if self.bRecord:
                 # - Monitor for recording network potential
@@ -880,6 +892,8 @@ class RecIAFSpkInNest(Layer):
             self,
             mfWIn: np.ndarray,
             mfWRec: np.ndarray,
+            mfDelayIn = 0.0001,
+            mfDelayRec = 0.0001,
             vfBias: np.ndarray = 0.,
             tDt: float = 0.0001,
             vtTauN: np.ndarray = 0.02,
@@ -916,12 +930,17 @@ class RecIAFSpkInNest(Layer):
 
         :param bRecord:         bool Record membrane potential during evolutions
         """
-
         if type(mfWIn) is list:
             mfWIn = np.asarray(mfWIn)
 
         if type(mfWRec) is list:
             mfWRec = np.asarray(mfWRec)
+
+        if type(mfDelayIn) is list:
+            mfDelayIn = np.asarray(mfDelayIn)
+
+        if type(mfDelayRec) is list:
+            mfDelayRec = np.asarray(mfDelayRec)
 
         if type(vfBias) is list:
             vfBias = np.asarray(vfBias)
@@ -962,6 +981,8 @@ class RecIAFSpkInNest(Layer):
                                             self.resultQ,
                                             mfWIn,
                                             mfWRec,
+                                            mfDelayIn,
+                                            mfDelayRec,
                                             vfBias,
                                             tDt,
                                             vtTauN,

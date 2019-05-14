@@ -216,7 +216,7 @@ def test_FFToRecLayer():
         bRecord=True,
         strName="Rec")
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network(fl0, fl1, inp2out=False)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -385,7 +385,7 @@ def test_FFToRecLayerRepeat():
         bRecord=True,
         strName="Rec")
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network(fl0, fl1, inp2out=False)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -458,7 +458,7 @@ def test_DefaultParams():
                           bRecord=True,
                           strName="Rec")
 
-    net0 = nw.Network(fl0, fl1)
+    net0 = nw.Network(fl0, fl1, inp2out=False)
 
     fl2 = FFIAFNest(mfW=mfW,
                     bRecord=True,
@@ -469,7 +469,7 @@ def test_DefaultParams():
                           bRecord=True,
                           strName="Rec")
 
-    net1 = nw.Network(fl2, fl3)
+    net1 = nw.Network(fl2, fl3, inp2out=False)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -540,7 +540,7 @@ def test_Multithreading():
                           bRecord=True,
                           strName="Rec")
 
-    net0 = nw.Network(fl0, fl1)
+    net0 = nw.Network(fl0, fl1, inp2out=False)
 
     np.random.seed(0)
 
@@ -572,7 +572,7 @@ def test_Multithreading():
                           nNumCores=4,
                           strName="Rec")
 
-    net1 = nw.Network(fl2, fl3)
+    net1 = nw.Network(fl2, fl3, inp2out=False)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -602,89 +602,75 @@ def test_Multithreading():
     assert (np.abs(fl1.vState - fl3.vState) < epsilon).all()
 
 
-def test_hyperopt():
-
+def test_delays():
+    """ test delays """
     from NetworksPython import timeseries as ts
-    tDt = 0.0001
+    from NetworksPython.layers import FFIAFNest, RecIAFSpkInNest
+    from NetworksPython.networks import network as nw
+    import numpy as np
+    import pylab as plt
 
-    def createNetwork(bias):
-        from NetworksPython.layers import RecIAFSpkInNest, FFIAFNest
-        from NetworksPython.networks import network as nw
-        import numpy as np
+    mfW = [[0.001, 0., 0., 0.]]
+    vfBias = 0.375
+    vtTauN = 0.01
+    vReset = -0.07
+    vRest = -0.07
+    vTh = -.055
+    fC = 250.
+    tDt = 0.001
+    tRef = 0.002
 
-        # - Generic parameters
-        mfW = np.ones([1, 2]) * 0.01
-        mfWIn = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-        mfWRec = np.random.rand(3, 3) * 0.001
-        vfBias = bias
-        vtTauN = 0.02
-        vtTauS = 0.05
-        vfVThresh = -0.055
-        vfVReset = -0.065
-        vfVRest = -0.065
-        vfCapacity = 100.
-        tRef = 0.001
+    fl0 = FFIAFNest(mfW=mfW,
+                    tDt=tDt,
+                    vfBias=vfBias,
+                    vtTauN=vtTauN,
+                    vfVReset=vReset,
+                    vfVRest=vRest,
+                    vfVThresh=vTh,
+                    vfCapacity=fC,
+                    tRefractoryTime=tRef,
+                    bRecord=True,
+                    strName="FF")
 
-        np.random.seed(0)
+    mfWIn = [[0.015, 0.015, 0.0, 0.], [0., 0., 0.0, 0.], [0., 0., 0., 0.], [0., 0., 0., 0.]]
+    mfWRec = [[0.0, 0.0, 0.015, 0.015], [0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.], [0., 0., 0., 0.]]
+    mfDelayIn = [[0.001, 0.011, 0.001, 0.001], [0.001, 0.001, 0.001, 0.001], [0.001, 0.001, 0.001, 0.001]]
+    mfDelayRec = [[0.001, 0.001, 0.001, 0.011], [0.001, 0.001, 0.001, 0.001], [0.001, 0.001, 0.001, 0.001]]
+    vfBiasRec = 0.0
+    vtTauNRec = [0.2, 0.2, 0.2, 0.2]
+    vtTauSRec = [0.2, 0.2, 0.2, 0.2]
 
-        fl0 = FFIAFNest(mfW=mfW,
-                        tDt=tDt,
-                        vfBias=vfBias,
-                        vtTauN=vtTauN,
-                        vfVReset=vfVReset,
-                        vfVRest=vfVRest,
-                        vfVThresh=vfVThresh,
-                        vfCapacity=vfCapacity,
-                        tRefractoryTime=tRef,
-                        nNumCores=8,
-                        bRecord=True,
-                        strName="FF")
+    # - Layer generation
+    fl1 = RecIAFSpkInNest(
+        mfWIn=mfWIn,
+        mfWRec=mfWRec,
+        mfDelayIn=mfDelayIn,
+        mfDelayRec=mfDelayRec,
+        tDt=0.001,
+        vfBias=vfBiasRec,
+        vtTauN=vtTauNRec,
+        vtTauS=vtTauSRec,
+        tRefractoryTime=0.001,
+        bRecord=True,
+        strName="Rec")
 
-        fl1 = RecIAFSpkInNest(mfWIn=mfWIn,
-                              mfWRec=mfWRec,
-                              tDt=tDt,
-                              vfBias=vfBias,
-                              vtTauN=vtTauN,
-                              vtTauS=vtTauS,
-                              vfVThresh=vfVThresh,
-                              vfVReset=vfVReset,
-                              vfVRest=vfVRest,
-                              vfCapacity=vfCapacity,
-                              tRefractoryTime=tRef,
-                              nNumCores=8,
-                              bRecord=True,
-                              strName="Rec")
+    net = nw.Network(fl0, fl1, inp2out=False)
 
-        net = nw.Network(fl0, fl1)
+    # - Input signal
+    vTime = np.arange(0, 1, tDt)
+    vVal = np.zeros([len(vTime), 1])
+    vVal[500] = 0.01
 
-        return net
+    tsInCont = ts.TSContinuous(vTime, vVal)
+    dAct = net.evolve(tsInCont, tDuration=1.0)
 
-    def objective(param):
-        bias = param['bias']
-        net = createNetwork(bias)
+    times = dAct['Rec'].times
 
-        # - Input signal
-        vTime = np.arange(0, 1, tDt)
-        vVal = np.zeros([len(vTime), 1])
-        vVal[2000:7000] = 0.01
+    eps = 0.000001
 
-        tsInCont = ts.TSContinuous(vTime, vVal)
+    assert (times[1] - times[0] - 0.01 < eps)
+    assert (times[3] - times[2] - 0.01 < eps)
 
-        dAct = net.evolve(tsInCont)
 
-        net.lLayers[0].terminate()
-        net.lLayers[1].terminate()
 
-        act = dAct['Rec']
-        frate = 1 * len(act.times)
-        print(frate)
 
-        return frate
-
-    space = {'bias': hp.uniform("bias", 0, 0.5)}
-
-    ongoingTrials = Trials()
-    best = fmin(objective, space, algo=tpe.suggest,
-                max_evals=100, trials=ongoingTrials)
-
-    assert (best['bias'] < 0.1)
