@@ -3,6 +3,10 @@
 #                      namespace if RPyC is used
 # Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
 # ----
+from typing import List
+
+
+from .params import FPGA_ISI_LIMIT
 
 __all__ = ["_auto_insert_dummies", "_replace_too_large_value", "local_arguments"]
 
