@@ -5,6 +5,7 @@
 
 import copy
 import os
+from typing import Optional, Union, List, Tuple
 
 from .params import FPGA_ISI_LIMIT, NUM_NEURONS_CORE, NUM_CORES_CHIP, NUM_CHIPS
 from . import remotefunctions
@@ -85,7 +86,7 @@ def generate_fpga_event_list(
             discrete_isi_list, neuron_ids, fpga_isi_limit
         )
 
-    def generate_fpga_event(neuron_id: int, isi: int) -> ctxdynapse.FpgaSpikeEvent:
+    def generate_fpga_event(neuron_id: int, isi: int) -> "ctxdynapse.FpgaSpikeEvent":
         """
         generate_fpga_event - Generate a single FpgaSpikeEvent objects.
         :param neuron_id:       int ID of source neuron
@@ -110,7 +111,7 @@ def generate_fpga_event_list(
     return events
 
 
-def _generate_buffered_filter(model: ctxdynapse.Model, record_neuron_ids: list):
+def _generate_buffered_filter(model: "ctxdynapse.Model", record_neuron_ids: list):
     """
     _generate_buffered_filter - Generate and return a BufferedEventFilter object that
                                records from neurons specified in record_neuron_ids.
@@ -255,8 +256,8 @@ def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = No
 
 
 def get_all_neurons(
-    model: ctxdynapse.Model, virtual_model: ctxdynapse.VirtualModel
-) -> (np.ndarray, np.ndarray, np.ndarray):
+    model: "ctxdynapse.Model", virtual_model: "ctxdynapse.VirtualModel"
+) -> (List, List, List):
     """
     get_all_neurons - Get hardware, virtual and shadow state neurons
                       from model and virtual_model and return them
@@ -264,9 +265,9 @@ def get_all_neurons(
     :param model:  ctxdynapse.Model
     :param virtual_model: ctxdynapse.VirtualModel
     :return:
-        np.ndarray  Hardware neurons
-        np.ndarray  Virtual neurons
-        np.ndarray  Shadow state neurons
+        List  Hardware neurons
+        List  Virtual neurons
+        List  Shadow state neurons
     """
     hw_neurons: List = model.get_neurons()
     virtual_neurons: List = virtual_model.get_neurons()
@@ -376,7 +377,7 @@ def _reset_connections(core_ids: Optional[list] = None, apply_diff=True):
 
 
 def remove_all_connections_to(
-    neuron_ids: List, model: ctxdynapse.Model, apply_diff: bool = True
+    neuron_ids: List, model: "ctxdynapse.Model", apply_diff: bool = True
 ):
     """
     remove_all_connections_to - Remove all presynaptic connections
@@ -424,7 +425,7 @@ def set_connections(
     syntypes: list,
     shadow_neurons: list,
     virtual_neurons: Optional[list],
-    connector: nnconnector.DynapseConnector,
+    connector: "nnconnector.DynapseConnector",
 ):
     """
     set_connections - Set connections between pre- and post synaptic neurons from lists.
@@ -470,43 +471,43 @@ def set_connections(
     print("dynapse_control: {} connections have been set.".format(len(preneuron_ids)))
 
 
-def _define_silence_neurons():
-    @local_arguments
-    def silence_neurons(neuron_ids):
-        """
-        silence_neurons - Assign time contant tau2 to neurons definedin neuron_ids
-                          to make them silent.
-        :param neuron_ids:  list  IDs of neurons to be silenced
-        """
-        if isinstance(neuron_ids, int):
-            neuron_ids = (neuron_ids,)
-        neurons_per_chip = NUM_CORES_CHIP * NUM_NEURONS_CORE
-        for id_neur in neuron_ids:
-            ctxdynapse.dynapse.set_tau_2(
-                id_neur // neurons_per_chip,  # Chip ID
-                id_neur % neurons_per_chip,  # Neuron ID on chip
-            )
-        print("dynapse_control: Set {} neurons to tau 2.".format(len(neuron_ids)))
+# def _define_silence_neurons():
+#     @local_arguments
+#     def silence_neurons(neuron_ids):
+#         """
+#         silence_neurons - Assign time contant tau2 to neurons definedin neuron_ids
+#                           to make them silent.
+#         :param neuron_ids:  list  IDs of neurons to be silenced
+#         """
+#         if isinstance(neuron_ids, int):
+#             neuron_ids = (neuron_ids,)
+#         neurons_per_chip = NUM_CORES_CHIP * NUM_NEURONS_CORE
+#         for id_neur in neuron_ids:
+#             ctxdynapse.dynapse.set_tau_2(
+#                 id_neur // neurons_per_chip,  # Chip ID
+#                 id_neur % neurons_per_chip,  # Neuron ID on chip
+#             )
+#         print("dynapse_control: Set {} neurons to tau 2.".format(len(neuron_ids)))
 
-    return silence_neurons
+#     return silence_neurons
 
 
-def _define_reset_silencing():
-    @local_arguments
-    def reset_silencing(core_ids):
-        """
-        reset_silencing - Assign time constant tau1 to all neurons on cores defined
-                          in core_ids. Convenience function that does the same as
-                          global _reset_silencing but also updates self._is_silenced.
-        :param core_ids:   list  IDs of cores to be reset
-        """
-        if isinstance(core_ids, int):
-            core_ids = (core_ids,)
-        for id_neur in core_ids:
-            ctxdynapse.dynapse.reset_tau_1(
-                id_neur // NUM_CORES_CHIP,  # Chip ID
-                id_neur % NUM_CORES_CHIP,  # Core ID on chip
-            )
-        print("dynapse_control: Set neurons of cores {} to tau 1.".format(core_ids))
+# def _define_reset_silencing():
+#     @local_arguments
+#     def reset_silencing(core_ids):
+#         """
+#         reset_silencing - Assign time constant tau1 to all neurons on cores defined
+#                           in core_ids. Convenience function that does the same as
+#                           global _reset_silencing but also updates self._is_silenced.
+#         :param core_ids:   list  IDs of cores to be reset
+#         """
+#         if isinstance(core_ids, int):
+#             core_ids = (core_ids,)
+#         for id_neur in core_ids:
+#             ctxdynapse.dynapse.reset_tau_1(
+#                 id_neur // NUM_CORES_CHIP,  # Chip ID
+#                 id_neur % NUM_CORES_CHIP,  # Core ID on chip
+#             )
+#         print("dynapse_control: Set neurons of cores {} to tau 1.".format(core_ids))
 
-    return reset_silencing
+#     return reset_silencing
