@@ -282,7 +282,7 @@ class FFUpDown(Layer):
                 # - By how many times are the upper thresholds exceeded for each input
                 vnUp = np.clip(np.floor((mfInput[iCurrentTS]-vState) / vfThrUp).astype(int), 0, None)
                 # - By how many times are the lower thresholds exceeded for each input
-                vnDown = np.clip(np.floor((vState-mfInput[iCurrentTS]) / vfThrUp).astype(int), 0, None)
+                vnDown = np.clip(np.floor((vState-mfInput[iCurrentTS]) / vfThrDown).astype(int), 0, None)
             else:
                 # - Inputs where upper threshold is passed
                 vnUp = mfInput[iCurrentTS] > vState + vfThrUp
