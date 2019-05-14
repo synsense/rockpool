@@ -7,7 +7,7 @@ from typing import List, Union, Optional, Tuple
 
 import numpy as np
 
-from .dynapse_control import DynapseControl, generate_fpga_event_list
+from .dynapse_control import DynapseControl
 from ..timeseries import TSEvent
 
 __all__ = ["DynapseControlExtd"]
@@ -48,7 +48,7 @@ class DynapseControlExtd(DynapseControl):
 
         # - Convert events to an FpgaSpikeEvent
         print("dynapse_control: Generating FPGA event list from TSEvent.")
-        events: List = generate_fpga_event_list(
+        events: List = self.tools.generate_fpga_event_list(
             # Make sure that no np.int64 or other non-native type is passed
             [int(isi) for isi in isi_array_discrete],
             [int(neuron_ids[i]) for i in channels],

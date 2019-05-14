@@ -119,7 +119,7 @@ def initialize_hardware(
 ):
     print("dynapse_control: Initializing hardware...", end="\r")
     if not _USE_RPYC:
-        tools.clear_chips(use_chips)
+        tools.initialize_chips(use_chips)
         # - Update lists of initialized chips and neurons
         global initialized_chips, initialized_neurons
         cleared_chips = set(use_chips).difference(initialized_chips)
@@ -149,7 +149,7 @@ def initialize_hardware(
                 do_chips = list(set(use_chips).difference(initialized_chips))
             already_done = list(set(use_chips).difference(do_chips))
             # - Clear those chips and add them to list of initialized chips.
-            connection.modules.tools.clear_chips(do_chips)
+            connection.modules.tools.initialize_chips(do_chips)
             connection.namespace["initialized_chips"] = initialized_chips + do_chips
             # - Also update list of initialized neurons
             initialized_neurons = connection.namespace.get("initialized_neurons", [])
@@ -174,15 +174,17 @@ def initialize_hardware(
 
 
 def setup_rpyc(
-    port: Union["rpyc.core.protocol.Connection", int, str, None] = None,
-    clear_chips: Optional[List] = USE_CHIPS,
+    connect: Union["rpyc.core.protocol.Connection", int, str, None] = None,
+    initialize_chips: Optional[List] = USE_CHIPS,
 ):
     connection = (
-        port if isinstance(port, rpyc.core.protocol.Connection) else connect_rpyc(port)
+        connect
+        if isinstance(connect, rpyc.core.protocol.Connection)
+        else connect_rpyc(connect)
     )
     setup_rpyc_namespace(connection)
-    if clear_chips is not None:
-        initialize_hardware(clear_chips, connection, enforce=False)
+    if initialize_chips is not None:
+        initialize_hardware(initialize_chips, connection, enforce=False)
     # - Make same objects available as when working wihtin cortexcontrol
     global tools, params, ctxdynapse, nnconnector, initialized_chips, initialized_neurons
     tools = connection.modules.tools
@@ -553,7 +555,7 @@ class DynapseControl:
         fpga_isibase: float = DEF_FPGA_ISI_BASE,
         clearcores_list: Optional[list] = None,
         rpyc_connection: Union[None, str, int, "rpyc.core.protocol.Connection"] = None,
-        clear_chips: Optional[List] = None,
+        initialize_chips: Optional[List] = None,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
@@ -565,18 +567,21 @@ class DynapseControl:
         # - Store pointer to ctxdynapse and nnconnector modules
         if _USE_RPYC:
             # - Set up connection. Make sure rpyc namespace is complete and hardware initialized.
-            self.rpyc_connection = setup_rpyc(rpyc_connection, clear_chips=clear_chips)
-            self.rpyc_connection = rpyc_connection
+            self.rpyc_connection = setup_rpyc(
+                rpyc_connection, initialize_chips=initialize_chips
+            )
+            self.tools = self.rpyc_connection.modules.tools
         else:
             self.rpyc_connection = None
-            if clear_chips:
-                initialize_hardware(clear_chips)
+            if initialize_chips:
+                initialize_hardware(initialize_chips)
 
         print("DynapseControl: Initializing DynapSE")
 
-        # - Chip model and virtual model
+        # - Chip model, virtual model and dynapse
         self.model = ctxdynapse.model
         self.virtual_model = ctxdynapse.VirtualModel()
+        self.dynapse = ctxdynapse.dynapse
 
         ## -- Modules for sending input to FPGA
         fpga_modules = self.model.get_fpga_modules()
@@ -607,7 +612,7 @@ class DynapseControl:
             )
 
         # - Get all neurons from models
-        self.hw_neurons, self.virtual_neurons, self.shadow_neurons = tools.get_all_neurons(
+        self.hw_neurons, self.virtual_neurons, self.shadow_neurons = self.tools.get_all_neurons(
             self.model, self.virtual_model
         )
 
@@ -645,7 +650,11 @@ class DynapseControl:
         print("DynapseControl ready.")
 
     @staticmethod
-    def clear_connections(core_ids: Optional[list] = None):
+    def initialize_chips(chips: Optional[List[int]] = None):
+        if chips is not None:
+            initialize_hardware(chips)
+
+    def clear_connections(self, core_ids: Optional[list] = None):
         """
         clear_connections - Reset connections for cores defined in core_ids.
 
@@ -653,7 +662,7 @@ class DynapseControl:
                                          should be cleared (0-15).
         """
         # - Use `reset_connections` function
-        tools.reset_connections(core_ids)
+        self.tools.reset_connections(core_ids)
         print(
             "DynapseControl: Connections to cores {} have been cleared.".format(
                 core_ids
@@ -668,7 +677,7 @@ class DynapseControl:
                           neurons in self._is_silenced.
         :param neuron_ids:  list  IDs of neurons to be silenced
         """
-        tools.silence_neurons(neuron_ids)
+        self.tools.silence_neurons(neuron_ids)
         # - Mark that neurons have been silenced
         self._is_silenced[neuron_ids] = True
         print("DynapseControl: {} neurons have been silenced.".format(len(neuron_ids)))
@@ -682,7 +691,7 @@ class DynapseControl:
         """
         if isinstance(core_ids, int):
             core_ids = (core_ids,)
-        tools.reset_silencing(core_ids)
+        self.tools.reset_silencing(core_ids)
         # - Mark that neurons are not silenced anymore
         for id_neur in core_ids:
             self._is_silenced[
@@ -918,7 +927,7 @@ class DynapseControl:
             syntypes = list(syntypes)
 
         # - Set connections
-        tools.set_connections(
+        self.tools.set_connections(
             preneuron_ids=list(virtualneuron_ids),
             postneuron_ids=list(neuron_ids),
             syntypes=syntypes,
@@ -966,7 +975,7 @@ class DynapseControl:
         postneur_ids_inh = [int(hwneuron_ids[i]) for i in postsyn_inh_list]
 
         # - Set excitatory connections
-        tools.set_connections(
+        self.tools.set_connections(
             preneuron_ids=preneur_ids_exc,
             postneuron_ids=postneur_ids_exc,
             syntypes=[syn_exc],
@@ -981,7 +990,7 @@ class DynapseControl:
             + " from virtual neurons to hardware neurons have been set."
         )
         # - Set inhibitory connections
-        tools.set_connections(
+        self.tools.set_connections(
             preneuron_ids=preneur_ids_inh,
             postneuron_ids=postneur_ids_inh,
             syntypes=[syn_inh],
@@ -1036,7 +1045,7 @@ class DynapseControl:
         postneur_ids_inh = [int(hwneuron_ids[i]) for i in postsyn_inh_list]
 
         # - Set excitatory input connections
-        tools.set_connections(
+        self.tools.set_connections(
             preneuron_ids=preneur_ids_exc,
             postneuron_ids=postneur_ids_exc,
             syntypes=[syn_exc],
@@ -1051,7 +1060,7 @@ class DynapseControl:
             + " between hardware neurons have been set."
         )
         # - Set inhibitory input connections
-        tools.set_connections(
+        self.tools.set_connections(
             preneuron_ids=preneur_ids_inh,
             postneuron_ids=postneur_ids_inh,
             syntypes=[syn_inh],
@@ -1085,7 +1094,7 @@ class DynapseControl:
         neuron_ids = [int(id_neur) for id_neur in np.asarray(neuron_ids)]
 
         # - Call `remove_all_connections_to` function
-        tools.remove_all_connections_to(neuron_ids, self.model, apply_diff)
+        self.tools.remove_all_connections_to(neuron_ids, self.model, apply_diff)
 
     ### --- Stimulation and event generation
 
@@ -1146,7 +1155,7 @@ class DynapseControl:
 
         print("DynapseControl: Generating FPGA event list from arrays.")
         # - Convert events to an FpgaSpikeEvent
-        events = tools.generate_fpga_event_list(
+        events = self.tools.generate_fpga_event_list(
             # Make sure that no np.int64 or other non-native type is passed
             [int(isi) for isi in discrete_isi_list],
             [int(neuron_ids[i]) for i in channels],
@@ -1187,7 +1196,7 @@ class DynapseControl:
 
         # - Generate events
         # List for events to be sent to fpga
-        events = tools.generate_fpga_event_list(
+        events = self.tools.generate_fpga_event_list(
             isistep_list, neuron_ids, int(coremask), int(chip_id)
         )
         self.fpga_spikegen.preload_stimulus(events)
@@ -1591,7 +1600,7 @@ class DynapseControl:
             self.bufferedfilter.add_ids(record_neuron_ids)
             print("DynapseControl: Updated existing buffered event filter.")
         else:
-            self.bufferedfilter = tools.generate_buffered_filter(
+            self.bufferedfilter = self.tools.generate_buffered_filter(
                 self.model, record_neuron_ids
             )
             print("DynapseControl: Generated new buffered event filter.")

@@ -40,6 +40,7 @@ class RecDynapSE(Layer):
         nInputChipID: int = 0,
         lnClearCores: Optional[list] = None,
         controller: DynapseControlExtd = None,
+        rpyc_port: Optional[int] = None,
         strName: Optional[str] = "unnamed",
         bSkipWeights: bool = False,
     ):
@@ -64,11 +65,19 @@ class RecDynapSE(Layer):
         :param nInputChipID:        int  ID of the chip with neurons that receive external input.
         :param lnClearCores:        list or None  IDs of chips where configurations should be cleared.
         :param controller:          DynapseControl object to interface the hardware
+        :param rpyc_port:           Port at which RPyC connection should be established. Only considered if controller is None.
         :param strName:             str     Layer name
         :param bSkipWeights:        bool    Do not upload weight configuration to chip. (Use carecully)
         """
 
         # - Instantiate DynapseControl
+        if lnClearCores is None:
+            initialize_chips = None
+        else:
+            initialize_chips = list(
+                # - Convert to set to remove duplicates
+                set([core_id // self.num_cores_chip for core_id in lnClearCores])
+            )
         if controller is None:
             if tDt is None:
                 raise ValueError(
@@ -76,10 +85,16 @@ class RecDynapSE(Layer):
                         strName
                     )
                 )
-            self.controller = DynapseControlExtd(tDt, lnClearCores)
+            self.controller = DynapseControlExtd(
+                fpga_isibase=tDt,
+                clearcores_list=lnClearCores,
+                rpyc_connection=rpyc_port,
+                initialize_chips=initialize_chips,
+            )
         else:
             self.controller = controller
             self.controller.fpga_isibase = tDt
+            self.controller.initialize_chips(initialize_chips)
             self.controller.clear_connections(lnClearCores)
 
         # - Check supplied arguments
