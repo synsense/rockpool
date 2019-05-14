@@ -19,7 +19,8 @@ class Filter(Layer):
         strName: str = "unnamed",
         downSampleFs: float = None,
         winLen: float = 0.025,
-        winStep: float = 0.01
+        winStep: float = 0.01,
+        nfft: int = 512
     ):
         """
         FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
@@ -35,6 +36,7 @@ class Filter(Layer):
         :param downSampleFs:    float frequency to downsample the output of the filters. Default: 'unnamed'
         :param winLen:          float length of analysis window in seconds. Default: 0.025
         :param winStep:         float step between successive windows in seconds. Default: 0.01
+        :paran nfft:            int size of fft window. Default: 512
         """
 
         # - Call super constructor (`asarray` is used to strip units)
@@ -49,7 +51,11 @@ class Filter(Layer):
         self.filterName = filterName
         self.filtFunct = function_Filterbank(self.filterName)
         self.mfW = mfW
+        self.winLen = winLen
+        self.winStep = winStep
+        self.nfft = nfft
         self._nTimeStep = 0
+
         if downSampleFs != None:
             self.downSampleFs = downSampleFs
         else:
@@ -58,6 +64,7 @@ class Filter(Layer):
             self.tDt = 1/fs
         else:
             self.tDt = tDt
+
     def reset_all(self):
         self.mfW = np.copy(self.mfW)
         self._nTimeStep = 0
@@ -87,9 +94,9 @@ class Filter(Layer):
 
         elif "mfcc" in self.filterName or "fft" in self.filterName:
             filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, \
-                                        winlen=self.winLen, winstep=self.winStep)
+                                        winlen=self.winLen, winstep=self.winStep, nfft=self.nfft)
             self._nTimeStep += mfInputStep.shape[0] - 1
-            vtTimeBase = np.arange(len(filtOutput)) * self.winLen
+            vtTimeBase = vtTimeBase[0] + np.arange(filtOutput.shape[0]) * self.winStep
 
             return TSContinuous(
                 vtTimeBase,
