@@ -947,20 +947,22 @@ def set_connections(
 
     # - Neurons to be connected
     presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
-    postsyn_neurons = [shadow_neurons[i] for i in preneuron_ids]
+    postsyn_neurons = [shadow_neurons[i] for i in postneuron_ids]
 
-    # - Logical IDs of pre adn post neurons
-    logical_pre_ids = [neuron.get_id() for neuron in presyn_neurons]
+    if virtual_neurons is None:
+        # - Logical IDs of (hardware) pre neurons
+        logical_pre_ids = [neuron.get_id() for neuron in presyn_neurons]
+        # - Make sure that neurons are on initialized chips
+        if not set(logical_pre_ids).issubset(initialized_neurons):
+            raise ValueError(
+                "dynapse_control: Some of the presynaptic neurons are on chips that have not"
+                + " been cleared since starting cortexcontrol. This may result in unexpected"
+                + " behavior. Clear those chips first."
+            )
+
+    # - Logical IDs of post neurons
     logical_post_ids = [neuron.get_id() for neuron in postsyn_neurons]
     # - Make sure that neurons are on initialized chips
-    if virtual_neurons is None and not set(logical_pre_ids).issubset(
-        initialized_neurons
-    ):
-        raise ValueError(
-            "dynapse_control: Some of the presynaptic neurons are on chips that have not"
-            + " been cleared since starting cortexcontrol. This may result in unexpected"
-            + " behavior. Clear those chips first."
-        )
     if not set(logical_post_ids).issubset(initialized_neurons):
         raise ValueError(
             "dynapse_control: Some of the postsynaptic neurons are on chips that have not"
