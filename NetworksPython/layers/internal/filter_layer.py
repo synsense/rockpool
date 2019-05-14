@@ -18,6 +18,7 @@ class Filter(Layer):
         tDt: float = None ,
         strName: str = "unnamed",
         downSampleFs: float = None,
+        nfft: int = 512,
         winLen: float = 0.025,
         winStep: float = 0.01
     ):
@@ -28,6 +29,7 @@ class Filter(Layer):
         :param mfW:             np.array MxN weight matrix.
         :param filterName:      str with the filtering method
         :param fs:              float sampling frequency of input signal
+        traceback.print_exc()
         :param vfBias:          np.array Nx1 bias vector
         :param tDt:             float Time-step. Default: 0.1 ms
         :param fNoiseStd:       float Noise std. dev. per second. Default: 0
@@ -50,6 +52,8 @@ class Filter(Layer):
         self.filtFunct = function_Filterbank(self.filterName)
         self.mfW = mfW
         self._nTimeStep = 0
+        self.winLen = winLen
+        self.winStep = winStep
         if downSampleFs != None:
             self.downSampleFs = downSampleFs
         else:
@@ -58,6 +62,9 @@ class Filter(Layer):
             self.tDt = 1/fs
         else:
             self.tDt = tDt
+        self.nfft = nfft
+
+
     def reset_all(self):
         self.mfW = np.copy(self.mfW)
         self._nTimeStep = 0
@@ -87,9 +94,12 @@ class Filter(Layer):
 
         elif "mfcc" in self.filterName or "fft" in self.filterName:
             filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, \
-                                        winlen=self.winLen, winstep=self.winStep)
+                                        winlen=self.winLen, winstep=self.winStep, nfft=self.nfft)
+
             self._nTimeStep += mfInputStep.shape[0] - 1
             vtTimeBase = np.arange(len(filtOutput)) * self.winLen
+            if tDuration == None:
+                vtTimeBase = np.linspace(tsInput.t_start, tsInput.t_stop, len(filtOutput))
 
             return TSContinuous(
                 vtTimeBase,

@@ -599,6 +599,8 @@ class RecIAFSpkInNest(Layer):
                      resultQ,
                      mfWIn: np.ndarray,
                      mfWRec: np.ndarray,
+                     mfDelayIn: Union[float, np.ndarray],
+                     mfDelayRec: Union[float, np.ndarray],
                      vfBias: Union[float, np.ndarray],
                      tDt: float,
                      vtTauN: Union[float, np.ndarray],
@@ -628,6 +630,8 @@ class RecIAFSpkInNest(Layer):
             self.vfCapacity = vfCapacity
             self.mfWIn = V2mV(mfWIn)
             self.mfWRec = V2mV(mfWRec)
+            self.mfDelayIn = s2ms(mfDelayIn)
+            self.mfDelayRec = s2ms(mfDelayRec)
             self.tRefractoryTime = s2ms(tRefractoryTime)
             self.bRecord = bRecord
             self.nSize = np.shape(mfWRec)[0]
