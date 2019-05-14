@@ -8,7 +8,7 @@ import os
 from typing import Optional, Union, List, Tuple
 
 from rpyc.core.netref import BaseNetref
-import CtxDynapse as ctxdynapse
+import CtxDynapse
 from NeuronNeuronConnector import DynapseConnector
 from params import (
     FPGA_ISI_LIMIT,
@@ -27,7 +27,7 @@ __all__ = [
     "save_biases",
     "copy_biases",
     "get_all_neurons",
-    "clear_chips",
+    "initialize_chips",
     "reset_connections",
     "remove_all_connections_to",
     "set_connections",
@@ -119,7 +119,7 @@ def extract_event_data(events) -> (tuple, tuple):
     event_tuples: List[Tuple] = [
         (event.timestamp, event.neuron.get_id())
         for event in events
-        if isinstance(event.neuron, ctxdynapse.DynapseNeuron)
+        if isinstance(event.neuron, CtxDynapse.DynapseNeuron)
     ]
     try:
         timestamps, neuron_ids = zip(*event_tuples)
@@ -165,16 +165,16 @@ def generate_fpga_event_list(
             discrete_isi_list, neuron_ids, fpga_isi_limit
         )
 
-    def generate_fpga_event(neuron_id: int, isi: int) -> ctxdynapse.FpgaSpikeEvent:
+    def generate_fpga_event(neuron_id: int, isi: int) -> CtxDynapse.FpgaSpikeEvent:
         """
         generate_fpga_event - Generate a single FpgaSpikeEvent objects.
         :param neuron_id:       int ID of source neuron
         :param isi:            int Timesteps after previous event before
                                     this event will be sent
         :return:
-            event  ctxdynapse.FpgaSpikeEvent
+            event  CtxDynapse.FpgaSpikeEvent
         """
-        event = ctxdynapse.FpgaSpikeEvent()
+        event = CtxDynapse.FpgaSpikeEvent()
         event.target_chip = targetchip_id
         event.core_mask = 0 if neuron_id is None else targetcore_mask
         event.neuron_id = 0 if neuron_id is None else neuron_id
@@ -190,14 +190,14 @@ def generate_fpga_event_list(
     return events
 
 
-def generate_buffered_filter(model: ctxdynapse.Model, record_neuron_ids: list):
+def generate_buffered_filter(model: CtxDynapse.Model, record_neuron_ids: list):
     """
     generate_buffered_filter - Generate and return a BufferedEventFilter object that
                                records from neurons specified in record_neuron_ids.
-    :param model:               ctxdynapse model
+    :param model:               CtxDynapse model
     :param record_neuron_ids:    list  IDs of neurons to be recorded.
     """
-    return ctxdynapse.BufferedEventFilter(model, record_neuron_ids)
+    return CtxDynapse.BufferedEventFilter(model, record_neuron_ids)
 
 
 def load_biases(filename: str, core_ids: Optional[Union[list, int]] = None):
@@ -276,12 +276,12 @@ def save_biases(filename: str, core_ids: Optional[Union[list, int]] = None):
             filename_parts.append("py")
         filename = ".".join(filename_parts)
 
-    biasgroup_list = ctxdynapse.model.get_bias_groups()
+    biasgroup_list = CtxDynapse.model.get_bias_groups()
     # - Only save specified cores
     biasgroup_list = [biasgroup_list[i] for i in core_ids]
     with open(filename, "w") as file:
-        file.write("import ctxdynapse\n")
-        file.write("save_file_model_ = ctxdynapse.model\n")
+        file.write("import CtxDynapse as CtxDynapse\n")
+        file.write("save_file_model_ = CtxDynapse.model\n")
         for core_id, bias_group in zip(core_ids, biasgroup_list):
             biases = bias_group.get_biases()
             for bias in biases:
@@ -317,7 +317,7 @@ def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = No
         targetcore_ids = [targetcore_ids]
 
     # - List of bias groups from all cores
-    biasgroup_list = ctxdynapse.model.get_bias_groups()
+    biasgroup_list = CtxDynapse.model.get_bias_groups()
     sourcebiases = biasgroup_list[sourcecore_id].get_biases()
 
     # - Set biases for target cores
@@ -335,14 +335,14 @@ def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = No
 
 
 def get_all_neurons(
-    model: ctxdynapse.Model, virtual_model: ctxdynapse.VirtualModel
+    model: CtxDynapse.Model, virtual_model: CtxDynapse.VirtualModel
 ) -> (List, List, List):
     """
     get_all_neurons - Get hardware, virtual and shadow state neurons
                       from model and virtual_model and return them
                       in arrays.
-    :param model:  ctxdynapse.Model
-    :param virtual_model: ctxdynapse.VirtualModel
+    :param model:  CtxDynapse.Model
+    :param virtual_model: CtxDynapse.VirtualModel
     :return:
         List  Hardware neurons
         List  Virtual neurons
@@ -355,13 +355,13 @@ def get_all_neurons(
     return hw_neurons, virtual_neurons, shadow_neurons
 
 
-def clear_chips(chip_ids: Optional[list] = None):
+def initialize_chips(chip_ids: Optional[list] = None):
     """
-    clear_chips - Clear the physical CAM and SRAM cells of the chips defined
-                  in chip_ids.
-                  This is necessary when CtxControl is loaded (and only then)
-                  to make sure that the configuration of the model neurons
-                  matches the hardware.
+    initialize_chips - Clear the physical CAM and SRAM cells of the chips defined
+                       in chip_ids.
+                       This is necessary when CtxControl is loaded (and only then)
+                       to make sure that the configuration of the model neurons
+                       matches the hardware.
 
     :param chip_ids:   list  IDs of chips to be cleared.
     """
@@ -380,11 +380,11 @@ def clear_chips(chip_ids: Optional[list] = None):
         print("dynapse_control: Clearing chip {}.".format(nchip))
 
         # - Clear CAMs
-        ctxdynapse.dynapse.clear_cam(int(nchip))
+        CtxDynapse.dynapse.clear_cam(int(nchip))
         print("\t CAMs cleared.")
 
         # - Clear SRAMs
-        ctxdynapse.dynapse.clear_sram(int(nchip))
+        CtxDynapse.dynapse.clear_sram(int(nchip))
         print("\t SRAMs cleared.")
 
     print("dynapse_control: {} chip(s) cleared.".format(len(chip_ids)))
@@ -409,7 +409,7 @@ def reset_connections(core_ids: Optional[list] = None, apply_diff=True):
     core_ids = copy.copy(core_ids)
 
     # - Get shadow state neurons
-    shadow_neurons = ctxdynapse.model.get_shadow_state_neurons()
+    shadow_neurons = CtxDynapse.model.get_shadow_state_neurons()
 
     for core_id in core_ids:
         print("dynapse_control: Clearing connections of core {}.".format(core_id))
@@ -435,19 +435,19 @@ def reset_connections(core_ids: Optional[list] = None, apply_diff=True):
 
     if apply_diff:
         # - Apply changes to the connections on chip
-        ctxdynapse.model.apply_diff_state()
+        CtxDynapse.model.apply_diff_state()
         print("dynapse_control: New state has been applied to the hardware")
 
 
 def remove_all_connections_to(
-    neuron_ids: List, model: ctxdynapse.Model, apply_diff: bool = True
+    neuron_ids: List, model: CtxDynapse.Model, apply_diff: bool = True
 ):
     """
     remove_all_connections_to - Remove all presynaptic connections
                                 to neurons defined in neuron_ids
     :param neuron_ids:      list  IDs of neurons whose presynaptic
                                       connections should be removed
-    :param model:          ctxdynapse.model
+    :param model:          CtxDynapse.model
     :param apply_diff:      bool If False do not apply the changes to
                                  chip but only to shadow states of the
                                  neurons. Useful if new connections are
@@ -457,7 +457,7 @@ def remove_all_connections_to(
     neuron_ids = copy.copy(neuron_ids)
 
     # - Get shadow state neurons
-    shadow_neurons = ctxdynapse.model.get_shadow_state_neurons()
+    shadow_neurons = CtxDynapse.model.get_shadow_state_neurons()
 
     # - Reset neuron weights in model
     for neuron in shadow_neurons:
@@ -544,7 +544,7 @@ def silence_neurons(neuron_ids):
     if isinstance(neuron_ids, int):
         neuron_ids = (neuron_ids,)
     for id_neur in neuron_ids:
-        ctxdynapse.dynapse.set_tau_2(
+        CtxDynapse.dynapse.set_tau_2(
             id_neur // NUM_NEURONS_CHIP,  # Chip ID
             id_neur % NUM_NEURONS_CHIP,  # Neuron ID on chip
         )
@@ -562,7 +562,7 @@ def reset_silencing(core_ids):
     if isinstance(core_ids, int):
         core_ids = (core_ids,)
     for id_neur in core_ids:
-        ctxdynapse.dynapse.reset_tau_1(
+        CtxDynapse.dynapse.reset_tau_1(
             id_neur // NUM_CORES_CHIP,  # Chip ID
             id_neur % NUM_CORES_CHIP,  # Core ID on chip
         )
