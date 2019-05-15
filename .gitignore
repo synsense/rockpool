@@ -6,3 +6,4 @@ __pycache__
 .pytest_cache
 AnomalyDetection/rate-based/build
 AnomalyDetection/rate-based/dist
+NetworksPython.egg-info/*

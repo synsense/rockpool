@@ -1,5 +1,5 @@
 unittests:
-  image: aictx/arch-python:latest
+  image: aictx/ci-python-arch:latest
   tags:
     - python
     - aiCTX
