@@ -17,7 +17,7 @@ class Filter(Layer):
         fs: float,
         tDt: float = None ,
         strName: str = "unnamed",
-        downSampleFs: float = None,
+        cutoffFs: float = 100,
         nfft: int = 512,
         winLen: float = 0.025,
         winStep: float = 0.01
@@ -33,7 +33,7 @@ class Filter(Layer):
         :param tDt:             float Time-step. Default: 0.1 ms
         :param fNoiseStd:       float Noise std. dev. per second. Default: 0
         :param strName:         str Name for the layer. Default: 'unnamed'
-        :param downSampleFs:    float frequency to downsample the output of the filters. Default: 'unnamed'
+        :param cutoffFs:        float frequency to lowpass the output of the filters. Default: 100 Hz
         :param winLen:          float length of analysis window in seconds. Default: 0.025
         :param winStep:         float step between successive windows in seconds. Default: 0.01
         :paran nfft:            int size of fft window. Default: 512
@@ -55,12 +55,8 @@ class Filter(Layer):
         self.winStep = winStep
         self.nfft = nfft
         self._nTimeStep = 0
-        if downSampleFs != None:
-            if "LPF" not in self.strName:
-                print("WARNING: if you are not using a LPF filterbank then downsample should be None")
-            self.downSampleFs = downSampleFs
-        else:
-            self.downSampleFs = fs
+        self.cutoffFs = cutoffFs
+
         if tDt == None:
             self.tDt = 1/fs
         else:
@@ -84,12 +80,13 @@ class Filter(Layer):
 
         if "sos" in self.filterName or "butter" in self.filterName:
             if "LPF" in self.filterName:
-                filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.downSampleFs)
+                filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.cutoffFs)
+                vtTimeBase = vtTimeBase[0] + np.arange(len(filtOutput)) / self.cutoffFs
             else:
                 filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces)
-
+                vtTimeBase = vtTimeBase[0] + np.arange(len(filtOutput)) / self.fs
             self._nTimeStep += mfInputStep.shape[0] - 1
-            vtTimeBase = vtTimeBase[0] + np.arange(len(filtOutput)) / self.downSampleFs
+
 
             return TSContinuous(
                 vtTimeBase,
