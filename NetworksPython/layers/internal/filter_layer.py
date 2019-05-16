@@ -98,7 +98,7 @@ class Filter(Layer):
             )
 
         elif "mfcc" in self.filterName or "fft" in self.filterName:
-            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, \
+            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces,
                                         winlen=self.winLen, winstep=self.winStep, nfft=self.nfft)
             self._nTimeStep += mfInputStep.shape[0] - 1
             vtTimeBase = vtTimeBase[0] + np.arange(filtOutput.shape[0]) * self.winStep
