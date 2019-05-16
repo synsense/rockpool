@@ -48,6 +48,16 @@ class DynapseControlExtd(DynapseControl):
 
         # - Convert events to an FpgaSpikeEvent
         print("dynapse_control: Generating FPGA event list from TSEvent.")
+        print(
+            type([int(isi) for isi in isi_array_discrete]),
+            type([int(neuron_ids[i]) for i in channels]),
+            type(int(targetcore_mask)),
+            type(int(targetchip_id)),
+        )
+        print(type(self.tools))
+        print(self.tools.__file__)
+        print(type(self.tools.generate_fpga_event_list))
+        print(type(self.tools.set_connections))
         events: List = self.tools.generate_fpga_event_list(
             # Make sure that no np.int64 or other non-native type is passed
             [int(isi) for isi in isi_array_discrete],

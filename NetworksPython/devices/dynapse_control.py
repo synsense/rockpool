@@ -193,6 +193,7 @@ def setup_rpyc(
     nnconnector = connection.modules.NeuronNeuronConnector
     initialized_chips = connection.namespace["initialized_chips"]
     initialized_neurons = connection.namespace["initialized_neurons"]
+    tools.initialized_neurons = connection.namespace["initialized_neurons"]
     print("dynapse_control: RPyC connection has been setup successfully.")
 
     return connection
@@ -617,19 +618,20 @@ class DynapseControl:
         )
 
         # - Initialise neuron allocation
-        self.hwneurons_isfree, self.virtualneurons_isfree = (
+        self._hwneurons_isfree, self._virtualneurons_isfree = (
             self._initial_free_neuron_lists()
         )
 
         # - Store which neurons have been assigned tau 2 (i.e. are silenced)
-        self._is_silenced = np.zeros_like(self.hwneurons_isfree, bool)
+        self._is_silenced = np.zeros_like(self._hwneurons_isfree, bool)
         # - Make sure no neuron is silenced, yet
         self.reset_silencing(range(16))
 
         print("DynapseControl: Neurons initialized.")
         print(
             "\t {} hardware neurons and {} virtual neurons available.".format(
-                np.sum(self.hwneurons_isfree), np.sum(self.hwneurons_isfree)
+                np.sum(self.hwneurons_isavailable),
+                np.sum(self.virtualneurons_isavailable),
             )
         )
 
@@ -649,10 +651,9 @@ class DynapseControl:
 
         print("DynapseControl ready.")
 
-    @staticmethod
-    def initialize_chips(chips: Optional[List[int]] = None):
+    def initialize_chips(self, chips: Optional[List[int]] = None, enforce: bool = True):
         if chips is not None:
-            initialize_hardware(chips)
+            initialize_hardware(chips, self.rpyc_connection, enforce=enforce)
 
     def clear_connections(self, core_ids: Optional[list] = None):
         """
@@ -736,27 +737,22 @@ class DynapseControl:
         _initial_free_neuron_lists - Generate initial lit of free hardware and
                                      virtual neurons as boolean arrays.
         :return:
-            hwneurons_isfree         np.ndarray  Boolean array indicating which hardware
+            _hwneurons_isfree         np.ndarray  Boolean array indicating which hardware
                                                 neurons are available
-            virtualneurons_isfree    np.ndarray  Boolean array indicating which virtual
+            _virtualneurons_isfree    np.ndarray  Boolean array indicating which virtual
                                                 neurons are available
         """
         # - Hardware neurons
-        hwneurons_isfree = np.zeros(len(self.hw_neurons), bool)
-        # Only use chips that have previously been initialized (i.e. cleared)
-        for chip_id in initialized_chips:
-            hwneurons_isfree[
-                self.num_neur_chip * chip_id : self.num_neur_chip * (chip_id + 1)
-            ] = True
+        _hwneurons_isfree = np.ones(len(self.hw_neurons), bool)
         # Do not use hardware neurons with ID 0 and core ID 0 (first of each core)
-        hwneurons_isfree[0 :: self.num_neur_chip] = False
+        _hwneurons_isfree[0 :: self.num_neur_chip] = False
 
         # - Virtual neurons
-        virtualneurons_isfree = np.ones(len(self.virtual_neurons), bool)
+        _virtualneurons_isfree = np.ones(len(self.virtual_neurons), bool)
         # Do not use virtual neuron 0
-        virtualneurons_isfree[0] = False
+        _virtualneurons_isfree[0] = False
 
-        return hwneurons_isfree, virtualneurons_isfree
+        return _hwneurons_isfree, _virtualneurons_isfree
 
     def clear_neuron_assignments(
         self, core_ids: Optional[Union[list, int]] = None, virtual: bool = True
@@ -780,21 +776,21 @@ class DynapseControl:
             for core_id in core_ids:
                 start_clear_idx = core_id * self.num_neur_core
                 end_clear_idx = start_clear_idx + self.num_neur_core
-                self.hwneurons_isfree[start_clear_idx:end_clear_idx] = freehwneurons0[
+                self._hwneurons_isfree[start_clear_idx:end_clear_idx] = freehwneurons0[
                     start_clear_idx:end_clear_idx
                 ]
             print(
                 "DynapseControl: {} hardware neurons available.".format(
-                    np.sum(self.hwneurons_isfree)
+                    np.sum(self._hwneurons_isfree)
                 )
             )
 
         if virtual:
             # - Virtual neurons
-            self.virtualneurons_isfree = freevirtualneurons0
+            self._virtualneurons_isfree = freevirtualneurons0
             print(
                 "DynapseControl: {} virtual neurons available.".format(
-                    np.sum(self.virtualneurons_isfree)
+                    np.sum(self._virtualneurons_isfree)
                 )
             )
 
@@ -816,7 +812,7 @@ class DynapseControl:
             # - Choose first available neurons
             num_neurons = neuron_ids
             # - Are there sufficient unallocated neurons?
-            if np.sum(self.hwneurons_isfree) < num_neurons:
+            if np.sum(self.hwneurons_isavailable) < num_neurons:
                 raise ValueError(
                     "Insufficient unallocated neurons available. {} requested.".format(
                         num_neurons
@@ -824,7 +820,7 @@ class DynapseControl:
                 )
             else:
                 # - Pick the first available neurons
-                ids_neurons_to_allocate = np.nonzero(self.hwneurons_isfree)[0][
+                ids_neurons_to_allocate = np.nonzero(self.hwneurons_isavailable)[0][
                     :num_neurons
                 ]
 
@@ -832,21 +828,24 @@ class DynapseControl:
             # - Choose neurons defined in neuron_ids
             ids_neurons_to_allocate = np.array(neuron_ids).flatten()
             # - Make sure neurons are available
-            if (self.hwneurons_isfree[ids_neurons_to_allocate] == False).any():
+            num_unavailable_neurons = np.sum(
+                self.hwneurons_isavailable[ids_neurons_to_allocate] == False
+            )
+            if num_unavailable_neurons > 0:
                 raise ValueError(
-                    "{} of the requested neurons are already allocated.".format(
-                        np.sum(self.hwneurons_isfree[ids_neurons_to_allocate] == False)
+                    "{} of the requested neurons are not available.".format(
+                        num_unavailable_neurons
                     )
                 )
 
         # - Mark these neurons as allocated
-        self.hwneurons_isfree[ids_neurons_to_allocate] = False
+        self._hwneurons_isfree[ids_neurons_to_allocate] = False
 
         # - Prevent allocation of virtual neurons with same (logical) ID as allocated hardware neurons
         inptneur_overlap = ids_neurons_to_allocate[
-            ids_neurons_to_allocate < np.size(self.virtualneurons_isfree)
+            ids_neurons_to_allocate < np.size(self._virtualneurons_isfree)
         ]
-        self.virtualneurons_isfree[inptneur_overlap] = False
+        self._virtualneurons_isfree[inptneur_overlap] = False
 
         # - Return these allocated neurons
         return (
@@ -869,33 +868,34 @@ class DynapseControl:
         if isinstance(neuron_ids, int):
             num_neurons = neuron_ids
             # - Are there sufficient unallocated neurons?
-            if np.sum(self.virtualneurons_isfree) < num_neurons:
+            if np.sum(self.virtualneurons_isavailable) < num_neurons:
                 raise ValueError(
                     "Insufficient unallocated neurons available. {}".format(num_neurons)
                     + " requested."
                 )
             # - Pick the first available neurons
-            ids_neurons_to_allocate = np.nonzero(self.virtualneurons_isfree)[0][
+            ids_neurons_to_allocate = np.nonzero(self.virtualneurons_isavailable)[0][
                 :num_neurons
             ]
 
         else:
             ids_neurons_to_allocate = np.array(neuron_ids).flatten()
             # - Make sure neurons are available
-            if (self.virtualneurons_isfree[ids_neurons_to_allocate] == False).any():
+            num_unavailable_neurons = np.sum(
+                self.virtualneurons_isavailable[ids_neurons_to_allocate] == False
+            )
+            if num_unavailable_neurons > 0:
                 raise ValueError(
                     "{} of the requested neurons are already allocated.".format(
-                        np.sum(
-                            self.virtualneurons_isfree[ids_neurons_to_allocate] == False
-                        )
+                        num_unavailable_neurons
                     )
                 )
 
         # - Mark these as allocated
-        self.virtualneurons_isfree[ids_neurons_to_allocate] = False
+        self._virtualneurons_isfree[ids_neurons_to_allocate] = False
         # - Prevent allocation of hardware neurons with same ID as allocated virtual neurons
         #  IS THIS REALLY NECESSARY?
-        self.hwneurons_isfree[ids_neurons_to_allocate] = False
+        self._hwneurons_isfree[ids_neurons_to_allocate] = False
 
         # - Return these neurons
         return np.array([self.virtual_neurons[i] for i in ids_neurons_to_allocate])
@@ -1958,6 +1958,17 @@ class DynapseControl:
         else:
             self._nFpgaIsiMultiplier = int(np.floor(tNewBase / self.fpga_timestep))
             self.fpga_spikegen.set_isi_multiplier(self._nFpgaIsiMultiplier)
+
+    @property
+    def hwneurons_isavailable(self) -> np.ndarray:
+        hwneurons_isinitialized = np.zeros(len(self.hw_neurons), bool)
+        if initialized_neurons:
+            hwneurons_isinitialized[initialized_neurons] = True
+        return np.logical_and(hwneurons_isinitialized, self._hwneurons_isfree)
+
+    @property
+    def virtualneurons_isavailable(self) -> np.ndarray:
+        return self._virtualneurons_isfree
 
 
 if not _USE_RPYC:

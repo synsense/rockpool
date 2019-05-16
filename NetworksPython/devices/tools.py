@@ -49,22 +49,28 @@ def _auto_insert_dummies(
         corrected_id_list      list  Neuron IDs corresponding to corrected ISIs. Dummy events have None.
         isdummy_list           list  Boolean indicating which events are dummy events
     """
+    print(discrete_isi_list, neuron_ids, fpga_isi_limit)
     # - List of lists with corrected entries
     corrected: List[List] = [
         _replace_too_large_value(isi, fpga_isi_limit) for isi in discrete_isi_list
     ]
+    print(corrected)
     # - Number of new entries for each old entry
     new_event_counts = [len(l) for l in corrected]
+    print(new_event_counts)
     # - List of lists with neuron IDs corresponding to ISIs. Dummy events have ID None
     id_lists: List[List] = [
         [id_neur, *(None for _ in range(length - 1))]
         for id_neur, length in zip(neuron_ids, new_event_counts)
     ]
+    print(id_lists)
     # - Flatten out lists
     corrected_isi_list = [isi for l in corrected for isi in l]
     corrected_id_list = [id_neur for l in id_lists for id_neur in l]
+    print(corrected_id_list, corrected_isi_list)
     # - Count number of added dummy events (each one has None as ID)
     num_dummies = len(tuple(filter(lambda x: x is None, corrected_id_list)))
+    print(num_dummies)
     if num_dummies > 0:
         print("dynapse_control: Inserted {} dummy events.".format(num_dummies))
 
@@ -153,13 +159,21 @@ def generate_fpga_event_list(
     :return:
         event  list of generated FpgaSpikeEvent objects.
     """
-
+    print(
+        discrete_isi_list,
+        neuron_ids,
+        targetcore_mask,
+        targetchip_id,
+        fpga_isi_limit,
+        correct_isi,
+    )
     # - Make sure objects live on required side of RPyC connection
     targetcore_mask = int(targetcore_mask)
     targetchip_id = int(targetchip_id)
     neuron_ids = copy.copy(neuron_ids)
     discrete_isi_list = copy.copy(discrete_isi_list)
 
+    print(discrete_isi_list, neuron_ids, targetcore_mask, targetchip_id)
     if correct_isi:
         discrete_isi_list, neuron_ids = _auto_insert_dummies(
             discrete_isi_list, neuron_ids, fpga_isi_limit
@@ -494,7 +508,7 @@ def set_connections(
     set_connections - Set connections between pre- and post synaptic neurons from lists.
     :param preneuron_ids:       list  N Presynaptic neurons
     :param postneuron_ids:      list  N Postsynaptic neurons
-    :param syntypes:       list  N or 1 Synapse type(s)
+    :param syntypes:            list  N or 1 Synapse type(s)
     :param shadow_neurons:      list  Shadow neurons that the indices correspond to.
     :param virtual_neurons:     list  If None, presynaptic neurons are shadow neurons,
                                       otherwise virtual neurons from this list.
@@ -503,24 +517,26 @@ def set_connections(
     preneuron_ids = copy.copy(preneuron_ids)
     postneuron_ids = copy.copy(postneuron_ids)
     syntypes = copy.copy(syntypes)
-    presyn_neuron_population: List = shadow_neurons if virtual_neurons is None else virtual_neurons
+    presyn_isvirtual = virtual_neurons is not None
+    presyn_neuron_population: List = virtual_neurons if presyn_isvirtual else shadow_neurons
 
     # - Neurons to be connected
     presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
-    postsyn_neurons = [shadow_neurons[i] for i in preneuron_ids]
+    postsyn_neurons = [shadow_neurons[i] for i in postneuron_ids]
 
-    # - Logical IDs of pre adn post neurons
-    logical_pre_ids = [neuron.get_id() for neuron in presyn_neurons]
+    if not presyn_isvirtual:
+        # - Logical IDs of pre neurons
+        logical_pre_ids = [neuron.get_id() for neuron in presyn_neurons]
+        # - Make sure that pre neurons are on initialized chips
+        if not set(logical_pre_ids).issubset(initialized_neurons):
+            raise ValueError(
+                "dynapse_control: Some of the presynaptic neurons are on chips that have not"
+                + " been cleared since starting cortexcontrol. This may result in unexpected"
+                + " behavior. Clear those chips first."
+            )
+    # - Logical IDs of post neurons
     logical_post_ids = [neuron.get_id() for neuron in postsyn_neurons]
-    # - Make sure that neurons are on initialized chips
-    if virtual_neurons is None and not set(logical_pre_ids).issubset(
-        initialized_neurons
-    ):
-        raise ValueError(
-            "dynapse_control: Some of the presynaptic neurons are on chips that have not"
-            + " been cleared since starting cortexcontrol. This may result in unexpected"
-            + " behavior. Clear those chips first."
-        )
+    # - Make sure that post neurons are on initialized chips
     if not set(logical_post_ids).issubset(initialized_neurons):
         raise ValueError(
             "dynapse_control: Some of the postsynaptic neurons are on chips that have not"
@@ -531,7 +547,11 @@ def set_connections(
     # - Set connections
     connector.add_connection_from_list(presyn_neurons, postsyn_neurons, syntypes)
 
-    print("dynapse_control: {} connections have been set.".format(len(preneuron_ids)))
+    print(
+        "dynapse_control: {} {}connections have been set.".format(
+            len(preneuron_ids), "virtual " * presyn_isvirtual
+        )
+    )
 
 
 @local_arguments
