@@ -56,6 +56,8 @@ class Filter(Layer):
         self.nfft = nfft
         self._nTimeStep = 0
         if downSampleFs != None:
+            if "LPF" not in self.strName:
+                print("WARNING: if you are not using a LPF filterbank then downsample should be None")
             self.downSampleFs = downSampleFs
         else:
             self.downSampleFs = fs
@@ -81,8 +83,13 @@ class Filter(Layer):
         )
 
         if "sos" in self.filterName or "butter" in self.filterName:
-            filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.downSampleFs)
+            if "LPF" in self.filterName:
+                filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.downSampleFs)
+            else:
+                filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces)
+
             self._nTimeStep += mfInputStep.shape[0] - 1
+            vtTimeBase = vtTimeBase[0] + np.arange(len(filtOutput)) / self.downSampleFs
 
             return TSContinuous(
                 vtTimeBase,
