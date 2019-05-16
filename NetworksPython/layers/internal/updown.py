@@ -6,6 +6,7 @@ updown.py - Feedforward layer that converts each analogue input channel to one s
 
 import numpy as np
 from typing import Optional, Union, Tuple, List
+import json
 
 try:
     from tqdm import tqdm
@@ -87,7 +88,7 @@ class FFUpDown(Layer):
             (nSizeIn, self._nMultiChannel) = mfW
             nSize = 2 * self._nMultiChannel * nSizeIn * nRepeatOutput
         else:
-            (nSizeIn, nSize) = mfW.shape
+            (nSizeIn, nSize) = np.shape(mfW)
             assert (
                 nSize % (2 * nSizeIn) == 0
             ), "Layer `{}`: nSize (here {}) must be a multiple of 2*nSizeIn (here {}).".format(
@@ -362,3 +363,59 @@ class FFUpDown(Layer):
         )
         self._vfDecayFactor = np.ones(self.nSizeIn)  # No decay corresponds to decay factor 1
         self._vfDecayFactor[vbDecay] = 1 - self.tDt / vtNewTau[vbDecay]
+
+
+    def to_dict(self):
+
+        config = {}
+        config['strName'] = self.strName
+        config['mfW'] = self.mfW.tolist()
+        config['tDt'] = self.tDt if type(self.tDt) is float else self.tDt.tolist()
+        config['fNoiseStd'] = self.fNoiseStd
+        config['nRepeatOutput'] = self.nRepeatOutput
+        config['nMaxNumTimeSteps'] = self.nMaxNumTimeSteps
+        config['bMultiplexSpikes'] = self.bMultiplexSpikes
+        config['vtTauDecay'] = self.vtTauDecay if type(self.vtTauDecay) is float else self.vtTauDecay.tolist()
+        config['vfThrUp'] = self.vfThrUp if type(self.vfThrUp) is float else self.vfThrUp.tolist()
+        config['vfThrDown'] = self.vfVhrDown if type(self.vfThrDown) is float else self.vfThrDown.tolist()
+        config["ClassName"] = "FFUpDown"
+
+        return config
+
+    def save(self, config, filename):
+        with open(filename, "w") as f:
+            json.dump(config, f)
+
+    @staticmethod
+    def load_from_dict(config):
+
+        return FFUpDown(
+            mfW=config["mfW"],
+            fNoiseStd=config['fNoiseStd'],
+            nRepeatOutput=config['nRepeatOutput'],
+            nMaxNumTimeSteps=config['nMaxNumTimeSteps'],
+            bMultiplexSpikes=config['bMultiplexSpikes'],
+            tDt=config['tDt'],
+            vtTauDecay=config['vtTauDecay'],
+            vfThrUp=config['vfThrUp'],
+            vfThrDown=config['vfThrDown'],
+            strName=config['strName'],
+        )
+
+    @staticmethod
+    def load_from_file(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
+
+        return FFUpDown(
+            mfW=config["mfW"],
+            fNoiseStd=config['fNoiseStd'],
+            nRepeatOutput=config['nRepeatOutput'],
+            nMaxNumTimeSteps=config['nMaxNumTimeSteps'],
+            bMultiplexSpikes=config['bMultiplexSpikes'],
+            tDt=config['tDt'],
+            vtTauDecay=config['vtTauDecay'],
+            vfThrUp=config['vfThrUp'],
+            vfThrDown=config['vfThrDown'],
+            strName=config['strName'],
+        )
