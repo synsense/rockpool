@@ -397,7 +397,7 @@ class RecDynapSE(Layer):
         # - Generator that splits inupt into batches
         gInputGenerator = self._batch_input_data(
             # - Clip tsInput to required duration
-            tsInput.clip([self.t, self.t + tDuration]),
+            tsInput.clip(self.t, self.t + tDuration),
             nNumTimeSteps,
             bVerbose,
         )
@@ -447,7 +447,7 @@ class RecDynapSE(Layer):
     ):
         try:
             vtTimeTraceOut, vnChannelsOut = self.controller.send_arrays(
-                times=vnTimeSteps,
+                timesteps=vnTimeSteps,
                 channels=vnChannels,
                 t_record=tDurBatch,
                 neuron_ids=self.vnVirtualNeuronIDs,

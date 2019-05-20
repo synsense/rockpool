@@ -192,9 +192,7 @@ class DynapseControlExtd(DynapseControl):
             targetchip_id=targetchip_id,
         )
         print(
-            "DynapseControl: Stimulus prepared from TSEvent `{}`.".format(
-                series.strName
-            )
+            "DynapseControl: Stimulus prepared from TSEvent `{}`.".format(series.name)
         )
 
         # - Stimulate and obtain recorded data if any

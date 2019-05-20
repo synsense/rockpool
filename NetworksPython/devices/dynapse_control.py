@@ -46,14 +46,11 @@ except ModuleNotFoundError:
 
 
 class ensure_defined:
-    def __enter__(self, obj):
-        try:
-            obj
-        except NameError as e:
+    def __enter__(self, name: str):
+        if name not in globals().keys():
             raise NameError(
-                "dynapse_control: "
-                + e
-                + ". Run `setup_rpyc` with your RPyC connection as argument."
+                f"dynapse_control: {name} is not defined. "
+                + "Run `setup_rpyc` with your RPyC connection as argument."
             )
 
     def __exit__(self, type, value, traceback):
@@ -333,8 +330,8 @@ def evaluate_firing_rates(
         rate_min       float - Lowest firing rate of all neurons
     """
     # - Extract event timestamps and neuron IDs
-    with ensure_defined(tools):
-        timestamps, event_neuron_ids = tools.extract_event_data(events)
+    # with ensure_defined("tools"):
+    timestamps, event_neuron_ids = tools.extract_event_data(events)
     # - Count events for each neuron
     unique_event_ids, event_counts = np.unique(event_neuron_ids, return_counts=True)
 
@@ -398,8 +395,8 @@ def event_data_to_channels(
     timestamps: tuple
     neuron_ids: tuple
 
-    with ensure_defined(tools):
-        timestamps, neuron_ids = tools.extract_event_data(events)
+    # with ensure_defined("tools"):
+    timestamps, neuron_ids = tools.extract_event_data(events)
     # - Convert to numpy array and thereby fetch data from connection if using RPyC
     timestamps = np.array(timestamps)
     neuron_ids = np.array(neuron_ids)
