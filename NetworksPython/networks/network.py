@@ -108,7 +108,7 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
 
 
 class Network:
-    def __init__(self, *layers: Layer, tDt=None, inp2out=False):
+    def __init__(self, *layers: Layer, tDt=None):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
@@ -122,10 +122,7 @@ class Network:
                                time step that is multiple of tDt.
                                If None, network will try to determine
                                suitable tDt each time a layer is added.
-        :param inp2out:  bool if true input connects to output else not
         """
-
-        self.inp2out = inp2out
 
         # - Network time
         self._nTimeStep = 0
@@ -142,9 +139,6 @@ class Network:
             self._bForceDt = False
 
         if layers:
-            for lyr in layers:
-                if lyr.strName == "input":
-                    self.inputLayer = lyr
             # - First layer receives external input
             self.lyrInput = self.add_layer(layers[0], bExternalInput=True)
 
@@ -310,7 +304,7 @@ class Network:
                 )
                 + " (nSizeIn={}) do not match".format(lyrTarget.nSizeIn)
             )
-        elif lyrSource.nSize + int(self.inp2out) * self.inputLayer.nSize != lyrTarget.nSizeIn and lyrTarget.strName == "output":
+        elif lyrSource.nSize != lyrTarget.nSizeIn and lyrTarget.strName == "output":
             raise NetworkError(
                 "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
                     lyrSource.strName, lyrSource.nSize, lyrTarget.strName
@@ -565,7 +559,7 @@ class Network:
                 strIn = "external input"
 
             elif lyr.lyrIn is not None:
-                if lyr.strName == "output" and self.inp2out:
+                if lyr.strName == "output":
                     strIn = ''
 
                     tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
@@ -1013,11 +1007,8 @@ class Network:
         for lyr in listofLayers:
             classLyr = getattr(layers, lyr["ClassName"])
             lEvolOrder.append(classLyr.load_from_dict(lyr))
-            print(lEvolOrder[-1].strName)
-        inp2out = False
-        if lEvolOrder[-1].mfW.shape[0] != lEvolOrder[-2].mfW.shape[1]:
-            inp2out = True
-        return Network(*lEvolOrder, inp2out=inp2out)
+
+        return Network(*lEvolOrder)
 
 
 

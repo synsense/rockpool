@@ -34,9 +34,9 @@ def test_filter_layer():
 
     dFl0 = fl0.evolve(tsInp)
 
-    filterOutput = butter_mel(signal, fs, numInputChannels, fs, False, 2)
+    filterOutput = butter_mel(signal, fs, numInputChannels, False, 2)
     tsFilt = TSContinuous(times, filterOutput)
 
-    assert np.all(np.isclose(tsFilt.mfSamples, dFl0.mfSamples))
+    assert np.all(np.isclose(tsFilt.samples, dFl0.samples))
     assert(fl0.nNumTraces == 5)
-    assert(dFl0.mfSamples.mean() != 0)
+    assert(dFl0.samples.mean() != 0)
