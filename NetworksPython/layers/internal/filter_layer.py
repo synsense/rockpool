@@ -80,7 +80,7 @@ class Filter(Layer):
 
         if "sos" in self.filterName or "butter" in self.filterName:
             if "LPF" in self.filterName:
-                filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, downSampleFs=self.cutoffFs)
+                filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces, cutoffFs=self.cutoffFs)
                 vtTimeBase = vtTimeBase[0] + np.arange(len(filtOutput)) / self.cutoffFs
             else:
                 filtOutput = self.filtFunct(mfInputStep.T[0], self.fs, self.nNumTraces)
