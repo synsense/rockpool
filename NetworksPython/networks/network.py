@@ -113,7 +113,7 @@ class Network:
         Network - Super class to encapsulate several Layers, manage signal routing
 
         :param layers:   Layers to be added to the network. They will
-                         be connected in series (or not). The Order in which
+                         be connected in series. The Order in which
                          they are received determines the order in
                          which they are connected. First layer will
                          receive external input
@@ -297,14 +297,7 @@ class Network:
         """
         # - Make sure that layer dimensions match
 
-        if lyrSource.nSize != lyrTarget.nSizeIn and lyrTarget.strName != "output":
-            raise NetworkError(
-                "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
-                    lyrSource.strName, lyrSource.nSize, lyrTarget.strName
-                )
-                + " (nSizeIn={}) do not match".format(lyrTarget.nSizeIn)
-            )
-        elif lyrSource.nSize != lyrTarget.nSizeIn and lyrTarget.strName == "output":
+        if lyrSource.nSize != lyrTarget.nSizeIn:
             raise NetworkError(
                 "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
                     lyrSource.strName, lyrSource.nSize, lyrTarget.strName
@@ -324,8 +317,6 @@ class Network:
             )
 
         # - Add source layer to target's set of inputs
-        if lyrTarget.strName == 'output':
-            pass
         lyrTarget.lyrIn = lyrSource
 
         # - Make sure that the network remains a directed acyclic graph
@@ -559,18 +550,9 @@ class Network:
                 strIn = "external input"
 
             elif lyr.lyrIn is not None:
-                if lyr.strName == "output":
-                    strIn = ''
-
-                    tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
-                    tsCurrentInput.append_c(dtsSignal['input'], inplace=True)
-
-                    strIn += "input" + "'s output"
-                    strIn += lyr.lyrIn.strName + "'s output"
-                else:
-                    # - Output of current layer's input layer
-                    tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
-                    strIn = lyr.lyrIn.strName + "'s output"
+                # - Output of current layer's input layer
+                tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
+                strIn = lyr.lyrIn.strName + "'s output"
 
             else:
                 # - No input
@@ -986,15 +968,20 @@ class Network:
     #     for lyr in self.setLayers:
     #         lyr.fDt = self.__fDt
 
-    def save(self, filename):
+    def save(self, filename: str):
+        # - List with layers in their evolution order
         listofLayers = []
         for lyr in self.lEvolOrder:
             listofLayers.append(lyr.to_dict())
+        savedict = {"layers": listofLayers}
+        # - Include dt if it has been enforced at instantiation
+        if self._bForceDt:
+            savedict["dt"] = self.tDt
         with open(filename, "w") as f:
-            json.dump(listofLayers, f)
+            json.dump(savedict, f)
 
     @staticmethod
-    def load(filename):
+    def load(filename: str) -> "Network":
         """
         load the network from a json file
         :param filename: filename of json that contains
@@ -1002,14 +989,16 @@ class Network:
         """
 
         with open(filename, "r") as f:
-            listofLayers = json.load(f)
+            loaddict: dict = json.load(f)
+        # - Instantiate layers
+        listofLayers = loaddict["layers"]
         lEvolOrder = []
         for lyr in listofLayers:
             classLyr = getattr(layers, lyr["ClassName"])
             lEvolOrder.append(classLyr.load_from_dict(lyr))
-
-        return Network(*lEvolOrder)
-
+        # - If dt has been stored, include as parameter for new Network object
+        dt = loaddict.get("dt", None)
+        return Network(*lEvolOrder, tDt=dt)
 
 
 ### --- NetworkError exception class
