@@ -1040,22 +1040,7 @@ class TSContinuous(TimeSeries):
 
         return self.resample(time_points, channels, inplace=False)
 
-        # - Insert initial samples
-
-        tsClipped._mfSamples = np.concatenate(
-            (
-                np.reshape(vfFirstSample, (-1, nNumTraces)),
-                np.reshape(tsClipped._mfSamples, (-1, nNumTraces)),
-            ),
-            axis=0,
-        )
-
-        # - Update tStart to contain initial time point
-        tsClipped._tStart = min(tsClipped._tStart, vtNewBounds[0])
-
-        return tsClipped
-
-    def _clip(self, vtNewBounds: ArrayLike, bInPlace: bool = False):
+    def __repr__(self):
         """
         __repr__() - Return a string representation of this object
         :return: str String description
@@ -1433,68 +1418,11 @@ class TSEvent(TimeSeries):
                 [f"{t}: \t {ch}" for t, ch in zip(self.times, self.channels)]
             )
         else:
-            # - Return all samples
-            return self.vtTimeTrace, self.vnChannels, self.mfSamples.flatten()
-
-    def clip(self, vtNewBounds: Union[list, np.ndarray], bInPlace: bool = False):
-        """
-        clip - Clip a time series in time, to a specified start and stop time
-
-        :param vtNewBounds:
-        :param bInPlace:         bool Specify whether operation should be performed in place (Default: False)
-        :return:                 TSEvent Including only clipped events
-        """
-        # - Call super-class clipper
-        tsClip, vbIncludeSamples = super()._clip(vtNewBounds, bInPlace=bInPlace)
-
-        # - Fix up channels variable
-        tsClip._vnChannels = self._vnChannels[vbIncludeSamples]
-
-        # - Return new TimeSeries
-        return tsClip
-
-    def lv(self):
-        """
-        lv - Calculates the lv measure for each channel
-
-        :return: list with lv measure for each channel
-        """
-        lvList = np.zeros(self.num_channels)
-        for id in range(self.num_channels):
-            times = self.times[np.where(self.channels == id)[0]]
-            timeInterval = np.diff(times)
-            loVar = 3. * np.mean(np.power(np.diff(timeInterval) / (timeInterval[:-1] + timeInterval[1:]), 2))
-            lvList[id] = loVar
-
-        return lvList
-
-    def FanoFactor(self, dt=0.001):
-        """
-        FanoFactor() - put as input a spike detector nest object and return mean FanoFactor of the network
-
-        :param tDt: float raster timestep in sec
-        :return: float FanoFactor
-        """
-        raster = self.raster(dt, add_events=True).T
-        hist = raster.sum(axis=0)
-        return np.var(hist) / np.mean(hist)
-
-
-    def _choose(self, vnSelectChannels: Union[list, np.ndarray]):
-        """
-        _choose - Select and return raw event data for the requested channels
-
-        :param vnSelectChannels: array-like of channel indices
-        :return: (vtTimeTrace, vnChannels, mfSamples) containing events form the requested channels
-        """
-
-        # - Check vnSelectChannels
-        if not (
-            np.min(vnSelectChannels) >= 0
-            and np.max(vnSelectChannels) < self.nNumChannels
-        ):
-            raise IndexError(
-                "`vnSelectChannels` must be between 0 and {}".format(self.nNumChannels)
+            summary0 = s.join(
+                [
+                    f"{t}: \t {ch}"
+                    for t, ch in zip(self.times[:num_first], self.channels[:num_first])
+                ]
             )
             summary1 = s.join(
                 [
