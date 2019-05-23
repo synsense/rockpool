@@ -59,8 +59,8 @@ def test_save_load():
 
     net0.save("test_nw.json")
     net1 = nws.load("test_nw.json")
-    fl2 = net1.lLayers[0]
-    fl3 = net1.lLayers[1]
+    fl2 = net1.FF
+    fl3 = net1.Rec
 
     np.random.seed(0)
 

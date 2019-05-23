@@ -216,7 +216,7 @@ def test_FFToRecLayer():
         bRecord=True,
         strName="Rec")
 
-    net = nw.Network(fl0, fl1, inp2out=False)
+    net = nw.Network(fl0, fl1)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -385,7 +385,7 @@ def test_FFToRecLayerRepeat():
         bRecord=True,
         strName="Rec")
 
-    net = nw.Network(fl0, fl1, inp2out=False)
+    net = nw.Network(fl0, fl1)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -458,7 +458,7 @@ def test_DefaultParams():
                           bRecord=True,
                           strName="Rec")
 
-    net0 = nw.Network(fl0, fl1, inp2out=False)
+    net0 = nw.Network(fl0, fl1)
 
     fl2 = FFIAFNest(mfW=mfW,
                     bRecord=True,
@@ -469,7 +469,7 @@ def test_DefaultParams():
                           bRecord=True,
                           strName="Rec")
 
-    net1 = nw.Network(fl2, fl3, inp2out=False)
+    net1 = nw.Network(fl2, fl3)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -540,7 +540,7 @@ def test_Multithreading():
                           bRecord=True,
                           strName="Rec")
 
-    net0 = nw.Network(fl0, fl1, inp2out=False)
+    net0 = nw.Network(fl0, fl1)
 
     np.random.seed(0)
 
@@ -572,7 +572,7 @@ def test_Multithreading():
                           nNumCores=4,
                           strName="Rec")
 
-    net1 = nw.Network(fl2, fl3, inp2out=False)
+    net1 = nw.Network(fl2, fl3)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
@@ -654,7 +654,7 @@ def test_delays():
         bRecord=True,
         strName="Rec")
 
-    net = nw.Network(fl0, fl1, inp2out=False)
+    net = nw.Network(fl0, fl1)
 
     # - Input signal
     vTime = np.arange(0, 1, tDt)
