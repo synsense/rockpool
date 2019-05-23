@@ -41,6 +41,7 @@ dModules = {
         "RecIAFSpkInRefrTorch",
         "RecIAFSpkInRefrCLTorch",
     ),
+    ".internal.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
 }
 
 

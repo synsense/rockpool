@@ -3,9 +3,12 @@
 ###
 
 ### --- Imports
+import json
+
 import numpy as np
 from decimal import Decimal
 from copy import deepcopy
+from NetworksPython import layers
 
 try:
     from tqdm.autonotebook import tqdm
@@ -126,8 +129,6 @@ class Network:
 
         # Maintain set of all layers
         self.setLayers = set()
-        self.dLayers = dict()
-        self.lLayers = list()
 
         if tDt is not None:
             assert tDt > 0, "Network: tDt must be positive."
@@ -223,8 +224,6 @@ class Network:
 
         # - Update inventory of layers
         self.setLayers.add(lyr)
-        self.dLayers[lyr.strName] = lyr
-        self.lLayers.append(lyr)
 
         # - Update global tDt
         self._set_tDt()
@@ -296,8 +295,8 @@ class Network:
         :param lyrTarget:   The target layer
         :param bVerbose:    bool Flag indicating whether to print feedback
         """
-
         # - Make sure that layer dimensions match
+
         if lyrSource.nSize != lyrTarget.nSizeIn:
             raise NetworkError(
                 "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
@@ -566,7 +565,6 @@ class Network:
                         lyr.strName, strIn
                     )
                 )
-
             # - Evolve layer and store output in dtsSignal
             dtsSignal[lyr.strName] = lyr.evolve(
                 tsInput=tsCurrentInput,
@@ -969,6 +967,38 @@ class Network:
     #     self.__fDt = fNewDt
     #     for lyr in self.setLayers:
     #         lyr.fDt = self.__fDt
+
+    def save(self, filename: str):
+        # - List with layers in their evolution order
+        listofLayers = []
+        for lyr in self.lEvolOrder:
+            listofLayers.append(lyr.to_dict())
+        savedict = {"layers": listofLayers}
+        # - Include dt if it has been enforced at instantiation
+        if self._bForceDt:
+            savedict["dt"] = self.tDt
+        with open(filename, "w") as f:
+            json.dump(savedict, f)
+
+    @staticmethod
+    def load(filename: str) -> "Network":
+        """
+        load the network from a json file
+        :param filename: filename of json that contains
+        :return: returns a network object with all the layers
+        """
+
+        with open(filename, "r") as f:
+            loaddict: dict = json.load(f)
+        # - Instantiate layers
+        listofLayers = loaddict["layers"]
+        lEvolOrder = []
+        for lyr in listofLayers:
+            classLyr = getattr(layers, lyr["ClassName"])
+            lEvolOrder.append(classLyr.load_from_dict(lyr))
+        # - If dt has been stored, include as parameter for new Network object
+        dt = loaddict.get("dt", None)
+        return Network(*lEvolOrder, tDt=dt)
 
 
 ### --- NetworkError exception class

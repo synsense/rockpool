@@ -5,6 +5,7 @@
 
 
 # - Imports
+import json
 from typing import Optional, Union
 from warnings import warn
 import numpy as np
@@ -534,6 +535,73 @@ class FFIAFTorch(Layer):
         """
         self.vState = self.vfVReset
         self.vSynapseState = 0
+
+
+    def to_dict(self):
+
+        essentialDict = {}
+        essentialDict["strName"] = self.strName
+        essentialDict["mfW"] = self._mfW.cpu().tolist()
+        essentialDict["tDt"] = self.tDt
+        essentialDict["fNoiseStd"] = self.fNoiseStd
+        essentialDict["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
+        essentialDict["vfVThresh"] = self._vfVThresh.cpu().tolist()
+        essentialDict["vfVReset"] = self._vfVReset.cpu().tolist()
+        essentialDict["vfVRest"] = self._vfVReset.cpu().tolist()
+        essentialDict["vtTauN"] = self._vtTauN.cpu().tolist()
+        essentialDict["vfBias"] = self._vfBias.cpu().tolist()
+        essentialDict["bRecord"] = self.bRecord
+        essentialDict["ClassName"] = "FFIAFTorch"
+
+        return essentialDict
+
+    def save(self, essentialDict, filename):
+        with open(filename, "w") as f:
+            json.dump(essentialDict, f)
+
+    @staticmethod
+    def load_from_file(filename):
+        """
+        load the layer from a file
+        :param filename: str with the filename that includes the dict that initializes the layer
+        :return: FFIAFTorch layer
+        """
+        with open(filename, "r") as f:
+            config = json.load(f)
+        return FFIAFTorch(
+            mfW=config["mfW"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
+
+    @staticmethod
+    def load_from_dict(config):
+        """
+        load the layer from a dict
+        :param config: dict information for the initialization
+        :return: FFIAFTorch layer
+        """
+        return FFIAFTorch(
+            mfW=config["mfW"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
 
     ### --- Properties
 
@@ -1629,6 +1697,74 @@ class RecIAFSpkInTorch(RecIAFTorch):
     def reset_all(self):
         super().reset_all()
         self.vSynapseStateInp = 0
+
+    def to_dict(self):
+
+        essentialDict = {}
+        essentialDict["strName"] = self.strName
+        essentialDict["mfWRec"] = self._mfWRec.cpu().tolist()
+        essentialDict["tDt"] = self.tDt
+        essentialDict["fNoiseStd"] = self.fNoiseStd
+        essentialDict["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
+        essentialDict["vfVThresh"] = self._vfVThresh.cpu().tolist()
+        essentialDict["vfVReset"] = self._vfVReset.cpu().tolist()
+        essentialDict["vfVRest"] = self._vfVReset.cpu().tolist()
+        essentialDict["vtTauN"] = self._vtTauN.cpu().tolist()
+        essentialDict["vtTauSRec"] = self._vtTauSRec.cpu().tolist()
+        essentialDict["vtTauSInp"] = self._vtTauSInp.cpu().tolist()
+        essentialDict["vfBias"] = self._vfBias.cpu().tolist()
+        essentialDict["mfWIn"] = self._mfWIn.cpu().tolist()
+        essentialDict["bRecord"] = self.bRecord
+        essentialDict["bAddEvents"] = self.bAddEvents
+        essentialDict["ClassName"] = "RecIAFSpkInTorch"
+
+        return essentialDict
+
+    def save(self, essentialDict, filename):
+        with open(filename, "w") as f:
+            json.dump(essentialDict, f)
+
+    @staticmethod
+    def load(filename):
+        with open(filename, "r") as f:
+            config = json.load(f)
+        return RecIAFSpkInTorch(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vtTauSInp=config["vtTauSInp"],
+            vtTauSRec=config["vtTauSRec"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            bAddEvents=config["bAddEvents"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
+    @staticmethod
+    def load_from_dict(config):
+
+        return RecIAFSpkInTorch(
+            mfWIn=config["mfWIn"],
+            mfWRec=config["mfWRec"],
+            vfBias=config["vfBias"],
+            tDt=config["tDt"],
+            fNoiseStd=config["fNoiseStd"],
+            vtTauN=config["vtTauN"],
+            vtTauSInp=config["vtTauSInp"],
+            vtTauSRec=config["vtTauSRec"],
+            vfVThresh=config["vfVThresh"],
+            vfVReset=config["vfVReset"],
+            vfVRest=config["vfVRest"],
+            strName=config["strName"],
+            bRecord=config["bRecord"],
+            bAddEvents=config["bAddEvents"],
+            nMaxNumTimeSteps=config["nMaxNumTimeSteps"],
+        )
 
     def _update_rec_kernel(self):
         # - Kernel for filtering recurrent spikes
