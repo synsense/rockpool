@@ -5,17 +5,16 @@ channels:
 dependencies:
   - brian2
   - matplotlib
+  - numba
   - numpy
+  - pandas
   - pyqt
   - pytest
   - python>=3.6
+  - pytorch
   - qt
-  - scikit-image
   - scipy
   - setuptools
-  - tqdm
-  - pytorch
   - torchvision
-  - numba
-  - pandas
+  - tqdm
 
