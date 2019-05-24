@@ -186,7 +186,6 @@ class RecDynapSE(Layer):
         if not bSkipWeights:
             # - Configure connectivity
             self._compile_weights_and_configure()
-        print(self.controller.tools.__file__)
 
         print("Layer `{}` prepared.".format(self.strName))
 
@@ -691,7 +690,6 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Set up filter for recording spikes
         self.controller.add_buffered_event_filter(self.vnHWNeuronIDs)
-        print("RDSD init ", self.controller.tools.__file__)
 
     def load_events(self, tsAS, vtRhythmStart, tTotalDuration: float):
         if tsAS.times.size > self.controller.sram_event_limit:
@@ -708,7 +706,6 @@ class RecDynapSEDemo(RecDynapSE):
         self.vtRhythmDurations = np.diff(np.r_[vtRhythmStart, tTotalDuration])
 
         # - Convert timeseries to events for FPGA
-        print("RDSD.load_events: ", self.controller.tools.__file__)
         lEvents = self.controller._TSEvent_to_spike_list(
             series=tsAS,
             neuron_ids=self.vnVirtualNeuronIDs,
