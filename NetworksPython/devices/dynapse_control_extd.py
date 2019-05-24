@@ -128,7 +128,7 @@ class DynapseControlExtd(DynapseControl):
                     t_start=0,
                     t_stop=t_record,
                     num_channels=(
-                        np.amax(channels_out)
+                        np.amax(channels_out) + 1
                         if record_neur_ids is None
                         else np.size(record_neur_ids)
                     ),
@@ -215,7 +215,7 @@ class DynapseControlExtd(DynapseControl):
                     t_start=0,
                     t_stop=t_record,
                     num_channels=(
-                        np.amax(channels_out)
+                        np.amax(channels_out) + 1
                         if record_neur_ids is None
                         else np.size(record_neur_ids)
                     ),
@@ -291,7 +291,7 @@ class DynapseControlExtd(DynapseControl):
                     t_start=0,
                     t_stop=t_record,
                     num_channels=(
-                        np.amax(channels_out)
+                        np.amax(channels_out) + 1
                         if record_neur_ids is None
                         else np.size(record_neur_ids)
                     ),
@@ -300,12 +300,62 @@ class DynapseControlExtd(DynapseControl):
             else:
                 return times_out, channels_out
 
+    def record(
+        self,
+        neuron_ids: Union[np.ndarray, List[int], int],
+        duration: Optional[float] = None,
+        return_ts: bool = False,
+    ) -> Union[(np.array, np.array), TSEvent]:
+        """
+        record - Record spiking activity of given neurons. Either record for
+                 given duration or until `self.stop_recording` is called
+        :param neuron_ids:  Array-like with IDs of neurons that should be recorded
+        :param duration:    Recording duration in seconds. If None, will record
+                            until `self.stop_recording` is called.
+        :param return_ts:      If True, return TSEvent instead of arrays.
+        """
+        times, channels = super().record(neuron_ids, duration)
+        if return_ts:
+            return TSEvent(
+                times,
+                channels,
+                t_start=0,
+                t_stop=duration,
+                num_channels=neuron_ids,
+                name="DynapSE",
+            )
+        else:
+            return times, channels
+
+    def stop_recording(
+        self, since_trigger: bool = False, return_ts: bool = False
+    ) -> Union[TSEvent, (np.ndarray, np.ndarray)]:
+        """
+        stop_recording - Stop recording and return recorded events as arrays.
+        :param since_trigger:  If True, only use events recorded after first
+                               trigger event in buffer.
+        :param return_ts:      If True, return TSEvent instead of arrays.
+        """
+        try:
+            self.bufferedfilter.clear()
+        except AttributeError:
+            warn("dynapse_control: No recording has been started.")
+            return np.array([]), np.array([])
+        else:
+            if return_ts:
+                return self._recorded_data_to_TSEvent(None, None, since_trigger)
+            else:
+                return self._recorded_data_to_arrays(None, None, since_trigger)
+
     def _recorded_data_to_TSEvent(
-        self, neuron_ids: np.ndarray, t_record: float
+        self,
+        neuron_ids: Union[np.ndarray, None],
+        t_record: float,
+        since_trigger: bool = True,
     ) -> TSEvent:
         # - Retrieve recorded data and convert to arrays
         times_out, channels_out = super()._recorded_data_to_arrays(
-            neuron_ids=neuron_ids, t_record=t_record
+            neuron_ids=neuron_ids, t_record=t_record, since_trigger=since_trigger
         )
 
         return TSEvent(
@@ -314,7 +364,7 @@ class DynapseControlExtd(DynapseControl):
             t_start=0,
             t_stop=t_record,
             num_channels=(
-                np.amax(channels_out) if neuron_ids is None else np.size(neuron_ids)
+                np.amax(channels_out) + 1 if neuron_ids is None else np.size(neuron_ids)
             ),
             name="DynapSE",
         )

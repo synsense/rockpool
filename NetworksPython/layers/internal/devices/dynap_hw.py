@@ -538,7 +538,7 @@ class RecDynapSE(Layer):
         # - Connections going out from neurons that are not input neurons
         mnWRec = self.mfW.copy()
         mnWRec[vbInputNeurons] = 0
-        self.controller.set_connections_from_weights(
+        self.controller.add_connections_from_weights(
             weights=mnWRec,
             hwneuron_ids=self.vnHWNeuronIDs,
             syn_exc=self.controller.syn_exc_slow,
