@@ -1,1 +1,15 @@
 rpyc
+brian2
+matplotlib
+numba
+numpy
+pandas
+pyqt
+pytest
+pytorch
+qt
+scikit-image
+scipy
+setuptools
+torchvision
+tqdm
