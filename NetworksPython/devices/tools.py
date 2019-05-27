@@ -49,28 +49,22 @@ def _auto_insert_dummies(
         corrected_id_list      list  Neuron IDs corresponding to corrected ISIs. Dummy events have None.
         isdummy_list           list  Boolean indicating which events are dummy events
     """
-    print(discrete_isi_list, neuron_ids, fpga_isi_limit)
     # - List of lists with corrected entries
     corrected: List[List] = [
         _replace_too_large_value(isi, fpga_isi_limit) for isi in discrete_isi_list
     ]
-    print(corrected)
     # - Number of new entries for each old entry
     new_event_counts = [len(l) for l in corrected]
-    print(new_event_counts)
     # - List of lists with neuron IDs corresponding to ISIs. Dummy events have ID None
     id_lists: List[List] = [
         [id_neur, *(None for _ in range(length - 1))]
         for id_neur, length in zip(neuron_ids, new_event_counts)
     ]
-    print(id_lists)
     # - Flatten out lists
     corrected_isi_list = [isi for l in corrected for isi in l]
     corrected_id_list = [id_neur for l in id_lists for id_neur in l]
-    print(corrected_id_list, corrected_isi_list)
     # - Count number of added dummy events (each one has None as ID)
     num_dummies = len(tuple(filter(lambda x: x is None, corrected_id_list)))
-    print(num_dummies)
     if num_dummies > 0:
         print("dynapse_control: Inserted {} dummy events.".format(num_dummies))
 
@@ -159,21 +153,12 @@ def generate_fpga_event_list(
     :return:
         event  list of generated FpgaSpikeEvent objects.
     """
-    print(
-        discrete_isi_list,
-        neuron_ids,
-        targetcore_mask,
-        targetchip_id,
-        fpga_isi_limit,
-        correct_isi,
-    )
     # - Make sure objects live on required side of RPyC connection
     targetcore_mask = int(targetcore_mask)
     targetchip_id = int(targetchip_id)
     neuron_ids = copy.copy(neuron_ids)
     discrete_isi_list = copy.copy(discrete_isi_list)
 
-    print(discrete_isi_list, neuron_ids, targetcore_mask, targetchip_id)
     if correct_isi:
         discrete_isi_list, neuron_ids = _auto_insert_dummies(
             discrete_isi_list, neuron_ids, fpga_isi_limit

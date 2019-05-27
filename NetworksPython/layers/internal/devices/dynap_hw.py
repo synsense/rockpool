@@ -500,10 +500,11 @@ class RecDynapSE(Layer):
         """
 
         # - Connect virtual neurons to hardware neurons
-        self.controller.set_virtual_connections_from_weights(
+        self.controller.set_connections_from_weights(
             weights=self.mfWIn,
-            virtualneuron_ids=self.vnVirtualNeuronIDs,
-            hwneuron_ids=self.vnHWNeuronIDs,
+            neuron_ids=self.vnVirtualNeuronIDs,
+            neuron_ids_post=self.vnHWNeuronIDs,
+            virtual_pre=True,
             syn_exc=self.controller.syn_exc_fast,
             syn_inh=self.controller.syn_inh_fast,
             apply_diff=False,
@@ -522,9 +523,9 @@ class RecDynapSE(Layer):
         # - Connections from input neurons to remaining neurons
         mnWInToRec = self.mfW.copy()
         mnWInToRec[vbInputNeurons == False] = 0
-        self.controller.set_connections_from_weights(
+        self.controller.add_connections_from_weights(
             weights=mnWInToRec,
-            hwneuron_ids=self.vnHWNeuronIDs,
+            neuron_ids=self.vnHWNeuronIDs,
             syn_exc=self.controller.syn_exc_fast,
             syn_inh=self.controller.syn_inh_fast,
             apply_diff=False,
@@ -540,7 +541,7 @@ class RecDynapSE(Layer):
         mnWRec[vbInputNeurons] = 0
         self.controller.add_connections_from_weights(
             weights=mnWRec,
-            hwneuron_ids=self.vnHWNeuronIDs,
+            neuron_ids=self.vnHWNeuronIDs,
             syn_exc=self.controller.syn_exc_slow,
             syn_inh=self.controller.syn_inh_fast,
             apply_diff=True,

@@ -109,9 +109,16 @@ def initialize_hardware(
             for chip in cleared_chips
             for neuron in range(NUM_NEURONS_CHIP * chip, NUM_NEURONS_CHIP * (chip + 1))
         ]
-        print(
-            f"dynapse_control: Chips {', '.join((str(chip) for chip in do_chips))} have been cleared."
-        )
+        if not do_chips:
+            print(f"dynapse_control: No chips have been cleared.")
+        elif len(do_chips == 1):
+            print(f"dynapse_control: Chip `{do_chips[0]}` has been cleared.")
+        else:
+            print(
+                "dynapse_control: Chips `{}` and `{}` have been cleared.".format(
+                    "`, `".join((str(chip) for chip in do_chips[:-1])), do_chips[-1]
+                )
+            )
     else:
         # - If using rpyc, make sure, connection is given
         if connection is None:
@@ -929,141 +936,50 @@ class DynapseControl:
         self.model.apply_diff_state()
         print("DynapseControl: Connections set")
 
-    def set_virtual_connections_from_weights(
-        self,
-        weights: np.ndarray,
-        virtualneuron_ids: np.ndarray,
-        hwneuron_ids: np.ndarray,
-        syn_exc: "ctxdynapse.DynapseCamType",
-        syn_inh: "ctxdynapse.DynapseCamType",
-        apply_diff: bool = True,
-    ):
-        """
-        set_connections_from_weights - Set connections from virtual to hardware
-                                       neurons based on discrete weight matrix.
-                                       Previous connections to these hardware
-                                       neurons are removed.
-        :param weights:         Weights for connections between hardware neurons
-        :param virtualneuron_ids:  Virtual neuron IDs
-        :param hwneuron_ids:    Hardware neuron IDs
-        :param syn_exc:         Excitatory synapse type
-        :param syn_inh:         Inhibitory synapse type
-        :param apply_diff:      If False, do not apply the changes to chip but
-                                only to shadow states of the neurons. Useful if
-                                new connections are going to be added to the
-                                given neurons.
-        """
-        # - Remove existing connections
-        remove_all_connections_to(hwneuron_ids, apply_diff=False)
-        # - Set new connections
-        self.add_virtual_connections_from_weights(
-            weights=weights,
-            virtualneuron_ids=virtualneuron_ids,
-            hwneuron_ids=hwneuron_ids,
-            syn_exc=syn_exc,
-            syn_inh=syn_inh,
-            apply_diff=apply_diff,
-        )
-
-    def add_virtual_connections_from_weights(
-        self,
-        weights: np.ndarray,
-        virtualneuron_ids: np.ndarray,
-        hwneuron_ids: np.ndarray,
-        syn_exc: "ctxdynapse.DynapseCamType",
-        syn_inh: "ctxdynapse.DynapseCamType",
-        apply_diff: bool = True,
-    ):
-        """
-        add_virtual_connections_from_weights - Set connections from virtual to hardware
-                                               neurons based on discrete weight matrix
-        :param weights:                 np.ndarray  Weights for connections from
-                                                virtual to layer neurons
-        :param virtualneuron_ids:  np.ndarray  Virtual neuron IDs
-        :param hwneuron_ids:       np.ndarray  Hardware neuron IDs
-        :param syn_exc:       DynapseCamType  Excitatory synapse type
-        :param syn_inh:       DynapseCamType  Inhibitory synapse type
-        :param apply_diff:          bool   If False, do not apply the changes to
-                                           chip but only to shadow states of the
-                                           neurons. Useful if new connections are
-                                           going to be added to the given neurons.
-        """
-
-        # - Get connection lists
-        presyn_exc_list, postsyn_exc_list, presyn_inh_list, postsyn_inh_list = connectivity_matrix_to_prepost_lists(
-            weights.astype(int)
-        )
-
-        # - Extract neuron IDs and remove numpy wrapper around int type
-        preneur_ids_exc = [int(virtualneuron_ids[i]) for i in presyn_exc_list]
-        postneur_ids_exc = [int(hwneuron_ids[i]) for i in postsyn_exc_list]
-        preneur_ids_inh = [int(virtualneuron_ids[i]) for i in presyn_inh_list]
-        postneur_ids_inh = [int(hwneuron_ids[i]) for i in postsyn_inh_list]
-
-        # - Set excitatory connections
-        self.tools.set_connections(
-            preneuron_ids=preneur_ids_exc,
-            postneuron_ids=postneur_ids_exc,
-            syntypes=[syn_exc],
-            shadow_neurons=self.shadow_neurons,
-            virtual_neurons=self.virtual_neurons,
-            connector=self.connector,
-        )
-        print(
-            "DynapseControl: Excitatory connections of type `{}`".format(
-                str(syn_exc).split(".")[1]
-            )
-            + " from virtual neurons to hardware neurons have been set."
-        )
-        # - Set inhibitory connections
-        self.tools.set_connections(
-            preneuron_ids=preneur_ids_inh,
-            postneuron_ids=postneur_ids_inh,
-            syntypes=[syn_inh],
-            shadow_neurons=self.shadow_neurons,
-            virtual_neurons=self.virtual_neurons,
-            connector=self.connector,
-        )
-        print(
-            "DynapseControl: Inhibitory connections of type `{}`".format(
-                str(syn_inh).split(".")[1]
-            )
-            + " from virtual neurons to hardware neurons have been set."
-        )
-
-        if apply_diff:
-            self.model.apply_diff_state()
-            print("DynapseControl: Connections have been written to the chip.")
-
     def set_connections_from_weights(
         self,
         weights: np.ndarray,
-        hwneuron_ids: np.ndarray,
+        neuron_ids: np.ndarray,
         syn_exc: "ctxdynapse.DynapseCamType",
         syn_inh: "ctxdynapse.DynapseCamType",
+        neuron_ids_post: Optional[np.ndarray] = None,
+        virtual_pre: bool = False,
         apply_diff: bool = True,
     ):
         """
-        set_connections_from_weights - Set connections between hardware neurons
-                                       based on discrete weight matrix. Previous
-                                       connections to these neurons are removed.
-        :param weights:         Weights for connections between hardware neurons
-        :param hwneuron_ids:    Hardware neuron IDs
-        :param syn_exc:         Excitatory synapse type
-        :param syn_inh:         Inhibitory synapse type
-        :param apply_diff:      If False, do not apply the changes to chip but
-                                only to shadow states of the neurons. Useful if
-                                new connections are going to be added to the
-                                given neurons.
+        set_connections_from_weights - Set connections between two neuron
+                                       populations based on discrete weight
+                                       matrix. Previous connections to the postsyn.
+                                       neurons are removed. If 'neuron_ids_post'
+                                       is not provided, the connections are
+                                       recurrent. Connect to virtual neurons by
+                                       setting `virtual_pre` True.
+
+        :param weights:     Weights for connections between neuron populations
+        :param neuron_ids:  Neuron IDs of presynaptic population.
+        :param syn_exc:     Excitatory synapse type
+        :param syn_inh:     Inhibitory synapse type
+        :param neuron_ids_post:  Neuron IDs of presynaptic population. If `None`,
+                                 use 'neuron_ids' (i.e. recurrent connections).
+        :param virtual_pre:  If `True`, presynaptic neurons are virtual. In this
+                             case, `neuron_ids_post` cannot be `None`.
+        :param apply_diff:  If False, do not apply the changes to chip but only
+                            to shadow states of the neurons. Useful if new
+                            connections are going to be added to the given neurons.
         """
         # - Remove existing connections
-        remove_all_connections_to(hwneuron_ids, apply_diff=False)
+        if neuron_ids_post is None:
+            self.remove_all_connections_to(neuron_ids, apply_diff=False)
+        else:
+            self.remove_all_connections_to(neuron_ids_post, apply_diff=False)
         # - Set new connections
         self.add_connections_from_weights(
             weights=weights,
-            hwneuron_ids=hwneuron_ids,
+            neuron_ids=neuron_ids,
             syn_exc=syn_exc,
             syn_inh=syn_inh,
+            neuron_ids_post=neuron_ids_post,
+            virtual_pre=virtual_pre,
             apply_diff=apply_diff,
         )
 
@@ -1074,21 +990,28 @@ class DynapseControl:
         syn_exc: "ctxdynapse.DynapseCamType",
         syn_inh: "ctxdynapse.DynapseCamType",
         neuron_ids_post: Optional[np.ndarray] = None,
-        virtual_pre: bool = True,
+        virtual_pre: bool = False,
         apply_diff: bool = True,
     ):
         """
-        add_connections_from_weights - Add connections between hardware neurons
-                                       based on  discrete weight matrix
-        :param weights:                 np.ndarray  Weights for connections between
-                                                hardware neurons
-        :param hwneuron_ids:       np.ndarray  Hardware neuron IDs
-        :param syn_exc:       DynapseCamType  Excitatory synapse type
-        :param syn_inh:       DynapseCamType  Inhibitory synapse type
-        :param apply_diff:          bool   If False, do not apply the changes to
-                                           chip but only to shadow states of the
-                                           neurons. Useful if new connections are
-                                           going to be added to the given neurons.
+        add_connections_from_weights - Add connections between two neuron
+                                       populations based on discrete weight
+                                       matrix. If 'neuron_ids_post' is not
+                                       provided, the connections are recurrent.
+                                       Connect to virtual neurons by setting
+                                       `virtual_pre` True.
+
+        :param weights:     Weights for connections between neuron populations
+        :param neuron_ids:  Neuron IDs of presynaptic population.
+        :param syn_exc:     Excitatory synapse type
+        :param syn_inh:     Inhibitory synapse type
+        :param neuron_ids_post:  Neuron IDs of presynaptic population. If `None`,
+                                 use 'neuron_ids' (i.e. recurrent connections).
+        :param virtual_pre:  If `True`, presynaptic neurons are virtual. In this
+                             case, `neuron_ids_post` cannot be `None`.
+        :param apply_diff:  If False, do not apply the changes to chip but only
+                            to shadow states of the neurons. Useful if new
+                            connections are going to be added to the given neurons.
         """
 
         ## -- Connect virtual neurons to hardware neurons
@@ -1098,7 +1021,15 @@ class DynapseControl:
             weights.astype(int)
         )
 
-        neuron_ids_post = neuron_ids if neuron_ids_post is None else neuron_ids_post
+        if neuron_ids_post is None:
+            if virtual_pre:
+                # - Cannot connect virtual neurons to themselves.
+                raise ValueError(
+                    "DynapseControl: For setting virtual connections, `neuron_ids_post`"
+                    + " cannot be `None`."
+                )
+            # - Pre- and postsynaptic populations are the same (recurrent connections)
+            neuron_ids_post = neuron_ids
 
         # - Extract neuron IDs and remove numpy wrapper around int type
         preneur_ids_exc = [int(neuron_ids[i]) for i in presyn_exc_list]
@@ -1116,11 +1047,10 @@ class DynapseControl:
             connector=self.connector,
         )
         print(
-            "DynapseControl: Excitatory connections of type `{}`".format(
-                str(syn_exc).split(".")[1]
-            )
-            + " between hardware neurons have been set."
+            f"DynapseControl: Excitatory connections of type `{str(syn_exc).split('.')[1]}`"
+            + f" between {virtual_pre * 'virtual and '}hardware neurons have been set."
         )
+
         # - Set inhibitory input connections
         self.tools.set_connections(
             preneuron_ids=preneur_ids_inh,
@@ -1130,10 +1060,9 @@ class DynapseControl:
             virtual_neurons=self.virtual_neurons if virtual_pre else None,
             connector=self.connector,
         )
-        syn_inh_descriptor = str(syn_inh).split(".")[1]
         print(
-            f"DynapseControl: Inhibitory connections of type `{text}`"
-            + f" between {virtual_pre * "virtual and "}hardware neurons have been set."
+            f"DynapseControl: Inhibitory connections of type `{str(syn_inh).split('.')[1]}`"
+            + f" between {virtual_pre * 'virtual and '}hardware neurons have been set."
         )
 
         if apply_diff:
@@ -1515,7 +1444,7 @@ class DynapseControl:
         try:
             self.bufferedfilter.clear()
         except AttributeError:
-            warn("dynapse_control: No recording has been started.")
+            warn("DynapseControl: No recording has been started.")
             return np.array([]), np.array([])
         else:
             return self._recorded_data_to_arrays(None, None, since_trigger)
@@ -1528,7 +1457,7 @@ class DynapseControl:
         record_neur_ids: Optional[np.ndarray] = None,
         periodic: bool = False,
         record: bool = False,
-    ) -> Union[None, (np.ndarray, np.ndarray)]:
+    ) -> Union[None, Tuple[np.ndarray, np.ndarray]]:
         """
         _send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
 
@@ -2080,11 +2009,22 @@ class DynapseControl:
             self.fpga_spikegen.set_isi_multiplier(self._nFpgaIsiMultiplier)
 
     @property
+    def initialized_chips(self):
+        global initialized_chips
+        return initialized_chips
+
+    @property
+    def initialized_neurons(self):
+        global initialized_neurons
+        return initialized_neurons
+
+    @property
     def hwneurons_isavailable(self) -> np.ndarray:
         hwneurons_isinitialized = np.zeros(len(self.hw_neurons), bool)
+        global initialized_neurons
         if initialized_neurons:
             hwneurons_isinitialized[initialized_neurons] = True
-        return np.logical_and(hwneurons_isinitialized, self._hwneurons_isfree)
+        return np.logical_and(self._hwneurons_isfree, hwneurons_isinitialized)
 
     @property
     def virtualneurons_isavailable(self) -> np.ndarray:

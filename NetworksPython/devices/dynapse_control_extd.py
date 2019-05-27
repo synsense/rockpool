@@ -305,7 +305,7 @@ class DynapseControlExtd(DynapseControl):
         neuron_ids: Union[np.ndarray, List[int], int],
         duration: Optional[float] = None,
         return_ts: bool = False,
-    ) -> Union[(np.array, np.array), TSEvent]:
+    ) -> Union[Tuple[np.array, np.array], TSEvent]:
         """
         record - Record spiking activity of given neurons. Either record for
                  given duration or until `self.stop_recording` is called
@@ -329,7 +329,7 @@ class DynapseControlExtd(DynapseControl):
 
     def stop_recording(
         self, since_trigger: bool = False, return_ts: bool = False
-    ) -> Union[TSEvent, (np.ndarray, np.ndarray)]:
+    ) -> Union[TSEvent, Tuple[np.ndarray, np.ndarray]]:
         """
         stop_recording - Stop recording and return recorded events as arrays.
         :param since_trigger:  If True, only use events recorded after first
