@@ -40,6 +40,7 @@ class RecDynapSE(Layer):
         input_chip_id: int = 0,
         clearcores_list: Optional[list] = None,
         controller: DynapseControlExtd = None,
+        rpyc_port: Optional[int] = None,
         name: Optional[str] = "unnamed",
         skip_weights: bool = False,
     ):
@@ -64,20 +65,39 @@ class RecDynapSE(Layer):
         :param input_chip_id:        int  ID of the chip with neurons that receive external input.
         :param clearcores_list:        list or None  IDs of chips where configurations should be cleared.
         :param controller:          DynapseControl object to interface the hardware
+        :param rpyc_port:           Port at which RPyC connection should be established. Only considered if controller is None.
         :param name:             str     Layer name
         :param skip_weights:        bool    Do not upload weight configuration to chip. (Use carecully)
         """
 
         # - Instantiate DynapseControl
+        if lnClearCores is None:
+            init_chips = None
+        else:
+            init_chips = list(
+                # - Convert to set to remove duplicates
+                set(
+                    [
+                        core_id // DynapseControlExtd._num_cores_chip
+                        for core_id in lnClearCores
+                    ]
+                )
+            )
         if controller is None:
             if dt is None:
                 raise ValueError(
                     "Layer `{}` Either dt or controller must be provided".format(name)
                 )
-            self.controller = DynapseControlExtd(dt, clearcores_list)
+            self.controller = DynapseControlExtd(
+                fpga_isibase=tDt,
+                clearcores_list=clearcores_list,
+                rpyc_connection=rpyc_port,
+                init_chips=init_chips,
+            )
         else:
             self.controller = controller
-            self.controller.fpga_isibase = dt
+            self.controller.fpga_isibase = tDt
+            self.controller.init_chips(init_chips, enforce=False)
             self.controller.clear_connections(clearcores_list)
 
         # - Check supplied arguments
@@ -426,7 +446,7 @@ class RecDynapSE(Layer):
     ):
         try:
             vtTimeTraceOut, vnChannelsOut = self.controller.send_arrays(
-                times=timesteps,
+                timesteps=timesteps,
                 channels=vnChannels,
                 t_record=dur_batch,
                 neuron_ids=self.virtual_neuron_ids,
@@ -480,10 +500,11 @@ class RecDynapSE(Layer):
         """
 
         # - Connect virtual neurons to hardware neurons
-        self.controller.set_virtual_connections_from_weights(
+        self.controller.set_connections_from_weights(
             weights=self.weights_in,
-            virtualneuron_ids=self.virtual_neuron_ids,
-            hwneuron_ids=self.neuron_ids,
+            neuron_ids=self.virtual_neuron_ids,
+            neuron_ids_post=self.neuron_ids,
+            virtual_pre=True,
             syn_exc=self.controller.syn_exc_fast,
             syn_inh=self.controller.syn_inh_fast,
             apply_diff=False,
@@ -502,9 +523,9 @@ class RecDynapSE(Layer):
         # - Connections from input neurons to remaining neurons
         mnWInToRec = self.weights.copy()
         mnWInToRec[vbInputNeurons == False] = 0
-        self.controller.set_connections_from_weights(
+        self.controller.add_connections_from_weights(
             weights=mnWInToRec,
-            hwneuron_ids=self.neuron_ids,
+            neuron_ids=self.neuron_ids,
             syn_exc=self.controller.syn_exc_fast,
             syn_inh=self.controller.syn_inh_fast,
             apply_diff=False,
@@ -518,9 +539,9 @@ class RecDynapSE(Layer):
         # - Connections going out from neurons that are not input neurons
         mnWRec = self.weights.copy()
         mnWRec[vbInputNeurons] = 0
-        self.controller.set_connections_from_weights(
+        self.controller.add_connections_from_weights(
             weights=mnWRec,
-            hwneuron_ids=self.neuron_ids,
+            neuron_ids=self.neuron_ids,
             syn_exc=self.controller.syn_exc_slow,
             syn_inh=self.controller.syn_inh_fast,
             apply_diff=True,

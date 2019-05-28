@@ -2,12 +2,10 @@
 # averagepooling.py - Class implementing a pooling layer.
 ###
 
-from typing import Optional
 import numpy as np
 import skimage.measure
 from warnings import warn
-from typing import Optional, Union, List, Tuple, Generator
-import torch.nn as nn
+from typing import Optional, Union, List, Tuple
 
 # from typing import Optional, Union, List, Tuple
 from ...timeseries import TSEvent
