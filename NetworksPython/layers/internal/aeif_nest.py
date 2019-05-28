@@ -37,599 +37,11 @@ COMMAND_RESET = 2
 COMMAND_EVOLVE = 3
 
 
-# - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
-class FFIAFNest(Layer):
-    """ FFIAFNest - Class: define a spiking feedforward layer with spiking outputs
-    """
 
-    class NestProcess(multiprocessing.Process):
-        """ Class for running NEST in its own process """
 
-        def __init__(
-            self,
-            requestQ,
-            resultQ,
-            mfW: np.ndarray,
-            vfBias: Union[float, np.ndarray],
-            tDt: float,
-            vtTauN: Union[float, np.ndarray],
-            vfCapacity: Union[float, np.ndarray],
-            vfVThresh: Union[float, np.ndarray],
-            vfVReset: Union[float, np.ndarray],
-            vfVRest: Union[float, np.ndarray],
-            tRefractoryTime,
-            bRecord: bool = False,
-            numCores: int = 1,
-        ):
-            """ initialize the process"""
-
-            multiprocessing.Process.__init__(self, daemon=True)
-
-            self.requestQ = requestQ
-            self.resultQ = resultQ
-
-            # - Record neuron parameters
-            self.tDt = s2ms(tDt)
-            self.vfVThresh = V2mV(vfVThresh)
-            self.vfVReset = V2mV(vfVReset)
-            self.vfVRest = V2mV(vfVRest)
-            self.vtTauN = s2ms(vtTauN)
-            self.vfBias = V2mV(vfBias)
-            self.vfCapacity = vfCapacity
-            self.mfW = V2mV(mfW)
-            self.tRefractoryTime = s2ms(tRefractoryTime)
-            self.bRecord = bRecord
-            self.nSize = np.shape(mfW)[1]
-            self.numCores = numCores
-
-        def run(self):
-            """ start the process. Initializes the network, defines IPC commands and waits for commands. """
-
-            #### INITIALIZE NEST ####
-            import nest
-
-            numCPUs = multiprocessing.cpu_count()
-            # if self.numCores >= numCPUs:
-            #    self.numCores = numCPUs
-
-            nest.ResetKernel()
-            nest.hl_api.set_verbosity("M_FATAL")
-            nest.SetKernelStatus(
-                {
-                    "resolution": self.tDt,
-                    "local_num_threads": self.numCores,
-                    "print_time": True,
-                }
-            )
-
-            self._pop = nest.Create("iaf_psc_exp", self.nSize)
-
-            params = []
-            for n in range(self.nSize):
-                p = {}
-
-                if type(self.vtTauN) is np.ndarray:
-                    p["tau_m"] = self.vtTauN[n]
-                else:
-                    p["tau_m"] = self.vtTauN
-
-                if type(self.vfVThresh) is np.ndarray:
-                    p["V_th"] = self.vfVThresh[n]
-                else:
-                    p["V_th"] = self.vfVThresh
-
-                if type(self.vfVReset) is np.ndarray:
-                    p["V_reset"] = self.vfVReset[n]
-                else:
-                    p["V_reset"] = self.vfVReset
-
-                if type(self.vfVReset) is np.ndarray:
-                    p["E_L"] = self.vfVRest[n]
-                    p["V_m"] = self.vfVRest[n]
-                else:
-                    p["E_L"] = self.vfVRest
-                    p["V_m"] = self.vfVRest
-
-                if type(self.tRefractoryTime) is np.ndarray:
-                    p["t_ref"] = self.tRefractoryTime[n]
-                else:
-                    p["t_ref"] = self.tRefractoryTime
-
-                if type(self.vfBias) is np.ndarray:
-                    p["I_e"] = self.vfBias[n]
-                else:
-                    p["I_e"] = self.vfBias
-
-                if type(self.vfCapacity) is np.ndarray:
-                    p["C_m"] = self.vfCapacity[n]
-                else:
-                    p["C_m"] = self.vfCapacity
-
-                params.append(p)
-
-            nest.SetStatus(self._pop, params)
-
-            # - Add spike detector to record layer outputs
-            self._sd = nest.Create("spike_detector")
-            nest.Connect(self._pop, self._sd)
-
-            # - Add stimulation device
-            self._scg = nest.Create("step_current_generator", self.mfW.shape[0])
-            nest.Connect(self._scg, self._pop, "all_to_all", {"weight": self.mfW.T})
-
-            if self.bRecord:
-                # - Monitor for recording network potential
-                self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
-                )
-                nest.Connect(self._mm, self._pop)
-
-            ######### DEFINE IPC COMMANDS ######
-
-            def getParam(name):
-                """ IPC command for getting a parameter """
-                vms = nest.GetStatus(self._pop, name)
-                return vms
-
-            def setParam(name, value):
-                """ IPC command for setting a parameter """
-                params = []
-
-                for n in range(self.nSize):
-                    p = {}
-                    if type(value) is np.ndarray:
-                        p[name] = value[n]
-                    else:
-                        p[name] = value
-
-                    params.append(p)
-
-                nest.SetStatus(self._pop, params)
-
-            def reset():
-                """
-                reset_all - IPC command which resets time and state
-                """
-
-                nest.ResetNetwork()
-                nest.SetKernelStatus({"time": 0.0})
-
-            def evolve(vtTimeBase, mfInputStep, nNumTimeSteps: Optional[int] = None):
-                """ IPC command running the network for nNumTimeSteps with mfInputStep as input """
-
-                # NEST time starts with 1 (not with 0)
-
-                vtTimeBase = s2ms(vtTimeBase) + 1
-
-                nest.SetStatus(
-                    self._scg,
-                    [
-                        {
-                            "amplitude_times": vtTimeBase,
-                            "amplitude_values": V2mV(mfInputStep[:, i]),
-                        }
-                        for i in range(len(self._scg))
-                    ],
-                )
-
-                startTime = nest.GetKernelStatus("time")
-
-                if startTime == 0:
-                    # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
-                    # the recording has one entry less in the first batch
-                    nest.Simulate(nNumTimeSteps * self.tDt + 1.0)
-                else:
-                    nest.Simulate(nNumTimeSteps * self.tDt)
-
-                # - record states
-                if self.bRecord:
-                    events = nest.GetStatus(self._mm, "events")[0]
-                    vbUseEvent = events["times"] >= startTime
-
-                    senders = events["senders"][vbUseEvent]
-                    times = events["times"][vbUseEvent]
-                    vms = events["V_m"][vbUseEvent]
-
-                    mfRecordStates = []
-                    u_senders = np.unique(senders)
-                    for i, nid in enumerate(u_senders):
-                        ind = np.where(senders == nid)[0]
-                        _times = times[ind]
-
-                        order = np.argsort(_times)
-                        _vms = vms[ind][order]
-                        mfRecordStates.append(_vms)
-
-                    mfRecordStates = np.array(mfRecordStates)
-
-                # - Build response TimeSeries
-                events = nest.GetStatus(self._sd, "events")[0]
-                vbUseEvent = events["times"] >= startTime
-                vtEventTimeOutput = ms2s(events["times"][vbUseEvent])
-                vnEventChannelOutput = events["senders"][vbUseEvent]
-
-                # sort spiking response
-                order = np.argsort(vtEventTimeOutput)
-                vtEventTimeOutput = vtEventTimeOutput[order]
-                vnEventChannelOutput = vnEventChannelOutput[order]
-
-                # transform from NEST id to index
-                vnEventChannelOutput -= np.min(self._pop)
-
-                if self.bRecord:
-                    return [
-                        vtEventTimeOutput,
-                        vnEventChannelOutput,
-                        mV2V(mfRecordStates),
-                    ]
-                else:
-                    return [vtEventTimeOutput, vnEventChannelOutput, None]
-
-            IPC_switcher = {
-                COMMAND_GET: getParam,
-                COMMAND_SET: setParam,
-                COMMAND_RESET: reset,
-                COMMAND_EVOLVE: evolve,
-            }
-
-            # wait for an IPC command
-
-            while True:
-                req = self.requestQ.get()
-
-                func = IPC_switcher.get(req[0])
-
-                result = func(*req[1:])
-
-                if not result is None:
-                    self.resultQ.put(result)
-
-    ## - Constructor
-    def __init__(
-        self,
-        mfW: np.ndarray,
-        vfBias: Union[float, np.ndarray] = 0.0,
-        tDt: float = 0.0001,
-        vtTauN: Union[float, np.ndarray] = 0.02,
-        vfCapacity: Union[float, np.ndarray] = 100.0,
-        vfVThresh: Union[float, np.ndarray] = -0.055,
-        vfVReset: Union[float, np.ndarray] = -0.065,
-        vfVRest: Union[float, np.ndarray] = -0.065,
-        tRefractoryTime=0.001,
-        strName: str = "unnamed",
-        bRecord: bool = False,
-        nNumCores=1,
-    ):
-        """
-        FFIAFNest - Construct a spiking feedforward layer with IAF neurons, with a NEST back-end
-                     Inputs are continuous currents; outputs are spiking events
-
-        :param mfW:             np.array MxN weight matrix.
-        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
-
-        :param tDt:             float Time-step. Default: 0.1 ms
-
-        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
-
-        :param vfCapacity:       np.array Nx1 vector of neuron membrance capacity. Default: 100 pF
-
-        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param vfVReset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
-        :param vfVRest:         np.array Nx1 vector of neuron resting potential. Default: -65mV
-
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
-
-        :param strName:         str Name for the layer. Default: 'unnamed'
-
-        :param bRecord:         bool Record membrane potential during evolutions
-        """
-
-        if type(mfW) is list:
-            mfW = np.asarray(mfW)
-
-        if type(vfBias) is list:
-            vfBias = np.asarray(vfBias)
-
-        if type(vtTauN) is list:
-            vtTauN = np.asarray(vtTauN)
-
-        if type(vfCapacity) is list:
-            vfCapacity = np.asarray(vfCapacity)
-
-        if type(vfVThresh) is list:
-            vfVThresh = np.asarray(vfVThresh)
-
-        if type(vfVReset) is list:
-            vfVReset = np.asarray(vfVReset)
-
-        if type(vfVRest) is list:
-            vfVRest = np.asarray(vfVRest)
-
-        # - Call super constructor (`asarray` is used to strip units)
-        super().__init__(mfW=np.asarray(mfW), tDt=np.asarray(tDt), strName=strName)
-
-        self.nNumCores = nNumCores
-
-        self.requestQ = multiprocessing.Queue()
-        self.resultQ = multiprocessing.Queue()
-
-        self.nestProcess = self.NestProcess(
-            self.requestQ,
-            self.resultQ,
-            mfW,
-            vfBias,
-            tDt,
-            vtTauN,
-            vfCapacity,
-            vfVThresh,
-            vfVReset,
-            vfVRest,
-            tRefractoryTime,
-            bRecord,
-            nNumCores,
-        )
-
-        self.nestProcess.start()
-
-        # - Record neuron parameters
-        self._vfVThresh = vfVThresh
-        self._vfVReset = vfVReset
-        self._vfVRest = vfVRest
-        self._vtTauN = vtTauN
-        self._vfBias = vfBias
-        self._vfCapacity = vfCapacity
-        self.mfW = mfW
-        self._tRefractoryTime = tRefractoryTime
-        self.bRecord = bRecord
-
-    def reset_state(self):
-        """ .reset_state() - Method: reset the internal state of the layer
-            Usage: .reset_state()
-        """
-
-        self.requestQ.put([COMMAND_SET, "V_m", V2mV(self._vfVRest)])
-
-    def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
-            Usage: .randomize_state()
-        """
-        fRangeV = abs(self._vfVThresh - self._vfVReset)
-        randV = np.random.rand(self._nSize) * fRangeV + self._vfVReset
-
-        self.requestQ.put([COMMAND_SET, "V_m", V2mV(randV)])
-
-    def reset_time(self):
-        """
-        reset_time - Reset the internal clock of this layer
-        """
-
-        print("WARNING: This function resets the whole network")
-
-        self.requestQ.put([COMMAND_RESET])
-        self._nTimeStep = 0
-
-    def reset_all(self):
-        """
-        reset_all - resets time and state
-        """
-
-        self.requestQ.put([COMMAND_RESET])
-        self._nTimeStep = 0
-
-    # --- State evolution
-
-    def evolve(
-        self,
-        tsInput: Optional[TSContinuous] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
-    ) -> TSEvent:
-        """
-        evolve : Function to evolve the states of this layer given an input
-
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
-        :return:                TSEvent  output spike series
-
-        """
-        # - Prepare time base
-        vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
-        )
-
-        self.requestQ.put([COMMAND_EVOLVE, vtTimeBase, mfInputStep, nNumTimeSteps])
-
-        if self.bRecord:
-            vtEventTimeOutput, vnEventChannelOutput, self.mfRecordStates = (
-                self.resultQ.get()
-            )
-        else:
-            vtEventTimeOutput, vnEventChannelOutput, _ = self.resultQ.get()
-
-        # - Start and stop times for output time series
-        tStart = self._nTimeStep * np.asscalar(self.tDt)
-        tStop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
-
-        # - Update layer time step
-        self._nTimeStep += nNumTimeSteps
-
-        return TSEvent(
-            np.clip(vtEventTimeOutput, tStart, tStop),
-            vnEventChannelOutput,
-            name="Layer spikes",
-            num_channels=self.nSize,
-            t_start=tStart,
-            t_stop=tStop,
-        )
-
-    def terminate(self):
-        self.requestQ.close()
-        self.resultQ.close()
-        self.requestQ.cancel_join_thread()
-        self.resultQ.cancel_join_thread()
-        self.nestProcess.terminate()
-        self.nestProcess.join()
-
-    ### --- Properties
-
-    @property
-    def cOutput(self):
-        return TSEvent
-
-    @property
-    def tRefractoryTime(self):
-        return self._tRefractoryTime
-
-    @property
-    def vState(self):
-        self.requestQ.put([COMMAND_GET, "V_m"])
-        vms = np.array(self.resultQ.get())
-        return mV2V(vms)
-
-    @vState.setter
-    def vState(self, vNewState):
-
-        self.requestQ.put([COMMAND_SET, "V_m", V2mV(vNewState)])
-
-    @property
-    def vtTauN(self):
-        return self._vtTauN
-
-    @vtTauN.setter
-    def vtTauN(self, vtNewTauN):
-
-        self.requestQ.put([COMMAND_SET, "tau_m", s2ms(vtNewTauN)])
-
-    @property
-    def vfBias(self):
-        return self._vfBias
-
-    @vfBias.setter
-    def vfBias(self, vfNewBias):
-
-        self.requestQ.put([COMMAND_SET, "I_e", V2mV(vfNewBias)])
-
-    @property
-    def vfVThresh(self):
-        return self._vfVThresh
-
-    @vfVThresh.setter
-    def vfVThresh(self, vfNewVThresh):
-
-        self.requestQ.put([COMMAND_SET, "V_th", V2mV(vfNewVThresh)])
-
-    @property
-    def vfVReset(self):
-        return self._vfVReset
-
-    @vfVReset.setter
-    def vfVReset(self, vfNewVReset):
-
-        self.requestQ.put([COMMAND_SET, "V_reset", V2mV(vfNewVReset)])
-
-    @property
-    def vfVRest(self):
-        return self._vfVReset
-
-    @vfVRest.setter
-    def vfVRest(self, vfNewVRest):
-
-        self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
-
-    @property
-    def t(self):
-        return self._nTimeStep * np.asscalar(self.tDt)
-
-    @Layer.tDt.setter
-    def tDt(self, _):
-        raise ValueError("The `tDt` property cannot be set for this layer")
-
-    def to_dict(self):
-
-        config = {}
-        config["strName"] = self.strName
-        config["mfWIn"] = self.mfW.tolist()
-        config["tDt"] = self.tDt if type(self.tDt) is float else self.tDt.tolist()
-        config["vfVThresh"] = (
-            self.vfVThresh if type(self.vfVThresh) is float else self.vfVThresh.tolist()
-        )
-        config["vfVReset"] = (
-            self.vfVReset if type(self.vfVReset) is float else self.vfVReset.tolist()
-        )
-        config["vfVRest"] = (
-            self.vfVRest if type(self.vfVRest) is float else self.vfVRest.tolist()
-        )
-        config["vfCapacity"] = (
-            self._vfCapacity
-            if type(self._vfCapacity) is float
-            else self._vfCapacity.tolist()
-        )
-        config["tRef"] = (
-            self.tRefractoryTime
-            if type(self.tRefractoryTime) is float
-            else self.tRefractoryTime.tolist()
-        )
-        config["tauN"] = (
-            self.vtTauN if type(self.vtTauN) is float else self.vtTauN.tolist()
-        )
-        config["nNumCores"] = self.nNumCores
-        config["bRecord"] = self.bRecord
-        config["bias"] = (
-            self.vfBias if type(self.vfBias) is float else self.vfBias.tolist()
-        )
-        config["ClassName"] = "FFIAFNest"
-
-        return config
-
-    def save(self, config, filename):
-        with open(filename, "w") as f:
-            json.dump(config, f)
-
-    @staticmethod
-    def load_from_dict(config):
-
-        return FFIAFNest(
-            mfW=config["mfWIn"],
-            vfBias=config["bias"],
-            tDt=config["tDt"],
-            vtTauN=config["tauN"],
-            vfCapacity=config["vfCapacity"],
-            vfVThresh=config["vfVThresh"],
-            vfVReset=config["vfVReset"],
-            vfVRest=config["vfVRest"],
-            tRefractoryTime=config["tRef"],
-            strName=config["strName"],
-            bRecord=config["bRecord"],
-            nNumCores=config["nNumCores"],
-        )
-
-    @staticmethod
-    def load_from_file(filename):
-        with open(filename, "r") as f:
-            config = json.load(f)
-
-        return FFIAFNest(
-            mfW=config["mfWIn"],
-            vfBias=config["bias"],
-            tDt=config["tDt"],
-            vtTauN=config["tauN"],
-            vfCapacity=config["vfCapacity"],
-            vfVThresh=config["vfVThresh"],
-            vfVReset=config["vfVReset"],
-            vfVRest=config["vfVRest"],
-            tRefractoryTime=config["tRef"],
-            strName=config["strName"],
-            bRecord=config["bRecord"],
-            nNumCores=config["nNumCores"],
-        )
-
-
-# - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
-class RecIAFSpkInNest(Layer):
-    """ RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
+# - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
+class RecAEIFSpkInNest(Layer):
+    """ RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
     """
 
     class NestProcess(multiprocessing.Process):
@@ -652,6 +64,10 @@ class RecIAFSpkInNest(Layer):
             vfVReset: Union[float, np.ndarray],
             vfVRest: Union[float, np.ndarray],
             tRefractoryTime,
+            fA: Union[float, np.ndarray],
+            fB: Union[float, np.ndarray],
+            fDelta_T: Union[float, np.ndarray],
+            vtTauW: Union[float, np.ndarray],
             bRecord: bool = False,
             numCores: int = 1,
         ):
@@ -679,6 +95,10 @@ class RecIAFSpkInNest(Layer):
             self.bRecord = bRecord
             self.nSize = np.shape(mfWRec)[0]
             self.numCores = numCores
+            self.fA = fA
+            self.fB = fB
+            self.fDelta_T = fDelta_T
+            self.vtTauW = s2ms(vtTauW)
 
         def run(self):
             """ start the process. Initializes the network, defines IPC commands and waits for commands. """
@@ -700,7 +120,7 @@ class RecIAFSpkInNest(Layer):
                 }
             )
 
-            self._pop = nest.Create("iaf_psc_exp", self.nSize)
+            self._pop = nest.Create("aeif_psc_exp", self.nSize)
 
             params = []
             for n in range(self.nSize):
@@ -714,9 +134,15 @@ class RecIAFSpkInNest(Layer):
                     p["tau_syn_in"] = self.vtTauS
 
                 if type(self.vtTauN) is np.ndarray:
-                    p["tau_m"] = self.vtTauN[n]
+                    if type(self.vfCapacity) == np.ndarray:
+                        p["g_L"] = self.vfCapacity[n] / self.vtTauN[n]
+                    else:
+                        p["g_L"] = self.vfCapacity / self.vtTauN[n]
                 else:
-                    p["tau_m"] = self.vtTauN
+                    if type(self.vfCapacity) == np.ndarray:
+                        p["g_L"] = self.vfCapacity[n] / self.vtTauN[n]
+                    else:
+                        p["g_L"] = self.vfCapacity / self.vtTauN[n]
 
                 if type(self.vfVThresh) is np.ndarray:
                     p["V_th"] = self.vfVThresh[n]
@@ -749,6 +175,26 @@ class RecIAFSpkInNest(Layer):
                     p["C_m"] = self.vfCapacity[n]
                 else:
                     p["C_m"] = self.vfCapacity
+
+                if type(self.fA) is np.ndarray:
+                    p["a"] = self.fA[n]
+                else:
+                    p["a"] = self.fA
+
+                if type(self.fB) is np.ndarray:
+                    p["b"] = self.fB[n]
+                else:
+                    p["b"] = self.fB
+
+                if type(self.fDelta_T) is np.ndarray:
+                    p["Delta_T"] = self.fDelta_T[n]
+                else:
+                    p["Delta_T"] = self.fDelta_T
+
+                if type(self.vtTauW) is np.ndarray:
+                    p["tau_w"] = self.vtTauW[n]
+                else:
+                    p["tau_w"] = self.vtTauW
 
                 params.append(p)
 
@@ -967,12 +413,16 @@ class RecIAFSpkInNest(Layer):
         vfVRest: np.ndarray = -0.065,
         vfCapacity: Union[float, np.ndarray] = 100.0,
         tRefractoryTime=0.001,
+        fA=4.0,
+        fB=80.5,
+        fDelta_T=2.,
+        vtTauW=144.,
         strName: str = "unnamed",
         bRecord: bool = False,
         nNumCores: int = 1,
     ):
         """
-        RecIAFSpkInNest - Construct a spiking recurrent layer with IAF neurons, with a NEST back-end
+        RecAEIFSpkInNest - Construct a spiking recurrent layer with AEIF neurons, with a NEST back-end
                            in- and outputs are spiking events
 
         :param mfWIn:           np.array MxN input weight matrix.
@@ -1028,6 +478,18 @@ class RecIAFSpkInNest(Layer):
         if type(vfVRest) is list:
             vfVRest = np.asarray(vfVRest)
 
+        if type(fA) is list:
+            fA = np.asarray(fA)
+
+        if type(fB) is list:
+            fB = np.asarray(fB)
+
+        if type(fDelta_T) is list:
+            fDelta_T = np.asarray(fDelta_T)
+
+        if type(vtTauW) is list:
+            vtTauW = np.asarray(vtTauW)
+
         # - Call super constructor (`asarray` is used to strip units)
 
         # TODO this does not make much sense (mfW <- mfWIn)
@@ -1041,21 +503,25 @@ class RecIAFSpkInNest(Layer):
         self.nestProcess = self.NestProcess(
             self.requestQ,
             self.resultQ,
-            mfWIn,
-            mfWRec,
-            mfDelayIn,
-            mfDelayRec,
-            vfBias,
-            tDt,
-            vtTauN,
-            vtTauS,
-            vfCapacity,
-            vfVThresh,
-            vfVReset,
-            vfVRest,
-            tRefractoryTime,
-            bRecord,
-            nNumCores,
+            mfWIn=mfWIn,
+            mfWRec=mfWRec,
+            mfDelayIn=mfDelayIn,
+            mfDelayRec=mfDelayRec,
+            vfBias=vfBias,
+            tDt=tDt,
+            vtTauN=vtTauN,
+            vtTauS=vtTauS,
+            vfCapacity=vfCapacity,
+            vfVThresh=vfVThresh,
+            vfVReset=vfVReset,
+            vfVRest=vfVRest,
+            tRefractoryTime=tRefractoryTime,
+            bRecord=bRecord,
+            numCores=nNumCores,
+            fA=fA,
+            fB=fB,
+            fDelta_T=fDelta_T,
+            vtTauW=vtTauW
         )
 
         self.nestProcess.start()
@@ -1072,6 +538,10 @@ class RecIAFSpkInNest(Layer):
         self.mfWRec = mfWRec
         self._tRefractoryTime = tRefractoryTime
         self.bRecord = bRecord
+        self._fA = fA,
+        self._fB = fB,
+        self._fDelta_T = fDelta_T,
+        self._vtTauW = vtTauW,
 
     def reset_state(self):
         """ .reset_state() - Method: reset the internal state of the layer
@@ -1111,7 +581,7 @@ class RecIAFSpkInNest(Layer):
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
+        tsInput: Optional[TSContinuous] = None,
         tDuration: Optional[float] = None,
         nNumTimeSteps: Optional[int] = None,
         bVerbose: bool = False,
@@ -1119,7 +589,7 @@ class RecIAFSpkInNest(Layer):
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent Input spike trian
+        :param tsSpkInput:      TSContinuous  Input spike trian
         :param tDuration:       float    Simulation/Evolution time
         :param nNumTimeSteps    int      Number of evolution time steps
         :param bVerbose:        bool     Currently no effect, just for conformity
@@ -1259,6 +729,41 @@ class RecIAFSpkInNest(Layer):
         self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
 
     @property
+    def fA(self):
+        return self._fA
+
+    @fA.setter
+    def fA(self, newFA):
+        self.requestQ.put([COMMAND_SET, "a", newFA])
+
+    @property
+    def fB(self):
+        return self._fB
+
+    @fB.setter
+    def fB(self, newFB):
+        self.requestQ.put([COMMAND_SET, "b", newFB])
+
+    @property
+    def fDelta_T(self):
+        return self._fDelta_T
+
+    @fDelta_T.setter
+    def fDelta_T(self, newFDelta_T):
+
+        self.requestQ.put([COMMAND_SET, "Delta_T", newFDelta_T])
+
+    @property
+    def vtTauW(self):
+        return self._vtTauW
+
+    @vtTauW.setter
+    def vtTauW(self, newVtTauW):
+
+        self.requestQ.put([COMMAND_SET, "tau_w", s2ms(newVtTauW)])
+
+
+    @property
     def t(self):
         return self._nTimeStep * self.tDt
 
@@ -1303,7 +808,7 @@ class RecIAFSpkInNest(Layer):
             self.vtTauS if type(self.vtTauS) is float else self.vtTauS.tolist()
         )
         config["bRecord"] = self.bRecord
-        config["ClassName"] = "RecIAFSpkInNest"
+        config["ClassName"] = "RecAEIFSpkInNest"
 
         return config
 
@@ -1314,7 +819,7 @@ class RecIAFSpkInNest(Layer):
     @staticmethod
     def load_from_dict(config):
 
-        return RecIAFSpkInNest(
+        return RecAEIFSpkInNest(
             mfWIn=config["mfWIn"],
             mfWRec=config["mfWRec"],
             vfBias=config["vfBias"],
@@ -1336,7 +841,7 @@ class RecIAFSpkInNest(Layer):
         with open(filename, "r") as f:
             config = json.load(f)
 
-        return RecIAFSpkInNest(
+        return RecAEIFSpkInNest(
             mfWIn=config["mfWIn"],
             mfWRec=config["mfWRec"],
             vfBias=config["vfBias"],
