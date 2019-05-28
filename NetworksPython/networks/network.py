@@ -125,7 +125,7 @@ class Network:
         """
 
         # - Network time
-        self.timestep = 0
+        self._timestep = 0
 
         # Maintain set of all layers
         self.layerset = set()
@@ -172,7 +172,7 @@ class Network:
         add_layer - Add a new layer to the network
 
         Add lyr to self and to self.layerset. Its attribute name
-        is 'lyr'+lyr.strName. Check whether layer with this name
+        is 'lyr'+lyr.name. Check whether layer with this name
         already exists (replace anyway).
         Connect lyr to inputlayer and outputlayer.
 
@@ -191,37 +191,37 @@ class Network:
         )
 
         # - Check whether self already contains a layer with the same name as lyr.
-        if hasattr(self, lyr.strName):
+        if hasattr(self, lyr.name):
             # - Check if layers are the same object.
-            if getattr(self, lyr.strName) is lyr:
+            if getattr(self, lyr.name) is lyr:
                 print(
                     "Network: Layer `{}` is already part of the network".format(
-                        lyr.strName
+                        lyr.name
                     )
                 )
                 return lyr
             else:
-                newname = lyr.strName
+                newname = lyr.name
                 # - Find a new name for lyr.
                 while hasattr(self, newname):
                     newname = self._new_name(newname)
                 if verbose:
                     print(
                         "Network: A layer with name `{}` already exists.".format(
-                            lyr.strName
+                            lyr.name
                         )
                         + "The new layer will be renamed to  `{}`.".format(newname)
                     )
-                lyr.strName = newname
+                lyr.name = newname
 
         # - Add set of input layers and flag to determine if lyr receives external input
         lyr.pre_layer = None
         lyr.external_input = external_input
 
         # - Add lyr to the network
-        setattr(self, lyr.strName, lyr)
+        setattr(self, lyr.name, lyr)
         if verbose:
-            print("Network: Added layer `{}` to network\n".format(lyr.strName))
+            print("Network: Added layer `{}` to network\n".format(lyr.name))
 
         # - Update inventory of layers
         self.layerset.add(lyr)
@@ -298,22 +298,22 @@ class Network:
         """
         # - Make sure that layer dimensions match
 
-        if pre_layer.nSize != post_layer.nSizeIn:
+        if pre_layer.size != post_layer.size_in:
             raise NetworkError(
-                "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
-                    pre_layer.strName, pre_layer.nSize, post_layer.strName
+                "Network: Dimensions of layers `{}` (size={}) and `{}`".format(
+                    pre_layer.name, pre_layer.size, post_layer.name
                 )
-                + " (nSizeIn={}) do not match".format(post_layer.nSizeIn)
+                + " (size_in={}) do not match".format(post_layer.size_in)
             )
 
         # - Check for compatible input / output
-        if pre_layer.cOutput != post_layer.cInput:
+        if pre_layer.output_type != post_layer.input_type:
             raise NetworkError(
-                "Network: Input / output classes of layer `{}` (cOutput = {})".format(
-                    pre_layer.strName, pre_layer.cOutput.__name__
+                "Network: Input / output classes of layer `{}` (output_type = {})".format(
+                    pre_layer.name, pre_layer.output_type.__name__
                 )
-                + " and `{}` (cInput = {}) do not match".format(
-                    post_layer.strName, post_layer.cInput.__name__
+                + " and `{}` (input_type = {}) do not match".format(
+                    post_layer.name, post_layer.input_type.__name__
                 )
             )
 
@@ -327,7 +327,7 @@ class Network:
             if verbose:
                 print(
                     "Network: Layer `{}` now receives input from layer `{}` \n".format(
-                        post_layer.strName, pre_layer.strName
+                        post_layer.name, pre_layer.name
                     )
                 )
         except NetworkError as e:
@@ -348,7 +348,7 @@ class Network:
             post_layer.pre_layer = None
             print(
                 "Network: Layer {} no longer receives input from layer `{}`".format(
-                    post_layer.strName, pre_layer.strName
+                    post_layer.name, pre_layer.name
                 )
             )
 
@@ -361,7 +361,7 @@ class Network:
         else:
             print(
                 "Network: There is no connection from layer `{}` to layer `{}`".format(
-                    pre_layer.strName, post_layer.strName
+                    pre_layer.name, post_layer.name
                 )
             )
 
@@ -418,15 +418,15 @@ class Network:
         if self._force_dt:
             # - Just make sure layer dt are multiples of self.dt
             for lyr in self.layerset:
-                if not is_multiple(self.dt, lyr.tDt):
+                if not is_multiple(self.dt, lyr.dt):
                     raise ValueError(
                         f"Network: dt is set to {self.dt}, which is not a multiple of "
-                        + f"layer `{lyr.strName}`'s time step ({lyr.tDt})."
+                        + f"layer `{lyr.name}`'s time step ({lyr.dt})."
                     )
         else:
             ## -- Try to determine self._dt from layer time steps
             # - Collect layer time steps, convert to Decimals for numerical stability
-            dt_list = [Decimal(str(lyr.tDt)) for lyr in self.layerset]
+            dt_list = [Decimal(str(lyr.dt)) for lyr in self.layerset]
 
             # - If list is empty, there are no layers in the network
             if not dt_list:
@@ -459,7 +459,7 @@ class Network:
 
         # - Store number of layer time steps per global time step for each layer
         for lyr in self.layerset:
-            lyr._timesteps_per_network_dt = int(np.round(self._dt / lyr.tDt))
+            lyr._timesteps_per_network_dt = int(np.round(self._dt / lyr.dt))
 
     def _fix_duration(self, t: float) -> float:
         """
@@ -474,7 +474,7 @@ class Network:
         """
 
         # - All dt
-        v_dt = np.array([lyr.tDt for lyr in self.evol_order])
+        v_dt = np.array([lyr.dt for lyr in self.evol_order])
 
         if ((np.abs(t % v_dt) > tol_abs) & (np.abs(t % v_dt) - v_dt < tol_abs)).any():
             return t + tol_abs
@@ -557,8 +557,8 @@ class Network:
 
             elif lyr.pre_layer is not None:
                 # - Output of current layer's input layer
-                ts_current_input = signal_dict[lyr.pre_layer.strName]
-                str_in = lyr.pre_layer.strName + "'s output"
+                ts_current_input = signal_dict[lyr.pre_layer.name]
+                str_in = lyr.pre_layer.name + "'s output"
 
             else:
                 # - No input
@@ -568,11 +568,11 @@ class Network:
             if verbose:
                 print(
                     "Network: Evolving layer `{}` with {} as input".format(
-                        lyr.strName, str_in
+                        lyr.name, str_in
                     )
                 )
             # - Evolve layer and store output in signal_dict
-            signal_dict[lyr.strName] = lyr.evolve(
+            signal_dict[lyr.name] = lyr.evolve(
                 tsInput=ts_current_input,
                 nNumTimeSteps=int(num_timesteps * lyr._timesteps_per_network_dt),
                 bVerbose=verbose,
@@ -580,14 +580,14 @@ class Network:
 
             # - Add information about trial timings if present
             if trial_starts is not None:
-                signal_dict[lyr.strName].trial_starts = trial_starts.copy()
+                signal_dict[lyr.name].trial_starts = trial_starts.copy()
 
             # - Set name for response time series, if not already set
-            if signal_dict[lyr.strName].name is None:
-                signal_dict[lyr.strName].name = lyr.strName
+            if signal_dict[lyr.name].name is None:
+                signal_dict[lyr.name].name = lyr.name
 
         # - Update network time
-        self.timestep += num_timesteps
+        self._timestep += num_timesteps
 
         # - Make sure layers are still in sync with netowrk
         self._check_sync(verbose=False)
@@ -762,16 +762,16 @@ class Network:
 
         # - Check that external input has the correct class
         assert isinstance(
-            ts_input, self.inputlayer.cInput
+            ts_input, self.inputlayer.input_type
         ), "Network: External input must be of class {} for this network.".format(
-            self.inputlayer.cInput.__name__
+            self.inputlayer.input_type.__name__
         )
 
         # - Check that external input has the correct size
         assert (
-            ts_input.num_channels == self.inputlayer.nSizeIn
+            ts_input.num_channels == self.inputlayer.size_in
         ), "Network: External input must have {} traces for this network.".format(
-            self.inputlayer.nSizeIn
+            self.inputlayer.size_in
         )
 
         if num_timesteps is None:
@@ -874,18 +874,18 @@ class Network:
                 print(tup_data[0])
 
             # - Build output dictionary (using appropriate output class)
-            signal_dict[self.evol_order[layer_idx].strName] = self.evol_order[
+            signal_dict[self.evol_order[layer_idx].name] = self.evol_order[
                 layer_idx
-            ].cOutput(*tup_data)
+            ].output_type(*tup_data)
 
             # - Set name for time series, if not already set
-            if signal_dict[self.evol_order[layer_idx].strName].name is None:
-                signal_dict[self.evol_order[layer_idx].strName].name = self.evol_order[
+            if signal_dict[self.evol_order[layer_idx].name].name is None:
+                signal_dict[self.evol_order[layer_idx].name].name = self.evol_order[
                     layer_idx
-                ].strName
+                ].name
 
         # - Increment time
-        self.timestep += num_timesteps
+        self._timestep += num_timesteps
 
         # - Return collated signals
         return signal_dict
@@ -900,18 +900,15 @@ class Network:
             print("Network: Network time is {}. \n\t Layer times:".format(self.t))
             print(
                 "\n".join(
-                    (
-                        "\t\t {}: {}".format(lyr.strName, lyr.t)
-                        for lyr in self.evol_order
-                    )
+                    ("\t\t {}: {}".format(lyr.name, lyr.t) for lyr in self.evol_order)
                 )
             )
         for lyr in self.evol_order:
-            if lyr._nTimeStep != self.timestep * lyr._timesteps_per_network_dt:
+            if lyr._nTimeStep != self._timestep * lyr._timesteps_per_network_dt:
                 in_sync = False
                 print(
                     "\t Network: WARNING: Layer `{}` is not in sync (t={})".format(
-                        lyr.strName, lyr.t
+                        lyr.name, lyr.t
                     )
                 )
         if in_sync:
@@ -930,7 +927,7 @@ class Network:
             lyr.reset_time()
 
         # - Reset global network time
-        self.timestep = 0
+        self._timestep = 0
 
     def reset_state(self):
         """
@@ -948,7 +945,7 @@ class Network:
             lyr.reset_all()
 
         # - Reset global network time
-        self.timestep = 0
+        self._timestep = 0
 
     def __repr__(self):
         return (
@@ -964,7 +961,7 @@ class Network:
         return (
             0
             if not hasattr(self, "_dt") or self._dt is None
-            else self._dt * self.timestep
+            else self._dt * self._timestep
         )
 
     @property

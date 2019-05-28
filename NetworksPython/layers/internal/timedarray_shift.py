@@ -147,8 +147,8 @@ class TimedArray(Function, Nameable):
 
             def unitless_timed_array_func(t):
                 t = t - tOffset
-                timestep = np.clip(np.int_(np.round(t / epsilon) / K), 0, n_values - 1)
-                return values[timestep]
+                _timestep = np.clip(np.int_(np.round(t / epsilon) / K), 0, n_values - 1)
+                return values[_timestep]
 
             unitless_timed_array_func._arg_units = [second]
             unitless_timed_array_func._return_unit = unit
@@ -264,8 +264,8 @@ class TimedArray(Function, Nameable):
 
             def unitless_timed_array_func(t, i):
                 t -= np.asarray(tOffset)
-                timestep = np.clip(np.int_(np.round(t / epsilon) / K), 0, n_values - 1)
-                return values[timestep, i]
+                _timestep = np.clip(np.int_(np.round(t / epsilon) / K), 0, n_values - 1)
+                return values[_timestep, i]
 
             unitless_timed_array_func._arg_units = [second]
             unitless_timed_array_func._return_unit = unit

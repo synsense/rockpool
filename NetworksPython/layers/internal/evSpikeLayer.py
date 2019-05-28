@@ -16,47 +16,47 @@ class EventDrivenSpikingLayer(FFCLIAF):
 
     def __init__(
         self,
-        mfW: np.ndarray = None,
+        weights: np.ndarray = None,
         vfVThresh: float = 8,
-        tDt: float = 1,
-        strName: str = "unnamed",
+        dt: float = 1,
+        name: str = "unnamed",
     ):
         """
         EventCNLayer - Implements a 2D convolutional layer of spiking neurons
 
         :param nfW:        np.ndarray Weight matrix
         :param vfVThresh: float      Spiking threshold
-        :param tDt:  float  Time step
-        :param strName:    str        Name of this layer.
+        :param dt:  float  Time step
+        :param name:    str        Name of this layer.
         """
         # Call parent constructor
-        FFCLIAF.__init__(self, mfW, vfVThresh=vfVThresh, tDt=tDt, strName=strName)
+        FFCLIAF.__init__(self, weights, vfVThresh=vfVThresh, dt=dt, name=name)
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        __, nNumTimeSteps = self._prepare_input(tsInput, tDuration, nNumTimeSteps)
+        __, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
 
         # Extract spike data from the input variable
         # TODO: Handle empty input time series
-        vSpk = tsInput.times
-        vIdInput = tsInput.channels
+        vSpk = ts_input.times
+        vIdInput = ts_input.channels
 
         # Hold the sate of network at any time step when updated
         aStateTimeSeries = []
@@ -66,9 +66,9 @@ class EventDrivenSpikingLayer(FFCLIAF):
         self._add_to_record(aStateTimeSeries, 0)
 
         # Local variables
-        vState = self.vState
+        state = self.state
         vfVThresh = self.vfVThresh
-        mfW = self.mfW
+        weights = self.weights
 
         # Iterate over all input spikes
         for nSpikeIndx in tqdm(range(len(vSpk))):
@@ -77,22 +77,22 @@ class EventDrivenSpikingLayer(FFCLIAF):
             nInputId = vIdInput[nSpikeIndx].astype(int)
 
             # Add input to neurons
-            vfUpdate = mfW[nInputId]
+            vfUpdate = weights[nInputId]
 
             # State update (avoiding type cast errors)
-            vState = vState + vfUpdate
+            state = state + vfUpdate
 
             self._add_to_record(
-                aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, vState=vState
+                aStateTimeSeries, tCurrentTime, vnIdOut=self.vnIdMonitor, state=state
             )
 
             # Check threshold and reset
-            vbSpike = vState >= vfVThresh
+            vbSpike = state >= vfVThresh
             if vbSpike.any():
                 vnSpike, = np.nonzero(vbSpike)
 
                 # Reset membrane state
-                vState[vbSpike] -= vfVThresh[vbSpike]
+                state[vbSpike] -= vfVThresh[vbSpike]
 
                 # TODO: The above code has a bug
                 # If the threshold goes over 2*vfVThresh this spike will not be detected till the next update.
@@ -105,14 +105,14 @@ class EventDrivenSpikingLayer(FFCLIAF):
                     aStateTimeSeries,
                     tCurrentTime,
                     vnIdOut=self.vnIdMonitor,
-                    vState=vState,
+                    state=state,
                 )
 
         # Convert arrays to TimeSeries objects
 
         mfSpk = np.row_stack(aSpk)
         evOut = TSEvent(
-            mfSpk[:, 0], mfSpk[:, 1], name="Output", num_channels=self.nSize
+            mfSpk[:, 0], mfSpk[:, 1], name="Output", num_channels=self.size
         )
 
         # TODO: Is there a time series object for this too?
@@ -122,6 +122,6 @@ class EventDrivenSpikingLayer(FFCLIAF):
         self._mfStateTimeSeries = mfStateTimeSeries
 
         # Update time
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         return evOut
