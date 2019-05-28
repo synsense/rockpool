@@ -13,12 +13,12 @@ from NetworksPython import layers
 try:
     from tqdm.autonotebook import tqdm
 
-    bUseTqdm = True
+    use_tqdm = True
 except ImportError:
-    bUseTqdm = False
+    use_tqdm = False
 
 
-from typing import Callable, Union
+from typing import Callable, Union, List, Type
 
 from ..timeseries import TimeSeries
 from ..layers import Layer
@@ -29,9 +29,9 @@ RealValue = Union[float, Decimal, str]
 __all__ = ["Network"]
 
 # - Relative tolerance for float comparisons
-fTolRel = 1e-5
+tol_rel = 1e-5
 decimal_base = 1e-7
-fTolAbs = 1e-10
+tol_abs = 1e-10
 
 ### --- Helper functions
 
@@ -56,23 +56,23 @@ def digits_after_point(value):
 def is_multiple(
     a: RealValue,
     b: RealValue,
-    fTolRel: RealValue = fTolRel,
-    fTolAbs: RealValue = fTolAbs,
+    tol_rel: RealValue = tol_rel,
+    tol_abs: RealValue = tol_abs,
 ) -> bool:
     """
     is_multiple - Check whether a%b is 0 within some tolerance.
     :param a: float The number that may be multiple of b
     :param b: float The number a may be a multiple of
-    :param fTolRel: float Relative tolerance
+    :param tol_rel: float Relative tolerance
     :return bool: True if a is a multiple of b within some tolerance
     """
     # - Convert to decimals
     a = Decimal(str(a))
     b = Decimal(str(b))
-    fTolRel = Decimal(str(fTolRel))
-    fTolAbs = Decimal(str(fTolAbs))
-    fMinRemainder = min(a % b, b - a % b)
-    return fMinRemainder < fTolRel * b + fTolAbs
+    tol_rel = Decimal(str(tol_rel))
+    tol_abs = Decimal(str(tol_abs))
+    min_remainder = min(a % b, b - a % b)
+    return min_remainder < tol_rel * b + tol_abs
 
 
 def gcd(a: RealValue, b: RealValue) -> Decimal:
@@ -93,8 +93,8 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
     b_rnd = np.round(float(b) / decimal_base)
     # - Make sure that a and b are not too small
     if (
-        np.abs(a_rnd - float(a) / decimal_base) > fTolRel
-        or np.abs(b_rnd - float(b) / decimal_base) > fTolRel
+        np.abs(a_rnd - float(a) / decimal_base) > tol_rel
+        or np.abs(b_rnd - float(b) / decimal_base) > tol_rel
     ):
         raise ValueError(
             "network: Too small values to find lcm. Try changing 'decimal_base'"
@@ -108,7 +108,7 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
 
 
 class Network:
-    def __init__(self, *layers: Layer, tDt=None):
+    def __init__(self, *layers: Layer, dt=None):
         """
         Network - Super class to encapsulate several Layers, manage signal routing
 
@@ -117,69 +117,70 @@ class Network:
                          they are received determines the order in
                          which they are connected. First layer will
                          receive external input
-        :param tDt:      float If not none, network time step is forced to
+        :param dt:      float If not none, network time step is forced to
                                this values. Layers that are added must have
-                               time step that is multiple of tDt.
+                               time step that is multiple of dt.
                                If None, network will try to determine
-                               suitable tDt each time a layer is added.
+                               suitable dt each time a layer is added.
         """
 
         # - Network time
-        self._nTimeStep = 0
+        self.timestep = 0
 
         # Maintain set of all layers
-        self.setLayers = set()
+        self.layerset = set()
 
-        if tDt is not None:
-            assert tDt > 0, "Network: tDt must be positive."
-            # - Force tDt
-            self._tDt = tDt
-            self._bForceDt = True
+        if dt is not None:
+            assert dt > 0, "Network: dt must be positive."
+            # - Force dt
+            self._dt = dt
+            self._force_dt = True
         else:
-            self._bForceDt = False
+            self._force_dt = False
 
         if layers:
             # - First layer receives external input
-            self.lyrInput = self.add_layer(layers[0], bExternalInput=True)
+            self.inputlayer: Layer = self.add_layer(layers[0], external_input=True)
 
             # - Keep track of most recently added layer
-            lyrLastLayer = layers[0]
+            recent_layer: Layer = layers[0]
 
             # - Add and connect subsequent layers
+            lyr: Layer
             for lyr in layers[1:]:
-                self.add_layer(lyr, lyrInput=lyrLastLayer)
-                lyrLastLayer = lyr
+                self.add_layer(lyr, inputlayer=recent_layer)
+                recent_layer: Layer = lyr
 
             # - Handle to last layer
-            self.lyrOutput = lyrLastLayer
+            self.outputlayer: Layer = recent_layer
 
         # - Set evolution order and time step if no layers have been connected
-        if not hasattr(self, "lEvolOrder"):
-            self.lEvolOrder = self._evolution_order()
-        if not hasattr(self, "_tDt"):
-            self._tDt = None
+        if not hasattr(self, "evol_order"):
+            self.evol_order: List[Layer] = self._set_evolution_order()
+        if not hasattr(self, "_dt"):
+            self._dt = None
 
     def add_layer(
         self,
         lyr: Layer,
-        lyrInput: Layer = None,
-        lyrOutput: Layer = None,
-        bExternalInput: bool = False,
-        bVerbose: bool = False,
+        inputlayer: Layer = None,
+        outputlayer: Layer = None,
+        external_input: bool = False,
+        verbose: bool = False,
     ) -> Layer:
         """
         add_layer - Add a new layer to the network
 
-        Add lyr to self and to self.setLayers. Its attribute name
+        Add lyr to self and to self.layerset. Its attribute name
         is 'lyr'+lyr.strName. Check whether layer with this name
         already exists (replace anyway).
-        Connect lyr to lyrInput and lyrOutput.
+        Connect lyr to inputlayer and outputlayer.
 
         :param lyr:             Layer layer to be added to self
-        :param lyrInput:        Layer input layer to lyr
-        :param lyrOutput:       Layer layer to which lyr is input layer
-        :param bExternalInput:  bool This layer receives external input (Default: False)
-        :param bVerbose:        bool Print feedback about layer addition (Default: False)
+        :param inputlayer:        Layer input layer to lyr
+        :param outputlayer:       Layer layer to which lyr is input layer
+        :param external_input:  bool This layer receives external input (Default: False)
+        :param verbose:        bool Print feedback about layer addition (Default: False)
 
         :return:                Layer lyr
         """
@@ -200,182 +201,182 @@ class Network:
                 )
                 return lyr
             else:
-                sNewName = lyr.strName
+                newname = lyr.strName
                 # - Find a new name for lyr.
-                while hasattr(self, sNewName):
-                    sNewName = self._new_name(sNewName)
-                if bVerbose:
+                while hasattr(self, newname):
+                    newname = self._new_name(newname)
+                if verbose:
                     print(
                         "Network: A layer with name `{}` already exists.".format(
                             lyr.strName
                         )
-                        + "The new layer will be renamed to  `{}`.".format(sNewName)
+                        + "The new layer will be renamed to  `{}`.".format(newname)
                     )
-                lyr.strName = sNewName
+                lyr.strName = newname
 
         # - Add set of input layers and flag to determine if lyr receives external input
-        lyr.lyrIn = None
-        lyr.bExternalInput = bExternalInput
+        lyr.pre_layer = None
+        lyr.external_input = external_input
 
         # - Add lyr to the network
         setattr(self, lyr.strName, lyr)
-        if bVerbose:
+        if verbose:
             print("Network: Added layer `{}` to network\n".format(lyr.strName))
 
         # - Update inventory of layers
-        self.setLayers.add(lyr)
+        self.layerset.add(lyr)
 
-        # - Update global tDt
-        self._set_tDt()
+        # - Update global dt
+        self._set_dt()
 
         # - Connect in- and outputs
-        if lyrInput is not None:
-            self.connect(lyrInput, lyr)
-        if lyrOutput is not None:
-            self.connect(lyr, lyrOutput)
+        if inputlayer is not None:
+            self.connect(inputlayer, lyr)
+        if outputlayer is not None:
+            self.connect(lyr, outputlayer)
 
         # - Make sure evolution order is updated if it hasn't been before
-        if lyrInput is None and lyrOutput is None:
-            self.lEvolOrder = self._evolution_order()
+        if inputlayer is None and outputlayer is None:
+            self.evol_order = self._set_evolution_order()
 
         return lyr
 
     @staticmethod
-    def _new_name(strName: str) -> str:
+    def _new_name(name: str) -> str:
         """
         _new_name: Generate a new name by first checking whether
                   the old name ends with '_i', with i an integer.
                   If so, replace i by i+1, otherwise append '_0'
-        :param strName:   str - Name to be modified
+        :param name:   str - Name to be modified
         :return:        str - Modified name
         """
 
-        # - Check wheter strName already ends with '_...'
-        lsSplitted = strName.split("_")
-        if len(lsSplitted) > 1:
+        # - Check wheter name already ends with '_...'
+        splitted_name: List[str] = name.split("_")
+        if len(splitted_name) > 1:
             try:
                 # - If the part after the last '_' is an integer, raise it by 1
-                i = int(lsSplitted[-1])
-                lsSplitted[-1] = str(i + 1)
-                sNewName = "_".join(lsSplitted)
+                i = int(splitted_name[-1])
+                splitted_name[-1] = str(i + 1)
+                newname = "_".join(splitted_name)
             except ValueError:
-                sNewName = strName + "_0"
+                newname = name + "_0"
         else:
-            sNewName = strName + "_0"
+            newname = name + "_0"
 
-        return sNewName
+        return newname
 
-    def remove_layer(self, lyrDel: Layer):
+    def remove_layer(self, del_layer: Layer):
         """
         remove_layer: Remove a layer from the network by removing it
                       from the layer inventory and make sure that no
                       other layer receives input from it.
-        :param lyrDel: Layer to be removed from network
+        :param del_layer: Layer to be removed from network
         """
 
-        # - Remove connections from lyrDel to others
-        for lyr in self.setLayers:
-            if lyrDel is lyr.lyrIn:
-                lyr.lyrIn = None
+        # - Remove connections from del_layer to others
+        for lyr in self.layerset:
+            if del_layer is lyr.pre_layer:
+                lyr.pre_layer = None
 
-        # - Remove lyrDel from the inventory and delete it
-        self.setLayers.remove(lyrDel)
+        # - Remove del_layer from the inventory and delete it
+        self.layerset.remove(del_layer)
 
-        # - Update global tDt
-        self._tDt = self._set_tDt()
+        # - Update global dt
+        self._dt = self._set_dt()
 
         # - Reevaluate the layer evolution order
-        self.lEvolOrder = self._evolution_order()
+        self.evol_order: List[Layer] = self._set_evolution_order()
 
-    def connect(self, lyrSource: Layer, lyrTarget: Layer, bVerbose: bool = False):
+    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
         """
         connect: Connect two layers by defining one as the input layer
                  of the other.
-        :param lyrSource:   The source layer
-        :param lyrTarget:   The target layer
-        :param bVerbose:    bool Flag indicating whether to print feedback
+        :param pre_layer:   The source layer
+        :param post_layer:   The target layer
+        :param verbose:    bool Flag indicating whether to print feedback
         """
         # - Make sure that layer dimensions match
 
-        if lyrSource.nSize != lyrTarget.nSizeIn:
+        if pre_layer.nSize != post_layer.nSizeIn:
             raise NetworkError(
                 "Network: Dimensions of layers `{}` (nSize={}) and `{}`".format(
-                    lyrSource.strName, lyrSource.nSize, lyrTarget.strName
+                    pre_layer.strName, pre_layer.nSize, post_layer.strName
                 )
-                + " (nSizeIn={}) do not match".format(lyrTarget.nSizeIn)
+                + " (nSizeIn={}) do not match".format(post_layer.nSizeIn)
             )
 
         # - Check for compatible input / output
-        if lyrSource.cOutput != lyrTarget.cInput:
+        if pre_layer.cOutput != post_layer.cInput:
             raise NetworkError(
                 "Network: Input / output classes of layer `{}` (cOutput = {})".format(
-                    lyrSource.strName, lyrSource.cOutput.__name__
+                    pre_layer.strName, pre_layer.cOutput.__name__
                 )
                 + " and `{}` (cInput = {}) do not match".format(
-                    lyrTarget.strName, lyrTarget.cInput.__name__
+                    post_layer.strName, post_layer.cInput.__name__
                 )
             )
 
         # - Add source layer to target's set of inputs
-        lyrTarget.lyrIn = lyrSource
+        post_layer.pre_layer = pre_layer
 
         # - Make sure that the network remains a directed acyclic graph
         #   and reevaluate evolution order
         try:
-            self.lEvolOrder = self._evolution_order()
-            if bVerbose:
+            self.evol_order = self._set_evolution_order()
+            if verbose:
                 print(
                     "Network: Layer `{}` now receives input from layer `{}` \n".format(
-                        lyrTarget.strName, lyrSource.strName
+                        post_layer.strName, pre_layer.strName
                     )
                 )
         except NetworkError as e:
-            lyrTarget.lyrIn = None
+            post_layer.pre_layer = None
             raise e
 
-    def disconnect(self, lyrSource: Layer, lyrTarget: Layer):
+    def disconnect(self, pre_layer: Layer, post_layer: Layer):
         """
         disconnect: Remove the connection between two layers by setting
                     the input of the target layer to None.
-        :param lyrSource:   The source layer
-        :param lyrTarget:   The target layer
+        :param pre_layer:   The source layer
+        :param post_layer:   The target layer
         """
 
         # - Check whether layers are connected at all
-        if lyrTarget.lyrIn is lyrSource:
+        if post_layer.pre_layer is pre_layer:
             # - Remove the connection
-            lyrTarget.lyrIn = None
+            post_layer.pre_layer = None
             print(
                 "Network: Layer {} no longer receives input from layer `{}`".format(
-                    lyrTarget.strName, lyrSource.strName
+                    post_layer.strName, pre_layer.strName
                 )
             )
 
             # - Reevaluate evolution order
             try:
-                self.lEvolOrder = self._evolution_order()
+                self.evol_order = self._set_evolution_order()
             except NetworkError as e:
                 raise e
 
         else:
             print(
                 "Network: There is no connection from layer `{}` to layer `{}`".format(
-                    lyrSource.strName, lyrTarget.strName
+                    pre_layer.strName, post_layer.strName
                 )
             )
 
-    def _evolution_order(self) -> list:
+    def _set_evolution_order(self) -> list:
         """
-        _evolution_order() - Determine the order in which layers are evolved. Requires Network
+        _set_evolution_order() - Determine the order in which layers are evolved. Requires Network
         to be a directed acyclic graph, otherwise evolution has to happen
         timestep-wise instead of layer-wise.
         """
 
         # - Function to find next evolution layer
-        def next_layer(setCandidates: set) -> Layer:
+        def find_next_layer(candidates: set) -> Layer:
             while True:
                 try:
-                    lyrCandidate = setCandidates.pop()
+                    candidate_lyr = candidates.pop()
                 # If no candidate is left, raise an exception
                 except KeyError:
                     raise NetworkError(
@@ -385,79 +386,80 @@ class Network:
                 else:
                     # - If there is a candidate and none of the remaining layers
                     #   is its input layer, this will be the next
-                    if not (lyrCandidate.lyrIn in setlyrRemaining):
-                        return lyrCandidate
+                    if not (candidate_lyr.pre_layer in remaining_lyrs):
+                        return candidate_lyr
 
         # - Set of layers that are not in evolution order yet
-        setlyrRemaining = self.setLayers.copy()
+        remaining_lyrs: set = self.layerset.copy()
 
         # # - Begin with input layer
-        # lOrder = [self.lyrInput]
-        # setlyrRemaining.remove(self.lyrInput)
-        lOrder = []
+        # order = [self.inputlayer]
+        # remaining_lyrs.remove(self.inputlayer)
+        order = []
 
         # - Loop through layers
-        while bool(setlyrRemaining):
+        while bool(remaining_lyrs):
             # - Find the next layer to be evolved
-            lyrNext = next_layer(setlyrRemaining.copy())
-            lOrder.append(lyrNext)
-            setlyrRemaining.remove(lyrNext)
+            next_lyr = find_next_layer(remaining_lyrs.copy())
+            order.append(next_lyr)
+            remaining_lyrs.remove(next_lyr)
 
         # - Return a list with the layers in their evolution order
-        return lOrder
+        return order
 
-    def _set_tDt(self, fMaxFactor: float = 100):
+    def _set_dt(self, max_factor: float = 100):
         """
-        _set_tDt - Set a time step size for the network
-                   which is the lcm of all layers' tDt's.
-            :param fMaxFactor   float - By which factor can the network tDt
-                                        exceed the largest layer tDt before
+        _set_dt - Set a time step size for the network
+                   which is the lcm of all layers' dt's.
+            :param max_factor   float - By which factor can the network dt
+                                        exceed the largest layer dt before
                                         an error is assumed
         """
-        if self._bForceDt:
-            # - Just make sure layer tDt are multiples of self.tDt
-            for lyr in self.setLayers:
-                assert is_multiple(
-                    self.tDt, lyr.tDt
-                ), "Network: tDt is set to {}, which is not a multiple of layer `{}`'s time step ({}).".format(
-                    self.tDt, lyr.strName, lyr.tDt
-                )
+        if self._force_dt:
+            # - Just make sure layer dt are multiples of self.dt
+            for lyr in self.layerset:
+                if not is_multiple(self.dt, lyr.tDt):
+                    raise ValueError(
+                        f"Network: dt is set to {self.dt}, which is not a multiple of "
+                        + f"layer `{lyr.strName}`'s time step ({lyr.tDt})."
+                    )
         else:
-            ## -- Try to determine self._tDt from layer time steps
+            ## -- Try to determine self._dt from layer time steps
             # - Collect layer time steps, convert to Decimals for numerical stability
-            ltDt = [Decimal(str(lyr.tDt)) for lyr in self.setLayers]
+            dt_list = [Decimal(str(lyr.tDt)) for lyr in self.layerset]
 
             # - If list is empty, there are no layers in the network
-            if not ltDt:
+            if not dt_list:
                 return None
 
             # - Determine lcm
-            tLCM = ltDt[0]
-            for tDt in ltDt[1:]:
+            t_lcm = dt_list[0]
+            for dt in dt_list[1:]:
                 try:
-                    tLCM = lcm(tLCM, tDt)
+                    t_lcm = lcm(t_lcm, dt)
                 except ValueError:
                     raise ValueError(
-                        "Network: tDt is too small for one or more layers. Try larger"
+                        "Network: dt is too small for one or more layers. Try larger"
                         + " value or decrease `decimal_base`."
                     )
 
-            #   Also
-            assert (
-                # - If result is way larger than largest tDt, assume it hasn't worked
-                tLCM < fMaxFactor * np.amax(ltDt)
-                # - Also make sure that tLCM is indeed a multiple of all tDt's
-                and not list(filter(lambda tDt: not is_multiple(tLCM, tDt), ltDt))
-            ), "Network: Couldn't find a reasonable common time step (layer tDt's: {}, found: {}".format(
-                ltDt, tLCM
-            )
+            if (
+                # If result is way larger than largest dt, assume it hasn't worked
+                t_lcm > max_factor * np.amax(dt_list)
+                # Also make sure that t_lcm is indeed a multiple of all dt's
+                or any(not is_multiple(t_lcm, dt) for dt in dt_list)
+            ):
+                raise ValueError(
+                    "Network: Couldn't find a reasonable common time step "
+                    + f"(layer dt's: {dt_list}, found: {t_lcm}"
+                )
 
             # - Store global time step, for now as float for compatibility
-            self._tDt = float(tLCM)
+            self._dt = float(t_lcm)
 
         # - Store number of layer time steps per global time step for each layer
-        for lyr in self.setLayers:
-            lyr._nNumTimeStepsPerGlobal = int(np.round(self._tDt / lyr.tDt))
+        for lyr in self.layerset:
+            lyr._timesteps_per_network_dt = int(np.round(self._dt / lyr.tDt))
 
     def _fix_duration(self, t: float) -> float:
         """
@@ -466,517 +468,518 @@ class Network:
                         value, causing the layers to not evolve sufficiently.
                         This method fixes the problem by increasing
                         t if it is slightly below a multiple of
-                        tDt of any of the layers in the network.
+                        dt of any of the layers in the network.
             :param t:   float - time to be fixed
             :return:    float - Fixed duration
         """
 
-        # - All tDt
-        vtDt = np.array([lyr.tDt for lyr in self.lEvolOrder])
+        # - All dt
+        v_dt = np.array([lyr.tDt for lyr in self.evol_order])
 
-        if ((np.abs(t % vtDt) > fTolAbs) & (np.abs(t % vtDt) - vtDt < fTolAbs)).any():
-            return t + fTolAbs
+        if ((np.abs(t % v_dt) > tol_abs) & (np.abs(t % v_dt) - v_dt < tol_abs)).any():
+            return t + tol_abs
         else:
             return t
 
     def evolve(
         self,
-        tsInput: TimeSeries = None,
-        tDuration: float = None,
-        nNumTimeSteps: int = None,
-        bVerbose: bool = True,
+        ts_input: Optional[TimeSeries] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = True,
     ) -> dict:
         """
-        evolve - Evolve each layer in the network according to self.lEvolOrder.
-                 For layers with bExternalInput==True their input is
-                 tsInput. If not but an input layer is defined, it
+        evolve - Evolve each layer in the network according to self.evol_order.
+                 For layers with external_input==True their input is
+                 ts_input. If not but an input layer is defined, it
                  will be the output of that, otherwise None.
                  Return a dict with each layer's output.
-        :param tsInput:  TimeSeries with external input data.
-        :param tDuration:        float - duration over which netŵork should
+        :param ts_input:  TimeSeries with external input data.
+        :param duration:        float - duration over which netŵork should
                                          be evolved. If None, evolution is
-                                         over the duration of tsInput
-        :param nNumTimeSteps:    int - Number of evolution time steps
-        :param bVerbose:         bool - Print info about evolution state
+                                         over the duration of ts_input
+        :param num_timesteps:    int - Number of evolution time steps
+        :param verbose:         bool - Print info about evolution state
         :return:                 Dict with each layer's output time Series
         """
 
-        if nNumTimeSteps is None:
-            # - Determine nNumTimeSteps
-            if tDuration is None:
-                # - Determine tDuration
+        if num_timesteps is None:
+            # - Determine num_timesteps
+            if duration is None:
+                # - Determine duration
                 assert (
-                    tsInput is not None
-                ), "Network: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied"
+                    ts_input is not None
+                ), "Network: One of `num_timesteps`, `ts_input` or `duration` must be supplied"
 
-                if tsInput.periodic:
+                if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.duration
+                    duration: float = ts_input.duration
 
                 else:
                     # - Evolve until the end of the input TimeSeries
-                    tDuration = tsInput.t_stop - self.t
-                    assert tDuration > 0, (
+                    duration: float = ts_input.t_stop - self.t
+                    assert duration > 0, (
                         "Network: Cannot determine an appropriate evolution duration. "
-                        + "`tsInput` finishes before the current evolution time."
+                        + "`ts_input` finishes before the current evolution time."
                     )
-            nNumTimeSteps = int(np.floor(tDuration / self.tDt))
+            num_timesteps = int(np.floor(duration / self.dt))
 
-        if tsInput is not None:
+        if ts_input is not None:
             # - Set external input name if not set already
-            if tsInput.name is None:
-                tsInput.name = "External input"
+            if ts_input.name is None:
+                ts_input.name = "External input"
             # - Check if input contains information about trial timings
             try:
-                vtTrialStarts = tsInput.vtTrialStarts
+                trial_starts: np.ndarray = ts_input.trial_starts
             except AttributeError:
-                vtTrialStarts = None
+                try:
+                    # Old variable name
+                    trial_starts: np.ndarray = ts_input.vtTrialStarts
+                except AttributeError:
+                    trial_starts = None
         else:
-            vtTrialStarts = None
+            trial_starts = None
 
         # - Dict to store external input and each layer's output time series
-        dtsSignal = {"external": tsInput}
+        signal_dict = {"external": ts_input}
 
         # - Make sure layers are in sync with netowrk
-        self._check_sync(bVerbose=False)
+        self._check_sync(verbose=False)
 
         # - Iterate over evolution order and evolve layers
-        for lyr in self.lEvolOrder:
+        for lyr in self.evol_order:
 
             # - Determine input for current layer
-            if lyr.bExternalInput:
+            if lyr.external_input:
                 # - External input
-                tsCurrentInput = tsInput
-                strIn = "external input"
+                ts_current_input = ts_input
+                str_in = "external input"
 
-            elif lyr.lyrIn is not None:
+            elif lyr.pre_layer is not None:
                 # - Output of current layer's input layer
-                tsCurrentInput = dtsSignal[lyr.lyrIn.strName]
-                strIn = lyr.lyrIn.strName + "'s output"
+                ts_current_input = signal_dict[lyr.pre_layer.strName]
+                str_in = lyr.pre_layer.strName + "'s output"
 
             else:
                 # - No input
-                tsCurrentInput = None
-                strIn = "nothing"
+                ts_current_input = None
+                str_in = "nothing"
 
-            if bVerbose:
+            if verbose:
                 print(
                     "Network: Evolving layer `{}` with {} as input".format(
-                        lyr.strName, strIn
+                        lyr.strName, str_in
                     )
                 )
-            # - Evolve layer and store output in dtsSignal
-            dtsSignal[lyr.strName] = lyr.evolve(
-                tsInput=tsCurrentInput,
-                nNumTimeSteps=int(nNumTimeSteps * lyr._nNumTimeStepsPerGlobal),
-                bVerbose=bVerbose,
+            # - Evolve layer and store output in signal_dict
+            signal_dict[lyr.strName] = lyr.evolve(
+                tsInput=ts_current_input,
+                nNumTimeSteps=int(num_timesteps * lyr._timesteps_per_network_dt),
+                bVerbose=verbose,
             )
 
             # - Add information about trial timings if present
-            if vtTrialStarts is not None:
-                dtsSignal[lyr.strName].vtTrialStarts = vtTrialStarts.copy()
+            if trial_starts is not None:
+                signal_dict[lyr.strName].trial_starts = trial_starts.copy()
 
             # - Set name for response time series, if not already set
-            if dtsSignal[lyr.strName].name is None:
-                dtsSignal[lyr.strName].name = lyr.strName
+            if signal_dict[lyr.strName].name is None:
+                signal_dict[lyr.strName].name = lyr.strName
 
         # - Update network time
-        self._nTimeStep += nNumTimeSteps
+        self.timestep += num_timesteps
 
         # - Make sure layers are still in sync with netowrk
-        self._check_sync(bVerbose=False)
+        self._check_sync(verbose=False)
 
         # - Return dict with layer outputs
-        return dtsSignal
+        return signal_dict
 
     def train(
         self,
-        fhTraining: Callable,
-        tsInput: TimeSeries = None,
-        tDuration: float = None,
-        vtDurBatch: float = None,
-        nNumTimeSteps: int = None,
-        vnNumTSBatch: int = None,
-        bVerbose=True,
-        bHighVerbosity=False,
+        training_fct: Callable,
+        ts_input: Optional[TimeSeries] = None,
+        duration: Optional[float] = None,
+        batch_durs: Union[np.ndarray, float, None] = None,
+        num_timesteps: int = None,
+        nums_ts_batch: Union[np.ndarray, int, None] = None,
+        verbose: bool = True,
+        high_verbosity: bool = False,
     ):
         """
         train - Train the network batch-wise by evolving the layers and
-                calling fhTraining.
+                calling training_fct.
 
-        :param fhTraining:      Function that is called after each evolution
-                fhTraining(netObj, dtsSignals, bFirst, bFinal)
+        :param training_fct:      Function that is called after each evolution
+                training_fct(netObj, dtsSignals, bFirst, bFinal)
                 :param netObj:      Network the network object to be trained
                 :param dtsSignals:  Dictionary containing all signals in the current evolution batch
                 :param bFirst:      bool Is this the first batch?
                 :param bFinal:      bool Is this the final batch?
 
-        :param tsInput:         TimeSeries with external input to network
-        :param tDuration:       float - Duration over which netŵork should
+        :param ts_input:         TimeSeries with external input to network
+        :param duration:       float - Duration over which netŵork should
                                         be evolved. If None, evolution is
-                                        over the duration of tsInput
-        :param vtDurBatch:      Array-like or float - Duration of one batch (can also pass array with several values)
-        :param nNumTimeSteps:   int   - Total number of training time steps
-        :param vnNumTSBatch:    Array-like or int - Number of time steps per batch
-        :param bVerbose:        bool  - Print info about training progress
-        :param bHighVerbosity:  bool  - Print info about layer evolution
-                                        (only has effect if bVerbose is True)
+                                        over the duration of ts_input
+        :param batch_durs:      Array-like or float - Duration of one batch (can also pass array with several values)
+        :param num_timesteps:   int   - Total number of training time steps
+        :param nums_ts_batch:    Array-like or int - Number of time steps per batch
+        :param verbose:        bool  - Print info about training progress
+        :param high_verbosity:  bool  - Print info about layer evolution
+                                        (only has effect if verbose is True)
         """
 
-        if nNumTimeSteps is None:
-            # - Try to determine nNumTimeSteps from tDuration
-            if tDuration is None:
-                # - Determine tDuration
+        if num_timesteps is None:
+            # - Try to determine num_timesteps from duration
+            if duration is None:
+                # - Determine duration
                 assert (
-                    tsInput is not None
-                ), "Network: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied"
+                    ts_input is not None
+                ), "Network: One of `num_timesteps`, `ts_input` or `duration` must be supplied"
 
-                if tsInput.periodic:
+                if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.duration
+                    duration = ts_input.duration
 
                 else:
                     # - Evolve until the end of the input TimeSeries
-                    tDuration = tsInput.t_stop - self.t
-                    assert tDuration > 0, (
+                    duration = ts_input.t_stop - self.t
+                    assert duration > 0, (
                         "Network: Cannot determine an appropriate evolution duration. "
-                        + "`tsInput` finishes before the current evolution time."
+                        + "`ts_input` finishes before the current evolution time."
                     )
-            nNumTimeSteps = int(np.floor(tDuration / self.tDt))
+            num_timesteps = int(np.floor(duration / self.dt))
 
         # - Number of time steps per batch
-        if vnNumTSBatch is None:
-            if vtDurBatch is None:
-                vnTSBatch = np.array([nNumTimeSteps], dtype=int)
-            elif np.size(vtDurBatch) == 1:
+        if nums_ts_batch is None:
+            if batch_durs is None:
+                v_ts_batch = np.array([num_timesteps], dtype=int)
+            elif np.size(batch_durs) == 1:
                 # - Same value for all batches
-                nNumTSSingleBatch = int(
-                    np.floor(np.asscalar(np.asarray(vtDurBatch)) / self.tDt)
+                num_ts_single_batch = int(
+                    np.floor(np.asscalar(np.asarray(batch_durs)) / self.dt)
                 )
-                nNumBatches = int(np.ceil(nNumTimeSteps / nNumTSSingleBatch))
-                vnTSBatch = np.repeat(nNumTSSingleBatch, nNumBatches)
-                vnTSBatch[-1] = nNumTimeSteps - np.sum(vnTSBatch[:-1])
+                num_batches = int(np.ceil(num_timesteps / num_ts_single_batch))
+                v_ts_batch = np.repeat(num_ts_single_batch, num_batches)
+                v_ts_batch[-1] = num_timesteps - np.sum(v_ts_batch[:-1])
             else:
                 # - Individual batch durations
                 # - Convert batch durations to time step numbers - Rounding down should
-                #   not be too problematic as total training will always be nNumTimeSteps
-                vnTSBatch = np.floor(np.array(vtDurBatch) / self.tDt).astype(int)
+                #   not be too problematic as total training will always be num_timesteps
+                v_ts_batch = np.floor(np.array(batch_durs) / self.dt).astype(int)
         else:
-            if np.size(vnNumTSBatch) == 1:
+            if np.size(nums_ts_batch) == 1:
                 # - Same value for all batches
-                nNumTSSingleBatch = np.asscalar(np.asarray(vnNumTSBatch, dtype=int))
-                nNumBatches = int(np.ceil(nNumTimeSteps / nNumTSSingleBatch))
-                vnTSBatch = np.repeat(nNumTSSingleBatch, nNumBatches)
-                vnTSBatch[-1] = nNumTimeSteps - np.sum(vnTSBatch[:-1])
+                num_ts_single_batch = np.asscalar(np.asarray(nums_ts_batch, dtype=int))
+                num_batches = int(np.ceil(num_timesteps / num_ts_single_batch))
+                v_ts_batch = np.repeat(num_ts_single_batch, num_batches)
+                v_ts_batch[-1] = num_timesteps - np.sum(v_ts_batch[:-1])
             else:
                 # - Individual batch durations
-                vnTSBatch = np.asarray(vnNumTSBatch)
+                v_ts_batch = np.asarray(nums_ts_batch)
 
-        # - Make sure time steps add up to nNumTimeSteps
-        nTSDiff = nNumTimeSteps - np.sum(vnTSBatch)
-        if nTSDiff > 0:
-            vnTSBatch = np.r_[vnTSBatch, nTSDiff]
-        elif nTSDiff < 0:
-            # - Index of first element where cumulated number of time steps > nNumTimeSteps
-            iFirstPast = np.where(np.cumsum(vnTSBatch) > nNumTimeSteps)[0][0]
-            vnTSBatch = vnTSBatch[: iFirstPast + 1]
+        # - Make sure time steps add up to num_timesteps
+        diff_ts: int = num_timesteps - np.sum(v_ts_batch)
+        if diff_ts > 0:
+            v_ts_batch = np.r_[v_ts_batch, diff_ts]
+        elif diff_ts < 0:
+            # - Index of first element where cumulated number of time steps > num_timesteps
+            first_idx_beyond: int = np.where(np.cumsum(v_ts_batch) > num_timesteps)[0][
+                0
+            ]
+            v_ts_batch = v_ts_batch[: first_idx_beyond + 1]
             # - Correct last value
 
         ## -- Actual training starts here:
 
         # - Iterate over batches
-        nNumBatches = np.size(vnTSBatch)
+        num_batches: int = np.size(v_ts_batch)
 
-        def batch(nBatch, nTSCurrent, nNumBatches):
-            if bHighVerbosity or (bVerbose and not bUseTqdm):
+        def next_batch(batch_num, current_ts, num_batches):
+            if high_verbosity or (verbose and not use_tqdm):
                 print(
                     "Network: Training batch {} of {} from t = {:.3f} to {:.3f}.".format(
-                        nBatch + 1,
-                        nNumBatches,
+                        batch_num + 1,
+                        num_batches,
                         self.t,
-                        self.t + nTSCurrent * self.tDt,
+                        self.t + current_ts * self.dt,
                         end="",
                     ),
                     end="\r",
                 )
 
             # - Evolve network
-            dtsSignal = self.evolve(
-                tsInput=tsInput.clip(
-                    self.t, self.t + nTSCurrent * self.tDt, include_stop=True
+            signal_dict = self.evolve(
+                ts_input=ts_input.clip(
+                    self.t, self.t + current_ts * self.dt, include_stop=True
                 ),
-                nNumTimeSteps=nTSCurrent,
-                bVerbose=bHighVerbosity,
+                num_timesteps=current_ts,
+                verbose=high_verbosity,
             )
 
             # - Call the callback
-            fhTraining(self, dtsSignal, nBatch == 0, nBatch == nNumBatches - 1)
+            training_fct(
+                self, signal_dict, batch_num == 0, batch_num == num_batches - 1
+            )
 
-        if bVerbose and bUseTqdm:
-            with tqdm(total=nNumBatches, desc="Network training") as pbar:
-                for nBatch, nTSCurrent in enumerate(vnTSBatch):
-                    batch(nBatch, nTSCurrent, nNumBatches)
+        if verbose and use_tqdm:
+            with tqdm(total=num_batches, desc="Network training") as pbar:
+                for batch_num, current_ts in enumerate(v_ts_batch):
+                    next_batch(batch_num, current_ts, num_batches)
                     pbar.update(1)
         else:
-            for nBatch, nTSCurrent in enumerate(vnTSBatch):
-                batch(nBatch, nTSCurrent, nNumBatches)
+            for batch_num, current_ts in enumerate(v_ts_batch):
+                next_batch(batch_num, current_ts, num_batches)
 
-        if bVerbose:
+        if verbose:
             print(
                 "Network: Training successful                                        \n"
             )
 
     def stream(
         self,
-        tsInput: TimeSeries,
-        tDuration: float = None,
-        nNumTimeSteps: int = None,
-        bVerbose: bool = False,
-        fhStepCallback: Callable = None,
+        ts_input: TimeSeries,
+        duration: float = None,
+        num_timesteps: int = None,
+        verbose: bool = False,
+        step_callback: Callable = None,
     ) -> dict:
         """
         stream - Stream data through layers, evolving by single time steps
 
-        :param tsInput:         TimeSeries External input to the network
-        :param tDuration:       float Total duration to stream for
-        :param bVerbose:        bool Display feedback
-        :param fhStepCallback:  Callable[Network]
+        :param ts_input:         TimeSeries External input to the network
+        :param duration:       float Total duration to stream for
+        :param verbose:        bool Display feedback
+        :param step_callback:  Callable[Network]
 
         :return: dtsSignals dict Collected output signals from each layer
         """
 
         # - Check that all layers implement the streaming interface
         assert all(
-            [hasattr(lyr, "stream") for lyr in self.setLayers]
+            [hasattr(lyr, "stream") for lyr in self.layerset]
         ), "Network: Not all layers implement the `stream` interface."
 
         # - Check that external input has the correct class
         assert isinstance(
-            tsInput, self.lyrInput.cInput
+            ts_input, self.inputlayer.cInput
         ), "Network: External input must be of class {} for this network.".format(
-            self.lyrInput.cInput.__name__
+            self.inputlayer.cInput.__name__
         )
 
         # - Check that external input has the correct size
         assert (
-            tsInput.num_channels == self.lyrInput.nSizeIn
+            ts_input.num_channels == self.inputlayer.nSizeIn
         ), "Network: External input must have {} traces for this network.".format(
-            self.lyrInput.nSizeIn
+            self.inputlayer.nSizeIn
         )
 
-        if nNumTimeSteps is None:
-            # - Try to determine time step number from tDuration
+        if num_timesteps is None:
+            # - Try to determine time step number from duration
             assert (
-                tDuration is not None
-            ), "Network: Either `nNumTimeSteps` or `tDuration` must be provided."
-            nNumTimeSteps = int(np.floor(tDuration / self.tDt))
+                duration is not None
+            ), "Network: Either `num_timesteps` or `duration` must be provided."
+            num_timesteps = int(np.floor(duration / self.dt))
 
         # - Prepare time base
-        vtTimeBase = np.arange(nNumTimeSteps + 1) * self._tDt + self.t
-        tDuration = vtTimeBase[-1] - vtTimeBase[0]
+        timebase = np.arange(num_timesteps + 1) * self._dt + self.t
+        duration = timebase[-1] - timebase[0]
 
         # - Prepare all layers
-        self.lStreamers = [
-            lyr.stream(tDuration, self.tDt, bVerbose=bVerbose)
-            for lyr in self.lEvolOrder
+        self.l_streamers = [
+            lyr.stream(duration, self.dt, bVerbose=verbose) for lyr in self.evol_order
         ]
-        nNumLayers = np.size(self.lEvolOrder)
+        num_layers = np.size(self.evol_order)
 
         # - Prepare external input
-        if tsInput is not None:
-            lInput = [tsInput(t, t + self.tDt) for t in vtTimeBase]
+        if ts_input is not None:
+            l_input = [ts_input(t, t + self.dt) for t in timebase]
         else:
-            lInput = [None] * nNumTimeSteps
+            l_input = [None] * num_timesteps
 
         # - Get initial state of all layers
-        if bVerbose:
+        if verbose:
             print("Network: getting initial state")
 
         # - Determine input state size, obtain initial layer state
-        tupInputState = lInput[0]
-        lLastState = [tupInputState] + [
-            deepcopy(lyr.send(None)) for lyr in self.lStreamers
+        input_state: Tuple = l_input[0]
+        l_laststate = [input_state] + [
+            deepcopy(lyr.send(None)) for lyr in self.l_streamers
         ]
 
         # - Initialise layer output variables with initial state, convert to lists
-        lLayerOutputs = [
-            tuple([np.reshape(x, (1, -1))] for x in state) for state in lLastState[1:]
+        l_layer_outputs = [
+            tuple([np.reshape(x, (1, -1))] for x in state) for state in l_laststate[1:]
         ]
 
         # - Display some feedback
-        if bVerbose:
+        if verbose:
             print("Network: got initial state:")
-            print(lLayerOutputs)
+            print(l_layer_outputs)
 
         # - Streaming loop
-        lState = deepcopy(lLastState)
-        for nStep in range(nNumTimeSteps):
-            if bVerbose:
-                print("Network: Start of step", nStep)
+        l_state = deepcopy(l_laststate)
+        for step in range(num_timesteps):
+            if verbose:
+                print("Network: Start of step", step)
 
             # - Set up external input
-            lLastState[0] = lInput[nStep]
+            l_laststate[0] = l_input[step]
 
             # - Loop over layers, stream data in and out
-            for nLayerInd in range(nNumLayers):
+            for layer_idx in range(num_layers):
                 # - Display some feedback
-                if bVerbose:
-                    print("Network: Evolving layer {}".format(nLayerInd))
+                if verbose:
+                    print("Network: Evolving layer {}".format(layer_idx))
 
                 # - Try / Catch to handle end of streaming iteration
                 try:
                     # - `send` input data for current layer
                     # - wait for the output state for the current layer
-                    lState[nLayerInd + 1] = deepcopy(
-                        self.lStreamers[nLayerInd].send(lLastState[nLayerInd])
+                    l_state[layer_idx + 1] = deepcopy(
+                        self.l_streamers[layer_idx].send(l_laststate[layer_idx])
                     )
 
                 except StopIteration as e:
                     # - StopIteration returns the final state
-                    lState[nLayerInd + 1] = e.args[0]
+                    l_state[layer_idx + 1] = e.args[0]
 
             # - Collate layer outputs
-            for nLayer in range(nNumLayers):
-                for nTupleIndex in range(len(lLayerOutputs[nLayer])):
-                    lLayerOutputs[nLayer][nTupleIndex].append(
-                        np.reshape(lState[nLayer + 1][nTupleIndex], (1, -1))
+            for layer_idx in range(num_layers):
+                for tuple_idx in range(len(l_layer_outputs[layer_idx])):
+                    l_layer_outputs[layer_idx][tuple_idx].append(
+                        np.reshape(l_state[layer_idx + 1][tuple_idx], (1, -1))
                     )
 
             # - Save last state to use as input for next step
-            lLastState = deepcopy(lState)
+            l_laststate = deepcopy(l_state)
 
             # - Call callback function
-            if fhStepCallback is not None:
-                fhStepCallback(self)
+            if step_callback is not None:
+                step_callback(self)
 
         # - Build return dictionary
-        dtsSignal = {"external": tsInput.copy()}
-        for nLayer in range(nNumLayers):
+        signal_dict = {"external": ts_input.copy()}
+        for layer_idx in range(num_layers):
             # - Concatenate time series
-            lvData = [
-                np.stack(np.array(data, "float")) for data in lLayerOutputs[nLayer]
+            lv_data = [
+                np.stack(np.array(data, "float")) for data in l_layer_outputs[layer_idx]
             ]
 
             # - Filter out nans in time trace (always first data element)
-            vbUseSamples = ~np.isnan(lvData[0]).flatten()
-            tupData = tuple(data[vbUseSamples, :] for data in lvData)
+            vb_use_samples: np.ndarray = ~np.isnan(lv_data[0]).flatten()
+            tup_data = tuple(data[vb_use_samples, :] for data in lv_data)
 
-            if bVerbose:
-                print(tupData[0])
+            if verbose:
+                print(tup_data[0])
 
             # - Build output dictionary (using appropriate output class)
-            dtsSignal[self.lEvolOrder[nLayer].strName] = self.lEvolOrder[
-                nLayer
-            ].cOutput(*tupData)
+            signal_dict[self.evol_order[layer_idx].strName] = self.evol_order[
+                layer_idx
+            ].cOutput(*tup_data)
 
             # - Set name for time series, if not already set
-            if dtsSignal[self.lEvolOrder[nLayer].strName].name is None:
-                dtsSignal[self.lEvolOrder[nLayer].strName].name = self.lEvolOrder[
-                    nLayer
+            if signal_dict[self.evol_order[layer_idx].strName].name is None:
+                signal_dict[self.evol_order[layer_idx].strName].name = self.evol_order[
+                    layer_idx
                 ].strName
 
         # - Increment time
-        self._nTimeStep += nNumTimeSteps
+        self.timestep += num_timesteps
 
         # - Return collated signals
-        return dtsSignal
+        return signal_dict
 
-    def _check_sync(self, bVerbose: bool = True) -> bool:
+    def _check_sync(self, verbose: bool = True) -> bool:
         """
         _check_sync - Check whether the time t of all layers matches self.t
                      If not, throw an exception.
         """
-        bSync = True
-        if bVerbose:
+        in_sync = True
+        if verbose:
             print("Network: Network time is {}. \n\t Layer times:".format(self.t))
             print(
                 "\n".join(
                     (
                         "\t\t {}: {}".format(lyr.strName, lyr.t)
-                        for lyr in self.lEvolOrder
+                        for lyr in self.evol_order
                     )
                 )
             )
-        for lyr in self.lEvolOrder:
-            if lyr._nTimeStep != self._nTimeStep * lyr._nNumTimeStepsPerGlobal:
-                bSync = False
+        for lyr in self.evol_order:
+            if lyr._nTimeStep != self.timestep * lyr._timesteps_per_network_dt:
+                in_sync = False
                 print(
                     "\t Network: WARNING: Layer `{}` is not in sync (t={})".format(
                         lyr.strName, lyr.t
                     )
                 )
-        if bSync:
-            if bVerbose:
+        if in_sync:
+            if verbose:
                 print("\t Network: All layers are in sync with network.")
         else:
             raise NetworkError("Network: Not all layers are in sync with the network.")
-        return bSync
+        return in_sync
 
     def reset_time(self):
         """
         reset_time() - Reset the time of the network to zero. Does not reset state.
         """
         # - Reset time for each layer
-        for lyr in self.setLayers:
+        for lyr in self.layerset:
             lyr.reset_time()
 
         # - Reset global network time
-        self._nTimeStep = 0
+        self.timestep = 0
 
     def reset_state(self):
         """
         reset_state() - Reset the state of the network. Does not reset time.
         """
         # - Reset state for each layer
-        for lyr in self.setLayers:
+        for lyr in self.layerset:
             lyr.reset_state()
 
     def reset_all(self):
         """
         reset_all() - Reset state and time of the network.
         """
-        for lyr in self.setLayers:
+        for lyr in self.layerset:
             lyr.reset_all()
 
         # - Reset global network time
-        self._nTimeStep = 0
+        self.timestep = 0
 
     def __repr__(self):
         return (
             "{} object with {} layers\n".format(
-                self.__class__.__name__, len(self.setLayers)
+                self.__class__.__name__, len(self.layerset)
             )
             + "    "
-            + "\n    ".join([str(lyr) for lyr in self.lEvolOrder])
+            + "\n    ".join([str(lyr) for lyr in self.evol_order])
         )
 
     @property
     def t(self):
         return (
             0
-            if not hasattr(self, "_tDt") or self._tDt is None
-            else self._tDt * self._nTimeStep
+            if not hasattr(self, "_dt") or self._dt is None
+            else self._dt * self.timestep
         )
 
     @property
-    def tDt(self):
-        return self._tDt
-
-    # @fDt.setter
-    # def fDt(self, fNewDt):
-    #     self.__fDt = fNewDt
-    #     for lyr in self.setLayers:
-    #         lyr.fDt = self.__fDt
+    def dt(self):
+        return self._dt
 
     def save(self, filename: str):
         # - List with layers in their evolution order
-        listofLayers = []
-        for lyr in self.lEvolOrder:
-            listofLayers.append(lyr.to_dict())
-        savedict = {"layers": listofLayers}
+        list_layers = []
+        for lyr in self.evol_order:
+            list_layers.append(lyr.to_dict())
+        savedict = {"layers": list_layers}
         # - Include dt if it has been enforced at instantiation
-        if self._bForceDt:
-            savedict["dt"] = self.tDt
+        if self._force_dt:
+            savedict["dt"] = self.dt
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
@@ -991,14 +994,25 @@ class Network:
         with open(filename, "r") as f:
             loaddict: dict = json.load(f)
         # - Instantiate layers
-        listofLayers = loaddict["layers"]
-        lEvolOrder = []
-        for lyr in listofLayers:
-            classLyr = getattr(layers, lyr["ClassName"])
-            lEvolOrder.append(classLyr.load_from_dict(lyr))
+        list_layers = loaddict["layers"]
+        evol_order = []
+        for lyr in list_layers:
+            cls_layer = getattr(layers, lyr["ClassName"])
+            evol_order.append(cls_layer.load_from_dict(lyr))
         # - If dt has been stored, include as parameter for new Network object
         dt = loaddict.get("dt", None)
-        return Network(*lEvolOrder, tDt=dt)
+        return Network(*evol_order, dt=dt)
+
+    @staticmethod
+    def add_layer_class(cls_lyr: Type[Layer], name: str):
+        """
+        add_layer_class - Add layer class of to namespace so that layers that are
+                          defined outside the NetworksPython.layers package can
+                          still be loaded.
+        :param cls:   The class that is to be added.
+        :param name:  Name of the class as a string.
+        """
+        setattr(layers, name, cls_lyr)
 
 
 ### --- NetworkError exception class
