@@ -176,8 +176,8 @@ class NetworkDeneve(Network):
         lyrReservoir = RecFSSpikeEulerBT(
             mfW_f,
             mfW_s,
-            tDt=tDt,
-            fNoiseStd=fNoiseStd,
+            dt=tDt,
+            noise_std=fNoiseStd,
             vtTauN=vtTauN,
             vtTauSynR_f=vtTauSynR_f,
             vtTauSynR_s=vtTauSynR_s,
@@ -185,7 +185,7 @@ class NetworkDeneve(Network):
             vfVRest=vfVRest,
             vfVReset=vfVReset,
             tRefractoryTime=tRefractoryTime,
-            strName="Deneve_Reservoir",
+            name="Deneve_Reservoir",
         )
 
         # - Ensure time step is consistent across layers
@@ -193,20 +193,16 @@ class NetworkDeneve(Network):
             tDt = lyrReservoir.tDt
 
         # - Construct input layer
-        lyrInput = PassThrough(mfW_input, tDt=tDt, fNoiseStd=fNoiseStd, strName="Input")
+        lyrInput = PassThrough(mfW_input, dt=tDt, noise_std=fNoiseStd, name="Input")
 
         # - Construct output layer
         lyrOutput = FFExpSyn(
-            mfW_output,
-            tDt=0.1e-4,
-            fNoiseStd=fNoiseStd,
-            tTauSyn=tTauSynO,
-            strName="Output",
+            mfW_output, dt=0.1e-4, noise_std=fNoiseStd, tTauSyn=tTauSynO, name="Output"
         )
 
         # - Build network
         netDeneve = NetworkDeneve()
-        netDeneve.lyrInput = netDeneve.add_layer(lyrInput, bExternalInput=True)
+        netDeneve.lyrInput = netDeneve.add_layer(lyrInput, external_input=True)
         netDeneve.lyrRes = netDeneve.add_layer(lyrReservoir, lyrInput)
         netDeneve.lyrOutput = netDeneve.add_layer(lyrOutput, lyrReservoir)
 

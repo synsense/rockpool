@@ -9,13 +9,13 @@ def test_save_load():
     import pylab as plt
 
     # - Generic parameters
-    mfW = np.ones([1, 1]) * 0.01
-    mfWIn = [[0.1, 0, 0]]
+    weights = np.ones([1, 1]) * 0.01
+    weights_in = [[0.1, 0, 0]]
 
-    mfWRec = [[0, 0.1, 0], [0, 0, 0.1], [0.0, 0, 0]]
+    weights_rec = [[0, 0.1, 0], [0, 0, 0.1], [0.0, 0, 0]]
     mfWOut = [[1], [1], [1]]
     vfBias = 0.0
-    tDt = 0.001
+    dt = 0.001
     vtTauN = 0.02
     vtTauS = 0.05
     vfVThresh = -0.055
@@ -26,8 +26,8 @@ def test_save_load():
 
     np.random.seed(0)
 
-    fl0 = FFIAFNest(mfW=mfW,
-                    tDt=tDt,
+    fl0 = FFIAFNest(weights=weights,
+                    dt=dt,
                     vfBias=vfBias,
                     vtTauN=vtTauN,
                     vfVReset=vfVReset,
@@ -37,11 +37,11 @@ def test_save_load():
                     tRefractoryTime=tRef,
                     nNumCores=1,
                     bRecord=True,
-                    strName="FF")
+                    name="FF")
 
-    fl1 = RecIAFSpkInNest(mfWIn=mfWIn,
-                          mfWRec=mfWRec,
-                          tDt=tDt,
+    fl1 = RecIAFSpkInNest(weights_in=weights_in,
+                          weights_rec=weights_rec,
+                          dt=dt,
                           vfBias=vfBias,
                           vtTauN=vtTauN,
                           vtTauS=vtTauS,
@@ -52,7 +52,7 @@ def test_save_load():
                           tRefractoryTime=tRef,
                           nNumCores=1,
                           bRecord=True,
-                          strName="Rec")
+                          name="Rec")
 
 
     net0 = nw.Network(fl0, fl1)
@@ -68,7 +68,7 @@ def test_save_load():
     np.random.seed(0)
 
     # - Input signal
-    vTime = np.arange(0, 1, tDt)
+    vTime = np.arange(0, 1, dt)
     vVal = np.zeros([len(vTime), 1])
     vVal[200:201] = 0.25
 
@@ -79,10 +79,10 @@ def test_save_load():
 
     # - Compare states before and after
     np.random.seed(0)
-    dAct0 = net0.evolve(tsInCont, tDuration=1.0)
+    dAct0 = net0.evolve(tsInCont, duration=1.0)
 
     np.random.seed(0)
-    dAct1 = net1.evolve(tsInCont, tDuration=1.0)
+    dAct1 = net1.evolve(tsInCont, duration=1.0)
 
     assert (np.abs(fl0.mfRecordStates - fl2.mfRecordStates) < epsilon).all()
     assert (np.abs(fl1.mfRecordStates - fl3.mfRecordStates) < epsilon).all()

@@ -43,15 +43,15 @@ def test_dynapse_layer():
 
         # - Layer generation
         rlDynap = RecDynapSE(
-            mfWIn=np.array([[1,3,1], [0,3,2]]),
-            mfWRec=np.array([[0,2,0], [-1,0,1], [2,-1,0]]),
+            weights_in=np.array([[1,3,1], [0,3,2]]),
+            weights_rec=np.array([[0,2,0], [-1,0,1], [2,-1,0]]),
             vnLayerNeuronIDs=[5,7,9],
             vnVirtualNeuronIDs=[3,4],
-            tDt=2e-5,
+            dt=2e-5,
         )
 
         # - Input
-        tsInput = TSEvent(np.arange(3)*1e-4, [0,1,0])
+        ts_input = TSEvent(np.arange(3)*1e-4, [0,1,0])
 
         # - Evolution
-        tsOutput = rlDynap.evolve(tsInput)
+        tsOutput = rlDynap.evolve(ts_input)

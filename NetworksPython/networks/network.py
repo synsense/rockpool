@@ -18,7 +18,7 @@ except ImportError:
     use_tqdm = False
 
 
-from typing import Callable, Union, List, Type
+from typing import Callable, Union, List, Type, Optional
 
 from ..timeseries import TimeSeries
 from ..layers import Layer
@@ -573,9 +573,9 @@ class Network:
                 )
             # - Evolve layer and store output in signal_dict
             signal_dict[lyr.name] = lyr.evolve(
-                tsInput=ts_current_input,
-                nNumTimeSteps=int(num_timesteps * lyr._timesteps_per_network_dt),
-                bVerbose=verbose,
+                ts_input=ts_current_input,
+                num_timesteps=int(num_timesteps * lyr._timesteps_per_network_dt),
+                verbose=verbose,
             )
 
             # - Add information about trial timings if present
@@ -904,7 +904,7 @@ class Network:
                 )
             )
         for lyr in self.evol_order:
-            if lyr._nTimeStep != self._timestep * lyr._timesteps_per_network_dt:
+            if lyr._timestep != self._timestep * lyr._timesteps_per_network_dt:
                 in_sync = False
                 print(
                     "\t Network: WARNING: Layer `{}` is not in sync (t={})".format(

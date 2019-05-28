@@ -15,14 +15,14 @@ def BuildRateReservoir(
     mfWInput: ArrayLike,
     mfWRes: ArrayLike,
     mfWOutput: ArrayLike,
-    vtTauInput: ArrayLike = 1.,
-    vtTauRes: ArrayLike = 1.,
-    vfBiasInput: ArrayLike = 0.,
-    vfBiasRes: ArrayLike = 0.,
-    tDt: float = 1. / 10.,
-    fNoiseStdInput: float = 0.,
-    fNoiseStdRes: float = 0.,
-    fNoiseStdOut: float = 0.,
+    vtTauInput: ArrayLike = 1.0,
+    vtTauRes: ArrayLike = 1.0,
+    vfBiasInput: ArrayLike = 0.0,
+    vfBiasRes: ArrayLike = 0.0,
+    tDt: float = 1.0 / 10.0,
+    fNoiseStdInput: float = 0.0,
+    fNoiseStdRes: float = 0.0,
+    fNoiseStdOut: float = 0.0,
 ):
     """
     BuildRateReservoir - Build a rate-based reservoir network, with the defined weights
@@ -43,27 +43,27 @@ def BuildRateReservoir(
 
     # - Build the input layer
     lyrInput = FFRateEuler(
-        mfW=mfWInput,
+        weights=mfWInput,
         vtTau=vtTauInput,
         vfBias=vfBiasInput,
-        tDt=tDt,
-        fNoiseStd=fNoiseStdInput,
-        strName="Input",
+        dt=tDt,
+        noise_std=fNoiseStdInput,
+        name="Input",
     )
 
     # - Build the recurrent layer
     lyrRes = RecRateEuler(
-        mfW=mfWRes,
+        weights=mfWRes,
         vtTau=vtTauRes,
         vfBias=vfBiasRes,
-        tDt=tDt,
-        fNoiseStd=fNoiseStdRes,
-        strName="Reservoir",
+        dt=tDt,
+        noise_std=fNoiseStdRes,
+        name="Reservoir",
     )
 
     # - Build the output layer
     lyrOut = PassThrough(
-        mfW=mfWOutput, tDt=tDt, fNoiseStd=fNoiseStdOut, strName="Readout"
+        weights=mfWOutput, dt=tDt, noise_std=fNoiseStdOut, name="Readout"
     )
 
     # - Return the network
@@ -74,17 +74,17 @@ def BuildRandomReservoir(
     nInputSize: int = 1,
     nReservoirSize: int = 100,
     nOutputSize: int = 1,
-    fInputWeightStd: float = 1.,
-    fResWeightStd: float = 1.,
-    fOutputWeightStd: float = 1.,
-    fInputWeightMean: float = 0.,
-    fResWeightMean: float = 0.,
-    fOutputWeightMean: float = 0.,
-    vtTauInput: ArrayLike = 1.,
-    vtTauRes: ArrayLike = 1.,
-    vfBiasInput: ArrayLike = 0.,
-    vfBiasRes: ArrayLike = 0.,
-    tDt: float = 1. / 10.,
+    fInputWeightStd: float = 1.0,
+    fResWeightStd: float = 1.0,
+    fOutputWeightStd: float = 1.0,
+    fInputWeightMean: float = 0.0,
+    fResWeightMean: float = 0.0,
+    fOutputWeightMean: float = 0.0,
+    vtTauInput: ArrayLike = 1.0,
+    vtTauRes: ArrayLike = 1.0,
+    vfBiasInput: ArrayLike = 0.0,
+    vfBiasRes: ArrayLike = 0.0,
+    tDt: float = 1.0 / 10.0,
     fNoiseStdInput: float = None,
     fNoiseStdRes: float = None,
     fNoiseStdOut: float = None,
