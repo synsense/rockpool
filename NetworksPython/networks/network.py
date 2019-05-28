@@ -17,7 +17,7 @@ except ImportError:
 
 from typing import Callable, Union
 
-from ..timeseries import TimeSeries, TSContinuous, TSEvent
+from ..timeseries import TimeSeries
 from ..layers import Layer
 
 RealValue = Union[float, Decimal, str]
@@ -27,9 +27,27 @@ __all__ = ["Network"]
 
 # - Relative tolerance for float comparisons
 fTolRel = 1e-5
+decimal_base = 1e-7
 fTolAbs = 1e-10
 
 ### --- Helper functions
+
+
+def digits_after_point(value):
+    strval = str(value)
+    # - Make sure that value is actually a number
+    try:
+        fval = float(value)
+    except TypeError as e:
+        raise e
+    if "." in strval:
+        # Contrains decimal point
+        return len(strval) - strval.index(".") - 1
+    elif "e-" in strval:
+        # Scientific notation -> get exponent
+        return int(strval.split("-")[1])
+    else:
+        return 0
 
 
 def is_multiple(
@@ -66,9 +84,21 @@ def gcd(a: RealValue, b: RealValue) -> Decimal:
 
 def lcm(a: RealValue, b: RealValue) -> Decimal:
     """ lcm - Return the least common multiple of two values a and b"""
-    a = Decimal(str(np.round(float(a) / fTolRel)))
-    b = Decimal(str(np.round(float(b) / fTolRel)))
-    return a / gcd(a, b) * b * Decimal(fTolRel)
+    # - Make sure that values used are sufficiently large
+    # Transform to integer-values
+    a_rnd = np.round(float(a) / decimal_base)
+    b_rnd = np.round(float(b) / decimal_base)
+    # - Make sure that a and b are not too small
+    if (
+        np.abs(a_rnd - float(a) / decimal_base) > fTolRel
+        or np.abs(b_rnd - float(b) / decimal_base) > fTolRel
+    ):
+        raise ValueError(
+            "network: Too small values to find lcm. Try changing 'decimal_base'"
+        )
+    a = Decimal(str(a_rnd))
+    b = Decimal(str(b_rnd))
+    return a / gcd(a, b) * b * Decimal(str(decimal_base))
 
 
 ### --- Network class
@@ -405,7 +435,13 @@ class Network:
             # - Determine lcm
             tLCM = ltDt[0]
             for tDt in ltDt[1:]:
-                tLCM = lcm(tLCM, tDt)
+                try:
+                    tLCM = lcm(tLCM, tDt)
+                except ValueError:
+                    raise ValueError(
+                        "Network: tDt is too small for one or more layers. Try larger"
+                        + " value or decrease `decimal_base`."
+                    )
 
             #   Also
             assert (

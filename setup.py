@@ -17,6 +17,14 @@ setup(
         "NetworksPython.layers.internal.pytorch",
     ],
     license="All rights reserved aiCTX AG",
-    install_requires=["numba", "numpy", "scipy", "tqdm", "brian2", "scikit-image"],
+    install_requires=[
+        "numba",
+        "numpy",
+        "scipy",
+        "tqdm",
+        "brian2",
+        "scikit-image",
+        "pandas",
+    ],
     long_description=open("README.txt").read(),
 )
