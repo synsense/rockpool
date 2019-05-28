@@ -702,3 +702,71 @@ def test_delays():
 
     assert times[1] - times[0] - 0.01 < eps
     assert times[3] - times[2] - 0.01 < eps
+
+
+def test_IAF2AEIFNest():
+    """ Test RecIAFNest to RecAEIFNest """
+    from NetworksPython.layers import RecIAFSpkInNest
+    from NetworksPython.layers import RecAEIFSpkInNest
+    from NetworksPython import timeseries as ts
+    import numpy as np
+    import pylab as plt
+
+    # - Generic parameters
+    mfWIn = np.array([[-0.001, 0.002, 0.004], [0.03, -0.003, -0.0015]])
+    mfWRec = np.random.rand(3, 3) * 0.001
+    vfBias = 0.0
+    vtTauN = [0.02, 0.05, 0.1]
+    vtTauS = [0.2, 0.01, 0.01]
+    tDt = 0.001
+    vThresh = -0.055
+    vRest = -0.065
+
+    # - Layer generation
+    fl0 = RecIAFSpkInNest(
+        mfWIn=mfWIn,
+        mfWRec=mfWRec,
+        tDt=tDt,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        vtTauS=vtTauS,
+        vfVThresh=vThresh,
+        vfVReset=vRest,
+        vfVRest=vRest,
+        tRefractoryTime=0.001,
+        bRecord=True,
+    )
+
+    # - Layer generation
+    fl1 = RecAEIFSpkInNest(
+        mfWIn=mfWIn,
+        mfWRec=mfWRec,
+        tDt=tDt,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        vtTauS=vtTauS,
+        vfVThresh=vThresh,
+        vfVReset=vRest,
+        vfVRest=vRest,
+        fA=0.,
+        fB=0.,
+        fDelta_T=0.,
+        tRefractoryTime=0.001,
+        bRecord=True,
+    )
+
+    # - Input signal
+    spikeTimes = np.arange(0, 1, tDt)
+    spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
+    channels = np.random.choice([0, 1], 20, replace=True).astype(int)
+
+    tsInEvent = ts.TSEvent(spikeTrain0, channels)
+
+    # - Compare states before and after
+
+    assert (np.abs(fl0.vState - fl1.vState) < 0.00001).all()
+
+    dFl0 = fl0.evolve(tsInEvent, tDuration=1.0)
+    dFl1 = fl1.evolve(tsInEvent, tDuration=1.0)
+
+    assert (np.abs(fl0.vState - fl1.vState) < 0.00001).all()
