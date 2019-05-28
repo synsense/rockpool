@@ -7,7 +7,7 @@
 
 import numpy as np
 from warnings import warn
-from typing import Tuple, List, Optional, Union
+from typing import Tuple, List, Optional, Union, Iterable
 from types import ModuleType
 import time
 import os
@@ -40,7 +40,14 @@ except ModuleNotFoundError:
     _USE_RPYC = True
 
 
-def connect_rpyc(port: Union[int, str, None] = None):
+def connect_rpyc(port: Union[int, str, None] = None) -> "rpyc.core.protocol.Connection":
+    """
+    connect_rpyc - Establish a connection through RPyC.
+    :param port:  Port over which to connect. If `None`, try 1300 and then, if
+                  this fails, 1301.
+    :return:
+        The new RPyC connection
+    """
     if not _USE_RPYC:
         raise RuntimeError(
             "dynapse_control: Connection to RPyC only possible from outside cortexcontrol"
@@ -69,13 +76,18 @@ def connect_rpyc(port: Union[int, str, None] = None):
     else:
         print(f"dynapse_control: RPyC connection established through port {port}.")
 
-    # - Set up rpyc conneciton settings
+    # - Set up rpyc connection settings
     connection._config["sync_request_timeout"] = RPYC_TIMEOUT  # Increase timeout limit
 
     return connection
 
 
-def setup_rpyc_namespace(connection):
+def setup_rpyc_namespace(connection: "rpyc.core.protocol.Connection"):
+    """
+    setup_rpyc_namespace - Register certain modules and variables in the namespace
+                           of cortexcontrol that will be needed for this module.
+    :param connection:  RPyC connection to cortexcontrol.
+    """
     # - Setup parameters on RPyC server
     connection.namespace["_USE_RPYC"] = True
     connection.namespace["copy"] = connection.modules.copy
@@ -97,9 +109,16 @@ def initialize_hardware(
     connection: Optional["rpyc.core.protocol.Connection"] = None,
     enforce: bool = False,
 ):
+    """
+    initialize_hardware - If chips have not been cleared since start of current
+                          cortexcontrol instance, clear them.
+    :param use_chips:  List with IDs of chips that should be checked.
+    :param enforce:    If `True`, clear all chips in `use_chips`, no matter if
+                       they have been cleared already.
+    """
     print("dynapse_control: Initializing hardware...", end="\r")
     if not _USE_RPYC:
-        tools.initialize_chips(use_chips)
+        tools.init_chips(use_chips)
         # - Update lists of initialized chips and neurons
         global initialized_chips, initialized_neurons
         cleared_chips = set(use_chips).difference(initialized_chips)
@@ -123,7 +142,7 @@ def initialize_hardware(
         # - If using rpyc, make sure, connection is given
         if connection is None:
             raise TypeError(
-                "dynapse_control: If using RPyC, `conneciton` argument cannot be `None`."
+                "dynapse_control: If using RPyC, `connection` argument cannot be `None`."
             )
         else:
             # - Chips that have already been initialized. If `initialized_chips`
@@ -136,7 +155,7 @@ def initialize_hardware(
                 do_chips = list(set(use_chips).difference(initialized_chips))
             already_done = list(set(use_chips).difference(do_chips))
             # - Clear those chips and add them to list of initialized chips.
-            connection.modules.tools.initialize_chips(do_chips)
+            connection.modules.tools.init_chips(do_chips)
             connection.namespace["initialized_chips"] = initialized_chips + do_chips
             # - Also update list of initialized neurons
             initialized_neurons = connection.namespace.get("initialized_neurons", [])
@@ -162,16 +181,28 @@ def initialize_hardware(
 
 def setup_rpyc(
     connect: Union["rpyc.core.protocol.Connection", int, str, None] = None,
-    initialize_chips: Optional[List] = USE_CHIPS,
-):
+    init_chips: Optional[List] = USE_CHIPS,
+) -> "rpyc.core.protocol.Connection":
+    """
+    setup_rpyc - Connect to cortexcontrol via RPyC, add entries to cortexcontrol
+                 namespace, register global variables to access objects from whithin
+                 this module and clear chips.
+    :param connect:  If RPyC connection, use this instead of establishing new connection
+                     If int (or string that can be converted to int), connect through
+                     corresponding port
+                     If `None`, first try connecting through port 1300. If this fails try
+                     through port 1301.
+    :param init_chips:  Chips to be initialized (cleared). Chips that have already been
+                        cleared since the start of conrtexcontrol will not be cleared again.
+    """
     connection = (
         connect
         if isinstance(connect, rpyc.core.protocol.Connection)
         else connect_rpyc(connect)
     )
     setup_rpyc_namespace(connection)
-    if initialize_chips is not None:
-        initialize_hardware(initialize_chips, connection, enforce=False)
+    if init_chips is not None:
+        initialize_hardware(init_chips, connection, enforce=False)
     # - Make same objects available as when working wihtin cortexcontrol
     global tools, params, ctxdynapse, nnconnector, initialized_chips, initialized_neurons
     tools = connection.modules.tools
@@ -553,26 +584,41 @@ class DynapseControl:
         fpga_isibase: float = DEF_FPGA_ISI_BASE,
         clearcores_list: Optional[list] = None,
         rpyc_connection: Union[None, str, int, "rpyc.core.protocol.Connection"] = None,
-        initialize_chips: Optional[List] = None,
+        init_chips: Optional[List] = None,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
 
-        :param fpga_isibase:    float           Time step for inter-spike intervals when sending events to FPGA
-        :param clearcores_list:     list or None    IDs of cores where configurations should be cleared.
+        :param fpga_isibase:     Time step for inter-spike intervals when sending events to FPGA
+        :param clearcores_list:  IDs of cores where configurations should be cleared.
+                                 Corresponding chips will automatically be added to `init_chips`.
+        :param rpyc_connection:  RPyC connection to cortexcontrol, port over which to connect.
+                                 If `None`, try establish connection through port 1300 or, if
+                                 unsuccessful, 1301.
+        :param init_chips:       Chips to be cleared, if they haven't been cleared since start
+                                 of cortexcontrol instance.
         """
+
+        if clearcores_list is not None:
+            # - Add chips corresponding to cores in `clearcores_list` to `init_chips`
+            clearchips = set(
+                (core_id // self.num_cores_chip for core_id in clearcores_list)
+            )
+            init_chips = (
+                list(clearchips.union(init_chips))
+                if init_chips is not None
+                else list(clearchips)
+            )
 
         # - Store pointer to ctxdynapse and nnconnector modules
         if _USE_RPYC:
             # - Set up connection. Make sure rpyc namespace is complete and hardware initialized.
-            self.rpyc_connection = setup_rpyc(
-                rpyc_connection, initialize_chips=initialize_chips
-            )
+            self.rpyc_connection = setup_rpyc(rpyc_connection, init_chips=init_chips)
             self.tools = self.rpyc_connection.modules.tools
         else:
             self.rpyc_connection = None
-            if initialize_chips:
-                initialize_hardware(initialize_chips)
+            if init_chips:
+                initialize_hardware(init_chips)
 
         print("DynapseControl: Initializing DynapSE")
 
@@ -648,19 +694,38 @@ class DynapseControl:
 
         print("DynapseControl ready.")
 
-    def initialize_chips(self, chips: Optional[List[int]] = None, enforce: bool = True):
+    def init_chips(self, chips: Optional[List[int]] = None, enforce: bool = True):
+        """
+        init_chips - Clear chips with given IDs. If `enforce` is False, only clear
+                           those chips that have not been cleared since the start of the
+                           current `cortexcontrol` instance.
+        :param chips:    List with IDs of chips that have to be cleared.
+                         If `None`, do nothing.
+        :param enforce:  If `False`, only clear those chips that have not been cleared
+                         since the start of the current `cortexcontrol` instance.
+                         Otherwise clear all given chips.
+        """
         if chips is not None:
             initialize_hardware(chips, self.rpyc_connection, enforce=enforce)
 
-    def clear_connections(self, core_ids: Optional[list] = None):
+    def clear_connections(
+        self,
+        core_ids: Optional[List[int]] = None,
+        presynaptic: bool = True,
+        postsynaptic: bool = True,
+        apply_diff=True,
+    ):
         """
-        clear_connections - Reset connections for cores defined in core_ids.
-
-        :param core_ids:  list or None  IDs of cores where configurations
-                                         should be cleared (0-15).
+        reset_connections -   Remove pre- and/or postsynaptic connections of all nerons
+                              of cores defined in core_ids.
+        :param core_ids:      IDs of cores to be reset (between 0 and 15)
+        :param presynaptic:   Remove presynaptic connections to neurons on specified cores.
+        :param postsynaptic:  Remove postsynaptic connections of neurons on specified cores.
+        :param apply_diff:    Apply changes to hardware. Setting False is useful
+                              if new connections will be set afterwards.
         """
         # - Use `reset_connections` function
-        self.tools.reset_connections(core_ids)
+        self.tools.reset_connections(core_ids, presynaptic, postsynaptic, apply_diff)
         print(
             "DynapseControl: Connections to cores {} have been cleared.".format(
                 core_ids
@@ -1130,6 +1195,7 @@ class DynapseControl:
         # - Ignore data that comes before ts_start
         timesteps = timesteps[timesteps >= ts_start]
         channels = channels[timesteps >= ts_start]
+        channels = channels.astype(int)
 
         # - Check that the number of channels is the same between time series and list of neurons
         if np.amax(channels) > np.size(neuron_ids):
@@ -1157,7 +1223,11 @@ class DynapseControl:
         return events
 
     def start_cont_stim(
-        self, frequency: float, neuron_ids: int, chip_id: int = 0, coremask: int = 15
+        self,
+        frequency: float,
+        neuron_ids: Union[int, Iterable],
+        chip_id: int = 0,
+        coremask: int = 15,
     ):
         """
         start_cont_stim - Start sending events with fixed frequency.
@@ -1374,7 +1444,7 @@ class DynapseControl:
         neuron_ids = (
             np.arange(np.amax(channels) + 1)
             if neuron_ids is None
-            else np.array(neuron_ids)
+            else np.array(neuron_ids, int)
         )
         record_neur_ids = neuron_ids if record_neur_ids is None else record_neur_ids
         if t_record is None:
@@ -1425,8 +1495,11 @@ class DynapseControl:
         :param neuron_ids:  Array-like with IDs of neurons that should be recorded
         :param duration:    Recording duration in seconds. If None, will record
                             until `self.stop_recording` is called.
+        :return:
+            If `duration` is `None`:    `None`
+            else:                       Arrays with times and channels of recorded events.
         """
-        return _send_stimulus_list(
+        return self._send_stimulus_list(
             events=[],
             duration=duration,
             t_buffer=0,
@@ -1440,6 +1513,8 @@ class DynapseControl:
         stop_recording - Stop recording and return recorded events as arrays.
         :param since_trigger:  If True, only use events recorded after first
                                trigger event in buffer.
+        :return:
+            Arrays with times and channels of recorded events.
         """
         try:
             self.bufferedfilter.clear()

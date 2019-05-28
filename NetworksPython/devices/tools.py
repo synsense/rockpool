@@ -27,7 +27,7 @@ __all__ = [
     "save_biases",
     "copy_biases",
     "get_all_neurons",
-    "initialize_chips",
+    "init_chips",
     "reset_connections",
     "remove_all_connections_to",
     "set_connections",
@@ -354,9 +354,9 @@ def get_all_neurons(
     return hw_neurons, virtual_neurons, shadow_neurons
 
 
-def initialize_chips(chip_ids: Optional[list] = None):
+def init_chips(chip_ids: Optional[list] = None):
     """
-    initialize_chips - Clear the physical CAM and SRAM cells of the chips defined
+    init_chips - Clear the physical CAM and SRAM cells of the chips defined
                        in chip_ids.
                        This is necessary when CtxControl is loaded (and only then)
                        to make sure that the configuration of the model neurons
@@ -386,16 +386,31 @@ def initialize_chips(chip_ids: Optional[list] = None):
         CtxDynapse.dynapse.clear_sram(int(nchip))
         print("\t SRAMs cleared.")
 
+    # - Make sure that neuron models are cleared as well
+    core_ids = [
+        core
+        for chip in chip_ids
+        for core in range(chip * NUM_CORES_CHIP, (chip + 1) * NUM_CORES_CHIP)
+    ]
+    reset_connections(core_ids, True, True, True)
+
     print("dynapse_control: {} chip(s) cleared.".format(len(chip_ids)))
 
 
-def reset_connections(core_ids: Optional[list] = None, apply_diff=True):
+def reset_connections(
+    core_ids: Union[int, List[int], None] = None,
+    presynaptic: bool = True,
+    postsynaptic: bool = True,
+    apply_diff=True,
+):
     """
-    reset_connections - Reset connections going to all nerons of cores defined
-                         in core_ids. Core IDs from 0 to 15.
-    :param core_ids:   list  IDs of cores to be reset
-    :param apply_diff:  bool  Apply changes to hardware. Setting False is useful
-                              if new connections will be set afterwards.
+    reset_connections -   Remove pre- and/or postsynaptic connections of all nerons
+                          of cores defined in core_ids.
+    :param core_ids:      IDs of cores to be reset (between 0 and 15)
+    :param presynaptic:   Remove presynaptic connections to neurons on specified cores.
+    :param postsynaptic:  Remove postsynaptic connections of neurons on specified cores.
+    :param apply_diff:    Apply changes to hardware. Setting False is useful
+                          if new connections will be set afterwards.
     """
     # - Make sure core_ids is a list
     if core_ids is None:
@@ -417,18 +432,20 @@ def reset_connections(core_ids: Optional[list] = None, apply_diff=True):
         for neuron in shadow_neurons[
             core_id * NUM_NEURONS_CORE : (core_id + 1) * NUM_NEURONS_CORE
         ]:
-            # - Reset SRAMs for this neuron
-            srams = neuron.get_srams()
-            for sram_idx in range(1, 4):
-                srams[sram_idx].set_target_chip_id(0)
-                srams[sram_idx].set_virtual_core_id(0)
-                srams[sram_idx].set_used(False)
-                srams[sram_idx].set_core_mask(0)
+            if postsynaptic:
+                # - Reset SRAMs for this neuron
+                srams = neuron.get_srams()
+                for sram_idx in range(1, 4):
+                    srams[sram_idx].set_target_chip_id(0)
+                    srams[sram_idx].set_virtual_core_id(0)
+                    srams[sram_idx].set_used(False)
+                    srams[sram_idx].set_core_mask(0)
 
-            # - Reset CAMs for this neuron
-            for cam in neuron.get_cams():
-                cam.set_pre_neuron_id(0)
-                cam.set_pre_neuron_core_id(0)
+            if presynaptic:
+                # - Reset CAMs for this neuron
+                for cam in neuron.get_cams():
+                    cam.set_pre_neuron_id(0)
+                    cam.set_pre_neuron_core_id(0)
         print("\t Model neuron weights have been reset.")
     print("dynapse_control: {} core(s) cleared.".format(len(core_ids)))
 
@@ -458,16 +475,11 @@ def remove_all_connections_to(
     # - Get shadow state neurons
     shadow_neurons = CtxDynapse.model.get_shadow_state_neurons()
 
-    # - Reset neuron weights in model
-    for neuron in shadow_neurons:
-        # - Reset SRAMs
-        srams = neuron.get_srams()
-        for sram_idx in range(1, 4):
-            srams[sram_idx].set_target_chip_id(0)
-            srams[sram_idx].set_virtual_core_id(0)
-            srams[sram_idx].set_used(False)
-            srams[sram_idx].set_core_mask(0)
+    # - Neurons that whose cams are to be cleared
+    clear_neurons = [shadow_neurons[i] for i in neuron_ids]
 
+    # - Reset neuron weights in model
+    for neuron in clear_neurons:
         # - Reset CAMs
         for cam in neuron.get_cams():
             cam.set_pre_neuron_id(0)

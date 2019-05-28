@@ -72,9 +72,9 @@ class RecDynapSE(Layer):
 
         # - Instantiate DynapseControl
         if lnClearCores is None:
-            initialize_chips = None
+            init_chips = None
         else:
-            initialize_chips = list(
+            init_chips = list(
                 # - Convert to set to remove duplicates
                 set(
                     [
@@ -94,12 +94,12 @@ class RecDynapSE(Layer):
                 fpga_isibase=tDt,
                 clearcores_list=lnClearCores,
                 rpyc_connection=rpyc_port,
-                initialize_chips=initialize_chips,
+                init_chips=init_chips,
             )
         else:
             self.controller = controller
             self.controller.fpga_isibase = tDt
-            self.controller.initialize_chips(initialize_chips, enforce=False)
+            self.controller.init_chips(init_chips, enforce=False)
             self.controller.clear_connections(lnClearCores)
 
         # - Check supplied arguments
