@@ -4,6 +4,7 @@
 
 
 # - Imports
+import json
 from warnings import warn
 from typing import Union, Optional
 import numpy as np
@@ -78,11 +79,12 @@ class FFExpSynTorch(FFExpSyn):
             )
             self.tensors = torch
 
+
         # - Bypass property setter to avoid unnecessary convolution kernel update
         assert (
             type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0.0
-        ), "Layer `{}`: nMaxNumTimeSteps must be an integer greater than 0.".format(
-            self.strName
+        ), "Layer `{}`: nMaxNumTimeSteps ({nStep}) must be an integer greater than 0.".format(
+            strName, nStep=nMaxNumTimeSteps
         )
         self._nMaxNumTimeSteps = nMaxNumTimeSteps
 
@@ -228,6 +230,7 @@ class FFExpSynTorch(FFExpSyn):
         bFinal: bool = False,
         bStoreState: bool = True,
         bTrainBiases: bool = True,
+        bIntermediateResults: bool = False
     ):
 
         """
@@ -246,6 +249,7 @@ class FFExpSynTorch(FFExpSyn):
         :param bTrainBiases:    bool - If True, train biases as if they were weights
                                        Otherwise present biases will be ignored in
                                        training and not be changed.
+        :param bIntermediateResults: bool - If True, calculates the intermediate weights not in the final batch
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -349,11 +353,19 @@ class FFExpSynTorch(FFExpSyn):
                 mnSpikeRaster = mnSpikeRaster.t().reshape(1, self.nSizeIn, -1)
 
                 # - Filter synaptic currents and store in input tensor
-                mfInput[:, :-1] = (
-                    self._convSynapsesTraining(mnSpikeRaster)[0]
-                    .detach()
-                    .t()[: vtTimeBase.size]
-                )
+                if bTrainBiases:
+                    mfInput[:, :-1] = (
+                        self._convSynapsesTraining(mnSpikeRaster)[0]
+                        .detach()
+                        .t()[: vtTimeBase.size]
+                    )
+                else:
+                    mfInput[:, :] = (
+                        self._convSynapsesTraining(mnSpikeRaster)[0]
+                            .detach()
+                            .t()[: vtTimeBase.size]
+                    )
+
 
         with torch.no_grad():
             # - For first batch, initialize summands
@@ -388,15 +400,31 @@ class FFExpSynTorch(FFExpSyn):
                     else:
                         self._vTrainingState = mfInput[-1, :].clone()
 
+                if bIntermediateResults:
+                    mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
+                        self.device
+                    )
+                    mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
+                    if bTrainBiases:
+                        self.mfW = mfSolution[:-1, :]
+                        self.vfBias = mfSolution[-1, :]
+                    else:
+                        self.mfW = mfSolution
             else:
                 # - In final step do not calculate rounding error but update matrices directly
                 self._mfXTY += mfUpdXTY
                 self._mfXTX += mfUpdXTX
 
                 # - Weight and bias update by ridge regression
-                mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
-                    self.device
-                )
+                if bTrainBiases:
+                    mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn + 1).to(
+                        self.device
+                    )
+                else:
+                    mfA = self._mfXTX + fRegularize * torch.eye(self.nSizeIn).to(
+                        self.device
+                    )
+
                 mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
                 if bTrainBiases:
                     self.mfW = mfSolution[:-1, :]
@@ -731,3 +759,35 @@ class FFExpSynTorch(FFExpSyn):
         )
         self._nMaxNumTimeSteps = nNewMax
         self._update_kernels()
+
+    def to_dict(self):
+
+        config = {}
+        config["mfW"] = self.mfW.tolist()
+        config["bias"] = self._vfBias if type(self._vfBias) is float else self._vfBias.tolist()
+        config["dt"] = self.tDt
+        config["fNoiseStd"] = self.fNoiseStd
+        config["tauS"] = self.tTauSyn if type(self.tTauSyn) is float else self.tTauSyn.tolist()
+        config["strName"] = self.strName
+        config["bAddEvents"] = self.bAddEvents
+        config["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
+        config["ClassName"] = "FFExpSynTorch"
+
+        return config
+
+    def save(self, config, filename):
+        with open(filename, "w") as f:
+            json.dump(config, f)
+
+    @staticmethod
+    def load_from_dict(config):
+        return FFExpSynTorch(
+            mfW = config["mfW"],
+            vfBias = config["bias"],
+            tDt = config["dt"],
+            fNoiseStd = config["fNoiseStd"],
+            tTauSyn = config["tauS"],
+            strName = config["strName"],
+            bAddEvents = config["bAddEvents"],
+            nMaxNumTimeSteps = config["nMaxNumTimeSteps"],
+        )

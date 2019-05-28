@@ -5,6 +5,7 @@ channels:
 dependencies:
   - brian2
   - matplotlib
+  - nest-simulator
   - numba
   - numpy
   - pandas

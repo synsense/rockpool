@@ -537,7 +537,9 @@ class Layer(ABC):
 
         :return: None
         """
-        self.vState = np.random.rand(self.nSize)
+        # create random initial state with a gaussian distribution with mean
+        # the values that were given and std the 20% of the absolute value
+        self.vState = np.random.normal(self.vState, np.abs(self.vState)*0.02, size=(self.nSize,))
 
     def reset_all(self):
         self.reset_time()
