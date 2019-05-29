@@ -668,7 +668,12 @@ class DynapseControl:
         # - Store which neurons have been assigned tau 2 (i.e. are silenced)
         self._is_silenced = np.zeros_like(self._hwneurons_isfree, bool)
         # - Make sure no neuron is silenced, yet
-        self.reset_silencing(range(16))
+        core_ids = [
+            i
+            for chip in initialized_chips
+            for i in range(chip * self.num_cores_chip, (chip + 1) * self.num_cores_chip)
+        ]
+        self.reset_silencing(core_ids)
 
         print("DynapseControl: Neurons initialized.")
         print(
@@ -724,11 +729,25 @@ class DynapseControl:
         :param apply_diff:    Apply changes to hardware. Setting False is useful
                               if new connections will be set afterwards.
         """
+        if core_ids is None:
+            return
+
+        # - Handle non-list arguments for core_ids
+        if not isinstance(core_ids, list):
+            try:
+                core_ids = list(core_ids)
+            except TypeError:
+                if isinstance(core_ids, int):
+                    core_ids = [core_ids]
+                else:
+                    raise TypeError(
+                        "DynapseControl: `core_ids` should be of type `int` or `List[int]`."
+                    )
         # - Use `reset_connections` function
         self.tools.reset_connections(core_ids, presynaptic, postsynaptic, apply_diff)
         print(
             "DynapseControl: Connections to cores {} have been cleared.".format(
-                core_ids
+                np.array(core_ids, int)
             )
         )
 
@@ -752,8 +771,17 @@ class DynapseControl:
                           global _reset_silencing but also updates self._is_silenced.
         :param core_ids:   list  IDs of cores to be reset
         """
-        if isinstance(core_ids, int):
-            core_ids = (core_ids,)
+        if core_ids is not None:
+            core_ids = np.array(core_ids)
+            # - Only reset cores on chips that have been initialized
+            on_init_chip = np.isin(core_ids // self.num_cores_chip, initialized_chips)
+            if not on_init_chip.all():
+                warn(
+                    "DynapseControl: Cores {} are on chips that have not been initialized.".format(
+                        core_ids[on_init_chip == False]
+                    )
+                )
+            core_ids = list(core_ids[on_init_chip])
         self.tools.reset_silencing(core_ids)
         # - Mark that neurons are not silenced anymore
         for id_neur in core_ids:
@@ -762,7 +790,7 @@ class DynapseControl:
             ] = False
         print(
             "DynapseControl: Time constants of cores {} have been reset.".format(
-                core_ids
+                np.array(core_ids, int)
             )
         )
 
@@ -776,6 +804,17 @@ class DynapseControl:
         reset_cores - Reset neuron assginments and connections for specified cores
                       and virtual neurons if requested.
         """
+        if core_ids is not None:
+            core_ids = np.array(core_ids)
+            # - Only reset cores on chips that have been initialized
+            on_init_chip = np.isin(core_ids // self.num_cores_chip, initialized_chips)
+            if not on_init_chip.all():
+                warn(
+                    "DynapseControl: Cores {} are on chips that have not been initialized.".format(
+                        core_ids[on_init_chip == False]
+                    )
+                )
+            core_ids = core_ids[on_init_chip]
         # - Clear neuron assignments
         self.clear_neuron_assignments(core_ids, virtual)
         # - Reset connections
@@ -789,8 +828,14 @@ class DynapseControl:
         reset_all - Convenience function to reset neuron assginments and connections
                     for all cores and virtual neurons.
         """
+        # - Cores on initialized chips
+        core_ids = [
+            i
+            for chip in initialized_chips
+            for i in range(chip * self.num_cores_chip, (chip + 1) * self.num_cores_chip)
+        ]
         # - Clear neuron assignments
-        self.reset_cores(range(self.num_cores), True)
+        self.reset_cores(core_ids, True)
 
     ### --- Neuron allocation and connections
 
@@ -843,7 +888,7 @@ class DynapseControl:
                 ]
             print(
                 "DynapseControl: {} hardware neurons available.".format(
-                    np.sum(self._hwneurons_isfree)
+                    np.sum(self.hwneurons_isavailable)
                 )
             )
 
@@ -852,7 +897,7 @@ class DynapseControl:
             self._virtualneurons_isfree = freevirtualneurons0
             print(
                 "DynapseControl: {} virtual neurons available.".format(
-                    np.sum(self._virtualneurons_isfree)
+                    np.sum(self.virtualneurons_isavailable)
                 )
             )
 
