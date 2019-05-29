@@ -470,7 +470,9 @@ def test_DefaultParams():
 
     fl2 = FFIAFNest(weights=weights, bRecord=True, name="FF")
 
-    fl3 = RecIAFSpkInNest(weights_in=weights_in, weights_rec=weights_rec, bRecord=True, name="Rec")
+    fl3 = RecIAFSpkInNest(
+        weights_in=weights_in, weights_rec=weights_rec, bRecord=True, name="Rec"
+    )
 
     net1 = nw.Network(fl2, fl3)
 
@@ -724,9 +726,9 @@ def test_IAF2AEIFNest():
 
     # - Layer generation
     fl0 = RecIAFSpkInNest(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
-        tDt=tDt,
+        weights_in=mfWIn,
+        weights_rec=mfWRec,
+        dt=tDt,
         vfBias=vfBias,
         vtTauN=vtTauN,
         vtTauS=vtTauS,
@@ -748,9 +750,9 @@ def test_IAF2AEIFNest():
         vfVThresh=vThresh,
         vfVReset=vRest,
         vfVRest=vRest,
-        fA=0.,
-        fB=0.,
-        fDelta_T=0.,
+        fA=0.0,
+        fB=0.0,
+        fDelta_T=0.0,
         tRefractoryTime=0.001,
         bRecord=True,
     )

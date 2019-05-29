@@ -532,7 +532,7 @@ class FFIAFNest(Layer):
 
     @property
     def vfVRest(self):
-        return self._vfVReset
+        return self._vfVRest
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
