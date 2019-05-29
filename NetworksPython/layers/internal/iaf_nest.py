@@ -534,7 +534,7 @@ class FFIAFNest(Layer):
     def vfVRest(self):
         return self._vfVReset
 
-    @vfVReset.setter
+    @vfVRest.setter
     def vfVRest(self, vfNewVRest):
 
         self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
@@ -1119,7 +1119,7 @@ class RecIAFSpkInNest(Layer):
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
+        :param ts_input:       TSContinuous  Input spike trian
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps    int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
@@ -1253,7 +1253,7 @@ class RecIAFSpkInNest(Layer):
     def vfVRest(self):
         return self._vfVReset
 
-    @vfVReset.setter
+    @vfVRest.setter
     def vfVRest(self, vfNewVRest):
 
         self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
