@@ -11,41 +11,41 @@ def test_ffiaf_torch():
     from NetworksPython.timeseries import TSContinuous
     import numpy as np
 
-    nSizeIn = 384
-    nSize = 512
+    size_in = 384
+    size = 512
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
 
-    mfW = np.random.randn(nSizeIn, nSize)
-    fl = FFIAFTorch(mfW, tDt=tDt, bRecord=False)
+    weights = np.random.randn(size_in, size)
+    fl = FFIAFTorch(weights, dt=dt, bRecord=False)
 
     mfIn = (
         0.005
         * np.array(
             [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSizeIn)
+                np.sin(np.linspace(0, 10 * tDur, int(tDur / dt)) + fPhase)
+                for fPhase in np.linspace(0, 3, size_in)
             ]
         ).T
     )
-    vtIn = np.arange(mfIn.shape[0]) * tDt
+    vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl.vState)
-    fl.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(fl.state)
+    fl.evolve(tsIn, duration=0.08)
     assert fl.t == 0.08
-    assert (vStateBefore != fl.vState).any()
+    assert (vStateBefore != fl.state).any()
 
     fl.reset_all()
     assert fl.t == 0
-    assert (vStateBefore == fl.vState).all()
+    assert (vStateBefore == fl.state).all()
 
     # - Make sure item assignment works
-    mfWTarget = mfW.copy()
+    mfWTarget = weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    fl.mfW[0] = mfWTarget[0]
+    fl.weights[0] = mfWTarget[0]
     assert np.allclose(fl._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -55,34 +55,34 @@ def test_ffiaf_spkin_torch():
     from NetworksPython.timeseries import TSEvent
     import numpy as np
 
-    nSizeIn = 384
-    nSize = 512
+    size_in = 384
+    size = 512
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
     nSpikesIn = 50
 
-    mfW = np.random.randn(nSizeIn, nSize)
-    fl = FFIAFSpkInTorch(mfW, tDt=tDt, bRecord=False)
+    weights = np.random.randn(size_in, size)
+    fl = FFIAFSpkInTorch(weights, dt=dt, bRecord=False)
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
-    vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
+    vnChIn = np.random.randint(size_in, size=nSpikesIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl.vState)
-    fl.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(fl.state)
+    fl.evolve(tsIn, duration=0.08)
     assert fl.t == 0.08
-    assert (vStateBefore != fl.vState).any()
+    assert (vStateBefore != fl.state).any()
 
     fl.reset_all()
     assert fl.t == 0
-    assert (vStateBefore == fl.vState).all()
+    assert (vStateBefore == fl.state).all()
 
     # - Make sure item assignment works
-    mfWTarget = mfW.copy()
+    mfWTarget = weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    fl.mfW[0] = mfWTarget[0]
+    fl.weights[0] = mfWTarget[0]
     assert np.allclose(fl._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -93,40 +93,40 @@ def test_reciaf_torch():
     from NetworksPython.timeseries import TSContinuous
     import numpy as np
 
-    nSize = 4
+    size = 4
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
 
-    mfW = 0.001 * np.random.randn(nSize, nSize)
-    rl = RecIAFTorch(mfW, tDt=tDt, vfBias=0.0101, bRecord=False)
+    weights = 0.001 * np.random.randn(size, size)
+    rl = RecIAFTorch(weights, dt=dt, vfBias=0.0101, bRecord=False)
 
     mfIn = (
         0.0001
         * np.array(
             [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSize)
+                np.sin(np.linspace(0, 10 * tDur, int(tDur / dt)) + fPhase)
+                for fPhase in np.linspace(0, 3, size)
             ]
         ).T
     )
-    vtIn = np.arange(mfIn.shape[0]) * tDt
+    vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(rl.vState)
-    rl.evolve(tsIn, tDuration=0.4)
+    vStateBefore = np.copy(rl.state)
+    rl.evolve(tsIn, duration=0.4)
     assert rl.t == 0.4
-    assert (vStateBefore != rl.vState).any()
+    assert (vStateBefore != rl.state).any()
 
     rl.reset_all()
     assert rl.t == 0
-    assert (vStateBefore == rl.vState).all()
+    assert (vStateBefore == rl.state).all()
 
     # - Make sure item assignment works
-    mfWTarget = rl.mfW.copy()
+    mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    rl.mfW[0] = mfWTarget[0]
+    rl.weights[0] = mfWTarget[0]
     assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -136,35 +136,35 @@ def test_reciaf_spkin_torch():
     from NetworksPython.timeseries import TSEvent
     import numpy as np
 
-    nSizeIn = 384
-    nSize = 512
+    size_in = 384
+    size = 512
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
     nSpikesIn = 50
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
-    vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
+    vnChIn = np.random.randint(size_in, size=nSpikesIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
 
-    mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
-    mfWRec = 0.001 * np.random.randn(nSize, nSize)
-    rl = RecIAFSpkInTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
+    weights_in = 0.1 * np.random.randn(size_in, size)
+    weights_rec = 0.001 * np.random.randn(size, size)
+    rl = RecIAFSpkInTorch(weights_in, weights_rec, dt=dt, bRecord=False)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(rl.vState)
-    rl.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(rl.state)
+    rl.evolve(tsIn, duration=0.08)
     assert rl.t == 0.08
-    assert (vStateBefore != rl.vState).any()
+    assert (vStateBefore != rl.state).any()
 
     rl.reset_all()
     assert rl.t == 0
-    assert (vStateBefore == rl.vState).all()
+    assert (vStateBefore == rl.state).all()
 
     # - Make sure item assignment works
-    mfWTarget = rl.mfW.copy()
+    mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    rl.mfW[0] = mfWTarget[0]
+    rl.weights[0] = mfWTarget[0]
     assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -175,61 +175,61 @@ def test_ffiaf_refr_torch():
     from NetworksPython.timeseries import TSContinuous
     import numpy as np
 
-    nSizeIn = 384
-    nSize = 512
+    size_in = 384
+    size = 512
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
 
-    mfW = np.random.randn(nSizeIn, nSize)
-    fl = FFIAFTorch(mfW, tDt=tDt, bRecord=False)
-    flr = FFIAFRefrTorch(mfW, tDt=tDt, bRecord=False)
+    weights = np.random.randn(size_in, size)
+    fl = FFIAFTorch(weights, dt=dt, bRecord=False)
+    flr = FFIAFRefrTorch(weights, dt=dt, bRecord=False)
 
     mfIn = (
         0.005
         * np.array(
             [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSizeIn)
+                np.sin(np.linspace(0, 10 * tDur, int(tDur / dt)) + fPhase)
+                for fPhase in np.linspace(0, 3, size_in)
             ]
         ).T
     )
-    vtIn = np.arange(mfIn.shape[0]) * tDt
+    vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(flr.vState)
-    tsOut = fl.evolve(tsIn, tDuration=0.08)
-    tsOutR = flr.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(flr.state)
+    tsOut = fl.evolve(tsIn, duration=0.08)
+    tsOutR = flr.evolve(tsIn, duration=0.08)
 
     assert flr.t == 0.08
-    assert (vStateBefore != flr.vState).any()
+    assert (vStateBefore != flr.state).any()
     assert (tsOut.times == tsOutR.times).all()
     assert (tsOut.channels == tsOutR.channels).all()
 
     flr.reset_all()
     assert flr.t == 0
-    assert (vStateBefore == flr.vState).all()
+    assert (vStateBefore == flr.state).all()
 
     flr.tRefractoryTime = 0.01
 
-    tsOutR2 = flr.evolve(tsIn, tDuration=0.08)
+    tsOutR2 = flr.evolve(tsIn, duration=0.08)
     assert tsOutR2.times.size < tsOutR.times.size
-    for iChannel in range(flr.nSize):
+    for iChannel in range(flr.size):
         assert (
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
-    flr2 = FFIAFRefrTorch(mfW, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
-    tsOutR3 = flr2.evolve(tsIn, tDuration=0.08)
+    flr2 = FFIAFRefrTorch(weights, dt=dt, bRecord=False, tRefractoryTime=0.01)
+    tsOutR3 = flr2.evolve(tsIn, duration=0.08)
 
     assert (tsOutR2.times == tsOutR3.times).all()
     assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
-    mfWTarget = flr.mfW.copy()
+    mfWTarget = flr.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    flr.mfW[0] = mfWTarget[0]
+    flr.weights[0] = mfWTarget[0]
     assert np.allclose(flr._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -240,53 +240,53 @@ def test_ffiaf_spkin_refr_torch():
     from NetworksPython.timeseries import TSEvent
     import numpy as np
 
-    nSizeIn = 384
-    nSize = 512
+    size_in = 384
+    size = 512
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
     nSpikesIn = 50
 
-    mfW = np.random.randn(nSizeIn, nSize)
-    fl = FFIAFSpkInTorch(mfW, tDt=tDt, bRecord=False)
-    flr = FFIAFSpkInRefrTorch(mfW, tDt=tDt, bRecord=False)
+    weights = np.random.randn(size_in, size)
+    fl = FFIAFSpkInTorch(weights, dt=dt, bRecord=False)
+    flr = FFIAFSpkInRefrTorch(weights, dt=dt, bRecord=False)
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
-    vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
+    vnChIn = np.random.randint(size_in, size=nSpikesIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(flr.vState)
-    tsOut = fl.evolve(tsIn, tDuration=0.08)
-    tsOutR = flr.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(flr.state)
+    tsOut = fl.evolve(tsIn, duration=0.08)
+    tsOutR = flr.evolve(tsIn, duration=0.08)
     assert flr.t == 0.08
-    assert (vStateBefore != flr.vState).any()
+    assert (vStateBefore != flr.state).any()
     assert (tsOut.times == tsOutR.times).all()
     assert (tsOut.channels == tsOutR.channels).all()
 
     flr.reset_all()
     assert flr.t == 0
-    assert (vStateBefore == flr.vState).all()
+    assert (vStateBefore == flr.state).all()
 
     flr.tRefractoryTime = 0.01
 
-    tsOutR2 = flr.evolve(tsIn, tDuration=0.08)
+    tsOutR2 = flr.evolve(tsIn, duration=0.08)
     assert tsOutR2.times.size < tsOutR.times.size
-    for iChannel in range(flr.nSize):
+    for iChannel in range(flr.size):
         assert (
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
-    flr2 = FFIAFSpkInRefrTorch(mfW, tDt=tDt, bRecord=False, tRefractoryTime=0.01)
-    tsOutR3 = flr2.evolve(tsIn, tDuration=0.08)
+    flr2 = FFIAFSpkInRefrTorch(weights, dt=dt, bRecord=False, tRefractoryTime=0.01)
+    tsOutR3 = flr2.evolve(tsIn, duration=0.08)
 
     assert (tsOutR2.times == tsOutR3.times).all()
     assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
-    mfWTarget = flr.mfW.copy()
+    mfWTarget = flr.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    flr.mfW[0] = mfWTarget[0]
+    flr.weights[0] = mfWTarget[0]
     assert np.allclose(flr._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -300,61 +300,61 @@ def test_reciaf_refr_torch():
 
     np.random.seed(0)
 
-    nSize = 4
+    size = 4
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
 
-    mfW = 0.001 * np.random.randn(nSize, nSize)
-    rl = RecIAFTorch(mfW, tDt=tDt, vfBias=0.0101, bRecord=False)
-    rlr = RecIAFRefrTorch(mfW, tDt=tDt, vfBias=0.0101, bRecord=False)
+    weights = 0.001 * np.random.randn(size, size)
+    rl = RecIAFTorch(weights, dt=dt, vfBias=0.0101, bRecord=False)
+    rlr = RecIAFRefrTorch(weights, dt=dt, vfBias=0.0101, bRecord=False)
 
     mfIn = (
         0.001
         * np.array(
             [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSize)
+                np.sin(np.linspace(0, 10 * tDur, int(tDur / dt)) + fPhase)
+                for fPhase in np.linspace(0, 3, size)
             ]
         ).T
     )
-    vtIn = np.arange(mfIn.shape[0]) * tDt
+    vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(rlr.vState)
-    tsOut = rl.evolve(tsIn, tDuration=0.4)
-    tsOutR = rlr.evolve(tsIn, tDuration=0.4)
+    vStateBefore = np.copy(rlr.state)
+    tsOut = rl.evolve(tsIn, duration=0.4)
+    tsOutR = rlr.evolve(tsIn, duration=0.4)
     assert rlr.t == 0.4
-    assert (vStateBefore != rlr.vState).any()
+    assert (vStateBefore != rlr.state).any()
     assert (tsOut.times == tsOutR.times).all()
     assert (tsOut.channels == tsOutR.channels).all()
 
     rlr.reset_all()
     assert rlr.t == 0
-    assert (vStateBefore == rlr.vState).all()
+    assert (vStateBefore == rlr.state).all()
 
     rlr.tRefractoryTime = 0.01
 
-    tsOutR2 = rlr.evolve(tsIn, tDuration=0.4)
+    tsOutR2 = rlr.evolve(tsIn, duration=0.4)
     assert tsOutR2.times.size < tsOutR.times.size
-    for iChannel in range(rlr.nSize):
+    for iChannel in range(rlr.size):
         assert (
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
     rlr2 = RecIAFRefrTorch(
-        mfW, tDt=tDt, vfBias=0.0101, bRecord=False, tRefractoryTime=0.01
+        weights, dt=dt, vfBias=0.0101, bRecord=False, tRefractoryTime=0.01
     )
-    tsOutR3 = rlr2.evolve(tsIn, tDuration=0.4)
+    tsOutR3 = rlr2.evolve(tsIn, duration=0.4)
 
     assert (tsOutR2.times == tsOutR3.times).all()
     assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
-    mfWTarget = rl.mfW.copy()
+    mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    rl.mfW[0] = mfWTarget[0]
+    rl.weights[0] = mfWTarget[0]
     assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -367,56 +367,56 @@ def test_reciaf_spkin_refr_torch():
 
     np.random.seed(1)
 
-    nSizeIn = 4
-    nSize = 5
+    size_in = 4
+    size = 5
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
     nSpikesIn = 50
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
-    vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
+    vnChIn = np.random.randint(size_in, size=nSpikesIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
 
-    mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
-    mfWRec = 0.001 * np.random.randn(nSize, nSize)
-    rl = RecIAFSpkInTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
-    rlr = RecIAFSpkInRefrTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
+    weights_in = 0.1 * np.random.randn(size_in, size)
+    weights_rec = 0.001 * np.random.randn(size, size)
+    rl = RecIAFSpkInTorch(weights_in, weights_rec, dt=dt, bRecord=False)
+    rlr = RecIAFSpkInRefrTorch(weights_in, weights_rec, dt=dt, bRecord=False)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(rl.vState)
-    tsOut = rl.evolve(tsIn, tDuration=0.08)
-    tsOutR = rlr.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(rl.state)
+    tsOut = rl.evolve(tsIn, duration=0.08)
+    tsOutR = rlr.evolve(tsIn, duration=0.08)
     assert rlr.t == 0.08
-    assert (vStateBefore != rlr.vState).any()
+    assert (vStateBefore != rlr.state).any()
     assert (tsOut.times == tsOutR.times).all()
     assert (tsOut.channels == tsOutR.channels).all()
 
     rlr.reset_all()
     assert rlr.t == 0
-    assert (vStateBefore == rlr.vState).all()
+    assert (vStateBefore == rlr.state).all()
 
     rlr.tRefractoryTime = 0.01
 
-    tsOutR2 = rlr.evolve(tsIn, tDuration=0.08)
+    tsOutR2 = rlr.evolve(tsIn, duration=0.08)
     assert tsOutR2.times.size < tsOutR.times.size
-    for iChannel in range(rlr.nSize):
+    for iChannel in range(rlr.size):
         assert (
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
     rlr2 = RecIAFSpkInRefrTorch(
-        mfWIn, mfWRec, tDt=tDt, bRecord=False, tRefractoryTime=0.01
+        weights_in, weights_rec, dt=dt, bRecord=False, tRefractoryTime=0.01
     )
-    tsOutR3 = rlr2.evolve(tsIn, tDuration=0.08)
+    tsOutR3 = rlr2.evolve(tsIn, duration=0.08)
 
     assert (tsOutR2.times == tsOutR3.times).all()
     assert (tsOutR2.channels == tsOutR3.channels).all()
 
     # - Make sure item assignment works
-    mfWTarget = rl.mfW.copy()
+    mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    rl.mfW[0] = mfWTarget[0]
+    rl.weights[0] = mfWTarget[0]
     assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
 
 
@@ -428,33 +428,33 @@ def test_reciaf_spkin_refr_cl_torch():
 
     np.random.seed(1)
 
-    nSizeIn = 4
-    nSize = 5
+    size_in = 4
+    size = 5
 
     tDur = 0.01
-    tDt = 0.001
+    dt = 0.001
     nSpikesIn = 50
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
-    vnChIn = np.random.randint(nSizeIn, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=nSizeIn)
+    vnChIn = np.random.randint(size_in, size=nSpikesIn)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
 
-    mfWIn = 0.1 * np.random.randn(nSizeIn, nSize)
-    mfWRec = 0.001 * np.random.randn(nSize, nSize)
-    rl = RecIAFSpkInRefrCLTorch(mfWIn, mfWRec, tDt=tDt, bRecord=False)
+    weights_in = 0.1 * np.random.randn(size_in, size)
+    weights_rec = 0.001 * np.random.randn(size, size)
+    rl = RecIAFSpkInRefrCLTorch(weights_in, weights_rec, dt=dt, bRecord=False)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(rl.vState)
-    rl.evolve(tsIn, tDuration=0.08)
+    vStateBefore = np.copy(rl.state)
+    rl.evolve(tsIn, duration=0.08)
     assert rl.t == 0.08
-    assert (vStateBefore != rl.vState).any()
+    assert (vStateBefore != rl.state).any()
 
     rl.reset_all()
     assert rl.t == 0
-    assert (vStateBefore == rl.vState).all()
+    assert (vStateBefore == rl.state).all()
 
     # - Make sure item assignment works
-    mfWTarget = rl.mfW.copy()
+    mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
-    rl.mfW[0] = mfWTarget[0]
+    rl.weights[0] = mfWTarget[0]
     assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)

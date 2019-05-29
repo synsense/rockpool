@@ -11,7 +11,7 @@ class TorchCropping2dLayer(nn.Module):
     Torch implementation of SumPooling2d for spiking neurons
     """
 
-    def __init__(self, cropping: ArrayLike = ((0, 0), (0, 0)), strName="crop2d"):
+    def __init__(self, cropping: ArrayLike = ((0, 0), (0, 0)), name="crop2d"):
         """
         Torch implementation of SumPooling using the LPPool2d module
         """
@@ -21,7 +21,7 @@ class TorchCropping2dLayer(nn.Module):
         self.strides = ()
         self.top_crop, self.bottom_crop = cropping[0]
         self.left_crop, self.right_crop = cropping[1]
-        self.strName = strName
+        self.name = name
 
     def forward(self, tsrBinaryInput):
         _, self.nInChannels, h, w = list(tsrBinaryInput.shape)
@@ -45,7 +45,7 @@ class TorchCropping2dLayer(nn.Module):
         """
         summary = pd.Series(
             {
-                "Layer": self.strName,
+                "Layer": self.name,
                 "Output Shape": tuple(self.outShape),
                 "Cropping": (
                     self.top_crop,

@@ -9,26 +9,33 @@ try:
     from NetworksPython.devices import dynapse_control as dc
 except ImportError:
     warn("DynapseControl could not be imported. Maybe RPyC is not available.")
-    return
 
 # - Generate DynapseControl instance and connect
 try:
     con = DynapseControlExtd(init_chips=[0], fpga_isibase=1e-5)
 except ConnectionRefusedError:
     warn("Could not connect to cortexcontrol. Not available?")
-#  - Load biases, silence hot neurons
-con.load_biases(
-    os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), "files", "dynapse_biases.py"
+    RUN_TEST = False
+else:
+    RUN_TEST = True
+
+    #  - Load biases, silence hot neurons
+    con.load_biases(
+        os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "files", "dynapse_biases.py"
+        )
     )
-)
-con.silence_hot_neurons(range(128), 2)
+    con.silence_hot_neurons(range(128), 2)
 
 
 def test_dynapse_control():
     """
     Test basic functions of dynapse_control module
     """
+
+    if not RUN_TEST:
+        return
+
     # - Parameters
     # Neuron population sized
     size_in = 2
@@ -154,6 +161,13 @@ def test_dynapse_control():
 
 
 def test_dynapse_layer():
+    """
+    Test functioning of RecDynapSE layer
+    """
+
+    if not RUN_TEST:
+        return
+
     from NetworksPython.layers import RecDynapSE
 
     # - Layer generation

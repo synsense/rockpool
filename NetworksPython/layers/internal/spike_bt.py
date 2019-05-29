@@ -63,7 +63,7 @@ class RecFSSpikeEulerBT(Layer):
         mfW_f: np.ndarray = None,
         mfW_s: np.ndarray = None,
         vfBias: np.ndarray = 0.,
-        fNoiseStd: float = 0.,
+        noise_std: float = 0.,
         vtTauN: Union[np.ndarray, float] = 20e-3,
         vtTauSynR_f: Union[np.ndarray, float] = 1e-3,
         vtTauSynR_s: Union[np.ndarray, float] = 100e-3,
@@ -72,8 +72,8 @@ class RecFSSpikeEulerBT(Layer):
         vfVRest: Union[np.ndarray, float] = -65e-3,
         tRefractoryTime: float = -np.finfo(float).eps,
         fhSpikeCallback: Callable = None,
-        tDt: float = None,
-        strName: str = None,
+        dt: float = None,
+        name: str = None,
     ):
         """
         DeneveReservoir - Implement a spiking reservoir with tight E/I balance
@@ -85,7 +85,7 @@ class RecFSSpikeEulerBT(Layer):
         :param mfW_f:           ndarray [NxN] Recurrent weight matrix (fast synapses)
         :param mfW_s:           ndarray [NxN] Recurrent weight matrix (slow synapses)
         :param vfBias:          ndarray [Nx1] Bias currents for each neuron
-        :param fNoiseStd:       float Noise Std. Dev.
+        :param noise_std:       float Noise Std. Dev.
 
         :param vtTauN:          ndarray [Nx1] Neuron time constants
         :param vtTauSynR_f:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
@@ -99,11 +99,11 @@ class RecFSSpikeEulerBT(Layer):
 
         :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
-        :param tDt:             float         Nominal time step (Euler solver)
-        :param strName:           str           Name of this layer
+        :param dt:             float         Nominal time step (Euler solver)
+        :param name:           str           Name of this layer
         """
         # - Initialise object and set properties
-        super().__init__(mfW=mfW_f, fNoiseStd=fNoiseStd, strName=strName)
+        super().__init__(weights=mfW_f, noise_std=noise_std, name=name)
 
         # - Check weight shape
         assert mfW_s.shape[0] == mfW_s.shape[1], \
@@ -124,11 +124,11 @@ class RecFSSpikeEulerBT(Layer):
         self.tRefractoryTime = float(tRefractoryTime)
         self.fhSpikeCallback = fhSpikeCallback
 
-        # - Set a reasonable tDt
-        if tDt is None:
-            self.tDt = self._tMinTau / 10
+        # - Set a reasonable dt
+        if dt is None:
+            self.dt = self._tMinTau / 10
         else:
-            self.tDt = np.asarray(tDt).astype("float")
+            self.dt = np.asarray(dt).astype("float")
 
         # - Initialise network state
         self.reset_all()
@@ -137,9 +137,9 @@ class RecFSSpikeEulerBT(Layer):
         """
         reset_state() - Reset the internal state of the network
         """
-        self.vState = self.vfVRest.copy()
-        self.I_s_S = np.zeros(self.nSize)
-        self.I_s_F = np.zeros(self.nSize)
+        self.state = self.vfVRest.copy()
+        self.I_s_S = np.zeros(self.size)
+        self.I_s_F = np.zeros(self.size)
 
     @property
     def _tMinTau(self):
@@ -150,10 +150,10 @@ class RecFSSpikeEulerBT(Layer):
 
     def evolve(
         self,
-        tsInput: TimeSeries = None,
-        tDuration: float = None,
-        nNumTimeSteps: int = None,
-        bVerbose: bool = False,
+        ts_input: TimeSeries = None,
+        duration: float = None,
+        num_timesteps: int = None,
+        verbose: bool = False,
         tMinDelta: float = None,
     ) -> TimeSeries:
         """
@@ -163,12 +163,12 @@ class RecFSSpikeEulerBT(Layer):
             For this reason, the time steps returned by the integrator are not homogenous. A minimum time step can be set;
             by default this is 1/10 of the nominal time step.
 
-        :param tsInput:         TimeSeries input for a given time t [TxN]
-        :param tDuration:       float Duration of simulation in seconds. Default: 100ms
-        :param nNumTimeSteps    int Number of evolution time steps
-        :param bVerbose:    bool Currently no effect, just for conformity
+        :param ts_input:         TimeSeries input for a given time t [TxN]
+        :param duration:       float Duration of simulation in seconds. Default: 100ms
+        :param num_timesteps    int Number of evolution time steps
+        :param verbose:    bool Currently no effect, just for conformity
         :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
-        :param tsInput:         TimeSeries input for a given time t [TxN]
+        :param ts_input:         TimeSeries input for a given time t [TxN]
         :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
         :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
 
@@ -177,49 +177,49 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
         if tMinDelta is None:
-            tMinDelta = self.tDt / 10
+            tMinDelta = self.dt / 10
 
         # - Check time step values
-        assert tMinDelta < self.tDt, "`tMinDelta` must be shorter than `tDt`"
+        assert tMinDelta < self.dt, "`tMinDelta` must be shorter than `dt`"
 
         # - Get discretised input and nominal time trace
-        vtInputTimeTrace, mfStaticInput, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        vtInputTimeTrace, mfStaticInput, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
         tFinalTime = vtInputTimeTrace[-1]
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtInputTimeTrace), self.nSize) * self.fNoiseStd
+            np.random.randn(np.size(vtInputTimeTrace), self.size) * self.noise_std
         )
         mfStaticInput += mfNoiseStep
 
         # - Allocate state storage variables
         nSpikePointer = 0
-        vtTimes = full_nan(nNumTimeSteps)
-        mfV = full_nan((self.nSize, nNumTimeSteps))
-        mfS = full_nan((self.nSize, nNumTimeSteps))
-        mfF = full_nan((self.nSize, nNumTimeSteps))
-        mfDotV = full_nan((self.nSize, nNumTimeSteps))
+        vtTimes = full_nan(num_timesteps)
+        mfV = full_nan((self.size, num_timesteps))
+        mfS = full_nan((self.size, num_timesteps))
+        mfF = full_nan((self.size, num_timesteps))
+        mfDotV = full_nan((self.size, num_timesteps))
 
         # - Allocate storage for spike times
-        nMaxSpikePointer = nNumTimeSteps * self.nSize
+        nMaxSpikePointer = num_timesteps * self.size
         vtSpikeTimes = full_nan(nMaxSpikePointer)
         vnSpikeIndices = full_nan(nMaxSpikePointer)
 
         # - Refractory time variable
-        vtRefractory = np.zeros(self.nSize)
+        vtRefractory = np.zeros(self.size)
 
         # - Initialise step and "previous step" variables
         tTime = self._t
         t_start = self._t
         nStep = 0
         tLast = 0.
-        VLast = self._vState.copy()
+        VLast = self._state.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
 
-        vfZeros = np.zeros(self.nSize)
+        vfZeros = np.zeros(self.size)
         # tSpike = np.nan
         # nFirstSpikeId = 0
 
@@ -230,12 +230,12 @@ class RecFSSpikeEulerBT(Layer):
             # @njit
             def _evolve_backstep(
                 tTime,
-                mfW,
+                weights,
                 mfW_s,
-                vState,
+                state,
                 I_s_S,
                 I_s_F,
-                tDt,
+                dt,
                 VLast,
                 I_s_S_Last,
                 I_s_F_Last,
@@ -251,12 +251,12 @@ class RecFSSpikeEulerBT(Layer):
                 vfZeros,
             ):
                 # - Enforce refractory period by clamping membrane potential to reset
-                vState[vtRefractory > 0] = vfVReset[vtRefractory > 0]
+                state[vtRefractory > 0] = vfVReset[vtRefractory > 0]
 
                 ## - Back-tick spike detector
 
                 # - Locate spiking neurons
-                vbSpikeIDs = vState > vfVThresh
+                vbSpikeIDs = state > vfVThresh
                 vnSpikeIDs = argwhere(vbSpikeIDs)
                 nNumSpikes = np.sum(vbSpikeIDs)
 
@@ -265,8 +265,8 @@ class RecFSSpikeEulerBT(Layer):
                     # - Predict the precise spike times using linear interpolation
                     vtSpikeDeltas = (
                         (vfVThresh[vbSpikeIDs] - VLast[vbSpikeIDs])
-                        * tDt
-                        / (vState[vbSpikeIDs] - VLast[vbSpikeIDs])
+                        * dt
+                        / (state[vbSpikeIDs] - VLast[vbSpikeIDs])
                     )
 
                     # - Was there more than one neuron above threshold?
@@ -285,22 +285,22 @@ class RecFSSpikeEulerBT(Layer):
 
                     # - Back-step time to spike
                     tTime = tSpike
-                    vtRefractory = vtRefractory + tDt - tSpikeDelta
+                    vtRefractory = vtRefractory + dt - tSpikeDelta
 
                     # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
-                    vState = _backstep(vState, VLast, tDt, tSpikeDelta)
-                    I_s_S = _backstep(I_s_S, I_s_S_Last, tDt, tSpikeDelta)
-                    I_s_F = _backstep(I_s_F, I_s_F_Last, tDt, tSpikeDelta)
+                    state = _backstep(state, VLast, dt, tSpikeDelta)
+                    I_s_S = _backstep(I_s_S, I_s_S_Last, dt, tSpikeDelta)
+                    I_s_F = _backstep(I_s_F, I_s_F_Last, dt, tSpikeDelta)
 
                     # - Apply reset to spiking neuron
-                    vState[nFirstSpikeId] = vfVReset[nFirstSpikeId]
+                    state[nFirstSpikeId] = vfVReset[nFirstSpikeId]
 
                     # - Begin refractory period for spiking neuron
                     vtRefractory[nFirstSpikeId] = tRefractoryTime
 
                     # - Set spike currents
                     I_spike_slow = mfW_s[:, nFirstSpikeId]
-                    I_spike_fast = mfW[:, nFirstSpikeId]
+                    I_spike_fast = weights[:, nFirstSpikeId]
 
                 else:
                     # - Clear spike currents
@@ -311,23 +311,23 @@ class RecFSSpikeEulerBT(Layer):
                 ### End of back-tick spike detector
 
                 # - Save synapse and neuron states for previous time step
-                VLast[:] = vState
+                VLast[:] = state
                 I_s_S_Last[:] = I_s_S + I_spike_slow
                 I_s_F_Last[:] = I_s_F + I_spike_fast
 
                 # - Update synapse and neuron states (Euler step)
-                dotI_s_S = Syn_dotI(tTime, I_s_S, tDt, I_spike_slow, vtTauSynR_s)
-                I_s_S += dotI_s_S * tDt
+                dotI_s_S = Syn_dotI(tTime, I_s_S, dt, I_spike_slow, vtTauSynR_s)
+                I_s_S += dotI_s_S * dt
 
-                dotI_s_F = Syn_dotI(tTime, I_s_F, tDt, I_spike_fast, vtTauSynR_f)
-                I_s_F += dotI_s_F * tDt
+                dotI_s_F = Syn_dotI(tTime, I_s_F, dt, I_spike_fast, vtTauSynR_f)
+                I_s_F += dotI_s_F * dt
 
-                nIntTime = int((tTime - t_start) // tDt)
+                nIntTime = int((tTime - t_start) // dt)
                 I_ext = mfStaticInput[nIntTime, :]
                 dotV = Neuron_dotV(
                     tTime,
-                    vState,
-                    tDt,
+                    state,
+                    dt,
                     I_s_S,
                     I_s_F,
                     I_ext,
@@ -339,16 +339,16 @@ class RecFSSpikeEulerBT(Layer):
                     vtTauSynR_s,
                     vtTauSynR_f,
                 )
-                vState += dotV * tDt
+                state += dotV * dt
 
                 return (
                     tTime,
                     nFirstSpikeId,
                     dotV,
-                    vState,
+                    state,
                     I_s_S,
                     I_s_F,
-                    tDt,
+                    dt,
                     VLast,
                     I_s_S_Last,
                     I_s_F_Last,
@@ -362,10 +362,10 @@ class RecFSSpikeEulerBT(Layer):
                 tTime,
                 nFirstSpikeId,
                 dotV,
-                self._vState,
+                self._state,
                 self.I_s_S,
                 self.I_s_F,
-                self._tDt,
+                self._dt,
                 VLast,
                 I_s_S_Last,
                 I_s_F_Last,
@@ -374,10 +374,10 @@ class RecFSSpikeEulerBT(Layer):
                 tTime,
                 self._mfW,
                 self.mfW_s,
-                self._vState,
+                self._state,
                 self.I_s_S,
                 self.I_s_F,
-                self._tDt,
+                self._dt,
                 VLast,
                 I_s_S_Last,
                 I_s_F_Last,
@@ -410,37 +410,37 @@ class RecFSSpikeEulerBT(Layer):
             nSpikePointer += 1
 
             # - Extend state storage variables, if needed
-            if nStep >= nNumTimeSteps:
-                nExtend = nNumTimeSteps
+            if nStep >= num_timesteps:
+                nExtend = num_timesteps
                 vtTimes = np.append(vtTimes, full_nan(nExtend))
-                mfV = np.append(mfV, full_nan((self.nSize, nExtend)), axis=1)
-                mfS = np.append(mfS, full_nan((self.nSize, nExtend)), axis=1)
-                mfF = np.append(mfF, full_nan((self.nSize, nExtend)), axis=1)
-                mfDotV = np.append(mfDotV, full_nan((self.nSize, nExtend)), axis=1)
-                nNumTimeSteps += nExtend
+                mfV = np.append(mfV, full_nan((self.size, nExtend)), axis=1)
+                mfS = np.append(mfS, full_nan((self.size, nExtend)), axis=1)
+                mfF = np.append(mfF, full_nan((self.size, nExtend)), axis=1)
+                mfDotV = np.append(mfDotV, full_nan((self.size, nExtend)), axis=1)
+                num_timesteps += nExtend
 
             # - Store the network states for this time step
             vtTimes[nStep] = tTime
-            mfV[:, nStep] = self._vState
+            mfV[:, nStep] = self._state
             mfS[:, nStep] = self.I_s_S
             mfF[:, nStep] = self.I_s_F
             mfDotV[:, nStep] = dotV
 
             # - Next nominal time step
             tLast = copy.copy(tTime)
-            tTime += self._tDt
+            tTime += self._dt
             nStep += 1
-            vtRefractory -= self.tDt
+            vtRefractory -= self.dt
         ### End of Euler integration loop
 
         ## - Back-step to exact final time
-        self.vState = _backstep(self.vState, VLast, self._tDt, tTime - tFinalTime)
-        self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._tDt, tTime - tFinalTime)
-        self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._tDt, tTime - tFinalTime)
+        self.state = _backstep(self.state, VLast, self._dt, tTime - tFinalTime)
+        self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._dt, tTime - tFinalTime)
+        self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._dt, tTime - tFinalTime)
 
         ## - Store the network states for final time step
         vtTimes[nStep - 1] = tFinalTime
-        mfV[:, nStep - 1] = self.vState
+        mfV[:, nStep - 1] = self.state
         mfS[:, nStep - 1] = self.I_s_S
         mfF[:, nStep - 1] = self.I_s_F
 
@@ -471,7 +471,7 @@ class RecFSSpikeEulerBT(Layer):
             dResp["spReservoir"] = hv.Points(
                 dSpikes, kdims=["vtTimes", "vnNeuron"], label="Reservoir spikes"
             ).redim.range(
-                vtTimes=(0, nNumTimeSteps * self.tDt), vnNeuron=(0, self.nSize)
+                vtTimes=(0, num_timesteps * self.dt), vnNeuron=(0, self.size)
             )
         else:
             dResp["spReservoir"] = dict(vtTimes=vtSpikeTimes, vnNeuron=vnSpikeIndices)
@@ -486,13 +486,13 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Store "last evolution" state
         self._dLastEvolve = dResp
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Return output TimeSeries
         return TSEvent(vtSpikeTimes, vnSpikeIndices)
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSEvent
 
     @property
@@ -535,14 +535,14 @@ class RecFSSpikeEulerBT(Layer):
     def vfVReset(self, vfVReset):
         self.__vfVReset = self._expand_to_net_size(vfVReset, "vfVReset")
 
-    @Layer.tDt.setter
-    def tDt(self, tNewDt):
+    @Layer.dt.setter
+    def dt(self, tNewDt):
         assert (
             tNewDt <= self._tMinTau / 10
         ), "`tNewDt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
 
         # - Call super-class setter
-        super(RecFSSpikeEulerBT, RecFSSpikeEulerBT).tDt.__set__(self, tNewDt)
+        super(RecFSSpikeEulerBT, RecFSSpikeEulerBT).dt.__set__(self, tNewDt)
 
 
 ###### Convenience functions
@@ -632,8 +632,8 @@ def clip_scalar(fVal: float, fMin: float, fMax: float):
         return fVal
 
 
-def RepToNetSize(oData, nSize):
+def RepToNetSize(oData, size):
     if np.size(oData) == 1:
-        return np.repeat(oData, nSize)
+        return np.repeat(oData, size)
     else:
         return oData.flatten()

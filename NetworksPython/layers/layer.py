@@ -15,17 +15,17 @@ __all__ = ["Layer"]
 
 
 # - Absolute tolerance, e.g. for comparing float values
-fTolAbs = 1e-9
+tol_abs = 1e-9
 
 ### --- Convenience functions
 
 
-def to_scalar(value, sClass: str = None):
+def to_scalar(value, str_type: str = None):
     # - Check the value is a scalar
     assert np.size(value) == 1, "The value must be a scalar"
 
-    if sClass is not None:
-        return np.asscalar(np.array(value).astype(sClass))
+    if str_type is not None:
+        return np.asscalar(np.array(value).astype(str_type))
     else:
         return np.asscalar(np.array(value))
 
@@ -74,19 +74,19 @@ class RefArray(np.ndarray):
                 "Referenced object and array object need to have same shape"
             )
         # - Convert torch tensor to numpy array on cpu
-        arraylikeNew = (
+        arraylike_new = (
             arraylike.cpu().numpy()
             if isinstance(arraylike, torch.Tensor)
             else arraylike
         )
         if reference is None:
             # New class instance is a copy of arraylike (and never a view to original arraylike)
-            obj = np.array(arraylikeNew).view(cls)
+            obj = np.array(arraylike_new).view(cls)
             # Store reference to original arraylike
             obj._reference = arraylike
         else:
             # New class instance is a copy of original array-like or a view, if arraylike is np.ndarray
-            obj = np.asarray(arraylikeNew).view(cls)
+            obj = np.asarray(arraylike_new).view(cls)
             # - Add reference to third object
             obj._reference = reference
         return obj
@@ -116,8 +116,8 @@ class RefArray(np.ndarray):
 
     def copy(self):
         """copy - Return np.ndarray as copy to get original __setitem__ method."""
-        arrCopy = super().copy()
-        return np.array(arrCopy)
+        array_copy = super().copy()
+        return np.array(array_copy)
 
 
 class RefProperty(property):
@@ -154,236 +154,236 @@ class RefProperty(property):
 class Layer(ABC):
     def __init__(
         self,
-        mfW: np.ndarray,
-        tDt: Optional[float] = 1,
-        fNoiseStd: Optional[float] = 0,
-        strName: Optional[str] = "unnamed",
+        weights: np.ndarray,
+        dt: Optional[float] = 1,
+        noise_std: Optional[float] = 0,
+        name: Optional[str] = "unnamed",
     ):
         """
         Layer class - Implement an abstract layer of neurons (no implementation)
 
-        :param mfW:         np.ndarray Weight matrix for this layer
-        :param tDt:         float Time-step used for evolving this layer. Default: 1
-        :param fNoiseStd:   float Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected
+        :param weights:         np.ndarray Weight matrix for this layer
+        :param dt:         float Time-step used for evolving this layer. Default: 1
+        :param noise_std:   float Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected
                                     std. dev. after 1s of integration time
-        :param strName:       str Name of this layer. Default: 'unnamed'
+        :param name:       str Name of this layer. Default: 'unnamed'
         """
 
         # - Assign properties
-        if strName is None:
-            self.strName = "unnamed"
+        if name is None:
+            self.name = "unnamed"
         else:
-            self.strName = strName
+            self.name = name
 
         try:
             # Try this before enforcing with Numpy atleast to account for custom classes for weights
-            self._nSizeIn, self._nSize = mfW.shape
-            self._mfW = mfW
+            self._size_in, self._size = weights.shape
+            self._mfW = weights
         except Exception:
-            mfW = np.atleast_2d(mfW)
-            self._nSizeIn, self._nSize = mfW.shape
-            self._mfW = mfW
+            weights = np.atleast_2d(weights)
+            self._size_in, self._size = weights.shape
+            self._mfW = weights
 
-        # - Check and assign tDt and fNoiseStd
+        # - Check and assign dt and noise_std
         assert (
-            np.size(tDt) == 1 and np.size(fNoiseStd) == 1
-        ), "Layer `{}`: `tDt` and `fNoiseStd` must be scalars.".format(self.strName)
+            np.size(dt) == 1 and np.size(noise_std) == 1
+        ), "Layer `{}`: `dt` and `noise_std` must be scalars.".format(self.name)
 
         # - Assign default noise
-        if fNoiseStd is None:
-            fNoiseStd = 0.0
+        if noise_std is None:
+            noise_std = 0.0
 
-        # - Check tDt
-        assert tDt is not None, "`tDt` must be a numerical value"
+        # - Check dt
+        assert dt is not None, "`dt` must be a numerical value"
 
-        self._tDt = tDt
-        self.fNoiseStd = fNoiseStd
-        self._nTimeStep = 0
+        self._dt = dt
+        self.noise_std = noise_std
+        self._timestep = 0
 
     ### --- Common methods
 
     def _determine_timesteps(
         self,
-        tsInput: Optional[TimeSeries] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
+        ts_input: Optional[TimeSeries] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
     ) -> int:
         """
         _determine_timesteps - Determine over how many time steps to evolve with the given input
 
-        :param tsInput:       TimeSeries  TxM or Tx1 Input signals for this layer
-        :param tDuration:     float  Duration of the desired evolution, in seconds
-        :param nNumTimeSteps: int  Number of evolution time steps
+        :param ts_input:       TimeSeries  TxM or Tx1 Input signals for this layer
+        :param duration:     float  Duration of the desired evolution, in seconds
+        :param num_timesteps: int  Number of evolution time steps
 
-        :return nNumTimeSteps: int  Number of evolution time steps
+        :return num_timesteps: int  Number of evolution time steps
         """
 
-        if nNumTimeSteps is None:
-            # - Determine nNumTimeSteps
-            if tDuration is None:
-                # - Determine tDuration
+        if num_timesteps is None:
+            # - Determine num_timesteps
+            if duration is None:
+                # - Determine duration
                 assert (
-                    tsInput is not None
-                ), "Layer `{}`: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
-                    self.strName
+                    ts_input is not None
+                ), "Layer `{}`: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
+                    self.name
                 )
 
-                if tsInput.periodic:
+                if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.duration
+                    duration = ts_input.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.t_stop - self.t
-                    assert tDuration > 0, (
+                    duration = ts_input.t_stop - self.t
+                    assert duration > 0, (
                         "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
-                            self.strName
+                            self.name
                         )
-                        + " `tsInput` finishes before the current evolution time."
+                        + " `ts_input` finishes before the current evolution time."
                     )
-            nNumTimeSteps = int(np.floor((tDuration + fTolAbs) / self.tDt))
+            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
         else:
             assert (
-                isinstance(nNumTimeSteps, int) and nNumTimeSteps >= 0
-            ), "Layer `{}`: nNumTimeSteps must be a non-negative integer.".format(
-                self.strName
+                isinstance(num_timesteps, int) and num_timesteps >= 0
+            ), "Layer `{}`: num_timesteps must be a non-negative integer.".format(
+                self.name
             )
 
-        return nNumTimeSteps
+        return num_timesteps
 
     def _prepare_input(
         self,
-        tsInput: Optional[TSContinuous] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, np.ndarray, float):
         """
         _prepare_input - Sample input, set up time base
 
-        :param tsInput:       TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:     float Duration of the desired evolution, in seconds
-        :param nNumTimeSteps: int Number of evolution time steps
+        :param ts_input:       TimeSeries TxM or Tx1 Input signals for this layer
+        :param duration:     float Duration of the desired evolution, in seconds
+        :param num_timesteps: int Number of evolution time steps
 
-        :return: (vtTimeBase, mfInputStep, tDuration)
+        :return: (vtTimeBase, mfInputStep, duration)
             vtTimeBase:     ndarray T1 Discretised time base for evolution
             mfInputStep:    ndarray (T1xN) Discretised input signal for layer
-            nNumTimeSteps:  int Actual number of evolution time steps
+            num_timesteps:  int Actual number of evolution time steps
         """
 
-        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
-        vtTimeBase = self._gen_time_trace(self.t, nNumTimeSteps)
+        vtTimeBase = self._gen_time_trace(self.t, num_timesteps)
 
-        if tsInput is not None:
-            # - Make sure vtTimeBase matches tsInput
-            if not isinstance(tsInput, TSEvent):
-                if not tsInput.periodic:
-                    # - If time base limits are very slightly beyond tsInput.t_start and tsInput.t_stop, match them
+        if ts_input is not None:
+            # - Make sure vtTimeBase matches ts_input
+            if not isinstance(ts_input, TSEvent):
+                if not ts_input.periodic:
+                    # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
                     if (
-                        tsInput.t_start - 1e-3 * self.tDt
+                        ts_input.t_start - 1e-3 * self.dt
                         <= vtTimeBase[0]
-                        <= tsInput.t_start
+                        <= ts_input.t_start
                     ):
-                        vtTimeBase[0] = tsInput.t_start
+                        vtTimeBase[0] = ts_input.t_start
                     if (
-                        tsInput.t_stop
+                        ts_input.t_stop
                         <= vtTimeBase[-1]
-                        <= tsInput.t_stop + 1e-3 * self.tDt
+                        <= ts_input.t_stop + 1e-3 * self.dt
                     ):
-                        vtTimeBase[-1] = tsInput.t_stop
+                        vtTimeBase[-1] = ts_input.t_stop
 
-                # - Warn if evolution period is not fully contained in tsInput
-                if not (tsInput.contains(vtTimeBase) or tsInput.periodic):
+                # - Warn if evolution period is not fully contained in ts_input
+                if not (ts_input.contains(vtTimeBase) or ts_input.periodic):
                     warn(
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.strName, vtTimeBase[0], vtTimeBase[-1]
+                            self.name, vtTimeBase[0], vtTimeBase[-1]
                         )
                         + "not fully contained in input signal (t = {} to {})".format(
-                            tsInput.t_start, tsInput.t_stop
+                            ts_input.t_start, ts_input.t_stop
                         )
                     )
 
             # - Sample input trace and check for correct dimensions
-            mfInputStep = self._check_input_dims(tsInput(vtTimeBase))
+            mfInputStep = self._check_input_dims(ts_input(vtTimeBase))
 
             # - Treat "NaN" as zero inputs
             mfInputStep[np.where(np.isnan(mfInputStep))] = 0
 
         else:
             # - Assume zero inputs
-            mfInputStep = np.zeros((np.size(vtTimeBase), self.nSizeIn))
+            mfInputStep = np.zeros((np.size(vtTimeBase), self.size_in))
 
-        return vtTimeBase, mfInputStep, nNumTimeSteps
+        return vtTimeBase, mfInputStep, num_timesteps
 
     def _prepare_input_events(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
         _prepare_input_events - Sample input from TSEvent, set up time base
 
-        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:    float Duration of the desired evolution, in seconds
-        :param nNumTimeSteps int Number of evolution time steps
+        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param duration:    float Duration of the desired evolution, in seconds
+        :param num_timesteps int Number of evolution time steps
 
         :return:
             mnSpikeRaster:    ndarray Boolean or integer raster containing spike info
-            nNumTimeSteps:    ndarray Number of evlution time steps
+            num_timesteps:    ndarray Number of evlution time steps
         """
-        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Extract spike timings and channels
-        if tsInput is not None:
+        if ts_input is not None:
             # Extract spike data from the input variable
-            mnSpikeRaster = tsInput.raster(
-                dt=self.tDt,
+            mnSpikeRaster = ts_input.raster(
+                dt=self.dt,
                 t_start=self.t,
-                num_timesteps=nNumTimeSteps,
-                channels=np.arange(self.nSizeIn),
+                num_timesteps=num_timesteps,
+                channels=np.arange(self.size_in),
                 add_events=(self.bAddEvents if hasattr(self, "bAddEvents") else False),
             )[2]
             # - Make sure size is correct
-            mnSpikeRaster = mnSpikeRaster[:nNumTimeSteps, :]
+            mnSpikeRaster = mnSpikeRaster[:num_timesteps, :]
 
         else:
-            mnSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn))
+            mnSpikeRaster = np.zeros((num_timesteps, self.size_in))
 
-        return mnSpikeRaster, nNumTimeSteps
+        return mnSpikeRaster, num_timesteps
 
     def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
         """
         Verify if dimension of input matches layer instance. If input
-        dimension == 1, scale it up to self._nSizeIn by repeating signal.
+        dimension == 1, scale it up to self._size_in by repeating signal.
             mfInput : np.ndarray with input data
             return : mfInput, possibly with dimensions repeated
         """
-        # - Replicate `tsInput` if necessary
+        # - Replicate `ts_input` if necessary
         if mfInput.ndim == 1 or (mfInput.ndim > 1 and mfInput.shape[1]) == 1:
-            mfInput = np.repeat(mfInput.reshape((-1, 1)), self._nSizeIn, axis=1)
+            mfInput = np.repeat(mfInput.reshape((-1, 1)), self._size_in, axis=1)
         else:
             # - Check dimensionality of input
             assert (
-                mfInput.shape[1] == self._nSizeIn
+                mfInput.shape[1] == self._size_in
             ), "Layer `{}`: Input dimensionality {} does not match layer input size {}.".format(
-                self.strName, mfInput.shape[1], self._nSizeIn
+                self.name, mfInput.shape[1], self._size_in
             )
 
         # - Return possibly corrected input
         return mfInput
 
-    def _gen_time_trace(self, tStart: float, nNumTimeSteps: int) -> np.ndarray:
+    def _gen_time_trace(self, tStart: float, num_timesteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at tStart, of length nNumTimeSteps+1 with
-        time step length self._tDt. Make sure it does not go beyond
-        tStart+tDuration.
+        Generate a time trace starting at tStart, of length num_timesteps+1 with
+        time step length self._dt. Make sure it does not go beyond
+        tStart+duration.
 
-        :return vtTimeTrace, tDuration
+        :return vtTimeTrace, duration
         """
         # - Generate a trace
-        vtTimeTrace = np.arange(nNumTimeSteps + 1) * self._tDt + tStart
+        vtTimeTrace = np.arange(num_timesteps + 1) * self._dt + tStart
 
         return vtTimeTrace
 
@@ -397,7 +397,7 @@ class Layer(ABC):
         """
         _expand_to_shape: Replicate out a scalar to an array of shape tupShape
 
-        :param oInput:          scalar or array-like (nSize)
+        :param oInput:          scalar or array-like (size)
         :param tupShape:        tuple of int Shape that input should be expanded to
         :param sVariableName:   str Name of the variable to include in error messages
         :param bAllowNone:      bool Allow None as argument for oInput
@@ -405,7 +405,7 @@ class Layer(ABC):
         """
         if not bAllowNone:
             assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
-                self.strName, sVariableName
+                self.name, sVariableName
             )
 
         nTotalSize = reduce(lambda m, n: m * n, tupShape)
@@ -417,25 +417,25 @@ class Layer(ABC):
         assert (
             np.size(oInput) == nTotalSize
         ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
-            self.strName, sVariableName, nTotalSize
+            self.name, sVariableName, nTotalSize
         )
 
         # - Return object of correct shape
         return np.reshape(oInput, tupShape)
 
     def _expand_to_size(
-        self, oInput, nSize: int, sVariableName: str = "input", bAllowNone: bool = True
+        self, oInput, size: int, sVariableName: str = "input", bAllowNone: bool = True
     ) -> np.ndarray:
         """
-        _expand_to_size: Replicate out a scalar to nSize
+        _expand_to_size: Replicate out a scalar to size
 
-        :param oInput:          scalar or array-like (nSize)
-        :param nSize:           integer Size that input should be expanded to
+        :param oInput:          scalar or array-like (size)
+        :param size:           integer Size that input should be expanded to
         :param sVariableName:   str Name of the variable to include in error messages
         :param bAllowNone:      bool Allow None as argument for oInput
         :return:                np.ndarray (N) vector
         """
-        return self._expand_to_shape(oInput, (nSize,), sVariableName, bAllowNone)
+        return self._expand_to_shape(oInput, (size,), sVariableName, bAllowNone)
 
     def _expand_to_net_size(
         self, oInput, sVariableName: str = "input", bAllowNone: bool = True
@@ -448,7 +448,7 @@ class Layer(ABC):
         :param bAllowNone:      bool Allow None as argument for oInput
         :return:                np.ndarray (N) vector
         """
-        return self._expand_to_shape(oInput, (self.nSize,), sVariableName, bAllowNone)
+        return self._expand_to_shape(oInput, (self.size,), sVariableName, bAllowNone)
 
     def _expand_to_weight_size(
         self, oInput, sVariableName: str = "input", bAllowNone: bool = True
@@ -463,7 +463,7 @@ class Layer(ABC):
         """
 
         return self._expand_to_shape(
-            oInput, (self.nSize, self.nSize), sVariableName, bAllowNone
+            oInput, (self.size, self.size), sVariableName, bAllowNone
         )
 
     ### --- String representations
@@ -471,11 +471,11 @@ class Layer(ABC):
     def __str__(self):
         return '{} object: "{}" [{} {} in -> {} {} out]'.format(
             self.__class__.__name__,
-            self.strName,
-            self.nSizeIn,
-            self.cInput.__name__,
-            self.nSize,
-            self.cOutput.__name__,
+            self.name,
+            self.size_in,
+            self.input_type.__name__,
+            self.size,
+            self.output_type.__name__,
         )
 
     def __repr__(self):
@@ -486,31 +486,31 @@ class Layer(ABC):
     @abstractmethod
     def evolve(
         self,
-        tsInput: Optional[TimeSeries] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
+        ts_input: Optional[TimeSeries] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
     ) -> TimeSeries:
         """
         evolve - Abstract method to evolve the state of this layer
 
-        :param tsInput:     TimeSeries (TxM) External input trace to use when evolving the layer
-        :param tDuration:   float Duration in seconds to evolve the layer
-        :param nNumTimeSteps: int Number of time steps to evolve the layer
+        :param ts_input:     TimeSeries (TxM) External input trace to use when evolving the layer
+        :param duration:   float Duration in seconds to evolve the layer
+        :param num_timesteps: int Number of time steps to evolve the layer
         :return:            TimeSeries (TxN) Output of this layer
         """
         pass
 
     # @abstractmethod
     # def stream(self,
-    #            tDuration: float,
-    #            tDt: float,
-    #            bVerbose: bool = False,
+    #            duration: float,
+    #            dt: float,
+    #            verbose: bool = False,
     #           ) -> TimeSeries:
     #     """
     #     stream - Abstract method to evolve the state of this layer, in a streaming format
     #
-    #     :param tDuration: float Total duration to be streamed
-    #     :param tDt:       float Streaming time-step (multiple of layer.tDt)
+    #     :param duration: float Total duration to be streamed
+    #     :param dt:       float Streaming time-step (multiple of layer.dt)
     #
     #     :yield TimeSeries raw tuple representation on each time step
     #     """
@@ -522,14 +522,14 @@ class Layer(ABC):
 
         :return: None
         """
-        self.vState = np.zeros(self.nSize)
+        self.state = np.zeros(self.size)
 
     def reset_time(self):
         """
         reset_time - Reset the internal clock
         :return:
         """
-        self._nTimeStep = 0
+        self._timestep = 0
 
     def randomize_state(self):
         """
@@ -539,7 +539,9 @@ class Layer(ABC):
         """
         # create random initial state with a gaussian distribution with mean
         # the values that were given and std the 20% of the absolute value
-        self.vState = np.random.normal(self.vState, np.abs(self.vState)*0.02, size=(self.nSize,))
+        self.state = np.random.normal(
+            self.state, np.abs(self.state) * 0.02, size=(self.size,)
+        )
 
     def reset_all(self):
         self.reset_time()
@@ -548,37 +550,37 @@ class Layer(ABC):
     #### --- Properties
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSContinuous
 
     @property
-    def cInput(self):
+    def input_type(self):
         return TSContinuous
 
     @property
-    def nSize(self) -> int:
-        return self._nSize
+    def size(self) -> int:
+        return self._size
 
     @property
-    def nSizeIn(self) -> int:
-        return self._nSizeIn
+    def size_in(self) -> int:
+        return self._size_in
 
     @property
-    def tDt(self) -> float:
-        return self._tDt
+    def dt(self) -> float:
+        return self._dt
 
-    @tDt.setter
-    def tDt(self, fNewDt: float):
-        self._tDt = to_scalar(fNewDt)
+    @dt.setter
+    def dt(self, fNewDt: float):
+        self._dt = to_scalar(fNewDt)
 
     @property
-    def mfW(self) -> np.ndarray:
+    def weights(self) -> np.ndarray:
         return self._mfW
 
-    @mfW.setter
-    def mfW(self, mfNewW: np.ndarray):
-        assert mfNewW is not None, "Layer `{}`: mfW must not be None.".format(
-            self.strName
+    @weights.setter
+    def weights(self, mfNewW: np.ndarray):
+        assert mfNewW is not None, "Layer `{}`: weights must not be None.".format(
+            self.name
         )
 
         # - Ensure weights are at least 2D
@@ -587,56 +589,56 @@ class Layer(ABC):
         except AssertionError:
             warn(
                 "Layer `{}`: `mfNewW must be at least of dimension 2".format(
-                    self.strName
+                    self.name
                 )
             )
             mfNewW = np.atleast_2d(mfNewW)
 
         # - Check dimensionality of new weights
         assert (
-            mfNewW.size == self.nSizeIn * self.nSize
+            mfNewW.size == self.size_in * self.size
         ), "Layer `{}`: `mfNewW` must be of shape {}".format(
-            (self.strName, self.nSizeIn, self.nSize)
+            (self.name, self.size_in, self.size)
         )
 
         # - Save weights with appropriate size
-        self._mfW = np.reshape(mfNewW, (self.nSizeIn, self.nSize))
+        self._mfW = np.reshape(mfNewW, (self.size_in, self.size))
 
     @property
-    def vState(self):
-        return self._vState
+    def state(self):
+        return self._state
 
-    @vState.setter
-    def vState(self, vNewState):
+    @state.setter
+    def state(self, vNewState):
         assert (
-            np.size(vNewState) == self.nSize
+            np.size(vNewState) == self.size
         ), "Layer `{}`: `vNewState` must have {} elements".format(
-            self.strName, self.nSize
+            self.name, self.size
         )
 
-        self._vState = vNewState
+        self._state = vNewState
 
     @property
-    def fNoiseStd(self):
-        return self._fNoiseStd
+    def noise_std(self):
+        return self._noise_std
 
-    @fNoiseStd.setter
-    def fNoiseStd(self, fNewNoiseStd):
-        self._fNoiseStd = to_scalar(fNewNoiseStd)
+    @noise_std.setter
+    def noise_std(self, fNewNoiseStd):
+        self._noise_std = to_scalar(fNewNoiseStd)
 
     @property
     def t(self):
-        return self._nTimeStep * self.tDt
+        return self._timestep * self.dt
 
     @t.setter
     def t(self, new_t):
-        self._nTimeStep = int(np.floor(new_t / self.tDt))
+        self._timestep = int(np.floor(new_t / self.dt))
 
     # - Temporary, for maintaining compatibility with layers that still use _t
     @property
     def _t(self):
-        return self._nTimeStep * self.tDt
+        return self._timestep * self.dt
 
     @_t.setter
     def _t(self, new_t):
-        self._nTimeStep = int(np.floor(new_t / self.tDt))
+        self._timestep = int(np.floor(new_t / self.dt))

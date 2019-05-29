@@ -16,7 +16,7 @@ from .. import Layer
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
-fTolAbs = 1e-9
+tol_abs = 1e-9
 
 __all__ = ["FFCLIAF", "RecCLIAF"]
 
@@ -28,33 +28,33 @@ class CLIAF(Layer):
 
     def __init__(
         self,
-        mfWIn: Union[np.ndarray, CNNWeight, CNNWeightTorch],
+        weights_in: Union[np.ndarray, CNNWeight, CNNWeightTorch],
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
         vfVSubtract: Union[ArrayLike, float, None] = 8,
-        tDt: float = 1,
+        dt: float = 1,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-        strName: str = "unnamed",
+        name: str = "unnamed",
     ):
         """
         CLIAF - Feedforward layer of integrate and fire neurons with constant leak
 
-        :param mfWIn:       array-like  Input weight matrix
+        :param weights_in:       array-like  Input weight matrix
         :param vfVBias:     array-like  Constant bias to be added to state at each time step
         :param vfVThresh:   array-like  Spiking threshold
         :param vfVReset:    array-like  Reset potential after spike (also see param bSubtract)
         :param vfVSubtract: array-like  If not None, subtract provided values
                                         from neuron state after spike. Otherwise will reset.
         :vnIdMonitor:       array-like  IDs of neurons to be recorded
-        :param strName:     str  Name of this layer.
+        :param name:     str  Name of this layer.
         """
 
         # Call parent constructor
-        super().__init__(mfW=mfWIn, tDt=tDt, strName=strName)
+        super().__init__(weights=weights_in, dt=dt, name=name)
 
         # - Set neuron parameters
-        self.mfWIn = mfWIn
+        self.weights_in = weights_in
         self.vfVBias = vfVBias
         self.vfVThresh = vfVThresh
         self.vfVSubtract = vfVSubtract
@@ -68,7 +68,7 @@ class CLIAF(Layer):
         aStateTimeSeries: list,
         tCurrentTime: float,
         vnIdOut: Union[ArrayLike, bool] = True,
-        vState: Optional[np.ndarray] = None,
+        state: Optional[np.ndarray] = None,
         bDebug: bool = False,
     ):
         """
@@ -82,132 +82,132 @@ class CLIAF(Layer):
                                               if True all the neuron's states
                                               will be added to the record.
                                               Default = True
-        :param vState:           np.ndarray If not None, record this as state,
-                                            otherwise self.vState
+        :param state:           np.ndarray If not None, record this as state,
+                                            otherwise self.state
         :param bDebug:           bool Print debug info
         """
 
-        vState = self.vState if vState is None else vState
+        state = self.state if state is None else state
 
         if vnIdOut is True:
-            vnIdOut = np.arange(self.nSize)
+            vnIdOut = np.arange(self.size)
         elif vnIdOut is False:
             # - Do nothing
             return
 
         # Update record of state changes
         for nIdOutIter in np.asarray(vnIdOut):
-            aStateTimeSeries.append([tCurrentTime, nIdOutIter, vState[nIdOutIter]])
+            aStateTimeSeries.append([tCurrentTime, nIdOutIter, state[nIdOutIter]])
             if bDebug:
-                print([tCurrentTime, nIdOutIter, vState[nIdOutIter, 0]])
+                print([tCurrentTime, nIdOutIter, state[nIdOutIter, 0]])
 
     def _prepare_input(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
         _prepare_input - Sample input, set up time base
 
-        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:    float Duration of the desired evolution, in seconds
-        :param nNumTimeSteps int Number of evolution time steps
+        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param duration:    float Duration of the desired evolution, in seconds
+        :param num_timesteps int Number of evolution time steps
 
         :return:
             mfSpikeRaster:    ndarray Boolean raster containing spike info
-            nNumTimeSteps:    int Number of evlution time steps
+            num_timesteps:    int Number of evlution time steps
         """
         print("Preparing input for processing")
-        if nNumTimeSteps is None:
-            # - Determine nNumTimeSteps
-            if tDuration is None:
-                # - Determine tDuration
+        if num_timesteps is None:
+            # - Determine num_timesteps
+            if duration is None:
+                # - Determine duration
                 assert (
-                    tsInput is not None
-                ), "Layer {}: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
-                    self.strName
+                    ts_input is not None
+                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
+                    self.name
                 )
 
-                if tsInput.periodic:
+                if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.duration
+                    duration = ts_input.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.t_stop - self.t
-                    assert tDuration > 0, (
+                    duration = ts_input.t_stop - self.t
+                    assert duration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.strName
+                            self.name
                         )
-                        + "`tsInput` finishes before the current "
+                        + "`ts_input` finishes before the current "
                         "evolution time."
                     )
-            # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+            # - Discretize duration wrt self.dt
+            num_timesteps = int((duration + tol_abs) // self.dt)
         else:
             assert isinstance(
-                nNumTimeSteps, int
-            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+                num_timesteps, int
+            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
 
         # - Extract spike timings and channels
-        if tsInput is not None:
+        if ts_input is not None:
             # Extract spike data from the input variable
-            mfSpikeRaster = tsInput.raster(
-                dt=self.tDt,
+            mfSpikeRaster = ts_input.raster(
+                dt=self.dt,
                 t_start=self.t,
-                t_stop=(self._nTimeStep + nNumTimeSteps) * self._tDt,
-                channels=np.arange(self.nSizeIn),
+                t_stop=(self._timestep + num_timesteps) * self._dt,
+                channels=np.arange(self.size_in),
             )
             # - Make sure size is correct
-            mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
+            mfSpikeRaster = mfSpikeRaster[:num_timesteps, :]
 
         else:
-            mfSpikeRaster = np.zeros((nNumTimeSteps, self.nSizeIn), bool)
+            mfSpikeRaster = np.zeros((num_timesteps, self.size_in), bool)
 
         print("Done preparing input!")
-        return mfSpikeRaster, nNumTimeSteps
+        return mfSpikeRaster, num_timesteps
 
     def reset_time(self):
         # - Set internal clock to 0
-        self._nTimeStep = 0
+        self._timestep = 0
 
     def reset_state(self):
         # - Reset neuron state to 0
-        self._vState = self.vfVReset
+        self._state = self.vfVReset
 
     ### --- Properties
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSEvent
 
     @property
-    def cInput(self):
+    def input_type(self):
         return TSEvent
 
     @property
-    def mfWIn(self):
-        return self._mfWIn
+    def weights_in(self):
+        return self._weights_in
 
-    @mfWIn.setter
-    def mfWIn(self, mfNewW):
+    @weights_in.setter
+    def weights_in(self, mfNewW):
         if isinstance(mfNewW, CNNWeight) or isinstance(mfNewW, CNNWeightTorch):
-            assert mfNewW.shape == (self.nSizeIn, self.nSize)
-            self._mfWIn = mfNewW
+            assert mfNewW.shape == (self.size_in, self.size)
+            self._weights_in = mfNewW
         else:
             assert (
-                np.size(mfNewW) == self.nSizeIn * self.nSize
-            ), "`mfWIn` must have [{}] elements.".format(self.nSizeIn * self.nSize)
-            self._mfWIn = np.array(mfNewW).reshape(self.nSizeIn, self.nSize)
+                np.size(mfNewW) == self.size_in * self.size
+            ), "`weights_in` must have [{}] elements.".format(self.size_in * self.size)
+            self._weights_in = np.array(mfNewW).reshape(self.size_in, self.size)
 
     @property
-    def vState(self):
-        return self._vState
+    def state(self):
+        return self._state
 
-    @vState.setter
-    def vState(self, vNewState):
-        self._vState = self._expand_to_net_size(vNewState, "vState", bAllowNone=False)
+    @state.setter
+    def state(self, vNewState):
+        self._state = self._expand_to_net_size(vNewState, "state", bAllowNone=False)
 
     @property
     def vfVThresh(self):
@@ -249,10 +249,10 @@ class CLIAF(Layer):
 
         self._vfVBias = self._expand_to_net_size(vfNewBias, "vfVBias", bAllowNone=False)
 
-    @Layer.tDt.setter
-    def tDt(self, tNewDt):
-        assert tNewDt > 0, "tDt must be greater than 0."
-        self._tDt = tNewDt
+    @Layer.dt.setter
+    def dt(self, tNewDt):
+        assert tNewDt > 0, "dt must be greater than 0."
+        self._dt = tNewDt
 
     @property
     def vnIdMonitor(self):
@@ -261,7 +261,7 @@ class CLIAF(Layer):
     @vnIdMonitor.setter
     def vnIdMonitor(self, vnNewIDs):
         if vnNewIDs is True:
-            self._vnIdMonitor = np.arange(self.nSize)
+            self._vnIdMonitor = np.arange(self.size)
         elif vnNewIDs is None or vnNewIDs is False or np.size(vnNewIDs) == 0:
             self._vnIdMonitor = np.array([])
         else:
@@ -275,63 +275,63 @@ class FFCLIAF(CLIAF):
 
     def __init__(
         self,
-        mfW: Union[np.ndarray, CNNWeight],
+        weights: Union[np.ndarray, CNNWeight],
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
         vfVSubtract: Union[ArrayLike, float, None] = 8,
-        tDt: float = 1,
+        dt: float = 1,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-        strName: str = "unnamed",
+        name: str = "unnamed",
     ):
         """
         FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
 
-        :param mfW:         array-like  Input weight matrix
+        :param weights:         array-like  Input weight matrix
         :param vfVBias:     array-like  Constant bias to be added to state at each time step
         :param vfVThresh:   array-like  Spiking threshold
         :param vfVReset:    array-like  Reset potential after spike (also see param bSubtract)
         :param vfVSubtract: array-like  If not None, subtract provided values
                                         from neuron state after spike. Otherwise will reset.
         :vnIdMonitor:       array-like  IDs of neurons to be recorded
-        :param strName:     str  Name of this layer.
+        :param name:     str  Name of this layer.
         """
 
         # Call parent constructor
         super().__init__(
-            mfWIn=mfW,
+            weights_in=weights,
             vfVBias=vfVBias,
             vfVThresh=vfVThresh,
             vfVReset=vfVReset,
             vfVSubtract=vfVSubtract,
-            tDt=tDt,
+            dt=dt,
             vnIdMonitor=vnIdMonitor,
-            strName=strName,
+            name=name,
         )
 
         self.reset_state()
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        mfInptSpikeRaster, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
 
         # Hold the sate of network at any time step when updated
@@ -340,21 +340,21 @@ class FFCLIAF(CLIAF):
         liSpikeIDs = []
 
         # Local variables
-        vState = self.vState.astype(np.float32)
+        state = self.state.astype(np.float32)
         vfVThresh = self.vfVThresh
-        mfWIn = self.mfWIn
+        weights_in = self.weights_in
         vfVBias = self.vfVBias
-        tDt = self.tDt
-        nSize = self.nSize
+        dt = self.dt
+        size = self.size
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
 
-        # - Check type of mfWIn
-        bCNNWeights = isinstance(mfWIn, CNNWeight) or isinstance(mfWIn, CNNWeightTorch)
+        # - Check type of weights_in
+        bCNNWeights = isinstance(weights_in, CNNWeight) or isinstance(weights_in, CNNWeightTorch)
         # - Indices of neurons to be monitored
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
         # - Count number of spikes for each neuron in each time step
-        vnNumSpikes = np.zeros(nSize, int)
+        vnNumSpikes = np.zeros(size, int)
         # - Time before first time step
         tCurrentTime = self.t
 
@@ -370,61 +370,61 @@ class FFCLIAF(CLIAF):
 
             # Update neuron states
             if bCNNWeights:
-                # vfUpdate = mfWIn.reverse_dot(vbInptSpikeRaster) # This is too slow, only if network activity is super sparse
-                vfUpdate = mfWIn[vbInptSpikeRaster]
+                # vfUpdate = weights_in.reverse_dot(vbInptSpikeRaster) # This is too slow, only if network activity is super sparse
+                vfUpdate = weights_in[vbInptSpikeRaster]
             else:
-                vfUpdate = vbInptSpikeRaster @ mfWIn
+                vfUpdate = vbInptSpikeRaster @ weights_in
 
             # State update (write this way to avoid that type casting fails)
-            vState = vState + vfUpdate + vfVBias
+            state = state + vfUpdate + vfVBias
 
             # - Update current time
-            tCurrentTime += tDt
+            tCurrentTime += dt
 
             if vnIdMonitor is not None:
                 # - Record state before reset
                 self._add_to_record(
-                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, state=state
                 )
 
             # - Reset spike counter
             vnNumSpikes[:] = 0
 
             # - Check threshold crossings for spikes
-            vbRecSpikeRaster = vState >= vfVThresh
+            vbRecSpikeRaster = state >= vfVThresh
 
             # - Reset or subtract from membrane state after spikes
             if vfVSubtract is not None:
                 while vbRecSpikeRaster.any():
                     # - Subtract from states
-                    vState[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
+                    state[vbRecSpikeRaster] -= vfVSubtract[vbRecSpikeRaster]
                     # - Add to spike counter
                     vnNumSpikes[vbRecSpikeRaster] += 1
                     # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = vState >= vfVThresh
+                    vbRecSpikeRaster = state >= vfVThresh
             else:
                 # - Add to spike counter
                 vnNumSpikes = vbRecSpikeRaster.astype(int)
                 # - Reset neuron states
-                vState[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
+                state[vbRecSpikeRaster] = vfVReset[vbRecSpikeRaster]
 
             # - Record spikes
             ltSpikeTimes += [tCurrentTime] * np.sum(vnNumSpikes)
-            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumSpikes))
+            liSpikeIDs += list(np.repeat(np.arange(size), vnNumSpikes))
 
             if vnIdMonitor is not None:
                 # - Record state after reset
                 self._add_to_record(
-                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, vState=vState
+                    aStateTimeSeries, tCurrentTime, vnIdOut=vnIdMonitor, state=state
                 )
             np.set_printoptions(precision=4, suppress=True)
 
         # - Update state
-        self._vState = vState
+        self._state = state
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * self.tDt
-        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._timestep * self.dt
+        t_stop = (self._timestep + num_timesteps) * self.dt
 
         # Convert arrays to TimeSeries objects
         tseOut = TSEvent(
@@ -432,13 +432,13 @@ class FFCLIAF(CLIAF):
                 ltSpikeTimes, t_start, t_stop
             ),  # Clip due to possible numerical errors,
             channels=liSpikeIDs,
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
 
         # Update time
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # TODO: Is there a time series object for this too?
         mfStateTimeSeries = np.array(aStateTimeSeries)
@@ -448,14 +448,14 @@ class FFCLIAF(CLIAF):
 
         return tseOut
 
-    # - mfW as synonym for mfWIn
+    # - weights as synonym for weights_in
     @property
-    def mfW(self):
-        return self._mfWIn
+    def weights(self):
+        return self._weights_in
 
-    @mfW.setter
-    def mfW(self, mfNewW):
-        self.mfWIn = mfNewW
+    @weights.setter
+    def weights(self, mfNewW):
+        self.weights_in = mfNewW
 
 
 class RecCLIAF(CLIAF):
@@ -465,25 +465,25 @@ class RecCLIAF(CLIAF):
 
     def __init__(
         self,
-        mfWIn: Union[np.ndarray, CNNWeight],
-        mfWRec: np.ndarray,
+        weights_in: Union[np.ndarray, CNNWeight],
+        weights_rec: np.ndarray,
         vfVBias: Union[ArrayLike, float] = 0,
         vfVThresh: Union[ArrayLike, float] = 8,
         vfVReset: Union[ArrayLike, float] = 0,
         vfVSubtract: Union[ArrayLike, float, None] = 8,
         vtRefractoryTime: Union[ArrayLike, float] = 0,
-        tDt: float = 1e-4,
+        dt: float = 1e-4,
         tSpikeDelay: Optional[float] = None,
         tTauBias: Optional[float] = None,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
         dtypeState: Union[type, str] = float,
-        strName: str = "unnamed",
+        name: str = "unnamed",
     ):
         """
         RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
 
-        :param mfWIn:       array-like  nSizeInxN input weight matrix.
-        :param mfWRec:      array-like  Weight matrix
+        :param weights_in:       array-like  nSizeInxN input weight matrix.
+        :param weights_rec:      array-like  Weight matrix
 
         :param vfVBias:     array-like  Constant bias to be added to state at each time step
         :param vfVThresh:   array-like  Spiking threshold
@@ -492,39 +492,39 @@ class RecCLIAF(CLIAF):
                                         from neuron state after spike. Otherwise will reset.
 
         :param vtRefractoryTime: array-like Nx1 vector of refractory times.
-        :param tDt:         float       time step size
+        :param dt:         float       time step size
         :param tSpikeDelay: float       Time after which a spike within the
                                         layer arrives at the recurrent
                                         synapses of the receiving neurons
-                                        within the network. Rounded down to multiple of tDt.
-                                        Must be at least tDt.
-        :param tTauBias:    float       Period for applying bias. Must be at least tDt.
-                                        Is rounded down to multiple of tDt.
-                                        If None, will be set to tDt
+                                        within the network. Rounded down to multiple of dt.
+                                        Must be at least dt.
+        :param tTauBias:    float       Period for applying bias. Must be at least dt.
+                                        Is rounded down to multiple of dt.
+                                        If None, will be set to dt
 
         :vnIdMonitor:       array-like  IDs of neurons to be recorded
 
         :param dtypeState:  type data type for the membrane potential
 
-        :param strName:     str  Name of this layer.
+        :param name:     str  Name of this layer.
         """
 
         # Call parent constructor
         super().__init__(
-            mfWIn=mfWIn,
+            weights_in=weights_in,
             vfVBias=vfVBias,
             vfVThresh=vfVThresh,
             vfVReset=vfVReset,
             vfVSubtract=vfVSubtract,
-            tDt=tDt,
+            dt=dt,
             vnIdMonitor=vnIdMonitor,
-            strName=strName,
+            name=name,
         )
 
         # - Set recurrent weights
-        self.mfWRec = mfWRec
+        self.weights_rec = weights_rec
         self.tSpikeDelay = tSpikeDelay
-        self.tTauBias = tDt if tTauBias is None else tTauBias
+        self.tTauBias = dt if tTauBias is None else tTauBias
         self.vtRefractoryTime = vtRefractoryTime
         self.dtypeState = dtypeState
 
@@ -532,25 +532,25 @@ class RecCLIAF(CLIAF):
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Show progress bar during evolution
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Show progress bar during evolution
         :return:            TSEvent  output spike series
 
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        mfInptSpikeRaster, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
 
         # Lists for recording spikes
@@ -558,22 +558,22 @@ class RecCLIAF(CLIAF):
         liSpikeIDs = []
 
         # Local variables
-        vState = self.vState
+        state = self.state
         vfVThresh = self.vfVThresh
-        mfWRec = self.mfWRec
-        mfWIn = self.mfWIn
+        weights_rec = self.weights_rec
+        weights_in = self.weights_in
         vfVBias = self.vfVBias
-        nSize = self.nSize
+        size = self.size
         vfVSubtract = self.vfVSubtract
         vfVReset = self.vfVReset
 
-        # - Check type of mfWIn
-        bCNNWeights = isinstance(mfWIn, CNNWeight)
+        # - Check type of weights_in
+        bCNNWeights = isinstance(weights_in, CNNWeight)
 
         # - Deque of arrays with number of delayed spikes for each neuron for each time step
         dqvnNumRecSpikes = self._dqvnNumRecSpikes
         # - Array for storing new recurrent spikes
-        vnNumRecSpikes = np.zeros(self.nSize, int)
+        vnNumRecSpikes = np.zeros(self.size, int)
 
         # - For each neuron store number time steps until refractoriness ends
         vnTSUntilRefrEnds = self._vnTSUntilRefrEnds
@@ -583,10 +583,10 @@ class RecCLIAF(CLIAF):
         vnIdMonitor = None if self.vnIdMonitor.size == 0 else self.vnIdMonitor
 
         # - Boolean array indicating evolution time steps where bias is applied
-        vbBias = np.zeros(nNumTimeSteps)
+        vbBias = np.zeros(num_timesteps)
         # - Determine where bias is applied: Index i corresponds to bias taking effect at
-        #   nTimeStep = self._nTimeStep+1+i, want them when nTimeStep%_nNumTSperBias == 0
-        vbBias[-(self._nTimeStep + 1) % self._nNumTSperBias :: self._nNumTSperBias] = 1
+        #   nTimeStep = self._timestep+1+i, want them when nTimeStep%_nNumTSperBias == 0
+        vbBias[-(self._timestep + 1) % self._nNumTSperBias :: self._nNumTSperBias] = 1
 
         # - State type dependent variables
         dtypeState = self.dtypeState
@@ -594,15 +594,15 @@ class RecCLIAF(CLIAF):
         nStateMax = self._nStateMax
 
         if vnIdMonitor is not None:
-            # States are recorded after update and after spike-triggered reset, i.e. twice per timestep
-            mfRecord = np.zeros((2 * nNumTimeSteps + 1, vnIdMonitor.size))
+            # States are recorded after update and after spike-triggered reset, i.e. twice per _timestep
+            mfRecord = np.zeros((2 * num_timesteps + 1, vnIdMonitor.size))
             # Record initial state of the network
-            mfRecord[0, :] = vState[vnIdMonitor]
+            mfRecord[0, :] = state[vnIdMonitor]
 
-        if bVerbose:
-            rangeIterator = tqdm(range(nNumTimeSteps))
+        if verbose:
+            rangeIterator = tqdm(range(num_timesteps))
         else:
-            rangeIterator = range(nNumTimeSteps)
+            rangeIterator = range(num_timesteps)
 
         # Iterate over all time steps
         for iCurrentTimeStep in rangeIterator:
@@ -613,14 +613,14 @@ class RecCLIAF(CLIAF):
             # Update neuron states
             if bCNNWeights:
                 vfUpdate = (
-                    mfWIn[vbInptSpikeRaster]  # Input spikes
-                    + (dqvnNumRecSpikes.popleft() @ mfWRec)  # Recurrent spikes
+                    weights_in[vbInptSpikeRaster]  # Input spikes
+                    + (dqvnNumRecSpikes.popleft() @ weights_rec)  # Recurrent spikes
                     + (vbBias[iCurrentTimeStep] * vfVBias)  # Bias
                 )
             else:
                 vfUpdate = (
-                    (vbInptSpikeRaster @ mfWIn)  # Input spikes
-                    + (dqvnNumRecSpikes.popleft() @ mfWRec)  # Recurrent spikes
+                    (vbInptSpikeRaster @ weights_in)  # Input spikes
+                    + (dqvnNumRecSpikes.popleft() @ weights_rec)  # Recurrent spikes
                     + (vbBias[iCurrentTimeStep] * vfVBias)  # Bias
                 )
 
@@ -629,14 +629,14 @@ class RecCLIAF(CLIAF):
             vfUpdate[vbRefractory] = 0
 
             # State update (write this way to avoid that type casting fails)
-            vState = np.clip(vState + vfUpdate, nStateMin, nStateMax).astype(dtypeState)
+            state = np.clip(state + vfUpdate, nStateMin, nStateMax).astype(dtypeState)
 
             if vnIdMonitor is not None:
                 # - Record state before reset
-                mfRecord[2 * iCurrentTimeStep + 1] = vState[vnIdMonitor]
+                mfRecord[2 * iCurrentTimeStep + 1] = state[vnIdMonitor]
 
             # - Check threshold crossings for spikes
-            vbSpiking = vState >= vfVThresh
+            vbSpiking = state >= vfVThresh
 
             # - Reset or subtract from membrane state after spikes
             if vfVSubtract is not None:  # - Subtract from potential
@@ -649,25 +649,25 @@ class RecCLIAF(CLIAF):
                         # - Add to spike counter
                         vnNumRecSpikes[vbSpiking] += 1
                         # - Subtract from states
-                        vState[vbSpiking] = np.clip(
-                            vState[vbSpiking] - vfVSubtract[vbSpiking],
+                        state[vbSpiking] = np.clip(
+                            state[vbSpiking] - vfVSubtract[vbSpiking],
                             nStateMin,
                             nStateMax,
                         ).astype(dtypeState)
                         # - Neurons that are still above threshold will emit another spike
-                        vbSpiking = vState >= vfVThresh
+                        vbSpiking = state >= vfVThresh
                 else:  # With refractoriness, at most one spike per time step is possible
                     # - Add to spike counter
                     vnNumRecSpikes = vbSpiking.astype(int)
                     # - Reset neuron states
-                    vState[vbSpiking] = np.clip(
-                        vState[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
+                    state[vbSpiking] = np.clip(
+                        state[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
                     ).astype(dtypeState)
             else:  # - Reset potential
                 # - Add to spike counter
                 vnNumRecSpikes = vbSpiking.astype(int)
                 # - Reset neuron states
-                vState[vbSpiking] = np.clip(
+                state[vbSpiking] = np.clip(
                     vfVReset[vbSpiking], nStateMin, nStateMax
                 ).astype(dtypeState)
 
@@ -681,11 +681,11 @@ class RecCLIAF(CLIAF):
 
             # - Record spikes
             lnTSSpikes += [iCurrentTimeStep] * np.sum(vnNumRecSpikes)
-            liSpikeIDs += list(np.repeat(np.arange(nSize), vnNumRecSpikes))
+            liSpikeIDs += list(np.repeat(np.arange(size), vnNumRecSpikes))
 
             if vnIdMonitor is not None:
                 # - Record state after reset
-                mfRecord[2 * iCurrentTimeStep + 2] = vState[vnIdMonitor]
+                mfRecord[2 * iCurrentTimeStep + 2] = state[vnIdMonitor]
 
         # - Store IDs of neurons that would spike in furute time steps
         self._dqvnNumRecSpikes = dqvnNumRecSpikes
@@ -694,16 +694,16 @@ class RecCLIAF(CLIAF):
         self._vnTSUntilRefrEnds = vnTSUntilRefrEnds
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * self.tDt
-        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._timestep * self.dt
+        t_stop = (self._timestep + num_timesteps) * self.dt
 
         # Generate output sime series
-        vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._nTimeStep) * self.tDt
+        vtSpikeTimes = (np.array(lnTSSpikes) + 1 + self._timestep) * self.dt
         tseOut = TSEvent(
             # Clip due to possible numerical errors,
             times=np.clip(vtSpikeTimes, t_start, t_stop),
             channels=liSpikeIDs,
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
@@ -711,15 +711,15 @@ class RecCLIAF(CLIAF):
         if vnIdMonitor is not None:
             # - Store recorded data in timeseries
             vtRecordTimes = np.repeat(
-                (self._nTimeStep + np.arange(nNumTimeSteps + 1)) * self.tDt, 2
+                (self._timestep + np.arange(num_timesteps + 1)) * self.dt, 2
             )[1:]
             self.tscRecorded = TSContinuous(vtRecordTimes, mfRecord)
 
         # Update time
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Update state
-        self._vState = vState
+        self._state = state
 
         return tseOut
 
@@ -727,19 +727,19 @@ class RecCLIAF(CLIAF):
         # - Delete spikes that would arrive in recurrent synapses during future time steps
         #   by filling up deque with zeros
         nNumTSperDelay = self._dqvnNumRecSpikes.maxlen
-        self._dqvnNumRecSpikes += [np.zeros(self.nSize) for _ in range(nNumTSperDelay)]
+        self._dqvnNumRecSpikes += [np.zeros(self.size) for _ in range(nNumTSperDelay)]
         # - Reset refractoriness
-        self._vnTSUntilRefrEnds = np.zeros(self.nSize, int)
+        self._vnTSUntilRefrEnds = np.zeros(self.size, int)
         # - Reset neuron state to self.vfVReset
-        self.vState = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(
+        self.state = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(
             self.dtypeState
         )
 
     def randomize_state(self):
         # - Set state to random values between reset value and theshold
-        self.vState = np.clip(
+        self.state = np.clip(
             (np.amin(self.vfVThresh) - np.amin(self.vfVReset))
-            * np.random.rand(self.nSize)
+            * np.random.rand(self.size)
             - np.amin(self.vfVReset),
             self._nStateMin,
             self._nStateMax,
@@ -748,39 +748,39 @@ class RecCLIAF(CLIAF):
     ### --- Properties
 
     @property
-    def mfW(self):
-        return self.mfWRec
+    def weights(self):
+        return self.weights_rec
 
-    # - mfW as synonym for mfWRec
-    @mfW.setter
-    def mfW(self, mfNewW):
-        self.mfWRec = mfNewW
+    # - weights as synonym for weights_rec
+    @weights.setter
+    def weights(self, mfNewW):
+        self.weights_rec = mfNewW
 
     @property
-    def mfWRec(self):
-        return self._mfWRec
+    def weights_rec(self):
+        return self._weights_rec
 
-    @mfWRec.setter
-    def mfWRec(self, mfNewW):
-        self._mfWRec = self._expand_to_weight_size(mfNewW, "mfWRec", bAllowNone=False)
+    @weights_rec.setter
+    def weights_rec(self, mfNewW):
+        self._weights_rec = self._expand_to_weight_size(mfNewW, "weights_rec", bAllowNone=False)
 
     @property
     def tTauBias(self):
-        return self._nNumTSperBias * self._tDt
+        return self._nNumTSperBias * self._dt
 
     @tTauBias.setter
     def tTauBias(self, tNewBias):
         assert (
-            np.isscalar(tNewBias) and tNewBias >= self.tDt
-        ), "Layer `{}`: tTauBias must be a scalar greater than tDt ({})".format(
-            self.strName, self.tDt
+            np.isscalar(tNewBias) and tNewBias >= self.dt
+        ), "Layer `{}`: tTauBias must be a scalar greater than dt ({})".format(
+            self.name, self.dt
         )
-        # - tNewBias is rounded to multiple of tDt and at least tDt
-        self._nNumTSperBias = int(np.floor(tNewBias / self.tDt))
+        # - tNewBias is rounded to multiple of dt and at least dt
+        self._nNumTSperBias = int(np.floor(tNewBias / self.dt))
 
     @property
     def tSpikeDelay(self):
-        return self._dqvnNumRecSpikes.maxlen * self._tDt
+        return self._dqvnNumRecSpikes.maxlen * self._dt
 
     @tSpikeDelay.setter
     def tSpikeDelay(self, tNewDelay):
@@ -788,12 +788,12 @@ class RecCLIAF(CLIAF):
             nNumTSperDelay = 1
         else:
             assert (
-                np.isscalar(tNewDelay) and tNewDelay >= self.tDt
-            ), "Layer `{}`: tSpikeDelay must be a scalar greater than tDt ({})".format(
-                self.strName, self.tDt
+                np.isscalar(tNewDelay) and tNewDelay >= self.dt
+            ), "Layer `{}`: tSpikeDelay must be a scalar greater than dt ({})".format(
+                self.name, self.dt
             )
-            # - tNewDelay is rounded to multiple of tDt and at least tDt
-            nNumTSperDelay = int(np.floor(tNewDelay / self.tDt))
+            # - tNewDelay is rounded to multiple of dt and at least dt
+            nNumTSperDelay = int(np.floor(tNewDelay / self.dt))
 
         ## -- Create a deque for holding delayed spikes
         # - Copy spikes from previous deque
@@ -804,19 +804,19 @@ class RecCLIAF(CLIAF):
             self._dqvnNumRecSpikes = deque(lPrevSpikes, maxlen=nNumTSperDelay)
             if nDifference >= 0:
                 self._dqvnNumRecSpikes = deque(
-                    [np.zeros(self.nSize) for _ in range(nDifference)] + lPrevSpikes,
+                    [np.zeros(self.size) for _ in range(nDifference)] + lPrevSpikes,
                     maxlen=nNumTSperDelay,
                 )
             else:
                 self._dqvnNumRecSpikes = deque(lPrevSpikes, maxlen=nNumTSperDelay)
                 print(
                     "Layer `{}`: Last {} spikes in buffer have been lost due to reduction of tSpikeDelay.".format(
-                        self.strName, np.sum(np.array(lPrevSpikes[:-nDifference]))
+                        self.name, np.sum(np.array(lPrevSpikes[:-nDifference]))
                     )
                 )
         else:
             self._dqvnNumRecSpikes = deque(
-                [np.zeros(self.nSize) for _ in range(nNumTSperDelay)],
+                [np.zeros(self.size) for _ in range(nNumTSperDelay)],
                 maxlen=nNumTSperDelay,
             )
 
@@ -825,7 +825,7 @@ class RecCLIAF(CLIAF):
         return (
             None
             if self._vnNumTSperRefractory is None
-            else self._vnNumTSperRefractory * self.tDt
+            else self._vnNumTSperRefractory * self.dt
         )
 
     @vtRefractoryTime.setter
@@ -834,19 +834,19 @@ class RecCLIAF(CLIAF):
             self._vnNumTSperRefractory = None
         else:
             vtRefractoryTime = self._expand_to_net_size(vtNewTime, "vtRefractoryTime")
-            # - vtRefractoryTime is rounded to multiple of tDt and at least tDt
-            self._vnNumTSperRefractory = (np.floor(vtRefractoryTime / self.tDt)).astype(
+            # - vtRefractoryTime is rounded to multiple of dt and at least dt
+            self._vnNumTSperRefractory = (np.floor(vtRefractoryTime / self.dt)).astype(
                 int
             )
 
     @property
-    def vState(self):
-        return self._vState
+    def state(self):
+        return self._state
 
-    @vState.setter
-    def vState(self, vNewState):
-        self._vState = np.clip(
-            self._expand_to_net_size(vNewState, "vState"),
+    @state.setter
+    def state(self, vNewState):
+        self._state = np.clip(
+            self._expand_to_net_size(vNewState, "state"),
             self._nStateMin,
             self._nStateMax,
         ).astype(self.dtypeState)
@@ -867,10 +867,10 @@ class RecCLIAF(CLIAF):
         else:
             raise ValueError(
                 "Layer `{}`: dtypeState must be integer or float data type.".format(
-                    self.strName
+                    self.name
                 )
             )
         self._dtypeState = dtypeNew
-        # - Convert vState to dtype
-        if hasattr(self, "_vState"):
-            self.vState = self.vState
+        # - Convert state to dtype
+        if hasattr(self, "_state"):
+            self.state = self.state

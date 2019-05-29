@@ -26,7 +26,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         fVThreshLow: Optional[float] = None,
         fVSubtract: Optional[float] = None,
         fVReset: float = 0,
-        strName: str = "conv2d",
+        name: str = "conv2d",
     ):
         """
         Pytorch implementation of a spiking neuron with convolutional inputs
@@ -49,7 +49,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         self.fVReset = fVReset
         self.fVThresh = fVThresh
         self.fVThreshLow = fVThreshLow
-        self.strName = strName
+        self.name = name
 
         # Layer convolutional properties
         self.nInChannels = nInChannels
@@ -91,7 +91,7 @@ class TorchSpikingConv2dLayer(nn.Module):
     def forward(self, tsrBinaryInput):
         self.inShape = tuple(tsrBinaryInput.shape)
         # Determine no. of time steps from input
-        nNumTimeSteps = len(tsrBinaryInput)
+        num_timesteps = len(tsrBinaryInput)
 
         # Convolve all inputs at once
         if self.pad is None:
@@ -114,7 +114,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         if self.tsrNumSpikes is None or len(self.tsrNumSpikes) != len(tsrBinaryInput):
             del (self.tsrNumSpikes)  # Free memory just to be sure
             self.tsrNumSpikes = tsrConvOut.new_zeros(
-                nNumTimeSteps, *tsrConvOut.shape[1:]
+                num_timesteps, *tsrConvOut.shape[1:]
             ).int()
 
         self.tsrNumSpikes.zero_()
@@ -126,7 +126,7 @@ class TorchSpikingConv2dLayer(nn.Module):
         tsrState = self.tsrState
 
         # Loop over time steps
-        for iCurrentTimeStep in range(nNumTimeSteps):
+        for iCurrentTimeStep in range(num_timesteps):
             tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
 
             # - Reset or subtract from membrane state after spikes
@@ -161,7 +161,7 @@ class TorchSpikingConv2dLayer(nn.Module):
     def summary(self):
         summary = pd.Series(
             {
-                "Layer": self.strName,
+                "Layer": self.name,
                 "Output Shape": tuple(self.outShape),
                 "Padding": tuple(self.padding),
                 "Kernel": tuple(self.kernel_size),

@@ -8,7 +8,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 
 class TorchZeroPad2dLayer(nn.Module):
-    def __init__(self, padding: ArrayLike = (0, 0, 0, 0), strName: str = "zeropad2d"):
+    def __init__(self, padding: ArrayLike = (0, 0, 0, 0), name: str = "zeropad2d"):
         """
         Pytorch implementation of a spiking neuron with convolutional inputs
         SUBTRACT superseeds Reset value
@@ -16,7 +16,7 @@ class TorchZeroPad2dLayer(nn.Module):
         nn.Module.__init__(self)  # Init nn.Module
         self.padding = padding
         self.pad = nn.ZeroPad2d(padding)
-        self.strName = strName
+        self.name = name
 
     def reset_states(self):
         """
@@ -43,7 +43,7 @@ class TorchZeroPad2dLayer(nn.Module):
         """
         summary = pd.Series(
             {
-                "Layer": self.strName,
+                "Layer": self.name,
                 "Output Shape": str(list(self.outShape)),
                 "Padding": str(self.padding),
                 # "Kernel": str(None),

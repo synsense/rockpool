@@ -11,12 +11,12 @@ class TorchFlatten2dLayer(nn.Module):
     Equivalent to keras flatten
     """
 
-    def __init__(self, strName="crop2d"):
+    def __init__(self, name="crop2d"):
         """
         Torch implementation of SumPooling using the LPPool2d module
         """
         nn.Module.__init__(self)  # Init nn.Module
-        self.strName = strName
+        self.name = name
 
     def forward(self, tsrBinaryInput):
         nBatch = len(tsrBinaryInput)
@@ -37,7 +37,7 @@ class TorchFlatten2dLayer(nn.Module):
         """
         summary = pd.Series(
             {
-                "Layer": self.strName,
+                "Layer": self.name,
                 "Output Shape": str(list(self.outShape)),
                 # "Padding": str(None),
                 # "Kernel": str(None),

@@ -31,9 +31,9 @@ def test_torch_lyr_prepare_input_empty():
     evInput = TSEvent(None, name="Input")
 
     # Create a FFIAFTorch layer
-    lyrConv2d = FFCLIAFCNNTorch(mfW=W, strName="TorchConv2d")
+    lyrConv2d = FFCLIAFCNNTorch(weights=W, name="TorchConv2d")
 
-    lyrConv2d.evolve(evInput, tDuration=10)
+    lyrConv2d.evolve(evInput, duration=10)
 
 
 def test_toch_activity_comparison_to_skimage_default_params():
@@ -66,9 +66,9 @@ def test_toch_activity_comparison_to_skimage_default_params():
     cnnWTorch.data = np.copy(cnnW.data)
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, name="CNN")
     # Create a FFIAFTorch layer
-    lyrCNNTorch = FFCLIAFCNNTorch(mfW=cnnWTorch, fVThresh=0.5, strName="TorchCNN")
+    lyrCNNTorch = FFCLIAFCNNTorch(weights=cnnWTorch, fVThresh=0.5, name="TorchCNN")
 
     # Generate time series input
     tSim = 100
@@ -84,9 +84,9 @@ def test_toch_activity_comparison_to_skimage_default_params():
     )
 
     # Evolve
-    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=tSim)
+    evOut = lyrCNN.evolve(ts_input=evInput, duration=tSim)
 
-    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=tSim)
+    evOutTorch = lyrCNNTorch.evolve(ts_input=evInputTorch, duration=tSim)
 
     # Check that the outputs are identical
     assert evOut.num_channels == evOutTorch.num_channels
@@ -123,10 +123,10 @@ def test_toch_activity_comparison_to_skimage():
     cnnWTorch.data = np.copy(cnnW.data)
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, vfVSubtract=None, strName="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, vfVSubtract=None, name="CNN")
     # Create a FFIAFTorch layer
     lyrCNNTorch = FFCLIAFCNNTorch(
-        mfW=cnnWTorch, fVThresh=0.5, fVSubtract=None, strName="TorchCNN"
+        weights=cnnWTorch, fVThresh=0.5, fVSubtract=None, name="TorchCNN"
     )
 
     # Generate time series input
@@ -141,9 +141,9 @@ def test_toch_activity_comparison_to_skimage():
     )
 
     # Evolve
-    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
 
-    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
+    evOutTorch = lyrCNNTorch.evolve(ts_input=evInputTorch, duration=100)
 
     # Check that the outputs are identical
     assert (evOut.times == evOutTorch.times).all()
@@ -179,10 +179,10 @@ def test_toch_activity_comparison_to_skimage_channels_last():
     cnnWTorch.data = np.copy(cnnW.data)
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, vfVSubtract=None, strName="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, vfVSubtract=None, name="CNN")
     # Create a FFIAFTorch layer
     lyrCNNTorch = FFCLIAFCNNTorch(
-        mfW=cnnWTorch, fVThresh=0.5, fVSubtract=None, strName="TorchCNN"
+        weights=cnnWTorch, fVThresh=0.5, fVSubtract=None, name="TorchCNN"
     )
 
     # Generate time series input
@@ -197,9 +197,9 @@ def test_toch_activity_comparison_to_skimage_channels_last():
     )
 
     # Evolve
-    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
 
-    evOutTorch = lyrCNNTorch.evolve(tsInput=evInputTorch, tDuration=100)
+    evOutTorch = lyrCNNTorch.evolve(ts_input=evInputTorch, duration=100)
 
     # Check that the outputs are identical
     assert (evOut.times == evOutTorch.times).all()

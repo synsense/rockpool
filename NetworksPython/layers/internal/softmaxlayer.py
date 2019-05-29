@@ -27,46 +27,46 @@ class SoftMaxLayer(FFCLIAF):
 
     def __init__(
         self,
-        mfW: np.ndarray = None,
+        weights: np.ndarray = None,
         fVth: float = 1e10,         # Just some absurdly large number that will never be reachable
-        tDt: float = 1,
-        strName: str = "unnamed",
+        dt: float = 1,
+        name: str = "unnamed",
     ):
         """
         SoftMaxLayer - Implements a softmax on the inputs
 
-        :param mfW:     np.ndarray  Weight matrix
+        :param weights:     np.ndarray  Weight matrix
         :param fVth:    float       Spiking threshold
-        :param tDt:     float       Time step
-        :param strName: str         Name of this layer.
+        :param dt:     float       Time step
+        :param name: str         Name of this layer.
         """
 
         # Call parent constructor
-        FFCLIAF.__init__(self, mfW, tDt=tDt, strName=strName)
+        FFCLIAF.__init__(self, weights, dt=dt, name=name)
         self.fVth = fVth
         self.__nIdMonitor__ = None  # Monitor all neurons
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:                TSEvent  output spike series
 
         """
 
         # - Use `evolve()` from the base class
         _evOut = FFCLIAF.evolve(
-            self, tsInput=tsInput, tDuration=tDuration, nNumTimeSteps=nNumTimeSteps
+            self, ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
         )
         assert len(_evOut.times) == 0
 
@@ -74,20 +74,20 @@ class SoftMaxLayer(FFCLIAF):
         mfStateHistoryLog = self._mfStateTimeSeries[10:]
 
         # - Convert state data to TimeSeries format
-        mfStateTimeSeries = np.zeros((nNumTimeSteps, self.nSize))
-        for t in range(tDuration):
+        mfStateTimeSeries = np.zeros((num_timesteps, self.size))
+        for t in range(duration):
             mfDataTimeStep = mfStateHistoryLog[(mfStateHistoryLog[:, 0] == t)]
             mfStateTimeSeries[t] = mfDataTimeStep[:, 2]
 
         # - Compute softmax over the input states
         mfSoftMax = softmax(mfStateTimeSeries)
         tsOut = TSContinuous(
-            times=np.arange(tDuration),
+            times=np.arange(duration),
             samples=mfSoftMax,
             name="SoftMaxOutput",
         )
         return tsOut
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSContinuous
