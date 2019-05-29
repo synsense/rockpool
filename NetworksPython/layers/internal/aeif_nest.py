@@ -140,9 +140,9 @@ class RecAEIFSpkInNest(Layer):
                         p["g_L"] = self.vfCapacity / self.vtTauN[n]
                 else:
                     if type(self.vfCapacity) == np.ndarray:
-                        p["g_L"] = self.vfCapacity[n] / self.vtTauN[n]
+                        p["g_L"] = self.vfCapacity[n] / self.vtTauN
                     else:
-                        p["g_L"] = self.vfCapacity / self.vtTauN[n]
+                        p["g_L"] = self.vfCapacity / self.vtTauN
 
                 if type(self.vfVThresh) is np.ndarray:
                     p["V_th"] = self.vfVThresh[n]
@@ -412,11 +412,11 @@ class RecAEIFSpkInNest(Layer):
         vfVReset: np.ndarray = -0.065,
         vfVRest: np.ndarray = -0.065,
         vfCapacity: Union[float, np.ndarray] = 100.0,
-        tRefractoryTime=0.001,
-        fA=4.0,
-        fB=80.5,
-        fDelta_T=2.,
-        vtTauW=144.,
+        tRefractoryTime = 0.001,
+        fA: Union[float, np.ndarray] = 4.0,
+        fB: Union[float, np.ndarray] = 80.5,
+        fDelta_T: Union[float, np.ndarray] = 2.,
+        vtTauW: Union[float, np.ndarray] = 0.144,
         strName: str = "unnamed",
         bRecord: bool = False,
         nNumCores: int = 1,
@@ -441,10 +441,17 @@ class RecAEIFSpkInNest(Layer):
         :param vfCapacity:       np.array Nx1 vector of neuron membrance capacity. Default: 100 pF
         :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
+        :param fA:              float or np.ndarray scaling for subthreshold adaptation. Default: 4.
+        :param fB:              float or np.ndarray additive value for spike triggered adaptation. Default: 80.5
+        :param vtTauW:          float or np.ndarray time constant for adaptation relaxation. Default: 144.0 ms
+        :param fDelta_T:        float or np.ndarray scaling for exponential part of the activation function. Default: 2.
+
+
         :param strName:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
         """
+
         if type(mfWIn) is list:
             mfWIn = np.asarray(mfWIn)
 
@@ -538,10 +545,11 @@ class RecAEIFSpkInNest(Layer):
         self.mfWRec = mfWRec
         self._tRefractoryTime = tRefractoryTime
         self.bRecord = bRecord
-        self._fA = fA,
-        self._fB = fB,
-        self._fDelta_T = fDelta_T,
-        self._vtTauW = vtTauW,
+        self._fA = fA
+        self._fB = fB
+        self._fDelta_T = fDelta_T
+        self._vtTauW = vtTauW
+
 
     def reset_state(self):
         """ .reset_state() - Method: reset the internal state of the layer
@@ -668,9 +676,14 @@ class RecAEIFSpkInNest(Layer):
         vms = np.array(self.resultQ.get())
         return mV2V(vms)
 
+    @property
+    def vW(self):
+        self.requestQ.put([COMMAND_GET, "w"])
+        ws = np.array(self.resultQ.get())
+        return ws
+
     @vState.setter
     def vState(self, vNewState):
-
         self.requestQ.put([COMMAND_SET, "V_m", V2mV(vNewState)])
 
     @property
@@ -679,8 +692,24 @@ class RecAEIFSpkInNest(Layer):
 
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
+        self._vtTauN = vtNewTauN
 
-        self.requestQ.put([COMMAND_SET, "tau_m", s2ms(vtNewTauN)])
+        if type(vtNewTauN) is np.ndarray:
+            gls = []
+            for nid in range(self.vtNewTauN):
+                if type(self.vfCapacity) == np.ndarray:
+                    gls.append(self.vfCapacity[nid] / self.vtTauN[nid])
+                else:
+                    gls.append(self.vfCapacity / self.vtTauN[nid])
+        else:
+            if type(self.vfCapacity) == np.ndarray:
+                gls = []
+                for nid in range(self.vfCapacity):
+                    gls.append(self.vfCapacity[nid] / self.vtTauN)
+            else:
+                gls = self.vfCapacity / self.vtTauN
+
+        self.requestQ.put([COMMAND_SET, "g_L", s2ms(gls)])
 
     @property
     def vtTauS(self):
@@ -688,6 +717,7 @@ class RecAEIFSpkInNest(Layer):
 
     @vtTauS.setter
     def vtTauS(self, vtNewTauS):
+        self._vtTauS = vtNewTauS
 
         self.requestQ.put([COMMAND_SET, "tau_syn_ex", s2ms(vtNewTauS)])
         self.requestQ.put([COMMAND_SET, "tau_syn_in", s2ms(vtNewTauS)])
@@ -698,6 +728,7 @@ class RecAEIFSpkInNest(Layer):
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
+        self._vfBias = vfNewBias
 
         self.requestQ.put([COMMAND_SET, "I_e", V2mV(vfNewBias)])
 
@@ -707,6 +738,7 @@ class RecAEIFSpkInNest(Layer):
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewVThresh):
+        self._vfVThresh = vfNewVThresh
 
         self.requestQ.put([COMMAND_SET, "V_th", V2mV(vfNewVThresh)])
 
@@ -716,15 +748,17 @@ class RecAEIFSpkInNest(Layer):
 
     @vfVReset.setter
     def vfVReset(self, vfNewVReset):
+        self._vfVReset = vfNewVReset
 
         self.requestQ.put([COMMAND_SET, "V_reset", V2mV(vfNewVReset)])
 
     @property
     def vfVRest(self):
-        return self._vfVReset
+        return self._vfVRest
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
+        self._vfVRest = vfNewVRest
 
         self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
 
@@ -734,6 +768,7 @@ class RecAEIFSpkInNest(Layer):
 
     @fA.setter
     def fA(self, newFA):
+        self._fA = newFA
         self.requestQ.put([COMMAND_SET, "a", newFA])
 
     @property
@@ -742,6 +777,7 @@ class RecAEIFSpkInNest(Layer):
 
     @fB.setter
     def fB(self, newFB):
+        self._fB = newFB
         self.requestQ.put([COMMAND_SET, "b", newFB])
 
     @property
@@ -750,7 +786,7 @@ class RecAEIFSpkInNest(Layer):
 
     @fDelta_T.setter
     def fDelta_T(self, newFDelta_T):
-
+        self.fDelta_T = newFDelta_T
         self.requestQ.put([COMMAND_SET, "Delta_T", newFDelta_T])
 
     @property
@@ -759,7 +795,7 @@ class RecAEIFSpkInNest(Layer):
 
     @vtTauW.setter
     def vtTauW(self, newVtTauW):
-
+        self._vtTauW = newVtTauW
         self.requestQ.put([COMMAND_SET, "tau_w", s2ms(newVtTauW)])
 
 
@@ -808,6 +844,23 @@ class RecAEIFSpkInNest(Layer):
             self.vtTauS if type(self.vtTauS) is float else self.vtTauS.tolist()
         )
         config["bRecord"] = self.bRecord
+
+        config["fA"] = (
+            self._fA if type(self._fA) is float else self._fA.tolist()
+        )
+
+        config["fB"] = (
+            self._fB if type(self._fB) is float else self._fB.tolist()
+        )
+
+        config["fDelta_T"] = (
+            self._fDelta_T if type(self._fDelta_T) is float else self._fDelta_T.tolist()
+        )
+
+        config["vtTauW"] = (
+            self._vtTauW if type(self._vtTauW) is float else self._vtTauW.tolist()
+        )
+
         config["ClassName"] = "RecAEIFSpkInNest"
 
         return config
@@ -834,6 +887,10 @@ class RecAEIFSpkInNest(Layer):
             strName=config["strName"],
             bRecord=config["bRecord"],
             nNumCores=config["nNumCores"],
+            fA=config['fA'],
+            fB=config['fB'],
+            fDelta_T=config['fDelta_T'],
+            vtTauW=config['vtTauW'],
         )
 
     @staticmethod
@@ -856,4 +913,8 @@ class RecAEIFSpkInNest(Layer):
             strName=config["strName"],
             bRecord=config["bRecord"],
             nNumCores=config["nNumCores"],
+            fA=config['fA'],
+            fB=config['fB'],
+            fDelta_T=config['fDelta_T'],
+            vtTauW=config['vtTauW'],
         )

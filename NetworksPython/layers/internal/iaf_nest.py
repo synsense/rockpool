@@ -491,7 +491,6 @@ class FFIAFNest(Layer):
 
     @vState.setter
     def vState(self, vNewState):
-
         self.requestQ.put([COMMAND_SET, "V_m", V2mV(vNewState)])
 
     @property
@@ -500,7 +499,7 @@ class FFIAFNest(Layer):
 
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
-
+        self._vtTauN = vtNewTauN
         self.requestQ.put([COMMAND_SET, "tau_m", s2ms(vtNewTauN)])
 
     @property
@@ -509,7 +508,7 @@ class FFIAFNest(Layer):
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
-
+        self._vfBias = vfNewBias
         self.requestQ.put([COMMAND_SET, "I_e", V2mV(vfNewBias)])
 
     @property
@@ -518,7 +517,7 @@ class FFIAFNest(Layer):
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewVThresh):
-
+        self._vfVThresh = vfNewVThresh
         self.requestQ.put([COMMAND_SET, "V_th", V2mV(vfNewVThresh)])
 
     @property
@@ -527,16 +526,16 @@ class FFIAFNest(Layer):
 
     @vfVReset.setter
     def vfVReset(self, vfNewVReset):
-
+        self._vfVReset = vfNewVReset
         self.requestQ.put([COMMAND_SET, "V_reset", V2mV(vfNewVReset)])
 
     @property
     def vfVRest(self):
-        return self._vfVReset
+        return self._vfVRest
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
-
+        self._vfVRest = vfNewVRest
         self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
 
     @property
@@ -1200,7 +1199,6 @@ class RecIAFSpkInNest(Layer):
 
     @vState.setter
     def vState(self, vNewState):
-
         self.requestQ.put([COMMAND_SET, "V_m", V2mV(vNewState)])
 
     @property
@@ -1209,7 +1207,7 @@ class RecIAFSpkInNest(Layer):
 
     @vtTauN.setter
     def vtTauN(self, vtNewTauN):
-
+        self._vtTauN = vtNewTauN
         self.requestQ.put([COMMAND_SET, "tau_m", s2ms(vtNewTauN)])
 
     @property
@@ -1218,7 +1216,7 @@ class RecIAFSpkInNest(Layer):
 
     @vtTauS.setter
     def vtTauS(self, vtNewTauS):
-
+        self._vtTauS = vtNewTauS
         self.requestQ.put([COMMAND_SET, "tau_syn_ex", s2ms(vtNewTauS)])
         self.requestQ.put([COMMAND_SET, "tau_syn_in", s2ms(vtNewTauS)])
 
@@ -1228,7 +1226,7 @@ class RecIAFSpkInNest(Layer):
 
     @vfBias.setter
     def vfBias(self, vfNewBias):
-
+        self._vfBias = vfNewBias
         self.requestQ.put([COMMAND_SET, "I_e", V2mV(vfNewBias)])
 
     @property
@@ -1237,7 +1235,7 @@ class RecIAFSpkInNest(Layer):
 
     @vfVThresh.setter
     def vfVThresh(self, vfNewVThresh):
-
+        self._vfVThresh = vfNewVThresh
         self.requestQ.put([COMMAND_SET, "V_th", V2mV(vfNewVThresh)])
 
     @property
@@ -1246,16 +1244,16 @@ class RecIAFSpkInNest(Layer):
 
     @vfVReset.setter
     def vfVReset(self, vfNewVReset):
-
+        self._vfVReset = vfNewVReset
         self.requestQ.put([COMMAND_SET, "V_reset", V2mV(vfNewVReset)])
 
     @property
     def vfVRest(self):
-        return self._vfVReset
+        return self._vfVRest
 
     @vfVRest.setter
     def vfVRest(self, vfNewVRest):
-
+        self._vfVRest = vfNewVRest
         self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
 
     @property
