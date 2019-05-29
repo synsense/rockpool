@@ -71,7 +71,7 @@ class RecDynapSE(Layer):
         """
 
         # - Instantiate DynapseControl
-        if lnClearCores is None:
+        if clearcores_list is None:
             init_chips = None
         else:
             init_chips = list(
@@ -79,7 +79,7 @@ class RecDynapSE(Layer):
                 set(
                     [
                         core_id // DynapseControlExtd._num_cores_chip
-                        for core_id in lnClearCores
+                        for core_id in clearcores_list
                     ]
                 )
             )
@@ -96,7 +96,7 @@ class RecDynapSE(Layer):
             )
         else:
             self.controller = controller
-            self.controller.fpga_isibase = tDt
+            self.controller.fpga_isibase = dt
             self.controller.init_chips(init_chips, enforce=False)
             self.controller.clear_connections(clearcores_list)
 
@@ -396,7 +396,7 @@ class RecDynapSE(Layer):
         # - Generator that splits inupt into batches
         input_gen: Generator = self._batch_input_data(
             # - Clip ts_input to required duration
-            ts_input.clip([self.t, self.t + duration]),
+            ts_input.clip(self.t, self.t + duration),
             num_timesteps,
             verbose,
         )
