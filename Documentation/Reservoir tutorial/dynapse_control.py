@@ -1,6 +1,8 @@
 # ----
 # dynapse_control.py - Module to interface cortexcontrol and the DynapSE chip
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, aiCTX AG, felix.bauer@aictx.ai
+#
+# Copyright: aiCTX AG, 2019
 # ----
 
 ### --- Imports
