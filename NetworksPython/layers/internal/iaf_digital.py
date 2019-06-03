@@ -24,7 +24,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 __all__ = ["RecDIAF"]
 
 # - Absolute tolerance, e.g. for comparing float values
-fTolAbs = 1e-10
+tol_abs = 1e-10
 # - Minimum refractory time
 tMinRefractory = 1e-9
 
@@ -40,9 +40,9 @@ class RecDIAF(Layer):
     ## - Constructor
     def __init__(
         self,
-        mfWIn: np.ndarray,
-        mfWRec: np.ndarray,
-        tDt: float = 1e-4,
+        weights_in: np.ndarray,
+        weights_rec: np.ndarray,
+        dt: float = 1e-4,
         tSpikeDelay: float = 1e-8,
         tTauLeak: float = 1e-3,
         vtRefractoryTime: Union[ArrayLike, float] = tMinRefractory,
@@ -53,15 +53,15 @@ class RecDIAF(Layer):
         vfVSubtract: Union[ArrayLike, float, None] = None,
         dtypeState: Union[type, str] = "int8",
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-        strName: str = "unnamed",
+        name: str = "unnamed",
     ):
         """
         RecDIAF - Construct a spiking recurrent layer with digital IAF neurons
 
-        :param mfWIn:           np.array nSizeInxN input weight matrix.
-        :param mfWRec:          np.array NxN weight matrix
+        :param weights_in:           np.array nSizeInxN input weight matrix.
+        :param weights_rec:          np.array NxN weight matrix
 
-        :param tDt:             float Length of single time step
+        :param dt:             float Length of single time step
 
         :param tSpikeDelay:     float Time after which a spike within the
                                       layer arrives at the recurrent
@@ -84,31 +84,31 @@ class RecDIAF(Layer):
         :param dtypeState:      type data type for the membrane potential
         :param vnIdMonitor:     array-like  IDs of neurons to be recorded
 
-        :param strName:         str Name for the layer. Default: 'unnamed'
+        :param name:         str Name for the layer. Default: 'unnamed'
         """
 
         # - Call super constructor
-        super().__init__(mfW=mfWIn, tDt=tDt, strName=strName)
+        super().__init__(weights=weights_in, dt=dt, name=name)
 
         # - Input weights must be provided
         assert (
-            mfWRec is not None
-        ), "Layer {}: Recurrent weights mfWRec must be provided.".format(self.strName)
+            weights_rec is not None
+        ), "Layer {}: Recurrent weights weights_rec must be provided.".format(self.name)
 
         # - Channel for leak
-        self._nLeakChannel = self.nSizeIn + self.nSize
+        self._nLeakChannel = self.size_in + self.size
 
         # - One large weight matrix to process input and recurrent connections
         #   as well as leak and multiple spikes if state after subtraction is
         #   still above threshold.
-        self._mfWTotal = np.zeros((self._nLeakChannel + 2, self.nSize))
+        self._mfWTotal = np.zeros((self._nLeakChannel + 2, self.size))
 
         # - Set minimum refractory time
         self._tMinRefractory = tMinRefractory
 
         # - Set neuron parameters
-        self.mfW = mfWRec
-        self.mfWIn = mfWIn
+        self.weights = weights_rec
+        self.weights_in = weights_in
         self.vfVSubtract = vfVSubtract
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
@@ -127,7 +127,7 @@ class RecDIAF(Layer):
         """ .reset_state() - Method: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self.vState = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(
+        self.state = np.clip(self.vfVReset, self._nStateMin, self._nStateMax).astype(
             self.dtypeState
         )
         # - Initialize heap and for events that are to be processed in future evolution
@@ -143,31 +143,31 @@ class RecDIAF(Layer):
             (tTime - self.t, iID) for tTime, iID in self._heapRemainingSpikes
         ]
         heapq.heapify(self._heapRemainingSpikes)
-        self._nTimeStep = 0
+        self._timestep = 0
 
     ### --- State evolution
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: Optional[bool] = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: Optional[bool] = False,
     ) -> TSEvent:
         """
         evolve - Evolve the state of this layer
 
-        :param tsInput:         TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param ts_input:         TSEvent  Input spike trian
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         :return: TimeSeries Output of this layer during evolution period
         """
 
         # - Prepare input and infer real duration of evolution
-        vtEventTimes, vnEventChannels, nNumTimeSteps, tFinal = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        vtEventTimes, vnEventChannels, num_timesteps, tFinal = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
 
         ## -- Consider leak as periodic input spike with fixed weight
@@ -180,7 +180,7 @@ class RecDIAF(Layer):
         vtLeak = np.arange(nMaxNumLeaks) * self.tTauLeak + tFirstLeak
         # - Do not apply leak at t=self.t, assume it has already been applied previously
         vtLeak = vtLeak[
-            np.logical_and(vtLeak <= tFinal + fTolAbs, vtLeak > self.t + fTolAbs)
+            np.logical_and(vtLeak <= tFinal + tol_abs, vtLeak > self.t + tol_abs)
         ]
 
         # - Include leaks in event trace, assign channel self.LeakChannel to leak
@@ -201,7 +201,7 @@ class RecDIAF(Layer):
         liSpikeIDs = []
 
         # - Times when neurons are able to spike again
-        vtRefractoryEnds = np.zeros(self.nSize)
+        vtRefractoryEnds = np.zeros(self.size)
 
         # print("prepared")
 
@@ -213,7 +213,7 @@ class RecDIAF(Layer):
         # - Iterate over spike times. Stop when tFinal is exceeded.
 
         # - Copy instance variables to local variables
-        vState = self.vState
+        state = self.state
         mfWTotal = self._mfWTotal
         nStateMin = self._nStateMin
         nStateMax = self._nStateMax
@@ -224,14 +224,14 @@ class RecDIAF(Layer):
         vfVReset = self.vfVReset
         vtRefr = self.vtRefractoryTime
         tDelay = self.tSpikeDelay
-        nSizeIn = self.nSizeIn
+        size_in = self.size_in
         vfVSubtract = self.vfVSubtract
         vnIdMonitor = None if self._vnIdMonitor.size == 0 else self._vnIdMonitor
-        strName = self.strName
+        name = self.name
 
         if vnIdMonitor is not None:
             # - Lists for storing states, times and the channel from the heap
-            lvStates = [vState[vnIdMonitor].copy()]
+            lvStates = [state[vnIdMonitor].copy()]
             ltTimes = [tTime]
             lnChannels = [np.nan]
 
@@ -240,10 +240,10 @@ class RecDIAF(Layer):
                 # - Iterate over spikes in temporal order
                 tTime, nChannel = heapq.heappop(heapSpikes)
                 # print(i, tTime, nChannel, "                       ", end="\r")
-                if bVerbose:
+                if verbose:
                     print(
                         "Layer `{}`: Time passed: {:10.4f} of {} s.  Channel: {:4d}.  On heap: {:5d} events".format(
-                            strName, tTime, tDuration, nChannel, len(heapSpikes)
+                            name, tTime, duration, nChannel, len(heapSpikes)
                         ),
                         end="\r",
                     )
@@ -256,7 +256,7 @@ class RecDIAF(Layer):
                 if vnIdMonitor is not None:
                     # - Record state before updates
                     ltTimes.append(tTime)
-                    lvStates.append(vState[vnIdMonitor].copy())
+                    lvStates.append(state[vnIdMonitor].copy())
                     lnChannels.append(nChannel)
 
                 # - Only neurons that are not refractory can receive inputs
@@ -264,55 +264,55 @@ class RecDIAF(Layer):
                 # - Resting potential: Sign of leat so that it drives neuron states to vfVRest
                 if vfVRest is not None and nChannel == nLeakChannel:
                     vbStateBelowRest = (
-                        vState[vbNotRefractory] < vfVRest[vbNotRefractory]
+                        state[vbNotRefractory] < vfVRest[vbNotRefractory]
                     )
                     # Flip sign of leak for corresponding neurons
                     vnSign = -2 * vbStateBelowRest + 1
                     # Make sure leak is 0 when resting potential is reached
-                    vnSign[vState[vbNotRefractory] == vfVRest[vbNotRefractory]] = 0
+                    vnSign[state[vbNotRefractory] == vfVRest[vbNotRefractory]] = 0
                 else:
                     vnSign = 1
                 # - State updates after incoming spike
-                vState[vbNotRefractory] = np.clip(
-                    vState[vbNotRefractory]
+                state[vbNotRefractory] = np.clip(
+                    state[vbNotRefractory]
                     + mfWTotal[nChannel, vbNotRefractory] * vnSign,
                     nStateMin,
                     nStateMax,
                 ).astype(dtypeState)
 
                 # - Neurons above threshold that are not refractory will spike
-                vbSpiking = np.logical_and(vState >= vfVThresh, vbNotRefractory)
+                vbSpiking = np.logical_and(state >= vfVThresh, vbNotRefractory)
 
                 if vnIdMonitor is not None:
                     # - Record state after update but before subtraction/resetting
                     ltTimes.append(tTime)
-                    lvStates.append(vState[vnIdMonitor].copy())
+                    lvStates.append(state[vnIdMonitor].copy())
                     lnChannels.append(np.nan)
 
                 if vfVSubtract is not None:
                     # - Subtract from states of spiking neurons
-                    vState[vbSpiking] = np.clip(
-                        vState[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
+                    state[vbSpiking] = np.clip(
+                        state[vbSpiking] - vfVSubtract[vbSpiking], nStateMin, nStateMax
                     ).astype(dtypeState)
                     # - Check if among the neurons that are spiking there are still states above threshold
-                    vbStillAboveThresh = (vState >= vfVThresh) & vbSpiking
+                    vbStillAboveThresh = (state >= vfVThresh) & vbSpiking
                     # - Add the time(s) when they stop being refractory to the heap
                     #   on the last channel, where weights are 0, so that no neuron
                     #   states are updated but neurons that are still above threshold
                     #   can spike immediately after they stop being refractory
-                    vtStopRefr = vtRefr[vbStillAboveThresh] + tTime + fTolAbs
+                    vtStopRefr = vtRefr[vbStillAboveThresh] + tTime + tol_abs
                     # - Could use np.unique to only add each time once, but is very slow
-                    # vtStopRefr = np.unique(vtRefr[vbStillAboveThresh]) + tTime + fTolAbs
+                    # vtStopRefr = np.unique(vtRefr[vbStillAboveThresh]) + tTime + tol_abs
                     for tStopRefr in vtStopRefr:
                         heapq.heappush(heapSpikes, (tStopRefr, -1))
                 else:
                     # - Set states to reset potential
-                    vState[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
+                    state[vbSpiking] = vfVReset[vbSpiking].astype(dtypeState)
 
                 if vnIdMonitor is not None:
                     # - Record state after subtraction/resetting
                     ltTimes.append(tTime)
-                    lvStates.append(vState[vnIdMonitor].copy())
+                    lvStates.append(state[vnIdMonitor].copy())
                     lnChannels.append(np.nan)
 
                 # - Determine times when refractory period will end for neurons that have just fired
@@ -327,14 +327,14 @@ class RecDIAF(Layer):
 
                 # - Append new spikes to heap
                 for nID in viSpikeIDs:
-                    # - Delay spikes by self.tSpikeDelay. Set IDs off by self.nSizeIn in order
+                    # - Delay spikes by self.tSpikeDelay. Set IDs off by self.size_in in order
                     #   to distinguish them from spikes coming from the input
-                    heapq.heappush(heapSpikes, (tTime + tDelay, nID + nSizeIn))
+                    heapq.heappush(heapSpikes, (tTime + tDelay, nID + size_in))
                 # print("heap: ", heapq.nsmallest(5, heapSpikes))
             i += 1
 
         # - Update state variable
-        self._vState = vState
+        self._state = state
 
         # print("finished loop")
         # print(time.time() - t0)
@@ -343,11 +343,11 @@ class RecDIAF(Layer):
         self._heapRemainingSpikes = heapSpikes
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * self.tDt
-        t_stop = (self._nTimeStep + nNumTimeSteps) * self.tDt
+        t_start = self._timestep * self.dt
+        t_stop = (self._timestep + num_timesteps) * self.dt
 
         # - Update time
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         if vnIdMonitor is not None:
             # - Store evolution of states in lists
@@ -358,87 +358,87 @@ class RecDIAF(Layer):
         return TSEvent(
             np.clip(ltSpikeTimes, t_start, t_stop),
             liSpikeIDs,
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
 
     def _prepare_input(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, np.ndarray, float, float):
         """
         _prepare_input - Sample input, set up time base
 
-        :param tsInput:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param tDuration:    float Duration of the desired evolution, in seconds
-        :param nNumTimeSteps int Number of evolution time steps
+        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param duration:    float Duration of the desired evolution, in seconds
+        :param num_timesteps int Number of evolution time steps
 
         :return:
             vtEventTimes:     ndarray Event times
             vnEventChannels:  ndarray Event channels
-            nNumTimeSteps:    int Number of evlution time steps
+            num_timesteps:    int Number of evlution time steps
             tFinal:           float End time of evolution
         """
 
-        if nNumTimeSteps is None:
-            # - Determine nNumTimeSteps
-            if tDuration is None:
-                # - Determine tDuration
+        if num_timesteps is None:
+            # - Determine num_timesteps
+            if duration is None:
+                # - Determine duration
                 assert (
-                    tsInput is not None
-                ), "Layer {}: One of `nNumTimeSteps`, `tsInput` or `tDuration` must be supplied".format(
-                    self.strName
+                    ts_input is not None
+                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
+                    self.name
                 )
 
-                if tsInput.periodic:
+                if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
-                    tDuration = tsInput.duration
+                    duration = ts_input.duration
 
                 else:
                     # - Evolve until the end of the input TImeSeries
-                    tDuration = tsInput.t_stop - self.t
-                    assert tDuration > 0, (
+                    duration = ts_input.t_stop - self.t
+                    assert duration > 0, (
                         "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.strName
+                            self.name
                         )
-                        + "`tsInput` finishes before the current "
+                        + "`ts_input` finishes before the current "
                         "evolution time."
                     )
-            # - Discretize tDuration wrt self.tDt
-            nNumTimeSteps = (tDuration + fTolAbs) // self.tDt
+            # - Discretize duration wrt self.dt
+            num_timesteps = (duration + tol_abs) // self.dt
         else:
             assert isinstance(
-                nNumTimeSteps, int
-            ), "Layer `{}`: nNumTimeSteps must be of type int.".format(self.strName)
+                num_timesteps, int
+            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
 
         # - End time of evolution
-        tFinal = self.t + nNumTimeSteps * self.tDt
+        tFinal = self.t + num_timesteps * self.dt
 
         # - Extract spike timings and channels
-        if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput(
-                t_start=self.t, t_stop=(self._nTimeStep + nNumTimeSteps) * self.tDt
+        if ts_input is not None:
+            vtEventTimes, vnEventChannels = ts_input(
+                t_start=self.t, t_stop=(self._timestep + num_timesteps) * self.dt
             )
             if np.size(vnEventChannels) > 0:
                 # - Make sure channels are within range
                 assert (
-                    np.amax(vnEventChannels) < self.nSizeIn
+                    np.amax(vnEventChannels) < self.size_in
                 ), "Layer {}: Only channels between 0 and {} are allowed".format(
-                    self.strName, self.nSizeIn - 1
+                    self.name, self.size_in - 1
                 )
         else:
             vtEventTimes, vnEventChannels = [], []
 
-        return vtEventTimes, vnEventChannels, nNumTimeSteps, tFinal
+        return vtEventTimes, vnEventChannels, num_timesteps, tFinal
 
     def randomize_state(self):
         # - Set state to random values between reset value and theshold
-        self.vState = np.clip(
+        self.state = np.clip(
             (np.amin(self.vfVThresh) - np.amin(self.vfVReset))
-            * np.random.rand(self.nSize)
+            * np.random.rand(self.size)
             - np.amin(self.vfVReset),
             self._nStateMin,
             self._nStateMax,
@@ -447,52 +447,52 @@ class RecDIAF(Layer):
     ### --- Properties
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSEvent
 
     @property
-    def cInput(self):
+    def input_type(self):
         return TSEvent
 
     @property
-    def mfW(self):
-        return self.mfWRec
+    def weights(self):
+        return self.weights_rec
 
-    @mfW.setter
-    def mfW(self, mfNewW):
-        self.mfWRec = mfNewW
+    @weights.setter
+    def weights(self, mfNewW):
+        self.weights_rec = mfNewW
 
     @property
-    def mfWRec(self):
-        return self._mfWTotal[self.nSizeIn : self._nLeakChannel, :]
+    def weights_rec(self):
+        return self._mfWTotal[self.size_in : self._nLeakChannel, :]
 
-    @mfWRec.setter
-    def mfWRec(self, mfNewW):
+    @weights_rec.setter
+    def weights_rec(self, mfNewW):
 
         self._mfWTotal[
-            self.nSizeIn : self._nLeakChannel, :
-        ] = self._expand_to_weight_size(mfNewW, "mfWRec")
+            self.size_in : self._nLeakChannel, :
+        ] = self._expand_to_weight_size(mfNewW, "weights_rec")
 
     @property
-    def mfWIn(self):
-        return self._mfWTotal[: self.nSizeIn, :]
+    def weights_in(self):
+        return self._mfWTotal[: self.size_in, :]
 
-    @mfWIn.setter
-    def mfWIn(self, mfNewW):
+    @weights_in.setter
+    def weights_in(self, mfNewW):
         assert (
-            np.size(mfNewW) == self.nSizeIn * self.nSize
-        ), "`mfNewW` must have [{}] elements.".format(self.nSizeIn * self.nSize)
+            np.size(mfNewW) == self.size_in * self.size
+        ), "`mfNewW` must have [{}] elements.".format(self.size_in * self.size)
 
-        self._mfWTotal[: self.nSizeIn, :] = np.array(mfNewW)
+        self._mfWTotal[: self.size_in, :] = np.array(mfNewW)
 
     @property
-    def vState(self):
-        return self._vState
+    def state(self):
+        return self._state
 
-    @vState.setter
-    def vState(self, vNewState):
-        self._vState = np.clip(
-            self._expand_to_net_size(vNewState, "vState"),
+    @state.setter
+    def state(self, vNewState):
+        self._state = np.clip(
+            self._expand_to_net_size(vNewState, "state"),
             self._nStateMin,
             self._nStateMax,
         ).astype(self.dtypeState)
@@ -565,9 +565,9 @@ class RecDIAF(Layer):
                 + " set by changing _tMinRefractory."
             )
 
-    @Layer.tDt.setter
-    def tDt(self, _):
-        raise ValueError("The `tDt` property cannot be set for this layer")
+    @Layer.dt.setter
+    def dt(self, _):
+        raise ValueError("The `dt` property cannot be set for this layer")
 
     @property
     def tTauLeak(self):
@@ -609,13 +609,13 @@ class RecDIAF(Layer):
         else:
             raise ValueError(
                 "Layer `{}`: dtypeState must be integer or float data type.".format(
-                    self.strName
+                    self.name
                 )
             )
         self._dtypeState = dtypeNew
-        # - Convert vState to dtype
-        if hasattr(self, "_vState"):
-            self.vState = self.vState
+        # - Convert state to dtype
+        if hasattr(self, "_state"):
+            self.state = self.state
 
     @property
     def vnIdMonitor(self):
@@ -624,7 +624,7 @@ class RecDIAF(Layer):
     @vnIdMonitor.setter
     def vnIdMonitor(self, vnNewIDs):
         if vnNewIDs is True:
-            self._vnIdMonitor = np.arange(self.nSize)
+            self._vnIdMonitor = np.arange(self.size)
         elif vnNewIDs is None or vnNewIDs is False or np.size(vnNewIDs) == 0:
             self._vnIdMonitor = np.array([])
         else:

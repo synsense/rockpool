@@ -42,7 +42,8 @@ dModules = {
         "RecIAFSpkInRefrCLTorch",
     ),
     ".internal.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
-    ".internal.aeif_nest": ("RecAEIFSpkInNest"),
+    # ".internal.aeif_nest": "RecAEIFSpkInNest",
+    ".internal.devices.dynap_hw": "RecDynapSE",
 }
 
 

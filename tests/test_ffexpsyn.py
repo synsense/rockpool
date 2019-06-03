@@ -8,24 +8,24 @@ def test_ffexpsyn():
 
     # - Layers
 
-    nSizeIn = 512
-    nSize = 3
-    tDt = 0.001
+    size_in = 512
+    size = 3
+    dt = 0.001
 
-    mfW = np.linspace(-1, 1, nSizeIn * nSize).reshape(nSizeIn, nSize)
-    vfBias = np.linspace(-1, 1, nSize)
+    weights = np.linspace(-1, 1, size_in * size).reshape(size_in, size)
+    vfBias = np.linspace(-1, 1, size)
     tTauSyn = 0.15
-    # flT = FFExpSynTorch(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
-    flM = FFExpSyn(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
+    # flT = FFExpSynTorch(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
+    flM = FFExpSyn(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
 
     # - Input signal
 
     tDur = 0.01
     nSpikes = 5
 
-    vnC = np.tile(np.arange(nSizeIn), int(np.ceil(1.0 / nSpikes * nSize)))[:nSpikes]
+    vnC = np.tile(np.arange(size_in), int(np.ceil(1.0 / nSpikes * size)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, num_channels=nSizeIn)
+    tsIn = TSEvent(vtT, vnC, num_channels=size_in)
 
     # - Evolve
     # tsT = flT.evolve(tsIn)
@@ -41,17 +41,17 @@ def test_ffexpsyn():
     # - Training (only FFExpSyn and FFExpSynTorch)
     mfTgt = np.array(
         [
-            np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-            for fPhase in np.linspace(0, 3, nSize)
+            np.sin(np.linspace(0, 10 * tDur, int(tDur / dt)) + fPhase)
+            for fPhase in np.linspace(0, 3, size)
         ]
     ).T
-    tsTgt = TSContinuous(np.arange(int(tDur / tDt)) * tDt, mfTgt)
+    tsTgt = TSContinuous(np.arange(int(tDur / dt)) * dt, mfTgt)
 
     # flT.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
     flM.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
 
     # assert(
-    #             np.isclose(flT.mfW, flM.mfW, rtol=1e-4, atol=1e-2).all()
+    #             np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
     #         and np.isclose(flT.vfBias, flM.vfBias, rtol=1e-4, atol=1e-2).all()
     # ), "Training led to different results"
 
@@ -67,24 +67,24 @@ def test_ffexpsyntorch():
 
     # - Layers
 
-    nSizeIn = 512
-    nSize = 3
-    tDt = 0.001
+    size_in = 512
+    size = 3
+    dt = 0.001
 
-    mfW = np.linspace(-1, 1, nSizeIn * nSize).reshape(nSizeIn, nSize)
-    vfBias = np.linspace(-1, 1, nSize)
+    weights = np.linspace(-1, 1, size_in * size).reshape(size_in, size)
+    vfBias = np.linspace(-1, 1, size)
     tTauSyn = 0.15
-    flT = FFExpSynTorch(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
-    flM = FFExpSyn(mfW, tDt=tDt, vfBias=vfBias, tTauSyn=tTauSyn)
+    flT = FFExpSynTorch(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
+    flM = FFExpSyn(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
 
     # - Input signal
 
     tDur = 0.01
     nSpikes = 5
 
-    vnC = np.tile(np.arange(nSizeIn), int(np.ceil(1.0 / nSpikes * nSize)))[:nSpikes]
+    vnC = np.tile(np.arange(size_in), int(np.ceil(1.0 / nSpikes * size)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, num_channels=nSizeIn)
+    tsIn = TSEvent(vtT, vnC, num_channels=size_in)
 
     # - Evolve
     try:
@@ -105,16 +105,16 @@ def test_ffexpsyntorch():
         # - Training
         mfTgt = np.array(
             [
-                np.sin(np.linspace(0, 10 * tDur, int(tDur / tDt)) + fPhase)
-                for fPhase in np.linspace(0, 3, nSize)
+                np.sin(np.linspace(0, 10 * tDur, int(tDur / dt)) + fPhase)
+                for fPhase in np.linspace(0, 3, size)
             ]
         ).T
-        tsTgt = TSContinuous(np.arange(int(tDur / tDt)) * tDt, mfTgt)
+        tsTgt = TSContinuous(np.arange(int(tDur / dt)) * dt, mfTgt)
 
         flT.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
         flM.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
 
         assert (
-            np.isclose(flT.mfW, flM.mfW, rtol=1e-4, atol=1e-2).all()
+            np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
             and np.isclose(flT.vfBias, flM.vfBias, rtol=1e-4, atol=1e-2).all()
         ), "Training led to different results"

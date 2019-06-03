@@ -14,15 +14,15 @@ def test_FFRateEuler():
     from NetworksPython.layers import FFRateEuler
 
     # - Generic parameters
-    mfW = 2 * np.random.rand(2, 3) - 1
+    weights = 2 * np.random.rand(2, 3) - 1
     vfBias = 2 * np.random.rand(3) - 1
 
     # - Layer generation
     fl0 = FFRateEuler(
-        mfW=mfW,
+        weights=weights,
         vfBias=vfBias,
-        fNoiseStd=0.1,
-        tDt=0.01,
+        noise_std=0.1,
+        dt=0.01,
     )
 
     # - Input signal
@@ -31,27 +31,27 @@ def test_FFRateEuler():
     )
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl0.vState)
-    fl0.evolve(tsInCont, tDuration=0.1)
+    vStateBefore = np.copy(fl0.state)
+    fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
-    assert (vStateBefore != fl0.vState).any()
+    assert (vStateBefore != fl0.state).any()
 
     fl0.reset_all()
     assert fl0.t == 0
-    assert (vStateBefore == fl0.vState).all()
+    assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(mfW = None)
+        fl1 = FFRateEuler(weights = None)
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(mfW = 1, vfBias = [1, 1])
+        fl1 = FFRateEuler(weights = 1, vfBias = [1, 1])
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(mfW = 1, vtTau = [1, 1])
+        fl1 = FFRateEuler(weights = 1, vtTau = [1, 1])
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(mfW = 1, vfGain = [1, 1])
+        fl1 = FFRateEuler(weights = 1, vfGain = [1, 1])
 
 def test_RecRateEuler():
     """ Test RecRateEuler """
@@ -59,15 +59,15 @@ def test_RecRateEuler():
     from NetworksPython.layers import RecRateEuler
 
     # - Generic parameters
-    mfW = 2 * np.random.rand(2, 2) - 1
+    weights = 2 * np.random.rand(2, 2) - 1
     vfBias = 2 * np.random.rand(2) - 1
 
     # - Layer generation
     fl0 = RecRateEuler(
-        mfW=mfW,
+        weights=weights,
         vfBias=vfBias,
-        fNoiseStd=0.1,
-        tDt=0.01,
+        noise_std=0.1,
+        dt=0.01,
     )
 
     # - Input signal
@@ -76,21 +76,21 @@ def test_RecRateEuler():
     )
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl0.vState)
-    fl0.evolve(tsInCont, tDuration=0.1)
+    vStateBefore = np.copy(fl0.state)
+    fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
-    assert (vStateBefore != fl0.vState).any()
+    assert (vStateBefore != fl0.state).any()
 
     fl0.reset_all()
     assert fl0.t == 0
-    assert (vStateBefore == fl0.vState).all()
+    assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
-        fl1 = RecRateEuler(mfW = np.zeros((1, 2)))
+        fl1 = RecRateEuler(weights = np.zeros((1, 2)))
 
     with pytest.raises(AssertionError):
-        RecRateEuler(mfW = np.zeros((2, 2)), vtTau = None)
+        RecRateEuler(weights = np.zeros((2, 2)), vtTau = None)
 
     with pytest.raises(AssertionError):
-        RecRateEuler(mfW = np.zeros((2, 2)), fNoiseStd = None)
+        RecRateEuler(weights = np.zeros((2, 2)), noise_std = None)

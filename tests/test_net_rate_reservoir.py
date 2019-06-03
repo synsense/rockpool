@@ -32,7 +32,7 @@ def test_evolve():
 
     # - Generate an input
     vtTimeTrace = np.linspace(0, 10, 100)
-    tsInput = TSContinuous(vtTimeTrace, np.random.rand(100))
+    ts_input = TSContinuous(vtTimeTrace, np.random.rand(100))
 
     # - Evolve the network
-    dResp = netRes.evolve(tsInput)
+    dResp = netRes.evolve(ts_input)

@@ -18,7 +18,7 @@ from warnings import warn
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
-fTolAbs = 1e-9
+tol_abs = 1e-9
 
 
 class FFCLIAFCNNTorch(FFCLIAF):
@@ -29,39 +29,39 @@ class FFCLIAFCNNTorch(FFCLIAF):
 
     def __init__(
         self,
-        mfW: CNNWeightTorch,
+        weights: CNNWeightTorch,
         vfVBias: float = 0,
         fVThresh: float = 8,
         fVReset: float = 0,
         fVSubtract: float = 8,
-        tDt: float = 1,
+        dt: float = 1,
         vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
-        strName: str = "unnamed",
+        name: str = "unnamed",
     ):
         """
         FFCLIAFTorch - Feedforward layer of integrate and fire neurons with constant leak
 
-        :param mfW:         array-like  Input weight matrix
+        :param weights:         array-like  Input weight matrix
         :param vfVBias:     array-like  Constant bias to be added to state at each time step
         :param vfVThresh:   array-like  Spiking threshold
         :param vfVReset:    array-like  Reset potential after spike (also see param bSubtract)
         :param vfVSubtract: array-like  If not None, subtract provided values
                                         from neuron state after spike. Otherwise will reset.
         :vnIdMonitor:       array-like  IDs of neurons to be recorded
-        :param strName:     str  Name of this layer.
+        :param name:     str  Name of this layer.
         """
 
         # Call parent constructor
         FFCLIAF.__init__(
             self,
-            mfW=mfW,
+            weights=weights,
             vfVBias=vfVBias,
             vfVThresh=fVThresh,
             vfVReset=fVReset,
             vfVSubtract=fVSubtract,
-            tDt=tDt,
+            dt=dt,
             vnIdMonitor=vnIdMonitor,
-            strName=strName,
+            name=name,
         )
 
         self.fVThresh = fVThresh
@@ -87,28 +87,28 @@ class FFCLIAFCNNTorch(FFCLIAF):
     def _init_torch_layer(self):
         # Initialize torch layer
         self.lyrTorch = TorchSpikingConv2dLayer(
-            nInChannels=self.mfW.nInChannels,
-            nOutChannels=self.mfW.nKernels,
-            kernel_size=self.mfW.kernel_size,
-            strides=self.mfW.strides,
-            padding=self.mfW.padding,
+            nInChannels=self.weights.nInChannels,
+            nOutChannels=self.weights.nKernels,
+            kernel_size=self.weights.kernel_size,
+            strides=self.weights.strides,
+            padding=self.weights.padding,
             fVThresh=self.fVThresh,
             fVSubtract=self.fVSubtract,
             fVReset=self.fVReset,
         )
         # Set biases
-        self.lyrTorch.conv.bias.data = torch.zeros(self.mfW.nKernels)
+        self.lyrTorch.conv.bias.data = torch.zeros(self.weights.nKernels)
         # Set torch weights
-        if self.mfW.img_data_format == "channels_first":
-            self.lyrTorch.conv.weight.data = torch.from_numpy(self.mfW.data).float()
-        elif self.mfW.img_data_format == "channels_last":
-            weights = self.mfW.data
+        if self.weights.img_data_format == "channels_first":
+            self.lyrTorch.conv.weight.data = torch.from_numpy(self.weights.data).float()
+        elif self.weights.img_data_format == "channels_last":
+            weights = self.weights.data
             self.lyrTorch.conv.weight.data = torch.from_numpy(
                 weights.transpose((3, 2, 0, 1))
             ).float()
         else:
             raise Exception(
-                "img_data_format(={}) not understood".format(self.mfW.img_data_format)
+                "img_data_format(={}) not understood".format(self.weights.img_data_format)
             )
 
         # Transfer layer to appropriate device
@@ -116,83 +116,83 @@ class FFCLIAFCNNTorch(FFCLIAF):
         return
 
     def _prepare_input(
-        self, tsInput: Optional[TSEvent] = None, nNumTimeSteps: int = 1
+        self, ts_input: Optional[TSEvent] = None, num_timesteps: int = 1
     ) -> np.ndarray:
         """
         Prepare input stream and return a binarized vector of spikes
         """
         # - End time of evolution
-        tFinal = self.t + nNumTimeSteps * self.tDt
+        tFinal = self.t + num_timesteps * self.dt
         # - Extract spike timings and channels
-        if tsInput is not None:
-            if tsInput.isempty():
+        if ts_input is not None:
+            if ts_input.isempty():
                 # Return an empty list with all zeros
-                vbSpikeRaster = np.zeros((self.nSizeIn), bool)
+                vbSpikeRaster = np.zeros((self.size_in), bool)
             else:
                 # Ensure number of channels is atleast as many as required
                 try:
-                    assert tsInput.num_channels >= self.nSizeIn
+                    assert ts_input.num_channels >= self.size_in
                 except AssertionError as err:
                     warn(
-                        self.strName
+                        self.name
                         + ": Expanding input dimensions to match layer size."
                     )
-                    tsInput.num_channels = self.nSizeIn
+                    ts_input.num_channels = self.size_in
 
                 # Extract spike data from the input variable
-                mfSpikeRaster = tsInput.xraster(
-                    dt=self.tDt, t_start=self.t, t_stop=tFinal
+                mfSpikeRaster = ts_input.xraster(
+                    dt=self.dt, t_start=self.t, t_stop=tFinal
                 )
 
                 ## - Make sure size is correct
-                # mfSpikeRaster = mfSpikeRaster[:nNumTimeSteps, :]
-                # assert mfSpikeRaster.shape == (nNumTimeSteps, self.nSizeIn)
+                # mfSpikeRaster = mfSpikeRaster[:num_timesteps, :]
+                # assert mfSpikeRaster.shape == (num_timesteps, self.size_in)
                 yield from mfSpikeRaster  # Yield a single time step
                 return
         else:
             # Return an empty list with all zeros
-            vbSpikeRaster = np.zeros((self.nSizeIn), bool)
+            vbSpikeRaster = np.zeros((self.size_in), bool)
 
         while True:
             yield vbSpikeRaster
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
         # Compute number of simulation time steps
-        if nNumTimeSteps is None:
-            nNumTimeSteps = int((tDuration + fTolAbs) // self.tDt)
+        if num_timesteps is None:
+            num_timesteps = int((duration + tol_abs) // self.dt)
 
         # - Generate input in rasterized form
-        mfInptSpikeRaster = self._prepare_input(tsInput, nNumTimeSteps=nNumTimeSteps)
+        mfInptSpikeRaster = self._prepare_input(ts_input, num_timesteps=num_timesteps)
 
         # Convert input to torch tensors
-        mfInptSpikeRaster = [next(mfInptSpikeRaster) for i in range(nNumTimeSteps)]
+        mfInptSpikeRaster = [next(mfInptSpikeRaster) for i in range(num_timesteps)]
         print(sum(mfInptSpikeRaster))
         tsrIn = torch.from_numpy(np.array(mfInptSpikeRaster, np.uint8)).type(
             torch.float
         )
         # Reshape flat data to images and channels
-        tsrInReshaped = tsrIn.reshape(-1, *self.mfW.inShape)
+        tsrInReshaped = tsrIn.reshape(-1, *self.weights.inShape)
         print(tsrInReshaped.shape)
         # Restructure input
-        if self.mfW.img_data_format == "channels_last":
+        if self.weights.img_data_format == "channels_last":
             tsrInReshaped = tsrInReshaped.permute((0, 3, 1, 2))
-        elif self.mfW.img_data_format == "channels_first":
+        elif self.weights.img_data_format == "channels_first":
             pass
 
         # Process data
@@ -200,22 +200,22 @@ class FFCLIAFCNNTorch(FFCLIAF):
         tsrOut = self.lyrTorch(tsrInReshaped)
 
         # Reshape data again to the class's format
-        if self.mfW.img_data_format == "channels_last":
+        if self.weights.img_data_format == "channels_last":
             tsrOut = tsrOut.permute((0, 2, 3, 1))
-        elif self.mfW.img_data_format == "channels_first":
+        elif self.weights.img_data_format == "channels_first":
             pass
         # Flatten output and return
         mbOutRaster = tsrOut.cpu().numpy()
-        mbOutRaster = mbOutRaster.reshape((nNumTimeSteps, -1))
+        mbOutRaster = mbOutRaster.reshape((num_timesteps, -1))
 
         # Create time series from raster
         vnTimeSteps, vnChannels = np.nonzero(mbOutRaster)
-        times = self.t + (vnTimeSteps + 1) * self.tDt
+        times = self.t + (vnTimeSteps + 1) * self.dt
 
         # Update time
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         evOut = TSEvent(
-            times, vnChannels, num_channels=self.nSize, name=self.strName
+            times, vnChannels, num_channels=self.size, name=self.name
         )
         return evOut

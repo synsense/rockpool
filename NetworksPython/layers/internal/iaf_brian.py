@@ -132,10 +132,10 @@ class FFIAFBrian(Layer):
     ## - Constructor
     def __init__(
         self,
-        mfW: np.ndarray,
+        weights: np.ndarray,
         vfBias: Union[float, np.ndarray] = 15 * mA,
-        tDt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
+        dt: float = 0.1 * ms,
+        noise_std: float = 0 * mV,
         vtTauN: Union[float, np.ndarray] = 20 * ms,
         vfVThresh: Union[float, np.ndarray] = -55 * mV,
         vfVReset: Union[float, np.ndarray] = -65 * mV,
@@ -143,18 +143,18 @@ class FFIAFBrian(Layer):
         tRefractoryTime=0 * ms,
         eqNeurons=eqNeuronIAFFF,
         strIntegrator: str = "rk4",
-        strName: str = "unnamed",
+        name: str = "unnamed",
         bRecord: bool = False,
     ):
         """
         FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
                      Inputs are continuous currents; outputs are spiking events
 
-        :param mfW:             np.array MxN weight matrix.
+        :param weights:             np.array MxN weight matrix.
         :param vfBias:          np.array Nx1 bias vector. Default: 10mA
 
-        :param tDt:             float Time-step. Default: 0.1 ms
-        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+        :param dt:             float Time-step. Default: 0.1 ms
+        :param noise_std:       float Noise std. dev. per second. Default: 0
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
 
@@ -168,28 +168,28 @@ class FFIAFBrian(Layer):
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
 
-        :param strName:         str Name for the layer. Default: 'unnamed'
+        :param name:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
         """
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
-            mfW=np.asarray(mfW),
-            tDt=np.asarray(tDt),
-            fNoiseStd=np.asarray(fNoiseStd),
-            strName=strName,
+            weights=np.asarray(weights),
+            dt=np.asarray(dt),
+            noise_std=np.asarray(noise_std),
+            name=name,
         )
 
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(
-            self.nSize,
+            self.size,
             eqNeurons,
             threshold="v > v_thresh",
             reset="v = v_reset",
             refractory=np.asarray(tRefractoryTime) * second,
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="spiking_ff_neurons",
         )
         self._ngLayer.v = vfVRest
@@ -216,7 +216,7 @@ class FFIAFBrian(Layer):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vfBias = vfBias
-        self.mfW = mfW
+        self.weights = weights
 
         # - Store "reset" state
         self._net.store("reset")
@@ -232,7 +232,7 @@ class FFIAFBrian(Layer):
             Usage: .randomize_state()
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
+        self._ngLayer.v = (np.random.rand(self.size) * fRangeV + self.vfVReset) * volt
 
     def reset_time(self):
         """
@@ -248,11 +248,11 @@ class FFIAFBrian(Layer):
         vfVRest = np.copy(self.vfVRest)
         vtTauN = np.copy(self.vtTauN)
         vfBias = np.copy(self.vfBias)
-        mfW = np.copy(self.mfW)
+        weights = np.copy(self.weights)
 
         # - Reset network
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         # - Restork parameters
         self.vfVThresh = vfVThresh
@@ -260,7 +260,7 @@ class FFIAFBrian(Layer):
         self.vfVRest = vfVRest
         self.vtTauN = vtTauN
         self.vfBias = vfBias
-        self.mfW = mfW
+        self.weights = weights
 
         # - Restore state variables
         self._ngLayer.v = vfV
@@ -269,59 +269,59 @@ class FFIAFBrian(Layer):
 
     def evolve(
         self,
-        tsInput: Optional[TSContinuous] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSContinuous  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        vtTimeBase, mfInputStep, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
 
         # - Weight inputs
-        mfNeuronInputStep = mfInputStep @ self.mfW
+        mfNeuronInputStep = mfInputStep @ self.weights
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+            np.random.randn(np.size(vtTimeBase), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2.0 * self.vtTauN / self.tDt)
+            * self.noise_std
+            * np.sqrt(2.0 * self.vtTauN / self.dt)
             * 1.63
         )
 
         # - Specifiy network input currents, construct TimedArray
         taI_inp = TAShift(
             np.asarray(mfNeuronInputStep + mfNoiseStep) * amp,
-            self.tDt * second,
+            self.dt * second,
             tOffset=self.t * second,
             name="external_input",
         )
 
         # - Perform simulation
         self._net.run(
-            nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_inp}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": taI_inp}, level=0
         )
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * np.asscalar(self.tDt)
-        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._timestep * np.asscalar(self.dt)
+        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
 
         # - Update layer time step
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Build response TimeSeries
         vbUseEvent = self._spmLayer.t_ >= vtTimeBase[0]
@@ -332,61 +332,61 @@ class FFIAFBrian(Layer):
             np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
             name="Layer spikes",
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
 
     def stream(
-        self, tDuration: float, tDt: float, bVerbose: bool = False
+        self, duration: float, dt: float, verbose: bool = False
     ) -> Tuple[float, List[float]]:
         """
         stream - Stream data through this layer
-        :param tDuration:   float Total duration for which to handle streaming
-        :param tDt:         float Streaming time step
-        :param bVerbose:    bool Display feedback
+        :param duration:   float Total duration for which to handle streaming
+        :param dt:         float Streaming time step
+        :param verbose:    bool Display feedback
 
         :yield: (vtEventTimes, vnEventChannels)
 
         :return: Final (vtEventTimes, vnEventChannels)
         """
 
-        # - Initialise simulation, determine how many tDt to evolve for
-        if bVerbose:
+        # - Initialise simulation, determine how many dt to evolve for
+        if verbose:
             print("Layer: I'm preparing")
-        vtTimeTrace = np.arange(0, tDuration + tDt, tDt)
+        vtTimeTrace = np.arange(0, duration + dt, dt)
         nNumSteps = np.size(vtTimeTrace) - 1
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeTrace), self.nSize)
+            np.random.randn(np.size(vtTimeTrace), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2.0 * self.vtTauN / self.tDt)
+            * self.noise_std
+            * np.sqrt(2.0 * self.vtTauN / self.dt)
             * 1.63
         )
 
         # - Generate a TimedArray to use for step-constant input currents
         taI_inp = TAShift(
-            np.zeros((1, self._nSizeIn)) * amp, self.tDt * second, name="external_input"
+            np.zeros((1, self._size_in)) * amp, self.dt * second, name="external_input"
         )
 
-        if bVerbose:
+        if verbose:
             print("Layer: Prepared")
 
-        # - Loop over tDt steps
+        # - Loop over dt steps
         for nStep in range(nNumSteps):
-            if bVerbose:
+            if verbose:
                 print("Layer: Yielding from internal state.")
-            if bVerbose:
+            if verbose:
                 print("Layer: step", nStep)
-            if bVerbose:
+            if verbose:
                 print("Layer: Waiting for input...")
 
             # - Yield current output spikes, receive input for next time step
             vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[nStep]
-            if bVerbose:
+            if verbose:
                 print("Layer: Yielding {} spikes".format(np.sum(vbUseEvents)))
             tupInput = (
                 yield self._spmLayer.t_[vbUseEvents],
@@ -404,20 +404,20 @@ class FFIAFBrian(Layer):
             # - Reinitialise TimedArray
             taI_inp._init_2d()
 
-            if bVerbose:
+            if verbose:
                 print("Layer: Input was: ", tupInput)
 
             # - Evolve layer (increments time implicitly)
-            self._net.run(tDt * second, namespace={"I_inp": taI_inp}, level=0)
+            self._net.run(dt * second, namespace={"I_inp": taI_inp}, level=0)
 
         # - Return final spikes, if any
-        vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[-2]  # Should be tDuration - tDt
+        vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[-2]  # Should be duration - dt
         return self._spmLayer.t_[vbUseEvents], self._spmLayer.i_[vbUseEvents]
 
     ### --- Properties
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSEvent
 
     @property
@@ -425,11 +425,11 @@ class FFIAFBrian(Layer):
         return self._ngLayer._refractory
 
     @property
-    def vState(self):
+    def state(self):
         return self._ngLayer.v_
 
-    @vState.setter
-    def vState(self, vNewState):
+    @state.setter
+    def state(self, vNewState):
         self._ngLayer.v = (
             np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * volt
         )
@@ -488,9 +488,9 @@ class FFIAFBrian(Layer):
     def t(self):
         return self._net.t_
 
-    @Layer.tDt.setter
-    def tDt(self, _):
-        raise ValueError("The `tDt` property cannot be set for this layer")
+    @Layer.dt.setter
+    def dt(self, _):
+        raise ValueError("The `dt` property cannot be set for this layer")
 
 
 # - FFIAFSpkInBrian - Class: Spiking feedforward layer with spiking in- and outputs
@@ -501,10 +501,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
     ## - Constructor
     def __init__(
         self,
-        mfW: np.ndarray,
+        weights: np.ndarray,
         vfBias: np.ndarray = 10 * mA,
-        tDt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
+        dt: float = 0.1 * ms,
+        noise_std: float = 0 * mV,
         vtTauN: np.ndarray = 20 * ms,
         vtTauS: np.ndarray = 20 * ms,
         vfVThresh: np.ndarray = -55 * mV,
@@ -513,18 +513,18 @@ class FFIAFSpkInBrian(FFIAFBrian):
         tRefractoryTime=0 * ms,
         eqNeurons=eqNeuronIAFSpkInFF,
         strIntegrator: str = "rk4",
-        strName: str = "unnamed",
+        name: str = "unnamed",
         bRecord: bool = False,
     ):
         """
         FFIAFSpkInBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
                           in- and outputs are spiking events
 
-        :param mfW:             np.array MxN weight matrix.
+        :param weights:             np.array MxN weight matrix.
         :param vfBias:          np.array Nx1 bias vector. Default: 10mA
 
-        :param tDt:             float Time-step. Default: 0.1 ms
-        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+        :param dt:             float Time-step. Default: 0.1 ms
+        :param noise_std:       float Noise std. dev. per second. Default: 0
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
         :param vtTauS:          np.array Nx1 vector of synapse time constants. Default: 20ms
@@ -539,7 +539,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
 
-        :param strName:         str Name for the layer. Default: 'unnamed'
+        :param name:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
         """
@@ -547,25 +547,25 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # - Call Layer constructor
         Layer.__init__(
             self,
-            mfW=mfW,
-            tDt=np.asarray(tDt),
-            fNoiseStd=np.asarray(fNoiseStd),
-            strName=strName,
+            weights=weights,
+            dt=np.asarray(dt),
+            noise_std=np.asarray(noise_std),
+            name=name,
         )
 
         # - Set up spike source to receive spiking input
         self._sggInput = b2.SpikeGeneratorGroup(
-            self.nSizeIn, [0], [0 * second], dt=np.asarray(tDt) * second
+            self.size_in, [0], [0 * second], dt=np.asarray(dt) * second
         )
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(
-            self.nSize,
+            self.size,
             eqNeurons,
             threshold="v > v_thresh",
             reset="v = v_reset",
             refractory=np.asarray(tRefractoryTime) * second,
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="spiking_ff_neurons",
         )
         self._ngLayer.v = vfVRest
@@ -578,7 +578,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
             model="w : 1",
             on_pre="I_syn_post += w*amp",
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="receiver_synapses",
         )
         self._sgReceiver.connect()
@@ -611,37 +611,37 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.vtTauN = vtTauN
         self.vtTauS = vtTauS
         self.vfBias = vfBias
-        self.mfW = mfW
+        self.weights = weights
 
         # - Store "reset" state
         self._net.store("reset")
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
-        vtTimeBase = self.t + np.arange(nNumTimeSteps) * self.tDt
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
+        vtTimeBase = self.t + np.arange(num_timesteps) * self.dt
 
         # - Set spikes for spike generator
-        if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput(
-                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.tDt
+        if ts_input is not None:
+            vtEventTimes, vnEventChannels = ts_input(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.dt
             )
             self._sggInput.set_spikes(
                 vnEventChannels, vtEventTimes * second, sorted=False
@@ -651,33 +651,33 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+            np.random.randn(np.size(vtTimeBase), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2.0 * self.vtTauN / self.tDt)
+            * self.noise_std
+            * np.sqrt(2.0 * self.vtTauN / self.dt)
             * 1.63
         )
 
         # - Specifiy noise input currents, construct TimedArray
         taI_noise = TAShift(
             np.asarray(mfNoiseStep) * amp,
-            self.tDt * second,
+            self.dt * second,
             tOffset=self.t * second,
             name="noise_input",
         )
 
         # - Perform simulation
         self._net.run(
-            nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": taI_noise}, level=0
         )
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * np.asscalar(self.tDt)
-        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._timestep * np.asscalar(self.dt)
+        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
 
         # - Update layer time
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Build response TimeSeries
         vbUseEvent = self._spmLayer.t_ >= vtTimeBase[0]
@@ -688,7 +688,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
             np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
             name="Layer spikes",
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
@@ -706,10 +706,10 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vtTauN = np.copy(self.vtTauN)
         vtTauS = np.copy(self.vtTauS)
         vfBias = np.copy(self.vfBias)
-        mfW = np.copy(self.mfW)
+        weights = np.copy(self.weights)
 
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         # - Restork parameters
         self.vfVThresh = vfVThresh
@@ -718,7 +718,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.vtTauN = vtTauN
         self.vtTauS = vtTauS
         self.vfBias = vfBias
-        self.mfW = mfW
+        self.weights = weights
 
         # - Restore state variables
         self._ngLayer.v = vfV
@@ -740,11 +740,11 @@ class FFIAFSpkInBrian(FFIAFBrian):
             vtTauN = np.copy(self.vtTauN)
             vtTauS = np.copy(self.vtTauS)
             vfBias = np.copy(self.vfBias)
-            mfW = np.copy(self.mfW)
+            weights = np.copy(self.weights)
 
         self.reset_state()
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         if bKeepParams:
             # - Restork parameters
@@ -754,15 +754,15 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self.vtTauN = vtTauN
             self.vtTauS = vtTauS
             self.vfBias = vfBias
-            self.mfW = mfW
+            self.weights = weights
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
             Usage: .randomize_state()
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+        self._ngLayer.v = (np.random.rand(self.size) * fRangeV + self.vfVReset) * volt
+        self._ngLayer.I_syn = np.random.rand(self.size) * amp
 
     def pot_kernel(self, t):
         """ pot_kernel - response of the membrane potential to an
@@ -775,16 +775,16 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     def train_mst_simple(
         self,
-        tDuration: float,
+        duration: float,
         tStart: float,
-        tsInput: TSEvent,
+        ts_input: TSEvent,
         vnTargetCounts: np.ndarray = None,
         fLambda: float = 1e-5,
         fEligibilityRatio: float = 0.1,
         fMomentum: float = 0,
         bFirst: bool = True,
         bFinal: bool = False,
-        bVerbose: bool = False,
+        verbose: bool = False,
     ):
         """
         train_mst_simple - Use the multi-spike tempotron learning rule
@@ -798,30 +798,30 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - End time of current batch
-        t_stop = tStart + tDuration
+        t_stop = tStart + duration
 
-        if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput(t_start=tStart, t_stop=t_stop)
+        if ts_input is not None:
+            vtEventTimes, vnEventChannels = ts_input(t_start=tStart, t_stop=t_stop)
         else:
-            print("No tsInput defined, assuming input to be 0.")
+            print("No ts_input defined, assuming input to be 0.")
             vtEventTimes, vnEventChannels = [], []
 
         # - Prepare target
         if vnTargetCounts is None:
-            vnTargetCounts = np.zeros(self.nSize)
+            vnTargetCounts = np.zeros(self.size)
         else:
             assert (
-                np.size(vnTargetCounts) == self.nSize
-            ), "Target array size must match layer size ({}).".format(self.nSize)
+                np.size(vnTargetCounts) == self.size
+            ), "Target array size must match layer size ({}).".format(self.size)
 
         ## -- Determine eligibility for each neuron and synapse
-        mfEligibiity = np.zeros((self.nSizeIn, self.nSize))
+        mfEligibiity = np.zeros((self.size_in, self.size))
 
         # - Iterate over source neurons
-        for iSource in range(self.nSizeIn):
-            if bVerbose:
+        for iSource in range(self.size_in):
+            if verbose:
                 print(
-                    "\rProcessing input {} of {}".format(iSource + 1, self.nSizeIn),
+                    "\rProcessing input {} of {}".format(iSource + 1, self.size_in),
                     end="",
                 )
             # - Find spike timings
@@ -840,7 +840,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
                 mfEligibiity[iSource, :] += np.sum(vfKernel * vfVmem)
 
         ## -- For each neuron sort eligibilities and choose synapses with largest eligibility
-        nEligible = int(fEligibilityRatio * self.nSizeIn)
+        nEligible = int(fEligibilityRatio * self.size_in)
         # - Mark eligible neurons
         miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible:-1]
 
@@ -849,11 +849,11 @@ class FFIAFSpkInBrian(FFIAFBrian):
         vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= t_stop)
         viSpkNeuronOut = self._spmLayer.i[vbUseEventOut]
         vnSpikeCount = np.array(
-            [np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.nSize)]
+            [np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.size)]
         )
 
         # - Updates to eligible synapses of each neuron
-        vfUpdates = np.zeros(self.nSize)
+        vfUpdates = np.zeros(self.size)
         # - Negative update if spike count too high
         vfUpdates[vnSpikeCount > vnTargetCounts] = -fLambda
         # - Positive update if spike count too low
@@ -861,25 +861,25 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         # - Reset previous weight changes that are used for momentum heuristic
         if bFirst:
-            self._mfDW_previous = np.zeros_like(self.mfW)
+            self._mfDW_previous = np.zeros_like(self.weights)
 
         # - Accumulate updates to me made to weights
-        mfDW_current = np.zeros_like(self.mfW)
+        mfDW_current = np.zeros_like(self.weights)
 
         # - Update only eligible synapses
-        for iTarget in range(self.nSize):
+        for iTarget in range(self.size):
             mfDW_current[miEligible[:, iTarget], iTarget] += vfUpdates[iTarget]
 
         # - Include previous weight changes for momentum heuristic
         mfDW_current += fMomentum * self._mfDW_previous
 
         # - Perform weight update
-        self.mfW += mfDW_current
+        self.weights += mfDW_current
         # - Store weight changes for next iteration
         self._mfDW_previous = mfDW_current
 
     @property
-    def cInput(self):
+    def input_type(self):
         return TSEvent
 
     @property
@@ -887,16 +887,16 @@ class FFIAFSpkInBrian(FFIAFBrian):
         return self._ngLayer._refractory
 
     @property
-    def mfW(self):
-        return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
+    def weights(self):
+        return np.array(self._sgReceiver.w).reshape(self.size_in, self.size)
 
-    @mfW.setter
-    def mfW(self, mfNewW):
+    @weights.setter
+    def weights(self, mfNewW):
         assert (
-            mfNewW.shape == (self.nSizeIn, self.nSize)
+            mfNewW.shape == (self.size_in, self.size)
             or mfNewW.shape == self._sgReceiver.w.shape
-        ), "mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nSizeIn, self.nSize, self.nSizeIn * self.nSize
+        ), "weights must be of dimensions ({}, {}) or flat with size {}.".format(
+            self.size_in, self.size, self.size_in * self.size
         )
 
         self._sgReceiver.w = np.array(mfNewW).flatten()
@@ -920,10 +920,10 @@ class RecIAFBrian(Layer):
     ## - Constructor
     def __init__(
         self,
-        mfW: np.ndarray = None,
+        weights: np.ndarray = None,
         vfBias: Union[float, np.ndarray] = 10.5 * mA,
-        tDt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
+        dt: float = 0.1 * ms,
+        noise_std: float = 0 * mV,
         vtTauN: Union[float, np.ndarray] = 20 * ms,
         vtTauSynR: Union[float, np.ndarray] = 50 * ms,
         vfVThresh: Union[float, np.ndarray] = -55 * mV,
@@ -933,13 +933,13 @@ class RecIAFBrian(Layer):
         eqNeurons=eqNeuronIAFRec,
         eqSynRecurrent=eqSynapseExp,
         strIntegrator: str = "rk4",
-        strName: str = "unnamed",
+        name: str = "unnamed",
         bRecord: bool = False,
     ):
         """
         RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
 
-        :param mfW:             np.array NxN weight matrix. Default: [100x100] unit-lambda matrix
+        :param weights:             np.array NxN weight matrix. Default: [100x100] unit-lambda matrix
         :param vfBias:          np.array Nx1 bias vector. Default: 10.5mA
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20 ms
@@ -956,31 +956,31 @@ class RecIAFBrian(Layer):
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
 
-        :param strName:         str Name for the layer. Default: 'unnamed'
+        :param name:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
         """
 
         assert (
-            np.atleast_2d(mfW).shape[0] == np.atleast_2d(mfW).shape[1]
-        ), "Layer `{}`: mfW must be a square matrix.".format(strName)
+            np.atleast_2d(weights).shape[0] == np.atleast_2d(weights).shape[1]
+        ), "Layer `{}`: weights must be a square matrix.".format(name)
         # - Call super constructor
         super().__init__(
-            mfW=mfW,
-            tDt=np.asarray(tDt),
-            fNoiseStd=np.asarray(fNoiseStd),
-            strName=strName,
+            weights=weights,
+            dt=np.asarray(dt),
+            noise_std=np.asarray(noise_std),
+            name=name,
         )
 
         # - Set up reservoir neurons
         self._ngLayer = b2.NeuronGroup(
-            self.nSize,
+            self.size,
             eqNeurons + eqSynRecurrent,
             threshold="v > v_thresh",
             reset="v = v_reset",
             refractory=np.asarray(tRefractoryTime) * second,
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="reservoir_neurons",
         )
         self._ngLayer.v = vfVRest
@@ -993,7 +993,7 @@ class RecIAFBrian(Layer):
             model="w : 1",
             on_pre="I_syn_post += w*amp",
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="reservoir_recurrent_synapses",
         )
         self._sgRecurrentSynapses.connect()
@@ -1022,7 +1022,7 @@ class RecIAFBrian(Layer):
             self._net.add(self._stmVmemIsyn)
 
         # - Record neuron / synapse parameters
-        self.mfW = mfW
+        self.weights = weights
         self.vfVThresh = vfVThresh
         self.vfVReset = vfVReset
         self.vfVRest = vfVRest
@@ -1045,8 +1045,8 @@ class RecIAFBrian(Layer):
             Usage: .randomize_state()
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+        self._ngLayer.v = (np.random.rand(self.size) * fRangeV + self.vfVReset) * volt
+        self._ngLayer.I_syn = np.random.rand(self.size) * amp
 
     def reset_time(self):
         """
@@ -1064,11 +1064,11 @@ class RecIAFBrian(Layer):
         vtTauN = np.copy(self.vtTauN)
         vtTauSynR = np.copy(self.vtTauSynR)
         vfBias = np.copy(self.vfBias)
-        mfW = np.copy(self.mfW)
+        weights = np.copy(self.weights)
 
         # - Reset network
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         # - Restork parameters
         self.vfVThresh = vfVThresh
@@ -1077,7 +1077,7 @@ class RecIAFBrian(Layer):
         self.vtTauN = vtTauN
         self.vtTauSynR = vtTauSynR
         self.vfBias = vfBias
-        self.mfW = mfW
+        self.weights = weights
 
         # - Restore state variables
         self._ngLayer.v = vfV
@@ -1087,61 +1087,61 @@ class RecIAFBrian(Layer):
 
     def evolve(
         self,
-        tsInput: Optional[TSContinuous] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSContinuous  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        vtTimeBase, mfInputStep, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        vtTimeBase, mfInputStep, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
 
         # - Store stuff for debugging
         self.vtTimeBase = vtTimeBase
         self.mfInputStep = mfInputStep
-        self.nNumTimeSteps = nNumTimeSteps
+        self.num_timesteps = num_timesteps
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+            np.random.randn(np.size(vtTimeBase), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2.0 * self.vtTauN / self.tDt)
+            * self.noise_std
+            * np.sqrt(2.0 * self.vtTauN / self.dt)
             * 1.63
         )
 
         # - Specifiy network input currents, construct TimedArray
         taI_inp = TAShift(
             np.asarray(mfInputStep + mfNoiseStep) * amp,
-            self.tDt * second,
+            self.dt * second,
             tOffset=self.t * second,
             name="external_input",
         )
 
         # - Perform simulation
         self._net.run(
-            nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_inp}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": taI_inp}, level=0
         )
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * np.asscalar(self.tDt)
-        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._timestep * np.asscalar(self.dt)
+        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
 
         # - Update layer time step
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
@@ -1152,7 +1152,7 @@ class RecIAFBrian(Layer):
             np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
             name="Layer spikes",
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
@@ -1160,41 +1160,41 @@ class RecIAFBrian(Layer):
     ### --- Properties
 
     @property
-    def cOutput(self):
+    def output_type(self):
         return TSEvent
 
     @property
-    def mfW(self):
+    def weights(self):
         if hasattr(self, "_sgRecurrentSynapses"):
-            return np.reshape(self._sgRecurrentSynapses.w, (self.nSize, -1))
+            return np.reshape(self._sgRecurrentSynapses.w, (self.size, -1))
         else:
             return self._mfW
 
-    @mfW.setter
-    def mfW(self, mfNewW):
-        assert mfNewW is not None, "Layer `{}`: mfW must not be None.".format(
-            self.strName
+    @weights.setter
+    def weights(self, mfNewW):
+        assert mfNewW is not None, "Layer `{}`: weights must not be None.".format(
+            self.name
         )
 
-        assert np.size(mfNewW) == self.nSize ** 2, (
+        assert np.size(mfNewW) == self.size ** 2, (
             "Layer `{}`: `mfNewW` must have ["
-            + str(self.nSize ** 2)
-            + "] elements.".format(self.strName)
+            + str(self.size ** 2)
+            + "] elements.".format(self.name)
         )
 
         self._mfW = mfNewW
 
         if hasattr(self, "_sgRecurrentSynapses"):
             # - Assign recurrent weights (need to transpose)
-            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
+            mfNewW = np.asarray(mfNewW).reshape(self.size, -1)
             self._sgRecurrentSynapses.w = mfNewW.flatten()
 
     @property
-    def vState(self):
+    def state(self):
         return self._ngLayer.v_
 
-    @vState.setter
-    def vState(self, vNewState):
+    @state.setter
+    def state(self, vNewState):
         self._ngLayer.v = (
             np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * volt
         )
@@ -1267,11 +1267,11 @@ class RecIAFBrian(Layer):
     def t(self):
         return self._net.t_
 
-    @Layer.tDt.setter
-    def tDt(self, _):
+    @Layer.dt.setter
+    def dt(self, _):
         raise ValueError(
-            "Layer `{}`: The `tDt` property cannot be set for this layer".format(
-                self.strName
+            "Layer `{}`: The `dt` property cannot be set for this layer".format(
+                self.name
             )
         )
 
@@ -1284,11 +1284,11 @@ class RecIAFSpkInBrian(RecIAFBrian):
     ## - Constructor
     def __init__(
         self,
-        mfWIn: np.ndarray,
-        mfWRec: np.ndarray,
+        weights_in: np.ndarray,
+        weights_rec: np.ndarray,
         vfBias: np.ndarray = 10.5 * mA,
-        tDt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
+        dt: float = 0.1 * ms,
+        noise_std: float = 0 * mV,
         vtTauN: np.ndarray = 20 * ms,
         vtTauSInp: np.ndarray = 50 * ms,
         vtTauSRec: np.ndarray = 50 * ms,
@@ -1299,19 +1299,19 @@ class RecIAFSpkInBrian(RecIAFBrian):
         eqNeurons=eqNeuronIAFSpkInRec,
         eqSynapses=eqSynapseExpSpkInRec,
         strIntegrator: str = "rk4",
-        strName: str = "unnamed",
+        name: str = "unnamed",
         bRecord: bool = False,
     ):
         """
         RecIAFSpkInBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
                            in- and outputs are spiking events
 
-        :param mfWIn:           np.array MxN input weight matrix.
-        :param mfWRec:          np.array NxN recurrent weight matrix.
+        :param weights_in:           np.array MxN input weight matrix.
+        :param weights_rec:          np.array NxN recurrent weight matrix.
         :param vfBias:          np.array Nx1 bias vector. Default: 10.5mA
 
-        :param tDt:             float Time-step. Default: 0.1 ms
-        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+        :param dt:             float Time-step. Default: 0.1 ms
+        :param noise_std:       float Noise std. dev. per second. Default: 0
 
         :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
         :param vtTauSInp:       np.array Nx1 vector of synapse time constants. Default: 20ms
@@ -1328,7 +1328,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
 
-        :param strName:         str Name for the layer. Default: 'unnamed'
+        :param name:         str Name for the layer. Default: 'unnamed'
 
         :param bRecord:         bool Record membrane potential during evolutions
         """
@@ -1336,25 +1336,25 @@ class RecIAFSpkInBrian(RecIAFBrian):
         # - Call Layer constructor
         Layer.__init__(
             self,
-            mfW=mfWIn,
-            tDt=np.asarray(tDt),
-            fNoiseStd=np.asarray(fNoiseStd),
-            strName=strName,
+            weights=weights_in,
+            dt=np.asarray(dt),
+            noise_std=np.asarray(noise_std),
+            name=name,
         )
 
         # - Set up spike source to receive spiking input
         self._sggInput = b2.SpikeGeneratorGroup(
-            self.nSizeIn, [0], [0 * second], dt=np.asarray(tDt) * second
+            self.size_in, [0], [0 * second], dt=np.asarray(dt) * second
         )
         # - Set up layer neurons
         self._ngLayer = b2.NeuronGroup(
-            self.nSize,
+            self.size,
             eqNeurons + eqSynapses,
             threshold="v > v_thresh",
             reset="v = v_reset",
             refractory=np.asarray(tRefractoryTime) * second,
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="spiking_ff_neurons",
         )
         self._ngLayer.v = vfVRest
@@ -1367,7 +1367,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             model="w : 1",
             on_pre="I_syn_inp_post += w*amp",
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="receiver_synapses",
         )
         self._sgReceiver.connect()
@@ -1379,7 +1379,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             model="w : 1",
             on_pre="I_syn_rec_post += w*amp",
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="recurrent_synapses",
         )
         self._sgRecurrentSynapses.connect()
@@ -1417,38 +1417,38 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self.vtTauSInp = vtTauSInp
         self.vtTauSRec = vtTauSRec
         self.vfBias = vfBias
-        self.mfWIn = mfWIn
-        self.mfWRec = mfWRec
+        self.weights_in = weights_in
+        self.weights_rec = weights_rec
 
         # - Store "reset" state
         self._net.store("reset")
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        nNumTimeSteps = self._determine_timesteps(tsInput, tDuration, nNumTimeSteps)
-        vtTimeBase = self.t + np.arange(nNumTimeSteps) * self.tDt
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
+        vtTimeBase = self.t + np.arange(num_timesteps) * self.dt
 
         # - Set spikes for spike generator
-        if tsInput is not None:
-            vtEventTimes, vnEventChannels = tsInput(
-                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.tDt
+        if ts_input is not None:
+            vtEventTimes, vnEventChannels = ts_input(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.dt
             )
             self._sggInput.set_spikes(
                 vnEventChannels, vtEventTimes * second, sorted=False
@@ -1458,33 +1458,33 @@ class RecIAFSpkInBrian(RecIAFBrian):
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+            np.random.randn(np.size(vtTimeBase), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2.0 * self.vtTauN / self.tDt)
+            * self.noise_std
+            * np.sqrt(2.0 * self.vtTauN / self.dt)
             * 1.63
         )
 
         # - Specifiy noise input currents, construct TimedArray
         taI_noise = TAShift(
             np.asarray(mfNoiseStep) * amp,
-            self.tDt * second,
+            self.dt * second,
             tOffset=self.t * second,
             name="noise_input",
         )
 
         # - Perform simulation
         self._net.run(
-            nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": taI_noise}, level=0
         )
 
         # - Start and stop times for output time series
-        t_start = self._nTimeStep * np.asscalar(self.tDt)
-        t_stop = (self._nTimeStep + nNumTimeSteps) * np.asscalar(self.tDt)
+        t_start = self._timestep * np.asscalar(self.dt)
+        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
 
         # - Update layer time step
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Build response TimeSeries
         vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
@@ -1495,7 +1495,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             np.clip(vtEventTimeOutput, t_start, t_stop),
             vnEventChannelOutput,
             name="Layer spikes",
-            num_channels=self.nSize,
+            num_channels=self.size,
             t_start=t_start,
             t_stop=t_stop,
         )
@@ -1515,11 +1515,11 @@ class RecIAFSpkInBrian(RecIAFBrian):
         vtTauSInp = np.copy(self.vtTauSInp)
         vtTauSRec = np.copy(self.vtTauSRec)
         vfBias = np.copy(self.vfBias)
-        mfWIn = np.copy(self.mfWIn)
-        mfWRec = np.copy(self.mfWRec)
+        weights_in = np.copy(self.weights_in)
+        weights_rec = np.copy(self.weights_rec)
 
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         # - Restork parameters
         self.vfVThresh = vfVThresh
@@ -1529,8 +1529,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self.vtTauSInp = vtTauSInp
         self.vtTauSRec = vtTauSRec
         self.vfBias = vfBias
-        self.mfWIn = mfWIn
-        self.mfWRec = mfWRec
+        self.weights_in = weights_in
+        self.weights_rec = weights_rec
 
         # - Restore state variables
         self._ngLayer.v = vfV
@@ -1555,12 +1555,12 @@ class RecIAFSpkInBrian(RecIAFBrian):
             vtTauSRec = np.copy(self.vtTauSRec)
             vtTauSInp = np.copy(self.vtTauSInp)
             vfBias = np.copy(self.vfBias)
-            mfWIn = np.copy(self.mfWIn)
-            mfWRec = np.copy(self.mfWRec)
+            weights_in = np.copy(self.weights_in)
+            weights_rec = np.copy(self.weights_rec)
 
         self.reset_state()
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         if bKeepParams:
             # - Restork parameters
@@ -1571,24 +1571,24 @@ class RecIAFSpkInBrian(RecIAFBrian):
             self.vtTauSInp = vtTauSInp
             self.vtTauSRec = vtTauSRec
             self.vfBias = vfBias
-            self.mfWIn = mfWIn
-            self.mfWRec = mfWRec
+            self.weights_in = weights_in
+            self.weights_rec = weights_rec
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
             Usage: .randomize_state()
         """
         fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
+        self._ngLayer.v = (np.random.rand(self.size) * fRangeV + self.vfVReset) * volt
         self._ngLayer.I_syn_inp = (
-            np.random.randn(self.nSize) * np.mean(np.abs(self.mfWIn)) * amp
+            np.random.randn(self.size) * np.mean(np.abs(self.weights_in)) * amp
         )
         self._ngLayer.I_syn_rec = (
-            np.random.randn(self.nSize) * np.mean(np.abs(self.mfWRec)) * amp
+            np.random.randn(self.size) * np.mean(np.abs(self.weights_rec)) * amp
         )
 
     @property
-    def cInput(self):
+    def input_type(self):
         return TSEvent
 
     @property
@@ -1596,47 +1596,47 @@ class RecIAFSpkInBrian(RecIAFBrian):
         return self._ngLayer._refractory
 
     @property
-    def mfW(self):
-        return self.mfWRec
+    def weights(self):
+        return self.weights_rec
 
-    @mfW.setter
-    def mfW(self, mfNewW):
-        self.mfWRec = mfNewW
+    @weights.setter
+    def weights(self, mfNewW):
+        self.weights_rec = mfNewW
 
     @property
-    def mfWIn(self):
-        return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
+    def weights_in(self):
+        return np.array(self._sgReceiver.w).reshape(self.size_in, self.size)
 
-    @mfWIn.setter
-    def mfWIn(self, mfNewW):
-        assert mfNewW is not None, "Layer `{}`: mfWIn must not be None.".format(
-            self.strName
+    @weights_in.setter
+    def weights_in(self, mfNewW):
+        assert mfNewW is not None, "Layer `{}`: weights_in must not be None.".format(
+            self.name
         )
 
         assert (
-            mfNewW.shape == (self.nSizeIn, self.nSize)
+            mfNewW.shape == (self.size_in, self.size)
             or mfNewW.shape == self._sgReceiver.w.shape
-        ), "Layer `{}`: mfW must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.strName, self.nSizeIn, self.nSize, self.nSizeIn * self.nSize
+        ), "Layer `{}`: weights must be of dimensions ({}, {}) or flat with size {}.".format(
+            self.name, self.size_in, self.size, self.size_in * self.size
         )
 
         self._sgReceiver.w = np.array(mfNewW).flatten()
 
     @property
-    def mfWRec(self):
-        return np.array(self._sgRecurrentSynapses.w).reshape(self.nSize, self.nSize)
+    def weights_rec(self):
+        return np.array(self._sgRecurrentSynapses.w).reshape(self.size, self.size)
 
-    @mfWRec.setter
-    def mfWRec(self, mfNewW):
-        assert mfNewW is not None, "Layer `{}`: mfWRec must not be None.".format(
-            self.strName
+    @weights_rec.setter
+    def weights_rec(self, mfNewW):
+        assert mfNewW is not None, "Layer `{}`: weights_rec must not be None.".format(
+            self.name
         )
 
         assert (
-            mfNewW.shape == (self.nSize, self.nSize)
+            mfNewW.shape == (self.size, self.size)
             or mfNewW.shape == self._sgReceiver.w.shape
-        ), "Layer `{}`: mfWRec must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.strName, self.nSize, self.nSize, self.nSize * self.nSize
+        ), "Layer `{}`: weights_rec must be of dimensions ({}, {}) or flat with size {}.".format(
+            self.name, self.size, self.size, self.size * self.size
         )
 
         self._sgRecurrentSynapses.w = np.array(mfNewW).flatten()
@@ -1664,13 +1664,13 @@ class RecIAFSpkInBrian(RecIAFBrian):
     @property
     def vtTauSynR(self):
         print(
-            "Layer {}: This layer has no attribute `vtTauSynR`. ".format(self.strName)
+            "Layer {}: This layer has no attribute `vtTauSynR`. ".format(self.name)
             + "You might want to consider `vtTauSRec` or `vtTauSInp`."
         )
 
     @vtTauSynR.setter
     def vtTauSynR(self, *args, **kwargs):
         print(
-            "Layer {}: This layer has no attribute `vtTauSynR`. ".format(self.strName)
+            "Layer {}: This layer has no attribute `vtTauSynR`. ".format(self.name)
             + "You might want to consider `vtTauSRec` or `vtTauSInp`."
         )

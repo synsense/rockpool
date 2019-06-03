@@ -15,26 +15,26 @@ def test_cliaf_evolve_subtracting():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[12, 0, 0], [0, 0, 10]])
+    weights_in = np.array([[12, 0, 0], [0, 0, 10]])
     # - Recurrent weight matrix
-    mfWRec = np.array([[0, 3, 0], [0, 0, 0], [0, 0, 0]])
+    weights_rec = np.array([[0, 3, 0], [0, 0, 0], [0, 0, 0]])
 
     # - Generate layer
     rl = RecCLIAF(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
         vfVBias=-0.05,
         vfVThresh=5,
-        tDt=0.1,
+        dt=0.1,
         vnIdMonitor=True,
         vfVSubtract=5,
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
-    tsOutput = rl.evolve(tsInput, tDuration=0.75)
+    tsOutput = rl.evolve(ts_input, duration=0.75)
 
     # - Expectation: Input spike will cause neuron 0 to spike 2 times at t=0.6
     #                These spikes will cause neuron 1 to spike once at t=0.7
@@ -51,7 +51,7 @@ def test_cliaf_evolve_subtracting():
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    assert (rl.vState == 0).all(), "State has not been reset correctly"
+    assert (rl.state == 0).all(), "State has not been reset correctly"
 
 
 def test_cliaf_evolve_resetting():
@@ -62,26 +62,26 @@ def test_cliaf_evolve_resetting():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[12, 0, 0], [0, 0, 10]])
+    weights_in = np.array([[12, 0, 0], [0, 0, 10]])
     # - Recurrent weight matrix
-    mfWRec = np.array([[0, 3, 0], [0, 0, 0], [0, 0, 0]])
+    weights_rec = np.array([[0, 3, 0], [0, 0, 0], [0, 0, 0]])
 
     # - Generate layer
     rl = RecCLIAF(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
         vfVBias=-0.05,
         vfVThresh=5,
-        tDt=0.1,
+        dt=0.1,
         vnIdMonitor=True,
         vfVSubtract=None,
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
-    tsOutput = rl.evolve(tsInput, tDuration=0.7)
+    tsOutput = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike once at t=0.6
     #                This spike will not be enough to make other neuron spike.
@@ -97,7 +97,7 @@ def test_cliaf_evolve_resetting():
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    assert (rl.vState == 0).all(), "State has not been reset correctly"
+    assert (rl.state == 0).all(), "State has not been reset correctly"
 
 
 ### --- Test iaf_digital.RecDIAF
@@ -111,14 +111,14 @@ def test_diaf_evolve_subtracting():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[16, 0, 0], [0, 0, 10]])
+    weights_in = np.array([[16, 0, 0], [0, 0, 10]])
     # - Recurrent weight matrix
-    mfWRec = np.array([[0, 5, 0], [0, 0, 0], [0, 0, 0]])
+    weights_rec = np.array([[0, 5, 0], [0, 0, 0], [0, 0, 0]])
 
     # - Generate layer
     rl = RecDIAF(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
         vfVThresh=5,
         vfVReset=0,
         vfVSubtract=5,
@@ -129,10 +129,10 @@ def test_diaf_evolve_subtracting():
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
-    tsOutput = rl.evolve(tsInput, tDuration=0.7)
+    tsOutput = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike 2 times
     #                (not three times because of the leak that reduced state before),
@@ -152,7 +152,7 @@ def test_diaf_evolve_subtracting():
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    assert (rl.vState == 0).all(), "State has not been reset correctly"
+    assert (rl.state == 0).all(), "State has not been reset correctly"
 
 
 def test_diaf_evolve_resetting():
@@ -164,14 +164,14 @@ def test_diaf_evolve_resetting():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[16, 0, 0], [0, 0, 10]])
+    weights_in = np.array([[16, 0, 0], [0, 0, 10]])
     # - Recurrent weight matrix
-    mfWRec = np.array([[0, 5, 0], [0, 0, 0], [0, 0, 0]])
+    weights_rec = np.array([[0, 5, 0], [0, 0, 0], [0, 0, 0]])
 
     # - Generate layer
     rl = RecDIAF(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
         vfVThresh=5,
         vfVReset=0,
         vfVSubtract=None,  # Reset instead of subtracting
@@ -182,10 +182,10 @@ def test_diaf_evolve_resetting():
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
 
     # - Evolution
-    tsOutput = rl.evolve(tsInput, tDuration=0.7)
+    tsOutput = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike once at t=0.55
     #                This spikes will not be enough to make other neuron spike.
@@ -201,7 +201,7 @@ def test_diaf_evolve_resetting():
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    assert (rl.vState == 0).all(), "State has not been reset correctly"
+    assert (rl.state == 0).all(), "State has not been reset correctly"
 
 
 def test_diaf_evolve_vfvrest():
@@ -213,16 +213,16 @@ def test_diaf_evolve_vfvrest():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[16, 0, -10], [0, 90, 0]])
+    weights_in = np.array([[16, 0, -10], [0, 90, 0]])
     # - Recurrent weight matrix
-    mfWRec = np.array([[0, 5, 0], [7, 0, 0], [1, 0, -4]])
+    weights_rec = np.array([[0, 5, 0], [7, 0, 0], [1, 0, -4]])
 
     # - Generate layer
     rl = RecDIAF(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
         vfVThresh=50,
-        tDt=0.001,
+        dt=0.001,
         vfVReset=0,
         vfVSubtract=None,  # Reset instead of subtracting
         tSpikeDelay=0.04,
@@ -234,12 +234,12 @@ def test_diaf_evolve_vfvrest():
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55], channels=[0])
+    ts_input = TSEvent(times=[0.55], channels=[0])
 
     # - Evolution
-    tsOutput = rl.evolve(tsInput, tDuration=0.9)
+    tsOutput = rl.evolve(ts_input, duration=0.9)
 
     # - Expectation: Input spike will cause the potential of neuron 0 to increase
     #                and of neuron 2 to decrease. Due to the leak, both potentials
     #                should have moved back to 0 after 0.32 s.
-    assert np.allclose(rl.vState, np.zeros(3)), "Final state not as expected"
+    assert np.allclose(rl.state, np.zeros(3)), "Final state not as expected"

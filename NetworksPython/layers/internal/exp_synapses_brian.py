@@ -38,57 +38,57 @@ class FFExpSynBrian(Layer):
     ## - Constructor
     def __init__(
         self,
-        mfW: Union[np.ndarray, int] = None,
-        tDt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
+        weights: Union[np.ndarray, int] = None,
+        dt: float = 0.1 * ms,
+        noise_std: float = 0 * mV,
         tTauSyn: float = 5 * ms,
         eqSynapses=eqSynapseExp,
         strIntegrator: str = "rk4",
-        strName: str = "unnamed",
+        name: str = "unnamed",
     ):
         """
         FFExpSynBrian - Construct an exponential synapse layer (spiking input)
 
-        :param mfW:             np.array MxN weight matrix
+        :param weights:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
-        :param tDt:             float Time step for state evolution. Default: 0.1 ms
-        :param fNoiseStd:       float Std. dev. of noise added to this layer. Default: 0
+        :param dt:             float Time step for state evolution. Default: 0.1 ms
+        :param noise_std:       float Std. dev. of noise added to this layer. Default: 0
 
         :param tTauSyn:         float Output synaptic time constants. Default: 5ms
         :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
         :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
 
-        :param strName:         str Name for the layer. Default: 'unnamed'
+        :param name:         str Name for the layer. Default: 'unnamed'
         """
 
-        # - Provide default tDt
-        if tDt is None:
-            tDt = 0.1 * ms
+        # - Provide default dt
+        if dt is None:
+            dt = 0.1 * ms
 
         # - Provide default weight matrix for one-to-one conversion
-        if isinstance(mfW, int):
-            mfW = np.identity(mfW, "float")
+        if isinstance(weights, int):
+            weights = np.identity(weights, "float")
 
         # - Call super constructor
         super().__init__(
-            mfW=mfW,
-            tDt=np.asarray(tDt),
-            fNoiseStd=np.asarray(fNoiseStd),
-            strName=strName,
+            weights=weights,
+            dt=np.asarray(dt),
+            noise_std=np.asarray(noise_std),
+            name=name,
         )
 
         # - Set up spike source to receive spiking input
         self._sggInput = b2.SpikeGeneratorGroup(
-            self.nSizeIn, [0], [0 * second], dt=np.asarray(tDt) * second
+            self.size_in, [0], [0 * second], dt=np.asarray(dt) * second
         )
 
         # - Set up layer receiver nodes
         self._ngReceiver = b2.NeuronGroup(
-            self.nSize,
+            self.size,
             eqSynapses,
             refractory=False,
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="receiver_neurons",
         )
 
@@ -99,7 +99,7 @@ class FFExpSynBrian(Layer):
             model="w : 1",
             on_pre="I_syn_post += w*amp",
             method=strIntegrator,
-            dt=np.asarray(tDt) * second,
+            dt=np.asarray(dt) * second,
             name="receiver_synapses",
         )
         self._sgReceiver.connect()
@@ -119,7 +119,7 @@ class FFExpSynBrian(Layer):
         )
 
         # - Record layer parameters, set weights
-        self.mfW = mfW
+        self.weights = weights
         self.tTauSyn = tTauSyn
 
         # - Store "reset" state
@@ -147,15 +147,15 @@ class FFExpSynBrian(Layer):
 
         # - Store parameters
         tTauSyn = np.copy(self.tTauSyn)
-        mfW = np.copy(self.mfW)
+        weights = np.copy(self.weights)
 
         # - Reset network
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self._timestep = 0
 
         # - Restork parameters
         self.tTauSyn = tTauSyn
-        self.mfW = mfW
+        self.weights = weights
 
         # - Restore state variables
         self._ngReceiver.I_syn = vfIsyn
@@ -164,31 +164,31 @@ class FFExpSynBrian(Layer):
 
     def evolve(
         self,
-        tsInput: Optional[TSEvent] = None,
-        tDuration: Optional[float] = None,
-        nNumTimeSteps: Optional[int] = None,
-        bVerbose: bool = False,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
     ) -> TSContinuous:
         """
         evolve : Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
-        :param tDuration:       float    Simulation/Evolution time
-        :param nNumTimeSteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps    int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSContinuous  output spike series
 
         """
 
         # - Prepare time base
-        vtTimeBase, __, nNumTimeSteps = self._prepare_input(
-            tsInput, tDuration, nNumTimeSteps
+        vtTimeBase, __, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
         )
 
         # - Set spikes for spike generator
-        if tsInput is not None:
-            vtEventTimes, vnEventChannels, _ = tsInput(
-                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.tDt
+        if ts_input is not None:
+            vtEventTimes, vnEventChannels, _ = ts_input(
+                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.dt
             )
             self._sggInput.set_spikes(
                 vnEventChannels, vtEventTimes * second, sorted=False
@@ -198,26 +198,26 @@ class FFExpSynBrian(Layer):
 
         # - Generate a noise trace
         mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
-            * self.fNoiseStd
-            * np.sqrt(2 * self.tTauSyn / self.tDt)
+            np.random.randn(np.size(vtTimeBase), self.size)
+            * self.noise_std
+            * np.sqrt(2 * self.tTauSyn / self.dt)
         )
-        # mfNoiseStep = np.zeros((np.size(vtTimeBase), self.nSize))
-        # mfNoiseStep[0,:] = self.fNoiseStd
+        # mfNoiseStep = np.zeros((np.size(vtTimeBase), self.size))
+        # mfNoiseStep[0,:] = self.noise_std
 
         # - Specifiy noise input currents, construct TimedArray
         taI_noise = TAShift(
             np.asarray(mfNoiseStep) * amp,
-            self.tDt * second,
+            self.dt * second,
             tOffset=self.t * second,
             name="noise_input",
         )
 
         # - Perform simulation
         self._net.run(
-            nNumTimeSteps * self.tDt * second, namespace={"I_inp": taI_noise}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": taI_noise}, level=0
         )
-        self._nTimeStep += nNumTimeSteps
+        self._timestep += num_timesteps
 
         # - Build response TimeSeries
         vtTimeBaseOutput = self._stmReceiver.t_
@@ -229,42 +229,42 @@ class FFExpSynBrian(Layer):
         # - Return the current state as final time point
         if vtTimeBaseOutput[-1] != self.t:
             vtTimeBaseOutput = np.concatenate((vtTimeBaseOutput, [self.t]))
-            mfA = np.concatenate((mfA, np.reshape(self.vState, (1, self.nSize))))
+            mfA = np.concatenate((mfA, np.reshape(self.state, (1, self.size))))
 
         return TSContinuous(vtTimeBaseOutput, mfA, name="Receiver current")
 
     ### --- Properties
 
     @property
-    def cInput(self):
+    def input_type(self):
         return TSEvent
 
     @property
-    def mfW(self):
+    def weights(self):
         if hasattr(self, "_sgReceiver"):
-            return np.reshape(self._sgReceiver.w, (self.nSize, -1))
+            return np.reshape(self._sgReceiver.w, (self.size, -1))
         else:
             return self._mfW
 
-    @mfW.setter
-    def mfW(self, mfNewW):
-        assert np.size(mfNewW) == self.nSize * self.nSizeIn, (
-            "`mfNewW` must have [" + str(self.nSize * self.nSizeIn) + "] elements."
+    @weights.setter
+    def weights(self, mfNewW):
+        assert np.size(mfNewW) == self.size * self.size_in, (
+            "`mfNewW` must have [" + str(self.size * self.size_in) + "] elements."
         )
 
         self._mfW = mfNewW
 
         if hasattr(self, "_sgReceiver"):
             # - Assign recurrent weights
-            mfNewW = np.asarray(mfNewW).reshape(self.nSize, -1)
+            mfNewW = np.asarray(mfNewW).reshape(self.size, -1)
             self._sgReceiver.w = mfNewW.flatten()
 
     @property
-    def vState(self):
+    def state(self):
         return self._ngReceiver.I_syn_
 
-    @vState.setter
-    def vState(self, vNewState):
+    @state.setter
+    def state(self, vNewState):
         self._ngReceiver.I_syn = (
             np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * amp
         )
@@ -281,6 +281,6 @@ class FFExpSynBrian(Layer):
     def t(self):
         return self._net.t_
 
-    @Layer.tDt.setter
-    def tDt(self, _):
-        raise ValueError("The `tDt` property cannot be set for this layer")
+    @Layer.dt.setter
+    def dt(self, _):
+        raise ValueError("The `dt` property cannot be set for this layer")

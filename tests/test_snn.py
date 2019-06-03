@@ -21,13 +21,13 @@ def test_pt_events():
     # - Input signal
     vtTimeTrace = [0.1, 0.2, 0.7, 0.8, 0.9]
     vnChannels = [1, 2, 0, 1, 1]
-    tsInput = TSEvent(vtTimeTrace, vnChannels)
+    ts_input = TSEvent(vtTimeTrace, vnChannels)
 
     # - Layer
-    lpt = PassThroughEvents(np.array([[0,2],[1,1],[0,0]]), tDt=0.4)
+    lpt = PassThroughEvents(np.array([[0,2],[1,1],[0,0]]), dt=0.4)
 
     # - Evolution
-    tsOut = lpt.evolve(tsInput)
+    tsOut = lpt.evolve(ts_input)
 
     assert (tsOut.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
         "Output channels incorrect"
@@ -45,7 +45,7 @@ def test_cnn_initialization():
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, strName="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, name="CNN")
 
 
 def test_cnn_evolve():
@@ -60,15 +60,15 @@ def test_cnn_evolve():
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, name="CNN")
 
     # Generate time series input
     evInput = TSEvent(None, name="Input")
-    for nId in range(lyrCNN.nSize):
+    for nId in range(lyrCNN.size):
         vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId), inplace=True)
     # Evolve
-    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
     print(evOut())
 
 
@@ -84,12 +84,12 @@ def test_cnn_evolve_empty():
     cnnW = CNNWeight(inShape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(mfW=cnnW, vfVThresh=0.5, strName="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, name="CNN")
 
     # Generate time series input
-    evInput = TSEvent(None, name="Input", num_channels=lyrCNN.nSize)
+    evInput = TSEvent(None, name="Input", num_channels=lyrCNN.size)
     # Evolve
-    evOut = lyrCNN.evolve(tsInput=evInput, tDuration=100)
+    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
     print(evOut())
 
 
@@ -110,8 +110,8 @@ def test_cnn_multilayer():
     cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = FFCLIAF(mfW=cnnW1, vfVThresh=0.5, strName="CNN1")
-    lyrCnn2 = FFCLIAF(mfW=cnnW2, vfVThresh=0.5, strName="CNN2")
+    lyrCnn1 = FFCLIAF(weights=cnnW1, vfVThresh=0.5, name="CNN1")
+    lyrCnn2 = FFCLIAF(weights=cnnW2, vfVThresh=0.5, name="CNN2")
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
@@ -121,7 +121,7 @@ def test_cnn_multilayer():
         vSpk = poisson_generator(40.0, t_stop=100)
         evInput.merge(TSEvent(vSpk, nId), inplace=True)
     # Evolve
-    evOut = net.evolve(tsInput=evInput, tDuration=100)
+    evOut = net.evolve(ts_input=evInput, duration=100)
     print(evOut)
 
 
@@ -133,14 +133,14 @@ def test_ffcliaf_none_attributes():
     from NetworksPython.layers import FFCLIAF
 
     # - Input weight matrix
-    mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
+    weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        mfW=mfWIn, vfVBias=-0.05, vfVThresh=5, tDt=0.1, vnIdMonitor=True, vfVSubtract=5
+        weights=weights_in, vfVBias=-0.05, vfVThresh=5, dt=0.1, vnIdMonitor=True, vfVSubtract=5
     )
 
-    for strVarName in ("mfW", "vfVBias", "vState"):
+    for strVarName in ("weights", "vfVBias", "state"):
         try:
             setattr(lyrFF, strVarName, None)
         except AssertionError:
@@ -157,18 +157,18 @@ def test_ffcliaf_evolve_subtracting():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
+    weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        mfW=mfWIn, vfVBias=-0.05, vfVThresh=5, tDt=0.1, vnIdMonitor=True, vfVSubtract=5
+        weights=weights_in, vfVBias=-0.05, vfVThresh=5, dt=0.1, vnIdMonitor=True, vfVSubtract=5
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
+    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
 
     # - Evolution
-    tsOutput = lyrFF.evolve(tsInput, tDuration=0.75)
+    tsOutput = lyrFF.evolve(ts_input, duration=0.75)
 
     print(lyrFF._mfStateTimeSeries)
 
@@ -188,7 +188,7 @@ def test_ffcliaf_evolve_subtracting():
     # - Reset
     lyrFF.reset_all()
     assert lyrFF.t == 0, "Time has not been reset correctly"
-    assert (lyrFF.vState == 0).all(), "State has not been reset correctly"
+    assert (lyrFF.state == 0).all(), "State has not been reset correctly"
 
 
 def test_cliaf_evolve_resetting():
@@ -199,23 +199,23 @@ def test_cliaf_evolve_resetting():
     from NetworksPython.timeseries import TSEvent
 
     # - Input weight matrix
-    mfWIn = np.array([[12, 0, 5], [0, 0, 0.4]])
+    weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        mfW=mfWIn,
+        weights=weights_in,
         vfVBias=-0.05,
         vfVThresh=5,
-        tDt=0.1,
+        dt=0.1,
         vnIdMonitor=True,
         vfVSubtract=None,
     )
 
     # - Input spike
-    tsInput = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
+    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
 
     # - Evolution
-    tsOutput = lyrFF.evolve(tsInput, tDuration=0.8)
+    tsOutput = lyrFF.evolve(ts_input, duration=0.8)
 
     print(lyrFF._mfStateTimeSeries)
 
@@ -234,7 +234,7 @@ def test_cliaf_evolve_resetting():
     # - Reset
     lyrFF.reset_all()
     assert lyrFF.t == 0, "Time has not been reset correctly"
-    assert (lyrFF.vState == 0).all(), "State has not been reset correctly"
+    assert (lyrFF.state == 0).all(), "State has not been reset correctly"
 
 
 # Place holder

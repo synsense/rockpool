@@ -9,28 +9,30 @@ from copy import deepcopy
 import random
 
 
-def combine_FF_Rec_stack(mfWFF: np.ndarray, mfWRec: np.ndarray) -> np.ndarray:
+def combine_FF_Rec_stack(weights_ff: np.ndarray, weights_rec: np.ndarray) -> np.ndarray:
     """
     combine_FF_Rec_stack - Combine a FFwd and Recurrent weight matrix into a single recurrent weight matrix
-    :param mfWFF:   MxN np.ndarray
-    :param mfWRec:  NxN np.ndarray
+    :param weights_ff:   MxN np.ndarray
+    :param weights_rec:  NxN np.ndarray
 
     :return: (M+N)x(M+N) np.ndarray combined weight matrix
     """
     assert (
-        mfWFF.shape[1] == mfWRec.shape[0]
+        weights_ff.shape[1] == weights_rec.shape[0]
     ), "FFwd and Rec weight matrices must have compatible shapes (MxN and NxN)."
 
-    assert mfWRec.shape[0] == mfWRec.shape[1], "`mfWRec` must be a square matrix."
+    assert (
+        weights_rec.shape[0] == weights_rec.shape[1]
+    ), "`weights_rec` must be a square matrix."
 
     # - Determine matrix sizes
-    nFFSize = mfWFF.shape[0]
-    nRecSize = mfWRec.shape[0]
+    nFFSize = weights_ff.shape[0]
+    nRecSize = weights_rec.shape[0]
     mfCombined = np.zeros((nFFSize + nRecSize, nFFSize + nRecSize))
 
     # - Combine matrices
-    mfCombined[-nRecSize:, -nRecSize:] = mfWRec
-    mfCombined[:nFFSize, -nRecSize:] = mfWFF
+    mfCombined[-nRecSize:, -nRecSize:] = weights_rec
+    mfCombined[:nFFSize, -nRecSize:] = weights_ff
 
     return mfCombined
 

@@ -11,12 +11,12 @@ class TorchQuantizeLayer(nn.Module):
     Equivalent to keras flatten
     """
 
-    def __init__(self, strName="quantize"):
+    def __init__(self, name="quantize"):
         """
         Torch implementation of Quantizing the output spike count.
         """
         nn.Module.__init__(self)  # Init nn.Module
-        self.strName = strName
+        self.name = name
 
     def forward(self, tsrInput):
         nBatch = len(tsrInput)
@@ -35,7 +35,7 @@ class TorchQuantizeLayer(nn.Module):
         """
         summary = pd.DataFrame(
             {
-                "Layer": self.strName,
+                "Layer": self.name,
                 "Output Shape": str(list(self.outShape)),
                 # "Padding": str(None),
                 # "Kernel": str(None),

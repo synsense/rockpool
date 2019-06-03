@@ -23,12 +23,12 @@ def test_averagepooling():
         inShape=(10, 10, 1), pool_size=(2, 5), img_data_format="channels_last"
     )
     # since the output image dimension should be (5,2)
-    assert lyrAverage.nSize == 10
+    assert lyrAverage.size == 10
 
     # Process some input
     tseInput = TSEvent([0, 1, 2, 3], [1, 2, 19, 18], num_channels=(10 * 10))
 
-    tseOutput = lyrAverage.evolve(tseInput, tDuration=100)
+    tseOutput = lyrAverage.evolve(tseInput, duration=100)
 
     # Spike times are still the same
     assert np.array_equal(tseOutput.times, np.array([0, 1, 2, 3]))
