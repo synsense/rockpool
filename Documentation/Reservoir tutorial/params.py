@@ -1,6 +1,8 @@
 # ----
 # params.py - Constant hardware parameters
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, aiCTX AG, felix.bauer@aictx.ai
+#
+# Copyright: aiCTX AG, 2019
 # ----
 
 SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded to SRAM
