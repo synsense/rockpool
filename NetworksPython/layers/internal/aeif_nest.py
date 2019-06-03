@@ -198,6 +198,7 @@ class RecAEIFSpkInNest(Layer):
 
                 params.append(p)
 
+
             nest.SetStatus(self._pop, params)
 
             # - Add spike detector to record layer outputs
