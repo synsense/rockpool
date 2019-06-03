@@ -60,22 +60,35 @@ class VirtualDynapse(Layer):
         connections: Union[dict, np.ndarray],
         neurons_pre: np.ndarray,
         neurons_post: Optional[np.ndarray],
+        add: bool = False,
     ):
 
         if neurons_post is None:
             neuron_post = neurons_pre
 
-        if isinstance(connections, dict):
-            connections = self._connection_dict_to_3darray(connections)
+        # - Handle different formats for weights
+        connections = self._connections_to_3darray(connections)
 
         # - Complete connectivity array after adding new connections
         connections_new = self.connections.copy()
 
-        # - Add new connections to connectivity array
-        for i, presyn_id in enumerate(neurons_pre):
-            connections_new[:, presyn_id, neurons_post] += connections[:, i]
+        # - Indices of specified neurons in full connectivity matrix
+        idcs_row, idcs_col = np.meshgrid(neurons_pre, neurons_post, indexing="ij")
 
-        # - Test if
+        # - Add new connections to connectivity array
+        if add:
+            connections_new[:, idcs_row, idcs_col] += connections
+        else:
+            connections_new[:, idcs_row, idcs_col] += connections
+
+        # - Test if connections are compatible with hardware
+        if self.validate_connections(connections_new, verbose=True) != CONNECTIONS_OK:
+            raise ValueError(
+                self.start_print + "Connections not compatible with hardware."
+            )
+        else:
+            # - Update connections
+            self.connections = connections_new
 
     def _connections_to_3darray(
         self, connections: Union[dict, np.ndarray]
