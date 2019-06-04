@@ -29,7 +29,6 @@ tol_abs = 1e-10
 tMinRefractory = 1e-9
 
 
-
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
 
@@ -263,9 +262,7 @@ class RecDIAF(Layer):
                 vbNotRefractory = vtRefractoryEnds <= tTime
                 # - Resting potential: Sign of leat so that it drives neuron states to vfVRest
                 if vfVRest is not None and nChannel == nLeakChannel:
-                    vbStateBelowRest = (
-                        state[vbNotRefractory] < vfVRest[vbNotRefractory]
-                    )
+                    vbStateBelowRest = state[vbNotRefractory] < vfVRest[vbNotRefractory]
                     # Flip sign of leak for corresponding neurons
                     vnSign = -2 * vbStateBelowRest + 1
                     # Make sure leak is 0 when resting potential is reached

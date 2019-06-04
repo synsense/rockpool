@@ -43,8 +43,9 @@ class RefArray(np.ndarray):
                Therefore the objects in the RefArray are typically copies of those in the
                referenced object.
                This is useful for layers that contain torch tensors with properties
-               returning a numpy array. Here, item assignment expected to modify also the
-               original tensor object, which is not the case when using normal ndarrays.
+               returning a numpy array. Here, item assignment will also modify the original
+               tensor object (as would generally be expected), which is not the case when
+               using normal ndarrays.
     """
 
     def __new__(
@@ -122,7 +123,7 @@ class RefArray(np.ndarray):
 
 class RefProperty(property):
     """
-    RefProperty - The purpose of this class' is to provide a decorator @RefProperty
+    RefProperty - The purpose of this class is to provide a decorator @RefProperty
                   to be used instead of @property for objects that require that a copy
                   is returned instead of the original object. The returned object is
                   a RefArray with reference to the original object, allowing item
@@ -588,9 +589,7 @@ class Layer(ABC):
             assert mfNewW.ndim >= 2
         except AssertionError:
             warn(
-                "Layer `{}`: `mfNewW must be at least of dimension 2".format(
-                    self.name
-                )
+                "Layer `{}`: `mfNewW must be at least of dimension 2".format(self.name)
             )
             mfNewW = np.atleast_2d(mfNewW)
 
@@ -612,9 +611,7 @@ class Layer(ABC):
     def state(self, vNewState):
         assert (
             np.size(vNewState) == self.size
-        ), "Layer `{}`: `vNewState` must have {} elements".format(
-            self.name, self.size
-        )
+        ), "Layer `{}`: `vNewState` must have {} elements".format(self.name, self.size)
 
         self._state = vNewState
 

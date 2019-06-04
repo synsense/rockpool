@@ -21,11 +21,11 @@ from typing import Tuple, List, Union, Optional
 import numpy as np
 
 # NetworksPython modules
-from NetworksPython.layers import Layer
+from NetworksPython.layers import Layer, ArrayLike, RecIAFSpkInNest
 from . import params
 
 ### --- Constants
-CONNECTIONS_OK = 0
+CONNECTIONS_VALID = 0
 FANIN_EXCEEDED = 1
 FANOUT_EXCEEDED = 2
 
@@ -33,41 +33,56 @@ FANOUT_EXCEEDED = 2
 
 
 class VirtualDynapse(Layer):
+
+    self._num_chips = params.NUM_CHIPS
+    self._num_cores_chip = params.NUM_CORES_CHIP
+    self._num_neurons_core = params.NUM_NEURONS_CORE
+
     def __init__(
         self,
         dt: float = 1e-5,
-        connections: Union[np.ndarray, dict, None] = None,  # - 3D array, with 0th dim corresponding to synapse type, others connections (pos. integers)
-        neuron_ids: Optional[np.ndarray] = None,  # IDs of neurons to be used -> must match last dim. of connecitons in size
-        tau_mem,  # - Array of size 16
-        tau_mem_alt,
-        tau_syn_fe,
-        tau_syn_se,
-        tau_syn_fi,
-        tau_syn_si,
-        t_refractory,
-        weights_fe,
-        weights_se,
-        weights_fi,
-        weights_si,
-        thresholds,
-        # syn_thresholds???
-        tau_alt,  # - Binary array with size number of neurons
+        connections: Union[np.ndarray, dict, None] = None,
+        tau_mem_1=0.05,  # - Array of size 16
+        tau_mem_2=0.05,
+        tau_syn_e=0.05,
+        tau_syn_i=0.05,
+        baseweight_e=0.05,
+        baseweight_i=0.05,
+        bias=0,
+        t_refractory=0.005,
+        threshold=0.01,
+        has_tau2=False,  # - Binary array with size number of neurons
         name: str = "unnamed",
     ):
-        self.name = name
+        # - Set up weights
+        self.baseweight_e = baseweight_e
+        self.baseweight_i = baseweight_i
+        self.connections = connections
 
-        if neuron_ids is None:
-            neuron_ids = np.arange(params.NUM_NEURONS)
-        else:
-            neuron_ids = np.asarray(neuron_ids)
-            if (neuron_ids > params.NUM_NEURONS).any():
-                raise ValueError(
-                    self.start_print + f"Highest available neuron ID is {params.NUM_NEURONS}."
-                )
-        self.neuron_ids = neuron_ids
+        # - Instantiate super class.
+        super().__init__(weights=self.weights, dt=dt, name=name)
 
-        if connections is None:
-            self.connections = np.zeros((4, neuron_ids.size, neuon_ids.size))
+        # - Store remaining parameters
+        self.bias = bias
+        self.tau_mem_1 = tau_mem_1
+        self.tau_mem_2 = tau_mem_2
+        self.tau_syn_e = tau_syn_e
+        self.tau_syn_i = tau_syn_i
+        self.t_refractory = t_refractory
+        self.threshold = threshold
+        self.has_tau2 = has_tau2
+
+    def _generate_simulator(self):
+        # - Nest-layer for approximate simulation of neuron dynamics
+        self.simulator = RecIAFSpkInNest(
+            weights_in=self.weights_in,
+            weights_rec=self.weights_rec,
+            bias=bias,
+            tau_n=self.tau_n,
+            tau_s=self.tau_s,
+            tau_s_inh=self.tau_s_inh,
+            dt=dt,
+        )
 
     def set_connections(
         self,
@@ -77,34 +92,23 @@ class VirtualDynapse(Layer):
         add: bool = False,
     ):
         """
-        set_connections - Set connections between neurons. Verify that they are
-                          supported by the hardware.
-        :params connections:  Must be one of the following:
-                                - dict with synapse types (see params.SYNAPSE_TYPES) as keys
-                                  and connectivity matrix for each type as values. All
-                                  these matrices must have the same dimension. Axis 0 (1)
-                                  correspond to pre- (post-) synaptic neurons. Size must
-                                  match `neurons_pre` (`neurons_post`).
-                                - 3D np.ndarray with axis 0 corresponding to synapse types.
-                                  First dimension must match size of params.SYNAPSE_TYPES.
-                                  Axis 1 (2) corresponds to pre- (post-) synaptic neurons.
-                                  Size must match `neurons_pre` (`neurons_post`).
-                                - 2D np.ndarray: Will assume positive values correspond to
-                                  params.SYNAPSE_TYPES[0], negative values to
-                                  params.SYNAPSE_TYPES[1].
-                                  Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
-                                  Size must match `neurons_pre` (`neurons_post`).
+        set_connections - Set connections between specific neuron populations.
+                          Verify that connections are supported by the hardware.
+        :params connections:  2D np.ndarray: Will assume positive (negative) values
+                              correspond to excitatory (inhibitory) synapses.
+                              Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
+                              Sizes must match `neurons_pre` and `neurons_post`.
         :params neurons_pre:   Array-like with IDs of presynaptic neurons that `connections`
-                               refer to.
+                               refer to. If None, use all neurons (from 0 to self.size - 1).
         :params neurons_post:  Array-like with IDs of postsynaptic neurons that `connections`
                                refer to. If None, use same IDs as presynaptic neurons.
         """
 
+        if neurons_pre is None:
+            neurons_pre = np.arange(self.size)
+
         if neurons_post is None:
             neuron_post = neurons_pre
-
-        # - Handle different formats for weights
-        connections = self._connections_to_3darray(connections)
 
         # - Complete connectivity array after adding new connections
         connections_new = self.connections.copy()
@@ -112,133 +116,14 @@ class VirtualDynapse(Layer):
         # - Indices of specified neurons in full connectivity matrix
         idcs_row, idcs_col = np.meshgrid(neurons_pre, neurons_post, indexing="ij")
 
-        # - Add new connections to connectivity array
         if add:
-            connections_new[:, idcs_row, idcs_col] += connections
+            # - Add new connections to connectivity array
+            connections_new[idcs_row, idcs_col] += connections
         else:
-            connections_new[:, idcs_row, idcs_col] += connections
+            # - Replace connections between given neurons with new ones
+            connections_new[idcs_row, idcs_col] = connections
 
-        # - Test if connections are compatible with hardware
-        if self.validate_connections(connections_new, verbose=True) != CONNECTIONS_OK:
-            raise ValueError(
-                self.start_print + "Connections not compatible with hardware."
-            )
-        else:
-            # - Update connections
-            self.connections = connections_new
-
-    def _connections_to_3darray(
-        self, connections: Union[dict, np.ndarray]
-    ) -> np.ndarray:
-        """
-        _connections_to_3darray - Bring connections into 3D array with axis 0
-                                  corresponding to synapse type.
-        :params connections:  Must be one of the following:
-                                - dict with synapse types (see params.SYNAPSE_TYPES) as keys
-                                       and connectivity matrix for each type as values
-                                - 3D np.ndarray with axis 0 corresponding to synapse types.
-                                  First dimension must match size of params.SYNAPSE_TYPES.
-                                - 2D np.ndarray: Will assume positive values correspond to
-                                  params.SYNAPSE_TYPES[0], negative values to
-                                  params.SYNAPSE_TYPES[1].
-        :return:
-            3D np.ndarray with axis 0 corresponding to synapse types. Order as
-            in params.SYNAPSE_TYPES
-        """
-
-        # - Handle dicts
-        if isinstance(connections, dict):
-            conn_3d = self._connection_dict_to_3darray(connections)
-
-        # - Handle arrays
-        else:
-            num_syn_types = len(params.SYNAPSE_TYPES)
-            # - Convert connections to array
-            connections = np.asarray(connections)
-            if connections.ndim == 3:
-                # - Make sure all synapse types are defined
-                if connections.shape[0] != num_syn_types:
-                    raise ValueError(
-                        self.start_print
-                        + f"First dimension of 3D connectivity array must be {num_syn_types}."
-                    )
-                else:
-                    # - Use connections as they are given
-                    conn_3d = connections
-            elif connections.ndim == 2:
-                warn(
-                    self.start_print
-                    + "No synapse types specified. Will Assume "
-                    + "{} for positive, {} for negative weights.".format(
-                        params.SYNAPSE_TYPES[0], params.SYNAPSE_TYPES[2]
-                    )
-                )
-                conn_3d = np.zeros((num_syn_types,) + connections.shape)
-                conn_3d[0] = np.clip(connections, 0, None)
-                conn_3d[2] = -np.clip(connections, None, 0)
-            else:
-                raise ValueError(
-                    self.start_print + f"`connections` must be dict, 3D- or 2D-array."
-                )
-
-        return conn_3d
-
-    def _connection_dict_to_3darray(self, connections: dict) -> np.ndarray:
-        """
-        _connection_dict_to_3darray - Convert dict with synapse types as keys to
-                                      3D array with axis 0 corresponding to syn type
-        :params connectiosn:  dict with synapse types (see params.SYNAPSE_TYPES) as
-                              keys and connectivity matrix for each type as values
-        :return:
-            3D np.ndarray with axis 0 corresponding to synapse types. Order as
-            in params.SYNAPSE_TYPES
-        """
-
-        # - Warn, if unrecognized synapse types are presented:
-        unknown_syntypes: set = set(connections.keys()).difference(params.SYNAPSE_TYPES)
-        if unknown_syntypes:
-            warn(
-                self.start_print
-                + "The following synapse types have not been recognized and will "
-                + f"be ignored: {unknown_syntypes}. "
-                + f"Supported types are: {params.SYNAPSE_TYPES}"
-            )
-
-        # - Collect connectivity matrices in list for different syn. types
-        connection_list: List[np.ndarray] = []
-        type_presented: List[bool] = []  # List indicating types defined in dict
-        for syn_type in params.SYNAPSE_TYPES:
-            try:
-                connection_list.append(connections[syn_type])
-                type_presented.append(True)
-            except KeyError:
-                # - `None` to represent missing syn. types
-                type_presented.append(False)
-
-        num_syn_types = len(params.SYNAPSE_TYPES)
-
-        # - Infer matrix dimensions from first defined connectivity matrix
-        try:
-            conn_dims: Tuple[int] = connection_list[0].shape
-        except IndexError:
-            warn(self.start_print + "No connections defined.")
-            return np.zeros((num_syn_types, 0, 0))
-
-        # - 3D connectivity array
-        conn_3d = np.zeros((num_syn_types,) + conn_dims)
-        for idx_type, conn_2d in zip(np.where(type_presented)[0], connection_list):
-            try:
-                conn_3d[idx_type] = conn_2d
-            except ValueError as e:
-                if conn_2d.shape != conn_dims:
-                    raise ValueError(
-                        self.start_print
-                        + "All connectivity matrices must have the same shape."
-                    )
-                else:
-                    raise e
-
-        return conn_3d
+        self.connections = connections_new
 
     def validate_connections(
         self, connections: Union[np.ndarray, dict], verbose: bool
@@ -282,7 +167,7 @@ class VirtualDynapse(Layer):
                     params.NUM_SRAMS_NEURON, np.where(exceeds_fanout)[0]
                 )
 
-        if verbose and result == CONNECTIONS_OK:
+        if verbose and result == CONNECTIONS_VALID:
             "\tConnections ok."
 
         return result
@@ -292,38 +177,231 @@ class VirtualDynapse(Layer):
         get_connection_counts - From a dict or array of connections for different
                                 synapse types, generate a 2D matrix with the total
                                 number of connections between each neuron pair.
-        :params connections:  Must be one of the following:
-                                - dict with synapse types (see params.SYNAPSE_TYPES) as keys
-                                       and connectivity matrix for each type as values
-                                - 3D np.ndarray with axis 0 corresponding to synapse types.
-                                  First dimension must match size of params.SYNAPSE_TYPES.
-                                - 2D np.ndarray: Will assume positive values correspond to
-                                  params.SYNAPSE_TYPES[0], negative values to
-                                  params.SYNAPSE_TYPES[1].
+        :params connections:  2D np.ndarray: Will assume positive (negative) values
+                              correspond to excitatory (inhibitory) synapses.
         :return:
             2D np.ndarray with total number of connections between neurons
         """
-
-        # - Convert connections to 3D array
-        connections = self._connections_to_3darray(connections)
-
-        # - Collect full number of connections between neurons in a 2D matrix
-        connections_2d = np.sum(connections, axis=0)
-
-        return connections_2d
+        return np.abs(connections)
 
     def evolve(self, ts_input, duration, num_timesteps, verbose):
         pass
+
+    def _update_weights(self):
+        """
+        _update_weights - Update internal representation of weights by multiplying
+                          baseweights with number of connections for each core and
+                          synapse type.
+        """
+        connections_exc = np.clip(self.connections, 0, None)
+        connections_inh = np.clip(self.connections, None, 0)
+        factor_exc = np.repeat(self.baseweight_e, self.num_neurons_core)
+        factor_inh = np.repeat(self.baseweight_i, self.num_neurons_core)
+        self._weights = connections_exc * factor_exc + connections_inh * factor_inh
+
+    def _process_parameter(
+        self,
+        parameter: Union[bool, int, float, ArrayLike],
+        name: str,
+        nonnegative: bool = True,
+    ) -> np.ndarray:
+        """
+        _process_parameter - Reshape parameter to array of size `self.num_cores`.
+                             If `nonnegative` is `True`, clip negative values to 0.
+        :param parameter:    Parameter to be reshaped and possibly clipped.
+        :param name:         Name of the paramter (for print statements).
+        :param nonnegative:  If `True`, clip negative values to 0 and warn if
+                             there are any.
+        """
+        parameter = self._expand_to_size(parameter, self.num_cores, name, False)
+        if nonnegative:
+            # - Make sure that parameters are nonnegative
+            if (np.array(parameter) < 0).any():
+                warn(
+                    self.start_print
+                    + f"`{name}` must be at least 0. Negative values are clipped to 0."
+                )
+            parameter = np.clip(parameter, 0, None)
+        return parameter
+
+    @property
+    def connections(self):
+        return self._vtRefractoryTime
+
+    @connections.setter
+    def connections(self, connections_new: Optional[np.ndarray]):
+        if connections_new is None:
+            # - Remove all connections
+            self._connections = np.zeros((self.num_neurons, self.num_neurons))
+            self._update_weights()
+
+        else:
+            # - Make sure that connections have match hardware specifications
+            if (
+                self.validate_connections(connections_new, verbose=True)
+                != CONNECTIONS_VALID
+            ):
+                raise ValueError(
+                    self.start_print + "Connections not compatible with hardware."
+                )
+            else:
+                # - Update connections
+                self._connections = connections_new
+                # - Update weights accordingly
+                self._update_weights()
+
+    @property
+    def weights(self):
+        return self._weights
+
+    @property
+    def baseweight_e(self):
+        return self._baseweight_e
+
+    @baseweight_e.setter
+    def baseweight_e(self, baseweight_new: Union[float, ArrayLike]):
+        self._baseweight_e = self._process_parameter(
+            baseweight_new, "baseweight_e", nonnegative=True
+        )
+        self._update_weights()
+
+    @property
+    def baseweight_i(self):
+        return self._baseweight_i
+
+    @baseweight_i.setter
+    def baseweight_i(self, baseweight_new: Union[float, ArrayLike]):
+        self._baseweight_i = self._process_parameter(
+            baseweight_new, "baseweight_i", nonnegative=True
+        )
+        self._update_weights()
+
+    @property
+    def bias(self):
+        return self._bias
+
+    @bias.setter
+    def bias(self, bias_new: Union[float, ArrayLike]):
+        self._bias = self._process_parameter(bias_new, "bias", nonnegative=True)
+
+    @property
+    def t_refractory(self):
+        return self._t_refractory
+
+    @t_refractory.setter
+    def t_refractory(self, t_refractory_new: Union[float, ArrayLike]):
+        self._t_refractory = self._process_parameter(
+            t_refractory_new, "t_refractory", nonnegative=True
+        )
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @threshold.setter
+    def threshold(self, threshold_new: Union[float, ArrayLike]):
+        self._threshold = self._process_parameter(
+            threshold_new, "threshold", nonnegative=True
+        )
+
+    @property
+    def tau_mem_1(self):
+        return self._tau_mem_1
+
+    @tau_mem_1.setter
+    def tau_mem_1(self, tau_mem_1_new: Union[float, ArrayLike]):
+        self._tau_mem_1 = self._process_parameter(
+            tau_mem_1_new, "tau_mem_1", nonnegative=True
+        )
+
+    @property
+    def tau_mem_2(self):
+        return self._tau_mem_2
+
+    @tau_mem_2.setter
+    def tau_mem_2(self, tau_mem_2_new: Union[float, ArrayLike]):
+        self._tau_mem_2 = self._process_parameter(
+            tau_mem_2_new, "tau_mem_2", nonnegative=True
+        )
+
+    @property
+    def tau_syn_e(self):
+        return self._tau_syn_e
+
+    @tau_syn_e.setter
+    def tau_syn_e(self, tau_syn_e_new: Union[float, ArrayLike]):
+        self._tau_syn_e = self._process_parameter(
+            tau_syn_e_new, "tau_syn_e", nonnegative=True
+        )
+
+    @property
+    def tau_syn_i(self):
+        return self._tau_syn_i
+
+    @tau_syn_i.setter
+    def tau_syn_i(self, tau_syn_i_new: Union[float, ArrayLike]):
+        self._tau_syn_i = self._process_parameter(
+            tau_syn_i_new, "tau_syn_i", nonnegative=True
+        )
+
+    @property
+    def has_tau2(self):
+        return self._has_tau2
+
+    @has_tau2.setter
+    def has_tau2(self, new_has_tau2: Union[bool, ArrayLike]):
+        new_has_tau2 = self._expand_to_size(
+            new_has_tau2, self.num_neurons, "has_tau2", False
+        )
+        if not new_has_tau2.dtype == bool:
+            raise ValueError(self.start_print + "`has_tau2` must consist of booleans.")
+        else:
+            self._has_tau2 = new_has_tau2
+
+    @property
+    def num_chips(self):
+        return self._num_chips
+
+    @property
+    def num_cores_chip(self):
+        return self._num_cores_chip
+
+    @property
+    def num_neurons_core(self):
+        return self._num_neurons_core
+
+    @property
+    def num_cores(self):
+        return self._num_cores_chip * self._num_chips
+
+    @property
+    def num_neurons_chip(self):
+        return self.num_cores * self._num_neurons_core
+
+    @property
+    def num_neurons(self):
+        return self.num_neurons_chip * self._num_chips
 
     @property
     def start_print(self):
         return f"VirtualDynapse '{self.name}': "
 
+    @property
+    def input_type(self):
+        return TSEvent
+
+    @property
+    def output_type(self):
+        return TSEvent
+
 
 # Functions:
-# - Adaptivity?
+# - Different synapse types?
+# - Adaptation?
 # - NMDA synapses?
 # - BUF_P???
 # - Syn-thresholds???
 # Limitations
-# - Isi time step, event limit and isi limit??
+# Mismatch between parameters
+# TODO
+# Define tau_n, tau_s(inh), rec and inp weights
