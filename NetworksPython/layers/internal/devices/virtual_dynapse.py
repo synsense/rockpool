@@ -35,9 +35,9 @@ FANOUT_EXCEEDED = 2
 class VirtualDynapse(Layer):
     def __init__(
         self,
-        dt,
-        connections,  # - 3D array, with 0th dim corresponding to synapse type, others connections (pos. integers)
-        neuron_ids,  # IDs of neurons to be used -> must match last dim. of connecitons in size
+        dt: float = 1e-5,
+        connections: Union[np.ndarray, dict, None] = None,  # - 3D array, with 0th dim corresponding to synapse type, others connections (pos. integers)
+        neuron_ids: Optional[np.ndarray] = None,  # IDs of neurons to be used -> must match last dim. of connecitons in size
         tau_mem,  # - Array of size 16
         tau_mem_alt,
         tau_syn_fe,
@@ -52,16 +52,53 @@ class VirtualDynapse(Layer):
         thresholds,
         # syn_thresholds???
         tau_alt,  # - Binary array with size number of neurons
+        name: str = "unnamed",
     ):
-        pass
+        self.name = name
+
+        if neuron_ids is None:
+            neuron_ids = np.arange(params.NUM_NEURONS)
+        else:
+            neuron_ids = np.asarray(neuron_ids)
+            if (neuron_ids > params.NUM_NEURONS).any():
+                raise ValueError(
+                    self.start_print + f"Highest available neuron ID is {params.NUM_NEURONS}."
+                )
+        self.neuron_ids = neuron_ids
+
+        if connections is None:
+            self.connections = np.zeros((4, neuron_ids.size, neuon_ids.size))
 
     def set_connections(
         self,
         connections: Union[dict, np.ndarray],
         neurons_pre: np.ndarray,
-        neurons_post: Optional[np.ndarray],
+        neurons_post: Optional[np.ndarray] = None,
         add: bool = False,
     ):
+        """
+        set_connections - Set connections between neurons. Verify that they are
+                          supported by the hardware.
+        :params connections:  Must be one of the following:
+                                - dict with synapse types (see params.SYNAPSE_TYPES) as keys
+                                  and connectivity matrix for each type as values. All
+                                  these matrices must have the same dimension. Axis 0 (1)
+                                  correspond to pre- (post-) synaptic neurons. Size must
+                                  match `neurons_pre` (`neurons_post`).
+                                - 3D np.ndarray with axis 0 corresponding to synapse types.
+                                  First dimension must match size of params.SYNAPSE_TYPES.
+                                  Axis 1 (2) corresponds to pre- (post-) synaptic neurons.
+                                  Size must match `neurons_pre` (`neurons_post`).
+                                - 2D np.ndarray: Will assume positive values correspond to
+                                  params.SYNAPSE_TYPES[0], negative values to
+                                  params.SYNAPSE_TYPES[1].
+                                  Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
+                                  Size must match `neurons_pre` (`neurons_post`).
+        :params neurons_pre:   Array-like with IDs of presynaptic neurons that `connections`
+                               refer to.
+        :params neurons_post:  Array-like with IDs of postsynaptic neurons that `connections`
+                               refer to. If None, use same IDs as presynaptic neurons.
+        """
 
         if neurons_post is None:
             neuron_post = neurons_pre
