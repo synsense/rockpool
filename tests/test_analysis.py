@@ -6,10 +6,6 @@ import numpy as np
 from NetworksPython import TSEvent
 from NetworksPython.analysis import lv, fano_factor
 
-from matplotlib import pyplot as plt
-
-plt.ion()
-
 
 def test_lv_FF():
 
@@ -44,7 +40,6 @@ def test_entropy():
 
     from NetworksPython import TSEvent
     import numpy as np
-    import pylab as plt
 
     # generate Poisson spike train
 
@@ -54,9 +49,6 @@ def test_entropy():
     isis = -np.log(np.random.rand(numNeurons, numSpikes))
     spikeTimes = np.array([np.cumsum(isi) for isi in isis])
     nids = np.array([[i] * numSpikes for i in range(numNeurons)])
-
-    plt.scatter(spikeTimes, nids)
-    plt.show()
 
     # cut to min time
     minTime = np.min(spikeTimes[:, -1])

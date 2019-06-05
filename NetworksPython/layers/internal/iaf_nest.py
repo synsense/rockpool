@@ -1314,29 +1314,31 @@ class RecIAFSpkInNest(Layer):
     @staticmethod
     def load_from_dict(config):
 
-        return RecIAFSpkInNest(
-            weights_in=config["weights_in"],
-            weights_rec=config["weights_rec"],
-            vfBias=config["vfBias"],
-            dt=config["dt"],
-            vtTauN=config["tauN"],
-            vtTauS=config["tauS"],
-            vfCapacity=config["vfCapacity"],
-            vfVThresh=config["vfVThresh"],
-            vfVReset=config["vfVReset"],
-            vfVRest=config["vfVRest"],
-            tRefractoryTime=config["tRef"],
-            name=config["name"],
-            bRecord=config["bRecord"],
-            nNumCores=config["nNumCores"],
-        )
+        net_ = RecIAFSpkInNest(
+                   weights_in=config["weights_in"],
+                   weights_rec=config["weights_rec"],
+                   vfBias=config["vfBias"],
+                   dt=config["dt"],
+                   vtTauN=config["tauN"],
+                   vtTauS=config["tauS"],
+                   vfCapacity=config["vfCapacity"],
+                   vfVThresh=config["vfVThresh"],
+                   vfVReset=config["vfVReset"],
+                   vfVRest=config["vfVRest"],
+                   tRefractoryTime=config["tRef"],
+                   name=config["name"],
+                   bRecord=config["bRecord"],
+                   nNumCores=config["nNumCores"],
+                   )
+        net_.reset_all()
+        return net_
 
     @staticmethod
     def load_from_file(filename):
         with open(filename, "r") as f:
             config = json.load(f)
 
-        return RecIAFSpkInNest(
+        net_ = RecIAFSpkInNest(
             weights_in=config["weights_in"],
             weights_rec=config["weights_rec"],
             vfBias=config["vfBias"],
@@ -1352,3 +1354,5 @@ class RecIAFSpkInNest(Layer):
             bRecord=config["bRecord"],
             nNumCores=config["nNumCores"],
         )
+        net_.reset_all()
+        return net_
