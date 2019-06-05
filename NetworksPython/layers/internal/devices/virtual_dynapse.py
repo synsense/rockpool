@@ -28,6 +28,7 @@ from . import params
 CONNECTIONS_VALID = 0
 FANIN_EXCEEDED = 1
 FANOUT_EXCEEDED = 2
+CONNECTION_ALIASING = 4
 
 ### --- Class definition
 
@@ -149,13 +150,15 @@ class VirtualDynapse(Layer):
         if exceeds_fanin.any():
             result += FANIN_EXCEEDED
             if verbose:
-                "\tFan-in ({}) exceeded for neurons: {}".format(
-                    params.NUM_CAMS_NEURON, np.where(exceeds_fanin)[0]
+                print(
+                    "\tFan-in ({}) exceeded for neurons: {}".format(
+                        params.NUM_CAMS_NEURON, np.where(exceeds_fanin)[0]
+                    )
                 )
         # - Test fan-out
         # List with target chips for each (presynaptic) neuron
         tgtchip_list = [
-            np.nonzero(row)[0] // params.NUM_NEURONS_CHIP for row in conn_count_2d
+            np.nonzero(row)[0] // self.num_neurons_chip for row in conn_count_2d
         ]
         # Number of different target chips per neuron
         nums_tgtchips = np.array([np.unique(tgtchips) for tgtchips in tgtchip_list])
@@ -163,12 +166,86 @@ class VirtualDynapse(Layer):
         if exceeds_fanout.any():
             result += FANOUT_EXCEEDED
             if verbose:
-                "\tFan-out ({}) exceeded for neurons: {}".format(
-                    params.NUM_SRAMS_NEURON, np.where(exceeds_fanout)[0]
+                print(
+                    "\tFan-out ({}) exceeded for neurons: {}".format(
+                        params.NUM_SRAMS_NEURON, np.where(exceeds_fanout)[0]
+                    )
                 )
 
+        # - Test for connection aliasing
+        # Lists for collecting affected presyn. neurons (chips, IDs) and postsyn. cores
+        alias_pre_chips: List[List[np.ndarray]] = []
+        alias_pre_ids: List[List[int]] = []
+        alias_post_cores: List[int] = []
+        for core_id in range(self.num_cores):
+            # - IDs of neurons where core starts and ends
+            id_start = core_id * self.num_neurons_core
+            id_end = (core_id + 1) * self.num_neurons_core
+            # - Connections with common postsynaptic core
+            conns_samecore = conn_count_2d[:, id_start:id_end]
+            # - Lists for collecting affected chip and neuron IDs for specific core
+            alias_pre_ids_core = []
+            alias_pre_chips_core = []
+            for neuron_id in range(self.num_neurons_chip):
+                # - Connections with `neuron_id`-th neuron of each chip as presyn. neuron
+                conns_samecore_sameid = conns_samecore[
+                    neuron_id :: self.num_neurons_chip
+                ]
+                # - IDs of chips from which presynaptic connecitons originate
+                connected_presyn_chips = np.unique(np.nonzero(conns_samecore_sameid)[0])
+                # - Only one presynaptic neuron with `neuron_id` is allowed for each core
+                #   If there are more, collect information
+                if len(connected_presyn_chips) > 1:
+                    alias_pre_ids_core.append(neuron_id)
+                    alias_pre_chips_core.append(connected_presyn_chips)
+            if alias_pre_ids_core:
+                alias_post_cores.append(core_id)
+                alias_pre_ids.append(alias_pre_ids_core)
+                alias_pre_chips.append(alias_pre_chips_core)
+
+        if alias_pre_chips:
+            result += CONNECTION_ALIASING
+            if verbose:
+                # print(
+                #     "\tConnection aliasing detected: Neurons on the same core should not "
+                #     + "have presynaptic connections with neurons that have the same ID "
+                #     + "(with regard to their chip) but are on different chips. Affected "
+                #     + "postsynaptic cores are: "
+                #     + "\n".join(
+                #         "\tCore {}:\n{}".format(
+                #             core_id,
+                #             "\n".join(
+                #                 "\t\tPresynaptic ID {} on chips {}".format(
+                #                     id_neur, ", ".join(str(id_ch) for id_ch in chips)
+                #                 )
+                #                 for id_neur, chips in zip(neur_ids_core, chips_core)
+                #             ),
+                #         )
+                #         for core_id, neur_ids_core, chips_core in zip(
+                #             alias_post_cores, alias_pre_ids, alias_pre_chips
+                #         )
+                #     )
+                # )
+                print_output = (
+                    "\tConnection aliasing detected: Neurons on the same core should not "
+                    + "have presynaptic connections with neurons that have the same ID "
+                    + "(with regard to their chip) but are on different chips. Affected "
+                    + "postsynaptic cores are: "
+                )
+                for core_id, neur_ids_core, chips_core in zip(
+                    alias_post_cores, alias_pre_ids, alias_pre_chips
+                ):
+                    core_print = f"\tCore {core_id}:"
+                    for id_neur, chips in zip(neur_ids_core, chips_core):
+                        id_print = "\t\t Presynaptic ID {} on chips {}".format(
+                            id_neur, ", ".join(str(id_ch) for id_ch in chips)
+                        )
+                        core_print += "\n" + id_print
+                    print_output += "\n" + core_print
+                print(print_output)
+
         if verbose and result == CONNECTIONS_VALID:
-            "\tConnections ok."
+            print("\tConnections ok.")
 
         return result
 
