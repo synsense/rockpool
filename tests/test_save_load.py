@@ -35,7 +35,7 @@ def test_save_load():
                     vfVThresh=vfVThresh,
                     vfCapacity=vfCapacity,
                     tRefractoryTime=tRef,
-                    nNumCores=1,
+                    num_cores=1,
                     bRecord=True,
                     name="FF")
 
@@ -50,7 +50,7 @@ def test_save_load():
                           vfVRest=vfVRest,
                           vfCapacity=vfCapacity,
                           tRefractoryTime=tRef,
-                          nNumCores=1,
+                          num_cores=1,
                           bRecord=True,
                           name="Rec")
 
