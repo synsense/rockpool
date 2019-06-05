@@ -49,12 +49,12 @@ class RecAEIFSpkInNest(Layer):
 
         def __init__(
             self,
-            requestQ,
-            resultQ,
+            request_q,
+            result_q,
             weights_in: np.ndarray,
             weights_rec: np.ndarray,
-            mfDelayIn: Union[float, np.ndarray],
-            mfDelayRec: Union[float, np.ndarray],
+            delay_in: Union[float, np.ndarray],
+            delay_rec: Union[float, np.ndarray],
             vfBias: Union[float, np.ndarray],
             dt: float,
             vtTauN: Union[float, np.ndarray],
@@ -64,19 +64,19 @@ class RecAEIFSpkInNest(Layer):
             vfVReset: Union[float, np.ndarray],
             vfVRest: Union[float, np.ndarray],
             tRefractoryTime,
-            fA: Union[float, np.ndarray],
-            fB: Union[float, np.ndarray],
-            fDelta_T: Union[float, np.ndarray],
+            a: Union[float, np.ndarray],
+            b: Union[float, np.ndarray],
+            delta_t: Union[float, np.ndarray],
             vtTauW: Union[float, np.ndarray],
             bRecord: bool = False,
-            numCores: int = 1,
+            num_cores: int = 1,
         ):
             """ initializes the process """
 
             multiprocessing.Process.__init__(self, daemon=True)
 
-            self.requestQ = requestQ
-            self.resultQ = resultQ
+            self.request_q = request_q
+            self.result_q = result_q
 
             # - Record neuron parameters
             self.dt = s2ms(dt)
@@ -89,15 +89,15 @@ class RecAEIFSpkInNest(Layer):
             self.vfCapacity = vfCapacity
             self.weights_in = V2mV(weights_in)
             self.weights_rec = V2mV(weights_rec)
-            self.mfDelayIn = s2ms(mfDelayIn)
-            self.mfDelayRec = s2ms(mfDelayRec)
+            self.delay_in = s2ms(delay_in)
+            self.delay_rec = s2ms(delay_rec)
             self.tRefractoryTime = s2ms(tRefractoryTime)
             self.bRecord = bRecord
             self.size = np.shape(weights_rec)[0]
-            self.numCores = numCores
-            self.fA = fA
-            self.fB = fB
-            self.fDelta_T = fDelta_T
+            self.num_cores = num_cores
+            self.a = a
+            self.b = b
+            self.delta_t = delta_t
             self.vtTauW = s2ms(vtTauW)
 
         def run(self):
@@ -107,15 +107,15 @@ class RecAEIFSpkInNest(Layer):
             import nest
 
             numCPUs = multiprocessing.cpu_count()
-            # if self.numCores >= numCPUs:
-            #    self.numCores = numCPUs
+            # if self.num_cores >= numCPUs:
+            #    self.num_cores = numCPUs
 
             nest.ResetKernel()
             nest.hl_api.set_verbosity("M_FATAL")
             nest.SetKernelStatus(
                 {
                     "resolution": self.dt,
-                    "local_num_threads": self.numCores,
+                    "local_num_threads": self.num_cores,
                     "print_time": True,
                 }
             )
@@ -176,20 +176,20 @@ class RecAEIFSpkInNest(Layer):
                 else:
                     p["C_m"] = self.vfCapacity
 
-                if type(self.fA) is np.ndarray:
-                    p["a"] = self.fA[n]
+                if type(self.a) is np.ndarray:
+                    p["a"] = self.a[n]
                 else:
-                    p["a"] = self.fA
+                    p["a"] = self.a
 
-                if type(self.fB) is np.ndarray:
-                    p["b"] = self.fB[n]
+                if type(self.b) is np.ndarray:
+                    p["b"] = self.b[n]
                 else:
-                    p["b"] = self.fB
+                    p["b"] = self.b
 
-                if type(self.fDelta_T) is np.ndarray:
-                    p["Delta_T"] = self.fDelta_T[n]
+                if type(self.delta_t) is np.ndarray:
+                    p["Delta_T"] = self.delta_t[n]
                 else:
-                    p["Delta_T"] = self.fDelta_T
+                    p["Delta_T"] = self.delta_t
 
                 if type(self.vtTauW) is np.ndarray:
                     p["tau_w"] = self.vtTauW[n]
@@ -228,10 +228,10 @@ class RecAEIFSpkInNest(Layer):
                 connsPrePost[:, 1] -= np.min(self._pop)
 
                 weights = [self.weights_in[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.mfDelayIn) is np.ndarray:
-                    delays = [self.mfDelayIn[conn[0], conn[1]] for conn in connsPrePost]
+                if type(self.delay_in) is np.ndarray:
+                    delays = [self.delay_in[conn[0], conn[1]] for conn in connsPrePost]
                 else:
-                    delays = np.array([self.mfDelayIn] * len(weights))
+                    delays = np.array([self.delay_in] * len(weights))
 
                 delays = np.clip(delays, self.dt, np.max(delays))
 
@@ -260,12 +260,12 @@ class RecAEIFSpkInNest(Layer):
                 connsPrePost -= np.min(self._pop)
 
                 weights = [self.weights_rec[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.mfDelayRec) is np.ndarray:
+                if type(self.delay_rec) is np.ndarray:
                     delays = [
-                        self.mfDelayRec[conn[0], conn[1]] for conn in connsPrePost
+                        self.delay_rec[conn[0], conn[1]] for conn in connsPrePost
                     ]
                 else:
-                    delays = np.array([self.mfDelayRec] * len(weights))
+                    delays = np.array([self.delay_rec] * len(weights))
 
                 delays = np.clip(delays, self.dt, np.max(delays))
 
@@ -389,22 +389,22 @@ class RecAEIFSpkInNest(Layer):
             # wait for an IPC command
 
             while True:
-                req = self.requestQ.get()
+                req = self.request_q.get()
 
                 func = IPC_switcher.get(req[0])
 
                 result = func(*req[1:])
 
                 if not result is None:
-                    self.resultQ.put(result)
+                    self.result_q.put(result)
 
     ## - Constructor
     def __init__(
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        mfDelayIn=0.0001,
-        mfDelayRec=0.0001,
+        delay_in=0.0001,
+        delay_rec=0.0001,
         vfBias: np.ndarray = 0.0,
         dt: float = 0.0001,
         vtTauN: np.ndarray = 0.02,
@@ -414,13 +414,13 @@ class RecAEIFSpkInNest(Layer):
         vfVRest: np.ndarray = -0.065,
         vfCapacity: Union[float, np.ndarray] = 100.0,
         tRefractoryTime = 0.001,
-        fA: Union[float, np.ndarray] = 4.0,
-        fB: Union[float, np.ndarray] = 80.5,
-        fDelta_T: Union[float, np.ndarray] = 2.,
+        a: Union[float, np.ndarray] = 4.0,
+        b: Union[float, np.ndarray] = 80.5,
+        delta_t: Union[float, np.ndarray] = 2.,
         vtTauW: Union[float, np.ndarray] = 0.144,
         name: str = "unnamed",
         bRecord: bool = False,
-        nNumCores: int = 1,
+        num_cores: int = 1,
     ):
         """
         RecAEIFSpkInNest - Construct a spiking recurrent layer with AEIF neurons, with a NEST back-end
@@ -442,10 +442,10 @@ class RecAEIFSpkInNest(Layer):
         :param vfCapacity:       np.array Nx1 vector of neuron membrance capacity. Default: 100 pF
         :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
 
-        :param fA:              float or np.ndarray scaling for subthreshold adaptation. Default: 4.
-        :param fB:              float or np.ndarray additive value for spike triggered adaptation. Default: 80.5
+        :param a:              float or np.ndarray scaling for subthreshold adaptation. Default: 4.
+        :param b:              float or np.ndarray additive value for spike triggered adaptation. Default: 80.5
         :param vtTauW:          float or np.ndarray time constant for adaptation relaxation. Default: 144.0 ms
-        :param fDelta_T:        float or np.ndarray scaling for exponential part of the activation function. Default: 2.
+        :param delta_t:        float or np.ndarray scaling for exponential part of the activation function. Default: 2.
 
 
         :param name:         str Name for the layer. Default: 'unnamed'
@@ -459,11 +459,11 @@ class RecAEIFSpkInNest(Layer):
         if type(weights_rec) is list:
             weights_rec = np.asarray(weights_rec)
 
-        if type(mfDelayIn) is list:
-            mfDelayIn = np.asarray(mfDelayIn)
+        if type(delay_in) is list:
+            delay_in = np.asarray(delay_in)
 
-        if type(mfDelayRec) is list:
-            mfDelayRec = np.asarray(mfDelayRec)
+        if type(delay_rec) is list:
+            delay_rec = np.asarray(delay_rec)
 
         if type(vfBias) is list:
             vfBias = np.asarray(vfBias)
@@ -486,14 +486,14 @@ class RecAEIFSpkInNest(Layer):
         if type(vfVRest) is list:
             vfVRest = np.asarray(vfVRest)
 
-        if type(fA) is list:
-            fA = np.asarray(fA)
+        if type(a) is list:
+            a = np.asarray(a)
 
-        if type(fB) is list:
-            fB = np.asarray(fB)
+        if type(b) is list:
+            b = np.asarray(b)
 
-        if type(fDelta_T) is list:
-            fDelta_T = np.asarray(fDelta_T)
+        if type(delta_t) is list:
+            delta_t = np.asarray(delta_t)
 
         if type(vtTauW) is list:
             vtTauW = np.asarray(vtTauW)
@@ -503,18 +503,18 @@ class RecAEIFSpkInNest(Layer):
         # TODO this does not make much sense (weights <- weights_in)
         super().__init__(weights=np.asarray(weights_in), dt=dt, name=name)
 
-        self.nNumCores = nNumCores
+        self.num_cores = num_cores
 
-        self.requestQ = multiprocessing.Queue()
-        self.resultQ = multiprocessing.Queue()
+        self.request_q = multiprocessing.Queue()
+        self.result_q = multiprocessing.Queue()
 
         self.nestProcess = self.NestProcess(
-            self.requestQ,
-            self.resultQ,
+            self.request_q,
+            self.result_q,
             weights_in=weights_in,
             weights_rec=weights_rec,
-            mfDelayIn=mfDelayIn,
-            mfDelayRec=mfDelayRec,
+            delay_in=delay_in,
+            delay_rec=delay_rec,
             vfBias=vfBias,
             dt=dt,
             vtTauN=vtTauN,
@@ -525,10 +525,10 @@ class RecAEIFSpkInNest(Layer):
             vfVRest=vfVRest,
             tRefractoryTime=tRefractoryTime,
             bRecord=bRecord,
-            numCores=nNumCores,
-            fA=fA,
-            fB=fB,
-            fDelta_T=fDelta_T,
+            num_cores=num_cores,
+            a=a,
+            b=b,
+            delta_t=delta_t,
             vtTauW=vtTauW
         )
 
@@ -546,9 +546,9 @@ class RecAEIFSpkInNest(Layer):
         self.weights_rec = weights_rec
         self._tRefractoryTime = tRefractoryTime
         self.bRecord = bRecord
-        self._fA = fA
-        self._fB = fB
-        self._fDelta_T = fDelta_T
+        self._fA = a
+        self._fB = b
+        self._fDelta_T = delta_t
         self._vtTauW = vtTauW
 
 
@@ -557,7 +557,7 @@ class RecAEIFSpkInNest(Layer):
             Usage: .reset_state()
         """
 
-        self.requestQ.put([COMMAND_SET, "V_m", V2mV(self.vfVRest)])
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(self.vfVRest)])
 
     def randomize_state(self):
         """ .randomize_state() - Method: randomize the internal state of the layer
@@ -566,7 +566,7 @@ class RecAEIFSpkInNest(Layer):
         fRangeV = abs(self._vfVThresh - self._vfVReset)
         randV = np.random.rand(self.size) * fRangeV + self._vfVReset
 
-        self.requestQ.put([COMMAND_SET, "V_m", V2mV(randV)])
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(randV)])
 
     def reset_time(self):
         """
@@ -575,7 +575,7 @@ class RecAEIFSpkInNest(Layer):
 
         print("WARNING: This function resets the whole network")
 
-        self.requestQ.put([COMMAND_RESET])
+        self.request_q.put([COMMAND_RESET])
         self._timestep = 0
 
     def reset_all(self):
@@ -583,7 +583,7 @@ class RecAEIFSpkInNest(Layer):
         reset_all - resets time and state
         """
 
-        self.requestQ.put([COMMAND_RESET])
+        self.request_q.put([COMMAND_RESET])
         self._timestep = 0
 
     # --- State evolution
@@ -622,16 +622,16 @@ class RecAEIFSpkInNest(Layer):
             vtEventTimes = np.array([])
             vnEventChannels = np.array([])
 
-        self.requestQ.put(
+        self.request_q.put(
             [COMMAND_EVOLVE, vtEventTimes, vnEventChannels, num_timesteps]
         )
 
         if self.bRecord:
             vtEventTimeOutput, vnEventChannelOutput, self.mfRecordStates = (
-                self.resultQ.get()
+                self.result_q.get()
             )
         else:
-            vtEventTimeOutput, vnEventChannelOutput, _ = self.resultQ.get()
+            vtEventTimeOutput, vnEventChannelOutput, _ = self.result_q.get()
 
         # - Start and stop times for output time series
         tStart = self._timestep * self.dt
@@ -650,10 +650,10 @@ class RecAEIFSpkInNest(Layer):
         )
 
     def terminate(self):
-        self.requestQ.close()
-        self.resultQ.close()
-        self.requestQ.cancel_join_thread()
-        self.resultQ.cancel_join_thread()
+        self.request_q.close()
+        self.result_q.close()
+        self.request_q.cancel_join_thread()
+        self.result_q.cancel_join_thread()
         self.nestProcess.terminate()
         self.nestProcess.join()
 
@@ -673,19 +673,19 @@ class RecAEIFSpkInNest(Layer):
 
     @property
     def state(self):
-        self.requestQ.put([COMMAND_GET, "V_m"])
-        vms = np.array(self.resultQ.get())
+        self.request_q.put([COMMAND_GET, "V_m"])
+        vms = np.array(self.result_q.get())
         return mV2V(vms)
 
     @property
     def vW(self):
-        self.requestQ.put([COMMAND_GET, "w"])
-        ws = np.array(self.resultQ.get())
+        self.request_q.put([COMMAND_GET, "w"])
+        ws = np.array(self.result_q.get())
         return ws
 
     @state.setter
     def state(self, vNewState):
-        self.requestQ.put([COMMAND_SET, "V_m", V2mV(vNewState)])
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(vNewState)])
 
     @property
     def vtTauN(self):
@@ -710,7 +710,7 @@ class RecAEIFSpkInNest(Layer):
             else:
                 gls = self.vfCapacity / self.vtTauN
 
-        self.requestQ.put([COMMAND_SET, "g_L", s2ms(gls)])
+        self.request_q.put([COMMAND_SET, "g_L", s2ms(gls)])
 
     @property
     def vtTauS(self):
@@ -720,8 +720,8 @@ class RecAEIFSpkInNest(Layer):
     def vtTauS(self, vtNewTauS):
         self._vtTauS = vtNewTauS
 
-        self.requestQ.put([COMMAND_SET, "tau_syn_ex", s2ms(vtNewTauS)])
-        self.requestQ.put([COMMAND_SET, "tau_syn_in", s2ms(vtNewTauS)])
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(vtNewTauS)])
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(vtNewTauS)])
 
     @property
     def vfBias(self):
@@ -731,7 +731,7 @@ class RecAEIFSpkInNest(Layer):
     def vfBias(self, vfNewBias):
         self._vfBias = vfNewBias
 
-        self.requestQ.put([COMMAND_SET, "I_e", V2mV(vfNewBias)])
+        self.request_q.put([COMMAND_SET, "I_e", V2mV(vfNewBias)])
 
     @property
     def vfVThresh(self):
@@ -741,7 +741,7 @@ class RecAEIFSpkInNest(Layer):
     def vfVThresh(self, vfNewVThresh):
         self._vfVThresh = vfNewVThresh
 
-        self.requestQ.put([COMMAND_SET, "V_th", V2mV(vfNewVThresh)])
+        self.request_q.put([COMMAND_SET, "V_th", V2mV(vfNewVThresh)])
 
     @property
     def vfVReset(self):
@@ -751,7 +751,7 @@ class RecAEIFSpkInNest(Layer):
     def vfVReset(self, vfNewVReset):
         self._vfVReset = vfNewVReset
 
-        self.requestQ.put([COMMAND_SET, "V_reset", V2mV(vfNewVReset)])
+        self.request_q.put([COMMAND_SET, "V_reset", V2mV(vfNewVReset)])
 
     @property
     def vfVRest(self):
@@ -761,34 +761,34 @@ class RecAEIFSpkInNest(Layer):
     def vfVRest(self, vfNewVRest):
         self._vfVRest = vfNewVRest
 
-        self.requestQ.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
+        self.request_q.put([COMMAND_SET, "E_L", V2mV(vfNewVRest)])
 
     @property
-    def fA(self):
+    def a(self):
         return self._fA
 
-    @fA.setter
-    def fA(self, newFA):
+    @a.setter
+    def a(self, newFA):
         self._fA = newFA
-        self.requestQ.put([COMMAND_SET, "a", newFA])
+        self.request_q.put([COMMAND_SET, "a", newFA])
 
     @property
-    def fB(self):
+    def b(self):
         return self._fB
 
-    @fB.setter
-    def fB(self, newFB):
+    @b.setter
+    def b(self, newFB):
         self._fB = newFB
-        self.requestQ.put([COMMAND_SET, "b", newFB])
+        self.request_q.put([COMMAND_SET, "b", newFB])
 
     @property
-    def fDelta_T(self):
+    def delta_t(self):
         return self._fDelta_T
 
-    @fDelta_T.setter
-    def fDelta_T(self, newFDelta_T):
-        self.fDelta_T = newFDelta_T
-        self.requestQ.put([COMMAND_SET, "Delta_T", newFDelta_T])
+    @delta_t.setter
+    def delta_t(self, newFDelta_T):
+        self.delta_t = newFDelta_T
+        self.request_q.put([COMMAND_SET, "Delta_T", newFDelta_T])
 
     @property
     def vtTauW(self):
@@ -797,7 +797,7 @@ class RecAEIFSpkInNest(Layer):
     @vtTauW.setter
     def vtTauW(self, newVtTauW):
         self._vtTauW = newVtTauW
-        self.requestQ.put([COMMAND_SET, "tau_w", s2ms(newVtTauW)])
+        self.request_q.put([COMMAND_SET, "tau_w", s2ms(newVtTauW)])
 
 
     @property
@@ -837,7 +837,7 @@ class RecAEIFSpkInNest(Layer):
             if type(self.tRefractoryTime) is float
             else self.tRefractoryTime.tolist()
         )
-        config["nNumCores"] = self.nNumCores
+        config["num_cores"] = self.num_cores
         config["tauN"] = (
             self.vtTauN if type(self.vtTauN) is float else self.vtTauN.tolist()
         )
@@ -846,15 +846,15 @@ class RecAEIFSpkInNest(Layer):
         )
         config["bRecord"] = self.bRecord
 
-        config["fA"] = (
+        config["a"] = (
             self._fA if type(self._fA) is float else self._fA.tolist()
         )
 
-        config["fB"] = (
+        config["b"] = (
             self._fB if type(self._fB) is float else self._fB.tolist()
         )
 
-        config["fDelta_T"] = (
+        config["delta_t"] = (
             self._fDelta_T if type(self._fDelta_T) is float else self._fDelta_T.tolist()
         )
 
@@ -887,10 +887,10 @@ class RecAEIFSpkInNest(Layer):
             tRefractoryTime=config["tRef"],
             name=config["name"],
             bRecord=config["bRecord"],
-            nNumCores=config["nNumCores"],
-            fA=config['fA'],
-            fB=config['fB'],
-            fDelta_T=config['fDelta_T'],
+            num_cores=config["num_cores"],
+            a=config['a'],
+            b=config['b'],
+            delta_t=config['delta_t'],
             vtTauW=config['vtTauW'],
         )
 
@@ -913,9 +913,9 @@ class RecAEIFSpkInNest(Layer):
             tRefractoryTime=config["tRef"],
             name=config["name"],
             bRecord=config["bRecord"],
-            nNumCores=config["nNumCores"],
-            fA=config['fA'],
-            fB=config['fB'],
-            fDelta_T=config['fDelta_T'],
+            num_cores=config["num_cores"],
+            a=config['a'],
+            b=config['b'],
+            delta_t=config['delta_t'],
             vtTauW=config['vtTauW'],
         )

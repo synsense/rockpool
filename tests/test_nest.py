@@ -527,7 +527,7 @@ def test_Multithreading():
         vfVThresh=vfVThresh,
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
-        nNumCores=1,
+        num_cores=1,
         bRecord=True,
         name="FF",
     )
@@ -544,7 +544,7 @@ def test_Multithreading():
         vfVRest=vfVRest,
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
-        nNumCores=1,
+        num_cores=1,
         bRecord=True,
         name="Rec",
     )
@@ -564,7 +564,7 @@ def test_Multithreading():
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
         bRecord=True,
-        nNumCores=4,
+        num_cores=4,
         name="FF",
     )
 
@@ -581,7 +581,7 @@ def test_Multithreading():
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
         bRecord=True,
-        nNumCores=4,
+        num_cores=4,
         name="Rec",
     )
 
@@ -658,12 +658,12 @@ def test_delays():
         [0.0, 0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.0],
     ]
-    mfDelayIn = [
+    delay_in = [
         [0.001, 0.011, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
     ]
-    mfDelayRec = [
+    delay_rec = [
         [0.001, 0.001, 0.001, 0.011],
         [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
@@ -676,8 +676,8 @@ def test_delays():
     fl1 = RecIAFSpkInNest(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        mfDelayIn=mfDelayIn,
-        mfDelayRec=mfDelayRec,
+        delay_in=delay_in,
+        delay_rec=delay_rec,
         dt=0.001,
         vfBias=vfBiasRec,
         vtTauN=vtTauNRec,
@@ -748,9 +748,9 @@ def test_IAF2AEIFNest():
         vfVThresh=vThresh,
         vfVReset=vRest,
         vfVRest=vRest,
-        fA=0.0,
-        fB=0.0,
-        fDelta_T=0.0,
+        a=0.0,
+        b=0.0,
+        delta_t=0.0,
         tRefractoryTime=0.001,
         bRecord=True,
     )
@@ -801,9 +801,9 @@ def test_SaveLoad():
         vfVThresh=vThresh,
         vfVReset=vRest,
         vfVRest=vRest,
-        fA=0.,
-        fB=1.,
-        fDelta_T=0.,
+        a=0.,
+        b=1.,
+        delta_t=0.,
         tRefractoryTime=0.001,
         bRecord=True,
     )
