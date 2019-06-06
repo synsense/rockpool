@@ -41,9 +41,9 @@ class FFExpSynBrian(Layer):
         weights: Union[np.ndarray, int] = None,
         dt: float = 0.1 * ms,
         noise_std: float = 0 * mV,
-        tTauSyn: float = 5 * ms,
-        eqSynapses=eqSynapseExp,
-        strIntegrator: str = "rk4",
+        tau_syn: float = 5 * ms,
+        synapse_eq=eqSynapseExp,
+        integrator_name: str = "rk4",
         name: str = "unnamed",
     ):
         """
@@ -54,9 +54,9 @@ class FFExpSynBrian(Layer):
         :param dt:             float Time step for state evolution. Default: 0.1 ms
         :param noise_std:       float Std. dev. of noise added to this layer. Default: 0
 
-        :param tTauSyn:         float Output synaptic time constants. Default: 5ms
-        :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
-        :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
+        :param tau_syn:         float Output synaptic time constants. Default: 5ms
+        :param synapse_eq:      Brian2.Equations set of synapse equations for receiver. Default: exponential
+        :param integrator_name:   str Integrator to use for simulation. Default: 'exact'
 
         :param name:         str Name for the layer. Default: 'unnamed'
         """
@@ -78,61 +78,61 @@ class FFExpSynBrian(Layer):
         )
 
         # - Set up spike source to receive spiking input
-        self._sggInput = b2.SpikeGeneratorGroup(
+        self._input_generator = b2.SpikeGeneratorGroup(
             self.size_in, [0], [0 * second], dt=np.asarray(dt) * second
         )
 
         # - Set up layer receiver nodes
-        self._ngReceiver = b2.NeuronGroup(
+        self._neuron_group = b2.NeuronGroup(
             self.size,
-            eqSynapses,
+            synapse_eq,
             refractory=False,
-            method=strIntegrator,
+            method=integrator_name,
             dt=np.asarray(dt) * second,
             name="receiver_neurons",
         )
 
         # - Add source -> receiver synapses
-        self._sgReceiver = b2.Synapses(
-            self._sggInput,
-            self._ngReceiver,
+        self._inp_synapses = b2.Synapses(
+            self._input_generator,
+            self._neuron_group,
             model="w : 1",
             on_pre="I_syn_post += w*amp",
-            method=strIntegrator,
+            method=integrator_name,
             dt=np.asarray(dt) * second,
             name="receiver_synapses",
         )
-        self._sgReceiver.connect()
+        self._inp_synapses.connect()
 
         # - Add current monitors to record reservoir outputs
-        self._stmReceiver = b2.StateMonitor(
-            self._ngReceiver, "I_syn", True, name="receiver_synaptic_currents"
+        self._state_monitor = b2.StateMonitor(
+            self._neuron_group, "I_syn", True, name="receiver_synaptic_currents"
         )
 
         # - Call Network constructor
         self._net = b2.Network(
-            self._sggInput,
-            self._ngReceiver,
-            self._sgReceiver,
-            self._stmReceiver,
+            self._input_generator,
+            self._neuron_group,
+            self._inp_synapses,
+            self._state_monitor,
             name="ff_spiking_to_exp_layer",
         )
 
         # - Record layer parameters, set weights
         self.weights = weights
-        self.tTauSyn = tTauSyn
+        self.tau_syn = tau_syn
 
         # - Store "reset" state
         self._net.store("reset")
 
     def reset_state(self):
-        """ .reset_state() - Method: reset the internal state of the layer
+        """ .reset_state() - arguments:: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self._ngReceiver.I_syn = 0 * amp
+        self._neuron_group.I_syn = 0 * amp
 
     def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
+        """ .randomize_state() - arguments:: randomize the internal state of the layer
             Usage: .randomize_state()
         """
         self.reset_state()
@@ -143,10 +143,10 @@ class FFExpSynBrian(Layer):
         """
 
         # - Sotre state variables
-        vfIsyn = np.copy(self._ngReceiver.I_syn) * amp
+        syn_inp = np.copy(self._neuron_group.I_syn) * amp
 
         # - Store parameters
-        tTauSyn = np.copy(self.tTauSyn)
+        tau_syn = np.copy(self.tau_syn)
         weights = np.copy(self.weights)
 
         # - Reset network
@@ -154,11 +154,11 @@ class FFExpSynBrian(Layer):
         self._timestep = 0
 
         # - Restork parameters
-        self.tTauSyn = tTauSyn
+        self.tau_syn = tau_syn
         self.weights = weights
 
         # - Restore state variables
-        self._ngReceiver.I_syn = vfIsyn
+        self._neuron_group.I_syn = syn_inp
 
     ### --- State evolution
 
@@ -181,33 +181,33 @@ class FFExpSynBrian(Layer):
         """
 
         # - Prepare time base
-        vtTimeBase, __, num_timesteps = self._prepare_input(
+        time_base, __, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Set spikes for spike generator
         if ts_input is not None:
-            vtEventTimes, vnEventChannels, _ = ts_input(
-                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1] + self.dt
+            event_times, event_channels, _ = ts_input(
+                t_start=time_base[0], t_stop=time_base[-1] + self.dt
             )
-            self._sggInput.set_spikes(
-                vnEventChannels, vtEventTimes * second, sorted=False
+            self._input_generator.set_spikes(
+                event_channels, event_times * second, sorted=False
             )
         else:
-            self._sggInput.set_spikes([], [] * second)
+            self._input_generator.set_spikes([], [] * second)
 
         # - Generate a noise trace
-        mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.size)
+        noise_step = (
+            np.random.randn(np.size(time_base), self.size)
             * self.noise_std
-            * np.sqrt(2 * self.tTauSyn / self.dt)
+            * np.sqrt(2 * self.tau_syn / self.dt)
         )
-        # mfNoiseStep = np.zeros((np.size(vtTimeBase), self.size))
-        # mfNoiseStep[0,:] = self.noise_std
+        # noise_step = np.zeros((np.size(time_base), self.size))
+        # noise_step[0,:] = self.noise_std
 
         # - Specifiy noise input currents, construct TimedArray
-        taI_noise = TAShift(
-            np.asarray(mfNoiseStep) * amp,
+        inp_noise = TAShift(
+            np.asarray(noise_step) * amp,
             self.dt * second,
             tOffset=self.t * second,
             name="noise_input",
@@ -215,23 +215,23 @@ class FFExpSynBrian(Layer):
 
         # - Perform simulation
         self._net.run(
-            num_timesteps * self.dt * second, namespace={"I_inp": taI_noise}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": inp_noise}, level=0
         )
         self._timestep += num_timesteps
 
         # - Build response TimeSeries
-        vtTimeBaseOutput = self._stmReceiver.t_
-        vbUseTime = self._stmReceiver.t_ >= vtTimeBase[0]
-        vtTimeBaseOutput = vtTimeBaseOutput[vbUseTime]
-        mfA = self._stmReceiver.I_syn_.T
-        mfA = mfA[vbUseTime, :]
+        time_base_out = self._state_monitor.t_
+        use_time = self._state_monitor.t_ >= time_base[0]
+        time_base_out = time_base_out[use_time]
+        a = self._state_monitor.I_syn_.T
+        a = a[use_time, :]
 
         # - Return the current state as final time point
-        if vtTimeBaseOutput[-1] != self.t:
-            vtTimeBaseOutput = np.concatenate((vtTimeBaseOutput, [self.t]))
-            mfA = np.concatenate((mfA, np.reshape(self.state, (1, self.size))))
+        if time_base_out[-1] != self.t:
+            time_base_out = np.concatenate((time_base_out, [self.t]))
+            a = np.concatenate((a, np.reshape(self.state, (1, self.size))))
 
-        return TSContinuous(vtTimeBaseOutput, mfA, name="Receiver current")
+        return TSContinuous(time_base_out, a, name="Receiver current")
 
     ### --- Properties
 
@@ -241,41 +241,41 @@ class FFExpSynBrian(Layer):
 
     @property
     def weights(self):
-        if hasattr(self, "_sgReceiver"):
-            return np.reshape(self._sgReceiver.w, (self.size, -1))
+        if hasattr(self, "_inp_synapses"):
+            return np.reshape(self._inp_synapses.w, (self.size, -1))
         else:
-            return self._mfW
+            return self._weights
 
     @weights.setter
-    def weights(self, mfNewW):
-        assert np.size(mfNewW) == self.size * self.size_in, (
-            "`mfNewW` must have [" + str(self.size * self.size_in) + "] elements."
+    def weights(self, new_w):
+        assert np.size(new_w) == self.size * self.size_in, (
+            "`new_w` must have [" + str(self.size * self.size_in) + "] elements."
         )
 
-        self._mfW = mfNewW
+        self._weights = new_w
 
-        if hasattr(self, "_sgReceiver"):
+        if hasattr(self, "_inp_synapses"):
             # - Assign recurrent weights
-            mfNewW = np.asarray(mfNewW).reshape(self.size, -1)
-            self._sgReceiver.w = mfNewW.flatten()
+            new_w = np.asarray(new_w).reshape(self.size, -1)
+            self._inp_synapses.w = new_w.flatten()
 
     @property
     def state(self):
-        return self._ngReceiver.I_syn_
+        return self._neuron_group.I_syn_
 
     @state.setter
-    def state(self, vNewState):
-        self._ngReceiver.I_syn = (
-            np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * amp
+    def state(self, new_state):
+        self._neuron_group.I_syn = (
+            np.asarray(self._expand_to_net_size(new_state, "new_state")) * amp
         )
 
     @property
-    def tTauSyn(self):
-        return self._ngReceiver.tau_s_[0]
+    def tau_syn(self):
+        return self._neuron_group.tau_s_[0]
 
-    @tTauSyn.setter
-    def tTauSyn(self, tNewTau):
-        self._ngReceiver.tau_s = np.asarray(tNewTau) * second
+    @tau_syn.setter
+    def tau_syn(self, new_tau_syn):
+        self._neuron_group.tau_s = np.asarray(new_tau_syn) * second
 
     @property
     def t(self):

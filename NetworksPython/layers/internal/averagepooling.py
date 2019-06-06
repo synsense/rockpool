@@ -28,14 +28,14 @@ class AveragePooling2D(CLIAF):
 
     def __init__(
         self,
-        inShape: tuple,
+        inp_shape: tuple,
         pool_size: tuple = (1, 1),
         img_data_format="channels_last",
         dt: float = 1,
         name: str = "unnamed",
     ):
         """
-        :param inShape:     tuple Input shape
+        :param inp_shape:     tuple Input shape
         :param pool_size:   tuple Pooling width along each dimension
         :param img_data_format: str 'channels_first' or 'channels_last'
         :param name:     str  Name of this layer.
@@ -43,13 +43,13 @@ class AveragePooling2D(CLIAF):
         """
 
         if img_data_format == "channels_last":
-            nKernels = inShape[-1]
+            kernels = inp_shape[-1]
         elif img_data_format == "channels_first":
-            nKernels = inShape[0]
+            kernels = inp_shape[0]
         self.img_data_format = img_data_format
         weights = CNNWeight(
-            inShape=inShape,
-            nKernels=nKernels,
+            inp_shape=inp_shape,
+            kernels=kernels,
             kernel_size=pool_size,
             strides=pool_size,
             img_data_format=img_data_format,
@@ -67,12 +67,12 @@ class AveragePooling2D(CLIAF):
         Prepare input stream and return a binarized vector of spikes
         """
         # - End time of evolution
-        tFinal = self.t + num_timesteps * self.dt
+        t_final = self.t + num_timesteps * self.dt
         # - Extract spike timings and channels
         if ts_input is not None:
             if ts_input.isempty():
                 # Return an empty list with all zeros
-                vbSpikeRaster = np.zeros((self.size_in), bool)
+                spike_raster = np.zeros((self.size_in), bool)
             else:
                 # Ensure number of channels is atleast as many as required
                 try:
@@ -85,21 +85,21 @@ class AveragePooling2D(CLIAF):
                     ts_input.num_channels = self.size_in
 
                 # Extract spike data from the input variable
-                mfSpikeRaster = ts_input.xraster(
-                    dt=self.dt, t_start=self.t, t_stop=tFinal
+                spike_raster = ts_input.xraster(
+                    dt=self.dt, t_start=self.t, t_stop=t_final
                 )
 
                 ## - Make sure size is correct
-                # mfSpikeRaster = mfSpikeRaster[:num_timesteps, :]
-                # assert mfSpikeRaster.shape == (num_timesteps, self.size_in)
-                yield from mfSpikeRaster  # Yield a single time step
+                # spike_raster = spike_raster[:num_timesteps, :]
+                # assert spike_raster.shape == (num_timesteps, self.size_in)
+                yield from spike_raster  # Yield a single time step
                 return
         else:
             # Return an empty list with all zeros
-            vbSpikeRaster = np.zeros((self.size_in), bool)
+            spike_raster = np.zeros((self.size_in), bool)
 
         while True:
-            yield vbSpikeRaster
+            yield spike_raster
 
     def evolve(
         self,
@@ -123,41 +123,41 @@ class AveragePooling2D(CLIAF):
             num_timesteps = int((duration + tol_abs) // self.dt)
 
         # - Generate input in rasterized form, get actual evolution duration
-        mfInptSpikeRaster = np.array(list(self._prepare_input(ts_input, num_timesteps)))
+        inp_spike_raster = np.array(list(self._prepare_input(ts_input, num_timesteps)))
 
         # Reshape input data
-        mfInptSpikeRaster = mfInptSpikeRaster.reshape((-1, *self.weights.inShape))
+        inp_spike_raster = inp_spike_raster.reshape((-1, *self.weights.inp_shape))
 
         # Do average pooling here
         if self.img_data_format == "channels_last":
-            mbOutRaster = skimage.measure.block_reduce(
-                mfInptSpikeRaster, (1, *self.pool_size, 1), np.sum
+            out_raster = skimage.measure.block_reduce(
+                inp_spike_raster, (1, *self.pool_size, 1), np.sum
             )
         elif self.img_data_format == "channels_first":
-            mbOutRaster = skimage.measure.block_reduce(
-                mfInptSpikeRaster, (1, 1, *self.pool_size, 1), np.sum
+            out_raster = skimage.measure.block_reduce(
+                inp_spike_raster, (1, 1, *self.pool_size, 1), np.sum
             )
 
         # Reshape the output to flat indices
-        mbOutRaster = mbOutRaster.reshape((-1, self.size))
+        out_raster = out_raster.reshape((-1, self.size))
 
         # Convert raster to indices
-        ltSpikeTimes, liSpikeIDs = np.nonzero(mbOutRaster)
+        spike_times, spike_ids = np.nonzero(out_raster)
 
         # Convert arrays to TimeSeries objects
-        tseOut = TSEvent(
-            times=ltSpikeTimes, channels=liSpikeIDs, num_channels=self.size
+        event_out = TSEvent(
+            times=spike_times, channels=spike_ids, num_channels=self.size
         )
 
         # Update time
         self._t += self.dt * num_timesteps
 
-        return tseOut
+        return event_out
 
     @property
     def weights(self):
         return self._weights_in
 
     @weights.setter
-    def weights(self, mfNewW):
-        self.weights_in = mfNewW
+    def weights(self, new_w):
+        self.weights_in = new_w

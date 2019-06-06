@@ -30,24 +30,24 @@ class FFCLIAFCNNTorch(FFCLIAF):
     def __init__(
         self,
         weights: CNNWeightTorch,
-        vfVBias: float = 0,
+        bias: float = 0,
         fVThresh: float = 8,
         fVReset: float = 0,
         fVSubtract: float = 8,
         dt: float = 1,
-        vnIdMonitor: Union[bool, int, None, ArrayLike] = [],
+        monitor_id: Union[bool, int, None, ArrayLike] = [],
         name: str = "unnamed",
     ):
         """
         FFCLIAFTorch - Feedforward layer of integrate and fire neurons with constant leak
 
         :param weights:         array-like  Input weight matrix
-        :param vfVBias:     array-like  Constant bias to be added to state at each time step
-        :param vfVThresh:   array-like  Spiking threshold
-        :param vfVReset:    array-like  Reset potential after spike (also see param bSubtract)
-        :param vfVSubtract: array-like  If not None, subtract provided values
+        :param bias:     array-like  Constant bias to be added to state at each time step
+        :param v_thresh:   array-like  Spiking threshold
+        :param v_reset:    array-like  Reset potential after spike (also see param bSubtract)
+        :param v_subtract: array-like  If not None, subtract provided values
                                         from neuron state after spike. Otherwise will reset.
-        :vnIdMonitor:       array-like  IDs of neurons to be recorded
+        :monitor_id:       array-like  IDs of neurons to be recorded
         :param name:     str  Name of this layer.
         """
 
@@ -55,12 +55,12 @@ class FFCLIAFCNNTorch(FFCLIAF):
         FFCLIAF.__init__(
             self,
             weights=weights,
-            vfVBias=vfVBias,
-            vfVThresh=fVThresh,
-            vfVReset=fVReset,
-            vfVSubtract=fVSubtract,
+            bias=bias,
+            v_thresh=fVThresh,
+            v_reset=fVReset,
+            v_subtract=fVSubtract,
             dt=dt,
-            vnIdMonitor=vnIdMonitor,
+            monitor_id=monitor_id,
             name=name,
         )
 
@@ -88,7 +88,7 @@ class FFCLIAFCNNTorch(FFCLIAF):
         # Initialize torch layer
         self.lyrTorch = TorchSpikingConv2dLayer(
             nInChannels=self.weights.nInChannels,
-            nOutChannels=self.weights.nKernels,
+            nOutChannels=self.weights.kernels,
             kernel_size=self.weights.kernel_size,
             strides=self.weights.strides,
             padding=self.weights.padding,
@@ -97,7 +97,7 @@ class FFCLIAFCNNTorch(FFCLIAF):
             fVReset=self.fVReset,
         )
         # Set biases
-        self.lyrTorch.conv.bias.data = torch.zeros(self.weights.nKernels)
+        self.lyrTorch.conv.bias.data = torch.zeros(self.weights.kernels)
         # Set torch weights
         if self.weights.img_data_format == "channels_first":
             self.lyrTorch.conv.weight.data = torch.from_numpy(self.weights.data).float()
@@ -122,12 +122,12 @@ class FFCLIAFCNNTorch(FFCLIAF):
         Prepare input stream and return a binarized vector of spikes
         """
         # - End time of evolution
-        tFinal = self.t + num_timesteps * self.dt
+        t_final = self.t + num_timesteps * self.dt
         # - Extract spike timings and channels
         if ts_input is not None:
             if ts_input.isempty():
                 # Return an empty list with all zeros
-                vbSpikeRaster = np.zeros((self.size_in), bool)
+                spike_raster = np.zeros((self.size_in), bool)
             else:
                 # Ensure number of channels is atleast as many as required
                 try:
@@ -140,21 +140,21 @@ class FFCLIAFCNNTorch(FFCLIAF):
                     ts_input.num_channels = self.size_in
 
                 # Extract spike data from the input variable
-                mfSpikeRaster = ts_input.xraster(
-                    dt=self.dt, t_start=self.t, t_stop=tFinal
+                spike_raster = ts_input.xraster(
+                    dt=self.dt, t_start=self.t, t_stop=t_final
                 )
 
                 ## - Make sure size is correct
-                # mfSpikeRaster = mfSpikeRaster[:num_timesteps, :]
-                # assert mfSpikeRaster.shape == (num_timesteps, self.size_in)
-                yield from mfSpikeRaster  # Yield a single time step
+                # spike_raster = spike_raster[:num_timesteps, :]
+                # assert spike_raster.shape == (num_timesteps, self.size_in)
+                yield from spike_raster  # Yield a single time step
                 return
         else:
             # Return an empty list with all zeros
-            vbSpikeRaster = np.zeros((self.size_in), bool)
+            spike_raster = np.zeros((self.size_in), bool)
 
         while True:
-            yield vbSpikeRaster
+            yield spike_raster
 
     def evolve(
         self,
@@ -178,16 +178,16 @@ class FFCLIAFCNNTorch(FFCLIAF):
             num_timesteps = int((duration + tol_abs) // self.dt)
 
         # - Generate input in rasterized form
-        mfInptSpikeRaster = self._prepare_input(ts_input, num_timesteps=num_timesteps)
+        inp_spike_raster = self._prepare_input(ts_input, num_timesteps=num_timesteps)
 
         # Convert input to torch tensors
-        mfInptSpikeRaster = [next(mfInptSpikeRaster) for i in range(num_timesteps)]
-        print(sum(mfInptSpikeRaster))
-        tsrIn = torch.from_numpy(np.array(mfInptSpikeRaster, np.uint8)).type(
+        inp_spike_raster = [next(inp_spike_raster) for i in range(num_timesteps)]
+        print(sum(inp_spike_raster))
+        tsrIn = torch.from_numpy(np.array(inp_spike_raster, np.uint8)).type(
             torch.float
         )
         # Reshape flat data to images and channels
-        tsrInReshaped = tsrIn.reshape(-1, *self.weights.inShape)
+        tsrInReshaped = tsrIn.reshape(-1, *self.weights.inp_shape)
         print(tsrInReshaped.shape)
         # Restructure input
         if self.weights.img_data_format == "channels_last":
@@ -205,17 +205,17 @@ class FFCLIAFCNNTorch(FFCLIAF):
         elif self.weights.img_data_format == "channels_first":
             pass
         # Flatten output and return
-        mbOutRaster = tsrOut.cpu().numpy()
-        mbOutRaster = mbOutRaster.reshape((num_timesteps, -1))
+        out_raster = tsrOut.cpu().numpy()
+        out_raster = out_raster.reshape((num_timesteps, -1))
 
         # Create time series from raster
-        vnTimeSteps, vnChannels = np.nonzero(mbOutRaster)
+        vnTimeSteps, vnChannels = np.nonzero(out_raster)
         times = self.t + (vnTimeSteps + 1) * self.dt
 
         # Update time
         self._timestep += num_timesteps
 
-        evOut = TSEvent(
+        out_events = TSEvent(
             times, vnChannels, num_channels=self.size, name=self.name
         )
-        return evOut
+        return out_events

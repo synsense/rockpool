@@ -57,48 +57,48 @@ class PassThroughEvents(Layer):
         """
 
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
-        tEnd = self.t + self.dt * num_timesteps
+        t_end = self.t + self.dt * num_timesteps
 
         # - Handle empty inputs
         if ts_input is None or ts_input.times.size == 0:
             return TSEvent(
                 None, None, num_channels=self.size
-            )  # , t_start=self.t, t_stop=tEnd)
+            )  # , t_start=self.t, t_stop=t_end)
 
-        nNumInputEvents = ts_input.times.size
+        num_inp_events = ts_input.times.size
         # - Boolean raster of input events - each row corresponds to one event (not timepoint)
-        mbInputChannelRaster = np.zeros((nNumInputEvents, self.size_in), bool)
-        mbInputChannelRaster[np.arange(nNumInputEvents), ts_input.channels] = True
+        inp_channel_raster = np.zeros((num_inp_events, self.size_in), bool)
+        inp_channel_raster[np.arange(num_inp_events), ts_input.channels] = True
         # - Integer raster of output events with number of occurences
         #   Each row corresponds to one input event (not timepoint)
-        mnOutputChannelRaster = mbInputChannelRaster @ self.weights
+        out_channel_raster = inp_channel_raster @ self.weights
         ## -- Extract channels from raster
         # - Number of repetitions for each output event in temporal order
         #   (every self.size events occur simultaneously)
-        vnRepetitions = mnOutputChannelRaster.flatten()
-        # - Output channels corresponding to vnRepetitions
-        vnChannelMask = np.tile(np.arange(self.size), nNumInputEvents)
+        repetitions = out_channel_raster.flatten()
+        # - Output channels corresponding to repetitions
+        channel_mask = np.tile(np.arange(self.size), num_inp_events)
         # - Output channel train
-        vnChannelsOut = np.repeat(vnChannelMask, vnRepetitions)
+        out_channels = np.repeat(channel_mask, repetitions)
         # - Output time trace consits of elements from input time trace
         #   repeated by the number of output events they result in
-        vnNumOutputEventsPerInputEvent = np.sum(mnOutputChannelRaster, axis=1)
-        vtTimeTraceOut = np.repeat(ts_input.times, vnNumOutputEventsPerInputEvent)
+        num_out_events_per_input_event = np.sum(out_channel_raster, axis=1)
+        time_trace_out = np.repeat(ts_input.times, num_out_events_per_input_event)
 
         # - Output time series
-        tseOut = TSEvent(
-            times=vtTimeTraceOut,
-            channels=vnChannelsOut,
+        event_out = TSEvent(
+            times=time_trace_out,
+            channels=out_channels,
             num_channels=self.size,
             # t_start=self.t,
-            # t_stop=tEnd,
+            # t_stop=t_end,
             name="transformed event raster",
         )
 
         # - Update clock
         self._timestep += num_timesteps
 
-        return tseOut
+        return event_out
 
     @property
     def input_type(self):
@@ -110,7 +110,7 @@ class PassThroughEvents(Layer):
 
     @property
     def weights(self):
-        return self._mfW
+        return self._weights
 
     @weights.setter
     def weights(self, new_weights):

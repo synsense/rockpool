@@ -67,8 +67,8 @@ class TorchConv2dLayer(nn.Module):
 class CNNWeightTorch(UserList):
     def __init__(
         self,
-        inShape=None,
-        nKernels=1,
+        inp_shape=None,
+        kernels=1,
         kernel_size=(5, 5),
         strides=(1, 1),
         mode="same",
@@ -76,31 +76,31 @@ class CNNWeightTorch(UserList):
     ):
         """
         CNNWeightTorch class  - virtual array that allows convolutions on the input through indexing
-        :param inShape:     tuple Shape of input
-        :param nKernels:    int No. of kernels for this convolutial weight matrix
+        :param inp_shape:     tuple Shape of input
+        :param kernels:    int No. of kernels for this convolutial weight matrix
         :param kernel_size: tuple Shape of each kernel, eg (5,5)
         :param strides:     tuple strides in each dimension for convolution
         :param mode:        str 'same' or 'valid' or 'full'
         :param img_data_format: str 'channels_first' or 'channels_last'
         (For more information on convolution parameters look into scipy.convolve2d documentation
 
-        Important Note: inShape needs to be set before the use of indexing on this object.
+        Important Note: inp_shape needs to be set before the use of indexing on this object.
         If left undefined/None, the input dimension is inferred from input dimensions, if the data is binary.
         If it is an integer index, then an IndexError is raised
         """
         # Initialize placeholder variables
-        self._data = None  # Initialized when inShape is assigned
+        self._data = None  # Initialized when inp_shape is assigned
         self._inShape = None
         self.lyrTorch = None
         # Determine if there is a gpu
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # Set parameters from the initialization
-        self.nKernels = nKernels
+        self.kernels = kernels
         self.kernel_size = kernel_size
         self.strides = strides
         self.img_data_format = img_data_format
         self.mode = mode
-        self.inShape = inShape  # This will initialize the weights
+        self.inp_shape = inp_shape  # This will initialize the weights
         self.ndim = 2  # Because the input and output is always flattened
 
     def __len__(self):
@@ -119,20 +119,20 @@ class CNNWeightTorch(UserList):
         try:
             if (type(index) is int) or (type(index) is list):
                 # indexed by integer
-                bIndex = np.zeros(self.inShape).astype(bool).flatten()
+                bIndex = np.zeros(self.inp_shape).astype(bool).flatten()
                 bIndex[index] = True
                 return self.__getitem__(bIndex)
             elif index.dtype is np.dtype(int):
-                bIndex = np.zeros(self.inShape).astype(bool).flatten()
+                bIndex = np.zeros(self.inp_shape).astype(bool).flatten()
                 bIndex[index] = True
                 return self.__getitem__(bIndex)
             elif index.dtype is np.dtype("bool"):
                 # Meat of this fuction
                 # Reshape input
                 bIndex = index
-                bIndexReshaped = bIndex.reshape(self.inShape)
+                bIndexReshaped = bIndex.reshape(self.inp_shape)
                 # Ensure that the shape of input and this layer match
-                assert self.inShape == bIndexReshaped.shape
+                assert self.inp_shape == bIndexReshaped.shape
 
                 # The actual convolution happens here
                 if bIndexReshaped.ndim == 3:
@@ -191,9 +191,9 @@ class CNNWeightTorch(UserList):
     def _update_torch_layer(self):
         # Determine input image shape
         if self.img_data_format == "channels_last":
-            vImgShape = self.inShape[:2]
+            vImgShape = self.inp_shape[:2]
         elif self.img_data_format == "channels_first":
-            vImgShape = self.inShape[-2:]
+            vImgShape = self.inp_shape[-2:]
         # Calculate necessary padding
         padding = list(
             map(self._calculatePadding, vImgShape, self.kernel_size, self.strides)
@@ -218,20 +218,20 @@ class CNNWeightTorch(UserList):
     @property
     def shape(self):
         outSize = int(reduce(lambda x, y: x * y, self.outShape))
-        inSize = int(reduce(lambda x, y: x * y, self.inShape))
+        inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return (inSize, outSize)
 
     @property
     def size(self):
         outSize = int(reduce(lambda x, y: x * y, self.outShape))
-        inSize = int(reduce(lambda x, y: x * y, self.inShape))
+        inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return inSize * outSize
 
     @property
     def outShape(self):
         if self._outShape is None:
             # create fake data
-            tsrImg = torch.rand(self.inShape)
+            tsrImg = torch.rand(self.inp_shape)
             # if self.img_data_format == "channels_last":
             #    tsrImg = tsrImg.unsqueeze(-1).to(self.device)
             #    tsrOutImg = self.lyrTorch(tsrImg)
@@ -246,22 +246,22 @@ class CNNWeightTorch(UserList):
         return self._outShape
 
     @property
-    def inShape(self):
+    def inp_shape(self):
         return self._inShape
 
-    @inShape.setter
-    def inShape(self, inShape):
+    @inp_shape.setter
+    def inp_shape(self, inp_shape):
         """
-        Set the variable inShape and initialize a corresponding kernel
+        Set the variable inp_shape and initialize a corresponding kernel
         """
-        if inShape is None:
+        if inp_shape is None:
             return  # There is nothing to do
-        if inShape == self._inShape:
+        if inp_shape == self._inShape:
             return  # No change
 
         # (No. of channels, hight, width in the order of img_data_format)
-        assert len(inShape) == 3
-        self._inShape = inShape
+        assert len(inp_shape) == 3
+        self._inShape = inp_shape
         self._outShape = None
         self.initialize_weights()
 
@@ -276,12 +276,12 @@ class CNNWeightTorch(UserList):
             )
         if self.img_data_format == "channels_last":
             self.data = np.random.rand(
-                *self.kernel_size, *self._inShape[2:], self.nKernels
+                *self.kernel_size, *self._inShape[2:], self.kernels
             )  # Kernel
             self.nInChannels = self._inShape[2]
         elif self.img_data_format == "channels_first":
             self.data = np.random.rand(
-                self.nKernels, *self.inShape[:-2], *self.kernel_size
+                self.kernels, *self.inp_shape[:-2], *self.kernel_size
             )  # Kernel
             self.nInChannels = self._inShape[0]
         # Initialize an updated torch layer with the updated weights

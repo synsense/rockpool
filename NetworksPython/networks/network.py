@@ -140,7 +140,7 @@ class Network:
 
         if layers:
             # - First layer receives external input
-            self.inputlayer: Layer = self.add_layer(layers[0], external_input=True)
+            self.input_layer: Layer = self.add_layer(layers[0], external_input=True)
 
             # - Keep track of most recently added layer
             recent_layer: Layer = layers[0]
@@ -148,11 +148,11 @@ class Network:
             # - Add and connect subsequent layers
             lyr: Layer
             for lyr in layers[1:]:
-                self.add_layer(lyr, inputlayer=recent_layer)
+                self.add_layer(lyr, input_layer=recent_layer)
                 recent_layer: Layer = lyr
 
             # - Handle to last layer
-            self.outputlayer: Layer = recent_layer
+            self.output_layer: Layer = recent_layer
 
         # - Set evolution order and time step if no layers have been connected
         if not hasattr(self, "evol_order"):
@@ -163,8 +163,8 @@ class Network:
     def add_layer(
         self,
         lyr: Layer,
-        inputlayer: Layer = None,
-        outputlayer: Layer = None,
+        input_layer: Layer = None,
+        output_layer: Layer = None,
         external_input: bool = False,
         verbose: bool = False,
     ) -> Layer:
@@ -174,11 +174,11 @@ class Network:
         Add lyr to self and to self.layerset. Its attribute name
         is 'lyr'+lyr.name. Check whether layer with this name
         already exists (replace anyway).
-        Connect lyr to inputlayer and outputlayer.
+        Connect lyr to input_layer and output_layer.
 
         :param lyr:             Layer layer to be added to self
-        :param inputlayer:        Layer input layer to lyr
-        :param outputlayer:       Layer layer to which lyr is input layer
+        :param input_layer:        Layer input layer to lyr
+        :param output_layer:       Layer layer to which lyr is input layer
         :param external_input:  bool This layer receives external input (Default: False)
         :param verbose:        bool Print feedback about layer addition (Default: False)
 
@@ -230,13 +230,13 @@ class Network:
         self._set_dt()
 
         # - Connect in- and outputs
-        if inputlayer is not None:
-            self.connect(inputlayer, lyr)
-        if outputlayer is not None:
-            self.connect(lyr, outputlayer)
+        if input_layer is not None:
+            self.connect(input_layer, lyr)
+        if output_layer is not None:
+            self.connect(lyr, output_layer)
 
         # - Make sure evolution order is updated if it hasn't been before
-        if inputlayer is None and outputlayer is None:
+        if input_layer is None and output_layer is None:
             self.evol_order = self._set_evolution_order()
 
         return lyr
@@ -393,8 +393,8 @@ class Network:
         remaining_lyrs: set = self.layerset.copy()
 
         # # - Begin with input layer
-        # order = [self.inputlayer]
-        # remaining_lyrs.remove(self.inputlayer)
+        # order = [self.input_layer]
+        # remaining_lyrs.remove(self.input_layer)
         order = []
 
         # - Loop through layers
@@ -611,11 +611,11 @@ class Network:
                 calling training_fct.
 
         :param training_fct:      Function that is called after each evolution
-                training_fct(netObj, dtsSignals, bFirst, bFinal)
+                training_fct(netObj, dtsSignals, is_first, is_last)
                 :param netObj:      Network the network object to be trained
                 :param dtsSignals:  Dictionary containing all signals in the current evolution batch
-                :param bFirst:      bool Is this the first batch?
-                :param bFinal:      bool Is this the final batch?
+                :param is_first:      bool Is this the first batch?
+                :param is_last:      bool Is this the final batch?
 
         :param ts_input:         TimeSeries with external input to network
         :param duration:       float - Duration over which netŵork should
@@ -762,16 +762,16 @@ class Network:
 
         # - Check that external input has the correct class
         assert isinstance(
-            ts_input, self.inputlayer.input_type
+            ts_input, self.input_layer.input_type
         ), "Network: External input must be of class {} for this network.".format(
-            self.inputlayer.input_type.__name__
+            self.input_layer.input_type.__name__
         )
 
         # - Check that external input has the correct size
         assert (
-            ts_input.num_channels == self.inputlayer.size_in
+            ts_input.num_channels == self.input_layer.size_in
         ), "Network: External input must have {} traces for this network.".format(
-            self.inputlayer.size_in
+            self.input_layer.size_in
         )
 
         if num_timesteps is None:
@@ -787,7 +787,7 @@ class Network:
 
         # - Prepare all layers
         self.l_streamers = [
-            lyr.stream(duration, self.dt, bVerbose=verbose) for lyr in self.evol_order
+            lyr.stream(duration, self.dt, verbose=verbose) for lyr in self.evol_order
         ]
         num_layers = np.size(self.evol_order)
 
@@ -994,7 +994,7 @@ class Network:
         list_layers = loaddict["layers"]
         evol_order = []
         for lyr in list_layers:
-            cls_layer = getattr(layers, lyr["ClassName"])
+            cls_layer = getattr(layers, lyr["class_name"])
             evol_order.append(cls_layer.load_from_dict(lyr))
         # - If dt has been stored, include as parameter for new Network object
         dt = loaddict.get("dt", None)

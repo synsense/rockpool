@@ -8,8 +8,8 @@ from functools import reduce
 class CNNWeight(UserList):
     def __init__(
         self,
-        inShape=None,
-        nKernels=1,
+        inp_shape=None,
+        kernels=1,
         kernel_size=(5, 5),
         strides=(1, 1),
         mode="same",
@@ -17,26 +17,26 @@ class CNNWeight(UserList):
     ):
         """
         CNNWeight class is virtual array that allows convolutions on the input through indexing
-        :param inShape:     tuple Shape of input
-        :param nKernels:    int No. of kernels for this convolutial weight matrix
+        :param inp_shape:     tuple Shape of input
+        :param kernels:    int No. of kernels for this convolutial weight matrix
         :param kernel_size: tuple Shape of each kernel
         :param strides:     tuple strides in each dimension for convolution
         :param mode:        str 'same' or 'valid' or 'full'
         :param img_data_format: str 'channels_first' or 'channels_last'
         (For more information on convolution parameters look into scipy.convolve2d documentation
 
-        Important Note: inShape needs to be set before the use of indexing on this object.
+        Important Note: inp_shape needs to be set before the use of indexing on this object.
         If left undefine/None, the input dimension is inferred from input dimensions, if the data is binary.
         If it is an integer index, then an IndexError is raised
         """
-        self.nKernels = nKernels
+        self.kernels = kernels
         self.kernel_size = kernel_size
         self.strides = strides
         self.img_data_format = img_data_format
         self.mode = mode
-        self.data = None  # Initialized when inShape is assigned
+        self.data = None  # Initialized when inp_shape is assigned
         self._inShape = None
-        self.inShape = inShape
+        self.inp_shape = inp_shape
         self.ndim = 2  # Because the input and output is always flattened
 
     def __len__(self):
@@ -59,25 +59,25 @@ class CNNWeight(UserList):
                 return np.zeros(self.outShape, float)
             if (type(index) is int) or (type(index) is list):
                 # indexed by integer
-                bIndex = np.zeros(self.inShape).astype(bool).flatten()
+                bIndex = np.zeros(self.inp_shape).astype(bool).flatten()
                 bIndex[index] = True
                 return self.__getitem__(bIndex)
             elif index.dtype is np.dtype(int):
-                bIndex = np.zeros(self.inShape).astype(bool).flatten()
+                bIndex = np.zeros(self.inp_shape).astype(bool).flatten()
                 bIndex[index] = True
                 return self.__getitem__(bIndex)
             elif index.dtype is np.dtype("bool"):
                 # Meat of this fuction
                 # Reshape input
                 bIndex = index
-                bIndexReshaped = bIndex.reshape(self.inShape)
-                if self.inShape is None:
-                    self.inShape == bIndexReshaped.shape
+                bIndexReshaped = bIndex.reshape(self.inp_shape)
+                if self.inp_shape is None:
+                    self.inp_shape == bIndexReshaped.shape
 
                 # The actual convolution happens here
                 aConvolution = []
                 # Convolve each kernel individually
-                for nKernelIndex in range(self.nKernels):
+                for nKernelIndex in range(self.kernels):
                     if img_data_format == "channels_last":
                         kernel = data[..., nKernelIndex]
                     elif img_data_format == "channels_first":
@@ -140,13 +140,13 @@ class CNNWeight(UserList):
     @property
     def shape(self):
         outSize = int(reduce(lambda x, y: x * y, self.outShape))
-        inSize = int(reduce(lambda x, y: x * y, self.inShape))
+        inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return (inSize, outSize)
 
     @property
     def size(self):
         outSize = int(reduce(lambda x, y: x * y, self.outShape))
-        inSize = int(reduce(lambda x, y: x * y, self.inShape))
+        inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return inSize * outSize
 
     @property
@@ -156,36 +156,36 @@ class CNNWeight(UserList):
                 self._outShape = (
                     *(
                         self._do_convolve_2d(
-                            np.zeros(self.inShape[:2]), np.zeros(self.kernel_size)
+                            np.zeros(self.inp_shape[:2]), np.zeros(self.kernel_size)
                         ).shape
                     ),
-                    self.nKernels,
+                    self.kernels,
                 )
             if self.img_data_format == "channels_first":
                 self._outShape = (
-                    self.nKernels,
+                    self.kernels,
                     *(
                         self._do_convolve_2d(
-                            np.zeros(self.inShape[-2:]), np.zeros(self.kernel_size)
+                            np.zeros(self.inp_shape[-2:]), np.zeros(self.kernel_size)
                         ).shape
                     ),
                 )
         return self._outShape
 
     @property
-    def inShape(self):
+    def inp_shape(self):
         return self._inShape
 
-    @inShape.setter
-    def inShape(self, inShape):
+    @inp_shape.setter
+    def inp_shape(self, inp_shape):
         """
-        Set the variable inShape and initialize a corresponding kernel
+        Set the variable inp_shape and initialize a corresponding kernel
         """
-        if inShape is None:
-            inShape = []
-        if inShape == self._inShape:
+        if inp_shape is None:
+            inp_shape = []
+        if inp_shape == self._inShape:
             return  # No change
-        self._inShape = inShape
+        self._inShape = inp_shape
         self._outShape = None
         self.initialize_weights()
 
@@ -200,11 +200,11 @@ class CNNWeight(UserList):
             )
         if self.img_data_format == "channels_last":
             self.data = np.random.rand(
-                *self.kernel_size, *self._inShape[2:], self.nKernels
+                *self.kernel_size, *self._inShape[2:], self.kernels
             )  # Kernel
         elif self.img_data_format == "channels_first":
             self.data = np.random.rand(
-                self.nKernels, *self.inShape[:-2], *self.kernel_size
+                self.kernels, *self.inp_shape[:-2], *self.kernel_size
             )  # Kernel
 
     def reverse_dot(self, vnInput):
@@ -224,7 +224,7 @@ class CNNWeight(UserList):
         #   spikes and add them up
         return np.sum(
             (
-                nNumSpikes * self[iNeuronID]  # Multiply weights with spike counts
-                for iNeuronID, nNumSpikes in enumerate(vnInput)
+                num_spikes * self[iNeuronID]  # Multiply weights with spike counts
+                for iNeuronID, num_spikes in enumerate(vnInput)
             )
         )

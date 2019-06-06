@@ -138,19 +138,19 @@ class FFUpDown(Layer):
         """
 
         # - Prepare time base
-        __, mfInput, num_timesteps = self._prepare_input(
+        __, inp, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         if self.noise_std > 0:
             # - Add noise to input
-            mfInput += np.random.randn(*mfInput.shape) * self.noise_std
+            inp += np.random.randn(*inp.shape) * self.noise_std
 
         # - Make sure that layer is able to represent input faithfully
-        # mfInputDiff = np.diff(mfInput, axis=0)
+        # mfInputDiff = np.diff(inp, axis=0)
         # if (
-        #     ((mfInputDiff + 2 * np.abs(mfInput[1:]) * (1 - self._vfDecayFactor)) > self.vfThrUp).any()
-        #     or ((mfInputDiff - 2 * np.abs(-mfInput[1:]) * (1 - self._vfDecayFactor)) < - self.vfThrDown).any()
+        #     ((mfInputDiff + 2 * np.abs(inp[1:]) * (1 - self._vfDecayFactor)) > self.vfThrUp).any()
+        #     or ((mfInputDiff - 2 * np.abs(-inp[1:]) * (1 - self._vfDecayFactor)) < - self.vfThrDown).any()
         # ):
         #     print(
         #         "Layer `{}`: With the current settings it may not be possible".format(self.name)
@@ -162,16 +162,16 @@ class FFUpDown(Layer):
         mnOutputSpikes = np.zeros((num_timesteps, 2*self.size_in))
 
         # # - Record states for debugging
-        # mfRecord = np.zeros((num_timesteps, self.size_in))
+        # record = np.zeros((num_timesteps, self.size_in))
 
         # - Iterate over batches and run evolution
         iCurrentIndex = 0
         for mfCurrentInput, nCurrNumTS in self._batch_data(
-                mfInput, num_timesteps, self.nMaxNumTimeSteps
+                inp, num_timesteps, self.nMaxNumTimeSteps
             ):
             # (
             #     mnOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS],
-            #     mfRecord[iCurrentIndex : iCurrentIndex+nCurrNumTS]
+            #     record[iCurrentIndex : iCurrentIndex+nCurrNumTS]
             # ) = self._single_batch_evolution(
             mnOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
                 mfCurrentInput,
@@ -183,37 +183,37 @@ class FFUpDown(Layer):
         ## -- Distribute output spikes over output channels by assigning to each channel
         ##    an interval of length self._nMultiChannel.
         # - Set each event to the first element of its corresponding interval
-        vnTSSpike, vnSpikeIDs = np.nonzero(mnOutputSpikes)
+        vnTSSpike, spike_ids = np.nonzero(mnOutputSpikes)
         if self.bMultiplexSpikes:
             # - How many times is each spike repeated
-            vnSpikeCounts = mnOutputSpikes[vnTSSpike, vnSpikeIDs].astype(int)
+            vnSpikeCounts = mnOutputSpikes[vnTSSpike, spike_ids].astype(int)
             vnTSSpike = vnTSSpike.repeat(vnSpikeCounts)
-            vnSpikeIDs = vnSpikeIDs.repeat(vnSpikeCounts)
+            spike_ids = spike_ids.repeat(vnSpikeCounts)
         if self.nRepeatOutput > 1:
             # - Repeat output spikes
-            vnSpikeIDs = vnSpikeIDs.repeat(self.nRepeatOutput)
+            spike_ids = spike_ids.repeat(self.nRepeatOutput)
             vnTSSpike = vnTSSpike.repeat(self.nRepeatOutput)
         if self._nMultiChannel > 1:
             # - Add a repeating series of (0,1,2,..,self._nMultiChannel) to distribute the
             #   events over the interval
-            vnSpikeIDs *= self._nMultiChannel
+            spike_ids *= self._nMultiChannel
             vnDistribute = np.tile(
                 np.arange(self._nMultiChannel),
-                int(np.ceil(vnSpikeIDs.size / self._nMultiChannel))
-            )[:vnSpikeIDs.size]
-            vnSpikeIDs += vnDistribute
+                int(np.ceil(spike_ids.size / self._nMultiChannel))
+            )[:spike_ids.size]
+            spike_ids += vnDistribute
 
-        # self.tsRecord = TSContinuous(self.dt * (np.arange(num_timesteps) + self._timestep), mfRecord)
+        # self.tsRecord = TSContinuous(self.dt * (np.arange(num_timesteps) + self._timestep), record)
 
         # - Start and stop times for output time series
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
         # - Output time series
-        vtSpikeTimes = (vnTSSpike + 1 + self._timestep) * self.dt
-        tseOut = TSEvent(
-            times=np.clip(vtSpikeTimes, t_start, t_stop),  # Clip due to possible numerical errors,
-            channels=vnSpikeIDs,
+        spike_times = (vnTSSpike + 1 + self._timestep) * self.dt
+        event_out = TSEvent(
+            times=np.clip(spike_times, t_start, t_stop),  # Clip due to possible numerical errors,
+            channels=spike_ids,
             num_channels=2 * self.size_in * self._nMultiChannel,
             name="Spikes from analogue",
             t_start=t_start,
@@ -223,11 +223,11 @@ class FFUpDown(Layer):
         # - Update time
         self._timestep += num_timesteps
 
-        return tseOut
+        return event_out
 
     # @profile
     def _batch_data(
-        self, mfInput: np.ndarray, num_timesteps: int, nMaxNumTimeSteps: int = None,
+        self, inp: np.ndarray, num_timesteps: int, nMaxNumTimeSteps: int = None,
     ) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
         # - Handle None for nMaxNumTimeSteps
@@ -237,7 +237,7 @@ class FFUpDown(Layer):
             # - Endpoint of current batch
             nEnd = min(nStart + nMaxNumTimeSteps, num_timesteps)
             # - Data for current batch
-            mfCurrentInput = mfInput[nStart:nEnd]
+            mfCurrentInput = inp[nStart:nEnd]
             yield mfCurrentInput, nEnd-nStart
             # - Update nStart
             nStart = nEnd
@@ -245,14 +245,14 @@ class FFUpDown(Layer):
     # @profile
     def _single_batch_evolution(
         self,
-        mfInput: np.ndarray,
+        inp: np.ndarray,
         num_timesteps: int,
         verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input for a single batch
 
-        :param mfInput:     np.ndarray   Input
+        :param inp:     np.ndarray   Input
         :param num_timesteps:   int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
@@ -265,41 +265,41 @@ class FFUpDown(Layer):
         vfDecayFactor = self._vfDecayFactor
 
         # - Arrays for collecting spikes
-        mnSpikeRaster = np.zeros((num_timesteps, 2*self.size_in))
+        spike_raster = np.zeros((num_timesteps, 2*self.size_in))
 
-        # mfRecord = np.zeros((num_timesteps, self.size_in))
+        # record = np.zeros((num_timesteps, self.size_in))
 
         # - Initialize state for comparing values: If self.state exists, assume input continues from
         #   previous evolution. Otherwise start with initial input data
-        state = mfInput[0] if self._state is None else self._state.copy()
+        state = inp[0] if self._state is None else self._state.copy()
 
         for iCurrentTS in range(num_timesteps):
             # - Decay mechanism
             state *= vfDecayFactor
         
-            # mfRecord[iCurrentTS] = state.copy()
+            # record[iCurrentTS] = state.copy()
         
             if self.bMultiplexSpikes:
                 # - By how many times are the upper thresholds exceeded for each input
-                vnUp = np.clip(np.floor((mfInput[iCurrentTS]-state) / vfThrUp).astype(int), 0, None)
+                vnUp = np.clip(np.floor((inp[iCurrentTS]-state) / vfThrUp).astype(int), 0, None)
                 # - By how many times are the lower thresholds exceeded for each input
-                vnDown = np.clip(np.floor((state-mfInput[iCurrentTS]) / vfThrDown).astype(int), 0, None)
+                vnDown = np.clip(np.floor((state-inp[iCurrentTS]) / vfThrDown).astype(int), 0, None)
             else:
                 # - Inputs where upper threshold is passed
-                vnUp = mfInput[iCurrentTS] > state + vfThrUp
+                vnUp = inp[iCurrentTS] > state + vfThrUp
                 # - Inputs where lower threshold is passed
-                vnDown = mfInput[iCurrentTS] < state - vfThrDown
+                vnDown = inp[iCurrentTS] < state - vfThrDown
             # - Update state
             state += vfThrUp * vnUp
             state -= vfThrDown * vnDown
             # - Append spikes to array
-            mnSpikeRaster[iCurrentTS, ::2] = vnUp
-            mnSpikeRaster[iCurrentTS, 1::2] = vnDown
+            spike_raster[iCurrentTS, ::2] = vnUp
+            spike_raster[iCurrentTS, 1::2] = vnDown
 
         # - Store state for future evolutions
         self._state = state.copy()
 
-        return mnSpikeRaster #, mfRecord
+        return spike_raster #, record
 
     def reset_state(self):
         # - Store None as state to indicate that future evolutions do not continue from previous input
@@ -315,11 +315,11 @@ class FFUpDown(Layer):
 
     @state.setter
     # Note that state here is of size self.size_in and not self.size
-    def state(self, vNewState):
-        if vNewState is None:
+    def state(self, new_state):
+        if new_state is None:
             self._state = None
         else:
-            self._state = self._expand_to_size(vNewState, self.size_in, "state")
+            self._state = self._expand_to_size(new_state, self.size_in, "state")
 
     @property
     def vfThrUp(self):
@@ -330,7 +330,7 @@ class FFUpDown(Layer):
         assert (np.array(vfNewThr) >= 0).all(), "vfThrUp must not be negative."
 
         self._vfThrUp = self._expand_to_size(
-            vfNewThr, self.size_in, "vfThrUp", bAllowNone=False
+            vfNewThr, self.size_in, "vfThrUp", allow_none=False
         )
 
     @property
@@ -341,28 +341,28 @@ class FFUpDown(Layer):
     def vfThrDown(self, vfNewThr):
         assert (np.array(vfNewThr) >= 0).all(), "vfThrDown must not be negative."
         self._vfThrDown = self._expand_to_size(
-            vfNewThr, self.size_in, "vfThrDown", bAllowNone=False
+            vfNewThr, self.size_in, "vfThrDown", allow_none=False
         )
 
     @property
     def vtTauDecay(self):
-        vtTau = np.repeat(None, self.size_in)
+        tau = np.repeat(None, self.size_in)
         # - Treat decay factors of 1 as not decaying (i.e. set them None)
         vbDecay = self._vfDecayFactor != 1
-        vtTau[vbDecay] = self.dt / (1 - self._vfDecayFactor[vbDecay])
-        return vtTau
+        tau[vbDecay] = self.dt / (1 - self._vfDecayFactor[vbDecay])
+        return tau
 
     @vtTauDecay.setter
-    def vtTauDecay(self, vtNewTau):
-        vtNewTau = self._expand_to_size(vtNewTau, self.size_in, "vtTauDecay", bAllowNone=True)
+    def vtTauDecay(self, new_tau):
+        new_tau = self._expand_to_size(new_tau, self.size_in, "vtTauDecay", allow_none=True)
         # - Find entries which are not None, indicating decay
-        vbDecay = np.array([tTau is not None for tTau in vtNewTau])
+        vbDecay = np.array([tTau is not None for tTau in new_tau])
         # - Check for too small entries
-        assert (vtNewTau[vbDecay] >= self.dt).all(), (
+        assert (new_tau[vbDecay] >= self.dt).all(), (
             "Layer `{}`: Entries of vtTauDecay must be greater or equal to dt ({}).".format(self.name, self.dt)
         )
         self._vfDecayFactor = np.ones(self.size_in)  # No decay corresponds to decay factor 1
-        self._vfDecayFactor[vbDecay] = 1 - self.dt / vtNewTau[vbDecay]
+        self._vfDecayFactor[vbDecay] = 1 - self.dt / new_tau[vbDecay]
 
 
     def to_dict(self):
@@ -378,7 +378,7 @@ class FFUpDown(Layer):
         config['vtTauDecay'] = self.vtTauDecay if type(self.vtTauDecay) is float else self.vtTauDecay.tolist()
         config['vfThrUp'] = self.vfThrUp if type(self.vfThrUp) is float else self.vfThrUp.tolist()
         config['vfThrDown'] = self.vfVhrDown if type(self.vfThrDown) is float else self.vfThrDown.tolist()
-        config["ClassName"] = "FFUpDown"
+        config["class_name"] = "FFUpDown"
 
         return config
 

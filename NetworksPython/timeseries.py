@@ -100,8 +100,8 @@ def _extend_periodic_times(
 
 
 ## - Convenience method to return a nan array
-def full_nan(vnShape: Union[tuple, int]):
-    a = np.empty(vnShape)
+def full_nan(shape: Union[tuple, int]):
+    a = np.empty(shape)
     a.fill(np.nan)
     return a
 
@@ -433,15 +433,15 @@ class TSContinuous(TimeSeries):
             if self._plotting_backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
-                        hv.Curve((times, vfData)).redim(x="Time")
-                        for vfData in samples.T
+                        hv.Curve((times, data)).redim(x="Time")
+                        for data in samples.T
                     ]
                 else:
                     vhCurves = [
-                        hv.Curve((times, vfData))
+                        hv.Curve((times, data))
                         .redim(x="Time")
                         .options(*args, **kwargs)
-                        for vfData in samples.T
+                        for data in samples.T
                     ]
 
                 if len(vhCurves) > 1:
@@ -463,12 +463,12 @@ class TSContinuous(TimeSeries):
             if isinstance(target, (hv.Curve, hv.Overlay)):
                 if _HV_AVAILABLE:
                     if kwargs == {}:
-                        for vfData in samples.T:
-                            target *= hv.Curve((times, vfData)).redim(x="Time")
+                        for data in samples.T:
+                            target *= hv.Curve((times, data)).redim(x="Time")
                     else:
-                        for vfData in samples.T:
+                        for data in samples.T:
                             target *= (
-                                hv.Curve((times, vfData))
+                                hv.Curve((times, data))
                                 .redim(x="Time")
                                 .options(*args, **kwargs)
                             )
@@ -932,7 +932,7 @@ class TSContinuous(TimeSeries):
         """
         ts(tTime1, tTime2, ...) - Interpolate the time series to the provided time points
 
-        :param tTime: Scalar, list or np.array of T desired interpolated time points
+        :param t_time: Scalar, list or np.array of T desired interpolated time points
         :return:      np.array of interpolated values. Will have the shape TxN
         """
         return self._interpolate(times)

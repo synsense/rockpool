@@ -19,7 +19,7 @@ def test_raise_exception_on_incorrect_shape():
     """
     from NetworksPython.weights import CNNWeightTorch
 
-    W = CNNWeightTorch(inShape=(1, 200, 200), img_data_format="channels_first")
+    W = CNNWeightTorch(inp_shape=(1, 200, 200), img_data_format="channels_first")
 
     # Create an image
     myImg = np.random.rand(1, 400, 400) > 0.999
@@ -52,7 +52,7 @@ def test_convolution_full_image():
     """
     from NetworksPython.weights import CNNWeightTorch
 
-    W = CNNWeightTorch(inShape=(1, 400, 400), img_data_format="channels_first")
+    W = CNNWeightTorch(inp_shape=(1, 400, 400), img_data_format="channels_first")
 
     # Create an image
     myImg = np.random.rand(1, 400, 400) > 0.999
@@ -68,7 +68,7 @@ def test_convolutionl_nonzero_index():
     """
     from NetworksPython.weights import CNNWeightTorch
 
-    W = CNNWeightTorch(inShape=(400, 400, 1))
+    W = CNNWeightTorch(inp_shape=(400, 400, 1))
 
     # Create an image
     myImg = np.random.rand(400, 400) > 0.999
@@ -86,8 +86,8 @@ def test_data_format_channels_last():
     from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
-        inShape=(400, 400, 1),
-        nKernels=3,
+        inp_shape=(400, 400, 1),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_last",
@@ -117,8 +117,8 @@ def test_data_format_channels_first():
     from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
-        inShape=(1, 400, 400),
-        nKernels=3,
+        inp_shape=(1, 400, 400),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_first",
@@ -148,8 +148,8 @@ def test_strides_on_convolution():
     from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
-        inShape=(1, 10, 10),
-        nKernels=3,
+        inp_shape=(1, 10, 10),
+        kernels=3,
         kernel_size=(2, 2),
         strides=(2, 5),
         mode="valid",
@@ -166,8 +166,8 @@ def test_strides_on_convolution_channels_last():
     from NetworksPython.weights import CNNWeightTorch
 
     W = CNNWeightTorch(
-        inShape=(10, 10, 1),
-        nKernels=3,
+        inp_shape=(10, 10, 1),
+        kernels=3,
         kernel_size=(2, 2),
         strides=(2, 5),
         mode="valid",
@@ -185,16 +185,16 @@ def test_compare_skimage_torch_channels_first():
     from NetworksPython.weights import CNNWeight
 
     Wtorch = CNNWeightTorch(
-        inShape=(1, 60, 60),
-        nKernels=3,
+        inp_shape=(1, 60, 60),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_first",
     )
 
     Wskimage = CNNWeight(
-        inShape=(1, 60, 60),
-        nKernels=3,
+        inp_shape=(1, 60, 60),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_first",
@@ -229,16 +229,16 @@ def test_compare_skimage_torch_channels_last():
     from NetworksPython.weights import CNNWeight
 
     Wtorch = CNNWeightTorch(
-        inShape=(60, 60, 1),
-        nKernels=3,
+        inp_shape=(60, 60, 1),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_last",
     )
 
     Wskimage = CNNWeight(
-        inShape=(60, 60, 1),
-        nKernels=3,
+        inp_shape=(60, 60, 1),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_last",
