@@ -781,7 +781,7 @@ class DynapseControl:
                         core_ids[on_init_chip == False]
                     )
                 )
-            core_ids = list(core_ids[on_init_chip])
+            core_ids = [int(i_core) for i_core in core_ids[on_init_chip]]
         self.tools.reset_silencing(core_ids)
         # - Mark that neurons are not silenced anymore
         for id_neur in core_ids:
