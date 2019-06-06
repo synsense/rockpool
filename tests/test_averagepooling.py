@@ -20,7 +20,7 @@ def test_averagepooling():
     from NetworksPython.timeseries import TSEvent
 
     lyrAverage = AveragePooling2D(
-        inShape=(10, 10, 1), pool_size=(2, 5), img_data_format="channels_last"
+        inp_shape=(10, 10, 1), pool_size=(2, 5), img_data_format="channels_last"
     )
     # since the output image dimension should be (5,2)
     assert lyrAverage.size == 10
@@ -61,7 +61,7 @@ def test_torch_sumpooling():
 
     # Spiketimes are still the same
     tSpkOut, _, _, _ = np.where(tsrOutput.numpy())
-    tSpkIn, _, _, _ = np.where(tsrIn.numpy())
+    t_spike_in, _, _, _ = np.where(tsrIn.numpy())
 
     # Verify that as many
-    assert len(tSpkOut) <= len(tSpkIn)
+    assert len(tSpkOut) <= len(t_spike_in)

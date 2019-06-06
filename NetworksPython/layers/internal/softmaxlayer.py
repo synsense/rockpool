@@ -28,7 +28,7 @@ class SoftMaxLayer(FFCLIAF):
     def __init__(
         self,
         weights: np.ndarray = None,
-        fVth: float = 1e10,         # Just some absurdly large number that will never be reachable
+        thresh: float = 1e10,         # Just some absurdly large number that will never be reachable
         dt: float = 1,
         name: str = "unnamed",
     ):
@@ -36,15 +36,15 @@ class SoftMaxLayer(FFCLIAF):
         SoftMaxLayer - Implements a softmax on the inputs
 
         :param weights:     np.ndarray  Weight matrix
-        :param fVth:    float       Spiking threshold
+        :param thresh:    float       Spiking threshold
         :param dt:     float       Time step
         :param name: str         Name of this layer.
         """
 
         # Call parent constructor
         FFCLIAF.__init__(self, weights, dt=dt, name=name)
-        self.fVth = fVth
-        self.__nIdMonitor__ = None  # Monitor all neurons
+        self.thresh = thresh
+        self.__monitor_id__ = None  # Monitor all neurons
 
     def evolve(
         self,
@@ -65,28 +65,28 @@ class SoftMaxLayer(FFCLIAF):
         """
 
         # - Use `evolve()` from the base class
-        _evOut = FFCLIAF.evolve(
+        _event_out = FFCLIAF.evolve(
             self, ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
         )
-        assert len(_evOut.times) == 0
+        assert len(_event_out.times) == 0
 
         # - Analyse states
-        mfStateHistoryLog = self._mfStateTimeSeries[10:]
+        state_history_log = self._ts_state[10:]
 
         # - Convert state data to TimeSeries format
-        mfStateTimeSeries = np.zeros((num_timesteps, self.size))
+        ts_state = np.zeros((num_timesteps, self.size))
         for t in range(duration):
-            mfDataTimeStep = mfStateHistoryLog[(mfStateHistoryLog[:, 0] == t)]
-            mfStateTimeSeries[t] = mfDataTimeStep[:, 2]
+            data_time_step = state_history_log[(state_history_log[:, 0] == t)]
+            ts_state[t] = data_time_step[:, 2]
 
         # - Compute softmax over the input states
-        mfSoftMax = softmax(mfStateTimeSeries)
-        tsOut = TSContinuous(
+        soft_max = softmax(ts_state)
+        ts_out = TSContinuous(
             times=np.arange(duration),
-            samples=mfSoftMax,
+            samples=soft_max,
             name="SoftMaxOutput",
         )
-        return tsOut
+        return ts_out
 
     @property
     def output_type(self):

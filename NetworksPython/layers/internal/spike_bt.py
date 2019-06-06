@@ -26,7 +26,7 @@ __all__ = ["RecFSSpikeEulerBT"]
 
 
 @njit
-def Neuron_dotV(
+def neuron_dot_v(
     t,
     V,
     dt,
@@ -45,7 +45,7 @@ def Neuron_dotV(
 
 
 @njit
-def Syn_dotI(t, I, dt, I_spike, tau_Syn):
+def syn_dot_I(t, I, dt, I_spike, tau_Syn):
     return -I / tau_Syn + I_spike / dt
 
 
@@ -60,18 +60,18 @@ def _backstep(vCurrent, vLast, tStep, tDesiredStep):
 class RecFSSpikeEulerBT(Layer):
     def __init__(
         self,
-        mfW_f: np.ndarray = None,
-        mfW_s: np.ndarray = None,
-        vfBias: np.ndarray = 0.,
+        weights_fast: np.ndarray = None,
+        weights_slow: np.ndarray = None,
+        bias: np.ndarray = 0.,
         noise_std: float = 0.,
-        vtTauN: Union[np.ndarray, float] = 20e-3,
-        vtTauSynR_f: Union[np.ndarray, float] = 1e-3,
-        vtTauSynR_s: Union[np.ndarray, float] = 100e-3,
-        vfVThresh: Union[np.ndarray, float] = -55e-3,
-        vfVReset: Union[np.ndarray, float] = -65e-3,
-        vfVRest: Union[np.ndarray, float] = -65e-3,
-        tRefractoryTime: float = -np.finfo(float).eps,
-        fhSpikeCallback: Callable = None,
+        tau_mem: Union[np.ndarray, float] = 20e-3,
+        tau_syn_r_fast: Union[np.ndarray, float] = 1e-3,
+        tau_syn_r_slow: Union[np.ndarray, float] = 100e-3,
+        v_thresh: Union[np.ndarray, float] = -55e-3,
+        v_reset: Union[np.ndarray, float] = -65e-3,
+        v_rest: Union[np.ndarray, float] = -65e-3,
+        refractory: float = -np.finfo(float).eps,
+        spike_callback: Callable = None,
         dt: float = None,
         name: str = None,
     ):
@@ -82,51 +82,51 @@ class RecFSSpikeEulerBT(Layer):
             current synapses. Note that network parameters are tightly constrained for the reservoir
             to work as desired. See the documentation and source publications for details.
 
-        :param mfW_f:           ndarray [NxN] Recurrent weight matrix (fast synapses)
-        :param mfW_s:           ndarray [NxN] Recurrent weight matrix (slow synapses)
-        :param vfBias:          ndarray [Nx1] Bias currents for each neuron
+        :param weights_fast:           ndarray [NxN] Recurrent weight matrix (fast synapses)
+        :param weights_slow:           ndarray [NxN] Recurrent weight matrix (slow synapses)
+        :param bias:          ndarray [Nx1] Bias currents for each neuron
         :param noise_std:       float Noise Std. Dev.
 
-        :param vtTauN:          ndarray [Nx1] Neuron time constants
-        :param vtTauSynR_f:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
-        :param vtTauSynR_s:     ndarray [Nx1] Post-synaptic neuron slow synapse TCs
+        :param tau_mem:          ndarray [Nx1] Neuron time constants
+        :param tau_syn_r_fast:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
+        :param tau_syn_r_slow:     ndarray [Nx1] Post-synaptic neuron slow synapse TCs
 
-        :param vfVThresh:       ndarray [Nx1] Neuron firing thresholds
-        :param vfVReset:        ndarray [Nx1] Neuron reset potentials
-        :param vfVRest:         ndarray [Nx1] Neuron rest potentials
+        :param v_thresh:       ndarray [Nx1] Neuron firing thresholds
+        :param v_reset:        ndarray [Nx1] Neuron reset potentials
+        :param v_rest:         ndarray [Nx1] Neuron rest potentials
 
-        :param tRefractoryTime: float         Post-spike refractory period
+        :param refractory: float         Post-spike refractory period
 
-        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
+        :param spike_callback  Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :param dt:             float         Nominal time step (Euler solver)
         :param name:           str           Name of this layer
         """
         # - Initialise object and set properties
-        super().__init__(weights=mfW_f, noise_std=noise_std, name=name)
+        super().__init__(weights=weights_fast, noise_std=noise_std, name=name)
 
         # - Check weight shape
-        assert mfW_s.shape[0] == mfW_s.shape[1], \
-            '`mfW_s` must be a square matrix'
-        assert mfW_f.shape[0] == mfW_f.shape[1], \
-            '`mfW_f` must be a square matrix'
-        assert mfW_s.shape[0] == mfW_f.shape[0], \
-            '`mfW_f` and `mfW_s` must be the same size'
+        assert weights_slow.shape[0] == weights_slow.shape[1], \
+            '`weights_slow` must be a square matrix'
+        assert weights_fast.shape[0] == weights_fast.shape[1], \
+            '`weights_fast` must be a square matrix'
+        assert weights_slow.shape[0] == weights_fast.shape[0], \
+            '`weights_fast` and `weights_slow` must be the same size'
 
-        self.mfW_s = mfW_s
-        self.vfBias = np.asarray(vfBias).astype("float")
-        self.vtTauN = np.asarray(vtTauN).astype("float")
-        self.vtTauSynR_f = np.asarray(vtTauSynR_f).astype("float")
-        self.vtTauSynR_s = np.asarray(vtTauSynR_s).astype("float")
-        self.vfVThresh = np.asarray(vfVThresh).astype("float")
-        self.vfVReset = np.asarray(vfVReset).astype("float")
-        self.vfVRest = np.asarray(vfVRest).astype("float")
-        self.tRefractoryTime = float(tRefractoryTime)
-        self.fhSpikeCallback = fhSpikeCallback
+        self.weights_slow = weights_slow
+        self.bias = np.asarray(bias).astype("float")
+        self.tau_mem = np.asarray(tau_mem).astype("float")
+        self.tau_syn_r_fast = np.asarray(tau_syn_r_fast).astype("float")
+        self.tau_syn_r_slow = np.asarray(tau_syn_r_slow).astype("float")
+        self.v_thresh = np.asarray(v_thresh).astype("float")
+        self.v_reset = np.asarray(v_reset).astype("float")
+        self.v_rest = np.asarray(v_rest).astype("float")
+        self.refractory = float(refractory)
+        self.spike_callback = spike_callback
 
         # - Set a reasonable dt
         if dt is None:
-            self.dt = self._tMinTau / 10
+            self.dt = self._min_tau / 10
         else:
             self.dt = np.asarray(dt).astype("float")
 
@@ -137,16 +137,16 @@ class RecFSSpikeEulerBT(Layer):
         """
         reset_state() - Reset the internal state of the network
         """
-        self.state = self.vfVRest.copy()
+        self.state = self.v_rest.copy()
         self.I_s_S = np.zeros(self.size)
         self.I_s_F = np.zeros(self.size)
 
     @property
-    def _tMinTau(self):
+    def _min_tau(self):
         """
-        ._tMinTau - Smallest time constant of the layer
+        ._min_tau - Smallest time constant of the layer
         """
-        return min(np.min(self.vtTauSynR_s), np.min(self.vtTauSynR_f))
+        return min(np.min(self.tau_syn_r_slow), np.min(self.tau_syn_r_fast))
 
     def evolve(
         self,
@@ -154,7 +154,7 @@ class RecFSSpikeEulerBT(Layer):
         duration: float = None,
         num_timesteps: int = None,
         verbose: bool = False,
-        tMinDelta: float = None,
+        min_delta: float = None,
     ) -> TimeSeries:
         """
         evolve() - Simulate the spiking reservoir, using a precise-time spike detector
@@ -167,389 +167,389 @@ class RecFSSpikeEulerBT(Layer):
         :param duration:       float Duration of simulation in seconds. Default: 100ms
         :param num_timesteps    int Number of evolution time steps
         :param verbose:    bool Currently no effect, just for conformity
-        :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
+        :param min_delta:       float Minimum time step taken. Default: 1/10 nominal TC
         :param ts_input:         TimeSeries input for a given time t [TxN]
-        :param tMinDelta:       float Minimum time step taken. Default: 1/10 nominal TC
-        :param fhSpikeCallback  Callable(lyrSpikeBT, tTime, nSpikeInd). Spike-based learning callback function. Default: None.
+        :param min_delta:       float Minimum time step taken. Default: 1/10 nominal TC
+        :param spike_callback  Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: None.
 
         :return: TimeSeries containing the output currents of the reservoir
         """
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
-        if tMinDelta is None:
-            tMinDelta = self.dt / 10
+        if min_delta is None:
+            min_delta = self.dt / 10
 
         # - Check time step values
-        assert tMinDelta < self.dt, "`tMinDelta` must be shorter than `dt`"
+        assert min_delta < self.dt, "`min_delta` must be shorter than `dt`"
 
         # - Get discretised input and nominal time trace
-        vtInputTimeTrace, mfStaticInput, num_timesteps = self._prepare_input(
+        input_time_trace, static_input, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
-        tFinalTime = vtInputTimeTrace[-1]
+        final_time = input_time_trace[-1]
 
         # - Generate a noise trace
-        mfNoiseStep = (
-            np.random.randn(np.size(vtInputTimeTrace), self.size) * self.noise_std
+        noise_step = (
+            np.random.randn(np.size(input_time_trace), self.size) * self.noise_std
         )
-        mfStaticInput += mfNoiseStep
+        static_input += noise_step
 
         # - Allocate state storage variables
-        nSpikePointer = 0
-        vtTimes = full_nan(num_timesteps)
-        mfV = full_nan((self.size, num_timesteps))
-        mfS = full_nan((self.size, num_timesteps))
-        mfF = full_nan((self.size, num_timesteps))
-        mfDotV = full_nan((self.size, num_timesteps))
+        spike_pointer = 0
+        times = full_nan(num_timesteps)
+        v = full_nan((self.size, num_timesteps))
+        s = full_nan((self.size, num_timesteps))
+        f = full_nan((self.size, num_timesteps))
+        dot_v = full_nan((self.size, num_timesteps))
 
         # - Allocate storage for spike times
-        nMaxSpikePointer = num_timesteps * self.size
-        vtSpikeTimes = full_nan(nMaxSpikePointer)
-        vnSpikeIndices = full_nan(nMaxSpikePointer)
+        max_spike_pointer = num_timesteps * self.size
+        spike_times = full_nan(max_spike_pointer)
+        spike_indices = full_nan(max_spike_pointer)
 
         # - Refractory time variable
-        vtRefractory = np.zeros(self.size)
+        vec_refractory = np.zeros(self.size)
 
         # - Initialise step and "previous step" variables
-        tTime = self._t
+        t_time = self._t
         t_start = self._t
-        nStep = 0
-        tLast = 0.
-        VLast = self._state.copy()
+        step = 0
+        t_last = 0.
+        v_last = self._state.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
 
-        vfZeros = np.zeros(self.size)
-        # tSpike = np.nan
-        # nFirstSpikeId = 0
+        zeros = np.zeros(self.size)
+        # spike = np.nan
+        # first_spike_id = 0
 
         # - Euler integrator loop
-        while tTime < tFinalTime:
+        while t_time < final_time:
 
             ### --- Numba-compiled inner function for speed
             # @njit
             def _evolve_backstep(
-                tTime,
+                t_time,
                 weights,
-                mfW_s,
+                weights_slow,
                 state,
                 I_s_S,
                 I_s_F,
                 dt,
-                VLast,
+                v_last,
                 I_s_S_Last,
                 I_s_F_Last,
-                vfVReset,
-                vfVRest,
-                vfVThresh,
-                vfBias,
-                vtTauN,
-                vtTauSynR_s,
-                vtTauSynR_f,
-                tRefractoryTime,
-                vtRefractory,
-                vfZeros,
+                v_reset,
+                v_rest,
+                v_thresh,
+                bias,
+                tau_mem,
+                tau_syn_r_slow,
+                tau_syn_r_fast,
+                refractory,
+                vec_refractory,
+                zeros,
             ):
                 # - Enforce refractory period by clamping membrane potential to reset
-                state[vtRefractory > 0] = vfVReset[vtRefractory > 0]
+                state[vec_refractory > 0] = v_reset[vec_refractory > 0]
 
                 ## - Back-tick spike detector
 
                 # - Locate spiking neurons
-                vbSpikeIDs = state > vfVThresh
-                vnSpikeIDs = argwhere(vbSpikeIDs)
-                nNumSpikes = np.sum(vbSpikeIDs)
+                spike_ids = state > v_thresh
+                spike_ids = argwhere(spike_ids)
+                num_spikes = np.sum(spike_ids)
 
                 # - Were there any spikes?
-                if nNumSpikes > 0:
+                if num_spikes > 0:
                     # - Predict the precise spike times using linear interpolation
-                    vtSpikeDeltas = (
-                        (vfVThresh[vbSpikeIDs] - VLast[vbSpikeIDs])
+                    spike_deltas = (
+                        (v_thresh[spike_ids] - v_last[spike_ids])
                         * dt
-                        / (state[vbSpikeIDs] - VLast[vbSpikeIDs])
+                        / (state[spike_ids] - v_last[spike_ids])
                     )
 
                     # - Was there more than one neuron above threshold?
-                    if nNumSpikes > 1:
+                    if num_spikes > 1:
                         # - Find the earliest spike
-                        tSpikeDelta, nFirstSpikeId = min_argmin(vtSpikeDeltas)
-                        nFirstSpikeId = vnSpikeIDs[nFirstSpikeId]
+                        spike_delta, first_spike_id = min_argmin(spike_deltas)
+                        first_spike_id = spike_ids[first_spike_id]
                     else:
-                        tSpikeDelta = vtSpikeDeltas[0]
-                        nFirstSpikeId = vnSpikeIDs[0]
+                        spike_delta = spike_deltas[0]
+                        first_spike_id = spike_ids[0]
 
                     # - Find time of actual spike
-                    tShortestStep = tLast + tMinDelta
-                    tSpike = clip_scalar(tLast + tSpikeDelta, tShortestStep, tTime)
-                    tSpikeDelta = tSpike - tLast
+                    shortest_step = t_last + min_delta
+                    spike = clip_scalar(t_last + spike_delta, shortest_step, t_time)
+                    spike_delta = spike - t_last
 
                     # - Back-step time to spike
-                    tTime = tSpike
-                    vtRefractory = vtRefractory + dt - tSpikeDelta
+                    t_time = spike
+                    vec_refractory = vec_refractory + dt - spike_delta
 
                     # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
-                    state = _backstep(state, VLast, dt, tSpikeDelta)
-                    I_s_S = _backstep(I_s_S, I_s_S_Last, dt, tSpikeDelta)
-                    I_s_F = _backstep(I_s_F, I_s_F_Last, dt, tSpikeDelta)
+                    state = _backstep(state, v_last, dt, spike_delta)
+                    I_s_S = _backstep(I_s_S, I_s_S_Last, dt, spike_delta)
+                    I_s_F = _backstep(I_s_F, I_s_F_Last, dt, spike_delta)
 
                     # - Apply reset to spiking neuron
-                    state[nFirstSpikeId] = vfVReset[nFirstSpikeId]
+                    state[first_spike_id] = v_reset[first_spike_id]
 
                     # - Begin refractory period for spiking neuron
-                    vtRefractory[nFirstSpikeId] = tRefractoryTime
+                    vec_refractory[first_spike_id] = refractory
 
                     # - Set spike currents
-                    I_spike_slow = mfW_s[:, nFirstSpikeId]
-                    I_spike_fast = weights[:, nFirstSpikeId]
+                    I_spike_slow = weights_slow[:, first_spike_id]
+                    I_spike_fast = weights[:, first_spike_id]
 
                 else:
                     # - Clear spike currents
-                    nFirstSpikeId = -1
-                    I_spike_slow = vfZeros
-                    I_spike_fast = vfZeros
+                    first_spike_id = -1
+                    I_spike_slow = zeros
+                    I_spike_fast = zeros
 
                 ### End of back-tick spike detector
 
                 # - Save synapse and neuron states for previous time step
-                VLast[:] = state
+                v_last[:] = state
                 I_s_S_Last[:] = I_s_S + I_spike_slow
                 I_s_F_Last[:] = I_s_F + I_spike_fast
 
                 # - Update synapse and neuron states (Euler step)
-                dotI_s_S = Syn_dotI(tTime, I_s_S, dt, I_spike_slow, vtTauSynR_s)
-                I_s_S += dotI_s_S * dt
+                dot_I_s_S = syn_dot_I(t_time, I_s_S, dt, I_spike_slow, tau_syn_r_slow)
+                I_s_S += dot_I_s_S * dt
 
-                dotI_s_F = Syn_dotI(tTime, I_s_F, dt, I_spike_fast, vtTauSynR_f)
-                I_s_F += dotI_s_F * dt
+                dot_I_s_F = syn_dot_I(t_time, I_s_F, dt, I_spike_fast, tau_syn_r_fast)
+                I_s_F += dot_I_s_F * dt
 
-                nIntTime = int((tTime - t_start) // dt)
-                I_ext = mfStaticInput[nIntTime, :]
-                dotV = Neuron_dotV(
-                    tTime,
+                int_time = int((t_time - t_start) // dt)
+                I_ext = static_input[int_time, :]
+                dot_v = neuron_dot_v(
+                    t_time,
                     state,
                     dt,
                     I_s_S,
                     I_s_F,
                     I_ext,
-                    vfBias,
-                    vfVRest,
-                    vfVReset,
-                    vfVThresh,
-                    vtTauN,
-                    vtTauSynR_s,
-                    vtTauSynR_f,
+                    bias,
+                    v_rest,
+                    v_reset,
+                    v_thresh,
+                    tau_mem,
+                    tau_syn_r_slow,
+                    tau_syn_r_fast,
                 )
-                state += dotV * dt
+                state += dot_v * dt
 
                 return (
-                    tTime,
-                    nFirstSpikeId,
-                    dotV,
+                    t_time,
+                    first_spike_id,
+                    dot_v,
                     state,
                     I_s_S,
                     I_s_F,
                     dt,
-                    VLast,
+                    v_last,
                     I_s_S_Last,
                     I_s_F_Last,
-                    vtRefractory,
+                    vec_refractory,
                 )
 
             ### --- END of compiled inner function
 
             # - Call compiled inner function
             (
-                tTime,
-                nFirstSpikeId,
-                dotV,
+                t_time,
+                first_spike_id,
+                dot_v,
                 self._state,
                 self.I_s_S,
                 self.I_s_F,
                 self._dt,
-                VLast,
+                v_last,
                 I_s_S_Last,
                 I_s_F_Last,
-                vtRefractory,
+                vec_refractory,
             ) = _evolve_backstep(
-                tTime,
-                self._mfW,
-                self.mfW_s,
+                t_time,
+                self._weights,
+                self.weights_slow,
                 self._state,
                 self.I_s_S,
                 self.I_s_F,
                 self._dt,
-                VLast,
+                v_last,
                 I_s_S_Last,
                 I_s_F_Last,
-                self.vfVReset,
-                self.vfVRest,
-                self.vfVThresh,
-                self.vfBias,
-                self.vtTauN,
-                self.vtTauSynR_s,
-                self.vtTauSynR_f,
-                self.tRefractoryTime,
-                vtRefractory,
-                vfZeros,
+                self.v_reset,
+                self.v_rest,
+                self.v_thresh,
+                self.bias,
+                self.tau_mem,
+                self.tau_syn_r_slow,
+                self.tau_syn_r_fast,
+                self.refractory,
+                vec_refractory,
+                zeros,
             )
 
             # - Call spike-based learning callback
-            if nFirstSpikeId > -1 and self.fhSpikeCallback is not None:
-                self.fhSpikeCallback(self, tTime, nFirstSpikeId)
+            if first_spike_id > -1 and self.spike_callback is not None:
+                self.spike_callback(self, t_time, first_spike_id)
 
             # - Extend spike record, if necessary
-            if nSpikePointer >= nMaxSpikePointer:
-                nExtend = int(nMaxSpikePointer // 2)
-                vtSpikeTimes = np.append(vtSpikeTimes, full_nan(nExtend))
-                vnSpikeIndices = np.append(vnSpikeIndices, full_nan(nExtend))
-                nMaxSpikePointer += nExtend
+            if spike_pointer >= max_spike_pointer:
+                extend = int(max_spike_pointer // 2)
+                spike_times = np.append(spike_times, full_nan(extend))
+                spike_indices = np.append(spike_indices, full_nan(extend))
+                max_spike_pointer += extend
 
             # - Record spiking neuron
-            vtSpikeTimes[nSpikePointer] = tTime
-            vnSpikeIndices[nSpikePointer] = nFirstSpikeId
-            nSpikePointer += 1
+            spike_times[spike_pointer] = t_time
+            spike_indices[spike_pointer] = first_spike_id
+            spike_pointer += 1
 
             # - Extend state storage variables, if needed
-            if nStep >= num_timesteps:
-                nExtend = num_timesteps
-                vtTimes = np.append(vtTimes, full_nan(nExtend))
-                mfV = np.append(mfV, full_nan((self.size, nExtend)), axis=1)
-                mfS = np.append(mfS, full_nan((self.size, nExtend)), axis=1)
-                mfF = np.append(mfF, full_nan((self.size, nExtend)), axis=1)
-                mfDotV = np.append(mfDotV, full_nan((self.size, nExtend)), axis=1)
-                num_timesteps += nExtend
+            if step >= num_timesteps:
+                extend = num_timesteps
+                times = np.append(times, full_nan(extend))
+                v = np.append(v, full_nan((self.size, extend)), axis=1)
+                s = np.append(s, full_nan((self.size, extend)), axis=1)
+                f = np.append(f, full_nan((self.size, extend)), axis=1)
+                dot_v = np.append(dot_v, full_nan((self.size, extend)), axis=1)
+                num_timesteps += extend
 
             # - Store the network states for this time step
-            vtTimes[nStep] = tTime
-            mfV[:, nStep] = self._state
-            mfS[:, nStep] = self.I_s_S
-            mfF[:, nStep] = self.I_s_F
-            mfDotV[:, nStep] = dotV
+            times[step] = t_time
+            v[:, step] = self._state
+            s[:, step] = self.I_s_S
+            f[:, step] = self.I_s_F
+            dot_v[:, step] = dot_v
 
             # - Next nominal time step
-            tLast = copy.copy(tTime)
-            tTime += self._dt
-            nStep += 1
-            vtRefractory -= self.dt
+            t_last = copy.copy(t_time)
+            t_time += self._dt
+            step += 1
+            vec_refractory -= self.dt
         ### End of Euler integration loop
 
         ## - Back-step to exact final time
-        self.state = _backstep(self.state, VLast, self._dt, tTime - tFinalTime)
-        self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._dt, tTime - tFinalTime)
-        self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._dt, tTime - tFinalTime)
+        self.state = _backstep(self.state, v_last, self._dt, t_time - final_time)
+        self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._dt, t_time - final_time)
+        self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._dt, t_time - final_time)
 
         ## - Store the network states for final time step
-        vtTimes[nStep - 1] = tFinalTime
-        mfV[:, nStep - 1] = self.state
-        mfS[:, nStep - 1] = self.I_s_S
-        mfF[:, nStep - 1] = self.I_s_F
+        times[step - 1] = final_time
+        v[:, step - 1] = self.state
+        s[:, step - 1] = self.I_s_S
+        f[:, step - 1] = self.I_s_F
 
         ## - Trim state storage variables
-        vtTimes = vtTimes[:nStep]
-        mfV = mfV[:, :nStep]
-        mfS = mfS[:, :nStep]
-        mfF = mfF[:, :nStep]
-        mfDotV = mfDotV[:, :nStep]
-        vtSpikeTimes = vtSpikeTimes[:nSpikePointer]
-        vnSpikeIndices = vnSpikeIndices[:nSpikePointer]
+        times = times[:step]
+        v = v[:, :step]
+        s = s[:, :step]
+        f = f[:, :step]
+        dot_v = dot_v[:, :step]
+        spike_times = spike_times[:spike_pointer]
+        spike_indices = spike_indices[:spike_pointer]
 
         ## - Construct return time series
-        dResp = {
-            "vt": vtTimes,
-            "mfX": mfV,
-            "mfA": mfS,
-            "mfF": mfF,
-            "mfFast": mfF,
-            "mfDotV": mfDotV,
-            "mfStaticInput": mfStaticInput,
+        resp = {
+            "vt": times,
+            "mfX": v,
+            "a": s,
+            "f": f,
+            "mfFast": f,
+            "dot_v": dot_v,
+            "static_input": static_input,
         }
 
-        bUseHV, _ = GetPlottingBackend()
-        if bUseHV:
-            dSpikes = {"vtTimes": vtSpikeTimes, "vnNeuron": vnSpikeIndices}
+        use_hv, _ = GetPlottingBackend()
+        if use_hv:
+            spikes = {"times": spike_times, "vnNeuron": spike_indices}
 
-            dResp["spReservoir"] = hv.Points(
-                dSpikes, kdims=["vtTimes", "vnNeuron"], label="Reservoir spikes"
+            resp["spReservoir"] = hv.Points(
+                spikes, kdims=["times", "vnNeuron"], label="Reservoir spikes"
             ).redim.range(
-                vtTimes=(0, num_timesteps * self.dt), vnNeuron=(0, self.size)
+                times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size)
             )
         else:
-            dResp["spReservoir"] = dict(vtTimes=vtSpikeTimes, vnNeuron=vnSpikeIndices)
+            resp["spReservoir"] = dict(times=spike_times, vnNeuron=spike_indices)
 
         # - Convert some elements to time series
-        dResp["tsX"] = TSContinuous(
-            dResp["vt"], dResp["mfX"].T, name="Membrane potential"
+        resp["tsX"] = TSContinuous(
+            resp["vt"], resp["mfX"].T, name="Membrane potential"
         )
-        dResp["tsA"] = TSContinuous(
-            dResp["vt"], dResp["mfA"].T, name="Slow synaptic state"
+        resp["tsA"] = TSContinuous(
+            resp["vt"], resp["a"].T, name="Slow synaptic state"
         )
 
         # - Store "last evolution" state
-        self._dLastEvolve = dResp
+        self._last_evolve = resp
         self._timestep += num_timesteps
 
         # - Return output TimeSeries
-        return TSEvent(vtSpikeTimes, vnSpikeIndices)
+        return TSEvent(spike_times, spike_indices)
 
     @property
     def output_type(self):
         return TSEvent
 
     @property
-    def vfTauSynR_f(self):
-        return self.__vfTauSynR_f
+    def tau_syn_r_f(self):
+        return self.__tau_syn_r_f
 
-    @vfTauSynR_f.setter
-    def vfTauSynR_f(self, vfTauSynR_f):
-        self.__vfTauSynR_f = self._expand_to_net_size(vfTauSynR_f, "vfTauSynR_f")
-
-    @property
-    def vfTauSynR_s(self):
-        return self.__vfTauSynR_s
-
-    @vfTauSynR_s.setter
-    def vfTauSynR_s(self, vfTauSynR_s):
-        self.__vfTauSynR_s = self._expand_to_net_size(vfTauSynR_s, "vfTauSynR_s")
+    @tau_syn_r_f.setter
+    def tau_syn_r_f(self, tau_syn_r_f):
+        self.__tau_syn_r_f = self._expand_to_net_size(tau_syn_r_f, "tau_syn_r_f")
 
     @property
-    def vfVThresh(self):
-        return self.__vfVThresh
+    def tau_syn_r_s(self):
+        return self.__tau_syn_r_s
 
-    @vfVThresh.setter
-    def vfVThresh(self, vfVThresh):
-        self.__vfVThresh = self._expand_to_net_size(vfVThresh, "vfVThresh")
-
-    @property
-    def vfVRest(self):
-        return self.__vfVRest
-
-    @vfVRest.setter
-    def vfVRest(self, vfVRest):
-        self.__vfVRest = self._expand_to_net_size(vfVRest, "vfVRest")
+    @tau_syn_r_s.setter
+    def tau_syn_r_s(self, tau_syn_r_s):
+        self.__tau_syn_r_s = self._expand_to_net_size(tau_syn_r_s, "tau_syn_r_s")
 
     @property
-    def vfVReset(self):
-        return self.__vfVReset
+    def v_thresh(self):
+        return self.__thresh
 
-    @vfVReset.setter
-    def vfVReset(self, vfVReset):
-        self.__vfVReset = self._expand_to_net_size(vfVReset, "vfVReset")
+    @v_thresh.setter
+    def v_thresh(self, v_thresh):
+        self.__thresh = self._expand_to_net_size(v_thresh, "v_thresh")
+
+    @property
+    def v_rest(self):
+        return self.__rest
+
+    @v_rest.setter
+    def v_rest(self, v_rest):
+        self.__rest = self._expand_to_net_size(v_rest, "v_rest")
+
+    @property
+    def v_reset(self):
+        return self.__reset
+
+    @v_reset.setter
+    def v_reset(self, v_reset):
+        self.__reset = self._expand_to_net_size(v_reset, "v_reset")
 
     @Layer.dt.setter
-    def dt(self, tNewDt):
+    def dt(self, new_dt):
         assert (
-            tNewDt <= self._tMinTau / 10
-        ), "`tNewDt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
+            new_dt <= self._min_tau / 10
+        ), "`new_dt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
 
         # - Call super-class setter
-        super(RecFSSpikeEulerBT, RecFSSpikeEulerBT).dt.__set__(self, tNewDt)
+        super(RecFSSpikeEulerBT, RecFSSpikeEulerBT).dt.__set__(self, new_dt)
 
 
 ###### Convenience functions
 
 # - Convenience method to return a nan array
-def full_nan(vnShape: Union[tuple, int]):
-    a = np.empty(vnShape)
+def full_nan(shape: Union[tuple, int]):
+    a = np.empty(shape)
     a.fill(np.nan)
     return a
 
@@ -558,38 +558,38 @@ def full_nan(vnShape: Union[tuple, int]):
 
 
 @njit
-def min_argmin(vfData: np.ndarray):
+def min_argmin(data: np.ndarray):
     """
     min_argmin - Accelerated function to find minimum and location of minimum
 
-    :param vfData:  np.ndarray of data
+    :param data:  np.ndarray of data
 
-    :return:        fMinVal, nMinLoc
+    :return:        min_val, min_loc
     """
     n = 0
-    nMinLoc = -1
-    fMinVal = np.inf
-    for x in vfData:
-        if x < fMinVal:
-            nMinLoc = n
-            fMinVal = x
+    min_loc = -1
+    min_val = np.inf
+    for x in data:
+        if x < min_val:
+            min_loc = n
+            min_val = x
         n += 1
 
-    return fMinVal, nMinLoc
+    return min_val, min_loc
 
 
 @njit
-def argwhere(vbData: np.ndarray):
+def argwhere(data: np.ndarray):
     """
     argwhere - Accelerated argwhere function
 
-    :param vbData:  np.ndarray Boolean array
+    :param data:  np.ndarray Boolean array
 
-    :return:        list vnLocations where vbData = True
+    :return:        list vnLocations where data = True
     """
     vnLocs = []
     n = 0
-    for val in vbData:
+    for val in data:
         if val:
             vnLocs.append(n)
         n += 1
@@ -598,42 +598,42 @@ def argwhere(vbData: np.ndarray):
 
 
 @njit
-def clip_vector(v: np.ndarray, fMin: float, fMax: float):
+def clip_vector(v: np.ndarray, min: float, max: float):
     """
     clip_vector - Accelerated vector clip function
 
     :param v:
-    :param fMin:
-    :param fMax:
+    :param min:
+    :param max:
 
     :return: Clipped vector
     """
-    v[v < fMin] = fMin
-    v[v > fMax] = fMax
+    v[v < min] = min
+    v[v > max] = max
     return v
 
 
 @njit
-def clip_scalar(fVal: float, fMin: float, fMax: float):
+def clip_scalar(val: float, min: float, max: float):
     """
     clip_scalar - Accelerated scalar clip function
 
-    :param fVal:
-    :param fMin:
-    :param fMax:
+    :param val:
+    :param min:
+    :param max:
 
     :return: Clipped value
     """
-    if fVal < fMin:
-        return fMin
-    elif fVal > fMax:
-        return fMax
+    if val < min:
+        return min
+    elif val > max:
+        return max
     else:
-        return fVal
+        return val
 
 
-def RepToNetSize(oData, size):
-    if np.size(oData) == 1:
-        return np.repeat(oData, size)
+def rep_to_net_size(data, size):
+    if np.size(data) == 1:
+        return np.repeat(data, size)
     else:
-        return oData.flatten()
+        return data.flatten()

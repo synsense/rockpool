@@ -7,12 +7,12 @@ import pytest
 
 # - Test imports
 def test_imports():
-    from NetworksPython.networks import BuildRateReservoir
+    from NetworksPython.networks import build_rate_reservoir
 
 
 # - Test building a reservoir
 def test_build():
-    from NetworksPython.networks import BuildRateReservoir
+    from NetworksPython.networks import build_rate_reservoir
 
     # - Generate weight matrices
     mfWI = np.random.rand(10)
@@ -20,7 +20,7 @@ def test_build():
     mfWO = np.random.rand(10, 5)
 
     # - Build the network
-    netRes = BuildRateReservoir(mfWI, mfWR, mfWO)
+    netRes = build_rate_reservoir(mfWI, mfWR, mfWO)
     return netRes
 
 
@@ -31,8 +31,8 @@ def test_evolve():
     netRes = test_build()
 
     # - Generate an input
-    vtTimeTrace = np.linspace(0, 10, 100)
-    ts_input = TSContinuous(vtTimeTrace, np.random.rand(100))
+    time_trace = np.linspace(0, 10, 100)
+    ts_input = TSContinuous(time_trace, np.random.rand(100))
 
     # - Evolve the network
-    dResp = netRes.evolve(ts_input)
+    resp = netRes.evolve(ts_input)

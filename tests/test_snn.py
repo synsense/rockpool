@@ -19,17 +19,17 @@ def test_pt_events():
     from NetworksPython import TSEvent
 
     # - Input signal
-    vtTimeTrace = [0.1, 0.2, 0.7, 0.8, 0.9]
+    time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
     vnChannels = [1, 2, 0, 1, 1]
-    ts_input = TSEvent(vtTimeTrace, vnChannels)
+    ts_input = TSEvent(time_trace, vnChannels)
 
     # - Layer
     lpt = PassThroughEvents(np.array([[0,2],[1,1],[0,0]]), dt=0.4)
 
     # - Evolution
-    tsOut = lpt.evolve(ts_input)
+    ts_out = lpt.evolve(ts_input)
 
-    assert (tsOut.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
+    assert (ts_out.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
         "Output channels incorrect"
     )
 
@@ -42,7 +42,7 @@ def test_cnn_initialization():
     from NetworksPython.weights import CNNWeight
 
     # Initialize weights
-    cnnW = CNNWeight(inShape=(20, 20))
+    cnnW = CNNWeight(inp_shape=(20, 20))
 
     # Initialize a CNN layer with CN weights
     lyrCNN = FFCLIAF(weights=cnnW, name="CNN")
@@ -57,19 +57,19 @@ def test_cnn_evolve():
     from NetworksPython.weights import CNNWeight
 
     # Initialize weights
-    cnnW = CNNWeight(inShape=(20, 20))
+    cnnW = CNNWeight(inp_shape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, name="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, v_thresh=0.5, name="CNN")
 
     # Generate time series input
     evInput = TSEvent(None, name="Input")
     for nId in range(lyrCNN.size):
-        vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), inplace=True)
+        input_times = poisson_generator(40.0, t_stop=100)
+        evInput.merge(TSEvent(input_times, nId), inplace=True)
     # Evolve
-    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
-    print(evOut())
+    out_events = lyrCNN.evolve(ts_input=evInput, duration=100)
+    print(out_events())
 
 
 def test_cnn_evolve_empty():
@@ -81,16 +81,16 @@ def test_cnn_evolve_empty():
     from NetworksPython.weights import CNNWeight
 
     # Initialize weights
-    cnnW = CNNWeight(inShape=(20, 20))
+    cnnW = CNNWeight(inp_shape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(weights=cnnW, vfVThresh=0.5, name="CNN")
+    lyrCNN = FFCLIAF(weights=cnnW, v_thresh=0.5, name="CNN")
 
     # Generate time series input
     evInput = TSEvent(None, name="Input", num_channels=lyrCNN.size)
     # Evolve
-    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
-    print(evOut())
+    out_events = lyrCNN.evolve(ts_input=evInput, duration=100)
+    print(out_events())
 
 
 
@@ -106,23 +106,23 @@ def test_cnn_multilayer():
     imageShape = (10, 10)
 
     # Initialize weights
-    cnnW1 = CNNWeight(inShape=imageShape, nKernels=2, kernel_size=(3, 3))
-    cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
+    cnnW1 = CNNWeight(inp_shape=imageShape, kernels=2, kernel_size=(3, 3))
+    cnnW2 = CNNWeight(inp_shape=(2, *imageShape), kernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = FFCLIAF(weights=cnnW1, vfVThresh=0.5, name="CNN1")
-    lyrCnn2 = FFCLIAF(weights=cnnW2, vfVThresh=0.5, name="CNN2")
+    lyrCnn1 = FFCLIAF(weights=cnnW1, v_thresh=0.5, name="CNN1")
+    lyrCnn2 = FFCLIAF(weights=cnnW2, v_thresh=0.5, name="CNN2")
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
     # Generate time series input
     evInput = TSEvent(None, name="Input")
     for nId in range(imageShape[0] * imageShape[1]):
-        vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), inplace=True)
+        input_times = poisson_generator(40.0, t_stop=100)
+        evInput.merge(TSEvent(input_times, nId), inplace=True)
     # Evolve
-    evOut = net.evolve(ts_input=evInput, duration=100)
-    print(evOut)
+    out_events = net.evolve(ts_input=evInput, duration=100)
+    print(out_events)
 
 
 def test_ffcliaf_none_attributes():
@@ -137,10 +137,10 @@ def test_ffcliaf_none_attributes():
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        weights=weights_in, vfVBias=-0.05, vfVThresh=5, dt=0.1, vnIdMonitor=True, vfVSubtract=5
+        weights=weights_in, bias=-0.05, v_thresh=5, dt=0.1, monitor_id=True, v_subtract=5
     )
 
-    for strVarName in ("weights", "vfVBias", "state"):
+    for strVarName in ("weights", "bias", "state"):
         try:
             setattr(lyrFF, strVarName, None)
         except AssertionError:
@@ -161,7 +161,7 @@ def test_ffcliaf_evolve_subtracting():
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        weights=weights_in, vfVBias=-0.05, vfVThresh=5, dt=0.1, vnIdMonitor=True, vfVSubtract=5
+        weights=weights_in, bias=-0.05, v_thresh=5, dt=0.1, monitor_id=True, v_subtract=5
     )
 
     # - Input spike
@@ -170,10 +170,10 @@ def test_ffcliaf_evolve_subtracting():
     # - Evolution
     tsOutput = lyrFF.evolve(ts_input, duration=0.75)
 
-    print(lyrFF._mfStateTimeSeries)
+    print(lyrFF._ts_state)
 
     # - Expectation: First input spike will cause neuron 0 to spike 2 times at
-    #                t=0.6 but not neuron 2 because of negative vfVBias.
+    #                t=0.6 but not neuron 2 because of negative bias.
     #                Second input spike will cause neuron 2 to spike at t=0.7
     #                Last input spike will not have effect because evolution
     #                stops beforehand
@@ -204,11 +204,11 @@ def test_cliaf_evolve_resetting():
     # - Generate layer
     lyrFF = FFCLIAF(
         weights=weights_in,
-        vfVBias=-0.05,
-        vfVThresh=5,
+        bias=-0.05,
+        v_thresh=5,
         dt=0.1,
-        vnIdMonitor=True,
-        vfVSubtract=None,
+        monitor_id=True,
+        v_subtract=None,
     )
 
     # - Input spike
@@ -217,10 +217,10 @@ def test_cliaf_evolve_resetting():
     # - Evolution
     tsOutput = lyrFF.evolve(ts_input, duration=0.8)
 
-    print(lyrFF._mfStateTimeSeries)
+    print(lyrFF._ts_state)
 
     # - Expectation: First input spike will cause neuron 0 to spike once at
-    #                t=0.6 but not neuron 2 because of negative vfVBias.
+    #                t=0.6 but not neuron 2 because of negative bias.
     #                Second input spike will cause neuron 2 to spike at t=0.7
     #                Last input spike will not have effect because evolution
     #                stops beforehand
@@ -244,7 +244,7 @@ def test_cliaf_evolve_resetting():
 #    '''
 #    from NetworksPython.weights import CNNWeight
 #
-#    W = CNNWeight(inShape=(200,200))
+#    W = CNNWeight(inp_shape=(200,200))
 #
 #    # Create an image
 #    myImg = np.random.rand(400, 400) > 0.999

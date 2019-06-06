@@ -19,7 +19,7 @@ def test_raise_exception_on_incorrect_shape():
     """
     from NetworksPython.weights import CNNWeight
 
-    W = CNNWeight(inShape=(200, 200))
+    W = CNNWeight(inp_shape=(200, 200))
 
     # Create an image
     myImg = np.random.rand(400, 400) > 0.999
@@ -52,7 +52,7 @@ def test_convolution_full_image():
     """
     from NetworksPython.weights import CNNWeight
 
-    W = CNNWeight(inShape=(400, 400))
+    W = CNNWeight(inp_shape=(400, 400))
 
     # Create an image
     myImg = np.random.rand(400, 400) > 0.999
@@ -68,7 +68,7 @@ def test_convolutionl_nonzero_index():
     """
     from NetworksPython.weights import CNNWeight
 
-    W = CNNWeight(inShape=(400, 400))
+    W = CNNWeight(inp_shape=(400, 400))
 
     # Create an image
     myImg = np.random.rand(400, 400) > 0.999
@@ -86,8 +86,8 @@ def test_data_format_channels_last():
     from NetworksPython.weights import CNNWeight
 
     W = CNNWeight(
-        inShape=(400, 400, 1),
-        nKernels=3,
+        inp_shape=(400, 400, 1),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_last",
@@ -117,8 +117,8 @@ def test_data_format_channels_first():
     from NetworksPython.weights import CNNWeight
 
     W = CNNWeight(
-        inShape=(1, 400, 400),
-        nKernels=3,
+        inp_shape=(1, 400, 400),
+        kernels=3,
         kernel_size=(1, 1),
         mode="same",
         img_data_format="channels_first",
@@ -148,8 +148,8 @@ def test_strides_on_convolution():
     from NetworksPython.weights import CNNWeight
 
     W = CNNWeight(
-        inShape=(1, 10, 10),
-        nKernels=3,
+        inp_shape=(1, 10, 10),
+        kernels=3,
         kernel_size=(2, 2),
         strides=(2, 5),
         mode="valid",

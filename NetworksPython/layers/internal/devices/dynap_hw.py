@@ -89,7 +89,7 @@ class RecDynapSE(Layer):
                     "Layer `{}` Either dt or controller must be provided".format(name)
                 )
             self.controller = DynapseControlExtd(
-                fpga_isibase=tDt,
+                fpga_isibase=dt,
                 clearcores_list=clearcores_list,
                 rpyc_connection=rpyc_port,
                 init_chips=init_chips,
@@ -124,7 +124,7 @@ class RecDynapSE(Layer):
         self.weights_in = weights_in
         self.weights_rec = weights_rec
         # - Record input core mask and chip ID
-        self._input_coremask = int(np.sum([2 ** nID for nID in l_input_core_ids]))
+        self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
         self._input_chip_id = input_chip_id
         # - Store evolution batch size limitations
         self.max_num_trials_batch = max_num_trials_batch
@@ -567,7 +567,7 @@ class RecDynapSE(Layer):
     def weights_in(self, new_weights):
         self._weights_in = np.round(
             self._expand_to_shape(
-                new_weights, (self.size_in, self.size), "weights_in", bAllowNone=False
+                new_weights, (self.size_in, self.size), "weights_in", allow_none=False
             )
         ).astype(int)
 
@@ -579,7 +579,7 @@ class RecDynapSE(Layer):
     def weights_rec(self, new_weights):
         self._weights_rec = np.round(
             self._expand_to_shape(
-                new_weights, (self.size, self.size), "weights_rec", bAllowNone=False
+                new_weights, (self.size, self.size), "weights_rec", allow_none=False
             )
         ).astype(int)
 
@@ -592,13 +592,13 @@ class RecDynapSE(Layer):
     def weights(self, new_weights):
         self.weights_rec = new_weights
 
-    # _mfW as alias for _weights_rec
+    # _weights as alias for _weights_rec
     @property
-    def _mfW(self):
+    def _weights(self):
         return self._weights_rec
 
-    @_mfW.setter
-    def _mfW(self, new_weights):
+    @_weights.setter
+    def _weights(self, new_weights):
         self._weights_rec = new_weights
 
     @property

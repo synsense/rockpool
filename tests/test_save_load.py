@@ -14,44 +14,44 @@ def test_save_load():
 
     weights_rec = [[0, 0.1, 0], [0, 0, 0.1], [0.0, 0, 0]]
     mfWOut = [[1], [1], [1]]
-    vfBias = 0.0
+    bias = 0.0
     dt = 0.001
-    vtTauN = 0.02
-    vtTauS = 0.05
-    vfVThresh = -0.055
-    vfVReset = -0.065
-    vfVRest = -0.065
-    vfCapacity = 100.
-    tRef = 0.001
+    tau_mem = 0.02
+    tau_syn = 0.05
+    v_thresh = -0.055
+    v_reset = -0.065
+    v_rest = -0.065
+    capacity = 100.
+    refractory = 0.001
 
     np.random.seed(0)
 
     fl0 = FFIAFNest(weights=weights,
                     dt=dt,
-                    vfBias=vfBias,
-                    vtTauN=vtTauN,
-                    vfVReset=vfVReset,
-                    vfVRest=vfVRest,
-                    vfVThresh=vfVThresh,
-                    vfCapacity=vfCapacity,
-                    tRefractoryTime=tRef,
+                    bias=bias,
+                    tau_mem=tau_mem,
+                    v_reset=v_reset,
+                    v_rest=v_rest,
+                    v_thresh=v_thresh,
+                    capacity=capacity,
+                    refractory=refractory,
                     num_cores=1,
-                    bRecord=True,
+                    record=True,
                     name="FF")
 
     fl1 = RecIAFSpkInNest(weights_in=weights_in,
                           weights_rec=weights_rec,
                           dt=dt,
-                          vfBias=vfBias,
-                          vtTauN=vtTauN,
-                          vtTauS=vtTauS,
-                          vfVThresh=vfVThresh,
-                          vfVReset=vfVReset,
-                          vfVRest=vfVRest,
-                          vfCapacity=vfCapacity,
-                          tRefractoryTime=tRef,
+                          bias=bias,
+                          tau_mem=tau_mem,
+                          tau_syn=tau_syn,
+                          v_thresh=v_thresh,
+                          v_reset=v_reset,
+                          v_rest=v_rest,
+                          capacity=capacity,
+                          refractory=refractory,
                           num_cores=1,
-                          bRecord=True,
+                          record=True,
                           name="Rec")
 
 
@@ -84,6 +84,6 @@ def test_save_load():
     np.random.seed(0)
     dAct1 = net1.evolve(tsInCont, duration=1.0)
 
-    assert (np.abs(fl0.mfRecordStates - fl2.mfRecordStates) < epsilon).all()
-    assert (np.abs(fl1.mfRecordStates - fl3.mfRecordStates) < epsilon).all()
+    assert (np.abs(fl0.record_states - fl2.record_states) < epsilon).all()
+    assert (np.abs(fl1.record_states - fl3.record_states) < epsilon).all()
 

@@ -15,12 +15,12 @@ def test_FFRateEuler():
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 3) - 1
-    vfBias = 2 * np.random.rand(3) - 1
+    bias = 2 * np.random.rand(3) - 1
 
     # - Layer generation
     fl0 = FFRateEuler(
         weights=weights,
-        vfBias=vfBias,
+        bias=bias,
         noise_std=0.1,
         dt=0.01,
     )
@@ -45,13 +45,13 @@ def test_FFRateEuler():
         fl1 = FFRateEuler(weights = None)
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(weights = 1, vfBias = [1, 1])
+        fl1 = FFRateEuler(weights = 1, bias = [1, 1])
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(weights = 1, vtTau = [1, 1])
+        fl1 = FFRateEuler(weights = 1, tau = [1, 1])
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEuler(weights = 1, vfGain = [1, 1])
+        fl1 = FFRateEuler(weights = 1, gain = [1, 1])
 
 def test_RecRateEuler():
     """ Test RecRateEuler """
@@ -60,12 +60,12 @@ def test_RecRateEuler():
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 2) - 1
-    vfBias = 2 * np.random.rand(2) - 1
+    bias = 2 * np.random.rand(2) - 1
 
     # - Layer generation
     fl0 = RecRateEuler(
         weights=weights,
-        vfBias=vfBias,
+        bias=bias,
         noise_std=0.1,
         dt=0.01,
     )
@@ -90,7 +90,7 @@ def test_RecRateEuler():
         fl1 = RecRateEuler(weights = np.zeros((1, 2)))
 
     with pytest.raises(AssertionError):
-        RecRateEuler(weights = np.zeros((2, 2)), vtTau = None)
+        RecRateEuler(weights = np.zeros((2, 2)), tau = None)
 
     with pytest.raises(AssertionError):
         RecRateEuler(weights = np.zeros((2, 2)), noise_std = None)

@@ -23,11 +23,11 @@ def test_cliaf_evolve_subtracting():
     rl = RecCLIAF(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        vfVBias=-0.05,
-        vfVThresh=5,
+        bias=-0.05,
+        v_thresh=5,
         dt=0.1,
-        vnIdMonitor=True,
-        vfVSubtract=5,
+        monitor_id=True,
+        v_subtract=5,
     )
 
     # - Input spike
@@ -70,11 +70,11 @@ def test_cliaf_evolve_resetting():
     rl = RecCLIAF(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        vfVBias=-0.05,
-        vfVThresh=5,
+        bias=-0.05,
+        v_thresh=5,
         dt=0.1,
-        vnIdMonitor=True,
-        vfVSubtract=None,
+        monitor_id=True,
+        v_subtract=None,
     )
 
     # - Input spike
@@ -119,13 +119,13 @@ def test_diaf_evolve_subtracting():
     rl = RecDIAF(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        vfVThresh=5,
-        vfVReset=0,
-        vfVSubtract=5,
-        tSpikeDelay=0.04,
-        vtRefractoryTime=0.01,
-        tTauLeak=0.2,  # - Subtract vfCleak every 0.2 seconds
-        vfCleak=1,
+        v_thresh=5,
+        v_reset=0,
+        v_subtract=5,
+        delay=0.04,
+        refractory=0.01,
+        tau_leak=0.2,  # - Subtract leak every 0.2 seconds
+        leak=1,
     )
 
     # - Input spike
@@ -136,9 +136,9 @@ def test_diaf_evolve_subtracting():
 
     # - Expectation: Input spike will cause neuron 0 to spike 2 times
     #                (not three times because of the leak that reduced state before),
-    #                once at t=0.55, then at t=0.55 + vtRefractoryTime = 0.56.
+    #                once at t=0.55, then at t=0.55 + refractory = 0.56.
     #                These spikes will cause neuron 1 to spike once at
-    #                t = 0.56 + tSpikeDelay = 0.6.
+    #                t = 0.56 + delay = 0.6.
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     print(tsOutput.times)
@@ -172,13 +172,13 @@ def test_diaf_evolve_resetting():
     rl = RecDIAF(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        vfVThresh=5,
-        vfVReset=0,
-        vfVSubtract=None,  # Reset instead of subtracting
-        tSpikeDelay=0.04,
-        vtRefractoryTime=0.01,
-        tTauLeak=0.2,  # - Subtract vfCleak every 0.2 seconds
-        vfCleak=1,
+        v_thresh=5,
+        v_reset=0,
+        v_subtract=None,  # Reset instead of subtracting
+        delay=0.04,
+        refractory=0.01,
+        tau_leak=0.2,  # - Subtract leak every 0.2 seconds
+        leak=1,
     )
 
     # - Input spike
@@ -221,16 +221,16 @@ def test_diaf_evolve_vfvrest():
     rl = RecDIAF(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        vfVThresh=50,
+        v_thresh=50,
         dt=0.001,
-        vfVReset=0,
-        vfVSubtract=None,  # Reset instead of subtracting
-        tSpikeDelay=0.04,
-        vtRefractoryTime=0.01,
-        tTauLeak=0.02,  # - Subtract vfCleak every 0.2 seconds
-        vfCleak=1,
-        vfVRest=0,
-        vnIdMonitor=True,
+        v_reset=0,
+        v_subtract=None,  # Reset instead of subtracting
+        delay=0.04,
+        refractory=0.01,
+        tau_leak=0.02,  # - Subtract leak every 0.2 seconds
+        leak=1,
+        v_rest=0,
+        monitor_id=True,
     )
 
     # - Input spike

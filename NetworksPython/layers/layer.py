@@ -93,7 +93,7 @@ class RefArray(np.ndarray):
 
     def __array_finalize(self, obj: np.ndarray):
         """
-        __array_finalize - Method to be used for np.ndarray subclasses to include
+        __array_finalize - arguments: to be used for np.ndarray subclasses to include
                            additional elements in instance.
         :param obj:  np.ndarray upon which self is based
         """
@@ -178,11 +178,11 @@ class Layer(ABC):
         try:
             # Try this before enforcing with Numpy atleast to account for custom classes for weights
             self._size_in, self._size = weights.shape
-            self._mfW = weights
+            self._weights = weights
         except Exception:
             weights = np.atleast_2d(weights)
             self._size_in, self._size = weights.shape
-            self._mfW = weights
+            self._weights = weights
 
         # - Check and assign dt and noise_std
         assert (
@@ -264,40 +264,40 @@ class Layer(ABC):
         :param duration:     float Duration of the desired evolution, in seconds
         :param num_timesteps: int Number of evolution time steps
 
-        :return: (vtTimeBase, mfInputStep, duration)
-            vtTimeBase:     ndarray T1 Discretised time base for evolution
-            mfInputStep:    ndarray (T1xN) Discretised input signal for layer
+        :return: (time_base, input_steps, duration)
+            time_base:     ndarray T1 Discretised time base for evolution
+            input_steps:    ndarray (T1xN) Discretised input signal for layer
             num_timesteps:  int Actual number of evolution time steps
         """
 
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
-        vtTimeBase = self._gen_time_trace(self.t, num_timesteps)
+        time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
-            # - Make sure vtTimeBase matches ts_input
+            # - Make sure time_base matches ts_input
             if not isinstance(ts_input, TSEvent):
                 if not ts_input.periodic:
                     # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
                     if (
                         ts_input.t_start - 1e-3 * self.dt
-                        <= vtTimeBase[0]
+                        <= time_base[0]
                         <= ts_input.t_start
                     ):
-                        vtTimeBase[0] = ts_input.t_start
+                        time_base[0] = ts_input.t_start
                     if (
                         ts_input.t_stop
-                        <= vtTimeBase[-1]
+                        <= time_base[-1]
                         <= ts_input.t_stop + 1e-3 * self.dt
                     ):
-                        vtTimeBase[-1] = ts_input.t_stop
+                        time_base[-1] = ts_input.t_stop
 
                 # - Warn if evolution period is not fully contained in ts_input
-                if not (ts_input.contains(vtTimeBase) or ts_input.periodic):
+                if not (ts_input.contains(time_base) or ts_input.periodic):
                     warn(
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.name, vtTimeBase[0], vtTimeBase[-1]
+                            self.name, time_base[0], time_base[-1]
                         )
                         + "not fully contained in input signal (t = {} to {})".format(
                             ts_input.t_start, ts_input.t_stop
@@ -305,16 +305,16 @@ class Layer(ABC):
                     )
 
             # - Sample input trace and check for correct dimensions
-            mfInputStep = self._check_input_dims(ts_input(vtTimeBase))
+            input_steps = self._check_input_dims(ts_input(time_base))
 
             # - Treat "NaN" as zero inputs
-            mfInputStep[np.where(np.isnan(mfInputStep))] = 0
+            input_steps[np.where(np.isnan(input_steps))] = 0
 
         else:
             # - Assume zero inputs
-            mfInputStep = np.zeros((np.size(vtTimeBase), self.size_in))
+            input_steps = np.zeros((np.size(time_base), self.size_in))
 
-        return vtTimeBase, mfInputStep, num_timesteps
+        return time_base, input_steps, num_timesteps
 
     def _prepare_input_events(
         self,
@@ -330,7 +330,7 @@ class Layer(ABC):
         :param num_timesteps int Number of evolution time steps
 
         :return:
-            mnSpikeRaster:    ndarray Boolean or integer raster containing spike info
+            spike_raster:    ndarray Boolean or integer raster containing spike info
             num_timesteps:    ndarray Number of evlution time steps
         """
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
@@ -338,132 +338,132 @@ class Layer(ABC):
         # - Extract spike timings and channels
         if ts_input is not None:
             # Extract spike data from the input variable
-            mnSpikeRaster = ts_input.raster(
+            spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
                 num_timesteps=num_timesteps,
                 channels=np.arange(self.size_in),
-                add_events=(self.bAddEvents if hasattr(self, "bAddEvents") else False),
+                add_events=(self.add_events if hasattr(self, "add_events") else False),
             )[2]
             # - Make sure size is correct
-            mnSpikeRaster = mnSpikeRaster[:num_timesteps, :]
+            spike_raster = spike_raster[:num_timesteps, :]
 
         else:
-            mnSpikeRaster = np.zeros((num_timesteps, self.size_in))
+            spike_raster = np.zeros((num_timesteps, self.size_in))
 
-        return mnSpikeRaster, num_timesteps
+        return spike_raster, num_timesteps
 
-    def _check_input_dims(self, mfInput: np.ndarray) -> np.ndarray:
+    def _check_input_dims(self, inp: np.ndarray) -> np.ndarray:
         """
         Verify if dimension of input matches layer instance. If input
         dimension == 1, scale it up to self._size_in by repeating signal.
-            mfInput : np.ndarray with input data
-            return : mfInput, possibly with dimensions repeated
+            inp : np.ndarray with input data
+            return : inp, possibly with dimensions repeated
         """
         # - Replicate `ts_input` if necessary
-        if mfInput.ndim == 1 or (mfInput.ndim > 1 and mfInput.shape[1]) == 1:
-            mfInput = np.repeat(mfInput.reshape((-1, 1)), self._size_in, axis=1)
+        if inp.ndim == 1 or (inp.ndim > 1 and inp.shape[1]) == 1:
+            inp = np.repeat(inp.reshape((-1, 1)), self._size_in, axis=1)
         else:
             # - Check dimensionality of input
             assert (
-                mfInput.shape[1] == self._size_in
+                inp.shape[1] == self._size_in
             ), "Layer `{}`: Input dimensionality {} does not match layer input size {}.".format(
-                self.name, mfInput.shape[1], self._size_in
+                self.name, inp.shape[1], self._size_in
             )
 
         # - Return possibly corrected input
-        return mfInput
+        return inp
 
-    def _gen_time_trace(self, tStart: float, num_timesteps: int) -> np.ndarray:
+    def _gen_time_trace(self, t_start: float, num_timesteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at tStart, of length num_timesteps+1 with
+        Generate a time trace starting at t_start, of length num_timesteps+1 with
         time step length self._dt. Make sure it does not go beyond
-        tStart+duration.
+        t_start+duration.
 
-        :return vtTimeTrace, duration
+        :return time_trace, duration
         """
         # - Generate a trace
-        vtTimeTrace = np.arange(num_timesteps + 1) * self._dt + tStart
+        time_trace = np.arange(num_timesteps + 1) * self._dt + t_start
 
-        return vtTimeTrace
+        return time_trace
 
     def _expand_to_shape(
         self,
-        oInput,
-        tupShape: tuple,
-        sVariableName: str = "input",
-        bAllowNone: bool = True,
+        inp,
+        shape: tuple,
+        var_name: str = "input",
+        allow_none: bool = True,
     ) -> np.ndarray:
         """
-        _expand_to_shape: Replicate out a scalar to an array of shape tupShape
+        _expand_to_shape: Replicate out a scalar to an array of shape shape
 
-        :param oInput:          scalar or array-like (size)
-        :param tupShape:        tuple of int Shape that input should be expanded to
-        :param sVariableName:   str Name of the variable to include in error messages
-        :param bAllowNone:      bool Allow None as argument for oInput
+        :param inp:          scalar or array-like (size)
+        :param shape:        tuple of int Shape that input should be expanded to
+        :param var_name:   str Name of the variable to include in error messages
+        :param allow_none:      bool Allow None as argument for inp
         :return:                np.ndarray (N) vector
         """
-        if not bAllowNone:
-            assert oInput is not None, "Layer `{}`: `{}` must not be None".format(
-                self.name, sVariableName
+        if not allow_none:
+            assert inp is not None, "Layer `{}`: `{}` must not be None".format(
+                self.name, var_name
             )
 
-        nTotalSize = reduce(lambda m, n: m * n, tupShape)
+        total_size = reduce(lambda m, n: m * n, shape)
 
-        if np.size(oInput) == 1:
+        if np.size(inp) == 1:
             # - Expand input to full size
-            oInput = np.repeat(oInput, nTotalSize)
+            inp = np.repeat(inp, total_size)
 
         assert (
-            np.size(oInput) == nTotalSize
+            np.size(inp) == total_size
         ), "Layer `{}`: `{}` must be a scalar or have {} elements".format(
-            self.name, sVariableName, nTotalSize
+            self.name, var_name, total_size
         )
 
         # - Return object of correct shape
-        return np.reshape(oInput, tupShape)
+        return np.reshape(inp, shape)
 
     def _expand_to_size(
-        self, oInput, size: int, sVariableName: str = "input", bAllowNone: bool = True
+        self, inp, size: int, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
         _expand_to_size: Replicate out a scalar to size
 
-        :param oInput:          scalar or array-like (size)
+        :param inp:          scalar or array-like (size)
         :param size:           integer Size that input should be expanded to
-        :param sVariableName:   str Name of the variable to include in error messages
-        :param bAllowNone:      bool Allow None as argument for oInput
+        :param var_name:   str Name of the variable to include in error messages
+        :param allow_none:      bool Allow None as argument for inp
         :return:                np.ndarray (N) vector
         """
-        return self._expand_to_shape(oInput, (size,), sVariableName, bAllowNone)
+        return self._expand_to_shape(inp, (size,), var_name, allow_none)
 
     def _expand_to_net_size(
-        self, oInput, sVariableName: str = "input", bAllowNone: bool = True
+        self, inp, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
         _expand_to_net_size: Replicate out a scalar to the size of the layer
 
-        :param oInput:          scalar or array-like (N)
-        :param sVariableName:   str Name of the variable to include in error messages
-        :param bAllowNone:      bool Allow None as argument for oInput
+        :param inp:          scalar or array-like (N)
+        :param var_name:   str Name of the variable to include in error messages
+        :param allow_none:      bool Allow None as argument for inp
         :return:                np.ndarray (N) vector
         """
-        return self._expand_to_shape(oInput, (self.size,), sVariableName, bAllowNone)
+        return self._expand_to_shape(inp, (self.size,), var_name, allow_none)
 
     def _expand_to_weight_size(
-        self, oInput, sVariableName: str = "input", bAllowNone: bool = True
+        self, inp, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
         _expand_to_weight_size: Replicate out a scalar to the size of the layer's weights
 
-        :param oInput:          scalar or array-like (NxN)
-        :param sVariableName:   str Name of the variable to include in error messages
-        :param bAllowNone:      bool Allow None as argument for oInput
+        :param inp:          scalar or array-like (NxN)
+        :param var_name:   str Name of the variable to include in error messages
+        :param allow_none:      bool Allow None as argument for inp
         :return:                np.ndarray (NxN) vector
         """
 
         return self._expand_to_shape(
-            oInput, (self.size, self.size), sVariableName, bAllowNone
+            inp, (self.size, self.size), var_name, allow_none
         )
 
     ### --- String representations
@@ -575,56 +575,56 @@ class Layer(ABC):
 
     @property
     def weights(self) -> np.ndarray:
-        return self._mfW
+        return self._weights
 
     @weights.setter
-    def weights(self, mfNewW: np.ndarray):
-        assert mfNewW is not None, "Layer `{}`: weights must not be None.".format(
+    def weights(self, new_w: np.ndarray):
+        assert new_w is not None, "Layer `{}`: weights must not be None.".format(
             self.name
         )
 
         # - Ensure weights are at least 2D
         try:
-            assert mfNewW.ndim >= 2
+            assert new_w.ndim >= 2
         except AssertionError:
             warn(
-                "Layer `{}`: `mfNewW must be at least of dimension 2".format(
+                "Layer `{}`: `new_w must be at least of dimension 2".format(
                     self.name
                 )
             )
-            mfNewW = np.atleast_2d(mfNewW)
+            new_w = np.atleast_2d(new_w)
 
         # - Check dimensionality of new weights
         assert (
-            mfNewW.size == self.size_in * self.size
-        ), "Layer `{}`: `mfNewW` must be of shape {}".format(
+            new_w.size == self.size_in * self.size
+        ), "Layer `{}`: `new_w` must be of shape {}".format(
             (self.name, self.size_in, self.size)
         )
 
         # - Save weights with appropriate size
-        self._mfW = np.reshape(mfNewW, (self.size_in, self.size))
+        self._weights = np.reshape(new_w, (self.size_in, self.size))
 
     @property
     def state(self):
         return self._state
 
     @state.setter
-    def state(self, vNewState):
+    def state(self, new_state):
         assert (
-            np.size(vNewState) == self.size
-        ), "Layer `{}`: `vNewState` must have {} elements".format(
+            np.size(new_state) == self.size
+        ), "Layer `{}`: `new_state` must have {} elements".format(
             self.name, self.size
         )
 
-        self._state = vNewState
+        self._state = new_state
 
     @property
     def noise_std(self):
         return self._noise_std
 
     @noise_std.setter
-    def noise_std(self, fNewNoiseStd):
-        self._noise_std = to_scalar(fNewNoiseStd)
+    def noise_std(self, new_noise_std):
+        self._noise_std = to_scalar(new_noise_std)
 
     @property
     def t(self):
