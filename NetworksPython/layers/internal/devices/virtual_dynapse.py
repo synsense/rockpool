@@ -42,46 +42,99 @@ class VirtualDynapse(Layer):
     def __init__(
         self,
         dt: float = 1e-5,
-        connections: Union[np.ndarray, dict, None] = None,
-        tau_mem_1=0.05,  # - Array of size 16
-        tau_mem_2=0.05,
-        tau_syn_e=0.05,
-        tau_syn_i=0.05,
-        baseweight_e=0.05,
-        baseweight_i=0.05,
-        bias=0,
-        t_refractory=0.005,
-        threshold=0.01,
-        has_tau2=False,  # - Binary array with size number of neurons
+        connections_in: Optional[np.ndarray] = None,
+        connections_rec: Optional[np.ndarray] = None,
+        tau_mem_1: Union[float, np.ndarray] = 0.05,
+        tau_mem_2: Union[float, np.ndarray] = 0.05,
+        has_tau2: Union[bool, np.ndarray] = False,
+        tau_syn_e: Union[float, np.ndarray] = 0.05,
+        tau_syn_i: Union[float, np.ndarray] = 0.05,
+        baseweight_e: Union[float, np.ndarray] = 0.05,
+        baseweight_i: Union[float, np.ndarray] = 0.05,
+        bias: Union[float, np.ndarray] = 0,
+        t_refractory: Union[float, np.ndarray] = 0.005,
+        threshold: Union[float, np.ndarray] = 0.01,
         name: str = "unnamed",
+        num_cores: int = 1,
     ):
-        # - Set up weights
-        self.baseweight_e = baseweight_e
-        self.baseweight_i = baseweight_i
-        self.connections = connections
+        """
+        VritualDynapse - Simulation of DynapSE neurmorphic processor.
+        :param dt:        Time step size in seconds
+        :param connections_in:   2D-array defining connections from external input
+                                 Size at most 1024x4096. Will be filled with 0s if smaller.
+        :param connections_rec:  2D-array defining connections between neurons
+                                 Size at most 4096x4096. Will be filled with 0s if smaller.
+        :param tau_mem_1:        float or 1D-array of size 16, with membrane time constant
+                                 for each core, in seconds. If float, same for all cores.
+        :param tau_mem_2:        float or 1D-array of size 16 with alternative membrane time
+                                 constant for each core, in seconds. If float, same for all
+                                 cores.
+        :param has_tau2:         bool or 1D-array of size 4096, indicating which neuron
+                                 usees the alternative membrane time constant. If bool,
+                                 same for all cores.
+        :param tau_syn_e:        float or 1D-array of size 16 with time constant for
+                                 excitatory synapses for each core, in seconds. If float,
+                                 same for all cores.
+        :param tau_syn_i:        float or 1D-array of size 16 with time constant for
+                                 inhibitory synapses for each core, in seconds. If float,
+                                 same for all cores.
+        :param baseweight_e:     float or 1D-array of size 16 with multiplicator (>=0) for
+                                 binary excitatory weights for each core. If float, same
+                                 for all cores.
+        :param baseweight_i:     float or 1D-array of size 16 with multiplicator (>=0) for
+                                 binary inhibitory weights for each core. If float, same
+                                 for all cores.
+        :param bias:             float or 1D-array of size 16 with constant neuron bias (>=0)
+                                 for each core. If float, same for all cores.
+        :param t_refractory:     float or 1D-array of size 16 with refractory time in
+                                 secondsfor each core. If float, same for all cores.
+        :param threshold:        float or 1D-array of size 16 with neuron firing threshold
+                                 for each core. If float, same for all cores.
+        :param name:             Name for this object instance.
+        :param num_cores:        Number of cpu cores available for simulation.
+        """
 
-        # - Instantiate super class.
-        super().__init__(weights=self.weights, dt=dt, name=name)
-
-        # - Store remaining parameters
-        self.bias = bias
+        # - Store internal parameters
+        self.name = name
         self.tau_mem_1 = tau_mem_1
         self.tau_mem_2 = tau_mem_2
-        self.tau_syn_e = tau_syn_e
-        self.tau_syn_i = tau_syn_i
-        self.t_refractory = t_refractory
-        self.threshold = threshold
         self.has_tau2 = has_tau2
 
-    def _generate_simulator(self):
+        # - Set up connections and weights
+        self._baseweight_e = self._process_parameter(baseweight_e, "baseweight_e", True)
+        self._baseweight_i = self._process_parameter(baseweight_i, "baseweight_i", True)
+        if (
+            self.validate_connections(connections_rec, connections_new, verbose=True)
+            != CONNECTIONS_VALID
+        ):
+            raise ValueError(
+                self.start_print + "Connections not compatible with hardware."
+            )
+        self._connections_rec = self._process_connections(
+            connections_rec, external=False
+        )
+        self._connections_in = self._process_connections(connections_in, external=True)
+        weights_rec = _generate_weights()
+        weights_in = _generate_weights(external=True)
+
+        # - Remaining parameters
+        bias = self._process_parameter(bias, "bias", True)
+        threshold = self._process_parameter(threshold, "threshold", True)
+        t_refractory = self._process_parameter(t_refractory, "t_refractory", True)
+        tau_syn_e = self._process_parameter(tau_syn_e, "tau_syn_e", True)
+        tau_syn_i = self._process_parameter(tau_syn_i, "tau_syn_i", True)
+
         # - Nest-layer for approximate simulation of neuron dynamics
-        self.simulator = RecIAFSpkInNest(
-            weights_in=self.weights_in,
-            weights_rec=self.weights_rec,
-            bias=bias,
-            tau_n=self.tau_n,
-            tau_s=self.tau_s,
-            tau_s_inh=self.tau_s_inh,
+        self._simulator = RecIAFSpkInNest(
+            weights_in=weights_in,
+            weights_rec=weights_rec,
+            bias=np.repeat(bias, self.num_neurons_core),
+            threshold=np.repeat(threshold, self.num_neurons_core),
+            v_reset=0,
+            v_rest=0,
+            tau_mem=self.tau_mem_all,
+            tau_syn=np.repeat(self.tau_syn_e, self.num_neurons_core),
+            tau_syn_inh=np.repeat(self.tau_syn_i, self.num_neurons_core),
             dt=dt,
         )
 
@@ -90,53 +143,78 @@ class VirtualDynapse(Layer):
         connections: Union[dict, np.ndarray],
         neurons_pre: np.ndarray,
         neurons_post: Optional[np.ndarray] = None,
+        external: bool = False,
         add: bool = False,
     ):
         """
         set_connections - Set connections between specific neuron populations.
                           Verify that connections are supported by the hardware.
-        :params connections:  2D np.ndarray: Will assume positive (negative) values
-                              correspond to excitatory (inhibitory) synapses.
-                              Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
-                              Sizes must match `neurons_pre` and `neurons_post`.
-        :params neurons_pre:   Array-like with IDs of presynaptic neurons that `connections`
-                               refer to. If None, use all neurons (from 0 to self.size - 1).
-        :params neurons_post:  Array-like with IDs of postsynaptic neurons that `connections`
-                               refer to. If None, use same IDs as presynaptic neurons.
+        :param connections:    2D np.ndarray: Will assume positive (negative) values
+                               correspond to excitatory (inhibitory) synapses.
+                               Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
+                               Sizes must match `neurons_pre` and `neurons_post`.
+        :param neurons_pre:    Array-like with IDs of presynaptic neurons that `connections`
+                               refer to. If None, use all neurons (from 0 to
+                               self.num_neurons - 1).
+        :param neurons_post:   Array-like with IDs of postsynaptic neurons that `connections`
+                               refer to. If None, use same IDs as presynaptic neurons, unless
+                               `external` is True. In this case use all neurons.
+        :param add:            If True, new connections are added to exising ones, otherweise
+                               connections between given neuron populations are replaced.
+        :param external:       If True, presynaptic neurons are external.
         """
 
         if neurons_pre is None:
-            neurons_pre = np.arange(self.size)
+            neurons_pre = np.arange(self.num_external if external else self.size)
 
         if neurons_post is None:
-            neuron_post = neurons_pre
+            neuron_post = neurons_pre if not external else np.arange(self.size)
 
         # - Complete connectivity array after adding new connections
-        connections_new = self.connections.copy()
+        connections = self.connections_in if external else self.connections_rec
 
         # - Indices of specified neurons in full connectivity matrix
         idcs_row, idcs_col = np.meshgrid(neurons_pre, neurons_post, indexing="ij")
 
         if add:
             # - Add new connections to connectivity array
-            connections_new[idcs_row, idcs_col] += connections
+            connections[idcs_row, idcs_col] += connections
         else:
             # - Replace connections between given neurons with new ones
-            connections_new[idcs_row, idcs_col] = connections
-
-        self.connections = connections_new
+            connections[idcs_row, idcs_col] = connections
 
     def validate_connections(
-        self, connections: Union[np.ndarray, dict], verbose: bool
+        self,
+        connections_rec: np.ndarray,
+        connections_in: Optional[np.ndarray] = None,
+        verbose: bool = True,
     ) -> int:
         """
-        validate:
-            - limited fan in, by summing connections over dim 0 and then dim 1
-            - fan-out limit to 3 chips -> how to check? (sum over dim 0 and check rows ->
-            np.unique(v_row // 16).size < 4
+        validate_connections - Check whether connections are compatible with the
+                               following constraints:
+                                 - Fan-in per neuron is limited to 64
+                                 - Fan-out of each neuron can only comprise 3 chips.
+                                 - If any two neurons with presynaptic connections
+                                   to any of the neurons on a given core are on
+                                   different chips but have the same IDs within their
+                                   respective chips, aliasing of events may occur.
+                                   Therefore this scenario is considered invalid.
+        :param connections_rec:     2D np.ndarray (NxN): Connectivity matrix to be.
+                                validated. Will assume positive (negative) values
+                                correspond to excitatory (inhibitory) synapses.
+        :param connections_in:  If not `None`, 2D np.ndarray (MxN) that is considered
+                                as external input connections to the population
+                                that `connections_rec` refers to. This is considered
+                                for validaiton of the fan-in of `connections_rec`.
+                                Positive (negative) values correspond to excitatory
+                                (inhibitory) synapses.
+        :param verbose:         If `True`, print out detailed information about
+                                validity of connections.
+        return
+            Integer indicating the result of the validation.
         """
         # - Get 2D matrix with number of connections between neurons
-        conn_count_2d = self.get_connection_counts(connections)
+        conn_count_2d = self.get_connection_counts(connections_rec)
 
         result = 0
 
@@ -144,8 +222,14 @@ class VirtualDynapse(Layer):
             print(self.start_print + "Testing provided connections:")
 
         # - Test fan-in
+        if connections_in is not None:
+            conn_count_in = np.vstack(
+                (self.get_connection_counts(connections_in), conn_count_2d)
+            )
+        else:
+            conn_count_in = conn_count_2d
         exceeds_fanin: np.ndarray = (
-            np.sum(conn_count_2d, axis=1) > params.NUM_CAMS_NEURON
+            np.sum(conn_count_in, axis=0) > params.NUM_CAMS_NEURON
         )
         if exceeds_fanin.any():
             result += FANIN_EXCEEDED
@@ -206,30 +290,10 @@ class VirtualDynapse(Layer):
         if alias_pre_chips:
             result += CONNECTION_ALIASING
             if verbose:
-                # print(
-                #     "\tConnection aliasing detected: Neurons on the same core should not "
-                #     + "have presynaptic connections with neurons that have the same ID "
-                #     + "(with regard to their chip) but are on different chips. Affected "
-                #     + "postsynaptic cores are: "
-                #     + "\n".join(
-                #         "\tCore {}:\n{}".format(
-                #             core_id,
-                #             "\n".join(
-                #                 "\t\tPresynaptic ID {} on chips {}".format(
-                #                     id_neur, ", ".join(str(id_ch) for id_ch in chips)
-                #                 )
-                #                 for id_neur, chips in zip(neur_ids_core, chips_core)
-                #             ),
-                #         )
-                #         for core_id, neur_ids_core, chips_core in zip(
-                #             alias_post_cores, alias_pre_ids, alias_pre_chips
-                #         )
-                #     )
-                # )
                 print_output = (
                     "\tConnection aliasing detected: Neurons on the same core should not "
-                    + "have presynaptic connections with neurons that have the same ID "
-                    + "(with regard to their chip) but are on different chips. Affected "
+                    + "have presynaptic connections with neurons that have same IDs (within "
+                    + "their respective chips) but are on different chips. Affected "
                     + "postsynaptic cores are: "
                 )
                 for core_id, neur_ids_core, chips_core in zip(
@@ -249,13 +313,13 @@ class VirtualDynapse(Layer):
 
         return result
 
-    def get_connection_counts(self, connections: Union[dict, np.ndarray]) -> np.ndarray:
+    def get_connection_counts(self, connections: np.ndarray) -> np.ndarray:
         """
         get_connection_counts - From a dict or array of connections for different
                                 synapse types, generate a 2D matrix with the total
                                 number of connections between each neuron pair.
-        :params connections:  2D np.ndarray: Will assume positive (negative) values
-                              correspond to excitatory (inhibitory) synapses.
+        :params connections:  2D np.ndarray (NxN): Will assume positive (negative)
+                              values correspond to excitatory (inhibitory) synapses.
         :return:
             2D np.ndarray with total number of connections between neurons
         """
@@ -264,17 +328,37 @@ class VirtualDynapse(Layer):
     def evolve(self, ts_input, duration, num_timesteps, verbose):
         pass
 
-    def _update_weights(self):
+    def _generate_weights(self, external: bool = False) -> np.ndarray:
+        """
+        _generate_weights: Generate weight matrix from connections and base weights
+        :param external: If `True`, generate input weights, otherwise internal weights
+        :return:
+            2D-array with generated weights
+        """
+        # - Choose between input and internal connections
+        connections = self.connections_in if external else self.connections_rec
+        # - Separate excitatory and inhibitory connections
+        connections_exc = np.clip(connections, 0, None)
+        connections_inh = np.clip(connections, None, 0)
+        factor_exc = np.repeat(self.baseweight_e, self.num_neurons_core)
+        factor_inh = np.repeat(self.baseweight_i, self.num_neurons_core)
+        # - Calculate weights
+        return connections_exc * factor_exc + connections_inh * factor_inh
+
+    def _update_weights(self, external: bool = False):
         """
         _update_weights - Update internal representation of weights by multiplying
                           baseweights with number of connections for each core and
                           synapse type.
+        :param external:  If `True`, update input weights, otherwise internal weights
         """
-        connections_exc = np.clip(self.connections, 0, None)
-        connections_inh = np.clip(self.connections, None, 0)
-        factor_exc = np.repeat(self.baseweight_e, self.num_neurons_core)
-        factor_inh = np.repeat(self.baseweight_i, self.num_neurons_core)
-        self._weights = connections_exc * factor_exc + connections_inh * factor_inh
+        # - Generate weights from connections and base weights
+        weights = self._generate_weights(external)
+        # - Weight update
+        if external:
+            self._simulator.weights_in = weights
+        else:
+            self._simulator.weights_rec = weights
 
     def _process_parameter(
         self,
@@ -301,35 +385,88 @@ class VirtualDynapse(Layer):
             parameter = np.clip(parameter, 0, None)
         return parameter
 
-    @property
-    def connections(self):
-        return self._vtRefractoryTime
-
-    @connections.setter
-    def connections(self, connections_new: Optional[np.ndarray]):
-        if connections_new is None:
+    def _process_connections(
+        connections: Optional[np.ndarray] = None, external: bool = False
+    ) -> np.ndarray:
+        """
+        _process_connections - Bring connectivity matric into correct shape
+        :param connections:  Connectivity matrix. If None, generate 0-matrix.
+        :external:           If True, generate external input connection matrix.
+        :return:
+            2D-np.ndarray - Generated connection matrix.
+        """
+        num_rows = self.num_external if external else self.num_neurons
+        if connections is None:
             # - Remove all connections
-            self._connections = np.zeros((self.num_neurons, self.num_neurons))
-            self._update_weights()
-
+            return np.zeros((num_rows, self.num_neurons))
         else:
-            # - Make sure that connections have match hardware specifications
-            if (
-                self.validate_connections(connections_new, verbose=True)
-                != CONNECTIONS_VALID
-            ):
-                raise ValueError(
-                    self.start_print + "Connections not compatible with hardware."
-                )
-            else:
-                # - Update connections
-                self._connections = connections_new
-                # - Update weights accordingly
-                self._update_weights()
+            # - Handle smaller connectivity matrices by filling up with zeros
+            conn_shape = connections.shape
+            if conn_shape != (num_rows, self.num_neurons):
+                connections0 = np.zeros((num_rows, self.num_neurons))
+                connections0[: conn_shape[0], : conn_shape[1]] = connections
+                connections = connections0
+            return connections
+
+    @property
+    def connections_rec(self):
+        return self._connections_rec
+
+    @connections_rec.setter
+    def connections_rec(self, connections_new: Optional[np.ndarray]):
+        # - Bring connections into correct shape
+        connections_new = _process_connections(connections_new, external=True)
+        # - Make sure that connections have match hardware specifications
+        if (
+            self.validate_connections(
+                connections_new, self.connections_in, verbose=True
+            )
+            == CONNECTIONS_VALID
+        ):
+            # - Update connections
+            self._connections_rec = connections_new
+            # - Update weights accordingly
+            self._update_weights()
+        else:
+            raise ValueError(
+                self.start_print + "Connections not compatible with hardware."
+            )
+
+    @property
+    def connections_in(self):
+        return self.connections_in
+
+    @connections_in.setter
+    def connections_in(self, connections_new: Optional[np.ndarray]):
+        # - Bring connections into correct shape
+        connections_new = _process_connections(connections_new, external=True)
+        # - Make sure that connections have match hardware specifications
+        if (
+            self.validate_connections(
+                self.connections_rec, connections_new, verbose=True
+            )
+            == CONNECTIONS_VALID
+        ):
+            raise ValueError(
+                self.start_print + "Connections not compatible with hardware."
+            )
+        else:
+            # - Update connections
+            self._connections_in = connections_new
+            # - Update weights accordingly
+            self._update_weights(external=True)
 
     @property
     def weights(self):
-        return self._weights
+        return self._simulator.weights
+
+    @property
+    def weights_rec(self):
+        return self._simulator.weights_rec
+
+    @property
+    def weights_in(self):
+        return self._simulator.weights_in
 
     @property
     def baseweight_e(self):
@@ -341,6 +478,7 @@ class VirtualDynapse(Layer):
             baseweight_new, "baseweight_e", nonnegative=True
         )
         self._update_weights()
+        self._update_weights(external=True)
 
     @property
     def baseweight_i(self):
@@ -352,34 +490,40 @@ class VirtualDynapse(Layer):
             baseweight_new, "baseweight_i", nonnegative=True
         )
         self._update_weights()
+        self._update_weights(external=True)
 
     @property
     def bias(self):
-        return self._bias
+        return self._simulator.bias[:: self.num_neurons_core]
 
     @bias.setter
     def bias(self, bias_new: Union[float, ArrayLike]):
-        self._bias = self._process_parameter(bias_new, "bias", nonnegative=True)
+        bias_new = self._process_parameter(bias_new, "bias", nonnegative=True)
+        self._simulator.bias = np.repeat(bias_new, self.num_neurons_core)
 
     @property
     def t_refractory(self):
-        return self._t_refractory
+        return self._simulator.t_refractory[:: self.num_neurons_core]
 
     @t_refractory.setter
     def t_refractory(self, t_refractory_new: Union[float, ArrayLike]):
-        self._t_refractory = self._process_parameter(
+        t_refractory_new = self._process_parameter(
             t_refractory_new, "t_refractory", nonnegative=True
+        )
+        self._simulator.t_refractory = np.repeat(
+            t_refractory_new, self.num_neurons_core
         )
 
     @property
     def threshold(self):
-        return self._threshold
+        return self._simulator.threshold[:: self.num_neurons_core]
 
     @threshold.setter
     def threshold(self, threshold_new: Union[float, ArrayLike]):
-        self._threshold = self._process_parameter(
+        threshold_new = self._process_parameter(
             threshold_new, "threshold", nonnegative=True
         )
+        self._simulator.threshold = np.repeat(threshold_new, self.num_neurons_core)
 
     @property
     def tau_mem_1(self):
@@ -402,26 +546,6 @@ class VirtualDynapse(Layer):
         )
 
     @property
-    def tau_syn_e(self):
-        return self._tau_syn_e
-
-    @tau_syn_e.setter
-    def tau_syn_e(self, tau_syn_e_new: Union[float, ArrayLike]):
-        self._tau_syn_e = self._process_parameter(
-            tau_syn_e_new, "tau_syn_e", nonnegative=True
-        )
-
-    @property
-    def tau_syn_i(self):
-        return self._tau_syn_i
-
-    @tau_syn_i.setter
-    def tau_syn_i(self, tau_syn_i_new: Union[float, ArrayLike]):
-        self._tau_syn_i = self._process_parameter(
-            tau_syn_i_new, "tau_syn_i", nonnegative=True
-        )
-
-    @property
     def has_tau2(self):
         return self._has_tau2
 
@@ -434,6 +558,41 @@ class VirtualDynapse(Layer):
             raise ValueError(self.start_print + "`has_tau2` must consist of booleans.")
         else:
             self._has_tau2 = new_has_tau2
+
+    @property
+    def _tau_mem_all(self):
+        # - Expand arrays of time constants from core-wise to neuron-wise
+        tau_mem_1_all = (
+            np.repeat(self.tau_mem_1, self.num_neurons_core) * self.has_tau2 == False
+        )
+        tau_mem_2_all = np.repeat(self.tau_mem_2, self.num_neurons_core) * self.has_tau2
+        return tau_mem_1_all + tau_mem_2_all
+
+    @property
+    def tau_mem_all(self):
+        return self._simulator.tau_mem
+
+    @property
+    def tau_syn_e(self):
+        return self._simulator.tau_syn[:: self.num_neurons_core]
+
+    @tau_syn_e.setter
+    def tau_syn_e(self, tau_syn_e_new: Union[float, ArrayLike]):
+        tau_syn_e_new = self._process_parameter(
+            tau_syn_e_new, "tau_syn_e", nonnegative=True
+        )
+        self._simulator.tau_syn = np.repeat(tau_syn_e_new, self.num_neurons_core)
+
+    @property
+    def tau_syn_i(self):
+        return self._simulator.tau_syn_inh[:: self.num_neurons_core]
+
+    @tau_syn_i.setter
+    def tau_syn_i(self, tau_syn_i_new: Union[float, ArrayLike]):
+        tau_syn_i_new = self._process_parameter(
+            tau_syn_i_new, "tau_syn_i", nonnegative=True
+        )
+        self._simulator.tau_syn_inh = np.repeat(tau_syn_i_new, self.num_neurons_core)
 
     @property
     def num_chips(self):
@@ -460,6 +619,10 @@ class VirtualDynapse(Layer):
         return self.num_neurons_chip * self._num_chips
 
     @property
+    def num_external(self):
+        return self.num_neurons_chip
+
+    @property
     def start_print(self):
         return f"VirtualDynapse '{self.name}': "
 
@@ -471,6 +634,22 @@ class VirtualDynapse(Layer):
     def output_type(self):
         return TSEvent
 
+    @property
+    def dt(self):
+        return self._simulator.dt
+
+    @property
+    def _timestep(self):
+        return self._simulator._timestep
+
+    @property
+    def size(self):
+        return self.num_neurons
+
+    @property
+    def size_in(self):
+        return self.num_external
+
 
 # Functions:
 # - Different synapse types?
@@ -480,5 +659,3 @@ class VirtualDynapse(Layer):
 # - Syn-thresholds???
 # Limitations
 # Mismatch between parameters
-# TODO
-# Define tau_n, tau_s(inh), rec and inp weights
