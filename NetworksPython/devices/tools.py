@@ -107,18 +107,6 @@ def local_arguments(func):
     return local_func
 
 
-# # - Example on how to use local_arguments_rpyc decorator
-# @teleport_function
-# def _define_print_type():
-#     @local_arguments
-#     def print_type(obj):
-#         print(type(obj))
-#     return print_type
-# print_type = correct_argument_types(
-#     _define_print_type()
-# )  # or just print_type = _define_print_type()
-
-
 def extract_event_data(events) -> (tuple, tuple):
     """
     extract_event_data - Extract timestamps and neuron IDs from list of recorded events.
