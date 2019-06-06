@@ -3,7 +3,6 @@ Test Nest-based spiking layers from layers.internal.iaf_nest
 """
 
 import numpy as np
-import time
 
 from NetworksPython.timeseries import set_plotting_backend
 
@@ -499,6 +498,7 @@ def test_Multithreading():
     from NetworksPython.layers import RecIAFSpkInNest, FFIAFNest
     from NetworksPython import timeseries as ts
     from NetworksPython.networks import network as nw
+    import time
     import numpy as np
 
     # - Generic parameters
@@ -527,7 +527,7 @@ def test_Multithreading():
         vfVThresh=vfVThresh,
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
-        nNumCores=1,
+        num_cores=1,
         bRecord=True,
         name="FF",
     )
@@ -544,7 +544,7 @@ def test_Multithreading():
         vfVRest=vfVRest,
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
-        nNumCores=1,
+        num_cores=1,
         bRecord=True,
         name="Rec",
     )
@@ -564,7 +564,7 @@ def test_Multithreading():
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
         bRecord=True,
-        nNumCores=4,
+        num_cores=4,
         name="FF",
     )
 
@@ -581,7 +581,7 @@ def test_Multithreading():
         vfCapacity=vfCapacity,
         tRefractoryTime=tRef,
         bRecord=True,
-        nNumCores=4,
+        num_cores=4,
         name="Rec",
     )
 
@@ -621,7 +621,6 @@ def test_delays():
     from NetworksPython.layers import FFIAFNest, RecIAFSpkInNest
     from NetworksPython.networks import network as nw
     import numpy as np
-    import pylab as plt
 
     weights = [[0.001, 0.0, 0.0, 0.0]]
     vfBias = 0.375
@@ -659,12 +658,12 @@ def test_delays():
         [0.0, 0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.0],
     ]
-    mfDelayIn = [
+    delay_in = [
         [0.001, 0.011, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
     ]
-    mfDelayRec = [
+    delay_rec = [
         [0.001, 0.001, 0.001, 0.011],
         [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
@@ -677,8 +676,8 @@ def test_delays():
     fl1 = RecIAFSpkInNest(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        mfDelayIn=mfDelayIn,
-        mfDelayRec=mfDelayRec,
+        delay_in=delay_in,
+        delay_rec=delay_rec,
         dt=0.001,
         vfBias=vfBiasRec,
         vtTauN=vtTauNRec,
@@ -712,23 +711,22 @@ def test_IAF2AEIFNest():
     from NetworksPython.layers import RecAEIFSpkInNest
     from NetworksPython import timeseries as ts
     import numpy as np
-    import pylab as plt
 
     # - Generic parameters
-    mfWIn = np.array([[-0.001, 0.002, 0.004], [0.03, -0.003, -0.0015]])
-    mfWRec = np.random.rand(3, 3) * 0.001
+    weights_in = np.array([[-0.001, 0.002, 0.004], [0.03, -0.003, -0.0015]])
+    weights_rec = np.random.rand(3, 3) * 0.001
     vfBias = 0.0
     vtTauN = [0.02, 0.05, 0.1]
     vtTauS = [0.2, 0.01, 0.01]
-    tDt = 0.001
+    dt = 0.001
     vThresh = -0.055
     vRest = -0.065
 
     # - Layer generation
     fl0 = RecIAFSpkInNest(
-        weights_in=mfWIn,
-        weights_rec=mfWRec,
-        dt=tDt,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=dt,
         vfBias=vfBias,
         vtTauN=vtTauN,
         vtTauS=vtTauS,
@@ -741,24 +739,24 @@ def test_IAF2AEIFNest():
 
     # - Layer generation
     fl1 = RecAEIFSpkInNest(
-        mfWIn=mfWIn,
-        mfWRec=mfWRec,
-        tDt=tDt,
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=dt,
         vfBias=vfBias,
         vtTauN=vtTauN,
         vtTauS=vtTauS,
         vfVThresh=vThresh,
         vfVReset=vRest,
         vfVRest=vRest,
-        fA=0.0,
-        fB=0.0,
-        fDelta_T=0.0,
+        a=0.0,
+        b=0.0,
+        delta_t=0.0,
         tRefractoryTime=0.001,
         bRecord=True,
     )
 
     # - Input signal
-    spikeTimes = np.arange(0, 1, tDt)
+    spikeTimes = np.arange(0, 1, dt)
     spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
     channels = np.random.choice([0, 1], 20, replace=True).astype(int)
 
@@ -766,9 +764,67 @@ def test_IAF2AEIFNest():
 
     # - Compare states before and after
 
-    assert (np.abs(fl0.vState - fl1.vState) < 0.00001).all()
+    assert (np.abs(fl0.state - fl1.state) < 0.00001).all()
 
-    dFl0 = fl0.evolve(tsInEvent, tDuration=1.0)
-    dFl1 = fl1.evolve(tsInEvent, tDuration=1.0)
+    dFl0 = fl0.evolve(tsInEvent, duration=1.0)
+    dFl1 = fl1.evolve(tsInEvent, duration=1.0)
 
-    assert (np.abs(fl0.vState - fl1.vState) < 0.00001).all()
+    assert (np.abs(fl0.state - fl1.state) < 0.00001).all()
+
+
+def test_SaveLoad():
+    """ Test save and load RecAEIFNest """
+    from NetworksPython.layers import RecIAFSpkInNest
+    from NetworksPython.layers import RecAEIFSpkInNest
+    from NetworksPython import timeseries as ts
+    from NetworksPython.networks import network as nw
+    import numpy as np
+
+    # - Generic parameters
+    weights_in = np.array([[-0.001, 0.002, 0.004], [0.03, -0.003, -0.0015]])
+    weights_rec = np.random.rand(3, 3) * 0.001
+    vfBias = 0.0
+    vtTauN = [0.02, 0.05, 0.1]
+    vtTauS = [0.2, 0.01, 0.01]
+    dt = 0.001
+    vThresh = -0.055
+    vRest = -0.065
+
+    # - Layer generation
+    fl0 = RecAEIFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=dt,
+        vfBias=vfBias,
+        vtTauN=vtTauN,
+        vtTauS=vtTauS,
+        vfVThresh=vThresh,
+        vfVReset=vRest,
+        vfVRest=vRest,
+        a=0.,
+        b=1.,
+        delta_t=0.,
+        tRefractoryTime=0.001,
+        bRecord=True,
+    )
+
+    net0 = nw.Network(fl0)
+    net0.save("tmp.model")
+
+    net1 = nw.Network.load("tmp.model")
+
+    # - Input signal
+    spikeTimes = np.arange(0, 1, dt)
+    spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
+    channels = np.random.choice([0, 1], 20, replace=True).astype(int)
+
+    tsInEvent = ts.TSEvent(spikeTrain0, channels)
+
+    # - Compare states before and after
+
+    assert (np.abs(net0.inputlayer.state - net1.inputlayer.state) < 0.00001).all()
+
+    dFl0 = net0.evolve(tsInEvent, duration=1.0)
+    dFl1 = net1.evolve(tsInEvent, duration=1.0)
+
+    assert (np.abs(net0.inputlayer.state - net1.inputlayer.state) < 0.00001).all()

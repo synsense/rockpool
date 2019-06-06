@@ -533,6 +533,10 @@ def correct_argument_types(func):
         return func
 
 
+# # - Example on how to use `correct_argument_types`:
+# generate_fpga_event_list = correct_argument_types(tools.generate_fpga_event_list)
+
+
 def teleport_function(conn, func):
     """
     telport_function - Decorator. If using RPyC, then teleport the resulting function
@@ -781,7 +785,7 @@ class DynapseControl:
                         core_ids[on_init_chip == False]
                     )
                 )
-            core_ids = list(core_ids[on_init_chip])
+            core_ids = [int(i_core) for i_core in core_ids[on_init_chip]]
         self.tools.reset_silencing(core_ids)
         # - Mark that neurons are not silenced anymore
         for id_neur in core_ids:
