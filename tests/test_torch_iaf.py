@@ -18,7 +18,7 @@ def test_ffiaf_torch():
     dt = 0.001
 
     weights = np.random.randn(size_in, size)
-    fl = FFIAFTorch(weights, dt=dt, bRecord=False)
+    fl = FFIAFTorch(weights, dt=dt, record=False)
 
     mfIn = (
         0.005
@@ -46,7 +46,7 @@ def test_ffiaf_torch():
     mfWTarget = weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     fl.weights[0] = mfWTarget[0]
-    assert np.allclose(fl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(fl._weights.cpu().numpy(), mfWTarget)
 
 
 def test_ffiaf_spkin_torch():
@@ -63,7 +63,7 @@ def test_ffiaf_spkin_torch():
     nSpikesIn = 50
 
     weights = np.random.randn(size_in, size)
-    fl = FFIAFSpkInTorch(weights, dt=dt, bRecord=False)
+    fl = FFIAFSpkInTorch(weights, dt=dt, record=False)
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
@@ -83,7 +83,7 @@ def test_ffiaf_spkin_torch():
     mfWTarget = weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     fl.weights[0] = mfWTarget[0]
-    assert np.allclose(fl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(fl._weights.cpu().numpy(), mfWTarget)
 
 
 def test_reciaf_torch():
@@ -99,7 +99,7 @@ def test_reciaf_torch():
     dt = 0.001
 
     weights = 0.001 * np.random.randn(size, size)
-    rl = RecIAFTorch(weights, dt=dt, vfBias=0.0101, bRecord=False)
+    rl = RecIAFTorch(weights, dt=dt, bias=0.0101, record=False)
 
     mfIn = (
         0.0001
@@ -127,7 +127,7 @@ def test_reciaf_torch():
     mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     rl.weights[0] = mfWTarget[0]
-    assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(rl._weights.cpu().numpy(), mfWTarget)
 
 
 def test_reciaf_spkin_torch():
@@ -149,7 +149,7 @@ def test_reciaf_spkin_torch():
 
     weights_in = 0.1 * np.random.randn(size_in, size)
     weights_rec = 0.001 * np.random.randn(size, size)
-    rl = RecIAFSpkInTorch(weights_in, weights_rec, dt=dt, bRecord=False)
+    rl = RecIAFSpkInTorch(weights_in, weights_rec, dt=dt, record=False)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.state)
@@ -165,7 +165,7 @@ def test_reciaf_spkin_torch():
     mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     rl.weights[0] = mfWTarget[0]
-    assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(rl._weights.cpu().numpy(), mfWTarget)
 
 
 def test_ffiaf_refr_torch():
@@ -182,8 +182,8 @@ def test_ffiaf_refr_torch():
     dt = 0.001
 
     weights = np.random.randn(size_in, size)
-    fl = FFIAFTorch(weights, dt=dt, bRecord=False)
-    flr = FFIAFRefrTorch(weights, dt=dt, bRecord=False)
+    fl = FFIAFTorch(weights, dt=dt, record=False)
+    flr = FFIAFRefrTorch(weights, dt=dt, record=False)
 
     mfIn = (
         0.005
@@ -199,19 +199,19 @@ def test_ffiaf_refr_torch():
 
     # - Compare states and time before and after
     vStateBefore = np.copy(flr.state)
-    tsOut = fl.evolve(tsIn, duration=0.08)
+    ts_out = fl.evolve(tsIn, duration=0.08)
     tsOutR = flr.evolve(tsIn, duration=0.08)
 
     assert flr.t == 0.08
     assert (vStateBefore != flr.state).any()
-    assert (tsOut.times == tsOutR.times).all()
-    assert (tsOut.channels == tsOutR.channels).all()
+    assert (ts_out.times == tsOutR.times).all()
+    assert (ts_out.channels == tsOutR.channels).all()
 
     flr.reset_all()
     assert flr.t == 0
     assert (vStateBefore == flr.state).all()
 
-    flr.tRefractoryTime = 0.01
+    flr.refractory = 0.01
 
     tsOutR2 = flr.evolve(tsIn, duration=0.08)
     assert tsOutR2.times.size < tsOutR.times.size
@@ -220,7 +220,7 @@ def test_ffiaf_refr_torch():
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
-    flr2 = FFIAFRefrTorch(weights, dt=dt, bRecord=False, tRefractoryTime=0.01)
+    flr2 = FFIAFRefrTorch(weights, dt=dt, record=False, refractory=0.01)
     tsOutR3 = flr2.evolve(tsIn, duration=0.08)
 
     assert (tsOutR2.times == tsOutR3.times).all()
@@ -230,7 +230,7 @@ def test_ffiaf_refr_torch():
     mfWTarget = flr.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     flr.weights[0] = mfWTarget[0]
-    assert np.allclose(flr._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(flr._weights.cpu().numpy(), mfWTarget)
 
 
 def test_ffiaf_spkin_refr_torch():
@@ -248,8 +248,8 @@ def test_ffiaf_spkin_refr_torch():
     nSpikesIn = 50
 
     weights = np.random.randn(size_in, size)
-    fl = FFIAFSpkInTorch(weights, dt=dt, bRecord=False)
-    flr = FFIAFSpkInRefrTorch(weights, dt=dt, bRecord=False)
+    fl = FFIAFSpkInTorch(weights, dt=dt, record=False)
+    flr = FFIAFSpkInRefrTorch(weights, dt=dt, record=False)
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
@@ -257,18 +257,18 @@ def test_ffiaf_spkin_refr_torch():
 
     # - Compare states and time before and after
     vStateBefore = np.copy(flr.state)
-    tsOut = fl.evolve(tsIn, duration=0.08)
+    ts_out = fl.evolve(tsIn, duration=0.08)
     tsOutR = flr.evolve(tsIn, duration=0.08)
     assert flr.t == 0.08
     assert (vStateBefore != flr.state).any()
-    assert (tsOut.times == tsOutR.times).all()
-    assert (tsOut.channels == tsOutR.channels).all()
+    assert (ts_out.times == tsOutR.times).all()
+    assert (ts_out.channels == tsOutR.channels).all()
 
     flr.reset_all()
     assert flr.t == 0
     assert (vStateBefore == flr.state).all()
 
-    flr.tRefractoryTime = 0.01
+    flr.refractory = 0.01
 
     tsOutR2 = flr.evolve(tsIn, duration=0.08)
     assert tsOutR2.times.size < tsOutR.times.size
@@ -277,7 +277,7 @@ def test_ffiaf_spkin_refr_torch():
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
-    flr2 = FFIAFSpkInRefrTorch(weights, dt=dt, bRecord=False, tRefractoryTime=0.01)
+    flr2 = FFIAFSpkInRefrTorch(weights, dt=dt, record=False, refractory=0.01)
     tsOutR3 = flr2.evolve(tsIn, duration=0.08)
 
     assert (tsOutR2.times == tsOutR3.times).all()
@@ -287,7 +287,7 @@ def test_ffiaf_spkin_refr_torch():
     mfWTarget = flr.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     flr.weights[0] = mfWTarget[0]
-    assert np.allclose(flr._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(flr._weights.cpu().numpy(), mfWTarget)
 
 
 def test_reciaf_refr_torch():
@@ -306,8 +306,8 @@ def test_reciaf_refr_torch():
     dt = 0.001
 
     weights = 0.001 * np.random.randn(size, size)
-    rl = RecIAFTorch(weights, dt=dt, vfBias=0.0101, bRecord=False)
-    rlr = RecIAFRefrTorch(weights, dt=dt, vfBias=0.0101, bRecord=False)
+    rl = RecIAFTorch(weights, dt=dt, bias=0.0101, record=False)
+    rlr = RecIAFRefrTorch(weights, dt=dt, bias=0.0101, record=False)
 
     mfIn = (
         0.001
@@ -323,18 +323,18 @@ def test_reciaf_refr_torch():
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rlr.state)
-    tsOut = rl.evolve(tsIn, duration=0.4)
+    ts_out = rl.evolve(tsIn, duration=0.4)
     tsOutR = rlr.evolve(tsIn, duration=0.4)
     assert rlr.t == 0.4
     assert (vStateBefore != rlr.state).any()
-    assert (tsOut.times == tsOutR.times).all()
-    assert (tsOut.channels == tsOutR.channels).all()
+    assert (ts_out.times == tsOutR.times).all()
+    assert (ts_out.channels == tsOutR.channels).all()
 
     rlr.reset_all()
     assert rlr.t == 0
     assert (vStateBefore == rlr.state).all()
 
-    rlr.tRefractoryTime = 0.01
+    rlr.refractory = 0.01
 
     tsOutR2 = rlr.evolve(tsIn, duration=0.4)
     assert tsOutR2.times.size < tsOutR.times.size
@@ -344,7 +344,7 @@ def test_reciaf_refr_torch():
         ).all()
 
     rlr2 = RecIAFRefrTorch(
-        weights, dt=dt, vfBias=0.0101, bRecord=False, tRefractoryTime=0.01
+        weights, dt=dt, bias=0.0101, record=False, refractory=0.01
     )
     tsOutR3 = rlr2.evolve(tsIn, duration=0.4)
 
@@ -355,7 +355,7 @@ def test_reciaf_refr_torch():
     mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     rl.weights[0] = mfWTarget[0]
-    assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(rl._weights.cpu().numpy(), mfWTarget)
 
 
 def test_reciaf_spkin_refr_torch():
@@ -380,23 +380,23 @@ def test_reciaf_spkin_refr_torch():
 
     weights_in = 0.1 * np.random.randn(size_in, size)
     weights_rec = 0.001 * np.random.randn(size, size)
-    rl = RecIAFSpkInTorch(weights_in, weights_rec, dt=dt, bRecord=False)
-    rlr = RecIAFSpkInRefrTorch(weights_in, weights_rec, dt=dt, bRecord=False)
+    rl = RecIAFSpkInTorch(weights_in, weights_rec, dt=dt, record=False)
+    rlr = RecIAFSpkInRefrTorch(weights_in, weights_rec, dt=dt, record=False)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.state)
-    tsOut = rl.evolve(tsIn, duration=0.08)
+    ts_out = rl.evolve(tsIn, duration=0.08)
     tsOutR = rlr.evolve(tsIn, duration=0.08)
     assert rlr.t == 0.08
     assert (vStateBefore != rlr.state).any()
-    assert (tsOut.times == tsOutR.times).all()
-    assert (tsOut.channels == tsOutR.channels).all()
+    assert (ts_out.times == tsOutR.times).all()
+    assert (ts_out.channels == tsOutR.channels).all()
 
     rlr.reset_all()
     assert rlr.t == 0
     assert (vStateBefore == rlr.state).all()
 
-    rlr.tRefractoryTime = 0.01
+    rlr.refractory = 0.01
 
     tsOutR2 = rlr.evolve(tsIn, duration=0.08)
     assert tsOutR2.times.size < tsOutR.times.size
@@ -406,7 +406,7 @@ def test_reciaf_spkin_refr_torch():
         ).all()
 
     rlr2 = RecIAFSpkInRefrTorch(
-        weights_in, weights_rec, dt=dt, bRecord=False, tRefractoryTime=0.01
+        weights_in, weights_rec, dt=dt, record=False, refractory=0.01
     )
     tsOutR3 = rlr2.evolve(tsIn, duration=0.08)
 
@@ -417,7 +417,7 @@ def test_reciaf_spkin_refr_torch():
     mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     rl.weights[0] = mfWTarget[0]
-    assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(rl._weights.cpu().numpy(), mfWTarget)
 
 
 def test_reciaf_spkin_refr_cl_torch():
@@ -441,7 +441,7 @@ def test_reciaf_spkin_refr_cl_torch():
 
     weights_in = 0.1 * np.random.randn(size_in, size)
     weights_rec = 0.001 * np.random.randn(size, size)
-    rl = RecIAFSpkInRefrCLTorch(weights_in, weights_rec, dt=dt, bRecord=False)
+    rl = RecIAFSpkInRefrCLTorch(weights_in, weights_rec, dt=dt, record=False)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.state)
@@ -457,4 +457,4 @@ def test_reciaf_spkin_refr_cl_torch():
     mfWTarget = rl.weights.copy()
     mfWTarget[0] = np.random.rand(*(mfWTarget[0].shape))
     rl.weights[0] = mfWTarget[0]
-    assert np.allclose(rl._mfW.cpu().numpy(), mfWTarget)
+    assert np.allclose(rl._weights.cpu().numpy(), mfWTarget)

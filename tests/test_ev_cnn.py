@@ -21,7 +21,7 @@ def test_cnn_initialization():
     from NetworksPython.weights import CNNWeight
 
     # Initialize weights
-    cnnW = CNNWeight(inShape=(20, 20))
+    cnnW = CNNWeight(inp_shape=(20, 20))
 
     # Initialize a CNN layer with CN weights
     lyrCNN = EventDrivenSpikingLayer(weights=cnnW, name="CNN")
@@ -36,20 +36,20 @@ def test_cnn_evolve():
     from NetworksPython.weights import CNNWeight
 
     # Initialize weights
-    cnnW = CNNWeight(inShape=(20, 20))
+    cnnW = CNNWeight(inp_shape=(20, 20))
 
     # Initialize a CNN layer with CN weights
-    lyrCNN = EventDrivenSpikingLayer(weights=cnnW, vfVThresh=0.5, name="CNN")
+    lyrCNN = EventDrivenSpikingLayer(weights=cnnW, v_thresh=0.5, name="CNN")
 
     # Generate time series input
     evInput = TSEvent(None, name="Input")
     for nId in range(lyrCNN.size):
-        vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), inplace = True)
+        input_times = poisson_generator(40.0, t_stop=100)
+        evInput.merge(TSEvent(input_times, nId), inplace = True)
 
     # Evolve
-    evOut = lyrCNN.evolve(ts_input=evInput, duration=100)
-    print(evOut())
+    out_events = lyrCNN.evolve(ts_input=evInput, duration=100)
+    print(out_events())
 
 
 def test_cnn_multilayer():
@@ -64,24 +64,24 @@ def test_cnn_multilayer():
     imageShape = (10, 10)
 
     # Initialize weights
-    cnnW1 = CNNWeight(inShape=imageShape, nKernels=2, kernel_size=(3, 3))
-    cnnW2 = CNNWeight(inShape=(2, *imageShape), nKernels=2, kernel_size=(3, 3))
+    cnnW1 = CNNWeight(inp_shape=imageShape, kernels=2, kernel_size=(3, 3))
+    cnnW2 = CNNWeight(inp_shape=(2, *imageShape), kernels=2, kernel_size=(3, 3))
 
     # Initialize a CNN layer with CN weights
-    lyrCnn1 = EventDrivenSpikingLayer(weights=cnnW1, vfVThresh=0.5, name="CNN1")
-    lyrCnn2 = EventDrivenSpikingLayer(weights=cnnW2, vfVThresh=0.5, name="CNN2")
+    lyrCnn1 = EventDrivenSpikingLayer(weights=cnnW1, v_thresh=0.5, name="CNN1")
+    lyrCnn2 = EventDrivenSpikingLayer(weights=cnnW2, v_thresh=0.5, name="CNN2")
 
     net = Network(*[lyrCnn1, lyrCnn2])
 
     # Generate time series input
     evInput = TSEvent(None, name="Input")
     for nId in range(imageShape[0] * imageShape[1]):
-        vSpk = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(vSpk, nId), inplace = True)
+        input_times = poisson_generator(40.0, t_stop=100)
+        evInput.merge(TSEvent(input_times, nId), inplace = True)
 
     # Evolve
-    evOut = net.evolve(ts_input=evInput, duration=100)
-    print(evOut)
+    out_events = net.evolve(ts_input=evInput, duration=100)
+    print(out_events)
 
 
 # This is a convenience function, not a test function

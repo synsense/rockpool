@@ -31,7 +31,7 @@ def fano_factor(tsevents: TSEvent, dt: float = 0.001) -> float:
     """
     FanoFactor() - put as input a spike detector nest object and return mean FanoFactor of the network
 
-    :param tDt: float raster timestep in sec
+    :param dt: float raster timestep in sec
     :return: float FanoFactor
     """
     raster = tsevents.raster(dt, add_events=True).T

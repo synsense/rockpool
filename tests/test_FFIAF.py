@@ -21,17 +21,17 @@ def test_ffiaf():
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl0 = FFIAFBrian(
         weights=weights,
         dt=0.01,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
+        bias=bias,
+        tau_mem=tau_mem,
         noise_std=0.1,
-        tRefractoryTime=0.001 * second,
+        refractory=0.001 * second,
     )
 
     # - Input signal
@@ -55,17 +55,17 @@ def test_ffiaf_spkin():
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl1 = FFIAFSpkInBrian(
         weights=weights,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
+        bias=bias,
+        tau_mem=tau_mem,
         dt=0.01,
         noise_std=0.1,
-        tRefractoryTime=0.001,
+        refractory=0.001,
     )
 
     # - Input signal
@@ -91,18 +91,18 @@ def test_reciaf():
     # - Generic parameters
     np.random.seed(1)
     weights = 2 * np.random.rand(3, 3) - 1
-    vfBias = 2 * np.random.rand(3) - 1
-    vtTauN, vtTauSynR = np.clip(np.random.rand(2, 3), 0.01, None)
+    bias = 2 * np.random.rand(3) - 1
+    tau_mem, tau_syn_r = np.clip(np.random.rand(2, 3), 0.01, None)
 
     # - Layer generation
     rl0 = RecIAFBrian(
         weights=weights,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauSynR=vtTauSynR,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_r=tau_syn_r,
         dt=0.01,
         noise_std=0.1,
-        tRefractoryTime=0.001 * second,
+        refractory=0.001 * second,
     )
 
     # - Input signal
@@ -128,20 +128,20 @@ def test_reciaf_spkin():
     np.random.seed(1)
     weights_in = np.random.rand(2, 3) - 1
     weights_rec = 2 * np.random.rand(3, 3) - 1
-    vfBias = 2 * np.random.rand(3) - 1
-    vtTauN, vtTauSInp, vtTauSRec = np.clip(np.random.rand(3, 3), 0.01, None)
+    bias = 2 * np.random.rand(3) - 1
+    tau_mem, tau_syn_inp, tau_syn_rec = np.clip(np.random.rand(3, 3), 0.01, None)
 
     # - Layer generation
     rl1 = RecIAFSpkInBrian(
         weights_in=weights_in,
         weights_rec=weights_rec,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauSInp=vtTauSInp,
-        vtTauSRec=vtTauSRec,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_inp=tau_syn_inp,
+        tau_syn_rec=tau_syn_rec,
         dt=0.01,
         noise_std=0.1,
-        tRefractoryTime=0.001,
+        refractory=0.001,
     )
 
     # - Input signal

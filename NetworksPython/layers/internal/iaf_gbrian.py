@@ -104,16 +104,16 @@ class FFIAFBrian(Layer):
     def __init__(
         self,
         weights: np.ndarray,
-        vfBias: Union[float, np.ndarray] = 15 * mA,
+        bias: Union[float, np.ndarray] = 15 * mA,
         dt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
-        vtTauN: Union[float, np.ndarray] = 20 * ms,
-        vfVThresh: Union[float, np.ndarray] = -55 * mV,
-        vfVReset: Union[float, np.ndarray] = -65 * mV,
-        vfVRest: Union[float, np.ndarray] = -65 * mV,
-        tRefractoryTime=0 * ms,
-        eqNeurons=eqNeuronIAFFF,
-        strIntegrator: str = "rk4",
+        noise_std: float = 0 * mV,
+        tau_mem: Union[float, np.ndarray] = 20 * ms,
+        v_thresh: Union[float, np.ndarray] = -55 * mV,
+        v_reset: Union[float, np.ndarray] = -65 * mV,
+        v_rest: Union[float, np.ndarray] = -65 * mV,
+        refractory=0 * ms,
+        neuron_eq=eqNeuronIAFFF,
+        integrator_name: str = "rk4",
         name: str = "unnamed",
     ):
         """
@@ -121,22 +121,22 @@ class FFIAFBrian(Layer):
                      Inputs are continuous currents; outputs are spiking events
 
         :param weights:             np.array MxN weight matrix.
-        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
+        :param bias:          np.array Nx1 bias vector. Default: 10mA
 
         :param dt:             float Time-step. Default: 0.1 ms
-        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+        :param noise_std:       float Noise std. dev. per second. Default: 0
 
-        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
+        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
 
-        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
+        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
+        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
+        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+        :param refractory: float Refractory period after each spike. Default: 0ms
 
-        :param eqNeurons:       Brian2.Equations set of neuron equations. Default: IAF equation set
+        :param neuron_eq:       Brian2.Equations set of neuron equations. Default: IAF equation set
 
-        :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
+        :param integrator_name:   str Integrator to use for simulation. Default: 'rk4'
 
         :param name:         str Name for the layer. Default: 'unnamed'
         """
@@ -145,55 +145,55 @@ class FFIAFBrian(Layer):
         super().__init__(
             weights=np.asarray(weights),
             dt=np.asarray(dt),
-            fNoiseStd=np.asarray(fNoiseStd),
+            noise_std=np.asarray(noise_std),
             name=name,
         )
 
         # - Set up layer neurons
-        self._ngLayer = b2.NeuronGroup(
-            self.nSize,
-            eqNeurons,
+        self._neuron_group = b2.NeuronGroup(
+            self.size,
+            neuron_eq,
             threshold="v > v_thresh",
             reset="v = v_reset",
-            refractory=np.asarray(tRefractoryTime) * second,
-            method=strIntegrator,
+            refractory=np.asarray(refractory) * second,
+            method=integrator_name,
             dt=np.asarray(dt) * second,
             name="spiking_ff_neurons",
         )
-        self._ngLayer.v = vfVRest
-        self._ngLayer.r_m = 1 * ohm
+        self._neuron_group.v = v_rest
+        self._neuron_group.r_m = 1 * ohm
 
         # - Add monitors to record layer outputs
-        self._spmLayer = b2.SpikeMonitor(
-            self._ngLayer, record=True, name="layer_spikes"
+        self._layer = b2.SpikeMonitor(
+            self._neuron_group, record=True, name="layer_spikes"
         )
 
         # - Call Network constructor
-        self._net = b2.Network(self._ngLayer, self._spmLayer, name="ff_spiking_layer")
+        self._net = b2.Network(self._neuron_group, self._layer, name="ff_spiking_layer")
 
         # - Record neuron parameters
-        self.vfVThresh = vfVThresh
-        self.vfVReset = vfVReset
-        self.vfVRest = vfVRest
-        self.vtTauN = vtTauN
-        self.vfBias = vfBias
+        self.v_thresh = v_thresh
+        self.v_reset = v_reset
+        self.v_rest = v_rest
+        self.tau_mem = tau_mem
+        self.bias = bias
         self.weights = weights
 
         # - Store "reset" state
         self._net.store("reset")
 
     def reset_state(self):
-        """ .reset_state() - Method: reset the internal state of the layer
+        """ .reset_state() - arguments:: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self._ngLayer.v = self.vfVRest * volt
+        self._neuron_group.v = self.v_rest * volt
 
     def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
+        """ .randomize_state() - arguments:: randomize the internal state of the layer
             Usage: .randomize_state()
         """
-        fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
+        v_range = abs(self.v_thresh - self.v_reset)
+        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
 
     def reset_time(self):
         """
@@ -201,30 +201,30 @@ class FFIAFBrian(Layer):
         """
 
         # - Sotre state variables
-        vfV = np.copy(self._ngLayer.v) * volt
+        v_state = np.copy(self._neuron_group.v) * volt
 
         # - Store parameters
-        vfVThresh = np.copy(self.vfVThresh)
-        vfVReset = np.copy(self.vfVReset)
-        vfVRest = np.copy(self.vfVRest)
-        vtTauN = np.copy(self.vtTauN)
-        vfBias = np.copy(self.vfBias)
+        v_thresh = np.copy(self.v_thresh)
+        v_reset = np.copy(self.v_reset)
+        v_rest = np.copy(self.v_rest)
+        tau_mem = np.copy(self.tau_mem)
+        bias = np.copy(self.bias)
         weights = np.copy(self.weights)
 
         # - Reset network
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self.time_step = 0
 
         # - Restork parameters
-        self.vfVThresh = vfVThresh
-        self.vfVReset = vfVReset
-        self.vfVRest = vfVRest
-        self.vtTauN = vtTauN
-        self.vfBias = vfBias
+        self.v_thresh = v_thresh
+        self.v_reset = v_reset
+        self.v_rest = v_rest
+        self.tau_mem = tau_mem
+        self.bias = bias
         self.weights = weights
 
         # - Restore state variables
-        self._ngLayer.v = vfV
+        self._neuron_group.v = v_state
 
     ### --- State evolution
 
@@ -233,7 +233,7 @@ class FFIAFBrian(Layer):
         ts_input: Optional[TSContinuous] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        bVerbose: bool = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
@@ -241,32 +241,32 @@ class FFIAFBrian(Layer):
         :param tsSpkInput:      TSContinuous  Input spike trian
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        vtTimeBase, mfInputStep, num_timesteps = self._prepare_input(
+        time_base, input_steps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Weight inputs
-        mfNeuronInputStep = mfInputStep @ self.weights
+        neuron_inp_step = input_steps @ self.weights
 
         # - Generate a noise trace
-        mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+        noise_step = (
+            np.random.randn(np.size(time_base), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.dt)
+            * self.noise_std
+            * np.sqrt(2. * self.tau_mem / self.dt)
             * 1.63
         )
 
         # - Specifiy network input currents, construct TimedArray
-        taI_inp = TAShift(
-            np.asarray(mfNeuronInputStep + mfNoiseStep) * amp,
+        inp_current = TAShift(
+            np.asarray(neuron_inp_step + noise_step) * amp,
             self.dt * second,
             tOffset=self.t * second,
             name="external_input",
@@ -274,93 +274,93 @@ class FFIAFBrian(Layer):
 
         # - Perform simulation
         self._net.run(
-            num_timesteps * self.dt * second, namespace={"I_inp": taI_inp}, level=0
+            num_timesteps * self.dt * second, namespace={"I_inp": inp_current}, level=0
         )
-        self._nTimeStep += num_timesteps
+        self.time_step += num_timesteps
 
         # - Build response TimeSeries
-        vbUseEvent = self._spmLayer.t_ >= vtTimeBase[0]
-        vtEventTimeOutput = self._spmLayer.t_[vbUseEvent]
-        vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
+        use_event = self._layer.t_ >= time_base[0]
+        event_time_out = self._layer.t_[use_event]
+        event_channel_out = self._layer.i[use_event]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, name="Layer spikes")
+        return TSEvent(event_time_out, event_channel_out, name="Layer spikes")
 
     def stream(
-        self, duration: float, dt: float, bVerbose: bool = False
+        self, duration: float, dt: float, verbose: bool = False
     ) -> Tuple[float, List[float]]:
         """
         stream - Stream data through this layer
         :param duration:   float Total duration for which to handle streaming
         :param dt:         float Streaming time step
-        :param bVerbose:    bool Display feedback
+        :param verbose:    bool Display feedback
 
-        :yield: (vtEventTimes, vnEventChannels)
+        :yield: (event_times, event_channels)
 
-        :return: Final (vtEventTimes, vnEventChannels)
+        :return: Final (event_times, event_channels)
         """
 
         # - Initialise simulation, determine how many dt to evolve for
-        if bVerbose:
+        if verbose:
             print("Layer: I'm preparing")
-        vtTimeTrace = np.arange(0, duration + dt, dt)
-        nNumSteps = np.size(vtTimeTrace) - 1
+        time_trace = np.arange(0, duration + dt, dt)
+        num_steps = np.size(time_trace) - 1
 
         # - Generate a noise trace
-        mfNoiseStep = (
-            np.random.randn(np.size(vtTimeTrace), self.nSize)
+        noise_step = (
+            np.random.randn(np.size(time_trace), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.dt)
+            * self.noise_std
+            * np.sqrt(2. * self.tau_mem / self.dt)
             * 1.63
         )
 
         # - Generate a TimedArray to use for step-constant input currents
-        taI_inp = TAShift(
+        inp_current = TAShift(
             np.zeros((1, self._size_in)) * amp, self.dt * second, name="external_input"
         )
 
-        if bVerbose:
+        if verbose:
             print("Layer: Prepared")
 
         # - Loop over dt steps
-        for nStep in range(nNumSteps):
-            if bVerbose:
+        for step in range(num_steps):
+            if verbose:
                 print("Layer: Yielding from internal state.")
-            if bVerbose:
-                print("Layer: step", nStep)
-            if bVerbose:
+            if verbose:
+                print("Layer: step", step)
+            if verbose:
                 print("Layer: Waiting for input...")
 
             # - Yield current output spikes, receive input for next time step
-            vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[nStep]
-            if bVerbose:
-                print("Layer: Yielding {} spikes".format(np.sum(vbUseEvents)))
-            tupInput = (
-                yield self._spmLayer.t_[vbUseEvents],
-                self._spmLayer.i_[vbUseEvents],
+            use_events = self._layer.t_ >= time_trace[step]
+            if verbose:
+                print("Layer: Yielding {} spikes".format(np.sum(use_events)))
+            inp = (
+                yield self._layer.t_[use_events],
+                self._layer.i_[use_events],
             )
 
             # - Specify network input currents for this streaming step
-            if tupInput is None:
-                taI_inp.values = mfNoiseStep[nStep, :]
+            if inp is None:
+                inp_current.values = noise_step[step, :]
             else:
-                taI_inp.values = (
-                    np.reshape(tupInput[1][0, :], (1, -1)) + mfNoiseStep[nStep, :]
+                inp_current.values = (
+                    np.reshape(inp[1][0, :], (1, -1)) + noise_step[step, :]
                 )
 
             # - Reinitialise TimedArray
-            taI_inp._init_2d()
+            inp_current._init_2d()
 
-            if bVerbose:
-                print("Layer: Input was: ", tupInput)
+            if verbose:
+                print("Layer: Input was: ", inp)
 
             # - Evolve layer (increments time implicitly)
-            self._net.run(dt * second, namespace={"I_inp": taI_inp}, level=0)
+            self._net.run(dt * second, namespace={"I_inp": inp_current}, level=0)
 
         # - Return final spikes, if any
-        vbUseEvents = self._spmLayer.t_ >= vtTimeTrace[-2]  # Should be duration - dt
-        return self._spmLayer.t_[vbUseEvents], self._spmLayer.i_[vbUseEvents]
+        use_events = self._layer.t_ >= time_trace[-2]  # Should be duration - dt
+        return self._layer.t_[use_events], self._layer.i_[use_events]
 
     ### --- Properties
 
@@ -369,67 +369,67 @@ class FFIAFBrian(Layer):
         return TSEvent
 
     @property
-    def tRefractoryTime(self):
-        return self._ngLayer._refractory
+    def refractory(self):
+        return self._neuron_group._refractory
 
     @property
-    def vState(self):
-        return self._ngLayer.v_
+    def state(self):
+        return self._neuron_group.v_
 
-    @vState.setter
-    def vState(self, vNewState):
-        self._ngLayer.v = (
-            np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * volt
+    @state.setter
+    def state(self, new_state):
+        self._neuron_group.v = (
+            np.asarray(self._expand_to_net_size(new_state, "new_state")) * volt
         )
 
     @property
-    def vtTauN(self):
-        return self._ngLayer.tau_m_
+    def tau_mem(self):
+        return self._neuron_group.tau_m_
 
-    @vtTauN.setter
-    def vtTauN(self, vtNewTauN):
-        self._ngLayer.tau_m = (
-            np.asarray(self._expand_to_net_size(vtNewTauN, "vtNewTauN")) * second
+    @tau_mem.setter
+    def tau_mem(self, new_tau_mem):
+        self._neuron_group.tau_m = (
+            np.asarray(self._expand_to_net_size(new_tau_mem, "new_tau_mem")) * second
         )
 
     @property
-    def vfBias(self):
-        return self._ngLayer.I_bias_
+    def bias(self):
+        return self._neuron_group.I_bias_
 
-    @vfBias.setter
-    def vfBias(self, vfNewBias):
-        self._ngLayer.I_bias = (
-            np.asarray(self._expand_to_net_size(vfNewBias, "vfNewBias")) * amp
+    @bias.setter
+    def bias(self, new_bias):
+        self._neuron_group.I_bias = (
+            np.asarray(self._expand_to_net_size(new_bias, "new_bias")) * amp
         )
 
     @property
-    def vfVThresh(self):
-        return self._ngLayer.v_thresh_
+    def v_thresh(self):
+        return self._neuron_group.v_thresh_
 
-    @vfVThresh.setter
-    def vfVThresh(self, vfNewVThresh):
-        self._ngLayer.v_thresh = (
-            np.asarray(self._expand_to_net_size(vfNewVThresh, "vfNewVThresh")) * volt
+    @v_thresh.setter
+    def v_thresh(self, new_v_thresh):
+        self._neuron_group.v_thresh = (
+            np.asarray(self._expand_to_net_size(new_v_thresh, "new_v_thresh")) * volt
         )
 
     @property
-    def vfVRest(self):
-        return self._ngLayer.v_rest_
+    def v_rest(self):
+        return self._neuron_group.v_rest_
 
-    @vfVRest.setter
-    def vfVRest(self, vfNewVRest):
-        self._ngLayer.v_rest = (
-            np.asarray(self._expand_to_net_size(vfNewVRest, "vfNewVRest")) * volt
+    @v_rest.setter
+    def v_rest(self, new_v_rest):
+        self._neuron_group.v_rest = (
+            np.asarray(self._expand_to_net_size(new_v_rest, "new_v_rest")) * volt
         )
 
     @property
-    def vfVReset(self):
-        return self._ngLayer.v_reset_
+    def v_reset(self):
+        return self._neuron_group.v_reset_
 
-    @vfVReset.setter
-    def vfVReset(self, vfNewVReset):
-        self._ngLayer.v_reset = (
-            np.asarray(self._expand_to_net_size(vfNewVReset, "vfNewVReset")) * volt
+    @v_reset.setter
+    def v_reset(self, new_v_reset):
+        self._neuron_group.v_reset = (
+            np.asarray(self._expand_to_net_size(new_v_reset, "new_v_reset")) * volt
         )
 
     @property
@@ -450,46 +450,46 @@ class FFIAFSpkInBrian(FFIAFBrian):
     def __init__(
         self,
         weights: np.ndarray,
-        vfBias: np.ndarray = 10 * mA,
+        bias: np.ndarray = 10 * mA,
         dt: float = 0.1 * ms,
-        fNoiseStd: float = 0 * mV,
-        vtTauN: np.ndarray = 20 * ms,
-        vtTauS: np.ndarray = 20 * ms,
-        vfVThresh: np.ndarray = -55 * mV,
-        vfVReset: np.ndarray = -65 * mV,
-        vfVRest: np.ndarray = -65 * mV,
-        tRefractoryTime=0 * ms,
-        eqNeurons=eqNeuronIAFSpkInFF,
-        strIntegrator: str = "rk4",
+        noise_std: float = 0 * mV,
+        tau_mem: np.ndarray = 20 * ms,
+        tau_syn: np.ndarray = 20 * ms,
+        v_thresh: np.ndarray = -55 * mV,
+        v_reset: np.ndarray = -65 * mV,
+        v_rest: np.ndarray = -65 * mV,
+        refractory=0 * ms,
+        neuron_eq=eqNeuronIAFSpkInFF,
+        integrator_name: str = "rk4",
         name: str = "unnamed",
-        bRecord: bool = False,
+        record: bool = False,
     ):
         """
         FFIAFSpkInBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
                           in- and outputs are spiking events
 
         :param weights:             np.array MxN weight matrix.
-        :param vfBias:          np.array Nx1 bias vector. Default: 10mA
+        :param bias:          np.array Nx1 bias vector. Default: 10mA
 
         :param dt:             float Time-step. Default: 0.1 ms
-        :param fNoiseStd:       float Noise std. dev. per second. Default: 0
+        :param noise_std:       float Noise std. dev. per second. Default: 0
 
-        :param vtTauN:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param vtTauS:          np.array Nx1 vector of synapse time constants. Default: 20ms
+        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
+        :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
 
-        :param vfVThresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param vfVReset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param vfVRest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
+        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
+        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
+        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+        :param refractory: float Refractory period after each spike. Default: 0ms
 
-        :param eqNeurons:       Brian2.Equations set of neuron equations. Default: IAF equation set
+        :param neuron_eq:       Brian2.Equations set of neuron equations. Default: IAF equation set
 
-        :param strIntegrator:   str Integrator to use for simulation. Default: 'rk4'
+        :param integrator_name:   str Integrator to use for simulation. Default: 'rk4'
 
         :param name:         str Name for the layer. Default: 'unnamed'
 
-        :param bRecord:         bool Record membrane potential during evolutions
+        :param record:         bool Record membrane potential during evolutions
         """
 
         b2.defaultclock.dt = dt
@@ -499,66 +499,66 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self,
             weights=weights,
             dt=np.asarray(dt),
-            fNoiseStd=np.asarray(fNoiseStd),
+            noise_std=np.asarray(noise_std),
             name=name,
         )
 
         # - Set up spike source to receive spiking input
-        self._sggInput = b2.SpikeGeneratorGroup(
-            self.nSizeIn, [0], [0 * second]
+        self._input_generator = b2.SpikeGeneratorGroup(
+            self.size_in, [0], [0 * second]
         )
         # - Set up layer neurons
-        self._ngLayer = b2.NeuronGroup(
-            self.nSize,
-            eqNeurons,
+        self._neuron_group = b2.NeuronGroup(
+            self.size,
+            neuron_eq,
             threshold="v > v_thresh",
             reset="v = v_reset",
-            refractory=np.asarray(tRefractoryTime) * second,
-            method=strIntegrator,
+            refractory=np.asarray(refractory) * second,
+            method=integrator_name,
             name="spiking_ff_neurons",
         )
-        self._ngLayer.v = vfVRest
-        self._ngLayer.r_m = 1 * ohm
+        self._neuron_group.v = v_rest
+        self._neuron_group.r_m = 1 * ohm
 
         # - Add source -> receiver synapses
-        self._sgReceiver = b2.Synapses(
-            self._sggInput,
-            self._ngLayer,
+        self._inp_synapses = b2.Synapses(
+            self._input_generator,
+            self._neuron_group,
             model="w : 1",
             on_pre="I_syn_post += w*amp",
-            method=strIntegrator,
+            method=integrator_name,
             name="receiver_synapses",
         )
-        self._sgReceiver.connect()
+        self._inp_synapses.connect()
 
         # - Add monitors to record layer outputs
-        self._spmLayer = b2.SpikeMonitor(
-            self._ngLayer, record=True, name="layer_spikes"
+        self._layer = b2.SpikeMonitor(
+            self._neuron_group, record=True, name="layer_spikes"
         )
 
         # - Call Network constructor
         self._net = b2.Network(
-            self._sggInput,
-            self._sgReceiver,
-            self._ngLayer,
-            self._spmLayer,
+            self._input_generator,
+            self._inp_synapses,
+            self._neuron_group,
+            self._layer,
             name="ff_spiking_layer",
         )
 
-        if bRecord:
+        if record:
             # - Monitor for recording network potential
-            self._stmVmem = b2.StateMonitor(
-                self._ngLayer, ["v"], record=True, name="layer_potential"
+            self.state_monitor = b2.StateMonitor(
+                self._neuron_group, ["v"], record=True, name="layer_potential"
             )
-            self._net.add(self._stmVmem)
+            self._net.add(self.state_monitor)
 
         # - Record neuron parameters
-        self.vfVThresh = vfVThresh
-        self.vfVReset = vfVReset
-        self.vfVRest = vfVRest
-        self.vtTauN = vtTauN
-        self.vtTauS = vtTauS
-        self.vfBias = vfBias
+        self.v_thresh = v_thresh
+        self.v_reset = v_reset
+        self.v_rest = v_rest
+        self.tau_mem = tau_mem
+        self.tau_syn = tau_syn
+        self.bias = bias
         self.weights = weights
 
         # - Store "reset" state
@@ -569,7 +569,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        bVerbose: bool = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input
@@ -577,40 +577,40 @@ class FFIAFSpkInBrian(FFIAFBrian):
         :param tsSpkInput:      TSEvent  Input spike trian
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps    int      Number of evolution time steps
-        :param bVerbose:        bool     Currently no effect, just for conformity
+        :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
 
         """
 
         # - Prepare time base
-        vtTimeBase, __, num_timesteps = self._prepare_input(
+        time_base, __, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Set spikes for spike generator
         if ts_input is not None:
-            vtEventTimes, vnEventChannels, _ = ts_input.find(
-                [vtTimeBase[0], vtTimeBase[-1] + self.dt]
+            event_times, event_channels, _ = ts_input.find(
+                [time_base[0], time_base[-1] + self.dt]
             )
-            self._sggInput.set_spikes(
-                vnEventChannels, vtEventTimes * second, sorted=False
+            self._input_generator.set_spikes(
+                event_channels, event_times * second, sorted=False
             )
         else:
-            self._sggInput.set_spikes([], [] * second)
+            self._input_generator.set_spikes([], [] * second)
 
         # - Generate a noise trace
-        mfNoiseStep = (
-            np.random.randn(np.size(vtTimeBase), self.nSize)
+        noise_step = (
+            np.random.randn(np.size(time_base), self.size)
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
-            * self.fNoiseStd
-            * np.sqrt(2. * self.vtTauN / self.dt)
+            * self.noise_std
+            * np.sqrt(2. * self.tau_mem / self.dt)
             * 1.63
         )
 
         # - Specifiy noise input currents, construct TimedArray
-        # taI_noise = TAShift(
-        #     np.asarray(mfNoiseStep) * amp,
+        # inp_noise = TAShift(
+        #     np.asarray(noise_step) * amp,
         #     self.dt * second,
         #     tOffset=self.t * second,
         #     name="noise_input",
@@ -620,107 +620,107 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._net.run(
             num_timesteps * self.dt * second, level=0
         )
-        self._nTimeStep += num_timesteps
+        self.time_step += num_timesteps
 
         # - Build response TimeSeries
-        vbUseEvent = self._spmLayer.t_ >= vtTimeBase[0]
-        vtEventTimeOutput = self._spmLayer.t_[vbUseEvent]
-        vnEventChannelOutput = self._spmLayer.i[vbUseEvent]
+        use_event = self._layer.t_ >= time_base[0]
+        event_time_out = self._layer.t_[use_event]
+        event_channel_out = self._layer.i[use_event]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, name="Layer spikes")
+        return TSEvent(event_time_out, event_channel_out, name="Layer spikes")
 
     def reset_time(self):
 
         # - Store state variables
-        vfV = np.copy(self._ngLayer.v) * volt
-        vfIsyn = np.copy(self._ngLayer.I_syn) * amp
+        v_state = np.copy(self._neuron_group.v) * volt
+        syn_inp = np.copy(self._neuron_group.I_syn) * amp
 
         # - Store parameters
-        vfVThresh = np.copy(self.vfVThresh)
-        vfVReset = np.copy(self.vfVReset)
-        vfVRest = np.copy(self.vfVRest)
-        vtTauN = np.copy(self.vtTauN)
-        vtTauS = np.copy(self.vtTauS)
-        vfBias = np.copy(self.vfBias)
+        v_thresh = np.copy(self.v_thresh)
+        v_reset = np.copy(self.v_reset)
+        v_rest = np.copy(self.v_rest)
+        tau_mem = np.copy(self.tau_mem)
+        tau_syn = np.copy(self.tau_syn)
+        bias = np.copy(self.bias)
         weights = np.copy(self.weights)
 
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self.time_step = 0
 
         # - Restork parameters
-        self.vfVThresh = vfVThresh
-        self.vfVReset = vfVReset
-        self.vfVRest = vfVRest
-        self.vtTauN = vtTauN
-        self.vtTauS = vtTauS
-        self.vfBias = vfBias
+        self.v_thresh = v_thresh
+        self.v_reset = v_reset
+        self.v_rest = v_rest
+        self.tau_mem = tau_mem
+        self.tau_syn = tau_syn
+        self.bias = bias
         self.weights = weights
 
         # - Restore state variables
-        self._ngLayer.v = vfV
-        self._ngLayer.I_syn = vfIsyn
+        self._neuron_group.v = v_state
+        self._neuron_group.I_syn = syn_inp
 
     def reset_state(self):
-        """ .reset_state() - Method: reset the internal state of the layer
+        """ .reset_state() - arguments:: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self._ngLayer.v = self.vfVRest * volt
-        self._ngLayer.I_syn = 0 * amp
+        self._neuron_group.v = self.v_rest * volt
+        self._neuron_group.I_syn = 0 * amp
 
-    def reset_all(self, bKeepParams=True):
-        if bKeepParams:
+    def reset_all(self, keep_params=True):
+        if keep_params:
             # - Store parameters
-            vfVThresh = np.copy(self.vfVThresh)
-            vfVReset = np.copy(self.vfVReset)
-            vfVRest = np.copy(self.vfVRest)
-            vtTauN = np.copy(self.vtTauN)
-            vtTauS = np.copy(self.vtTauS)
-            vfBias = np.copy(self.vfBias)
+            v_thresh = np.copy(self.v_thresh)
+            v_reset = np.copy(self.v_reset)
+            v_rest = np.copy(self.v_rest)
+            tau_mem = np.copy(self.tau_mem)
+            tau_syn = np.copy(self.tau_syn)
+            bias = np.copy(self.bias)
             weights = np.copy(self.weights)
 
         self.reset_state()
         self._net.restore("reset")
-        self._nTimeStep = 0
+        self.time_step = 0
 
-        if bKeepParams:
+        if keep_params:
             # - Restork parameters
-            self.vfVThresh = vfVThresh
-            self.vfVReset = vfVReset
-            self.vfVRest = vfVRest
-            self.vtTauN = vtTauN
-            self.vtTauS = vtTauS
-            self.vfBias = vfBias
+            self.v_thresh = v_thresh
+            self.v_reset = v_reset
+            self.v_rest = v_rest
+            self.tau_mem = tau_mem
+            self.tau_syn = tau_syn
+            self.bias = bias
             self.weights = weights
 
     def randomize_state(self):
-        """ .randomize_state() - Method: randomize the internal state of the layer
+        """ .randomize_state() - arguments:: randomize the internal state of the layer
             Usage: .randomize_state()
         """
-        fRangeV = abs(self.vfVThresh - self.vfVReset)
-        self._ngLayer.v = (np.random.rand(self.nSize) * fRangeV + self.vfVReset) * volt
-        self._ngLayer.I_syn = np.random.rand(self.nSize) * amp
+        v_range = abs(self.v_thresh - self.v_reset)
+        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.I_syn = np.random.rand(self.size) * amp
 
     def pot_kernel(self, t):
         """ pot_kernel - response of the membrane potential to an
                          incoming spike at a single synapse with
-                         weight 1*amp (not considering vfVRest)
+                         weight 1*amp (not considering v_rest)
         """
         t = t.reshape(-1, 1)
-        fConst = self.vtTauS / (self.vtTauS - self.vtTauN) * self._ngLayer.r_m * amp
-        return fConst * (np.exp(-t / self.vtTauS) - np.exp(-t / self.vtTauN))
+        fConst = self.tau_syn / (self.tau_syn - self.tau_mem) * self._neuron_group.r_m * amp
+        return fConst * (np.exp(-t / self.tau_syn) - np.exp(-t / self.tau_mem))
 
     def train_mst_simple(
         self,
         duration: float,
-        tStart: float,
+        t_start: float,
         ts_input: TSEvent,
-        vnTargetCounts: np.ndarray = None,
-        fLambda: float = 1e-5,
-        fEligibilityRatio: float = 0.1,
-        fMomentum: float = 0,
-        bFirst: bool = True,
-        bFinal: bool = False,
-        bVerbose: bool = False,
+        target_counts: np.ndarray = None,
+        lambda_: float = 1e-5,
+        eligibility_ratio: float = 0.1,
+        momentum: float = 0,
+        is_first: bool = True,
+        is_last: bool = False,
+        verbose: bool = False,
     ):
         """
         train_mst_simple - Use the multi-spike tempotron learning rule
@@ -728,123 +728,123 @@ class FFIAFSpkInBrian(FFIAFBrian):
                            where no gradients are calculated
         """
 
-        assert hasattr(self, "_stmVmem"), (
-            "Layer needs to be instantiated with bRecord=True for "
+        assert hasattr(self, "state_monitor"), (
+            "Layer needs to be instantiated with record=True for "
             + "this learning rule."
         )
 
         # - End time of current batch
-        t_stop = tStart + duration
+        t_stop = t_start + duration
 
         if ts_input is not None:
-            vtEventTimes, vnEventChannels, _ = ts_input.find([tStart, t_stop])
+            event_times, event_channels, _ = ts_input.find([t_start, t_stop])
         else:
             print("No ts_input defined, assuming input to be 0.")
-            vtEventTimes, vnEventChannels = [], []
+            event_times, event_channels = [], []
 
         # - Prepare target
-        if vnTargetCounts is None:
-            vnTargetCounts = np.zeros(self.nSize)
+        if target_counts is None:
+            target_counts = np.zeros(self.size)
         else:
             assert (
-                np.size(vnTargetCounts) == self.nSize
+                np.size(target_counts) == self.size
             ), "Target array size must match layer size ({}).".format(
-                self.nSize
+                self.size
             )
 
         ## -- Determine eligibility for each neuron and synapse
-        mfEligibiity = np.zeros((self.nSizeIn, self.nSize))
+        eligibility = np.zeros((self.size_in, self.size))
 
         # - Iterate over source neurons
-        for iSource in range(self.nSizeIn):
-            if bVerbose:
+        for source_id in range(self.size_in):
+            if verbose:
                 print(
-                    "\rProcessing input {} of {}".format(iSource + 1, self.nSizeIn),
+                    "\rProcessing input {} of {}".format(source_id + 1, self.size_in),
                     end="",
                 )
             # - Find spike timings
-            vtEventTimesSource = vtEventTimes[vnEventChannels == iSource]
+            event_time_source = event_times[event_channels == source_id]
             # - Sum individual correlations over input spikes, for all synapses
-            for tSpkIn in vtEventTimesSource:
-                # - Membrane potential between input spike time and now (transform to vfVRest at 0)
-                vfVmem = (
-                    self._stmVmem.v.T[self._stmVmem.t_ >= tSpkIn] - self.vfVRest * volt
+            for t_spike_in in event_time_source:
+                # - Membrane potential between input spike time and now (transform to v_rest at 0)
+                v_mem = (
+                    self.state_monitor.v.T[self.state_monitor.t_ >= t_spike_in] - self.v_rest * volt
                 )
                 # - Kernel between input spike time and now
-                vfKernel = self.pot_kernel(
-                    self._stmVmem.t_[self._stmVmem.t_ >= tSpkIn] - tSpkIn
+                kernel = self.pot_kernel(
+                    self.state_monitor.t_[self.state_monitor.t_ >= t_spike_in] - t_spike_in
                 )
                 # - Add correlations to eligibility matrix
-                mfEligibiity[iSource, :] += np.sum(vfKernel * vfVmem)
+                eligibility[source_id, :] += np.sum(kernel * v_mem)
 
         ## -- For each neuron sort eligibilities and choose synapses with largest eligibility
-        nEligible = int(fEligibilityRatio * self.nSizeIn)
+        eligible = int(eligibility_ratio * self.size_in)
         # - Mark eligible neurons
-        miEligible = np.argsort(mfEligibiity, axis=0)[:nEligible:-1]
+        is_eligible = np.argsort(eligibility, axis=0)[:eligible:-1]
 
         ##  -- Compare target number of events with spikes and perform weight updates for chosen synapses
         # - Numbers of (output) spike times for each neuron
-        vbUseEventOut = (self._spmLayer.t_ >= tStart) & (self._spmLayer.t_ <= t_stop)
-        viSpkNeuronOut = self._spmLayer.i[vbUseEventOut]
-        vnSpikeCount = np.array(
-            [np.sum(viSpkNeuronOut == iNeuron) for iNeuron in range(self.nSize)]
+        use_out_events = (self._layer.t_ >= t_start) & (self._layer.t_ <= t_stop)
+        spikes_out_neurons = self._layer.i[use_out_events]
+        spike_counts = np.array(
+            [np.sum(spikes_out_neurons == n_id) for n_id in range(self.size)]
         )
 
         # - Updates to eligible synapses of each neuron
-        vfUpdates = np.zeros(self.nSize)
+        updates = np.zeros(self.size)
         # - Negative update if spike count too high
-        vfUpdates[vnSpikeCount > vnTargetCounts] = -fLambda
+        updates[spike_counts > target_counts] = -lambda_
         # - Positive update if spike count too low
-        vfUpdates[vnSpikeCount < vnTargetCounts] = fLambda
+        updates[spike_counts < target_counts] = lambda_
 
         # - Reset previous weight changes that are used for momentum heuristic
-        if bFirst:
-            self._mfDW_previous = np.zeros_like(self.weights)
+        if is_first:
+            self._dw_previous = np.zeros_like(self.weights)
 
         # - Accumulate updates to me made to weights
-        mfDW_current = np.zeros_like(self.weights)
+        dw_current = np.zeros_like(self.weights)
 
         # - Update only eligible synapses
-        for iTarget in range(self.nSize):
-            mfDW_current[miEligible[:, iTarget], iTarget] += vfUpdates[iTarget]
+        for target_id in range(self.size):
+            dw_current[is_eligible[:, target_id], target_id] += updates[target_id]
 
         # - Include previous weight changes for momentum heuristic
-        mfDW_current += fMomentum * self._mfDW_previous
+        dw_current += momentum * self._dw_previous
 
         # - Perform weight update
-        self.weights += mfDW_current
+        self.weights += dw_current
         # - Store weight changes for next iteration
-        self._mfDW_previous = mfDW_current
+        self._dw_previous = dw_current
 
     @property
     def input_type(self):
         return TSEvent
 
     @property
-    def tRefractoryTime(self):
-        return self._ngLayer._refractory
+    def refractory(self):
+        return self._neuron_group._refractory
 
     @property
     def weights(self):
-        return np.array(self._sgReceiver.w).reshape(self.nSizeIn, self.nSize)
+        return np.array(self._inp_synapses.w).reshape(self.size_in, self.size)
 
     @weights.setter
-    def weights(self, mfNewW):
+    def weights(self, new_w):
         assert (
-            mfNewW.shape == (self.nSizeIn, self.nSize)
-            or mfNewW.shape == self._sgReceiver.w.shape
+            new_w.shape == (self.size_in, self.size)
+            or new_w.shape == self._inp_synapses.w.shape
         ), "weights must be of dimensions ({}, {}) or flat with size {}.".format(
-            self.nSizeIn, self.nSize, self.nSizeIn * self.nSize
+            self.size_in, self.size, self.size_in * self.size
         )
 
-        self._sgReceiver.w = np.array(mfNewW).flatten()
+        self._inp_synapses.w = np.array(new_w).flatten()
 
     @property
-    def vtTauS(self):
-        return self._ngLayer.tau_s_
+    def tau_syn(self):
+        return self._neuron_group.tau_s_
 
-    @vtTauS.setter
-    def vtTauS(self, vtNewTauS):
-        self._ngLayer.tau_s = (
-            np.asarray(self._expand_to_net_size(vtNewTauS, "vtNewTauS")) * second
+    @tau_syn.setter
+    def tau_syn(self, new_tau_syn):
+        self._neuron_group.tau_s = (
+            np.asarray(self._expand_to_net_size(new_tau_syn, "new_tau_syn")) * second
         )

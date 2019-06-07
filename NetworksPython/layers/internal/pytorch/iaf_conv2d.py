@@ -89,7 +89,7 @@ class TorchSpikingConv2dLayer(nn.Module):
             self.tsrState.zero_()
 
     def forward(self, tsrBinaryInput):
-        self.inShape = tuple(tsrBinaryInput.shape)
+        self.inp_shape = tuple(tsrBinaryInput.shape)
         # Determine no. of time steps from input
         num_timesteps = len(tsrBinaryInput)
 
@@ -126,24 +126,24 @@ class TorchSpikingConv2dLayer(nn.Module):
         tsrState = self.tsrState
 
         # Loop over time steps
-        for iCurrentTimeStep in range(num_timesteps):
-            tsrState = tsrState + tsrConvOut[iCurrentTimeStep]
+        for cur_time_step in range(num_timesteps):
+            tsrState = tsrState + tsrConvOut[cur_time_step]
 
             # - Reset or subtract from membrane state after spikes
             if fVSubtract is not None:
                 # Calculate number of spikes to be generated
-                tsrNumSpikes[iCurrentTimeStep] = (tsrState >= fVThresh).int() + (
+                tsrNumSpikes[cur_time_step] = (tsrState >= fVThresh).int() + (
                     tsrState - fVThresh > 0
                 ).int() * ((tsrState - fVThresh) / fVSubtract).int()
                 ## - Subtract from states
                 tsrState = tsrState - (
-                    fVSubtract * tsrNumSpikes[iCurrentTimeStep].float()
+                    fVSubtract * tsrNumSpikes[cur_time_step].float()
                 )
             else:
                 # - Check threshold crossings for spikes
                 vbRecSpikeRaster = tsrState >= fVThresh
                 # - Add to spike counter
-                tsrNumSpikes[iCurrentTimeStep] = vbRecSpikeRaster
+                tsrNumSpikes[cur_time_step] = vbRecSpikeRaster
                 # - Reset neuron states
                 tsrState = (
                     vbRecSpikeRaster.float() * fVReset

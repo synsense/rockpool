@@ -13,10 +13,10 @@ def test_ffexpsyn():
     dt = 0.001
 
     weights = np.linspace(-1, 1, size_in * size).reshape(size_in, size)
-    vfBias = np.linspace(-1, 1, size)
-    tTauSyn = 0.15
-    # flT = FFExpSynTorch(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
-    flM = FFExpSyn(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
+    bias = np.linspace(-1, 1, size)
+    tau_syn = 0.15
+    # flT = FFExpSynTorch(weights, dt=dt, bias=bias, tau_syn=tau_syn)
+    flM = FFExpSyn(weights, dt=dt, bias=bias, tau_syn=tau_syn)
 
     # - Input signal
 
@@ -47,12 +47,12 @@ def test_ffexpsyn():
     ).T
     tsTgt = TSContinuous(np.arange(int(tDur / dt)) * dt, mfTgt)
 
-    # flT.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
-    flM.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
+    # flT.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
+    flM.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
 
     # assert(
     #             np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
-    #         and np.isclose(flT.vfBias, flM.vfBias, rtol=1e-4, atol=1e-2).all()
+    #         and np.isclose(flT.bias, flM.bias, rtol=1e-4, atol=1e-2).all()
     # ), "Training led to different results"
 
 
@@ -72,10 +72,10 @@ def test_ffexpsyntorch():
     dt = 0.001
 
     weights = np.linspace(-1, 1, size_in * size).reshape(size_in, size)
-    vfBias = np.linspace(-1, 1, size)
-    tTauSyn = 0.15
-    flT = FFExpSynTorch(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
-    flM = FFExpSyn(weights, dt=dt, vfBias=vfBias, tTauSyn=tTauSyn)
+    bias = np.linspace(-1, 1, size)
+    tau_syn = 0.15
+    flT = FFExpSynTorch(weights, dt=dt, bias=bias, tau_syn=tau_syn)
+    flM = FFExpSyn(weights, dt=dt, bias=bias, tau_syn=tau_syn)
 
     # - Input signal
 
@@ -111,10 +111,10 @@ def test_ffexpsyntorch():
         ).T
         tsTgt = TSContinuous(np.arange(int(tDur / dt)) * dt, mfTgt)
 
-        flT.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
-        flM.train_rr(tsTgt, tsIn, fRegularize=0.1, bFirst=True, bFinal=True)
+        flT.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
+        flM.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
 
         assert (
             np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
-            and np.isclose(flT.vfBias, flM.vfBias, rtol=1e-4, atol=1e-2).all()
+            and np.isclose(flT.bias, flM.bias, rtol=1e-4, atol=1e-2).all()
         ), "Training led to different results"

@@ -38,12 +38,12 @@ class FFExpSynTorch(FFExpSyn):
     def __init__(
         self,
         weights: Union[np.ndarray, int] = None,
-        vfBias: np.ndarray = 0,
+        bias: np.ndarray = 0,
         dt: float = 0.0001,
         noise_std: float = 0,
-        tTauSyn: float = 0.005,
+        tau_syn: float = 0.005,
         name: str = "unnamed",
-        bAddEvents: bool = True,
+        add_events: bool = True,
         nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
     ):
         """
@@ -54,13 +54,13 @@ class FFExpSynTorch(FFExpSyn):
         :param dt:             float Time step for state evolution
         :param noise_std:       float Std. dev. of noise added to this layer. Default: 0
 
-        :param tTauSyn:         float Output synaptic time constants. Default: 5ms
-        :param eqSynapses:      Brian2.Equations set of synapse equations for receiver. Default: exponential
-        :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
+        :param tau_syn:         float Output synaptic time constants. Default: 5ms
+        :param synapse_eq:      Brian2.Equations set of synapse equations for receiver. Default: exponential
+        :param integrator_name:   str Integrator to use for simulation. Default: 'exact'
 
         :param name:         str Name for the layer. Default: 'unnamed'
 
-        :bAddEvents:            bool  If during evolution multiple input events arrive during one
+        :add_events:            bool  If during evolution multiple input events arrive during one
                                       time step for a channel, count their actual number instead of
                                       just counting them as one.
 
@@ -83,20 +83,20 @@ class FFExpSynTorch(FFExpSyn):
         # - Bypass property setter to avoid unnecessary convolution kernel update
         assert (
             type(nMaxNumTimeSteps) == int and nMaxNumTimeSteps > 0.0
-        ), "Layer `{}`: nMaxNumTimeSteps ({nStep}) must be an integer greater than 0.".format(
-            name, nStep=nMaxNumTimeSteps
+        ), "Layer `{}`: nMaxNumTimeSteps ({step}) must be an integer greater than 0.".format(
+            name, step=nMaxNumTimeSteps
         )
         self._nMaxNumTimeSteps = nMaxNumTimeSteps
 
         # - Call super constructor
         super().__init__(
             weights=weights,
-            vfBias=vfBias,
+            bias=bias,
             dt=dt,
             noise_std=noise_std,
-            tTauSyn=tTauSyn,
+            tau_syn=tau_syn,
             name=name,
-            bAddEvents=bAddEvents,
+            add_events=add_events,
         )
 
     ### --- State evolution
@@ -121,35 +121,35 @@ class FFExpSynTorch(FFExpSyn):
         """
 
         # - Prepare input signal
-        mnInputRaster, num_timesteps = self._prepare_input(
+        inp_raster, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
-        mfWeightedInput = mnInputRaster @ self.weights
+        weighted_input = inp_raster @ self.weights
 
         # - Time base
-        vtTimeBase = (np.arange(num_timesteps + 1) + self._timestep) * self.dt
+        time_base = (np.arange(num_timesteps + 1) + self._timestep) * self.dt
 
         if self.noise_std > 0:
             # - Add a noise trace
             # - Noise correction is slightly different than in other layers
-            mfNoise = (
-                np.random.randn(*mfWeightedInput.shape)
+            noise = (
+                np.random.randn(*weighted_input.shape)
                 * self.noise_std
-                * np.sqrt(2 * self.dt / self.tTauSyn)
+                * np.sqrt(2 * self.dt / self.tau_syn)
             )
-            mfNoise[0, :] = 0  # Make sure that noise trace starts with 0
-            mfWeightedInput += mfNoise
+            noise[0, :] = 0  # Make sure that noise trace starts with 0
+            weighted_input += noise
 
         with torch.no_grad():
             # - Tensor for collecting output spike raster
-            mfOutput = torch.FloatTensor(num_timesteps + 1, self.size).fill_(0)
+            output = torch.FloatTensor(num_timesteps + 1, self.size).fill_(0)
 
             # - Iterate over batches and run evolution
             iCurrentIndex = 1
             for mfCurrentInput, nCurrNumTS in self._batch_data(
-                mfWeightedInput, num_timesteps, self.nMaxNumTimeSteps
+                weighted_input, num_timesteps, self.nMaxNumTimeSteps
             ):
-                mfOutput[
+                output[
                     iCurrentIndex : iCurrentIndex + nCurrNumTS
                 ] = self._single_batch_evolution(
                     mfCurrentInput,  # torch.from_numpy(mfCurrentInput).float().to(self.device),
@@ -160,14 +160,14 @@ class FFExpSynTorch(FFExpSyn):
 
         # - Output time series with output data and bias
         return TSContinuous(
-            vtTimeBase,
-            (mfOutput + self._vfBias.cpu()).numpy(),
+            time_base,
+            (output + self._bias.cpu()).numpy(),
             name="Filtered spikes",
         )
 
     # @profile
     def _batch_data(
-        self, mfInput: np.ndarray, num_timesteps: int, nMaxNumTimeSteps: int = None
+        self, inp: np.ndarray, num_timesteps: int, nMaxNumTimeSteps: int = None
     ) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
         # - Handle None for nMaxNumTimeSteps
@@ -180,7 +180,7 @@ class FFExpSynTorch(FFExpSyn):
             nEnd = min(nStart + nMaxNumTimeSteps, num_timesteps)
             # - Data for current batch
             mfCurrentInput = (
-                torch.from_numpy(mfInput[nStart:nEnd]).float().to(self.device)
+                torch.from_numpy(inp[nStart:nEnd]).float().to(self.device)
             )
             yield mfCurrentInput, nEnd - nStart
             # - Update nStart
@@ -188,12 +188,12 @@ class FFExpSynTorch(FFExpSyn):
 
     # @profile
     def _single_batch_evolution(
-        self, mfWeightedInput: np.ndarray, num_timesteps: int, verbose: bool = False
+        self, weighted_input: np.ndarray, num_timesteps: int, verbose: bool = False
     ) -> TSEvent:
         """
         evolve : Function to evolve the states of this layer given an input for a single batch
 
-        :param mfWeightedInput: np.ndarray   Weighted input
+        :param weighted_input: np.ndarray   Weighted input
         :param num_timesteps:   int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
         :return:            TSEvent  output spike series
@@ -203,33 +203,33 @@ class FFExpSynTorch(FFExpSyn):
         with torch.no_grad():
 
             # Add current state to input
-            mfWeightedInput[0, :] += self._vStateNoBias.clone() * np.exp(
-                -self.dt / self.tTauSyn
+            weighted_input[0, :] += self._state_no_bias.clone() * np.exp(
+                -self.dt / self.tau_syn
             )
 
             # - Reshape input for convolution
-            mfWeightedInput = mfWeightedInput.t().reshape(1, self.size, -1)
+            weighted_input = weighted_input.t().reshape(1, self.size, -1)
 
             # - Filter synaptic currents
-            mfFiltered = (
-                self._convSynapses(mfWeightedInput)[0].detach().t()[:num_timesteps]
+            filtered = (
+                self._convSynapses(weighted_input)[0].detach().t()[:num_timesteps]
             )
 
             # - Store current state and update internal time
-            self._vStateNoBias = mfFiltered[-1].clone()
+            self._state_no_bias = filtered[-1].clone()
             self._timestep += num_timesteps
 
-        return mfFiltered
+        return filtered
 
     def train_rr(
         self,
-        tsTarget: TSContinuous,
+        ts_target: TSContinuous,
         ts_input: TSEvent = None,
-        fRegularize: float = 0,
-        bFirst: bool = True,
-        bFinal: bool = False,
-        bStoreState: bool = True,
-        bTrainBiases: bool = True,
+        regularize: float = 0,
+        is_first: bool = True,
+        is_last: bool = False,
+        store_states: bool = True,
+        train_biases: bool = True,
         bIntermediateResults: bool = False
     ):
 
@@ -238,62 +238,62 @@ class FFExpSynTorch(FFExpSyn):
                    many batches. Use Kahan summation to reduce rounding
                    errors when adding data to existing matrices from
                    previous batches.
-        :param tsTarget:        TimeSeries - target for current batch
+        :param ts_target:        TimeSeries - target for current batch
         :param ts_input:         TimeSeries - input to self for current batch
-        :fRegularize:           float - regularization for ridge regression
-        :bFirst:                bool - True if current batch is the first in training
-        :bFinal:                bool - True if current batch is the last in training
-        :bStoreState:           bool - Include last state from previous training and store state from this
+        :regularize:           float - regularization for ridge regression
+        :is_first:                bool - True if current batch is the first in training
+        :is_last:                bool - True if current batch is the last in training
+        :store_states:           bool - Include last state from previous training and store state from this
                                        traning. This has the same effect as if data from both trainings
                                        were presented at once.
-        :param bTrainBiases:    bool - If True, train biases as if they were weights
+        :param train_biases:    bool - If True, train biases as if they were weights
                                        Otherwise present biases will be ignored in
                                        training and not be changed.
         :param bIntermediateResults: bool - If True, calculates the intermediate weights not in the final batch
         """
 
         # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(tsTarget.duration / self.dt))
-        vtTimeBase = self._gen_time_trace(tsTarget.t_start, num_timesteps)
+        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
 
-        if not bFinal:
+        if not is_last:
             # - Discard last sample to avoid counting time points twice
-            vtTimeBase = vtTimeBase[:-1]
+            time_base = time_base[:-1]
 
-        # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.t_stop]
+        # - Make sure time_base does not exceed ts_target
+        time_base = time_base[time_base <= ts_target.t_stop]
 
         # - Prepare target data
-        mfTarget = tsTarget(vtTimeBase)
+        target = ts_target(time_base)
 
         # - Make sure no nan is in target, as this causes learning to fail
         assert not np.isnan(
-            mfTarget
-        ).any(), "Layer `{}`: nan values have been found in mfTarget (where: {})".format(
-            self.name, np.where(np.isnan(mfTarget))
+            target
+        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
+            self.name, np.where(np.isnan(target))
         )
 
         # - Check target dimensions
-        if mfTarget.ndim == 1 and self.size == 1:
-            mfTarget = mfTarget.reshape(-1, 1)
+        if target.ndim == 1 and self.size == 1:
+            target = target.reshape(-1, 1)
 
         assert (
-            mfTarget.shape[-1] == self.size
+            target.shape[-1] == self.size
         ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, mfTarget.shape[-1], self.size
+            self.name, target.shape[-1], self.size
         )
 
         with torch.no_grad():
             # - Move target data to GPU
-            mfTarget = torch.from_numpy(mfTarget).float().to(self.device)
+            target = torch.from_numpy(target).float().to(self.device)
 
             # - Prepare input data
 
             # Empty input array with additional dimension for training biases
-            nInputSize = self.size_in + int(bTrainBiases)
-            mfInput = self.tensors.FloatTensor(vtTimeBase.size, nInputSize).fill_(0)
-            if bTrainBiases:
-                mfInput[:, -1] = 1
+            input_size = self.size_in + int(train_biases)
+            inp = self.tensors.FloatTensor(time_base.size, input_size).fill_(0)
+            if train_biases:
+                inp[:, -1] = 1
 
         # - Generate spike trains from ts_input
         if ts_input is None:
@@ -306,20 +306,20 @@ class FFExpSynTorch(FFExpSyn):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels = ts_input(
-                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1]
+            event_times, event_channels = ts_input(
+                t_start=time_base[0], t_stop=time_base[-1]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
             try:
                 assert (
-                    np.amax(vnEventChannels) <= self.size_in - 1
+                    np.amax(event_channels) <= self.size_in - 1
                 ), "Layer `{}`: Number of input channels exceeds layer input dimensions.".format(
                     self.name
                 )
             except ValueError as e:
                 # - No events in input data
-                if vnEventChannels.size == 0:
+                if event_channels.size == 0:
                     print(
                         "Layer `{}`: No input spikes for training.".format(self.name)
                     )
@@ -328,126 +328,126 @@ class FFExpSynTorch(FFExpSyn):
 
             with torch.no_grad():
                 # Extract spike data from the input variable and bring to GPU
-                mnSpikeRaster = (
+                spike_raster = (
                     torch.from_numpy(
                         ts_input.raster(
                             dt=self.dt,
-                            t_start=vtTimeBase[0],
-                            num_timesteps=vtTimeBase.size,
+                            t_start=time_base[0],
+                            num_timesteps=time_base.size,
                             channels=np.arange(self.size_in),
-                            add_events=self.bAddEvents,
+                            add_events=self.add_events,
                         ).astype(float)
                     )
                     .float()
                     .to(self.device)
                 )
 
-                if bStoreState and not bFirst:
+                if store_states and not is_first:
                     try:
                         # - Include last state from previous batch
-                        mnSpikeRaster[0, :] += self._vTrainingState
+                        spike_raster[0, :] += self._training_state
                     except AttributeError:
                         pass
 
                 # - Reshape input for convolution
-                mnSpikeRaster = mnSpikeRaster.t().reshape(1, self.size_in, -1)
+                spike_raster = spike_raster.t().reshape(1, self.size_in, -1)
 
                 # - Filter synaptic currents and store in input tensor
-                if bTrainBiases:
-                    mfInput[:, :-1] = (
-                        self._convSynapsesTraining(mnSpikeRaster)[0]
+                if train_biases:
+                    inp[:, :-1] = (
+                        self._convSynapsesTraining(spike_raster)[0]
                         .detach()
-                        .t()[: vtTimeBase.size]
+                        .t()[: time_base.size]
                     )
                 else:
-                    mfInput[:, :] = (
-                        self._convSynapsesTraining(mnSpikeRaster)[0]
+                    inp[:, :] = (
+                        self._convSynapsesTraining(spike_raster)[0]
                             .detach()
-                            .t()[: vtTimeBase.size]
+                            .t()[: time_base.size]
                     )
 
 
         with torch.no_grad():
             # - For first batch, initialize summands
-            if bFirst:
+            if is_first:
                 # Matrices to be updated for each batch
-                self._mfXTY = self.tensors.FloatTensor(nInputSize, self.size).fill_(0)
-                self._mfXTX = self.tensors.FloatTensor(nInputSize, nInputSize).fill_(0)
+                self._xty = self.tensors.FloatTensor(input_size, self.size).fill_(0)
+                self._xtx = self.tensors.FloatTensor(input_size, input_size).fill_(0)
                 # Corresponding Kahan compensations
-                self._mfKahanCompXTY = self._mfXTY.clone()
-                self._mfKahanCompXTX = self._mfXTX.clone()
+                self._kahan_comp_xty = self._xty.clone()
+                self._mfKahanCompXTX = self._xtx.clone()
 
             # - New data to be added, including compensation from last batch
             #   (Matrix summation always runs over time)
-            mfUpdXTY = torch.mm(mfInput.t(), mfTarget) - self._mfKahanCompXTY
-            mfUpdXTX = torch.mm(mfInput.t(), mfInput) - self._mfKahanCompXTX
+            upd_xty = torch.mm(inp.t(), target) - self._kahan_comp_xty
+            upd_xtx = torch.mm(inp.t(), inp) - self._mfKahanCompXTX
 
-            if not bFinal:
+            if not is_last:
                 # - Update matrices with new data
-                mfNewXTY = self._mfXTY + mfUpdXTY
-                mfNewXTX = self._mfXTX + mfUpdXTX
+                new_xty = self._xty + upd_xty
+                new_xtx = self._xtx + upd_xtx
                 # - Calculate rounding error for compensation in next batch
-                self._mfKahanCompXTY = (mfNewXTY - self._mfXTY) - mfUpdXTY
-                self._mfKahanCompXTX = (mfNewXTX - self._mfXTX) - mfUpdXTX
+                self._kahan_comp_xty = (new_xty - self._xty) - upd_xty
+                self._mfKahanCompXTX = (new_xtx - self._xtx) - upd_xtx
                 # - Store updated matrices
-                self._mfXTY = mfNewXTY
-                self._mfXTX = mfNewXTX
+                self._xty = new_xty
+                self._xtx = new_xtx
 
-                if bStoreState:
+                if store_states:
                     # - Store last state for next batch
-                    if bTrainBiases:
-                        self._vTrainingState = mfInput[-1, :-1].clone()
+                    if train_biases:
+                        self._training_state = inp[-1, :-1].clone()
                     else:
-                        self._vTrainingState = mfInput[-1, :].clone()
+                        self._training_state = inp[-1, :].clone()
 
                 if bIntermediateResults:
-                    mfA = self._mfXTX + fRegularize * torch.eye(self.size_in + 1).to(
+                    a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
                         self.device
                     )
-                    mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
-                    if bTrainBiases:
-                        self.weights = mfSolution[:-1, :]
-                        self.vfBias = mfSolution[-1, :]
+                    solution = torch.mm(a.inverse(), self._xty).cpu().numpy()
+                    if train_biases:
+                        self.weights = solution[:-1, :]
+                        self.bias = solution[-1, :]
                     else:
-                        self.weights = mfSolution
+                        self.weights = solution
             else:
                 # - In final step do not calculate rounding error but update matrices directly
-                self._mfXTY += mfUpdXTY
-                self._mfXTX += mfUpdXTX
+                self._xty += upd_xty
+                self._xtx += upd_xtx
 
                 # - Weight and bias update by ridge regression
-                if bTrainBiases:
-                    mfA = self._mfXTX + fRegularize * torch.eye(self.size_in + 1).to(
+                if train_biases:
+                    a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
                         self.device
                     )
                 else:
-                    mfA = self._mfXTX + fRegularize * torch.eye(self.size_in).to(
+                    a = self._xtx + regularize * torch.eye(self.size_in).to(
                         self.device
                     )
 
-                mfSolution = torch.mm(mfA.inverse(), self._mfXTY).cpu().numpy()
-                if bTrainBiases:
-                    self.weights = mfSolution[:-1, :]
-                    self.vfBias = mfSolution[-1, :]
+                solution = torch.mm(a.inverse(), self._xty).cpu().numpy()
+                if train_biases:
+                    self.weights = solution[:-1, :]
+                    self.bias = solution[-1, :]
                 else:
-                    self.weights = mfSolution
+                    self.weights = solution
 
                 # - Remove data stored during this trainig
-                self._mfXTY = None
-                self._mfXTX = None
-                self._mfKahanCompXTY = None
+                self._xty = None
+                self._xtx = None
+                self._kahan_comp_xty = None
                 self._mfKahanCompXTX = None
-                self._vTrainingState = None
+                self._training_state = None
 
     def train_logreg(
         self,
-        tsTarget: TSContinuous,
+        ts_target: TSContinuous,
         ts_input: TSEvent = None,
-        fLearningRate: float = 0,
-        fRegularize: float = 0,
-        nBatchSize: Optional[int] = None,
-        nEpochs: int = 1,
-        bStoreState: bool = True,
+        learning_rate: float = 0,
+        regularize: float = 0,
+        batch_size: Optional[int] = None,
+        epochs: int = 1,
+        store_states: bool = True,
         verbose: bool = False,
     ):
 
@@ -456,13 +456,13 @@ class FFExpSynTorch(FFExpSyn):
                        Note that this training method assumes that a sigmoid funciton is applied
                        to the layer output, which is not the case in self.evolve.
                        Use pytorch as backend
-        :param tsTarget:    TimeSeries - target for current batch
+        :param ts_target:    TimeSeries - target for current batch
         :param ts_input:     TimeSeries - input to self for current batch
-        :fLearningRate:     flaot - Factor determining scale of weight increments at each step
-        :fRegularize:       float - regularization parameter
-        :nBatchSize:        int - Number of samples per batch. If None, train with all samples at once
-        :nEpochs:           int - How many times is training repeated
-        :bStoreState:       bool - Include last state from previous training and store state from this
+        :learning_rate:     flaot - Factor determining scale of weight increments at each step
+        :regularize:       float - regularization parameter
+        :batch_size:        int - Number of samples per batch. If None, train with all samples at once
+        :epochs:           int - How many times is training repeated
+        :store_states:       bool - Include last state from previous training and store state from this
                                    traning. This has the same effect as if data from both trainings
                                    were presented at once.
         :verbose:          bool - Print output about training progress
@@ -471,52 +471,52 @@ class FFExpSynTorch(FFExpSyn):
         if not torch.cuda.is_available():
             warn("Layer `{}`: CUDA not available. Will use cpu".format(self.name))
             self.train_logreg(
-                tsTarget,
+                ts_target,
                 ts_input,
-                fLearningRate,
-                fRegularize,
-                nBatchSize,
-                nEpochs,
-                bStoreState,
+                learning_rate,
+                regularize,
+                batch_size,
+                epochs,
+                store_states,
                 verbose,
             )
             return
 
         # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(tsTarget.duration / self.dt))
-        vtTimeBase = self._gen_time_trace(tsTarget.t_start, num_timesteps)
+        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
 
         # - Discard last sample to avoid counting time points twice
-        vtTimeBase = vtTimeBase[:-1]
+        time_base = time_base[:-1]
 
-        # - Make sure vtTimeBase does not exceed tsTarget
-        vtTimeBase = vtTimeBase[vtTimeBase <= tsTarget.t_stop]
+        # - Make sure time_base does not exceed ts_target
+        time_base = time_base[time_base <= ts_target.t_stop]
 
         # - Prepare target data
-        mfTarget = tsTarget(vtTimeBase)
+        target = ts_target(time_base)
 
         # - Make sure no nan is in target, as this causes learning to fail
         assert not np.isnan(
-            mfTarget
-        ).any(), "Layer `{}`: nan values have been found in mfTarget (where: {})".format(
-            self.name, np.where(np.isnan(mfTarget))
+            target
+        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
+            self.name, np.where(np.isnan(target))
         )
 
         # - Check target dimensions
-        if mfTarget.ndim == 1 and self.size == 1:
-            mfTarget = mfTarget.reshape(-1, 1)
+        if target.ndim == 1 and self.size == 1:
+            target = target.reshape(-1, 1)
 
         assert (
-            mfTarget.shape[-1] == self.size
+            target.shape[-1] == self.size
         ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, mfTarget.shape[-1], self.size
+            self.name, target.shape[-1], self.size
         )
 
         # - Prepare input data
 
         # Empty input array with additional dimension for training biases
-        mfInput = np.zeros((np.size(vtTimeBase), self.size_in + 1))
-        mfInput[:, -1] = 1
+        inp = np.zeros((np.size(time_base), self.size_in + 1))
+        inp[:, -1] = 1
 
         # - Generate spike trains from ts_input
         if ts_input is None:
@@ -529,20 +529,20 @@ class FFExpSynTorch(FFExpSyn):
 
         else:
             # - Get data within given time range
-            vtEventTimes, vnEventChannels = ts_input(
-                t_start=vtTimeBase[0], t_stop=vtTimeBase[-1]
+            event_times, event_channels = ts_input(
+                t_start=time_base[0], t_stop=time_base[-1]
             )
 
             # - Make sure that input channels do not exceed layer input dimensions
             try:
                 assert (
-                    np.amax(vnEventChannels) <= self.size_in - 1
+                    np.amax(event_channels) <= self.size_in - 1
                 ), "Layer `{}`: Number of input channels exceeds layer input dimensions.".format(
                     self.name
                 )
             except ValueError as e:
                 # - No events in input data
-                if vnEventChannels.size == 0:
+                if event_channels.size == 0:
                     print(
                         "Layer `{}`: No input spikes for training.".format(self.name)
                     )
@@ -550,57 +550,57 @@ class FFExpSynTorch(FFExpSyn):
                     raise e
 
             # Extract spike data from the input
-            mnSpikeRaster = (
+            spike_raster = (
                 ts_input.raster(
                     dt=self.dt,
-                    t_start=vtTimeBase[0],
-                    num_timesteps=vtTimeBase.size,
+                    t_start=time_base[0],
+                    num_timesteps=time_base.size,
                     channels=np.arange(self.size_in),
-                    add_events=self.bAddEvents,
+                    add_events=self.add_events,
                 )
             ).astype(float)
 
-            if bStoreState:
+            if store_states:
                 try:
                     # - Include last state from previous batch
-                    mnSpikeRaster[0, :] += self._vTrainingState
+                    spike_raster[0, :] += self._training_state
                 except AttributeError:
                     pass
 
             # - Define exponential kernel
-            vfKernel = np.exp(
-                -(np.arange(vtTimeBase.size - 1) * self.dt) / self.tTauSyn
+            kernel = np.exp(
+                -(np.arange(time_base.size - 1) * self.dt) / self.tau_syn
             )
 
             # - Apply kernel to spike trains and add filtered trains to input array
-            for channel, vEvents in enumerate(mnSpikeRaster.T):
-                mfInput[:, channel] = fftconvolve(vEvents, vfKernel, "full")[
-                    : vtTimeBase.size
+            for channel, events in enumerate(spike_raster.T):
+                inp[:, channel] = fftconvolve(events, kernel, "full")[
+                    : time_base.size
                 ]
 
         # - Move data to cuda
-        ctTarget = torch.from_numpy(mfTarget).float().to("cuda")
-        ctInput = torch.from_numpy(mfInput).float().to("cuda")
+        ctTarget = torch.from_numpy(target).float().to("cuda")
+        ctInput = torch.from_numpy(inp).float().to("cuda")
         ctWeights = torch.from_numpy(self.weights).float().to("cuda")
-        ctBiases = torch.from_numpy(self.vfBias).float().to("cuda")
+        ctBiases = torch.from_numpy(self.bias).float().to("cuda")
 
         # - Prepare batches for training
-        if nBatchSize is None:
-            nNumBatches = 1
-            nBatchSize = num_timesteps
+        if batch_size is None:
+            num_batches = 1
+            batch_size = num_timesteps
         else:
-            nNumBatches = int(np.ceil(num_timesteps / float(nBatchSize)))
+            num_batches = int(np.ceil(num_timesteps / float(batch_size)))
 
         ctSampleOrder = torch.arange(
             num_timesteps
         )  # Indices to choose samples - shuffle for random order
 
         # - Iterate over epochs
-        for iEpoch in range(nEpochs):
+        for ind_epoch in range(epochs):
             # - Iterate over batches and optimize
-            for iBatch in range(nNumBatches):
+            for ind_batch in range(num_batches):
                 ctSampleIndices = ctSampleOrder[
-                    iBatch * nBatchSize : (iBatch + 1) * nBatchSize
+                    ind_batch * batch_size : (ind_batch + 1) * batch_size
                 ]
                 # - Gradients
                 ctGradients = self._gradients(
@@ -608,14 +608,14 @@ class FFExpSynTorch(FFExpSyn):
                     ctBiases,
                     ctInput[ctSampleIndices],
                     ctTarget[ctSampleIndices],
-                    fRegularize,
+                    regularize,
                 )
-                ctWeights -= fLearningRate * ctGradients[:-1, :]
-                ctBiases -= fLearningRate * ctGradients[-1, :]
+                ctWeights -= learning_rate * ctGradients[:-1, :]
+                ctBiases -= learning_rate * ctGradients[-1, :]
             if verbose:
                 print(
                     "Layer `{}`: Training epoch {} of {}".format(
-                        self.name, iEpoch + 1, nEpochs
+                        self.name, ind_epoch + 1, epochs
                     ),
                     end="\r",
                 )
@@ -625,21 +625,21 @@ class FFExpSynTorch(FFExpSyn):
         if verbose:
             print("Layer `{}`: Finished trainig.              ".format(self.name))
 
-        if bStoreState:
+        if store_states:
             # - Store last state for next batch
-            self._vTrainingState = ctInput[-1, :-1].cpu().numpy()
+            self._training_state = ctInput[-1, :-1].cpu().numpy()
 
-    def _gradients(self, ctWeights, ctBiases, ctInput, ctTarget, fRegularize):
+    def _gradients(self, ctWeights, ctBiases, ctInput, ctTarget, regularize):
         # - Output with current weights
         ctLinear = torch.mm(ctInput[:, :-1], ctWeights) + ctBiases
         ctOutput = sigmoid(ctLinear)
         # - Gradients for weights
-        nNumSamples = ctInput.size()[0]
+        num_samples = ctInput.size()[0]
         ctError = ctOutput - ctTarget
-        ctGradients = torch.mm(ctInput.t(), ctError) / float(nNumSamples)
+        ctGradients = torch.mm(ctInput.t(), ctError) / float(num_samples)
         # - Regularization of weights
-        if fRegularize > 0:
-            ctGradients[:-1, :] += fRegularize / float(self.size_in) * ctWeights
+        if regularize > 0:
+            ctGradients[:-1, :] += regularize / float(self.size_in) * ctWeights
 
         return ctGradients
 
@@ -648,18 +648,18 @@ class FFExpSynTorch(FFExpSyn):
         nKernelSize = min(
             50
             * int(
-                self._tTauSyn / self.dt
+                self._tau_syn / self.dt
             ),  # - Values smaller than ca. 1e-21 are neglected
             self._nMaxNumTimeSteps
             + 1,  # Kernel does not need to be larger than batch duration
         )
-        vtTimes = (
+        times = (
             torch.arange(nKernelSize).to(self.device).reshape(1, -1).float() * self.dt
         )
 
         # - Kernel for filtering recurrent spikes
         mfInputKernels = torch.exp(
-            -vtTimes / self.tensors.FloatTensor(self.size, 1).fill_(self._tTauSyn)
+            -times / self.tensors.FloatTensor(self.size, 1).fill_(self._tau_syn)
         )
         # - Reverse on time axis and reshape to match convention of pytorch
         mfInputKernels = mfInputKernels.flip(1).reshape(self.size, 1, nKernelSize)
@@ -679,8 +679,8 @@ class FFExpSynTorch(FFExpSyn):
             self.size_in, nKernelSize
         ).fill_(0)
         mfInputKernelsTraining[:, 1:] = torch.exp(
-            -vtTimes[:, :-1]
-            / self.tensors.FloatTensor(self.size_in, 1).fill_(self._tTauSyn)
+            -times[:, :-1]
+            / self.tensors.FloatTensor(self.size_in, 1).fill_(self._tau_syn)
         )
         # - Reverse on time axis and reshape to match convention of pytorch
         mfInputKernelsTraining = mfInputKernelsTraining.flip(1).reshape(
@@ -702,33 +702,33 @@ class FFExpSynTorch(FFExpSyn):
     ### --- Properties
 
     @property
-    def tTauSyn(self):
-        return self._tTauSyn
+    def tau_syn(self):
+        return self._tau_syn
 
-    @tTauSyn.setter
-    def tTauSyn(self, tNewTau, bNoKernelUpdate=False):
-        assert tNewTau > 0, "Layer `{}`: tTauSyn must be greater than 0.".format(
+    @tau_syn.setter
+    def tau_syn(self, new_tau_syn, bNoKernelUpdate=False):
+        assert new_tau_syn > 0, "Layer `{}`: tau_syn must be greater than 0.".format(
             self.name
         )
-        self._tTauSyn = tNewTau
+        self._tau_syn = new_tau_syn
         self._update_kernels()
 
     @RefProperty
-    def vfBias(self):
-        return self._vfBias
+    def bias(self):
+        return self._bias
 
-    @vfBias.setter
-    def vfBias(self, vfNewBias):
-        vfNewBias = self._expand_to_net_size(vfNewBias, "vfBias", bAllowNone=False)
-        self._vfBias = torch.from_numpy(vfNewBias).float().to(self.device)
-
-    @RefProperty
-    def mfXTX(self):
-        return self._mfXTX
+    @bias.setter
+    def bias(self, new_bias):
+        new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
+        self._bias = torch.from_numpy(new_bias).float().to(self.device)
 
     @RefProperty
-    def mfXTY(self):
-        return self._mfXTY
+    def xtx(self):
+        return self._xtx
+
+    @RefProperty
+    def xty(self):
+        return self._xty
 
     @property
     def state(self):
@@ -737,13 +737,13 @@ class FFExpSynTorch(FFExpSyn):
                 self.name
             )
         )
-        return (self._vStateNoBias + self._vfBias).cpu().numpy()
+        return (self._state_no_bias + self._bias).cpu().numpy()
 
     @state.setter
-    def state(self, vNewState):
-        vNewState = np.asarray(self._expand_to_net_size(vNewState, "state"))
-        self._vStateNoBias = (
-            torch.from_numpy(vNewState).float().to(self.device) - self._vfBias
+    def state(self, new_state):
+        new_state = np.asarray(self._expand_to_net_size(new_state, "state"))
+        self._state_no_bias = (
+            torch.from_numpy(new_state).float().to(self.device) - self._bias
         )
 
     @property
@@ -764,14 +764,14 @@ class FFExpSynTorch(FFExpSyn):
 
         config = {}
         config["weights"] = self.weights.tolist()
-        config["bias"] = self._vfBias if type(self._vfBias) is float else self._vfBias.tolist()
+        config["bias"] = self._bias if type(self._bias) is float else self._bias.tolist()
         config["dt"] = self.dt
         config["noise_std"] = self.noise_std
-        config["tauS"] = self.tTauSyn if type(self.tTauSyn) is float else self.tTauSyn.tolist()
+        config["tauS"] = self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
         config["name"] = self.name
-        config["bAddEvents"] = self.bAddEvents
+        config["add_events"] = self.add_events
         config["nMaxNumTimeSteps"] = self.nMaxNumTimeSteps
-        config["ClassName"] = "FFExpSynTorch"
+        config["class_name"] = "FFExpSynTorch"
 
         return config
 
@@ -783,11 +783,11 @@ class FFExpSynTorch(FFExpSyn):
     def load_from_dict(config):
         return FFExpSynTorch(
             weights = config["weights"],
-            vfBias = config["bias"],
+            bias = config["bias"],
             dt = config["dt"],
             noise_std = config["noise_std"],
-            tTauSyn = config["tauS"],
+            tau_syn = config["tauS"],
             name = config["name"],
-            bAddEvents = config["bAddEvents"],
+            add_events = config["add_events"],
             nMaxNumTimeSteps = config["nMaxNumTimeSteps"],
         )

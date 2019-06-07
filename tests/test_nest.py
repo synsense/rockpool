@@ -18,26 +18,26 @@ def test_chargeSingleNeuron():
     from NetworksPython.layers import FFIAFNest
 
     weights = [[1.0]]
-    vfBias = [0.375]
-    vtTauN = [0.01]
+    bias = [0.375]
+    tau_mem = [0.01]
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
     fC = 250.0
     dt = 0.001
-    tRef = 0.002
+    refractory = 0.002
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vReset,
-        vfVRest=vRest,
-        vfVThresh=vTh,
-        vfCapacity=fC,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=vReset,
+        v_rest=vRest,
+        v_thresh=vTh,
+        capacity=fC,
+        refractory=refractory,
+        record=True,
         name="test",
     )
 
@@ -59,26 +59,26 @@ def test_chargeAndSpikeSingleNeuron():
     from NetworksPython.layers import FFIAFNest
 
     weights = [[1.0]]
-    vfBias = [0.375]
-    vtTauN = [0.01]
+    bias = [0.375]
+    tau_mem = [0.01]
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
     fC = 250.0
     dt = 0.001
-    tRef = 0.002
+    refractory = 0.002
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vReset,
-        vfVRest=vRest,
-        vfVThresh=vTh,
-        vfCapacity=fC,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=vReset,
+        v_rest=vRest,
+        v_thresh=vTh,
+        capacity=fC,
+        refractory=refractory,
+        record=True,
         name="test",
     )
 
@@ -101,17 +101,17 @@ def test_FFNestLayer():
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl0 = FFIAFNest(
         weights=weights,
         dt=0.001,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        refractory=0.001,
+        record=True,
     )
 
     # - Input signal
@@ -139,20 +139,20 @@ def test_RecNestLayer():
     # - Generic parameters
     weights_in = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
     weights_rec = np.random.rand(3, 3) * 0.01
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
-    vtTauS = [0.2, 0.01, 0.01]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn = [0.2, 0.01, 0.01]
 
     # - Layer generation
     fl0 = RecIAFSpkInNest(
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=0.001,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        refractory=0.001,
+        record=True,
     )
 
     # - Compare states before and after
@@ -176,26 +176,26 @@ def test_FFToRecLayer():
     import numpy as np
 
     weights = [[0.0, 0.001, 0.0]]
-    vfBias = 0.375
-    vtTauN = 0.01
+    bias = 0.375
+    tau_mem = 0.01
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
     fC = 250.0
     dt = 0.001
-    tRef = 0.002
+    refractory = 0.002
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vReset,
-        vfVRest=vRest,
-        vfVThresh=vTh,
-        vfCapacity=fC,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=vReset,
+        v_rest=vRest,
+        v_thresh=vTh,
+        capacity=fC,
+        refractory=refractory,
+        record=True,
         name="FF",
     )
 
@@ -203,18 +203,18 @@ def test_FFToRecLayer():
     weights_rec = np.random.rand(3, 3) * 0.001
     vfBiasRec = 0.0
     vtTauNRec = [0.02, 0.05, 0.1]
-    vtTauSRec = [0.2, 0.01, 0.01]
+    tau_syn_rec = [0.2, 0.01, 0.01]
 
     # - Layer generation
     fl1 = RecIAFSpkInNest(
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=0.001,
-        vfBias=vfBiasRec,
-        vtTauN=vtTauNRec,
-        vtTauS=vtTauSRec,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=vfBiasRec,
+        tau_mem=vtTauNRec,
+        tau_syn=tau_syn_rec,
+        refractory=0.001,
+        record=True,
         name="Rec",
     )
 
@@ -253,20 +253,20 @@ def test_randomizeStateRec():
     # - Generic parameters
     weights_in = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
     weights_rec = np.random.rand(3, 3) * 0.01
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
-    vtTauS = [0.2, 0.01, 0.01]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn = [0.2, 0.01, 0.01]
 
     # - Layer generation
     fl0 = RecIAFSpkInNest(
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=0.0001,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        refractory=0.001,
+        record=True,
     )
 
     # - Compare states before and after
@@ -284,17 +284,17 @@ def test_randomizeStateFF():
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl0 = FFIAFNest(
         weights=weights,
         dt=0.001,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        refractory=0.001,
+        record=True,
     )
 
     # - Compare states before and after
@@ -314,17 +314,17 @@ def test_recording():
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-    vfBias = 0.01
-    vtTauN = [0.02, 0.05, 0.1]
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
 
     # - Layer generation
     fl0 = FFIAFNest(
         weights=weights,
         dt=0.0001,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        refractory=0.001,
+        record=True,
     )
 
     # - Input signal
@@ -334,7 +334,7 @@ def test_recording():
     vStateBefore = np.copy(fl0.state)
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
-    assert np.shape(fl0.mfRecordStates) == (3, 100)
+    assert np.shape(fl0.record_states) == (3, 100)
 
 
 def test_FFToRecLayerRepeat():
@@ -346,26 +346,26 @@ def test_FFToRecLayerRepeat():
     import numpy as np
 
     weights = [[0.0, 0.001, 0.0]]
-    vfBias = 0.375
-    vtTauN = 0.01
+    bias = 0.375
+    tau_mem = 0.01
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
     fC = 250.0
     dt = 0.001
-    tRef = 0.002
+    refractory = 0.002
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vReset,
-        vfVRest=vRest,
-        vfVThresh=vTh,
-        vfCapacity=fC,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=vReset,
+        v_rest=vRest,
+        v_thresh=vTh,
+        capacity=fC,
+        refractory=refractory,
+        record=True,
         name="FF",
     )
 
@@ -373,18 +373,18 @@ def test_FFToRecLayerRepeat():
     weights_rec = np.random.rand(3, 3) * 0.001
     vfBiasRec = 0.0
     vtTauNRec = [0.02, 0.05, 0.1]
-    vtTauSRec = [0.2, 0.01, 0.01]
+    tau_syn_rec = [0.2, 0.01, 0.01]
 
     # - Layer generation
     fl1 = RecIAFSpkInNest(
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=0.001,
-        vfBias=vfBiasRec,
-        vtTauN=vtTauNRec,
-        vtTauS=vtTauSRec,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=vfBiasRec,
+        tau_mem=vtTauNRec,
+        tau_syn=tau_syn_rec,
+        refractory=0.001,
+        record=True,
         name="Rec",
     )
 
@@ -425,27 +425,27 @@ def test_DefaultParams():
     weights = np.ones([1, 2]) * 0.01
     weights_in = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
     weights_rec = np.random.rand(3, 3) * 0.01
-    vfBias = 0.0
+    bias = 0.0
     dt = 0.0001
-    vtTauN = 0.02
-    vtTauS = 0.05
-    vfVThresh = -0.055
-    vfVReset = -0.065
-    vfVRest = -0.065
-    vfCapacity = 100.0
-    tRef = 0.001
+    tau_mem = 0.02
+    tau_syn = 0.05
+    v_thresh = -0.055
+    v_reset = -0.065
+    v_rest = -0.065
+    capacity = 100.0
+    refractory = 0.001
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vfVReset,
-        vfVRest=vfVRest,
-        vfVThresh=vfVThresh,
-        vfCapacity=vfCapacity,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=v_reset,
+        v_rest=v_rest,
+        v_thresh=v_thresh,
+        capacity=capacity,
+        refractory=refractory,
+        record=True,
         name="FF",
     )
 
@@ -453,24 +453,24 @@ def test_DefaultParams():
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        vfVThresh=vfVThresh,
-        vfVReset=vfVReset,
-        vfVRest=vfVRest,
-        vfCapacity=vfCapacity,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        v_thresh=v_thresh,
+        v_reset=v_reset,
+        v_rest=v_rest,
+        capacity=capacity,
+        refractory=refractory,
+        record=True,
         name="Rec",
     )
 
     net0 = nw.Network(fl0, fl1)
 
-    fl2 = FFIAFNest(weights=weights, bRecord=True, name="FF")
+    fl2 = FFIAFNest(weights=weights, record=True, name="FF")
 
     fl3 = RecIAFSpkInNest(
-        weights_in=weights_in, weights_rec=weights_rec, bRecord=True, name="Rec"
+        weights_in=weights_in, weights_rec=weights_rec, record=True, name="Rec"
     )
 
     net1 = nw.Network(fl2, fl3)
@@ -493,7 +493,7 @@ def test_DefaultParams():
     assert (fl1.state == fl3.state).all()
 
 
-def test_Multithreading():
+#def test_Multithreading():
     """ Test RecIAFNest"""
     from NetworksPython.layers import RecIAFSpkInNest, FFIAFNest
     from NetworksPython import timeseries as ts
@@ -505,30 +505,30 @@ def test_Multithreading():
     weights = np.ones([1, 200]) * 0.01
     weights_in = np.random.rand(200, 300) * 0.001
     weights_rec = np.random.rand(300, 300) * 0.001
-    vfBias = 0.01
+    bias = 0.01
     dt = 0.0001
-    vtTauN = 0.02
-    vtTauS = 0.05
-    vfVThresh = -0.055
-    vfVReset = -0.065
-    vfVRest = -0.065
-    vfCapacity = 100.0
-    tRef = 0.001
+    tau_mem = 0.02
+    tau_syn = 0.05
+    v_thresh = -0.055
+    v_reset = -0.065
+    v_rest = -0.065
+    capacity = 100.0
+    refractory = 0.001
 
     np.random.seed(0)
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vfVReset,
-        vfVRest=vfVRest,
-        vfVThresh=vfVThresh,
-        vfCapacity=vfCapacity,
-        tRefractoryTime=tRef,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=v_reset,
+        v_rest=v_rest,
+        v_thresh=v_thresh,
+        capacity=capacity,
+        refractory=refractory,
         num_cores=1,
-        bRecord=True,
+        record=True,
         name="FF",
     )
 
@@ -536,16 +536,16 @@ def test_Multithreading():
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        vfVThresh=vfVThresh,
-        vfVReset=vfVReset,
-        vfVRest=vfVRest,
-        vfCapacity=vfCapacity,
-        tRefractoryTime=tRef,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        v_thresh=v_thresh,
+        v_reset=v_reset,
+        v_rest=v_rest,
+        capacity=capacity,
+        refractory=refractory,
         num_cores=1,
-        bRecord=True,
+        record=True,
         name="Rec",
     )
 
@@ -556,14 +556,14 @@ def test_Multithreading():
     fl2 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vfVReset,
-        vfVRest=vfVRest,
-        vfVThresh=vfVThresh,
-        vfCapacity=vfCapacity,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=v_reset,
+        v_rest=v_rest,
+        v_thresh=v_thresh,
+        capacity=capacity,
+        refractory=refractory,
+        record=True,
         num_cores=4,
         name="FF",
     )
@@ -572,15 +572,15 @@ def test_Multithreading():
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        vfVThresh=vfVThresh,
-        vfVReset=vfVReset,
-        vfVRest=vfVRest,
-        vfCapacity=vfCapacity,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        v_thresh=v_thresh,
+        v_reset=v_reset,
+        v_rest=v_rest,
+        capacity=capacity,
+        refractory=refractory,
+        record=True,
         num_cores=4,
         name="Rec",
     )
@@ -623,26 +623,26 @@ def test_delays():
     import numpy as np
 
     weights = [[0.001, 0.0, 0.0, 0.0]]
-    vfBias = 0.375
-    vtTauN = 0.01
+    bias = 0.375
+    tau_mem = 0.01
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
     fC = 250.0
     dt = 0.001
-    tRef = 0.002
+    refractory = 0.002
 
     fl0 = FFIAFNest(
         weights=weights,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vfVReset=vReset,
-        vfVRest=vRest,
-        vfVThresh=vTh,
-        vfCapacity=fC,
-        tRefractoryTime=tRef,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        v_reset=vReset,
+        v_rest=vRest,
+        v_thresh=vTh,
+        capacity=fC,
+        refractory=refractory,
+        record=True,
         name="FF",
     )
 
@@ -670,7 +670,7 @@ def test_delays():
     ]
     vfBiasRec = 0.0
     vtTauNRec = [0.2, 0.2, 0.2, 0.2]
-    vtTauSRec = [0.2, 0.2, 0.2, 0.2]
+    tau_syn_rec = [0.2, 0.2, 0.2, 0.2]
 
     # - Layer generation
     fl1 = RecIAFSpkInNest(
@@ -679,11 +679,11 @@ def test_delays():
         delay_in=delay_in,
         delay_rec=delay_rec,
         dt=0.001,
-        vfBias=vfBiasRec,
-        vtTauN=vtTauNRec,
-        vtTauS=vtTauSRec,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=vfBiasRec,
+        tau_mem=vtTauNRec,
+        tau_syn=tau_syn_rec,
+        refractory=0.001,
+        record=True,
         name="Rec",
     )
 
@@ -715,9 +715,9 @@ def test_IAF2AEIFNest():
     # - Generic parameters
     weights_in = np.array([[-0.001, 0.002, 0.004], [0.03, -0.003, -0.0015]])
     weights_rec = np.random.rand(3, 3) * 0.001
-    vfBias = 0.0
-    vtTauN = [0.02, 0.05, 0.1]
-    vtTauS = [0.2, 0.01, 0.01]
+    bias = 0.0
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn = [0.2, 0.01, 0.01]
     dt = 0.001
     vThresh = -0.055
     vRest = -0.065
@@ -727,14 +727,14 @@ def test_IAF2AEIFNest():
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        vfVThresh=vThresh,
-        vfVReset=vRest,
-        vfVRest=vRest,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        v_thresh=vThresh,
+        v_reset=vRest,
+        v_rest=vRest,
+        refractory=0.001,
+        record=True,
     )
 
     # - Layer generation
@@ -742,17 +742,17 @@ def test_IAF2AEIFNest():
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        vfVThresh=vThresh,
-        vfVReset=vRest,
-        vfVRest=vRest,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        v_thresh=vThresh,
+        v_reset=vRest,
+        v_rest=vRest,
         a=0.0,
         b=0.0,
         delta_t=0.0,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        refractory=0.001,
+        record=True,
     )
 
     # - Input signal
@@ -783,9 +783,9 @@ def test_SaveLoad():
     # - Generic parameters
     weights_in = np.array([[-0.001, 0.002, 0.004], [0.03, -0.003, -0.0015]])
     weights_rec = np.random.rand(3, 3) * 0.001
-    vfBias = 0.0
-    vtTauN = [0.02, 0.05, 0.1]
-    vtTauS = [0.2, 0.01, 0.01]
+    bias = 0.0
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn = [0.2, 0.01, 0.01]
     dt = 0.001
     vThresh = -0.055
     vRest = -0.065
@@ -795,17 +795,17 @@ def test_SaveLoad():
         weights_in=weights_in,
         weights_rec=weights_rec,
         dt=dt,
-        vfBias=vfBias,
-        vtTauN=vtTauN,
-        vtTauS=vtTauS,
-        vfVThresh=vThresh,
-        vfVReset=vRest,
-        vfVRest=vRest,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        v_thresh=vThresh,
+        v_reset=vRest,
+        v_rest=vRest,
         a=0.,
         b=1.,
         delta_t=0.,
-        tRefractoryTime=0.001,
-        bRecord=True,
+        refractory=0.001,
+        record=True,
     )
 
     net0 = nw.Network(fl0)
@@ -822,9 +822,9 @@ def test_SaveLoad():
 
     # - Compare states before and after
 
-    assert (np.abs(net0.inputlayer.state - net1.inputlayer.state) < 0.00001).all()
+    assert (np.abs(net0.input_layer.state - net1.input_layer.state) < 0.00001).all()
 
     dFl0 = net0.evolve(tsInEvent, duration=1.0)
     dFl1 = net1.evolve(tsInEvent, duration=1.0)
 
-    assert (np.abs(net0.inputlayer.state - net1.inputlayer.state) < 0.00001).all()
+    assert (np.abs(net0.input_layer.state - net1.input_layer.state) < 0.00001).all()

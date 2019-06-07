@@ -43,28 +43,28 @@ class RecDynapseBrian(Layer):
     def __init__(
         self,
         weights: np.ndarray,
-        vfWIn: np.ndarray,
+        weights_in: np.ndarray,
         dt: float = 0.1 * ms,
         noise_std: float = 0 * mV,
-        tRefractoryTime=0 * ms,
-        dParamNeuron=None,
-        dParamSynapse=None,
-        strIntegrator: str = "rk4",
+        refractory=0 * ms,
+        neuron_params=None,
+        syn_params=None,
+        integrator_name: str = "rk4",
         name: str = "unnamed",
     ):
         """
         RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
 
         :param weights:             np.array NxN weight matrix
-        :param vfWIn:             np.array 1xN input weight matrix.
+        :param weights_in:             np.array 1xN input weight matrix.
 
-        :param tRefractoryTime: float Refractory period after each spike. Default: 0ms
+        :param refractory: float Refractory period after each spike. Default: 0ms
 
-        :param dParamNeuron:    dict Parameters to over overwriting neuron defaulst
+        :param neuron_params:    dict Parameters to over overwriting neuron defaulst
 
-        :param dParamSynapse:    dict Parameters to over overwriting synapse defaulst
+        :param syn_params:    dict Parameters to over overwriting synapse defaulst
 
-        :param strIntegrator:   str Integrator to use for simulation. Default: 'exact'
+        :param integrator_name:   str Integrator to use for simulation. Default: 'exact'
 
         :param name:         str Name for the layer. Default: 'unnamed'
         """
@@ -78,14 +78,14 @@ class RecDynapseBrian(Layer):
         )
 
         # - Input weights must be provided
-        assert vfWIn is not None, "vfWIn must be provided."
+        assert weights_in is not None, "weights_in must be provided."
 
         # - Warn that nosie is not implemented
         if noise_std != 0:
             print("WARNING: Noise is currently not implemented in this layer.")
 
         # - Set up spike source to receive spiking input
-        self._sggInput = b2.SpikeGeneratorGroup(
+        self._input_generator = b2.SpikeGeneratorGroup(
             self.size, [0], [0 * second], dt=np.asarray(dt) * second
         )
 
@@ -95,84 +95,84 @@ class RecDynapseBrian(Layer):
         ### --- Neurons
 
         # - Set up reservoir neurons
-        self._ngLayer = teiliNG(
+        self._neuron_group = teiliNG(
             N=self.size,
             equation_builder=teiliDPIEqts(num_inputs=2),
             name="reservoir_neurons",
-            refractory=tRefractoryTime,
-            method=strIntegrator,
+            refractory=refractory,
+            method=integrator_name,
             dt=dt,
         )
 
         # - Overwrite default neuron parameters
-        if dParamNeuron is not None:
-            self._ngLayer.set_params(dict(dTeiliNeuronParam, **dParamNeuron))
+        if neuron_params is not None:
+            self._neuron_group.set_params(dict(dTeiliNeuronParam, **neuron_params))
         else:
-            self._ngLayer.set_params(dTeiliNeuronParam)
+            self._neuron_group.set_params(dTeiliNeuronParam)
 
         ### --- Synapses
 
         # - Add recurrent synapses (all-to-all)
-        self._sgRecurrentSynapses = teiliSyn(
-            self._ngLayer,
-            self._ngLayer,
+        self._rec_synapses = teiliSyn(
+            self._neuron_group,
+            self._neuron_group,
             equation_builder=teiliDPISynEqts,
-            method=strIntegrator,
+            method=integrator_name,
             dt=dt,
             name="reservoir_recurrent_synapses",
         )
-        self._sgRecurrentSynapses.connect()
+        self._rec_synapses.connect()
 
         # - Add source -> reservoir synapses (one-to-one)
-        self._sgReceiver = teiliSyn(
-            self._sggInput,
-            self._ngLayer,
+        self._inp_synapses = teiliSyn(
+            self._input_generator,
+            self._neuron_group,
             equation_builder=teiliDPISynEqts,
-            method=strIntegrator,
+            method=integrator_name,
             dt=np.asarray(dt) * second,
             name="receiver_synapses",
         )
         # Each spike generator neuron corresponds to one reservoir neuron
-        self._sgReceiver.connect("i==j")
+        self._inp_synapses.connect("i==j")
 
         # - Overwrite default synapse parameters
-        if dParamSynapse is not None:
-            self._sgRecurrentSynapses.set_params(dParamNeuron)
-            self._sgReceiver.set_params(dParamNeuron)
+        if syn_params is not None:
+            self._rec_synapses.set_params(neuron_params)
+            self._inp_synapses.set_params(neuron_params)
 
         # - Add spike monitor to record layer outputs
-        self._spmReservoir = b2.SpikeMonitor(
-            self._ngLayer, record=True, name="layer_spikes"
+        self._spike_monitor = b2.SpikeMonitor(
+            self._neuron_group, record=True, name="layer_spikes"
         )
 
         # - Call Network constructor
         self._net = b2.Network(
-            self._ngLayer,
-            self._sgRecurrentSynapses,
-            self._sggInput,
-            self._sgReceiver,
-            self._spmReservoir,
+            self._neuron_group,
+            self._rec_synapses,
+            self._input_generator,
+            self._inp_synapses,
+            self._spike_monitor,
             name="recurrent_spiking_layer",
         )
 
         # - Record neuron / synapse parameters
         # automatically sets weights  via setters
         self.weights = weights
-        self.vfWIn = vfWIn
+        self.weights_in = weights_in
 
         # - Store "reset" state
         self._net.store("reset")
 
     def reset_state(self):
-        """ .reset_state() - Method: reset the internal state of the layer
+        """ .reset_state() - arguments:: reset the internal state of the layer
             Usage: .reset_state()
         """
-        self._ngLayer.Imem = 0 * amp
-        self._ngLayer.Iahp = 0.5 * pamp
-        self._sgRecurrentSynapses.Ie_syn = 0.5 * pamp
-        self._sgRecurrentSynapses.Ii_syn = 0.5 * pamp
-        self._sgReceiver.Ie_syn = 0.5 * pamp
-        self._sgReceiver.Ii_syn = 0.5 * pamp
+        self._neuron_group.i_mem = 0 * amp
+        self._neuron_group.i_ahp = 0.5 * pamp
+        self._rec_synapses.Ie_syn = 0.5 * pamp
+        self._rec_synapses.Ii_syn = 0.5 * pamp
+        self._inp_synapses.Ie_syn = 0.5 * pamp
+        self._inp_synapses.Ii_syn = 0.5 * pamp
 
     def reset_time(self):
         """
@@ -180,32 +180,32 @@ class RecDynapseBrian(Layer):
         """
 
         # - Save state variables
-        Imem = np.copy(self._ngLayer.Imem) * amp
-        Iahp = np.copy(self._ngLayer.Iahp) * amp
-        Ie_Recur = np.copy(self._sgRecurrentSynapses.Ie_syn) * amp
-        Ii_Recur = np.copy(self._sgRecurrentSynapses.Ii_syn) * amp
-        Ie_Recei = np.copy(self._sgReceiver.Ie_syn) * amp
-        Ii_Recei = np.copy(self._sgReceiver.Ii_syn) * amp
+        i_mem = np.copy(self._neuron_group.i_mem) * amp
+        i_ahp = np.copy(self._neuron_group.i_ahp) * amp
+        i_ex_recur = np.copy(self._rec_synapses.Ie_syn) * amp
+        i_inh_recur = np.copy(self._rec_synapses.Ii_syn) * amp
+        i_ex_inp = np.copy(self._inp_synapses.Ie_syn) * amp
+        i_inh_inp = np.copy(self._inp_synapses.Ii_syn) * amp
 
         # - Save parameters
         weights = np.copy(self.weights)
-        vfWIn = np.copy(self.vfWIn)
+        weights_in = np.copy(self.weights_in)
 
         # - Reset Network
         self._net.restore("reset")
         self._timestep = 0
 
         # - Restore state variables
-        self._ngLayer.Imem = Imem
-        self._ngLayer.Iahp = Iahp
-        self._sgRecurrentSynapses.Ie_syn = Ie_Recur
-        self._sgRecurrentSynapses.Ii_syn = Ii_Recur
-        self._sgReceiver.Ie_syn = Ie_Recei
-        self._sgReceiver.Ii_syn = Ii_Recei
+        self._neuron_group.i_mem = i_mem
+        self._neuron_group.i_ahp = i_ahp
+        self._rec_synapses.Ie_syn = i_ex_recur
+        self._rec_synapses.Ii_syn = i_inh_recur
+        self._inp_synapses.Ie_syn = i_ex_inp
+        self._inp_synapses.Ii_syn = i_inh_inp
 
         # - Restore parameters
         self.weights = weights
-        self.vfWIn = vfWIn
+        self.weights_in = weights_in
 
     ### --- State evolution
 
@@ -228,31 +228,31 @@ class RecDynapseBrian(Layer):
         """
 
         # - Prepare time base
-        vtTimeBase, mfInputStep, num_timesteps = self._prepare_input(
+        time_base, input_steps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Set spikes for spike generator
         if ts_input is not None:
-            vtEventTimes, vnEventChannels, _ = ts_input.find(
-                [vtTimeBase[0], vtTimeBase[-1] + self.dt]
+            event_times, event_channels, _ = ts_input.find(
+                [time_base[0], time_base[-1] + self.dt]
             )
-            self._sggInput.set_spikes(
-                vnEventChannels, vtEventTimes * second, sorted=False
+            self._input_generator.set_spikes(
+                event_channels, event_times * second, sorted=False
             )
         else:
-            self._sggInput.set_spikes([], [] * second)
+            self._input_generator.set_spikes([], [] * second)
 
         # - Perform simulation
         self._net.run(num_timesteps * self.dt * second, level=0)
         self._timestep += num_timesteps
 
         # - Build response TimeSeries
-        vbUseEvent = self._spmReservoir.t_ >= vtTimeBase[0]
-        vtEventTimeOutput = self._spmReservoir.t[vbUseEvent]
-        vnEventChannelOutput = self._spmReservoir.i[vbUseEvent]
+        use_event = self._spike_monitor.t_ >= time_base[0]
+        event_time_out = self._spike_monitor.t[use_event]
+        event_channel_out = self._spike_monitor.i[use_event]
 
-        return TSEvent(vtEventTimeOutput, vnEventChannelOutput, name="Layer spikes")
+        return TSEvent(event_time_out, event_channel_out, name="Layer spikes")
 
     ### --- Properties
 
@@ -266,51 +266,51 @@ class RecDynapseBrian(Layer):
 
     @property
     def weights(self):
-        if hasattr(self, "_sgRecurrentSynapses"):
-            return np.reshape(self._sgRecurrentSynapses.weight, (self.size, -1))
+        if hasattr(self, "_rec_synapses"):
+            return np.reshape(self._rec_synapses.weight, (self.size, -1))
         else:
-            return self._mfW
+            return self._weights
 
     @weights.setter
-    def weights(self, mfNewW):
-        assert np.size(mfNewW) == self.size ** 2, (
-            "`mfNewW` must have [" + str(self.size ** 2) + "] elements."
+    def weights(self, new_w):
+        assert np.size(new_w) == self.size ** 2, (
+            "`new_w` must have [" + str(self.size ** 2) + "] elements."
         )
 
-        self._mfW = mfNewW
+        self._weights = new_w
 
-        if hasattr(self, "_sgRecurrentSynapses"):
+        if hasattr(self, "_rec_synapses"):
             # - Assign recurrent weights
-            mfNewW = np.asarray(mfNewW).reshape(self.size, -1)
-            self._sgRecurrentSynapses.weight = mfNewW.flatten()
+            new_w = np.asarray(new_w).reshape(self.size, -1)
+            self._rec_synapses.weight = new_w.flatten()
 
     @property
-    def vfWIn(self):
-        if hasattr(self, "_sgReceiver"):
-            return np.reshape(self._sgReceiver.weight, (self.size, -1))
+    def weights_in(self):
+        if hasattr(self, "_inp_synapses"):
+            return np.reshape(self._inp_synapses.weight, (self.size, -1))
         else:
-            return self._mfW
+            return self._weights
 
-    @vfWIn.setter
-    def vfWIn(self, vfNewW):
-        assert np.size(vfNewW) == self.size, (
-            "`mfNewW` must have [" + str(self.size) + "] elements."
+    @weights_in.setter
+    def weights_in(self, new_weights):
+        assert np.size(new_weights) == self.size, (
+            "`new_w` must have [" + str(self.size) + "] elements."
         )
 
-        self._mfW = vfNewW
+        self._weights = new_weights
 
-        if hasattr(self, "_sgReceiver"):
+        if hasattr(self, "_inp_synapses"):
             # - Assign input weights
-            self._sgReceiver.weight = vfNewW.flatten()
+            self._inp_synapses.weight = new_weights.flatten()
 
     @property
     def state(self):
-        return self._ngLayer.Imem_
+        return self._neuron_group.Imem_
 
     @state.setter
-    def state(self, vNewState):
-        self._ngLayer.Imem = (
-            np.asarray(self._expand_to_net_size(vNewState, "vNewState")) * volt
+    def state(self, new_state):
+        self._neuron_group.i_mem = (
+            np.asarray(self._expand_to_net_size(new_state, "new_state")) * volt
         )
 
     @property
