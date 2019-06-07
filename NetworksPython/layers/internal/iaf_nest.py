@@ -257,11 +257,7 @@ class FFIAFNest(Layer):
                 event_channel_out -= np.min(self._pop)
 
                 if self.record:
-                    return [
-                        event_time_out,
-                        event_channel_out,
-                        mV2V(record_states),
-                    ]
+                    return [event_time_out, event_channel_out, mV2V(record_states)]
                 else:
                     return [event_time_out, event_channel_out, None]
 
@@ -443,9 +439,7 @@ class FFIAFNest(Layer):
         self.request_q.put([COMMAND_EVOLVE, time_base, input_steps, num_timesteps])
 
         if self.record:
-            event_time_out, event_channel_out, self.record_states = (
-                self.result_q.get()
-            )
+            event_time_out, event_channel_out, self.record_states = self.result_q.get()
         else:
             event_time_out, event_channel_out, _ = self.result_q.get()
 
@@ -577,9 +571,7 @@ class FFIAFNest(Layer):
         )
         config["num_cores"] = self.num_cores
         config["record"] = self.record
-        config["bias"] = (
-            self.bias if type(self.bias) is float else self.bias.tolist()
-        )
+        config["bias"] = self.bias if type(self.bias) is float else self.bias.tolist()
         config["class_name"] = "FFIAFNest"
 
         return config
@@ -814,9 +806,7 @@ class RecIAFSpkInNest(Layer):
 
                 weights = [self.weights_rec[conn[0], conn[1]] for conn in connsPrePost]
                 if type(self.delay_rec) is np.ndarray:
-                    delays = [
-                        self.delay_rec[conn[0], conn[1]] for conn in connsPrePost
-                    ]
+                    delays = [self.delay_rec[conn[0], conn[1]] for conn in connsPrePost]
                 else:
                     delays = np.array([self.delay_rec] * len(weights))
 
@@ -924,11 +914,7 @@ class RecIAFSpkInNest(Layer):
                 event_channel_out -= np.min(self._pop)
 
                 if self.record:
-                    return [
-                        event_time_out,
-                        event_channel_out,
-                        mV2V(record_states),
-                    ]
+                    return [event_time_out, event_channel_out, mV2V(record_states)]
                 else:
                     return [event_time_out, event_channel_out, None]
 
@@ -1111,7 +1097,7 @@ class RecIAFSpkInNest(Layer):
 
     def evolve(
         self,
-        ts_input: Optional[TSContinuous] = None,
+        ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         verbose: bool = False,
@@ -1119,7 +1105,7 @@ class RecIAFSpkInNest(Layer):
         """
         evolve : Function to evolve the states of this layer given an input
 
-        :param ts_input:       TSContinuous  Input spike trian
+        :param ts_input:       TSEvent  Input spike trian
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps    int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
@@ -1143,14 +1129,10 @@ class RecIAFSpkInNest(Layer):
             event_times = np.array([])
             event_channels = np.array([])
 
-        self.request_q.put(
-            [COMMAND_EVOLVE, event_times, event_channels, num_timesteps]
-        )
+        self.request_q.put([COMMAND_EVOLVE, event_times, event_channels, num_timesteps])
 
         if self.record:
-            event_time_out, event_channel_out, self.record_states = (
-                self.result_q.get()
-            )
+            event_time_out, event_channel_out, self.record_states = self.result_q.get()
         else:
             event_time_out, event_channel_out, _ = self.result_q.get()
 
@@ -1272,9 +1254,7 @@ class RecIAFSpkInNest(Layer):
         config["name"] = self.name
         config["weights_in"] = self.weights_in.tolist()
         config["weights_rec"] = self.weights_rec.tolist()
-        config["bias"] = (
-            self.bias if type(self.bias) is float else self.bias.tolist()
-        )
+        config["bias"] = self.bias if type(self.bias) is float else self.bias.tolist()
         config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
         config["v_thresh"] = (
             self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
@@ -1286,9 +1266,7 @@ class RecIAFSpkInNest(Layer):
             self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
         )
         config["capacity"] = (
-            self.capacity
-            if type(self.capacity) is float
-            else self.capacity.tolist()
+            self.capacity if type(self.capacity) is float else self.capacity.tolist()
         )
         config["refractory"] = (
             self.refractory
@@ -1315,21 +1293,21 @@ class RecIAFSpkInNest(Layer):
     def load_from_dict(config):
 
         net_ = RecIAFSpkInNest(
-                   weights_in=config["weights_in"],
-                   weights_rec=config["weights_rec"],
-                   bias=config["bias"],
-                   dt=config["dt"],
-                   tau_mem=config["tau_mem"],
-                   tau_syn=config["tauS"],
-                   capacity=config["capacity"],
-                   v_thresh=config["v_thresh"],
-                   v_reset=config["v_reset"],
-                   v_rest=config["v_rest"],
-                   refractory=config["refractory"],
-                   name=config["name"],
-                   record=config["record"],
-                   num_cores=config["num_cores"],
-                   )
+            weights_in=config["weights_in"],
+            weights_rec=config["weights_rec"],
+            bias=config["bias"],
+            dt=config["dt"],
+            tau_mem=config["tau_mem"],
+            tau_syn=config["tauS"],
+            capacity=config["capacity"],
+            v_thresh=config["v_thresh"],
+            v_reset=config["v_reset"],
+            v_rest=config["v_rest"],
+            refractory=config["refractory"],
+            name=config["name"],
+            record=config["record"],
+            num_cores=config["num_cores"],
+        )
         net_.reset_all()
         return net_
 
