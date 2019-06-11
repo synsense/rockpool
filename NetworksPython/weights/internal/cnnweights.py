@@ -56,7 +56,7 @@ class CNNWeight(UserList):
         data = self.data  # Local variable
         try:
             if np.size(index) == 0:
-                return np.zeros(self.outShape, float)
+                return np.zeros(self.out_shape, float)
             if (type(index) is int) or (type(index) is list):
                 # indexed by integer
                 bIndex = np.zeros(self.inp_shape).astype(bool).flatten()
@@ -139,18 +139,18 @@ class CNNWeight(UserList):
 
     @property
     def shape(self):
-        outSize = int(reduce(lambda x, y: x * y, self.outShape))
+        outSize = int(reduce(lambda x, y: x * y, self.out_shape))
         inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return (inSize, outSize)
 
     @property
     def size(self):
-        outSize = int(reduce(lambda x, y: x * y, self.outShape))
+        outSize = int(reduce(lambda x, y: x * y, self.out_shape))
         inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return inSize * outSize
 
     @property
-    def outShape(self):
+    def out_shape(self):
         if self._outShape is None:
             if self.img_data_format == "channels_last":
                 self._outShape = (

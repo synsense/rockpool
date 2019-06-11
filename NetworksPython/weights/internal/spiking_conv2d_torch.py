@@ -29,22 +29,22 @@ class TorchConv2dLayer(nn.Module):
 
         # Determine input and output channel numbers
         if img_data_format == "channels_last":
-            nInChannels, nOutChannels = kernel.shape[-2:]
+            num_in_channels, num_out_channels = kernel.shape[-2:]
             kernel_size = kernel.shape[:2]
             kernel = kernel.transpose((3, 2, 0, 1))
         elif img_data_format == "channels_first":
-            nOutChannels, nInChannels = kernel.shape[:2]
+            num_out_channels, num_in_channels = kernel.shape[:2]
             kernel_size = kernel.shape[2:]
 
         self.pad = nn.ZeroPad2d(padding)
         self.conv = nn.Conv2d(
-            nInChannels, nOutChannels, kernel_size=kernel_size, stride=strides
+            num_in_channels, num_out_channels, kernel_size=kernel_size, stride=strides
         )
         # Set the correct weights
         self.conv.weight.data = torch.from_numpy(kernel).float()
         # Set the correct biases
         # TODO: replace with actual biases
-        self.conv.bias.data = torch.from_numpy(np.zeros((nOutChannels,))).float()
+        self.conv.bias.data = torch.from_numpy(np.zeros((num_out_channels,))).float()
 
     def forward(self, tsrIndexReshaped):
         # This will always only be used for inference
@@ -54,14 +54,14 @@ class TorchConv2dLayer(nn.Module):
                 tsrIndexReshaped = tsrIndexReshaped.permute((0, 3, 1, 2))
             elif self.img_data_format == "channels_first":
                 pass
-            tsrConvOut = self.conv(self.pad(tsrIndexReshaped))
+            conv_out = self.conv(self.pad(tsrIndexReshaped))
 
             # Restructure output
             if self.img_data_format == "channels_last":
-                tsrConvOut = tsrConvOut.permute((0, 2, 3, 1))
+                conv_out = conv_out.permute((0, 2, 3, 1))
             elif self.img_data_format == "channels_first":
                 pass
-        return tsrConvOut
+        return conv_out
 
 
 class CNNWeightTorch(UserList):
@@ -91,7 +91,7 @@ class CNNWeightTorch(UserList):
         # Initialize placeholder variables
         self._data = None  # Initialized when inp_shape is assigned
         self._inShape = None
-        self.lyrTorch = None
+        self.lyr_torch = None
         # Determine if there is a gpu
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         # Set parameters from the initialization
@@ -146,7 +146,7 @@ class CNNWeightTorch(UserList):
                     # Move data to device
                     tsrIndexReshaped = tsrIndexReshaped.to(self.device)
                     # Do the convolution
-                    tsrConvolution = self.lyrTorch(tsrIndexReshaped)
+                    tsrConvolution = self.lyr_torch(tsrIndexReshaped)
                 else:
                     # Do the convolution
                     raise Exception("Incorrect dimensions")
@@ -199,15 +199,15 @@ class CNNWeightTorch(UserList):
             map(self._calculatePadding, vImgShape, self.kernel_size, self.strides)
         )
         self.padding = np.array(padding).flatten().tolist()
-        del self.lyrTorch  # Free memory
-        self.lyrTorch = TorchConv2dLayer(
+        del self.lyr_torch  # Free memory
+        self.lyr_torch = TorchConv2dLayer(
             self.data.astype(float),
             self.strides,
             self.padding,
             img_data_format=self.img_data_format,
         )
         # Move to appropriate device
-        self.lyrTorch.to(self.device)
+        self.lyr_torch.to(self.device)
 
     def __setitem__(self, index, value):
         """
@@ -217,31 +217,31 @@ class CNNWeightTorch(UserList):
 
     @property
     def shape(self):
-        outSize = int(reduce(lambda x, y: x * y, self.outShape))
+        outSize = int(reduce(lambda x, y: x * y, self.out_shape))
         inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return (inSize, outSize)
 
     @property
     def size(self):
-        outSize = int(reduce(lambda x, y: x * y, self.outShape))
+        outSize = int(reduce(lambda x, y: x * y, self.out_shape))
         inSize = int(reduce(lambda x, y: x * y, self.inp_shape))
         return inSize * outSize
 
     @property
-    def outShape(self):
+    def out_shape(self):
         if self._outShape is None:
             # create fake data
             tsrImg = torch.rand(self.inp_shape)
             # if self.img_data_format == "channels_last":
             #    tsrImg = tsrImg.unsqueeze(-1).to(self.device)
-            #    tsrOutImg = self.lyrTorch(tsrImg)
+            #    tsrOutImg = self.lyr_torch(tsrImg)
             #    self._outShape = tsrOutImg.shape[:-1]
             # if self.img_data_format == "channels_first":
             #    tsrImg = tsrImg.unsqueeze(0).to(self.device)
-            #    tsrOutImg = self.lyrTorch(tsrImg)
+            #    tsrOutImg = self.lyr_torch(tsrImg)
             #    self._outShape = tsrOutImg.shape[1:]
             tsrImg = tsrImg.unsqueeze(0).to(self.device)
-            tsrOutImg = self.lyrTorch(tsrImg)
+            tsrOutImg = self.lyr_torch(tsrImg)
             self._outShape = tsrOutImg.shape[1:]
         return self._outShape
 
@@ -278,12 +278,12 @@ class CNNWeightTorch(UserList):
             self.data = np.random.rand(
                 *self.kernel_size, *self._inShape[2:], self.kernels
             )  # Kernel
-            self.nInChannels = self._inShape[2]
+            self.num_in_channels = self._inShape[2]
         elif self.img_data_format == "channels_first":
             self.data = np.random.rand(
                 self.kernels, *self.inp_shape[:-2], *self.kernel_size
             )  # Kernel
-            self.nInChannels = self._inShape[0]
+            self.num_in_channels = self._inShape[0]
         # Initialize an updated torch layer with the updated weights
         self._update_torch_layer()
 

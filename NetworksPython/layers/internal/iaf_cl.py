@@ -391,22 +391,22 @@ class FFCLIAF(CLIAF):
             vnNumSpikes[:] = 0
 
             # - Check threshold crossings for spikes
-            vbRecSpikeRaster = state >= v_thresh
+            rec_spike_raster = state >= v_thresh
 
             # - Reset or subtract from membrane state after spikes
             if v_subtract is not None:
-                while vbRecSpikeRaster.any():
+                while rec_spike_raster.any():
                     # - Subtract from states
-                    state[vbRecSpikeRaster] -= v_subtract[vbRecSpikeRaster]
+                    state[rec_spike_raster] -= v_subtract[rec_spike_raster]
                     # - Add to spike counter
-                    vnNumSpikes[vbRecSpikeRaster] += 1
+                    vnNumSpikes[rec_spike_raster] += 1
                     # - Neurons that are still above threshold will emit another spike
-                    vbRecSpikeRaster = state >= v_thresh
+                    rec_spike_raster = state >= v_thresh
             else:
                 # - Add to spike counter
-                vnNumSpikes = vbRecSpikeRaster.astype(int)
+                vnNumSpikes = rec_spike_raster.astype(int)
                 # - Reset neuron states
-                state[vbRecSpikeRaster] = v_reset[vbRecSpikeRaster]
+                state[rec_spike_raster] = v_reset[rec_spike_raster]
 
             # - Record spikes
             spike_times += [t_now] * np.sum(vnNumSpikes)

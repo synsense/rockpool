@@ -35,33 +35,3 @@ def test_averagepooling():
 
     # Neuron indices are updated
     assert np.array_equal(tseOutput.channels, np.array([0, 0, 1, 1]))
-
-
-def test_torch_sumpooling():
-    """
-    Perform sumpooling with torch implementation
-    This is pure torch code and has very little to do with library layers
-    """
-    import torch
-    from NetworksPython.layers import TorchSumPooling2dLayer
-
-    lyrSumPool = TorchSumPooling2dLayer(kernel_size=(2, 5))
-
-    # Generate some random input
-    tsrIn = (torch.rand((100, 2, 10, 20)) > 0.99).float()
-
-    # Process some input
-    tsrOutput = lyrSumPool(tsrIn)
-
-    # Verify output dimensions
-    assert tsrOutput.shape == (100, 2, 5, 4)
-
-    # Asset no. of spikes is retained
-    assert tsrOutput.sum() == tsrIn.sum()
-
-    # Spiketimes are still the same
-    tSpkOut, _, _, _ = np.where(tsrOutput.numpy())
-    t_spike_in, _, _, _ = np.where(tsrIn.numpy())
-
-    # Verify that as many
-    assert len(tSpkOut) <= len(t_spike_in)

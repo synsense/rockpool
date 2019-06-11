@@ -103,7 +103,7 @@ def test_data_format_channels_last():
     # Ensure size of output is as expected
     assert myImg.size * 3 == outConv.size
     # Ensure image dimensions are understood and maintained
-    assert myImg.shape[:2] == W.outShape[:2]
+    assert myImg.shape[:2] == W.out_shape[:2]
     # Ensure convolution data is accurate
     outConv = outConv.reshape((400, 400, 3))
     assert outConv[0, 5, 0] != 0
@@ -132,7 +132,7 @@ def test_data_format_channels_first():
     # Test indexing with entire image
     outConv = W[myImgIndex]
     # Ensure image dimensions are understood and maintained
-    assert myImg.shape[-2:] == W.outShape[-2:]
+    assert myImg.shape[-2:] == W.out_shape[-2:]
     # Ensure size of output is as expected
     assert myImg.size * 3 == outConv.size
     # Ensure convolution data is accurate
@@ -156,4 +156,4 @@ def test_strides_on_convolution():
         img_data_format="channels_first",
     )
 
-    assert W.outShape == (3, 5, 2)
+    assert W.out_shape == (3, 5, 2)

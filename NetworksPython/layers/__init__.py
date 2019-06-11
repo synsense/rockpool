@@ -22,13 +22,6 @@ dModules = {
     ".internal.iaf_digital": "RecDIAF",
     ".internal.spike_bt": "RecFSSpikeEulerBT",
     ".internal.updown": "FFUpDown",
-    ".internal.pytorch.torch_cnn_layer": "FFCLIAFCNNTorch",  # For SNN layer convolutional weights
-    ".internal.pytorch.iaf_conv2d": "TorchSpikingConv2dLayer",
-    ".internal.pytorch.sumpool2d": "TorchSumPooling2dLayer",
-    ".internal.pytorch.crop2d": "TorchCropping2dLayer",
-    ".internal.pytorch.zeropad2d": "TorchZeroPad2dLayer",
-    ".internal.pytorch.flatten": "TorchFlatten2dLayer",
-    ".internal.pytorch.quantize": "TorchQuantizeLayer",
     ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
     ".internal.pytorch.iaf_torch": (
         "FFIAFTorch",
