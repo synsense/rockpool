@@ -15,7 +15,7 @@ from warnings import warn
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-# - Relative tolerance for float comparions
+# - Relative tolerance for float comparisons
 tolerance = 1e-5
 
 ### --- Configure exports
@@ -45,14 +45,6 @@ def print_progress(curr: int, total: int, passed: float):
         ),
         end="\r",
     )
-
-
-@njit
-def re_lu(x: np.ndarray) -> np.ndarray:
-    cop = np.copy(x)
-    cop[np.where(x < 0)] = 0
-    return cop
-
 
 @njit
 def noisy(x: np.ndarray, std_dev: float) -> np.ndarray:
