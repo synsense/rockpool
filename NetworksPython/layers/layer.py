@@ -33,6 +33,9 @@ def to_scalar(value, str_type: str = None):
 
 try:
     import torch
+except ModuleNotFoundError:
+    pass
+else:
 
     class RefArray(np.ndarray):
         """
@@ -147,9 +150,7 @@ try:
 
             return inner
 
-
-except:
-    pass
+    __all__ += ["RefArray", "RefProperty"]
 
 
 ### --- Implements the Layer abstract class
