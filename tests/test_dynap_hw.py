@@ -4,6 +4,8 @@ import os.path
 import numpy as np
 from NetworksPython import TSEvent
 
+RUN_TEST = False
+
 try:
     from NetworksPython.devices import DynapseControlExtd
     from NetworksPython.devices import dynapse_control as dc
@@ -15,10 +17,7 @@ else:
         con = DynapseControlExtd(init_chips=[0], fpga_isibase=1e-5)
     except ConnectionRefusedError:
         warn("Could not connect to cortexcontrol. Not available?")
-        RUN_TEST = False
     else:
-        RUN_TEST = True
-
         #  - Load biases, silence hot neurons
         con.load_biases(
             os.path.join(
@@ -26,6 +25,8 @@ else:
             )
         )
         con.silence_hot_neurons(range(128), 2)
+
+        RUN_TEST = True
 
 
 def test_dynapse_control():

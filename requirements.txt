@@ -1,13 +1,14 @@
-rpyc
 brian2
 matplotlib
 numba
 numpy
+nest-simulator
 pandas
 pyqt
 pytest
 pytorch
 qt
+rpyc
 scikit-image
 scipy
 setuptools
