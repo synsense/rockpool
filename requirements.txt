@@ -2,7 +2,7 @@ brian2
 matplotlib
 numba
 numpy
-nest-simulator
+python-nest
 pandas
 pyqt
 pytest
