@@ -18,7 +18,6 @@ dModules = {
     ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
     ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
     ".internal.softmaxlayer": "SoftMaxLayer",
-    ".internal.averagepooling": "AveragePooling2D",
     ".internal.iaf_digital": "RecDIAF",
     ".internal.spike_bt": "RecFSSpikeEulerBT",
     ".internal.updown": "FFUpDown",

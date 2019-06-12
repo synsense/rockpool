@@ -4,8 +4,6 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".internal.cnnweights": "CNNWeight",
-    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
     ".internal.reservoirweights": (
         "add_random_long_range",
         "combine_FF_Rec_stack",
