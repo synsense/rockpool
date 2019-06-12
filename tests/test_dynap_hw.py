@@ -4,28 +4,29 @@ import os.path
 import numpy as np
 from NetworksPython import TSEvent
 
+RUN_TEST = False
+
 try:
     from NetworksPython.devices import DynapseControlExtd
     from NetworksPython.devices import dynapse_control as dc
 except ImportError:
     warn("DynapseControl could not be imported. Maybe RPyC is not available.")
-
-# - Generate DynapseControl instance and connect
-try:
-    con = DynapseControlExtd(init_chips=[0], fpga_isibase=1e-5)
-except ConnectionRefusedError:
-    warn("Could not connect to cortexcontrol. Not available?")
-    RUN_TEST = False
 else:
-    RUN_TEST = True
-
-    #  - Load biases, silence hot neurons
-    con.load_biases(
-        os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), "files", "dynapse_biases.py"
+    # - Generate DynapseControl instance and connect
+    try:
+        con = DynapseControlExtd(init_chips=[0], fpga_isibase=1e-5)
+    except ConnectionRefusedError:
+        warn("Could not connect to cortexcontrol. Not available?")
+    else:
+        #  - Load biases, silence hot neurons
+        con.load_biases(
+            os.path.join(
+                os.path.abspath(os.path.dirname(__file__)), "files", "dynapse_biases.py"
+            )
         )
-    )
-    con.silence_hot_neurons(range(128), 2)
+        con.silence_hot_neurons(range(128), 2)
+
+        RUN_TEST = True
 
 
 def test_dynapse_control():
