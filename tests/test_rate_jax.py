@@ -39,7 +39,7 @@ def test_RecRateEulerJax():
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state)
-    fl0.evolve(tsInCont, duration=0.1)
+    ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state).any()
 
@@ -49,10 +49,17 @@ def test_RecRateEulerJax():
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
-        fl1 = RecRateEuler(weights = np.zeros((1, 2)))
+        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((3, 2)), w_out = np.zeros((3, 1)),
+                              tau = np.zeros(3), bias = np.zeros(3))
 
     with pytest.raises(AssertionError):
-        RecRateEuler(weights = np.zeros((2, 2)), tau = None)
+        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((2, 2)), w_out = np.zeros((3, 1)),
+                              tau = np.zeros(3), bias = np.zeros(3))
 
     with pytest.raises(AssertionError):
-        RecRateEuler(weights = np.zeros((2, 2)), noise_std = None)
+        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((2, 2)), w_out = np.zeros((2, 1)),
+                              tau = np.zeros(3), bias = np.zeros(3))
+
+    with pytest.raises(AssertionError):
+        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((2, 2)), w_out = np.zeros((2, 1)),
+                              tau = np.zeros(2), bias = np.zeros(3))

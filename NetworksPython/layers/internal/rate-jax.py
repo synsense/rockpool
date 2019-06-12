@@ -198,7 +198,7 @@ class RecRateEulerJax(Layer):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0]
+        self._timestep += inps.shape[0] - 1
 
         return res_inputs, rec_inputs, res_acts, outputs
 
@@ -253,7 +253,9 @@ class RecRateEulerJax(Layer):
 
     @tau.setter
     def tau(self, value: np.ndarray):
-        assert np.size(value) == self._size
+        assert np.size(value) == self._size, "`tau` must have {:d} elements".format(
+            self._size
+        )
         self._tau = np.reshape(value, self._size)
 
     @property
@@ -262,7 +264,9 @@ class RecRateEulerJax(Layer):
 
     @bias.setter
     def bias(self, value: np.ndarray):
-        assert np.size(value) == self._size
+        assert np.size(value) == self._size, "`bias` must have {:d} elements".format(
+            self._size
+        )
         self._bias = np.reshape(value, self._size)
 
     @property
