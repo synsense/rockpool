@@ -58,7 +58,8 @@ class RecAEIFSpkInNest(Layer):
             bias: Union[float, np.ndarray],
             dt: float,
             tau_mem: Union[float, np.ndarray],
-            tau_syn: Union[float, np.ndarray],
+            tau_syn_exc: Union[float, np.ndarray],
+            tau_syn_inh: Union[float, np.ndarray],
             capacity: Union[float, np.ndarray],
             v_thresh: Union[float, np.ndarray],
             v_reset: Union[float, np.ndarray],
@@ -84,7 +85,8 @@ class RecAEIFSpkInNest(Layer):
             self.v_reset = V2mV(v_reset)
             self.v_rest = V2mV(v_rest)
             self.tau_mem = s2ms(tau_mem)
-            self.tau_syn = s2ms(tau_syn)
+            self.tau_syn_exc = s2ms(tau_syn_exc)
+            self.tau_syn_inh = s2ms(tau_syn_inh)
             self.bias = V2mV(bias)
             self.capacity = capacity
             self.weights_in = V2mV(weights_in)
@@ -126,12 +128,15 @@ class RecAEIFSpkInNest(Layer):
             for n in range(self.size):
                 p = {}
 
-                if type(self.tau_syn) is np.ndarray:
-                    p["tau_syn_ex"] = self.tau_syn[n]
-                    p["tau_syn_in"] = self.tau_syn[n]
+                if type(self.tau_syn_exc) is np.ndarray:
+                    p["tau_syn_ex"] = self.tau_syn_exc[n]
                 else:
-                    p["tau_syn_ex"] = self.tau_syn
-                    p["tau_syn_in"] = self.tau_syn
+                    p["tau_syn_ex"] = self.tau_syn_exc
+
+                if type(self.tau_syn_inh) is np.ndarray:
+                    p["tau_syn_in"] = self.tau_syn_inh[n]
+                else:
+                    p["tau_syn_in"] = self.tau_syn_inh
 
                 if type(self.tau_mem) is np.ndarray:
                     if type(self.capacity) == np.ndarray:
@@ -408,7 +413,8 @@ class RecAEIFSpkInNest(Layer):
         bias: np.ndarray = 0.0,
         dt: float = 0.0001,
         tau_mem: np.ndarray = 0.02,
-        tau_syn: np.ndarray = 0.05,
+        tau_syn_exc: np.ndarray = 0.05,
+        tau_syn_inh: np.ndarray = 0.05,
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
@@ -433,7 +439,8 @@ class RecAEIFSpkInNest(Layer):
         :param dt:             float Time-step. Default: 0.1 ms
 
         :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
+        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants. Default: 20ms
+        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants. Default: 20ms
 
         :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
@@ -471,8 +478,11 @@ class RecAEIFSpkInNest(Layer):
         if type(tau_mem) is list:
             tau_mem = np.asarray(tau_mem)
 
-        if type(tau_syn) is list:
-            tau_syn = np.asarray(tau_syn)
+        if type(tau_syn_exc) is list:
+            tau_syn_exc = np.asarray(tau_syn_exc)
+
+        if type(tau_syn_inh) is list:
+            tau_syn_inh = np.asarray(tau_syn_inh)
 
         if type(capacity) is list:
             capacity = np.asarray(capacity)
@@ -518,7 +528,8 @@ class RecAEIFSpkInNest(Layer):
             bias=bias,
             dt=dt,
             tau_mem=tau_mem,
-            tau_syn=tau_syn,
+            tau_syn_exc=tau_syn_exc,
+            tau_syn_inh=tau_syn_inh,
             capacity=capacity,
             v_thresh=v_thresh,
             v_reset=v_reset,
@@ -539,7 +550,8 @@ class RecAEIFSpkInNest(Layer):
         self._v_reset = v_reset
         self._v_rest = v_rest
         self._tau_mem = tau_mem
-        self._tau_syn = tau_syn
+        self._tau_syn_exc = tau_syn_exc
+        self._tau_syn_inh = tau_syn_inh
         self._bias = bias
         self.capacity = capacity
         self.weights_in = weights_in
@@ -713,15 +725,24 @@ class RecAEIFSpkInNest(Layer):
         self.request_q.put([COMMAND_SET, "g_L", s2ms(gls)])
 
     @property
-    def tau_syn(self):
-        return self._tau_syn
+    def tau_syn_exc(self):
+        return self._tau_syn_exc
 
-    @tau_syn.setter
-    def tau_syn(self, new_tau_syn):
-        self._tau_syn = new_tau_syn
+    @tau_syn_exc.setter
+    def tau_syn_exc(self, new_tau_syn_exc):
+        self._tau_syn_exc = new_tau_syn_exc
 
-        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn)])
-        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn)])
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
+
+    @property
+    def tau_syn_inh(self):
+        return self._tau_syn_inh
+
+    @tau_syn_inh.setter
+    def tau_syn_inh(self, new_tau_syn_inh):
+        self._tau_syn_inh = new_tau_syn_inh
+
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
 
     @property
     def bias(self):
@@ -841,8 +862,11 @@ class RecAEIFSpkInNest(Layer):
         config["tau_mem"] = (
             self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
         )
-        config["tauS"] = (
-            self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        config["tau_syn_exc"] = (
+            self.tau_syn_exc if type(self.tau_syn_exc) is float else self.tau_syn_exc.tolist()
+        )
+        config["tau_syn_inh"] = (
+            self.tau_syn_inh if type(self.tau_syn_inh) is float else self.tau_syn_inh.tolist()
         )
         config["record"] = self.record
 
@@ -879,7 +903,8 @@ class RecAEIFSpkInNest(Layer):
             bias=config["bias"],
             dt=config["dt"],
             tau_mem=config["tau_mem"],
-            tau_syn=config["tauS"],
+            tau_syn_exc=config["tau_syn_exc"],
+            tau_syn_inh=config["tau_syn_inh"],
             capacity=config["capacity"],
             v_thresh=config["v_thresh"],
             v_reset=config["v_reset"],
@@ -905,7 +930,8 @@ class RecAEIFSpkInNest(Layer):
             bias=config["bias"],
             dt=config["dt"],
             tau_mem=config["tau_mem"],
-            tau_syn=config["tauS"],
+            tau_syn_exc=config["tau_syn_exc"],
+            tau_syn_inh=config["tau_syn_inh"],
             capacity=config["capacity"],
             v_thresh=config["v_thresh"],
             v_reset=config["v_reset"],
