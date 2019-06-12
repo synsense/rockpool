@@ -1,4 +1,3 @@
-rpyc
 brian2
 matplotlib
 numba
@@ -8,6 +7,7 @@ pyqt
 pytest
 pytorch
 qt
+rpyc
 scikit-image
 scipy
 setuptools
