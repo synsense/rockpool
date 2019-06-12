@@ -108,7 +108,9 @@ class FFCLIAFCNNTorch(FFCLIAF):
             ).float()
         else:
             raise Exception(
-                "img_data_format(={}) not understood".format(self.weights.img_data_format)
+                "img_data_format(={}) not understood".format(
+                    self.weights.img_data_format
+                )
             )
 
         # Transfer layer to appropriate device
@@ -134,8 +136,7 @@ class FFCLIAFCNNTorch(FFCLIAF):
                     assert ts_input.num_channels >= self.size_in
                 except AssertionError as err:
                     warn(
-                        self.name
-                        + ": Expanding input dimensions to match layer size."
+                        self.name + ": Expanding input dimensions to match layer size."
                     )
                     ts_input.num_channels = self.size_in
 
@@ -183,9 +184,7 @@ class FFCLIAFCNNTorch(FFCLIAF):
         # Convert input to torch tensors
         inp_spike_raster = [next(inp_spike_raster) for i in range(num_timesteps)]
         print(sum(inp_spike_raster))
-        tsrIn = torch.from_numpy(np.array(inp_spike_raster, np.uint8)).type(
-            torch.float
-        )
+        tsrIn = torch.from_numpy(np.array(inp_spike_raster, np.uint8)).type(torch.float)
         # Reshape flat data to images and channels
         tsrInReshaped = tsrIn.reshape(-1, *self.weights.inp_shape)
         print(tsrInReshaped.shape)
@@ -215,7 +214,5 @@ class FFCLIAFCNNTorch(FFCLIAF):
         # Update time
         self._timestep += num_timesteps
 
-        out_events = TSEvent(
-            times, vnChannels, num_channels=self.size, name=self.name
-        )
+        out_events = TSEvent(times, vnChannels, num_channels=self.size, name=self.name)
         return out_events
