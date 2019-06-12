@@ -1051,31 +1051,40 @@ class DynapseControl:
         # - To which cores does each neuron send
         sram_conns = np.zeros((self.num_neurons, self.num_cores), bool)
         for pre, post in enumerate(targetcore_lists):
-            sendsto[pre, post] = True
+            sram_conns[pre, post] = True
+        sram_conns = np.repeat(sram_conns, self.num_neur_core, axis=1)
+        sram_conns = np.repeat((sram_conns,), self._connections.shape[0], axis=0)
 
         # - To which neuron_ids do neurons listen
-        cam_conns = np.zeros((len(params.CAMTYPES), self.num_neur_chip, self.num_neurons))
-        for id_post, ids_pre, syntypes in zip(neuron_ids, )
+        cam_conns = np.zeros(
+            (len(params.CAMTYPES), self.num_neur_chip, self.num_neurons)
+        )
+        for id_post, ids_pre, syntypes in zip(neuron_ids, inputid_lists, camtype_lists):
+            for id_pre, type_pre in zip(ids_pre, syntypes):
+                cam_conns[self._camtypes[type_pre], id_pre, id_post] += 1
+        cam_conns = np.concatenate(self.num_chips * (cam_conns,), axis=1)
 
-        # - Indices of neurons wrt neuron_ids
-        neuron_indices = {id_n: idx for idx, id_n in enumerate(neuron_ids)}
-        # - Iterate over postsynaptic neurons and add connections
-        for id_neur, id_core, inputids, camtypes in zip(
-            neuron_ids, core_ids, inputid_lists, camtype_lists
-        ):
-            # - Iterate over presynaptic neuron IDs (modulo number of neurons per chip)
-            for id_pre, syntype in zip(inputids, camtypes):
-                # - List of all possible presynaptic neuron IDs
-                preneuron_ids = [
-                    id_pre + offset * self.num_neur_chip for offset in consider_chips
-                ]
-                # - Register connection with matching cam (synapse) type iff presynaptic neuron sends to postsynaptic core
-                for i in preneuron_ids:
-                    if id_core in targetcore_lists[neuron_indices[i]]:
-                        self._connections[syntype, i, id_neur] += 1
+        self._connections = cam_conns * sram_conns
 
-                # - Register virtual connection
-                self._connections_virtual[syntype, id_pre, id_neur] += 1
+        # # - Indices of neurons wrt neuron_ids
+        # neuron_indices = {id_n: idx for idx, id_n in enumerate(neuron_ids)}
+        # # - Iterate over postsynaptic neurons and add connections
+        # for id_neur, id_core, inputids, camtypes in zip(
+        #     neuron_ids, core_ids, inputid_lists, camtype_lists
+        # ):
+        #     # - Iterate over presynaptic neuron IDs (modulo number of neurons per chip)
+        #     for id_pre, syntype in zip(inputids, camtypes):
+        #         # - List of all possible presynaptic neuron IDs
+        #         preneuron_ids = [
+        #             id_pre + offset * self.num_neur_chip for offset in consider_chips
+        #         ]
+        #         # - Register connection with matching cam (synapse) type iff presynaptic neuron sends to postsynaptic core
+        #         for i in preneuron_ids:
+        #             if id_core in targetcore_lists[neuron_indices[i]]:
+        #                 self._connections[syntype, i, id_neur] += 1
+
+        #         # - Register virtual connection
+        #         self._connections_virtual[syntype, id_pre, id_neur] += 1
 
     def add_connections_to_virtual(
         self,
