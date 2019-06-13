@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - brian2
+  - cudatoolkit
   - matplotlib
   - nest-simulator
   - numba
@@ -12,9 +13,8 @@ dependencies:
   - pyqt
   - pytest
   - python>=3.6
-  - pytorch
+  - pytorch>=1.0
   - qt
-  - scikit-image
   - scipy
   - setuptools
   - torchvision
