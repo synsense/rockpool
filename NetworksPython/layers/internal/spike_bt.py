@@ -598,7 +598,7 @@ def argwhere(data: np.ndarray):
 
 
 @njit
-def clip_vector(v: np.ndarray, min: float, max: float):
+def clip_vector(v: np.ndarray, f_min: float, f_max: float):
     """
     clip_vector - Accelerated vector clip function
 
@@ -608,13 +608,13 @@ def clip_vector(v: np.ndarray, min: float, max: float):
 
     :return: Clipped vector
     """
-    v[v < min] = min
-    v[v > max] = max
+    v[v < f_min] = f_min
+    v[v > f_max] = f_max
     return v
 
 
 @njit
-def clip_scalar(val: float, min: float, max: float):
+def clip_scalar(val: float, f_min: float, f_max: float):
     """
     clip_scalar - Accelerated scalar clip function
 
@@ -624,10 +624,10 @@ def clip_scalar(val: float, min: float, max: float):
 
     :return: Clipped value
     """
-    if val < min:
+    if val < f_min:
         return min
-    elif val > max:
-        return max
+    elif val > f_max:
+        return f_max
     else:
         return val
 
