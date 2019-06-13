@@ -463,8 +463,8 @@ rename vfData data
 rename nMinLoc min_loc
 rename fMinVal min_val
 rename vbData data
-rename fMin min
-rename fMax max
+rename fMin f_min
+rename fMax f_max
 rename fVal val
 rename oData data
 
