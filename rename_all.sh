@@ -647,3 +647,82 @@ rename nBatch n_batch
 rename lyrTorch lyr_torch
 rename _lyrTorch _lyr_torch
 rename lyrNewTorch lyr_torch_new
+
+rename nResSize res_size
+rename fConnectivity connectivity
+rename fhRand rndm_weight_fct
+rename bPartitioned partitioned
+rename fRatioExc ratio_exc
+rename fScaleInh scale_inh
+rename fNormalize normalization
+
+rename nNumExc num_exc
+rename nNumInh num_inh
+rename fInhWFactor ratio_inh_exc
+
+rename nNumNodes num_nodes
+rename fSelfExc self_exc
+rename fSelfInh self_inh
+rename fExcSigma exc_sigma
+rename fInhSigma inh_sigma
+
+rename vnInh idcs_inh
+rename fInhTauFactor inh_tau_factor
+
+rename nMaxConnections max_num_connections
+rename nLimitInputs max_num_inputs
+rename nLimitOutputs max_num_outputs
+
+rename nNeighbour n_neighbour
+rename bZeroDiagonal zero_diagnoal
+
+rename tupfWidthNeighbour width_neighbour
+rename tupnGridDim grid_dim
+rename bMultipleConn multiple_conn
+
+rename nLongRange num_long_range
+rename bAvoidExisting avoid_existing
+
+rename nSizeRec size_rec
+rename nSizeInhib size_inhib
+rename nInToRec num_inp_to_rec
+rename nRecShort num_rec_short
+rename nRecLong num_rec_long
+rename nInhibToRec num_inhib_to_rec
+rename nRecToInhib num_rec_to_inhib
+rename nMaxInputConn max_fanin
+
+rename tupfWExc weights_exc
+rename tupfWInh weights_inh
+rename tupfProbWExc probs_w_exc
+rename tupfProbWInh probs_w_inh
+
+rename fInputDensity input_density
+rename fRatioExcRec ratio_exc_rec
+rename fRatioExcIn ratio_exc_in
+rename tupfProbWExcRec probs_w_exc_rec
+rename tupfProbWInhRec probs_w_inh_rec
+rename tupfProbWExcInp probs_w_exc_inp
+rename tupfProbWInhInp probs_w_inh_inp
+rename bLeaveSpaceForInput leave_space_for_input
+
+rename nBitResolution bit_resolution
+rename fRangeUse use_range
+rename fRescale f_rescale
+
+rename fRatioRecIn ratio_rec_in
+rename fMean mean
+rename fStd std
+rename fDensity density
+
+rename combine_FF_Rec_stack combine_ff_rec_stack
+rename RndmSparseEINet rndm_sparse_ei_net
+rename RandomEINet rndm_ei_net
+rename WilsonCowanNet wilson_cowan_net
+rename WipeNonSwitchingEigs wipe_non_switiching_eigs
+rename UnitLambdaNet unit_lambda_net
+rename DiscretiseWegihtMatrix discretise_weight_matrix
+rename DynapseConform dynapse_conform
+rename In_Res_Dynapse in_res_dynapse
+rename In_Res_Dynapse_Flex in_res_dynapse_flex
+rename IAFSparseNet iaf_sparse_net

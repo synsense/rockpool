@@ -15,7 +15,6 @@ dModules = {
     ".internal.event_pass": "PassThroughEvents",
     ".internal.exp_synapses_brian": "FFExpSynBrian",
     ".internal.exp_synapses_manual": "FFExpSyn",
-    ".internal.evSpikeLayer": "EventDrivenSpikingLayer",
     ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
     ".internal.softmaxlayer": "SoftMaxLayer",
     ".internal.iaf_digital": "RecDIAF",

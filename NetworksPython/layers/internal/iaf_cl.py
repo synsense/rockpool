@@ -8,7 +8,6 @@ import numpy as np
 from typing import Optional, Union, List, Tuple
 from tqdm import tqdm
 from collections import deque
-from ...weights import CNNWeight, CNNWeightTorch
 from ...timeseries import TSEvent, TSContinuous
 from .. import Layer
 
@@ -28,7 +27,7 @@ class CLIAF(Layer):
 
     def __init__(
         self,
-        weights_in: Union[np.ndarray, CNNWeight, CNNWeightTorch],
+        weights_in: np.ndarray,
         bias: Union[ArrayLike, float] = 0,
         v_thresh: Union[ArrayLike, float] = 8,
         v_reset: Union[ArrayLike, float] = 0,
@@ -192,14 +191,10 @@ class CLIAF(Layer):
 
     @weights_in.setter
     def weights_in(self, new_w):
-        if isinstance(new_w, CNNWeight) or isinstance(new_w, CNNWeightTorch):
-            assert new_w.shape == (self.size_in, self.size)
-            self._weights_in = new_w
-        else:
-            assert (
-                np.size(new_w) == self.size_in * self.size
-            ), "`weights_in` must have [{}] elements.".format(self.size_in * self.size)
-            self._weights_in = np.array(new_w).reshape(self.size_in, self.size)
+        assert (
+            np.size(new_w) == self.size_in * self.size
+        ), "`weights_in` must have [{}] elements.".format(self.size_in * self.size)
+        self._weights_in = np.array(new_w).reshape(self.size_in, self.size)
 
     @property
     def state(self):
@@ -275,7 +270,7 @@ class FFCLIAF(CLIAF):
 
     def __init__(
         self,
-        weights: Union[np.ndarray, CNNWeight],
+        weights: np.ndarray,
         bias: Union[ArrayLike, float] = 0,
         v_thresh: Union[ArrayLike, float] = 8,
         v_reset: Union[ArrayLike, float] = 0,
@@ -349,8 +344,6 @@ class FFCLIAF(CLIAF):
         v_subtract = self.v_subtract
         v_reset = self.v_reset
 
-        # - Check type of weights_in
-        is_CNNWeights = isinstance(weights_in, CNNWeight) or isinstance(weights_in, CNNWeightTorch)
         # - Indices of neurons to be monitored
         monitor_id = None if self.monitor_id.size == 0 else self.monitor_id
         # - Count number of spikes for each neuron in each time step
@@ -369,11 +362,7 @@ class FFCLIAF(CLIAF):
             is_inp_spike_raster = inp_spike_raster[cur_time_step]
 
             # Update neuron states
-            if is_CNNWeights:
-                # update = weights_in.reverse_dot(is_inp_spike_raster) # This is too slow, only if network activity is super sparse
-                update = weights_in[is_inp_spike_raster]
-            else:
-                update = is_inp_spike_raster @ weights_in
+            update = is_inp_spike_raster @ weights_in
 
             # State update (write this way to avoid that type casting fails)
             state = state + update + bias
@@ -465,7 +454,7 @@ class RecCLIAF(CLIAF):
 
     def __init__(
         self,
-        weights_in: Union[np.ndarray, CNNWeight],
+        weights_in: np.ndarray,
         weights_rec: np.ndarray,
         bias: Union[ArrayLike, float] = 0,
         v_thresh: Union[ArrayLike, float] = 8,
@@ -567,9 +556,6 @@ class RecCLIAF(CLIAF):
         v_subtract = self.v_subtract
         v_reset = self.v_reset
 
-        # - Check type of weights_in
-        is_CNNWeights = isinstance(weights_in, CNNWeight)
-
         # - Deque of arrays with number of delayed spikes for each neuron for each time step
         num_rec_spikes_q = self._num_rec_spikes_q
         # - Array for storing new recurrent spikes
@@ -586,7 +572,9 @@ class RecCLIAF(CLIAF):
         is_bias = np.zeros(num_timesteps)
         # - Determine where bias is applied: Index i corresponds to bias taking effect at
         #   nTimeStep = self._timestep+1+i, want them when nTimeStep%_num_ts_per_bias == 0
-        is_bias[-(self._timestep + 1) % self._num_ts_per_bias :: self._num_ts_per_bias] = 1
+        is_bias[
+            -(self._timestep + 1) % self._num_ts_per_bias :: self._num_ts_per_bias
+        ] = 1
 
         # - State type dependent variables
         state_type = self.state_type
@@ -611,18 +599,11 @@ class RecCLIAF(CLIAF):
             is_inp_spike_raster = inp_spike_raster[cur_time_step]
 
             # Update neuron states
-            if is_CNNWeights:
-                update = (
-                    weights_in[is_inp_spike_raster]  # Input spikes
-                    + (num_rec_spikes_q.popleft() @ weights_rec)  # Recurrent spikes
-                    + (is_bias[cur_time_step] * bias)  # Bias
-                )
-            else:
-                update = (
-                    (is_inp_spike_raster @ weights_in)  # Input spikes
-                    + (num_rec_spikes_q.popleft() @ weights_rec)  # Recurrent spikes
-                    + (is_bias[cur_time_step] * bias)  # Bias
-                )
+            update = (
+                (is_inp_spike_raster @ weights_in)  # Input spikes
+                + (num_rec_spikes_q.popleft() @ weights_rec)  # Recurrent spikes
+                + (is_bias[cur_time_step] * bias)  # Bias
+            )
 
             # - Only neurons that are not refractory can receive inputs and be updated
             is_refractory = ts_until_refr_ends > 0
@@ -738,8 +719,7 @@ class RecCLIAF(CLIAF):
     def randomize_state(self):
         # - Set state to random values between reset value and theshold
         self.state = np.clip(
-            (np.amin(self.v_thresh) - np.amin(self.v_reset))
-            * np.random.rand(self.size)
+            (np.amin(self.v_thresh) - np.amin(self.v_reset)) * np.random.rand(self.size)
             - np.amin(self.v_reset),
             self._min_state,
             self._max_state,
@@ -762,7 +742,9 @@ class RecCLIAF(CLIAF):
 
     @weights_rec.setter
     def weights_rec(self, new_w):
-        self._weights_rec = self._expand_to_weight_size(new_w, "weights_rec", allow_none=False)
+        self._weights_rec = self._expand_to_weight_size(
+            new_w, "weights_rec", allow_none=False
+        )
 
     @property
     def tTauBias(self):
@@ -822,11 +804,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def refractory(self):
-        return (
-            None
-            if self._ts_per_refr is None
-            else self._ts_per_refr * self.dt
-        )
+        return None if self._ts_per_refr is None else self._ts_per_refr * self.dt
 
     @refractory.setter
     def refractory(self, new_refractory):
@@ -835,9 +813,7 @@ class RecCLIAF(CLIAF):
         else:
             refractory = self._expand_to_net_size(new_refractory, "refractory")
             # - refractory is rounded to multiple of dt and at least dt
-            self._ts_per_refr = (np.floor(refractory / self.dt)).astype(
-                int
-            )
+            self._ts_per_refr = (np.floor(refractory / self.dt)).astype(int)
 
     @property
     def state(self):
