@@ -6,7 +6,7 @@ function rename () {
         for fn in $FNS; do
 	    	if test -e "$fn"; then
 			echo $fn
-	    		vim $fn -c '%s/\<'$1'\>/'$2'/g | wqa' 
+	    		vim $fn -c '%s/\<'$1'\>/'$2'/g | wqa'
 	    	fi
 	done
 }
@@ -25,7 +25,7 @@ rename fB b
 rename _fA _a
 rename _fB _b
 rename _fDelta_T _delta_t
-rename mfInputStep input_steps 
+rename mfInputStep input_steps
 rename vtTimeBase time_base
 rename mnSpikeRaster spike_raster
 rename mfInput inp
@@ -54,7 +54,7 @@ rename mfRecordStates record_states
 rename vnEventChannelOutput event_channel_out
 rename vtEventTimeOutput event_time_out
 rename nestProcess nest_process
-rename vtNewTauN new_tau_mem 
+rename vtNewTauN new_tau_mem
 rename vtNewTauS new_tau_syn
 rename vfBias bias
 rename _vfBias _bias
@@ -69,7 +69,7 @@ rename newVtTauW new_tau_w
 rename ClassName class_name
 rename vNewState new_state
 
-rename vtTimeTrace time_trace 
+rename vtTimeTrace time_trace
 rename oInput inp
 rename tupShape shape
 rename sVariableName var_name
@@ -77,7 +77,7 @@ rename nTotalSize total_size
 rename bAllowNone allow_none
 rename mfNewW new_w
 rename _mfW _weights
-rename fNewNoiseStd new_noise_std 
+rename fNewNoiseStd new_noise_std
 rename vbUseEvent use_event
 rename getParam get_param
 rename setParam set_param
@@ -101,10 +101,10 @@ rename vfV v_state
 rename vfIsynRec v_syn_rec
 rename vfIsynInp v_syn_inp
 rename fRangeV v_range
-rename bKeepParams keep_params 
+rename bKeepParams keep_params
 rename vtTauSynR tau_syn_r
 
-rename vfVBias bias 
+rename vfVBias bias
 rename vfVSubtract v_subtract
 rename vnIdMonitor monitor_id
 rename aStateTimeSeries state_time_series
@@ -117,8 +117,8 @@ rename vfNewThresh new_v_thresh
 rename vfNewReset new_v_reset
 
 rename vfVNew new_v_state
-rename _vfVSubtract _v_subtract 
-rename _vfVBias _bias 
+rename _vfVSubtract _v_subtract
+rename _vfVBias _bias
 rename tNewDt new_dt
 rename _vnIdMonitor _id_monitor
 rename vnNewIDs new_ids
@@ -132,13 +132,13 @@ rename lnTSSpikes ts_spikes
 
 rename vnTSUntilRefrEnds ts_until_refr_ends
 rename _vnTSUntilRefrEnds _ts_until_refr_ends
-rename vnNumTSperRefractory ts_per_refr 
+rename vnNumTSperRefractory ts_per_refr
 rename _vnNumTSperRefractory _ts_per_refr
 rename vbBias is_bias
 rename dtypeState state_type
 rename nStateMin min_state
 rename _nStateMin _min_state
-rename nStateMax max_state 
+rename nStateMax max_state
 rename _nStateMax _max_state
 rename mfRecord record
 rename rangeIterator range_iter
@@ -155,18 +155,18 @@ rename tseOut event_out
 rename vtRecordTimes record_times
 rename tscRecorded ts_recorded
 rename nNumTSperDelay num_ts_per_delay
-rename tNewBias new_bias 
+rename tNewBias new_bias
 rename _nNumTSperBias _num_ts_per_bias
 rename tNewDelay new_delay
 
 rename lPrevSpikes prev_spiken
-rename nDifference t_diff 
+rename nDifference t_diff
 rename vtRefractoryTime refractory
 rename vtNewTime new_refractory
 rename _dtypeState _state_type
 rename dtypeNew new_type
 
-rename tTauSyn tau_syn 
+rename tTauSyn tau_syn
 rename _ngReceiver _neuron_group
 rename _stmReceiver _state_monitor
 rename vfIsyn syn_inp
@@ -176,9 +176,9 @@ rename mfA a
 rename tNewTau new_tau_syn
 
 
-rename bAddEvents add_events 
+rename bAddEvents add_events
 rename mnInputRaster inp_raster
-rename mfWeightedInput weighted_input 
+rename mfWeightedInput weighted_input
 rename mfNoise noise
 rename _vStateNoBias _state_no_bias
 rename vfKernel kernel
@@ -186,12 +186,12 @@ rename mfFiltered filtered
 rename vConv conv
 rename vEvents events
 rename vConvShort conv_short
-rename tsTarget ts_target 
+rename tsTarget ts_target
 rename fRegularize regularize
 rename fLearningRate learning_rate
 
 rename mfWeighted weighted
-rename mfOut out 
+rename mfOut out
 rename mfXTX xtx
 rename mfXTY xty
 rename mfNewWeights new_weights
@@ -199,7 +199,7 @@ rename bFirst is_first
 rename bFinal is_last
 rename bStoreState store_states
 rename bTrainBiases train_biases
-rename mfTarget target 
+rename mfTarget target
 
 rename _mfXTY _xty
 rename _mfXTX _xtx
@@ -213,14 +213,14 @@ rename mfNewXTX new_xtx
 rename _vTrainingState _training_state
 rename mfSolution solution
 rename nBatchSize batch_size
- 
-rename nEpochs epochs 
+
+rename nEpochs epochs
 rename nNumBatches num_batches
 rename viSampleOrder sample_order
 rename mfGradients gradients
 rename viSampleIndices simple_indices
 
-rename iEpoch ind_epoch 
+rename iEpoch ind_epoch
 rename iBatch ind_batch
 rename mfLinear linear
 rename mfOutput output
@@ -242,7 +242,7 @@ rename Iahp i_ahp
 rename Ie_Recur i_ex_recur
 rename Ii_Recur i_inh_recur
 
-rename Ie_Recei i_ex_inp 
+rename Ie_Recei i_ex_inp
 rename Ii_Recei i_inh_inp
 rename vfNewW new_weights
 
@@ -328,7 +328,7 @@ rename fEligibilityRatio eligibility_ratio
 rename fMomentum momentum
 rename nSize size
 rename iSource source_id
-rename vtEventTimesSource event_time_source 
+rename vtEventTimesSource event_time_source
 
 
 rename tSpkIn t_spike_in
@@ -390,7 +390,7 @@ rename mfSamplesComb samples_comb
 rename nStepsIn steps_in
 rename tsBuffer ts_buffer
 rename mfSamplesOut samples_out
-rename nDelaySteps delay_steps 
+rename nDelaySteps delay_steps
 rename mfBuffer buffer
 rename vtNewTau new_tau
 rename fhNewActivation new_activation
@@ -463,8 +463,8 @@ rename vfData data
 rename nMinLoc min_loc
 rename fMinVal min_val
 rename vbData data
-rename fMin min
-rename fMax max
+rename fMin f_min
+rename fMax f_max
 rename fVal val
 rename oData data
 
@@ -478,48 +478,48 @@ rename vnSpikeIDs spike_ids
 rename nNetSize net_size
 rename mfGamma gamma
 
-rename tDt dt 
-rename _nTimeStep _timestep 
-rename mfW weights 
-rename mfWIn weights_in 
-rename mfWRec weights_rec 
-rename strName name 
-rename vState state 
-rename nsize size  
-rename nsizeIn size_in  
-rename fNoiseStd noise_std 
-rename tsInput ts_input 
-rename tDuration duration 
-rename nNumTimesteps num_timesteps 
-rename bVerbose verbose 
-rename fTolRel tol_rel 
-rename fTolAbs tol_abs 
-rename cInput input_type 
-rename cOutput output_type 
+rename tDt dt
+rename _nTimeStep _timestep
+rename mfW weights
+rename mfWIn weights_in
+rename mfWRec weights_rec
+rename strName name
+rename vState state
+rename nsize size
+rename nsizeIn size_in
+rename fNoiseStd noise_std
+rename tsInput ts_input
+rename tDuration duration
+rename nNumTimesteps num_timesteps
+rename bVerbose verbose
+rename fTolRel tol_rel
+rename fTolAbs tol_abs
+rename cInput input_type
+rename cOutput output_type
 
 
 
-rename tDt dt 
-rename _nTimeStep _timestep 
-rename lEvolOrder evol_order 
-rename setLayers layerset 
-rename Method arguments: 
-rename lyrInput inputlayer 
-rename lyrOutput outputlayer 
-rename bExternalInput external_input 
-rename bVerbose verbose 
-rename lyrDel del_layer 
-rename lyrSource pre_layer 
-rename lyrTarget post_layer 
-rename fhTraining  training_fct 
-rename tsInput ts_input 
-rename tDuration duration 
-rename vtDurBatch batch_durs 
-rename nNumTimeSteps num_timesteps 
-rename vnNumTSBatch nums_ts_batch 
-rename bVerbose verbose 
-rename bHighVerbosity high_verbosity 
-rename fhStepCallback step_callback 
+rename tDt dt
+rename _nTimeStep _timestep
+rename lEvolOrder evol_order
+rename setLayers layerset
+rename Method arguments:
+rename lyrInput inputlayer
+rename lyrOutput outputlayer
+rename bExternalInput external_input
+rename bVerbose verbose
+rename lyrDel del_layer
+rename lyrSource pre_layer
+rename lyrTarget post_layer
+rename fhTraining  training_fct
+rename tsInput ts_input
+rename tDuration duration
+rename vtDurBatch batch_durs
+rename nNumTimeSteps num_timesteps
+rename vnNumTSBatch nums_ts_batch
+rename bVerbose verbose
+rename bHighVerbosity high_verbosity
+rename fhStepCallback step_callback
 
 
 rename fMu mu
@@ -535,7 +535,7 @@ rename vfT v_t
 rename Omega_f_dash omega_f_dash
 rename Omega_s_dash omega_s_dash
 
-rename mfW_input weights_in 
+rename mfW_input weights_in
 rename mfW_output weights_out
 rename tTauSynO tau_syn_out
 rename inputlayer input_layer

@@ -1300,11 +1300,16 @@ class RecIAFSpkInNest(Layer):
 
         config = {}
         config["name"] = self.name
-        config["weights_in"] = self.weights_in.tolist()
-        config["weights_rec"] = self.weights_rec.tolist()
+        config["weights_in"] = self._weights_in.tolist()
+        config["weights_rec"] = self._weights_rec.tolist()
 
-        config["delay_in"] = self._delay_in.tolist()
-        config["delay_rec"] = self._delay_rec.tolist()
+        config["delay_in"] = (
+            self._delay_in if type(self._delay_in) is float else self._delay_in.tolist()
+        )
+
+        config["delay_rec"] = (
+            self._delay_rec if type(self._delay_rec) is float else self._delay_rec.tolist()
+        )
 
         config["bias"] = (
             self.bias if type(self.bias) is float else self.bias.tolist()
