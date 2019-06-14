@@ -179,7 +179,7 @@ class VirtualDynapse(Layer):
             neurons_pre = np.arange(self.num_external if external else self.size)
 
         if neurons_post is None:
-            neuron_post = neurons_pre if not external else np.arange(self.size)
+            neurons_post = neurons_pre if not external else np.arange(self.size)
 
         # - Complete connectivity array after adding new connections
         connections = self.connections_ext if external else self.connections_rec
