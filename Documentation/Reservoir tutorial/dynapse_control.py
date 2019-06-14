@@ -634,7 +634,9 @@ class DynapseControl:
 
         # - Find a spike generator module
         is_spikegen: List[bool] = [
-            isinstance(m, ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
+            # Doing type(.)==... because isinstance seems to confuse types when using RPyC in some cases
+            type(m) == type(ctxdynapse.DynapseFpgaSpikeGen)
+            for m in fpga_modules
         ]
         if not np.any(is_spikegen):
             # There is no spike generator, so we can't use this Python layer on the HW
@@ -648,7 +650,9 @@ class DynapseControl:
 
         # - Find a poisson spike generator module
         is_poissongen: List[bool] = [
-            isinstance(m, ctxdynapse.DynapsePoissonGen) for m in fpga_modules
+            # Doing type(.)==... because isinstance seems to confuse types when using RPyC in some cases
+            type(m) == type(ctxdynapse.DynapsePoissonGen)
+            for m in fpga_modules
         ]
         if np.any(is_poissongen):
             self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
