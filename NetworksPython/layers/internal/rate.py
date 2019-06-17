@@ -46,6 +46,7 @@ def print_progress(curr: int, total: int, passed: float):
         end="\r",
     )
 
+
 @njit
 def noisy(x: np.ndarray, std_dev: float) -> np.ndarray:
     """
@@ -330,9 +331,7 @@ class FFRateEuler(Layer):
             if inp is None:
                 inp = np.zeros(euler_steps_per_dt, self._size_in)
             else:
-                inp = np.repeat(
-                    np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0
-                )
+                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
 
             if verbose:
                 print("Layer: Input was: ", inp)
@@ -356,10 +355,7 @@ class FFRateEuler(Layer):
             self._timestep += euler_steps_per_dt
 
         # - Return final state
-        return (
-            self.t,
-            np.reshape(self._activation(self._state + self._bias), (1, -1)),
-        )
+        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
 
     def train_rr(
         self,
@@ -444,9 +440,7 @@ class FFRateEuler(Layer):
         # - For first batch, initialize summands
         if is_first:
             # Matrices to be updated for each batch
-            self._xty = np.zeros(
-                (self.size_in + 1, self.size)
-            )  # inp.T (dot) target
+            self._xty = np.zeros((self.size_in + 1, self.size))  # inp.T (dot) target
             self._xtx = np.zeros(
                 (self.size_in + 1, self.size_in + 1)
             )  # inp.T (dot) inp
@@ -487,9 +481,7 @@ class FFRateEuler(Layer):
             self.bias = solution[-1, :]
 
             # - Remove data stored during this training
-            self._xty = (
-                self._xtx
-            ) = self._kahan_comp_xty = self._mfKahanCompXTX = None
+            self._xty = self._xtx = self._kahan_comp_xty = self._mfKahanCompXTX = None
 
     # @njit
     # def potential(self, vInput: np.ndarray) -> np.ndarray:
@@ -881,9 +873,7 @@ class RecRateEuler(Layer):
             if inp is None:
                 inp = np.zeros(euler_steps_per_dt, self._size_in)
             else:
-                inp = np.repeat(
-                    np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0
-                )
+                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
 
             if verbose:
                 print("Layer: Input was: ", inp)
@@ -904,10 +894,7 @@ class RecRateEuler(Layer):
             self._timestep += euler_steps_per_dt
 
         # - Return final activity
-        return (
-            self.t,
-            np.reshape(self._activation(self._state + self._bias), (1, -1)),
-        )
+        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
 
     ### --- Properties
 

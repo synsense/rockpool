@@ -229,7 +229,7 @@ class RecRateEulerJax(Layer):
         _, _, _, outputs = self._evolve_raw(inps)
 
         # - Wrap outputs as time series
-        return TSContinuous(time_base, outputs)
+        return TSContinuous(time_base, onp.array(outputs))
 
     def _evolve_raw(
         self, inps: np.ndarray
@@ -266,7 +266,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_in(self) -> np.ndarray:
-        return self._weights
+        return onp.array(self._weights)
 
     @w_in.setter
     def w_in(self, value: np.ndarray):
@@ -277,11 +277,11 @@ class RecRateEulerJax(Layer):
             self._size,
         ), "`win` must be [{:d}, {:d}]".format(self._num_inputs, self._size)
 
-        self._weights = value
+        self._weights = np.array(value)
 
     @property
     def w_recurrent(self) -> np.ndarray:
-        return self._w_recurrent
+        return onp.array(self._w_recurrent)
 
     @w_recurrent.setter
     def w_recurrent(self, value: np.ndarray):
@@ -292,11 +292,11 @@ class RecRateEulerJax(Layer):
             self._size,
         ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
 
-        self._w_recurrent = value
+        self._w_recurrent = np.array(value)
 
     @property
     def w_out(self) -> np.ndarray:
-        return self._w_out
+        return onp.array(self._w_out)
 
     @w_out.setter
     def w_out(self, value: np.ndarray):
@@ -307,33 +307,43 @@ class RecRateEulerJax(Layer):
             self._num_outputs,
         ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._num_outputs)
 
-        self._w_out = value
+        self._w_out = np.array(value)
 
     @property
     def tau(self) -> np.ndarray:
-        return self._tau
+        return onp.array(self._tau)
 
     @tau.setter
     def tau(self, value: np.ndarray):
-        assert np.size(value) == self._size, "`tau` must have {:d} elements".format(
-            self._size
-        )
+        # - Replicate `tau` from a scalar value
+        if np.size(value) == 1:
+            value = np.repeat(value, self._size)
+
+        assert (
+            np.size(value) == self._size
+        ), "`tau` must have {:d} elements or be a scalar".format(self._size)
+
         self._tau = np.reshape(value, self._size)
 
     @property
     def bias(self) -> np.ndarray:
-        return self._bias
+        return onp.array(self._bias)
 
     @bias.setter
     def bias(self, value: np.ndarray):
-        assert np.size(value) == self._size, "`bias` must have {:d} elements".format(
-            self._size
-        )
+        # - Replicate `bias` from a scalar value
+        if np.size(value) == 1:
+            value = np.repeat(value, self._size)
+
+        assert (
+            np.size(value) == self._size
+        ), "`bias` must have {:d} elements or be a scalar".format(self._size)
+
         self._bias = np.reshape(value, self._size)
 
     @property
     def dt(self) -> float:
-        return self._dt
+        return onp.array(self._dt).item(0)
 
     @dt.setter
     def dt(self, value: float):
@@ -344,7 +354,66 @@ class RecRateEulerJax(Layer):
 
         assert value >= tau_min, "`tau` must be at least {:.2e}".format(tau_min)
 
-        self._dt = value
+        self._dt = np.array(value)
+
+    def _prepare_input(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+    ) -> (np.ndarray, np.ndarray, float):
+        """
+        _prepare_input - Sample input, set up time base
+
+        :param ts_input:        TimeSeries TxM or Tx1 Input signals for this layer
+        :param duration:        float Duration of the desired evolution, in seconds
+        :param num_timesteps:   int Number of evolution time steps
+
+        :return: (time_base, input_steps, duration)
+            time_base:          ndarray T1 Discretised time base for evolution
+            input_steps:        ndarray (T1xN) Discretised input signal for layer
+            num_timesteps:      int Actual number of evolution time steps
+        """
+
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
+
+        # - Generate discrete time base
+        time_base = onp.array(self._gen_time_trace(self.t, num_timesteps))
+
+        if ts_input is not None:
+            if not ts_input.periodic:
+                # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
+                if (
+                    ts_input.t_start - 1e-3 * self.dt
+                    <= time_base[0]
+                    <= ts_input.t_start
+                ):
+                    time_base[0] = ts_input.t_start
+                if ts_input.t_stop <= time_base[-1] <= ts_input.t_stop + 1e-3 * self.dt:
+                    time_base[-1] = ts_input.t_stop
+
+            # - Warn if evolution period is not fully contained in ts_input
+            if not (ts_input.contains(time_base) or ts_input.periodic):
+                warn(
+                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
+                        self.name, time_base[0], time_base[-1]
+                    )
+                    + "not fully contained in input signal (t = {} to {})".format(
+                        ts_input.t_start, ts_input.t_stop
+                    )
+                )
+
+            # - Sample input trace and check for correct dimensions
+            input_steps = self._check_input_dims(ts_input(time_base))
+
+            # - Treat "NaN" as zero inputs
+            input_steps[onp.where(np.isnan(input_steps))] = 0
+
+        else:
+            # - Assume zero inputs
+            input_steps = np.zeros((np.size(time_base), self.size_in))
+
+        return time_base, np.array(input_steps), num_timesteps
 
 
 class ForceRateEulerJax(RecRateEulerJax):

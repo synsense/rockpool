@@ -9,6 +9,7 @@ import numpy as np
 from decimal import Decimal
 from copy import deepcopy
 from NetworksPython import layers
+from typing import Tuple
 
 try:
     from tqdm.autonotebook import tqdm
