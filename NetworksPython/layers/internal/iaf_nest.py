@@ -966,8 +966,9 @@ class RecIAFSpkInNest(Layer):
         bias: np.ndarray = 0.0,
         dt: float = 0.0001,
         tau_mem: np.ndarray = 0.02,
-        tau_syn_exc: np.ndarray = 0.05,
-        tau_syn_inh: np.ndarray = 0.05,
+        tau_syn: np.ndarray = 0.05,
+        tau_syn_exc: np.ndarray = None,
+        tau_syn_inh: np.ndarray = None,
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
@@ -989,6 +990,8 @@ class RecIAFSpkInNest(Layer):
 
         :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
         :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
+        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants. Default: 20ms
+        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants. Default: 20ms
 
         :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
@@ -1019,6 +1022,9 @@ class RecIAFSpkInNest(Layer):
         if type(tau_mem) is list:
             tau_mem = np.asarray(tau_mem)
 
+        if type(tau_syn) is list:
+            tau_syn = np.asarray(tau_syn)
+
         if type(tau_syn_exc) is list:
             tau_syn_exc = np.asarray(tau_syn_exc)
 
@@ -1038,6 +1044,11 @@ class RecIAFSpkInNest(Layer):
             v_rest = np.asarray(v_rest)
 
         # - Call super constructor (`asarray` is used to strip units)
+
+        if tau_syn_exc is None:
+            tau_syn_exc = tau_syn
+        if tau_syn_inh is None:
+            tau_syn_inh = tau_syn
 
         # TODO this does not make much sense (weights <- weights_in)
         super().__init__(weights=np.asarray(weights_in), dt=dt, name=name)
@@ -1241,11 +1252,24 @@ class RecIAFSpkInNest(Layer):
         self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
 
     @property
+    def tau_syn(self):
+        return self._tau_syn
+
+    @tau_syn.setter
+    def tau_syn(self, new_tau_syn):
+        self._tau_syn_inh = new_tau_syn
+        self._tau_syn_exc = new_tau_syn
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn)])
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn)])
+
+    @property
     def tau_syn_exc(self):
         return self._tau_syn_exc
 
     @tau_syn_exc.setter
     def tau_syn_exc(self, new_tau_syn_exc):
+        self._tau_syn_exc = new_tau_syn_exc
+        self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
 
     @property
@@ -1254,6 +1278,8 @@ class RecIAFSpkInNest(Layer):
 
     @tau_syn_inh.setter
     def tau_syn_inh(self, new_tau_syn_inh):
+        self._tau_syn_inh = new_tau_syn_inh
+        self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
 
     @property

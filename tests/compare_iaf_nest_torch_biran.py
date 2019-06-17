@@ -12,13 +12,13 @@ from NetworksPython.layers import RecIAFSpkInRefrTorch
 from NetworksPython.layers import RecIAFSpkInNest
 
 # - Negative weights, so that layer doesn't spike and gets reset
-np.random.seed(1)
-weights_in = np.random.rand(2, 3) - 1
-weights_rec = 2 * np.random.rand(3, 3) - 1
-bias = 2 * np.random.rand(3) - 1
-tau_mem, tau_syn = np.clip(np.random.rand(2, 3), 0.01, None)
+np.random.seed(2)
+weights_in = 0.05 * (2 * np.random.rand(2, 3))
+weights_rec = 0.01 * (2 * np.random.rand(3, 3) - 1)
+bias = 0.1 * (2 * np.random.rand(3) - 2.)
+tau_mem, tau_syn = np.clip(np.random.rand(2, 3), 0.01, 0.1)
 dt = 0.001
-refractory = 0.01
+refractory = 0.0
 v_thresh = -0.055
 v_rest = -0.065
 v_reset = -0.065
@@ -97,6 +97,6 @@ for ts in (tsB, tsTR, tsN):
 # - Plot states
 plt.figure()
 plt.plot(rlB._v_monitor.t, rlB._v_monitor.v.T, color="blue")
-# rlT.tscRecStates.plot(color="orange")
-rlTR.ts_rec_states.plot(color="green")
+rlTR.tscRecStates.plot(color="orange")
+#rlTR.ts_rec_states.plot(color="green")
 plt.plot(np.arange(rlN.record_states.shape[1]) * dt, rlN.record_states.T, color="red")
