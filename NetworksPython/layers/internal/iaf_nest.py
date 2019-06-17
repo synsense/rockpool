@@ -776,9 +776,12 @@ class RecIAFSpkInNest(Layer):
             # - Add stimulation device
             self._sg = nest.Create("spike_generator", self.weights_in.shape[0])
 
+            t0 = time.time()
             # - Create input connections
             pres = []
             posts = []
+            weights = []
+            delays = []
 
             for pre, row in enumerate(self.weights_in):
                 for post, w in enumerate(row):
@@ -786,30 +789,22 @@ class RecIAFSpkInNest(Layer):
                         continue
                     pres.append(self._sg[pre])
                     posts.append(self._pop[post])
+                    weights.append(w)
+                    if isinstance(self.delay_in, np.ndarray):
+                        delays.append(self.delay_in[pre, post])
+                    else:
+                        delays.append(self.delay_in)
 
-            nest.Connect(pres, posts, "one_to_one")
-            conns = nest.GetConnections(self._sg, self._pop)
-            connsPrePost = np.array(nest.GetStatus(conns, ["source", "target"]))
-
-            if not len(connsPrePost) == 0:
-                connsPrePost[:, 0] -= np.min(self._sg)
-                connsPrePost[:, 1] -= np.min(self._pop)
-
-                weights = [self.weights_in[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.delay_in) is np.ndarray:
-                    delays = [self.delay_in[conn[0], conn[1]] for conn in connsPrePost]
-                else:
-                    delays = np.array([self.delay_in] * len(weights))
-
+            if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
+                nest.Connect(pres, posts, "one_to_one", {'weight': weights, 'delay': delays})
 
-                nest.SetStatus(
-                    conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
-                )
 
             # - Create recurrent connections
             pres = []
             posts = []
+            weights = []
+            delays = []
 
             for pre, row in enumerate(self.weights_rec):
                 for post, w in enumerate(row):
@@ -817,28 +812,15 @@ class RecIAFSpkInNest(Layer):
                         continue
                     pres.append(self._pop[pre])
                     posts.append(self._pop[post])
+                    weights.append(w)
+                    if isinstance(self.delay_rec, np.ndarray):
+                        delays.append(self.delay_rec[pre, post])
+                    else:
+                        delays.append(self.delay_rec)
 
-            nest.Connect(pres, posts, "one_to_one")
-
-            conns = nest.GetConnections(self._pop, self._pop)
-            connsPrePost = nest.GetStatus(conns, ["source", "target"])
-
-            if not len(connsPrePost) == 0:
-                connsPrePost -= np.min(self._pop)
-
-                weights = [self.weights_rec[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.delay_rec) is np.ndarray:
-                    delays = [
-                        self.delay_rec[conn[0], conn[1]] for conn in connsPrePost
-                    ]
-                else:
-                    delays = np.array([self.delay_rec] * len(weights))
-
+            if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
-
-                nest.SetStatus(
-                    conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
-                )
+                nest.Connect(pres, posts, "one_to_one", {'weight': weights, 'delay': delays})
 
             if self.record:
                 # - Monitor for recording network potential
