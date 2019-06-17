@@ -13,6 +13,7 @@ def test_import():
     from NetworksPython.layers import FFCLIAF
     from NetworksPython.layers import PassThroughEvents
 
+
 def test_pt_events():
     """ Test PassThroughEvents layer"""
     from NetworksPython.layers import PassThroughEvents
@@ -20,109 +21,18 @@ def test_pt_events():
 
     # - Input signal
     time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
-    vnChannels = [1, 2, 0, 1, 1]
-    ts_input = TSEvent(time_trace, vnChannels)
+    channels = [1, 2, 0, 1, 1]
+    ts_input = TSEvent(time_trace, channels)
 
     # - Layer
-    lpt = PassThroughEvents(np.array([[0,2],[1,1],[0,0]]), dt=0.4)
+    lpt = PassThroughEvents(np.array([[0, 2], [1, 1], [0, 0]]), dt=0.4)
 
     # - Evolution
     ts_out = lpt.evolve(ts_input)
 
-    assert (ts_out.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])).all(), (
-        "Output channels incorrect"
-    )
-
-
-def test_cnn_initialization():
-    """
-    Test initialization of the layer
-    """
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.weights import CNNWeight
-
-    # Initialize weights
-    cnnW = CNNWeight(inp_shape=(20, 20))
-
-    # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(weights=cnnW, name="CNN")
-
-
-def test_cnn_evolve():
-    """
-    Test initialization of the layer
-    """
-    from NetworksPython import TSEvent
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.weights import CNNWeight
-
-    # Initialize weights
-    cnnW = CNNWeight(inp_shape=(20, 20))
-
-    # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(weights=cnnW, v_thresh=0.5, name="CNN")
-
-    # Generate time series input
-    evInput = TSEvent(None, name="Input")
-    for nId in range(lyrCNN.size):
-        input_times = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(input_times, nId), inplace=True)
-    # Evolve
-    out_events = lyrCNN.evolve(ts_input=evInput, duration=100)
-    print(out_events())
-
-
-def test_cnn_evolve_empty():
-    """
-    Test initialization of the layer
-    """
-    from NetworksPython import TSEvent
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.weights import CNNWeight
-
-    # Initialize weights
-    cnnW = CNNWeight(inp_shape=(20, 20))
-
-    # Initialize a CNN layer with CN weights
-    lyrCNN = FFCLIAF(weights=cnnW, v_thresh=0.5, name="CNN")
-
-    # Generate time series input
-    evInput = TSEvent(None, name="Input", num_channels=lyrCNN.size)
-    # Evolve
-    out_events = lyrCNN.evolve(ts_input=evInput, duration=100)
-    print(out_events())
-
-
-
-def test_cnn_multilayer():
-    """
-    Test initialization of the layer
-    """
-    from NetworksPython import TSEvent, Network
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.weights import CNNWeight
-
-    # Parameters
-    imageShape = (10, 10)
-
-    # Initialize weights
-    cnnW1 = CNNWeight(inp_shape=imageShape, kernels=2, kernel_size=(3, 3))
-    cnnW2 = CNNWeight(inp_shape=(2, *imageShape), kernels=2, kernel_size=(3, 3))
-
-    # Initialize a CNN layer with CN weights
-    lyrCnn1 = FFCLIAF(weights=cnnW1, v_thresh=0.5, name="CNN1")
-    lyrCnn2 = FFCLIAF(weights=cnnW2, v_thresh=0.5, name="CNN2")
-
-    net = Network(*[lyrCnn1, lyrCnn2])
-
-    # Generate time series input
-    evInput = TSEvent(None, name="Input")
-    for nId in range(imageShape[0] * imageShape[1]):
-        input_times = poisson_generator(40.0, t_stop=100)
-        evInput.merge(TSEvent(input_times, nId), inplace=True)
-    # Evolve
-    out_events = net.evolve(ts_input=evInput, duration=100)
-    print(out_events)
+    assert (
+        ts_out.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])
+    ).all(), "Output channels incorrect"
 
 
 def test_ffcliaf_none_attributes():
@@ -137,7 +47,12 @@ def test_ffcliaf_none_attributes():
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        weights=weights_in, bias=-0.05, v_thresh=5, dt=0.1, monitor_id=True, v_subtract=5
+        weights=weights_in,
+        bias=-0.05,
+        v_thresh=5,
+        dt=0.1,
+        monitor_id=True,
+        v_subtract=5,
     )
 
     for strVarName in ("weights", "bias", "state"):
@@ -161,7 +76,12 @@ def test_ffcliaf_evolve_subtracting():
 
     # - Generate layer
     lyrFF = FFCLIAF(
-        weights=weights_in, bias=-0.05, v_thresh=5, dt=0.1, monitor_id=True, v_subtract=5
+        weights=weights_in,
+        bias=-0.05,
+        v_thresh=5,
+        dt=0.1,
+        monitor_id=True,
+        v_subtract=5,
     )
 
     # - Input spike
