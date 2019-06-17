@@ -14,7 +14,7 @@ def test_virtualdynapse_evolve():
     connections_rec_full[ids_row, ids_col] = connections_rec
     connections_ext_full = np.zeros((100, 3300))
     connections_ext_full[
-        np.repeat(np.arange(3)[:, None], axis=1, repeats=8), ids_col[:3]
+        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
     ] = connections_ext
     bias = np.random.rand(16) * 1
     v_thresh = np.random.rand(16) * 0.05
@@ -59,33 +59,56 @@ def test_virtualdynapse_conn_validation():
     # TODO
     vd = VirtualDynapse()
 
-    # - Weight validation
+    ## -- Weight validation
+
+    # - Fan-in
+    # Fan-in ok
     weights_ok_fanin = np.zeros((4096, 4096))
     weights_ok_fanin[:30, 0] = 1
     weights_ok_fanin[30:64, 0] = -1
     assert vd.validate_connections(weights_ok_fanin) == 0
+    # Fan-in too large
     weights_high_fanin = weights_ok_fanin.copy()
     weights_high_fanin[65, 0] = -1
     assert vd.validate_connections(weights_high_fanin) == 1
+    # Fan-in too large with external inputs
+    weights_ext = np.zeros((1024, 4096))
+    weights_ext[100, 0] = 1
+    assert vd.validate_connections(weights_ok_fanin, weights_ext) == 1
+
+    # - Fan-out
+    # Fan-out ok
     weights_ok_fanout = np.zeros((4096, 4096))
     weights_ok_fanout[0, [2, 1050, 2100]] = [1, 2, -1]
     assert vd.validate_connections(weights_ok_fanout) == 0
+    # Fan-out ok
+    weights_ok_fanout_I = np.zeros((4096, 4096))
+    weights_ok_fanout_I[0, :1024] = 10
+    assert vd.validate_connections(weights_ok_fanout_I) == 0
+    # Fan-out not compatible
     weights_wrong_fanout = weights_ok_fanout.copy()
     weights_wrong_fanout[0, 4000] = 1
     assert vd.validate_connections(weights_wrong_fanout) == 2
+
+    # - Connection aliasing
+    # Different presyn. ID and same presyn. chip -> no aliasing
     weights_no_aliasing = np.zeros((4096, 4096))
     weights_no_aliasing[1024, 1] = 1
     weights_no_aliasing_I = weights_no_aliasing.copy()
     weights_no_aliasing_I[1025, 4] = 1
-    # Different presyn. ID and same presyn. chip -> no aliasing
     assert vd.validate_connections(weights_no_aliasing_I) == 0
+    # Different presyn. ID and different presyn. chip -> no aliasing
     weights_no_aliasing_II = weights_no_aliasing.copy()
     weights_no_aliasing_II[2049, 4] = 1
-    # Different presyn. ID and different presyn. chip -> no aliasing
     assert vd.validate_connections(weights_no_aliasing_II) == 0
-    weights_no_aliasing_II[2048, 257] = 1
     # Same presyn. ID, different presyn. chip but different postsyn. core -> no aliasing
+    weights_no_aliasing_II[2048, 257] = 1
     assert vd.validate_connections(weights_no_aliasing_II) == 0
+    # Same presyn. ID, same postsyn. core -> aliasing
     weights_aliasing = weights_no_aliasing.copy()
-    weights_aliasing[2048, 1] = 1  # Same presyn. ID, same postsyn. core -> aliasing
+    weights_aliasing[2048, 1] = 1
     assert vd.validate_connections(weights_aliasing) == 4
+    # Aliasing with input weights
+    weights_external = np.zeros((1024, 4096))
+    weights_external[0, 1] = 1
+    assert vd.validate_connections(weights_no_aliasing, weights_external) == 4

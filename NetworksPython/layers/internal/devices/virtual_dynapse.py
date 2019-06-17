@@ -142,12 +142,14 @@ class VirtualDynapse(Layer):
             v_reset=0,
             v_rest=0,
             tau_mem=self._tau_mem_all,
-            tau_syn=np.repeat(tau_syn_exc, self.num_neurons_core),
-            # tau_syn_inh=np.repeat(tau_syn_inh, self.num_neurons_core),
+            tau_syn_exc=np.repeat(tau_syn_exc, self.num_neurons_core),
+            tau_syn_inh=np.repeat(tau_syn_inh, self.num_neurons_core),
             dt=dt,
             name=self.name + "_nest_backend",
             num_cores=num_cores,
         )
+
+        # - Dict indicating if
 
     def set_connections(
         self,
@@ -198,6 +200,7 @@ class VirtualDynapse(Layer):
         self,
         connections_rec: np.ndarray,
         connections_ext: Optional[np.ndarray] = None,
+        neuron_ids: Optional[np.ndarray] = None,
         verbose: bool = True,
     ) -> int:
         """
@@ -224,8 +227,15 @@ class VirtualDynapse(Layer):
         return
             Integer indicating the result of the validation.
         """
+        # - TODO: Expand connectivity matrix to represent chip and core dimensions
+
         # - Get 2D matrix with number of connections between neurons
-        conn_count_2d = self.get_connection_counts(connections_rec)
+        conn_count_onchip = self.get_connection_counts(connections_rec)
+        if connections_ext is not None:
+            conn_count_ext = self.get_connection_counts(connections_ext)
+            conn_count_full = np.vstack((conn_count_onchip, conn_count_ext))
+        else:
+            conn_count_full = conn_count_onchip
 
         result = 0
 
@@ -233,14 +243,8 @@ class VirtualDynapse(Layer):
             print(self.start_print + "Testing provided connections:")
 
         # - Test fan-in
-        if connections_ext is not None:
-            conn_count_in = np.vstack(
-                (self.get_connection_counts(connections_ext), conn_count_2d)
-            )
-        else:
-            conn_count_in = conn_count_2d
         exceeds_fanin: np.ndarray = (
-            np.sum(conn_count_in, axis=0) > params.NUM_CAMS_NEURON
+            np.sum(conn_count_full, axis=0) > params.NUM_CAMS_NEURON
         )
         if exceeds_fanin.any():
             result += FANIN_EXCEEDED
@@ -253,7 +257,7 @@ class VirtualDynapse(Layer):
         # - Test fan-out
         # List with target chips for each (presynaptic) neuron
         tgtchip_list = [
-            np.nonzero(row)[0] // self.num_neurons_chip for row in conn_count_2d
+            np.nonzero(row)[0] // self.num_neurons_chip for row in conn_count_onchip
         ]
         # Number of different target chips per neuron
         nums_tgtchips = np.array(
@@ -275,23 +279,23 @@ class VirtualDynapse(Layer):
         alias_pre_chips: List[List[np.ndarray]] = []
         alias_pre_ids: List[List[int]] = []
         alias_post_cores: List[int] = []
+        # - Iterate over postsynaptic cores
         for core_id in range(self.num_cores):
             # - IDs of neurons where core starts and ends
             id_start = core_id * self.num_neurons_core
             id_end = (core_id + 1) * self.num_neurons_core
-            # - Connections with common postsynaptic core
-            conns_samecore = conn_count_2d[:, id_start:id_end]
-            # - Lists for collecting affected chip and neuron IDs for specific core
+            # - Connections with postsynaptic connections to this core
+            conns_to_core = conn_count_full[:, id_start:id_end]
+            # - Lists for collecting affected chip and neuron IDs for this core
             alias_pre_ids_core = []
             alias_pre_chips_core = []
+            # - Iterate over presynaptic neuron IDs (wrt chip)
             for neuron_id in range(self.num_neurons_chip):
                 # - Connections with `neuron_id`-th neuron of each chip as presyn. neuron
-                conns_samecore_sameid = conns_samecore[
-                    neuron_id :: self.num_neurons_chip
-                ]
+                conns_tocore_this_id = conns_to_core[neuron_id :: self.num_neurons_chip]
                 # - IDs of chips from which presynaptic connecitons originate
-                connected_presyn_chips = np.unique(np.nonzero(conns_samecore_sameid)[0])
-                # - Only one presynaptic neuron with `neuron_id` is allowed for each core
+                connected_presyn_chips = np.unique(np.nonzero(conns_tocore_this_id)[0])
+                # - Only one presynaptic chip is allowed for each core and `neuron_id`
                 #   If there are more, collect information
                 if len(connected_presyn_chips) > 1:
                     alias_pre_ids_core.append(neuron_id)
@@ -321,6 +325,11 @@ class VirtualDynapse(Layer):
                         core_print += "\n" + id_print
                     print_output += "\n" + core_print
                 print(print_output)
+                if connections_ext is not None and any(
+                    any(self.num_chips in chip_arr for chip_arr in sublist)
+                    for sublist in alias_pre_chips
+                ):
+                    print(f"\t(Chip ID {self.num_chips} refers to external input.)")
 
         if verbose and result == CONNECTIONS_VALID:
             print("\tConnections ok.")
@@ -445,7 +454,7 @@ class VirtualDynapse(Layer):
     @connections_rec.setter
     def connections_rec(self, connections_new: Optional[np.ndarray]):
         # - Bring connections into correct shape
-        connections_new = _process_connections(connections_new, external=True)
+        connections_new = self._process_connections(connections_new, external=True)
         # - Make sure that connections have match hardware specifications
         if (
             self.validate_connections(
@@ -469,7 +478,7 @@ class VirtualDynapse(Layer):
     @connections_ext.setter
     def connections_ext(self, connections_new: Optional[np.ndarray]):
         # - Bring connections into correct shape
-        connections_new = _process_connections(connections_new, external=True)
+        connections_new = self._process_connections(connections_new, external=True)
         # - Make sure that connections have match hardware specifications
         if (
             self.validate_connections(
