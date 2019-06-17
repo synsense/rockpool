@@ -45,6 +45,12 @@ class FFIAFNest(Layer):
     class NestProcess(multiprocessing.Process):
         """ Class for running NEST in its own process """
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
         def __init__(
             self,
             request_q,
@@ -353,7 +359,7 @@ class FFIAFNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(
+        with self.NestProcess(
             self.request_q,
             self.result_q,
             weights,
@@ -366,10 +372,8 @@ class FFIAFNest(Layer):
             v_rest,
             refractory,
             record,
-            num_cores,
-        )
-
-        self.nest_process.start()
+            num_cores) as nest_process:
+            nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -470,8 +474,8 @@ class FFIAFNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        # self.nest_process.terminate()
+        # self.nest_process.join()
 
     ### --- Properties
 
@@ -634,6 +638,12 @@ class RecIAFSpkInNest(Layer):
 
     class NestProcess(multiprocessing.Process):
         """ Class for running NEST in its own process """
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
 
         def __init__(
             self,
@@ -1058,7 +1068,7 @@ class RecIAFSpkInNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(
+        with self.NestProcess(
             self.request_q,
             self.result_q,
             weights_in,
@@ -1076,10 +1086,8 @@ class RecIAFSpkInNest(Layer):
             v_rest,
             refractory,
             record,
-            num_cores,
-        )
-
-        self.nest_process.start()
+            num_cores) as nest_process:
+            nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -1199,8 +1207,8 @@ class RecIAFSpkInNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        # self.nest_process.terminate()
+        # self.nest_process.join()
 
     ### --- Properties
 

@@ -47,6 +47,12 @@ class RecAEIFSpkInNest(Layer):
     class NestProcess(multiprocessing.Process):
         """ Class for running NEST in its own process """
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
         def __init__(
             self,
             request_q,
@@ -518,7 +524,7 @@ class RecAEIFSpkInNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(
+        with self.NestProcess(
             self.request_q,
             self.result_q,
             weights_in=weights_in,
@@ -540,10 +546,8 @@ class RecAEIFSpkInNest(Layer):
             a=a,
             b=b,
             delta_t=delta_t,
-            tau_w=tau_w
-        )
-
-        self.nest_process.start()
+            tau_w=tau_w) as nest_process:
+            nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -666,8 +670,8 @@ class RecAEIFSpkInNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        # self.nest_process.terminate()
+        # self.nest_process.join()
 
     ### --- Properties
 
