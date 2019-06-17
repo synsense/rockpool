@@ -47,6 +47,8 @@ def test_chargeSingleNeuron():
     assert fl0.state[0] <= vTh
     assert dFl0.isempty()
 
+    fl0.terminate()
+
 
 def test_chargeAndSpikeSingleNeuron():
     """
@@ -93,6 +95,8 @@ def test_chargeAndSpikeSingleNeuron():
 
     assert not dFl0.isempty()
 
+    fl0.terminate()
+
 
 def test_FFNestLayer():
     """ Test FFIAFNest"""
@@ -130,6 +134,8 @@ def test_FFNestLayer():
     assert fl0.t == 0
     assert (vStateBefore == fl0.state).all()
 
+    fl0.terminate()
+
 
 def test_RecNestLayer():
     """ Test RecIAFNest"""
@@ -165,6 +171,8 @@ def test_RecNestLayer():
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.state).all()
+
+    fl0.terminate()
 
 
 def test_FFToRecLayer():
@@ -242,6 +250,7 @@ def test_FFToRecLayer():
     assert fl1.t == 0
     assert (vStateBefore == fl1.state).all()
 
+    fl0.terminate()
 
 def test_randomizeStateRec():
     """ test Randomize State """
@@ -276,6 +285,8 @@ def test_randomizeStateRec():
 
     assert (vStateBefore != fl0.state).any()
 
+    fl0.terminate()
+
 
 def test_randomizeStateFF():
     """ Test FFIAFNest"""
@@ -303,6 +314,8 @@ def test_randomizeStateFF():
     fl0.randomize_state()
 
     assert (vStateBefore != fl0.state).any()
+
+    fl0.terminate()
 
 
 def test_recording():
@@ -335,6 +348,8 @@ def test_recording():
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
     assert np.shape(fl0.record_states) == (3, 100)
+
+    fl0.terminate()
 
 
 def test_FFToRecLayerRepeat():
@@ -412,6 +427,8 @@ def test_FFToRecLayerRepeat():
     assert fl0.t == 0
     assert fl1.t == 0
     assert (vStateBefore == fl1.state).all()
+
+    fl0.terminate()
 
 
 def test_DefaultParams():
@@ -491,6 +508,9 @@ def test_DefaultParams():
 
     assert (fl0.state == fl2.state).all()
     assert (fl1.state == fl3.state).all()
+
+    fl0.terminate()
+    fl1.terminate()
 
 
 #def test_Multithreading():
@@ -614,6 +634,8 @@ def test_DefaultParams():
     assert (np.abs(fl0.state - fl2.state) < epsilon).all()
     assert (np.abs(fl1.state - fl3.state) < epsilon).all()
 
+    fl0.terminate()
+    fl1.terminate()
 
 def test_delays():
     """ test delays """
@@ -704,6 +726,8 @@ def test_delays():
     assert times[1] - times[0] - 0.01 < eps
     assert times[3] - times[2] - 0.01 < eps
 
+    fl0.terminate()
+    fl1.terminate()
 
 def test_IAF2AEIFNest():
     """ Test RecIAFNest to RecAEIFNest """
@@ -771,6 +795,8 @@ def test_IAF2AEIFNest():
 
     assert (np.abs(fl0.state - fl1.state) < 0.00001).all()
 
+    fl0.terminate()
+    fl1.terminate()
 
 def test_SaveLoad():
     """ Test save and load RecAEIFNest """
@@ -806,6 +832,7 @@ def test_SaveLoad():
         delta_t=0.,
         refractory=0.001,
         record=True,
+        name = 'lyrNest',
     )
 
     net0 = nw.Network(fl0)
@@ -828,3 +855,6 @@ def test_SaveLoad():
     dFl1 = net1.evolve(tsInEvent, duration=1.0)
 
     assert (np.abs(net0.input_layer.state - net1.input_layer.state) < 0.00001).all()
+
+    fl0.terminate()
+    net1.lyrNest.terminate()
