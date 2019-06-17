@@ -14,7 +14,7 @@ def test_virtualdynapse_evolve():
     connections_rec_full[ids_row, ids_col] = connections_rec
     connections_ext_full = np.zeros((100, 3300))
     connections_ext_full[
-        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
+        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) +, ids_col[:3]
     ] = connections_ext
     bias = np.random.rand(16) * 1
     v_thresh = np.random.rand(16) * 0.05
