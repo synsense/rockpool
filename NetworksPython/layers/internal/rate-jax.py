@@ -7,7 +7,7 @@ from jax import jit
 from jax.lax import scan
 import jax.random as rand
 import numpy as onp
-from typing import Optional, Tuple, Callable, Union
+from typing import Optional, Tuple, Callable, Union, Any
 
 FloatVector = Union[float, np.ndarray]
 
@@ -155,20 +155,21 @@ class RecRateEulerJax(Layer):
         activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key=None,
+        rng_key: Optional[Any] = None,
     ):
         """
         RecRateEulerJax - `jax`-backed firing rate reservoir
 
-        :param w_in:
-        :param w_recurrent:
-        :param w_out:
-        :param tau:
-        :param bias:
-        :param noise_std:
-        :param activation_func:
-        :param dt:
-        :param name:
+        :param weights:         np.ndarray Input weights [IxN]
+        :param w_recurrent:     np.ndarray Recurrent weights [NxN]
+        :param w_out:           np.ndarray Output weights [NxO]
+        :param tau:             np.ndarray Time constants [N]
+        :param bias:            np.ndarray Bias values [N]
+        :param noise_std:       Optional[float] White noise standard deviation applied to reservoir neurons. Default: 0.0
+        :param activation_func: Optional[Callable] Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param dt:              Optional[float] Reservoir time step. Default: np.min(tau) / 10.0
+        :param name:            Optional[str] Name of the layer. Default: None
+        :param rng_key          Optional[Jax RNG key] Jax RNG key to use for noise. Default: Internally generated
         """
 
         # - Everything should be 2D
