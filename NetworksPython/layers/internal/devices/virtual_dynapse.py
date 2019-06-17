@@ -104,6 +104,11 @@ class VirtualDynapse(Layer):
         self.tau_mem_2 = tau_mem_2
         self.has_tau2 = has_tau2
 
+        # - Settings wrt connection validation
+        self.validate_fanin = True
+        self.validate_fanout = True
+        self.validate_aliasing = True
+
         # - Set up connections and weights
         self._baseweight_e = self._process_parameter(baseweight_e, "baseweight_e", True)
         self._baseweight_i = self._process_parameter(baseweight_i, "baseweight_i", True)
@@ -116,7 +121,12 @@ class VirtualDynapse(Layer):
         if (
             (connections_rec is not None or connections_ext is not None)
             and self.validate_connections(
-                self._connections_rec, self._connections_ext, verbose=True
+                self._connections_rec,
+                self._connections_ext,
+                verbose=True,
+                validate_fanin=self.validate_fanin,
+                validate_fanout=self.validate_fanout,
+                validate_aliasing=self.validate_aliasing,
             )
             != CONNECTIONS_VALID
         ):
@@ -200,8 +210,13 @@ class VirtualDynapse(Layer):
         self,
         connections_rec: np.ndarray,
         connections_ext: Optional[np.ndarray] = None,
-        neuron_ids: Optional[np.ndarray] = None,
+        neurons_pre: Optional[np.ndarray] = None,
+        neurons_post: Optional[np.ndarray] = None,
+        channels_ext: Optional[np.ndarray] = None,
         verbose: bool = True,
+        validate_fanin: bool = True,
+        validate_fanout: bool = True,
+        validate_aliasing: bool = True,
     ) -> int:
         """
         validate_connections - Check whether connections are compatible with the
@@ -213,123 +228,222 @@ class VirtualDynapse(Layer):
                                    different chips but have the same IDs within their
                                    respective chips, aliasing of events may occur.
                                    Therefore this scenario is considered invalid.
-        :param connections_rec:     2D np.ndarray (NxN): Connectivity matrix to be.
+        :param connections_rec:     2D np.ndarray: Connectivity matrix to be
                                 validated. Will assume positive (negative) values
                                 correspond to excitatory (inhibitory) synapses.
-        :param connections_ext:  If not `None`, 2D np.ndarray (MxN) that is considered
+        :param connections_ext:  If not `None`, 2D np.ndarray that is considered
                                 as external input connections to the population
                                 that `connections_rec` refers to. This is considered
                                 for validaiton of the fan-in of `connections_rec`.
                                 Positive (negative) values correspond to excitatory
                                 (inhibitory) synapses.
+        :param neurons_pre:     IDs of presynaptic neurons. If `None` (default), IDs
+                                are assumed to be 0,..,`connections_rec.shape[0]`.
+                                If not `None`, connections to neurons that are not
+                                included in `neurons_pre` are assumed to be 0.
+        :param neurons_post:    IDs of postsynaptic neurons. If `None` (default), IDs
+                                are assumed to be 0,..,`connections_rec.shape[1]`.
+                                If not `None`, connections from neurons that are not
+                                included in `neurons_post` are assumed to be 0.
+        :param channels_ext:     IDs of external input channels. If `None` (default), IDs
+                                are assumed to be 0,..,`connections_ext.shape[0]`.
+                                If not `None`, connections from channels that are not
+                                included in `channels_ext` are assumed to be 0.
         :param verbose:         If `True`, print out detailed information about
                                 validity of connections.
+        :param validate_fanin:     If `True`, test if connections have valid fan-in.
+        :param validate_fanout:    If `True`, test if connections have valid fan-out.
+        :param validate_aliasing:  If `True`, test for connection aliasing.
         return
-            Integer indicating the result of the validation.
+            Integer indicating the result of the validation:
+            If displayed as a binary number, each digit corresponds to the result
+            of one test (order from small to high base: fan-in, fan-out, aliasing),
+            with 0 meaning passed.
+            E.g. 6 (110) means that the fan-in is valid but not the fan-out and
+            there is connection aliasing.
         """
-        # - TODO: Expand connectivity matrix to represent chip and core dimensions
+        connections_rec = np.asarray(connections_rec)
+        if connections_rec.ndim != 2:
+            raise ValueError(
+                self.start_print + "`connections_rec` must be 2-dimensional."
+            )
+
+        # - Use neuron IDs to expand on-chip connectivity matrix
+        if neurons_pre is not None or neurons_post is not None:
+            if neurons_pre is None:
+                neurons_pre = np.arange(connections_rec.shape[0])
+            if neurons_post is None:
+                neurons_post = np.arange(connections_rec.shape[1])
+            # - Make sure, dimensions of connection matrix and neuron arrays match
+            if (
+                np.size(neurons_pre) != connections_rec.shape[0]
+                or np.size(neurons_post) != connections_rec.shape[1]
+            ):
+                raise ValueError(
+                    self.start_print
+                    + "Dimensions of `connections_rec` must match sizes "
+                    + "of `neuron_ids_pre` and `neuron_ids_post."
+                )
+            # - Expand on-chip connectivity matrix to represent chip and core dimensions
+            # Number of rows is large enough so that when appending external connections
+            # they are recognized as not being on the same chip (for aliasing test)
+            num_rows = int(
+                np.ceil((np.amax(neurons_pre) + 1) / self.num_neurons_chip)
+                * self.num_neurons_chip
+            )
+            connections_rec_0 = np.zeros((num_rows, np.amax(neurons_post) + 1))
+            idcs_pre, idcs_post = np.meshgrid(neurons_pre, neurons_post, indexing="ij")
+            connections_rec_0[idcs_pre, idcs_post] = connections_rec
+            connections_rec = connections_rec_0
 
         # - Get 2D matrix with number of connections between neurons
         conn_count_onchip = self.get_connection_counts(connections_rec)
+
+        # - Handle external connections
         if connections_ext is not None:
+            connections_ext = np.asarray(connections_ext)
+            if connections_ext.ndim != 2:
+                raise ValueError(
+                    self.start_print + "`connections_ext` must be 2-dimensional."
+                )
+
+            # - Expand external connectivity matrix to match channel IDs
+            if channels_ext is not None:
+                if np.size(channels_ext) != connections_ext.shape[0]:
+                    raise ValueError(
+                        self.start_print
+                        + "Dimensions of `connections_ext` must match size of `neuron_ids_ext`."
+                    )
+                if neurons_post is None:
+                    neurons_post = np.arange(connections_rec.shape[1])
+                connections_ext_0 = np.zeros(
+                    (np.amax(channels_ext) + 1, connections_rec.shape[1])
+                )
+                idcs_pre, idcs_post = np.meshgrid(
+                    channels_ext, neurons_post, indexing="ij"
+                )
+                connections_ext_0[idcs_pre, idcs_post] = connections_ext
+                connections_ext = connections_ext_0
+            else:
+                # - Verify that connection matrices match in size
+                if connections_ext.shape[1] != connections_rec.shape[0]:
+                    raise ValueError(
+                        self.start_print
+                        + "2nd axis of `connections_ext`"
+                        + " and 1st axis of `connections_rec` must match."
+                    )
+            if connections_ext.shape[0] > self.num_neurons_chip:
+                raise ValueError(
+                    self.start_print
+                    + f"There can be at most {self.num_neurons_chip} external channels. "
+                )
             conn_count_ext = self.get_connection_counts(connections_ext)
             conn_count_full = np.vstack((conn_count_onchip, conn_count_ext))
         else:
             conn_count_full = conn_count_onchip
 
+        # - Initialize Result to 0 (meaning all good)
         result = 0
 
         if verbose:
             print(self.start_print + "Testing provided connections:")
 
-        # - Test fan-in
-        exceeds_fanin: np.ndarray = (
-            np.sum(conn_count_full, axis=0) > params.NUM_CAMS_NEURON
-        )
-        if exceeds_fanin.any():
-            result += FANIN_EXCEEDED
-            if verbose:
-                print(
-                    "\tFan-in ({}) exceeded for neurons: {}".format(
-                        params.NUM_CAMS_NEURON, np.where(exceeds_fanin)[0]
-                    )
-                )
-        # - Test fan-out
-        # List with target chips for each (presynaptic) neuron
-        tgtchip_list = [
-            np.nonzero(row)[0] // self.num_neurons_chip for row in conn_count_onchip
-        ]
-        # Number of different target chips per neuron
-        nums_tgtchips = np.array(
-            [np.unique(tgtchips).size for tgtchips in tgtchip_list]
-        )
-        exceeds_fanout = nums_tgtchips > params.NUM_SRAMS_NEURON
-        if exceeds_fanout.any():
-            result += FANOUT_EXCEEDED
-            if verbose:
-                print(
-                    "\tEach neuron can only have postsynaptic connections to "
-                    "{} chips. This limit is exceeded for neurons: {}".format(
-                        params.NUM_SRAMS_NEURON, np.where(exceeds_fanout)[0]
-                    )
-                )
-
-        # - Test for connection aliasing
-        # Lists for collecting affected presyn. neurons (chips, IDs) and postsyn. cores
-        alias_pre_chips: List[List[np.ndarray]] = []
-        alias_pre_ids: List[List[int]] = []
-        alias_post_cores: List[int] = []
-        # - Iterate over postsynaptic cores
-        for core_id in range(self.num_cores):
-            # - IDs of neurons where core starts and ends
-            id_start = core_id * self.num_neurons_core
-            id_end = (core_id + 1) * self.num_neurons_core
-            # - Connections with postsynaptic connections to this core
-            conns_to_core = conn_count_full[:, id_start:id_end]
-            # - Lists for collecting affected chip and neuron IDs for this core
-            alias_pre_ids_core = []
-            alias_pre_chips_core = []
-            # - Iterate over presynaptic neuron IDs (wrt chip)
-            for neuron_id in range(self.num_neurons_chip):
-                # - Connections with `neuron_id`-th neuron of each chip as presyn. neuron
-                conns_tocore_this_id = conns_to_core[neuron_id :: self.num_neurons_chip]
-                # - IDs of chips from which presynaptic connecitons originate
-                connected_presyn_chips = np.unique(np.nonzero(conns_tocore_this_id)[0])
-                # - Only one presynaptic chip is allowed for each core and `neuron_id`
-                #   If there are more, collect information
-                if len(connected_presyn_chips) > 1:
-                    alias_pre_ids_core.append(neuron_id)
-                    alias_pre_chips_core.append(connected_presyn_chips)
-            if alias_pre_ids_core:
-                alias_post_cores.append(core_id)
-                alias_pre_ids.append(alias_pre_ids_core)
-                alias_pre_chips.append(alias_pre_chips_core)
-
-        if alias_pre_chips:
-            result += CONNECTION_ALIASING
-            if verbose:
-                print_output = (
-                    "\tConnection aliasing detected: Neurons on the same core should not "
-                    + "have presynaptic connections with neurons that have same IDs (within "
-                    + "their respective chips) but are on different chips. Affected "
-                    + "postsynaptic cores are: "
-                )
-                for core_id, neur_ids_core, chips_core in zip(
-                    alias_post_cores, alias_pre_ids, alias_pre_chips
-                ):
-                    core_print = f"\tCore {core_id}:"
-                    for id_neur, chips in zip(neur_ids_core, chips_core):
-                        id_print = "\t\t Presynaptic ID {} on chips {}".format(
-                            id_neur, ", ".join(str(id_ch) for id_ch in chips)
+        if validate_fanin:
+            # - Test fan-in
+            exceeds_fanin: np.ndarray = (
+                np.sum(conn_count_full, axis=0) > params.NUM_CAMS_NEURON
+            )
+            if exceeds_fanin.any():
+                result += FANIN_EXCEEDED
+                if verbose:
+                    print(
+                        "\tFan-in ({}) exceeded for neurons: {}".format(
+                            params.NUM_CAMS_NEURON, np.where(exceeds_fanin)[0]
                         )
-                        core_print += "\n" + id_print
-                    print_output += "\n" + core_print
-                print(print_output)
-                if connections_ext is not None and any(
-                    any(self.num_chips in chip_arr for chip_arr in sublist)
-                    for sublist in alias_pre_chips
-                ):
-                    print(f"\t(Chip ID {self.num_chips} refers to external input.)")
+                    )
+
+        if validate_fanout:
+            # - Test fan-out
+            # List with target chips for each (presynaptic) neuron
+            tgtchip_list = [
+                np.nonzero(row)[0] // self.num_neurons_chip for row in conn_count_onchip
+            ]
+            # Number of different target chips per neuron
+            nums_tgtchips = np.array(
+                [np.unique(tgtchips).size for tgtchips in tgtchip_list]
+            )
+            exceeds_fanout = nums_tgtchips > params.NUM_SRAMS_NEURON
+            if exceeds_fanout.any():
+                result += FANOUT_EXCEEDED
+                if verbose:
+                    print(
+                        "\tEach neuron can only have postsynaptic connections to "
+                        "{} chips. This limit is exceeded for neurons: {}".format(
+                            params.NUM_SRAMS_NEURON, np.where(exceeds_fanout)[0]
+                        )
+                    )
+
+        if validate_aliasing:
+            # - Test for connection aliasing
+            # Lists for collecting affected presyn. neurons (chips, IDs) and postsyn. cores
+            alias_pre_chips: List[List[np.ndarray]] = []
+            alias_pre_ids: List[List[int]] = []
+            alias_post_cores: List[int] = []
+            # - Iterate over postsynaptic cores
+            for core_id in range(self.num_cores):
+                # - IDs of neurons where core starts and ends
+                id_start = core_id * self.num_neurons_core
+                id_end = (core_id + 1) * self.num_neurons_core
+                # - Connections with postsynaptic connections to this core
+                conns_to_core = conn_count_full[:, id_start:id_end]
+                # - Lists for collecting affected chip and neuron IDs for this core
+                alias_pre_ids_core = []
+                alias_pre_chips_core = []
+                # - Iterate over presynaptic neuron IDs (wrt chip)
+                for neuron_id in range(self.num_neurons_chip):
+                    # - Connections with `neuron_id`-th neuron of each chip as presyn. neuron
+                    conns_tocore_this_id = conns_to_core[
+                        neuron_id :: self.num_neurons_chip
+                    ]
+                    # - IDs of chips from which presynaptic connecitons originate
+                    connected_presyn_chips = np.unique(
+                        np.nonzero(conns_tocore_this_id)[0]
+                    )
+                    # - Only one presynaptic chip is allowed for each core and `neuron_id`
+                    #   If there are more, collect information
+                    if len(connected_presyn_chips) > 1:
+                        alias_pre_ids_core.append(neuron_id)
+                        alias_pre_chips_core.append(connected_presyn_chips)
+                if alias_pre_ids_core:
+                    alias_post_cores.append(core_id)
+                    alias_pre_ids.append(alias_pre_ids_core)
+                    alias_pre_chips.append(alias_pre_chips_core)
+
+            if alias_pre_chips:
+                result += CONNECTION_ALIASING
+                if verbose:
+                    print_output = (
+                        "\tConnection aliasing detected: Neurons on the same core should not "
+                        + "have presynaptic connections with neurons that have same IDs (within "
+                        + "their respective chips) but are on different chips. Affected "
+                        + "postsynaptic cores are: "
+                    )
+                    for core_id, neur_ids_core, chips_core in zip(
+                        alias_post_cores, alias_pre_ids, alias_pre_chips
+                    ):
+                        core_print = f"\tCore {core_id}:"
+                        for id_neur, chips in zip(neur_ids_core, chips_core):
+                            id_print = "\t\t Presynaptic ID {} on chips {}".format(
+                                id_neur, ", ".join(str(id_ch) for id_ch in chips)
+                            )
+                            core_print += "\n" + id_print
+                        print_output += "\n" + core_print
+                    print(print_output)
+                    if connections_ext is not None and any(
+                        any(self.num_chips in chip_arr for chip_arr in sublist)
+                        for sublist in alias_pre_chips
+                    ):
+                        print(f"\t(Chip ID {self.num_chips} refers to external input.)")
 
         if verbose and result == CONNECTIONS_VALID:
             print("\tConnections ok.")
@@ -458,7 +572,12 @@ class VirtualDynapse(Layer):
         # - Make sure that connections have match hardware specifications
         if (
             self.validate_connections(
-                connections_new, self.connections_ext, verbose=True
+                connections_new,
+                self.connections_ext,
+                verbose=True,
+                validate_fanin=self.validate_fanin,
+                validate_fanout=self.validate_fanout,
+                validate_aliasing=self.validate_aliasing,
             )
             == CONNECTIONS_VALID
         ):
@@ -482,7 +601,12 @@ class VirtualDynapse(Layer):
         # - Make sure that connections have match hardware specifications
         if (
             self.validate_connections(
-                self.connections_rec, connections_new, verbose=True
+                self.connections_rec,
+                connections_new,
+                verbose=True,
+                validate_fanin=self.validate_fanin,
+                validate_fanout=self.validate_fanout,
+                validate_aliasing=self.validate_aliasing,
             )
             == CONNECTIONS_VALID
         ):

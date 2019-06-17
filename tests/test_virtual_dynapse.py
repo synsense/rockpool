@@ -14,7 +14,7 @@ def test_virtualdynapse_evolve():
     connections_rec_full[ids_row, ids_col] = connections_rec
     connections_ext_full = np.zeros((100, 3300))
     connections_ext_full[
-        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) +, ids_col[:3]
+        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
     ] = connections_ext
     bias = np.random.rand(16) * 1
     v_thresh = np.random.rand(16) * 0.05
@@ -91,9 +91,9 @@ def test_virtualdynapse_conn_validation():
     assert vd.validate_connections(weights_wrong_fanout) == 2
 
     # - Connection aliasing
-    # Different presyn. ID and same presyn. chip -> no aliasing
     weights_no_aliasing = np.zeros((4096, 4096))
     weights_no_aliasing[1024, 1] = 1
+    # Different presyn. ID and same presyn. chip -> no aliasing
     weights_no_aliasing_I = weights_no_aliasing.copy()
     weights_no_aliasing_I[1025, 4] = 1
     assert vd.validate_connections(weights_no_aliasing_I) == 0
@@ -112,3 +112,128 @@ def test_virtualdynapse_conn_validation():
     weights_external = np.zeros((1024, 4096))
     weights_external[0, 1] = 1
     assert vd.validate_connections(weights_no_aliasing, weights_external) == 4
+
+    ## -- Same test using neuron_ids and smaller weight matrices
+    # - Fan-in
+    # Fan-in ok
+    neurons_pre = range(66)
+    neurons_post = [0]
+    weights_ok_fanin = np.zeros((66, 1))
+    weights_ok_fanin[:30, 0] = 1
+    weights_ok_fanin[30:64, 0] = -1
+    assert (
+        vd.validate_connections(
+            weights_ok_fanin, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 0
+    )
+    # Fan-in too large
+    weights_high_fanin = weights_ok_fanin.copy()
+    weights_high_fanin[65, 0] = -1
+    assert (
+        vd.validate_connections(
+            weights_high_fanin, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 1
+    )
+    # Fan-in too large with external inputs
+    channels_ext = [100]
+    weights_ext = [[1]]
+    assert (
+        vd.validate_connections(
+            weights_ok_fanin,
+            weights_ext,
+            neurons_pre=neurons_pre,
+            neurons_post=neurons_post,
+            channels_ext=channels_ext,
+        )
+        == 1
+    )
+
+    # - Fan-out
+    # Fan-out ok
+    neurons_pre = [0]
+    neurons_post = [2, 1050, 2100]
+    weights_ok_fanout = [[1, 2, -1]]
+    assert (
+        vd.validate_connections(
+            weights_ok_fanout, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 0
+    )
+    # Fan-out ok
+    neurons_post = range(3 * 1024)
+    weights_ok_fanout_I = np.ones((1, 3 * 1024)) * 10
+    assert (
+        vd.validate_connections(
+            weights_ok_fanout_I, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 0
+    )
+    # Fan-out not compatible
+    neurons_post = [2, 1050, 2100, 4000]
+    weights_wrong_fanout = weights_ok_fanout
+    weights_wrong_fanout[0].append(1)
+    assert (
+        vd.validate_connections(
+            weights_wrong_fanout, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 2
+    )
+
+    # - Connection aliasing
+    neurons_pre = [1024, 1025]
+    neurons_post = [1, 4]
+    # Different presyn. ID and same presyn. chip -> no aliasing
+    weights_no_aliasing_I = np.eye(2)
+    assert (
+        vd.validate_connections(
+            weights_no_aliasing_I, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 0
+    )
+    # Different presyn. ID and different presyn. chip -> no aliasing
+    neurons_pre = [1024, 2049]
+    neurons_post = [1, 4]
+    assert (
+        vd.validate_connections(
+            weights_no_aliasing_I, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 0
+    )
+    # Same presyn. ID, different presyn. chip but different postsyn. core -> no aliasing
+    neurons_pre += [2048]
+    neurons_post += [257]
+    weights_no_aliasing_II = np.eye(3)
+    assert (
+        vd.validate_connections(
+            weights_no_aliasing_II, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 0
+    )
+    # Same presyn. ID, same postsyn. core -> aliasing
+    neurons_pre = [1024, 2048]
+    neurons_post = [1, 4]
+    weights_aliasing = np.eye(2)
+    assert (
+        vd.validate_connections(
+            weights_aliasing, neurons_pre=neurons_pre, neurons_post=neurons_post
+        )
+        == 4
+    )
+    # Aliasing with input weights
+    neurons_pre = [1024]
+    neurons_post = [1]
+    channels_ext = [0]
+    weights_ext = [[1]]
+    weights_no_aliasing = [[1]]
+    assert (
+        vd.validate_connections(
+            weights_no_aliasing,
+            weights_ext,
+            neurons_pre=neurons_pre,
+            neurons_post=neurons_post,
+            channels_ext=channels_ext,
+        )
+        == 4
+    )
