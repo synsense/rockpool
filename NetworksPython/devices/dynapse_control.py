@@ -8,10 +8,8 @@
 import numpy as np
 from warnings import warn
 from typing import Tuple, List, Optional, Union, Iterable
-from types import ModuleType
 import time
 import os
-import copy
 import threading
 
 from . import params
@@ -126,16 +124,18 @@ def initialize_hardware(
         initialized_neurons += [
             neuron
             for chip in cleared_chips
-            for neuron in range(NUM_NEURONS_CHIP * chip, NUM_NEURONS_CHIP * (chip + 1))
+            for neuron in range(
+                params.NUM_NEURONS_CHIP * chip, params.NUM_NEURONS_CHIP * (chip + 1)
+            )
         ]
-        if not do_chips:
+        if not use_chips:
             print(f"dynapse_control: No chips have been cleared.")
-        elif len(do_chips == 1):
-            print(f"dynapse_control: Chip `{do_chips[0]}` has been cleared.")
+        elif len(use_chips == 1):
+            print(f"dynapse_control: Chip `{use_chips[0]}` has been cleared.")
         else:
             print(
                 "dynapse_control: Chips `{}` and `{}` have been cleared.".format(
-                    "`, `".join((str(chip) for chip in do_chips[:-1])), do_chips[-1]
+                    "`, `".join((str(chip) for chip in use_chips[:-1])), use_chips[-1]
                 )
             )
     else:
@@ -181,7 +181,7 @@ def initialize_hardware(
 
 def setup_rpyc(
     connect: Union["rpyc.core.protocol.Connection", int, str, None] = None,
-    init_chips: Optional[List] = USE_CHIPS,
+    init_chips: Union[List[int], None] = USE_CHIPS,
 ) -> "rpyc.core.protocol.Connection":
     """
     setup_rpyc - Connect to cortexcontrol via RPyC, add entries to cortexcontrol
@@ -2041,6 +2041,10 @@ class DynapseControl:
                                activity of a population and periodically output
                                the average firing rate.
         """
+        if not _USE_RPYC:
+            raise RuntimeError(
+                "DynapseControl: This method can only be called when using RPyC."
+            )
 
         self.thread_monitor = threading.Thread(
             target=self._monitor_firing_rates_inner,
