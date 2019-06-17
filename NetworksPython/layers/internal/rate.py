@@ -461,12 +461,12 @@ class FFRateEuler(Layer):
 
             # Corresponding Kahan compensations
             self._kahan_comp_xty = np.zeros_like(self._xty)
-            self._mfKahanCompXTX = np.zeros_like(self._xtx)
+            self._kahan_comp_xtx = np.zeros_like(self._xtx)
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
         upd_xty = inp.T @ target - self._kahan_comp_xty
-        upd_xtx = inp.T @ inp - self._mfKahanCompXTX
+        upd_xtx = inp.T @ inp - self._kahan_comp_xtx
 
         if not is_last:
             # - Update matrices with new data
@@ -475,7 +475,7 @@ class FFRateEuler(Layer):
 
             # - Calculate rounding error for compensation in next batch
             self._kahan_comp_xty = (new_xty - self._xty) - upd_xty
-            self._mfKahanCompXTX = (new_xtx - self._xtx) - upd_xtx
+            self._kahan_comp_xtx = (new_xtx - self._xtx) - upd_xtx
 
             # - Store updated matrices
             self._xty = new_xty
@@ -497,7 +497,7 @@ class FFRateEuler(Layer):
             # - Remove data stored during this training
             self._xty = (
                 self._xtx
-            ) = self._kahan_comp_xty = self._mfKahanCompXTX = None
+            ) = self._kahan_comp_xty = self._kahan_comp_xtx = None
 
     # @njit
     # def potential(self, vInput: np.ndarray) -> np.ndarray:
