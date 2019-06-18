@@ -35,6 +35,7 @@ COMMAND_GET = 0
 COMMAND_SET = 1
 COMMAND_RESET = 2
 COMMAND_EVOLVE = 3
+COMMAND_QUIT = 4
 
 
 # - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
@@ -274,8 +275,14 @@ class FFIAFNest(Layer):
 
             # wait for an IPC command
 
-            while True:
+            bContinue = True
+            while bContinue:
                 req = self.request_q.get()
+
+                # - Quit if we received a "quit" command
+                if req[0] is COMMAND_QUIT:
+                    bContinue = False
+                    continue
 
                 func = IPC_switcher.get(req[0])
 
@@ -466,6 +473,7 @@ class FFIAFNest(Layer):
         )
 
     def terminate(self):
+        self.request_q.put(COMMAND_QUIT)
         self.request_q.close()
         self.result_q.close()
         self.request_q.cancel_join_thread()
