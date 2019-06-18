@@ -1,6 +1,8 @@
 # ----
 # dynapse_control.py - Module to interface cortexcontrol and the DynapSE chip
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.ai
+#
+# Copyright: aiCTX AG, 2019
 # ----
 
 ### --- Imports
@@ -8,10 +10,8 @@
 import numpy as np
 from warnings import warn
 from typing import Tuple, List, Optional, Union, Iterable
-from types import ModuleType
 import time
 import os
-import copy
 import threading
 
 from . import params
@@ -126,16 +126,18 @@ def initialize_hardware(
         initialized_neurons += [
             neuron
             for chip in cleared_chips
-            for neuron in range(NUM_NEURONS_CHIP * chip, NUM_NEURONS_CHIP * (chip + 1))
+            for neuron in range(
+                params.NUM_NEURONS_CHIP * chip, params.NUM_NEURONS_CHIP * (chip + 1)
+            )
         ]
-        if not do_chips:
+        if not use_chips:
             print(f"dynapse_control: No chips have been cleared.")
-        elif len(do_chips == 1):
-            print(f"dynapse_control: Chip `{do_chips[0]}` has been cleared.")
+        elif len(use_chips == 1):
+            print(f"dynapse_control: Chip `{use_chips[0]}` has been cleared.")
         else:
             print(
                 "dynapse_control: Chips `{}` and `{}` have been cleared.".format(
-                    "`, `".join((str(chip) for chip in do_chips[:-1])), do_chips[-1]
+                    "`, `".join((str(chip) for chip in use_chips[:-1])), use_chips[-1]
                 )
             )
     else:
@@ -181,7 +183,7 @@ def initialize_hardware(
 
 def setup_rpyc(
     connect: Union["rpyc.core.protocol.Connection", int, str, None] = None,
-    init_chips: Optional[List] = USE_CHIPS,
+    init_chips: Union[List[int], None] = USE_CHIPS,
 ) -> "rpyc.core.protocol.Connection":
     """
     setup_rpyc - Connect to cortexcontrol via RPyC, add entries to cortexcontrol
@@ -638,26 +640,41 @@ class DynapseControl:
         is_spikegen: List[bool] = [
             isinstance(m, ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
         ]
-        if not np.any(is_spikegen):
-            # There is no spike generator, so we can't use this Python layer on the HW
-            raise ModuleNotFoundError(
-                "DynapseControl: An `fpga_spikegen` module is required to use the DynapSE layer."
-            )
-        else:
-            # Get first spike generator module
-            self.fpga_spikegen = fpga_modules[np.argwhere(is_spikegen)[0][0]]
-            print("DynapseControl: Spike generator module ready.")
+        if not any(is_spikegen) or all(is_spikegen):
+            is_spikegen: List[bool] = [
+                # Trying type(.)==... because isinstance seems to confuse types when using RPyC in some cases
+                type(m) == type(ctxdynapse.DynapseFpgaSpikeGen)
+                for m in fpga_modules
+            ]
+            if not any(is_spikegen) or all(is_spikegen):
+                # There is no spike generator, so we can't use this Python layer on the HW
+                raise RuntimeError(
+                    "DynapseControl: Could not reliably determine fpga spike generator module (DynapseFpgaSpikeGen)."
+                )
+        # Get first spike generator module
+        self.fpga_spikegen = fpga_modules[np.argwhere(is_spikegen)[0][0]]
+        print("DynapseControl: Spike generator module ready.")
 
         # - Find a poisson spike generator module
         is_poissongen: List[bool] = [
             isinstance(m, ctxdynapse.DynapsePoissonGen) for m in fpga_modules
         ]
-        if np.any(is_poissongen):
-            self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
+        if (not any(is_poissongen)) or all(is_poissongen):
+            is_poissongen: List[bool] = [
+                # Doing type(.)==... because isinstance seems to confuse types when using RPyC in some cases
+                type(m) == type(ctxdynapse.DynapsePoissonGen)
+                for m in fpga_modules
+            ]
+            if not any(is_poissongen) or all(is_poissongen):
+                warn(
+                    "DynapseControl: Could not find poisson generator module (DynapsePoissonGen)."
+                )
+            else:
+                self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
+                print("DynapseControl: Poisson generator module ready.")
         else:
-            warn(
-                "DynapseControl: Could not find poisson generator module (DynapsePoissonGen)."
-            )
+            self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
+            print("DynapseControl: Poisson generator module ready.")
 
         # - Get all neurons from models
         self.hw_neurons, self.virtual_neurons, self.shadow_neurons = self.tools.get_all_neurons(
@@ -1345,6 +1362,8 @@ class DynapseControl:
         :param neuron_ids: int or array-like  Event neuron ID(s)
         :param chip_id:     int  Target chip ID
         """
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
 
         # - Handle single values for frequencies and neurons
         if np.size(neuron_ids) == 1:
@@ -1375,11 +1394,18 @@ class DynapseControl:
         stop_stim - Stop stimulation with FGPA poisson generator.
                     Does not stop any event recording.
         """
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
+
         self.fpga_poissongen.stop()
         print("DynapseControl: Poisson rate stimulation stopped")
 
     def reset_poisson_rates(self):
         """reset_poisson_rates - Set all firing rates of poisson generator to 0."""
+
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
+
         for i in range(1024):
             self.fpga_poissongen.write_poisson_rate_hz(i, 0)
         print("DynapseControl: Firing rates for poisson generator have been set to 0.")
@@ -1947,6 +1973,10 @@ class DynapseControl:
                                activity of a population and periodically output
                                the average firing rate.
         """
+        if not _USE_RPYC:
+            raise RuntimeError(
+                "DynapseControl: This method can only be called when using RPyC."
+            )
 
         self.thread_monitor = threading.Thread(
             target=self._monitor_firing_rates_inner,

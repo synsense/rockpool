@@ -4,26 +4,24 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".internal.cnnweights": "CNNWeight",
-    ".internal.spiking_conv2d_torch": "CNNWeightTorch",
     ".internal.reservoirweights": (
         "add_random_long_range",
-        "combine_FF_Rec_stack",
+        "combine_ff_rec_stack",
         "digital",
         "DiscretiseWeightMatrix",
-        "DynapseConform",
-        "IAFSparseNet",
+        "dynapse_conform",
+        "iaf_sparse_net",
         "in_res_digital",
-        "In_Res_Dynapse",
-        "In_Res_Dynapse_Flex",
+        "in_res_dynapse",
+        "in_res_dynapse_flex",
         "one_dim_exc_res",
         "partitioned_2d_reservoir",
-        "RndmSparseEINet",
-        "RandomEINet",
+        "rndm_sparse_ei_net",
+        "rndm_ei_net",
         "two_dim_exc_res",
-        "UnitLambdaNet",
-        "WilsonCowanNet",
-        "WipeNonSwitchingEigs",
+        "unit_lambda_net",
+        "wilson_cowan_net",
+        "wipe_non_switiching_eigs",
     ),
 }
 

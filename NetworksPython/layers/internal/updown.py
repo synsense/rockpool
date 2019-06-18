@@ -18,7 +18,7 @@ else:
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 # - Default maximum numbers of time steps for a single evolution batch
-nDefaultMaxNumTimeSteps = 5000
+MAX_NUM_TIMESTEPS_DEFAULT = 5000
 
 # - Local imports
 from ...timeseries import TSContinuous, TSEvent
@@ -43,7 +43,7 @@ class FFUpDown(Layer):
         vfThrUp: Union[ArrayLike, float] = 0.001,
         vfThrDown: Union[ArrayLike, float] = 0.001,
         name: str = "unnamed",
-        nMaxNumTimeSteps: int = nDefaultMaxNumTimeSteps,
+        max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
         bMultiplexSpikes: bool = True,
     ):
         """
@@ -71,7 +71,7 @@ class FFUpDown(Layer):
 
         :param name:     str Name for the layer. Default: 'unnamed'
 
-        :nMaxNumTimeSteps:  int   Maximum number of timesteps during single evolution batch. Longer
+        :max_num_timesteps:  int   Maximum number of timesteps during single evolution batch. Longer
                                   evolution periods will automatically split in smaller batches.
 
         :bMultiplexSpikes:  bool  Allow a channel to emit multiple spikes per time, according to
@@ -112,7 +112,7 @@ class FFUpDown(Layer):
         self.vfThrUp = vfThrUp
         self.vfThrDown = vfThrDown
         self.vtTauDecay = vtTauDecay
-        self.nMaxNumTimeSteps = nMaxNumTimeSteps
+        self.max_num_timesteps = max_num_timesteps
         self.nRepeatOutput = nRepeatOutput
         self.bMultiplexSpikes = bMultiplexSpikes
 
@@ -165,20 +165,20 @@ class FFUpDown(Layer):
         # record = np.zeros((num_timesteps, self.size_in))
 
         # - Iterate over batches and run evolution
-        iCurrentIndex = 0
-        for mfCurrentInput, nCurrNumTS in self._batch_data(
-                inp, num_timesteps, self.nMaxNumTimeSteps
+        idx_curr = 0
+        for matr_input_curr, num_ts_curr in self._batch_data(
+                inp, num_timesteps, self.max_num_timesteps
             ):
             # (
-            #     mnOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS],
-            #     record[iCurrentIndex : iCurrentIndex+nCurrNumTS]
+            #     mnOutputSpikes[idx_curr : idx_curr+num_ts_curr],
+            #     record[idx_curr : idx_curr+num_ts_curr]
             # ) = self._single_batch_evolution(
-            mnOutputSpikes[iCurrentIndex : iCurrentIndex+nCurrNumTS] = self._single_batch_evolution(
-                mfCurrentInput,
-                nCurrNumTS,
+            mnOutputSpikes[idx_curr : idx_curr+num_ts_curr] = self._single_batch_evolution(
+                matr_input_curr,
+                num_ts_curr,
                 verbose,
             )
-            iCurrentIndex += nCurrNumTS
+            idx_curr += num_ts_curr
 
         ## -- Distribute output spikes over output channels by assigning to each channel
         ##    an interval of length self._nMultiChannel.
@@ -227,20 +227,20 @@ class FFUpDown(Layer):
 
     # @profile
     def _batch_data(
-        self, inp: np.ndarray, num_timesteps: int, nMaxNumTimeSteps: int = None,
+        self, inp: np.ndarray, num_timesteps: int, max_num_timesteps: int = None,
     ) -> (np.ndarray, int):
         """_batch_data: Generator that returns the data in batches"""
-        # - Handle None for nMaxNumTimeSteps
-        nMaxNumTimeSteps = num_timesteps if nMaxNumTimeSteps is None else nMaxNumTimeSteps
-        nStart = 0
-        while nStart < num_timesteps:
+        # - Handle None for max_num_timesteps
+        max_num_timesteps = num_timesteps if max_num_timesteps is None else max_num_timesteps
+        n_start = 0
+        while n_start < num_timesteps:
             # - Endpoint of current batch
-            nEnd = min(nStart + nMaxNumTimeSteps, num_timesteps)
+            n_end = min(n_start + max_num_timesteps, num_timesteps)
             # - Data for current batch
-            mfCurrentInput = inp[nStart:nEnd]
-            yield mfCurrentInput, nEnd-nStart
-            # - Update nStart
-            nStart = nEnd
+            matr_input_curr = inp[n_start:n_end]
+            yield matr_input_curr, n_end-n_start
+            # - Update n_start
+            n_start = n_end
 
     # @profile
     def _single_batch_evolution(
@@ -373,7 +373,7 @@ class FFUpDown(Layer):
         config['dt'] = self.dt if type(self.dt) is float else self.dt.tolist()
         config['noise_std'] = self.noise_std
         config['nRepeatOutput'] = self.nRepeatOutput
-        config['nMaxNumTimeSteps'] = self.nMaxNumTimeSteps
+        config['max_num_timesteps'] = self.max_num_timesteps
         config['bMultiplexSpikes'] = self.bMultiplexSpikes
         config['vtTauDecay'] = self.vtTauDecay if type(self.vtTauDecay) is float else self.vtTauDecay.tolist()
         config['vfThrUp'] = self.vfThrUp if type(self.vfThrUp) is float else self.vfThrUp.tolist()
@@ -393,7 +393,7 @@ class FFUpDown(Layer):
             weights=config["weights"],
             noise_std=config['noise_std'],
             nRepeatOutput=config['nRepeatOutput'],
-            nMaxNumTimeSteps=config['nMaxNumTimeSteps'],
+            max_num_timesteps=config['max_num_timesteps'],
             bMultiplexSpikes=config['bMultiplexSpikes'],
             dt=config['dt'],
             vtTauDecay=config['vtTauDecay'],
@@ -411,7 +411,7 @@ class FFUpDown(Layer):
             weights=config["weights"],
             noise_std=config['noise_std'],
             nRepeatOutput=config['nRepeatOutput'],
-            nMaxNumTimeSteps=config['nMaxNumTimeSteps'],
+            max_num_timesteps=config['max_num_timesteps'],
             bMultiplexSpikes=config['bMultiplexSpikes'],
             dt=config['dt'],
             vtTauDecay=config['vtTauDecay'],

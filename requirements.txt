@@ -8,7 +8,6 @@ pytest
 pytorch
 qt
 rpyc
-scikit-image
 scipy
 setuptools
 torchvision

@@ -15,7 +15,7 @@ from warnings import warn
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-# - Relative tolerance for float comparisons
+# - Relative tolerance for float comparions
 tolerance = 1e-5
 
 ### --- Configure exports
@@ -45,6 +45,13 @@ def print_progress(curr: int, total: int, passed: float):
         ),
         end="\r",
     )
+
+
+@njit
+def re_lu(x: np.ndarray) -> np.ndarray:
+    cop = np.copy(x)
+    cop[np.where(x < 0)] = 0
+    return cop
 
 
 @njit
@@ -331,7 +338,9 @@ class FFRateEuler(Layer):
             if inp is None:
                 inp = np.zeros(euler_steps_per_dt, self._size_in)
             else:
-                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
+                inp = np.repeat(
+                    np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0
+                )
 
             if verbose:
                 print("Layer: Input was: ", inp)
@@ -355,7 +364,10 @@ class FFRateEuler(Layer):
             self._timestep += euler_steps_per_dt
 
         # - Return final state
-        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
+        return (
+            self.t,
+            np.reshape(self._activation(self._state + self._bias), (1, -1)),
+        )
 
     def train_rr(
         self,
@@ -440,19 +452,21 @@ class FFRateEuler(Layer):
         # - For first batch, initialize summands
         if is_first:
             # Matrices to be updated for each batch
-            self._xty = np.zeros((self.size_in + 1, self.size))  # inp.T (dot) target
+            self._xty = np.zeros(
+                (self.size_in + 1, self.size)
+            )  # inp.T (dot) target
             self._xtx = np.zeros(
                 (self.size_in + 1, self.size_in + 1)
             )  # inp.T (dot) inp
 
             # Corresponding Kahan compensations
             self._kahan_comp_xty = np.zeros_like(self._xty)
-            self._mfKahanCompXTX = np.zeros_like(self._xtx)
+            self._kahan_comp_xtx = np.zeros_like(self._xtx)
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
         upd_xty = inp.T @ target - self._kahan_comp_xty
-        upd_xtx = inp.T @ inp - self._mfKahanCompXTX
+        upd_xtx = inp.T @ inp - self._kahan_comp_xtx
 
         if not is_last:
             # - Update matrices with new data
@@ -461,7 +475,7 @@ class FFRateEuler(Layer):
 
             # - Calculate rounding error for compensation in next batch
             self._kahan_comp_xty = (new_xty - self._xty) - upd_xty
-            self._mfKahanCompXTX = (new_xtx - self._xtx) - upd_xtx
+            self._kahan_comp_xtx = (new_xtx - self._xtx) - upd_xtx
 
             # - Store updated matrices
             self._xty = new_xty
@@ -481,7 +495,9 @@ class FFRateEuler(Layer):
             self.bias = solution[-1, :]
 
             # - Remove data stored during this training
-            self._xty = self._xtx = self._kahan_comp_xty = self._mfKahanCompXTX = None
+            self._xty = (
+                self._xtx
+            ) = self._kahan_comp_xty = self._kahan_comp_xtx = None
 
     # @njit
     # def potential(self, vInput: np.ndarray) -> np.ndarray:
@@ -873,7 +889,9 @@ class RecRateEuler(Layer):
             if inp is None:
                 inp = np.zeros(euler_steps_per_dt, self._size_in)
             else:
-                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
+                inp = np.repeat(
+                    np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0
+                )
 
             if verbose:
                 print("Layer: Input was: ", inp)
@@ -894,7 +912,10 @@ class RecRateEuler(Layer):
             self._timestep += euler_steps_per_dt
 
         # - Return final activity
-        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
+        return (
+            self.t,
+            np.reshape(self._activation(self._state + self._bias), (1, -1)),
+        )
 
     ### --- Properties
 

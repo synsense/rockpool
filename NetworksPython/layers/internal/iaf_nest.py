@@ -646,7 +646,8 @@ class RecIAFSpkInNest(Layer):
             bias: Union[float, np.ndarray],
             dt: float,
             tau_mem: Union[float, np.ndarray],
-            tau_syn: Union[float, np.ndarray],
+            tau_syn_exc: Union[float, np.ndarray],
+            tau_syn_inh: Union[float, np.ndarray],
             capacity: Union[float, np.ndarray],
             v_thresh: Union[float, np.ndarray],
             v_reset: Union[float, np.ndarray],
@@ -668,7 +669,8 @@ class RecIAFSpkInNest(Layer):
             self.v_reset = V2mV(v_reset)
             self.v_rest = V2mV(v_rest)
             self.tau_mem = s2ms(tau_mem)
-            self.tau_syn = s2ms(tau_syn)
+            self.tau_syn_exc = s2ms(tau_syn_exc)
+            self.tau_syn_inh = s2ms(tau_syn_inh)
             self.bias = V2mV(bias)
             self.capacity = capacity
             self.weights_in = V2mV(weights_in)
@@ -706,12 +708,15 @@ class RecIAFSpkInNest(Layer):
             for n in range(self.size):
                 p = {}
 
-                if type(self.tau_syn) is np.ndarray:
-                    p["tau_syn_ex"] = self.tau_syn[n]
-                    p["tau_syn_in"] = self.tau_syn[n]
+                if type(self.tau_syn_exc) is np.ndarray:
+                    p["tau_syn_ex"] = self.tau_syn_exc[n]
                 else:
-                    p["tau_syn_ex"] = self.tau_syn
-                    p["tau_syn_in"] = self.tau_syn
+                    p["tau_syn_ex"] = self.tau_syn_exc
+
+                if type(self.tau_syn_inh) is np.ndarray:
+                    p["tau_syn_in"] = self.tau_syn_inh[n]
+                else:
+                    p["tau_syn_in"] = self.tau_syn_inh
 
                 if type(self.tau_mem) is np.ndarray:
                     p["tau_m"] = self.tau_mem[n]
@@ -792,7 +797,6 @@ class RecIAFSpkInNest(Layer):
                     conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
                 )
 
-            t1 = time.time()
             # - Create recurrent connections
             pres = []
             posts = []
@@ -948,6 +952,7 @@ class RecIAFSpkInNest(Layer):
 
                 result = func(*req[1:])
 
+
                 if not result is None:
                     self.result_q.put(result)
 
@@ -961,7 +966,8 @@ class RecIAFSpkInNest(Layer):
         bias: np.ndarray = 0.0,
         dt: float = 0.0001,
         tau_mem: np.ndarray = 0.02,
-        tau_syn: np.ndarray = 0.05,
+        tau_syn_exc: np.ndarray = 0.05,
+        tau_syn_inh: np.ndarray = 0.05,
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
@@ -1013,8 +1019,11 @@ class RecIAFSpkInNest(Layer):
         if type(tau_mem) is list:
             tau_mem = np.asarray(tau_mem)
 
-        if type(tau_syn) is list:
-            tau_syn = np.asarray(tau_syn)
+        if type(tau_syn_exc) is list:
+            tau_syn_exc = np.asarray(tau_syn_exc)
+
+        if type(tau_syn_inh) is list:
+            tau_syn_inh = np.asarray(tau_syn_inh)
 
         if type(capacity) is list:
             capacity = np.asarray(capacity)
@@ -1048,7 +1057,8 @@ class RecIAFSpkInNest(Layer):
             bias,
             dt,
             tau_mem,
-            tau_syn,
+            tau_syn_exc,
+            tau_syn_inh,
             capacity,
             v_thresh,
             v_reset,
@@ -1065,12 +1075,15 @@ class RecIAFSpkInNest(Layer):
         self._v_reset = v_reset
         self._v_rest = v_rest
         self._tau_mem = tau_mem
-        self._tau_syn = tau_syn
+        self._tau_syn_exc = tau_syn_exc
+        self._tau_syn_inh = tau_syn_inh
         self._bias = bias
         self.capacity = capacity
-        self.weights_in = weights_in
-        self.weights_rec = weights_rec
+        self._weights_in = weights_in
+        self._weights_rec = weights_rec
         self._refractory = refractory
+        self._delay_in = delay_in
+        self._delay_rec = delay_rec
         self.record = record
 
     def reset_state(self):
@@ -1194,14 +1207,30 @@ class RecIAFSpkInNest(Layer):
 
     @property
     def state(self):
+        time.sleep(0.1)
         self.request_q.put([COMMAND_GET, "V_m"])
         vms = np.array(self.result_q.get())
         return mV2V(vms)
 
     @state.setter
     def state(self, new_state):
-
         self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
+
+    @property
+    def delay_in(self):
+        return self._delay_in
+
+    @delay_in.setter
+    def delay_in(self, new_delay_in):
+        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
+
+    @property
+    def delay_rec(self):
+        return self._delay_rec
+
+    @delay_rec.setter
+    def delay_rec(self, new_delay_rec):
+        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
 
     @property
     def tau_mem(self):
@@ -1209,18 +1238,23 @@ class RecIAFSpkInNest(Layer):
 
     @tau_mem.setter
     def tau_mem(self, new_tau_mem):
-
         self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
 
     @property
-    def tau_syn(self):
-        return self._tau_syn
+    def tau_syn_exc(self):
+        return self._tau_syn_exc
 
-    @tau_syn.setter
-    def tau_syn(self, new_tau_syn):
+    @tau_syn_exc.setter
+    def tau_syn_exc(self, new_tau_syn_exc):
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
 
-        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn)])
-        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn)])
+    @property
+    def tau_syn_inh(self):
+        return self._tau_syn_inh
+
+    @tau_syn_inh.setter
+    def tau_syn_inh(self, new_tau_syn_inh):
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
 
     @property
     def bias(self):
@@ -1228,7 +1262,6 @@ class RecIAFSpkInNest(Layer):
 
     @bias.setter
     def bias(self, new_bias):
-
         self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
 
     @property
@@ -1237,7 +1270,6 @@ class RecIAFSpkInNest(Layer):
 
     @v_thresh.setter
     def v_thresh(self, new_v_thresh):
-
         self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
 
     @property
@@ -1246,7 +1278,6 @@ class RecIAFSpkInNest(Layer):
 
     @v_reset.setter
     def v_reset(self, new_v_reset):
-
         self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
 
     @property
@@ -1255,7 +1286,6 @@ class RecIAFSpkInNest(Layer):
 
     @v_rest.setter
     def v_rest(self, new_v_rest):
-
         self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
 
     @property
@@ -1270,8 +1300,17 @@ class RecIAFSpkInNest(Layer):
 
         config = {}
         config["name"] = self.name
-        config["weights_in"] = self.weights_in.tolist()
-        config["weights_rec"] = self.weights_rec.tolist()
+        config["weights_in"] = self._weights_in.tolist()
+        config["weights_rec"] = self._weights_rec.tolist()
+
+        config["delay_in"] = (
+            self._delay_in if type(self._delay_in) is float else self._delay_in.tolist()
+        )
+
+        config["delay_rec"] = (
+            self._delay_rec if type(self._delay_rec) is float else self._delay_rec.tolist()
+        )
+
         config["bias"] = (
             self.bias if type(self.bias) is float else self.bias.tolist()
         )
@@ -1299,8 +1338,11 @@ class RecIAFSpkInNest(Layer):
         config["tau_mem"] = (
             self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
         )
-        config["tauS"] = (
-            self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        config["tau_syn_exc"] = (
+            self.tau_syn_exc if type(self.tau_syn_exc) is float else self.tau_syn_exc.tolist()
+        )
+        config["tau_syn_inh"] = (
+            self.tau_syn_inh if type(self.tau_syn_inh) is float else self.tau_syn_inh.tolist()
         )
         config["record"] = self.record
         config["class_name"] = "RecIAFSpkInNest"
@@ -1317,10 +1359,13 @@ class RecIAFSpkInNest(Layer):
         net_ = RecIAFSpkInNest(
                    weights_in=config["weights_in"],
                    weights_rec=config["weights_rec"],
+                   delay_in=config["delay_in"],
+                   delay_rec=config["delay_rec"],
                    bias=config["bias"],
                    dt=config["dt"],
                    tau_mem=config["tau_mem"],
-                   tau_syn=config["tauS"],
+                   tau_syn_exc=config["tau_syn_exc"],
+                   tau_syn_inh=config["tau_syn_inh"],
                    capacity=config["capacity"],
                    v_thresh=config["v_thresh"],
                    v_reset=config["v_reset"],
@@ -1341,10 +1386,13 @@ class RecIAFSpkInNest(Layer):
         net_ = RecIAFSpkInNest(
             weights_in=config["weights_in"],
             weights_rec=config["weights_rec"],
+            delay_in=config["delay_in"],
+            delay_rec=config["delay_rec"],
             bias=config["bias"],
             dt=config["dt"],
             tau_mem=config["tau_mem"],
-            tau_syn=config["tauS"],
+            tau_syn_exc=config["tau_syn_exc"],
+            tau_syn_inh=config["tau_syn_inh"],
             capacity=config["capacity"],
             v_thresh=config["v_thresh"],
             v_reset=config["v_reset"],
