@@ -640,15 +640,19 @@ class DynapseControl:
             type(m) == type(ctxdynapse.DynapseFpgaSpikeGen)
             for m in fpga_modules
         ]
-        if not np.any(is_spikegen):
-            # There is no spike generator, so we can't use this Python layer on the HW
-            raise ModuleNotFoundError(
-                "DynapseControl: An `fpga_spikegen` module is required to use the DynapSE layer."
-            )
-        else:
-            # Get first spike generator module
-            self.fpga_spikegen = fpga_modules[np.argwhere(is_spikegen)[0][0]]
-            print("DynapseControl: Spike generator module ready.")
+        if not any(is_spikegen) or all(is_spikegen):
+            # `type` does not work always, either. Try with `isinstance`:
+            is_spikegen: List[bool] = [
+                isinstance(m, ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
+            ]
+            if not any(is_spikegen) or all(is_spikegen):
+                # There is no spike generator, so we can't use this Python layer on the HW
+                raise RuntimeError(
+                    "DynapseControl: Could not reliably determine fpga spike generator module (DynapseFpgaSpikeGen)."
+                )
+        # Get first spike generator module
+        self.fpga_spikegen = fpga_modules[np.argwhere(is_spikegen)[0][0]]
+        print("DynapseControl: Spike generator module ready.")
 
         # - Find a poisson spike generator module
         is_poissongen: List[bool] = [
@@ -656,14 +660,21 @@ class DynapseControl:
             type(m) == type(ctxdynapse.DynapsePoissonGen)
             for m in fpga_modules
         ]
-        if np.any(is_poissongen):
-            self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
+        if not any(is_poissongen) or all(is_poissongen):
+            # `type` does not work always, either. Try with `isinstance`:
+            is_poissongen: List[bool] = [
+                isinstance(m, ctxdynapse.DynapsePoissonGen) for m in fpga_modules
+            ]
+            if not any(is_poissongen) or all(is_poissongen):
+                warn(
+                    "DynapseControl: Could not find poisson generator module (DynapsePoissonGen)."
+                )
+            else:
+                self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
         else:
-            warn(
-                "DynapseControl: Could not find poisson generator module (DynapsePoissonGen)."
-            )
+            self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
 
-        # - Get all neurons from models
+        # - Get all neurons from modfels
         self.hw_neurons, self.virtual_neurons, self.shadow_neurons = self.tools.get_all_neurons(
             self.model, self.virtual_model
         )
@@ -1440,6 +1451,9 @@ class DynapseControl:
         :param chip_id:     int  Target chip ID
         """
 
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
+
         # - Handle single values for frequencies and neurons
         if np.size(neuron_ids) == 1:
             neuron_ids = np.repeat(neuron_ids, np.size(frequencies))
@@ -1469,11 +1483,17 @@ class DynapseControl:
         stop_stim - Stop stimulation with FGPA poisson generator.
                     Does not stop any event recording.
         """
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
+
         self.fpga_poissongen.stop()
         print("DynapseControl: Poisson rate stimulation stopped")
 
     def reset_poisson_rates(self):
         """reset_poisson_rates - Set all firing rates of poisson generator to 0."""
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
+
         for i in range(1024):
             self.fpga_poissongen.write_poisson_rate_hz(i, 0)
         print("DynapseControl: Firing rates for poisson generator have been set to 0.")
