@@ -1,7 +1,15 @@
 ##
 # Firing rate reservoir with jax back-end
+#
+# Includes `RecRateEulerJax` - jax-backed firing rate reservoir
+# Includes `ForceRateEulerJax` - jax-backed firing rate FORCE reservoir
+#
+# `RecRateEulerJax` is a standard reservoir, with input, recurrent and output layers
+# `ForceRateEulerJax` is a driven reservoir, where "recurrent" inputs are inserted from an external source.
+#       Used in reservoir transfer.
 ##
 
+# -- Imports
 import jax.numpy as np
 from jax import jit
 from jax.lax import scan
@@ -14,9 +22,12 @@ FloatVector = Union[float, np.ndarray]
 from ..layer import Layer
 from ...timeseries import TimeSeries, TSContinuous
 
+
+# -- Define module exports
 __all__ = ["RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"]
 
 
+# -- Define useful neuron transfer functions
 def H_ReLU(x: FloatVector) -> FloatVector:
     return np.clip(x, 0, None)
 
@@ -25,8 +36,16 @@ def H_tanh(x: FloatVector) -> FloatVector:
     return np.tanh(x)
 
 
-def _get_rec_evolve_jit(H: Callable):
-    @jit
+# -- Generators for compiled evolution functions
+
+def _get_rec_evolve_jit(H: Callable[[float], float]):
+    """
+    _get_rec_evolve_jit() - Return a compiled raw reservoir evolution function
+
+    :param H:   Callable[[float], float] Neuron activation function
+    :return:     f(x0, w_in, w_recurrent, w_out, bias, tau, inputs, noise_std, key, dt) -> (x, res_inputs, rec_inputs, res_acts, outputs)
+    """
+    # @jit
     def rec_evolve_jit(
         x0: np.ndarray,
         w_in: np.ndarray,
@@ -42,23 +61,37 @@ def _get_rec_evolve_jit(H: Callable):
         """
         rec_evolve_jit() - Compiled recurrent evolution function
 
-        :param x0:
-        :param w_in:
-        :param w_recurrent:
-        :param w_out:
-        :param bias:
-        :param tau:
-        :param inputs:
-        :param noise_std:
-        :param key:
-        :param dt:
-        :return:
+        :param x0:          np.ndarray Initial state of reservoir units
+        :param w_in:        np.ndarray Input weights [IxN]
+        :param w_recurrent: np.ndarray Recurrent weights [NxN]
+        :param w_out:       np.ndarray Output weights [NxO]
+        :param bias:        np.ndarray Bias values of reservoir units [N]
+        :param tau:         np.ndarray Time constants of reservoir units [N]
+        :param inputs:      np.ndarray Input time series [TxN]
+        :param noise_std:   float Standard deviation of noise injected into reservoir units
+        :param key:         Jax RNG key to use in noise generation
+        :param dt:          float Time step for forward Euler solver
+
+        :return:    (x, res_inputs, rec_inputs, res_acts, outputs)
+                x:          np.ndarray State of
+                res_inputs: np.ndarray Time series of weighted external inputs to each reservoir unit [TxN]
+                rec_inputs: np.ndarray Time series of recurrent inputs to each reservoir unit [TxN]
+                res_acts:   np.ndarray Time series of reservoir unit activities [TxN]
+                outputs:    np.ndarray Time series of output layer values [TxO]
         """
         # - Pre-compute dt/tau
         dt_tau = dt / tau
 
         # - Reservoir state step function (forward Euler solver)
         def reservoir_step(x, inps):
+            """
+            reservoir_step() - Single step of recurrent reservoir
+
+            :param x:       np.ndarray Current state of reservoir units
+            :param inps:    np.ndarray Inputs to each reservoir unit for the current step
+
+            :return:    xnext, (rec_input, activation)
+            """
             inp, rand = inps
             activation = H(x)
             rec_input = np.dot(activation, w_recurrent)
@@ -85,7 +118,7 @@ def _get_rec_evolve_jit(H: Callable):
 
 
 def _get_force_evolve_jit(H: Callable):
-    @jit
+    # @jit
     def force_evolve_jit(
         x0: np.ndarray,
         w_in: np.ndarray,
@@ -99,20 +132,25 @@ def _get_force_evolve_jit(H: Callable):
         dt: float,
     ):
         """
-        rforce_evolve_jit() - Compiled recurrent evolution function
+        force_evolve_jit() - Compiled recurrent evolution function
 
-        :param x0:
-        :param w_in:
-        :param w_recurrent:
-        :param w_out:
-        :param bias:
-        :param tau:
-        :param inputs:
-        :param force:
-        :param noise_std:
-        :param key:
-        :param dt:
-        :return:
+        :param x0:          np.ndarray Initial state of forced layer [N]
+        :param w_in:        np.ndarray Input weights [IxN]
+        :param w_recurrent: np.ndarray Recurrent weights [NxN]
+        :param w_out:       np.ndarray Output weights [NxO]
+        :param bias:        np.ndarray Bias values of reservoir units [N]
+        :param tau:         np.ndarray Time constants of reservoir units [N]
+        :param inputs:      np.ndarray Input time series [TxN]
+        :param force:       np.ndarray Driving time series injected into reservoir units instead of recurrent activity [TxN]
+        :param noise_std:   float Standard deviation of noise injected into reservoir units
+        :param key:         Jax RNG key to use in noise generation
+        :param dt:          float Time step for forward Euler solver
+
+        :return:    (x, res_inputs, rec_inputs, res_acts, outputs)
+                x:          np.ndarray State of
+                res_inputs: np.ndarray Time series of weighted external inputs to each reservoir unit [TxN]
+                res_acts:   np.ndarray Time series of reservoir unit activities [TxN]
+                outputs:    np.ndarray Time series of output layer values [TxO]
         """
         # - Pre-compute dt/tau
         dt_tau = dt / tau
@@ -142,6 +180,8 @@ def _get_force_evolve_jit(H: Callable):
 
     return force_evolve_jit
 
+
+# -- Recurrent reservoir
 
 class RecRateEulerJax(Layer):
     def __init__(
@@ -218,7 +258,8 @@ class RecRateEulerJax(Layer):
         :param ts_input:        TSContinuous Input time series
         :param duration:        float Duration of evolution in seconds
         :param num_timesteps:   int Number of time steps to evolve (based on self.dt)
-        :return:
+
+        :return: ts_output:     TSContinuous Output time series
         """
 
         # - Prepare time base and inputs
@@ -247,7 +288,7 @@ class RecRateEulerJax(Layer):
                 outputs         np.ndarray Output of network [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_jit(
+        self._state, res_inputs, rec_inputs, res_acts, outputs = jit(self._evolve_jit)(
             self._state,
             self._weights,
             self._w_recurrent,
@@ -433,14 +474,15 @@ class ForceRateEulerJax(RecRateEulerJax):
         """
         ForceRateEulerJax - `jax`-backed firing rate reservoir, used for reservoir transfer
 
-        :param w_in:
-        :param w_out:
-        :param tau:
-        :param bias:
-        :param noise_std:
-        :param activation_func:
-        :param dt:
-        :param name:
+        :param weights:         np.ndarray Input weights [IxN]
+        :param w_out:           np.ndarray Output weights [NxO]
+        :param tau:             np.ndarray Time constants [N]
+        :param bias:            np.ndarray Bias values [N]
+        :param noise_std:       Optional[float] White noise standard deviation applied to reservoir neurons. Default: 0.0
+        :param activation_func: Optional[Callable] Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param dt:              Optional[float] Reservoir time step. Default: np.min(tau) / 10.0
+        :param name:            Optional[str] Name of the layer. Default: None
+        :param rng_key          Optional[Jax RNG key] Jax RNG key to use for noise. Default: Internally generated
         """
 
         # - Everything should be 2D
@@ -483,7 +525,8 @@ class ForceRateEulerJax(RecRateEulerJax):
         :param ts_force:        TSContinuous Forced time series
         :param duration:        float Duration of evolution in seconds
         :param num_timesteps:   int Number of time steps to evolve (based on self.dt)
-        :return:
+
+        :return: ts_output:     TSContinuous Output time series
         """
 
         # - Prepare time base and inputs
@@ -518,7 +561,7 @@ class ForceRateEulerJax(RecRateEulerJax):
                 outputs         np.ndarray Output of network [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, res_inputs, res_acts, outputs = self._evolve_jit(
+        self._state, res_inputs, res_acts, outputs = jit(self._evolve_jit)(
             self._state,
             self._weights,
             self._w_out,
