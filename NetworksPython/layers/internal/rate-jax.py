@@ -186,7 +186,7 @@ def _get_force_evolve_jit(H: Callable):
 class RecRateEulerJax(Layer):
     def __init__(
         self,
-        weights: np.ndarray,
+        w_in: np.ndarray,
         w_recurrent: np.ndarray,
         w_out: np.ndarray,
         tau: np.ndarray,
@@ -200,7 +200,7 @@ class RecRateEulerJax(Layer):
         """
         RecRateEulerJax - `jax`-backed firing rate reservoir
 
-        :param weights:         np.ndarray Input weights [IxN]
+        :param w_in:            np.ndarray Input weights [IxN]
         :param w_recurrent:     np.ndarray Recurrent weights [NxN]
         :param w_out:           np.ndarray Output weights [NxO]
         :param tau:             np.ndarray Time constants [N]
@@ -213,7 +213,7 @@ class RecRateEulerJax(Layer):
         """
 
         # - Everything should be 2D
-        w_in = np.atleast_2d(weights)
+        w_in = np.atleast_2d(w_in)
         w_recurrent = np.atleast_2d(w_recurrent)
         w_out = np.atleast_2d(w_out)
 
