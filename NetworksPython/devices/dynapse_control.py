@@ -1,6 +1,8 @@
 # ----
 # dynapse_control.py - Module to interface cortexcontrol and the DynapSE chip
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, aiCTX AG, felix.bauer@aictx.ai
+#
+# Copyright: aiCTX AG, 2019
 # ----
 
 ### --- Imports
@@ -674,7 +676,7 @@ class DynapseControl:
         else:
             self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
 
-        # - Get all neurons from modfels
+        # - Get all neurons from models
         self.hw_neurons, self.virtual_neurons, self.shadow_neurons = self.tools.get_all_neurons(
             self.model, self.virtual_model
         )
