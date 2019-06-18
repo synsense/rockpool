@@ -638,14 +638,13 @@ class DynapseControl:
 
         # - Find a spike generator module
         is_spikegen: List[bool] = [
-            # Doing type(.)==... because isinstance seems to confuse types when using RPyC in some cases
-            type(m) == type(ctxdynapse.DynapseFpgaSpikeGen)
-            for m in fpga_modules
+            isinstance(m, ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
         ]
         if not any(is_spikegen) or all(is_spikegen):
-            # `type` does not work always, either. Try with `isinstance`:
             is_spikegen: List[bool] = [
-                isinstance(m, ctxdynapse.DynapseFpgaSpikeGen) for m in fpga_modules
+                # Trying type(.)==... because isinstance seems to confuse types when using RPyC in some cases
+                type(m) == type(ctxdynapse.DynapseFpgaSpikeGen)
+                for m in fpga_modules
             ]
             if not any(is_spikegen) or all(is_spikegen):
                 # There is no spike generator, so we can't use this Python layer on the HW
@@ -658,14 +657,13 @@ class DynapseControl:
 
         # - Find a poisson spike generator module
         is_poissongen: List[bool] = [
-            # Doing type(.)==... because isinstance seems to confuse types when using RPyC in some cases
-            type(m) == type(ctxdynapse.DynapsePoissonGen)
-            for m in fpga_modules
+            isinstance(m, ctxdynapse.DynapsePoissonGen) for m in fpga_modules
         ]
-        if not any(is_poissongen) or all(is_poissongen):
-            # `type` does not work always, either. Try with `isinstance`:
+        if (not any(is_poissongen)) or all(is_poissongen):
             is_poissongen: List[bool] = [
-                isinstance(m, ctxdynapse.DynapsePoissonGen) for m in fpga_modules
+                # Doing type(.)==... because isinstance seems to confuse types when using RPyC in some cases
+                type(m) == type(ctxdynapse.DynapsePoissonGen)
+                for m in fpga_modules
             ]
             if not any(is_poissongen) or all(is_poissongen):
                 warn(
@@ -673,8 +671,10 @@ class DynapseControl:
                 )
             else:
                 self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
+                print("DynapseControl: Poisson generator module ready.")
         else:
             self.fpga_poissongen = fpga_modules[np.argwhere(is_poissongen)[0][0]]
+            print("DynapseControl: Poisson generator module ready.")
 
         # - Get all neurons from models
         self.hw_neurons, self.virtual_neurons, self.shadow_neurons = self.tools.get_all_neurons(
@@ -1452,6 +1452,8 @@ class DynapseControl:
         :param neuron_ids: int or array-like  Event neuron ID(s)
         :param chip_id:     int  Target chip ID
         """
+        if not hasattr(self, "fpga_poissongen"):
+            raise RuntimeError("DynapseControl: No poissong generator available.")
 
         if not hasattr(self, "fpga_poissongen"):
             raise RuntimeError("DynapseControl: No poissong generator available.")
