@@ -5,8 +5,9 @@ Test rate-based Euler models in rate-jax.py
 import numpy as np
 import pytest
 
+
 def test_imports():
-   from NetworksPython.layers import RecRateEulerJax
+    from NetworksPython.layers import RecRateEulerJax
 
 
 def test_RecRateEulerJax():
@@ -23,19 +24,17 @@ def test_RecRateEulerJax():
 
     # - Layer generation
     fl0 = RecRateEulerJax(
-        weights=w_in,
-        w_recurrent = w_recurrent,
-        w_out = w_out,
+        w_in=w_in,
+        w_recurrent=w_recurrent,
+        w_out=w_out,
         bias=bias,
         noise_std=0.1,
-        tau = tau,
+        tau=tau,
         dt=0.01,
     )
 
     # - Input signal
-    tsInCont = TSContinuous(
-        times=np.arange(15) * 0.01, samples=np.ones((15, 1))
-    )
+    tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 1)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state)
@@ -49,21 +48,42 @@ def test_RecRateEulerJax():
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
-        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((3, 2)), w_out = np.zeros((3, 1)),
-                              tau = np.zeros(3), bias = np.zeros(3))
+        fl1 = RecRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_recurrent=np.zeros((3, 2)),
+            w_out=np.zeros((3, 1)),
+            tau=np.zeros(3),
+            bias=np.zeros(3),
+        )
 
     with pytest.raises(AssertionError):
-        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((2, 2)), w_out = np.zeros((3, 1)),
-                              tau = np.zeros(3), bias = np.zeros(3))
+        fl1 = RecRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_recurrent=np.zeros((2, 2)),
+            w_out=np.zeros((3, 1)),
+            tau=np.zeros(3),
+            bias=np.zeros(3),
+        )
 
     with pytest.raises(AssertionError):
-        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((2, 2)), w_out = np.zeros((2, 1)),
-                              tau = np.zeros(3), bias = np.zeros(3))
+        fl1 = RecRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_recurrent=np.zeros((2, 2)),
+            w_out=np.zeros((2, 1)),
+            tau=np.zeros(3),
+            bias=np.zeros(3),
+        )
 
     with pytest.raises(AssertionError):
-        fl1 = RecRateEulerJax(weights = np.zeros((1, 2)), w_recurrent = np.zeros((2, 2)), w_out = np.zeros((2, 1)),
-                              tau = np.zeros(2), bias = np.zeros(3))
-        
+        fl1 = RecRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_recurrent=np.zeros((2, 2)),
+            w_out=np.zeros((2, 1)),
+            tau=np.zeros(2),
+            bias=np.zeros(3),
+        )
+
+
 def test_ForceRateEulerJax():
     """ Test ForceRateEulerJax """
     from NetworksPython import TSContinuous
@@ -77,22 +97,13 @@ def test_ForceRateEulerJax():
 
     # - Layer generation
     fl0 = ForceRateEulerJax(
-        weights=w_in,
-        w_out = w_out,
-        bias=bias,
-        noise_std=0.1,
-        tau = tau,
-        dt=0.01,
+        w_in=w_in, w_out=w_out, bias=bias, noise_std=0.1, tau=tau, dt=0.01
     )
 
     # - Input signal
-    tsInCont = TSContinuous(
-        times=np.arange(15) * 0.01, samples=np.ones((15, 1))
-    )
+    tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 1)))
 
-    tsForceCont = TSContinuous(
-        times=np.arange(15) * 0.01, samples=np.ones((15, 2))
-    )
+    tsForceCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 2)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state)
@@ -106,13 +117,25 @@ def test_ForceRateEulerJax():
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
-        fl1 = ForceRateEulerJax(weights = np.zeros((1, 2)), w_out = np.zeros((3, 1)),
-                              tau = np.zeros(3), bias = np.zeros(3))
+        fl1 = ForceRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_out=np.zeros((3, 1)),
+            tau=np.zeros(3),
+            bias=np.zeros(3),
+        )
 
     with pytest.raises(AssertionError):
-        fl1 = ForceRateEulerJax(weights = np.zeros((1, 2)), w_out = np.zeros((2, 1)),
-                              tau = np.zeros(3), bias = np.zeros(3))
+        fl1 = ForceRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_out=np.zeros((2, 1)),
+            tau=np.zeros(3),
+            bias=np.zeros(3),
+        )
 
     with pytest.raises(AssertionError):
-        fl1 = ForceRateEulerJax(weights = np.zeros((1, 2)), w_out = np.zeros((2, 1)),
-                              tau = np.zeros(2), bias = np.zeros(3))
+        fl1 = ForceRateEulerJax(
+            w_in=np.zeros((1, 2)),
+            w_out=np.zeros((2, 1)),
+            tau=np.zeros(2),
+            bias=np.zeros(3),
+        )
