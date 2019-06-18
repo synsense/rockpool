@@ -5,8 +5,10 @@ Test training of rate-based Euler models in rate-jax.py, using shim in train_jax
 import numpy as np
 import pytest
 
+
 def test_imports():
-   from NetworksPython.utilities import add_train_output
+    from NetworksPython.utilities import add_train_output
+
 
 def test_adam():
     from NetworksPython.layers import RecRateEulerJax
@@ -20,12 +22,12 @@ def test_adam():
 
     # - Layer generation
     fl0 = RecRateEulerJax(
-        weights=w_in,
-        w_recurrent = w_recurrent,
-        w_out = w_out,
+        w_in=w_in,
+        w_recurrent=w_recurrent,
+        w_out=w_out,
         bias=0,
         noise_std=0.1,
-        tau = 20,
+        tau=20,
         dt=1,
     )
 
@@ -34,10 +36,10 @@ def test_adam():
 
     # - Define simple input and target
     ts_input = TSContinuous([0, 1, 2, 3], [0, 1, 0, 0])
-    ts_target = TSContinuous([0, 1, 2, 3], [.1, .2, .3, .4])
+    ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.2, 0.3, 0.4])
 
     # - Initialise training
-    loss_fcn, grad_fcn = fl0.train_adam(ts_input, ts_target, is_first = True)
+    loss_fcn, grad_fcn = fl0.train_adam(ts_input, ts_target, is_first=True)
 
     # - Test loss and gradient functions
     loss_fcn()
@@ -47,4 +49,4 @@ def test_adam():
     fl0.train_adam(ts_input, ts_target)
 
     # - Perform final training step
-    fl0.train_adam(ts_input, ts_target, is_last = True)
+    fl0.train_adam(ts_input, ts_target, is_last=True)
