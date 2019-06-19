@@ -759,3 +759,4 @@ rename vfThrDown thr_down
 rename bMultiplexSpikes multiplex_spikes
 rename _nMultiChannel _multi_channels
 
+rename tauS tau_syn

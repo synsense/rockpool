@@ -1,8 +1,10 @@
-import numpy as np
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Optional, Union, List, Tuple
+import json
+
+import numpy as np
 import torch
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
@@ -510,14 +512,6 @@ class Layer(ABC):
     #     """
     #     pass
 
-    def reset_state(self):
-        """
-        reset_state - Reset the internal state of this layer. Sets state to zero
-
-        :return: None
-        """
-        self.state = np.zeros(self.size)
-
     def reset_time(self):
         """
         reset_time - Reset the internal clock
@@ -540,6 +534,60 @@ class Layer(ABC):
     def reset_all(self):
         self.reset_time()
         self.reset_state()
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = {}
+        config["weights"] = self.weights.tolist()
+        config["dt"] = self.dt
+        config["noise_std"] = self.noise_std
+        config["name"] = self.name
+
+        # - Determine class name by removing "<class '" and "'>" and the package information
+        config["class_name"] = str(self.__class__).split("'")[1].split(".")[-1]
+
+        return config
+
+    def save(self, config: dict, filename: str):
+        """save - Save parameters from `config` in a json file.
+        :param config:    dict of attributes to be saved.
+        :param filename:  Path of file where parameters are stored.
+        """
+        with open(filename, "w") as f:
+            json.dump(config, f)
+
+    @classmethod
+    def load_from_file(cls, filename: str) -> "cls":
+        """load_from_file - Generate instance of `cls` with parameters loaded from file.
+        :param filename: Path to the file where parameters are stored.
+        :return:
+            Instance of cls with paramters from file.
+        """
+        with open(filename, "r") as f:
+            config = json.load(f)
+
+        return cls(**config)
+
+    @classmethod
+    def load_from_dict(cls, config: dict) -> "cls":
+        """load_from_dict - Generate instance of `cls` with parameters loaded from dict.
+        :param config: Dict with parameters.
+        :return:
+            Instance of cls with paramters from dict.
+        """
+        return cls(**config)
+
+    def reset_state(self):
+        """
+        reset_state - Reset the internal state of this layer. Sets state to zero
+
+        :return: None
+        """
+        self.state = np.zeros(self.size)
 
     #### --- Properties
 
