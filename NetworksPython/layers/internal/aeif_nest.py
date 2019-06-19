@@ -404,7 +404,7 @@ class RecAEIFSpkInNest(Layer):
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
-        capacity: Union[float, np.ndarray] = 100.0,
+        capacity: Union[float, np.ndarray] = None,
         refractory = 0.001,
         a: Union[float, np.ndarray] = 4.0,
         b: Union[float, np.ndarray] = 80.5,
@@ -493,6 +493,10 @@ class RecAEIFSpkInNest(Layer):
 
         if type(tau_w) is list:
             tau_w = np.asarray(tau_w)
+
+        # set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.
 
         # - Call super constructor (`asarray` is used to strip units)
 

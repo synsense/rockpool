@@ -458,7 +458,7 @@ def test_DefaultParams():
     v_thresh = -0.055
     v_reset = -0.065
     v_rest = -0.065
-    capacity = 100.0
+    capacity = tau_mem * 1000.
     refractory = 0.001
 
     fl0 = FFIAFNest(
@@ -509,15 +509,17 @@ def test_DefaultParams():
 
     tsInCont = ts.TSContinuous(vTime, vVal)
 
-    assert (fl0.state == fl2.state).all()
-    assert (fl1.state == fl3.state).all()
+    eps = 1e-6
+
+    assert (np.abs(fl0.state - fl2.state) < eps).all()
+    assert (np.abs(fl1.state - fl3.state) < eps).all()
 
     # - Compare states before and after
     dAct0 = net0.evolve(tsInCont, duration=1.0)
     dAct1 = net1.evolve(tsInCont, duration=1.0)
 
-    assert (fl0.state == fl2.state).all()
-    assert (fl1.state == fl3.state).all()
+    assert (np.abs(fl0.state - fl2.state) < eps).all()
+    assert (np.abs(fl1.state - fl3.state) < eps).all()
 
     fl0.terminate()
     fl1.terminate()
@@ -665,6 +667,7 @@ def test_delays():
         dt=0.001,
         bias=vfBiasRec,
         tau_mem=vtTauNRec,
+        capacity=100.,
         tau_syn_exc=tau_syn_exc_rec,
         tau_syn_inh=tau_syn_inh_rec,
         refractory=0.001,

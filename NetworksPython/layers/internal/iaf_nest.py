@@ -297,7 +297,7 @@ class FFIAFNest(Layer):
         bias: Union[float, np.ndarray] = 0.0,
         dt: float = 0.0001,
         tau_mem: Union[float, np.ndarray] = 0.02,
-        capacity: Union[float, np.ndarray] = 100.0,
+        capacity: Union[float, np.ndarray] = None,
         v_thresh: Union[float, np.ndarray] = -0.055,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
@@ -350,6 +350,10 @@ class FFIAFNest(Layer):
 
         if type(v_rest) is list:
             v_rest = np.asarray(v_rest)
+
+        # set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(weights=np.asarray(weights), dt=np.asarray(dt), name=name)
@@ -829,7 +833,7 @@ class RecIAFSpkInNest(Layer):
             if self.record:
                 # - Monitor for recording network potential
                 self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
+                    "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
                 )
                 nest.Connect(self._mm, self._pop)
 
@@ -968,7 +972,7 @@ class RecIAFSpkInNest(Layer):
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
-        capacity: Union[float, np.ndarray] = 100.0,
+        capacity: Union[float, np.ndarray] = None,
         refractory=0.001,
         name: str = "unnamed",
         record: bool = False,
@@ -1038,6 +1042,10 @@ class RecIAFSpkInNest(Layer):
 
         if type(v_rest) is list:
             v_rest = np.asarray(v_rest)
+
+        # set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.
 
         # - Call super constructor (`asarray` is used to strip units)
 
