@@ -726,3 +726,36 @@ rename DynapseConform dynapse_conform
 rename In_Res_Dynapse in_res_dynapse
 rename In_Res_Dynapse_Flex in_res_dynapse_flex
 rename IAFSparseNet iaf_sparse_net
+
+rename bIncludeBadSignal include_bad_signal
+rename nNumBeats num_beats
+rename dfAnnotations annotations
+rename mfRecordings rec_data
+rename pNormal p_normal
+rename lUseRecordings use_recordings
+rename lUseClasses use_classes
+rename dProbs probs
+rename nMinLenSegment min_len_segment
+rename bContinuousSegments use_cont_segments
+
+rename lTargets targetlist
+renmae strLoadPath load_path
+rename strSavePath save_path
+rename strDatabase name_db
+
+rename bBadSignal bad_signal
+rename iNewStart idx_new_start
+rename iNewEnd idx_new_end
+rename bAnomal is_anomal
+rename iStart idx_start
+rename iEnd idx_end
+
+rename vtTrialStarts trial_start_times
+
+rename nRepeatOutput repeat_output
+rename vtTauDecay tau_decay
+rename vfThrUp thr_up
+rename vfThrDown thr_down
+rename bMultiplexSpikes multiplex_spikes
+rename _nMultiChannel _multi_channels
+

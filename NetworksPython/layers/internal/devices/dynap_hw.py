@@ -201,9 +201,9 @@ class RecDynapSE(Layer):
         # vn_channels_inp = ts_input.channels
 
         # - Check whether data for splitting by trial is available
-        if hasattr(ts_input, "vtTrialStarts") and self.max_num_trials_batch is not None:
+        if hasattr(ts_input, "trial_start_times") and self.max_num_trials_batch is not None:
             ## -- Split by trials
-            vn_trial_starts = np.floor(ts_input.vtTrialStarts / self.dt).astype(int)
+            vn_trial_starts = np.floor(ts_input.trial_start_times / self.dt).astype(int)
             # - Make sure only trials within evolution period are considered
             vn_trial_starts = vn_trial_starts[
                 np.logical_and(

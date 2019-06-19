@@ -534,7 +534,7 @@ class Network:
             except AttributeError:
                 try:
                     # Old variable name
-                    trial_starts: np.ndarray = ts_input.vtTrialStarts
+                    trial_starts: np.ndarray = ts_input.trial_start_times
                 except AttributeError:
                     trial_starts = None
         else:

@@ -388,11 +388,7 @@ class Layer(ABC):
         return time_trace
 
     def _expand_to_shape(
-        self,
-        inp,
-        shape: tuple,
-        var_name: str = "input",
-        allow_none: bool = True,
+        self, inp, shape: tuple, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
         _expand_to_shape: Replicate out a scalar to an array of shape shape
@@ -462,9 +458,7 @@ class Layer(ABC):
         :return:                np.ndarray (NxN) vector
         """
 
-        return self._expand_to_shape(
-            inp, (self.size, self.size), var_name, allow_none
-        )
+        return self._expand_to_shape(inp, (self.size, self.size), var_name, allow_none)
 
     ### --- String representations
 
@@ -587,11 +581,7 @@ class Layer(ABC):
         try:
             assert new_w.ndim >= 2
         except AssertionError:
-            warn(
-                "Layer `{}`: `new_w must be at least of dimension 2".format(
-                    self.name
-                )
-            )
+            warn("Layer `{}`: `new_w must be at least of dimension 2".format(self.name))
             new_w = np.atleast_2d(new_w)
 
         # - Check dimensionality of new weights
@@ -612,9 +602,7 @@ class Layer(ABC):
     def state(self, new_state):
         assert (
             np.size(new_state) == self.size
-        ), "Layer `{}`: `new_state` must have {} elements".format(
-            self.name, self.size
-        )
+        ), "Layer `{}`: `new_state` must have {} elements".format(self.name, self.size)
 
         self._state = new_state
 
