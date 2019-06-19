@@ -349,7 +349,7 @@ class FFIAFNest(Layer):
 
         # set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
-            capacity = tau_mem * 1000.
+            capacity = tau_mem * 1000.0
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(weights=np.asarray(weights), dt=np.asarray(dt), name=name)
@@ -476,84 +476,6 @@ class FFIAFNest(Layer):
         # self.nest_process.terminate()
         # self.nest_process.join()
 
-    ### --- Properties
-
-    @property
-    def output_type(self):
-        return TSEvent
-
-    @property
-    def refractory(self):
-        return self._refractory
-
-    @refractory.setter
-    def refractory(self, new_refractory):
-        self._refractory = new_refractory
-        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
-
-    @property
-    def state(self):
-        self.request_q.put([COMMAND_GET, "V_m"])
-        vms = np.array(self.result_q.get())
-        return mV2V(vms)
-
-    @state.setter
-    def state(self, new_state):
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
-
-    @property
-    def tau_mem(self):
-        return self._tau_mem
-
-    @tau_mem.setter
-    def tau_mem(self, new_tau_mem):
-        self._tau_mem = new_tau_mem
-        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
-
-    @property
-    def bias(self):
-        return self._bias
-
-    @bias.setter
-    def bias(self, new_bias):
-        self._bias = new_bias
-        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
-
-    @property
-    def v_thresh(self):
-        return self._v_thresh
-
-    @v_thresh.setter
-    def v_thresh(self, new_v_thresh):
-        self._v_thresh = new_v_thresh
-        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
-
-    @property
-    def v_reset(self):
-        return self._v_reset
-
-    @v_reset.setter
-    def v_reset(self, new_v_reset):
-        self._v_reset = new_v_reset
-        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
-
-    @property
-    def v_rest(self):
-        return self._v_rest
-
-    @v_rest.setter
-    def v_rest(self, new_v_rest):
-        self._v_rest = new_v_rest
-        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
-
-    @property
-    def t(self):
-        return self._timestep * np.asscalar(self.dt)
-
-    @Layer.dt.setter
-    def dt(self, _):
-        raise ValueError("The `dt` property cannot be set for this layer")
-
     def to_dict(self):
 
         config = {}
@@ -630,6 +552,95 @@ class FFIAFNest(Layer):
             record=config["record"],
             num_cores=config["num_cores"],
         )
+
+    ### --- Properties
+
+    @property
+    def output_type(self):
+        return TSEvent
+
+    @property
+    def refractory(self):
+        return self._refractory
+
+    @refractory.setter
+    def refractory(self, new_refractory):
+        new_refractory = self._expand_to_net_size(
+            new_refractory, "refractory", allow_none=False
+        )
+        self._refractory = new_refractory
+        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
+
+    @property
+    def state(self):
+        self.request_q.put([COMMAND_GET, "V_m"])
+        vms = np.array(self.result_q.get())
+        return mV2V(vms)
+
+    @state.setter
+    def state(self, new_state):
+        new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
+
+    @property
+    def tau_mem(self):
+        return self._tau_mem
+
+    @tau_mem.setter
+    def tau_mem(self, new_tau_mem):
+        new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
+        self._tau_mem = new_tau_mem
+        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
+
+    @property
+    def bias(self):
+        return self._bias
+
+    @bias.setter
+    def bias(self, new_bias):
+        new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
+        self._bias = new_bias
+        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
+
+    @property
+    def v_thresh(self):
+        return self._v_thresh
+
+    @v_thresh.setter
+    def v_thresh(self, new_v_thresh):
+        new_v_thresh = self._expand_to_net_size(
+            new_v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_thresh = new_v_thresh
+        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
+
+    @property
+    def v_reset(self):
+        return self._v_reset
+
+    @v_reset.setter
+    def v_reset(self, new_v_reset):
+        new_v_reset = self._expand_to_net_size(new_v_reset, "v_reset", allow_none=False)
+        self._v_reset = new_v_reset
+        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
+
+    @property
+    def v_rest(self):
+        return self._v_rest
+
+    @v_rest.setter
+    def v_rest(self, new_v_rest):
+        new_v_rest = self._expand_to_net_size(new_v_rest, "v_rest", allow_none=False)
+        self._v_rest = new_v_rest
+        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
+
+    @property
+    def t(self):
+        return self._timestep * np.asscalar(self.dt)
+
+    @Layer.dt.setter
+    def dt(self, _):
+        raise ValueError("The `dt` property cannot be set for this layer")
 
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
@@ -1036,7 +1047,7 @@ class RecIAFSpkInNest(Layer):
 
         # set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
-            capacity = tau_mem * 1000.
+            capacity = tau_mem * 1000.0
 
         # - Call super constructor (`asarray` is used to strip units)
 
@@ -1195,138 +1206,6 @@ class RecIAFSpkInNest(Layer):
         # self.nest_process.terminate()
         # self.nest_process.join()
 
-    ### --- Properties
-
-    @property
-    def input_type(self):
-        return TSEvent
-
-    @property
-    def output_type(self):
-        return TSEvent
-
-    @property
-    def refractory(self):
-        return self._refractory
-
-    @refractory.setter
-    def refractory(self, new_refractory):
-        self._refractory = new_refractory
-        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
-
-    @property
-    def state(self):
-        time.sleep(0.1)
-        self.request_q.put([COMMAND_GET, "V_m"])
-        vms = np.array(self.result_q.get())
-        return mV2V(vms)
-
-    @state.setter
-    def state(self, new_state):
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
-
-    @property
-    def delay_in(self):
-        return self._delay_in
-
-    @delay_in.setter
-    def delay_in(self, new_delay_in):
-        self._delay_in = new_delay_in
-        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
-
-    @property
-    def delay_rec(self):
-        return self._delay_rec
-
-    @delay_rec.setter
-    def delay_rec(self, new_delay_rec):
-        self._delay_rec = new_delay_rec
-        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
-
-    @property
-    def tau_mem(self):
-        return self._tau_mem
-
-    @tau_mem.setter
-    def tau_mem(self, new_tau_mem):
-        self._tau_mem = new_tau_mem
-        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
-
-    @property
-    def tau_syn(self):
-        return self._tau_syn
-
-    @tau_syn.setter
-    def tau_syn(self, new_tau_syn):
-        self._tau_syn_inh = new_tau_syn
-        self._tau_syn_exc = new_tau_syn
-        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn)])
-        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn)])
-
-    @property
-    def tau_syn_exc(self):
-        return self._tau_syn_exc
-
-    @tau_syn_exc.setter
-    def tau_syn_exc(self, new_tau_syn_exc):
-        self._tau_syn_exc = new_tau_syn_exc
-        self._tau_syn = None
-        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
-
-    @property
-    def tau_syn_inh(self):
-        return self._tau_syn_inh
-
-    @tau_syn_inh.setter
-    def tau_syn_inh(self, new_tau_syn_inh):
-        self._tau_syn_inh = new_tau_syn_inh
-        self._tau_syn = None
-        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
-
-    @property
-    def bias(self):
-        return self._bias
-
-    @bias.setter
-    def bias(self, new_bias):
-        self._bias = new_bias
-        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
-
-    @property
-    def v_thresh(self):
-        return self._v_thresh
-
-    @v_thresh.setter
-    def v_thresh(self, new_v_thresh):
-        self._v_thresh = new_v_thresh
-        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
-
-    @property
-    def v_reset(self):
-        return self._v_reset
-
-    @v_reset.setter
-    def v_reset(self, new_v_reset):
-        self._v_reset = new_v_reset
-        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
-
-    @property
-    def v_rest(self):
-        return self._v_reset
-
-    @v_rest.setter
-    def v_rest(self, new_v_rest):
-        self._v_rest = new_v_rest
-        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
-
-    @property
-    def t(self):
-        return self._timestep * self.dt
-
-    @Layer.dt.setter
-    def dt(self):
-        raise ValueError("The `dt` property cannot be set for this layer")
-
     def to_dict(self):
 
         config = {}
@@ -1437,3 +1316,160 @@ class RecIAFSpkInNest(Layer):
         )
         net_.reset_all()
         return net_
+
+    ### --- Properties
+
+    @property
+    def input_type(self):
+        return TSEvent
+
+    @property
+    def output_type(self):
+        return TSEvent
+
+    @property
+    def refractory(self):
+        return self._refractory
+
+    @refractory.setter
+    def refractory(self, new_refractory):
+        new_refractory = self._expand_to_net_size(
+            new_refractory, "refractory", allow_none=False
+        )
+        self._refractory = new_refractory
+        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
+
+    @property
+    def state(self):
+        time.sleep(0.1)
+        self.request_q.put([COMMAND_GET, "V_m"])
+        vms = np.array(self.result_q.get())
+        return mV2V(vms)
+
+    @state.setter
+    def state(self, new_state):
+        new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
+
+    @property
+    def delay_in(self):
+        return self._delay_in
+
+    @delay_in.setter
+    def delay_in(self, new_delay_in):
+        new_delay_in = self._expand_to_net_size(
+            new_delay_in, "delay_in", allow_none=False
+        )
+        self._delay_in = new_delay_in
+        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
+
+    @property
+    def delay_rec(self):
+        return self._delay_rec
+
+    @delay_rec.setter
+    def delay_rec(self, new_delay_rec):
+        new_delay_rec = self._expand_to_net_size(
+            new_delay_rec, "delay_rec", allow_none=False
+        )
+        self._delay_rec = new_delay_rec
+        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
+
+    @property
+    def tau_mem(self):
+        return self._tau_mem
+
+    @tau_mem.setter
+    def tau_mem(self, new_tau_mem):
+        new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
+        self._tau_mem = new_tau_mem
+        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
+
+    @property
+    def tau_syn(self):
+        return self._tau_syn
+
+    @tau_syn.setter
+    def tau_syn(self, new_tau_syn):
+        new_tau_syn = self._expand_to_net_size(new_tau_syn, "tau_syn", allow_none=False)
+        self._tau_syn = new_tau_syn
+        self._tau_syn_inh = new_tau_syn
+        self._tau_syn_exc = new_tau_syn
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn)])
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn)])
+
+    @property
+    def tau_syn_exc(self):
+        return self._tau_syn_exc
+
+    @tau_syn_exc.setter
+    def tau_syn_exc(self, new_tau_syn_exc):
+        new_tau_syn_exc = self._expand_to_net_size(
+            new_tau_syn_exc, "tau_syn_exc", allow_none=False
+        )
+        self._tau_syn_exc = new_tau_syn_exc
+        self._tau_syn = None
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
+
+    @property
+    def tau_syn_inh(self):
+        return self._tau_syn_inh
+
+    @tau_syn_inh.setter
+    def tau_syn_inh(self, new_tau_syn_inh):
+        new_tau_syn_inh = self._expand_to_net_size(
+            new_tau_syn_inh, "tau_syn_inh", allow_none=False
+        )
+        self._tau_syn_inh = new_tau_syn_inh
+        self._tau_syn = None
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
+
+    @property
+    def bias(self):
+        return self._bias
+
+    @bias.setter
+    def bias(self, new_bias):
+        new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
+        self._bias = new_bias
+        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
+
+    @property
+    def v_thresh(self):
+        return self._v_thresh
+
+    @v_thresh.setter
+    def v_thresh(self, new_v_thresh):
+        new_v_thresh = self._expand_to_net_size(
+            new_v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_thresh = new_v_thresh
+        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
+
+    @property
+    def v_reset(self):
+        return self._v_reset
+
+    @v_reset.setter
+    def v_reset(self, new_v_reset):
+        new_v_reset = self._expand_to_net_size(new_v_reset, "v_reset", allow_none=False)
+        self._v_reset = new_v_reset
+        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
+
+    @property
+    def v_rest(self):
+        return self._v_reset
+
+    @v_rest.setter
+    def v_rest(self, new_v_rest):
+        new_v_rest = self._expand_to_net_size(new_v_rest, "v_rest", allow_none=False)
+        self._v_rest = new_v_rest
+        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
+
+    @property
+    def t(self):
+        return self._timestep * self.dt
+
+    @Layer.dt.setter
+    def dt(self):
+        raise ValueError("The `dt` property cannot be set for this layer")
