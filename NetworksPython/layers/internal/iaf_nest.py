@@ -297,7 +297,7 @@ class FFIAFNest(Layer):
         v_thresh: Union[float, np.ndarray] = -0.055,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
-        refractory=0.001,
+        refractory: float = 0.001,
         name: str = "unnamed",
         record: bool = False,
         num_cores=1,
@@ -352,7 +352,7 @@ class FFIAFNest(Layer):
             capacity = tau_mem * 1000.0
 
         # - Call super constructor (`asarray` is used to strip units)
-        super().__init__(weights=np.asarray(weights), dt=np.asarray(dt), name=name)
+        super().__init__(weights=np.asarray(weights), dt=dt, name=name)
 
         self.num_cores = num_cores
 
@@ -377,12 +377,16 @@ class FFIAFNest(Layer):
             nest_process.start()
 
         # - Record neuron parameters
-        self._v_thresh = v_thresh
-        self._v_reset = v_reset
-        self._v_rest = v_rest
-        self._tau_mem = tau_mem
-        self._bias = bias
-        self._vfCapacity = capacity
+        self._v_thresh = self._expand_to_net_size(
+            v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        self._v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        self._tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        self._bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        self._vfCapacity = self._expand_to_net_size(
+            capacity, "capacity", allow_none=False
+        )
         self.weights = weights
         self._refractory = refractory
         self.record = record
@@ -453,8 +457,8 @@ class FFIAFNest(Layer):
             event_time_out, event_channel_out, _ = self.result_q.get()
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * self.dt
+        t_stop = (self._timestep + num_timesteps) * self.dt
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -481,32 +485,16 @@ class FFIAFNest(Layer):
         config = {}
         config["name"] = self.name
         config["weights_in"] = self.weights.tolist()
-        config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
-        config["v_thresh"] = (
-            self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
-        )
-        config["v_reset"] = (
-            self.v_reset if np.isscalar(self.v_reset) else self.v_reset.tolist()
-        )
-        config["v_rest"] = (
-            self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
-        )
-        config["capacity"] = (
-            self._vfCapacity
-            if np.isscalar(self._vfCapacity)
-            else self._vfCapacity.tolist()
-        )
-        config["refractory"] = (
-            self.refractory
-            if np.isscalar(self.refractory)
-            else self.refractory.tolist()
-        )
-        config["tau_mem"] = (
-            self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
-        )
+        config["dt"] = self.dt
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["capacity"] = self.capacity.tolist()
+        config["refractory"] = self.refractory
+        config["tau_mem"] = self.tau_mem.tolist()
         config["num_cores"] = self.num_cores
         config["record"] = self.record
-        config["bias"] = self.bias if np.isscalar(self.bias) else self.bias.tolist()
+        config["bias"] = self.bias.tolist()
         config["class_name"] = "FFIAFNest"
 
         return config
@@ -565,11 +553,12 @@ class FFIAFNest(Layer):
 
     @refractory.setter
     def refractory(self, new_refractory):
-        new_refractory = self._expand_to_net_size(
-            new_refractory, "refractory", allow_none=False
-        )
         self._refractory = new_refractory
         self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
+
+    @property
+    def capacity(self):
+        return self._vfCapacity
 
     @property
     def state(self):
@@ -636,7 +625,7 @@ class FFIAFNest(Layer):
 
     @property
     def t(self):
-        return self._timestep * np.asscalar(self.dt)
+        return self._timestep * self.dt
 
     @Layer.dt.setter
     def dt(self, _):
@@ -674,7 +663,7 @@ class RecIAFSpkInNest(Layer):
             v_thresh: Union[float, np.ndarray],
             v_reset: Union[float, np.ndarray],
             v_rest: Union[float, np.ndarray],
-            refractory,
+            refractory: float,
             record: bool = False,
             num_cores: int = 1,
         ):
@@ -788,7 +777,6 @@ class RecIAFSpkInNest(Layer):
             # - Add stimulation device
             self._sg = nest.Create("spike_generator", self.weights_in.shape[0])
 
-            t0 = time.time()
             # - Create input connections
             pres = []
             posts = []
@@ -975,7 +963,7 @@ class RecIAFSpkInNest(Layer):
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
         capacity: Union[float, np.ndarray] = None,
-        refractory=0.001,
+        refractory: float = 0.001,
         name: str = "unnamed",
         record: bool = False,
         num_cores: int = 1,
@@ -1087,19 +1075,32 @@ class RecIAFSpkInNest(Layer):
             nest_process.start()
 
         # - Record neuron parameters
-        self._v_thresh = v_thresh
-        self._v_reset = v_reset
-        self._v_rest = v_rest
-        self._tau_mem = tau_mem
-        self._tau_syn_exc = tau_syn_exc
-        self._tau_syn_inh = tau_syn_inh
-        self._bias = bias
-        self.capacity = capacity
+        self._v_thresh = self._expand_to_net_size(
+            v_thresh, "v_thresh", allow_none=False
+        )
+        print(self._v_thresh)
+        self._v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        self._v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        self._tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        self._tau_syn_exc = self._expand_to_net_size(
+            tau_syn_exc, "tau_syn_exc", allow_none=False
+        )
+        self._tau_syn_inh = self._expand_to_net_size(
+            tau_syn_inh, "tau_syn_inh", allow_none=False
+        )
+        self._bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        self._capacity = self._expand_to_net_size(
+            capacity, "capacity", allow_none=False
+        )
         self._weights_in = weights_in
         self._weights_rec = weights_rec
         self._refractory = refractory
-        self._delay_in = delay_in
-        self._delay_rec = delay_rec
+        self._delay_in = self._expand_to_shape(
+            delay_in, (self.size_in, self.size), "delay_in", allow_none=False
+        )
+        self._delay_rec = self._expand_to_shape(
+            delay_rec, (self.size, self.size), "delay_rec", allow_none=False
+        )
         self.record = record
 
     def reset_state(self):
@@ -1213,49 +1214,20 @@ class RecIAFSpkInNest(Layer):
         config["weights_in"] = self._weights_in.tolist()
         config["weights_rec"] = self._weights_rec.tolist()
 
-        config["delay_in"] = (
-            self._delay_in if np.isscalar(self._delay_in) else self._delay_in.tolist()
-        )
+        config["delay_in"] = self._delay_in.tolist()
+        config["delay_rec"] = self._delay_rec.tolist()
 
-        config["delay_rec"] = (
-            self._delay_rec
-            if np.isscalar(self._delay_rec)
-            else self._delay_rec.tolist()
-        )
-
-        config["bias"] = self.bias if np.isscalar(self.bias) else self.bias.tolist()
-        config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
-        config["v_thresh"] = (
-            self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
-        )
-        config["v_reset"] = (
-            self.v_reset if np.isscalar(self.v_reset) else self.v_reset.tolist()
-        )
-        config["v_rest"] = (
-            self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
-        )
-        config["capacity"] = (
-            self.capacity if np.isscalar(self.capacity) else self.capacity.tolist()
-        )
-        config["refractory"] = (
-            self.refractory
-            if np.isscalar(self.refractory)
-            else self.refractory.tolist()
-        )
+        config["bias"] = self.bias.tolist()
+        config["dt"] = self.dt
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["capacity"] = self.capacity.tolist()
+        config["refractory"] = self.refractory
         config["num_cores"] = self.num_cores
-        config["tau_mem"] = (
-            self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
-        )
-        config["tau_syn_exc"] = (
-            self.tau_syn_exc
-            if np.isscalar(self.tau_syn_exc)
-            else self.tau_syn_exc.tolist()
-        )
-        config["tau_syn_inh"] = (
-            self.tau_syn_inh
-            if np.isscalar(self.tau_syn_inh)
-            else self.tau_syn_inh.tolist()
-        )
+        config["tau_mem"] = self.tau_mem.tolist()
+        config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+        config["tau_syn_inh"] = self.tau_syn_inh.tolist()
         config["record"] = self.record
         config["class_name"] = "RecIAFSpkInNest"
 
@@ -1265,57 +1237,18 @@ class RecIAFSpkInNest(Layer):
         with open(filename, "w") as f:
             json.dump(config, f)
 
-    @staticmethod
-    def load_from_dict(config):
+    @classmethod
+    def load_from_dict(cls, config):
 
-        net_ = RecIAFSpkInNest(
-            weights_in=config["weights_in"],
-            weights_rec=config["weights_rec"],
-            delay_in=config["delay_in"],
-            delay_rec=config["delay_rec"],
-            bias=config["bias"],
-            dt=config["dt"],
-            tau_mem=config["tau_mem"],
-            tau_syn_exc=config["tau_syn_exc"],
-            tau_syn_inh=config["tau_syn_inh"],
-            capacity=config["capacity"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            refractory=config["refractory"],
-            name=config["name"],
-            record=config["record"],
-            num_cores=config["num_cores"],
-        )
-        net_.reset_all()
-        return net_
+        lyr = super().load_from_dict(config)
+        lyr.reset_all()
+        return lyr
 
-    @staticmethod
-    def load_from_file(filename):
-        with open(filename, "r") as f:
-            config = json.load(f)
-
-        net_ = RecIAFSpkInNest(
-            weights_in=config["weights_in"],
-            weights_rec=config["weights_rec"],
-            delay_in=config["delay_in"],
-            delay_rec=config["delay_rec"],
-            bias=config["bias"],
-            dt=config["dt"],
-            tau_mem=config["tau_mem"],
-            tau_syn_exc=config["tau_syn_exc"],
-            tau_syn_inh=config["tau_syn_inh"],
-            capacity=config["capacity"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            refractory=config["refractory"],
-            name=config["name"],
-            record=config["record"],
-            num_cores=config["num_cores"],
-        )
-        net_.reset_all()
-        return net_
+    @classmethod
+    def load_from_file(cls, filename: str):
+        lyr = super().load_from_file(filename)
+        lyr.reset_all()
+        return lyr
 
     ### --- Properties
 
@@ -1328,14 +1261,15 @@ class RecIAFSpkInNest(Layer):
         return TSEvent
 
     @property
+    def capacity(self):
+        return self._capacity
+
+    @property
     def refractory(self):
         return self._refractory
 
     @refractory.setter
     def refractory(self, new_refractory):
-        new_refractory = self._expand_to_net_size(
-            new_refractory, "refractory", allow_none=False
-        )
         self._refractory = new_refractory
         self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
 
@@ -1357,8 +1291,8 @@ class RecIAFSpkInNest(Layer):
 
     @delay_in.setter
     def delay_in(self, new_delay_in):
-        new_delay_in = self._expand_to_net_size(
-            new_delay_in, "delay_in", allow_none=False
+        new_delay_in = self._expand_to_shape(
+            new_delay_in, (self.size_in, self.size), "delay_in", allow_none=False
         )
         self._delay_in = new_delay_in
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
@@ -1369,8 +1303,8 @@ class RecIAFSpkInNest(Layer):
 
     @delay_rec.setter
     def delay_rec(self, new_delay_rec):
-        new_delay_rec = self._expand_to_net_size(
-            new_delay_rec, "delay_rec", allow_none=False
+        new_delay_rec = self._expand_to_shape(
+            new_delay_rec, (self.size_in, self.size), "delay_rec", allow_none=False
         )
         self._delay_rec = new_delay_rec
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
