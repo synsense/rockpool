@@ -767,7 +767,7 @@ class FFExpSynTorch(FFExpSyn):
         config["bias"] = self._bias if type(self._bias) is float else self._bias.tolist()
         config["dt"] = self.dt
         config["noise_std"] = self.noise_std
-        config["tauS"] = self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        config["tau_syn"] = self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
         config["name"] = self.name
         config["add_events"] = self.add_events
         config["max_num_timesteps"] = self.max_num_timesteps
@@ -786,7 +786,7 @@ class FFExpSynTorch(FFExpSyn):
             bias = config["bias"],
             dt = config["dt"],
             noise_std = config["noise_std"],
-            tau_syn = config["tauS"],
+            tau_syn = config["tau_syn"],
             name = config["name"],
             add_events = config["add_events"],
             max_num_timesteps = config["max_num_timesteps"],
