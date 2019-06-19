@@ -561,7 +561,24 @@ class Layer(ABC):
             json.dump(config, f)
 
     @classmethod
-    def load_from_dict(cls, config):
+    def load_from_file(cls, filename: str) -> "cls":
+        """load_from_file - Generate instance of `cls` with parameters loaded from file.
+        :param filename: Path to the file where parameters are stored.
+        :return:
+            Instance of cls with paramters from file.
+        """
+        with open(filename, "r") as f:
+            config = json.load(f)
+
+        return cls(**config)
+
+    @classmethod
+    def load_from_dict(cls, config: dict) -> "cls":
+        """load_from_dict - Generate instance of `cls` with parameters loaded from dict.
+        :param config: Dict with parameters.
+        :return:
+            Instance of cls with paramters from dict.
+        """
         return cls(**config)
 
     def reset_state(self):
