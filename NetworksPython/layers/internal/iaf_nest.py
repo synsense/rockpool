@@ -347,6 +347,9 @@ class FFIAFNest(Layer):
         if type(v_rest) is list:
             v_rest = np.asarray(v_rest)
 
+        if type(refractory) is list:
+            refractory = np.asarray(refractory)
+
         # set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
             capacity = tau_mem * 1000.0
@@ -388,7 +391,9 @@ class FFIAFNest(Layer):
             capacity, "capacity", allow_none=False
         )
         self.weights = weights
-        self._refractory = refractory
+        self._refractory = self._expand_to_net_size(
+            refractory, "refractory", allow_none=False
+        )
         self.record = record
 
     def reset_state(self):
@@ -490,7 +495,7 @@ class FFIAFNest(Layer):
         config["v_reset"] = self.v_reset.tolist()
         config["v_rest"] = self.v_rest.tolist()
         config["capacity"] = self.capacity.tolist()
-        config["refractory"] = self.refractory
+        config["refractory"] = self.refractory.tolist()
         config["tau_mem"] = self.tau_mem.tolist()
         config["num_cores"] = self.num_cores
         config["record"] = self.record
@@ -553,6 +558,9 @@ class FFIAFNest(Layer):
 
     @refractory.setter
     def refractory(self, new_refractory):
+        new_refractory = self._expand_to_net_size(
+            new_refractory, "refractory", allow_none=False
+        )
         self._refractory = new_refractory
         self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
 
@@ -1033,6 +1041,9 @@ class RecIAFSpkInNest(Layer):
         if type(v_rest) is list:
             v_rest = np.asarray(v_rest)
 
+        if type(refractory) is list:
+            refractory = np.asarray(refractory)
+
         # set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
             capacity = tau_mem * 1000.0
@@ -1094,7 +1105,9 @@ class RecIAFSpkInNest(Layer):
         )
         self._weights_in = weights_in
         self._weights_rec = weights_rec
-        self._refractory = refractory
+        self._refractory = self._expand_to_net_size(
+            refractory, "refractory", allow_none=False
+        )
         self._delay_in = self._expand_to_shape(
             delay_in, (self.size_in, self.size), "delay_in", allow_none=False
         )
@@ -1223,7 +1236,7 @@ class RecIAFSpkInNest(Layer):
         config["v_reset"] = self.v_reset.tolist()
         config["v_rest"] = self.v_rest.tolist()
         config["capacity"] = self.capacity.tolist()
-        config["refractory"] = self.refractory
+        config["refractory"] = self.refractory.tolist()
         config["num_cores"] = self.num_cores
         config["tau_mem"] = self.tau_mem.tolist()
         config["tau_syn_exc"] = self.tau_syn_exc.tolist()
@@ -1270,6 +1283,9 @@ class RecIAFSpkInNest(Layer):
 
     @refractory.setter
     def refractory(self, new_refractory):
+        new_refractory = self._expand_to_net_size(
+            new_refractory, "refractory", allow_none=False
+        )
         self._refractory = new_refractory
         self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
 
