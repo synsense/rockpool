@@ -104,7 +104,8 @@ def rndm_ei_net(
     num_exc: int,
     num_inh: int,
     ratio_inh_exc: float = 1,
-    rndm_weight_fct: Callable[[int], float] = lambda n: np.random.randn(n, n) / np.sqrt(n),
+    rndm_weight_fct: Callable[[int], float] = lambda n: np.random.randn(n, n)
+    / np.sqrt(n),
 ) -> np.ndarray:
     """
     rndm_ei_net - Generate a random nicely-tuned real-valued reservoir matrix
@@ -142,7 +143,8 @@ def wilson_cowan_net(
     self_inh: float = 1,
     exc_sigma: float = 1,
     inh_sigma: float = 1,
-    rndm_weight_fct: Callable[[int], float] = lambda n: np.random.randn(n, n) / np.sqrt(n),
+    rndm_weight_fct: Callable[[int], float] = lambda n: np.random.randn(n, n)
+    / np.sqrt(n),
 ) -> (np.ndarray, np.ndarray):
     """
     wilson_cowan_net - FUNCTION Define a Wilson-Cowan network of oscillators
@@ -275,14 +277,17 @@ def DiscretiseWeightMatrix(
     if max_num_outputs is not None:
         mfWE = np.array(
             [
-                row * np.array(np.argsort(-row) < np.round(max_num_outputs / 2), "float")
+                row
+                * np.array(np.argsort(-row) < np.round(max_num_outputs / 2), "float")
                 for row in mfWE.T
             ]
         ).T
         mfWI = np.array(
             [
                 row
-                * np.array(np.argsort(-abs(row)) < np.round(max_num_outputs / 2), "float")
+                * np.array(
+                    np.argsort(-abs(row)) < np.round(max_num_outputs / 2), "float"
+                )
                 for row in mfWI.T
             ]
         ).T
@@ -297,7 +302,9 @@ def DiscretiseWeightMatrix(
         mfWI = np.array(
             [
                 row
-                * np.array(np.argsort(-abs(row)) < np.round(max_num_inputs / 2), "float")
+                * np.array(
+                    np.argsort(-abs(row)) < np.round(max_num_inputs / 2), "float"
+                )
                 for row in mfWI
             ]
         )
@@ -360,9 +367,7 @@ def two_dim_exc_res(
         grid_dim = (nGridLength, nGridLength)
     else:
         # - Make sure grid is large enough
-        assert (
-            grid_dim[0] * grid_dim[1] >= size
-        ), "Grid dimensions are too small."
+        assert grid_dim[0] * grid_dim[1] >= size, "Grid dimensions are too small."
         # - Make sure grid dimensions are integers
         assert isinstance(grid_dim[0], int) and isinstance(
             grid_dim[1], int
@@ -411,9 +416,14 @@ def two_dim_exc_res(
 
 
 def add_random_long_range(
-    weights_res, num_long_range, avoid_existing: bool = False, multiple_conn: bool = True
+    weights_res,
+    num_long_range,
+    avoid_existing: bool = False,
+    multiple_conn: bool = True,
 ):
-    assert weights_res.shape[0] == weights_res.shape[1], "weights_res must be a square matrix"
+    assert (
+        weights_res.shape[0] == weights_res.shape[1]
+    ), "weights_res must be a square matrix"
 
     for iPost in range(weights_res.shape[0]):
         if avoid_existing:
@@ -434,17 +444,18 @@ def partitioned_2d_reservoir(
     size_in: int = 64,
     size_rec: int = 256,
     size_inhib: int = 64,
+    max_fanin: int = 64,
     num_inp_to_rec: int = 16,
-    num_rec_short: int = 24,
-    num_rec_long: int = 8,
     num_rec_to_inhib: int = 64,
     num_inhib_to_rec: int = 16,
-    max_fanin: int = 64,
+    num_rec_short: int = 24,
+    num_rec_long: int = 8,
     width_neighbour: Union[float, Tuple[float, float]] = (16.0, 16.0),
 ):
     if max_fanin is not None:
         assert (
-            num_inp_to_rec + num_rec_short + num_rec_long + num_inhib_to_rec <= max_fanin
+            num_inp_to_rec + num_rec_short + num_rec_long + num_inhib_to_rec
+            <= max_fanin
         ) and num_inhib_to_rec <= max_fanin, (
             "Maximum number of presynaptic connections per neuron exceeded."
         )
@@ -538,9 +549,7 @@ def dynapse_conform(
         if len(shape) == 1:
             shape = (shape[0], shape[0])
     except TypeError:
-        assert isinstance(
-            shape, int
-        ), "shape must be integer or array-like of size 2."
+        assert isinstance(shape, int), "shape must be integer or array-like of size 2."
         shape = (shape, shape)
 
     # - Matrix for holding weihgts
@@ -552,7 +561,9 @@ def dynapse_conform(
     #     mfW_reconstr = np.zeros(shape)
     #     for fWeight, miAssignments in dmnCount:
     #         mfW_reconstr += fWeight * miAssignments
-    dmnCount = {weight: np.zeros_like(weights, int) for weight in (*weights_exc, *weights_inh)}
+    dmnCount = {
+        weight: np.zeros_like(weights, int) for weight in (*weights_exc, *weights_inh)
+    }
 
     # - Input synapses per neuron
     if connectivity is not None:
@@ -895,9 +906,7 @@ def digital(
         if len(shape) == 1:
             shape = (shape[0], shape[0])
     except TypeError:
-        assert isinstance(
-            shape, int
-        ), "shape must be integer or array-like of size 2."
+        assert isinstance(shape, int), "shape must be integer or array-like of size 2."
         shape = (shape, shape)
 
     # - Matrix for holding weights
@@ -1094,9 +1103,7 @@ def iaf_sparse_net(
     """
 
     # - Check inputs
-    assert (density >= 0.0) and (
-        density <= 1.0
-    ), "`density` must be between 0 and 1."
+    assert (density >= 0.0) and (density <= 1.0), "`density` must be between 0 and 1."
 
     # - Set default values
     if mean is None:
