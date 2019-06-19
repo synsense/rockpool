@@ -487,6 +487,11 @@ class FFIAFNest(Layer):
     def refractory(self):
         return self._refractory
 
+    @refractory.setter
+    def refractory(self, new_refractory):
+        self._refractory = new_refractory
+        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
+
     @property
     def state(self):
         self.request_q.put([COMMAND_GET, "V_m"])
@@ -495,7 +500,6 @@ class FFIAFNest(Layer):
 
     @state.setter
     def state(self, new_state):
-
         self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
 
     @property
@@ -504,7 +508,7 @@ class FFIAFNest(Layer):
 
     @tau_mem.setter
     def tau_mem(self, new_tau_mem):
-
+        self._tau_mem = new_tau_mem
         self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
 
     @property
@@ -513,7 +517,7 @@ class FFIAFNest(Layer):
 
     @bias.setter
     def bias(self, new_bias):
-
+        self._bias = new_bias
         self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
 
     @property
@@ -522,7 +526,7 @@ class FFIAFNest(Layer):
 
     @v_thresh.setter
     def v_thresh(self, new_v_thresh):
-
+        self._v_thresh = new_v_thresh
         self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
 
     @property
@@ -531,7 +535,7 @@ class FFIAFNest(Layer):
 
     @v_reset.setter
     def v_reset(self, new_v_reset):
-
+        self._v_reset = new_v_reset
         self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
 
     @property
@@ -540,7 +544,7 @@ class FFIAFNest(Layer):
 
     @v_rest.setter
     def v_rest(self, new_v_rest):
-
+        self._v_rest = new_v_rest
         self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
 
     @property
@@ -556,33 +560,33 @@ class FFIAFNest(Layer):
         config = {}
         config["name"] = self.name
         config["weights_in"] = self.weights.tolist()
-        config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
+        config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
         config["v_thresh"] = (
-            self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
+            self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
         )
         config["v_reset"] = (
-            self.v_reset if type(self.v_reset) is float else self.v_reset.tolist()
+            self.v_reset if np.isscalar(self.v_reset) else self.v_reset.tolist()
         )
         config["v_rest"] = (
-            self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
+            self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
         )
         config["capacity"] = (
             self._vfCapacity
-            if type(self._vfCapacity) is float
+            if np.isscalar(self._vfCapacity)
             else self._vfCapacity.tolist()
         )
         config["refractory"] = (
             self.refractory
-            if type(self.refractory) is float
+            if np.isscalar(self.refractory)
             else self.refractory.tolist()
         )
         config["tau_mem"] = (
-            self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
+            self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
         )
         config["num_cores"] = self.num_cores
         config["record"] = self.record
         config["bias"] = (
-            self.bias if type(self.bias) is float else self.bias.tolist()
+            self.bias if np.isscalar(self.bias) else self.bias.tolist()
         )
         config["class_name"] = "FFIAFNest"
 
@@ -1206,6 +1210,11 @@ class RecIAFSpkInNest(Layer):
     def refractory(self):
         return self._refractory
 
+    @refractory.setter
+    def refractory(self, new_refractory):
+        self._refractory = new_refractory
+        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
+
     @property
     def state(self):
         time.sleep(0.1)
@@ -1223,6 +1232,7 @@ class RecIAFSpkInNest(Layer):
 
     @delay_in.setter
     def delay_in(self, new_delay_in):
+        self._delay_in = new_delay_in
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
 
     @property
@@ -1231,6 +1241,7 @@ class RecIAFSpkInNest(Layer):
 
     @delay_rec.setter
     def delay_rec(self, new_delay_rec):
+        self._delay_rec = new_delay_rec
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
 
     @property
@@ -1239,6 +1250,7 @@ class RecIAFSpkInNest(Layer):
 
     @tau_mem.setter
     def tau_mem(self, new_tau_mem):
+        self._tau_mem = new_tau_mem
         self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
 
     @property
@@ -1278,6 +1290,7 @@ class RecIAFSpkInNest(Layer):
 
     @bias.setter
     def bias(self, new_bias):
+        self._bias = new_bias
         self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
 
     @property
@@ -1286,6 +1299,7 @@ class RecIAFSpkInNest(Layer):
 
     @v_thresh.setter
     def v_thresh(self, new_v_thresh):
+        self._v_thresh = new_v_thresh
         self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
 
     @property
@@ -1294,6 +1308,7 @@ class RecIAFSpkInNest(Layer):
 
     @v_reset.setter
     def v_reset(self, new_v_reset):
+        self._v_reset = new_v_reset
         self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
 
     @property
@@ -1302,6 +1317,7 @@ class RecIAFSpkInNest(Layer):
 
     @v_rest.setter
     def v_rest(self, new_v_rest):
+        self._v_rest = new_v_rest
         self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
 
     @property
@@ -1320,45 +1336,45 @@ class RecIAFSpkInNest(Layer):
         config["weights_rec"] = self._weights_rec.tolist()
 
         config["delay_in"] = (
-            self._delay_in if type(self._delay_in) is float else self._delay_in.tolist()
+            self._delay_in if np.isscalar(self._delay_in) else self._delay_in.tolist()
         )
 
         config["delay_rec"] = (
-            self._delay_rec if type(self._delay_rec) is float else self._delay_rec.tolist()
+            self._delay_rec if np.isscalar(self._delay_rec) else self._delay_rec.tolist()
         )
 
         config["bias"] = (
-            self.bias if type(self.bias) is float else self.bias.tolist()
+            self.bias if np.isscalar(self.bias) else self.bias.tolist()
         )
-        config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
+        config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
         config["v_thresh"] = (
-            self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
+            self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
         )
         config["v_reset"] = (
-            self.v_reset if type(self.v_reset) is float else self.v_reset.tolist()
+            self.v_reset if np.isscalar(self.v_reset) else self.v_reset.tolist()
         )
         config["v_rest"] = (
-            self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
+            self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
         )
         config["capacity"] = (
             self.capacity
-            if type(self.capacity) is float
+            if np.isscalar(self.capacity)
             else self.capacity.tolist()
         )
         config["refractory"] = (
             self.refractory
-            if type(self.refractory) is float
+            if np.isscalar(self.refractory)
             else self.refractory.tolist()
         )
         config["num_cores"] = self.num_cores
         config["tau_mem"] = (
-            self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
+            self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
         )
         config["tau_syn_exc"] = (
-            self.tau_syn_exc if type(self.tau_syn_exc) is float else self.tau_syn_exc.tolist()
+            self.tau_syn_exc if np.isscalar(self.tau_syn_exc) else self.tau_syn_exc.tolist()
         )
         config["tau_syn_inh"] = (
-            self.tau_syn_inh if type(self.tau_syn_inh) is float else self.tau_syn_inh.tolist()
+            self.tau_syn_inh if np.isscalar(self.tau_syn_inh) else self.tau_syn_inh.tolist()
         )
         config["record"] = self.record
         config["class_name"] = "RecIAFSpkInNest"

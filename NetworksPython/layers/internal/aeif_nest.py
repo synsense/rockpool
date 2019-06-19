@@ -820,54 +820,54 @@ class RecAEIFSpkInNest(Layer):
         config["weights_in"] = self.weights_in.tolist()
         config["weights_rec"] = self.weights_rec.tolist()
         config["bias"] = (
-            self.bias if type(self.bias) is float else self.bias.tolist()
+            self.bias if np.isscalar(self.bias) else self.bias.tolist()
         )
-        config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
+        config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
         config["v_thresh"] = (
-            self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
+            self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
         )
         config["v_reset"] = (
-            self.v_reset if type(self.v_reset) is float else self.v_reset.tolist()
+            self.v_reset if np.isscalar(self.v_reset) else self.v_reset.tolist()
         )
         config["v_rest"] = (
-            self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
+            self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
         )
         config["capacity"] = (
             self.capacity
-            if type(self.capacity) is float
+            if np.isscalar(self.capacity)
             else self.capacity.tolist()
         )
         config["refractory"] = (
             self.refractory
-            if type(self.refractory) is float
+            if np.isscalar(self.refractory)
             else self.refractory.tolist()
         )
         config["num_cores"] = self.num_cores
         config["tau_mem"] = (
-            self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
+            self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
         )
         config["tau_syn_exc"] = (
-            self.tau_syn_exc if type(self.tau_syn_exc) is float else self.tau_syn_exc.tolist()
+            self.tau_syn_exc if np.isscalar(self.tau_syn_exc) else self.tau_syn_exc.tolist()
         )
         config["tau_syn_inh"] = (
-            self.tau_syn_inh if type(self.tau_syn_inh) is float else self.tau_syn_inh.tolist()
+            self.tau_syn_inh if np.isscalar(self.tau_syn_inh) else self.tau_syn_inh.tolist()
         )
         config["record"] = self.record
 
         config["a"] = (
-            self._a if type(self._a) is float else self._a.tolist()
+            self._a if np.isscalar(self._a) else self._a.tolist()
         )
 
         config["b"] = (
-            self._b if type(self._b) is float else self._b.tolist()
+            self._b if np.isscalar(self._b) else self._b.tolist()
         )
 
         config["delta_t"] = (
-            self._delta_t if type(self._delta_t) is float else self._delta_t.tolist()
+            self._delta_t if np.isscalar(self._delta_t) else self._delta_t.tolist()
         )
 
         config["tau_w"] = (
-            self._tau_w if type(self._tau_w) is float else self._tau_w.tolist()
+            self._tau_w if np.isscalar(self._tau_w) else self._tau_w.tolist()
         )
 
         config["class_name"] = "RecAEIFSpkInNest"
