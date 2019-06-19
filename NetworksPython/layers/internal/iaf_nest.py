@@ -263,11 +263,7 @@ class FFIAFNest(Layer):
                 event_channel_out -= np.min(self._pop)
 
                 if self.record:
-                    return [
-                        event_time_out,
-                        event_channel_out,
-                        mV2V(record_states),
-                    ]
+                    return [event_time_out, event_channel_out, mV2V(record_states)]
                 else:
                     return [event_time_out, event_channel_out, None]
 
@@ -376,7 +372,8 @@ class FFIAFNest(Layer):
             v_rest,
             refractory,
             record,
-            num_cores) as nest_process:
+            num_cores,
+        ) as nest_process:
             nest_process.start()
 
         # - Record neuron parameters
@@ -451,9 +448,7 @@ class FFIAFNest(Layer):
         self.request_q.put([COMMAND_EVOLVE, time_base, input_steps, num_timesteps])
 
         if self.record:
-            event_time_out, event_channel_out, self.record_states = (
-                self.result_q.get()
-            )
+            event_time_out, event_channel_out, self.record_states = self.result_q.get()
         else:
             event_time_out, event_channel_out, _ = self.result_q.get()
 
@@ -589,9 +584,7 @@ class FFIAFNest(Layer):
         )
         config["num_cores"] = self.num_cores
         config["record"] = self.record
-        config["bias"] = (
-            self.bias if np.isscalar(self.bias) else self.bias.tolist()
-        )
+        config["bias"] = self.bias if np.isscalar(self.bias) else self.bias.tolist()
         config["class_name"] = "FFIAFNest"
 
         return config
@@ -805,8 +798,9 @@ class RecIAFSpkInNest(Layer):
 
             if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
-                nest.Connect(pres, posts, "one_to_one", {'weight': weights, 'delay': delays})
-
+                nest.Connect(
+                    pres, posts, "one_to_one", {"weight": weights, "delay": delays}
+                )
 
             # - Create recurrent connections
             pres = []
@@ -828,7 +822,9 @@ class RecIAFSpkInNest(Layer):
 
             if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
-                nest.Connect(pres, posts, "one_to_one", {'weight': weights, 'delay': delays})
+                nest.Connect(
+                    pres, posts, "one_to_one", {"weight": weights, "delay": delays}
+                )
 
             if self.record:
                 # - Monitor for recording network potential
@@ -928,11 +924,7 @@ class RecIAFSpkInNest(Layer):
                 event_channel_out -= np.min(self._pop)
 
                 if self.record:
-                    return [
-                        event_time_out,
-                        event_channel_out,
-                        mV2V(record_states),
-                    ]
+                    return [event_time_out, event_channel_out, mV2V(record_states)]
                 else:
                     return [event_time_out, event_channel_out, None]
 
@@ -951,7 +943,6 @@ class RecIAFSpkInNest(Layer):
                 func = IPC_switcher.get(req[0])
 
                 result = func(*req[1:])
-
 
                 if not result is None:
                     self.result_q.put(result)
@@ -1080,7 +1071,8 @@ class RecIAFSpkInNest(Layer):
             v_rest,
             refractory,
             record,
-            num_cores) as nest_process:
+            num_cores,
+        ) as nest_process:
             nest_process.start()
 
         # - Record neuron parameters
@@ -1164,19 +1156,18 @@ class RecIAFSpkInNest(Layer):
             event_times, event_channels = ts_input(
                 time_base[0], time_base[-1] + self.dt
             )
+            # - Round event times to time base
+            event_timesteps = np.floor(event_times / self.dt)
+            event_times = event_timesteps * self.dt
 
         else:
             event_times = np.array([])
             event_channels = np.array([])
 
-        self.request_q.put(
-            [COMMAND_EVOLVE, event_times, event_channels, num_timesteps]
-        )
+        self.request_q.put([COMMAND_EVOLVE, event_times, event_channels, num_timesteps])
 
         if self.record:
-            event_time_out, event_channel_out, self.record_states = (
-                self.result_q.get()
-            )
+            event_time_out, event_channel_out, self.record_states = self.result_q.get()
         else:
             event_time_out, event_channel_out, _ = self.result_q.get()
 
@@ -1348,12 +1339,12 @@ class RecIAFSpkInNest(Layer):
         )
 
         config["delay_rec"] = (
-            self._delay_rec if np.isscalar(self._delay_rec) else self._delay_rec.tolist()
+            self._delay_rec
+            if np.isscalar(self._delay_rec)
+            else self._delay_rec.tolist()
         )
 
-        config["bias"] = (
-            self.bias if np.isscalar(self.bias) else self.bias.tolist()
-        )
+        config["bias"] = self.bias if np.isscalar(self.bias) else self.bias.tolist()
         config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
         config["v_thresh"] = (
             self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
@@ -1365,9 +1356,7 @@ class RecIAFSpkInNest(Layer):
             self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
         )
         config["capacity"] = (
-            self.capacity
-            if np.isscalar(self.capacity)
-            else self.capacity.tolist()
+            self.capacity if np.isscalar(self.capacity) else self.capacity.tolist()
         )
         config["refractory"] = (
             self.refractory
@@ -1379,10 +1368,14 @@ class RecIAFSpkInNest(Layer):
             self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
         )
         config["tau_syn_exc"] = (
-            self.tau_syn_exc if np.isscalar(self.tau_syn_exc) else self.tau_syn_exc.tolist()
+            self.tau_syn_exc
+            if np.isscalar(self.tau_syn_exc)
+            else self.tau_syn_exc.tolist()
         )
         config["tau_syn_inh"] = (
-            self.tau_syn_inh if np.isscalar(self.tau_syn_inh) else self.tau_syn_inh.tolist()
+            self.tau_syn_inh
+            if np.isscalar(self.tau_syn_inh)
+            else self.tau_syn_inh.tolist()
         )
         config["record"] = self.record
         config["class_name"] = "RecIAFSpkInNest"
@@ -1397,24 +1390,24 @@ class RecIAFSpkInNest(Layer):
     def load_from_dict(config):
 
         net_ = RecIAFSpkInNest(
-                   weights_in=config["weights_in"],
-                   weights_rec=config["weights_rec"],
-                   delay_in=config["delay_in"],
-                   delay_rec=config["delay_rec"],
-                   bias=config["bias"],
-                   dt=config["dt"],
-                   tau_mem=config["tau_mem"],
-                   tau_syn_exc=config["tau_syn_exc"],
-                   tau_syn_inh=config["tau_syn_inh"],
-                   capacity=config["capacity"],
-                   v_thresh=config["v_thresh"],
-                   v_reset=config["v_reset"],
-                   v_rest=config["v_rest"],
-                   refractory=config["refractory"],
-                   name=config["name"],
-                   record=config["record"],
-                   num_cores=config["num_cores"],
-                   )
+            weights_in=config["weights_in"],
+            weights_rec=config["weights_rec"],
+            delay_in=config["delay_in"],
+            delay_rec=config["delay_rec"],
+            bias=config["bias"],
+            dt=config["dt"],
+            tau_mem=config["tau_mem"],
+            tau_syn_exc=config["tau_syn_exc"],
+            tau_syn_inh=config["tau_syn_inh"],
+            capacity=config["capacity"],
+            v_thresh=config["v_thresh"],
+            v_reset=config["v_reset"],
+            v_rest=config["v_rest"],
+            refractory=config["refractory"],
+            name=config["name"],
+            record=config["record"],
+            num_cores=config["num_cores"],
+        )
         net_.reset_all()
         return net_
 
