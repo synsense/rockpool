@@ -74,11 +74,8 @@ class FFExpSynTorch(FFExpSyn):
             self.tensors = torch.cuda
         else:
             self.device = torch.device("cpu")
-            print(
-                "Layer `{}`: Using CPU because CUDA is not available.".format(name)
-            )
+            print("Layer `{}`: Using CPU because CUDA is not available.".format(name))
             self.tensors = torch
-
 
         # - Bypass property setter to avoid unnecessary convolution kernel update
         assert (
@@ -160,9 +157,7 @@ class FFExpSynTorch(FFExpSyn):
 
         # - Output time series with output data and bias
         return TSContinuous(
-            time_base,
-            (output + self._bias.cpu()).numpy(),
-            name="Filtered spikes",
+            time_base, (output + self._bias.cpu()).numpy(), name="Filtered spikes"
         )
 
     # @profile
@@ -230,9 +225,8 @@ class FFExpSynTorch(FFExpSyn):
         is_last: bool = False,
         store_states: bool = True,
         train_biases: bool = True,
-        calc_intermediate_results: bool = False
+        calc_intermediate_results: bool = False,
     ):
-
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
@@ -320,9 +314,7 @@ class FFExpSynTorch(FFExpSyn):
             except ValueError as e:
                 # - No events in input data
                 if event_channels.size == 0:
-                    print(
-                        "Layer `{}`: No input spikes for training.".format(self.name)
-                    )
+                    print("Layer `{}`: No input spikes for training.".format(self.name))
                 else:
                     raise e
 
@@ -362,10 +354,9 @@ class FFExpSynTorch(FFExpSyn):
                 else:
                     inp[:, :] = (
                         self.conv_synapses_training(spike_raster)[0]
-                            .detach()
-                            .t()[: time_base.size]
+                        .detach()
+                        .t()[: time_base.size]
                     )
-
 
         with torch.no_grad():
             # - For first batch, initialize summands
@@ -421,9 +412,7 @@ class FFExpSynTorch(FFExpSyn):
                         self.device
                     )
                 else:
-                    a = self._xtx + regularize * torch.eye(self.size_in).to(
-                        self.device
-                    )
+                    a = self._xtx + regularize * torch.eye(self.size_in).to(self.device)
 
                 solution = torch.mm(a.inverse(), self._xty).cpu().numpy()
                 if train_biases:
@@ -450,7 +439,6 @@ class FFExpSynTorch(FFExpSyn):
         store_states: bool = True,
         verbose: bool = False,
     ):
-
         """
         train_logreg - Train self with logistic regression over one of possibly many batches.
                        Note that this training method assumes that a sigmoid funciton is applied
@@ -543,9 +531,7 @@ class FFExpSynTorch(FFExpSyn):
             except ValueError as e:
                 # - No events in input data
                 if event_channels.size == 0:
-                    print(
-                        "Layer `{}`: No input spikes for training.".format(self.name)
-                    )
+                    print("Layer `{}`: No input spikes for training.".format(self.name))
                 else:
                     raise e
 
@@ -568,15 +554,11 @@ class FFExpSynTorch(FFExpSyn):
                     pass
 
             # - Define exponential kernel
-            kernel = np.exp(
-                -(np.arange(time_base.size - 1) * self.dt) / self.tau_syn
-            )
+            kernel = np.exp(-(np.arange(time_base.size - 1) * self.dt) / self.tau_syn)
 
             # - Apply kernel to spike trains and add filtered trains to input array
             for channel, events in enumerate(spike_raster.T):
-                inp[:, channel] = fftconvolve(events, kernel, "full")[
-                    : time_base.size
-                ]
+                inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
 
         # - Move data to cuda
         ct_target = torch.from_numpy(target).float().to("cuda")
@@ -662,7 +644,9 @@ class FFExpSynTorch(FFExpSyn):
             -times / self.tensors.FloatTensor(self.size, 1).fill_(self._tau_syn)
         )
         # - Reverse on time axis and reshape to match convention of pytorch
-        matr_input_kernels = matr_input_kernels.flip(1).reshape(self.size, 1, kernel_size)
+        matr_input_kernels = matr_input_kernels.flip(1).reshape(
+            self.size, 1, kernel_size
+        )
         # - Object for applying convolution
         self.conv_synapses = torch.nn.Conv1d(
             self.size,
@@ -764,10 +748,14 @@ class FFExpSynTorch(FFExpSyn):
 
         config = {}
         config["weights"] = self.weights.tolist()
-        config["bias"] = self._bias if type(self._bias) is float else self._bias.tolist()
+        config["bias"] = (
+            self._bias if type(self._bias) is float else self._bias.tolist()
+        )
         config["dt"] = self.dt
         config["noise_std"] = self.noise_std
-        config["tau_syn"] = self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        config["tau_syn"] = (
+            self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        )
         config["name"] = self.name
         config["add_events"] = self.add_events
         config["max_num_timesteps"] = self.max_num_timesteps
@@ -782,12 +770,12 @@ class FFExpSynTorch(FFExpSyn):
     @staticmethod
     def load_from_dict(config):
         return FFExpSynTorch(
-            weights = config["weights"],
-            bias = config["bias"],
-            dt = config["dt"],
-            noise_std = config["noise_std"],
-            tau_syn = config["tau_syn"],
-            name = config["name"],
-            add_events = config["add_events"],
-            max_num_timesteps = config["max_num_timesteps"],
+            weights=config["weights"],
+            bias=config["bias"],
+            dt=config["dt"],
+            noise_std=config["noise_std"],
+            tau_syn=config["tau_syn"],
+            name=config["name"],
+            add_events=config["add_events"],
+            max_num_timesteps=config["max_num_timesteps"],
         )
