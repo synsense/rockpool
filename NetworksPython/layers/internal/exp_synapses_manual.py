@@ -38,8 +38,8 @@ class FFExpSyn(Layer):
     ## - Constructor
     def __init__(
         self,
-        weights: Union[np.ndarray, int] = None,
-        bias: np.ndarray = 0,
+        weights: Union[np.ndarray, int],
+        bias: Union[np.ndarray, float] = 0,
         dt: float = 0.0001,
         noise_std: float = 0,
         tau_syn: float = 0.005,
@@ -215,9 +215,7 @@ class FFExpSyn(Layer):
         self._state_no_bias = filtered[-1]
 
         # - Output time series with output data and bias
-        return TSContinuous(
-            time_base, filtered + self.bias, name="Receiver current"
-        )
+        return TSContinuous(time_base, filtered + self.bias, name="Receiver current")
 
     def evolve_train(
         self,
@@ -263,9 +261,7 @@ class FFExpSyn(Layer):
 
         # - Apply kernel to spike trains and add filtered trains to input array
         for channel, events in enumerate(inp_raster.T):
-            inp[:, channel] = fftconvolve(events, kernel, "full")[
-                : time_base.size
-            ]
+            inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
 
         # - Evolution:
         weighted = inp[:, :-1] @ self.weights
@@ -305,9 +301,7 @@ class FFExpSyn(Layer):
 
         xtx = inp.T @ inp
         xty = inp.T @ target
-        new_weights = np.linalg.solve(
-            xtx + regularize * np.eye(inp.shape[1]), xty
-        )
+        new_weights = np.linalg.solve(xtx + regularize * np.eye(inp.shape[1]), xty)
         print(np.linalg.norm(target - out))
         self.weights = (self.weights + learning_rate * new_weights[:-1]) / (
             1.0 + learning_rate
@@ -411,9 +405,7 @@ class FFExpSyn(Layer):
             except ValueError as e:
                 # - No events in input data
                 if event_channels.size == 0:
-                    print(
-                        "Layer `{}`: No input spikes for training.".format(self.name)
-                    )
+                    print("Layer `{}`: No input spikes for training.".format(self.name))
                 else:
                     raise e
 
@@ -436,17 +428,13 @@ class FFExpSyn(Layer):
                     pass
 
             # - Define exponential kernel
-            kernel = np.exp(
-                -(np.arange(time_base.size - 1) * self.dt) / self.tau_syn
-            )
+            kernel = np.exp(-(np.arange(time_base.size - 1) * self.dt) / self.tau_syn)
             # - Make sure spikes only have effect on next time step
             kernel = np.r_[0, kernel]
 
             # - Apply kernel to spike trains and add filtered trains to input array
             for channel, events in enumerate(spike_raster.T):
-                inp[:, channel] = fftconvolve(events, kernel, "full")[
-                    : time_base.size
-                ]
+                inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
 
         # - For first batch, initialize summands
         if is_first:
@@ -590,9 +578,7 @@ class FFExpSyn(Layer):
             except ValueError as e:
                 # - No events in input data
                 if event_channels.size == 0:
-                    print(
-                        "Layer `{}`: No input spikes for training.".format(self.name)
-                    )
+                    print("Layer `{}`: No input spikes for training.".format(self.name))
                 else:
                     raise e
 
@@ -615,15 +601,11 @@ class FFExpSyn(Layer):
                     pass
 
             # - Define exponential kernel
-            kernel = np.exp(
-                -(np.arange(time_base.size - 1) * self.dt) / self.tau_syn
-            )
+            kernel = np.exp(-(np.arange(time_base.size - 1) * self.dt) / self.tau_syn)
 
             # - Apply kernel to spike trains and add filtered trains to input array
             for channel, events in enumerate(spike_raster.T):
-                inp[:, channel] = fftconvolve(events, kernel, "full")[
-                    : time_base.size
-                ]
+                inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
 
         # - Prepare batches for training
         if batch_size is None:
@@ -679,6 +661,21 @@ class FFExpSyn(Layer):
             gradients[:-1, :] += regularize / float(self.size_in) * self.weights
 
         return gradients
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        # - Basic layer attributes from super class
+        config = super().to_dict()
+        # - add class-specific attributes
+        config["bias"] = self.bias if type(self._bias) is float else self._bias.tolist()
+        config["tau_syn"] = (
+            self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        )
+        config["name"] = self.name
+        config["add_events"] = self.add_events
 
     ### --- Properties
 
