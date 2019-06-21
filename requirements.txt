@@ -12,3 +12,4 @@ scipy
 setuptools
 torchvision
 tqdm
+jax
