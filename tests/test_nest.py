@@ -18,7 +18,8 @@ def test_chargeSingleNeuron():
     from NetworksPython.layers import FFIAFNest
 
     weights = [[1.0]]
-    bias = [0.375]
+    epsilon = 1e-5
+    bias = [0.375 - epsilon]
     tau_mem = [0.01]
     vReset = -0.07
     vRest = -0.07
