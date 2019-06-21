@@ -198,7 +198,7 @@ class RecRateEulerJax(Layer):
         activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key: Optional[Any] = None,
+        rng_key: Optional[int] = None,
     ):
         """
         RecRateEulerJax - `jax`-backed firing rate reservoir
@@ -472,7 +472,7 @@ class ForceRateEulerJax(RecRateEulerJax):
         activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key=None,
+        rng_key: Optional[int] = None,
     ):
         """
         ForceRateEulerJax - `jax`-backed firing rate reservoir, used for reservoir transfer
