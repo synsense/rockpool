@@ -326,36 +326,27 @@ class FFIAFNest(Layer):
         :param record:         bool Record membrane potential during evolutions
         """
 
-        if type(weights) is list:
-            weights = np.asarray(weights)
+        # - Call super constructor
+        super().__init__(weights=weights, dt=dt, name=name)
 
-        if type(bias) is list:
-            bias = np.asarray(bias)
-
-        if type(tau_mem) is list:
-            tau_mem = np.asarray(tau_mem)
-
-        if type(capacity) is list:
-            capacity = np.asarray(capacity)
-
-        if type(v_thresh) is list:
-            v_thresh = np.asarray(v_thresh)
-
-        if type(v_reset) is list:
-            v_reset = np.asarray(v_reset)
-
-        if type(v_rest) is list:
-            v_rest = np.asarray(v_rest)
-
-        if type(refractory) is list:
-            refractory = np.asarray(refractory)
+        # - Convert parameters to arrays before passing to nest process
+        v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
+        v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        refractory = self._expand_to_net_size(
+            refractory, "refractory", allow_none=False
+        )
+        # Set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.0
+        else:
+            capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
 
         # set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
             capacity = tau_mem * 1000.0
-
-        # - Call super constructor (`asarray` is used to strip units)
-        super().__init__(weights=np.asarray(weights), dt=dt, name=name)
 
         self.num_cores = num_cores
 
@@ -365,7 +356,7 @@ class FFIAFNest(Layer):
         with self.NestProcess(
             self.request_q,
             self.result_q,
-            weights,
+            self._weights,
             bias,
             dt,
             tau_mem,
@@ -380,20 +371,13 @@ class FFIAFNest(Layer):
             nest_process.start()
 
         # - Record neuron parameters
-        self._v_thresh = self._expand_to_net_size(
-            v_thresh, "v_thresh", allow_none=False
-        )
-        self._v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
-        self._v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
-        self._tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
-        self._bias = self._expand_to_net_size(bias, "bias", allow_none=False)
-        self._vfCapacity = self._expand_to_net_size(
-            capacity, "capacity", allow_none=False
-        )
-        self.weights = weights
-        self._refractory = self._expand_to_net_size(
-            refractory, "refractory", allow_none=False
-        )
+        self._v_thresh = v_thresh
+        self._v_reset = v_reset
+        self._v_rest = v_rest
+        self._tau_mem = tau_mem
+        self._bias = bias
+        self._capacity = capacity
+        self._refractory = refractory
         self.record = record
 
     def reset_state(self):
@@ -566,7 +550,7 @@ class FFIAFNest(Layer):
 
     @property
     def capacity(self):
-        return self._vfCapacity
+        return self._capacity
 
     @property
     def state(self):
@@ -1002,61 +986,44 @@ class RecIAFSpkInNest(Layer):
 
         :param record:         bool Record membrane potential during evolutions
         """
-        if type(weights_in) is list:
-            weights_in = np.asarray(weights_in)
-
-        if type(weights_rec) is list:
-            weights_rec = np.asarray(weights_rec)
-
-        if type(delay_in) is list:
-            delay_in = np.asarray(delay_in)
-
-        if type(delay_rec) is list:
-            delay_rec = np.asarray(delay_rec)
-
-        if type(bias) is list:
-            bias = np.asarray(bias)
-
-        if type(tau_mem) is list:
-            tau_mem = np.asarray(tau_mem)
-
-        if type(tau_syn) is list:
-            tau_syn = np.asarray(tau_syn)
-
-        if type(tau_syn_exc) is list:
-            tau_syn_exc = np.asarray(tau_syn_exc)
-
-        if type(tau_syn_inh) is list:
-            tau_syn_inh = np.asarray(tau_syn_inh)
-
-        if type(capacity) is list:
-            capacity = np.asarray(capacity)
-
-        if type(v_thresh) is list:
-            v_thresh = np.asarray(v_thresh)
-
-        if type(v_reset) is list:
-            v_reset = np.asarray(v_reset)
-
-        if type(v_rest) is list:
-            v_rest = np.asarray(v_rest)
-
-        if type(refractory) is list:
-            refractory = np.asarray(refractory)
-
-        # set capacity to the membrane time constant to be consistent with other layers
-        if capacity is None:
-            capacity = tau_mem * 1000.0
 
         # - Call super constructor (`asarray` is used to strip units)
+        super().__init__(weights=weights_in, dt=dt, name=name)
 
         if tau_syn_exc is None:
             tau_syn_exc = tau_syn
         if tau_syn_inh is None:
             tau_syn_inh = tau_syn
 
-        # TODO this does not make much sense (weights <- weights_in)
-        super().__init__(weights=np.asarray(weights_in), dt=dt, name=name)
+        # - Convert parameters to arrays before passing to nest process
+        weights_rec = self._expand_to_shape(
+            weights_rec, (self.size, self.size), "weights_rec", allow_none=False
+        )
+        v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
+        v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        refractory = self._expand_to_net_size(
+            refractory, "refractory", allow_none=False
+        )
+        tau_syn_exc = self._expand_to_net_size(
+            tau_syn_exc, "tau_syn_exc", allow_none=False
+        )
+        tau_syn_inh = self._expand_to_net_size(
+            tau_syn_inh, "tau_syn_inh", allow_none=False
+        )
+        delay_in = self._expand_to_shape(
+            delay_in, (self.size_in, self.size), "delay_in", allow_none=False
+        )
+        delay_rec = self._expand_to_shape(
+            delay_rec, (self.size, self.size), "delay_rec", allow_none=False
+        )
+        # Set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.0
+        else:
+            capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
 
         self.num_cores = num_cores
 
@@ -1066,7 +1033,7 @@ class RecIAFSpkInNest(Layer):
         with self.NestProcess(
             self.request_q,
             self.result_q,
-            weights_in,
+            self.weights,
             weights_rec,
             delay_in,
             delay_rec,
@@ -1086,34 +1053,19 @@ class RecIAFSpkInNest(Layer):
             nest_process.start()
 
         # - Record neuron parameters
-        self._v_thresh = self._expand_to_net_size(
-            v_thresh, "v_thresh", allow_none=False
-        )
-        print(self._v_thresh)
-        self._v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
-        self._v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
-        self._tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
-        self._tau_syn_exc = self._expand_to_net_size(
-            tau_syn_exc, "tau_syn_exc", allow_none=False
-        )
-        self._tau_syn_inh = self._expand_to_net_size(
-            tau_syn_inh, "tau_syn_inh", allow_none=False
-        )
-        self._bias = self._expand_to_net_size(bias, "bias", allow_none=False)
-        self._capacity = self._expand_to_net_size(
-            capacity, "capacity", allow_none=False
-        )
-        self._weights_in = weights_in
+        self._v_thresh = v_thresh
+        self._v_reset = v_reset
+        self._v_rest = v_rest
+        self._bias = bias
+        self._tau_mem = tau_mem
+        self._tau_syn_exc = tau_syn_exc
+        self._tau_syn_inh = tau_syn_inh
+        self._capacity = capacity
+        self._refractory = refractory
+        self._weights_in = self.weights
         self._weights_rec = weights_rec
-        self._refractory = self._expand_to_net_size(
-            refractory, "refractory", allow_none=False
-        )
-        self._delay_in = self._expand_to_shape(
-            delay_in, (self.size_in, self.size), "delay_in", allow_none=False
-        )
-        self._delay_rec = self._expand_to_shape(
-            delay_rec, (self.size, self.size), "delay_rec", allow_none=False
-        )
+        self._delay_in = delay_in
+        self._delay_rec = delay_rec
         self.record = record
 
     def reset_state(self):
