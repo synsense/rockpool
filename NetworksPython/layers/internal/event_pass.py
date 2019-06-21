@@ -100,6 +100,9 @@ class PassThroughEvents(Layer):
 
         return event_out
 
+    def to_dict(self):
+        return super().to_dict()
+
     @property
     def input_type(self):
         return TSEvent

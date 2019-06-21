@@ -18,7 +18,8 @@ def test_chargeSingleNeuron():
     from NetworksPython.layers import FFIAFNest
 
     weights = [[1.0]]
-    bias = [0.375]
+    epsilon = 1e-5
+    bias = [0.375 - epsilon]
     tau_mem = [0.01]
     vReset = -0.07
     vRest = -0.07
@@ -256,6 +257,7 @@ def test_FFToRecLayer():
 
     fl0.terminate()
 
+
 def test_randomizeStateRec():
     """ test Randomize State """
 
@@ -458,7 +460,7 @@ def test_DefaultParams():
     v_thresh = -0.055
     v_reset = -0.065
     v_rest = -0.065
-    capacity = 100.0
+    capacity = tau_mem * 1000.0
     refractory = 0.001
 
     fl0 = FFIAFNest(
@@ -509,15 +511,17 @@ def test_DefaultParams():
 
     tsInCont = ts.TSContinuous(vTime, vVal)
 
-    assert (fl0.state == fl2.state).all()
-    assert (fl1.state == fl3.state).all()
+    eps = 1e-6
+
+    assert (np.abs(fl0.state - fl2.state) < eps).all()
+    assert (np.abs(fl1.state - fl3.state) < eps).all()
 
     # - Compare states before and after
     dAct0 = net0.evolve(tsInCont, duration=1.0)
     dAct1 = net1.evolve(tsInCont, duration=1.0)
 
-    assert (fl0.state == fl2.state).all()
-    assert (fl1.state == fl3.state).all()
+    assert (np.abs(fl0.state - fl2.state) < eps).all()
+    assert (np.abs(fl1.state - fl3.state) < eps).all()
 
     fl0.terminate()
     fl1.terminate()
@@ -555,8 +559,7 @@ def test_timeconstants():
     )
 
     weights_in = [[0.001, -0.001]]
-    weights_rec = [[0, 0],
-                   [0, 0]]
+    weights_rec = [[0, 0], [0, 0]]
     vfBiasRec = 0.0
     vtTauNRec = [0.2, 0.2]
     tau_syn_exc_rec = [0.1, 0.1]
@@ -593,10 +596,11 @@ def test_timeconstants():
     inh_input = np.abs(fl1.record_states[1, :] - vRest)
 
     # excitatory input peak should be later than inhibitory as the synaptic TC is longer
-    assert(np.argmax(exc_input) > np.argmax(inh_input))
+    assert np.argmax(exc_input) > np.argmax(inh_input)
 
     fl0.terminate()
     fl1.terminate()
+
 
 def test_delays():
     """ test delays """
@@ -639,15 +643,17 @@ def test_delays():
         [0.0, 0.0, 0.015, 0.015],
         [0.0, 0.0, 0.0, 0.0],
         [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0014],
     ]
     delay_in = [
         [0.001, 0.011, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
+        [0.001, 0.001, 0.001, 0.001],
     ]
     delay_rec = [
         [0.001, 0.001, 0.001, 0.011],
+        [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
         [0.001, 0.001, 0.001, 0.001],
     ]
@@ -665,6 +671,7 @@ def test_delays():
         dt=0.001,
         bias=vfBiasRec,
         tau_mem=vtTauNRec,
+        capacity=100.0,
         tau_syn_exc=tau_syn_exc_rec,
         tau_syn_inh=tau_syn_inh_rec,
         refractory=0.001,
@@ -691,6 +698,7 @@ def test_delays():
 
     fl0.terminate()
     fl1.terminate()
+
 
 def test_IAF2AEIFNest():
     """ Test RecIAFNest to RecAEIFNest """
@@ -764,6 +772,7 @@ def test_IAF2AEIFNest():
     fl0.terminate()
     fl1.terminate()
 
+
 def test_SaveLoad():
     """ Test save and load RecAEIFNest """
     from NetworksPython.layers import RecIAFSpkInNest
@@ -794,12 +803,12 @@ def test_SaveLoad():
         v_thresh=vThresh,
         v_reset=vRest,
         v_rest=vRest,
-        a=0.,
-        b=1.,
-        delta_t=0.,
+        a=0.0,
+        b=1.0,
+        delta_t=0.0,
         refractory=0.001,
         record=True,
-        name = 'lyrNest',
+        name="lyrNest",
     )
 
     net0 = nw.Network(fl0)

@@ -140,8 +140,8 @@ class FFIAFBrian(Layer):
         v_thresh: Union[float, np.ndarray] = -55 * mV,
         v_reset: Union[float, np.ndarray] = -65 * mV,
         v_rest: Union[float, np.ndarray] = -65 * mV,
-        refractory=0 * ms,
-        neuron_eq=eqNeuronIAFFF,
+        refractory: float = 0 * ms,
+        neuron_eq: str = eqNeuronIAFFF,
         integrator_name: str = "rk4",
         name: str = "unnamed",
         record: bool = False,
@@ -232,7 +232,9 @@ class FFIAFBrian(Layer):
             Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
-        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.v = (
+            np.random.rand(self.size) * v_range + self.v_reset
+        ) * volt
 
     def reset_time(self):
         """
@@ -388,10 +390,7 @@ class FFIAFBrian(Layer):
             use_events = self._layer.t_ >= time_trace[step]
             if verbose:
                 print("Layer: Yielding {} spikes".format(np.sum(use_events)))
-            inp = (
-                yield self._layer.t_[use_events],
-                self._layer.i_[use_events],
-            )
+            inp = (yield self._layer.t_[use_events], self._layer.i_[use_events])
 
             # - Specify network input currents for this streaming step
             if inp is None:
@@ -413,6 +412,24 @@ class FFIAFBrian(Layer):
         # - Return final spikes, if any
         use_events = self._layer.t_ >= time_trace[-2]  # Should be duration - dt
         return self._layer.t_[use_events], self._layer.i_[use_events]
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["bias"] = self.bias.tolist()
+        config["tau_mem"] = self.tau_mem.tolist()
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["refractory"] = self.refractory
+        config["neuron_eq"] = self._neuron_group.equations
+        config["integrator_name"] = self._neuron_group.method
+        config["record"] = self.hasattr("state_monitor")
+
+        return config
 
     ### --- Properties
 
@@ -510,8 +527,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
         v_thresh: np.ndarray = -55 * mV,
         v_reset: np.ndarray = -65 * mV,
         v_rest: np.ndarray = -65 * mV,
-        refractory=0 * ms,
-        neuron_eq=eqNeuronIAFSpkInFF,
+        refractory: float = 0 * ms,
+        neuron_eq: str = eqNeuronIAFSpkInFF,
         integrator_name: str = "rk4",
         name: str = "unnamed",
         record: bool = False,
@@ -761,7 +778,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
             Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
-        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.v = (
+            np.random.rand(self.size) * v_range + self.v_reset
+        ) * volt
         self._neuron_group.I_syn = np.random.rand(self.size) * amp
 
     def pot_kernel(self, t):
@@ -770,7 +789,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
                          weight 1*amp (not considering v_rest)
         """
         t = t.reshape(-1, 1)
-        fConst = self.tau_syn / (self.tau_syn - self.tau_mem) * self._neuron_group.r_m * amp
+        fConst = (
+            self.tau_syn / (self.tau_syn - self.tau_mem) * self._neuron_group.r_m * amp
+        )
         return fConst * (np.exp(-t / self.tau_syn) - np.exp(-t / self.tau_mem))
 
     def train_mst_simple(
@@ -830,11 +851,13 @@ class FFIAFSpkInBrian(FFIAFBrian):
             for t_spike_in in event_time_source:
                 # - Membrane potential between input spike time and now (transform to v_rest at 0)
                 v_mem = (
-                    self.state_monitor.v.T[self.state_monitor.t_ >= t_spike_in] - self.v_rest * volt
+                    self.state_monitor.v.T[self.state_monitor.t_ >= t_spike_in]
+                    - self.v_rest * volt
                 )
                 # - Kernel between input spike time and now
                 kernel = self.pot_kernel(
-                    self.state_monitor.t_[self.state_monitor.t_ >= t_spike_in] - t_spike_in
+                    self.state_monitor.t_[self.state_monitor.t_ >= t_spike_in]
+                    - t_spike_in
                 )
                 # - Add correlations to eligibility matrix
                 eligibility[source_id, :] += np.sum(kernel * v_mem)
@@ -877,6 +900,15 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self.weights += dw_current
         # - Store weight changes for next iteration
         self._dw_previous = dw_current
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["tau_syn"] = self.tau_syn.tolist()
+        return config
 
     @property
     def input_type(self):
@@ -929,9 +961,9 @@ class RecIAFBrian(Layer):
         v_thresh: Union[float, np.ndarray] = -55 * mV,
         v_reset: Union[float, np.ndarray] = -65 * mV,
         v_rest: Union[float, np.ndarray] = -65 * mV,
-        refractory=0 * ms,
-        neuron_eq=eqNeuronIAFRec,
-        eqSynRecurrent=eqSynapseExp,
+        refractory: float = 0 * ms,
+        neuron_eq: str = eqNeuronIAFRec,
+        rec_syn_eq: str = eqSynapseExp,
         integrator_name: str = "rk4",
         name: str = "unnamed",
         record: bool = False,
@@ -952,7 +984,7 @@ class RecIAFBrian(Layer):
         :param refractory: float Refractory period after each spike. Default: 0ms
 
         :param neuron_eq:       Brian2.Equations set of neuron equations. Default: IAF equation set
-        :param eqSynRecurrent:  Brian2.Equations set of synapse equations for recurrent connects. Default: exponential
+        :param rec_syn_eq:  Brian2.Equations set of synapse equations for recurrent connects. Default: exponential
 
         :param integrator_name:   str Integrator to use for simulation. Default: 'exact'
 
@@ -975,7 +1007,7 @@ class RecIAFBrian(Layer):
         # - Set up reservoir neurons
         self._neuron_group = b2.NeuronGroup(
             self.size,
-            neuron_eq + eqSynRecurrent,
+            neuron_eq + rec_syn_eq,
             threshold="v > v_thresh",
             reset="v = v_reset",
             refractory=np.asarray(refractory) * second,
@@ -1030,6 +1062,9 @@ class RecIAFBrian(Layer):
         self.tau_syn_r = tau_syn_r
         self.bias = bias
 
+        self._neuron_eq = neuron_eq
+        self._rec_syn_eq = rec_syn_eq
+
         # - Store "reset" state
         self._net.store("reset")
 
@@ -1045,7 +1080,9 @@ class RecIAFBrian(Layer):
             Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
-        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.v = (
+            np.random.rand(self.size) * v_range + self.v_reset
+        ) * volt
         self._neuron_group.I_syn = np.random.rand(self.size) * amp
 
     def reset_time(self):
@@ -1082,6 +1119,25 @@ class RecIAFBrian(Layer):
         # - Restore state variables
         self._neuron_group.v = v_state
         self._neuron_group.I_syn = syn_inp
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["rec_syn_eq"] = self._rec_syn_eq
+        config["neuron_eq"] = self._neuron_eq
+        config["tau_mem"] = self.tau_mem.tolist()
+        config["tau_syn_r"] = self.tau_syn_r.tolist()
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["refractory"] = self.refractory
+        config["integrator_name"] = self._neuron_group.method
+        config["record"] = self.hasattr("state_monitor")
+
+        return config
 
     ### --- State evolution
 
@@ -1420,6 +1476,9 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self.weights_in = weights_in
         self.weights_rec = weights_rec
 
+        self._neuron_eq = neuron_eq
+        self._synapse_eq = synapse_eq
+
         # - Store "reset" state
         self._net.store("reset")
 
@@ -1579,13 +1638,32 @@ class RecIAFSpkInBrian(RecIAFBrian):
             Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
-        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.v = (
+            np.random.rand(self.size) * v_range + self.v_reset
+        ) * volt
         self._neuron_group.I_syn_inp = (
             np.random.randn(self.size) * np.mean(np.abs(self.weights_in)) * amp
         )
         self._neuron_group.I_syn_rec = (
             np.random.randn(self.size) * np.mean(np.abs(self.weights_rec)) * amp
         )
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config.pop("weights")
+        config.pop("tau_syn_r")
+        config.pop("rec_syn_eq")
+        config["weights_in"] = self.weights_in
+        config["weights_rec"] = self.weights_rec
+        config["tau_syn_inp"] = self.tau_syn_inp.tolist()
+        config["tau_syn_rec"] = self.tau_syn_rec.tolist()
+        config["synapse_eq"] = self._synapse_eq
+
+        return config
 
     @property
     def input_type(self):

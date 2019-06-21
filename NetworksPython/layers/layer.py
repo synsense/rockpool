@@ -579,6 +579,7 @@ class Layer(ABC):
         :return:
             Instance of cls with paramters from dict.
         """
+        config.pop("class_name")
         return cls(**config)
 
     def reset_state(self):
