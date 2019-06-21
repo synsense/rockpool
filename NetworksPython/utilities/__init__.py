@@ -3,9 +3,7 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {
-    ".internal.train_jax_sgd": "add_train_output",
-}
+dModules = {".internal.train_jax_sgd": "add_train_output"}
 
 
 # - Define current package

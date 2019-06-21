@@ -38,6 +38,7 @@ def H_tanh(x: FloatVector) -> FloatVector:
 
 # -- Generators for compiled evolution functions
 
+
 def _get_rec_evolve_jit(H: Callable[[float], float]):
     """
     _get_rec_evolve_jit() - Return a compiled raw reservoir evolution function
@@ -45,7 +46,8 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
     :param H:   Callable[[float], float] Neuron activation function
     :return:     f(x0, w_in, w_recurrent, w_out, bias, tau, inputs, noise_std, key, dt) -> (x, res_inputs, rec_inputs, res_acts, outputs)
     """
-    # @jit
+
+    @jit
     def rec_evolve_jit(
         x0: np.ndarray,
         w_in: np.ndarray,
@@ -118,7 +120,7 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
 
 
 def _get_force_evolve_jit(H: Callable):
-    # @jit
+    @jit
     def force_evolve_jit(
         x0: np.ndarray,
         w_in: np.ndarray,
@@ -182,6 +184,7 @@ def _get_force_evolve_jit(H: Callable):
 
 
 # -- Recurrent reservoir
+
 
 class RecRateEulerJax(Layer):
     def __init__(
@@ -288,7 +291,7 @@ class RecRateEulerJax(Layer):
                 outputs         np.ndarray Output of network [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, res_inputs, rec_inputs, res_acts, outputs = jit(self._evolve_jit)(
+        self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
             self._weights,
             self._w_recurrent,
@@ -561,7 +564,7 @@ class ForceRateEulerJax(RecRateEulerJax):
                 outputs         np.ndarray Output of network [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, res_inputs, res_acts, outputs = jit(self._evolve_jit)(
+        self._state, res_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
             self._weights,
             self._w_out,

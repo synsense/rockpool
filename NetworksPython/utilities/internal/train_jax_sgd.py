@@ -97,7 +97,7 @@ def train_adam(
     evolve_func = self._evolve_jit
 
     # - Define loss function
-    # @jit
+    @jit
     def loss_output_target(params: dict, batch: Tuple) -> float:
         """
         loss_output_target() - Loss function for target versus output
@@ -150,7 +150,7 @@ def train_adam(
         self.__get_params = get_params
 
         # - Make update function
-        # @jit
+        @jit
         def update_fcn(i, opt_state, batch):
             """
             update_fcn() - Perform one round of optimizer update
@@ -166,8 +166,8 @@ def train_adam(
             return opt_update(i, grad(loss_output_target)(params, batch), opt_state)
 
         # - Assign update, loss and gradient functions
-        self.__update_fcn = jit(update_fcn)
-        self.__loss_fcn = jit(loss_output_target)
+        self.__update_fcn = update_fcn
+        self.__loss_fcn = loss_output_target
         self.__grad_fcn = jit(grad(loss_output_target))
 
         # - Initialise optimimser
