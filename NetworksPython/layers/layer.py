@@ -547,8 +547,7 @@ class Layer(ABC):
         config["noise_std"] = self.noise_std
         config["name"] = self.name
 
-        # - Determine class name by removing "<class '" and "'>" and the package information
-        config["class_name"] = str(self.__class__).split("'")[1].split(".")[-1]
+        config["class_name"] = self.class_name
 
         return config
 
@@ -561,24 +560,32 @@ class Layer(ABC):
             json.dump(config, f)
 
     @classmethod
-    def load_from_file(cls, filename: str) -> "cls":
+    def load_from_file(cls, filename: str, **kwargs) -> "cls":
         """load_from_file - Generate instance of `cls` with parameters loaded from file.
         :param filename: Path to the file where parameters are stored.
+        :param kwargs:   Any keyword argument of the class __init__ method where the
+                         parameter stored in the file should be overwritten.
         :return:
             Instance of cls with paramters from file.
         """
+        # - Load dict from file
         with open(filename, "r") as f:
             config = json.load(f)
-
-        return cls(**config)
+        # - Instantiate new class member from dict
+        return cls.load_from_dict(config, **kwargs)
 
     @classmethod
-    def load_from_dict(cls, config: dict) -> "cls":
+    def load_from_dict(cls, config: dict, **kwargs) -> "cls":
         """load_from_dict - Generate instance of `cls` with parameters loaded from dict.
         :param config: Dict with parameters.
+        :param kwargs: Any keyword argument of the class __init__ method where the
+                       parameter from `config` should be overwritten.
         :return:
             Instance of cls with paramters from dict.
         """
+        # - Overwrite parameters with kwargs
+        config = dict(config, **kwargs)
+        # - Remove class name from dict
         config.pop("class_name")
         return cls(**config)
 
@@ -591,6 +598,12 @@ class Layer(ABC):
         self.state = np.zeros(self.size)
 
     #### --- Properties
+
+    @property
+    def class_name(self) -> str:
+        """class_name - Return name of `self` as a string."""
+        # - Determine class name by removing "<class '" and "'>" and the package information
+        return str(self.__class__).split("'")[1].split(".")[-1]
 
     @property
     def output_type(self):
