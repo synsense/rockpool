@@ -25,7 +25,8 @@ setup(
         "brian2",
         "scikit-image",
         "pandas",
-	"jax"
+	"jax",
+	"jaxlib"
     ],
     long_description=open("README.txt").read(),
 )
