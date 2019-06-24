@@ -18,13 +18,13 @@ def test_updown():
     weights = np.random.rand(2, 4)
 
     # - Layer generation
-    fl0 = FFUpDown(weights=weights, dt=0.01, vfThrDown=0.02, vfThrUp=0.01, vtTauDecay=0.1)
+    fl0 = FFUpDown(weights=weights, dt=0.01, thr_down=0.02, thr_up=0.01, tau_decay=0.1)
 
     # - Check layer properties
     assert fl0.size == 4, "Problem with size"
     assert fl0.size_in == 2, "Problem with size_in"
-    assert (fl0.vfThrDown == np.array([0.02, 0.02])).all(), "Problem with vfThrDown"
-    assert (fl0.vfThrUp == np.array([0.01, 0.01])).all(), "Problem with vfThrUp"
+    assert (fl0.thr_down == np.array([0.02, 0.02])).all(), "Problem with thr_down"
+    assert (fl0.thr_up == np.array([0.01, 0.01])).all(), "Problem with thr_up"
 
     # - Input signal
     tsInCont = TSContinuous(

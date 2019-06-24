@@ -47,6 +47,12 @@ class RecAEIFSpkInNest(Layer):
     class NestProcess(multiprocessing.Process):
         """ Class for running NEST in its own process """
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
         def __init__(
             self,
             request_q,
@@ -216,6 +222,8 @@ class RecAEIFSpkInNest(Layer):
             # - Create input connections
             pres = []
             posts = []
+            weights = []
+            delays = []
 
             for pre, row in enumerate(self.weights_in):
                 for post, w in enumerate(row):
@@ -223,31 +231,22 @@ class RecAEIFSpkInNest(Layer):
                         continue
                     pres.append(self._sg[pre])
                     posts.append(self._pop[post])
+                    weights.append(w)
 
-            nest.Connect(pres, posts, "one_to_one")
-            conns = nest.GetConnections(self._sg, self._pop)
-            connsPrePost = np.array(nest.GetStatus(conns, ["source", "target"]))
+                    if isinstance(self.delay_in, np.ndarray):
+                        delays.append(self.delay_in[pre, post])
+                    else:
+                        delays.append(self.delay_in)
 
-            if not len(connsPrePost) == 0:
-                connsPrePost[:, 0] -= np.min(self._sg)
-                connsPrePost[:, 1] -= np.min(self._pop)
-
-                weights = [self.weights_in[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.delay_in) is np.ndarray:
-                    delays = [self.delay_in[conn[0], conn[1]] for conn in connsPrePost]
-                else:
-                    delays = np.array([self.delay_in] * len(weights))
-
+            if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
+                nest.Connect(pres, posts, "one_to_one", {'weight': weights, 'delay': delays})
 
-                nest.SetStatus(
-                    conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
-                )
-
-            t1 = time.time()
             # - Create recurrent connections
             pres = []
             posts = []
+            weights = []
+            delays = []
 
             for pre, row in enumerate(self.weights_rec):
                 for post, w in enumerate(row):
@@ -255,28 +254,15 @@ class RecAEIFSpkInNest(Layer):
                         continue
                     pres.append(self._pop[pre])
                     posts.append(self._pop[post])
+                    weights.append(w)
+                    if isinstance(self.delay_rec, np.ndarray):
+                        delays.append(self.delay_rec[pre, post])
+                    else:
+                        delays.append(self.delay_rec)
 
-            nest.Connect(pres, posts, "one_to_one")
-
-            conns = nest.GetConnections(self._pop, self._pop)
-            connsPrePost = nest.GetStatus(conns, ["source", "target"])
-
-            if not len(connsPrePost) == 0:
-                connsPrePost -= np.min(self._pop)
-
-                weights = [self.weights_rec[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.delay_rec) is np.ndarray:
-                    delays = [
-                        self.delay_rec[conn[0], conn[1]] for conn in connsPrePost
-                    ]
-                else:
-                    delays = np.array([self.delay_rec] * len(weights))
-
+            if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
-
-                nest.SetStatus(
-                    conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
-                )
+                nest.Connect(pres, posts, "one_to_one", {'weight': weights, 'delay': delays})
 
             if self.record:
                 # - Monitor for recording network potential
@@ -418,7 +404,7 @@ class RecAEIFSpkInNest(Layer):
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
-        capacity: Union[float, np.ndarray] = 100.0,
+        capacity: Union[float, np.ndarray] = None,
         refractory = 0.001,
         a: Union[float, np.ndarray] = 4.0,
         b: Union[float, np.ndarray] = 80.5,
@@ -508,6 +494,10 @@ class RecAEIFSpkInNest(Layer):
         if type(tau_w) is list:
             tau_w = np.asarray(tau_w)
 
+        # set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.
+
         # - Call super constructor (`asarray` is used to strip units)
 
         # TODO this does not make much sense (weights <- weights_in)
@@ -518,7 +508,7 @@ class RecAEIFSpkInNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(
+        with self.NestProcess(
             self.request_q,
             self.result_q,
             weights_in=weights_in,
@@ -540,10 +530,8 @@ class RecAEIFSpkInNest(Layer):
             a=a,
             b=b,
             delta_t=delta_t,
-            tau_w=tau_w
-        )
-
-        self.nest_process.start()
+            tau_w=tau_w) as nest_process:
+            nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -666,8 +654,8 @@ class RecAEIFSpkInNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        # self.nest_process.terminate()
+        # self.nest_process.join()
 
     ### --- Properties
 
@@ -836,54 +824,54 @@ class RecAEIFSpkInNest(Layer):
         config["weights_in"] = self.weights_in.tolist()
         config["weights_rec"] = self.weights_rec.tolist()
         config["bias"] = (
-            self.bias if type(self.bias) is float else self.bias.tolist()
+            self.bias if np.isscalar(self.bias) else self.bias.tolist()
         )
-        config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
+        config["dt"] = self.dt if np.isscalar(self.dt) else self.dt.tolist()
         config["v_thresh"] = (
-            self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
+            self.v_thresh if np.isscalar(self.v_thresh) else self.v_thresh.tolist()
         )
         config["v_reset"] = (
-            self.v_reset if type(self.v_reset) is float else self.v_reset.tolist()
+            self.v_reset if np.isscalar(self.v_reset) else self.v_reset.tolist()
         )
         config["v_rest"] = (
-            self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
+            self.v_rest if np.isscalar(self.v_rest) else self.v_rest.tolist()
         )
         config["capacity"] = (
             self.capacity
-            if type(self.capacity) is float
+            if np.isscalar(self.capacity)
             else self.capacity.tolist()
         )
         config["refractory"] = (
             self.refractory
-            if type(self.refractory) is float
+            if np.isscalar(self.refractory)
             else self.refractory.tolist()
         )
         config["num_cores"] = self.num_cores
         config["tau_mem"] = (
-            self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
+            self.tau_mem if np.isscalar(self.tau_mem) else self.tau_mem.tolist()
         )
         config["tau_syn_exc"] = (
-            self.tau_syn_exc if type(self.tau_syn_exc) is float else self.tau_syn_exc.tolist()
+            self.tau_syn_exc if np.isscalar(self.tau_syn_exc) else self.tau_syn_exc.tolist()
         )
         config["tau_syn_inh"] = (
-            self.tau_syn_inh if type(self.tau_syn_inh) is float else self.tau_syn_inh.tolist()
+            self.tau_syn_inh if np.isscalar(self.tau_syn_inh) else self.tau_syn_inh.tolist()
         )
         config["record"] = self.record
 
         config["a"] = (
-            self._a if type(self._a) is float else self._a.tolist()
+            self._a if np.isscalar(self._a) else self._a.tolist()
         )
 
         config["b"] = (
-            self._b if type(self._b) is float else self._b.tolist()
+            self._b if np.isscalar(self._b) else self._b.tolist()
         )
 
         config["delta_t"] = (
-            self._delta_t if type(self._delta_t) is float else self._delta_t.tolist()
+            self._delta_t if np.isscalar(self._delta_t) else self._delta_t.tolist()
         )
 
         config["tau_w"] = (
-            self._tau_w if type(self._tau_w) is float else self._tau_w.tolist()
+            self._tau_w if np.isscalar(self._tau_w) else self._tau_w.tolist()
         )
 
         config["class_name"] = "RecAEIFSpkInNest"

@@ -65,9 +65,6 @@ def test_save_load():
 
     np.random.seed(0)
 
-
-    np.random.seed(0)
-
     # - Input signal
     vTime = np.arange(0, 1, dt)
     vVal = np.zeros([len(vTime), 1])
@@ -76,7 +73,6 @@ def test_save_load():
     tsInCont = ts.TSContinuous(vTime, vVal)
 
     epsilon = 0.0000001
-
 
     # - Compare states before and after
     np.random.seed(0)

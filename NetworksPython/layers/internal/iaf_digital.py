@@ -29,7 +29,6 @@ tol_abs = 1e-10
 tMinRefractory = 1e-9
 
 
-
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
 
@@ -179,14 +178,10 @@ class RecDIAF(Layer):
         max_num_leaks = np.ceil((t_final - self.t) / self.tau_leak) + 1
         leak = np.arange(max_num_leaks) * self.tau_leak + t_first_leak
         # - Do not apply leak at t=self.t, assume it has already been applied previously
-        leak = leak[
-            np.logical_and(leak <= t_final + tol_abs, leak > self.t + tol_abs)
-        ]
+        leak = leak[np.logical_and(leak <= t_final + tol_abs, leak > self.t + tol_abs)]
 
         # - Include leaks in event trace, assign channel self.LeakChannel to leak
-        event_channels = np.r_[
-            event_channels, np.ones_like(leak) * self._leak_channel
-        ]
+        event_channels = np.r_[event_channels, np.ones_like(leak) * self._leak_channel]
         event_times = np.r_[event_times, leak]
 
         # - Push spike timings and IDs to a heap, ordered by spike time
@@ -437,12 +432,33 @@ class RecDIAF(Layer):
     def randomize_state(self):
         # - Set state to random values between reset value and theshold
         self.state = np.clip(
-            (np.amin(self.v_thresh) - np.amin(self.v_reset))
-            * np.random.rand(self.size)
+            (np.amin(self.v_thresh) - np.amin(self.v_reset)) * np.random.rand(self.size)
             - np.amin(self.v_reset),
             self._min_state,
             self._max_state,
         ).astype(self.state_type)
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config.pop("weights")
+        config.pop("noise_std")
+        config["weights_in"] = self.weights_in.tolist()
+        config["weights_rec"] = self.weights_rec.tolist()
+        config["refractory"] = self.refractory.tolist()
+        config["delay"] = self.delay
+        config["tau_leak"] = self.tau_leak
+        config["leak"] = self.leak.tolist()
+        config["v_subtract"] = self.v_subtract.tolist()
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["state_type"] = self.state_type
+        config["monitor_id"] = self.monitor_id.tolist()
+        return config
 
     ### --- Properties
 

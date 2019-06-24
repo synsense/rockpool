@@ -175,6 +175,23 @@ class CLIAF(Layer):
         # - Reset neuron state to 0
         self._state = self.v_reset
 
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config.pop("weights")
+        config.pop("noise_std")
+        config["weights_in"] = self.weights_in.tolist()
+        config["bias"] = self.bias.tolist()
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_subtract"] = self.v_subtract.tolist()
+        config["monitor_id"] = self.monitor_id.tolist()
+
+        return config
+
     ### --- Properties
 
     @property
@@ -436,6 +453,16 @@ class FFCLIAF(CLIAF):
         self._ts_state = ts_state
 
         return event_out
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config.pop("weights_in")
+        config["weights"] = self.weights.tolist()
+        return config
 
     # - weights as synonym for weights_in
     @property
@@ -724,6 +751,20 @@ class RecCLIAF(CLIAF):
             self._min_state,
             self._max_state,
         ).astype(self.state_type)
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["weights_in"] = self.weights_in.tolist()
+        config["weights_rec"] = self.weights_rec.tolist()
+        config["refractory"] = self.refractory.tolist()
+        config["delay"] = self.delay
+        config["tTauBias"] = self.tTauBias
+        config["state_type"] = self.state_type
+        return config
 
     ### --- Properties
 

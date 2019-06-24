@@ -338,9 +338,7 @@ class FFRateEuler(Layer):
             if inp is None:
                 inp = np.zeros(euler_steps_per_dt, self._size_in)
             else:
-                inp = np.repeat(
-                    np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0
-                )
+                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
 
             if verbose:
                 print("Layer: Input was: ", inp)
@@ -364,10 +362,7 @@ class FFRateEuler(Layer):
             self._timestep += euler_steps_per_dt
 
         # - Return final state
-        return (
-            self.t,
-            np.reshape(self._activation(self._state + self._bias), (1, -1)),
-        )
+        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
 
     def train_rr(
         self,
@@ -452,9 +447,7 @@ class FFRateEuler(Layer):
         # - For first batch, initialize summands
         if is_first:
             # Matrices to be updated for each batch
-            self._xty = np.zeros(
-                (self.size_in + 1, self.size)
-            )  # inp.T (dot) target
+            self._xty = np.zeros((self.size_in + 1, self.size))  # inp.T (dot) target
             self._xtx = np.zeros(
                 (self.size_in + 1, self.size_in + 1)
             )  # inp.T (dot) inp
@@ -495,9 +488,7 @@ class FFRateEuler(Layer):
             self.bias = solution[-1, :]
 
             # - Remove data stored during this training
-            self._xty = (
-                self._xtx
-            ) = self._kahan_comp_xty = self._kahan_comp_xtx = None
+            self._xty = self._xtx = self._kahan_comp_xty = self._kahan_comp_xtx = None
 
     # @njit
     # def potential(self, vInput: np.ndarray) -> np.ndarray:
@@ -508,6 +499,22 @@ class FFRateEuler(Layer):
         return "FFRateEuler layer object `{}`.\nnSize: {}, size_in: {}   ".format(
             self.name, self.size, self.size_in
         )
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["tau"] = self.tau.tolist()
+        config["gain"] = self.gain.tolist()
+        config["bias"] = self.bias.tolist()
+        warn(
+            f"FFRateEuler `{self.name}`: `activation_func` can not be stored with this "
+            + "method. When creating a new instance from this dict, it will use the "
+            + "default activation function."
+        )
+        return config
 
     @property
     def vActivation(self):
@@ -706,6 +713,15 @@ class PassThrough(FFRateEuler):
         super().reset_all()
         self.reset_buffer()
 
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["delay"] = self.delay
+        return config
+
     @property
     def delay(self):
         return self._delay_steps * self.dt
@@ -765,27 +781,6 @@ class RecRateEuler(Layer):
 
         # - Reset the internal state
         self.reset_all()
-
-    ### --- Properties
-
-    @property
-    def bias(self) -> np.ndarray:
-        return self._bias
-
-    @bias.setter
-    def bias(self, new_bias: np.ndarray):
-        self._bias = self._expand_to_net_size(new_bias, "new_bias")
-
-    @property
-    def tau(self) -> np.ndarray:
-        return self._tau
-
-    @tau.setter
-    def tau(self, new_tau: np.ndarray):
-        self._tau = self._expand_to_net_size(new_tau, "new_tau")
-
-        # - Ensure dt is reasonable for numerical accuracy
-        self.dt = np.min(self.tau) / 10
 
     ### --- State evolution method
 
@@ -889,9 +884,7 @@ class RecRateEuler(Layer):
             if inp is None:
                 inp = np.zeros(euler_steps_per_dt, self._size_in)
             else:
-                inp = np.repeat(
-                    np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0
-                )
+                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
 
             if verbose:
                 print("Layer: Input was: ", inp)
@@ -912,10 +905,22 @@ class RecRateEuler(Layer):
             self._timestep += euler_steps_per_dt
 
         # - Return final activity
-        return (
-            self.t,
-            np.reshape(self._activation(self._state + self._bias), (1, -1)),
+        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config["tau"] = self.tau.tolist()
+        config["bias"] = self.bias.tolist()
+        warn(
+            f"FFRateEuler `{self.name}`: `activation_func` can not be stored with this "
+            + "method. When creating a new instance from this dict, it will use the "
+            + "default activation function."
         )
+        return config
 
     ### --- Properties
 
@@ -938,3 +943,22 @@ class RecRateEuler(Layer):
 
         # - Build a state evolution function
         self._evolveEuler = get_rec_evolution_function(new_activation)
+
+    @property
+    def bias(self) -> np.ndarray:
+        return self._bias
+
+    @bias.setter
+    def bias(self, new_bias: np.ndarray):
+        self._bias = self._expand_to_net_size(new_bias, "new_bias")
+
+    @property
+    def tau(self) -> np.ndarray:
+        return self._tau
+
+    @tau.setter
+    def tau(self, new_tau: np.ndarray):
+        self._tau = self._expand_to_net_size(new_tau, "new_tau")
+
+        # - Ensure dt is reasonable for numerical accuracy
+        self.dt = np.min(self.tau) / 10
