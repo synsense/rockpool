@@ -1,4 +1,4 @@
-unittests:
+unit_tests:
   image: aictx/ci-python-arch:latest
   tags:
     - python
@@ -8,6 +8,19 @@ unittests:
     - pip install --upgrade pip
     - pip install . --no-cache-dir
 
- 
+   script:
+    - pytest -v tests
+
+
+nest_tests:
+  image: aictx/ci-python-arch:latest
+  tags:
+    - python
+    - aiCTX
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install . --no-cache-dir
+
   script:
-    - pytest -v
+    - pytest test_nest -v
