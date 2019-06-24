@@ -1,6 +1,6 @@
-###
-# timeseries.py - Classes to manage time series
-###
+"""
+timeseries.py - Classes to manage time series
+"""
 
 import numpy as np
 import scipy.interpolate as spint
@@ -111,7 +111,7 @@ def full_nan(shape: Union[tuple, int]):
 
 class TimeSeries:
     """
-    TimeSeries - Class represent a continuous or event-based time series
+    Super-class to represent a continuous or event-based time series. You should use the subclasses :py:class:`TSContinuous` and :py:class:`TSEvent` to represent continuous-time and event-based time series, respectively.
     """
 
     def __init__(
@@ -124,15 +124,14 @@ class TimeSeries:
         name: str = "unnamed",
     ):
         """
-        TimeSeries - Class represent a continuous or event-based time series
+        TimeSeries - Represent a continuous or event-based time series
 
-        :param times:     [Tx1] vector of time samples
-        :param periodic:          Treat the time series as periodic around the end points. Default: False
-        :param t_start:           If not None, the series start time is t_start, otherwise times[0]
-        :param t_stop:            If not None, the series stop time is t_stop, otherwise times[-1]
-        :param plotting_backend:  Determines plotting backend. If None, backend will be
-                                  chosen automatically based on what is available.
-        :param name:         str: Name of the TimeSeries object. Default: `unnamed`
+        :param ArrayLike times:                 [Tx1] vector of time samples
+        :param bool periodic:                   Treat the time series as periodic around the end points. Default: ``False``
+        :param Optional[float] t_start:         If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
+        :param Optional[float] t_stop:          If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
+        :param Optional[str] plotting_backend:  Determines plotting backend. If ``None``, backend will be chosen automatically based on what is available.
+        :param str name:                        Name of the TimeSeries object. Default: `unnamed`
         """
 
         # - Convert time trace to numpy arrays
@@ -166,11 +165,11 @@ class TimeSeries:
 
     def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
         """
-        delay - Return a copy of self that is delayed by an offset.
-                For delaying self, use ".times += ..." instead.
+        delay() - Return a copy of self that is delayed by an offset.
+                  For delaying self, use ".times += ..." instead.
 
-        :param tOffset:    Time offset
-        :param inplace:    Conduct operation in-place (Default: False; create a copy)
+        :param float Offset:    Time by which to offset this time series
+        :param bool inplace:    Conduct operation in-place (Default: False; create a copy)
         :return: New TimeSeries, delayed
         """
         if not inplace:
@@ -191,19 +190,25 @@ class TimeSeries:
 
         return series
 
-    def isempty(self):
+    def isempty(self) -> bool:
         """
-        isempty() - Is this TimeSeries object empty?
+        isempty() - Test if this TimeSeries object is empty
 
-        :return: bool True -> The TimeSeries object contains no samples
+        :return bool: True iff the TimeSeries object contains no samples
         """
         return np.size(self.times) == 0
 
     def print(self):
-        """print - Print an overview of the time series."""
+        """print() - Print an overview of the time series."""
         print(self.__repr__())
 
-    def set_plotting_backend(self, backend: Union[str, None], verbose=True):
+    def set_plotting_backend(self, backend: Union[str, None], verbose: bool = True):
+        """
+        set_plotting_backend() - Set which plotting backend to use with the .plot() method
+
+        :param str backend:     Specify a backend to use. Supported: {"holoviews", "matplotlib"}
+        :param bool verbose:    If True, print feedback about which backend has been set
+        """
         if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
             if _HV_AVAILABLE:
                 self._plotting_backend = "holoViews"
@@ -243,7 +248,8 @@ class TimeSeries:
     def copy(self) -> "TimeSeries":
         """
         copy() - Return a deep copy of this time series
-        :return: copy of `self`
+
+        :return TimeSeries: copy of `self`
         """
         return copy.deepcopy(self)
 
@@ -258,6 +264,7 @@ class TimeSeries:
 
     @property
     def times(self):
+        """ Array of sample times """
         return self._times
 
     @times.setter
@@ -286,9 +293,7 @@ class TimeSeries:
 
     @property
     def t_start(self) -> float:
-        """
-        .t_start: float Start time
-        """
+        """ (float) Start time of time series"""
         return self._t_start
 
     @t_start.setter
@@ -310,9 +315,7 @@ class TimeSeries:
 
     @property
     def t_stop(self) -> float:
-        """
-        .t_stop: float Stop time
-        """
+        """ (float) Stop time of time series (final sample) """
         return self._t_stop
 
     @t_stop.setter
@@ -330,13 +333,12 @@ class TimeSeries:
 
     @property
     def duration(self) -> float:
-        """
-        .duration: float Duration of TimeSeries
-        """
+        """ (float) Duration of TimeSeries """
         return self._t_stop - self._t_start
 
     @property
     def plotting_backend(self):
+        """ (str) Current plotting backend"""
         return self._plotting_backend
 
 
@@ -345,8 +347,47 @@ class TimeSeries:
 
 class TSContinuous(TimeSeries):
     """
-    TSContinuous - Class represent a multi-series time series, with temporal interpolation
-                   and periodicity supported
+    TSContinuous - Represents a continuously-sampled time series. Mutliple time series can be represented by a single
+    :py:class:`TSContinuous` object, and have identical time bases. Temporal periodicity is supported.
+
+    :Examples:
+
+    Build a linearly-increasing time series that extends from 0 to 1 second
+
+    >>> time_base = numpy.linspace(0, 1, 100)
+    >>> samples = time_base
+    >>> ts = TSContinuous(time_base, samples)
+
+    Build a periodic time series as a sinusoid
+
+    >>> time_base = numpy.linspace(0, 2 * numpy.pi, 100)
+    >>> samples = numpy.sin(time_base)
+    >>> ts = TSContinuous(time_base, samples, periodic = True)
+
+    Build an object containing five random time series
+
+    >>> time_base = numpy.linspace(0, 1, 100)
+    >>> samples = numpy.random.rand((100, 5))
+    >>> ts = TSContinuous(time_base, samples)
+
+    Resample a time series using functional notation, list notation, or using the :py:func:`resample` method.
+
+    >>> ts(0.5)
+    >>> ts([0, .1, .2, .3])
+    >>> ts(numpy.array([0, .1, .2, .3]))
+    >>> ts[0.5]
+    >>> ts[0, .1, .2, .3]
+    >>> ts.resample(0.5)
+    >>> ts.resample([0, .1, .2, .3])
+
+    Resample using slice notation
+
+    >>> ts[0:.1:1]
+
+    Resample and select channels simultaneously
+
+    >>> ts[0:.1:1, :3]
+
     """
 
     def __init__(
@@ -361,17 +402,16 @@ class TSContinuous(TimeSeries):
         interp_kind: str = "linear",
     ):
         """
-        TSContinuous - Class represent a multi-series time series, with temporal interpolation and periodicity supported
+        TSContinuous - Represents a continuously-sample time series, supporting interpolation and periodicity.
 
-        :param times:     [Tx1] vector of time samples
-        :param samples:       [TxM] matrix of values corresponding to each time sample
-        :param num_channels:  If `samples` is None, determines the number of channels of
-                              `self`. Otherwise it has no effect at all.
-        :param periodic:       bool: Treat the time series as periodic around the end points. Default: False
-        :param t_start:          float: If not None, the series start time is t_start, otherwise times[0]
-        :param t_stop:           float: If not None, the series stop time is t_stop, otherwise times[-1]
-        :param name:         str: Name of the TSContinuous object. Default: `unnamed`
-        :param interp_kind:   str: Specify the interpolation type. Default: 'linear'
+        :param ArrayLike times:             [Tx1] vector of time samples
+        :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
+        :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
+        :param bool periodic:               Treat the time series as periodic around the end points. Default: False
+        :param float t_start:               If not None, the series start time is t_start, otherwise times[0]
+        :param float t_stop:                If not None, the series stop time is t_stop, otherwise times[-1]
+        :param str name:                    Name of the ``TSContinuous`` object. Default: ``unnamed``
+        :param str interp_kind:             Specify the interpolation type. Default: ``linear``
 
         If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
         """
@@ -412,11 +452,11 @@ class TSContinuous(TimeSeries):
         **kwargs,
     ):
         """
-        plot - Visualise a time series on a line plot
+        plot() - Visualise a time series on a line plot
 
-        :param times: Optional. Time base on which to plot. Default: time base of time series
-        :param target:  Optional. Object to which plot will be added.
-        :param channels:  Optional. Channels that are to be plotted.
+        :param Optional[ArrayLike] times: Time base on which to plot. Default: time base of time series
+        :param Optional target:  Axes (or other) object to which plot will be added.
+        :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
         :param args, kwargs:  Optional arguments to pass to plotting function
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
@@ -433,14 +473,11 @@ class TSContinuous(TimeSeries):
             if self._plotting_backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
-                        hv.Curve((times, data)).redim(x="Time")
-                        for data in samples.T
+                        hv.Curve((times, data)).redim(x="Time") for data in samples.T
                     ]
                 else:
                     vhCurves = [
-                        hv.Curve((times, data))
-                        .redim(x="Time")
-                        .options(*args, **kwargs)
+                        hv.Curve((times, data)).redim(x="Time").options(*args, **kwargs)
                         for data in samples.T
                     ]
 
@@ -502,15 +539,12 @@ class TSContinuous(TimeSeries):
         limit_shorten: int = 10,
     ):
         """
-        print - Print an overview of the time series and its values.
+        print() - Print an overview of the time series and its values.
 
-        :param full:           Print all samples of `self`, no matter how long it is
-        :param limit_shorten:  Print shortened version of self if it comprises more
-                               than `limit_shorten` time points and `full` is False
-        :param num_first:      Shortened version of printout contains samples at first
-                               `num_first` points in `self.times`
-        :param num_last:       Shortened version of printout contains samples at last
-                               `num_last` points in `self.times`
+        :param bool full:           Print all samples of ``self``, no matter how long it is
+        :param int num_first:      Shortened version of printout contains samples at first ``num_first`` points in ``self.times``
+        :param int num_last:       Shortened version of printout contains samples at last ``num_last`` points in ``self.times``
+        :param int limit_shorten:  Print shortened version of self if it comprises more than ``limit_shorten`` time points and if ``full`` is False
         """
 
         s = "\n"
@@ -572,10 +606,11 @@ class TSContinuous(TimeSeries):
 
     def contains(self, times: Union[int, float, ArrayLike]) -> bool:
         """
-        contains - Does the time series contain the time range specified in the given time trace?
+        contains() - Does the time series contain the time range specified in the given time trace?
 
-        :param times: Array-like containing time points
-        :return:            boolean: All time points are contained within this time series
+        :param ArrayLike times: Array-like containing time points
+
+        :return bool:           True iff all specified time points are contained within this time series
         """
         return (
             True
@@ -593,21 +628,20 @@ class TSContinuous(TimeSeries):
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        clip - Return a TSContinuous which is restricted to given time limits and only
+        clip() - Return a TSContinuous which is restricted to given time limits and only
                contains events of selected channels. If no time limits are provided,
                t_start and t_stop attributes will correspond to those.
-               If `inplace` is True, modify `self` accordingly.
+               If ``inplace`` is ``True``, modify ``self`` accordingly.
         clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
 
-        :param t_start:       Time from which on events are returned
-        :param t_stop:        Time until which events are returned
-        :param channels:      Channels of which events are returned
-        :param include_stop:  If there are events with time t_stop include them or not.
-        :param sample_limits: If True, make sure that a sample exists at `t_start` and, if
-                              `include_stop` is True, at `t_stop`, as long as not both are None.
-        :param inplace:       Conduct operation in-place (Default: False; create a copy)
+        :param float t_start:       Time from which on events are returned
+        :param float t_stop:        Time until which events are returned
+        :param ArrayLike channels:  Channels of which events are returned
+        :param bool include_stop:   True -> If there are events with time ``t_stop`` include them. False -> Exclude these samples. Default: True.
+        :param bool sample_limits:  If True, make sure that a sample exists at ``t_start`` and, if ``include_stop`` is True, at ``t_stop``, as long as not both are None.
+        :param bool inplace:        Conduct operation in-place (Default: False; create a copy)
 
-        :return:
+        :return TimeSeries:
                 clipped_series:     New TimeSeries clipped to bounds
         """
         # - Create a new time series, or modify this time series
@@ -674,12 +708,12 @@ class TSContinuous(TimeSeries):
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        resample - Return a new time series sampled to the supplied time base
+        resample() - Return a new time series sampled to the supplied time base
 
-        :param times:     Array-like of T desired time points to resample
-        :param channels:  Channels to be used. Use all if None.
-        :param inplace:   Conduct operation in-place (Default: False; create a copy)
-        :return:          TSContinuous, resampled to new time base and with desired channels.
+        :param ArrayLike times:                 T desired time points to resample
+        :param Optional[ArrayLike] channels:    Channels to be used. Default: None (use all channels)
+        :param bool inplace:                    True -> Conduct operation in-place (Default: False; create a copy)
+        :return TSContinuous:                   Time series resampled to new time base and with desired channels.
         """
         if not inplace:
             resampled_series = self.copy()
@@ -723,16 +757,13 @@ class TSContinuous(TimeSeries):
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        merge - Merge another time series to this one, in time. Maintain
-                each time series' time values and channel IDs.
-        :param other_series:      TimeSeries that is merged to self
-        :param remove_duplicates: If true, time points in other_series.times
-                                  that are also in self.times are
-                                  discarded. Otherwise they are included in
-                                  the new time trace and come after the
-                                  corresponding points of self.times.
-        :param inplace:           Conduct operation in-place (Default: False; create a copy)
-        :return:         The merged time series
+        merge() - Merge another time series to this one, by interleaving in time. Maintain each time series' time values and channel IDs.
+
+        :param TSContinuous other_series:           time series that is merged to self
+        :param Optional[bool] remove_duplicates:    If ``True``, time points in ``other_series.times`` that are also in ``self.times`` are discarded. Otherwise they are included in the new time trace and come after the corresponding points of self.times.
+        :param Optional[bool] inplace:              Conduct operation in-place (Default: ``False``; create a copy)
+
+        :return TSContinuous:                       The merged time series
         """
 
         # - Check other_series
@@ -807,11 +838,12 @@ class TSContinuous(TimeSeries):
         self, other_series: "TSContinuous", inplace: bool = False
     ) -> "TSContinuous":
         """
-        append() - Combine another time series into this one, along samples axis
+        append() - Append another time series to this one, along the samples axis (i.e. add new channels)
 
-        :param other_series: Another time series. Will be resampled to the time base of the called series object
-        :param inplace:    bool    Conduct operation in-place (Default: False; create a copy)
-        :return:        Current time series,
+        :param TSContinuous other_series:   Another time series. Will be resampled to the time base of ``self`` :py:class:`TSContinuous object
+        :param bool inplace:                Conduct operation in-place (Default: ``False``; create a copy)
+
+        :return TSContinuous:               Current time series, with new channels appended
         """
         # - Check other_series
         if not isinstance(other_series, TSContinuous):
@@ -847,24 +879,24 @@ class TSContinuous(TimeSeries):
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        append_t() - Append another time series to this one, in time
+        append_t() - Append another time series to this one, along the time axis
 
-        :param other_series: Another time series. Will be tacked on to the end of the called series object
-        :param offset:       If not None, defines distance between last sample of `self`
-                             and first sample of `other_series`. Otherwise distance will
-                             be median of all timestep sizes of `self.samples`.
-        :param inplace:      Conduct operation in-place (Default: False; create a copy)
-        :return: Time series containing current data, with other TS appended in time
+        :param TSContinuous other_series:   Another time series. Will be tacked on to the end of the called series object. ``other_series`` must have the same number of channels
+        :param Optional[float] offset:      If not None, defines distance between last sample of ``self`` and first sample of ``other_series``. Otherwise the offset will be the median of all timestep sizes of ``self.samples``.
+        :param bool inplace:                Conduct operation in-place (Default: ``False``; create a copy)
+
+        :return TSContinuous:               Time series containing data from ``self``, with the other series appended in time
         """
 
         if offset is None:
-            # - If `self` is empty append new elements directly. Otherwise leafe space
-            #   corresponding to median distance between time points in `self._times`.
+            # - If ``self`` is empty then append new elements directly. Otherwise leave an offset
+            #   corresponding to the median distance between time points in `self._times`.
             offset = np.median(np.diff(self._times)) if self.times.size > 0 else 0
-        # - Time by which `other_series` has to be delayed
+
+        # - Time by which ``other_series`` has to be delayed
         delay = self.t_stop + offset - other_series.t_start
 
-        # - Let `self.merge` do the rest
+        # - Let ``self.merge()`` do the rest
         return self.merge(
             other_series.delay(delay), remove_duplicates=False, inplace=inplace
         )
@@ -873,10 +905,11 @@ class TSContinuous(TimeSeries):
 
     def _create_interpolator(self):
         """
-        _create_interpolator - Build an interpolator for the samples in this TimeSeries
+        _create_interpolator() - Build an interpolator for the samples in this TimeSeries
         """
         if np.size(self.times) == 0:
             self.interp = lambda t: None
+
         elif np.size(self.times) == 1:
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
@@ -887,6 +920,7 @@ class TSContinuous(TimeSeries):
                 return samples
 
             self.interp = single_sample
+
         else:
             # - Construct interpolator
             self.interp = spint.interp1d(
@@ -900,10 +934,11 @@ class TSContinuous(TimeSeries):
 
     def _interpolate(self, times: Union[int, float, ArrayLike]) -> np.ndarray:
         """
-        _interpolate - Interpolate the time series to the provided time points
+        _interpolate() - Interpolate the time series to the provided time points
 
-        :param times: np.ndarray of T desired interpolated time points
-        :return:        np.ndarray of interpolated values. Will have the shape TxN
+        :param ArrayLike times: Array of T desired interpolated time points
+
+        :return np.ndarray:     Array of interpolated values. Will have the shape TxN
         """
         # - Enforce periodicity
         if self.periodic and self.duration > 0:
@@ -918,6 +953,14 @@ class TSContinuous(TimeSeries):
             return np.reshape(self.interp(times), (-1, self.num_channels))
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
+        """
+        _compatible_shape() - Attempt to make ``other_samples`` a compatible shape to ``self.samples``.
+
+        :param ArrayLike other_samples: Samples to convert
+
+        :return np.ndarray:             Array the same shape as ``self.samples``
+        :raises:                        ValueError if briadcast fails
+        """
         try:
             return np.broadcast_to(other_samples, self.samples.shape).copy()
         except ValueError:
@@ -952,15 +995,12 @@ class TSContinuous(TimeSeries):
         ] = None,
     ) -> "TSContinuous":
         """
-        ts[indices_time, indices_channel] - Interpolate the time series to the provided
-                                            time points or, if slice is provided between
-                                            given limits with given step size. Use channels
-                                            provided in indices_channel, in matching order
+        ts[indices_time, indices_channel] - Interpolate the time series to the provided time points or, if a slice is provided between given limits with given step size. Use channels provided in indices_channel, in matching order.
 
-        :param indices_time:    float, array-like or slice of T desired interpolated time points
-        :param indices_channel: int, array-like or slice of desired channels in desired order
-        :return:
-            TSContinuous with chosen time points and channels
+        :param ArrayLike[float] indices_time:       float, array-like or slice of T desired interpolated time points
+        :param ArrayLike[int] indices_channel:      int, array-like or slice of desired channels in desired order
+
+        :return TSContinuous:                       TSContinuous with chosen time points and channels
         """
         # - Handle format of funciton argument
         if isinstance(indices, tuple):
@@ -1258,6 +1298,7 @@ class TSContinuous(TimeSeries):
 
     @property
     def samples(self):
+        """(ArrayLike) Value of time series at sampled times"""
         return self._samples
 
     @samples.setter
@@ -1290,6 +1331,7 @@ class TSContinuous(TimeSeries):
     # - Extend setter of times to update interpolator
     @property
     def times(self):
+        """(ArrayLike) Sample time points"""
         return super().times
 
     @times.setter
@@ -1300,20 +1342,22 @@ class TSContinuous(TimeSeries):
 
     @property
     def num_traces(self):
-        """num_traces - Synonymous to num_channels"""
+        """(int) Synonymous to ``num_channels``"""
         return self.samples.shape[1]
 
     @property
     def num_channels(self):
-        """num_channels: int Number of channels (dimension of sample vectors) in this TimeSeries object"""
+        """(int) Number of channels (dimension of sample vectors) in this TimeSeries object"""
         return self.samples.shape[1]
 
     @property
     def max(self):
+        """(float) Maximum value of time series"""
         return np.nanmax(self.samples)
 
     @property
     def min(self):
+        """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
 
 
@@ -1321,6 +1365,22 @@ class TSContinuous(TimeSeries):
 
 
 class TSEvent(TimeSeries):
+    """
+    TSEvent - Represent a discrete time series, composed of binary events (present or absent). This class is primarily used to represent spike trains or event trains to communicate with spiking neuron layers, or to communicate with event-based computing systems.
+
+    :py:class:`TSEvent` supports multiple channels of event time series encapsulated by a single object, as well as periodic time series.
+
+    :Examples:
+
+    Build a series of several random event times
+
+    >>> times = numpy.cumsum(numpy.random.rand(10))
+    >>> ts = TSEvent(times)
+
+    
+
+    """
+
     def __init__(
         self,
         times: ArrayLike = None,

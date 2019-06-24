@@ -1,6 +1,13 @@
+"""Network module.
+
+This module encapsulates networks -- combinations of multiple `Layer`s, connected in a directed acyclic graph.
+
+"""
+
 ###
 # network.py - Code for encapsulating networks
 ###
+
 
 ### --- Imports
 import json
@@ -109,16 +116,19 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
 
 
 class Network:
+    """
+    Network - Super class to encapsulate several Layers and manage signal routing
+    """
     def __init__(self, *layers: Layer, dt=None):
         """
-        Network - Super class to encapsulate several Layers, manage signal routing
+        Network - Super class to encapsulate several Layers and manage signal routing
 
-        :param layers:   Layers to be added to the network. They will
+        :param Layer layers:   Layers to be added to the network. They will
                          be connected in series. The Order in which
                          they are received determines the order in
                          which they are connected. First layer will
                          receive external input
-        :param dt:      float If not none, network time step is forced to
+        :param float dt: If not none, network time step is forced to
                                this values. Layers that are added must have
                                time step that is multiple of dt.
                                If None, network will try to determine
@@ -178,10 +188,10 @@ class Network:
         Connect lyr to input_layer and output_layer.
 
         :param lyr:             Layer layer to be added to self
-        :param input_layer:        Layer input layer to lyr
-        :param output_layer:       Layer layer to which lyr is input layer
+        :param input_layer:     Layer input layer to lyr
+        :param output_layer:    Layer layer to which lyr is input layer
         :param external_input:  bool This layer receives external input (Default: False)
-        :param verbose:        bool Print feedback about layer addition (Default: False)
+        :param verbose:         bool Print feedback about layer addition (Default: False)
 
         :return:                Layer lyr
         """
