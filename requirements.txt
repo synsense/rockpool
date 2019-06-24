@@ -13,3 +13,5 @@ setuptools
 torchvision
 tqdm
 jax
+jaxlib
+
