@@ -120,6 +120,11 @@ class RecDynapSE(Layer):
             name
         )
 
+        # - Store initialization arguments for `to_dict` method
+        self._l_input_core_ids = l_input_core_ids
+        self._clearcores_list = clearcores_list
+        self._rpyc_port = rpyc_port
+        self._skip_weights = skip_weights
         # - Store weight matrices
         self.weights_in = weights_in
         self.weights_rec = weights_rec
@@ -201,7 +206,10 @@ class RecDynapSE(Layer):
         # vn_channels_inp = ts_input.channels
 
         # - Check whether data for splitting by trial is available
-        if hasattr(ts_input, "trial_start_times") and self.max_num_trials_batch is not None:
+        if (
+            hasattr(ts_input, "trial_start_times")
+            and self.max_num_trials_batch is not None
+        ):
             ## -- Split by trials
             vn_trial_starts = np.floor(ts_input.trial_start_times / self.dt).astype(int)
             # - Make sure only trials within evolution period are considered
@@ -550,6 +558,31 @@ class RecDynapSE(Layer):
             apply_diff=True,
         )
         print("Layer `{}`: Recurrent connections have been set.".format(self.name))
+
+    def to_dict(self):
+
+        config = {}
+        config["name"] = self.name
+        config["weights_in"] = self._weights_in.tolist()
+        config["weights_rec"] = self._weights_rec.tolist()
+        config["neuron_ids"] = self.neuron_ids.tolist()
+        config["virtual_neuron_ids"] = self.virtual_neuron_ids.tolist()
+
+        config["dt"] = self.dt
+
+        config["max_num_trials_batch"] = self.max_num_trials_batch
+        config["max_batch_dur"] = self.max_batch_dur
+        config["max_num_timesteps"] = self.max_num_timesteps
+
+        config["l_input_core_ids"] = self._l_input_core_ids
+        config["input_chip_id"] = self._input_chip_id
+        config["clearcores_list"] = self._clearcores_list
+        config["rpyc_port"] = self._rpyc_port
+        config["skip_weights"] = self._skip_weights
+
+        config["class_name"] = self.class_name
+
+        return config
 
     @property
     def input_type(self):
