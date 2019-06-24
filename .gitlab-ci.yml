@@ -1,4 +1,10 @@
+stages:
+  - testing
+  - building
+  - packaging
+
 unit_tests:
+  stage: testing
   image: aictx/ci-python-arch:latest
   tags:
     - python
@@ -13,6 +19,9 @@ unit_tests:
     - pytest -v tests
 
 nest_tests:
+  stage: testing
+  when: manual
+  allow_failure: true
   image: aictx/ci-python-arch:latest
   tags:
     - python
