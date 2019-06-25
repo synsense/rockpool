@@ -1,4 +1,10 @@
-unittests:
+stages:
+  - testing
+  - building
+  - packaging
+
+unit_tests:
+  stage: testing
   image: aictx/ci-python-arch:latest
   tags:
     - python
@@ -8,6 +14,24 @@ unittests:
     - pip install --upgrade pip
     - pip install . --no-cache-dir
 
- 
+
   script:
-    - pytest -v
+    - pytest -v tests
+
+nest_tests:
+  stage: testing
+  when: manual
+  allow_failure: true
+  image: aictx/ci-python-arch:latest
+  tags:
+    - python
+    - aiCTX
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install . --no-cache-dir
+
+
+  script:
+    - pytest -v test_nest
+
