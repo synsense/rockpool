@@ -1656,7 +1656,8 @@ class DynapseControl:
         self.bufferedfilter.get_special_event_timestamps()
 
         # Time at which stimulation/recording stops, including buffer
-        t_stop = time.time() + duration + (0.0 if t_buffer is None else t_buffer)
+        t_wait = duration + (0.0 if t_buffer is None else t_buffer)
+        t_stop = time.time() + t_wait
 
         if events:
             # - Stimulate
@@ -1672,9 +1673,12 @@ class DynapseControl:
             # - Keep running indefinitely
             return
 
-        # - Until duration is over, record events and process in quick succession
-        while time.time() < t_stop:
-            if record:
+        if record:
+            # - Until duration is over, record events and process in quick succession
+            # Set go_on to 2 to enforce another run of the loop after time is over.
+            # Otherwise, if last iteration takes too long, events may be lost.
+            go_on = 2
+            while go_on:
                 # - Collect events and possibly trigger events
                 triggerevents += self.bufferedfilter.get_special_event_timestamps()
                 current_events = self.bufferedfilter.get_events()
@@ -1684,6 +1688,9 @@ class DynapseControl:
                 )
                 timestamps_full += list(timestamps_curr)
                 channels_full += list(channels_curr)
+                go_on -= int(time.time() >= t_stop)
+        else:
+            time.sleep(t_wait)
 
         print("DynapseControl: Stimulation ended.")
 

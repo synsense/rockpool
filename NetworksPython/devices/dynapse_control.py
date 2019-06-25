@@ -1688,7 +1688,7 @@ class DynapseControl:
                 )
                 timestamps_full += list(timestamps_curr)
                 channels_full += list(channels_curr)
-                go_on -= int(time.time() < t_stop)
+                go_on -= int(time.time() >= t_stop)
         else:
             time.sleep(t_wait)
 
