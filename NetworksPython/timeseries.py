@@ -1733,6 +1733,10 @@ class TSEvent(TimeSeries):
         """
         # - Make sure path is string (and not Path object)
         path = str(path)
+        # - Some modules add a `trial_start_times` attribute to the object.
+        trial_start_times = (
+            self.trial_start_times if hasattr(self, "trial_start_times") else None
+        )
         np.savez(
             path,
             times=self.times,
@@ -1743,6 +1747,7 @@ class TSEvent(TimeSeries):
             num_channels=self.num_channels,
             name=self.name,
             str_type="TSEvent",  # Indicate that the object is TSEvent
+            trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
         print(
@@ -2101,11 +2106,11 @@ class TSEvent(TimeSeries):
             self._num_channels = nNewNumChannels
 
 
-def load_ts_from_file(path: str, strExpectedType: Optional[str] = None) -> TimeSeries:
+def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
     """
     load_ts_from_file - Load a timeseries object from an npz file.
     :param path:     str Filepath to load file
-    :param strExpectedType:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
+    :param expected_type:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
     :return:
         Loaded time series object
     """
@@ -2114,15 +2119,18 @@ def load_ts_from_file(path: str, strExpectedType: Optional[str] = None) -> TimeS
     # - Load npz file from specified path
     dLoaded = np.load(path)
     # - Check for expected type
-    strLoadedType = dLoaded["str_type"].item()
-    if strExpectedType is not None:
-        if not strLoadedType == strExpectedType:
+    try:
+        loaded_type = dLoaded["str_type"].item()
+    except KeyError:
+        loaded_type = dLoaded["strType"].item()
+    if expected_type is not None:
+        if not loaded_type == expected_type:
             raise TypeError(
                 "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
-                    path, strLoadedType, strExpectedType
+                    path, loaded_type, expected_type
                 )
             )
-    if strLoadedType == "TSContinuous":
+    if loaded_type == "TSContinuous":
         return TSContinuous(
             times=dLoaded["times"],
             samples=dLoaded["samples"],
@@ -2132,7 +2140,7 @@ def load_ts_from_file(path: str, strExpectedType: Optional[str] = None) -> TimeS
             periodic=dLoaded["periodic"].item(),
             name=dLoaded["name"].item(),
         )
-    elif strLoadedType == "TSEvent":
+    elif loaded_type == "TSEvent":
         return TSEvent(
             times=dLoaded["times"],
             channels=dLoaded["channels"],
@@ -2143,4 +2151,4 @@ def load_ts_from_file(path: str, strExpectedType: Optional[str] = None) -> TimeS
             name=dLoaded["name"].item(),
         )
     else:
-        raise TypeError("Type `{}` not supported.".format(strLoadedType))
+        raise TypeError("Type `{}` not supported.".format(loaded_type))
