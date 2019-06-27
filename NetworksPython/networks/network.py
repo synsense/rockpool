@@ -531,15 +531,15 @@ class Network:
                 ts_input.name = "External input"
             # - Check if input contains information about trial timings
             try:
-                trial_starts: np.ndarray = ts_input.trial_starts
+                trial_start_times: np.ndarray = ts_input.trial_start_times
             except AttributeError:
                 try:
                     # Old variable name
-                    trial_starts: np.ndarray = ts_input.trial_start_times
+                    trial_start_times: np.ndarray = ts_input.trial_start_times
                 except AttributeError:
-                    trial_starts = None
+                    trial_start_times = None
         else:
-            trial_starts = None
+            trial_start_times = None
 
         # - Dict to store external input and each layer's output time series
         signal_dict = {"external": ts_input}
@@ -580,8 +580,8 @@ class Network:
             )
 
             # - Add information about trial timings if present
-            if trial_starts is not None:
-                signal_dict[lyr.name].trial_starts = trial_starts.copy()
+            if trial_start_times is not None:
+                signal_dict[lyr.name].trial_start_times = trial_start_times.copy()
 
             # - Set name for response time series, if not already set
             if signal_dict[lyr.name].name is None:
