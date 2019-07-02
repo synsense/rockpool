@@ -353,22 +353,20 @@ class FFIAFNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        with self.NestProcess(
-            self.request_q,
-            self.result_q,
-            self._weights,
-            bias,
-            dt,
-            tau_mem,
-            capacity,
-            v_thresh,
-            v_reset,
-            v_rest,
-            refractory,
-            record,
-            num_cores,
-        ) as nest_process:
-            nest_process.start()
+        self.nest_process = self.NestProcess(self.request_q,
+                                             self.result_q,
+                                             self._weights,
+                                             bias,
+                                             dt,
+                                             tau_mem,
+                                             capacity,
+                                             v_thresh,
+                                             v_reset,
+                                             v_rest,
+                                             refractory,
+                                             record,
+                                             num_cores)
+        self.nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -466,8 +464,8 @@ class FFIAFNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        # self.nest_process.terminate()
-        # self.nest_process.join()
+        self.nest_process.terminate()
+        self.nest_process.join()
 
     def to_dict(self):
 
@@ -1030,27 +1028,25 @@ class RecIAFSpkInNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        with self.NestProcess(
-            self.request_q,
-            self.result_q,
-            self.weights,
-            weights_rec,
-            delay_in,
-            delay_rec,
-            bias,
-            dt,
-            tau_mem,
-            tau_syn_exc,
-            tau_syn_inh,
-            capacity,
-            v_thresh,
-            v_reset,
-            v_rest,
-            refractory,
-            record,
-            num_cores,
-        ) as nest_process:
-            nest_process.start()
+        self.nest_process = self.NestProcess(self.request_q,
+                                             self.result_q,
+                                             self.weights,
+                                             weights_rec,
+                                             delay_in,
+                                             delay_rec,
+                                             bias,
+                                             dt,
+                                             tau_mem,
+                                             tau_syn_exc,
+                                             tau_syn_inh,
+                                             capacity,
+                                             v_thresh,
+                                             v_reset,
+                                             v_rest,
+                                             refractory,
+                                             record,
+                                             num_cores)
+        self.nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -1169,8 +1165,8 @@ class RecIAFSpkInNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        # self.nest_process.terminate()
-        # self.nest_process.join()
+        self.nest_process.terminate()
+        self.nest_process.join()
 
     def to_dict(self):
 
