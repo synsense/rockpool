@@ -22,7 +22,7 @@ RPYC_TIMEOUT = 300
 # - Default values, can be changed
 DEF_FPGA_ISI_BASE = 2e-5  # Default timestep between events sent to FPGA
 DEF_FPGA_ISI_MULTIPLIER = int(np.round(DEF_FPGA_ISI_BASE / params.FPGA_TIMESTEP))
-USE_CHIPS = [0]  # Chips to be initialized for use
+USE_CHIPS = []  # Chips to be initialized for use
 
 
 ## -- Import cortexcontrol modules or establish connection via RPyC
@@ -116,6 +116,10 @@ def initialize_hardware(
     :param enforce:    If `True`, clear all chips in `use_chips`, no matter if
                        they have been cleared already.
     """
+    if isinstance(use_chips, int):
+        use_chips = [use_chips]
+    else:
+        use_chips = list(use_chips)
     print("dynapse_control: Initializing hardware...", end="\r")
     if not _USE_RPYC:
         tools.init_chips(use_chips)
@@ -749,6 +753,11 @@ class DynapseControl:
         """
         if chips is not None:
             initialize_hardware(chips, self.rpyc_connection, enforce=enforce)
+            print(
+                "DynapseControl: {} hardware neurons available.".format(
+                    np.sum(self.hwneurons_isavailable)
+                )
+            )
 
     def clear_connections(
         self,
