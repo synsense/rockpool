@@ -104,7 +104,7 @@ class FFIAFNest(Layer):
                 {
                     "resolution": self.dt,
                     "local_num_threads": self.num_cores,
-                    "print_time": True,
+                    "print_time": False,
                 }
             )
 
@@ -699,7 +699,7 @@ class RecIAFSpkInNest(Layer):
                 {
                     "resolution": self.dt,
                     "local_num_threads": self.num_cores,
-                    "print_time": True,
+                    "print_time": False,
                 }
             )
 
