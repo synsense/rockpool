@@ -43,6 +43,9 @@ class RecDynapSE(Layer):
         rpyc_port: Optional[int] = None,
         name: Optional[str] = "unnamed",
         skip_weights: bool = False,
+        skip_neuron_allocation: bool = False,
+        fastmode: bool = False,
+        speedup: float = 1.0,
     ):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
@@ -68,6 +71,12 @@ class RecDynapSE(Layer):
         :param rpyc_port:           Port at which RPyC connection should be established. Only considered if controller is None.
         :param name:             str     Layer name
         :param skip_weights:        bool    Do not upload weight configuration to chip. (Use carecully)
+        :param skip_neuron_allocation:  Do not verify if neurons are usable.
+        :param fastmode:    bool  DynapseControl will not load buffered event filters when data is sent.
+                                  Recording buffer is set to 0.
+                                 (No effect with `RecDynapSEDemo` class)
+        :param speedup:  float   If `fastmode`==True, speed up input events to Dynapse by this factor.
+                                 (No effect with `RecDynapSEDemo` class)
         """
 
         # - Instantiate DynapseControl
@@ -125,6 +134,8 @@ class RecDynapSE(Layer):
         self._clearcores_list = clearcores_list
         self._rpyc_port = rpyc_port
         self._skip_weights = skip_weights
+        self.fastmode = fastmode
+        self.speedup = speedup
         # - Store weight matrices
         self.weights_in = weights_in
         self.weights_rec = weights_rec
@@ -150,11 +161,20 @@ class RecDynapSE(Layer):
             self.max_batch_dur = max_batch_dur
 
         # - Allocate layer neurons
-        self._hw_neurons, self._shadow_neurons = (
-            self.controller.allocate_hw_neurons(self.size)
-            if neuron_ids is None
-            else self.controller.allocate_hw_neurons(neuron_ids)
-        )
+        if skip_neuron_allocation:
+            neuron_ids = range(1, 1 + self.size) if neuron_ids is None else neuron_ids
+            self._hw_neurons = np.array(
+                [self.controller.hw_neurons[i] for i in neuron_ids]
+            )
+            self._shadow_neurons = np.array(
+                [self.controller.shadow_neurons[i] for i in neuron_ids]
+            )
+        else:
+            self._hw_neurons, self._shadow_neurons = (
+                self.controller.allocate_hw_neurons(self.size)
+                if neuron_ids is None
+                else self.controller.allocate_hw_neurons(neuron_ids)
+            )
         # Make sure number of neurons is correct
         assert (
             self._hw_neurons.size == self.size
@@ -166,11 +186,18 @@ class RecDynapSE(Layer):
         print("Layer `{}`: Layer neurons allocated".format(name))
 
         # - Allocate virtual neurons
-        self._virtual_neurons = (
-            self.controller.allocate_virtual_neurons(self.size_in)
-            if virtual_neuron_ids is None
-            else self.controller.allocate_virtual_neurons(virtual_neuron_ids)
-        )
+        if skip_neuron_allocation:
+            if virtual_neuron_ids is None:
+                virtual_neuron_ids = range(1, 1 + self.size_in)
+            self._virtual_neurons = np.array(
+                [self.controller.virtual_neurons[i] for i in virtual_neuron_ids]
+            )
+        else:
+            self._virtual_neurons = (
+                self.controller.allocate_virtual_neurons(self.size_in)
+                if virtual_neuron_ids is None
+                else self.controller.allocate_virtual_neurons(virtual_neuron_ids)
+            )
         # Make sure number of neurons is correct
         assert (
             self._virtual_neurons.size == self.size_in
@@ -453,18 +480,34 @@ class RecDynapSE(Layer):
         self, timesteps: np.ndarray, channels: np.ndarray, dur_batch: float
     ):
         try:
-            times_out, channels_out = self.controller.send_arrays(
-                timesteps=timesteps,
-                channels=channels,
-                t_record=dur_batch,
-                neuron_ids=self.virtual_neuron_ids,
-                record_neur_ids=self.neuron_ids,
-                targetcore_mask=self._input_coremask,
-                targetchip_id=self._input_chip_id,
-                periodic=False,
-                record=True,
-                return_ts=False,
-            )
+            if self.fastmode:
+                times_out, channels_out = self.controller.send_arrays(
+                    timesteps=(timesteps.astype(float) / self.speedup).astype(int),
+                    channels=channels,
+                    t_record=dur_batch / self.speedup,
+                    neuron_ids=self.virtual_neuron_ids,
+                    record_neur_ids=self.neuron_ids,
+                    targetcore_mask=self._input_coremask,
+                    targetchip_id=self._input_chip_id,
+                    periodic=False,
+                    record=True,
+                    return_ts=False,
+                    t_buffer=0.0,
+                    fastmode=True,
+                )
+            else:
+                times_out, channels_out = self.controller.send_arrays(
+                    timesteps=timesteps,
+                    channels=channels,
+                    t_record=dur_batch,
+                    neuron_ids=self.virtual_neuron_ids,
+                    record_neur_ids=self.neuron_ids,
+                    targetcore_mask=self._input_coremask,
+                    targetchip_id=self._input_chip_id,
+                    periodic=False,
+                    record=True,
+                    return_ts=False,
+                )
         # - It can happen that DynapseControl inserts dummy events to make sure ISI limit is not exceeded.
         #   This may result in too many events in single batch, in which case a MemoryError is raised.
         except ValueError:

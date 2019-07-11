@@ -364,6 +364,10 @@ class Layer(ABC):
         """
         # - Replicate `ts_input` if necessary
         if inp.ndim == 1 or (inp.ndim > 1 and inp.shape[1]) == 1:
+            warn(
+                f"Layer `{self.name}`: Only one channel provided in input. Will be "
+                + f"copied to all {self.size_in} input channels."
+            )
             inp = np.repeat(inp.reshape((-1, 1)), self._size_in, axis=1)
         else:
             # - Check dimensionality of input

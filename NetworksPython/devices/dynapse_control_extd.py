@@ -228,6 +228,7 @@ class DynapseControlExtd(DynapseControl):
         periodic=False,
         record=False,
         return_ts=False,
+        fastmode: bool = False,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_arrays - Send events defined in timetrace and channel arrays to FPGA.
@@ -269,6 +270,7 @@ class DynapseControlExtd(DynapseControl):
             targetchip_id=targetchip_id,
             periodic=periodic,
             record=record,
+            fastmode=fastmode,
         )
 
         if recorded_data is not None:
