@@ -1,8 +1,10 @@
-import numpy as np
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
 from typing import Optional, Union, List, Tuple
+import json
+
+import numpy as np
 import torch
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
@@ -363,6 +365,10 @@ class Layer(ABC):
         """
         # - Replicate `ts_input` if necessary
         if inp.ndim == 1 or (inp.ndim > 1 and inp.shape[1]) == 1:
+            warn(
+                f"Layer `{self.name}`: Only one channel provided in input. Will be "
+                + f"copied to all {self.size_in} input channels."
+            )
             inp = np.repeat(inp.reshape((-1, 1)), self._size_in, axis=1)
         else:
             # - Check dimensionality of input
@@ -511,14 +517,6 @@ class Layer(ABC):
     #     """
     #     pass
 
-    def reset_state(self):
-        """
-        reset_state - Reset the internal state of this layer. Sets state to zero
-
-        :return: None
-        """
-        self.state = np.zeros(self.size)
-
     def reset_time(self):
         """
         reset_time - Reset the internal clock
@@ -542,7 +540,75 @@ class Layer(ABC):
         self.reset_time()
         self.reset_state()
 
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = {}
+        config["weights"] = self.weights.tolist()
+        config["dt"] = self.dt
+        config["noise_std"] = self.noise_std
+        config["name"] = self.name
+
+        config["class_name"] = self.class_name
+
+        return config
+
+    def save(self, config: dict, filename: str):
+        """save - Save parameters from `config` in a json file.
+        :param config:    dict of attributes to be saved.
+        :param filename:  Path of file where parameters are stored.
+        """
+        with open(filename, "w") as f:
+            json.dump(config, f)
+
+    @classmethod
+    def load_from_file(cls, filename: str, **kwargs) -> "cls":
+        """load_from_file - Generate instance of `cls` with parameters loaded from file.
+        :param filename: Path to the file where parameters are stored.
+        :param kwargs:   Any keyword argument of the class __init__ method where the
+                         parameter stored in the file should be overwritten.
+        :return:
+            Instance of cls with paramters from file.
+        """
+        # - Load dict from file
+        with open(filename, "r") as f:
+            config = json.load(f)
+        # - Instantiate new class member from dict
+        return cls.load_from_dict(config, **kwargs)
+
+    @classmethod
+    def load_from_dict(cls, config: dict, **kwargs) -> "cls":
+        """load_from_dict - Generate instance of `cls` with parameters loaded from dict.
+        :param config: Dict with parameters.
+        :param kwargs: Any keyword argument of the class __init__ method where the
+                       parameter from `config` should be overwritten.
+        :return:
+            Instance of cls with paramters from dict.
+        """
+        # - Overwrite parameters with kwargs
+        config = dict(config, **kwargs)
+        # - Remove class name from dict
+        config.pop("class_name")
+        return cls(**config)
+
+    def reset_state(self):
+        """
+        reset_state - Reset the internal state of this layer. Sets state to zero
+
+        :return: None
+        """
+        self.state = np.zeros(self.size)
+
     #### --- Properties
+
+    @property
+    def class_name(self) -> str:
+        """class_name - Return name of `self` as a string."""
+        # - Determine class name by removing "<class '" and "'>" and the package information
+        return str(self.__class__).split("'")[1].split(".")[-1]
 
     @property
     def output_type(self):
@@ -582,9 +648,7 @@ class Layer(ABC):
         try:
             assert new_w.ndim >= 2
         except AssertionError:
-            warn(
-                "Layer `{}`: `new_w` must be at least of dimension 2".format(self.name)
-            )
+            warn("Layer `{}`: `new_w must be at least of dimension 2".format(self.name))
             new_w = np.atleast_2d(new_w)
 
         # - Check dimensionality of new weights

@@ -38,8 +38,8 @@ class FFExpSyn(Layer):
     ## - Constructor
     def __init__(
         self,
-        weights: Union[np.ndarray, int] = None,
-        bias: np.ndarray = 0,
+        weights: Union[np.ndarray, int],
+        bias: Union[np.ndarray, float] = 0,
         dt: float = 0.0001,
         noise_std: float = 0,
         tau_syn: float = 0.005,
@@ -661,6 +661,21 @@ class FFExpSyn(Layer):
             gradients[:-1, :] += regularize / float(self.size_in) * self.weights
 
         return gradients
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        # - Basic layer attributes from super class
+        config = super().to_dict()
+        # - add class-specific attributes
+        config["bias"] = self.bias if type(self._bias) is float else self._bias.tolist()
+        config["tau_syn"] = (
+            self.tau_syn if type(self.tau_syn) is float else self.tau_syn.tolist()
+        )
+        config["name"] = self.name
+        config["add_events"] = self.add_events
 
     ### --- Properties
 

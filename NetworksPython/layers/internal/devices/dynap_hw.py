@@ -43,6 +43,9 @@ class RecDynapSE(Layer):
         rpyc_port: Optional[int] = None,
         name: Optional[str] = "unnamed",
         skip_weights: bool = False,
+        skip_neuron_allocation: bool = False,
+        fastmode: bool = False,
+        speedup: float = 1.0,
     ):
         """
         RecDynapSE - Recurrent layer implemented on DynapSE
@@ -68,6 +71,12 @@ class RecDynapSE(Layer):
         :param rpyc_port:           Port at which RPyC connection should be established. Only considered if controller is None.
         :param name:             str     Layer name
         :param skip_weights:        bool    Do not upload weight configuration to chip. (Use carecully)
+        :param skip_neuron_allocation:  Do not verify if neurons are usable.
+        :param fastmode:    bool  DynapseControl will not load buffered event filters when data is sent.
+                                  Recording buffer is set to 0.
+                                 (No effect with `RecDynapSEDemo` class)
+        :param speedup:  float   If `fastmode`==True, speed up input events to Dynapse by this factor.
+                                 (No effect with `RecDynapSEDemo` class)
         """
 
         # - Instantiate DynapseControl
@@ -120,6 +129,13 @@ class RecDynapSE(Layer):
             name
         )
 
+        # - Store initialization arguments for `to_dict` method
+        self._l_input_core_ids = l_input_core_ids
+        self._clearcores_list = clearcores_list
+        self._rpyc_port = rpyc_port
+        self._skip_weights = skip_weights
+        self.fastmode = fastmode
+        self.speedup = speedup
         # - Store weight matrices
         self.weights_in = weights_in
         self.weights_rec = weights_rec
@@ -145,11 +161,20 @@ class RecDynapSE(Layer):
             self.max_batch_dur = max_batch_dur
 
         # - Allocate layer neurons
-        self._hw_neurons, self._shadow_neurons = (
-            self.controller.allocate_hw_neurons(self.size)
-            if neuron_ids is None
-            else self.controller.allocate_hw_neurons(neuron_ids)
-        )
+        if skip_neuron_allocation:
+            neuron_ids = range(1, 1 + self.size) if neuron_ids is None else neuron_ids
+            self._hw_neurons = np.array(
+                [self.controller.hw_neurons[i] for i in neuron_ids]
+            )
+            self._shadow_neurons = np.array(
+                [self.controller.shadow_neurons[i] for i in neuron_ids]
+            )
+        else:
+            self._hw_neurons, self._shadow_neurons = (
+                self.controller.allocate_hw_neurons(self.size)
+                if neuron_ids is None
+                else self.controller.allocate_hw_neurons(neuron_ids)
+            )
         # Make sure number of neurons is correct
         assert (
             self._hw_neurons.size == self.size
@@ -161,11 +186,18 @@ class RecDynapSE(Layer):
         print("Layer `{}`: Layer neurons allocated".format(name))
 
         # - Allocate virtual neurons
-        self._virtual_neurons = (
-            self.controller.allocate_virtual_neurons(self.size_in)
-            if virtual_neuron_ids is None
-            else self.controller.allocate_virtual_neurons(virtual_neuron_ids)
-        )
+        if skip_neuron_allocation:
+            if virtual_neuron_ids is None:
+                virtual_neuron_ids = range(1, 1 + self.size_in)
+            self._virtual_neurons = np.array(
+                [self.controller.virtual_neurons[i] for i in virtual_neuron_ids]
+            )
+        else:
+            self._virtual_neurons = (
+                self.controller.allocate_virtual_neurons(self.size_in)
+                if virtual_neuron_ids is None
+                else self.controller.allocate_virtual_neurons(virtual_neuron_ids)
+            )
         # Make sure number of neurons is correct
         assert (
             self._virtual_neurons.size == self.size_in
@@ -201,9 +233,12 @@ class RecDynapSE(Layer):
         # vn_channels_inp = ts_input.channels
 
         # - Check whether data for splitting by trial is available
-        if hasattr(ts_input, "vtTrialStarts") and self.max_num_trials_batch is not None:
+        if (
+            hasattr(ts_input, "trial_start_times")
+            and self.max_num_trials_batch is not None
+        ):
             ## -- Split by trials
-            vn_trial_starts = np.floor(ts_input.vtTrialStarts / self.dt).astype(int)
+            vn_trial_starts = np.floor(ts_input.trial_start_times / self.dt).astype(int)
             # - Make sure only trials within evolution period are considered
             vn_trial_starts = vn_trial_starts[
                 np.logical_and(
@@ -445,18 +480,34 @@ class RecDynapSE(Layer):
         self, timesteps: np.ndarray, channels: np.ndarray, dur_batch: float
     ):
         try:
-            times_out, channels_out = self.controller.send_arrays(
-                timesteps=timesteps,
-                channels=channels,
-                t_record=dur_batch,
-                neuron_ids=self.virtual_neuron_ids,
-                record_neur_ids=self.neuron_ids,
-                targetcore_mask=self._input_coremask,
-                targetchip_id=self._input_chip_id,
-                periodic=False,
-                record=True,
-                return_ts=False,
-            )
+            if self.fastmode:
+                times_out, channels_out = self.controller.send_arrays(
+                    timesteps=(timesteps.astype(float) / self.speedup).astype(int),
+                    channels=channels,
+                    t_record=dur_batch / self.speedup,
+                    neuron_ids=self.virtual_neuron_ids,
+                    record_neur_ids=self.neuron_ids,
+                    targetcore_mask=self._input_coremask,
+                    targetchip_id=self._input_chip_id,
+                    periodic=False,
+                    record=True,
+                    return_ts=False,
+                    t_buffer=0.0,
+                    fastmode=True,
+                )
+            else:
+                times_out, channels_out = self.controller.send_arrays(
+                    timesteps=timesteps,
+                    channels=channels,
+                    t_record=dur_batch,
+                    neuron_ids=self.virtual_neuron_ids,
+                    record_neur_ids=self.neuron_ids,
+                    targetcore_mask=self._input_coremask,
+                    targetchip_id=self._input_chip_id,
+                    periodic=False,
+                    record=True,
+                    return_ts=False,
+                )
         # - It can happen that DynapseControl inserts dummy events to make sure ISI limit is not exceeded.
         #   This may result in too many events in single batch, in which case a MemoryError is raised.
         except ValueError:
@@ -550,6 +601,31 @@ class RecDynapSE(Layer):
             apply_diff=True,
         )
         print("Layer `{}`: Recurrent connections have been set.".format(self.name))
+
+    def to_dict(self):
+
+        config = {}
+        config["name"] = self.name
+        config["weights_in"] = self._weights_in.tolist()
+        config["weights_rec"] = self._weights_rec.tolist()
+        config["neuron_ids"] = self.neuron_ids.tolist()
+        config["virtual_neuron_ids"] = self.virtual_neuron_ids.tolist()
+
+        config["dt"] = self.dt
+
+        config["max_num_trials_batch"] = self.max_num_trials_batch
+        config["max_batch_dur"] = self.max_batch_dur
+        config["max_num_timesteps"] = self.max_num_timesteps
+
+        config["l_input_core_ids"] = self._l_input_core_ids
+        config["input_chip_id"] = self._input_chip_id
+        config["clearcores_list"] = self._clearcores_list
+        config["rpyc_port"] = self._rpyc_port
+        config["skip_weights"] = self._skip_weights
+
+        config["class_name"] = self.class_name
+
+        return config
 
     @property
     def input_type(self):

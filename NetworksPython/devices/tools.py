@@ -43,6 +43,14 @@ CAMTYPE_DICT = {
     getattr(CtxDynapse.DynapseCamType, camtype): i for i, camtype in enumerate(CAMTYPES)
 }
 
+# - Dict that can be used to store variables in cortexcontrol. They will persist even if
+#   RPyC connection breaks down.
+storage = dict()
+
+
+def store_var(name: str, value):
+    storage[name] = copy.copy(value)
+
 
 def _auto_insert_dummies(
     discrete_isi_list: list, neuron_ids: list, fpga_isi_limit: int = FPGA_ISI_LIMIT
@@ -527,6 +535,8 @@ def set_connections(
     # - Neurons to be connected
     presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
     postsyn_neurons = [shadow_neurons[i] for i in postneuron_ids]
+
+    initialized_neurons = storage.get("initialized_neurons", [])
 
     if not presyn_isvirtual:
         # - Logical IDs of pre neurons

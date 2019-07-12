@@ -45,6 +45,12 @@ class FFIAFNest(Layer):
     class NestProcess(multiprocessing.Process):
         """ Class for running NEST in its own process """
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
         def __init__(
             self,
             request_q,
@@ -57,7 +63,7 @@ class FFIAFNest(Layer):
             v_thresh: Union[float, np.ndarray],
             v_reset: Union[float, np.ndarray],
             v_rest: Union[float, np.ndarray],
-            refractory,
+            refractory: Union[float, np.ndarray],
             record: bool = False,
             num_cores: int = 1,
         ):
@@ -98,7 +104,7 @@ class FFIAFNest(Layer):
                 {
                     "resolution": self.dt,
                     "local_num_threads": self.num_cores,
-                    "print_time": True,
+                    "print_time": False,
                 }
             )
 
@@ -277,7 +283,7 @@ class FFIAFNest(Layer):
 
                 result = func(*req[1:])
 
-                if not result is None:
+                if result is None:
                     self.result_q.put(result)
 
     ## - Constructor
@@ -287,11 +293,11 @@ class FFIAFNest(Layer):
         bias: Union[float, np.ndarray] = 0.0,
         dt: float = 0.0001,
         tau_mem: Union[float, np.ndarray] = 0.02,
-        capacity: Union[float, np.ndarray] = 100.0,
+        capacity: Union[float, np.ndarray] = None,
         v_thresh: Union[float, np.ndarray] = -0.055,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
-        refractory=0.001,
+        refractory: Union[float, np.ndarray] = 0.001,
         name: str = "unnamed",
         record: bool = False,
         num_cores=1,
@@ -320,29 +326,27 @@ class FFIAFNest(Layer):
         :param record:         bool Record membrane potential during evolutions
         """
 
-        if type(weights) is list:
-            weights = np.asarray(weights)
+        # - Call super constructor
+        super().__init__(weights=weights, dt=dt, name=name)
 
-        if type(bias) is list:
-            bias = np.asarray(bias)
+        # - Convert parameters to arrays before passing to nest process
+        v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
+        v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        refractory = self._expand_to_net_size(
+            refractory, "refractory", allow_none=False
+        )
+        # Set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.0
+        else:
+            capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
 
-        if type(tau_mem) is list:
-            tau_mem = np.asarray(tau_mem)
-
-        if type(capacity) is list:
-            capacity = np.asarray(capacity)
-
-        if type(v_thresh) is list:
-            v_thresh = np.asarray(v_thresh)
-
-        if type(v_reset) is list:
-            v_reset = np.asarray(v_reset)
-
-        if type(v_rest) is list:
-            v_rest = np.asarray(v_rest)
-
-        # - Call super constructor (`asarray` is used to strip units)
-        super().__init__(weights=np.asarray(weights), dt=np.asarray(dt), name=name)
+        # set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.0
 
         self.num_cores = num_cores
 
@@ -352,7 +356,7 @@ class FFIAFNest(Layer):
         self.nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
-            weights,
+            self._weights,
             bias,
             dt,
             tau_mem,
@@ -364,7 +368,6 @@ class FFIAFNest(Layer):
             record,
             num_cores,
         )
-
         self.nest_process.start()
 
         # - Record neuron parameters
@@ -373,8 +376,7 @@ class FFIAFNest(Layer):
         self._v_rest = v_rest
         self._tau_mem = tau_mem
         self._bias = bias
-        self._vfCapacity = capacity
-        self.weights = weights
+        self._capacity = capacity
         self._refractory = refractory
         self.record = record
 
@@ -444,8 +446,8 @@ class FFIAFNest(Layer):
             event_time_out, event_channel_out, _ = self.result_q.get()
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * self.dt
+        t_stop = (self._timestep + num_timesteps) * self.dt
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -467,111 +469,21 @@ class FFIAFNest(Layer):
         self.nest_process.terminate()
         self.nest_process.join()
 
-    ### --- Properties
-
-    @property
-    def output_type(self):
-        return TSEvent
-
-    @property
-    def refractory(self):
-        return self._refractory
-
-    @property
-    def state(self):
-        self.request_q.put([COMMAND_GET, "V_m"])
-        vms = np.array(self.result_q.get())
-        return mV2V(vms)
-
-    @state.setter
-    def state(self, new_state):
-
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
-
-    @property
-    def tau_mem(self):
-        return self._tau_mem
-
-    @tau_mem.setter
-    def tau_mem(self, new_tau_mem):
-
-        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
-
-    @property
-    def bias(self):
-        return self._bias
-
-    @bias.setter
-    def bias(self, new_bias):
-
-        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
-
-    @property
-    def v_thresh(self):
-        return self._v_thresh
-
-    @v_thresh.setter
-    def v_thresh(self, new_v_thresh):
-
-        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
-
-    @property
-    def v_reset(self):
-        return self._v_reset
-
-    @v_reset.setter
-    def v_reset(self, new_v_reset):
-
-        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
-
-    @property
-    def v_rest(self):
-        return self._v_rest
-
-    @v_rest.setter
-    def v_rest(self, new_v_rest):
-
-        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
-
-    @property
-    def t(self):
-        return self._timestep * np.asscalar(self.dt)
-
-    @Layer.dt.setter
-    def dt(self, _):
-        raise ValueError("The `dt` property cannot be set for this layer")
-
     def to_dict(self):
 
         config = {}
         config["name"] = self.name
         config["weights_in"] = self.weights.tolist()
-        config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
-        config["v_thresh"] = (
-            self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
-        )
-        config["v_reset"] = (
-            self.v_reset if type(self.v_reset) is float else self.v_reset.tolist()
-        )
-        config["v_rest"] = (
-            self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
-        )
-        config["capacity"] = (
-            self._vfCapacity
-            if type(self._vfCapacity) is float
-            else self._vfCapacity.tolist()
-        )
-        config["refractory"] = (
-            self.refractory
-            if type(self.refractory) is float
-            else self.refractory.tolist()
-        )
-        config["tau_mem"] = (
-            self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
-        )
+        config["dt"] = self.dt
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["capacity"] = self.capacity.tolist()
+        config["refractory"] = self.refractory.tolist()
+        config["tau_mem"] = self.tau_mem.tolist()
         config["num_cores"] = self.num_cores
         config["record"] = self.record
-        config["bias"] = self.bias if type(self.bias) is float else self.bias.tolist()
+        config["bias"] = self.bias.tolist()
         config["class_name"] = "FFIAFNest"
 
         return config
@@ -618,6 +530,99 @@ class FFIAFNest(Layer):
             num_cores=config["num_cores"],
         )
 
+    ### --- Properties
+
+    @property
+    def output_type(self):
+        return TSEvent
+
+    @property
+    def refractory(self):
+        return self._refractory
+
+    @refractory.setter
+    def refractory(self, new_refractory):
+        new_refractory = self._expand_to_net_size(
+            new_refractory, "refractory", allow_none=False
+        )
+        self._refractory = new_refractory
+        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
+
+    @property
+    def capacity(self):
+        return self._capacity
+
+    @property
+    def state(self):
+        self.request_q.put([COMMAND_GET, "V_m"])
+        vms = np.array(self.result_q.get())
+        return mV2V(vms)
+
+    @state.setter
+    def state(self, new_state):
+        new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
+
+    @property
+    def tau_mem(self):
+        return self._tau_mem
+
+    @tau_mem.setter
+    def tau_mem(self, new_tau_mem):
+        new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
+        self._tau_mem = new_tau_mem
+        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
+
+    @property
+    def bias(self):
+        return self._bias
+
+    @bias.setter
+    def bias(self, new_bias):
+        new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
+        self._bias = new_bias
+        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
+
+    @property
+    def v_thresh(self):
+        return self._v_thresh
+
+    @v_thresh.setter
+    def v_thresh(self, new_v_thresh):
+        new_v_thresh = self._expand_to_net_size(
+            new_v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_thresh = new_v_thresh
+        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
+
+    @property
+    def v_reset(self):
+        return self._v_reset
+
+    @v_reset.setter
+    def v_reset(self, new_v_reset):
+        new_v_reset = self._expand_to_net_size(new_v_reset, "v_reset", allow_none=False)
+        self._v_reset = new_v_reset
+        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
+
+    @property
+    def v_rest(self):
+        return self._v_rest
+
+    @v_rest.setter
+    def v_rest(self, new_v_rest):
+        new_v_rest = self._expand_to_net_size(new_v_rest, "v_rest", allow_none=False)
+        self._v_rest = new_v_rest
+        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
+
+    @property
+    def t(self):
+        return self._timestep * self.dt
+
+    @Layer.dt.setter
+    def dt(self, _):
+        raise ValueError("The `dt` property cannot be set for this layer")
+
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecIAFSpkInNest(Layer):
@@ -626,6 +631,12 @@ class RecIAFSpkInNest(Layer):
 
     class NestProcess(multiprocessing.Process):
         """ Class for running NEST in its own process """
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
 
         def __init__(
             self,
@@ -644,7 +655,7 @@ class RecIAFSpkInNest(Layer):
             v_thresh: Union[float, np.ndarray],
             v_reset: Union[float, np.ndarray],
             v_rest: Union[float, np.ndarray],
-            refractory,
+            refractory: Union[float, np.ndarray],
             record: bool = False,
             num_cores: int = 1,
         ):
@@ -690,7 +701,7 @@ class RecIAFSpkInNest(Layer):
                 {
                     "resolution": self.dt,
                     "local_num_threads": self.num_cores,
-                    "print_time": True,
+                    "print_time": False,
                 }
             )
 
@@ -761,6 +772,8 @@ class RecIAFSpkInNest(Layer):
             # - Create input connections
             pres = []
             posts = []
+            weights = []
+            delays = []
 
             for pre, row in enumerate(self.weights_in):
                 for post, w in enumerate(row):
@@ -768,30 +781,23 @@ class RecIAFSpkInNest(Layer):
                         continue
                     pres.append(self._sg[pre])
                     posts.append(self._pop[post])
+                    weights.append(w)
+                    if isinstance(self.delay_in, np.ndarray):
+                        delays.append(self.delay_in[pre, post])
+                    else:
+                        delays.append(self.delay_in)
 
-            nest.Connect(pres, posts, "one_to_one")
-            conns = nest.GetConnections(self._sg, self._pop)
-            connsPrePost = np.array(nest.GetStatus(conns, ["source", "target"]))
-
-            if not len(connsPrePost) == 0:
-                connsPrePost[:, 0] -= np.min(self._sg)
-                connsPrePost[:, 1] -= np.min(self._pop)
-
-                weights = [self.weights_in[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.delay_in) is np.ndarray:
-                    delays = [self.delay_in[conn[0], conn[1]] for conn in connsPrePost]
-                else:
-                    delays = np.array([self.delay_in] * len(weights))
-
+            if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
-
-                nest.SetStatus(
-                    conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
+                nest.Connect(
+                    pres, posts, "one_to_one", {"weight": weights, "delay": delays}
                 )
 
             # - Create recurrent connections
             pres = []
             posts = []
+            weights = []
+            delays = []
 
             for pre, row in enumerate(self.weights_rec):
                 for post, w in enumerate(row):
@@ -799,31 +805,22 @@ class RecIAFSpkInNest(Layer):
                         continue
                     pres.append(self._pop[pre])
                     posts.append(self._pop[post])
+                    weights.append(w)
+                    if isinstance(self.delay_rec, np.ndarray):
+                        delays.append(self.delay_rec[pre, post])
+                    else:
+                        delays.append(self.delay_rec)
 
-            nest.Connect(pres, posts, "one_to_one")
-
-            conns = nest.GetConnections(self._pop, self._pop)
-            connsPrePost = nest.GetStatus(conns, ["source", "target"])
-
-            if not len(connsPrePost) == 0:
-                connsPrePost -= np.min(self._pop)
-
-                weights = [self.weights_rec[conn[0], conn[1]] for conn in connsPrePost]
-                if type(self.delay_rec) is np.ndarray:
-                    delays = [self.delay_rec[conn[0], conn[1]] for conn in connsPrePost]
-                else:
-                    delays = np.array([self.delay_rec] * len(weights))
-
+            if len(weights) > 0:
                 delays = np.clip(delays, self.dt, np.max(delays))
-
-                nest.SetStatus(
-                    conns, [{"weight": w, "delay": d} for w, d in zip(weights, delays)]
+                nest.Connect(
+                    pres, posts, "one_to_one", {"weight": weights, "delay": delays}
                 )
 
             if self.record:
                 # - Monitor for recording network potential
                 self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
+                    "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
                 )
                 nest.Connect(self._mm, self._pop)
 
@@ -951,13 +948,14 @@ class RecIAFSpkInNest(Layer):
         bias: np.ndarray = 0.0,
         dt: float = 0.0001,
         tau_mem: np.ndarray = 0.02,
-        tau_syn_exc: np.ndarray = 0.05,
-        tau_syn_inh: np.ndarray = 0.05,
+        tau_syn: np.ndarray = 0.05,
+        tau_syn_exc: np.ndarray = None,
+        tau_syn_inh: np.ndarray = None,
         v_thresh: np.ndarray = -0.055,
         v_reset: np.ndarray = -0.065,
         v_rest: np.ndarray = -0.065,
-        capacity: Union[float, np.ndarray] = 100.0,
-        refractory=0.001,
+        capacity: Union[float, np.ndarray] = None,
+        refractory: Union[float, np.ndarray] = 0.001,
         name: str = "unnamed",
         record: bool = False,
         num_cores: int = 1,
@@ -974,6 +972,8 @@ class RecIAFSpkInNest(Layer):
 
         :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
         :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
+        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants. Default: 20ms
+        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants. Default: 20ms
 
         :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
@@ -986,46 +986,44 @@ class RecIAFSpkInNest(Layer):
 
         :param record:         bool Record membrane potential during evolutions
         """
-        if type(weights_in) is list:
-            weights_in = np.asarray(weights_in)
-
-        if type(weights_rec) is list:
-            weights_rec = np.asarray(weights_rec)
-
-        if type(delay_in) is list:
-            delay_in = np.asarray(delay_in)
-
-        if type(delay_rec) is list:
-            delay_rec = np.asarray(delay_rec)
-
-        if type(bias) is list:
-            bias = np.asarray(bias)
-
-        if type(tau_mem) is list:
-            tau_mem = np.asarray(tau_mem)
-
-        if type(tau_syn_exc) is list:
-            tau_syn_exc = np.asarray(tau_syn_exc)
-
-        if type(tau_syn_inh) is list:
-            tau_syn_inh = np.asarray(tau_syn_inh)
-
-        if type(capacity) is list:
-            capacity = np.asarray(capacity)
-
-        if type(v_thresh) is list:
-            v_thresh = np.asarray(v_thresh)
-
-        if type(v_reset) is list:
-            v_reset = np.asarray(v_reset)
-
-        if type(v_rest) is list:
-            v_rest = np.asarray(v_rest)
 
         # - Call super constructor (`asarray` is used to strip units)
+        super().__init__(weights=weights_in, dt=dt, name=name)
 
-        # TODO this does not make much sense (weights <- weights_in)
-        super().__init__(weights=np.asarray(weights_in), dt=dt, name=name)
+        if tau_syn_exc is None:
+            tau_syn_exc = tau_syn
+        if tau_syn_inh is None:
+            tau_syn_inh = tau_syn
+
+        # - Convert parameters to arrays before passing to nest process
+        weights_rec = self._expand_to_shape(
+            weights_rec, (self.size, self.size), "weights_rec", allow_none=False
+        )
+        v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
+        v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        refractory = self._expand_to_net_size(
+            refractory, "refractory", allow_none=False
+        )
+        tau_syn_exc = self._expand_to_net_size(
+            tau_syn_exc, "tau_syn_exc", allow_none=False
+        )
+        tau_syn_inh = self._expand_to_net_size(
+            tau_syn_inh, "tau_syn_inh", allow_none=False
+        )
+        delay_in = self._expand_to_shape(
+            delay_in, (self.size_in, self.size), "delay_in", allow_none=False
+        )
+        delay_rec = self._expand_to_shape(
+            delay_rec, (self.size, self.size), "delay_rec", allow_none=False
+        )
+        # Set capacity to the membrane time constant to be consistent with other layers
+        if capacity is None:
+            capacity = tau_mem * 1000.0
+        else:
+            capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
 
         self.num_cores = num_cores
 
@@ -1035,7 +1033,7 @@ class RecIAFSpkInNest(Layer):
         self.nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
-            weights_in,
+            self.weights,
             weights_rec,
             delay_in,
             delay_rec,
@@ -1052,21 +1050,20 @@ class RecIAFSpkInNest(Layer):
             record,
             num_cores,
         )
-
         self.nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
         self._v_reset = v_reset
         self._v_rest = v_rest
+        self._bias = bias
         self._tau_mem = tau_mem
         self._tau_syn_exc = tau_syn_exc
         self._tau_syn_inh = tau_syn_inh
-        self._bias = bias
-        self.capacity = capacity
-        self._weights_in = weights_in
-        self._weights_rec = weights_rec
+        self._capacity = capacity
         self._refractory = refractory
+        self._weights_in = self.weights
+        self._weights_rec = weights_rec
         self._delay_in = delay_in
         self._delay_rec = delay_rec
         self.record = record
@@ -1136,6 +1133,9 @@ class RecIAFSpkInNest(Layer):
             event_times, event_channels = ts_input(
                 time_base[0], time_base[-1] + self.dt
             )
+            # - Round event times to time base
+            event_timesteps = np.floor(event_times / self.dt)
+            event_times = event_timesteps * self.dt
 
         else:
             event_times = np.array([])
@@ -1172,6 +1172,49 @@ class RecIAFSpkInNest(Layer):
         self.nest_process.terminate()
         self.nest_process.join()
 
+    def to_dict(self):
+
+        config = {}
+        config["name"] = self.name
+        config["weights_in"] = self._weights_in.tolist()
+        config["weights_rec"] = self._weights_rec.tolist()
+
+        config["delay_in"] = self._delay_in.tolist()
+        config["delay_rec"] = self._delay_rec.tolist()
+
+        config["bias"] = self.bias.tolist()
+        config["dt"] = self.dt
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["capacity"] = self.capacity.tolist()
+        config["refractory"] = self.refractory.tolist()
+        config["num_cores"] = self.num_cores
+        config["tau_mem"] = self.tau_mem.tolist()
+        config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+        config["tau_syn_inh"] = self.tau_syn_inh.tolist()
+        config["record"] = self.record
+        config["class_name"] = "RecIAFSpkInNest"
+
+        return config
+
+    def save(self, config, filename):
+        with open(filename, "w") as f:
+            json.dump(config, f)
+
+    @classmethod
+    def load_from_dict(cls, config):
+
+        lyr = super().load_from_dict(config)
+        lyr.reset_all()
+        return lyr
+
+    @classmethod
+    def load_from_file(cls, filename: str):
+        lyr = super().load_from_file(filename)
+        lyr.reset_all()
+        return lyr
+
     ### --- Properties
 
     @property
@@ -1183,8 +1226,20 @@ class RecIAFSpkInNest(Layer):
         return TSEvent
 
     @property
+    def capacity(self):
+        return self._capacity
+
+    @property
     def refractory(self):
         return self._refractory
+
+    @refractory.setter
+    def refractory(self, new_refractory):
+        new_refractory = self._expand_to_net_size(
+            new_refractory, "refractory", allow_none=False
+        )
+        self._refractory = new_refractory
+        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
 
     @property
     def state(self):
@@ -1195,6 +1250,7 @@ class RecIAFSpkInNest(Layer):
 
     @state.setter
     def state(self, new_state):
+        new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
         self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
 
     @property
@@ -1203,6 +1259,10 @@ class RecIAFSpkInNest(Layer):
 
     @delay_in.setter
     def delay_in(self, new_delay_in):
+        new_delay_in = self._expand_to_shape(
+            new_delay_in, (self.size_in, self.size), "delay_in", allow_none=False
+        )
+        self._delay_in = new_delay_in
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
 
     @property
@@ -1211,6 +1271,10 @@ class RecIAFSpkInNest(Layer):
 
     @delay_rec.setter
     def delay_rec(self, new_delay_rec):
+        new_delay_rec = self._expand_to_shape(
+            new_delay_rec, (self.size_in, self.size), "delay_rec", allow_none=False
+        )
+        self._delay_rec = new_delay_rec
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
 
     @property
@@ -1219,7 +1283,22 @@ class RecIAFSpkInNest(Layer):
 
     @tau_mem.setter
     def tau_mem(self, new_tau_mem):
+        new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
+        self._tau_mem = new_tau_mem
         self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
+
+    @property
+    def tau_syn(self):
+        return self._tau_syn
+
+    @tau_syn.setter
+    def tau_syn(self, new_tau_syn):
+        new_tau_syn = self._expand_to_net_size(new_tau_syn, "tau_syn", allow_none=False)
+        self._tau_syn = new_tau_syn
+        self._tau_syn_inh = new_tau_syn
+        self._tau_syn_exc = new_tau_syn
+        self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn)])
+        self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn)])
 
     @property
     def tau_syn_exc(self):
@@ -1227,6 +1306,11 @@ class RecIAFSpkInNest(Layer):
 
     @tau_syn_exc.setter
     def tau_syn_exc(self, new_tau_syn_exc):
+        new_tau_syn_exc = self._expand_to_net_size(
+            new_tau_syn_exc, "tau_syn_exc", allow_none=False
+        )
+        self._tau_syn_exc = new_tau_syn_exc
+        self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
 
     @property
@@ -1235,6 +1319,11 @@ class RecIAFSpkInNest(Layer):
 
     @tau_syn_inh.setter
     def tau_syn_inh(self, new_tau_syn_inh):
+        new_tau_syn_inh = self._expand_to_net_size(
+            new_tau_syn_inh, "tau_syn_inh", allow_none=False
+        )
+        self._tau_syn_inh = new_tau_syn_inh
+        self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
 
     @property
@@ -1243,6 +1332,8 @@ class RecIAFSpkInNest(Layer):
 
     @bias.setter
     def bias(self, new_bias):
+        new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
+        self._bias = new_bias
         self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
 
     @property
@@ -1251,6 +1342,10 @@ class RecIAFSpkInNest(Layer):
 
     @v_thresh.setter
     def v_thresh(self, new_v_thresh):
+        new_v_thresh = self._expand_to_net_size(
+            new_v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_thresh = new_v_thresh
         self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
 
     @property
@@ -1259,6 +1354,8 @@ class RecIAFSpkInNest(Layer):
 
     @v_reset.setter
     def v_reset(self, new_v_reset):
+        new_v_reset = self._expand_to_net_size(new_v_reset, "v_reset", allow_none=False)
+        self._v_reset = new_v_reset
         self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
 
     @property
@@ -1267,6 +1364,8 @@ class RecIAFSpkInNest(Layer):
 
     @v_rest.setter
     def v_rest(self, new_v_rest):
+        new_v_rest = self._expand_to_net_size(new_v_rest, "v_rest", allow_none=False)
+        self._v_rest = new_v_rest
         self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
 
     @property
@@ -1276,114 +1375,3 @@ class RecIAFSpkInNest(Layer):
     @Layer.dt.setter
     def dt(self):
         raise ValueError("The `dt` property cannot be set for this layer")
-
-    def to_dict(self):
-
-        config = {}
-        config["name"] = self.name
-        config["weights_in"] = self._weights_in.tolist()
-        config["weights_rec"] = self._weights_rec.tolist()
-
-        config["delay_in"] = (
-            self._delay_in if type(self._delay_in) is float else self._delay_in.tolist()
-        )
-
-        config["delay_rec"] = (
-            self._delay_rec
-            if type(self._delay_rec) is float
-            else self._delay_rec.tolist()
-        )
-
-        config["bias"] = self.bias if type(self.bias) is float else self.bias.tolist()
-        config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
-        config["v_thresh"] = (
-            self.v_thresh if type(self.v_thresh) is float else self.v_thresh.tolist()
-        )
-        config["v_reset"] = (
-            self.v_reset if type(self.v_reset) is float else self.v_reset.tolist()
-        )
-        config["v_rest"] = (
-            self.v_rest if type(self.v_rest) is float else self.v_rest.tolist()
-        )
-        config["capacity"] = (
-            self.capacity if type(self.capacity) is float else self.capacity.tolist()
-        )
-        config["refractory"] = (
-            self.refractory
-            if type(self.refractory) is float
-            else self.refractory.tolist()
-        )
-        config["num_cores"] = self.num_cores
-        config["tau_mem"] = (
-            self.tau_mem if type(self.tau_mem) is float else self.tau_mem.tolist()
-        )
-        config["tau_syn_exc"] = (
-            self.tau_syn_exc
-            if type(self.tau_syn_exc) is float
-            else self.tau_syn_exc.tolist()
-        )
-        config["tau_syn_inh"] = (
-            self.tau_syn_inh
-            if type(self.tau_syn_inh) is float
-            else self.tau_syn_inh.tolist()
-        )
-        config["record"] = self.record
-        config["class_name"] = "RecIAFSpkInNest"
-
-        return config
-
-    def save(self, config, filename):
-        with open(filename, "w") as f:
-            json.dump(config, f)
-
-    @staticmethod
-    def load_from_dict(config):
-
-        net_ = RecIAFSpkInNest(
-            weights_in=config["weights_in"],
-            weights_rec=config["weights_rec"],
-            delay_in=config["delay_in"],
-            delay_rec=config["delay_rec"],
-            bias=config["bias"],
-            dt=config["dt"],
-            tau_mem=config["tau_mem"],
-            tau_syn_exc=config["tau_syn_exc"],
-            tau_syn_inh=config["tau_syn_inh"],
-            capacity=config["capacity"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            refractory=config["refractory"],
-            name=config["name"],
-            record=config["record"],
-            num_cores=config["num_cores"],
-        )
-        net_.reset_all()
-        return net_
-
-    @staticmethod
-    def load_from_file(filename):
-        with open(filename, "r") as f:
-            config = json.load(f)
-
-        net_ = RecIAFSpkInNest(
-            weights_in=config["weights_in"],
-            weights_rec=config["weights_rec"],
-            delay_in=config["delay_in"],
-            delay_rec=config["delay_rec"],
-            bias=config["bias"],
-            dt=config["dt"],
-            tau_mem=config["tau_mem"],
-            tau_syn_exc=config["tau_syn_exc"],
-            tau_syn_inh=config["tau_syn_inh"],
-            capacity=config["capacity"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            refractory=config["refractory"],
-            name=config["name"],
-            record=config["record"],
-            num_cores=config["num_cores"],
-        )
-        net_.reset_all()
-        return net_

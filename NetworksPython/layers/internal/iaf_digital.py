@@ -438,6 +438,28 @@ class RecDIAF(Layer):
             self._max_state,
         ).astype(self.state_type)
 
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = super().to_dict()
+        config.pop("weights")
+        config.pop("noise_std")
+        config["weights_in"] = self.weights_in.tolist()
+        config["weights_rec"] = self.weights_rec.tolist()
+        config["refractory"] = self.refractory.tolist()
+        config["delay"] = self.delay
+        config["tau_leak"] = self.tau_leak
+        config["leak"] = self.leak.tolist()
+        config["v_subtract"] = self.v_subtract.tolist()
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist()
+        config["state_type"] = self.state_type
+        config["monitor_id"] = self.monitor_id.tolist()
+        return config
+
     ### --- Properties
 
     @property
