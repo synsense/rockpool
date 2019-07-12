@@ -3,6 +3,7 @@
 #                           provides handling of and functionality for `TSEvent` objects.
 # ----
 
+from warnings import warn
 from typing import List, Union, Optional, Tuple
 
 import numpy as np

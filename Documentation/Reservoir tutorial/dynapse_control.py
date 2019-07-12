@@ -7,12 +7,14 @@
 
 ### --- Imports
 
-import numpy as np
+import copy
 from warnings import warn
 from typing import Tuple, List, Optional, Union, Iterable
 import time
 import os
 import threading
+
+import numpy as np
 
 import params
 
@@ -96,10 +98,10 @@ def setup_rpyc_namespace(connection: "rpyc.core.protocol.Connection"):
     connection.namespace["rpyc"] = connection.modules.rpyc
     connection.namespace["tools"] = connection.modules.tools
     connection.namespace["params"] = connection.modules.params
-    if "initialized_chips" not in connection.namespace.keys():
-        connection.namespace["initialized_chips"] = []
-    if "initialized_neurons" not in connection.namespace.keys():
-        connection.namespace["initialized_neurons"] = []
+    if "initialized_chips" not in connection.modules.tools.storage.keys():
+        connection.modules.tools.store_var("initialized_chips", [])
+    if "initialized_neurons" not in connection.modules.tools.storage.keys():
+        connection.modules.tools.store_var("initialized_neurons", [])
 
     print("dynapse_control: RPyC namespace complete.")
 
@@ -149,7 +151,9 @@ def initialize_hardware(
         else:
             # - Chips that have already been initialized. If `initialized_chips`
             #   doesn't exist, assume that no chips have been initialized yet.
-            initialized_chips = connection.namespace.get("initialized_chips", [])
+            initialized_chips = connection.modules.tools.storage.get(
+                "initialized_chips", []
+            )
             # - Find chips that are to be used and have not been initialized yet.
             if enforce:
                 do_chips = use_chips
@@ -158,9 +162,13 @@ def initialize_hardware(
             already_done = list(set(use_chips).difference(do_chips))
             # - Clear those chips and add them to list of initialized chips.
             connection.modules.tools.init_chips(do_chips)
-            connection.namespace["initialized_chips"] = initialized_chips + do_chips
+            connection.modules.tools.store_var(
+                "initialized_chips", copy.copy(initialized_chips) + do_chips
+            )
             # - Also update list of initialized neurons
-            initialized_neurons = connection.namespace.get("initialized_neurons", [])
+            initialized_neurons = connection.modules.tools.storage.get(
+                "initialized_neurons", []
+            )
             initialized_neurons += [
                 neuron_id
                 for chip_id in do_chips
@@ -169,7 +177,9 @@ def initialize_hardware(
                     params.NUM_NEURONS_CHIP * (chip_id + 1),
                 )
             ]
-            connection.namespace["initialized_neurons"] = initialized_neurons
+            connection.modules.tools.store_var(
+                "initialized_neurons", initialized_neurons
+            )
             # - Print which chips have been cleared.
             print_statement = "dynapse_control: Chips {} have been cleared.".format(
                 ", ".join((str(chip) for chip in do_chips))
@@ -211,9 +221,8 @@ def setup_rpyc(
     params = connection.modules.params
     ctxdynapse = connection.modules.CtxDynapse
     nnconnector = connection.modules.NeuronNeuronConnector
-    initialized_chips = connection.namespace["initialized_chips"]
-    initialized_neurons = connection.namespace["initialized_neurons"]
-    tools.initialized_neurons = connection.namespace["initialized_neurons"]
+    initialized_chips = connection.modules.tools.storage["initialized_chips"]
+    initialized_neurons = connection.modules.tools.storage["initialized_neurons"]
     print("dynapse_control: RPyC connection has been setup successfully.")
 
     return connection
@@ -1245,6 +1254,7 @@ class DynapseControl:
         :return:                list of FpgaSpikeEvent objects
         """
         # - Process input arguments
+        # t0 = time.time()
         if timesteps is None:
             if times is None:
                 raise ValueError(
@@ -1268,13 +1278,14 @@ class DynapseControl:
             raise ValueError(
                 "DynapseControl: `channels` contains more channels than the number of neurons in `neuron_ids`."
             )
-
         # - Make sure neuron_ids is iterable
         neuron_ids = np.array(neuron_ids)
 
         # - Convert to ISIs
         discrete_isi_list = np.diff(np.r_[ts_start, timesteps])
 
+        # print(time.time() - t0)
+        # t0 = time.time()
         print("DynapseControl: Generating FPGA event list from arrays.")
         # - Convert events to an FpgaSpikeEvent
         events = self.tools.generate_fpga_event_list(
@@ -1284,6 +1295,7 @@ class DynapseControl:
             int(targetcore_mask),
             int(targetchip_id),
         )
+        # print(time.time() - t0)
 
         # - Return a list of events
         return events
@@ -1453,7 +1465,6 @@ class DynapseControl:
         timesteps = np.r_[
             timesteps, timesteps[-1] + np.arange(1, num_add + 1) * self.fpga_isi_limit
         ]
-
         events = self._arrays_to_spike_list(
             timesteps=timesteps,
             channels=np.repeat(inputneur_id, timesteps.size),
@@ -1488,8 +1499,9 @@ class DynapseControl:
         record_neur_ids: Optional[np.ndarray] = None,
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
-        periodic=False,
-        record=False,
+        periodic: bool = False,
+        record: bool = False,
+        fastmode: bool = False,
     ) -> (np.ndarray, np.ndarray):
         """
         send_arrays - Send events defined in arrays to FPGA.
@@ -1510,6 +1522,8 @@ class DynapseControl:
         :param periodic:       bool         Repeat the stimulus indefinitely
         :param record:         bool         Set up buffered event filter that records events
                                              from neurons defined in neuron_ids
+        :param fastmode:        bool        Skip generation of event buffers. Must be generated in advance!
+                                            (saves around 0.3 s)
 
         :return:
             (times, channels)  np.ndarrays that contain recorded data
@@ -1557,6 +1571,7 @@ class DynapseControl:
             record_neur_ids=record_neur_ids,
             periodic=periodic,
             record=record,
+            fastmode=fastmode,
         )
 
     def record(
@@ -1607,6 +1622,7 @@ class DynapseControl:
         record_neur_ids: Optional[np.ndarray] = None,
         periodic: bool = False,
         record: bool = False,
+        fastmode: bool = False,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray]]:
         """
         _send_stimulus_list - Send a list of FPGA events to hardware. Possibly record hardware events.
@@ -1621,11 +1637,13 @@ class DynapseControl:
         :param periodic:       bool         Repeat the stimulus indefinitely
         :param record:         bool         Set up buffered event filter that records events
                                              from neurons defined in record_neur_ids
+        :param fastmode:        bool        Skip generation of event buffers. Must be generated in advance!
+                                            (saves around 0.3 s)
 
         :return:
             (times, channels)  np.ndarrays that contain recorded data
         """
-
+        # t0 = time.time()
         if events:
             # - Throw an exception if event list is too long
             if len(events) > self.fpga_event_limit:
@@ -1638,13 +1656,17 @@ class DynapseControl:
             # - Prepare FPGA
             self.fpga_spikegen.set_repeat_mode(periodic)
             self.fpga_spikegen.preload_stimulus(events)
+            # print(time.time() - t0)
+            # t0 = time.time()
             print("DynapseControl: Stimulus preloaded.")
 
-        if record:
+        if record and not fastmode:
             if record_neur_ids is None:
                 record_neur_ids = []
                 warn("DynapseControl: No neuron IDs specified for recording.")
             self.add_buffered_event_filter(record_neur_ids)
+        # print(time.time() - t0)
+        # t0 = time.time()
 
         # - Lists for storing collected events
         timestamps_full = []
@@ -1661,6 +1683,9 @@ class DynapseControl:
 
         if events:
             # - Stimulate
+            # print(time.time() - t0)
+            # t0 = time.time()
+
             print(
                 "DynapseControl: Starting{} stimulation{}.".format(
                     periodic * " periodic",
@@ -1678,6 +1703,7 @@ class DynapseControl:
             # Set go_on to 2 to enforce another run of the loop after time is over.
             # Otherwise, if last iteration takes too long, events may be lost.
             go_on = 2
+            # print(time.time() - t0)
             while go_on:
                 # - Collect events and possibly trigger events
                 triggerevents += self.bufferedfilter.get_special_event_timestamps()
@@ -1689,24 +1715,31 @@ class DynapseControl:
                 timestamps_full += list(timestamps_curr)
                 channels_full += list(channels_curr)
                 go_on -= int(time.time() >= t_stop)
+                # print(t_stop - time.time())
         else:
             time.sleep(t_wait)
 
+        # print(time.time() - t0)
+        # t0 = time.time()
         print("DynapseControl: Stimulation ended.")
 
         if record:
-            self.bufferedfilter.clear()
+            if not fastmode:
+                self.bufferedfilter.clear()
+
             print(
                 "\tRecorded {} event(s) and {} trigger event(s)".format(
                     len(timestamps_full), len(triggerevents)
                 )
             )
-            return self._process_extracted_events(
+            x = self._process_extracted_events(
                 timestamps=timestamps_full,
                 channels=channels_full,
                 triggerevents=triggerevents,
                 duration=duration,
             )
+            # print(time.time() - t0)
+            return x
 
     def _process_extracted_events(
         self,
@@ -2042,6 +2075,10 @@ class DynapseControl:
             self.stop_stim()
 
         return firingrates_2d, rates_mean, rates_max, rates_min
+
+    def close(self):
+        self.rpyc_connection.close()
+        print("DynapseControl: RPyC connection closed.")
 
     ### - Load and save biases
 

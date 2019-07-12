@@ -7,12 +7,14 @@
 
 ### --- Imports
 
-import numpy as np
+import copy
 from warnings import warn
 from typing import Tuple, List, Optional, Union, Iterable
 import time
 import os
 import threading
+
+import numpy as np
 
 from . import params
 
@@ -96,10 +98,10 @@ def setup_rpyc_namespace(connection: "rpyc.core.protocol.Connection"):
     connection.namespace["rpyc"] = connection.modules.rpyc
     connection.namespace["tools"] = connection.modules.tools
     connection.namespace["params"] = connection.modules.params
-    if "initialized_chips" not in connection.namespace.keys():
-        connection.namespace["initialized_chips"] = []
-    if "initialized_neurons" not in connection.namespace.keys():
-        connection.namespace["initialized_neurons"] = []
+    if "initialized_chips" not in connection.modules.tools.storage.keys():
+        connection.modules.tools.store_var("initialized_chips", [])
+    if "initialized_neurons" not in connection.modules.tools.storage.keys():
+        connection.modules.tools.store_var("initialized_neurons", [])
 
     print("dynapse_control: RPyC namespace complete.")
 
@@ -149,7 +151,9 @@ def initialize_hardware(
         else:
             # - Chips that have already been initialized. If `initialized_chips`
             #   doesn't exist, assume that no chips have been initialized yet.
-            initialized_chips = connection.namespace.get("initialized_chips", [])
+            initialized_chips = connection.modules.tools.storage.get(
+                "initialized_chips", []
+            )
             # - Find chips that are to be used and have not been initialized yet.
             if enforce:
                 do_chips = use_chips
@@ -158,9 +162,13 @@ def initialize_hardware(
             already_done = list(set(use_chips).difference(do_chips))
             # - Clear those chips and add them to list of initialized chips.
             connection.modules.tools.init_chips(do_chips)
-            connection.namespace["initialized_chips"] = initialized_chips + do_chips
+            connection.modules.tools.store_var(
+                "initialized_chips", copy.copy(initialized_chips) + do_chips
+            )
             # - Also update list of initialized neurons
-            initialized_neurons = connection.namespace.get("initialized_neurons", [])
+            initialized_neurons = connection.modules.tools.storage.get(
+                "initialized_neurons", []
+            )
             initialized_neurons += [
                 neuron_id
                 for chip_id in do_chips
@@ -169,7 +177,9 @@ def initialize_hardware(
                     params.NUM_NEURONS_CHIP * (chip_id + 1),
                 )
             ]
-            connection.namespace["initialized_neurons"] = initialized_neurons
+            connection.modules.tools.store_var(
+                "initialized_neurons", initialized_neurons
+            )
             # - Print which chips have been cleared.
             print_statement = "dynapse_control: Chips {} have been cleared.".format(
                 ", ".join((str(chip) for chip in do_chips))
@@ -211,9 +221,8 @@ def setup_rpyc(
     params = connection.modules.params
     ctxdynapse = connection.modules.CtxDynapse
     nnconnector = connection.modules.NeuronNeuronConnector
-    initialized_chips = connection.namespace["initialized_chips"]
-    initialized_neurons = connection.namespace["initialized_neurons"]
-    tools.initialized_neurons = connection.namespace["initialized_neurons"]
+    initialized_chips = connection.modules.tools.storage["initialized_chips"]
+    initialized_neurons = connection.modules.tools.storage["initialized_neurons"]
     print("dynapse_control: RPyC connection has been setup successfully.")
 
     return connection
@@ -2066,6 +2075,10 @@ class DynapseControl:
             self.stop_stim()
 
         return firingrates_2d, rates_mean, rates_max, rates_min
+
+    def close(self):
+        self.rpyc_connection.close()
+        print("DynapseControl: RPyC connection closed.")
 
     ### - Load and save biases
 
