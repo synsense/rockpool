@@ -118,7 +118,7 @@ def train_adam(
             params["w_out"],
             params["bias"],
             params["tau"],
-            inps,
+            input_batch_t,
             noise_std,
             rng_key,
             dt,
