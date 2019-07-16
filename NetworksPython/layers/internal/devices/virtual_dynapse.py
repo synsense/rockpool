@@ -17,7 +17,7 @@
 
 # Built-in modules
 from warnings import warn
-from typing import Tuple, List, Union, Optional
+from typing import List, Union, Optional
 
 # Third-party modules
 import numpy as np
@@ -42,6 +42,8 @@ class VirtualDynapse(Layer):
     _num_chips = params.NUM_CHIPS
     _num_cores_chip = params.NUM_CORES_CHIP
     _num_neurons_core = params.NUM_NEURONS_CORE
+    _weight_resolution = 2 ** params.BIT_RESOLUTION_WEIGHTS - 1
+    _stddev_mismatch = params.STDDEV_MISMATCH
 
     def __init__(
         self,
@@ -60,6 +62,7 @@ class VirtualDynapse(Layer):
         v_thresh: Union[float, np.ndarray] = 0.01,
         name: str = "unnamed",
         num_cores: int = 1,
+        mismatch: bool = True,
     ):
         """
         VritualDynapse - Simulation of DynapSE neurmorphic processor.
@@ -96,7 +99,12 @@ class VirtualDynapse(Layer):
                                  for each core. If float, same for all cores.
         :param name:             Name for this object instance.
         :param num_cores:        Number of cpu cores available for simulation.
+        :param mismatch:         If True, parameters for each neuron are drawn from Gaussian
+                                 around provided values for core.
         """
+
+        # - Draw values for mismatch
+        self._draw_mismatch(mismatch)
 
         # - Store internal parameters
         self.name = name
@@ -143,23 +151,90 @@ class VirtualDynapse(Layer):
         tau_syn_exc = self._process_parameter(tau_syn_exc, "tau_syn_exc", True)
         tau_syn_inh = self._process_parameter(tau_syn_inh, "tau_syn_inh", True)
 
+        # - Scale parameters up to number of neurons and mismatch to parameters
+        bias = np.repeat(bias, self.num_neurons_core)
+        v_thresh = np.repeat(v_thresh, self.num_neurons_core)
+        tau_syn_exc = np.repeat(tau_syn_exc, self.num_neurons_core)
+        tau_syn_inh = np.repeat(tau_syn_inh, self.num_neurons_core)
+
+        weights_ext = self.add_mismatch(weights_ext, "wegihts_ext")
+        weights_rec = self.add_mismatch(weights_rec, "wegihts_rec")
+        bias = self.add_mismatch(bias, "bias")
+        v_thresh = self.add_mismatch(v_thresh, "v_thresh")
+        tau_syn_exc = self.add_mismatch(tau_syn_exc, "tau_syn_exc")
+        tau_syn_inh = self.add_mismatch(tau_syn_inh, "tau_syn_inh")
+
         # - Nest-layer for approximate simulation of neuron dynamics
         self._simulator = RecIAFSpkInNest(
             weights_in=weights_ext,
             weights_rec=weights_rec,
-            bias=np.repeat(bias, self.num_neurons_core),
-            v_thresh=np.repeat(v_thresh, self.num_neurons_core),
+            bias=bias,
+            v_thresh=v_thresh,
             v_reset=0,
             v_rest=0,
             tau_mem=self._tau_mem_all,
-            tau_syn_exc=np.repeat(tau_syn_exc, self.num_neurons_core),
-            tau_syn_inh=np.repeat(tau_syn_inh, self.num_neurons_core),
+            tau_syn_exc=tau_syn_exc,
+            tau_syn_inh=tau_syn_inh,
             dt=dt,
             name=self.name + "_nest_backend",
             num_cores=num_cores,
         )
 
-        # - Dict indicating if
+    def _draw_mismatch(self, consider_mismatch: bool = True):
+        """
+        _draw_mismatch - For each neuron and parameter draw a mismatch factor that
+                         individual neuron parameters will be multiplied with. Store
+                         factors in dict.
+                         Parameters are drawn from a Gaussian around 1 with standard
+                         deviation = `self.stddev_mismatch` and truncated at 0.1 to
+                         avoid too small values.
+        :param consider_mismatch:  If `False`, mismatch factors are all 1, corresponding
+                                   to not having any mismatch.
+        """
+        param_names = [
+            "baseweight_e",
+            "baseweight_i",
+            "bias",
+            "refractory",
+            "tau_mem",
+            "tau_syn_exc",
+            "tau_syn_inh",
+            "v_thresh",
+            "weights_excit",
+            "weights_inhib",
+        ]
+
+        if consider_mismatch:
+            # - Draw mismatch factor for each neuron
+            mismatch_factors = (
+                1
+                + np.random.randn(len(param_names), self.num_neurons)
+                * self.stddev_mismatch
+            )
+            # - Make sure values are not too small
+            mismatch_factors = np.clip(mismatch_factors, 0.1, None)
+
+            # - Store mismatch in dict
+            self._mismatch_factors = {
+                param: factors for param, factors in zip(param_names, mismatch_factors)
+            }
+        else:
+            # - Factor 1 corresponds to no mismatch at all.
+            self._mismatch_factors = {param: 1 for param in param_names}
+
+    def add_mismatch(self, mean_values: np.ndarray, param_name: str):
+        if param_name in ("weights_ext", "weights_rec"):
+            # - Separate inhibitory and excitatory weights
+            weights_excit = np.clip(mean_values, 0, None)
+            weights_inhib = np.clip(mean_values, None, 0)
+            # - Add mismatch
+            weights_excit *= self.mismatch_factors["weights_excit"]
+            weights_inhib *= self.mismatch_factors["weights_inhib"]
+            # - Combine weights and return
+            return weights_excit + weights_inhib
+        else:
+            # - Multiply mismatch factors
+            return mean_values * self.mismatch_factors[param_name]
 
     def set_connections(
         self,
@@ -452,15 +527,21 @@ class VirtualDynapse(Layer):
 
     def get_connection_counts(self, connections: np.ndarray) -> np.ndarray:
         """
-        get_connection_counts - From a dict or array of connections for different
-                                synapse types, generate a 2D matrix with the total
-                                number of connections between each neuron pair.
+        get_connection_counts - From an array of connections generate a 2D matrix
+                                with the total number of connections between each
+                                neuron pair.
         :params connections:  2D np.ndarray (NxN): Will assume positive (negative)
                               values correspond to excitatory (inhibitory) synapses.
         :return:
             2D np.ndarray with total number of connections between neurons
         """
-        return np.abs(connections)
+        # - Split into excitatory and inhibitory connections
+        excit_conns = np.clip(connections, 0, None)
+        inhib_conns = np.abs(np.clip(connections, None, 0))
+        # - Divide by max. weight to count number of actual connections
+        count_excit_conns = np.ceil(excit_conns / self.weight_resolution).astype(int)
+        count_inhib_conns = np.ceil(inhib_conns / self.weight_resolution).astype(int)
+        return count_excit_conns + count_inhib_conns
 
     def evolve(
         self,
@@ -727,7 +808,9 @@ class VirtualDynapse(Layer):
             np.repeat(self.tau_mem_1, self.num_neurons_core) * self.has_tau2 == False
         )
         tau_mem_2_all = np.repeat(self.tau_mem_2, self.num_neurons_core) * self.has_tau2
-        return tau_mem_1_all + tau_mem_2_all
+        # - Join time constants and add mismatch
+        tau_mem_all = self.add_mismatch(tau_mem_1_all + tau_mem_2_all, "tau_mem")
+        return tau_mem_all
 
     @property
     def tau_mem_all(self):
@@ -784,6 +867,10 @@ class VirtualDynapse(Layer):
         return self.num_neurons_chip
 
     @property
+    def weight_resolution(self):
+        return self._weight_resolution
+
+    @property
     def start_print(self):
         return f"VirtualDynapse '{self.name}': "
 
@@ -814,6 +901,10 @@ class VirtualDynapse(Layer):
     @property
     def state(self):
         return self._simulator.state
+
+    @property
+    def mismatch_factors(self):
+        return self._mismatch_factors
 
 
 # Functions:
