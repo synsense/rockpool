@@ -614,7 +614,7 @@ def get_connection_info(
 
 def read_sram_targetcores(sram: CtxDynapse.DynapseSram) -> List[int]:
     # - Offset of core ID depending on ID of corresponding chip
-    core_offset = sram.get_target_chip_id() + NUM_CORES_CHIP
+    core_offset = sram.get_target_chip_id() * NUM_CORES_CHIP
     core_mask = sram.get_core_mask()
     # - Convert core mask into list of core IDs
     return [

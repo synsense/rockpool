@@ -1087,7 +1087,9 @@ class DynapseControl:
         sram_conns = np.zeros((self.num_neurons, self.num_cores), bool)
         for pre, post in enumerate(targetcore_lists):
             sram_conns[pre, post] = True
+        # - Expand from cores to number of neurons
         sram_conns = np.repeat(sram_conns, self.num_neur_core, axis=1)
+        # - Repeat for each connection type
         sram_conns = np.repeat((sram_conns,), self._connections.shape[0], axis=0)
 
         # - To which neuron_ids do neurons listen
