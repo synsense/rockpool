@@ -1030,7 +1030,7 @@ class RecIAFSpkInNest(Layer):
         )
         # Set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
-            self._capacity = tau_mem * 1000.0
+            self._capacity = self._tau_mem * 1000.0
         else:
             self._capacity = self._expand_to_net_size(
                 capacity, "capacity", allow_none=False

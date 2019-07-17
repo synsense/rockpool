@@ -431,7 +431,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         """
 
         # - Determine layer size and name to run `_expand_to_net_size` method
-        self._size_in, self._size = np.atleast_2d(weights_in)
+        self._size_in, self._size = np.atleast_2d(weights_in).shape
         self.name = name
 
         # - Prepare parameters that are specific to this class
@@ -447,7 +447,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         )
 
         # - Call super constructor (`asarray` is used to strip units)
-        super.__init__(
+        super().__init__(
             weights_in=weights_in,
             weights_rec=weights_rec,
             delay_in=delay_in,
