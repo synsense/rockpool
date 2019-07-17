@@ -1629,12 +1629,24 @@ class TSEvent(TimeSeries):
         # - Filter time and channels
         t_start = self.t_start if t_start is None else t_start
         if channels is None:
-            channels = np.arange(self.num_channels)
+            channels = channels_clip = np.arange(self.num_channels)
+        elif np.amax(channels) >= self.num_channels:
+            # - Only use channels that are within range of channels of this timeseries
+            channels_clip = np.intersect1d(channels, np.arange(self.num_channels))
+            # - Channels for which series is not defined
+            channels_undefined = np.setxor1d(channels_clip, channels)
+            warn(
+                f"TSEvent `{self.name}` is not defined for some of the channels provided "
+                + f"in `channels` argument ({', '.join(channels_undefined.astype(str))}). "
+                + f"Will assume that there are no events for these channels."
+            )
+        else:
+            channels_clip = channels
         if num_timesteps is None:
             series = self.clip(
                 t_start=t_start,
                 t_stop=t_stop,
-                channels=channels,
+                channels=channels_clip,
                 compress_channels=False,
             )
             # - Make sure that last point is also included if `duration` is a
@@ -1645,7 +1657,7 @@ class TSEvent(TimeSeries):
             series = self.clip(
                 t_start=t_start,
                 t_stop=t_stop,
-                channels=channels,
+                channels=channels_clip,
                 compress_channels=False,
             )
 
