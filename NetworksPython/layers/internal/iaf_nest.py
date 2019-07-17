@@ -165,6 +165,7 @@ class FFIAFNest(Layer):
 
             if self.record:
                 # - Monitor for recording network potential
+                nest.SetDefaults("multimeter", {"interval": self.dt})
                 self._mm = nest.Create(
                     "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
                 )
@@ -353,19 +354,21 @@ class FFIAFNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(self.request_q,
-                                             self.result_q,
-                                             self._weights,
-                                             bias,
-                                             dt,
-                                             tau_mem,
-                                             capacity,
-                                             v_thresh,
-                                             v_reset,
-                                             v_rest,
-                                             refractory,
-                                             record,
-                                             num_cores)
+        self.nest_process = self.NestProcess(
+            self.request_q,
+            self.result_q,
+            self._weights,
+            bias,
+            dt,
+            tau_mem,
+            capacity,
+            v_thresh,
+            v_reset,
+            v_rest,
+            refractory,
+            record,
+            num_cores,
+        )
         self.nest_process.start()
 
         # - Record neuron parameters
@@ -817,6 +820,7 @@ class RecIAFSpkInNest(Layer):
 
             if self.record:
                 # - Monitor for recording network potential
+                nest.SetDefaults("multimeter", {"interval": self.dt})
                 self._mm = nest.Create(
                     "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
                 )
@@ -1028,24 +1032,26 @@ class RecIAFSpkInNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(self.request_q,
-                                             self.result_q,
-                                             self.weights,
-                                             weights_rec,
-                                             delay_in,
-                                             delay_rec,
-                                             bias,
-                                             dt,
-                                             tau_mem,
-                                             tau_syn_exc,
-                                             tau_syn_inh,
-                                             capacity,
-                                             v_thresh,
-                                             v_reset,
-                                             v_rest,
-                                             refractory,
-                                             record,
-                                             num_cores)
+        self.nest_process = self.NestProcess(
+            self.request_q,
+            self.result_q,
+            self.weights,
+            weights_rec,
+            delay_in,
+            delay_rec,
+            bias,
+            dt,
+            tau_mem,
+            tau_syn_exc,
+            tau_syn_inh,
+            capacity,
+            v_thresh,
+            v_reset,
+            v_rest,
+            refractory,
+            record,
+            num_cores,
+        )
         self.nest_process.start()
 
         # - Record neuron parameters
