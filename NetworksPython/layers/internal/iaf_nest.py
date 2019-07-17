@@ -937,7 +937,7 @@ class RecIAFSpkInNest(Layer):
 
                 result = func(*req[1:])
 
-                if not result is None:
+                if result is not None:
                     self.result_q.put(result)
 
     ## - Constructor
@@ -945,18 +945,18 @@ class RecIAFSpkInNest(Layer):
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        delay_in=0.0001,
-        delay_rec=0.0001,
-        bias: np.ndarray = 0.0,
+        delay_in: Union[float, np.ndarray] = 0.0001,
+        delay_rec: Union[float, np.ndarray] = 0.0001,
+        bias: Union[float, np.ndarray] = 0.0,
         dt: float = 0.0001,
-        tau_mem: np.ndarray = 0.02,
-        tau_syn: np.ndarray = 0.05,
-        tau_syn_exc: np.ndarray = None,
-        tau_syn_inh: np.ndarray = None,
-        v_thresh: np.ndarray = -0.055,
-        v_reset: np.ndarray = -0.065,
-        v_rest: np.ndarray = -0.065,
-        capacity: Union[float, np.ndarray] = None,
+        tau_mem: Union[float, np.ndarray] = 0.02,
+        tau_syn: Union[np.ndarray, float, None] = 0.05,
+        tau_syn_exc: Union[float, np.ndarray, None] = None,
+        tau_syn_inh: Union[float, np.ndarray, None] = None,
+        v_thresh: Union[float, np.ndarray] = -0.055,
+        v_reset: Union[float, np.ndarray] = -0.065,
+        v_rest: Union[float, np.ndarray] = -0.065,
+        capacity: Union[float, np.ndarray, None] = None,
         refractory: Union[float, np.ndarray] = 0.001,
         name: str = "unnamed",
         record: bool = False,
@@ -973,9 +973,13 @@ class RecIAFSpkInNest(Layer):
         :param dt:             float Time-step. Default: 0.1 ms
 
         :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
-        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants. Default: 20ms
-        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants. Default: 20ms
+        :param tau_syn:          np.array Nx1 vector of synapse time constants. Used
+                                 Used instead of `tau_syn_exc` or `tau_syn_inh` if they are
+                                 None. Default: 20ms
+        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants.
+                                     If `None`, use `tau_syn`. Default: `None`
+        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants.
+                                     If `None`, use `tau_syn`. Default: `None`
 
         :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
         :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
@@ -991,6 +995,7 @@ class RecIAFSpkInNest(Layer):
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(weights=weights_in, dt=dt, name=name)
+        self._weights_in = self.weights
 
         if tau_syn_exc is None:
             tau_syn_exc = tau_syn
@@ -998,77 +1003,71 @@ class RecIAFSpkInNest(Layer):
             tau_syn_inh = tau_syn
 
         # - Convert parameters to arrays before passing to nest process
-        weights_rec = self._expand_to_shape(
+        self._weights_rec = self._expand_to_shape(
             weights_rec, (self.size, self.size), "weights_rec", allow_none=False
         )
-        v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
-        v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
-        v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
-        tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
-        bias = self._expand_to_net_size(bias, "bias", allow_none=False)
-        refractory = self._expand_to_net_size(
+        self._v_thresh = self._expand_to_net_size(
+            v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
+        self._v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
+        self._tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
+        self._bias = self._expand_to_net_size(bias, "bias", allow_none=False)
+        self._refractory = self._expand_to_net_size(
             refractory, "refractory", allow_none=False
         )
-        tau_syn_exc = self._expand_to_net_size(
+        self._tau_syn_exc = self._expand_to_net_size(
             tau_syn_exc, "tau_syn_exc", allow_none=False
         )
-        tau_syn_inh = self._expand_to_net_size(
+        self._tau_syn_inh = self._expand_to_net_size(
             tau_syn_inh, "tau_syn_inh", allow_none=False
         )
-        delay_in = self._expand_to_shape(
+        self._delay_in = self._expand_to_shape(
             delay_in, (self.size_in, self.size), "delay_in", allow_none=False
         )
-        delay_rec = self._expand_to_shape(
+        self._delay_rec = self._expand_to_shape(
             delay_rec, (self.size, self.size), "delay_rec", allow_none=False
         )
         # Set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
-            capacity = tau_mem * 1000.0
+            self._capacity = tau_mem * 1000.0
         else:
-            capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
+            self._capacity = self._expand_to_net_size(
+                capacity, "capacity", allow_none=False
+            )
 
-        self.num_cores = num_cores
+        # - Record settings
+        self._record = record
+        self._num_cores = num_cores
 
+        self._setup_nest()
+
+    def _setup_nest(self):
+        """_setup_nest - Set up and start a nest process"""
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
         self.nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
-            self.weights,
-            weights_rec,
-            delay_in,
-            delay_rec,
-            bias,
-            dt,
-            tau_mem,
-            tau_syn_exc,
-            tau_syn_inh,
-            capacity,
-            v_thresh,
-            v_reset,
-            v_rest,
-            refractory,
-            record,
-            num_cores,
+            weights_in=self._weights_in,
+            weights_rec=self._weights_rec,
+            delay_in=self._delay_in,
+            delay_rec=self._delay_rec,
+            bias=self._bias,
+            dt=self._dt,
+            tau_mem=self._tau_mem,
+            tau_syn_exc=self._tau_syn_exc,
+            tau_syn_inh=self._tau_syn_inh,
+            capacity=self._capacity,
+            v_thresh=self._v_thresh,
+            v_reset=self._v_reset,
+            v_rest=self._v_rest,
+            refractory=self._refractory,
+            record=self._record,
+            num_cores=self._num_cores,
         )
         self.nest_process.start()
-
-        # - Record neuron parameters
-        self._v_thresh = v_thresh
-        self._v_reset = v_reset
-        self._v_rest = v_rest
-        self._bias = bias
-        self._tau_mem = tau_mem
-        self._tau_syn_exc = tau_syn_exc
-        self._tau_syn_inh = tau_syn_inh
-        self._capacity = capacity
-        self._refractory = refractory
-        self._weights_in = self.weights
-        self._weights_rec = weights_rec
-        self._delay_in = delay_in
-        self._delay_rec = delay_rec
-        self.record = record
 
     def reset_state(self):
         """ .reset_state() - arguments:: reset the internal state of the layer
@@ -1199,10 +1198,6 @@ class RecIAFSpkInNest(Layer):
         config["class_name"] = "RecIAFSpkInNest"
 
         return config
-
-    def save(self, config, filename):
-        with open(filename, "w") as f:
-            json.dump(config, f)
 
     @classmethod
     def load_from_dict(cls, config):
@@ -1377,3 +1372,11 @@ class RecIAFSpkInNest(Layer):
     @Layer.dt.setter
     def dt(self):
         raise ValueError("The `dt` property cannot be set for this layer")
+
+    @property
+    def record(self):
+        return self._record
+
+    @property
+    def num_cores(self):
+        return self._num_cores
