@@ -876,7 +876,7 @@ class RecIAFSpkInNest(Layer):
                 if startTime == 0:
                     # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
                     # the recording has one entry less in the first batch
-                    nest.Simulate(num_timesteps * self.dt + 1.0)
+                    nest.Simulate((num_timesteps + 1) * self.dt)
                 else:
                     nest.Simulate(num_timesteps * self.dt)
 

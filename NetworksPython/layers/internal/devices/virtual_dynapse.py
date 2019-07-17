@@ -61,7 +61,7 @@ class VirtualDynapse(Layer):
         refractory: Union[float, np.ndarray] = 0.001,
         v_thresh: Union[float, np.ndarray] = 0.01,
         name: str = "unnamed",
-        num_cores: int = 1,
+        num_threads: int = 1,
         mismatch: bool = True,
     ):
         """
@@ -98,28 +98,63 @@ class VirtualDynapse(Layer):
         :param v_thresh:         float or 1D-array of size 16 with neuron firing v_thresh
                                  for each core. If float, same for all cores.
         :param name:             Name for this object instance.
-        :param num_cores:        Number of cpu cores available for simulation.
+        :param num_threads:      Number of cpu cores available for simulation.
         :param mismatch:         If True, parameters for each neuron are drawn from Gaussian
                                  around provided values for core.
+                                 If an array is passed, it must be of shape
+                                 (9 + 2*num_neurons x num_neurons) and provide individual
+                                 mismatch factors for each parameter and neuron as well as
+                                 excitatory and inhibitory weights. Order, row-wise:
+                                 baseweight_e, baseweight_i, bias, refractory, tau_mem_1,
+                                 tau_mem_2, tau_syn_exc, tau_syn_inh, v_thresh,
+                                 weights_excit, weights_inhib
         """
-
-        # - Draw values for mismatch
-        self._draw_mismatch(mismatch)
-
-        # - Store internal parameters
-        self.name = name
-        self.tau_mem_1 = tau_mem_1
-        self.tau_mem_2 = tau_mem_2
-        self.has_tau2 = has_tau2
+        if isinstance(mismatch, bool):
+            # - Draw values for mismatch
+            self._draw_mismatch(mismatch)
+        else:
+            # - Use individual mismatch factors
+            if mismatch.shape == (9 + 2 * self.num_neurons, self.num_neurons):
+                self._mismatch_factors = mismatch
+            else:
+                warn(
+                    self.start_print
+                    + "`mismatch` must be array of shape {} x {}. ".format(
+                        9 + 2 * self.num_neurons, self.num_neurons
+                    )
+                    + "Will generate new mismatch."
+                )
+                self._draw_mismatch(mismatch)
 
         # - Settings wrt connection validation
         self.validate_fanin = True
         self.validate_fanout = True
         self.validate_aliasing = True
 
+        # - Store internal parameters
+        self.name = name
+        self._num_threads = num_threads
+
+        # - Set up time constants
+        self._tau_mem_1, self._tau_mem_1_ = self._process_parameter(
+            tau_mem_1, "tau_mem_1", nonnegative=True
+        )
+        self._tau_mem_2, self._tau_mem_2_ = self._process_parameter(
+            tau_mem_2, "tau_mem_2", nonnegative=True
+        )
+        has_tau2 = self._expand_to_size(has_tau2, self.num_neurons, "has_tau2", False)
+        if not has_tau2.dtype == bool:
+            raise ValueError(self.start_print + "`has_tau2` must consist of booleans.")
+        else:
+            self._has_tau2 = has_tau2
+
         # - Set up connections and weights
-        self._baseweight_e = self._process_parameter(baseweight_e, "baseweight_e", True)
-        self._baseweight_i = self._process_parameter(baseweight_i, "baseweight_i", True)
+        self._baseweight_e, self._baseweight_e_syn = self._process_parameter(
+            baseweight_e, "weights_excit", True
+        )
+        self._baseweight_i, self._baseweight_i_syn = self._process_parameter(
+            baseweight_i, "weights_inhib", True
+        )
         self._connections_rec = self._process_connections(
             connections=connections_rec, external=False
         )
@@ -141,28 +176,21 @@ class VirtualDynapse(Layer):
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
             )
-        weights_rec = self._generate_weights()
+        weights_rec = self._generate_weights(external=False)
         weights_ext = self._generate_weights(external=True)
 
-        # - Remaining parameters
-        bias = self._process_parameter(bias, "bias", True)
-        v_thresh = self._process_parameter(v_thresh, "v_thresh", True)
-        refractory = self._process_parameter(refractory, "refractory", True)
-        tau_syn_exc = self._process_parameter(tau_syn_exc, "tau_syn_exc", True)
-        tau_syn_inh = self._process_parameter(tau_syn_inh, "tau_syn_inh", True)
-
-        # - Scale parameters up to number of neurons and mismatch to parameters
-        bias = np.repeat(bias, self.num_neurons_core)
-        v_thresh = np.repeat(v_thresh, self.num_neurons_core)
-        tau_syn_exc = np.repeat(tau_syn_exc, self.num_neurons_core)
-        tau_syn_inh = np.repeat(tau_syn_inh, self.num_neurons_core)
-
-        weights_ext = self.add_mismatch(weights_ext, "wegihts_ext")
-        weights_rec = self.add_mismatch(weights_rec, "wegihts_rec")
-        bias = self.add_mismatch(bias, "bias")
-        v_thresh = self.add_mismatch(v_thresh, "v_thresh")
-        tau_syn_exc = self.add_mismatch(tau_syn_exc, "tau_syn_exc")
-        tau_syn_inh = self.add_mismatch(tau_syn_inh, "tau_syn_inh")
+        # - Remaining parameters: Scale up to neuron size and add mismatch
+        self._bias, bias = self._process_parameter(bias, "bias", True)
+        self._v_thresh, v_thresh = self._process_parameter(v_thresh, "v_thresh", True)
+        self._refractory, refractory = self._process_parameter(
+            refractory, "refractory", True
+        )
+        self._tau_syn_exc, tau_syn_exc = self._process_parameter(
+            tau_syn_exc, "tau_syn_exc", True
+        )
+        self._tau_syn_inh, tau_syn_inh = self._process_parameter(
+            tau_syn_inh, "tau_syn_inh", True
+        )
 
         # - Nest-layer for approximate simulation of neuron dynamics
         self._simulator = RecIAFSpkInNest(
@@ -172,12 +200,13 @@ class VirtualDynapse(Layer):
             v_thresh=v_thresh,
             v_reset=0,
             v_rest=0,
-            tau_mem=self._tau_mem_all,
+            tau_mem=self._tau_mem_,
             tau_syn_exc=tau_syn_exc,
             tau_syn_inh=tau_syn_inh,
             dt=dt,
             name=self.name + "_nest_backend",
-            num_cores=num_cores,
+            num_cores=num_threads,
+            record=False,
         )
 
     def _draw_mismatch(self, consider_mismatch: bool = True):
@@ -196,7 +225,8 @@ class VirtualDynapse(Layer):
             "baseweight_i",
             "bias",
             "refractory",
-            "tau_mem",
+            "tau_mem_1",
+            "tau_mem_2",
             "tau_syn_exc",
             "tau_syn_inh",
             "v_thresh",
@@ -477,7 +507,7 @@ class VirtualDynapse(Layer):
             alias_pre_ids: List[List[int]] = []
             alias_post_cores: List[int] = []
             # - Iterate over postsynaptic cores
-            for core_id in range(self.num_cores):
+            for core_id in range(self.num_threads):
                 # - IDs of neurons where core starts and ends
                 id_start = core_id * self.num_neurons_core
                 id_end = (core_id + 1) * self.num_neurons_core
@@ -574,6 +604,15 @@ class VirtualDynapse(Layer):
         """
         return self._simulator.evolve(ts_input, duration, num_timesteps, verbose)
 
+    def reset_time(self):
+        self._simulator.reset_time()
+
+    def reset_state(self):
+        self._simulator.reset_state()
+
+    def reset_all(self):
+        self._simulator.reset_all()
+
     def _generate_weights(self, external: bool = False) -> np.ndarray:
         """
         _generate_weights: Generate weight matrix from connections and base weights
@@ -584,15 +623,12 @@ class VirtualDynapse(Layer):
         # - Choose between input and internal connections
         connections = self.connections_ext if external else self.connections_rec
         # - Separate excitatory and inhibitory connections
-        connections_exc = np.clip(connections, 0, None)
-        connections_inh = np.clip(connections, None, 0)
-        factor_exc = np.repeat(self.baseweight_e, self.num_neurons_core)
-        factor_inh = np.repeat(self.baseweight_i, self.num_neurons_core)
-        # - Add mismatch
-        factor_exc = self.add_mismatch(factor_exc, "weights_excit")
-        factor_inh = self.add_mismatch(factor_inh, "weights_inhib")
+        connections_excit = np.clip(connections, 0, None)
+        connections_inhib = np.clip(connections, None, 0)
         # - Calculate weights
-        return connections_exc * factor_exc + connections_inh * factor_inh
+        weights_excit = connections_excit * self._baseweight_e_syn
+        weights_inhib = connections_inhib * self._baseweight_i_syn
+        return weights_excit + weights_inhib
 
     def _update_weights(self, external: bool = False, recurrent: bool = True):
         """
@@ -620,18 +656,18 @@ class VirtualDynapse(Layer):
         nonnegative: bool = True,
     ) -> (np.ndarray, np.ndarray):
         """
-        _process_parameter - Reshape parameter to array of size `self.num_cores`.
+        _process_parameter - Reshape parameter to array of size `self.num_threads`.
                              If `nonnegative` is `True`, clip negative values to 0.
         :param parameter:    Parameter to be reshaped and possibly clipped.
         :param name:         Name of the paramter (for print statements).
         :param nonnegative:  If `True`, clip negative values to 0 and warn if
                              there are any.
         :return:
-            core_params:  ndarray of size `self.num_cores` with parameters for each core
+            core_params:  ndarray of size `self.num_threads` with parameters for each core
             neruon_params: ndarray of size `self.num_neurons` with parameters for each
                            neuron and added mismatch
         """
-        core_params = self._expand_to_size(parameter, self.num_cores, name, False)
+        core_params = self._expand_to_size(parameter, self.num_threads, name, False)
         if nonnegative:
             # - Make sure that parameters are nonnegative
             if (np.array(core_params) < 0).any():
@@ -640,12 +676,17 @@ class VirtualDynapse(Layer):
                     + f"`{name}` must be at least 0. Negative values are clipped to 0."
                 )
             core_params = np.clip(core_params, 0, None)
-        if name in ("weights_ext", "weights_rec"):
-            # - For weights, mismatch is added in `self._generate_weights`
-            neuron_params = None
+        # - Expand to number of neurons
+        neuron_params = np.repeat(core_params, self.num_neurons_core)
+        if name in ("weights_excit", "weights_inhib"):
+            # - Expand to number of (potential) synapses
+            syn_params = np.repeat(
+                neuron_params.reshape(1, -1), self.num_neurons, axis=0
+            )
+            # - Different mismatch for each synapse
+            syn_params = self.add_mismatch(syn_params, name)
         else:
-            # - Expand to number of neurons and add mismatch
-            neuron_params = np.repeat(core_params, self.num_neurons_core)
+            # - Add mismatch for each neuron
             neuron_params = self.add_mismatch(neuron_params, name)
 
         return core_params, neuron_params
@@ -672,6 +713,29 @@ class VirtualDynapse(Layer):
                 connections0[: conn_shape[0], : conn_shape[1]] = connections
                 connections = connections0
             return connections
+
+    def to_dict(self) -> dict:
+        """
+        to_dict - Convert parameters of `self` to a dict if they are relevant for
+                  reconstructing an identical layer.
+        """
+        config = {}
+        config["dt"] = self.dt
+        config["connections_ext"] = self.connections_ext.tolist()
+        config["connections_rec"] = self.connections_rec.tolist()
+        config["tau_mem_1"] = self.tau_mem_1.tolist()
+        config["tau_mem_2"] = self.tau_mem_2.tolist()
+        config["has_tau2"] = self.has_tau2.tolist()
+        config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+        config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+        config["baseweight_e"] = self.baseweight_e.tolist()
+        config["baseweight_i"] = self.baseweight_i.tolist()
+        config["bias"] = self.bias.tolist()
+        config["refractory"] = self.refractory.tolist()
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["name"] = self.name
+        config["num_threads"] = self.num_threads
+        config["mismatch"] = self._mismatch_factors.tolist()
 
     @property
     def connections_rec(self):
@@ -749,8 +813,8 @@ class VirtualDynapse(Layer):
 
     @baseweight_e.setter
     def baseweight_e(self, baseweight_new: Union[float, ArrayLike]):
-        self._baseweight_e, __ = self._process_parameter(
-            baseweight_new, "baseweight_e", nonnegative=True
+        self._baseweight_e, self._baseweight_e_syn = self._process_parameter(
+            baseweight_new, "weights_excit", nonnegative=True
         )
         self._update_weights(external=True, recurrent=True)
 
@@ -760,8 +824,8 @@ class VirtualDynapse(Layer):
 
     @baseweight_i.setter
     def baseweight_i(self, baseweight_new: Union[float, ArrayLike]):
-        self._baseweight_i, __ = self._process_parameter(
-            baseweight_new, "baseweight_i", nonnegative=True
+        self._baseweight_i, self._baseweight_i_syn = self._process_parameter(
+            baseweight_new, "weights_inhib", nonnegative=True
         )
         self._update_weights(external=True, recurrent=True)
 
@@ -775,7 +839,7 @@ class VirtualDynapse(Layer):
 
     @bias.setter
     def bias(self, bias_new: Union[float, ArrayLike]):
-        self._simulator.bias, self._bias = self._process_parameter(
+        self._bias, self._simulator.bias = self._process_parameter(
             bias_new, "bias", nonnegative=True
         )
 
@@ -789,7 +853,7 @@ class VirtualDynapse(Layer):
 
     @refractory.setter
     def refractory(self, t_refractory_new: Union[float, ArrayLike]):
-        self._simulator.refractory, self._refractory = self._process_parameter(
+        self._refractory, self._simulator.refractory = self._process_parameter(
             t_refractory_new, "refractory", nonnegative=True
         )
 
@@ -803,7 +867,7 @@ class VirtualDynapse(Layer):
 
     @v_thresh.setter
     def v_thresh(self, threshold_new: Union[float, ArrayLike]):
-        self._simulator.v_thresh, self._v_thresh = self._process_parameter(
+        self._v_thresh, self._simulator.v_thresh = self._process_parameter(
             threshold_new, "v_thresh", nonnegative=True
         )
 
@@ -852,8 +916,8 @@ class VirtualDynapse(Layer):
         # - Drop neurons with other time constant assigned
         tau_mem_1_ = self._tau_mem_1_ * (self.has_tau2 == False)
         tau_mem_2_ = self._tau_mem_2_ * self.has_tau2
-        # - Join time constants and add mismatch
-        return self.add_mismatch(tau_mem_1_ + tau_mem_2_, "tau_mem")
+        # - Join time constants
+        return tau_mem_1_ + tau_mem_2_
 
     @property
     def tau_mem_(self):
@@ -869,7 +933,7 @@ class VirtualDynapse(Layer):
 
     @tau_syn_exc.setter
     def tau_syn_exc(self, tau_syn_e_new: Union[float, ArrayLike]):
-        self._tau_syn_exc, self.simulator.tau_syn_exc = self._process_parameter(
+        self._tau_syn_exc, self._simulator.tau_syn_exc = self._process_parameter(
             tau_syn_e_new, "tau_syn_exc", nonnegative=True
         )
 
@@ -900,7 +964,7 @@ class VirtualDynapse(Layer):
         return self._num_neurons_core
 
     @property
-    def num_cores(self):
+    def num_threads(self):
         return self._num_cores_chip * self._num_chips
 
     @property
@@ -950,6 +1014,10 @@ class VirtualDynapse(Layer):
     @property
     def state(self):
         return self._simulator.state
+
+    @property
+    def stddev_mismatch(self):
+        return self._stddev_mismatch
 
     @property
     def mismatch_factors(self):
