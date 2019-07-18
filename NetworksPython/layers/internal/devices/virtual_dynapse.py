@@ -25,7 +25,7 @@ import numpy as np
 # NetworksPython modules
 from ....timeseries import TSEvent
 from ...layer import Layer, ArrayLike
-from ...internal.iaf_nest import RecIAFSpkInNest
+from ...internal.iaf_nest import RecAEIFSpkInNest
 from . import params
 
 ### --- Constants
@@ -44,6 +44,22 @@ class VirtualDynapse(Layer):
     _num_neurons_core = params.NUM_NEURONS_CORE
     _weight_resolution = 2 ** params.BIT_RESOLUTION_WEIGHTS - 1
     _stddev_mismatch = params.STDDEV_MISMATCH
+    _param_names = [
+        "baseweight_e",
+        "baseweight_i",
+        "bias",
+        "refractory",
+        "tau_mem_1",
+        "tau_mem_2",
+        "tau_syn_exc",
+        "tau_syn_inh",
+        "v_thresh",
+        "spike_adapt",
+        "tau_adapt",
+        "delta_t",
+        "weights_excit",
+        "weights_inhib",
+    ]
 
     def __init__(
         self,
@@ -60,6 +76,9 @@ class VirtualDynapse(Layer):
         bias: Union[float, np.ndarray] = 0,
         refractory: Union[float, np.ndarray] = 0.001,
         v_thresh: Union[float, np.ndarray] = 0.01,
+        spike_adapt: Union[float, np.ndarray] = 0.0,
+        tau_adapt: Union[float, np.ndarray] = 0.01,
+        delta_t: Union[float, np.ndarray] = 2.0,
         name: str = "unnamed",
         num_threads: int = 1,
         mismatch: bool = True,
@@ -97,30 +116,49 @@ class VirtualDynapse(Layer):
                                  secondsfor each core. If float, same for all cores.
         :param v_thresh:         float or 1D-array of size 16 with neuron firing v_thresh
                                  for each core. If float, same for all cores.
+        :param spike_adapt:      Scaling for spike triggered adaptation.
+        :param tau_adapt:        Adaptation time constant.
+        :param delta_t:          Scaling for exponential part of activation function.
         :param name:             Name for this object instance.
         :param num_threads:      Number of cpu cores available for simulation.
         :param mismatch:         If True, parameters for each neuron are drawn from Gaussian
                                  around provided values for core.
                                  If an array is passed, it must be of shape
-                                 (9 + 2*num_neurons x num_neurons) and provide individual
+                                 (12 + 2*num_neurons x num_neurons) and provide individual
                                  mismatch factors for each parameter and neuron as well as
                                  excitatory and inhibitory weights. Order, row-wise:
                                  baseweight_e, baseweight_i, bias, refractory, tau_mem_1,
                                  tau_mem_2, tau_syn_exc, tau_syn_inh, v_thresh,
                                  weights_excit, weights_inhib
         """
+        # - Handle provided mismatch
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
             self._draw_mismatch(mismatch)
         else:
+            shape_mismatch = (
+                len(self._spike_adapt) - 2 + 2 * self.num_neurons,
+                self.num_neurons,
+            )
             # - Use individual mismatch factors
-            if mismatch.shape == (9 + 2 * self.num_neurons, self.num_neurons):
-                self._mismatch_factors = mismatch
+            if mismatch.shape == shape_mismatch:
+                # - Store mismatch in dict (except for weights)
+                self._mismatch_factors = {
+                    param: factors
+                    for param, factors in zip(
+                        self._param_names[:-2], mismatch[: len(self._spike_adapt)]
+                    )
+                }
+                # - Mismatch for weights
+                self._mismatch_factors["weights_excit"] = mismatch[
+                    -2 * self.num_neurons : -self.num_neurons
+                ]
+                self._mismatch_factors["weights_inhib"] = mismatch[-self.num_neurons :]
             else:
                 warn(
                     self.start_print
                     + "`mismatch` must be array of shape {} x {}. ".format(
-                        9 + 2 * self.num_neurons, self.num_neurons
+                        *shape_mismatch
                     )
                     + "Will generate new mismatch."
                 )
@@ -191,9 +229,16 @@ class VirtualDynapse(Layer):
         self._tau_syn_inh, tau_syn_inh = self._process_parameter(
             tau_syn_inh, "tau_syn_inh", True
         )
+        self._spike_adapt, spike_adapt = self._process_parameter(
+            spike_adapt, "spike_adapt", True
+        )
+        self._tau_adapt, tau_adapt = self._process_parameter(
+            tau_adapt, "tau_adapt", True
+        )
+        self._delta_t, delta_t = self._process_parameter(delta_t, "delta_t", True)
 
         # - Nest-layer for approximate simulation of neuron dynamics
-        self._simulator = RecIAFSpkInNest(
+        self._simulator = RecAEIFSpkInNest(
             weights_in=weights_ext,
             weights_rec=weights_rec,
             bias=bias,
@@ -203,6 +248,9 @@ class VirtualDynapse(Layer):
             tau_mem=self._tau_mem_,
             tau_syn_exc=tau_syn_exc,
             tau_syn_inh=tau_syn_inh,
+            spike_adapt=spike_adapt,
+            tau_adapt=tau_adapt,
+            delta_t=delta_t,
             dt=dt,
             name=self.name + "_nest_backend",
             num_cores=num_threads,
@@ -220,23 +268,10 @@ class VirtualDynapse(Layer):
         :param consider_mismatch:  If `False`, mismatch factors are all 1, corresponding
                                    to not having any mismatch.
         """
-        param_names = [
-            "baseweight_e",
-            "baseweight_i",
-            "bias",
-            "refractory",
-            "tau_mem_1",
-            "tau_mem_2",
-            "tau_syn_exc",
-            "tau_syn_inh",
-            "v_thresh",
-            "weights_excit",
-            "weights_inhib",
-        ]
 
         if consider_mismatch:
             # - Number of mismatch factors per neuron
-            num_factors_noweights = len(param_names) - 2
+            num_factors_noweights = len(self._param_names) - 2
             num_factors = num_factors_noweights + 2 * self.num_neurons
             # - Draw mismatch factor for each neuron
             mismatch_factors = (
@@ -250,7 +285,7 @@ class VirtualDynapse(Layer):
             self._mismatch_factors = {
                 param: factors
                 for param, factors in zip(
-                    param_names[:-2], mismatch_factors[:num_factors_noweights]
+                    self._param_names[:-2], mismatch_factors[:num_factors_noweights]
                 )
             }
             # - Mismatch for weights
@@ -262,7 +297,7 @@ class VirtualDynapse(Layer):
             ]
         else:
             # - Factor 1 corresponds to no mismatch at all.
-            self._mismatch_factors = {param: 1 for param in param_names}
+            self._mismatch_factors = {param: 1 for param in self.param_names}
 
     def add_mismatch(self, mean_values: np.ndarray, param_name: str):
         if param_name in ("weights_ext", "weights_rec"):
