@@ -46,6 +46,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             tau_syn_inh: Union[float, np.ndarray],
             capacity: Union[float, np.ndarray],
             v_thresh: Union[float, np.ndarray],
+            v_peak: Union[float, np.ndarray],
             v_reset: Union[float, np.ndarray],
             v_rest: Union[float, np.ndarray],
             refractory,
@@ -66,6 +67,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             # - Record neuron parameters
             self.dt = s2ms(dt)
             self.v_thresh = V2mV(v_thresh)
+            self.v_peak = V2mV(v_peak)
             self.v_reset = V2mV(v_reset)
             self.v_rest = V2mV(v_rest)
             self.tau_mem = s2ms(tau_mem)
@@ -137,6 +139,11 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                     p["V_th"] = self.v_thresh[n]
                 else:
                     p["V_th"] = self.v_thresh
+
+                if type(self.v_peak) is np.ndarray:
+                    p["V_peak"] = self.v_peak[n]
+                else:
+                    p["V_peak"] = self.v_peak
 
                 if type(self.v_reset) is np.ndarray:
                     p["V_reset"] = self.v_reset[n]
@@ -249,7 +256,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 # - Monitor for recording network potential
                 nest.SetDefaults("multimeter", {"interval": self.dt})
                 self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
+                    "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
                 )
                 nest.Connect(self._mm, self._pop)
 
@@ -262,16 +269,10 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
             def set_param(name, value):
                 """ IPC command for setting a parameter """
-                params = []
-
-                for n in range(self.size):
-                    p = {}
-                    if type(value) is np.ndarray:
-                        p[name] = value[n]
-                    else:
-                        p[name] = value
-
-                    params.append(p)
+                try:
+                    params = [{name: val} for val in value[: self.size]]
+                except TypeError:
+                    params = [{name: value} for _ in range(self.size)]
 
                 nest.SetStatus(self._pop, params)
 
@@ -281,6 +282,10 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 """
                 nest.ResetNetwork()
                 nest.SetKernelStatus({"time": 0.0})
+                # - Manually reset state parameters
+                for name in ("I_syn_ex", "I_syn_in", "w"):
+                    set_param(name, 0.0)
+                set_param("V_m", self.v_rest)
 
             def evolve(
                 event_times, event_channels, num_timesteps: Optional[int] = None
@@ -305,7 +310,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 if startTime == 0:
                     # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
                     # the recording has one entry less in the first batch
-                    nest.Simulate(num_timesteps * self.dt + 1.0)
+                    nest.Simulate((num_timesteps + 1) * self.dt)
                 else:
                     nest.Simulate(num_timesteps * self.dt)
 
@@ -367,6 +372,10 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 if result is not None:
                     self.result_q.put(result)
 
+    # - Default difference between v_peak and v_thresh when v_peak not set and
+    #   delta_t != 0
+    _v_peak_offset = 0.01
+
     ## - Constructor
     def __init__(
         self,
@@ -381,6 +390,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         tau_syn_exc: Union[float, np.ndarray, None] = None,
         tau_syn_inh: Union[float, np.ndarray, None] = None,
         v_thresh: Union[float, np.ndarray] = -0.055,
+        v_peak: Union[float, np.ndarray, None] = None,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
         capacity: Union[float, np.ndarray, None] = None,
@@ -412,7 +422,10 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants.
                                      If `None`, use `tau_syn`. Default: `None`
 
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
+        :param v_thresh:       np.array Nx1 vector of neuron thresholds ("point of no return"). Default: -55mV
+        :param v_peak:         np.array Nx1 vector of neuron spike thresholds. Is set to
+                               `v_thresh`If `None` if `delta_T`==0 or to `v_thresh` + 10mV
+                               if `deltaT`!=0.
         :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
         :param v_rest:         np.array Nx1 vector of neuron resting potential. Default: -65mV
 
@@ -437,14 +450,23 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         # - Prepare parameters that are specific to this class
         self._subthresh_adapt = self._expand_to_net_size(
             subthresh_adapt, "subthresh_adapt", allow_none=False
-        )
+        ).astype(float)
         self._spike_adapt = self._expand_to_net_size(
             spike_adapt, "spike_adapt", allow_none=False
-        )
-        self._delta_t = self._expand_to_net_size(delta_t, "delta_t", allow_none=False)
+        ).astype(float)
         self._tau_adapt = self._expand_to_net_size(
             tau_adapt, "tau_adapt", allow_none=False
-        )
+        ).astype(float)
+        delta_t = self._expand_to_net_size(delta_t, "delta_t", allow_none=False)
+        self._delta_t = delta_t.astype(float)
+        if v_peak is None:
+            # - Determine v_thresh to determine v_peak (otherwise done by super().__init__)
+            v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
+            self._v_peak = v_thresh.astype(float)
+            self._v_peak[self._delta_t != 0] += self._v_peak_offset
+        else:
+            v_peak = self._expand_to_net_size(v_peak, "v_peak", allow_none=False)
+            self._v_peak = v_peak.astype(float)
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
@@ -487,6 +509,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             tau_syn_inh=self._tau_syn_inh,
             capacity=self._capacity,
             v_thresh=self._v_thresh,
+            v_peak=self._v_peak,
             v_reset=self._v_reset,
             v_rest=self._v_rest,
             refractory=self._refractory,
@@ -545,6 +568,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     @subthresh_adapt.setter
     def subthresh_adapt(self, new_a):
         new_a = self._expand_to_net_size(new_a, "subthresh_adapt", allow_none=False)
+        new_a = new_a.astype(float)
         self._subthresh_adapt = new_a
         self.request_q.put([COMMAND_SET, "a", new_a])
 
@@ -555,6 +579,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     @spike_adapt.setter
     def spike_adapt(self, new_b):
         new_b = self._expand_to_net_size(new_b, "spike_adapt", allow_none=False)
+        new_b = new_b.astype(float)
         self._spike_adapt = new_b
         self.request_q.put([COMMAND_SET, "b", new_b])
 
@@ -565,8 +590,20 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     @delta_t.setter
     def delta_t(self, new_delta_t):
         new_delta_t = self._expand_to_net_size(new_delta_t, "delta_t", allow_none=False)
+        new_delta_t = new_delta_t.astype(float)
         self.delta_t = new_delta_t
         self.request_q.put([COMMAND_SET, "Delta_T", new_delta_t])
+
+    @property
+    def v_peak(self):
+        return self._v_peak
+
+    @v_peak.setter
+    def v_peak(self, new_v_peak):
+        new_v_peak = self._expand_to_net_size(new_v_peak, "v_peak", allow_none=False)
+        new_v_peak = new_v_peak.astype(float)
+        self.v_peak = new_v_peak
+        self.request_q.put([COMMAND_SET, "V_peak", new_v_peak])
 
     @property
     def tau_adapt(self):
@@ -575,5 +612,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     @tau_adapt.setter
     def tau_adapt(self, new_tau):
         new_tau = self._expand_to_net_size(new_tau, "tau_adapt", allow_none=False)
+        new_tau = new_tau.astype(float)
         self._tau_adapt = new_tau
         self.request_q.put([COMMAND_SET, "tau_w", s2ms(new_tau)])

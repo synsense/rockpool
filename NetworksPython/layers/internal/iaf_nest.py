@@ -167,7 +167,7 @@ class FFIAFNest(Layer):
                 # - Monitor for recording network potential
                 nest.SetDefaults("multimeter", {"interval": self.dt})
                 self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
+                    "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
                 )
                 nest.Connect(self._mm, self._pop)
 
@@ -1235,6 +1235,7 @@ class RecIAFSpkInNest(Layer):
         new_refractory = self._expand_to_net_size(
             new_refractory, "refractory", allow_none=False
         )
+        new_refractory = new_refractory.astype(float)
         self._refractory = new_refractory
         self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
 
@@ -1248,7 +1249,7 @@ class RecIAFSpkInNest(Layer):
     @state.setter
     def state(self, new_state):
         new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
+        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state.astype(float))])
 
     @property
     def delay_in(self):
@@ -1259,6 +1260,7 @@ class RecIAFSpkInNest(Layer):
         new_delay_in = self._expand_to_shape(
             new_delay_in, (self.size_in, self.size), "delay_in", allow_none=False
         )
+        new_delay_in = new_delay_in.astype(float)
         self._delay_in = new_delay_in
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
 
@@ -1271,6 +1273,7 @@ class RecIAFSpkInNest(Layer):
         new_delay_rec = self._expand_to_shape(
             new_delay_rec, (self.size_in, self.size), "delay_rec", allow_none=False
         )
+        new_delay_rec = new_delay_rec.astype(float)
         self._delay_rec = new_delay_rec
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
 
@@ -1281,6 +1284,7 @@ class RecIAFSpkInNest(Layer):
     @tau_mem.setter
     def tau_mem(self, new_tau_mem):
         new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
+        new_tau_mem = new_tau_mem.astype(float)
         self._tau_mem = new_tau_mem
         self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
 
@@ -1291,6 +1295,7 @@ class RecIAFSpkInNest(Layer):
     @tau_syn.setter
     def tau_syn(self, new_tau_syn):
         new_tau_syn = self._expand_to_net_size(new_tau_syn, "tau_syn", allow_none=False)
+        new_tau_syn = new_tau_syn.astype(float)
         self._tau_syn = new_tau_syn
         self._tau_syn_inh = new_tau_syn
         self._tau_syn_exc = new_tau_syn
@@ -1306,6 +1311,7 @@ class RecIAFSpkInNest(Layer):
         new_tau_syn_exc = self._expand_to_net_size(
             new_tau_syn_exc, "tau_syn_exc", allow_none=False
         )
+        new_tau_syn_exc = new_tau_syn_exc.astype(float)
         self._tau_syn_exc = new_tau_syn_exc
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_ex", s2ms(new_tau_syn_exc)])
@@ -1319,6 +1325,7 @@ class RecIAFSpkInNest(Layer):
         new_tau_syn_inh = self._expand_to_net_size(
             new_tau_syn_inh, "tau_syn_inh", allow_none=False
         )
+        new_tau_syn_inh = new_tau_syn_inh.astype(float)
         self._tau_syn_inh = new_tau_syn_inh
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
@@ -1330,6 +1337,7 @@ class RecIAFSpkInNest(Layer):
     @bias.setter
     def bias(self, new_bias):
         new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
+        new_bias = new_bias.astype(float)
         self._bias = new_bias
         self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
 
@@ -1342,6 +1350,7 @@ class RecIAFSpkInNest(Layer):
         new_v_thresh = self._expand_to_net_size(
             new_v_thresh, "v_thresh", allow_none=False
         )
+        new_v_thresh = new_v_thresh.astype(float)
         self._v_thresh = new_v_thresh
         self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
 
@@ -1352,6 +1361,7 @@ class RecIAFSpkInNest(Layer):
     @v_reset.setter
     def v_reset(self, new_v_reset):
         new_v_reset = self._expand_to_net_size(new_v_reset, "v_reset", allow_none=False)
+        new_v_reset = new_v_reset.astype(float)
         self._v_reset = new_v_reset
         self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
 
@@ -1362,6 +1372,7 @@ class RecIAFSpkInNest(Layer):
     @v_rest.setter
     def v_rest(self, new_v_rest):
         new_v_rest = self._expand_to_net_size(new_v_rest, "v_rest", allow_none=False)
+        new_v_rest = new_v_rest.astype(float)
         self._v_rest = new_v_rest
         self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
 
