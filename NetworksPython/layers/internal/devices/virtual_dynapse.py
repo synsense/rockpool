@@ -25,7 +25,7 @@ import numpy as np
 # NetworksPython modules
 from ....timeseries import TSEvent
 from ...layer import Layer, ArrayLike
-from ...internal.iaf_nest import RecAEIFSpkInNest
+from ...internal.aeif_nest import RecAEIFSpkInNest
 from . import params
 
 ### --- Constants
@@ -136,8 +136,9 @@ class VirtualDynapse(Layer):
             # - Draw values for mismatch
             self._draw_mismatch(mismatch)
         else:
+            num_params_noweights = len(self._spike_adapt) - 2
             shape_mismatch = (
-                len(self._spike_adapt) - 2 + 2 * self.num_neurons,
+                num_params_noweights + 2 * self.num_neurons,
                 self.num_neurons,
             )
             # - Use individual mismatch factors
@@ -146,7 +147,7 @@ class VirtualDynapse(Layer):
                 self._mismatch_factors = {
                     param: factors
                     for param, factors in zip(
-                        self._param_names[:-2], mismatch[: len(self._spike_adapt)]
+                        self._param_names[:-2], mismatch[:num_params_noweights]
                     )
                 }
                 # - Mismatch for weights
@@ -173,7 +174,7 @@ class VirtualDynapse(Layer):
         self.name = name
         self._num_threads = num_threads
 
-        # - Set up time constants
+        # - Set up membrane time constants
         self._tau_mem_1, self._tau_mem_1_ = self._process_parameter(
             tau_mem_1, "tau_mem_1", nonnegative=True
         )
@@ -250,6 +251,7 @@ class VirtualDynapse(Layer):
             tau_syn_inh=tau_syn_inh,
             spike_adapt=spike_adapt,
             tau_adapt=tau_adapt,
+            subthresh_adapt=0.0,
             delta_t=delta_t,
             dt=dt,
             name=self.name + "_nest_backend",
@@ -271,8 +273,8 @@ class VirtualDynapse(Layer):
 
         if consider_mismatch:
             # - Number of mismatch factors per neuron
-            num_factors_noweights = len(self._param_names) - 2
-            num_factors = num_factors_noweights + 2 * self.num_neurons
+            num_params_noweights = len(self._param_names) - 2
+            num_factors = num_params_noweights + 2 * self.num_neurons
             # - Draw mismatch factor for each neuron
             mismatch_factors = (
                 1
@@ -285,7 +287,7 @@ class VirtualDynapse(Layer):
             self._mismatch_factors = {
                 param: factors
                 for param, factors in zip(
-                    self._param_names[:-2], mismatch_factors[:num_factors_noweights]
+                    self._param_names[:-2], mismatch_factors[:num_params_noweights]
                 )
             }
             # - Mismatch for weights
@@ -904,6 +906,48 @@ class VirtualDynapse(Layer):
     def v_thresh(self, threshold_new: Union[float, ArrayLike]):
         self._v_thresh, self._simulator.v_thresh = self._process_parameter(
             threshold_new, "v_thresh", nonnegative=True
+        )
+
+    @property
+    def delta_t(self):
+        return self._delta_t
+
+    @property
+    def delta_t_(self):
+        return self._simulator.delta_t
+
+    @delta_t.setter
+    def delta_t(self, new_delta: Union[float, ArrayLike]):
+        self._delta_t, self._simulator.delta_t = self._process_parameter(
+            new_delta, "delta_t", nonnegative=True
+        )
+
+    @property
+    def spike_adapt(self):
+        return self._spike_adapt
+
+    @property
+    def spike_adapt_(self):
+        return self._simulator.spike_adapt
+
+    @spike_adapt.setter
+    def spike_adapt(self, new_const: Union[float, ArrayLike]):
+        self._spike_adapt, self._simulator.spike_adapt = self._process_parameter(
+            new_const, "spike_adapt", nonnegative=True
+        )
+
+    @property
+    def tau_adapt(self):
+        return self._tau_adapt
+
+    @property
+    def tau_adapt_(self):
+        return self._simulator.tau_adapt
+
+    @tau_adapt.setter
+    def tau_adapt(self, new_tau: Union[float, ArrayLike]):
+        self._tau_adapt, self._simulator.tau_adapt = self._process_parameter(
+            new_tau, "tau_adapt", nonnegative=True
         )
 
     @property

@@ -17,7 +17,7 @@ def test_virtualdynapse_evolve():
         np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
     ] = connections_ext
     bias = np.random.rand(16) * 1
-    v_thresh = np.random.rand(16) * 0.05
+    v_thresh = np.random.randn(16) * 0.02 + 0.05
     refractory = np.random.rand(16) * 0.01
     tau_mem_1 = np.random.rand(16) * 0.1
     tau_mem_2 = np.random.rand(16) * 0.1
