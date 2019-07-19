@@ -1532,14 +1532,14 @@ class TSEvent(TimeSeries):
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
         include_stop: bool = False,
-        compress_channels: bool = False,
+        remap_channels: bool = False,
         inplace: bool = False,
     ) -> "TSEvent":
         """
         clip - Return a TSEvent which is restricted to given time limits and only
                  contains events of selected channels. If time limits are provided,
                  t_start and t_stop attributes will correspond to those. If
-                 `compress_channels` is true, channels IDs will be mapped to continuous
+                 `remap_channels` is true, channels IDs will be mapped to continuous
                  sequence of integers starting from 0 (e.g. [1,3,6]->[0,1,2]). In this
                  case `num_channels` will be set to the number of different channels in `channels`.
                  Otherwise it will keep its original values, which is also the case for
@@ -1550,7 +1550,7 @@ class TSEvent(TimeSeries):
         :param t_stop:        Time until which events are returned
         :param channels:      Channels of which events are returned
         :param include_stop:  If there are events with time t_stop include them or not
-        :param compress_channels:  Map channel IDs to continuous sequence startign from 0.
+        :param remap_channels:  Map channel IDs to continuous sequence startign from 0.
                                    Set `num_channels` to largest new ID + 1.
         :param inplase:       Specify whether operation should be performed in place (Default: False)
         :return: TSEvent containing events from the requested channels
@@ -1570,7 +1570,7 @@ class TSEvent(TimeSeries):
             new_series._t_start = t_start
         if t_stop is not None:
             new_series._t_stop = t_stop
-        if compress_channels:
+        if remap_channels:
             if channel_data.size > 0:
                 # - Set channel IDs to sequence starting from 0
                 unique_channels, channel_indices = np.unique(
@@ -1647,7 +1647,7 @@ class TSEvent(TimeSeries):
                 t_start=t_start,
                 t_stop=t_stop,
                 channels=channels_clip,
-                compress_channels=False,
+                remap_channels=False,
             )
             # - Make sure that last point is also included if `duration` is a
             #   multiple of dt. Therefore floor(...) + 1
@@ -1658,7 +1658,7 @@ class TSEvent(TimeSeries):
                 t_start=t_start,
                 t_stop=t_stop,
                 channels=channels_clip,
-                compress_channels=False,
+                remap_channels=False,
             )
 
         # - Raster for storing event data
