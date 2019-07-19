@@ -1673,11 +1673,12 @@ class TSEvent(TimeSeries):
         event_times = series.times
         event_channels = series.channels
 
-        ## -- Convert input events and samples to boolen or integer raster
+        ## -- Convert input events and samples to boolean or integer raster
         # - Only consider rasters that have non-zero length
         if num_timesteps > 0:
             # Compute indices for times
             time_indices = np.floor((event_times - t_start) / dt).astype(int)
+            time_indices = time_indices[time_indices < num_timesteps]
             if add_events:
                 # Count events per time step and channel
                 for idx_t, idx_ch in zip(time_indices, event_channels):
