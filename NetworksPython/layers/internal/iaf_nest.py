@@ -35,6 +35,7 @@ COMMAND_GET = 0
 COMMAND_SET = 1
 COMMAND_RESET = 2
 COMMAND_EVOLVE = 3
+COMMAND_EXEC = 4
 
 
 # - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
@@ -171,6 +172,7 @@ class FFIAFNest(Layer):
                 )
                 nest.Connect(self._mm, self._pop)
 
+
             ######### DEFINE IPC COMMANDS ######
 
             def get_param(name):
@@ -279,12 +281,9 @@ class FFIAFNest(Layer):
 
             while True:
                 req = self.request_q.get()
-
                 func = IPC_switcher.get(req[0])
-
                 result = func(*req[1:])
-
-                if result is None:
+                if req[0] in [COMMAND_EVOLVE, COMMAND_GET]:
                     self.result_q.put(result)
 
     ## - Constructor
@@ -692,6 +691,7 @@ class RecIAFSpkInNest(Layer):
             #### INITIALIZE NEST ####
             import nest
 
+
             numCPUs = multiprocessing.cpu_count()
             # if self.num_cores >= numCPUs:
             #    self.num_cores = numCPUs
@@ -828,6 +828,9 @@ class RecIAFSpkInNest(Layer):
 
             ######### DEFINE IPC COMMANDS ######
 
+            def nest_exec(command):
+                return exec(command)
+
             def get_param(name):
                 """ IPC command for getting a parameter """
                 vms = nest.GetStatus(self._pop, name)
@@ -835,7 +838,53 @@ class RecIAFSpkInNest(Layer):
 
             def set_param(name, value):
                 """ IPC command for setting a parameter """
+
+                print("set param", name)
+
+                if name == "weights_in":
+                    self.weights_in = V2mV(value)
+
+                    # - Create input connections
+                    pres = []
+                    posts = []
+                    weights = []
+                    delays = []
+                    existing_conns = []
+                    existing_conns_weights = []
+
+                    for pre, row in enumerate(self.weights_in):
+                        for post, w in enumerate(row):
+
+                            c = nest.GetConnections([self._sg[pre]], [self._pop[post]])[0]
+                            if len(c) > 0:
+                                existing_conns.append(c)
+                                existing_conns_weights.append(w)
+                                continue
+
+                            if w == 0:
+                                continue
+
+                            pres.append(self._sg[pre])
+                            posts.append(self._pop[post])
+                            weights.append(w)
+                            if isinstance(self.delay_in, np.ndarray):
+                                delays.append(self.delay_in[pre, post])
+                            else:
+                                delays.append(self.delay_in)
+
+                    if len(existing_conns) > 0:
+                        nest.SetStatus(existing_conns, [{'weight': w} for w in existing_conns_weights])
+
+                    if len(weights) > 0:
+                        delays = np.clip(delays, self.dt, np.max(delays))
+                        nest.Connect(
+                            pres, posts, "one_to_one", {"weight": weights, "delay": delays}
+                        )
+
+                    return
+
                 params = []
+
 
                 for n in range(self.size):
                     p = {}
@@ -859,6 +908,8 @@ class RecIAFSpkInNest(Layer):
                 event_times, event_channels, num_timesteps: Optional[int] = None
             ):
                 """ IPC command running the network for num_timesteps with input_steps as input """
+
+                print(nest.GetStatus(nest.GetConnections(self._sg, self._pop), 'weight'))
 
                 if len(event_channels > 0):
                     # convert input index to NEST id
@@ -926,18 +977,16 @@ class RecIAFSpkInNest(Layer):
                 COMMAND_SET: set_param,
                 COMMAND_RESET: reset,
                 COMMAND_EVOLVE: evolve,
+                COMMAND_EXEC: nest_exec,
             }
 
             # wait for an IPC command
 
             while True:
                 req = self.request_q.get()
-
                 func = IPC_switcher.get(req[0])
-
                 result = func(*req[1:])
-
-                if result is not None:
+                if req[0] in [COMMAND_EXEC, COMMAND_GET, COMMAND_EVOLVE]:
                     self.result_q.put(result)
 
     ## - Constructor
@@ -1225,6 +1274,11 @@ class RecIAFSpkInNest(Layer):
     @property
     def weights_in(self):
         return self._weights_in
+
+    @weights_in.setter
+    def weights_in(self, new_weights):
+        self._weights_in = new_weights
+        self.request_q.put([COMMAND_SET, "weights_in", new_weights])
 
     @property
     def weights_rec(self):
