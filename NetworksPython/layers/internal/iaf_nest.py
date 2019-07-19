@@ -1223,6 +1223,14 @@ class RecIAFSpkInNest(Layer):
         return TSEvent
 
     @property
+    def weights_in(self):
+        return self._weights_in
+
+    @property
+    def weights_rec(self):
+        return self._weights_rec
+
+    @property
     def capacity(self):
         return self._capacity
 
