@@ -172,7 +172,6 @@ class FFIAFNest(Layer):
                 )
                 nest.Connect(self._mm, self._pop)
 
-
             ######### DEFINE IPC COMMANDS ######
 
             def get_param(name):
@@ -691,7 +690,6 @@ class RecIAFSpkInNest(Layer):
             #### INITIALIZE NEST ####
             import nest
 
-
             numCPUs = multiprocessing.cpu_count()
             # if self.num_cores >= numCPUs:
             #    self.num_cores = numCPUs
@@ -831,6 +829,58 @@ class RecIAFSpkInNest(Layer):
             def nest_exec(command):
                 return exec(command)
 
+            def update_weights(pop_pre, pop_post, weights_new, weights_old):
+                """
+                update_weights - Update nest connections and their weights
+                :param pop_pre:     Presynaptic population
+                :param pop_post:    Postsynaptic population
+                :param weights_new: New weights
+                :param weights_old: Old weights
+                """
+                # - Extract existing connections from populations
+                existing_conns = np.array(nest.GetConnections(pop_pre, pop_post))
+                # - First global ID of each population
+                id_start_sg = pop_pre[0]
+                id_start_pop = pop_post[0]
+                if existing_conns.size > 0:
+                    existing_pre, existing_post = existing_conns[:, :2].copy().T
+                    existing_pre -= id_start_sg
+                    existing_post -= id_start_pop
+                    # - Dict to map from 2D array indices to connection
+                    map_2d_conn = {
+                        (conn[0] - id_start_sg, conn[1] - id_start_pop): conn
+                        for conn in existing_conns
+                    }
+                    # - Connections that existed before but weights changed
+                    exists = np.zeros_like(weights_new, bool)
+                    exists[existing_pre, existing_post] = True
+                    idcs_pre_c, idcs_post_c = idcs_wgt_changes = np.where(
+                        np.logical_and(weights_old != weights_new, exists)
+                    )
+                    if idcs_pre_c.size > 0:
+                        conns = [map_2d_conn[idcs] for idcs in zip(*idcs_wgt_changes)]
+                        new_weights = [
+                            {"weight": w} for w in weights_new[idcs_pre_c, idcs_post_c]
+                        ]
+                        nest.SetStatus(conns, new_weights)
+                else:
+                    exists = False
+                # - Connections that need to be created
+                idcs_pre_new, idcs_post_new = np.where(
+                    np.logical_and(exists == False, weights_new != 0)
+                )
+                if idcs_pre_new.size > 0:
+                    delays = self.delay_in[idcs_pre_new, idcs_post_new]
+                    nest.Connect(
+                        idcs_pre_new + id_start_sg,
+                        idcs_post_new + id_start_pop,
+                        "one_to_one",
+                        {
+                            "weight": weights_new[idcs_pre_new, idcs_post_new],
+                            "delay": delays,
+                        },
+                    )
+
             def get_param(name):
                 """ IPC command for getting a parameter """
                 vms = nest.GetStatus(self._pop, name)
@@ -842,60 +892,19 @@ class RecIAFSpkInNest(Layer):
                 print("set param", name)
 
                 if name == "weights_in":
+                    weights_old = self.weights_in.copy()
                     self.weights_in = V2mV(value)
-
-                    # - Create input connections
-                    pres = []
-                    posts = []
-                    weights = []
-                    delays = []
-                    existing_conns = []
-                    existing_conns_weights = []
-
-                    for pre, row in enumerate(self.weights_in):
-                        for post, w in enumerate(row):
-
-                            c = nest.GetConnections([self._sg[pre]], [self._pop[post]])[0]
-                            if len(c) > 0:
-                                existing_conns.append(c)
-                                existing_conns_weights.append(w)
-                                continue
-
-                            if w == 0:
-                                continue
-
-                            pres.append(self._sg[pre])
-                            posts.append(self._pop[post])
-                            weights.append(w)
-                            if isinstance(self.delay_in, np.ndarray):
-                                delays.append(self.delay_in[pre, post])
-                            else:
-                                delays.append(self.delay_in)
-
-                    if len(existing_conns) > 0:
-                        nest.SetStatus(existing_conns, [{'weight': w} for w in existing_conns_weights])
-
-                    if len(weights) > 0:
-                        delays = np.clip(delays, self.dt, np.max(delays))
-                        nest.Connect(
-                            pres, posts, "one_to_one", {"weight": weights, "delay": delays}
-                        )
-
-                    return
-
-                params = []
-
-
-                for n in range(self.size):
-                    p = {}
-                    if type(value) is np.ndarray:
-                        p[name] = value[n]
-                    else:
-                        p[name] = value
-
-                    params.append(p)
-
-                nest.SetStatus(self._pop, params)
+                    update_weights(self._sg, self._pop, self.weights_in, weights_old)
+                elif name == "weights_rec:":
+                    weights_old = self.weights_rec.copy()
+                    self.weights_rec = V2mV(value)
+                    update_weights(self._pop, self._pop, self.weights_rec, weights_old)
+                else:
+                    try:
+                        params = [{name: val} for val in value[: self.size]]
+                    except TypeError:
+                        params = [{name: value} for _ in range(self.size)]
+                    nest.SetStatus(self._pop, params)
 
             def reset():
                 """
@@ -909,7 +918,9 @@ class RecIAFSpkInNest(Layer):
             ):
                 """ IPC command running the network for num_timesteps with input_steps as input """
 
-                print(nest.GetStatus(nest.GetConnections(self._sg, self._pop), 'weight'))
+                print(
+                    nest.GetStatus(nest.GetConnections(self._sg, self._pop), "weight")
+                )
 
                 if len(event_channels > 0):
                     # convert input index to NEST id

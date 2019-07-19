@@ -137,6 +137,7 @@ def test_FFNestLayer():
 
     fl0.terminate()
 
+
 def test_RecNestLayer():
     """ Test RecIAFNest"""
     from NetworksPython.layers import RecIAFSpkInNest
@@ -176,6 +177,7 @@ def test_RecNestLayer():
 
     fl0.terminate()
 
+
 def test_setWeightsIn():
     """ Test RecIAFNest"""
     from NetworksPython.layers import RecIAFSpkInNest
@@ -203,10 +205,8 @@ def test_setWeightsIn():
         record=True,
     )
 
-
-    # - Generic parameters
+    # - Initialize with different input weights
     weights_in = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
-
 
     # - Layer generation
     fl1 = RecIAFSpkInNest(
@@ -221,13 +221,72 @@ def test_setWeightsIn():
         record=True,
     )
 
+    # - Set input weights to same as fl0
     fl1.weights_in = np.array([[-0.5, 0.02, 0.4], [0.2, -0.3, -0.15]])
 
     tsInp = TSEvent([0.1], [0])
 
     # - Compare states before and after
-    dFl0 = fl0.evolve(tsInp, duration=0.12)
-    dFl1 = fl1.evolve(tsInp, duration=0.12)
+    fl0.evolve(tsInp, duration=0.12)
+    fl1.evolve(tsInp, duration=0.12)
+
+    assert (fl0.state == fl1.state).all()
+
+    fl0.terminate()
+    fl1.terminate()
+
+
+def test_setWeightsRec():
+    """ Test RecIAFNest"""
+    from NetworksPython.layers import RecIAFSpkInNest
+    from NetworksPython import TSEvent
+    import numpy as np
+
+    # - Generic parameters
+    weights_in = np.array([[-0.5, 0.02, 0.4], [0.2, -0.3, -0.15]])
+    weights_rec = np.random.rand(3, 3) * 0.01
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn_exc = [0.2, 0.01, 0.01]
+    tau_syn_inh = tau_syn_exc
+
+    # - Layer generation
+    fl0 = RecIAFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+
+    # - Initialize with different recurrent weights
+    weights_rec_1 = np.random.rand(3, 3) * 0.01
+    weights_rec_1[0, 2] = 0
+
+    # - Layer generation
+    fl1 = RecIAFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec_1,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+    # - Set recurrent weights to same as fl0
+    fl1.weights_rec = fl0.weights_rec
+
+    tsInp = TSEvent([0.1], [0])
+
+    # - Compare states before and after
+    fl0.evolve(tsInp, duration=0.12)
+    fl1.evolve(tsInp, duration=0.12)
 
     assert (fl0.state == fl1.state).all()
 
