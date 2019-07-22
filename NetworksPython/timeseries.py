@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple, Optional, TypeVar, Iterable
+from typing import Union, List, Tuple, Optional, Iterable
 import collections
 
 try:
@@ -579,13 +579,19 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def save(self, strPath: str):
+    def save(self, path: str):
         """
         save - Save TSContinuous as npz file using np.savez
-        :param strPath:     str  Path to save file
+        :param path:     str  Path to save file
         """
+        # - Make sure path is string (and not Path object)
+        path = str(path)
+        # - Some modules add a `trial_start_times` attribute to the object.
+        trial_start_times = (
+            self.trial_start_times if hasattr(self, "trial_start_times") else None
+        )
         np.savez(
-            strPath,
+            path,
             times=self.times,
             samples=self.samples,
             t_start=self.t_start,
@@ -593,12 +599,13 @@ class TSContinuous(TimeSeries):
             interp_kind=self.interp_kind,
             periodic=self.periodic,
             name=self.name,
-            strType="TSContinuous",  # Indicate that this object is TSContinuous
+            str_type="TSContinuous",  # Indicate that this object is TSContinuous
+            trial_start_times=trial_start_times,
         )
-        missing_ending = strPath.split(".")[-1] != "npz"  # np.savez will add ending
+        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
         print(
             "TSContinuous `{}` has been stored in `{}`.".format(
-                self.name, strPath + missing_ending * ".npz"
+                self.name, path + missing_ending * ".npz"
             )
         )
 
@@ -1377,7 +1384,7 @@ class TSEvent(TimeSeries):
     >>> times = numpy.cumsum(numpy.random.rand(10))
     >>> ts = TSEvent(times)
 
-    
+
 
     """
 
@@ -1518,14 +1525,14 @@ class TSEvent(TimeSeries):
             t_start = self.t_start
             t_stop = self.t_stop
         else:
-            execption_limits = (
+            exception_limits = (
                 f"TSEvent `{self.name}`: `time_limits` must be None or tuple "
                 + "of length 2."
             )
             try:
                 # - Make sure `time_limits` has correct length
-                if len(time_limits) != 2 or not isin:
-                    raise ValueError(execption_limits)
+                if len(time_limits) != 2:
+                    raise ValueError(exception_limits)
                 else:
                     t_start = self.t_start if time_limits[0] is None else time_limits[0]
                     t_start = self.t_stop if time_limits[1] is None else time_limits[1]
@@ -1685,12 +1692,24 @@ class TSEvent(TimeSeries):
         # - Filter time and channels
         t_start = self.t_start if t_start is None else t_start
         if channels is None:
-            channels = np.arange(self.num_channels)
+            channels = channels_clip = np.arange(self.num_channels)
+        elif np.amax(channels) >= self.num_channels:
+            # - Only use channels that are within range of channels of this timeseries
+            channels_clip = np.intersect1d(channels, np.arange(self.num_channels))
+            # - Channels for which series is not defined
+            channels_undefined = np.setxor1d(channels_clip, channels)
+            warn(
+                f"TSEvent `{self.name}` is not defined for some of the channels provided "
+                + f"in `channels` argument ({', '.join(channels_undefined.astype(str))}). "
+                + f"Will assume that there are no events for these channels."
+            )
+        else:
+            channels_clip = channels
         if num_timesteps is None:
             series = self.clip(
                 t_start=t_start,
                 t_stop=t_stop,
-                channels=channels,
+                channels=channels_clip,
                 compress_channels=False,
             )
             # - Make sure that last point is also included if `duration` is a
@@ -1701,7 +1720,7 @@ class TSEvent(TimeSeries):
             series = self.clip(
                 t_start=t_start,
                 t_stop=t_stop,
-                channels=channels,
+                channels=channels_clip,
                 compress_channels=False,
             )
 
@@ -1785,8 +1804,14 @@ class TSEvent(TimeSeries):
     def save(self, path: str):
         """
         save - Save TSEvent as npz file using np.savez
-        :param strPath:     str  Path to save file
+        :param path:     str  Path to save file
         """
+        # - Make sure path is string (and not Path object)
+        path = str(path)
+        # - Some modules add a `trial_start_times` attribute to the object.
+        trial_start_times = (
+            self.trial_start_times if hasattr(self, "trial_start_times") else None
+        )
         np.savez(
             path,
             times=self.times,
@@ -1796,7 +1821,8 @@ class TSEvent(TimeSeries):
             periodic=self.periodic,
             num_channels=self.num_channels,
             name=self.name,
-            strType="TSEvent",  # Indicate that the object is TSEvent
+            str_type="TSEvent",  # Indicate that the object is TSEvent
+            trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
         print(
@@ -2155,28 +2181,31 @@ class TSEvent(TimeSeries):
             self._num_channels = nNewNumChannels
 
 
-def load_ts_from_file(
-    strPath: str, strExpectedType: Optional[str] = None
-) -> TimeSeries:
+def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
     """
     load_ts_from_file - Load a timeseries object from an npz file.
-    :param strPath:     str Filepath to load file
-    :param strExpectedType:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
+    :param path:     str Filepath to load file
+    :param expected_type:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
     :return:
         Loaded time series object
     """
+    # - Make sure path is string (and not Path object)
+    path = str(path)
     # - Load npz file from specified path
-    dLoaded = np.load(strPath)
+    dLoaded = np.load(path)
     # - Check for expected type
-    strLoadedType = dLoaded["strType"].item()
-    if strExpectedType is not None:
-        if not strLoadedType == strExpectedType:
+    try:
+        loaded_type = dLoaded["str_type"].item()
+    except KeyError:
+        loaded_type = dLoaded["strType"].item()
+    if expected_type is not None:
+        if not loaded_type == expected_type:
             raise TypeError(
                 "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
-                    strPath, strLoadedType, strExpectedType
+                    path, loaded_type, expected_type
                 )
             )
-    if strLoadedType == "TSContinuous":
+    if loaded_type == "TSContinuous":
         return TSContinuous(
             times=dLoaded["times"],
             samples=dLoaded["samples"],
@@ -2186,7 +2215,7 @@ def load_ts_from_file(
             periodic=dLoaded["periodic"].item(),
             name=dLoaded["name"].item(),
         )
-    elif strLoadedType == "TSEvent":
+    elif loaded_type == "TSEvent":
         return TSEvent(
             times=dLoaded["times"],
             channels=dLoaded["channels"],
@@ -2197,4 +2226,4 @@ def load_ts_from_file(
             name=dLoaded["name"].item(),
         )
     else:
-        raise TypeError("Type `{}` not supported.".format(strLoadedType))
+        raise TypeError("Type `{}` not supported.".format(loaded_type))

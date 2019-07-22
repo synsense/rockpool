@@ -864,7 +864,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
             )
 
         # - Include previous synaptic states
-        weighted_input[0] = self._synapse_state * torch.exp(-self.dt / self._tau_syn)
+        weighted_input[0] += self._synapse_state * torch.exp(-self.dt / self._tau_syn)
 
         # - Reshape input for convolution
         weighted_input = weighted_input.t().reshape(1, self.size, -1)
@@ -1558,7 +1558,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Weigh inputs
         weighted_input = torch.mm(inp, self._weights_in)
         # - Carry over external inputs from last batch
-        weighted_input[0] = self._synapse_state_inp.clone() * torch.exp(
+        weighted_input[0] += self._synapse_state_inp.clone() * torch.exp(
             -self.dt / self._vtTauSInp
         )
         # - Reshape input for convolution

@@ -104,7 +104,7 @@ class FFIAFNest(Layer):
                 {
                     "resolution": self.dt,
                     "local_num_threads": self.num_cores,
-                    "print_time": True,
+                    "print_time": False,
                 }
             )
 
@@ -165,6 +165,7 @@ class FFIAFNest(Layer):
 
             if self.record:
                 # - Monitor for recording network potential
+                nest.SetDefaults("multimeter", {"interval": self.dt})
                 self._mm = nest.Create(
                     "multimeter", 1, {"record_from": ["V_m"], "interval": 1.0}
                 )
@@ -353,7 +354,7 @@ class FFIAFNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        with self.NestProcess(
+        self.nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             self._weights,
@@ -367,8 +368,8 @@ class FFIAFNest(Layer):
             refractory,
             record,
             num_cores,
-        ) as nest_process:
-            nest_process.start()
+        )
+        self.nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -466,8 +467,8 @@ class FFIAFNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        # self.nest_process.terminate()
-        # self.nest_process.join()
+        self.nest_process.terminate()
+        self.nest_process.join()
 
     def to_dict(self):
 
@@ -701,7 +702,7 @@ class RecIAFSpkInNest(Layer):
                 {
                     "resolution": self.dt,
                     "local_num_threads": self.num_cores,
-                    "print_time": True,
+                    "print_time": False,
                 }
             )
 
@@ -819,6 +820,7 @@ class RecIAFSpkInNest(Layer):
 
             if self.record:
                 # - Monitor for recording network potential
+                nest.SetDefaults("multimeter", {"interval": self.dt})
                 self._mm = nest.Create(
                     "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
                 )
@@ -1030,7 +1032,7 @@ class RecIAFSpkInNest(Layer):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        with self.NestProcess(
+        self.nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             self.weights,
@@ -1049,8 +1051,8 @@ class RecIAFSpkInNest(Layer):
             refractory,
             record,
             num_cores,
-        ) as nest_process:
-            nest_process.start()
+        )
+        self.nest_process.start()
 
         # - Record neuron parameters
         self._v_thresh = v_thresh
@@ -1169,8 +1171,8 @@ class RecIAFSpkInNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        # self.nest_process.terminate()
-        # self.nest_process.join()
+        self.nest_process.terminate()
+        self.nest_process.join()
 
     def to_dict(self):
 

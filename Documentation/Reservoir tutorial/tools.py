@@ -1,8 +1,6 @@
 # ----
 # tools.py - A few useful funcitons that can be run in cortexcontrol.
-# Author: Felix Bauer, aiCTX AG, felix.bauer@aictx.ai
-#
-# Copyright: aiCTX AG, 2019
+# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
 # ----
 
 import copy
@@ -36,6 +34,14 @@ __all__ = [
     "silence_neurons",
     "reset_silencing",
 ]
+
+# - Dict that can be used to store variables in cortexcontrol. They will persist even if
+#   RPyC connection breaks down.
+storage = dict()
+
+
+def store_var(name: str, value):
+    storage[name] = copy.copy(value)
 
 
 def _auto_insert_dummies(
@@ -107,18 +113,6 @@ def local_arguments(func):
         return func(*newargs, **kwargs)
 
     return local_func
-
-
-# # - Example on how to use local_arguments_rpyc decorator
-# @teleport_function
-# def _define_print_type():
-#     @local_arguments
-#     def print_type(obj):
-#         print(type(obj))
-#     return print_type
-# print_type = correct_argument_types(
-#     _define_print_type()
-# )  # or just print_type = _define_print_type()
 
 
 def extract_event_data(events) -> (tuple, tuple):
@@ -337,7 +331,7 @@ def copy_biases(sourcecore_id: int = 0, targetcore_ids: Optional[List[int]] = No
     for tgtcore_id in targetcore_ids:
         for bias in sourcebiases:
             biasgroup_list[tgtcore_id].set_bias(
-                bias.bias_name, bias.fine_value, bias.coarse_value
+                bias.get_bias_name(), bias.get_fine_value(), bias.get_coarse_value()
             )
 
     print(
@@ -448,12 +442,11 @@ def reset_connections(
         ]:
             if postsynaptic:
                 # - Reset SRAMs for this neuron
-                srams = neuron.get_srams()
-                for sram_idx in range(1, 4):
-                    srams[sram_idx].set_target_chip_id(0)
-                    srams[sram_idx].set_virtual_core_id(0)
-                    srams[sram_idx].set_used(False)
-                    srams[sram_idx].set_core_mask(0)
+                for sram in neuron.get_srams()[1:]:
+                    sram.set_target_chip_id(0)
+                    sram.set_virtual_core_id(0)
+                    sram.set_used(False)
+                    sram.set_core_mask(0)
 
             if presynaptic:
                 # - Reset CAMs for this neuron
@@ -534,6 +527,8 @@ def set_connections(
     # - Neurons to be connected
     presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
     postsyn_neurons = [shadow_neurons[i] for i in postneuron_ids]
+
+    initialized_neurons = storage.get("initialized_neurons", [])
 
     if not presyn_isvirtual:
         # - Logical IDs of pre neurons
