@@ -1,15 +1,11 @@
-import json
-
-import numpy as np
-from ...timeseries import TSContinuous, TSEvent
 import multiprocessing
 import importlib
+from typing import Optional, Union, List, Dict
 
+import numpy as np
+
+from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
-
-
-from typing import Optional, Union
-import time
 
 if importlib.util.find_spec("nest") is None:
     raise ModuleNotFoundError("No module named 'nest'.")
@@ -38,253 +34,425 @@ COMMAND_EVOLVE = 3
 COMMAND_EXEC = 4
 
 
+class _BaseNestProcess(multiprocessing.Process):
+    """Base Class for running NEST in its own process """
+
+    def __init__(
+        self,
+        request_q,
+        result_q,
+        model: str,
+        bias: np.ndarray,
+        dt: float,
+        tau_mem: np.ndarray,
+        capacity: np.ndarray,
+        v_thresh: np.ndarray,
+        v_reset: np.ndarray,
+        v_rest: np.ndarray,
+        refractory: np.ndarray,
+        record: bool = False,
+        num_cores: int = 1,
+    ):
+        """ initializes the process """
+
+        multiprocessing.Process.__init__(self, daemon=True)
+
+        self.request_q = request_q
+        self.result_q = result_q
+
+        # - Record neuron parameters
+        self.dt = s2ms(dt)
+        self.v_thresh = V2mV(v_thresh)
+        self.v_reset = V2mV(v_reset)
+        self.v_rest = V2mV(v_rest)
+        self.tau_mem = s2ms(tau_mem)
+        self.bias = V2mV(bias)
+        self.capacity = capacity
+        self.refractory = s2ms(refractory)
+        self.record = record
+        self.num_cores = num_cores
+        self.model = model
+
+    ######### DEFINE IPC COMMANDS ######
+
+    def nest_exec(self, command):
+        return exec(command)
+
+    def get_param(self, name):
+        """ IPC command for getting a parameter """
+        vms = self.nest_module.GetStatus(self._pop, name)
+        return vms
+
+    def set_param(self, name, value):
+        """ IPC command for setting a parameter """
+        try:
+            params = [{name: val} for val in value[: self.size]]
+        except TypeError:
+            params = [{name: value} for _ in range(self.size)]
+        self.nest_module.SetStatus(self._pop, params)
+
+    def reset(self):
+        """
+        reset_all - IPC command which resets time and state
+        """
+        self.nest_module.ResetNetwork()
+        self.nest_module.SetKernelStatus({"time": 0.0})
+
+    def record_states(self, t_start):
+        events = self.nest_module.GetStatus(self._mm, "events")[0]
+        use_event = events["times"] >= t_start
+
+        senders = events["senders"][use_event]
+        times = events["times"][use_event]
+        vms = events["V_m"][use_event]
+
+        record_states = []
+        u_senders = np.unique(senders)
+        for i, nid in enumerate(u_senders):
+            ind = np.where(senders == nid)[0]
+            _times = times[ind]
+            order = np.argsort(_times)
+            _vms = vms[ind][order]
+            record_states.append(_vms)
+
+        return np.array(record_states)
+
+    def evolve_nest(
+        self, num_timesteps: Optional[int] = None
+    ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+
+        t_start = self.nest_module.GetKernelStatus("time")
+
+        if t_start == 0:
+            # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
+            # the recording has one entry less in the first batch
+            self.nest_module.Simulate((num_timesteps + 1) * self.dt)
+        else:
+            self.nest_module.Simulate(num_timesteps * self.dt)
+
+        # - Build response TimeSeries
+        events = self.nest_module.GetStatus(self._sd, "events")[0]
+        use_event = events["times"] >= t_start
+        event_time_out = ms2s(events["times"][use_event])
+        event_channel_out = events["senders"][use_event]
+
+        # sort spiking response
+        order = np.argsort(event_time_out)
+        event_time_out = event_time_out[order]
+        event_channel_out = event_channel_out[order]
+
+        # transform from NEST id to index
+        event_channel_out -= np.min(self._pop)
+
+        # - record states
+        if self.record:
+            recorded_states = self.record_states(t_start)
+            return [event_time_out, event_channel_out, mV2V(recorded_states)]
+        else:
+            return [event_time_out, event_channel_out, None]
+
+    def evolve(
+        self, event_times, event_channels, num_timesteps: Optional[int] = None
+    ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+        """ IPC command running the network for num_timesteps with input_steps as input """
+
+        return self.evolve_nest(num_timesteps)
+
+    def update_weights(
+        self,
+        pop_pre: tuple,
+        pop_post: tuple,
+        weights_new: np.ndarray,
+        weights_old: np.ndarray,
+        delays=None,
+    ):
+        """
+        update_weights - Update nest connections and their weights
+        :param pop_pre:     Presynaptic population
+        :param pop_post:    Postsynaptic population
+        :param weights_new: New weights
+        :param weights_old: Old weights
+        """
+        # - Extract existing connections from populations
+        existing_conns = np.array(self.nest_module.GetConnections(pop_pre, pop_post))
+        # - First global ID of each population
+        id_start_sg = pop_pre[0]
+        id_start_pop = pop_post[0]
+        if existing_conns.size > 0:
+            existing_pre, existing_post = existing_conns[:, :2].copy().T
+            existing_pre -= id_start_sg
+            existing_post -= id_start_pop
+            # - Dict to map from 2D array indices to connection
+            map_2d_conn = {
+                (conn[0] - id_start_sg, conn[1] - id_start_pop): conn
+                for conn in existing_conns
+            }
+            # - Connections that existed before but weights changed
+            exists = np.zeros_like(weights_new, bool)
+            exists[existing_pre, existing_post] = True
+            idcs_pre_c, idcs_post_c = idcs_wgt_changes = np.where(
+                np.logical_and(weights_old != weights_new, exists)
+            )
+            if idcs_pre_c.size > 0:
+                conns = [map_2d_conn[idcs] for idcs in zip(*idcs_wgt_changes)]
+                new_weights = [
+                    {"weight": w} for w in weights_new[idcs_pre_c, idcs_post_c]
+                ]
+                self.nest_module.SetStatus(conns, new_weights)
+        else:
+            exists = False
+        # - Connections that need to be created
+        idcs_pre_new, idcs_post_new = np.where(
+            np.logical_and(exists == False, weights_new != 0)
+        )
+        if idcs_pre_new.size > 0:
+            if delays is not None:
+                # delays = delays[idcs_pre_new, idcs_post_new]
+                self.nest_module.Connect(
+                    idcs_pre_new + id_start_sg,
+                    idcs_post_new + id_start_pop,
+                    "one_to_one",
+                    {
+                        "weight": weights_new[idcs_pre_new, idcs_post_new],
+                        # "delay": delays[idcs_pre_new, idcs_post_new],
+                    },
+                )
+            else:
+                self.nest_module.Connect(
+                    idcs_pre_new + id_start_sg,
+                    idcs_post_new + id_start_pop,
+                    "one_to_one",
+                    {"weight": weights_new[idcs_pre_new, idcs_post_new]},
+                )
+
+    def init_nest(self):
+        """init_nest - Initialize nest"""
+
+        #### INITIALIZE NEST ####
+        import nest
+
+        # - Make module accessible to class methods
+        self.nest_module = nest
+
+        self.nest_module.ResetKernel()
+        self.nest_module.hl_api.set_verbosity("M_FATAL")
+        self.nest_module.SetKernelStatus(
+            {
+                "resolution": self.dt,
+                "local_num_threads": self.num_cores,
+                "print_time": False,
+            }
+        )
+
+    def setup_nest_network(self):
+        """
+        setup_nest_objects - Generate nest objects (neurons, input generators,
+                             monitors,...) and connect them.
+        """
+        self._pop = self.nest_module.Create(self.model, self.size)
+
+        # - Add spike detector to record layer outputs
+        self._sd = self.nest_module.Create("spike_detector")
+        self.nest_module.Connect(self._pop, self._sd)
+
+        # - Set parameters
+        param_list: List[Dict[str, np.ndarray]] = self.generate_nest_params_list()
+        self.nest_module.SetStatus(self._pop, param_list)
+
+        # - Set connections with weights and delays
+        self.set_all_connections()
+
+        if self.record:
+            # - Monitor for recording network potential
+            self.nest_module.SetDefaults("multimeter", {"interval": self.dt})
+            self._mm = self.nest_module.Create(
+                "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
+            )
+            self.nest_module.Connect(self._mm, self._pop)
+
+    def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
+        """init_nest_params - Initialize nest neuron parameters and return as list"""
+        params = []
+        for n in range(self.size):
+            p = {}
+
+            p["tau_m"] = self.tau_mem[n]
+            p["V_th"] = self.v_thresh[n]
+            p["V_reset"] = self.v_reset[n]
+            p["E_L"] = self.v_rest[n]
+            p["V_m"] = self.v_rest[n]
+            p["t_ref"] = self.refractory[n]
+            p["I_e"] = self.bias[n]
+            p["C_m"] = self.capacity[n]
+
+            params.append(p)
+
+        return params
+
+    def set_all_connections(self):
+        pass
+
+    def set_connections(
+        self,
+        pop_pre: tuple,
+        pop_post: tuple,
+        weights: np.ndarray,
+        delays: Optional[np.ndarray] = None,
+    ):
+        # # - Create input connections
+        # pres = []
+        # posts = []
+        # weight_list = []
+        # if delays is not None:
+        #     delay_list = []
+
+        # for pre, row in enumerate(weights):
+        #     for post, w in enumerate(row):
+        #         if w == 0:
+        #             continue
+        #         pres.append(pop_pre[pre])
+        #         posts.append(pop_post[post])
+        #         weight_list.append(w)
+        #         if delays is not None:
+        #             delay_list.append(delays[pre, post])
+
+        # Maybe better:
+        idcs_pre, idcs_post = np.nonzero(weights)
+        pres = np.asarray(pop_pre)[idcs_pre]
+        posts = np.asarray(pop_post)[idcs_post]
+        weight_list = weights[idcs_pre, idcs_post]
+
+        if len(weight_list) > 0:
+            if delays is not None:
+                delays = np.clip(delays[idcs_pre, idcs_post], self.dt, None)
+                # delays = np.clip(delay_list, self.dt, np.max(delay_list))
+                self.nest_module.Connect(
+                    pres, posts, "one_to_one", {"weight": weight_list, "delay": delays}
+                )
+            else:
+                self.nest_module.Connect(
+                    pres, posts, "one_to_one", {"weight": weight_list}
+                )
+
+    def run(self):
+        """ start the process. Initializes the network, defines IPC commands and waits for commands. """
+
+        self.init_nest()
+        self.setup_nest_network()
+
+        IPC_switcher = {
+            COMMAND_GET: self.get_param,
+            COMMAND_SET: self.set_param,
+            COMMAND_RESET: self.reset,
+            COMMAND_EVOLVE: self.evolve,
+            COMMAND_EXEC: self.nest_exec,
+        }
+
+        # wait for an IPC command
+
+        while True:
+            req = self.request_q.get()
+            func = IPC_switcher.get(req[0])
+            result = func(*req[1:])
+            if req[0] in [COMMAND_EXEC, COMMAND_GET, COMMAND_EVOLVE]:
+                self.result_q.put(result)
+
+
 # - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
 class FFIAFNest(Layer):
     """ FFIAFNest - Class: define a spiking feedforward layer with spiking outputs
     """
 
-    class NestProcess(multiprocessing.Process):
+    class NestProcess(_BaseNestProcess):
         """ Class for running NEST in its own process """
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
 
         def __init__(
             self,
             request_q,
             result_q,
             weights: np.ndarray,
-            bias: Union[float, np.ndarray],
+            bias: np.ndarray,
             dt: float,
-            tau_mem: Union[float, np.ndarray],
-            capacity: Union[float, np.ndarray],
-            v_thresh: Union[float, np.ndarray],
-            v_reset: Union[float, np.ndarray],
-            v_rest: Union[float, np.ndarray],
-            refractory: Union[float, np.ndarray],
+            tau_mem: np.ndarray,
+            capacity: np.ndarray,
+            v_thresh: np.ndarray,
+            v_reset: np.ndarray,
+            v_rest: np.ndarray,
+            refractory: np.ndarray,
             record: bool = False,
             num_cores: int = 1,
         ):
             """ initialize the process"""
 
-            multiprocessing.Process.__init__(self, daemon=True)
-
-            self.request_q = request_q
-            self.result_q = result_q
-
-            # - Record neuron parameters
-            self.dt = s2ms(dt)
-            self.v_thresh = V2mV(v_thresh)
-            self.v_reset = V2mV(v_reset)
-            self.v_rest = V2mV(v_rest)
-            self.tau_mem = s2ms(tau_mem)
-            self.bias = V2mV(bias)
-            self.capacity = capacity
-            self.weights = V2mV(weights)
-            self.refractory = s2ms(refractory)
-            self.record = record
-            self.size = np.shape(weights)[1]
-            self.num_cores = num_cores
-
-        def run(self):
-            """ start the process. Initializes the network, defines IPC commands and waits for commands. """
-
-            #### INITIALIZE NEST ####
-            import nest
-
-            numCPUs = multiprocessing.cpu_count()
-            # if self.num_cores >= numCPUs:
-            #    self.num_cores = numCPUs
-
-            nest.ResetKernel()
-            nest.hl_api.set_verbosity("M_FATAL")
-            nest.SetKernelStatus(
-                {
-                    "resolution": self.dt,
-                    "local_num_threads": self.num_cores,
-                    "print_time": False,
-                }
+            super().__init__(
+                request_q=request_q,
+                result_q=result_q,
+                bias=bias,
+                dt=dt,
+                tau_mem=tau_mem,
+                capacity=capacity,
+                v_thresh=v_thresh,
+                v_reset=v_reset,
+                v_rest=v_rest,
+                refractory=refractory,
+                record=record,
+                num_cores=num_cores,
+                model="iaf_psc_exp",
             )
 
-            self._pop = nest.Create("iaf_psc_exp", self.size)
+            # - Record weights
+            self.weights = V2mV(weights)
+            self.size = np.shape(weights)[1]
 
-            params = []
-            for n in range(self.size):
-                p = {}
-
-                if type(self.tau_mem) is np.ndarray:
-                    p["tau_m"] = self.tau_mem[n]
-                else:
-                    p["tau_m"] = self.tau_mem
-
-                if type(self.v_thresh) is np.ndarray:
-                    p["V_th"] = self.v_thresh[n]
-                else:
-                    p["V_th"] = self.v_thresh
-
-                if type(self.v_reset) is np.ndarray:
-                    p["V_reset"] = self.v_reset[n]
-                else:
-                    p["V_reset"] = self.v_reset
-
-                if type(self.v_reset) is np.ndarray:
-                    p["E_L"] = self.v_rest[n]
-                    p["V_m"] = self.v_rest[n]
-                else:
-                    p["E_L"] = self.v_rest
-                    p["V_m"] = self.v_rest
-
-                if type(self.refractory) is np.ndarray:
-                    p["t_ref"] = self.refractory[n]
-                else:
-                    p["t_ref"] = self.refractory
-
-                if type(self.bias) is np.ndarray:
-                    p["I_e"] = self.bias[n]
-                else:
-                    p["I_e"] = self.bias
-
-                if type(self.capacity) is np.ndarray:
-                    p["C_m"] = self.capacity[n]
-                else:
-                    p["C_m"] = self.capacity
-
-                params.append(p)
-
-            nest.SetStatus(self._pop, params)
-
-            # - Add spike detector to record layer outputs
-            self._sd = nest.Create("spike_detector")
-            nest.Connect(self._pop, self._sd)
+        def setup_nest_network(self):
 
             # - Add stimulation device
-            self._scg = nest.Create("step_current_generator", self.weights.shape[0])
-            nest.Connect(self._scg, self._pop, "all_to_all", {"weight": self.weights.T})
+            self._scg = self.nest_module.Create(
+                "step_current_generator", self.weights.shape[0]
+            )
 
-            if self.record:
-                # - Monitor for recording network potential
-                nest.SetDefaults("multimeter", {"interval": self.dt})
-                self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
+            super().setup_nest_network()
+
+        def set_all_connections(self):
+            # - Set connections from step current generator to neuron population
+            self.nest_module.Connect(
+                self._scg, self._pop, "all_to_all", {"weight": self.weights.T}
+            )
+
+        ######### DEFINE IPC COMMANDS ######
+
+        def set_param(self, name, value):
+            """ IPC command for setting a parameter """
+
+            if name == "weights":
+                weights_old = self.weights.copy()
+                self.weights = V2mV(value)
+                self.update_weights(
+                    self._scg, self._pop, self.weights, weights_old, None
                 )
-                nest.Connect(self._mm, self._pop)
+            else:
+                super().set_param(name, value)
 
+        def evolve(
+            self, time_base, input_steps, num_timesteps: Optional[int] = None
+        ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+            """ IPC command running the network for num_timesteps with input_steps as input """
 
-            ######### DEFINE IPC COMMANDS ######
+            # NEST time starts with 1 (not with 0)
+            time_base = s2ms(time_base) + 1
 
-            def get_param(name):
-                """ IPC command for getting a parameter """
-                vms = nest.GetStatus(self._pop, name)
-                return vms
+            self.nest_module.SetStatus(
+                self._scg,
+                [
+                    {
+                        "amplitude_times": time_base,
+                        "amplitude_values": V2mV(input_steps[:, i]),
+                    }
+                    for i in range(len(self._scg))
+                ],
+            )
 
-            def set_param(name, value):
-                """ IPC command for setting a parameter """
-                params = []
-
-                for n in range(self.size):
-                    p = {}
-                    if type(value) is np.ndarray:
-                        p[name] = value[n]
-                    else:
-                        p[name] = value
-
-                    params.append(p)
-
-                nest.SetStatus(self._pop, params)
-
-            def reset():
-                """
-                reset_all - IPC command which resets time and state
-                """
-
-                nest.ResetNetwork()
-                nest.SetKernelStatus({"time": 0.0})
-
-            def evolve(time_base, input_steps, num_timesteps: Optional[int] = None):
-                """ IPC command running the network for num_timesteps with input_steps as input """
-
-                # NEST time starts with 1 (not with 0)
-
-                time_base = s2ms(time_base) + 1
-
-                nest.SetStatus(
-                    self._scg,
-                    [
-                        {
-                            "amplitude_times": time_base,
-                            "amplitude_values": V2mV(input_steps[:, i]),
-                        }
-                        for i in range(len(self._scg))
-                    ],
-                )
-
-                startTime = nest.GetKernelStatus("time")
-
-                if startTime == 0:
-                    # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
-                    # the recording has one entry less in the first batch
-                    nest.Simulate(num_timesteps * self.dt + 1.0)
-                else:
-                    nest.Simulate(num_timesteps * self.dt)
-
-                # - record states
-                if self.record:
-                    events = nest.GetStatus(self._mm, "events")[0]
-                    use_event = events["times"] >= startTime
-
-                    senders = events["senders"][use_event]
-                    times = events["times"][use_event]
-                    vms = events["V_m"][use_event]
-
-                    record_states = []
-                    u_senders = np.unique(senders)
-                    for i, nid in enumerate(u_senders):
-                        ind = np.where(senders == nid)[0]
-                        _times = times[ind]
-
-                        order = np.argsort(_times)
-                        _vms = vms[ind][order]
-                        record_states.append(_vms)
-
-                    record_states = np.array(record_states)
-
-                # - Build response TimeSeries
-                events = nest.GetStatus(self._sd, "events")[0]
-                use_event = events["times"] >= startTime
-                event_time_out = ms2s(events["times"][use_event])
-                event_channel_out = events["senders"][use_event]
-
-                # sort spiking response
-                order = np.argsort(event_time_out)
-                event_time_out = event_time_out[order]
-                event_channel_out = event_channel_out[order]
-
-                # transform from NEST id to index
-                event_channel_out -= np.min(self._pop)
-
-                if self.record:
-                    return [event_time_out, event_channel_out, mV2V(record_states)]
-                else:
-                    return [event_time_out, event_channel_out, None]
-
-            IPC_switcher = {
-                COMMAND_GET: get_param,
-                COMMAND_SET: set_param,
-                COMMAND_RESET: reset,
-                COMMAND_EVOLVE: evolve,
-            }
-
-            # wait for an IPC command
-
-            while True:
-                req = self.request_q.get()
-                func = IPC_switcher.get(req[0])
-                result = func(*req[1:])
-                if req[0] in [COMMAND_EVOLVE, COMMAND_GET]:
-                    self.result_q.put(result)
+            return self.evolve_nest(num_timesteps)
 
     ## - Constructor
     def __init__(
@@ -344,32 +512,6 @@ class FFIAFNest(Layer):
         else:
             capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
 
-        # set capacity to the membrane time constant to be consistent with other layers
-        if capacity is None:
-            capacity = tau_mem * 1000.0
-
-        self.num_cores = num_cores
-
-        self.request_q = multiprocessing.Queue()
-        self.result_q = multiprocessing.Queue()
-
-        self.nest_process = self.NestProcess(
-            self.request_q,
-            self.result_q,
-            self._weights,
-            bias,
-            dt,
-            tau_mem,
-            capacity,
-            v_thresh,
-            v_reset,
-            v_rest,
-            refractory,
-            record,
-            num_cores,
-        )
-        self.nest_process.start()
-
         # - Record neuron parameters
         self._v_thresh = v_thresh
         self._v_reset = v_reset
@@ -378,7 +520,34 @@ class FFIAFNest(Layer):
         self._bias = bias
         self._capacity = capacity
         self._refractory = refractory
-        self.record = record
+        # - Record layer settings and multiprocessing queues
+        self._record = record
+        self._num_cores = num_cores
+        self.request_q = multiprocessing.Queue()
+        self.result_q = multiprocessing.Queue()
+
+        # - Start a process for running nest
+        self._setup_nest()
+
+    def _setup_nest(self):
+        """_setup_nest - Set up and start a nest process"""
+
+        self.nest_process = self.NestProcess(
+            self.request_q,
+            self.result_q,
+            self._weights,
+            self._bias,
+            self._dt,
+            self._tau_mem,
+            self._capacity,
+            self._v_thresh,
+            self._v_reset,
+            self._v_rest,
+            self._refractory,
+            self._record,
+            self._num_cores,
+        )
+        self.nest_process.start()
 
     def reset_state(self):
         """ .reset_state() - arguments:: reset the internal state of the layer
@@ -416,6 +585,28 @@ class FFIAFNest(Layer):
 
     # --- State evolution
 
+    def _process_evolution_output(self, num_timesteps: int):
+        if self.record:
+            event_time_out, event_channel_out, self.record_states = self.result_q.get()
+        else:
+            event_time_out, event_channel_out, _ = self.result_q.get()
+
+        # - Start and stop times for output time series
+        t_start = self._timestep * self.dt
+        t_stop = (self._timestep + num_timesteps) * self.dt
+
+        # - Update layer time step
+        self._timestep += num_timesteps
+
+        return TSEvent(
+            np.clip(event_time_out, t_start, t_stop),
+            event_channel_out,
+            name="Layer spikes",
+            num_channels=self.size,
+            t_start=t_start,
+            t_stop=t_stop,
+        )
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -440,26 +631,7 @@ class FFIAFNest(Layer):
 
         self.request_q.put([COMMAND_EVOLVE, time_base, input_steps, num_timesteps])
 
-        if self.record:
-            event_time_out, event_channel_out, self.record_states = self.result_q.get()
-        else:
-            event_time_out, event_channel_out, _ = self.result_q.get()
-
-        # - Start and stop times for output time series
-        t_start = self._timestep * self.dt
-        t_stop = (self._timestep + num_timesteps) * self.dt
-
-        # - Update layer time step
-        self._timestep += num_timesteps
-
-        return TSEvent(
-            np.clip(event_time_out, t_start, t_stop),
-            event_channel_out,
-            name="Layer spikes",
-            num_channels=self.size,
-            t_start=t_start,
-            t_stop=t_stop,
-        )
+        return self._process_evolution_output(num_timesteps)
 
     def terminate(self):
         self.request_q.close()
@@ -472,63 +644,21 @@ class FFIAFNest(Layer):
     def to_dict(self):
 
         config = {}
-        config["name"] = self.name
-        config["weights_in"] = self.weights.tolist()
+        config["weights"] = self.weights.tolist()
+        config["bias"] = self.bias.tolist()
         config["dt"] = self.dt
+        config["tau_mem"] = self.tau_mem.tolist()
+        config["capacity"] = self.capacity.tolist()
         config["v_thresh"] = self.v_thresh.tolist()
         config["v_reset"] = self.v_reset.tolist()
         config["v_rest"] = self.v_rest.tolist()
-        config["capacity"] = self.capacity.tolist()
         config["refractory"] = self.refractory.tolist()
-        config["tau_mem"] = self.tau_mem.tolist()
-        config["num_cores"] = self.num_cores
+        config["name"] = self.name
         config["record"] = self.record
-        config["bias"] = self.bias.tolist()
+        config["num_cores"] = self.num_cores
         config["class_name"] = "FFIAFNest"
 
         return config
-
-    def save(self, config, filename):
-        with open(filename, "w") as f:
-            json.dump(config, f)
-
-    @staticmethod
-    def load_from_dict(config):
-
-        return FFIAFNest(
-            weights=config["weights_in"],
-            bias=config["bias"],
-            dt=config["dt"],
-            tau_mem=config["tau_mem"],
-            capacity=config["capacity"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            refractory=config["refractory"],
-            name=config["name"],
-            record=config["record"],
-            num_cores=config["num_cores"],
-        )
-
-    @staticmethod
-    def load_from_file(filename):
-        with open(filename, "r") as f:
-            config = json.load(f)
-
-        return FFIAFNest(
-            weights=config["weights_in"],
-            bias=config["bias"],
-            dt=config["dt"],
-            tau_mem=config["tau_mem"],
-            capacity=config["capacity"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            refractory=config["refractory"],
-            name=config["name"],
-            record=config["record"],
-            num_cores=config["num_cores"],
-        )
 
     ### --- Properties
 
@@ -550,6 +680,15 @@ class FFIAFNest(Layer):
 
     @property
     def capacity(self):
+        return self._capacity
+
+    @capacity.setter
+    def capacity(self, new_capacity):
+        new_capacity = self._expand_to_net_size(
+            new_capacity, "capacity", allow_none=False
+        ).astype(float)
+        self._capacity = new_capacity
+        self.request_q.put([COMMAND_SET, "C_m", s2ms(new_capacity)])
         return self._capacity
 
     @property
@@ -623,20 +762,22 @@ class FFIAFNest(Layer):
     def dt(self, _):
         raise ValueError("The `dt` property cannot be set for this layer")
 
+    @property
+    def record(self):
+        return self._record
+
+    @property
+    def num_cores(self):
+        return self._num_cores
+
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
-class RecIAFSpkInNest(Layer):
+class RecIAFSpkInNest(FFIAFNest):
     """ RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
     """
 
-    class NestProcess(multiprocessing.Process):
+    class NestProcess(_BaseNestProcess):
         """ Class for running NEST in its own process """
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
 
         def __init__(
             self,
@@ -659,335 +800,97 @@ class RecIAFSpkInNest(Layer):
             record: bool = False,
             num_cores: int = 1,
         ):
-            """ initializes the process """
 
-            multiprocessing.Process.__init__(self, daemon=True)
-
-            self.request_q = request_q
-            self.result_q = result_q
-
-            # - Record neuron parameters
-            self.dt = s2ms(dt)
-            self.v_thresh = V2mV(v_thresh)
-            self.v_reset = V2mV(v_reset)
-            self.v_rest = V2mV(v_rest)
-            self.tau_mem = s2ms(tau_mem)
-            self.tau_syn_exc = s2ms(tau_syn_exc)
-            self.tau_syn_inh = s2ms(tau_syn_inh)
-            self.bias = V2mV(bias)
-            self.capacity = capacity
-            self.weights_in = V2mV(weights_in)
-            self.weights_rec = V2mV(weights_rec)
-            self.delay_in = s2ms(delay_in)
-            self.delay_rec = s2ms(delay_rec)
-            self.refractory = s2ms(refractory)
-            self.record = record
-            self.size = np.shape(weights_rec)[0]
-            self.num_cores = num_cores
-
-        def run(self):
-            """ start the process. Initializes the network, defines IPC commands and waits for commands. """
-
-            #### INITIALIZE NEST ####
-            import nest
-
-
-            numCPUs = multiprocessing.cpu_count()
-            # if self.num_cores >= numCPUs:
-            #    self.num_cores = numCPUs
-
-            nest.ResetKernel()
-            nest.hl_api.set_verbosity("M_FATAL")
-            nest.SetKernelStatus(
-                {
-                    "resolution": self.dt,
-                    "local_num_threads": self.num_cores,
-                    "print_time": False,
-                }
+            """initializes the process """
+            super().__init__(
+                request_q=request_q,
+                result_q=result_q,
+                bias=bias,
+                dt=dt,
+                tau_mem=tau_mem,
+                capacity=capacity,
+                v_thresh=v_thresh,
+                v_reset=v_reset,
+                v_rest=v_rest,
+                refractory=refractory,
+                record=record,
+                num_cores=num_cores,
+                model="iaf_psc_exp",
             )
 
-            self._pop = nest.Create("iaf_psc_exp", self.size)
+            # - Record weights and layer-specific parameters
+            self.weights_in = V2mV(weights_in)
+            self.weights_rec = V2mV(weights_rec)
+            self.size = np.shape(weights_in)[1]
+            self.delay_in = s2ms(delay_in)
+            self.delay_rec = s2ms(delay_rec)
+            self.tau_syn_exc = s2ms(tau_syn_exc)
+            self.tau_syn_inh = s2ms(tau_syn_inh)
 
-            params = []
-            for n in range(self.size):
-                p = {}
+        ######### DEFINE IPC COMMANDS ######
 
-                if type(self.tau_syn_exc) is np.ndarray:
-                    p["tau_syn_ex"] = self.tau_syn_exc[n]
-                else:
-                    p["tau_syn_ex"] = self.tau_syn_exc
+        def set_param(self, name, value):
+            """ IPC command for setting a parameter """
 
-                if type(self.tau_syn_inh) is np.ndarray:
-                    p["tau_syn_in"] = self.tau_syn_inh[n]
-                else:
-                    p["tau_syn_in"] = self.tau_syn_inh
+            if name == "weights_in":
+                weights_old = self.weights_in.copy()
+                self.weights_in = V2mV(value)
+                self.update_weights(
+                    self._sg, self._pop, self.weights_in, weights_old, self.delay_in
+                )
+            elif name == "weights_rec":
+                weights_old = self.weights_rec.copy()
+                self.weights_rec = V2mV(value)
+                self.update_weights(
+                    self._pop, self._pop, self.weights_rec, weights_old, self.delay_rec
+                )
+            else:
+                super().set_param(name, value)
 
-                if type(self.tau_mem) is np.ndarray:
-                    p["tau_m"] = self.tau_mem[n]
-                else:
-                    p["tau_m"] = self.tau_mem
+        def evolve(
+            self, event_times, event_channels, num_timesteps: Optional[int] = None
+        ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+            """ IPC command running the network for num_timesteps with input_steps as input """
 
-                if type(self.v_thresh) is np.ndarray:
-                    p["V_th"] = self.v_thresh[n]
-                else:
-                    p["V_th"] = self.v_thresh
+            if len(event_channels > 0):
+                # convert input index to NEST id
+                event_channels += np.min(self._sg)
 
-                if type(self.v_reset) is np.ndarray:
-                    p["V_reset"] = self.v_reset[n]
-                else:
-                    p["V_reset"] = self.v_reset
+                # NEST time starts with 1 (not with 0)
+                self.nest_module.SetStatus(
+                    self._sg,
+                    [
+                        {"spike_times": s2ms(event_times[event_channels == i])}
+                        for i in self._sg
+                    ],
+                )
 
-                if type(self.v_reset) is np.ndarray:
-                    p["E_L"] = self.v_rest[n]
-                    p["V_m"] = self.v_rest[n]
-                else:
-                    p["E_L"] = self.v_rest
-                    p["V_m"] = self.v_rest
+            return self.evolve_nest(num_timesteps)
 
-                if type(self.refractory) is np.ndarray:
-                    p["t_ref"] = self.refractory[n]
-                else:
-                    p["t_ref"] = self.refractory
-
-                if type(self.bias) is np.ndarray:
-                    p["I_e"] = self.bias[n]
-                else:
-                    p["I_e"] = self.bias
-
-                if type(self.capacity) is np.ndarray:
-                    p["C_m"] = self.capacity[n]
-                else:
-                    p["C_m"] = self.capacity
-
-                params.append(p)
-
-            nest.SetStatus(self._pop, params)
-
-            # - Add spike detector to record layer outputs
-            self._sd = nest.Create("spike_detector")
-            nest.Connect(self._pop, self._sd)
-
+        def setup_nest_network(self):
             # - Add stimulation device
-            self._sg = nest.Create("spike_generator", self.weights_in.shape[0])
+            self._sg = self.nest_module.Create(
+                "spike_generator", self.weights_in.shape[0]
+            )
 
-            # - Create input connections
-            pres = []
-            posts = []
-            weights = []
-            delays = []
+            super().setup_nest_network()
 
-            for pre, row in enumerate(self.weights_in):
-                for post, w in enumerate(row):
-                    if w == 0:
-                        continue
-                    pres.append(self._sg[pre])
-                    posts.append(self._pop[post])
-                    weights.append(w)
-                    if isinstance(self.delay_in, np.ndarray):
-                        delays.append(self.delay_in[pre, post])
-                    else:
-                        delays.append(self.delay_in)
+        def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
+            """init_nest_params - Initialize nest neuron parameters and return as list"""
 
-            if len(weights) > 0:
-                delays = np.clip(delays, self.dt, np.max(delays))
-                nest.Connect(
-                    pres, posts, "one_to_one", {"weight": weights, "delay": delays}
-                )
+            params = super().generate_nest_params_list()
+            for n in range(self.size):
+                params[n]["tau_syn_ex"] = self.tau_syn_exc[n]
+                params[n]["tau_syn_in"] = self.tau_syn_inh[n]
 
-            # - Create recurrent connections
-            pres = []
-            posts = []
-            weights = []
-            delays = []
+            return params
 
-            for pre, row in enumerate(self.weights_rec):
-                for post, w in enumerate(row):
-                    if w == 0:
-                        continue
-                    pres.append(self._pop[pre])
-                    posts.append(self._pop[post])
-                    weights.append(w)
-                    if isinstance(self.delay_rec, np.ndarray):
-                        delays.append(self.delay_rec[pre, post])
-                    else:
-                        delays.append(self.delay_rec)
-
-            if len(weights) > 0:
-                delays = np.clip(delays, self.dt, np.max(delays))
-                nest.Connect(
-                    pres, posts, "one_to_one", {"weight": weights, "delay": delays}
-                )
-
-            if self.record:
-                # - Monitor for recording network potential
-                nest.SetDefaults("multimeter", {"interval": self.dt})
-                self._mm = nest.Create(
-                    "multimeter", 1, {"record_from": ["V_m"], "interval": self.dt}
-                )
-                nest.Connect(self._mm, self._pop)
-
-            ######### DEFINE IPC COMMANDS ######
-
-            def nest_exec(command):
-                return exec(command)
-
-            def get_param(name):
-                """ IPC command for getting a parameter """
-                vms = nest.GetStatus(self._pop, name)
-                return vms
-
-            def set_param(name, value):
-                """ IPC command for setting a parameter """
-
-                print("set param", name)
-
-                if name == "weights_in":
-                    self.weights_in = V2mV(value)
-
-                    # - Create input connections
-                    pres = []
-                    posts = []
-                    weights = []
-                    delays = []
-                    existing_conns = []
-                    existing_conns_weights = []
-
-                    for pre, row in enumerate(self.weights_in):
-                        for post, w in enumerate(row):
-
-                            c = nest.GetConnections([self._sg[pre]], [self._pop[post]])[0]
-                            if len(c) > 0:
-                                existing_conns.append(c)
-                                existing_conns_weights.append(w)
-                                continue
-
-                            if w == 0:
-                                continue
-
-                            pres.append(self._sg[pre])
-                            posts.append(self._pop[post])
-                            weights.append(w)
-                            if isinstance(self.delay_in, np.ndarray):
-                                delays.append(self.delay_in[pre, post])
-                            else:
-                                delays.append(self.delay_in)
-
-                    if len(existing_conns) > 0:
-                        nest.SetStatus(existing_conns, [{'weight': w} for w in existing_conns_weights])
-
-                    if len(weights) > 0:
-                        delays = np.clip(delays, self.dt, np.max(delays))
-                        nest.Connect(
-                            pres, posts, "one_to_one", {"weight": weights, "delay": delays}
-                        )
-
-                    return
-
-                params = []
-
-
-                for n in range(self.size):
-                    p = {}
-                    if type(value) is np.ndarray:
-                        p[name] = value[n]
-                    else:
-                        p[name] = value
-
-                    params.append(p)
-
-                nest.SetStatus(self._pop, params)
-
-            def reset():
-                """
-                reset_all - IPC command which resets time and state
-                """
-                nest.ResetNetwork()
-                nest.SetKernelStatus({"time": 0.0})
-
-            def evolve(
-                event_times, event_channels, num_timesteps: Optional[int] = None
-            ):
-                """ IPC command running the network for num_timesteps with input_steps as input """
-
-                print(nest.GetStatus(nest.GetConnections(self._sg, self._pop), 'weight'))
-
-                if len(event_channels > 0):
-                    # convert input index to NEST id
-                    event_channels += np.min(self._sg)
-
-                    # NEST time starts with 1 (not with 0)
-                    nest.SetStatus(
-                        self._sg,
-                        [
-                            {"spike_times": s2ms(event_times[event_channels == i])}
-                            for i in self._sg
-                        ],
-                    )
-
-                startTime = nest.GetKernelStatus("time")
-
-                if startTime == 0:
-                    # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
-                    # the recording has one entry less in the first batch
-                    nest.Simulate((num_timesteps + 1) * self.dt)
-                else:
-                    nest.Simulate(num_timesteps * self.dt)
-
-                # - record states
-                if self.record:
-                    events = nest.GetStatus(self._mm, "events")[0]
-                    use_event = events["times"] >= startTime
-
-                    senders = events["senders"][use_event]
-                    times = events["times"][use_event]
-                    vms = events["V_m"][use_event]
-
-                    record_states = []
-                    u_senders = np.unique(senders)
-                    for i, nid in enumerate(u_senders):
-                        ind = np.where(senders == nid)[0]
-                        _times = times[ind]
-                        order = np.argsort(_times)
-                        _vms = vms[ind][order]
-                        record_states.append(_vms)
-
-                    record_states = np.array(record_states)
-
-                # - Build response TimeSeries
-                events = nest.GetStatus(self._sd, "events")[0]
-                use_event = events["times"] >= startTime
-                event_time_out = ms2s(events["times"][use_event])
-                event_channel_out = events["senders"][use_event]
-
-                # sort spiking response
-                order = np.argsort(event_time_out)
-                event_time_out = event_time_out[order]
-                event_channel_out = event_channel_out[order]
-
-                # transform from NEST id to index
-                event_channel_out -= np.min(self._pop)
-
-                if self.record:
-                    return [event_time_out, event_channel_out, mV2V(record_states)]
-                else:
-                    return [event_time_out, event_channel_out, None]
-
-            IPC_switcher = {
-                COMMAND_GET: get_param,
-                COMMAND_SET: set_param,
-                COMMAND_RESET: reset,
-                COMMAND_EVOLVE: evolve,
-                COMMAND_EXEC: nest_exec,
-            }
-
-            # wait for an IPC command
-
-            while True:
-                req = self.request_q.get()
-                func = IPC_switcher.get(req[0])
-                result = func(*req[1:])
-                if req[0] in [COMMAND_EXEC, COMMAND_GET, COMMAND_EVOLVE]:
-                    self.result_q.put(result)
+        def set_all_connections(self):
+            """Set input connections and recurrent connections"""
+            # - Input connections
+            self.set_connections(self._sg, self._pop, self.weights_in, self.delay_in)
+            # - Recurrent connections
+            self.set_connections(self._pop, self._pop, self.weights_rec, self.delay_rec)
 
     ## - Constructor
     def __init__(
@@ -1042,10 +945,12 @@ class RecIAFSpkInNest(Layer):
         :param record:         bool Record membrane potential during evolutions
         """
 
-        # - Call super constructor (`asarray` is used to strip units)
-        super().__init__(weights=weights_in, dt=dt, name=name)
-        self._weights_in = self.weights
+        # - Determine layer size and name to run `_expand_to_net_size` method and store input weights
+        self._weights_in = np.atleast_2d(weights_in)
+        self._size_in, self._size = self._weights_in.shape
+        self.name = name
 
+        # - Handle synaptic time constants
         if tau_syn_exc is None:
             tau_syn_exc = tau_syn
         if tau_syn_inh is None:
@@ -1054,16 +959,6 @@ class RecIAFSpkInNest(Layer):
         # - Convert parameters to arrays before passing to nest process
         self._weights_rec = self._expand_to_shape(
             weights_rec, (self.size, self.size), "weights_rec", allow_none=False
-        )
-        self._v_thresh = self._expand_to_net_size(
-            v_thresh, "v_thresh", allow_none=False
-        )
-        self._v_reset = self._expand_to_net_size(v_reset, "v_reset", allow_none=False)
-        self._v_rest = self._expand_to_net_size(v_rest, "v_rest", allow_none=False)
-        self._tau_mem = self._expand_to_net_size(tau_mem, "tau_mem", allow_none=False)
-        self._bias = self._expand_to_net_size(bias, "bias", allow_none=False)
-        self._refractory = self._expand_to_net_size(
-            refractory, "refractory", allow_none=False
         )
         self._tau_syn_exc = self._expand_to_net_size(
             tau_syn_exc, "tau_syn_exc", allow_none=False
@@ -1077,24 +972,24 @@ class RecIAFSpkInNest(Layer):
         self._delay_rec = self._expand_to_shape(
             delay_rec, (self.size, self.size), "delay_rec", allow_none=False
         )
-        # Set capacity to the membrane time constant to be consistent with other layers
-        if capacity is None:
-            self._capacity = self._tau_mem * 1000.0
-        else:
-            self._capacity = self._expand_to_net_size(
-                capacity, "capacity", allow_none=False
-            )
 
-        # - Record settings
-        self._record = record
-        self._num_cores = num_cores
-
-        self._setup_nest()
+        super().__init__(
+            weights=weights_in,
+            bias=bias,
+            dt=dt,
+            tau_mem=tau_mem,
+            v_thresh=v_thresh,
+            v_reset=v_reset,
+            v_rest=v_rest,
+            capacity=capacity,
+            refractory=refractory,
+            name=name,
+            record=record,
+            num_cores=num_cores,
+        )
 
     def _setup_nest(self):
         """_setup_nest - Set up and start a nest process"""
-        self.request_q = multiprocessing.Queue()
-        self.result_q = multiprocessing.Queue()
 
         self.nest_process = self.NestProcess(
             self.request_q,
@@ -1117,40 +1012,6 @@ class RecIAFSpkInNest(Layer):
             num_cores=self._num_cores,
         )
         self.nest_process.start()
-
-    def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
-        """
-
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(self.v_rest)])
-
-    def randomize_state(self):
-        """ .randomize_state() - arguments:: randomize the internal state of the layer
-            Usage: .randomize_state()
-        """
-        v_range = abs(self._v_thresh - self._v_reset)
-        randV = np.random.rand(self.size) * v_range + self._v_reset
-
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(randV)])
-
-    def reset_time(self):
-        """
-        reset_time - Reset the internal clock of this layer
-        """
-
-        print("WARNING: This function resets the whole network")
-
-        self.request_q.put([COMMAND_RESET])
-        self._timestep = 0
-
-    def reset_all(self):
-        """
-        reset_all - resets time and state
-        """
-
-        self.request_q.put([COMMAND_RESET])
-        self._timestep = 0
 
     # --- State evolution
 
@@ -1193,82 +1054,25 @@ class RecIAFSpkInNest(Layer):
 
         self.request_q.put([COMMAND_EVOLVE, event_times, event_channels, num_timesteps])
 
-        if self.record:
-            event_time_out, event_channel_out, self.record_states = self.result_q.get()
-        else:
-            event_time_out, event_channel_out, _ = self.result_q.get()
-
-        # - Start and stop times for output time series
-        t_start = self._timestep * self.dt
-        t_stop = (self._timestep + num_timesteps) * self.dt
-
-        # - Update layer time step
-        self._timestep += num_timesteps
-
-        return TSEvent(
-            np.clip(event_time_out, t_start, t_stop),
-            event_channel_out,
-            name="Layer spikes",
-            num_channels=self.size,
-            t_start=t_start,
-            t_stop=t_stop,
-        )
-
-    def terminate(self):
-        self.request_q.close()
-        self.result_q.close()
-        self.request_q.cancel_join_thread()
-        self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        return self._process_evolution_output(num_timesteps)
 
     def to_dict(self):
-
-        config = {}
-        config["name"] = self.name
+        config = super().to_dict()
+        config.pop("weights")
         config["weights_in"] = self._weights_in.tolist()
         config["weights_rec"] = self._weights_rec.tolist()
-
         config["delay_in"] = self._delay_in.tolist()
         config["delay_rec"] = self._delay_rec.tolist()
-
-        config["bias"] = self.bias.tolist()
-        config["dt"] = self.dt
-        config["v_thresh"] = self.v_thresh.tolist()
-        config["v_reset"] = self.v_reset.tolist()
-        config["v_rest"] = self.v_rest.tolist()
-        config["capacity"] = self.capacity.tolist()
-        config["refractory"] = self.refractory.tolist()
-        config["num_cores"] = self.num_cores
-        config["tau_mem"] = self.tau_mem.tolist()
         config["tau_syn_exc"] = self.tau_syn_exc.tolist()
         config["tau_syn_inh"] = self.tau_syn_inh.tolist()
-        config["record"] = self.record
         config["class_name"] = "RecIAFSpkInNest"
 
         return config
-
-    @classmethod
-    def load_from_dict(cls, config):
-
-        lyr = super().load_from_dict(config)
-        lyr.reset_all()
-        return lyr
-
-    @classmethod
-    def load_from_file(cls, filename: str):
-        lyr = super().load_from_file(filename)
-        lyr.reset_all()
-        return lyr
 
     ### --- Properties
 
     @property
     def input_type(self):
-        return TSEvent
-
-    @property
-    def output_type(self):
         return TSEvent
 
     @property
@@ -1284,34 +1088,10 @@ class RecIAFSpkInNest(Layer):
     def weights_rec(self):
         return self._weights_rec
 
-    @property
-    def capacity(self):
-        return self._capacity
-
-    @property
-    def refractory(self):
-        return self._refractory
-
-    @refractory.setter
-    def refractory(self, new_refractory):
-        new_refractory = self._expand_to_net_size(
-            new_refractory, "refractory", allow_none=False
-        )
-        new_refractory = new_refractory.astype(float)
-        self._refractory = new_refractory
-        self.request_q.put([COMMAND_SET, "t_ref", s2ms(new_refractory)])
-
-    @property
-    def state(self):
-        time.sleep(0.1)
-        self.request_q.put([COMMAND_GET, "V_m"])
-        vms = np.array(self.result_q.get())
-        return mV2V(vms)
-
-    @state.setter
-    def state(self, new_state):
-        new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
-        self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state.astype(float))])
+    @weights_rec.setter
+    def weights_rec(self, new_weights):
+        self._weights_rec = new_weights
+        self.request_q.put([COMMAND_SET, "weights_rec", new_weights])
 
     @property
     def delay_in(self):
@@ -1338,17 +1118,6 @@ class RecIAFSpkInNest(Layer):
         new_delay_rec = new_delay_rec.astype(float)
         self._delay_rec = new_delay_rec
         self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
-
-    @property
-    def tau_mem(self):
-        return self._tau_mem
-
-    @tau_mem.setter
-    def tau_mem(self, new_tau_mem):
-        new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
-        new_tau_mem = new_tau_mem.astype(float)
-        self._tau_mem = new_tau_mem
-        self.request_q.put([COMMAND_SET, "tau_m", s2ms(new_tau_mem)])
 
     @property
     def tau_syn(self):
@@ -1391,65 +1160,3 @@ class RecIAFSpkInNest(Layer):
         self._tau_syn_inh = new_tau_syn_inh
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
-
-    @property
-    def bias(self):
-        return self._bias
-
-    @bias.setter
-    def bias(self, new_bias):
-        new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
-        new_bias = new_bias.astype(float)
-        self._bias = new_bias
-        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
-
-    @property
-    def v_thresh(self):
-        return self._v_thresh
-
-    @v_thresh.setter
-    def v_thresh(self, new_v_thresh):
-        new_v_thresh = self._expand_to_net_size(
-            new_v_thresh, "v_thresh", allow_none=False
-        )
-        new_v_thresh = new_v_thresh.astype(float)
-        self._v_thresh = new_v_thresh
-        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
-
-    @property
-    def v_reset(self):
-        return self._v_reset
-
-    @v_reset.setter
-    def v_reset(self, new_v_reset):
-        new_v_reset = self._expand_to_net_size(new_v_reset, "v_reset", allow_none=False)
-        new_v_reset = new_v_reset.astype(float)
-        self._v_reset = new_v_reset
-        self.request_q.put([COMMAND_SET, "V_reset", V2mV(new_v_reset)])
-
-    @property
-    def v_rest(self):
-        return self._v_reset
-
-    @v_rest.setter
-    def v_rest(self, new_v_rest):
-        new_v_rest = self._expand_to_net_size(new_v_rest, "v_rest", allow_none=False)
-        new_v_rest = new_v_rest.astype(float)
-        self._v_rest = new_v_rest
-        self.request_q.put([COMMAND_SET, "E_L", V2mV(new_v_rest)])
-
-    @property
-    def t(self):
-        return self._timestep * self.dt
-
-    @Layer.dt.setter
-    def dt(self):
-        raise ValueError("The `dt` property cannot be set for this layer")
-
-    @property
-    def record(self):
-        return self._record
-
-    @property
-    def num_cores(self):
-        return self._num_cores
