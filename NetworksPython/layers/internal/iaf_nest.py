@@ -1,15 +1,11 @@
-import json
-
-import numpy as np
-from ...timeseries import TSContinuous, TSEvent
 import multiprocessing
 import importlib
-
-from ..layer import Layer
-
-
 from typing import Optional, Union, List, Dict
-import time
+
+import numpy as np
+
+from ...timeseries import TSContinuous, TSEvent
+from ..layer import Layer
 
 if importlib.util.find_spec("nest") is None:
     raise ModuleNotFoundError("No module named 'nest'.")
@@ -686,6 +682,15 @@ class FFIAFNest(Layer):
     def capacity(self):
         return self._capacity
 
+    @capacity.setter
+    def capacity(self, new_capacity):
+        new_capacity = self._expand_to_net_size(
+            new_capacity, "capacity", allow_none=False
+        ).astype(float)
+        self._capacity = new_capacity
+        self.request_q.put([COMMAND_SET, "C_m", s2ms(new_capacity)])
+        return self._capacity
+
     @property
     def state(self):
         self.request_q.put([COMMAND_GET, "V_m"])
@@ -795,8 +800,8 @@ class RecIAFSpkInNest(FFIAFNest):
             record: bool = False,
             num_cores: int = 1,
         ):
-            """initializes the process """
 
+            """initializes the process """
             super().__init__(
                 request_q=request_q,
                 result_q=result_q,
