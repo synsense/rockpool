@@ -471,7 +471,7 @@ def test_recording():
     vStateBefore = np.copy(fl0.state)
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
-    assert np.shape(fl0.record_states) == (3, 100)
+    assert np.shape(fl0.record_states) == (3, 1000)
 
     fl0.terminate()
 
