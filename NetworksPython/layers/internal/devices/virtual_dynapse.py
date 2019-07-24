@@ -17,7 +17,7 @@
 
 # Built-in modules
 from warnings import warn
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Callable, Any
 
 # Third-party modules
 import numpy as np
@@ -33,6 +33,160 @@ CONNECTIONS_VALID = 0
 FANIN_EXCEEDED = 1
 FANOUT_EXCEEDED = 2
 CONNECTION_ALIASING = 4
+
+
+class ModifiedArray(np.ndarray):
+    """
+    RefArray - np.ndarray subclass that is generated from an array-like or torch.Tensor
+               and contains a reference to the original array-like or to a third object
+               with same shape. Item assignment on a RefArray instance (i.e. refarray[i,j]
+               = x) will also change this third object accordingly. Typically this object
+               is some original container from which the array-like has been created.
+               Therefore the objects in the RefArray are typically copies of those in the
+               referenced object.
+               This is useful for layers that contain torch tensors with properties
+               returning a numpy array. Here, item assignment will also modify the original
+               tensor object (as would generally be expected), which is not the case when
+               using normal ndarrays.
+    """
+
+    def __new__(
+        cls,
+        arraylike: ArrayLike,
+        owner: Any = None,
+        assign_method: Optional[Callable] = None,
+        value_as_arg: bool = False,
+        **kwargs,
+    ):
+        """
+        ___new__ - Customize instance creation. Necessary for custom subclasses of
+                   np.ndarray. Create new object as view on existing ndarray or on a new
+                   ndarray generated from an array-like object or tensor. Then add a
+                   reference to a third object, with same shape. Typically the original
+                   array is some form of copy of the referenced object. Alternatively a
+                   reference to the original array-like or tensor can be added. In this
+                   case the new instance is always a copy of the array-like and not a
+                   reference.
+        :param arraylike:       Array-like object or torch tensor to be copied.
+        :param owner:           Object that owns `arraylike`
+        :param assign_method:   Function that is called after item assignment
+        :param kwargs:          Kwargs that are passed to `assign_method` after item assignment
+        :return:
+            obj  np.ndarray  Numpy array upon which new instance will be based
+        """
+        # New class instance is a copy of arraylike (and never a view to original arraylike)
+        obj = np.array(arraylike).view(cls)
+        # Store reference to original arraylike
+        obj._reference = arraylike
+        obj._owner = owner
+        obj._assign_method = assign_method
+        obj._value_as_arg = value_as_arg
+        obj._kwargs = kwargs
+        return obj
+
+    def __array_finalize(self, obj: np.ndarray):
+        """
+        __array_finalize - arguments: to be used for np.ndarray subclasses to include
+                           additional elements in instance.
+        :param obj:  np.ndarray upon which self is based
+        """
+        # - Store reference to third object as attribute of self
+        self._reference = getattr(obj, "_reference")
+        self._owner = getattr(obj, "_owner")
+        self._assign_method = getattr(obj, "_assign_method")
+        self._value_as_arg = getattr(obj, "_value_as_arg")
+        self._kwargs = getattr(obj, "_kwargs")
+
+    def __setitem__(self, position, value):
+        """
+        ___setitem___ - Update items of self and of self.reference in the same way.
+        """
+        super().__setitem__(position, value)
+        # - Update data in self.reference
+        self._reference[position] = value
+        if self._assign_method is not None:
+            # - Call custom method
+            if self._value_as_arg:
+                self._assign_method(self.copy(), **self._kwargs)
+            else:
+                self._assign_method(**self._kwargs)
+
+    def copy(self):
+        """copy - Return np.ndarray as copy to get original __setitem__ method."""
+        array_copy = super().copy()
+        return np.array(array_copy)
+
+
+class ImmutableArray(np.ndarray):
+    """
+    RefArray - np.ndarray subclass that is generated from an array-like or torch.Tensor
+               and contains a reference to the original array-like or to a third object
+               with same shape. Item assignment on a RefArray instance (i.e. refarray[i,j]
+               = x) will also change this third object accordingly. Typically this object
+               is some original container from which the array-like has been created.
+               Therefore the objects in the RefArray are typically copies of those in the
+               referenced object.
+               This is useful for layers that contain torch tensors with properties
+               returning a numpy array. Here, item assignment will also modify the original
+               tensor object (as would generally be expected), which is not the case when
+               using normal ndarrays.
+    """
+
+    def __new__(
+        cls,
+        arraylike: ArrayLike,
+        name: Optional[str] = None,
+        custom_error: Optional[str] = None,
+    ):
+        """
+        ___new__ - Customize instance creation. Necessary for custom subclasses of
+                   np.ndarray. Create new object as view on existing ndarray or on a new
+                   ndarray generated from an array-like object or tensor. Then add a
+                   reference to a third object, with same shape. Typically the original
+                   array is some form of copy of the referenced object. Alternatively a
+                   reference to the original array-like or tensor can be added. In this
+                   case the new instance is always a copy of the array-like and not a
+                   reference.
+        :param arraylike:       Array-like object or torch tensor to be copied.
+        :param name:            Name to be included in default error message.
+        :param custom_error:    If not `None`, message to replace default error message.
+        :return:
+            obj  np.ndarray  Numpy array upon which new instance will be based
+        """
+        # New class instance is a copy of arraylike (and never a view to original arraylike)
+        obj = np.array(arraylike).view(cls)
+        obj._name = str(name) if name is not None else None
+        obj._custom_error = str(custom_error) if custom_error is not None else None
+        return obj
+
+    def __array_finalize(self, obj: np.ndarray):
+        """
+        __array_finalize - arguments: to be used for np.ndarray subclasses to include
+                           additional elements in instance.
+        :param obj:  np.ndarray upon which self is based
+        """
+        # - Store reference to third object as attribute of self
+        self._name = getattr(obj, "_name")
+        self._custom_error = getattr(obj, "_custom_error")
+
+    def __setitem__(self, position, value):
+        """
+        ___setitem___ - Update items of self and of self.reference in the same way.
+        """
+        if self._custom_error is not None:
+            raise AttributeError(self._custom_error)
+        else:
+            raise AttributeError(
+                "{}: Item assignment not possible for this attribute.".format(
+                    self._name if self._name is not None else "ImmutableArray"
+                )
+            )
+
+    def copy(self):
+        """copy - Return np.ndarray as copy to get original __setitem__ method."""
+        array_copy = super().copy()
+        return np.array(array_copy)
+
 
 ### --- Class definition
 
@@ -81,7 +235,7 @@ class VirtualDynapse(Layer):
         delta_t: Union[float, np.ndarray] = 2.0,
         name: str = "unnamed",
         num_threads: int = 1,
-        mismatch: bool = True,
+        mismatch: Union[bool, np.ndarray] = True,
         record: bool = True,
     ):
         """
@@ -219,8 +373,8 @@ class VirtualDynapse(Layer):
 
         # - Nest-layer for approximate simulation of neuron dynamics
         self._simulator = RecAEIFSpkInNest(
-            weights_in=weights_ext,
-            weights_rec=weights_rec,
+            weights_in=weights_ext.copy(),
+            weights_rec=weights_rec.copy(),
             bias=bias,
             v_thresh=v_thresh,
             v_reset=0,
@@ -635,6 +789,22 @@ class VirtualDynapse(Layer):
         count_inhib_conns = np.ceil(inhib_conns / self.weight_resolution).astype(int)
         return count_excit_conns + count_inhib_conns
 
+    def get_weights(
+        self, ids_pre: np.ndarray, ids_post: np.ndarray, external: bool = False
+    ) -> np.ndarray:
+        """
+        get_weights - Return weight matrix for specific neurons
+        :param ids_pre:     Presynaptic neuron or channel IDs
+        :param ids_post:    Postsynaptic neuron IDs
+        :param external:    If `True` return weights from connection to external inputs.
+
+        :return:
+            Weight matrix for defined pre-and postsynaptic populations.
+        """
+        idcs_pre, idcs_post = np.meshgrid(ids_pre, ids_post, indexing="ij")
+        weights = self.weights_ext if external else self.weights_rec
+        return weights[idcs_pre, idcs_post].copy()
+
     def evolve(
         self,
         ts_input: Optional[TSEvent] = None,
@@ -668,8 +838,8 @@ class VirtualDynapse(Layer):
 
         """
         if ids_in is not None:
-            # - Use fancy indexing to map from time series channels to input IDs
-            ts_input.channels = np.asarray(ids_in)[ts_input.channels]
+            # - Map from time series channels to input IDs
+            ts_input = ts_input.remap_channels(ids_in, inplace=False)
         output: TSEvent = self._simulator.evolve(
             ts_input, duration, num_timesteps, verbose
         )
@@ -706,7 +876,7 @@ class VirtualDynapse(Layer):
         weights_inhib = connections_inhib * self._baseweight_i_syn
         return weights_excit + weights_inhib
 
-    def _update_weights(self, external: bool = False, recurrent: bool = True):
+    def _update_weights(self, external: bool = False, recurrent: bool = False):
         """
         _update_weights - Update internal representation of weights by multiplying
                           baseweights with number of connections for each core and
@@ -718,12 +888,12 @@ class VirtualDynapse(Layer):
             # - Generate external weights from connections and base weights
             weights_ext = self._generate_weights(external=True)
             # - Mismatch and weight update
-            self._simulator.weights_in = weights_ext
+            self._simulator.weights_in = weights_ext.copy()
         if recurrent:
             # - Generate recurrent weights from connections and base weights
             weights_rec = self._generate_weights(external=False)
             # - Weight update
-            self._simulator.weights_rec = weights_rec
+            self._simulator.weights_rec = weights_rec.copy()
 
     def _process_parameter(
         self,
@@ -734,7 +904,9 @@ class VirtualDynapse(Layer):
         """
         _process_parameter - Reshape parameter to array of size `self.num_cores`.
                              If `nonnegative` is `True`, clip negative values to 0.
-        :param parameter:    Parameter to be reshaped and possibly clipped.
+                             Also creates parameters for individual neurons and adds
+                             mismatch.
+        :param parameter:    Parameter to be processed.
         :param name:         Name of the paramter (for print statements).
         :param nonnegative:  If `True`, clip negative values to 0 and warn if
                              there are any.
@@ -813,9 +985,33 @@ class VirtualDynapse(Layer):
         config["num_threads"] = self.num_threads
         config["mismatch"] = self._mismatch_factors.tolist()
 
+    def _update_parameter(self, new_val: np.ndarray, name: str, nonnegative: bool):
+        """
+        _update_parameter - Method for updating parameters through item assignment
+                            of properties.
+                            Update parameter by calling its property setter.
+        :param new_val:     New values for the parameter
+        :param name:        Name of the parameter
+        """
+        setattr(self, name, new_val)
+
+    def _immutable_error(self, name):
+        error_message = (
+            f"VirtualDynapse `{self.name}`: Neuron-wise assignment is not possible for "
+            + "this attribute. Core parameters can be accessed and modified through "
+            + f"`{name}` attribute."
+        )
+        return error_message
+
     @property
     def connections_rec(self):
-        return self._connections_rec
+        return ModifiedArray(
+            self._connections_rec,
+            owner=self,
+            assign_method=self._update_weights,
+            external=False,
+            recurrent=True,
+        )
 
     @connections_rec.setter
     def connections_rec(self, connections_new: Optional[np.ndarray]):
@@ -831,12 +1027,12 @@ class VirtualDynapse(Layer):
                 validate_fanout=self.validate_fanout,
                 validate_aliasing=self.validate_aliasing,
             )
-            == CONNECTIONS_VALID
+            != CONNECTIONS_VALID
         ):
             # - Update connections
             self._connections_rec = connections_new
             # - Update weights accordingly
-            self._update_weights()
+            self._update_weights(recurrent=True, external=False)
         else:
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
@@ -844,7 +1040,13 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_ext(self):
-        return self._connections_ext
+        return ModifiedArray(
+            self._connections_ext,
+            owner=self,
+            assign_method=self._update_weights,
+            external=True,
+            recurrent=False,
+        )
 
     @connections_ext.setter
     def connections_ext(self, connections_new: Optional[np.ndarray]):
@@ -860,7 +1062,7 @@ class VirtualDynapse(Layer):
                 validate_fanout=self.validate_fanout,
                 validate_aliasing=self.validate_aliasing,
             )
-            == CONNECTIONS_VALID
+            != CONNECTIONS_VALID
         ):
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
@@ -869,23 +1071,33 @@ class VirtualDynapse(Layer):
             # - Update connections
             self._connections_ext = connections_new
             # - Update weights accordingly
-            self._update_weights(external=True)
+            self._update_weights(external=True, recurrent=False)
 
     @property
     def weights(self):
-        return self._simulator.weights
+        return ImmutableArray(self._simulator.weights, name="VirtualDynapse 'weights'")
 
     @property
     def weights_rec(self):
-        return self._simulator.weights_rec
+        return ImmutableArray(
+            self._simulator.weights_rec, name="VirtualDynapse 'weights_rec'"
+        )
 
     @property
     def weights_ext(self):
-        return self._simulator.weights_in
+        return ImmutableArray(
+            self._simulator.weights_in, name="VirtualDynapse 'weights_rec'"
+        )
 
     @property
     def baseweight_e(self):
-        return self._baseweight_e
+        return ModifiedArray(
+            self._baseweight_e,
+            owner=self,
+            assign_method=self._update_weights,
+            external=True,
+            recurrent=True,
+        )
 
     @baseweight_e.setter
     def baseweight_e(self, baseweight_new: Union[float, ArrayLike]):
@@ -896,7 +1108,13 @@ class VirtualDynapse(Layer):
 
     @property
     def baseweight_i(self):
-        return self._baseweight_i
+        return ModifiedArray(
+            self._baseweight_i,
+            owner=self,
+            assign_method=self._update_weights,
+            external=True,
+            recurrent=True,
+        )
 
     @baseweight_i.setter
     def baseweight_i(self, baseweight_new: Union[float, ArrayLike]):
@@ -906,12 +1124,21 @@ class VirtualDynapse(Layer):
         self._update_weights(external=True, recurrent=True)
 
     @property
-    def bias(self):
-        return self._bias
+    def bias_(self):
+        return ImmutableArray(
+            self._simulator.bias, custom_error=self._immutable_error("bias")
+        )
 
     @property
-    def bias_(self):
-        return self._simulator.bias
+    def bias(self):
+        return ModifiedArray(
+            self._bias,
+            owner=self,
+            assign_method=self._update_parameter,
+            value_as_arg=True,
+            name="bias",
+            nonnegative=True,
+        )
 
     @bias.setter
     def bias(self, bias_new: Union[float, ArrayLike]):
@@ -921,11 +1148,20 @@ class VirtualDynapse(Layer):
 
     @property
     def refractory(self):
-        return self._refractory
+        return ModifiedArray(
+            self._refractory,
+            owner=self,
+            assign_method=self._update_parameter,
+            value_as_arg=True,
+            name="refractory",
+            nonnegative=True,
+        )
 
     @property
     def refractory_(self):
-        return self._simulator.refractory
+        return ImmutableArray(
+            self._simulator.refractory, custom_error=self._immutable_error("refractory")
+        )
 
     @refractory.setter
     def refractory(self, t_refractory_new: Union[float, ArrayLike]):
@@ -935,11 +1171,20 @@ class VirtualDynapse(Layer):
 
     @property
     def v_thresh(self):
-        return self._v_thresh
+        return ModifiedArray(
+            self._v_thresh,
+            owner=self,
+            assign_method=self._update_parameter,
+            value_as_arg=True,
+            name="v_thresh",
+            nonnegative=True,
+        )
 
     @property
     def v_thresh_(self):
-        return self._simulator.v_thresh
+        return ImmutableArray(
+            self._simulator.v_thresh, custom_error=self._immutable_error("v_thresh")
+        )
 
     @v_thresh.setter
     def v_thresh(self, threshold_new: Union[float, ArrayLike]):
@@ -949,11 +1194,20 @@ class VirtualDynapse(Layer):
 
     @property
     def delta_t(self):
-        return self._delta_t
+        return ModifiedArray(
+            self._delta_t,
+            owner=self,
+            assign_method=self._update_parameter,
+            value_as_arg=True,
+            name="delta_t",
+            nonnegative=True,
+        )
 
     @property
     def delta_t_(self):
-        return self._simulator.delta_t
+        return ImmutableArray(
+            self._simulator.delta_t, custom_error=self._immutable_error("delta_t")
+        )
 
     @delta_t.setter
     def delta_t(self, new_delta: Union[float, ArrayLike]):
@@ -963,11 +1217,21 @@ class VirtualDynapse(Layer):
 
     @property
     def spike_adapt(self):
-        return self._spike_adapt
+        return ModifiedArray(
+            self._spike_adapt,
+            owner=self,
+            assign_method=self._update_parameter,
+            value_as_arg=True,
+            name="spike_adapt",
+            nonnegative=True,
+        )
 
     @property
     def spike_adapt_(self):
-        return self._simulator.spike_adapt
+        return ImmutableArray(
+            self._simulator.spike_adapt,
+            custom_error=self._immutable_error("spike_adapt"),
+        )
 
     @spike_adapt.setter
     def spike_adapt(self, new_const: Union[float, ArrayLike]):
@@ -977,11 +1241,20 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_adapt(self):
-        return self._tau_adapt
+        return ModifiedArray(
+            self._tau_adapt,
+            owner=self,
+            assign_method=self._update_parameter,
+            value_as_arg=True,
+            name="tau_adapt",
+            nonnegative=True,
+        )
 
     @property
     def tau_adapt_(self):
-        return self._simulator.tau_adapt
+        return ImmutableArray(
+            self._simulator.tau_adapt, custom_error=self._immutable_error("tau_adapt")
+        )
 
     @tau_adapt.setter
     def tau_adapt(self, new_tau: Union[float, ArrayLike]):
@@ -991,7 +1264,13 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_1(self):
-        return self._tau_mem_1
+        def assign_method(new_val: np.ndarray):
+            self._update_parameter(new_val, name="tau_mem_1", nonnegative=True)
+            self._simulator.tau_mem = self._tau_mem_
+
+        return ModifiedArray(
+            self._tau_mem_1, owner=self, assign_method=assign_method, value_as_arg=True
+        )
 
     @tau_mem_1.setter
     def tau_mem_1(self, tau_mem_1_new: Union[float, ArrayLike]):
@@ -1003,7 +1282,13 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_2(self):
-        return self._tau_mem_2
+        def assign_method(new_val: np.ndarray):
+            self._update_parameter(new_val, name="tau_mem_2", nonnegative=True)
+            self._simulator.tau_mem = self._tau_mem_
+
+        return ModifiedArray(
+            self._tau_mem_2, owner=self, assign_method=assign_method, value_as_arg=True
+        )
 
     @tau_mem_2.setter
     def tau_mem_2(self, tau_mem_2_new: Union[float, ArrayLike]):
@@ -1015,7 +1300,19 @@ class VirtualDynapse(Layer):
 
     @property
     def has_tau_mem_2(self):
-        return self._has_tau_mem_2
+        # def assign_method(new_val: np.ndarray):
+        #     new_hastau = self._expand_to_size(
+        #         new_val, self.num_neurons, "has_tau_mem_2", False
+        #     )
+        def assign_method(new_val):
+            self.has_tau_mem_2 = new_val
+
+        return ModifiedArray(
+            self._has_tau_mem_2,
+            owner=self,
+            assign_method=assign_method,
+            value_as_arg=True,
+        )
 
     @has_tau_mem_2.setter
     def has_tau_mem_2(self, new_has_tau_mem_2: Union[bool, ArrayLike]):
@@ -1041,7 +1338,9 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_(self):
-        return self._simulator.tau_mem
+        return ImmutableArray(
+            self._simulator.tau_mem, custom_error=self._immutable_error("tau_mem")
+        )
 
     @property
     def tau_syn_exc(self):
@@ -1049,7 +1348,10 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_syn_exc_(self):
-        return self._simulator.tau_syn_exc
+        return ImmutableArray(
+            self._simulator.tau_syn_exc,
+            custom_error=self._immutable_error("tau_syn_exc"),
+        )
 
     @tau_syn_exc.setter
     def tau_syn_exc(self, tau_syn_e_new: Union[float, ArrayLike]):
@@ -1063,7 +1365,10 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_syn_inh_(self):
-        return self._simulator.tau_syn_inh
+        return ImmutableArray(
+            self._simulator.tau_syn_inh,
+            custom_error=self._immutable_error("tau_syn_inh"),
+        )
 
     @tau_syn_inh.setter
     def tau_syn_inh(self, tau_syn_i_new: Union[float, ArrayLike]):
@@ -1158,12 +1463,3 @@ class VirtualDynapse(Layer):
         except AttributeError:
             # - No recroded states - object is `None`
             return None
-
-
-# Functions:
-# - Different synapse types?
-# - Adaptation?
-# - NMDA synapses?
-# - BUF_P???
-# - Syn-thresholds???
-# Limitations
