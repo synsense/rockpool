@@ -587,6 +587,8 @@ class TSContinuous(TimeSeries):
             else False
         )
 
+    ## -- Methods for manipulating timeseries
+
     def clip(
         self,
         t_start: Optional[float] = None,
@@ -1361,10 +1363,10 @@ class TSEvent(TimeSeries):
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
             channels = np.zeros(np.size(times))
-            nMinNumChannels = min(np.size(times), 1)
+            min_num_ch = min(np.size(times), 1)
         # - Handle scalar channel
         elif isinstance(channels, int):
-            nMinNumChannels = channels + 1
+            min_num_ch = channels + 1
             channels = np.array([channels for _ in times])
         # - Array-like of channels
         else:
@@ -1375,13 +1377,13 @@ class TSEvent(TimeSeries):
                     + "elements as `times`, be an integer or None."
                 )
             else:
-                nMinNumChannels = np.amax(channels) + 1
+                min_num_ch = np.amax(channels) + 1
 
         if num_channels is None:
             # - Infer number of channels from maximum channel id in channels
-            num_channels = nMinNumChannels
+            num_channels = min_num_ch
         else:
-            if num_channels < nMinNumChannels:
+            if num_channels < min_num_ch:
                 raise ValueError(
                     f"TSEvent `{name}`: num_channels must be None or greater than the highest channel ID."
                 )
@@ -1391,11 +1393,11 @@ class TSEvent(TimeSeries):
             times=times, periodic=periodic, t_start=t_start, t_stop=t_stop, name=name
         )
 
-        # - Store channels
-        self.channels = np.array(channels, "int").flatten()
-
         # - Store total number of channels
         self._num_channels = int(num_channels)
+
+        # - Store channels
+        self.channels = np.array(channels, "int").flatten()
 
     def print(
         self,
@@ -1524,7 +1526,7 @@ class TSEvent(TimeSeries):
                     + "It must be matplotlib Axes or holoviews Curve or Overlay."
                 )
 
-    ## -- Methods for finding and extracting data
+    ## -- Methods for manipulating timeseries
 
     def clip(
         self,
@@ -1552,7 +1554,7 @@ class TSEvent(TimeSeries):
         :param include_stop:  If there are events with time t_stop include them or not
         :param remap_channels:  Map channel IDs to continuous sequence startign from 0.
                                    Set `num_channels` to largest new ID + 1.
-        :param inplase:       Specify whether operation should be performed in place (Default: False)
+        :param inplace:       Specify whether operation should be performed in place (Default: False)
         :return: TSEvent containing events from the requested channels
         """
 
@@ -1589,6 +1591,33 @@ class TSEvent(TimeSeries):
             new_series._channels = channel_data
 
         return new_series
+
+    def remap_channels(self, channel_map: np.ndarray, inplace=False):
+        """
+        remap_channels - Map channels 0..``self.num_channels-1`` to channels in
+        ``channel_map``.
+        :param np.ndarray channel_map:  Channels that existing ones are mapped to. Must
+                                        be of size ``self.num_channels``.
+        :param bool inplace:            Specify whether operation should be performed in
+                                        place (Default: False)
+        """
+
+        if not inplace:
+            new_series = self.copy()
+        else:
+            new_series = self
+
+        channel_map = np.asarray(channel_map)
+        if not channel_map.size == new_series.num_channels:
+            raise ValueError(
+                f"TSEvent `{new_series.name}`: "
+                + f"`channel_map` must be of size {new_series.num_channels}."
+            )
+        new_series.channels = channel_map[new_series.channels]
+
+        return new_series
+
+    ## -- Methods for finding and extracting data
 
     def raster(
         self,
@@ -2087,35 +2116,44 @@ class TSEvent(TimeSeries):
         return self._channels
 
     @channels.setter
-    def channels(self, vnNewChannels):
+    def channels(self, new_channels):
         # - Check size of new data
-        assert np.size(vnNewChannels) == 1 or np.size(vnNewChannels) == np.size(
+        assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
             self.times
-        ), "`vnNewChannels` must be the same size as `times`."
+        ), "`new_channels` must be the same size as `times`."
 
         # - Handle scalar channel
-        if np.size(vnNewChannels) == 1:
-            vnNewChannels = np.repeat(vnNewChannels, np.size(self._times))
+        if np.size(new_channels) == 1:
+            new_channels = np.repeat(new_channels, np.size(self._times))
 
+        # - Update self.num_channels
+        if new_channels.size > 0:
+            highest_channel = np.amax(new_channels)
+            if self.num_channels <= highest_channel:
+                self.num_channels = highest_channel + 1
+                print(
+                    f"TSEvent `{self.name}`: `num_channels` has been increased "
+                    + f"to {self.num_channels}."
+                )
         # - Assign channels
-        self._channels = vnNewChannels
+        self._channels = new_channels
 
     @property
     def num_channels(self):
         return self._num_channels
 
     @num_channels.setter
-    def num_channels(self, nNewNumChannels):
+    def num_channels(self, new_num_ch):
         if self.channels.size > 0:
-            nMinNumChannels = np.amax(self.channels)
+            min_num_ch = np.amax(self.channels)
         else:
-            nMinNumChannels = 0
-        if nNewNumChannels < nMinNumChannels:
+            min_num_ch = 0
+        if new_num_ch < min_num_ch:
             raise ValueError(
-                f"TSContinuous `{self.name}`: `num_channels` must be at least {nMinNumChannels}."
+                f"TSContinuous `{self.name}`: `num_channels` must be at least {min_num_ch}."
             )
         else:
-            self._num_channels = nNewNumChannels
+            self._num_channels = new_num_ch
 
 
 def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
