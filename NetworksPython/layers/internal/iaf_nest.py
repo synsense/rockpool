@@ -27,6 +27,10 @@ def mV2V(v):
     return v / 1000.0
 
 
+def F2mF(c):
+    return c * 1000.0
+
+
 COMMAND_GET = 0
 COMMAND_SET = 1
 COMMAND_RESET = 2
@@ -44,7 +48,6 @@ class _BaseNestProcess(multiprocessing.Process):
         model: str,
         bias: np.ndarray,
         dt: float,
-        tau_mem: np.ndarray,
         capacity: np.ndarray,
         v_thresh: np.ndarray,
         v_reset: np.ndarray,
@@ -65,9 +68,8 @@ class _BaseNestProcess(multiprocessing.Process):
         self.v_thresh = V2mV(v_thresh)
         self.v_reset = V2mV(v_reset)
         self.v_rest = V2mV(v_rest)
-        self.tau_mem = s2ms(tau_mem)
         self.bias = V2mV(bias)
-        self.capacity = capacity
+        self.capacity = F2mF(capacity)
         self.refractory = s2ms(refractory)
         self.record = record
         self.num_cores = num_cores
@@ -120,9 +122,16 @@ class _BaseNestProcess(multiprocessing.Process):
     def evolve_nest(
         self, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-
+        print("inner evolve called")
         t_start = self.nest_module.GetKernelStatus("time")
 
+        print("inner evolve starting simulation")
+        # conns_in = self.nest_module.GetConnections(self._sg, self._pop)
+        # print(conns_in)
+        # conns_rec = self.nest_module.GetConnections(self._pop, self._pop)
+        # print(conns_rec)
+        # print(self.nest_module.GetStatus(conns_in), "weight")
+        # print(self.nest_module.GetStatus(conns_rec), "weight")
         if t_start == 0:
             # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
             # the recording has one entry less in the first batch
@@ -130,12 +139,14 @@ class _BaseNestProcess(multiprocessing.Process):
         else:
             self.nest_module.Simulate(num_timesteps * self.dt)
 
+        print("simulation finished.")
         # - Build response TimeSeries
         events = self.nest_module.GetStatus(self._sd, "events")[0]
+        print("events have been extracted")
         use_event = events["times"] >= t_start
         event_time_out = ms2s(events["times"][use_event])
         event_channel_out = events["senders"][use_event]
-
+        print("processing events")
         # sort spiking response
         order = np.argsort(event_time_out)
         event_time_out = event_time_out[order]
@@ -144,9 +155,11 @@ class _BaseNestProcess(multiprocessing.Process):
         # transform from NEST id to index
         event_channel_out -= np.min(self._pop)
 
+        print("events_processed")
         # - record states
         if self.record:
             recorded_states = self.record_states(t_start)
+            print("processed recorded states")
             return [event_time_out, event_channel_out, mV2V(recorded_states)]
         else:
             return [event_time_out, event_channel_out, None]
@@ -164,7 +177,8 @@ class _BaseNestProcess(multiprocessing.Process):
         pop_post: tuple,
         weights_new: np.ndarray,
         weights_old: np.ndarray,
-        delays=None,
+        delays: Optional[np.ndarray] = None,
+        connection_exists: Optional[np.ndarray] = None,
     ):
         """
         update_weights - Update nest connections and their weights
@@ -172,45 +186,67 @@ class _BaseNestProcess(multiprocessing.Process):
         :param pop_post:    Postsynaptic population
         :param weights_new: New weights
         :param weights_old: Old weights
+        :param delays:      Delays corresponding to the connections
+        :param connection_exists:  2D boolean array indicating which connections already exist
         """
-        # - Extract existing connections from populations
-        existing_conns = np.array(self.nest_module.GetConnections(pop_pre, pop_post))
-        # - First global ID of each population
-        id_start_sg = pop_pre[0]
-        id_start_pop = pop_post[0]
-        if existing_conns.size > 0:
-            existing_pre, existing_post = existing_conns[:, :2].copy().T
-            existing_pre -= id_start_sg
-            existing_post -= id_start_pop
-            # - Dict to map from 2D array indices to connection
-            map_2d_conn = {
-                (conn[0] - id_start_sg, conn[1] - id_start_pop): conn
-                for conn in existing_conns
-            }
-            # - Connections that existed before but weights changed
-            exists = np.zeros_like(weights_new, bool)
-            exists[existing_pre, existing_post] = True
-            idcs_pre_c, idcs_post_c = idcs_wgt_changes = np.where(
-                np.logical_and(weights_old != weights_new, exists)
-            )
-            if idcs_pre_c.size > 0:
-                conns = [map_2d_conn[idcs] for idcs in zip(*idcs_wgt_changes)]
-                new_weights = [
-                    {"weight": w} for w in weights_new[idcs_pre_c, idcs_post_c]
-                ]
-                self.nest_module.SetStatus(conns, new_weights)
+        if connection_exists is None:
+            connection_exists = False
+            log_existing_conn = False
         else:
-            exists = False
+            log_existing_conn = True
+        # - Connections that need to be updated
+        update_connection = weights_old != weights_new
+        # - Connections that exist already and whose weights need to be updated
+        update_existing_conn = np.logical_and(update_connection, connection_exists)
+        idcs_pre_upd, idcs_post_upd = np.where(update_existing_conn)
+        print("updating weights")
+        if idcs_pre_upd.size > 0:
+            # - Extract existing connections that need to be updated
+            existing_conns = self.nest_module.GetConnections(
+                np.asarray(pop_pre)[np.unique(idcs_pre_upd)],
+                np.asarray(pop_post)[np.unique(idcs_post_upd)],
+            )
+            print("extracted connections")
+            # - First global ID of each population
+            id_start_pre = pop_pre[0]
+            id_start_post = pop_post[0]
+            # - Indices of existing connections wrt weight matrix
+            existing_pre, existing_post = existing_conns[:, :2].copy().T
+            existing_pre -= id_start_pre
+            existing_post -= id_start_post
+            # - Dict for mapping from 2D array indices to connection
+            map_2d_conn = {
+                (idx_pre, idx_post): conn
+                for idx_pre, idx_post, conn in zip(
+                    existing_pre, existing_post, existing_conns
+                )
+            }
+            print("prepared connection map")
+            # - Connections to be updated
+            conns_to_update = [
+                map_2d_conn[idcs] for idcs in zip(idcs_pre_upd, idcs_post_upd)
+            ]
+            new_weights = [
+                {"weight": w} for w in weights_new[idcs_pre_upd, idcs_post_upd]
+            ]
+            # - Update weights
+            self.nest_module.SetStatus(conns_to_update, new_weights)
+            print("updated existing connections")
+
         # - Connections that need to be created
         idcs_pre_new, idcs_post_new = np.where(
-            np.logical_and(exists == False, weights_new != 0)
+            np.logical_and(connection_exists == False, update_connection)
         )
+        print("creation of new connections")
         if idcs_pre_new.size > 0:
             if delays is not None:
                 # delays = delays[idcs_pre_new, idcs_post_new]
+                # - First global ID of each population
+                id_start_pre = pop_pre[0]
+                id_start_post = pop_post[0]
                 self.nest_module.Connect(
-                    idcs_pre_new + id_start_sg,
-                    idcs_post_new + id_start_pop,
+                    idcs_pre_new + id_start_pre,
+                    idcs_post_new + id_start_post,
                     "one_to_one",
                     {
                         "weight": weights_new[idcs_pre_new, idcs_post_new],
@@ -219,11 +255,15 @@ class _BaseNestProcess(multiprocessing.Process):
                 )
             else:
                 self.nest_module.Connect(
-                    idcs_pre_new + id_start_sg,
-                    idcs_post_new + id_start_pop,
+                    idcs_pre_new + id_start_pre,
+                    idcs_post_new + id_start_post,
                     "one_to_one",
                     {"weight": weights_new[idcs_pre_new, idcs_post_new]},
                 )
+            print("new connections created")
+        if log_existing_conn:
+            # - Mark new connections as existing
+            connection_exists[(idcs_pre_new, idcs_post_new)] = True
 
     def init_nest(self):
         """init_nest - Initialize nest"""
@@ -276,7 +316,6 @@ class _BaseNestProcess(multiprocessing.Process):
         for n in range(self.size):
             p = {}
 
-            p["tau_m"] = self.tau_mem[n]
             p["V_th"] = self.v_thresh[n]
             p["V_reset"] = self.v_reset[n]
             p["E_L"] = self.v_rest[n]
@@ -298,41 +337,33 @@ class _BaseNestProcess(multiprocessing.Process):
         pop_post: tuple,
         weights: np.ndarray,
         delays: Optional[np.ndarray] = None,
+        connection_exists: Optional[np.ndarray] = None,
     ):
-        # # - Create input connections
-        # pres = []
-        # posts = []
-        # weight_list = []
-        # if delays is not None:
-        #     delay_list = []
-
-        # for pre, row in enumerate(weights):
-        #     for post, w in enumerate(row):
-        #         if w == 0:
-        #             continue
-        #         pres.append(pop_pre[pre])
-        #         posts.append(pop_post[post])
-        #         weight_list.append(w)
-        #         if delays is not None:
-        #             delay_list.append(delays[pre, post])
-
-        # Maybe better:
+        # - Indices of pre- and postsynaptic nonzero weights
         idcs_pre, idcs_post = np.nonzero(weights)
+        # - Global IDs of pre- and postsynaptic neurons
         pres = np.asarray(pop_pre)[idcs_pre]
         posts = np.asarray(pop_post)[idcs_post]
+        # - Weights corresponding to the neuron-pairs
         weight_list = weights[idcs_pre, idcs_post]
 
         if len(weight_list) > 0:
             if delays is not None:
+                # - Create connections, set weights and delays
                 delays = np.clip(delays[idcs_pre, idcs_post], self.dt, None)
                 # delays = np.clip(delay_list, self.dt, np.max(delay_list))
                 self.nest_module.Connect(
                     pres, posts, "one_to_one", {"weight": weight_list, "delay": delays}
                 )
             else:
+                # - Create connections, set weights
                 self.nest_module.Connect(
                     pres, posts, "one_to_one", {"weight": weight_list}
                 )
+
+        if connection_exists is not None:
+            # - Mark new connections as existing
+            connection_exists[(idcs_pre, idcs_post)] = True
 
     def run(self):
         """ start the process. Initializes the network, defines IPC commands and waits for commands. """
@@ -351,11 +382,15 @@ class _BaseNestProcess(multiprocessing.Process):
         # wait for an IPC command
 
         while True:
+            print("running, waiting for queue")
             req = self.request_q.get()
+            print("command:", req[0])
             func = IPC_switcher.get(req[0])
             result = func(*req[1:])
             if req[0] in [COMMAND_EXEC, COMMAND_GET, COMMAND_EVOLVE]:
+                print("putting stuff on queue")
                 self.result_q.put(result)
+            print("continuing")
 
 
 # - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
@@ -389,7 +424,6 @@ class FFIAFNest(Layer):
                 result_q=result_q,
                 bias=bias,
                 dt=dt,
-                tau_mem=tau_mem,
                 capacity=capacity,
                 v_thresh=v_thresh,
                 v_reset=v_reset,
@@ -400,9 +434,10 @@ class FFIAFNest(Layer):
                 model="iaf_psc_exp",
             )
 
-            # - Record weights
+            # - Record weights and layer specific parameters
             self.weights = V2mV(weights)
             self.size = np.shape(weights)[1]
+            self.tau_mem = s2ms(tau_mem)
 
         def setup_nest_network(self):
 
@@ -418,6 +453,15 @@ class FFIAFNest(Layer):
             self.nest_module.Connect(
                 self._scg, self._pop, "all_to_all", {"weight": self.weights.T}
             )
+
+        def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
+            """init_nest_params - Initialize nest neuron parameters and return as list"""
+
+            params = super().generate_nest_params_list()
+            for n in range(self.size):
+                params[n]["tau_m"] = self.tau_mem[n]
+
+            return params
 
         ######### DEFINE IPC COMMANDS ######
 
@@ -474,24 +518,26 @@ class FFIAFNest(Layer):
         FFIAFNest - Construct a spiking feedforward layer with IAF neurons, with a NEST back-end
                      Inputs are continuous currents; outputs are spiking events
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10mA
+        :param weights:     np.array MxN weight matrix in nA.
+        :param bias:        np.array Nx1 bias vector in nA. Default: 0.0
 
-        :param dt:             float Time-step. Default: 0.1 ms
+        :param dt:          float Time-step in seconds. Default: 0.001
 
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
+        :param tau_mem:     np.array Nx1 vector of neuron time constants in seconds.
+                            Default: 0.02
 
-        :param capacity:       np.array Nx1 vector of neuron membrance capacity. Default: 100 pF
+        :param capacity:    np.array Nx1 vector of neuron membrance capacity in nF.
+                            Will be set to tau_mem (* 1 nS) if `None`. Default: `None`.
 
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron resting potential. Default: -65mV
+        :param v_thresh:    np.array Nx1 vector of neuron thresholds in Volt. Default: -0.055
+        :param v_reset:     np.array Nx1 vector of neuron reset potential in Volt. Default: -0.065
+        :param v_rest:      np.array Nx1 vector of neuron resting potential in Volt. Default: -0.065
 
-        :param refractory: float Refractory period after each spike. Default: 0ms
+        :param refractory:  float Refractory period after each spike in seconds. Default: 0
 
-        :param name:         str Name for the layer. Default: 'unnamed'
+        :param name:        str Name for the layer. Default: 'unnamed'
 
-        :param record:         bool Record membrane potential during evolutions
+        :param record:      bool Record membrane potential during evolutions
         """
 
         # - Call super constructor
@@ -508,7 +554,7 @@ class FFIAFNest(Layer):
         )
         # Set capacity to the membrane time constant to be consistent with other layers
         if capacity is None:
-            capacity = tau_mem * 1000.0
+            capacity = tau_mem
         else:
             capacity = self._expand_to_net_size(capacity, "capacity", allow_none=False)
 
@@ -688,7 +734,7 @@ class FFIAFNest(Layer):
             new_capacity, "capacity", allow_none=False
         ).astype(float)
         self._capacity = new_capacity
-        self.request_q.put([COMMAND_SET, "C_m", s2ms(new_capacity)])
+        self.request_q.put([COMMAND_SET, "C_m", F2mF(new_capacity)])
         return self._capacity
 
     @property
@@ -800,14 +846,12 @@ class RecIAFSpkInNest(FFIAFNest):
             record: bool = False,
             num_cores: int = 1,
         ):
-
             """initializes the process """
             super().__init__(
                 request_q=request_q,
                 result_q=result_q,
                 bias=bias,
                 dt=dt,
-                tau_mem=tau_mem,
                 capacity=capacity,
                 v_thresh=v_thresh,
                 v_reset=v_reset,
@@ -825,7 +869,11 @@ class RecIAFSpkInNest(FFIAFNest):
             self.delay_in = s2ms(delay_in)
             self.delay_rec = s2ms(delay_rec)
             self.tau_syn_exc = s2ms(tau_syn_exc)
+            self.tau_mem = s2ms(tau_mem)
             self.tau_syn_inh = s2ms(tau_syn_inh)
+            # - Keep track of existing connections for more efficient weight updates
+            self.connection_rec_exists = np.zeros_like(weights_rec, bool)
+            self.connection_in_exists = np.zeros_like(weights_in, bool)
 
         ######### DEFINE IPC COMMANDS ######
 
@@ -851,7 +899,7 @@ class RecIAFSpkInNest(FFIAFNest):
             self, event_times, event_channels, num_timesteps: Optional[int] = None
         ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
             """ IPC command running the network for num_timesteps with input_steps as input """
-
+            print("evolve called")
             if len(event_channels > 0):
                 # convert input index to NEST id
                 event_channels += np.min(self._sg)
@@ -864,7 +912,7 @@ class RecIAFSpkInNest(FFIAFNest):
                         for i in self._sg
                     ],
                 )
-
+            print("calling inner evolve")
             return self.evolve_nest(num_timesteps)
 
         def setup_nest_network(self):
@@ -882,15 +930,28 @@ class RecIAFSpkInNest(FFIAFNest):
             for n in range(self.size):
                 params[n]["tau_syn_ex"] = self.tau_syn_exc[n]
                 params[n]["tau_syn_in"] = self.tau_syn_inh[n]
+                params[n]["tau_m"] = self.tau_mem[n]
 
             return params
 
         def set_all_connections(self):
             """Set input connections and recurrent connections"""
             # - Input connections
-            self.set_connections(self._sg, self._pop, self.weights_in, self.delay_in)
+            self.set_connections(
+                pop_pre=self._sg,
+                pop_post=self._pop,
+                weights=self.weights_in,
+                delays=self.delay_in,
+                connection_exists=self.connection_in_exists,
+            )
             # - Recurrent connections
-            self.set_connections(self._pop, self._pop, self.weights_rec, self.delay_rec)
+            self.set_connections(
+                pop_pre=self._pop,
+                pop_post=self._pop,
+                weights=self.weights_rec,
+                delays=self.delay_rec,
+                connection_exists=self.connection_rec_exists,
+            )
 
     ## - Constructor
     def __init__(
@@ -918,31 +979,33 @@ class RecIAFSpkInNest(FFIAFNest):
         RecIAFSpkInNest - Construct a spiking recurrent layer with IAF neurons, with a NEST back-end
                            in- and outputs are spiking events
 
-        :param weights_in:           np.array MxN input weight matrix.
-        :param weights_rec:          np.array NxN recurrent weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10.5mA
+        :param weights_in:      np.array MxN input weight matrix in nA.
+        :param weights_rec:     np.array NxN recurrent weight matrix in nA.
+        :param bias:            np.array Nx1 bias vector in nA. Default 0
 
-        :param dt:             float Time-step. Default: 0.1 ms
+        :param dt:              float Time-step in seconds. Default: 0.0001
 
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Used
-                                 Used instead of `tau_syn_exc` or `tau_syn_inh` if they are
-                                 None. Default: 20ms
-        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants.
-                                     If `None`, use `tau_syn`. Default: `None`
-        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants.
-                                     If `None`, use `tau_syn`. Default: `None`
+        :param tau_mem:         np.array Nx1 vector of neuron time constants in seconds.
+                                Default: 0.02
+        :param tau_syn:         np.array Nx1 vector of synapse time constants in seconds. Used
+                                Used instead of `tau_syn_exc` or `tau_syn_inh` if they are
+                                `None`. Default: 0.02
+        :param tau_syn_exc:     np.array Nx1 vector of excitatory synapse time constants in seconds.
+                                If `None`, use `tau_syn`. Default: `None`
+        :param tau_syn_inh:     np.array Nx1 vector of inhibitory synapse time constants in seconds.
+                                If `None`, use `tau_syn`. Default: `None`
 
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron resting potential. Default: -65mV
+        :param v_thresh:        np.array Nx1 vector of neuron thresholds in Volt. Default: -0.055V
+        :param v_reset:         np.array Nx1 vector of neuron reset potential in Volt. Default: -0.065V
+        :param v_rest:          np.array Nx1 vector of neuron resting potential in Volt. Default: -0.065V
 
-        :param capacity:       np.array Nx1 vector of neuron membrance capacity. Default: 100 pF
-        :param refractory: float Refractory period after each spike. Default: 0ms
+        :param capacity:        np.array Nx1 vector of neuron membrance capacity in nF.
+                                Will be set to `tau_mem` (* 1 nS) if `None`. Default: `None`.
+        :param refractory:      float Refractory period after each spike in seconds. Default: 0
 
-        :param name:         str Name for the layer. Default: 'unnamed'
+        :param name:            str Name for the layer. Default: 'unnamed'
 
-        :param record:         bool Record membrane potential during evolutions
+        :param record:          bool Record membrane potential during evolutions
         """
 
         # - Determine layer size and name to run `_expand_to_net_size` method and store input weights
@@ -1032,7 +1095,7 @@ class RecIAFSpkInNest(FFIAFNest):
         :return:                TSEvent  output spike series
 
         """
-
+        print("calling evolve")
         # - Prepare time base
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
@@ -1051,6 +1114,8 @@ class RecIAFSpkInNest(FFIAFNest):
         else:
             event_times = np.array([])
             event_channels = np.array([])
+
+        print("putting on queue:", event_times, event_channels, num_timesteps)
 
         self.request_q.put([COMMAND_EVOLVE, event_times, event_channels, num_timesteps])
 

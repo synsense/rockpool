@@ -24,7 +24,7 @@ def test_chargeSingleNeuron():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -67,7 +67,7 @@ def test_chargeAndSpikeSingleNeuron():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -308,7 +308,7 @@ def test_FFToRecLayer():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -490,7 +490,7 @@ def test_FFToRecLayerRepeat():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -576,7 +576,7 @@ def test_DefaultParams():
     v_thresh = -0.055
     v_reset = -0.065
     v_rest = -0.065
-    capacity = tau_mem * 1000.0
+    capacity = tau_mem
     refractory = 0.001
 
     fl0 = FFIAFNest(
@@ -656,7 +656,7 @@ def test_timeconstants():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -731,7 +731,7 @@ def test_delays():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -787,7 +787,7 @@ def test_delays():
         dt=0.001,
         bias=vfBiasRec,
         tau_mem=vtTauNRec,
-        capacity=100.0,
+        capacity=0.1,
         tau_syn_exc=tau_syn_exc_rec,
         tau_syn_inh=tau_syn_inh_rec,
         refractory=0.001,

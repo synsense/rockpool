@@ -1,5 +1,6 @@
 import multiprocessing
 import importlib
+from warnings import warn
 from typing import Optional, Union, List, Dict
 
 import numpy as np
@@ -36,9 +37,9 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             delay_rec: Union[float, np.ndarray],
             bias: Union[float, np.ndarray],
             dt: float,
-            tau_mem: Union[float, np.ndarray],
             tau_syn_exc: Union[float, np.ndarray],
             tau_syn_inh: Union[float, np.ndarray],
+            conductance: Union[float, np.ndarray],
             capacity: Union[float, np.ndarray],
             v_thresh: Union[float, np.ndarray],
             v_peak: Union[float, np.ndarray],
@@ -58,7 +59,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 result_q=result_q,
                 bias=bias,
                 dt=dt,
-                tau_mem=tau_mem,
                 capacity=capacity,
                 v_thresh=v_thresh,
                 v_reset=v_reset,
@@ -79,9 +79,11 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             self.tau_syn_inh = s2ms(tau_syn_inh)
             self.v_peak = V2mV(v_peak)
             self.a = a
-            self.b = V2mV(b)
+            self.b = b
+            # self.delta_t = V2mV(delta_t)
             self.delta_t = delta_t
             self.tau_w = s2ms(tau_w)
+            self.conductance = conductance
 
         ######### DEFINE IPC COMMANDS ######
 
@@ -118,6 +120,9 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             self, event_times, event_channels, num_timesteps: Optional[int] = None
         ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
             """ IPC command running the network for num_timesteps with input_steps as input """
+            print(event_channels)
+            print(event_times)
+            print(np.min(self._sg))
 
             if len(event_channels > 0):
                 # convert input index to NEST id
@@ -149,13 +154,12 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             for n in range(self.size):
                 params[n]["tau_syn_ex"] = self.tau_syn_exc[n]
                 params[n]["tau_syn_in"] = self.tau_syn_inh[n]
-                params[n]["g_L"] = self.capacity[n] / self.tau_mem[n]
+                params[n]["g_L"] = self.conductance[n]
                 params[n]["V_peak"] = self.v_peak[n]
                 params[n]["a"] = self.a[n]
                 params[n]["b"] = self.b[n]
                 params[n]["Delta_T"] = self.delta_t[n]
                 params[n]["tau_w"] = self.tau_w[n]
-                params[n].pop("tau_m")
 
             return params
 
@@ -188,6 +192,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
         capacity: Union[float, np.ndarray, None] = None,
+        conductance: Union[float, np.ndarray, None] = 1.0,
         refractory: Union[float, np.ndarray] = 0.001,
         subthresh_adapt: Union[float, np.ndarray] = 4.0,
         spike_adapt: Union[float, np.ndarray] = 80.5,
@@ -201,35 +206,37 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         RecAEIFSpkInNest - Construct a spiking recurrent layer with AEIF neurons, with a NEST back-end
                            in- and outputs are spiking events
 
-        :param weights_in:           np.array MxN input weight matrix.
-        :param weights_rec:          np.array NxN recurrent weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10.5mA
+        :param weights_in:          np.array MxN input weight matrix.
+        :param weights_rec:         np.array NxN recurrent weight matrix.
+        :param bias:                np.array Nx1 bias vector in nA. Default: 0
 
-        :param dt:             float Time-step. Default: 0.1 ms
+        :param dt:                  float Time-step in seconds. Default: 0.0001
 
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 50ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Used
-                                 Used instead of `tau_syn_exc` or `tau_syn_inh` if they are
-                                 None. Default: 20ms
-        :param tau_syn_exc:          np.array Nx1 vector of excitatory synapse time constants.
-                                     If `None`, use `tau_syn`. Default: `None`
-        :param tau_syn_inh:          np.array Nx1 vector of inhibitory synapse time constants.
-                                     If `None`, use `tau_syn`. Default: `None`
+        :param tau_mem:             np.array Nx1 vector of neuron time constants in seconds. Default: 0.05
+        :param tau_syn:             np.array Nx1 vector of synapse time constants in seconds. Used
+                                    Used instead of `tau_syn_exc` or `tau_syn_inh` if they are
+                                    None. Default: 0.02
+        :param tau_syn_exc:         np.array Nx1 vector of excitatory synapse time constants in seconds.
+                                    If `None`, use `tau_syn`. Default: `None`
+        :param tau_syn_inh:         np.array Nx1 vector of inhibitory synapse time constants in seconds.
+                                    If `None`, use `tau_syn`. Default: `None`
 
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds ("point of no return"). Default: -55mV
-        :param v_peak:         np.array Nx1 vector of neuron spike thresholds. Is set to
-                               `v_thresh`If `None` if `delta_T`==0 or to `v_thresh` + 10mV
-                               if `deltaT`!=0.
-        :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron resting potential. Default: -65mV
+        :param v_thresh:            np.array Nx1 vector of neuron thresholds ("point of no return") in Volt. Default: -0.055
+        :param v_peak:              np.array Nx1 vector of neuron spike thresholds in Volt. Is set to
+                                    `v_thresh`If `None` if `delta_t`==0 or to `v_thresh` + 0.01V
+                                    if `delta_t`!=0. Default: None
+        :param v_reset:             np.array Nx1 vector of neuron reset potential in Volt. Default: -0.065V
+        :param v_rest:              np.array Nx1 vector of neuron resting potential in Volt. Default: -0.065V
 
-        :param capacity:       np.array Nx1 vector of neuron membrance capacity. Default: 100 pF
-        :param refractory: float Refractory period after each spike. Default: 0ms
+        :param capacity:            np.array Nx1 vector of neuron membrance capacity in nF.
+                                    Will be set to `tau_mem` * `conductance` if `None`. Default: `None`.
+        :param conductance:         np.array Nx1 vector of neuron leak conductance in nS. Default: 1.0
+        :param refractory:          float Refractory period after each spike in seconds. Default: 0.001
 
-        :param subthresh_adapt:              float or np.ndarray scaling for subthreshold adaptation. Default: 4.
-        :param spike_adapt:              float or np.ndarray additive value for spike triggered adaptation. Default: 80.5
-        :param delta_t:        float or np.ndarray scaling for exponential part of the activation function. Default: 2.
-        :param tau_adapt:          float or np.ndarray time constant for adaptation relaxation. Default: 144.0 ms
+        :param subthresh_adapt:     float or np.ndarray scaling for subthreshold adaptation in nS. Default: 4.
+        :param spike_adapt:         float or np.ndarray additive value for spike triggered adaptation in nA. Default: 80.5
+        :param delta_t:             float or np.ndarray scaling for exponential part of the activation function in Volt. Default: 2.
+        :param tau_adapt:           float or np.ndarray time constant for adaptation relaxation in seconds. Default: 0.144
 
 
         :param name:         str Name for the layer. Default: 'unnamed'
@@ -240,6 +247,50 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         # - Determine layer size and name to run `_expand_to_net_size` method
         self._size_in, self._size = np.atleast_2d(weights_in).shape
         self.name = name
+
+        # - Handle tau_mem, conductance and capacity
+        error_many_nones: str = (
+            f"RecAEIFSpkInNest `{self.name}`: Of the parameters `tau_mem`, "
+            + "`conductance`, and `capacity` only one can be `None`."
+            + "You may set `conductance` to 1 (nS)."
+        )  # Exception to be raised when more than one of the three parameters is `None`
+        if tau_mem is not None:
+            tau_mem = self._expand_to_net_size(
+                tau_mem, "tau_mem", allow_none=False
+            ).astype(float)
+            if conductance is not None:
+                self._conductance = self._expand_to_net_size(
+                    conductance, "conductance", allow_none=False
+                ).astype(float)
+                self._capacity = self._conductance * tau_mem
+                if capacity is not None:
+                    warn(
+                        f"RecAEIFSpkInNest `{self.name}`: The parameters `tau_mem`, "
+                        + "`conductance`, and `capacity` are not independent (`tau_mem` = "
+                        + "`capacity` / `conductance`). Will overwrite the value given for "
+                        + "`capacity` to `tau_mem` / `conductance`."
+                    )
+            elif capacity is not None:
+                self._capacity = self._expand_to_net_size(
+                    capacity, "capacity", allow_none=False
+                ).astype(float)
+                self._conductance = self._capacity / tau_mem
+            else:
+                raise ValueError(error_many_nones)
+        else:
+            if conductance is not None:
+                self._conductance = self._expand_to_net_size(
+                    conductance, "conductance", allow_none=False
+                ).astype(float)
+                if capacity is not None:
+                    self._capacity = self._expand_to_net_size(
+                        capacity, "capacity", allow_none=False
+                    ).astype(float)
+                    tau_mem = self._capacity / self._conductance
+                else:
+                    raise ValueError(error_many_nones)
+            else:
+                raise ValueError(error_many_nones)
 
         # - Prepare parameters that are specific to this class
         self._subthresh_adapt = self._expand_to_net_size(
@@ -262,7 +313,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             v_peak = self._expand_to_net_size(v_peak, "v_peak", allow_none=False)
             self._v_peak = v_peak.astype(float)
 
-        # - Call super constructor (`asarray` is used to strip units)
+        # - Call super constructor
         super().__init__(
             weights_in=weights_in,
             weights_rec=weights_rec,
@@ -277,7 +328,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             v_thresh=v_thresh,
             v_reset=v_reset,
             v_rest=v_rest,
-            capacity=capacity,
+            capacity=self._capacity,
             refractory=refractory,
             name=name,
             record=record,
@@ -298,10 +349,10 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             delay_rec=self._delay_rec,
             bias=self._bias,
             dt=self._dt,
-            tau_mem=self._tau_mem,
             tau_syn_exc=self._tau_syn_exc,
             tau_syn_inh=self._tau_syn_inh,
             capacity=self._capacity,
+            conductance=self._conductance,
             v_thresh=self._v_thresh,
             v_peak=self._v_peak,
             v_reset=self._v_reset,
@@ -334,12 +385,32 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         self.request_q.put([COMMAND_GET, "w"])
         return np.array(self.result_q.get())
 
-    @RecIAFSpkInNest.tau_mem.setter
-    def tau_mem(self, new_tau_mem):
-        new_tau_mem = self._expand_to_net_size(new_tau_mem, "tau_mem", allow_none=False)
-        new_tau_mem = new_tau_mem.astype(float)
-        self._tau_mem = new_tau_mem
-        self.request_q.put([COMMAND_SET, "g_L", self.capacity / s2ms(new_tau_mem)])
+    @property
+    def tau_mem(self):
+        return self.capacity / self.conductance
+
+    @tau_mem.setter
+    def tau_mem(self, new_tau):
+        new_tau = self._expand_to_net_size(new_tau, "tau_mem", allow_none=False)
+        self.capacity = self.conductance * new_tau.astype(float)
+        print(
+            f"RecAEIFSpkInNest `{self.name}`: `tau_mem` has been updated by modifying "
+            + "`capacity`. (`capacity` = `tau_mem` * `conductance`"
+        )
+        self._tau_mem = new_tau
+        self.request_q.put([COMMAND_SET, "C_m", self._conductance * new_tau])
+
+    @property
+    def conductance(self):
+        return self._conductance
+
+    @conductance.setter
+    def conductance(self, new_conductance):
+        new_conductance = self._expand_to_net_size(
+            new_conductance, "conductance", allow_none=False
+        ).astype(float)
+        self._conductance = new_conductance
+        self.request_q.put([COMMAND_SET, "g_L", new_conductance])
 
     @property
     def subthresh_adapt(self):
@@ -361,7 +432,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_b = self._expand_to_net_size(new_b, "spike_adapt", allow_none=False)
         new_b = new_b.astype(float)
         self._spike_adapt = new_b
-        self.request_q.put([COMMAND_SET, "b", V2mV(new_b)])
+        self.request_q.put([COMMAND_SET, "b", new_b])
 
     @property
     def delta_t(self):
@@ -383,7 +454,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_v_peak = self._expand_to_net_size(new_v_peak, "v_peak", allow_none=False)
         new_v_peak = new_v_peak.astype(float)
         self.v_peak = new_v_peak
-        self.request_q.put([COMMAND_SET, "V_peak", new_v_peak])
+        self.request_q.put([COMMAND_SET, "V_peak", V2mV(new_v_peak)])
 
     @property
     def tau_adapt(self):
