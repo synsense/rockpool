@@ -2116,7 +2116,7 @@ class TSEvent(TimeSeries):
         return self._channels
 
     @channels.setter
-    def channels(self, new_channels):
+    def channels(self, new_channels: np.ndarray):
         # - Check size of new data
         assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
             self.times
@@ -2131,10 +2131,10 @@ class TSEvent(TimeSeries):
             highest_channel = np.amax(new_channels)
             if self.num_channels <= highest_channel:
                 self.num_channels = highest_channel + 1
-                print(
-                    f"TSEvent `{self.name}`: `num_channels` has been increased "
-                    + f"to {self.num_channels}."
-                )
+                # print(
+                #     f"TSEvent `{self.name}`: `num_channels` has been increased "
+                #     + f"to {self.num_channels}."
+                # )
         # - Assign channels
         self._channels = new_channels
 
