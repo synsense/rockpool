@@ -79,8 +79,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             self.v_peak = V2mV(v_peak)
             self.a = a
             self.b = b
-            # self.delta_t = V2mV(delta_t)
-            self.delta_t = delta_t
+            self.delta_t = V2mV(delta_t)
             self.tau_w = s2ms(tau_w)
             self.conductance = conductance
 
@@ -137,7 +136,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         refractory: Union[float, np.ndarray] = 0.001,
         subthresh_adapt: Union[float, np.ndarray] = 4.0,
         spike_adapt: Union[float, np.ndarray] = 80.5,
-        delta_t: Union[float, np.ndarray] = 2.0,
+        delta_t: Union[float, np.ndarray] = 0.002,
         tau_adapt: Union[float, np.ndarray] = 0.144,
         name: str = "unnamed",
         record: bool = False,
@@ -176,7 +175,8 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
         :param subthresh_adapt:     float or np.ndarray scaling for subthreshold adaptation in nS. Default: 4.
         :param spike_adapt:         float or np.ndarray additive value for spike triggered adaptation in nA. Default: 80.5
-        :param delta_t:             float or np.ndarray scaling for exponential part of the activation function in Volt. Default: 2.
+        :param delta_t:             float or np.ndarray scaling for exponential part of the activation function in Volt.
+                                    Default: 0.002
         :param tau_adapt:           float or np.ndarray time constant for adaptation relaxation in seconds. Default: 0.144
 
 
@@ -384,7 +384,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_delta_t = self._expand_to_net_size(new_delta_t, "delta_t", allow_none=False)
         new_delta_t = new_delta_t.astype(float)
         self.delta_t = new_delta_t
-        self.request_q.put([COMMAND_SET, "Delta_T", new_delta_t])
+        self.request_q.put([COMMAND_SET, "Delta_T", V2mV(new_delta_t)])
 
     @property
     def v_peak(self):
