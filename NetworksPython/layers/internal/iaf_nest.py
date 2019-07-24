@@ -1,6 +1,6 @@
 import multiprocessing
 import importlib
-from typing import Optional, Union, List, Dict
+from typing import Optional, Union, List, Dict, Tuple
 
 import numpy as np
 
@@ -200,12 +200,17 @@ class _BaseNestProcess(multiprocessing.Process):
         update_existing_conn = np.logical_and(update_connection, connection_exists)
         idcs_pre_upd, idcs_post_upd = np.where(update_existing_conn)
         print("updating weights")
+        print("existing:", connection_exists)
+        print("upd_ex:", update_existing_conn)
         if idcs_pre_upd.size > 0:
             # - Extract existing connections that need to be updated
-            existing_conns = self.nest_module.GetConnections(
-                np.asarray(pop_pre)[np.unique(idcs_pre_upd)],
-                np.asarray(pop_post)[np.unique(idcs_post_upd)],
+            print(np.asarray(pop_pre)[np.unique(idcs_pre_upd)])
+            print(np.asarray(pop_post)[np.unique(idcs_post_upd)])
+            existing_conns: Tuple = self.nest_module.GetConnections(
+                list(np.asarray(pop_pre)[np.unique(idcs_pre_upd)]),
+                list(np.asarray(pop_post)[np.unique(idcs_post_upd)]),
             )
+            existing_conns = np.array(existing_conns)
             print("extracted connections")
             # - First global ID of each population
             id_start_pre = pop_pre[0]
@@ -237,8 +242,8 @@ class _BaseNestProcess(multiprocessing.Process):
         idcs_pre_new, idcs_post_new = np.where(
             np.logical_and(connection_exists == False, update_connection)
         )
-        print("creation of new connections")
         if idcs_pre_new.size > 0:
+            print("creation of new connections")
             if delays is not None:
                 # delays = delays[idcs_pre_new, idcs_post_new]
                 # - First global ID of each population
@@ -264,6 +269,7 @@ class _BaseNestProcess(multiprocessing.Process):
         if log_existing_conn:
             # - Mark new connections as existing
             connection_exists[(idcs_pre_new, idcs_post_new)] = True
+            print("existing new:", connection_exists)
 
     def init_nest(self):
         """init_nest - Initialize nest"""
@@ -364,6 +370,7 @@ class _BaseNestProcess(multiprocessing.Process):
         if connection_exists is not None:
             # - Mark new connections as existing
             connection_exists[(idcs_pre, idcs_post)] = True
+            print("existing: ", connection_exists)
 
     def run(self):
         """ start the process. Initializes the network, defines IPC commands and waits for commands. """
@@ -881,16 +888,29 @@ class RecIAFSpkInNest(FFIAFNest):
             """ IPC command for setting a parameter """
 
             if name == "weights_in":
+                print("updating input weights")
                 weights_old = self.weights_in.copy()
+                print("old weights: ", weights_old)
                 self.weights_in = V2mV(value)
+                print("new weights:", self.weights_in)
                 self.update_weights(
-                    self._sg, self._pop, self.weights_in, weights_old, self.delay_in
+                    pop_pre=self._sg,
+                    pop_post=self._pop,
+                    weights_new=self.weights_in,
+                    weights_old=weights_old,
+                    delays=self.delay_in,
+                    connection_exists=self.connection_in_exists,
                 )
             elif name == "weights_rec":
                 weights_old = self.weights_rec.copy()
                 self.weights_rec = V2mV(value)
                 self.update_weights(
-                    self._pop, self._pop, self.weights_rec, weights_old, self.delay_rec
+                    pop_pre=self._pop,
+                    pop_post=self._pop,
+                    weights_new=self.weights_rec,
+                    weights_old=weights_old,
+                    delays=self.delay_rec,
+                    connection_exists=self.connection_rec_exists,
                 )
             else:
                 super().set_param(name, value)

@@ -166,9 +166,21 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         def set_all_connections(self):
             """Set input connections and recurrent connections"""
             # - Input connections
-            self.set_connections(self._sg, self._pop, self.weights_in, self.delay_in)
+            self.set_connections(
+                pop_pre=self._sg,
+                pop_post=self._pop,
+                weights=self.weights_in,
+                delays=self.delay_in,
+                connection_exists=self.connection_in_exists,
+            )
             # - Recurrent connections
-            self.set_connections(self._pop, self._pop, self.weights_rec, self.delay_rec)
+            self.set_connections(
+                pop_pre=self._pop,
+                pop_post=self._pop,
+                weights=self.weights_rec,
+                delays=self.delay_rec,
+                connection_exists=self.connection_rec_exists,
+            )
 
     # - Default difference between v_peak and v_thresh when v_peak not set and
     #   delta_t != 0
