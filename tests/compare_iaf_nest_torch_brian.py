@@ -108,8 +108,41 @@ rlAEN = RecAEIFSpkInNest(
     record=True,
 )
 
-# TO DO: compare virtual dynaspse
+
+neurons_vd = [3, 300, 513]
+inputs_vd = [4, 5]
 vd = VirtualDynapse(
+    has_tau_mem_2=False,
+    dt=dt,
+    v_thresh=v_thresh - v_rest,
+    tau_mem_1=list(tau_mem) + 13 * [0.02],
+    tau_syn_exc=list(tau_syn) + 13 * [0.05],
+    tau_syn_inh=list(tau_syn) + 13 * [0.05],
+    bias=list(bias) + 13 * [0],
+    baseweight_e=baseweight,
+    baseweight_i=baseweight,
+    refractory=refractory,
+    delta_t=0,
+    spike_adapt=0,
+    mismatch=False,
+    record=True,
+)
+vd.set_connections(
+    connections=weights_in_quant,
+    ids_pre=inputs_vd,
+    neurons_post=neurons_vd,
+    external=True,
+    add=False,
+)
+vd.set_connections(
+    connections=weights_rec_quant,
+    ids_pre=neurons_vd,
+    neurons_post=neurons_vd,
+    external=False,
+    add=False,
+)
+# - Another virtual dyanpse, where parameters are set after instantiation
+vd0 = VirtualDynapse(
     has_tau_mem_2=False,
     dt=dt,
     v_thresh=v_thresh - v_rest,
@@ -119,21 +152,26 @@ vd = VirtualDynapse(
     mismatch=False,
     record=True,
 )
-neurons_vd = [3, 300, 513]
-inputs_vd = [4, 5]
-vd.set_connections(
+vd0.set_connections(
     connections=weights_in_quant,
     ids_pre=inputs_vd,
     neurons_post=neurons_vd,
     external=True,
     add=False,
 )
-# Set parameters for vd
-vd.baseweight_e[:3] = vd.baseweight_i[:3] = 0.1
-vd.bias[:3] = bias
-vd.tau_mem_1[:3] = tau_mem
-vd.tau_syn_exc[:3] = tau_syn
-vd.tau_syn_inh[:3] = tau_syn
+vd0.set_connections(
+    connections=weights_rec_quant,
+    ids_pre=neurons_vd,
+    neurons_post=neurons_vd,
+    external=False,
+    add=False,
+)
+# Set parameters for vd and vd0
+vd0.baseweight_e[:3] = vd.baseweight_i[:3] = baseweight
+vd0.bias[:3] = bias
+vd0.tau_mem_1[:3] = tau_mem
+vd0.tau_syn_exc[:3] = tau_syn
+vd0.tau_syn_inh[:3] = tau_syn
 
 
 # - Input signal
@@ -148,13 +186,16 @@ tsAEN = rlAEN.evolve(tsInEvt, duration=0.5)
 tsVD = vd.evolve(
     tsInEvt, duration=0.5, ids_in=inputs_vd, ids_out=neurons_vd, remap_out_channels=True
 )
+tsVD0 = vd0.evolve(
+    tsInEvt, duration=0.5, ids_in=inputs_vd, ids_out=neurons_vd, remap_out_channels=True
+)
 
 # - Plot spike patterns
 plt.figure()
 for ts, col in zip(
-    (tsB, tsTR, tsN, tsAEN, tsVD), ("blue", "green", "red", "purple", "yellow")
+    (tsB, tsTR, tsN, tsAEN, tsVD), ("blue", "green", "red", "purple", "orange")
 ):
-    ts.plot(color=col)
+    ts.plot(color=col, marker="x")
 
 # - Plot states
 plt.figure()
@@ -167,6 +208,6 @@ plt.plot(
 )
 plt.plot(
     np.arange(vd.recorded_states.shape[0]) * dt,
-    vd.recorded_states[:, neurons_vd],
+    vd.recorded_states[:, neurons_vd] + v_rest,
     color="orange",
 )

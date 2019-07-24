@@ -4,6 +4,110 @@ from NetworksPython.layers import VirtualDynapse
 from NetworksPython import TSEvent
 
 
+def test_change_baseweight():
+    np.random.seed(1)
+    neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
+    ids_row, ids_col = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
+    connections_ext = np.random.randint(2, size=(3, 8))
+    connections_rec = 2 * np.random.randint(2, size=(8, 8))
+    connections_rec_full = np.zeros((3300, 3250))
+    connections_rec_full[ids_row, ids_col] = connections_rec
+    connections_ext_full = np.zeros((100, 3300))
+    connections_ext_full[
+        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
+    ] = connections_ext
+    bias = np.random.rand(16) * 1
+    v_thresh = np.random.randn(16) * 0.02 + 0.05
+    refractory = np.random.rand(16) * 0.01
+    tau_mem_1 = np.random.rand(16) * 0.1
+    tau_mem_2 = np.random.rand(16) * 0.1
+    has_tau_mem_2 = np.random.randint(2, size=4096).astype(bool)
+    tau_syn_exc = np.random.rand(16) * 0.1
+    tau_syn_inh = np.random.rand(16) * 0.1
+
+    # - Layer generation
+    vd = VirtualDynapse(
+        connections_ext=connections_ext_full,
+        connections_rec=connections_rec_full,
+        bias=bias,
+        tau_mem_1=tau_mem_1,
+        tau_mem_2=tau_mem_2,
+        has_tau_mem_2=has_tau_mem_2,
+        v_thresh=v_thresh,
+        refractory=refractory,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        dt=0.01,
+        baseweight_e=0.2,
+        baseweight_i=0.25,
+    )
+
+    # - Layer generation
+    vd0 = VirtualDynapse(
+        connections_ext=connections_ext_full,
+        connections_rec=connections_rec_full,
+        bias=bias,
+        tau_mem_1=tau_mem_1,
+        tau_mem_2=tau_mem_2,
+        has_tau_mem_2=has_tau_mem_2,
+        v_thresh=v_thresh,
+        refractory=refractory,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        dt=0.01,
+        baseweight_e=0.1,
+        baseweight_i=0.1,
+    )
+    vd0.baseweight_e = 0.2
+    vd0.baseweight_i[:] = 0.25
+
+    # - Input signal
+    ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
+
+    # - Compare states and time before and after
+    vd.evolve(ts_input, duration=0.1)
+    vd0.evolve(ts_input, duration=0.1)
+    assert (vd0.state == vd.state).all()
+
+
+def test_item_assignment():
+    vd = VirtualDynapse(mismatch=False)
+    v_thresh_orig = vd.v_thresh.copy()
+    v_thresh_orig_ = vd.v_thresh_.copy()
+    # - Try wrong assignment of neuron parameters
+    try:
+        vd.v_thresh_[0] = 0.0
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("Did not detect wrong assignment of neuron parameter")
+    assert (v_thresh_orig_ == vd.v_thresh_).all()
+    assert (v_thresh_orig == vd.v_thresh).all()
+    # - Correct assignment: Core-wise
+    # Single core
+    vd.v_thresh[0] = 0.02
+    assert vd.v_thresh[0] == 0.02
+    assert vd._v_thresh[0] == 0.02
+    assert (vd.v_thresh_[:256] == 0.02).all()
+    assert (vd._simulator.v_thresh[:256] == 0.02).all()
+    # All cores
+    vd.v_thresh = 0.03
+    assert (vd._v_thresh == 0.03).all()
+    assert (vd.v_thresh == 0.03).all()
+    assert (vd.v_thresh_ == 0.03).all()
+    assert (vd._simulator.v_thresh == 0.03).all()
+
+    # - Assigning different time constants
+    tau_mem_correct = vd.tau_mem_.copy()
+    vd.tau_mem_2 = 0.001
+    vd.has_tau_mem_2[2500:3000] = True
+    tau_mem_correct[2500:3000] = 0.001
+    assert (vd.tau_mem_ == tau_mem_correct).all()
+    vd.tau_mem_2[8:] = 0.0015
+    tau_mem_correct[8 * 256 : 3000] = 0.0015
+    assert (vd.tau_mem_ == tau_mem_correct).all()
+
+
 def test_evolve():
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
@@ -21,7 +125,7 @@ def test_evolve():
     refractory = np.random.rand(16) * 0.01
     tau_mem_1 = np.random.rand(16) * 0.1
     tau_mem_2 = np.random.rand(16) * 0.1
-    has_tau2 = np.random.randint(2, size=4096).astype(bool)
+    has_tau_mem_2 = np.random.randint(2, size=4096).astype(bool)
     tau_syn_exc = np.random.rand(16) * 0.1
     tau_syn_inh = np.random.rand(16) * 0.1
 
@@ -32,13 +136,21 @@ def test_evolve():
         bias=bias,
         tau_mem_1=tau_mem_1,
         tau_mem_2=tau_mem_2,
-        has_tau2=has_tau2,
+        has_tau_mem_2=has_tau_mem_2,
         v_thresh=v_thresh,
         refractory=refractory,
         tau_syn_exc=tau_syn_exc,
         tau_syn_inh=tau_syn_inh,
+        baseweight_e=0.1,
+        baseweight_i=0.1,
         dt=0.01,
     )
+
+    # - Test get_weights method
+    weights_lyr_ext = vd.get_weights(np.arange(3) + 5, neuron_ids, external=True)
+    weights_lyr_rec = vd.get_weights(neuron_ids, neuron_ids, external=False)
+    assert weights_lyr_ext == connections_ext * 0.1
+    assert weights_lyr_rec == connections_rec * 0.1
 
     # - Input signal
     ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
@@ -54,54 +166,54 @@ def test_evolve():
     assert (state_before == vd.state).all()
 
 
-def test_smaller():
-    np.random.seed(1)
-    neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
-    ids_row, ids_col = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
-    connections_ext = np.random.randint(2, size=(3, 8))
-    connections_rec = 2 * np.random.randint(2, size=(8, 8))
-    connections_rec_full = np.zeros((3300, 3250))
-    connections_rec_full[ids_row, ids_col] = connections_rec
-    connections_ext_full = np.zeros((100, 3300))
-    connections_ext_full[
-        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
-    ] = connections_ext
-    bias = np.random.rand(16) * 1
-    v_thresh = np.random.randn(16) * 0.02 + 0.05
-    refractory = np.random.rand(16) * 0.01
-    tau_mem_1 = np.random.rand(16) * 0.1
-    tau_mem_2 = np.random.rand(16) * 0.1
-    has_tau2 = np.random.randint(2, size=4096).astype(bool)
-    tau_syn_exc = np.random.rand(16) * 0.1
-    tau_syn_inh = np.random.rand(16) * 0.1
+# def test_smaller():
+#     np.random.seed(1)
+#     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
+#     ids_row, ids_col = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
+#     connections_ext = np.random.randint(2, size=(3, 8))
+#     connections_rec = 2 * np.random.randint(2, size=(8, 8))
+#     connections_rec_full = np.zeros((3300, 3250))
+#     connections_rec_full[ids_row, ids_col] = connections_rec
+#     connections_ext_full = np.zeros((100, 3300))
+#     connections_ext_full[
+#         np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
+#     ] = connections_ext
+#     bias = np.random.rand(16) * 1
+#     v_thresh = np.random.randn(16) * 0.02 + 0.05
+#     refractory = np.random.rand(16) * 0.01
+#     tau_mem_1 = np.random.rand(16) * 0.1
+#     tau_mem_2 = np.random.rand(16) * 0.1
+#     has_tau_mem_2 = np.random.randint(2, size=4096).astype(bool)
+#     tau_syn_exc = np.random.rand(16) * 0.1
+#     tau_syn_inh = np.random.rand(16) * 0.1
 
-    # - Layer generation
-    vd = VirtualDynapse(
-        connections_ext=connections_ext_full,
-        connections_rec=connections_rec_full,
-        bias=bias,
-        tau_mem_1=tau_mem_1,
-        tau_mem_2=tau_mem_2,
-        has_tau2=has_tau2,
-        v_thresh=v_thresh,
-        refractory=refractory,
-        tau_syn_exc=tau_syn_exc,
-        tau_syn_inh=tau_syn_inh,
-        dt=0.01,
-    )
+#     # - Layer generation
+#     vd = VirtualDynapse(
+#         connections_ext=connections_ext_full,
+#         connections_rec=connections_rec_full,
+#         bias=bias,
+#         tau_mem_1=tau_mem_1,
+#         tau_mem_2=tau_mem_2,
+#         has_tau_mem_2=has_tau_mem_2,
+#         v_thresh=v_thresh,
+#         refractory=refractory,
+#         tau_syn_exc=tau_syn_exc,
+#         tau_syn_inh=tau_syn_inh,
+#         dt=0.01,
+#     )
 
-    # - Input signal
-    ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
+#     # - Input signal
+#     ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
 
-    # - Compare states and time before and after
-    state_before = np.copy(vd.state)
-    vd.evolve(ts_input, duration=0.1)
-    assert vd.t == 0.1
-    assert (state_before != vd.state).any()
+#     # - Compare states and time before and after
+#     state_before = np.copy(vd.state)
+#     vd.evolve(ts_input, duration=0.1)
+#     assert vd.t == 0.1
+#     assert (state_before != vd.state).any()
 
-    vd.reset_all()
-    assert vd.t == 0
-    assert (state_before == vd.state).all()
+#     vd.reset_all()
+#     assert vd.t == 0
+#     assert (state_before == vd.state).all()
 
 
 def test_conn_validation():

@@ -50,14 +50,7 @@ class ModifiedArray(np.ndarray):
                using normal ndarrays.
     """
 
-    def __new__(
-        cls,
-        arraylike: ArrayLike,
-        owner: Any = None,
-        assign_method: Optional[Callable] = None,
-        value_as_arg: bool = False,
-        **kwargs,
-    ):
+    def __new__(cls, arraylike: ArrayLike, owner: Any, name: str):
         """
         ___new__ - Customize instance creation. Necessary for custom subclasses of
                    np.ndarray. Create new object as view on existing ndarray or on a new
@@ -69,8 +62,8 @@ class ModifiedArray(np.ndarray):
                    reference.
         :param arraylike:       Array-like object or torch tensor to be copied.
         :param owner:           Object that owns `arraylike`
+        :param name:            Name of `arraylike`
         :param assign_method:   Function that is called after item assignment
-        :param kwargs:          Kwargs that are passed to `assign_method` after item assignment
         :return:
             obj  np.ndarray  Numpy array upon which new instance will be based
         """
@@ -79,9 +72,7 @@ class ModifiedArray(np.ndarray):
         # Store reference to original arraylike
         obj._reference = arraylike
         obj._owner = owner
-        obj._assign_method = assign_method
-        obj._value_as_arg = value_as_arg
-        obj._kwargs = kwargs
+        obj._name = name
         return obj
 
     def __array_finalize(self, obj: np.ndarray):
@@ -93,23 +84,15 @@ class ModifiedArray(np.ndarray):
         # - Store reference to third object as attribute of self
         self._reference = getattr(obj, "_reference")
         self._owner = getattr(obj, "_owner")
-        self._assign_method = getattr(obj, "_assign_method")
-        self._value_as_arg = getattr(obj, "_value_as_arg")
-        self._kwargs = getattr(obj, "_kwargs")
+        self._name = getattr(obj, "_name")
 
     def __setitem__(self, position, value):
         """
         ___setitem___ - Update items of self and of self.reference in the same way.
         """
         super().__setitem__(position, value)
-        # - Update data in self.reference
-        self._reference[position] = value
-        if self._assign_method is not None:
-            # - Call custom method
-            if self._value_as_arg:
-                self._assign_method(self.copy(), **self._kwargs)
-            else:
-                self._assign_method(**self._kwargs)
+        # - Update data in owner
+        setattr(self._owner, self._name, self.copy())
 
     def copy(self):
         """copy - Return np.ndarray as copy to get original __setitem__ method."""
@@ -1005,18 +988,12 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_rec(self):
-        return ModifiedArray(
-            self._connections_rec,
-            owner=self,
-            assign_method=self._update_weights,
-            external=False,
-            recurrent=True,
-        )
+        return ModifiedArray(self._connections_rec, owner=self, name="connections_rec")
 
     @connections_rec.setter
     def connections_rec(self, connections_new: Optional[np.ndarray]):
         # - Bring connections into correct shape
-        connections_new = self._process_connections(connections_new, external=True)
+        connections_new = self._process_connections(connections_new, external=False)
         # - Make sure that connections have match hardware specifications
         if (
             self.validate_connections(
@@ -1027,7 +1004,7 @@ class VirtualDynapse(Layer):
                 validate_fanout=self.validate_fanout,
                 validate_aliasing=self.validate_aliasing,
             )
-            != CONNECTIONS_VALID
+            == CONNECTIONS_VALID
         ):
             # - Update connections
             self._connections_rec = connections_new
@@ -1040,13 +1017,7 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_ext(self):
-        return ModifiedArray(
-            self._connections_ext,
-            owner=self,
-            assign_method=self._update_weights,
-            external=True,
-            recurrent=False,
-        )
+        return ModifiedArray(self._connections_ext, owner=self, name="connections_ext")
 
     @connections_ext.setter
     def connections_ext(self, connections_new: Optional[np.ndarray]):
@@ -1062,16 +1033,16 @@ class VirtualDynapse(Layer):
                 validate_fanout=self.validate_fanout,
                 validate_aliasing=self.validate_aliasing,
             )
-            != CONNECTIONS_VALID
+            == CONNECTIONS_VALID
         ):
-            raise ValueError(
-                self.start_print + "Connections not compatible with hardware."
-            )
-        else:
             # - Update connections
             self._connections_ext = connections_new
             # - Update weights accordingly
             self._update_weights(external=True, recurrent=False)
+        else:
+            raise ValueError(
+                self.start_print + "Connections not compatible with hardware."
+            )
 
     @property
     def weights(self):
@@ -1091,13 +1062,7 @@ class VirtualDynapse(Layer):
 
     @property
     def baseweight_e(self):
-        return ModifiedArray(
-            self._baseweight_e,
-            owner=self,
-            assign_method=self._update_weights,
-            external=True,
-            recurrent=True,
-        )
+        return ModifiedArray(self._baseweight_e, owner=self, name="baseweight_e")
 
     @baseweight_e.setter
     def baseweight_e(self, baseweight_new: Union[float, ArrayLike]):
@@ -1108,13 +1073,7 @@ class VirtualDynapse(Layer):
 
     @property
     def baseweight_i(self):
-        return ModifiedArray(
-            self._baseweight_i,
-            owner=self,
-            assign_method=self._update_weights,
-            external=True,
-            recurrent=True,
-        )
+        return ModifiedArray(self._baseweight_i, owner=self, name="baseweight_i")
 
     @baseweight_i.setter
     def baseweight_i(self, baseweight_new: Union[float, ArrayLike]):
@@ -1131,14 +1090,7 @@ class VirtualDynapse(Layer):
 
     @property
     def bias(self):
-        return ModifiedArray(
-            self._bias,
-            owner=self,
-            assign_method=self._update_parameter,
-            value_as_arg=True,
-            name="bias",
-            nonnegative=True,
-        )
+        return ModifiedArray(self._bias, owner=self, name="bias")
 
     @bias.setter
     def bias(self, bias_new: Union[float, ArrayLike]):
@@ -1148,14 +1100,7 @@ class VirtualDynapse(Layer):
 
     @property
     def refractory(self):
-        return ModifiedArray(
-            self._refractory,
-            owner=self,
-            assign_method=self._update_parameter,
-            value_as_arg=True,
-            name="refractory",
-            nonnegative=True,
-        )
+        return ModifiedArray(self._refractory, owner=self, name="refractory")
 
     @property
     def refractory_(self):
@@ -1171,14 +1116,7 @@ class VirtualDynapse(Layer):
 
     @property
     def v_thresh(self):
-        return ModifiedArray(
-            self._v_thresh,
-            owner=self,
-            assign_method=self._update_parameter,
-            value_as_arg=True,
-            name="v_thresh",
-            nonnegative=True,
-        )
+        return ModifiedArray(self._v_thresh, owner=self, name="v_thresh")
 
     @property
     def v_thresh_(self):
@@ -1194,14 +1132,7 @@ class VirtualDynapse(Layer):
 
     @property
     def delta_t(self):
-        return ModifiedArray(
-            self._delta_t,
-            owner=self,
-            assign_method=self._update_parameter,
-            value_as_arg=True,
-            name="delta_t",
-            nonnegative=True,
-        )
+        return ModifiedArray(self._delta_t, owner=self, name="delta_t")
 
     @property
     def delta_t_(self):
@@ -1217,14 +1148,7 @@ class VirtualDynapse(Layer):
 
     @property
     def spike_adapt(self):
-        return ModifiedArray(
-            self._spike_adapt,
-            owner=self,
-            assign_method=self._update_parameter,
-            value_as_arg=True,
-            name="spike_adapt",
-            nonnegative=True,
-        )
+        return ModifiedArray(self._spike_adapt, owner=self, name="spike_adapt")
 
     @property
     def spike_adapt_(self):
@@ -1241,14 +1165,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_adapt(self):
-        return ModifiedArray(
-            self._tau_adapt,
-            owner=self,
-            assign_method=self._update_parameter,
-            value_as_arg=True,
-            name="tau_adapt",
-            nonnegative=True,
-        )
+        return ModifiedArray(self._tau_adapt, owner=self, name="tau_adapt")
 
     @property
     def tau_adapt_(self):
@@ -1264,13 +1181,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_1(self):
-        def assign_method(new_val: np.ndarray):
-            self._update_parameter(new_val, name="tau_mem_1", nonnegative=True)
-            self._simulator.tau_mem = self._tau_mem_
-
-        return ModifiedArray(
-            self._tau_mem_1, owner=self, assign_method=assign_method, value_as_arg=True
-        )
+        return ModifiedArray(self._tau_mem_1, owner=self, name="tau_mem_1")
 
     @tau_mem_1.setter
     def tau_mem_1(self, tau_mem_1_new: Union[float, ArrayLike]):
@@ -1282,13 +1193,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_2(self):
-        def assign_method(new_val: np.ndarray):
-            self._update_parameter(new_val, name="tau_mem_2", nonnegative=True)
-            self._simulator.tau_mem = self._tau_mem_
-
-        return ModifiedArray(
-            self._tau_mem_2, owner=self, assign_method=assign_method, value_as_arg=True
-        )
+        return ModifiedArray(self._tau_mem_2, owner=self, name="tau_mem_2")
 
     @tau_mem_2.setter
     def tau_mem_2(self, tau_mem_2_new: Union[float, ArrayLike]):
@@ -1300,19 +1205,7 @@ class VirtualDynapse(Layer):
 
     @property
     def has_tau_mem_2(self):
-        # def assign_method(new_val: np.ndarray):
-        #     new_hastau = self._expand_to_size(
-        #         new_val, self.num_neurons, "has_tau_mem_2", False
-        #     )
-        def assign_method(new_val):
-            self.has_tau_mem_2 = new_val
-
-        return ModifiedArray(
-            self._has_tau_mem_2,
-            owner=self,
-            assign_method=assign_method,
-            value_as_arg=True,
-        )
+        return ModifiedArray(self._has_tau_mem_2, owner=self, name="has_tau_mem_2")
 
     @has_tau_mem_2.setter
     def has_tau_mem_2(self, new_has_tau_mem_2: Union[bool, ArrayLike]):
@@ -1344,7 +1237,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_syn_exc(self):
-        return self._tau_syn_exc
+        return ModifiedArray(self._tau_syn_exc, owner=self, name="tau_syn_exc")
 
     @property
     def tau_syn_exc_(self):
@@ -1361,7 +1254,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_syn_inh(self):
-        return self._tau_syn_inh
+        return ModifiedArray(self._tau_syn_inh, owner=self, name="tau_syn_inh")
 
     @property
     def tau_syn_inh_(self):
