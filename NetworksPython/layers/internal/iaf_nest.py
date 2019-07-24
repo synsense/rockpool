@@ -400,6 +400,147 @@ class _BaseNestProcess(multiprocessing.Process):
             print("continuing")
 
 
+class _BaseNestProcessSpkInRec(_BaseNestProcess):
+    """ Class for running NEST in its own process """
+
+    def __init__(
+        self,
+        request_q,
+        result_q,
+        weights_in: np.ndarray,
+        weights_rec: np.ndarray,
+        delay_in: Union[float, np.ndarray],
+        delay_rec: Union[float, np.ndarray],
+        bias: Union[float, np.ndarray],
+        dt: float,
+        model: str,
+        tau_syn_exc: Union[float, np.ndarray],
+        tau_syn_inh: Union[float, np.ndarray],
+        capacity: Union[float, np.ndarray],
+        v_thresh: Union[float, np.ndarray],
+        v_reset: Union[float, np.ndarray],
+        v_rest: Union[float, np.ndarray],
+        refractory: Union[float, np.ndarray],
+        record: bool = False,
+        num_cores: int = 1,
+    ):
+        """initializes the process """
+        super().__init__(
+            request_q=request_q,
+            result_q=result_q,
+            bias=bias,
+            dt=dt,
+            capacity=capacity,
+            v_thresh=v_thresh,
+            v_reset=v_reset,
+            v_rest=v_rest,
+            refractory=refractory,
+            record=record,
+            num_cores=num_cores,
+            model=model,
+        )
+
+        # - Record weights and layer-specific parameters
+        self.weights_in = V2mV(weights_in)
+        self.weights_rec = V2mV(weights_rec)
+        self.size = np.shape(weights_in)[1]
+        self.delay_in = s2ms(delay_in)
+        self.delay_rec = s2ms(delay_rec)
+        self.tau_syn_exc = s2ms(tau_syn_exc)
+        self.tau_syn_inh = s2ms(tau_syn_inh)
+        # - Keep track of existing connections for more efficient weight updates
+        self.connection_rec_exists = np.zeros_like(weights_rec, bool)
+        self.connection_in_exists = np.zeros_like(weights_in, bool)
+
+    ######### DEFINE IPC COMMANDS ######
+
+    def set_param(self, name, value):
+        """ IPC command for setting a parameter """
+
+        if name == "weights_in":
+            print("updating input weights")
+            weights_old = self.weights_in.copy()
+            print("old weights: ", weights_old)
+            self.weights_in = V2mV(value)
+            print("new weights:", self.weights_in)
+            self.update_weights(
+                pop_pre=self._sg,
+                pop_post=self._pop,
+                weights_new=self.weights_in,
+                weights_old=weights_old,
+                delays=self.delay_in,
+                connection_exists=self.connection_in_exists,
+            )
+        elif name == "weights_rec":
+            weights_old = self.weights_rec.copy()
+            self.weights_rec = V2mV(value)
+            self.update_weights(
+                pop_pre=self._pop,
+                pop_post=self._pop,
+                weights_new=self.weights_rec,
+                weights_old=weights_old,
+                delays=self.delay_rec,
+                connection_exists=self.connection_rec_exists,
+            )
+        else:
+            super().set_param(name, value)
+
+    def evolve(
+        self, event_times, event_channels, num_timesteps: Optional[int] = None
+    ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+        """ IPC command running the network for num_timesteps with input_steps as input """
+        print("evolve called")
+        if len(event_channels > 0):
+            # convert input index to NEST id
+            event_channels += np.min(self._sg)
+
+            # NEST time starts with 1 (not with 0)
+            self.nest_module.SetStatus(
+                self._sg,
+                [
+                    {"spike_times": s2ms(event_times[event_channels == i])}
+                    for i in self._sg
+                ],
+            )
+        print("calling inner evolve")
+        return self.evolve_nest(num_timesteps)
+
+    def setup_nest_network(self):
+        # - Add stimulation device
+        self._sg = self.nest_module.Create("spike_generator", self.weights_in.shape[0])
+
+        super().setup_nest_network()
+
+    def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
+        """init_nest_params - Initialize nest neuron parameters and return as list"""
+
+        params = super().generate_nest_params_list()
+        for n in range(self.size):
+            params[n]["tau_syn_ex"] = self.tau_syn_exc[n]
+            params[n]["tau_syn_in"] = self.tau_syn_inh[n]
+
+        return params
+
+    def set_all_connections(self):
+        """Set input connections and recurrent connections"""
+        # - Input connections
+        self.set_connections(
+            pop_pre=self._sg,
+            pop_post=self._pop,
+            weights=self.weights_in,
+            delays=self.delay_in,
+            connection_exists=self.connection_in_exists,
+        )
+        # - Recurrent connections
+        self.set_connections(
+            pop_pre=self._pop,
+            pop_post=self._pop,
+            weights=self.weights_rec,
+            delays=self.delay_rec,
+            connection_exists=self.connection_rec_exists,
+        )
+
+
 # - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
 class FFIAFNest(Layer):
     """ FFIAFNest - Class: define a spiking feedforward layer with spiking outputs
@@ -829,8 +970,8 @@ class RecIAFSpkInNest(FFIAFNest):
     """ RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
     """
 
-    class NestProcess(_BaseNestProcess):
-        """ Class for running NEST in its own process """
+    class NestProcess(_BaseNestProcessSpkInRec):
+        """ Baseclass for running NEST in its own process (recurrent layers, spike input)"""
 
         def __init__(
             self,
@@ -857,8 +998,14 @@ class RecIAFSpkInNest(FFIAFNest):
             super().__init__(
                 request_q=request_q,
                 result_q=result_q,
+                weights_in=weights_in,
+                weights_rec=weights_rec,
+                delay_in=delay_in,
+                delay_rec=delay_rec,
                 bias=bias,
                 dt=dt,
+                tau_syn_exc=tau_syn_exc,
+                tau_syn_inh=tau_syn_inh,
                 capacity=capacity,
                 v_thresh=v_thresh,
                 v_reset=v_reset,
@@ -869,109 +1016,17 @@ class RecIAFSpkInNest(FFIAFNest):
                 model="iaf_psc_exp",
             )
 
-            # - Record weights and layer-specific parameters
-            self.weights_in = V2mV(weights_in)
-            self.weights_rec = V2mV(weights_rec)
-            self.size = np.shape(weights_in)[1]
-            self.delay_in = s2ms(delay_in)
-            self.delay_rec = s2ms(delay_rec)
-            self.tau_syn_exc = s2ms(tau_syn_exc)
+            # - Record layer-specific parameters
             self.tau_mem = s2ms(tau_mem)
-            self.tau_syn_inh = s2ms(tau_syn_inh)
-            # - Keep track of existing connections for more efficient weight updates
-            self.connection_rec_exists = np.zeros_like(weights_rec, bool)
-            self.connection_in_exists = np.zeros_like(weights_in, bool)
-
-        ######### DEFINE IPC COMMANDS ######
-
-        def set_param(self, name, value):
-            """ IPC command for setting a parameter """
-
-            if name == "weights_in":
-                print("updating input weights")
-                weights_old = self.weights_in.copy()
-                print("old weights: ", weights_old)
-                self.weights_in = V2mV(value)
-                print("new weights:", self.weights_in)
-                self.update_weights(
-                    pop_pre=self._sg,
-                    pop_post=self._pop,
-                    weights_new=self.weights_in,
-                    weights_old=weights_old,
-                    delays=self.delay_in,
-                    connection_exists=self.connection_in_exists,
-                )
-            elif name == "weights_rec":
-                weights_old = self.weights_rec.copy()
-                self.weights_rec = V2mV(value)
-                self.update_weights(
-                    pop_pre=self._pop,
-                    pop_post=self._pop,
-                    weights_new=self.weights_rec,
-                    weights_old=weights_old,
-                    delays=self.delay_rec,
-                    connection_exists=self.connection_rec_exists,
-                )
-            else:
-                super().set_param(name, value)
-
-        def evolve(
-            self, event_times, event_channels, num_timesteps: Optional[int] = None
-        ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-            """ IPC command running the network for num_timesteps with input_steps as input """
-            print("evolve called")
-            if len(event_channels > 0):
-                # convert input index to NEST id
-                event_channels += np.min(self._sg)
-
-                # NEST time starts with 1 (not with 0)
-                self.nest_module.SetStatus(
-                    self._sg,
-                    [
-                        {"spike_times": s2ms(event_times[event_channels == i])}
-                        for i in self._sg
-                    ],
-                )
-            print("calling inner evolve")
-            return self.evolve_nest(num_timesteps)
-
-        def setup_nest_network(self):
-            # - Add stimulation device
-            self._sg = self.nest_module.Create(
-                "spike_generator", self.weights_in.shape[0]
-            )
-
-            super().setup_nest_network()
 
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
             """init_nest_params - Initialize nest neuron parameters and return as list"""
 
             params = super().generate_nest_params_list()
             for n in range(self.size):
-                params[n]["tau_syn_ex"] = self.tau_syn_exc[n]
-                params[n]["tau_syn_in"] = self.tau_syn_inh[n]
                 params[n]["tau_m"] = self.tau_mem[n]
 
             return params
-
-        def set_all_connections(self):
-            """Set input connections and recurrent connections"""
-            # - Input connections
-            self.set_connections(
-                pop_pre=self._sg,
-                pop_post=self._pop,
-                weights=self.weights_in,
-                delays=self.delay_in,
-                connection_exists=self.connection_in_exists,
-            )
-            # - Recurrent connections
-            self.set_connections(
-                pop_pre=self._pop,
-                pop_post=self._pop,
-                weights=self.weights_rec,
-                delays=self.delay_rec,
-                connection_exists=self.connection_rec_exists,
-            )
 
     ## - Constructor
     def __init__(

@@ -7,7 +7,7 @@ import numpy as np
 
 from .iaf_nest import (
     RecIAFSpkInNest,
-    _BaseNestProcess,
+    _BaseNestProcessSpkInRec,
     s2ms,
     V2mV,
     COMMAND_GET,
@@ -24,7 +24,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     """ RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
     """
 
-    class NestProcess(_BaseNestProcess):
+    class NestProcess(_BaseNestProcessSpkInRec):
         """ Class for running NEST in its own process """
 
         def __init__(
@@ -57,8 +57,14 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             super().__init__(
                 request_q=request_q,
                 result_q=result_q,
+                weights_in=weights_in,
+                weights_rec=weights_rec,
+                delay_in=delay_in,
+                delay_rec=delay_rec,
                 bias=bias,
                 dt=dt,
+                tau_syn_exc=tau_syn_exc,
+                tau_syn_inh=tau_syn_inh,
                 capacity=capacity,
                 v_thresh=v_thresh,
                 v_reset=v_reset,
@@ -70,13 +76,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             )
 
             # - Record weights and layer-specific parameters
-            self.weights_in = V2mV(weights_in)
-            self.weights_rec = V2mV(weights_rec)
-            self.size = np.shape(weights_in)[1]
-            self.delay_in = s2ms(delay_in)
-            self.delay_rec = s2ms(delay_rec)
-            self.tau_syn_exc = s2ms(tau_syn_exc)
-            self.tau_syn_inh = s2ms(tau_syn_inh)
             self.v_peak = V2mV(v_peak)
             self.a = a
             self.b = b
@@ -86,24 +85,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             self.conductance = conductance
 
         ######### DEFINE IPC COMMANDS ######
-
-        def set_param(self, name, value):
-            """ IPC command for setting a parameter """
-
-            if name == "weights_in":
-                weights_old = self.weights_in.copy()
-                self.weights_in = V2mV(value)
-                self.update_weights(
-                    self._sg, self._pop, self.weights_in, weights_old, self.delay_in
-                )
-            elif name == "weights_rec":
-                weights_old = self.weights_rec.copy()
-                self.weights_rec = V2mV(value)
-                self.update_weights(
-                    self._pop, self._pop, self.weights_rec, weights_old, self.delay_rec
-                )
-            else:
-                super().set_param(name, value)
 
         def reset(self):
             """
@@ -116,44 +97,11 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 self.set_param(name, 0.0)
             self.set_param("V_m", self.v_rest)
 
-        def evolve(
-            self, event_times, event_channels, num_timesteps: Optional[int] = None
-        ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-            """ IPC command running the network for num_timesteps with input_steps as input """
-            print(event_channels)
-            print(event_times)
-            print(np.min(self._sg))
-
-            if len(event_channels > 0):
-                # convert input index to NEST id
-                event_channels += np.min(self._sg)
-
-                # NEST time starts with 1 (not with 0)
-                self.nest_module.SetStatus(
-                    self._sg,
-                    [
-                        {"spike_times": s2ms(event_times[event_channels == i])}
-                        for i in self._sg
-                    ],
-                )
-
-            return self.evolve_nest(num_timesteps)
-
-        def setup_nest_network(self):
-            # - Add stimulation device
-            self._sg = self.nest_module.Create(
-                "spike_generator", self.weights_in.shape[0]
-            )
-
-            super().setup_nest_network()
-
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
             """init_nest_params - Initialize nest neuron parameters and return as list"""
 
             params = super().generate_nest_params_list()
             for n in range(self.size):
-                params[n]["tau_syn_ex"] = self.tau_syn_exc[n]
-                params[n]["tau_syn_in"] = self.tau_syn_inh[n]
                 params[n]["g_L"] = self.conductance[n]
                 params[n]["V_peak"] = self.v_peak[n]
                 params[n]["a"] = self.a[n]
@@ -162,25 +110,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 params[n]["tau_w"] = self.tau_w[n]
 
             return params
-
-        def set_all_connections(self):
-            """Set input connections and recurrent connections"""
-            # - Input connections
-            self.set_connections(
-                pop_pre=self._sg,
-                pop_post=self._pop,
-                weights=self.weights_in,
-                delays=self.delay_in,
-                connection_exists=self.connection_in_exists,
-            )
-            # - Recurrent connections
-            self.set_connections(
-                pop_pre=self._pop,
-                pop_post=self._pop,
-                weights=self.weights_rec,
-                delays=self.delay_rec,
-                connection_exists=self.connection_rec_exists,
-            )
 
     # - Default difference between v_peak and v_thresh when v_peak not set and
     #   delta_t != 0
