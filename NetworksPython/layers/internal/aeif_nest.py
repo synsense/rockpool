@@ -129,7 +129,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         tau_syn_exc: Union[float, np.ndarray, None] = None,
         tau_syn_inh: Union[float, np.ndarray, None] = None,
         v_thresh: Union[float, np.ndarray] = -0.055,
-        v_peak: Union[float, np.ndarray, None] = None,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
         capacity: Union[float, np.ndarray, None] = None,
@@ -163,9 +162,6 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                                     If `None`, use `tau_syn`. Default: `None`
 
         :param v_thresh:            np.array Nx1 vector of neuron thresholds ("point of no return") in Volt. Default: -0.055
-        :param v_peak:              np.array Nx1 vector of neuron spike thresholds in Volt. Is set to
-                                    `v_thresh`If `None` if `delta_t`==0 or to `v_thresh` + 0.01V
-                                    if `delta_t`!=0. Default: None
         :param v_reset:             np.array Nx1 vector of neuron reset potential in Volt. Default: -0.065V
         :param v_rest:              np.array Nx1 vector of neuron resting potential in Volt. Default: -0.065V
 
@@ -246,14 +242,13 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         ).astype(float)
         delta_t = self._expand_to_net_size(delta_t, "delta_t", allow_none=False)
         self._delta_t = delta_t.astype(float)
-        if v_peak is None:
-            # - Determine v_thresh to determine v_peak (otherwise done by super().__init__)
-            v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
-            self._v_peak = v_thresh.astype(float)
-            self._v_peak[self._delta_t != 0] += self._v_peak_offset
-        else:
-            v_peak = self._expand_to_net_size(v_peak, "v_peak", allow_none=False)
-            self._v_peak = v_peak.astype(float)
+        # - Determine v_thresh to determine v_peak (otherwise done by super().__init__)
+        v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
+        self._v_peak = v_thresh.copy().astype(float)
+        self._v_peak[self._delta_t != 0] += self._v_peak_offset
+        # else:
+        #     v_peak = self._expand_to_net_size(v_peak, "v_peak", allow_none=False)
+        #     self._v_peak = v_peak.astype(float)
 
         # - Call super constructor
         super().__init__(
@@ -387,16 +382,21 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         self.delta_t = new_delta_t
         self.request_q.put([COMMAND_SET, "Delta_T", V2mV(new_delta_t)])
 
+    @RecIAFSpkInNest.v_thresh.setter
+    def v_thresh(self, new_v_thresh):
+        new_v_thresh = self._expand_to_net_size(
+            new_v_thresh, "v_thresh", allow_none=False
+        )
+        self._v_thresh = new_v_thresh
+        self._v_peak = new_v_thresh.copy()
+        self._v_peak[self._delta_t != 0] += self._v_peak_offset
+
+        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
+        self.request_q.put([COMMAND_SET, "V_peak", V2mV(self._v_peak)])
+
     @property
     def v_peak(self):
         return self._v_peak
-
-    @v_peak.setter
-    def v_peak(self, new_v_peak):
-        new_v_peak = self._expand_to_net_size(new_v_peak, "v_peak", allow_none=False)
-        new_v_peak = new_v_peak.astype(float)
-        self.v_peak = new_v_peak
-        self.request_q.put([COMMAND_SET, "V_peak", V2mV(new_v_peak)])
 
     @property
     def tau_adapt(self):
