@@ -122,16 +122,8 @@ class _BaseNestProcess(multiprocessing.Process):
     def evolve_nest(
         self, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-        print("inner evolve called")
         t_start = self.nest_module.GetKernelStatus("time")
 
-        print("inner evolve starting simulation")
-        # conns_in = self.nest_module.GetConnections(self._sg, self._pop)
-        # print(conns_in)
-        # conns_rec = self.nest_module.GetConnections(self._pop, self._pop)
-        # print(conns_rec)
-        # print(self.nest_module.GetStatus(conns_in), "weight")
-        # print(self.nest_module.GetStatus(conns_rec), "weight")
         if t_start == 0:
             # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
             # the recording has one entry less in the first batch
@@ -139,14 +131,11 @@ class _BaseNestProcess(multiprocessing.Process):
         else:
             self.nest_module.Simulate(num_timesteps * self.dt)
 
-        print("simulation finished.")
         # - Build response TimeSeries
         events = self.nest_module.GetStatus(self._sd, "events")[0]
-        print("events have been extracted")
         use_event = events["times"] >= t_start
         event_time_out = ms2s(events["times"][use_event])
         event_channel_out = events["senders"][use_event]
-        print("processing events")
         # sort spiking response
         order = np.argsort(event_time_out)
         event_time_out = event_time_out[order]
@@ -155,11 +144,9 @@ class _BaseNestProcess(multiprocessing.Process):
         # transform from NEST id to index
         event_channel_out -= np.min(self._pop)
 
-        print("events_processed")
         # - record states
         if self.record:
             recorded_states = self.record_states(t_start)
-            print("processed recorded states")
             return [event_time_out, event_channel_out, mV2V(recorded_states)]
         else:
             return [event_time_out, event_channel_out, None]
@@ -199,19 +186,13 @@ class _BaseNestProcess(multiprocessing.Process):
         # - Connections that exist already and whose weights need to be updated
         update_existing_conn = np.logical_and(update_connection, connection_exists)
         idcs_pre_upd, idcs_post_upd = np.where(update_existing_conn)
-        print("updating weights")
-        print("existing:", connection_exists)
-        print("upd_ex:", update_existing_conn)
         if idcs_pre_upd.size > 0:
             # - Extract existing connections that need to be updated
-            print(np.asarray(pop_pre)[np.unique(idcs_pre_upd)])
-            print(np.asarray(pop_post)[np.unique(idcs_post_upd)])
             existing_conns: Tuple = self.nest_module.GetConnections(
                 list(np.asarray(pop_pre)[np.unique(idcs_pre_upd)]),
                 list(np.asarray(pop_post)[np.unique(idcs_post_upd)]),
             )
             existing_conns = np.array(existing_conns)
-            print("extracted connections")
             # - First global ID of each population
             id_start_pre = pop_pre[0]
             id_start_post = pop_post[0]
@@ -226,7 +207,6 @@ class _BaseNestProcess(multiprocessing.Process):
                     existing_pre, existing_post, existing_conns
                 )
             }
-            print("prepared connection map")
             # - Connections to be updated
             conns_to_update = [
                 map_2d_conn[idcs] for idcs in zip(idcs_pre_upd, idcs_post_upd)
@@ -236,14 +216,12 @@ class _BaseNestProcess(multiprocessing.Process):
             ]
             # - Update weights
             self.nest_module.SetStatus(conns_to_update, new_weights)
-            print("updated existing connections")
 
         # - Connections that need to be created
         idcs_pre_new, idcs_post_new = np.where(
             np.logical_and(connection_exists == False, update_connection)
         )
         if idcs_pre_new.size > 0:
-            print("creation of new connections")
             if delays is not None:
                 # delays = delays[idcs_pre_new, idcs_post_new]
                 # - First global ID of each population
@@ -265,11 +243,9 @@ class _BaseNestProcess(multiprocessing.Process):
                     "one_to_one",
                     {"weight": weights_new[idcs_pre_new, idcs_post_new]},
                 )
-            print("new connections created")
         if log_existing_conn:
             # - Mark new connections as existing
             connection_exists[(idcs_pre_new, idcs_post_new)] = True
-            print("existing new:", connection_exists)
 
     def init_nest(self):
         """init_nest - Initialize nest"""
@@ -370,7 +346,6 @@ class _BaseNestProcess(multiprocessing.Process):
         if connection_exists is not None:
             # - Mark new connections as existing
             connection_exists[(idcs_pre, idcs_post)] = True
-            print("existing: ", connection_exists)
 
     def run(self):
         """ start the process. Initializes the network, defines IPC commands and waits for commands. """
@@ -389,15 +364,11 @@ class _BaseNestProcess(multiprocessing.Process):
         # wait for an IPC command
 
         while True:
-            print("running, waiting for queue")
             req = self.request_q.get()
-            print("command:", req[0])
             func = IPC_switcher.get(req[0])
             result = func(*req[1:])
             if req[0] in [COMMAND_EXEC, COMMAND_GET, COMMAND_EVOLVE]:
-                print("putting stuff on queue")
                 self.result_q.put(result)
-            print("continuing")
 
 
 class _BaseNestProcessSpkInRec(_BaseNestProcess):
@@ -458,11 +429,8 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         """ IPC command for setting a parameter """
 
         if name == "weights_in":
-            print("updating input weights")
             weights_old = self.weights_in.copy()
-            print("old weights: ", weights_old)
             self.weights_in = V2mV(value)
-            print("new weights:", self.weights_in)
             self.update_weights(
                 pop_pre=self._sg,
                 pop_post=self._pop,
@@ -489,7 +457,6 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         self, event_times, event_channels, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
         """ IPC command running the network for num_timesteps with input_steps as input """
-        print("evolve called")
         if len(event_channels > 0):
             # convert input index to NEST id
             event_channels += np.min(self._sg)
@@ -502,7 +469,6 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
                     for i in self._sg
                 ],
             )
-        print("calling inner evolve")
         return self.evolve_nest(num_timesteps)
 
     def setup_nest_network(self):
@@ -764,7 +730,7 @@ class FFIAFNest(Layer):
         reset_time - Reset the internal clock of this layer
         """
 
-        print("WARNING: This function resets the whole network")
+        warn(f"{self.name}: This function resets the whole network")
 
         self.request_q.put([COMMAND_RESET])
         self._timestep = 0
@@ -1170,7 +1136,6 @@ class RecIAFSpkInNest(FFIAFNest):
         :return:                TSEvent  output spike series
 
         """
-        print("calling evolve")
         # - Prepare time base
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
@@ -1189,8 +1154,6 @@ class RecIAFSpkInNest(FFIAFNest):
         else:
             event_times = np.array([])
             event_channels = np.array([])
-
-        print("putting on queue:", event_times, event_channels, num_timesteps)
 
         self.request_q.put([COMMAND_EVOLVE, event_times, event_channels, num_timesteps])
 

@@ -10,6 +10,7 @@ from .iaf_nest import (
     _BaseNestProcessSpkInRec,
     s2ms,
     V2mV,
+    F2mF,
     COMMAND_GET,
     COMMAND_SET,
 )
@@ -336,10 +337,10 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         self.capacity = self.conductance * new_tau.astype(float)
         print(
             f"RecAEIFSpkInNest `{self.name}`: `tau_mem` has been updated by modifying "
-            + "`capacity`. (`capacity` = `tau_mem` * `conductance`"
+            + "`capacity` (`capacity` = `tau_mem` * `conductance`)."
         )
         self._tau_mem = new_tau
-        self.request_q.put([COMMAND_SET, "C_m", self._conductance * new_tau])
+        self.request_q.put([COMMAND_SET, "C_m", F2mF(self._conductance * new_tau)])
 
     @property
     def conductance(self):
