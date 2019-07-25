@@ -10,6 +10,7 @@ from .iaf_nest import (
     _BaseNestProcessSpkInRec,
     s2ms,
     V2mV,
+    mV2V,
     F2mF,
     COMMAND_GET,
     COMMAND_SET,
@@ -320,7 +321,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     @property
     def adapt(self):
         self.request_q.put([COMMAND_GET, "w"])
-        return np.array(self.result_q.get())
+        return mV2V(np.array(self.result_q.get()))
 
     @property
     def tau_mem(self):
@@ -379,7 +380,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
     def delta_t(self, new_delta_t):
         new_delta_t = self._expand_to_net_size(new_delta_t, "delta_t", allow_none=False)
         new_delta_t = new_delta_t.astype(float)
-        self.delta_t = new_delta_t
+        self._delta_t = new_delta_t
         self.request_q.put([COMMAND_SET, "Delta_T", V2mV(new_delta_t)])
 
     @RecIAFSpkInNest.v_thresh.setter
@@ -387,12 +388,13 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_v_thresh = self._expand_to_net_size(
             new_v_thresh, "v_thresh", allow_none=False
         )
-        self._v_thresh = new_v_thresh
-        self._v_peak = new_v_thresh.copy()
+        self._v_thresh = new_v_thresh.astype(float)
+        self._v_peak = self._v_thresh.copy()
         self._v_peak[self._delta_t != 0] += self._v_peak_offset
-
-        self.request_q.put([COMMAND_SET, "V_th", V2mV(new_v_thresh)])
+        print("Vth:", self._v_thresh)
+        print("Vpeak:", self._v_peak)
         self.request_q.put([COMMAND_SET, "V_peak", V2mV(self._v_peak)])
+        self.request_q.put([COMMAND_SET, "V_th", V2mV(self._v_thresh)])
 
     @property
     def v_peak(self):

@@ -215,11 +215,11 @@ class VirtualDynapse(Layer):
         v_thresh: Union[float, np.ndarray] = 0.01,
         spike_adapt: Union[float, np.ndarray] = 0.0,
         tau_adapt: Union[float, np.ndarray] = 0.01,
-        delta_t: Union[float, np.ndarray] = 2.0,
+        delta_t: Union[float, np.ndarray] = 0.002,
         name: str = "unnamed",
         num_threads: int = 1,
         mismatch: Union[bool, np.ndarray] = True,
-        record: bool = True,
+        record: bool = False,
     ):
         """
         VritualDynapse - Simulation of DynapSE neurmorphic processor.

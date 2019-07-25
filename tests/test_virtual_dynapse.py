@@ -7,6 +7,7 @@ from NetworksPython import TSEvent
 def test_change_baseweight():
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
+    input_ids = np.arange(3) + 5
     ids_row, ids_col = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
     connections_ext = np.random.randint(2, size=(3, 8))
     connections_rec = 2 * np.random.randint(2, size=(8, 8))
@@ -14,13 +15,13 @@ def test_change_baseweight():
     connections_rec_full[ids_row, ids_col] = connections_rec
     connections_ext_full = np.zeros((100, 3300))
     connections_ext_full[
-        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
+        np.repeat(input_ids[:, None], axis=1, repeats=8), ids_col[:3]
     ] = connections_ext
-    bias = np.random.rand(16) * 1
-    v_thresh = np.random.randn(16) * 0.02 + 0.05
+    bias = 0  # np.random.rand(16) * 1
+    v_thresh = np.random.rand(16) * 0.02 + 0.01
     refractory = np.random.rand(16) * 0.01
-    tau_mem_1 = np.random.rand(16) * 0.1
-    tau_mem_2 = np.random.rand(16) * 0.1
+    tau_mem_1 = np.random.rand(16) * 0.05
+    tau_mem_2 = np.random.rand(16) * 0.05
     has_tau_mem_2 = np.random.randint(2, size=4096).astype(bool)
     tau_syn_exc = np.random.rand(16) * 0.1
     tau_syn_inh = np.random.rand(16) * 0.1
@@ -40,6 +41,8 @@ def test_change_baseweight():
         dt=0.01,
         baseweight_e=0.2,
         baseweight_i=0.25,
+        mismatch=False,
+        record=False,
     )
 
     # - Layer generation
@@ -57,7 +60,17 @@ def test_change_baseweight():
         dt=0.01,
         baseweight_e=0.1,
         baseweight_i=0.1,
+        mismatch=False,
+        record=False,
     )
+
+    # - Test get_weights method
+    weights_lyr_ext = vd0.get_weights(input_ids, neuron_ids, external=True)
+    weights_lyr_rec = vd0.get_weights(neuron_ids, neuron_ids, external=False)
+    assert (weights_lyr_ext == connections_ext * 0.1).all()
+    assert (weights_lyr_rec == connections_rec * 0.1).all()
+
+    # - Change baseweight
     vd0.baseweight_e = 0.2
     vd0.baseweight_i[:] = 0.25
 
@@ -103,14 +116,15 @@ def test_item_assignment():
     vd.has_tau_mem_2[2500:3000] = True
     tau_mem_correct[2500:3000] = 0.001
     assert (vd.tau_mem_ == tau_mem_correct).all()
-    vd.tau_mem_2[8:] = 0.0015
-    tau_mem_correct[8 * 256 : 3000] = 0.0015
+    vd.tau_mem_2[11:] = 0.0015
+    tau_mem_correct[11 * 256 : 3000] = 0.0015
     assert (vd.tau_mem_ == tau_mem_correct).all()
 
 
 def test_evolve():
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
+    input_ids = np.arange(3) + 5
     ids_row, ids_col = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
     connections_ext = np.random.randint(2, size=(3, 8))
     connections_rec = 2 * np.random.randint(2, size=(8, 8))
@@ -118,16 +132,17 @@ def test_evolve():
     connections_rec_full[ids_row, ids_col] = connections_rec
     connections_ext_full = np.zeros((100, 3300))
     connections_ext_full[
-        np.repeat(np.arange(3)[:, None], axis=1, repeats=8) + 5, ids_col[:3]
+        np.repeat(input_ids[:, None], axis=1, repeats=8), ids_col[:3]
     ] = connections_ext
-    bias = np.random.rand(16) * 1
-    v_thresh = np.random.randn(16) * 0.02 + 0.05
+    bias = 0  # np.random.rand(16) * 1
+    v_thresh = np.random.rand(16) * 0.02 + 0.01
     refractory = np.random.rand(16) * 0.01
-    tau_mem_1 = np.random.rand(16) * 0.1
-    tau_mem_2 = np.random.rand(16) * 0.1
+    tau_mem_1 = np.random.rand(16) * 0.05
+    tau_mem_2 = np.random.rand(16) * 0.05
     has_tau_mem_2 = np.random.randint(2, size=4096).astype(bool)
     tau_syn_exc = np.random.rand(16) * 0.1
     tau_syn_inh = np.random.rand(16) * 0.1
+    baseweight = 0.01
 
     # - Layer generation
     vd = VirtualDynapse(
@@ -141,26 +156,27 @@ def test_evolve():
         refractory=refractory,
         tau_syn_exc=tau_syn_exc,
         tau_syn_inh=tau_syn_inh,
-        baseweight_e=0.1,
-        baseweight_i=0.1,
-        dt=0.01,
+        baseweight_e=baseweight,
+        baseweight_i=baseweight,
+        dt=0.001,
+        record=False,
+        delta_t=0,
     )
-
-    # - Test get_weights method
-    weights_lyr_ext = vd.get_weights(np.arange(3) + 5, neuron_ids, external=True)
-    weights_lyr_rec = vd.get_weights(neuron_ids, neuron_ids, external=False)
-    assert weights_lyr_ext == connections_ext * 0.1
-    assert weights_lyr_rec == connections_rec * 0.1
 
     # - Input signal
     ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
 
-    # - Compare states and time before and after
+    # - Evolve with `wrong` input channels
     state_before = np.copy(vd.state)
     vd.evolve(ts_input, duration=0.1)
     assert vd.t == 0.1
-    assert (state_before != vd.state).any()
+    assert (state_before == vd.state).all()
+    vd.reset_all()
 
+    # - Evolve with correctly mapped input channels
+    vd.evolve(ts_input, duration=0.1, ids_in=input_ids)
+    assert vd.t == 0.1
+    assert (state_before != vd.state).any()
     vd.reset_all()
     assert vd.t == 0
     assert (state_before == vd.state).all()
