@@ -478,6 +478,10 @@ class Layer(ABC):
         return str(self.__class__).split("'")[1].split(".")[-1]
 
     @property
+    def start_print(self):
+        return f"{self.class_name} '{self.name}': "
+
+    @property
     def output_type(self):
         return TSContinuous
 

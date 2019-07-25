@@ -1174,10 +1174,6 @@ class VirtualDynapse(Layer):
         return self._weight_resolution
 
     @property
-    def start_print(self):
-        return f"VirtualDynapse '{self.name}': "
-
-    @property
     def input_type(self):
         return TSEvent
 

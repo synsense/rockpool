@@ -1,7 +1,7 @@
 import multiprocessing
 import importlib
 from warnings import warn
-from typing import Optional, Union, List, Dict
+from typing import Union, List, Dict
 
 import numpy as np
 
@@ -15,6 +15,7 @@ from .iaf_nest import (
     COMMAND_GET,
     COMMAND_SET,
 )
+from ...utils import SetterArray, ImmutableArray
 
 
 if importlib.util.find_spec("nest") is None:
@@ -327,7 +328,9 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
     @property
     def tau_mem(self):
-        return self.capacity / self.conductance
+        return SetterArray(
+            (self._capacity / self._conductance).copy(), owner=self, name="tau_mem"
+        )
 
     @tau_mem.setter
     def tau_mem(self, new_tau):
@@ -342,7 +345,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
     @property
     def conductance(self):
-        return self._conductance
+        return SetterArray(self._conductance, owner=self, name="conductance")
 
     @conductance.setter
     def conductance(self, new_conductance):
@@ -354,7 +357,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
     @property
     def subthresh_adapt(self):
-        return self._subthresh_adapt
+        return SetterArray(self._subthresh_adapt, owner=self, name="subthresh_adapt")
 
     @subthresh_adapt.setter
     def subthresh_adapt(self, new_a):
@@ -365,7 +368,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
     @property
     def spike_adapt(self):
-        return self._spike_adapt
+        return SetterArray(self._spike_adapt, owner=self, name="spike_adapt")
 
     @spike_adapt.setter
     def spike_adapt(self, new_b):
@@ -376,7 +379,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
     @property
     def delta_t(self):
-        return self._delta_t
+        return SetterArray(self._delta_t, owner=self, name="delta_t")
 
     @delta_t.setter
     def delta_t(self, new_delta_t):
@@ -400,11 +403,11 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
     @property
     def v_peak(self):
-        return self._v_peak
+        return ImmutableArray(self._v_peak, name=self.start_print + "`v_peak`")
 
     @property
     def tau_adapt(self):
-        return self._tau_adapt
+        return SetterArray(self._tau_adapt, owner=self, name="tau_adapt")
 
     @tau_adapt.setter
     def tau_adapt(self, new_tau):
@@ -412,7 +415,3 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_tau = new_tau.astype(float)
         self._tau_adapt = new_tau
         self.request_q.put([COMMAND_SET, "tau_w", s2ms(new_tau)])
-
-    @property
-    def start_print(self):
-        return f"RecAEIFSpkInNest '{self.name}': "

@@ -2,7 +2,7 @@
 utils.py - Collection of useful objects used by multiple scripts in this package.
 """
 
-from typing import Optional, Any, Union, List, Tuple
+from typing import Optional, Any, Union, List, Tuple, Callable
 import numpy as np
 from torch import Tensor, from_numpy
 
@@ -37,16 +37,26 @@ class SetterArray(np.ndarray):
                   corresponding setter function.
     """
 
-    def __new__(cls, arraylike: ArrayLike, owner: Any, name: str):
+    def __new__(
+        cls,
+        arraylike: ArrayLike,
+        owner: Any,
+        name: str,
+        custom_setter: Optional[Callable] = None,
+    ):
         """
         ___new__ - Customize instance creation. Necessary for custom subclasses
                    of np.ndarray. Create new object as view on existing ndarray
                    or on a new ndarray generated from an array-like object.
                    Then add a reference to the owner of the original array-like
-                   and optionally store the name of the object.
+                   and store the name of the object to be able to access the
+                   property setter.
         :param arraylike:       Array-like object
         :param owner:           Object that owns `arraylike`
-        :param name:            Name of `arraylike`
+        :param name:            Name of `arraylike
+        :param custom_setter:   If not `None` replaces the standard setter method.
+                                Will receive the updated values of `arraylike`,
+                                `owner` and `name` as arguments.
         :return:
             obj  np.ndarray  Numpy array upon which new instance will be based
         """
@@ -56,6 +66,7 @@ class SetterArray(np.ndarray):
         obj._reference = arraylike
         obj._owner = owner
         obj._name = name
+        obj._custom_setter = custom_setter
         return obj
 
     def __array_finalize(self, obj: np.ndarray):
@@ -68,6 +79,7 @@ class SetterArray(np.ndarray):
         self._reference = getattr(obj, "_reference")
         self._owner = getattr(obj, "_owner")
         self._name = getattr(obj, "_name")
+        self._custom_setter = getattr(obj, "_custom_setter")
 
     def __setitem__(self, position, value):
         """
@@ -75,7 +87,10 @@ class SetterArray(np.ndarray):
         """
         super().__setitem__(position, value)
         # - Update data in owner
-        setattr(self._owner, self._name, self.copy())
+        if self._custom_setter is None:
+            setattr(self._owner, self._name, self.copy())
+        else:
+            self._custom_setter(self.copy(), self._owner, self._name)
 
     def copy(self):
         """copy - Return np.ndarray as copy to get original __setitem__ method."""

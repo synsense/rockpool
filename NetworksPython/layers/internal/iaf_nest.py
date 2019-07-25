@@ -1,10 +1,12 @@
 import multiprocessing
 import importlib
 from typing import Optional, Union, List, Dict, Tuple
+from warnings import warn
 
 import numpy as np
 
 from ...timeseries import TSContinuous, TSEvent
+from ...utils import ImmutableArray, SetterArray
 from ..layer import Layer
 
 if importlib.util.find_spec("nest") is None:
@@ -434,7 +436,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
         if name == "weights_in":
             weights_old = self.weights_in.copy()
-            self.weights_in = A2mA(value)
+            self.weights_in = value
             self.update_weights(
                 pop_pre=self._sg,
                 pop_post=self._pop,
@@ -445,7 +447,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
             )
         elif name == "weights_rec":
             weights_old = self.weights_rec.copy()
-            self.weights_rec = A2mA(value)
+            self.weights_rec = value
             self.update_weights(
                 pop_pre=self._pop,
                 pop_post=self._pop,
@@ -553,7 +555,7 @@ class FFIAFNest(Layer):
             )
 
             # - Record weights and layer specific parameters
-            self.weights = A2mA(weights)
+            self.weights = weights
             self.size = np.shape(weights)[1]
             self.tau_mem = s2ms(tau_mem)
 
@@ -588,7 +590,7 @@ class FFIAFNest(Layer):
 
             if name == "weights":
                 weights_old = self.weights.copy()
-                self.weights = A2mA(value)
+                self.weights = value
                 self.update_weights(
                     self._scg, self._pop, self.weights, weights_old, None
                 )
@@ -831,8 +833,17 @@ class FFIAFNest(Layer):
         return TSEvent
 
     @property
+    def weights(self):
+        return SetterArray(self._weights, owner=self, name="weights")
+
+    @weights.setter
+    def weights(self, new_weights):
+        Layer.weights.fset(self, new_weights)
+        self.request_q.put([COMMAND_SET, "weights", self._weights])
+
+    @property
     def refractory(self):
-        return self._refractory
+        return SetterArray(self._refractory, owner=self, name="refractory")
 
     @refractory.setter
     def refractory(self, new_refractory):
@@ -844,7 +855,7 @@ class FFIAFNest(Layer):
 
     @property
     def capacity(self):
-        return self._capacity
+        return SetterArray(self._capacity, owner=self, name="capaity")
 
     @capacity.setter
     def capacity(self, new_capacity):
@@ -859,7 +870,7 @@ class FFIAFNest(Layer):
     def state(self):
         self.request_q.put([COMMAND_GET, "V_m"])
         vms = np.array(self.result_q.get())
-        return mV2V(vms)
+        return SetterArray(mV2V(vms), owner=self, name="state")
 
     @state.setter
     def state(self, new_state):
@@ -868,7 +879,7 @@ class FFIAFNest(Layer):
 
     @property
     def tau_mem(self):
-        return self._tau_mem
+        return SetterArray(self._tau_mem, owner=self, name="tau_mem")
 
     @tau_mem.setter
     def tau_mem(self, new_tau_mem):
@@ -878,7 +889,7 @@ class FFIAFNest(Layer):
 
     @property
     def bias(self):
-        return self._bias
+        return SetterArray(self._bias, owner=self, name="bias")
 
     @bias.setter
     def bias(self, new_bias):
@@ -888,7 +899,7 @@ class FFIAFNest(Layer):
 
     @property
     def v_thresh(self):
-        return self._v_thresh
+        return SetterArray(self._v_thresh, owner=self, name="v_thresh")
 
     @v_thresh.setter
     def v_thresh(self, new_v_thresh):
@@ -900,7 +911,7 @@ class FFIAFNest(Layer):
 
     @property
     def v_reset(self):
-        return self._v_reset
+        return SetterArray(self._v_reset, owner=self, name="v_reset")
 
     @v_reset.setter
     def v_reset(self, new_v_reset):
@@ -910,7 +921,7 @@ class FFIAFNest(Layer):
 
     @property
     def v_rest(self):
-        return self._v_rest
+        return SetterArray(self._v_rest, owner=self, name="v_rest")
 
     @v_rest.setter
     def v_rest(self, new_v_rest):
@@ -935,10 +946,6 @@ class FFIAFNest(Layer):
     @property
     def num_cores(self):
         return self._num_cores
-
-    @property
-    def start_print(self):
-        return f"FFIAFNest '{self.name}': "
 
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
@@ -1190,25 +1197,29 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def weights_in(self):
-        return self._weights_in
+        return SetterArray(self._weights_in, owner=self, name="weights_in")
 
     @weights_in.setter
     def weights_in(self, new_weights):
-        self._weights_in = new_weights
-        self.request_q.put([COMMAND_SET, "weights_in", new_weights])
+        self._weights_in = self._expand_to_shape(
+            new_weights, (self.size_in, self.size), "weights_in", allow_none=False
+        ).astype(float)
+        self.request_q.put([COMMAND_SET, "weights_in", A2mA(self._weights_in)])
 
     @property
     def weights_rec(self):
-        return self._weights_rec
+        return SetterArray(self._weights_in, owner=self, name="weights_in")
 
     @weights_rec.setter
     def weights_rec(self, new_weights):
-        self._weights_rec = new_weights
-        self.request_q.put([COMMAND_SET, "weights_rec", new_weights])
+        self._weights_rec = self._expand_to_shape(
+            new_weights, (self.size, self.size), "weights_rec", allow_none=False
+        ).astype(float)
+        self.request_q.put([COMMAND_SET, "weights_rec", A2mA(self._weights_rec)])
 
     @property
     def delay_in(self):
-        return self._delay_in
+        return SetterArray(self._delay_in, owner=self, name="delay_in")
 
     @delay_in.setter
     def delay_in(self, new_delay_in):
@@ -1220,7 +1231,7 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def delay_rec(self):
-        return self._delay_rec
+        return SetterArray(self._delay_rec, owner=self, name="delay_rec")
 
     @delay_rec.setter
     def delay_rec(self, new_delay_rec):
@@ -1232,7 +1243,7 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def tau_syn(self):
-        return self._tau_syn
+        return SetterArray(self._tau_syn, owner=self, name="tau_syn")
 
     @tau_syn.setter
     def tau_syn(self, new_tau_syn):
@@ -1246,7 +1257,7 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def tau_syn_exc(self):
-        return self._tau_syn_exc
+        return SetterArray(self._tau_syn_exc, owner=self, name="tau_syn_exc")
 
     @tau_syn_exc.setter
     def tau_syn_exc(self, new_tau_syn_exc):
@@ -1260,7 +1271,7 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def tau_syn_inh(self):
-        return self._tau_syn_inh
+        return SetterArray(self._tau_syn_inh, owner=self, name="tau_syn_inh")
 
     @tau_syn_inh.setter
     def tau_syn_inh(self, new_tau_syn_inh):
@@ -1271,7 +1282,3 @@ class RecIAFSpkInNest(FFIAFNest):
         self._tau_syn_inh = new_tau_syn_inh
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
-
-    @property
-    def start_print(self):
-        return f"RecIAFSpkInNest '{self.name}': "
