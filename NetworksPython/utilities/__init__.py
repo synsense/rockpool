@@ -3,44 +3,11 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {
-    ".layer": "Layer",
-    ".internal.iaf_brian": (
-        "FFIAFBrian",
-        "FFIAFSpkInBrian",
-        "RecIAFBrian",
-        "RecIAFSpkInBrian",
-    ),
-    ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-    ".internal.event_pass": "PassThroughEvents",
-    ".internal.exp_synapses_brian": "FFExpSynBrian",
-    ".internal.exp_synapses_manual": "FFExpSyn",
-    ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
-    ".internal.softmaxlayer": "SoftMaxLayer",
-    ".internal.iaf_digital": "RecDIAF",
-    ".internal.spike_bt": "RecFSSpikeEulerBT",
-    ".internal.updown": "FFUpDown",
-    ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
-    ".internal.pytorch.iaf_torch": (
-        "FFIAFTorch",
-        "FFIAFRefrTorch",
-        "FFIAFSpkInTorch",
-        "FFIAFSpkInRefrTorch",
-        "RecIAFTorch",
-        "RecIAFRefrTorch",
-        "RecIAFSpkInTorch",
-        "RecIAFSpkInRefrTorch",
-        "RecIAFSpkInRefrCLTorch",
-    ),
-    ".internal.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
-    ".internal.aeif_nest": "RecAEIFSpkInNest",
-    ".internal.devices.dynap_hw": "RecDynapSE",
-    ".internal.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
-}
+dModules = {".internal.train_jax_sgd": "add_train_output"}
 
 
 # - Define current package
-strBasePackage = "NetworksPython.layers"
+strBasePackage = "NetworksPython.utilities"
 
 # - Initialise list of available modules
 __all__ = []

@@ -47,7 +47,8 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
     :param H:   Callable[[float], float] Neuron activation function
     :return:     f(x0, w_in, w_recurrent, w_out, bias, tau, inputs, noise_std, key, dt) -> (x, res_inputs, rec_inputs, res_acts, outputs)
     """
-    # @jit
+
+    @jit
     def rec_evolve_jit(
         x0: np.ndarray,
         w_in: np.ndarray,
@@ -120,7 +121,7 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
 
 
 def _get_force_evolve_jit(H: Callable):
-    # @jit
+    @jit
     def force_evolve_jit(
         x0: np.ndarray,
         w_in: np.ndarray,
@@ -198,7 +199,7 @@ class RecRateEulerJax(Layer):
         activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key: Optional[Any] = None,
+        rng_key: Optional[int] = None,
     ):
         """
         RecRateEulerJax - `jax`-backed firing rate reservoir
@@ -291,7 +292,7 @@ class RecRateEulerJax(Layer):
                 outputs         np.ndarray Output of network [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, res_inputs, rec_inputs, res_acts, outputs = jit(self._evolve_jit)(
+        self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
             self._weights,
             self._w_recurrent,
@@ -379,7 +380,7 @@ class RecRateEulerJax(Layer):
         config["noise_std"] = self.noise_std.tolist()
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = self.rng_key
+        config["rng_key"] = self._rng_key
         warn(
             f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
@@ -399,7 +400,7 @@ class RecRateEulerJax(Layer):
             self._size,
         ), "`win` must be [{:d}, {:d}]".format(self._num_inputs, self._size)
 
-        self._weights = np.array(value)
+        self._weights = np.array(value).astype("float")
 
     @property
     def w_recurrent(self) -> np.ndarray:
@@ -414,7 +415,7 @@ class RecRateEulerJax(Layer):
             self._size,
         ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
 
-        self._w_recurrent = np.array(value)
+        self._w_recurrent = np.array(value).astype("float")
 
     @property
     def w_out(self) -> np.ndarray:
@@ -429,7 +430,7 @@ class RecRateEulerJax(Layer):
             self._num_outputs,
         ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._num_outputs)
 
-        self._w_out = np.array(value)
+        self._w_out = np.array(value).astype("float")
 
     @property
     def tau(self) -> np.ndarray:
@@ -445,7 +446,7 @@ class RecRateEulerJax(Layer):
             np.size(value) == self._size
         ), "`tau` must have {:d} elements or be a scalar".format(self._size)
 
-        self._tau = np.reshape(value, self._size)
+        self._tau = np.reshape(value, self._size).astype("float")
 
     @property
     def bias(self) -> np.ndarray:
@@ -461,7 +462,7 @@ class RecRateEulerJax(Layer):
             np.size(value) == self._size
         ), "`bias` must have {:d} elements or be a scalar".format(self._size)
 
-        self._bias = np.reshape(value, self._size)
+        self._bias = np.reshape(value, self._size).astype("float")
 
     @property
     def dt(self) -> float:
@@ -476,7 +477,7 @@ class RecRateEulerJax(Layer):
 
         assert value >= tau_min, "`tau` must be at least {:.2e}".format(tau_min)
 
-        self._dt = np.array(value)
+        self._dt = np.array(value).astype("float")
 
 
 class ForceRateEulerJax(RecRateEulerJax):
@@ -490,7 +491,7 @@ class ForceRateEulerJax(RecRateEulerJax):
         activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key=None,
+        rng_key: Optional[int] = None,
     ):
         """
         ForceRateEulerJax - `jax`-backed firing rate reservoir, used for reservoir transfer
@@ -582,7 +583,7 @@ class ForceRateEulerJax(RecRateEulerJax):
                 outputs         np.ndarray Output of network [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, res_inputs, res_acts, outputs = jit(self._evolve_jit)(
+        self._state, res_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
             self._weights,
             self._w_out,
