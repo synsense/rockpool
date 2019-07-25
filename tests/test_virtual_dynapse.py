@@ -1,6 +1,6 @@
 import numpy as np
 
-from NetworksPython.layers import VirtualDynapse
+from NetworksPython.layers.internal.devices.virtual_dynapse import VirtualDynapse
 from NetworksPython import TSEvent
 
 
