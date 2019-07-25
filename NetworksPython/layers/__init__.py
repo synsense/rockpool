@@ -85,7 +85,7 @@ for strModule, classnames in dModules.items():
     except ImportError as err:
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
-        print(err)
+        raise err
 
 
 # from .internal import *
