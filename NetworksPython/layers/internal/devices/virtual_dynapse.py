@@ -17,7 +17,7 @@
 
 # Built-in modules
 from warnings import warn
-from typing import List, Union, Optional, Callable, Any
+from typing import List, Union, Optional
 
 # Third-party modules
 import numpy as np
