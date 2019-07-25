@@ -27,6 +27,10 @@ def mV2V(v):
     return v / 1000.0
 
 
+def A2mA(i):
+    return i * 1000.0
+
+
 def F2mF(c):
     return c * 1000.0
 
@@ -68,7 +72,7 @@ class _BaseNestProcess(multiprocessing.Process):
         self.v_thresh = V2mV(v_thresh)
         self.v_reset = V2mV(v_reset)
         self.v_rest = V2mV(v_rest)
-        self.bias = V2mV(bias)
+        self.bias = A2mA(bias)
         self.capacity = F2mF(capacity)
         self.refractory = s2ms(refractory)
         self.record = record
@@ -412,8 +416,8 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         )
 
         # - Record weights and layer-specific parameters
-        self.weights_in = V2mV(weights_in)
-        self.weights_rec = V2mV(weights_rec)
+        self.weights_in = A2mA(weights_in)
+        self.weights_rec = A2mA(weights_rec)
         self.size = np.shape(weights_in)[1]
         self.delay_in = s2ms(delay_in)
         self.delay_rec = s2ms(delay_rec)
@@ -430,7 +434,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
         if name == "weights_in":
             weights_old = self.weights_in.copy()
-            self.weights_in = V2mV(value)
+            self.weights_in = A2mA(value)
             self.update_weights(
                 pop_pre=self._sg,
                 pop_post=self._pop,
@@ -441,7 +445,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
             )
         elif name == "weights_rec":
             weights_old = self.weights_rec.copy()
-            self.weights_rec = V2mV(value)
+            self.weights_rec = A2mA(value)
             self.update_weights(
                 pop_pre=self._pop,
                 pop_post=self._pop,
@@ -549,7 +553,7 @@ class FFIAFNest(Layer):
             )
 
             # - Record weights and layer specific parameters
-            self.weights = V2mV(weights)
+            self.weights = A2mA(weights)
             self.size = np.shape(weights)[1]
             self.tau_mem = s2ms(tau_mem)
 
@@ -584,7 +588,7 @@ class FFIAFNest(Layer):
 
             if name == "weights":
                 weights_old = self.weights.copy()
-                self.weights = V2mV(value)
+                self.weights = A2mA(value)
                 self.update_weights(
                     self._scg, self._pop, self.weights, weights_old, None
                 )
@@ -604,7 +608,7 @@ class FFIAFNest(Layer):
                 [
                     {
                         "amplitude_times": time_base,
-                        "amplitude_values": V2mV(input_steps[:, i]),
+                        "amplitude_values": A2mA(input_steps[:, i]),
                     }
                     for i in range(len(self._scg))
                 ],
@@ -633,7 +637,7 @@ class FFIAFNest(Layer):
                      Inputs are continuous currents; outputs are spiking events
 
         :param weights:     np.array MxN weight matrix in nA.
-        :param bias:        np.array Nx1 bias vector in nA. Default: 0.0
+        :param bias:        np.array Nx1 bias current vector in nA. Default: 0.0
 
         :param dt:          float Time-step in seconds. Default: 0.001
 
@@ -880,7 +884,7 @@ class FFIAFNest(Layer):
     def bias(self, new_bias):
         new_bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
         self._bias = new_bias
-        self.request_q.put([COMMAND_SET, "I_e", V2mV(new_bias)])
+        self.request_q.put([COMMAND_SET, "I_e", A2mA(new_bias)])
 
     @property
     def v_thresh(self):
@@ -1022,7 +1026,7 @@ class RecIAFSpkInNest(FFIAFNest):
 
         :param weights_in:      np.array MxN input weight matrix in nA.
         :param weights_rec:     np.array NxN recurrent weight matrix in nA.
-        :param bias:            np.array Nx1 bias vector in nA. Default 0
+        :param bias:            np.array Nx1 bias current vector in nA. Default 0
 
         :param dt:              float Time-step in seconds. Default: 0.0001
 

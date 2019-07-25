@@ -208,13 +208,13 @@ class VirtualDynapse(Layer):
         has_tau_mem_2: Union[bool, np.ndarray] = False,
         tau_syn_exc: Union[float, np.ndarray] = 0.05,
         tau_syn_inh: Union[float, np.ndarray] = 0.05,
-        baseweight_e: Union[float, np.ndarray] = 0.1,
-        baseweight_i: Union[float, np.ndarray] = 0.1,
+        baseweight_e: Union[float, np.ndarray] = 0.01,
+        baseweight_i: Union[float, np.ndarray] = 0.01,
         bias: Union[float, np.ndarray] = 0,
         refractory: Union[float, np.ndarray] = 0.001,
         v_thresh: Union[float, np.ndarray] = 0.01,
         spike_adapt: Union[float, np.ndarray] = 0.0,
-        tau_adapt: Union[float, np.ndarray] = 0.01,
+        tau_adapt: Union[float, np.ndarray] = 0.1,
         delta_t: Union[float, np.ndarray] = 0.002,
         name: str = "unnamed",
         num_threads: int = 1,
@@ -224,44 +224,50 @@ class VirtualDynapse(Layer):
         """
         VritualDynapse - Simulation of DynapSE neurmorphic processor.
         :param dt:        Time step size in seconds
-        :param connections_ext:   2D-array defining connections from external input.
+        :param connections_ext:  2D-array defining connections from external input.
                                  Size at most `num_neurons_chip` x `num_neurons`. 1st axis
                                  will be filled with 0s if smaller than `num_neurons_chip`.
                                  2nd axis wil be filled with 0s if smaller than `num_neurons`.
+                                 If `None`, will generate arrays filled with `0`s, meaning
+                                 no connections exist. Default: `None`.
         :param connections_rec:  Square 2D-array defining connections between neurons.
                                  Size at most `num_neurons` x `num_neurons`. Will be
                                  filled with 0s if smaller.
+                                 If `None`, will generate arrays filled with `0`s, meaning
+                                 no connections exist. Default: `None`.
         :param tau_mem_1:        float or 1D-array of size `num_cores`, with membrane time constant
                                  for each core, in seconds. If float, same for all cores.
+                                 Default: 0.02.
         :param tau_mem_2:        float or 1D-array of size `num_cores` with alternative membrane time
                                  constant for each core, in seconds. If float, same for all
                                  cores.
-        :param has_tau_mem_2:         bool or 1D-array of size `num_neurons`, indicating which neuron
+                                 Default: 0.02.
+        :param has_tau_mem_2:    bool or 1D-array of size `num_neurons`, indicating which neuron
                                  usees the alternative membrane time constant. If bool,
-                                 same for all cores.
+                                 same for all cores. Default: `False`.
         :param tau_syn_exc:      float or 1D-array of size `num_cores` with time constant for
                                  excitatory synapses for each core, in seconds. If float,
-                                 same for all cores.
+                                 same for all cores. Default 0.05.
         :param tau_syn_inh:      float or 1D-array of size `num_cores` with time constant for
                                  inhibitory synapses for each core, in seconds. If float,
-                                 same for all cores.
+                                 same for all cores. Default 0.05.
         :param baseweight_e:     float or 1D-array of size `num_cores` with multiplicator (>=0) for
                                  binary excitatory weights for each core. If float, same
-                                 for all cores.
+                                 for all cores. Default: 0.01.
         :param baseweight_i:     float or 1D-array of size `num_cores` with multiplicator (>=0) for
                                  binary inhibitory weights for each core. If float, same
-                                 for all cores.
+                                 for all cores. Default: 0.01.
         :param bias:             float or 1D-array of size `num_cores` with constant neuron bias (>=0)
-                                 for each core. If float, same for all cores.
+                                 for each core. If float, same for all cores.  Default: 0.
         :param refractory:       float or 1D-array of size `num_cores` with refractory time in
-                                 secondsfor each core. If float, same for all cores.
-        :param v_thresh:         float or 1D-array of size `num_cores` with neuron firing v_thresh
-                                 for each core. If float, same for all cores.
-        :param spike_adapt:      Scaling for spike triggered adaptation.
-        :param tau_adapt:        Adaptation time constant.
+                                 secondsfor each core. If float, same for all cores. Default: 0.001.
+        :param v_thresh:         float or 1D-array of size `num_cores` with neuron firing threshold
+                                 in Volt for each core. If float, same for all cores. Default: 0.01.
+        :param spike_adapt:      Scaling for spike triggered adaptation. Default: 0.
+        :param tau_adapt:        Adaptation time constant in seconds. Default: 0.1.
         :param delta_t:          Scaling for exponential part of activation function.
-        :param name:             Name for this object instance.
-        :param num_threads:      Number of cpu cores available for simulation.
+        :param name:             Name for this object instance. Default: "unnamed".
+        :param num_threads:      Number of cpu cores available for simulation. Default: 1.
         :param mismatch:         If True, parameters for each neuron are drawn from Gaussian
                                  around provided values for core.
                                  If an array is passed, it must be of shape
@@ -271,8 +277,9 @@ class VirtualDynapse(Layer):
                                  `baseweight_e`, `baseweight_i`, `bias`, `refractory`, `tau_mem_1`,
                                  `tau_mem_2`, `tau_syn_exc`, `tau_syn_inh`, `v_thresh`,
                                  `weights_excit`, `weights_inhib`
+                                 Default: True.
         :param record:           Record membrane potentials during evolution. NOTE: This may not be
-                                 possible with actual hardware.
+                                 possible with actual hardware. Default: False.
         """
         # - Settings wrt connection validation
         self.validate_fanin = True

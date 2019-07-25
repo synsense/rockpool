@@ -149,7 +149,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
         :param weights_in:          np.array MxN input weight matrix.
         :param weights_rec:         np.array NxN recurrent weight matrix.
-        :param bias:                np.array Nx1 bias vector in nA. Default: 0
+        :param bias:                np.array Nx1 bias current vector in nA. Default: 0
 
         :param dt:                  float Time-step in seconds. Default: 0.0001
 
