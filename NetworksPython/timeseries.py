@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple, Optional, TypeVar, Iterable
+from typing import Union, List, Tuple, Optional, Iterable
 import collections
 
 try:

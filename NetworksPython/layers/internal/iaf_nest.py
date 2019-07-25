@@ -924,7 +924,9 @@ class FFIAFNest(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        raise ValueError("The `dt` property cannot be set for this layer")
+        raise ValueError(
+            self.start_print + "The `dt` property cannot be set for this layer"
+        )
 
     @property
     def record(self):
@@ -933,6 +935,10 @@ class FFIAFNest(Layer):
     @property
     def num_cores(self):
         return self._num_cores
+
+    @property
+    def start_print(self):
+        return f"FFIAFNest '{self.name}': "
 
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
@@ -1206,12 +1212,11 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @delay_in.setter
     def delay_in(self, new_delay_in):
-        new_delay_in = self._expand_to_shape(
-            new_delay_in, (self.size_in, self.size), "delay_in", allow_none=False
+        raise AttributeError(
+            self.start_print
+            + "Updating delays is currently not supported. "
+            + "Please contact the developer of this program if you need this feature."
         )
-        new_delay_in = new_delay_in.astype(float)
-        self._delay_in = new_delay_in
-        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_in)])
 
     @property
     def delay_rec(self):
@@ -1219,12 +1224,11 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @delay_rec.setter
     def delay_rec(self, new_delay_rec):
-        new_delay_rec = self._expand_to_shape(
-            new_delay_rec, (self.size_in, self.size), "delay_rec", allow_none=False
+        raise AttributeError(
+            self.start_print
+            + "Updating delays is currently not supported. "
+            + "Please contact the developer of this program if you need this feature."
         )
-        new_delay_rec = new_delay_rec.astype(float)
-        self._delay_rec = new_delay_rec
-        self.request_q.put([COMMAND_SET, "delay", s2ms(new_delay_rec)])
 
     @property
     def tau_syn(self):
@@ -1267,3 +1271,7 @@ class RecIAFSpkInNest(FFIAFNest):
         self._tau_syn_inh = new_tau_syn_inh
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
+
+    @property
+    def start_print(self):
+        return f"RecIAFSpkInNest '{self.name}': "

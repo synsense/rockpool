@@ -189,7 +189,8 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
 
         # - Handle tau_mem, conductance and capacity
         error_many_nones: str = (
-            f"RecAEIFSpkInNest `{self.name}`: Of the parameters `tau_mem`, "
+            self.start_print
+            + "Of the parameters `tau_mem`, "
             + "`conductance`, and `capacity` only one can be `None`."
             + "You may set `conductance` to 1 (nS)."
         )  # Exception to be raised when more than one of the three parameters is `None`
@@ -204,7 +205,8 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
                 self._capacity = self._conductance * tau_mem
                 if capacity is not None:
                     warn(
-                        f"RecAEIFSpkInNest `{self.name}`: The parameters `tau_mem`, "
+                        self.start_print
+                        + "The parameters `tau_mem`, "
                         + "`conductance`, and `capacity` are not independent (`tau_mem` = "
                         + "`capacity` / `conductance`). Will overwrite the value given for "
                         + "`capacity` to `tau_mem` / `conductance`."
@@ -410,3 +412,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_tau = new_tau.astype(float)
         self._tau_adapt = new_tau
         self.request_q.put([COMMAND_SET, "tau_w", s2ms(new_tau)])
+
+    @property
+    def start_print(self):
+        return f"RecAEIFSpkInNest '{self.name}': "

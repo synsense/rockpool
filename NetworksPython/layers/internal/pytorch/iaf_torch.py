@@ -12,7 +12,8 @@ import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ...layer import Layer, RefProperty
+from ....utils import RefProperty
+from ...layer import Layer
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]

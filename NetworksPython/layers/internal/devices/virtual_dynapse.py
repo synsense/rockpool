@@ -24,7 +24,8 @@ import numpy as np
 
 # NetworksPython modules
 from ....timeseries import TSEvent
-from ...layer import Layer, ArrayLike
+from ....utils import ArrayLike, ImmutableArray, SetterArray
+from ...layer import Layer
 from ...internal.aeif_nest import RecAEIFSpkInNest
 from . import params
 
@@ -33,142 +34,6 @@ CONNECTIONS_VALID = 0
 FANIN_EXCEEDED = 1
 FANOUT_EXCEEDED = 2
 CONNECTION_ALIASING = 4
-
-
-class ModifiedArray(np.ndarray):
-    """
-    RefArray - np.ndarray subclass that is generated from an array-like or torch.Tensor
-               and contains a reference to the original array-like or to a third object
-               with same shape. Item assignment on a RefArray instance (i.e. refarray[i,j]
-               = x) will also change this third object accordingly. Typically this object
-               is some original container from which the array-like has been created.
-               Therefore the objects in the RefArray are typically copies of those in the
-               referenced object.
-               This is useful for layers that contain torch tensors with properties
-               returning a numpy array. Here, item assignment will also modify the original
-               tensor object (as would generally be expected), which is not the case when
-               using normal ndarrays.
-    """
-
-    def __new__(cls, arraylike: ArrayLike, owner: Any, name: str):
-        """
-        ___new__ - Customize instance creation. Necessary for custom subclasses of
-                   np.ndarray. Create new object as view on existing ndarray or on a new
-                   ndarray generated from an array-like object or tensor. Then add a
-                   reference to a third object, with same shape. Typically the original
-                   array is some form of copy of the referenced object. Alternatively a
-                   reference to the original array-like or tensor can be added. In this
-                   case the new instance is always a copy of the array-like and not a
-                   reference.
-        :param arraylike:       Array-like object or torch tensor to be copied.
-        :param owner:           Object that owns `arraylike`
-        :param name:            Name of `arraylike`
-        :param assign_method:   Function that is called after item assignment
-        :return:
-            obj  np.ndarray  Numpy array upon which new instance will be based
-        """
-        # New class instance is a copy of arraylike (and never a view to original arraylike)
-        obj = np.array(arraylike).view(cls)
-        # Store reference to original arraylike
-        obj._reference = arraylike
-        obj._owner = owner
-        obj._name = name
-        return obj
-
-    def __array_finalize(self, obj: np.ndarray):
-        """
-        __array_finalize - arguments: to be used for np.ndarray subclasses to include
-                           additional elements in instance.
-        :param obj:  np.ndarray upon which self is based
-        """
-        # - Store reference to third object as attribute of self
-        self._reference = getattr(obj, "_reference")
-        self._owner = getattr(obj, "_owner")
-        self._name = getattr(obj, "_name")
-
-    def __setitem__(self, position, value):
-        """
-        ___setitem___ - Update items of self and of self.reference in the same way.
-        """
-        super().__setitem__(position, value)
-        # - Update data in owner
-        setattr(self._owner, self._name, self.copy())
-
-    def copy(self):
-        """copy - Return np.ndarray as copy to get original __setitem__ method."""
-        array_copy = super().copy()
-        return np.array(array_copy)
-
-
-class ImmutableArray(np.ndarray):
-    """
-    RefArray - np.ndarray subclass that is generated from an array-like or torch.Tensor
-               and contains a reference to the original array-like or to a third object
-               with same shape. Item assignment on a RefArray instance (i.e. refarray[i,j]
-               = x) will also change this third object accordingly. Typically this object
-               is some original container from which the array-like has been created.
-               Therefore the objects in the RefArray are typically copies of those in the
-               referenced object.
-               This is useful for layers that contain torch tensors with properties
-               returning a numpy array. Here, item assignment will also modify the original
-               tensor object (as would generally be expected), which is not the case when
-               using normal ndarrays.
-    """
-
-    def __new__(
-        cls,
-        arraylike: ArrayLike,
-        name: Optional[str] = None,
-        custom_error: Optional[str] = None,
-    ):
-        """
-        ___new__ - Customize instance creation. Necessary for custom subclasses of
-                   np.ndarray. Create new object as view on existing ndarray or on a new
-                   ndarray generated from an array-like object or tensor. Then add a
-                   reference to a third object, with same shape. Typically the original
-                   array is some form of copy of the referenced object. Alternatively a
-                   reference to the original array-like or tensor can be added. In this
-                   case the new instance is always a copy of the array-like and not a
-                   reference.
-        :param arraylike:       Array-like object or torch tensor to be copied.
-        :param name:            Name to be included in default error message.
-        :param custom_error:    If not `None`, message to replace default error message.
-        :return:
-            obj  np.ndarray  Numpy array upon which new instance will be based
-        """
-        # New class instance is a copy of arraylike (and never a view to original arraylike)
-        obj = np.array(arraylike).view(cls)
-        obj._name = str(name) if name is not None else None
-        obj._custom_error = str(custom_error) if custom_error is not None else None
-        return obj
-
-    def __array_finalize(self, obj: np.ndarray):
-        """
-        __array_finalize - arguments: to be used for np.ndarray subclasses to include
-                           additional elements in instance.
-        :param obj:  np.ndarray upon which self is based
-        """
-        # - Store reference to third object as attribute of self
-        self._name = getattr(obj, "_name")
-        self._custom_error = getattr(obj, "_custom_error")
-
-    def __setitem__(self, position, value):
-        """
-        ___setitem___ - Update items of self and of self.reference in the same way.
-        """
-        if self._custom_error is not None:
-            raise AttributeError(self._custom_error)
-        else:
-            raise AttributeError(
-                "{}: Item assignment not possible for this attribute.".format(
-                    self._name if self._name is not None else "ImmutableArray"
-                )
-            )
-
-    def copy(self):
-        """copy - Return np.ndarray as copy to get original __setitem__ method."""
-        array_copy = super().copy()
-        return np.array(array_copy)
 
 
 ### --- Class definition
@@ -995,7 +860,7 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_rec(self):
-        return ModifiedArray(self._connections_rec, owner=self, name="connections_rec")
+        return SetterArray(self._connections_rec, owner=self, name="connections_rec")
 
     @connections_rec.setter
     def connections_rec(self, connections_new: Optional[np.ndarray]):
@@ -1024,7 +889,7 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_ext(self):
-        return ModifiedArray(self._connections_ext, owner=self, name="connections_ext")
+        return SetterArray(self._connections_ext, owner=self, name="connections_ext")
 
     @connections_ext.setter
     def connections_ext(self, connections_new: Optional[np.ndarray]):
@@ -1069,7 +934,7 @@ class VirtualDynapse(Layer):
 
     @property
     def baseweight_e(self):
-        return ModifiedArray(self._baseweight_e, owner=self, name="baseweight_e")
+        return SetterArray(self._baseweight_e, owner=self, name="baseweight_e")
 
     @baseweight_e.setter
     def baseweight_e(self, baseweight_new: Union[float, ArrayLike]):
@@ -1080,7 +945,7 @@ class VirtualDynapse(Layer):
 
     @property
     def baseweight_i(self):
-        return ModifiedArray(self._baseweight_i, owner=self, name="baseweight_i")
+        return SetterArray(self._baseweight_i, owner=self, name="baseweight_i")
 
     @baseweight_i.setter
     def baseweight_i(self, baseweight_new: Union[float, ArrayLike]):
@@ -1097,7 +962,7 @@ class VirtualDynapse(Layer):
 
     @property
     def bias(self):
-        return ModifiedArray(self._bias, owner=self, name="bias")
+        return SetterArray(self._bias, owner=self, name="bias")
 
     @bias.setter
     def bias(self, bias_new: Union[float, ArrayLike]):
@@ -1107,7 +972,7 @@ class VirtualDynapse(Layer):
 
     @property
     def refractory(self):
-        return ModifiedArray(self._refractory, owner=self, name="refractory")
+        return SetterArray(self._refractory, owner=self, name="refractory")
 
     @property
     def refractory_(self):
@@ -1123,7 +988,7 @@ class VirtualDynapse(Layer):
 
     @property
     def v_thresh(self):
-        return ModifiedArray(self._v_thresh, owner=self, name="v_thresh")
+        return SetterArray(self._v_thresh, owner=self, name="v_thresh")
 
     @property
     def v_thresh_(self):
@@ -1139,7 +1004,7 @@ class VirtualDynapse(Layer):
 
     @property
     def delta_t(self):
-        return ModifiedArray(self._delta_t, owner=self, name="delta_t")
+        return SetterArray(self._delta_t, owner=self, name="delta_t")
 
     @property
     def delta_t_(self):
@@ -1155,7 +1020,7 @@ class VirtualDynapse(Layer):
 
     @property
     def spike_adapt(self):
-        return ModifiedArray(self._spike_adapt, owner=self, name="spike_adapt")
+        return SetterArray(self._spike_adapt, owner=self, name="spike_adapt")
 
     @property
     def spike_adapt_(self):
@@ -1172,7 +1037,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_adapt(self):
-        return ModifiedArray(self._tau_adapt, owner=self, name="tau_adapt")
+        return SetterArray(self._tau_adapt, owner=self, name="tau_adapt")
 
     @property
     def tau_adapt_(self):
@@ -1188,7 +1053,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_1(self):
-        return ModifiedArray(self._tau_mem_1, owner=self, name="tau_mem_1")
+        return SetterArray(self._tau_mem_1, owner=self, name="tau_mem_1")
 
     @tau_mem_1.setter
     def tau_mem_1(self, tau_mem_1_new: Union[float, ArrayLike]):
@@ -1200,7 +1065,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_mem_2(self):
-        return ModifiedArray(self._tau_mem_2, owner=self, name="tau_mem_2")
+        return SetterArray(self._tau_mem_2, owner=self, name="tau_mem_2")
 
     @tau_mem_2.setter
     def tau_mem_2(self, tau_mem_2_new: Union[float, ArrayLike]):
@@ -1212,7 +1077,7 @@ class VirtualDynapse(Layer):
 
     @property
     def has_tau_mem_2(self):
-        return ModifiedArray(self._has_tau_mem_2, owner=self, name="has_tau_mem_2")
+        return SetterArray(self._has_tau_mem_2, owner=self, name="has_tau_mem_2")
 
     @has_tau_mem_2.setter
     def has_tau_mem_2(self, new_has_tau_mem_2: Union[bool, ArrayLike]):
@@ -1244,7 +1109,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_syn_exc(self):
-        return ModifiedArray(self._tau_syn_exc, owner=self, name="tau_syn_exc")
+        return SetterArray(self._tau_syn_exc, owner=self, name="tau_syn_exc")
 
     @property
     def tau_syn_exc_(self):
@@ -1261,7 +1126,7 @@ class VirtualDynapse(Layer):
 
     @property
     def tau_syn_inh(self):
-        return ModifiedArray(self._tau_syn_inh, owner=self, name="tau_syn_inh")
+        return SetterArray(self._tau_syn_inh, owner=self, name="tau_syn_inh")
 
     @property
     def tau_syn_inh_(self):
