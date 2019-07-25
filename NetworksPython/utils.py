@@ -42,6 +42,7 @@ class SetterArray(np.ndarray):
         arraylike: ArrayLike,
         owner: Any,
         name: str,
+        dtype: Union[type, str, None] = float,
         custom_setter: Optional[Callable] = None,
     ):
         """
@@ -54,6 +55,7 @@ class SetterArray(np.ndarray):
         :param arraylike:       Array-like object
         :param owner:           Object that owns `arraylike`
         :param name:            Name of `arraylike
+        :param dtype:           If not `None`, force data type of array.
         :param custom_setter:   If not `None` replaces the standard setter method.
                                 Will receive the updated values of `arraylike`,
                                 `owner` and `name` as arguments.
@@ -61,7 +63,10 @@ class SetterArray(np.ndarray):
             obj  np.ndarray  Numpy array upon which new instance will be based
         """
         # New class instance is a copy of arraylike (and never a view to original arraylike)
-        obj = np.array(arraylike).view(cls)
+        if dtype is None:
+            obj = np.array(arraylike).view(cls)
+        else:
+            obj = np.array(arraylike).astype(dtype).view(cls)
         # Store reference to original arraylike
         obj._reference = arraylike
         obj._owner = owner

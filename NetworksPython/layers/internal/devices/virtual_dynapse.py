@@ -341,39 +341,47 @@ class VirtualDynapse(Layer):
         self,
         connections: np.ndarray,
         ids_pre: np.ndarray,
-        neurons_post: Optional[np.ndarray] = None,
+        ids_post: Optional[np.ndarray] = None,
         external: bool = False,
         add: bool = False,
     ):
         """
         set_connections - Set connections between specific neuron populations.
                           Verify that connections are supported by the hardware.
-        :param connections:    2D np.ndarray: Will assume positive (negative) values
-                               correspond to excitatory (inhibitory) synapses.
-                               Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
-                               Sizes must match `ids_pre` and `neurons_post`.
-        :param ids_pre:        Array-like with IDs of presynaptic neurons or input channels
-                               that `connections` refer to. If None, use all neurons
-                               (from 0 to self.num_neurons - 1) or input channels.
-        :param neurons_post:   Array-like with IDs of postsynaptic neurons that `connections`
-                               refer to. If None, use same IDs as presynaptic neurons, unless
-                               `external` is True. In this case use all neurons.
-        :param add:            If True, new connections are added to exising ones, otherweise
-                               connections between given neuron populations are replaced.
-        :param external:       If True, presynaptic neurons are external.
+        :param connections: 2D np.ndarray: Will assume positive (negative) values
+                            correspond to excitatory (inhibitory) synapses.
+                            Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
+                            Sizes must match `ids_pre` and `ids_post`.
+        :param ids_pre:     Array-like with IDs of presynaptic neurons or input channels
+                            that `connections` refer to. If None, use all neurons
+                            (from 0 to self.num_neurons - 1) or input channels.
+        :param ids_post:    Array-like with IDs of postsynaptic neurons that `connections`
+                            refer to. If None, use same IDs as presynaptic neurons, unless
+                            `external` is True. In this case use all neurons.
+        :param add:         If True, new connections are added to exising ones, otherweise
+                            connections between given neuron populations are replaced.
+        :param external:    If True, presynaptic neurons are external.
         """
-
         if ids_pre is None:
             ids_pre = np.arange(self.num_external if external else self.size)
 
-        if neurons_post is None:
-            neurons_post = ids_pre if not external else np.arange(self.size)
+        if ids_post is None:
+            ids_post = ids_pre if not external else np.arange(self.size)
+
+        # - Warn in case of non-integer connections
+        if connections.dtype.kind not in ["i", "u"]:
+            warn(
+                self.start_print
+                + "Connections can only take integer values and will be converted. "
+                + "Floating point numbers are rounded to smaller absolute values."
+            )
+            connections = connections.astype(int)
 
         # - Handle to connection matrix that should be changed
         conn_to_change = self.connections_ext if external else self.connections_rec
 
         # - Indices of specified neurons in full connectivity matrix
-        ids_row, ids_col = np.meshgrid(ids_pre, neurons_post, indexing="ij")
+        ids_row, ids_col = np.meshgrid(ids_pre, ids_post, indexing="ij")
 
         if add:
             # - Add new connections to connectivity array
@@ -809,10 +817,18 @@ class VirtualDynapse(Layer):
             # - Remove all connections
             return np.zeros((num_rows, self.num_neurons))
         else:
+            # - Warn in case of non-integer
+            if connections.dtype.kind not in ["i", "u"]:
+                warn(
+                    self.start_print
+                    + "Connections can only take integer values and will be converted. "
+                    + "Floating point numbers are rounded to smaller absolute values."
+                )
+                connections = connections.astype(int)
             # - Handle smaller connectivity matrices by filling up with zeros
             conn_shape = connections.shape
             if conn_shape != (num_rows, self.num_neurons):
-                connections0 = np.zeros((num_rows, self.num_neurons))
+                connections0 = np.zeros((num_rows, self.num_neurons), int)
                 connections0[: conn_shape[0], : conn_shape[1]] = connections
                 connections = connections0
             return connections
@@ -860,7 +876,9 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_rec(self):
-        return SetterArray(self._connections_rec, owner=self, name="connections_rec")
+        return SetterArray(
+            self._connections_rec, owner=self, name="connections_rec", dtype=int
+        )
 
     @connections_rec.setter
     def connections_rec(self, connections_new: Optional[np.ndarray]):
@@ -889,7 +907,9 @@ class VirtualDynapse(Layer):
 
     @property
     def connections_ext(self):
-        return SetterArray(self._connections_ext, owner=self, name="connections_ext")
+        return SetterArray(
+            self._connections_ext, owner=self, name="connections_ext", dtype=int
+        )
 
     @connections_ext.setter
     def connections_ext(self, connections_new: Optional[np.ndarray]):
@@ -1077,7 +1097,9 @@ class VirtualDynapse(Layer):
 
     @property
     def has_tau_mem_2(self):
-        return SetterArray(self._has_tau_mem_2, owner=self, name="has_tau_mem_2")
+        return SetterArray(
+            self._has_tau_mem_2, owner=self, name="has_tau_mem_2", dtype=bool
+        )
 
     @has_tau_mem_2.setter
     def has_tau_mem_2(self, new_has_tau_mem_2: Union[bool, ArrayLike]):
@@ -1220,7 +1242,7 @@ class VirtualDynapse(Layer):
     @property
     def recorded_states(self):
         try:
-            return self._simulator.record_states.T
+            return self._simulator.recorded_states
         except AttributeError:
             # - No recroded states - object is `None`
             return None

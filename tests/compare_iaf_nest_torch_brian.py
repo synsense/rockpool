@@ -130,14 +130,14 @@ vd = VirtualDynapse(
 vd.set_connections(
     connections=weights_in_quant,
     ids_pre=inputs_vd,
-    neurons_post=neurons_vd,
+    ids_post=neurons_vd,
     external=True,
     add=False,
 )
 vd.set_connections(
     connections=weights_rec_quant,
     ids_pre=neurons_vd,
-    neurons_post=neurons_vd,
+    ids_post=neurons_vd,
     external=False,
     add=False,
 )
@@ -155,19 +155,19 @@ vd0 = VirtualDynapse(
 vd0.set_connections(
     connections=weights_in_quant,
     ids_pre=inputs_vd,
-    neurons_post=neurons_vd,
+    ids_post=neurons_vd,
     external=True,
     add=False,
 )
 vd0.set_connections(
     connections=weights_rec_quant,
     ids_pre=neurons_vd,
-    neurons_post=neurons_vd,
+    ids_post=neurons_vd,
     external=False,
     add=False,
 )
 # Set parameters for vd and vd0
-vd0.baseweight_e[:3] = vd.baseweight_i[:3] = baseweight
+vd0.baseweight_e[:3] = vd0.baseweight_i[:3] = baseweight
 vd0.bias[:3] = bias
 vd0.tau_mem_1[:3] = tau_mem
 vd0.tau_syn_exc[:3] = tau_syn
@@ -193,7 +193,8 @@ tsVD0 = vd0.evolve(
 # - Plot spike patterns
 plt.figure()
 for ts, col in zip(
-    (tsB, tsTR, tsN, tsAEN, tsVD), ("blue", "green", "red", "purple", "orange")
+    (tsB, tsTR, tsN, tsAEN, tsVD, tsVD0),
+    ("blue", "green", "red", "purple", "orange", "pink"),
 ):
     ts.plot(color=col, marker="x")
 
@@ -202,12 +203,7 @@ plt.figure()
 plt.plot(rlB._v_monitor.t, rlB._v_monitor.v.T, color="blue")
 rlTR.ts_rec_states.plot(color="green")
 # rlTR.ts_rec_states.plot(color="green")
-plt.plot(np.arange(rlN.record_states.shape[1]) * dt, rlN.record_states.T, color="red")
-plt.plot(
-    np.arange(rlAEN.record_states.shape[1]) * dt, rlAEN.record_states.T, color="purple"
-)
-plt.plot(
-    np.arange(vd.recorded_states.shape[0]) * dt,
-    vd.recorded_states[:, neurons_vd] + v_rest,
-    color="orange",
-)
+rlN.recorded_states.plot(color="red")
+rlAEN.recorded_states.plot(color="purple")
+(vd.recorded_states + v_rest).clip(channels=neurons_vd).plot(color="orange")
+(vd0.recorded_states + v_rest).clip(channels=neurons_vd).plot(color="pink")

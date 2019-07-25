@@ -106,7 +106,7 @@ class _BaseNestProcess(multiprocessing.Process):
         self.nest_module.ResetNetwork()
         self.nest_module.SetKernelStatus({"time": 0.0})
 
-    def record_states(self, t_start):
+    def record_states(self, t_start: float) -> np.ndarray:
         events = self.nest_module.GetStatus(self._mm, "events")[0]
         use_event = events["times"] >= t_start
 
@@ -114,16 +114,16 @@ class _BaseNestProcess(multiprocessing.Process):
         times = events["times"][use_event]
         vms = events["V_m"][use_event]
 
-        record_states = []
+        recorded_states = []
         u_senders = np.unique(senders)
         for i, nid in enumerate(u_senders):
             ind = np.where(senders == nid)[0]
             _times = times[ind]
             order = np.argsort(_times)
             _vms = vms[ind][order]
-            record_states.append(_vms)
+            recorded_states.append(_vms)
 
-        return np.array(record_states)
+        return np.array(recorded_states)
 
     def evolve_nest(
         self, num_timesteps: Optional[int] = None
@@ -192,6 +192,9 @@ class _BaseNestProcess(multiprocessing.Process):
         # - Connections that exist already and whose weights need to be updated
         update_existing_conn = np.logical_and(update_connection, connection_exists)
         idcs_pre_upd, idcs_post_upd = np.where(update_existing_conn)
+        # - First global ID of each population
+        id_start_pre = pop_pre[0]
+        id_start_post = pop_post[0]
         if idcs_pre_upd.size > 0:
             # - Extract existing connections that need to be updated
             existing_conns: Tuple = self.nest_module.GetConnections(
@@ -199,9 +202,6 @@ class _BaseNestProcess(multiprocessing.Process):
                 list(np.asarray(pop_post)[np.unique(idcs_post_upd)]),
             )
             existing_conns = np.array(existing_conns)
-            # - First global ID of each population
-            id_start_pre = pop_pre[0]
-            id_start_post = pop_post[0]
             # - Indices of existing connections wrt weight matrix
             existing_pre, existing_post = existing_conns[:, :2].copy().T
             existing_pre -= id_start_pre
@@ -230,9 +230,6 @@ class _BaseNestProcess(multiprocessing.Process):
         if idcs_pre_new.size > 0:
             if delays is not None:
                 # delays = delays[idcs_pre_new, idcs_post_new]
-                # - First global ID of each population
-                id_start_pre = pop_pre[0]
-                id_start_post = pop_post[0]
                 self.nest_module.Connect(
                     idcs_pre_new + id_start_pre,
                     idcs_post_new + id_start_post,
@@ -426,8 +423,8 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         self.tau_syn_exc = s2ms(tau_syn_exc)
         self.tau_syn_inh = s2ms(tau_syn_inh)
         # - Keep track of existing connections for more efficient weight updates
-        self.connection_rec_exists = np.zeros_like(weights_rec, bool)
-        self.connection_in_exists = np.zeros_like(weights_in, bool)
+        self.connection_rec_exists = np.zeros_like(self.weights_rec, bool)
+        self.connection_in_exists = np.zeros_like(self.weights_in, bool)
 
     ######### DEFINE IPC COMMANDS ######
 
@@ -558,6 +555,8 @@ class FFIAFNest(Layer):
             self.weights = weights
             self.size = np.shape(weights)[1]
             self.tau_mem = s2ms(tau_mem)
+            # - Keep track of existing connections for more efficient weight updates
+            self.connection_exists = np.zeros_like(self.weights, bool)
 
         def setup_nest_network(self):
 
@@ -570,8 +569,11 @@ class FFIAFNest(Layer):
 
         def set_all_connections(self):
             # - Set connections from step current generator to neuron population
-            self.nest_module.Connect(
-                self._scg, self._pop, "all_to_all", {"weight": self.weights.T}
+            self.set_connections(
+                pop_pre=self._scg,
+                pop_post=self._pop,
+                weights=self.weights,
+                connection_exists=self.connection_exists,
             )
 
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
@@ -592,7 +594,12 @@ class FFIAFNest(Layer):
                 weights_old = self.weights.copy()
                 self.weights = value
                 self.update_weights(
-                    self._scg, self._pop, self.weights, weights_old, None
+                    self._scg,
+                    self._pop,
+                    self.weights,
+                    weights_old,
+                    delays=None,
+                    connection_exists=self.connection_exists,
                 )
             else:
                 super().set_param(name, value)
@@ -753,12 +760,20 @@ class FFIAFNest(Layer):
 
     def _process_evolution_output(self, num_timesteps: int):
         if self.record:
-            event_time_out, event_channel_out, self.record_states = self.result_q.get()
+            event_time_out, event_channel_out, recorded_states_array = (
+                self.result_q.get()
+            )
+            self.recorded_states = TSContinuous(
+                (np.arange(recorded_states_array.shape[1]) + self._timestep) * self.dt,
+                recorded_states_array.T,
+                t_start=self.t,
+                name=f"{self.name} - recorded states",
+            )
         else:
             event_time_out, event_channel_out, _ = self.result_q.get()
 
         # - Start and stop times for output time series
-        t_start = self._timestep * self.dt
+        t_start = self.t
         t_stop = (self._timestep + num_timesteps) * self.dt
 
         # - Update layer time step
@@ -790,6 +805,12 @@ class FFIAFNest(Layer):
         :return:                TSEvent  output spike series
 
         """
+        if ts_input is not None:
+            # - Make sure timeseries is of correct type
+            if not isinstance(ts_input, TSContinuous):
+                raise ValueError(
+                    self.start_print + "This layer requires a `TSContinuous` as input."
+                )
         # - Prepare time base
         time_base, input_steps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
@@ -1153,6 +1174,12 @@ class RecIAFSpkInNest(FFIAFNest):
         :return:                TSEvent  output spike series
 
         """
+        if ts_input is not None:
+            # - Make sure timeseries is of correct type
+            if not isinstance(ts_input, TSEvent):
+                raise ValueError(
+                    self.start_print + "This layer requires a `TSEvent` as input."
+                )
         # - Prepare time base
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
@@ -1208,7 +1235,7 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def weights_rec(self):
-        return SetterArray(self._weights_in, owner=self, name="weights_in")
+        return SetterArray(self._weights_rec, owner=self, name="weights_rec")
 
     @weights_rec.setter
     def weights_rec(self, new_weights):
