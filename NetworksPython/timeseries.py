@@ -33,8 +33,8 @@ __all__ = [
     "TimeSeries",
     "TSEvent",
     "TSContinuous",
-    "set_plotting_backend",
-    "get_plotting_backend",
+    "set_global_ts_plotting_backend",
+    "get_global_ts_plotting_backend",
 ]
 
 # - Type alias for array-like objects
@@ -46,10 +46,11 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 _TOLERANCE_ABSOLUTE = 1e-9
 
 # - Global plotting backend
-def set_plotting_backend(backend: Union[str, None], verbose=True):
+def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
+    global _global_plotting_backend
     if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
         if _HV_AVAILABLE:
-            _global_plotting_backend = "holoViews"
+            _global_plotting_backend = "holoviews"
             if verbose:
                 print("Global plotting backend has been set to holoviews.")
         else:
@@ -71,7 +72,7 @@ def set_plotting_backend(backend: Union[str, None], verbose=True):
         raise ValueError("Plotting backend not recognized.")
 
 
-def get_plotting_backend() -> str:
+def get_global_ts_plotting_backend() -> str:
     return _global_plotting_backend
 
 
@@ -157,10 +158,7 @@ class TimeSeries:
             else float(t_stop)
         )
         self.set_plotting_backend(
-            plotting_backend
-            if plotting_backend is not None
-            else _global_plotting_backend,
-            verbose=False,
+            plotting_backend if plotting_backend is not None else None, verbose=False
         )
 
     def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
@@ -211,7 +209,7 @@ class TimeSeries:
         """
         if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
             if _HV_AVAILABLE:
-                self._plotting_backend = "holoViews"
+                self._plotting_backend = "holoviews"
                 if verbose:
                     print(
                         "{} `{}`: Plotting backend has been set to holoviews.".format(
@@ -237,7 +235,7 @@ class TimeSeries:
             self._plotting_backend = None
             if verbose:
                 print(
-                    "{} `{}`: No plotting backend is set.".format(
+                    "{} `{}`: Using global plotting backend.".format(
                         type(self).__name__, self.name
                     )
                 )
@@ -339,7 +337,11 @@ class TimeSeries:
     @property
     def plotting_backend(self):
         """ (str) Current plotting backend"""
-        return self._plotting_backend
+        return (
+            self._plotting_backend
+            if self._plotting_backend is not None
+            else _global_plotting_backend
+        )
 
 
 ### --- Continuous-valued time series
@@ -470,7 +472,12 @@ class TSContinuous(TimeSeries):
             samples = samples[:, channels]
 
         if target is None:
-            if self._plotting_backend == "holoviews":
+            # - Determine plotting backend
+            if self._plotting_backend is None:
+                backend = _global_plotting_backend
+            else:
+                backend = self._plotting_backend
+            if backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
                         hv.Curve((times, data)).redim(x="Time") for data in samples.T
@@ -486,7 +493,7 @@ class TSContinuous(TimeSeries):
                 else:
                     return vhCurves[0].relabel(self.name)
 
-            elif self._plotting_backend == "matplotlib":
+            elif backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
                 return plt.plot(times, samples, **kwargs)
@@ -1104,6 +1111,12 @@ class TSContinuous(TimeSeries):
             self.t_start, self.t_stop, self.samples.shape[0], self.num_channels
         )
 
+    # - Iteration
+    def __iter__(self):
+        """__iter__ - Yield tuples of sample times and values"""
+        for t, val in zip(self.times, self.samples):
+            yield (t, val)
+
     ## -- Operator overloading
 
     # - Addition
@@ -1544,14 +1557,18 @@ class TSEvent(TimeSeries):
         times, channels = self(t_start, t_stop, channels)
 
         if target is None:
-            if self._plotting_backend == "holoviews":
+            if self._plotting_backend is None:
+                backend = _global_plotting_backend
+            else:
+                backend = self._plotting_backend
+            if backend == "holoviews":
                 return (
                     hv.Scatter((times, channels), *args, **kwargs)
                     .redim(x="Time", y="Channel")
                     .relabel(self.name)
                 )
 
-            elif self._plotting_backend == "matplotlib":
+            elif backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
                 return plt.scatter(times, channels, *args, **kwargs)
@@ -2171,6 +2188,12 @@ class TSEvent(TimeSeries):
                 self.num_channels,
                 self.times.size,
             )
+
+    # - Iteration
+    def __iter__(self):
+        """__iter__ - Yield tuples of event times and channels"""
+        for t, ch in zip(self.times, self.channels):
+            yield (t, ch)
 
     ## -- Properties
 
