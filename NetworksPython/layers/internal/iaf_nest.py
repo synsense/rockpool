@@ -552,7 +552,7 @@ class FFIAFNest(Layer):
             )
 
             # - Record weights and layer specific parameters
-            self.weights = weights
+            self.weights = A2mA(weights)
             self.size = np.shape(weights)[1]
             self.tau_mem = s2ms(tau_mem)
             # - Keep track of existing connections for more efficient weight updates
@@ -860,7 +860,7 @@ class FFIAFNest(Layer):
     @weights.setter
     def weights(self, new_weights):
         Layer.weights.fset(self, new_weights)
-        self.request_q.put([COMMAND_SET, "weights", self._weights])
+        self.request_q.put([COMMAND_SET, "weights", A2mA(self._weights)])
 
     @property
     def refractory(self):
