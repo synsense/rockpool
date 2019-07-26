@@ -13,7 +13,7 @@ import torch
 
 from ....timeseries import TSContinuous, TSEvent
 from ..exp_synapses_manual import FFExpSyn
-from ...layer import ArrayLike, RefProperty
+from ....utils import RefProperty
 
 
 # - Configure exports

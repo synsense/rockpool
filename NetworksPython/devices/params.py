@@ -16,3 +16,9 @@ NUM_NEURONS_CORE = (
 NUM_CORES_CHIP = 4  # Number of cores per chip
 NUM_NEURONS_CHIP = NUM_NEURONS_CORE * NUM_CORES_CHIP  # Number of neurons per chip
 NUM_CHIPS = 4  # Number of available chips
+CAMTYPES = [
+    "FAST_EXC",
+    "SLOW_EXC",
+    "FAST_INH",
+    "SLOW_INH",
+]  # Names of available synapse types

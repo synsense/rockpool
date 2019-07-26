@@ -24,7 +24,7 @@ def test_chargeSingleNeuron():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -67,7 +67,7 @@ def test_chargeAndSpikeSingleNeuron():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -178,6 +178,181 @@ def test_RecNestLayer():
     fl0.terminate()
 
 
+def test_setWeightsIn():
+    """ Test weight setting"""
+    from NetworksPython.layers import FFIAFNest, RecIAFSpkInNest, RecAEIFSpkInNest
+    from NetworksPython import TSEvent, TSContinuous
+    import numpy as np
+
+    # - Generic parameters
+    weights_in = np.array([[-0.5, 0.02, 0.4], [0.2, -0.3, -0.15]])
+    weights_rec = np.random.rand(3, 3) * 0.01
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn_exc = [0.2, 0.01, 0.01]
+    tau_syn_inh = tau_syn_exc
+
+    # - Different input weights for initialization of fl1
+    weights_in1 = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
+
+    # - Input time series
+    tsInpCont = TSContinuous(np.arange(15) * 0.01, np.ones(15) * 0.1)
+    tsInp = TSEvent([0.1], [0])
+
+    ## -- FFIAFNEst
+    # - Layer generation
+    fl0 = FFIAFNest(
+        weights=weights_in, dt=0.001, bias=bias, tau_mem=tau_mem, refractory=0.001
+    )
+    fl1 = FFIAFNest(
+        weights=weights_in1, dt=0.001, bias=bias, tau_mem=tau_mem, refractory=0.001
+    )
+
+    # - Set input weights to same as fl0
+    fl1.weights = weights_in
+
+    # - Compare states before and after
+    fl0.evolve(tsInpCont, duration=0.12)
+    fl1.evolve(tsInpCont, duration=0.12)
+
+    assert (fl0.state == fl1.state).all()
+
+    fl0.terminate()
+    fl1.terminate()
+
+    ## -- RecIAFSpkInNest
+    # - Layer generation
+    fl0 = RecIAFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+    fl1 = RecIAFSpkInNest(
+        weights_in=weights_in1,
+        weights_rec=weights_rec,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+
+    # - Set input weights to same as fl0
+    fl1.weights_in = weights_in
+
+    # - Compare states before and after
+    fl0.evolve(tsInp, duration=0.12)
+    fl1.evolve(tsInp, duration=0.12)
+
+    assert (fl0.state == fl1.state).all()
+
+    fl0.terminate()
+    fl1.terminate()
+
+    ## -- RecAEIFSpkInNest
+    # - Layer generation
+    fl0 = RecAEIFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+    fl1 = RecAEIFSpkInNest(
+        weights_in=weights_in1,
+        weights_rec=weights_rec,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+
+    # - Set input weights to same as fl0
+    fl1.weights_in[0, 0] = weights_in[0, 0]
+
+    # - Compare states before and after
+    fl0.evolve(tsInp, duration=0.12)
+    fl1.evolve(tsInp, duration=0.12)
+
+    assert (fl0.state == fl1.state).all()
+
+    fl0.terminate()
+    fl1.terminate()
+
+
+def test_setWeightsRec():
+    """ Test RecIAFNest"""
+    from NetworksPython.layers import RecIAFSpkInNest
+    from NetworksPython import TSEvent
+    import numpy as np
+
+    # - Generic parameters
+    weights_in = np.array([[-0.5, 0.02, 0.4], [0.2, -0.3, -0.15]])
+    weights_rec = np.random.rand(3, 3) * 0.01
+    bias = 0.01
+    tau_mem = [0.02, 0.05, 0.1]
+    tau_syn_exc = [0.2, 0.01, 0.01]
+    tau_syn_inh = tau_syn_exc
+
+    # - Layer generation
+    fl0 = RecIAFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+
+    # - Initialize with different recurrent weights
+    weights_rec_1 = np.random.rand(3, 3) * 0.01
+    weights_rec_1[0, 2] = 0
+
+    # - Layer generation
+    fl1 = RecIAFSpkInNest(
+        weights_in=weights_in,
+        weights_rec=weights_rec_1,
+        dt=0.001,
+        bias=bias,
+        tau_mem=tau_mem,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        refractory=0.001,
+        record=True,
+    )
+    # - Set recurrent weights to same as fl0
+    fl1.weights_rec = fl0.weights_rec
+
+    tsInp = TSEvent([0.1], [0])
+
+    # - Compare states before and after
+    fl0.evolve(tsInp, duration=0.12)
+    fl1.evolve(tsInp, duration=0.12)
+
+    assert (fl0.state == fl1.state).all()
+
+    fl0.terminate()
+    fl1.terminate()
+
+
 def test_FFToRecLayer():
     """ Test FFToRecNest"""
 
@@ -192,7 +367,7 @@ def test_FFToRecLayer():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -355,7 +530,7 @@ def test_recording():
     vStateBefore = np.copy(fl0.state)
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
-    assert np.shape(fl0.record_states) == (3, 100)
+    assert np.shape(fl0.recorded_states.samples) == (1000, 3)
 
     fl0.terminate()
 
@@ -374,7 +549,7 @@ def test_FFToRecLayerRepeat():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -460,7 +635,7 @@ def test_DefaultParams():
     v_thresh = -0.055
     v_reset = -0.065
     v_rest = -0.065
-    capacity = tau_mem * 1000.0
+    capacity = tau_mem
     refractory = 0.001
 
     fl0 = FFIAFNest(
@@ -540,7 +715,7 @@ def test_timeconstants():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -592,8 +767,8 @@ def test_timeconstants():
     tsInCont = ts.TSContinuous(vTime, vVal)
     dAct = net.evolve(tsInCont, duration=1.0)
 
-    exc_input = np.abs(fl1.record_states[0, :] - vRest)
-    inh_input = np.abs(fl1.record_states[1, :] - vRest)
+    exc_input = np.abs(fl1.recorded_states.samples[:, 0] - vRest)
+    inh_input = np.abs(fl1.recorded_states.samples[:, 1] - vRest)
 
     # excitatory input peak should be later than inhibitory as the synaptic TC is longer
     assert np.argmax(exc_input) > np.argmax(inh_input)
@@ -615,7 +790,7 @@ def test_delays():
     vReset = -0.07
     vRest = -0.07
     vTh = -0.055
-    fC = 250.0
+    fC = 0.25
     dt = 0.001
     refractory = 0.002
 
@@ -671,7 +846,7 @@ def test_delays():
         dt=0.001,
         bias=vfBiasRec,
         tau_mem=vtTauNRec,
-        capacity=100.0,
+        capacity=0.1,
         tau_syn_exc=tau_syn_exc_rec,
         tau_syn_inh=tau_syn_inh_rec,
         refractory=0.001,
@@ -746,8 +921,8 @@ def test_IAF2AEIFNest():
         v_thresh=vThresh,
         v_reset=vRest,
         v_rest=vRest,
-        a=0.0,
-        b=0.0,
+        subthresh_adapt=0.0,
+        spike_adapt=0.0,
         delta_t=0.0,
         refractory=0.001,
         record=True,
@@ -800,11 +975,12 @@ def test_SaveLoad():
         bias=bias,
         tau_mem=tau_mem,
         tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
         v_thresh=vThresh,
         v_reset=vRest,
         v_rest=vRest,
-        a=0.0,
-        b=1.0,
+        subthresh_adapt=0.0,
+        spike_adapt=0.001,
         delta_t=0.0,
         refractory=0.001,
         record=True,

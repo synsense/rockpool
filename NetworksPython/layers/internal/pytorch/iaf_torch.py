@@ -12,7 +12,8 @@ import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ...layer import Layer, RefProperty
+from ....utils import RefProperty
+from ...layer import Layer
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
@@ -1899,7 +1900,7 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         v_thresh: Union[float, np.ndarray] = -0.055,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
-        refractory=0,
+        refractory: float = 0,
         name: str = "unnamed",
         record: bool = False,
         add_events: bool = True,

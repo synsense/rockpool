@@ -35,6 +35,7 @@ dModules = {
     ".internal.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
     ".internal.aeif_nest": "RecAEIFSpkInNest",
     ".internal.devices.dynap_hw": "RecDynapSE",
+    ".internal.devices.virtual_dynapse": "VirtualDynapse",
     ".internal.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
 }
 
