@@ -65,7 +65,7 @@ class VirtualDynapse(Layer):
 
     def __init__(
         self,
-        dt: float = 1e-5,
+        dt: float = 1e-4,
         connections_ext: Optional[np.ndarray] = None,
         connections_rec: Optional[np.ndarray] = None,
         tau_mem_1: Union[float, np.ndarray] = 0.02,
@@ -606,6 +606,7 @@ class VirtualDynapse(Layer):
             if alias_pre_chips:
                 result += CONNECTION_ALIASING
                 if verbose:
+                    # - Print information about aliasing
                     print_output = (
                         "\tConnection aliasing detected: Neurons on the same core should not "
                         + "have presynaptic connections with neurons that have same IDs (within "
