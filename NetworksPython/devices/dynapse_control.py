@@ -726,12 +726,15 @@ class DynapseControl:
             getattr(ctxdynapse.DynapseCamType, camtype): i
             for i, camtype in enumerate(params.CAMTYPES)
         }
+        # - Store SRAM information
+        self._sram_connections = np.zeros((self.num_neurons, self.num_cores))
+        # - Store CAM information
+        self._cam_connections = np.zeros(
+            (len(self._camtypes), self.num_neur_chip, self.num_neurons)
+        )
         # - Store connectivity array
         self._connections = np.zeros(
             (len(params.CAMTYPES), self.num_neurons, self.num_neurons)
-        )
-        self._connections_virtual = np.zeros(
-            (len(params.CAMTYPES), self.num_neur_chip, self.num_neurons)
         )
         # Include previously existing connections in the model
         self._update_connectivity_array(initialized_chips)
@@ -1062,8 +1065,13 @@ class DynapseControl:
         # - Return these neurons
         return np.array([self.virtual_neurons[i] for i in ids_neurons_to_allocate])
 
-    def _update_connectivity_array(self, consider_chips: Optional[List] = None):
-
+    def _update_memory_cells(self, consider_chips: Optional[List] = None):
+        """
+        _update_memory_cells - Extract cam and sram data from shadow neurons and
+                               store it in arrays
+        :param consider_chips:  List-like with Chips to be updated. If `None`,
+                                update for initialized chips.
+        """
         # - Determine which chips are to be considered for update
         if consider_chips is None:
             consider_chips = initialized_chips
@@ -1076,52 +1084,61 @@ class DynapseControl:
         # - Get connection information for specified chips
         connection_info = tools.get_connection_info(consider_chips)
         neuron_ids, targetcore_lists, inputid_lists, camtype_lists = connection_info
-        core_ids = np.array(neuron_ids) // self.num_neur_core
 
-        # - Set connections of considered neurons to zero
-        pre, post = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
-        self._connections[:, pre, post] = 0
-        self._connections_virtual[:, pre, post] = 0
+        # - Reset SRAM and CAM info for considered neurons
+        self._sram_connections[neuron_ids, :] = 0
+        self._cam_connections[:, :, neuron_ids] = 0
 
-        # - To which cores does each neuron send
-        sram_conns = np.zeros((self.num_neurons, self.num_cores), bool)
-        for pre, post in enumerate(targetcore_lists):
-            sram_conns[pre, post] = True
-        # - Expand from cores to number of neurons
-        sram_conns = np.repeat(sram_conns, self.num_neur_core, axis=1)
-        # - Repeat for each connection type
-        sram_conns = np.repeat((sram_conns,), self._connections.shape[0], axis=0)
-
-        # - To which neuron_ids do neurons listen
-        cam_conns = np.zeros(
-            (len(params.CAMTYPES), self.num_neur_chip, self.num_neurons)
-        )
+        # - Update SRAM info
+        for pre, post in zip(neuron_ids, targetcore_lists):
+            self._sram_connections[pre, post] = True
+        # - Update CAM info
         for id_post, ids_pre, syntypes in zip(neuron_ids, inputid_lists, camtype_lists):
             for id_pre, type_pre in zip(ids_pre, syntypes):
-                cam_conns[self._camtypes[type_pre], id_pre, id_post] += 1
-        cam_conns = np.concatenate(self.num_chips * (cam_conns,), axis=1)
+                self._cam_connections[self._camtypes[type_pre], id_pre, id_post] += 1
+
+    def _update_connectivity_array(self, consider_chips: Optional[List] = None):
+
+        # - Update sram and cam information for considered chips
+        self._update_memory_cells(consider_chips)
+
+        # - Expand SRAM info
+        # Expand from cores to number of neurons
+        sram_conns = np.repeat(self._sram_connections, self.num_neur_core, axis=1)
+        # Repeat for each connection type
+        sram_conns = np.repeat((sram_conns,), self._connections.shape[0], axis=0)
+
+        # - Expand CAM info
+        cam_conns = np.concatenate(self.num_chips * (self._cam_connections,), axis=1)
 
         self._connections = cam_conns * sram_conns
 
-        # # - Indices of neurons wrt neuron_ids
-        # neuron_indices = {id_n: idx for idx, id_n in enumerate(neuron_ids)}
-        # # - Iterate over postsynaptic neurons and add connections
-        # for id_neur, id_core, inputids, camtypes in zip(
-        #     neuron_ids, core_ids, inputid_lists, camtype_lists
-        # ):
-        #     # - Iterate over presynaptic neuron IDs (modulo number of neurons per chip)
-        #     for id_pre, syntype in zip(inputids, camtypes):
-        #         # - List of all possible presynaptic neuron IDs
-        #         preneuron_ids = [
-        #             id_pre + offset * self.num_neur_chip for offset in consider_chips
-        #         ]
-        #         # - Register connection with matching cam (synapse) type iff presynaptic neuron sends to postsynaptic core
-        #         for i in preneuron_ids:
-        #             if id_core in targetcore_lists[neuron_indices[i]]:
-        #                 self._connections[syntype, i, id_neur] += 1
+    def _include_aliases(self, connections_rec, connections_ext):
+        # - Separate inhibitory and excitatory connections
+        connections_rec_exc = np.clip(connections_rec, 0, None)
+        connections_rec_inh = np.clip(connections_rec, None, 0)
+        connections_ext_exc = np.clip(connections_ext, 0, None)
+        connections_ext_inh = np.clip(connections_ext, None, 0)
+        # - Join external and recurrent connections
+        connections_full = np.vstack((connections_rec, connections_ext))
+        connections_full_exc = np.vstack((connections_rec_exc, connections_ext_exc))
+        connections_full_inh = np.vstack((connections_rec_inh, connections_ext_inh))
 
-        #         # - Register virtual connection
-        #         self._connections_virtual[syntype, id_pre, id_neur] += 1
+        # - Iterate over cores:
+        for core_id in range(self.num_cores):
+            # - IDs of neurons where core starts and ends
+            id_start = core_id * self.num_neurons_core
+            id_end = id_start + self.num_neurons_core
+            # - Connections to this core
+            conns_to_core = connections_full[:, id_start:id_end]
+            conns_to_core_exc = connections_full_exc[:, id_start:id_end]
+            conns_to_core_inh = connections_full_inh[:, id_start:id_end]
+            # - Iterate over presynaptic IDs (within chip)
+            for pre_id in range(self.num_neurons_chip):
+                conns_tocore_this_id = conns_to_core[pre_id :: self.num_neurons_chip]
+                # - Boolean 1D array indicating from which chips there are connections
+                chip_connected = conns_tocore_this_id.any(axis=1)
+                # - Add connections that result from aliasing
 
     def add_connections_to_virtual(
         self,
@@ -1257,26 +1274,29 @@ class DynapseControl:
             # - Pre- and postsynaptic populations are the same (recurrent connections)
             neuron_ids_post = neuron_ids
 
-        # - Update connectivity array
-        pre, post = np.meshgrid(neuron_ids, neuron_ids_post, indexing="ij")
-        # TODO: RETHINK!!!
-        self.connections[self._camtypes[syn_exc], pre, post] = np.clip(weights, 0, None)
-        self.connections[self._camtypes[syn_inh], pre, post] = -np.clip(
-            weights, None, 0
-        )
-        if not virtual_pre:
-            self.connections[self._camtypes[syn_exc], pre, post] = np.clip(
-                weights, 0, None
-            )
-            self.connections[self._camtypes[syn_inh], pre, post] = -np.clip(
-                weights, None, 0
-            )
-
         # - Extract neuron IDs and remove numpy wrapper around int type
         preneur_ids_exc = [int(neuron_ids[i]) for i in presyn_exc_list]
         postneur_ids_exc = [int(neuron_ids_post[i]) for i in postsyn_exc_list]
         preneur_ids_inh = [int(neuron_ids[i]) for i in presyn_inh_list]
         postneur_ids_inh = [int(neuron_ids_post[i]) for i in postsyn_inh_list]
+
+        # - Update representations of SRAMs and CAMs
+        self._sram_connections[
+            preneur_ids_exc, postneur_ids_exc // self.num_neur_core
+        ] = True
+        self._sram_connections[
+            preneur_ids_inh, postneur_ids_inh // self.num_neur_core
+        ] = True
+        self._cam_connections[
+            self._camtypes[syn_exc],
+            preneur_ids_exc % self.num_neur_chip,
+            postneur_ids_exc,
+        ] += 1
+        self._cam_connections[
+            self._camtypes[syn_inh],
+            preneur_ids_inh % self.num_neur_chip,
+            postneur_ids_inh,
+        ] += 1
 
         # - Set excitatory input connections
         self.tools.set_connections(
