@@ -63,6 +63,8 @@ class VirtualDynapse(Layer):
         "weights_inhib",
     ]
 
+    ## -- Class constructor
+
     def __init__(
         self,
         dt: float = 1e-4,
@@ -247,6 +249,8 @@ class VirtualDynapse(Layer):
             record=record,
         )
 
+    ## -- Methods for handling mismatch
+
     def _setup_mismatch(self, mismatch):
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
@@ -323,7 +327,17 @@ class VirtualDynapse(Layer):
             # - Factor 1 corresponds to no mismatch at all.
             self._mismatch_factors = {param: 1 for param in self._param_names}
 
-    def add_mismatch(self, mean_values: np.ndarray, param_name: str):
+    def _apply_mismatch(self, mean_values: np.ndarray, param_name: str):
+        """
+        _apply_mismatch - Apply mismatch to provided values of individual neurons
+                          for specific paraemeter by multiplying stored mismatch
+                          factors.
+        :param mean_values:     Values to which mismatch should be applied. Must
+                                be of size `self.num_neurons`.
+        :param param_name:      Name of the parameter whose mismatch is to be applied.
+        :return:
+            Array with mismatched values
+        """
         if param_name in ("weights_ext", "weights_rec"):
             # - Separate inhibitory and excitatory weights
             weights_excit = np.clip(mean_values, 0, None)
@@ -337,10 +351,12 @@ class VirtualDynapse(Layer):
             # - Multiply mismatch factors
             return mean_values * self.mismatch_factors[param_name]
 
+    ## -- Methods for handling connections and weights
+
     def set_connections(
         self,
         connections: np.ndarray,
-        ids_pre: np.ndarray,
+        ids_pre: Optional[np.ndarray] = None,
         ids_post: Optional[np.ndarray] = None,
         external: bool = False,
         add: bool = False,
@@ -481,7 +497,7 @@ class VirtualDynapse(Layer):
             connections_rec = connections_rec_0
 
         # - Get 2D matrix with number of connections between neurons
-        conn_count_onchip = self.get_connection_counts(connections_rec)
+        conn_count_onchip = self._get_connection_counts(connections_rec)
 
         # - Handle external connections
         if connections_ext is not None:
@@ -521,7 +537,7 @@ class VirtualDynapse(Layer):
                     self.start_print
                     + f"There can be at most {self.num_neurons_chip} external channels. "
                 )
-            conn_count_ext = self.get_connection_counts(connections_ext)
+            conn_count_ext = self._get_connection_counts(connections_ext)
             conn_count_full = np.vstack((conn_count_onchip, conn_count_ext))
         else:
             conn_count_full = conn_count_onchip
@@ -635,9 +651,9 @@ class VirtualDynapse(Layer):
 
         return result
 
-    def get_connection_counts(self, connections: np.ndarray) -> np.ndarray:
+    def _get_connection_counts(self, connections: np.ndarray) -> np.ndarray:
         """
-        get_connection_counts - From an array of connections generate a 2D matrix
+        _get_connection_counts - From an array of connections generate a 2D matrix
                                 with the total number of connections between each
                                 neuron pair.
         :params connections:  2D np.ndarray (NxN): Will assume positive (negative)
@@ -668,60 +684,6 @@ class VirtualDynapse(Layer):
         idcs_pre, idcs_post = np.meshgrid(ids_pre, ids_post, indexing="ij")
         weights = self.weights_ext if external else self.weights_rec
         return weights[idcs_pre, idcs_post].copy()
-
-    def evolve(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-        ids_in: Optional[np.ndarray] = None,
-        ids_out: Optional[np.ndarray] = None,
-        remap_out_channels: bool = True,
-        verbose: bool = False,
-    ) -> TSEvent:
-        """
-        evolve : Function to evolve the states of this layer given an input
-
-        :param ts_input:       TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :param ids_in:         Array with IDs of input channels corresponding to
-                               the channels in `ts_input`. If `None` will use same
-                               IDs.
-        :param ids_out:        Array with IDs of neurons whose spiking activity
-                               should recorded be returned. If `None`, return
-                               activity of all neurons.
-        :param remap_out_channels:  If `True`, IDs of recorded spikes in the
-                               returned timeseries will be mapped to continuous
-                               sequence of integers startin from 0 (e.g.
-                               [1,6,3]->[0,2,1]). Otherwise channels will
-                               correspond to actual neuron IDs.
-
-        :return:               TSEvent  output spike series
-
-        """
-        if ids_in is not None:
-            # - Map from time series channels to input IDs
-            ts_input = ts_input.remap_channels(ids_in, inplace=False)
-        output: TSEvent = self._simulator.evolve(
-            ts_input, duration, num_timesteps, verbose
-        )
-        if ids_out is not None:
-            # - Only keep neurons that should be recorded
-            output.clip(
-                channels=ids_out, remap_channels=remap_out_channels, inplace=True
-            )
-        return output
-
-    def reset_time(self):
-        self._simulator.reset_time()
-
-    def reset_state(self):
-        self._simulator.reset_state()
-
-    def reset_all(self):
-        self._simulator.reset_all()
 
     def _generate_weights(self, external: bool = False) -> np.ndarray:
         """
@@ -758,6 +720,8 @@ class VirtualDynapse(Layer):
             weights_rec = self._generate_weights(external=False)
             # - Weight update
             self._simulator.weights_rec = weights_rec.copy()
+
+    ## -- Methods for updating  and storing neuron parameters
 
     def _process_parameter(
         self,
@@ -796,10 +760,10 @@ class VirtualDynapse(Layer):
                 neuron_params.reshape(1, -1), self.num_neurons, axis=0
             )
             # - Different mismatch for each synapse
-            syn_params = self.add_mismatch(syn_params, name)
+            syn_params = self._apply_mismatch(syn_params, name)
         else:
             # - Add mismatch for each neuron
-            neuron_params = self.add_mismatch(neuron_params, name)
+            neuron_params = self._apply_mismatch(neuron_params, name)
 
         return core_params, neuron_params
 
@@ -834,6 +798,24 @@ class VirtualDynapse(Layer):
                 connections = connections0
             return connections
 
+    def _update_parameter(self, new_val: np.ndarray, name: str, nonnegative: bool):
+        """
+        _update_parameter - Method for updating parameters through item assignment
+                            of properties.
+                            Update parameter by calling its property setter.
+        :param new_val:     New values for the parameter
+        :param name:        Name of the parameter
+        """
+        setattr(self, name, new_val)
+
+    def _immutable_error(self, name):
+        error_message = (
+            f"VirtualDynapse `{self.name}`: Neuron-wise assignment is not possible for "
+            + "this attribute. Core parameters can be accessed and modified through "
+            + f"`{name}` attribute."
+        )
+        return error_message
+
     def to_dict(self) -> dict:
         """
         to_dict - Convert parameters of `self` to a dict if they are relevant for
@@ -857,23 +839,86 @@ class VirtualDynapse(Layer):
         config["num_threads"] = self.num_threads
         config["mismatch"] = self._mismatch_factors.tolist()
 
-    def _update_parameter(self, new_val: np.ndarray, name: str, nonnegative: bool):
-        """
-        _update_parameter - Method for updating parameters through item assignment
-                            of properties.
-                            Update parameter by calling its property setter.
-        :param new_val:     New values for the parameter
-        :param name:        Name of the parameter
-        """
-        setattr(self, name, new_val)
+    ## -- Methods for evolving or resetting the neuron state
 
-    def _immutable_error(self, name):
-        error_message = (
-            f"VirtualDynapse `{self.name}`: Neuron-wise assignment is not possible for "
-            + "this attribute. Core parameters can be accessed and modified through "
-            + f"`{name}` attribute."
+    def evolve(
+        self,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        ids_in: Optional[np.ndarray] = None,
+        ids_out: Optional[np.ndarray] = None,
+        remap_out_channels: bool = True,
+        verbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input
+
+        :param ts_input:       TSEvent  Input spike trian
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps   int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
+        :param ids_in:         Array with IDs of input channels corresponding to
+                               the channels in `ts_input`. If `None` will use same
+                               IDs.
+        :param ids_out:        Array with IDs of neurons whose spiking activity
+                               should recorded be returned. If `None`, return
+                               activity of all neurons.
+        :param remap_out_channels:  If `True`, IDs of recorded spikes in the
+                               returned timeseries will be mapped to continuous
+                               sequence of integers startin from 0 (e.g.
+                               [1,6,3]->[0,2,1]). Otherwise channels will
+                               correspond to actual neuron IDs.
+
+        :return:               TSEvent  output spike series
+
+        """
+        if ids_in is not None and ts_input is not None:
+            # - Map from time series channels to input IDs
+            ts_input = ts_input.remap_channels(ids_in, inplace=False)
+            if verbose:
+                print(
+                    self.start_print,
+                    "Mapping channels in input series from "
+                    f"{np.sort(np.unique(ts_input.channels))} to {ids_out}.",
+                )
+        if verbose:
+            print(
+                self.start_print,
+                +"Starting simulation. Will only record firing activity from "
+                + f"neurons {np.unique(ids_out)}.",
+            )
+        output: TSEvent = self._simulator.evolve(
+            ts_input, duration, num_timesteps, verbose
         )
-        return error_message
+        if verbose:
+            print(self.start_print, "Simulation successful.")
+        if ids_out is not None:
+            if verbose and remap_out_channels:
+                print(
+                    self.start_print,
+                    "Mapping output channels {} to {}.".format(
+                        np.sort(np.unique(ids_out)), np.arange(np.unique(ids_out).size)
+                    ),
+                )
+            # - Only keep neurons that should be recorded
+            output.clip(
+                channels=ids_out, remap_channels=remap_out_channels, inplace=True
+            )
+        return output
+
+    def reset_time(self):
+        self._simulator.reset_time()
+
+    def reset_state(self):
+        self._simulator.reset_state()
+
+    def reset_all(self):
+        self._simulator.reset_all()
+
+    ## -- Properties
+
+    # - Connections and weights
 
     @property
     def connections_rec(self):
@@ -974,6 +1019,8 @@ class VirtualDynapse(Layer):
             baseweight_new, "weights_inhib", nonnegative=True
         )
         self._update_weights(external=True, recurrent=True)
+
+    # - Neuron parameters
 
     @property
     def bias_(self):
@@ -1164,6 +1211,8 @@ class VirtualDynapse(Layer):
             tau_syn_i_new, "tau_syn_inh", nonnegative=True
         )
 
+    # - Hardware parameters
+
     @property
     def num_chips(self):
         return self._num_chips
@@ -1197,12 +1246,14 @@ class VirtualDynapse(Layer):
         return self._weight_resolution
 
     @property
-    def input_type(self):
-        return TSEvent
+    def stddev_mismatch(self):
+        return self._stddev_mismatch
 
     @property
-    def output_type(self):
-        return TSEvent
+    def mismatch_factors(self):
+        return self._mismatch_factors
+
+    # - Properties regarding current state
 
     @property
     def dt(self):
@@ -1213,32 +1264,8 @@ class VirtualDynapse(Layer):
         return self._simulator._timestep
 
     @property
-    def size(self):
-        return self.num_neurons
-
-    @property
-    def size_in(self):
-        return self.num_external
-
-    @property
     def state(self):
         return self._simulator.state
-
-    @property
-    def stddev_mismatch(self):
-        return self._stddev_mismatch
-
-    @property
-    def mismatch_factors(self):
-        return self._mismatch_factors
-
-    @property
-    def num_threads(self):
-        return self._simulator.num_cores
-
-    @property
-    def record(self):
-        return self._simulator.record
 
     @property
     def recorded_states(self):
@@ -1247,3 +1274,29 @@ class VirtualDynapse(Layer):
         except AttributeError:
             # - No recroded states - object is `None`
             return None
+
+    # - General settings and class properties
+
+    @property
+    def input_type(self):
+        return TSEvent
+
+    @property
+    def output_type(self):
+        return TSEvent
+
+    @property
+    def size(self):
+        return self.num_neurons
+
+    @property
+    def size_in(self):
+        return self.num_external
+
+    @property
+    def num_threads(self):
+        return self._simulator.num_cores
+
+    @property
+    def record(self):
+        return self._simulator.record
