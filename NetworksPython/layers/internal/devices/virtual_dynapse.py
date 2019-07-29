@@ -249,14 +249,32 @@ class VirtualDynapse(Layer):
             record=record,
         )
 
+        print(self.start_print, "Ready.")
+
     ## -- Methods for handling mismatch
 
-    def _setup_mismatch(self, mismatch):
+    def _setup_mismatch(self, mismatch: Union[bool, np.ndarray]):
+        """
+        _setup_mismatch - Generate and store factors that are multiplied with
+                          core parameters to obtain individual mismatched neuron
+                          parameters.
+        :param mismatch:  If `True`, draw mismatch factors from Gaussian
+                          distribution. If `False`, set factors to 1 (no mismatch).
+                          If an array is passed, it must be of shape
+                          `len(_param_names) + 2*num_neurons` x `num_neurons` and
+                          provide individual mismatch factors for each parameter
+                          and neuron as well as excitatory and inhibitory weights.
+                          Order of rows:
+                           `baseweight_e`, `baseweight_i`, `bias`, `refractory`,
+                           `tau_mem_1`, `tau_mem_2`, `tau_syn_exc`, `tau_syn_inh`,
+                           `v_thresh`, `weights_excit`, `weights_inhib`
+        """
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
             self._draw_mismatch(mismatch)
         else:
-            num_params_noweights = len(self._spike_adapt) - 2
+            mismatch = np.asarray(mismatch)
+            num_params_noweights = len(self._param_names) - 2
             shape_mismatch = (
                 num_params_noweights + 2 * self.num_neurons,
                 self.num_neurons,
@@ -782,6 +800,7 @@ class VirtualDynapse(Layer):
             # - Remove all connections
             return np.zeros((num_rows, self.num_neurons))
         else:
+            connections = np.asarray(connections)
             # - Warn in case of non-integer
             if connections.dtype.kind not in ["i", "u"]:
                 warn(
@@ -837,7 +856,17 @@ class VirtualDynapse(Layer):
         config["v_thresh"] = self.v_thresh.tolist()
         config["name"] = self.name
         config["num_threads"] = self.num_threads
-        config["mismatch"] = self._mismatch_factors.tolist()
+        config["class_name"] = self.class_name
+        # - Array holding mismatch factors
+        mismatch_array = np.concatenate(
+            [
+                self._mismatch_factors[param].reshape(-1, self.num_neurons)
+                for param in self._param_names
+            ]
+        )
+        config["mismatch"] = mismatch_array.tolist()
+
+        return config
 
     ## -- Methods for evolving or resetting the neuron state
 

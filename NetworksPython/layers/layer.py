@@ -431,6 +431,13 @@ class Layer(ABC):
         with open(filename, "w") as f:
             json.dump(config, f)
 
+    def save_layer(self, filename: str):
+        """save - Obtain layer paramters from `self.to_dict` and save in a json file.
+        :param filename:  Path of file where parameters are stored.
+        """
+        config = self.to_dict()
+        self.save(config, filename)
+
     @classmethod
     def load_from_file(cls, filename: str, **kwargs) -> "cls":
         """load_from_file - Generate instance of `cls` with parameters loaded from file.
