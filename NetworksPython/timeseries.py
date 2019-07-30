@@ -1897,10 +1897,15 @@ class TSEvent(TimeSeries):
             appended_series = self
 
         # - Ensure we have a list of timeseries to work on
-        if not isinstance(other_series, collections.abc.Iterable):
+        if isinstance(other_series, TSEvent):
             series_list = [appended_series, other_series]
         else:
-            series_list = [appended_series] + list(other_series)
+            try:
+                series_list = [appended_series] + list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSEvent `{self.name}`: `other_series` must be `TSEvent` or list thereof."
+                )
 
         # - Check series class
         if not all(isinstance(series, TSEvent) for series in series_list):
@@ -1961,10 +1966,15 @@ class TSEvent(TimeSeries):
         """
 
         # - Ensure we have a list of timeseries to work on
-        if not isinstance(other_series, collections.abc.Iterable):
+        if isinstance(other_series, TSEvent):
             other_series = [other_series]
         else:
-            other_series = list(other_series)
+            try:
+                other_series = list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSEvent `{self.name}`: `other_series` must be `TSEvent` or list thereof."
+                )
         # - Same for offsets
         if not isinstance(offset, collections.abc.Iterable):
             offset_list = [offset] * len(other_series)
@@ -2028,10 +2038,15 @@ class TSEvent(TimeSeries):
             merged_series = self
 
         # - Ensure we have a list of timeseries to work on
-        if not isinstance(other_series, collections.abc.Iterable):
+        if isinstance(other_series, TSEvent):
             series_list = [merged_series, other_series]
         else:
-            series_list = [merged_series] + list(other_series)
+            try:
+                series_list = [merged_series] + list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSEvent `{self.name}`: `other_series` must be `TSEvent` or list thereof."
+                )
         # - Same for offsets
         if not isinstance(delay, collections.abc.Iterable):
             delay_list = [0] + [delay] * (len(series_list) - 1)

@@ -4,9 +4,9 @@ Test Nest-based spiking layers from layers.internal.iaf_nest
 
 import numpy as np
 
-from NetworksPython.timeseries import set_plotting_backend
+from NetworksPython.timeseries import set_global_ts_plotting_backend
 
-set_plotting_backend("plt")
+set_global_ts_plotting_backend("plt")
 
 
 def test_chargeSingleNeuron():
