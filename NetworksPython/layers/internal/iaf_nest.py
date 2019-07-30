@@ -6,7 +6,7 @@ from warnings import warn
 import numpy as np
 
 from ...timeseries import TSContinuous, TSEvent
-from ...utils import SetterArray
+from ...utils import SetterArray, ImmutableArray
 from ..layer import Layer
 
 if importlib.util.find_spec("nest") is None:
@@ -31,6 +31,10 @@ def mV2V(v):
 
 def A2mA(i):
     return i * 1000.0
+
+
+def mA2A(i):
+    return i / 1000.0
 
 
 def F2mF(c):
@@ -163,6 +167,20 @@ class _BaseNestProcess(multiprocessing.Process):
         """ IPC command running the network for num_timesteps with input_steps as input """
 
         return self.evolve_nest(num_timesteps)
+
+    def read_weights(self, pop_pre: Tuple[int], pop_post: Tuple[int]):
+        # - Read out connections and convert to array
+        connections = self.nest_module.GetConnections(pop_pre, pop_post)
+        ids_pre, ids_post = np.array(connections)[:, :2].T
+        # - Map population IDs to indices starting from 0
+        ids_pre -= pop_pre[0]
+        ids_post -= pop_post[0]
+        # - Read out weights from connections
+        weights = self.nest_module.GetStatus(connections, "weight")
+        # - Generate weight matrix
+        weight_array = np.zeros((len(pop_pre), len(pop_post)))
+        weight_array[ids_pre, ids_post] = weights
+        return weight_array
 
     def update_weights(
         self,
@@ -428,6 +446,16 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
     ######### DEFINE IPC COMMANDS ######
 
+    def get_param(self, name):
+        """ IPC command for getting a parameter """
+        if name == "weights_in":
+            vms = self.read_weights(pop_pre=self._sg, pop_post=self._pop)
+        elif name == "weights_rec":
+            vms = self.read_weights(pop_pre=self._pop, pop_post=self._pop)
+        else:
+            vms = self.nest_module.GetStatus(self._pop, name)
+        return vms
+
     def set_param(self, name, value):
         """ IPC command for setting a parameter """
 
@@ -552,7 +580,7 @@ class FFIAFNest(Layer):
             )
 
             # - Record weights and layer specific parameters
-            self.weights = weights
+            self.weights = A2mA(weights)
             self.size = np.shape(weights)[1]
             self.tau_mem = s2ms(tau_mem)
             # - Keep track of existing connections for more efficient weight updates
@@ -587,12 +615,20 @@ class FFIAFNest(Layer):
 
         ######### DEFINE IPC COMMANDS ######
 
+        def get_param(self, name):
+            """ IPC command for getting a parameter """
+            if name == "weights":
+                vms = self.read_weights(pop_pre=self._scg, pop_post=self._pop)
+            else:
+                vms = self.nest_module.GetStatus(self._pop, name)
+            return vms
+
         def set_param(self, name, value):
             """ IPC command for setting a parameter """
 
             if name == "weights":
                 weights_old = self.weights.copy()
-                self.weights = value
+                self.weights = A2mA(value)
                 self.update_weights(
                     self._scg,
                     self._pop,
@@ -857,6 +893,12 @@ class FFIAFNest(Layer):
     def weights(self):
         return SetterArray(self._weights, owner=self, name="weights")
 
+    @property
+    def weights_(self):
+        self.request_q.put([COMMAND_GET, "weights"])
+        weights = mA2A(self.result_q.get())
+        return ImmutableArray(weights, name=self.start_print)
+
     @weights.setter
     def weights(self, new_weights):
         Layer.weights.fset(self, new_weights)
@@ -885,7 +927,6 @@ class FFIAFNest(Layer):
         ).astype(float)
         self._capacity = new_capacity
         self.request_q.put([COMMAND_SET, "C_m", F2mF(new_capacity)])
-        return self._capacity
 
     @property
     def state(self):
@@ -1226,6 +1267,12 @@ class RecIAFSpkInNest(FFIAFNest):
     def weights_in(self):
         return SetterArray(self._weights_in, owner=self, name="weights_in")
 
+    @property
+    def weights_in_(self):
+        self.request_q.put([COMMAND_GET, "weights_in"])
+        weights = mA2A(self.result_q.get())
+        return ImmutableArray(weights, name=self.start_print)
+
     @weights_in.setter
     def weights_in(self, new_weights):
         self._weights_in = self._expand_to_shape(
@@ -1236,6 +1283,12 @@ class RecIAFSpkInNest(FFIAFNest):
     @property
     def weights_rec(self):
         return SetterArray(self._weights_rec, owner=self, name="weights_rec")
+
+    @property
+    def weights_rec_(self):
+        self.request_q.put([COMMAND_GET, "weights_rec"])
+        weights = mA2A(self.result_q.get())
+        return ImmutableArray(weights, name=self.start_print)
 
     @weights_rec.setter
     def weights_rec(self, new_weights):

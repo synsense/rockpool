@@ -210,6 +210,7 @@ def test_setWeightsIn():
 
     # - Set input weights to same as fl0
     fl1.weights = weights_in
+    assert (fl1.weights_ == weights_in).all()
 
     # - Compare states before and after
     fl0.evolve(tsInpCont, duration=0.12)
@@ -247,6 +248,7 @@ def test_setWeightsIn():
 
     # - Set input weights to same as fl0
     fl1.weights_in = weights_in
+    assert (fl1.weights_in_ == weights_in).all()
 
     # - Compare states before and after
     fl0.evolve(tsInp, duration=0.12)
@@ -284,6 +286,7 @@ def test_setWeightsIn():
 
     # - Set input weights to same as fl0
     fl1.weights_in[0, 0] = weights_in[0, 0]
+    assert (fl1.weights_in_ == weights_in).all()
 
     # - Compare states before and after
     fl0.evolve(tsInp, duration=0.12)
@@ -340,6 +343,7 @@ def test_setWeightsRec():
     )
     # - Set recurrent weights to same as fl0
     fl1.weights_rec = fl0.weights_rec
+    assert (fl1.weights_rec_ == weights_rec).all()
 
     tsInp = TSEvent([0.1], [0])
 
