@@ -628,7 +628,7 @@ class FFIAFNest(Layer):
 
             if name == "weights":
                 weights_old = self.weights.copy()
-                self.weights = A2mA(value)
+                self.weights = value
                 self.update_weights(
                     self._scg,
                     self._pop,
@@ -902,7 +902,7 @@ class FFIAFNest(Layer):
     @weights.setter
     def weights(self, new_weights):
         Layer.weights.fset(self, new_weights)
-        self.request_q.put([COMMAND_SET, "weights", self._weights])
+        self.request_q.put([COMMAND_SET, "weights", A2mA(self._weights)])
 
     @property
     def refractory(self):
