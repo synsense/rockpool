@@ -120,6 +120,22 @@ def test_item_assignment():
     tau_mem_correct[11 * 256 : 3000] = 0.0015
     assert (vd.tau_mem_ == tau_mem_correct).all()
 
+    # - Make sure parameters match those of `_simulator`
+    param_names = [
+        "bias",
+        "tau_syn_exc",
+        "tau_syn_inh",
+        "v_thresh",
+        "refractory",
+        "tau_adapt",
+        "spike_adapt",
+        "delta_t",
+    ]
+    for param in param_names:
+        assert (getattr(vd, param + "_") == getattr(vd._simulator, param)).all()
+    assert (vd.weights_rec == vd._simulator.weights_rec).all()
+    assert (vd.weights_ext == vd._simulator.weights_in).all()
+
 
 def test_evolve():
     np.random.seed(1)
@@ -518,3 +534,87 @@ def test_conn_validation():
         )
         == 4
     )
+
+
+def test_saveload():
+    np.random.seed(1)
+    neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
+    input_ids = np.arange(3) + 5
+    ids_row, ids_col = np.meshgrid(neuron_ids, neuron_ids, indexing="ij")
+    connections_ext = np.random.randint(2, size=(3, 8))
+    connections_rec = 2 * np.random.randint(2, size=(8, 8))
+    connections_ext_full = np.zeros((100, 3300))
+    connections_ext_full[
+        np.repeat(input_ids[:, None], axis=1, repeats=8), ids_col[:3]
+    ] = connections_ext
+    bias = np.random.rand(16) * 0.001
+    v_thresh = np.random.rand(16) * 0.02 + 0.01
+    refractory = np.random.rand(16) * 0.01
+    tau_mem_1 = np.random.rand(16) * 0.05
+    tau_mem_2 = np.random.rand(16) * 0.05
+    has_tau_mem_2 = np.random.randint(2, size=4096).astype(bool)
+    tau_syn_exc = np.random.rand(16) * 0.1
+    tau_syn_inh = np.random.rand(16) * 0.1
+    baseweight = 0.01
+
+    # - Layer generation
+    vd = VirtualDynapse(
+        connections_ext=connections_ext_full,
+        bias=bias,
+        tau_mem_1=tau_mem_1,
+        tau_mem_2=tau_mem_2,
+        has_tau_mem_2=has_tau_mem_2,
+        v_thresh=v_thresh,
+        refractory=refractory,
+        tau_syn_exc=tau_syn_exc,
+        tau_syn_inh=tau_syn_inh,
+        baseweight_e=baseweight,
+        baseweight_i=baseweight,
+        dt=0.001,
+        tau_adapt=0.1,
+        spike_adapt=0.0,
+        delta_t=0.002,
+        record=True,
+    )
+    vd.set_connections(
+        connections=connections_rec,
+        ids_pre=neuron_ids,
+        ids_post=neuron_ids,
+        external=False,
+    )
+    vd.refractory = 0.015
+
+    vd.save_layer("temp")
+    vd_new = VirtualDynapse.load_from_file("temp")
+
+    param_names = [
+        "connections_rec",
+        "connections_ext",
+        "bias",
+        "tau_mem_1",
+        "tau_mem_2",
+        "has_tau_mem_2",
+        "tau_syn_exc",
+        "tau_syn_inh",
+        "baseweight_e",
+        "baseweight_i",
+        "v_thresh",
+        "refractory",
+        "tau_adapt",
+        "spike_adapt",
+        "delta_t",
+        "weights_rec",
+        "weights_ext",
+        "bias_",
+        "tau_mem_",
+        "tau_syn_exc_",
+        "tau_syn_inh_",
+        "v_thresh_",
+        "refractory_",
+        "tau_adapt_",
+        "spike_adapt_",
+        "delta_t_",
+    ]
+    for param in param_names:
+        assert (getattr(vd, param) == getattr(vd_new, param)).all()
+    assert vd_new.record

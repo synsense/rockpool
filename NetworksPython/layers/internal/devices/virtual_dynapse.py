@@ -232,10 +232,13 @@ class VirtualDynapse(Layer):
         self._simulator = RecAEIFSpkInNest(
             weights_in=weights_ext.copy(),
             weights_rec=weights_rec.copy(),
+            delay_in=dt,
+            delay_rec=dt,
             bias=bias,
             v_thresh=v_thresh,
             v_reset=0,
             v_rest=0,
+            refractory=refractory,
             tau_mem=self._tau_mem_,
             tau_syn_exc=tau_syn_exc,
             tau_syn_inh=tau_syn_inh,
@@ -859,7 +862,7 @@ class VirtualDynapse(Layer):
         config["tau_mem_2"] = self.tau_mem_2.tolist()
         config["has_tau_mem_2"] = self.has_tau_mem_2.tolist()
         config["tau_syn_exc"] = self.tau_syn_exc.tolist()
-        config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+        config["tau_syn_inh"] = self.tau_syn_inh.tolist()
         config["baseweight_e"] = self.baseweight_e.tolist()
         config["baseweight_i"] = self.baseweight_i.tolist()
         config["bias"] = self.bias.tolist()
@@ -868,6 +871,7 @@ class VirtualDynapse(Layer):
         config["name"] = self.name
         config["num_threads"] = self.num_threads
         config["class_name"] = self.class_name
+        config["record"] = self.record
         # - Array holding mismatch factors
         mismatch_array = np.concatenate(
             [

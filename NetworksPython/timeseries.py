@@ -1998,7 +1998,6 @@ class TSEvent(TimeSeries):
             stop_previous = delay_list[-1] + prev_series.t_stop
             # Delay for current series
             delay_list.append(stop_previous + offset - curr_series.t_start)
-        print(delay_list)
         # - Let self.merge do the rest
         try:
             return self.merge(
