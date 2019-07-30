@@ -388,7 +388,7 @@ class VirtualDynapse(Layer):
                             Sizes must match `ids_pre` and `ids_post`.
         :param ids_pre:     Array-like with IDs of presynaptic neurons or input channels
                             that `connections` refer to. If None, use all neurons
-                            (from 0 to self.num_neurons - 1) or input channels.
+                            (from 0 to connections.shape[0] - 1) or input channels.
         :param ids_post:    Array-like with IDs of postsynaptic neurons that `connections`
                             refer to. If None, use same IDs as presynaptic neurons, unless
                             `external` is True. In this case use all neurons.
@@ -396,11 +396,22 @@ class VirtualDynapse(Layer):
                             connections between given neuron populations are replaced.
         :param external:    If True, presynaptic neurons are external.
         """
+        # - Make sure `connections` is 2D array
+        connections = np.atleast_2d(connections)
+
         if ids_pre is None:
-            ids_pre = np.arange(self.num_external if external else self.size)
+            ids_pre = np.arange(connections.shape[0])
+            print(
+                self.start_print
+                + f"Presynaptic IDs for connection: From 0 to {ids_pre[-1]}."
+            )
 
         if ids_post is None:
-            ids_post = ids_pre if not external else np.arange(self.size)
+            ids_post = np.arange(connections.shape[1])
+            print(
+                self.start_print
+                + f"Postsynaptic IDs for connection: From 0 to {ids_post[-1]}."
+            )
 
         # - Warn in case of non-integer connections
         if connections.dtype.kind not in ["i", "u"]:
@@ -944,6 +955,20 @@ class VirtualDynapse(Layer):
 
     def reset_all(self):
         self._simulator.reset_all()
+
+    ## -- Magic methods
+
+    def __repr__(self):
+        # - Which neurons are connected to other neurons or external input
+        connected_to_ext = np.nonzero(self.connections_ext)[1]
+        connected_rec = np.nonzero(self.connections_rec)
+        connected = np.unique(np.hstack(connected_rec + (connected_to_ext,)))
+        return (
+            self.start_print
+            + "with {} of {} neurons connected. Internal time: {} s.".format(
+                connected.size, self.num_neurons, self.t
+            )
+        )
 
     ## -- Properties
 
