@@ -743,7 +743,7 @@ class DynapseControl:
             (len(params.CAMTYPES), self.num_neurons, self.num_neurons)
         )
         # Include previously existing connections in the model
-        # self._update_connectivity_array(initialized_chips)
+        self._update_connectivity_array(initialized_chips)
         print("DynapseControl: Connectivity array initialized")
 
         # - Wipe configuration
@@ -818,7 +818,7 @@ class DynapseControl:
         neuron_ids = [
             i
             for cid in core_ids
-            for i in range(cid * self.num_neurons_core, (cid + 1) * self.neurons_core)
+            for i in range(cid * self.num_neur_core, (cid + 1) * self.num_neur_core)
         ]
         if postsynaptic:
             # - Update internal representation of SRAM cells
@@ -826,6 +826,9 @@ class DynapseControl:
         if presynaptic:
             # - Update internal representation of CAM cells
             self._cam_connections[:, :, neuron_ids] = 0
+        self._connections = self._extract_connections_from_memory(
+            self._sram_connections, self._cam_connections
+        )
 
     def silence_neurons(self, neuron_ids: list):
         """
@@ -1099,6 +1102,9 @@ class DynapseControl:
             except TypeError:
                 consider_chips: Tuple = (int(consider_chips),)
 
+        if len(consider_chips) == 0:
+            return
+
         # - Get connection information for specified chips
         connection_info = tools.get_connection_info(consider_chips)
         neuron_ids, targetcore_lists, inputid_lists, camtype_lists = connection_info
@@ -1184,9 +1190,9 @@ class DynapseControl:
         self,
         weights: np.ndarray,
         neuron_ids: np.ndarray,
-        syn_exc: "ctxdynapse.DynapseCamType",
-        syn_inh: "ctxdynapse.DynapseCamType",
         neuron_ids_post: Optional[np.ndarray] = None,
+        syn_exc: Optional["ctxdynapse.DynapseCamType"] = None,
+        syn_inh: Optional["ctxdynapse.DynapseCamType"] = None,
         virtual_pre: bool = False,
         apply_diff: bool = True,
         prevent_aliasing: Optional[bool] = None,
@@ -1202,9 +1208,9 @@ class DynapseControl:
 
         :param weights:     Weights for connections between neuron populations
         :param neuron_ids:  Neuron IDs of presynaptic population.
-        :param syn_exc:     Excitatory synapse type
-        :param syn_inh:     Inhibitory synapse type
         :param neuron_ids_post:  Neuron IDs of presynaptic population. If `None`,
+        :param syn_exc:     Excitatory synapse type. Default: syn_exc_fast
+        :param syn_inh:     Inhibitory synapse type. Default: syn_exc_fast
                                  use 'neuron_ids' (i.e. recurrent connections).
         :param virtual_pre:  If `True`, presynaptic neurons are virtual. In this
                              case, `neuron_ids_post` cannot be `None`.
@@ -1236,9 +1242,9 @@ class DynapseControl:
         self,
         weights: np.ndarray,
         neuron_ids: np.ndarray,
-        syn_exc: "ctxdynapse.DynapseCamType",
-        syn_inh: "ctxdynapse.DynapseCamType",
         neuron_ids_post: Optional[np.ndarray] = None,
+        syn_exc: Optional["ctxdynapse.DynapseCamType"] = None,
+        syn_inh: Optional["ctxdynapse.DynapseCamType"] = None,
         virtual_pre: bool = False,
         apply_diff: bool = True,
         prevent_aliasing: Optional[bool] = None,
@@ -1253,8 +1259,8 @@ class DynapseControl:
 
         :param weights:     Weights for connections between neuron populations
         :param neuron_ids:  Neuron IDs of presynaptic population.
-        :param syn_exc:     Excitatory synapse type
-        :param syn_inh:     Inhibitory synapse type
+        :param syn_exc:     Excitatory synapse type. Default: syn_exc_fast
+        :param syn_inh:     Inhibitory synapse type. Default: syn_exc_fast
         :param neuron_ids_post:  Neuron IDs of presynaptic population. If `None`,
                                  use 'neuron_ids' (i.e. recurrent connections).
         :param virtual_pre:  If `True`, presynaptic neurons are virtual. In this
@@ -1267,7 +1273,12 @@ class DynapseControl:
                                   instance setting (`self.prevent_aliasing`).
         """
 
+        # - Resolve synapse types
+        syn_exc = self.syn_exc_fast if syn_exc is None else syn_exc
+        syn_inh = self.syn_inh_fast if syn_inh is None else syn_inh
+
         ## -- Connect virtual neurons to hardware neurons
+        weights = np.atleast_2d(weights)
 
         # - Get virtual to hardware connections
         presyn_exc_list, postsyn_exc_list, presyn_inh_list, postsyn_inh_list = connectivity_matrix_to_prepost_lists(
@@ -1290,25 +1301,36 @@ class DynapseControl:
         preneur_ids_inh = [int(neuron_ids[i]) for i in presyn_inh_list]
         postneur_ids_inh = [int(neuron_ids_post[i]) for i in postsyn_inh_list]
 
-        # - Update representations of SRAMs and CAMs
+        # - Update representations of SRAMs
         sram_connections = self._sram_connections.copy()
-        postneur_cores_exc = np.asarray(postneur_ids_exc) // self.num_neur_core
-        postneur_cores_inh = np.asarray(postneur_ids_inh) // self.num_neur_core
-        sram_connections[preneur_ids_exc, postneur_cores_exc] = True
-        sram_connections[preneur_ids_inh, postneur_cores_inh] = True
+        if not virtual_pre:
+            postneur_cores_exc = np.asarray(postneur_ids_exc) // self.num_neur_core
+            postneur_cores_inh = np.asarray(postneur_ids_inh) // self.num_neur_core
+            if len(preneur_ids_exc) > 0:
+                sram_connections[preneur_ids_exc, postneur_cores_exc] = True
+            if len(preneur_ids_inh) > 0:
+                sram_connections[preneur_ids_inh, postneur_cores_inh] = True
         # - For CAMs perform loop because connections may be repeated
         cam_connections = self._cam_connections.copy()
-        preneur_ids_chip_exc = preneur_ids_exc % self.num_neur_chip
+        preneur_ids_chip_exc = np.asarray(preneur_ids_exc) % self.num_neur_chip
         for id_pre, id_post in zip(preneur_ids_chip_exc, postneur_ids_exc):
             cam_connections[self._camtypes[syn_exc], id_pre, id_post] += 1
-        preneur_ids_chip_inh = preneur_ids_inh % self.num_neur_chip
+        preneur_ids_chip_inh = np.asarray(preneur_ids_inh) % self.num_neur_chip
         for id_pre, id_post in zip(preneur_ids_chip_inh, postneur_ids_inh):
             cam_connections[self._camtypes[syn_inh], id_pre, id_post] += 1
 
         # - Make sure no aliasing occurs
         target_connections = self.connections.copy()
         idcs_pre, idcs_post = np.meshgrid(neuron_ids, neuron_ids_post, indexing="ij")
-        target_connections[idcs_pre, idcs_post] = weights
+        conns_exc = np.clip(weights, 0, None)
+        conns_inh = np.abs(np.clip(weights, None, 0))
+        if not virtual_pre:
+            target_connections[
+                self._camtypes[syn_exc], idcs_pre, idcs_post
+            ] += conns_exc
+            target_connections[
+                self._camtypes[syn_inh], idcs_pre, idcs_post
+            ] += conns_inh
         new_connections = self._extract_connections_from_memory(
             sram_connections, cam_connections
         )
@@ -1319,7 +1341,7 @@ class DynapseControl:
             aliasing_warning = (
                 "DynapseControl: Setting the provided connections will result in "
                 + "connection aliasing for the following neuron pairs: "
-                + ", ".join(str(tuple(pair)) for pair in affected_pairs)
+                + ", ".join(str(tuple(pair[1:])) for pair in affected_pairs)
             )
             if prevent_aliasing is None:
                 prevent_aliasing = self.prevent_aliasing
@@ -1361,6 +1383,7 @@ class DynapseControl:
             print("DynapseControl: Connections have been written to the chip.")
 
         # - Apply updates to connection and memory representations
+        #   (only after connections habe been updated successfully)
         self._sram_connections = sram_connections
         self._cam_connections = cam_connections
         self._connections = new_connections
@@ -1384,6 +1407,32 @@ class DynapseControl:
 
         # - Update internal representation of CAM cells
         self._cam_connections[:, :, neuron_ids] = 0
+        self._connections = self._extract_connections_from_memory(
+            self._sram_connections, self._cam_connections
+        )
+
+    def remove_all_connections_from(self, neuron_ids, apply_diff: bool = True):
+        """
+        remove_all_connections_to - Remove all postsynaptic connections
+                                    from neurons defined in neuron_ids
+        :param neuron_ids:     np.ndarray IDs of neurons whose postsynaptic
+                                          connections should be removed
+        :param apply_diff:      bool If False do not apply the changes to
+                                     chip but only to shadow states of the
+                                     neurons. Useful if new connections are
+                                     going to be added to the given neurons.
+        """
+        # - Make sure neurons neuron_ids is an array
+        neuron_ids = [int(id_neur) for id_neur in np.asarray(neuron_ids)]
+
+        # - Call `remove_all_connections_to` function
+        self.tools.remove_all_connections_from(neuron_ids, self.model, apply_diff)
+
+        # - Update internal representation of CAM cells
+        self._sram_connections[neuron_ids, :] = 0
+        self._connections = self._extract_connections_from_memory(
+            self._sram_connections, self._cam_connections
+        )
 
     ### --- Stimulation, event generation and recording
 
@@ -2400,6 +2449,10 @@ class DynapseControl:
     @property
     def connections(self):
         return self._connections
+
+    @property
+    def connections_virtual(self):
+        return self._cam_connections
 
 
 if not _USE_RPYC:
