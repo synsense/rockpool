@@ -604,6 +604,7 @@ class DynapseControl:
         clearcores_list: Optional[list] = None,
         rpyc_connection: Union[None, str, int, "rpyc.core.protocol.Connection"] = None,
         init_chips: Optional[List] = None,
+        prevent_aliasing: bool = True,
     ):
         """
         DynapseControl - Class for interfacing DynapSE
@@ -616,6 +617,8 @@ class DynapseControl:
                                  unsuccessful, 1301.
         :param init_chips:       Chips to be cleared, if they haven't been cleared since start
                                  of cortexcontrol instance.
+        :param prevent_aliasing: Throw an exception when updating connections would result
+                                 in connection aliasing.
         """
 
         if clearcores_list is not None:
@@ -628,6 +631,9 @@ class DynapseControl:
                 if init_chips is not None
                 else list(clearchips)
             )
+
+        # - Store settings
+        self.prevent_aliasing = prevent_aliasing
 
         # - Store pointer to ctxdynapse and nnconnector modules
         if _USE_RPYC:
@@ -737,7 +743,7 @@ class DynapseControl:
             (len(params.CAMTYPES), self.num_neurons, self.num_neurons)
         )
         # Include previously existing connections in the model
-        self._update_connectivity_array(initialized_chips)
+        # self._update_connectivity_array(initialized_chips)
         print("DynapseControl: Connectivity array initialized")
 
         # - Wipe configuration
@@ -808,6 +814,18 @@ class DynapseControl:
                 np.array(core_ids, int)
             )
         )
+
+        neuron_ids = [
+            i
+            for cid in core_ids
+            for i in range(cid * self.num_neurons_core, (cid + 1) * self.neurons_core)
+        ]
+        if postsynaptic:
+            # - Update internal representation of SRAM cells
+            self._sram_connections[neuron_ids, :] = False
+        if presynaptic:
+            # - Update internal representation of CAM cells
+            self._cam_connections[:, :, neuron_ids] = 0
 
     def silence_neurons(self, neuron_ids: list):
         """
@@ -1095,50 +1113,29 @@ class DynapseControl:
         # - Update CAM info
         for id_post, ids_pre, syntypes in zip(neuron_ids, inputid_lists, camtype_lists):
             for id_pre, type_pre in zip(ids_pre, syntypes):
-                self._cam_connections[self._camtypes[type_pre], id_pre, id_post] += 1
+                self._cam_connections[type_pre, id_pre, id_post] += 1
+
+    def _extract_connections_from_memory(self, sram, cam):
+
+        # - Expand SRAM info
+        # Expand from cores to number of neurons
+        sram_conns = np.repeat(sram, self.num_neur_core, axis=1)
+        # Repeat for each connection type
+        sram_conns = np.repeat((sram_conns,), len(self._camtypes), axis=0)
+
+        # - Expand CAM info
+        cam_conns = np.concatenate(self.num_chips * (cam,), axis=1)
+
+        return cam_conns * sram_conns
 
     def _update_connectivity_array(self, consider_chips: Optional[List] = None):
 
         # - Update sram and cam information for considered chips
         self._update_memory_cells(consider_chips)
 
-        # - Expand SRAM info
-        # Expand from cores to number of neurons
-        sram_conns = np.repeat(self._sram_connections, self.num_neur_core, axis=1)
-        # Repeat for each connection type
-        sram_conns = np.repeat((sram_conns,), self._connections.shape[0], axis=0)
-
-        # - Expand CAM info
-        cam_conns = np.concatenate(self.num_chips * (self._cam_connections,), axis=1)
-
-        self._connections = cam_conns * sram_conns
-
-    def _include_aliases(self, connections_rec, connections_ext):
-        # - Separate inhibitory and excitatory connections
-        connections_rec_exc = np.clip(connections_rec, 0, None)
-        connections_rec_inh = np.clip(connections_rec, None, 0)
-        connections_ext_exc = np.clip(connections_ext, 0, None)
-        connections_ext_inh = np.clip(connections_ext, None, 0)
-        # - Join external and recurrent connections
-        connections_full = np.vstack((connections_rec, connections_ext))
-        connections_full_exc = np.vstack((connections_rec_exc, connections_ext_exc))
-        connections_full_inh = np.vstack((connections_rec_inh, connections_ext_inh))
-
-        # - Iterate over cores:
-        for core_id in range(self.num_cores):
-            # - IDs of neurons where core starts and ends
-            id_start = core_id * self.num_neurons_core
-            id_end = id_start + self.num_neurons_core
-            # - Connections to this core
-            conns_to_core = connections_full[:, id_start:id_end]
-            conns_to_core_exc = connections_full_exc[:, id_start:id_end]
-            conns_to_core_inh = connections_full_inh[:, id_start:id_end]
-            # - Iterate over presynaptic IDs (within chip)
-            for pre_id in range(self.num_neurons_chip):
-                conns_tocore_this_id = conns_to_core[pre_id :: self.num_neurons_chip]
-                # - Boolean 1D array indicating from which chips there are connections
-                chip_connected = conns_tocore_this_id.any(axis=1)
-                # - Add connections that result from aliasing
+        self._connections = self._extract_connections_from_memory(
+            self._sram_connections, self._cam_connections
+        )
 
     def add_connections_to_virtual(
         self,
@@ -1179,6 +1176,10 @@ class DynapseControl:
         self.model.apply_diff_state()
         print("DynapseControl: Connections set")
 
+        # - Update internal representation of CAM cells
+        for syntype, pre_id, post_id in zip(syntypes, virtualneuron_ids, neuron_ids):
+            self._cam_connections[self._camtypes[syntype], pre_id, post_id] += 1
+
     def set_connections_from_weights(
         self,
         weights: np.ndarray,
@@ -1188,6 +1189,7 @@ class DynapseControl:
         neuron_ids_post: Optional[np.ndarray] = None,
         virtual_pre: bool = False,
         apply_diff: bool = True,
+        prevent_aliasing: Optional[bool] = None,
     ):
         """
         set_connections_from_weights - Set connections between two neuron
@@ -1209,6 +1211,9 @@ class DynapseControl:
         :param apply_diff:  If False, do not apply the changes to chip but only
                             to shadow states of the neurons. Useful if new
                             connections are going to be added to the given neurons.
+        :param prevent_aliasing:  Throw an exception if setting connections would
+                                  result in connection aliasing. If `None` use
+                                  instance setting (`self.prevent_aliasing`).
         """
         # - Remove existing connections
         if neuron_ids_post is None:
@@ -1224,6 +1229,7 @@ class DynapseControl:
             neuron_ids_post=neuron_ids_post,
             virtual_pre=virtual_pre,
             apply_diff=apply_diff,
+            prevent_aliasing=prevent_aliasing,
         )
 
     def add_connections_from_weights(
@@ -1235,6 +1241,7 @@ class DynapseControl:
         neuron_ids_post: Optional[np.ndarray] = None,
         virtual_pre: bool = False,
         apply_diff: bool = True,
+        prevent_aliasing: Optional[bool] = None,
     ):
         """
         add_connections_from_weights - Add connections between two neuron
@@ -1255,6 +1262,9 @@ class DynapseControl:
         :param apply_diff:  If False, do not apply the changes to chip but only
                             to shadow states of the neurons. Useful if new
                             connections are going to be added to the given neurons.
+        :param prevent_aliasing:  Throw an exception if setting connections would
+                                  result in connection aliasing. If `None` use
+                                  instance setting (`self.prevent_aliasing`).
         """
 
         ## -- Connect virtual neurons to hardware neurons
@@ -1281,22 +1291,42 @@ class DynapseControl:
         postneur_ids_inh = [int(neuron_ids_post[i]) for i in postsyn_inh_list]
 
         # - Update representations of SRAMs and CAMs
-        self._sram_connections[
-            preneur_ids_exc, postneur_ids_exc // self.num_neur_core
-        ] = True
-        self._sram_connections[
-            preneur_ids_inh, postneur_ids_inh // self.num_neur_core
-        ] = True
-        self._cam_connections[
-            self._camtypes[syn_exc],
-            preneur_ids_exc % self.num_neur_chip,
-            postneur_ids_exc,
-        ] += 1
-        self._cam_connections[
-            self._camtypes[syn_inh],
-            preneur_ids_inh % self.num_neur_chip,
-            postneur_ids_inh,
-        ] += 1
+        sram_connections = self._sram_connections.copy()
+        postneur_cores_exc = np.asarray(postneur_ids_exc) // self.num_neur_core
+        postneur_cores_inh = np.asarray(postneur_ids_inh) // self.num_neur_core
+        sram_connections[preneur_ids_exc, postneur_cores_exc] = True
+        sram_connections[preneur_ids_inh, postneur_cores_inh] = True
+        # - For CAMs perform loop because connections may be repeated
+        cam_connections = self._cam_connections.copy()
+        preneur_ids_chip_exc = preneur_ids_exc % self.num_neur_chip
+        for id_pre, id_post in zip(preneur_ids_chip_exc, postneur_ids_exc):
+            cam_connections[self._camtypes[syn_exc], id_pre, id_post] += 1
+        preneur_ids_chip_inh = preneur_ids_inh % self.num_neur_chip
+        for id_pre, id_post in zip(preneur_ids_chip_inh, postneur_ids_inh):
+            cam_connections[self._camtypes[syn_inh], id_pre, id_post] += 1
+
+        # - Make sure no aliasing occurs
+        target_connections = self.connections.copy()
+        idcs_pre, idcs_post = np.meshgrid(neuron_ids, neuron_ids_post, indexing="ij")
+        target_connections[idcs_pre, idcs_post] = weights
+        new_connections = self._extract_connections_from_memory(
+            sram_connections, cam_connections
+        )
+
+        if (new_connections != target_connections).any():
+            affected_ids = np.where(new_connections != target_connections)
+            affected_pairs = np.vstack(affected_ids).T
+            aliasing_warning = (
+                "DynapseControl: Setting the provided connections will result in "
+                + "connection aliasing for the following neuron pairs: "
+                + ", ".join(str(tuple(pair)) for pair in affected_pairs)
+            )
+            if prevent_aliasing is None:
+                prevent_aliasing = self.prevent_aliasing
+            if prevent_aliasing:
+                raise ValueError(aliasing_warning)
+            else:
+                warn(aliasing_warning)
 
         # - Set excitatory input connections
         self.tools.set_connections(
@@ -1330,6 +1360,11 @@ class DynapseControl:
             self.model.apply_diff_state()
             print("DynapseControl: Connections have been written to the chip.")
 
+        # - Apply updates to connection and memory representations
+        self._sram_connections = sram_connections
+        self._cam_connections = cam_connections
+        self._connections = new_connections
+
     def remove_all_connections_to(self, neuron_ids, apply_diff: bool = True):
         """
         remove_all_connections_to - Remove all presynaptic connections
@@ -1346,6 +1381,9 @@ class DynapseControl:
 
         # - Call `remove_all_connections_to` function
         self.tools.remove_all_connections_to(neuron_ids, self.model, apply_diff)
+
+        # - Update internal representation of CAM cells
+        self._cam_connections[:, :, neuron_ids] = 0
 
     ### --- Stimulation, event generation and recording
 
@@ -2350,6 +2388,18 @@ class DynapseControl:
     @property
     def virtualneurons_isavailable(self) -> np.ndarray:
         return self._virtualneurons_isfree
+
+    @property
+    def prevent_aliasing(self):
+        return self._prevent_aliasing
+
+    @prevent_aliasing.setter
+    def prevent_aliasing(self, setting):
+        self._prevent_aliasing = bool(setting)
+
+    @property
+    def connections(self):
+        return self._connections
 
 
 if not _USE_RPYC:

@@ -594,7 +594,8 @@ def get_connection_info(
         for neuron in neuron_list
     ]
     # - List of input IDs to all neurons
-    cam_info = [
+    #   (list over neurons, contains list over cams, contains tuples with pre_neuron id and camtype)
+    cam_info: List[List[Tuple[int, int]]] = [
         [
             (
                 NUM_NEURONS_CORE * cam.get_pre_neuron_core_id()
