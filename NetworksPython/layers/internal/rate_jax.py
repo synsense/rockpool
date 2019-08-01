@@ -221,6 +221,11 @@ class RecRateEulerJax(Layer):
         w_recurrent = np.atleast_2d(w_recurrent)
         w_out = np.atleast_2d(w_out)
 
+        # transform to np.array if necessary
+        tau = np.array(tau)
+        bias = np.array(bias)
+
+
         # - Get information about network size
         self._num_inputs = w_in.shape[0]
         self._size = w_in.shape[1]
@@ -377,15 +382,16 @@ class RecRateEulerJax(Layer):
         config["w_out"] = self.w_out.tolist()
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
-        config["noise_std"] = self.noise_std.tolist()
+        config["noise_std"] = self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = self._rng_key
+        #config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
             + "default activation function."
         )
+        return config
 
     @property
     def w_in(self) -> np.ndarray:

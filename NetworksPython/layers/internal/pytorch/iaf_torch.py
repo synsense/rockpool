@@ -12,7 +12,8 @@ import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ...layer import Layer, RefProperty
+from ....utils import RefProperty
+from ...layer import Layer
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]
@@ -864,7 +865,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
             )
 
         # - Include previous synaptic states
-        weighted_input[0] = self._synapse_state * torch.exp(-self.dt / self._tau_syn)
+        weighted_input[0] += self._synapse_state * torch.exp(-self.dt / self._tau_syn)
 
         # - Reshape input for convolution
         weighted_input = weighted_input.t().reshape(1, self.size, -1)
@@ -1558,7 +1559,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Weigh inputs
         weighted_input = torch.mm(inp, self._weights_in)
         # - Carry over external inputs from last batch
-        weighted_input[0] = self._synapse_state_inp.clone() * torch.exp(
+        weighted_input[0] += self._synapse_state_inp.clone() * torch.exp(
             -self.dt / self._vtTauSInp
         )
         # - Reshape input for convolution
@@ -1899,7 +1900,7 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         v_thresh: Union[float, np.ndarray] = -0.055,
         v_reset: Union[float, np.ndarray] = -0.065,
         v_rest: Union[float, np.ndarray] = -0.065,
-        refractory=0,
+        refractory: float = 0,
         name: str = "unnamed",
         record: bool = False,
         add_events: bool = True,

@@ -16,6 +16,7 @@ from params import (
     NUM_CORES_CHIP,
     NUM_CHIPS,
     NUM_NEURONS_CHIP,
+    CAMTYPES,
 )
 
 __all__ = [
@@ -34,6 +35,21 @@ __all__ = [
     "silence_neurons",
     "reset_silencing",
 ]
+
+# - Base for converting core mask to core IDs
+COREMASK_BASE = tuple(2 ** i for i in range(NUM_CORES_CHIP))
+# - Map cam types to integers
+CAMTYPE_DICT = {
+    getattr(CtxDynapse.DynapseCamType, camtype): i for i, camtype in enumerate(CAMTYPES)
+}
+
+# - Dict that can be used to store variables in cortexcontrol. They will persist even if
+#   RPyC connection breaks down.
+storage = dict()
+
+
+def store_var(name: str, value):
+    storage[name] = copy.copy(value)
 
 
 def _auto_insert_dummies(
@@ -498,7 +514,7 @@ def set_connections(
     syntypes: list,
     shadow_neurons: list,
     virtual_neurons: Optional[list],
-    connector: "nnconnector.DynapseConnector",
+    connector: "DynapseConnector",
 ):
     """
     set_connections - Set connections between pre- and post synaptic neurons from lists.
@@ -508,7 +524,7 @@ def set_connections(
     :param shadow_neurons:      list  Shadow neurons that the indices correspond to.
     :param virtual_neurons:     list  If None, presynaptic neurons are shadow neurons,
                                       otherwise virtual neurons from this list.
-    :param connector:   nnconnector.DynapseConnector
+    :param connector:   DynapseConnector
     """
     preneuron_ids = copy.copy(preneuron_ids)
     postneuron_ids = copy.copy(postneuron_ids)
@@ -519,6 +535,8 @@ def set_connections(
     # - Neurons to be connected
     presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
     postsyn_neurons = [shadow_neurons[i] for i in postneuron_ids]
+
+    initialized_neurons = storage.get("initialized_neurons", [])
 
     if not presyn_isvirtual:
         # - Logical IDs of pre neurons
@@ -550,8 +568,62 @@ def set_connections(
     )
 
 
+def get_connection_info(
+    consider_chips: Optional[List[int]] = None
+) -> Tuple[List[int], List[List[int]], List[List[int]], List[List[int]]]:
+    consider_chips = (
+        list(range(NUM_CHIPS)) if consider_chips is None else consider_chips
+    )
+    shadowneurons = CtxDynapse.model.get_shadow_state_neurons()
+    # - IDs of neurons that are considered
+    neuron_ids = [
+        i
+        for chip_id in consider_chips
+        for i in range(chip_id * NUM_NEURONS_CHIP, (chip_id + 1) * NUM_NEURONS_CHIP)
+    ]
+    # - Neurons that are considered
+    neuron_list = [shadowneurons[i] for i in neuron_ids]
+    # - List of lists of all targeted cores for each neuron
+    targetcore_lists = [
+        [
+            targetcore
+            for sram in neuron.get_srams()[1:]
+            if sram.is_used()
+            for targetcore in read_sram_targetcores(sram)
+        ]
+        for neuron in neuron_list
+    ]
+    # - List of input IDs to all neurons
+    cam_info = [
+        [
+            (
+                NUM_NEURONS_CORE * cam.get_pre_neuron_core_id()
+                + cam.get_pre_neuron_id(),
+                CAMTYPE_DICT[cam.get_type()],
+            )
+            for cam in neuron.get_cams()
+        ]
+        for neuron in neuron_list
+    ]
+    # - Separate input ids from cam types
+    cam_info_neuronwise = (zip(*neuron) for neuron in cam_info)
+    inputid_lists, camtype_lists = zip(*cam_info_neuronwise)
+
+    return neuron_ids, targetcore_lists, inputid_lists, camtype_lists
+
+
+def read_sram_targetcores(sram: CtxDynapse.DynapseSram) -> List[int]:
+    # - Offset of core ID depending on ID of corresponding chip
+    core_offset = sram.get_target_chip_id() * NUM_CORES_CHIP
+    core_mask = sram.get_core_mask()
+    # - Convert core mask into list of core IDs
+    return [
+        n_core + core_offset for n_core, b in enumerate(COREMASK_BASE) if b & core_mask
+    ]
+
+
 @local_arguments
-def silence_neurons(neuron_ids):
+def silence_neurons(neuron_ids: Union[int, Tuple[int], List[int]]):
     """
     silence_neurons - Assign time contant tau2 to neurons definedin neuron_ids
                       to make them silent.
@@ -568,7 +640,7 @@ def silence_neurons(neuron_ids):
 
 
 @local_arguments
-def reset_silencing(core_ids):
+def reset_silencing(core_ids: Union[int, Tuple[int], List[int]]):
     """
     reset_silencing - Assign time constant tau1 to all neurons on cores defined
                       in core_ids. Convenience function that does the same as

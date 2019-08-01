@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple, Optional, TypeVar, Iterable
+from typing import Union, List, Tuple, Optional, Iterable
 import collections
 
 try:
@@ -433,14 +433,11 @@ class TSContinuous(TimeSeries):
             if self._plotting_backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
-                        hv.Curve((times, data)).redim(x="Time")
-                        for data in samples.T
+                        hv.Curve((times, data)).redim(x="Time") for data in samples.T
                     ]
                 else:
                     vhCurves = [
-                        hv.Curve((times, data))
-                        .redim(x="Time")
-                        .options(*args, **kwargs)
+                        hv.Curve((times, data)).redim(x="Time").options(*args, **kwargs)
                         for data in samples.T
                     ]
 
@@ -545,13 +542,19 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def save(self, strPath: str):
+    def save(self, path: str):
         """
         save - Save TSContinuous as npz file using np.savez
-        :param strPath:     str  Path to save file
+        :param path:     str  Path to save file
         """
+        # - Make sure path is string (and not Path object)
+        path = str(path)
+        # - Some modules add a `trial_start_times` attribute to the object.
+        trial_start_times = (
+            self.trial_start_times if hasattr(self, "trial_start_times") else None
+        )
         np.savez(
-            strPath,
+            path,
             times=self.times,
             samples=self.samples,
             t_start=self.t_start,
@@ -559,12 +562,13 @@ class TSContinuous(TimeSeries):
             interp_kind=self.interp_kind,
             periodic=self.periodic,
             name=self.name,
-            strType="TSContinuous",  # Indicate that this object is TSContinuous
+            str_type="TSContinuous",  # Indicate that this object is TSContinuous
+            trial_start_times=trial_start_times,
         )
-        missing_ending = strPath.split(".")[-1] != "npz"  # np.savez will add ending
+        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
         print(
             "TSContinuous `{}` has been stored in `{}`.".format(
-                self.name, strPath + missing_ending * ".npz"
+                self.name, path + missing_ending * ".npz"
             )
         )
 
@@ -582,6 +586,8 @@ class TSContinuous(TimeSeries):
             if self.t_start <= np.min(times) and self.t_stop >= np.max(times)
             else False
         )
+
+    ## -- Methods for manipulating timeseries
 
     def clip(
         self,
@@ -602,7 +608,7 @@ class TSContinuous(TimeSeries):
         :param t_start:       Time from which on events are returned
         :param t_stop:        Time until which events are returned
         :param channels:      Channels of which events are returned
-        :param include_stop:  If there are events with time t_stop include them or not.
+        :param include_stop:  If there are samples with time t_stop include them or not.
         :param sample_limits: If True, make sure that a sample exists at `t_start` and, if
                               `include_stop` is True, at `t_stop`, as long as not both are None.
         :param inplace:       Conduct operation in-place (Default: False; create a copy)
@@ -1357,10 +1363,10 @@ class TSEvent(TimeSeries):
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
             channels = np.zeros(np.size(times))
-            nMinNumChannels = min(np.size(times), 1)
+            min_num_ch = min(np.size(times), 1)
         # - Handle scalar channel
         elif isinstance(channels, int):
-            nMinNumChannels = channels + 1
+            min_num_ch = channels + 1
             channels = np.array([channels for _ in times])
         # - Array-like of channels
         else:
@@ -1371,13 +1377,13 @@ class TSEvent(TimeSeries):
                     + "elements as `times`, be an integer or None."
                 )
             else:
-                nMinNumChannels = np.amax(channels) + 1
+                min_num_ch = np.amax(channels) + 1
 
         if num_channels is None:
             # - Infer number of channels from maximum channel id in channels
-            num_channels = nMinNumChannels
+            num_channels = min_num_ch
         else:
-            if num_channels < nMinNumChannels:
+            if num_channels < min_num_ch:
                 raise ValueError(
                     f"TSEvent `{name}`: num_channels must be None or greater than the highest channel ID."
                 )
@@ -1387,11 +1393,11 @@ class TSEvent(TimeSeries):
             times=times, periodic=periodic, t_start=t_start, t_stop=t_stop, name=name
         )
 
-        # - Store channels
-        self.channels = np.array(channels, "int").flatten()
-
         # - Store total number of channels
         self._num_channels = int(num_channels)
+
+        # - Store channels
+        self.channels = np.array(channels, "int").flatten()
 
     def print(
         self,
@@ -1520,7 +1526,7 @@ class TSEvent(TimeSeries):
                     + "It must be matplotlib Axes or holoviews Curve or Overlay."
                 )
 
-    ## -- Methods for finding and extracting data
+    ## -- Methods for manipulating timeseries
 
     def clip(
         self,
@@ -1528,14 +1534,14 @@ class TSEvent(TimeSeries):
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
         include_stop: bool = False,
-        compress_channels: bool = False,
+        remap_channels: bool = False,
         inplace: bool = False,
     ) -> "TSEvent":
         """
         clip - Return a TSEvent which is restricted to given time limits and only
                  contains events of selected channels. If time limits are provided,
                  t_start and t_stop attributes will correspond to those. If
-                 `compress_channels` is true, channels IDs will be mapped to continuous
+                 `remap_channels` is true, channels IDs will be mapped to continuous
                  sequence of integers starting from 0 (e.g. [1,3,6]->[0,1,2]). In this
                  case `num_channels` will be set to the number of different channels in `channels`.
                  Otherwise it will keep its original values, which is also the case for
@@ -1546,9 +1552,9 @@ class TSEvent(TimeSeries):
         :param t_stop:        Time until which events are returned
         :param channels:      Channels of which events are returned
         :param include_stop:  If there are events with time t_stop include them or not
-        :param compress_channels:  Map channel IDs to continuous sequence startign from 0.
+        :param remap_channels:  Map channel IDs to continuous sequence startign from 0.
                                    Set `num_channels` to largest new ID + 1.
-        :param inplase:       Specify whether operation should be performed in place (Default: False)
+        :param inplace:       Specify whether operation should be performed in place (Default: False)
         :return: TSEvent containing events from the requested channels
         """
 
@@ -1566,7 +1572,7 @@ class TSEvent(TimeSeries):
             new_series._t_start = t_start
         if t_stop is not None:
             new_series._t_stop = t_stop
-        if compress_channels:
+        if remap_channels:
             if channel_data.size > 0:
                 # - Set channel IDs to sequence starting from 0
                 unique_channels, channel_indices = np.unique(
@@ -1585,6 +1591,33 @@ class TSEvent(TimeSeries):
             new_series._channels = channel_data
 
         return new_series
+
+    def remap_channels(self, channel_map: np.ndarray, inplace=False):
+        """
+        remap_channels - Map channels 0..``self.num_channels-1`` to channels in
+        ``channel_map``.
+        :param np.ndarray channel_map:  Channels that existing ones are mapped to. Must
+                                        be of size ``self.num_channels``.
+        :param bool inplace:            Specify whether operation should be performed in
+                                        place (Default: False)
+        """
+
+        if not inplace:
+            new_series = self.copy()
+        else:
+            new_series = self
+
+        channel_map = np.asarray(channel_map)
+        if not channel_map.size == new_series.num_channels:
+            raise ValueError(
+                f"TSEvent `{new_series.name}`: "
+                + f"`channel_map` must be of size {new_series.num_channels}."
+            )
+        new_series.channels = channel_map[new_series.channels]
+
+        return new_series
+
+    ## -- Methods for finding and extracting data
 
     def raster(
         self,
@@ -1625,13 +1658,25 @@ class TSEvent(TimeSeries):
         # - Filter time and channels
         t_start = self.t_start if t_start is None else t_start
         if channels is None:
-            channels = np.arange(self.num_channels)
+            channels = channels_clip = np.arange(self.num_channels)
+        elif np.amax(channels) >= self.num_channels:
+            # - Only use channels that are within range of channels of this timeseries
+            channels_clip = np.intersect1d(channels, np.arange(self.num_channels))
+            # - Channels for which series is not defined
+            channels_undefined = np.setxor1d(channels_clip, channels)
+            warn(
+                f"TSEvent `{self.name}` is not defined for some of the channels provided "
+                + f"in `channels` argument ({', '.join(channels_undefined.astype(str))}). "
+                + f"Will assume that there are no events for these channels."
+            )
+        else:
+            channels_clip = channels
         if num_timesteps is None:
             series = self.clip(
                 t_start=t_start,
                 t_stop=t_stop,
-                channels=channels,
-                compress_channels=False,
+                channels=channels_clip,
+                remap_channels=False,
             )
             # - Make sure that last point is also included if `duration` is a
             #   multiple of dt. Therefore floor(...) + 1
@@ -1641,8 +1686,8 @@ class TSEvent(TimeSeries):
             series = self.clip(
                 t_start=t_start,
                 t_stop=t_stop,
-                channels=channels,
-                compress_channels=False,
+                channels=channels_clip,
+                remap_channels=False,
             )
 
         # - Raster for storing event data
@@ -1657,11 +1702,12 @@ class TSEvent(TimeSeries):
         event_times = series.times
         event_channels = series.channels
 
-        ## -- Convert input events and samples to boolen or integer raster
+        ## -- Convert input events and samples to boolean or integer raster
         # - Only consider rasters that have non-zero length
         if num_timesteps > 0:
             # Compute indices for times
             time_indices = np.floor((event_times - t_start) / dt).astype(int)
+            time_indices = time_indices[time_indices < num_timesteps]
             if add_events:
                 # Count events per time step and channel
                 for idx_t, idx_ch in zip(time_indices, event_channels):
@@ -1725,8 +1771,14 @@ class TSEvent(TimeSeries):
     def save(self, path: str):
         """
         save - Save TSEvent as npz file using np.savez
-        :param strPath:     str  Path to save file
+        :param path:     str  Path to save file
         """
+        # - Make sure path is string (and not Path object)
+        path = str(path)
+        # - Some modules add a `trial_start_times` attribute to the object.
+        trial_start_times = (
+            self.trial_start_times if hasattr(self, "trial_start_times") else None
+        )
         np.savez(
             path,
             times=self.times,
@@ -1736,7 +1788,8 @@ class TSEvent(TimeSeries):
             periodic=self.periodic,
             num_channels=self.num_channels,
             name=self.name,
-            strType="TSEvent",  # Indicate that the object is TSEvent
+            str_type="TSEvent",  # Indicate that the object is TSEvent
+            trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
         print(
@@ -2064,59 +2117,71 @@ class TSEvent(TimeSeries):
         return self._channels
 
     @channels.setter
-    def channels(self, vnNewChannels):
+    def channels(self, new_channels: np.ndarray):
         # - Check size of new data
-        assert np.size(vnNewChannels) == 1 or np.size(vnNewChannels) == np.size(
+        assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
             self.times
-        ), "`vnNewChannels` must be the same size as `times`."
+        ), "`new_channels` must be the same size as `times`."
 
         # - Handle scalar channel
-        if np.size(vnNewChannels) == 1:
-            vnNewChannels = np.repeat(vnNewChannels, np.size(self._times))
+        if np.size(new_channels) == 1:
+            new_channels = np.repeat(new_channels, np.size(self._times))
 
+        # - Update self.num_channels
+        if new_channels.size > 0:
+            highest_channel = np.amax(new_channels)
+            if self.num_channels <= highest_channel:
+                self.num_channels = highest_channel + 1
+                # print(
+                #     f"TSEvent `{self.name}`: `num_channels` has been increased "
+                #     + f"to {self.num_channels}."
+                # )
         # - Assign channels
-        self._channels = vnNewChannels
+        self._channels = new_channels
 
     @property
     def num_channels(self):
         return self._num_channels
 
     @num_channels.setter
-    def num_channels(self, nNewNumChannels):
+    def num_channels(self, new_num_ch):
         if self.channels.size > 0:
-            nMinNumChannels = np.amax(self.channels)
+            min_num_ch = np.amax(self.channels)
         else:
-            nMinNumChannels = 0
-        if nNewNumChannels < nMinNumChannels:
+            min_num_ch = 0
+        if new_num_ch < min_num_ch:
             raise ValueError(
-                f"TSContinuous `{self.name}`: `num_channels` must be at least {nMinNumChannels}."
+                f"TSContinuous `{self.name}`: `num_channels` must be at least {min_num_ch}."
             )
         else:
-            self._num_channels = nNewNumChannels
+            self._num_channels = new_num_ch
 
 
-def load_ts_from_file(
-    strPath: str, strExpectedType: Optional[str] = None
-) -> TimeSeries:
+def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
     """
     load_ts_from_file - Load a timeseries object from an npz file.
-    :param strPath:     str Filepath to load file
-    :param strExpectedType:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
+    :param path:     str Filepath to load file
+    :param expected_type:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
     :return:
         Loaded time series object
     """
+    # - Make sure path is string (and not Path object)
+    path = str(path)
     # - Load npz file from specified path
-    dLoaded = np.load(strPath)
+    dLoaded = np.load(path)
     # - Check for expected type
-    strLoadedType = dLoaded["strType"].item()
-    if strExpectedType is not None:
-        if not strLoadedType == strExpectedType:
+    try:
+        loaded_type = dLoaded["str_type"].item()
+    except KeyError:
+        loaded_type = dLoaded["strType"].item()
+    if expected_type is not None:
+        if not loaded_type == expected_type:
             raise TypeError(
                 "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
-                    strPath, strLoadedType, strExpectedType
+                    path, loaded_type, expected_type
                 )
             )
-    if strLoadedType == "TSContinuous":
+    if loaded_type == "TSContinuous":
         return TSContinuous(
             times=dLoaded["times"],
             samples=dLoaded["samples"],
@@ -2126,7 +2191,7 @@ def load_ts_from_file(
             periodic=dLoaded["periodic"].item(),
             name=dLoaded["name"].item(),
         )
-    elif strLoadedType == "TSEvent":
+    elif loaded_type == "TSEvent":
         return TSEvent(
             times=dLoaded["times"],
             channels=dLoaded["channels"],
@@ -2137,4 +2202,4 @@ def load_ts_from_file(
             name=dLoaded["name"].item(),
         )
     else:
-        raise TypeError("Type `{}` not supported.".format(strLoadedType))
+        raise TypeError("Type `{}` not supported.".format(loaded_type))

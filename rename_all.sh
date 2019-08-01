@@ -751,6 +751,7 @@ rename iStart idx_start
 rename iEnd idx_end
 
 rename vtTrialStarts trial_start_times
+rename trial_starts trial_start_times
 
 rename nRepeatOutput repeat_output
 rename vtTauDecay tau_decay
@@ -763,3 +764,5 @@ rename tauS tau_syn
 rename eqSynRecurrent rec_syn_eq
 rename tTauBias tau_bias
 rename _vfCapacity _capacity
+
+rename strType str_type
