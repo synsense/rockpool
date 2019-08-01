@@ -4,25 +4,18 @@ updown.py - Feedforward layer that converts each analogue input channel to one s
             to be slower..
 """
 
-import numpy as np
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union
 import json
 
-try:
-    from tqdm import tqdm
-except ModuleNotFoundError:
-    bUseTqdm = False
-else:
-    bUseTqdm = True
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
-# - Default maximum numbers of time steps for a single evolution batch
-MAX_NUM_TIMESTEPS_DEFAULT = 5000
+import numpy as np
 
 # - Local imports
 from ...timeseries import TSContinuous, TSEvent
+from ...utils import ArrayLike
 from ..layer import Layer
+
+# - Default maximum numbers of time steps for a single evolution batch
+MAX_NUM_TIMESTEPS_DEFAULT = 5000
 
 __all__ = ["FFUpDown"]
 
@@ -379,9 +372,7 @@ class FFUpDown(Layer):
         config["max_num_timesteps"] = self.max_num_timesteps
         config["multiplex_spikes"] = self.multiplex_spikes
         config["tau_decay"] = (
-            self.tau_decay
-            if type(self.tau_decay) is float
-            else self.tau_decay.tolist()
+            self.tau_decay if type(self.tau_decay) is float else self.tau_decay.tolist()
         )
         config["thr_up"] = (
             self.thr_up if type(self.thr_up) is float else self.thr_up.tolist()

@@ -8,19 +8,17 @@ import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
+
 # - Use GeNN
 import brian2genn
-b2.set_device('genn')
+
+b2.set_device("genn")
 
 from ...timeseries import TSContinuous, TSEvent
-
 from ..layer import Layer
 from .timedarray_shift import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Configure exports
 __all__ = [
@@ -29,7 +27,7 @@ __all__ = [
     "eqNeuronIAFSpkInFF",
     "eqNeuronIAFSpkInRec",
     "eqSynapseExp",
-    "eqSynapseExpSpkInRec"
+    "eqSynapseExpSpkInRec",
 ]
 
 # - Equations for an integrate-and-fire neuron, ff-layer, analogue external input
@@ -193,7 +191,9 @@ class FFIAFBrian(Layer):
             Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
-        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.v = (
+            np.random.rand(self.size) * v_range + self.v_reset
+        ) * volt
 
     def reset_time(self):
         """
@@ -260,7 +260,7 @@ class FFIAFBrian(Layer):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.noise_std
-            * np.sqrt(2. * self.tau_mem / self.dt)
+            * np.sqrt(2.0 * self.tau_mem / self.dt)
             * 1.63
         )
 
@@ -311,7 +311,7 @@ class FFIAFBrian(Layer):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.noise_std
-            * np.sqrt(2. * self.tau_mem / self.dt)
+            * np.sqrt(2.0 * self.tau_mem / self.dt)
             * 1.63
         )
 
@@ -336,10 +336,7 @@ class FFIAFBrian(Layer):
             use_events = self._layer.t_ >= time_trace[step]
             if verbose:
                 print("Layer: Yielding {} spikes".format(np.sum(use_events)))
-            inp = (
-                yield self._layer.t_[use_events],
-                self._layer.i_[use_events],
-            )
+            inp = (yield self._layer.t_[use_events], self._layer.i_[use_events])
 
             # - Specify network input currents for this streaming step
             if inp is None:
@@ -504,9 +501,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - Set up spike source to receive spiking input
-        self._input_generator = b2.SpikeGeneratorGroup(
-            self.size_in, [0], [0 * second]
-        )
+        self._input_generator = b2.SpikeGeneratorGroup(self.size_in, [0], [0 * second])
         # - Set up layer neurons
         self._neuron_group = b2.NeuronGroup(
             self.size,
@@ -604,7 +599,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
             # - Standard deviation slightly smaller than expected (due to brian??),
             #   therefore correct with empirically found factor 1.63
             * self.noise_std
-            * np.sqrt(2. * self.tau_mem / self.dt)
+            * np.sqrt(2.0 * self.tau_mem / self.dt)
             * 1.63
         )
 
@@ -617,9 +612,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         # )
 
         # - Perform simulation
-        self._net.run(
-            num_timesteps * self.dt * second, level=0
-        )
+        self._net.run(num_timesteps * self.dt * second, level=0)
         self.time_step += num_timesteps
 
         # - Build response TimeSeries
@@ -697,7 +690,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
             Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
-        self._neuron_group.v = (np.random.rand(self.size) * v_range + self.v_reset) * volt
+        self._neuron_group.v = (
+            np.random.rand(self.size) * v_range + self.v_reset
+        ) * volt
         self._neuron_group.I_syn = np.random.rand(self.size) * amp
 
     def pot_kernel(self, t):
@@ -706,7 +701,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
                          weight 1*amp (not considering v_rest)
         """
         t = t.reshape(-1, 1)
-        fConst = self.tau_syn / (self.tau_syn - self.tau_mem) * self._neuron_group.r_m * amp
+        fConst = (
+            self.tau_syn / (self.tau_syn - self.tau_mem) * self._neuron_group.r_m * amp
+        )
         return fConst * (np.exp(-t / self.tau_syn) - np.exp(-t / self.tau_mem))
 
     def train_mst_simple(
@@ -748,9 +745,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         else:
             assert (
                 np.size(target_counts) == self.size
-            ), "Target array size must match layer size ({}).".format(
-                self.size
-            )
+            ), "Target array size must match layer size ({}).".format(self.size)
 
         ## -- Determine eligibility for each neuron and synapse
         eligibility = np.zeros((self.size_in, self.size))
@@ -768,11 +763,13 @@ class FFIAFSpkInBrian(FFIAFBrian):
             for t_spike_in in event_time_source:
                 # - Membrane potential between input spike time and now (transform to v_rest at 0)
                 v_mem = (
-                    self.state_monitor.v.T[self.state_monitor.t_ >= t_spike_in] - self.v_rest * volt
+                    self.state_monitor.v.T[self.state_monitor.t_ >= t_spike_in]
+                    - self.v_rest * volt
                 )
                 # - Kernel between input spike time and now
                 kernel = self.pot_kernel(
-                    self.state_monitor.t_[self.state_monitor.t_ >= t_spike_in] - t_spike_in
+                    self.state_monitor.t_[self.state_monitor.t_ >= t_spike_in]
+                    - t_spike_in
                 )
                 # - Add correlations to eligibility matrix
                 eligibility[source_id, :] += np.sum(kernel * v_mem)

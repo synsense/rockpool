@@ -603,8 +603,8 @@ def test_event_clip():
     assert (ts.clip(2, 4, include_stop=False).times == times[1:2]).all()
     assert (ts.clip(2, 4, include_stop=False).channels == channels[1:2]).all()
     assert ts.clip(2, 4, include_stop=False).num_channels == 3
-    assert (ts.clip(4, 6, compress_channels=True).times == times[2:4]).all()
-    assert (ts.clip(4, 6, compress_channels=True).channels == [0, 1]).all()
+    assert (ts.clip(4, 6, remap_channels=True).times == times[2:4]).all()
+    assert (ts.clip(4, 6, remap_channels=True).channels == [0, 1]).all()
     assert ts.clip(8, 9).isempty()
     # - Clip ts channels
     assert (ts.clip(channels=[0, 1]).times == np.array([1, 3, 4, 7])).all()
@@ -624,7 +624,7 @@ def test_event_clip():
     assert ts_empty.clip(channels=0).t_stop == 0
     assert ts_empty.clip(2, 3, channels=0).isempty()
     assert ts_empty.clip(2, 3, channels=0).num_channels == 2
-    assert ts_empty.clip(2, 3, channels=0, compress_channels=True).num_channels == 1
+    assert ts_empty.clip(2, 3, channels=0, remap_channels=True).num_channels == 1
     assert ts_empty.clip(2, 3, channels=0).t_start == 2
     assert ts_empty.clip(2, 3, channels=0).t_stop == 3
 

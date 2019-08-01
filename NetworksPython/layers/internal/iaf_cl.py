@@ -5,14 +5,12 @@
 ###
 
 import numpy as np
-from typing import Optional, Union, List, Tuple
+from typing import Optional, Union
 from tqdm import tqdm
 from collections import deque
 from ...timeseries import TSEvent, TSContinuous
+from ...utils import ArrayLike
 from .. import Layer
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
 tol_abs = 1e-9

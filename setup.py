@@ -8,6 +8,9 @@ setup(
         "NetworksPython.weights",
         "NetworksPython.weights.gpl",
         "NetworksPython.weights.internal",
+        "NetworksPython.utilities",
+        "NetworksPython.utilities.gpl",
+        "NetworksPython.utilities.internal",
         "NetworksPython.networks",
         "NetworksPython.networks.gpl",
         "NetworksPython.networks.internal",
@@ -15,6 +18,7 @@ setup(
         "NetworksPython.layers.gpl",
         "NetworksPython.layers.internal",
         "NetworksPython.layers.internal.pytorch",
+        "NetworksPython.layers.internal.devices",
     ],
     license="All rights reserved aiCTX AG",
     install_requires=[
