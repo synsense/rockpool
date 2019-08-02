@@ -101,7 +101,7 @@ div.sphinxsidebarwrapper h1.logo::before {
 	background-image: url(../_static/aictx_brain.png);
 	background-size: 4ex 4ex;
 	display: block;
-	width: 4ex; 
+	width: 4ex;
 	height: 4ex;
 	content:"";
 }
@@ -214,7 +214,10 @@ div.body h6 {
 }
 
 div.body h1 { margin-top: 0; padding-top: 0; font-size: 240%; }
-div.body h2 { font-size: 180%; }
+div.body h2 { font-size: 180%;
+padding-top: 2em;
+border-top: 4px solid #e7e7e7;
+}
 div.body h3 { font-size: 150%; }
 div.body h4 { font-size: 130%; }
 div.body h5 { font-size: 100%; }

@@ -35,6 +35,7 @@ __all__ = [
     "TSContinuous",
     "set_plotting_backend",
     "get_plotting_backend",
+    "load_ts_from_file",
 ]
 
 # - Type alias for array-like objects
@@ -46,10 +47,16 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 _TOLERANCE_ABSOLUTE = 1e-9
 
 # - Global plotting backend
-def set_plotting_backend(backend: Union[str, None], verbose=True):
+def set_plotting_backend(backend: Union[str, None], verbose: bool = True):
+    """
+    Set the plotting backend for use by :py:class:`TimeSeries` classes
+
+    :param str backend:     One of {"holoviews", "matplotlib"}
+    :param bool verbose:    If ``True``, print feedback about the backend. Default: ``True``
+    """
     if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
         if _HV_AVAILABLE:
-            _global_plotting_backend = "holoViews"
+            _global_plotting_backend = "holoviews"
             if verbose:
                 print("Global plotting backend has been set to holoviews.")
         else:
@@ -72,13 +79,26 @@ def set_plotting_backend(backend: Union[str, None], verbose=True):
 
 
 def get_plotting_backend() -> str:
+    """
+    Return a string representing the current plotting backend
+
+    :return str:    Current plotting backend. One of  {"holoviews", "matplotlib"}
+    """
     return _global_plotting_backend
 
 
 def _extend_periodic_times(
     t_start: float, t_stop: float, series: "TimeSeries"
 ) -> np.ndarray:
-    # TODO: docstring
+    """
+    Replicate out a periodic time base for later trimming, to ensure that the original time base is repeated correctly
+
+    :param float t_start:       Desired start time of the new series
+    :param float t_stop:        Desired end time of the new series
+    :param TimeSeries series:   The periodic :py:class:`TimeSeries` to replicate
+
+    :return np.array:           A vector of times corresponding to the replicated time base
+    """
     # - Repeat events sufficiently often
     # Number of additional required repetitions to append before and after
     num_reps_after = (
@@ -92,15 +112,24 @@ def _extend_periodic_times(
         else 0
     )
     num_reps_total = num_reps_before + num_reps_after
+
     # - Correct times so they extend over the prolongued period and do not repeat
     # Enumerate periods so that originally defined period is 0
     periods = np.arange(num_reps_total) - num_reps_before
     correct_periods = series.duration * np.repeat(periods, series.times.size)
+
     return np.tile(series.times, num_reps_total) + correct_periods
 
 
 ## - Convenience method to return a nan array
-def full_nan(shape: Union[tuple, int]):
+def full_nan(shape: Union[tuple, int]) -> np.array:
+    """
+    Build an all-NaN array
+
+    :param ArrayLike[int] shape:    The desired shape of the NaN matrix
+
+    :return np.array:               The all-NaN matrix
+    """
     a = np.empty(shape)
     a.fill(np.nan)
     return a
@@ -111,7 +140,7 @@ def full_nan(shape: Union[tuple, int]):
 
 class TimeSeries:
     """
-    Super-class to represent a continuous or event-based time series. You should use the subclasses :py:class:`TSContinuous` and :py:class:`TSEvent` to represent continuous-time and event-based time series, respectively.
+    Super-class to represent a continuous or event-based time series. You should use the subclasses :py:class:`TSContinuous` and :py:class:`TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`timeseriesdocs` for futher explanation and examples.
     """
 
     def __init__(
@@ -264,7 +293,7 @@ class TimeSeries:
 
     @property
     def times(self):
-        """ Array of sample times """
+        """ (ArrayLike[float]) Array of sample times """
         return self._times
 
     @times.setter
@@ -1332,7 +1361,7 @@ class TSContinuous(TimeSeries):
 
     @property
     def samples(self):
-        """(ArrayLike) Value of time series at sampled times"""
+        """(ArrayLike[float]) Value of time series at sampled times"""
         return self._samples
 
     @samples.setter
@@ -1363,14 +1392,10 @@ class TSContinuous(TimeSeries):
         self._create_interpolator()
 
     # - Extend setter of times to update interpolator
-    @property
-    def times(self):
-        """(ArrayLike) Sample time points"""
-        return super().times
-
     @times.setter
     def times(self, new_times: ArrayLike):
         super(TSContinuous, self.__class__).times.fset(self, new_times)
+
         # - Create a new interpolator
         self._create_interpolator()
 
@@ -1668,14 +1693,15 @@ class TSEvent(TimeSeries):
 
         return new_series
 
-    def remap_channels(self, channel_map: np.ndarray, inplace=False):
+    def remap_channels(self, channel_map: ArrayLike[int], inplace: bool = False) -> "TSEvent":
         """
-        remap_channels - Map channels 0..``self.num_channels-1`` to channels in
-        ``channel_map``.
-        :param np.ndarray channel_map:  Channels that existing ones are mapped to. Must
-                                        be of size ``self.num_channels``.
-        :param bool inplace:            Specify whether operation should be performed in
-                                        place (Default: False)
+        Renumber channels in the :py:class:`TSEvent`
+
+        Maps channels 0..``self.num_channels-1`` to the channels in ``channel_map``.
+
+        :param ArrayLike[int] channel_map:  List of channels that existing channels should be mapped to, in order.. Must be of size ``self.num_channels``.
+
+        :param bool inplace:                Specify whether operation should be performed in place (Default: ``False``, a copy is returned)
         """
 
         if not inplace:
@@ -2182,7 +2208,7 @@ class TSEvent(TimeSeries):
     @property
     def channels(self):
         """
-        :return ArrayLike[int]: Event channel indices. A ``Tx1`` vector, where each element ``t`` corresponds to the event time in ``self.times[t]``.
+        (ArrayLike[int]) Event channel indices. A ``Tx1`` vector, where each element ``t`` corresponds to the event time in ``self.times[t]``.
         """
         return self._channels
 
@@ -2212,7 +2238,7 @@ class TSEvent(TimeSeries):
     @property
     def num_channels(self):
         """
-        :return int: The maximum number of channels represented by this :py:class:`TSEvent`
+        (int) The maximum number of channels represented by this :py:class:`TSEvent`
         """
         return self._num_channels
 
@@ -2232,21 +2258,26 @@ class TSEvent(TimeSeries):
 
 def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
     """
-    load_ts_from_file - Load a timeseries object from an npz file.
-    :param path:     str Filepath to load file
-    :param expected_type:   str  Specify expected type of timeseires (TSContinuous or TSEvent)
-    :return:
-        Loaded time series object
+    Load a timeseries object from an ``npz`` file
+
+    :param str path:                    Filepath to load file
+    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
+
+    :return TimeSeries: Loaded time series object
+    :raises TypeError:  Unsupported or unexpected type
     """
     # - Make sure path is string (and not Path object)
     path = str(path)
+
     # - Load npz file from specified path
     dLoaded = np.load(path)
+
     # - Check for expected type
     try:
         loaded_type = dLoaded["str_type"].item()
     except KeyError:
         loaded_type = dLoaded["strType"].item()
+
     if expected_type is not None:
         if not loaded_type == expected_type:
             raise TypeError(

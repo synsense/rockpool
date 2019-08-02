@@ -59,4 +59,19 @@ Periodic time series
 
 
 Event-based time series
---------------------------------------
+-----------------------
+
+
+Loading time series from a file
+-------------------------------
+
+.. autosummary::
+    NetworksPython.timeseries.load_ts_from_file
+
+
+Managing the plotting backend
+-----------------------------
+
+.. autosummary::
+    NetworksPython.timeseries.set_plotting_backend
+    NetworksPython.timeseries.get_plotting_backend
