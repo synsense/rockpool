@@ -437,6 +437,13 @@ dl.method {
 	border-top-style: dotted;
 	margin-top: 2em;
 	padding-top: .25em;
+	border-top-width: 1px;
+}
+
+p.rubric {
+	font-size: 200%;
+	border-top-style: solid;
+	border-top-width: 1px;
 }
 
 dl dd {
