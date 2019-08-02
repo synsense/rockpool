@@ -1,65 +1,75 @@
 Full API summary for NetworksPython
 ===================================
 
+.. py:currentmodule::NetworksPython
+
 Main classes
 ------------
 
-.. autosummary::
-    :toctree:summary
+.. seealso:: :ref:`gettingstarted`, :ref:`basicexamples` and :ref:`networkdocs`
 
-    NetworksPython.Network
-    NetworksPython.layers.Layer
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    network.Network
+    layers.Layer
 
 
 Time series classes
 -----------------------------
-.. autosummary::
-    :toctree:summary
 
-    NetworksPython.timeseries.TimeSeries
-    NetworksPython.timeseries.TSContinuous
-    NetworksPython.timeseries.TSEvent
+.. seealso:: :ref:`timeseriesdocs`
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    timeseries.TimeSeries
+    timeseries.TSContinuous
+    timeseries.TSEvent
 
 
 :py:class:`Layer` classes
 -------------------------
 
+.. seealso:: :ref:`layersdocs` and :ref:`layerssummary`
+
 .. autosummary::
-    :toctree:summary
+    :toctree: _autosummary
+    :template: class.rst
 
+    layers.RecRateEuler
+    layers.FFRateEuler
 
-    NetworksPython.layers.RecRateEuler
-    NetworksPython.layers.FFRateEuler
-    NetworksPython.layers.Passthrough
+    layers.FFIAFBrian
+    layers.FFIAFSpkInBrian
+    layers.RecIAFBrian
+    layers.RecIAFSpkInBrian
+    layers.PassThroughEvents
+    layers.FFExpSynBrian
+    layers.FFExpSyn
+    layers.FFCLIAF
+    layers.RecCLIAF
+    layers.CLIAF
+    layers.SoftMaxLayer
+    layers.RecDIAF
+    layers.RecFSSpikeEulerBT
+    layers.FFUpDown
+    layers.FFExpSynTorch
+    layers.FFIAFTorch
+    layers.FFIAFRefrTorch
+    layers.FFIAFSpkInTorch
+    layers.FFIAFSpkInRefrTorch
+    layers.RecIAFTorch
+    layers.RecIAFRefrTorch
+    layers.RecIAFSpkInTorch
+    layers.RecIAFSpkInRefrTorch
+    layers.RecIAFSpkInRefrCLTorch
 
-    NetworksPython.layers.FFIAFBrian
-    NetworksPython.layers.FFIAFSpkInBrian
-    NetworksPython.layers.RecIAFBrian
-    NetworksPython.layers.RecIAFSpkInBrian
-    NetworksPython.layers.PassThroughEvents
-    NetworksPython.layers.FFExpSynBrian
-    NetworksPython.layers.FFExpSyn
-    NetworksPython.layers.FFCLIAF
-    NetworksPython.layers.RecCLIAF
-    NetworksPython.layers.CLIAF
-    NetworksPython.layers.SoftMaxLayer
-    NetworksPython.layers.RecDIAF
-    NetworksPython.layers.RecFSSpikeEulerBT
-    NetworksPython.layers.FFUpDown
-    NetworksPython.layers.FFExpSynTorch
-    NetworksPython.layers.FFIAFTorch
-    NetworksPython.layers.FFIAFRefrTorc,
-    NetworksPython.layers.FFIAFSpkInTorch
-    NetworksPython.layers.FFIAFSpkInRefrTorch
-    NetworksPython.layers.RecIAFTorch
-    NetworksPython.layers.RecIAFRefrTorch
-    NetworksPython.layers.RecIAFSpkInTorch
-    NetworksPython.layers.RecIAFSpkInRefrTorch
-    NetworksPython.layers.RecIAFSpkInRefrCLTorch
-
-    NetworksPython.layers.FFIAFNest
-    NetworksPython.layers.RecIAFSpkInNest
-    NetworksPython.layers.RecAEIFSpkInNest
-    NetworksPython.layers.RecDynapSE
-    NetworksPython.layers.RecRateEulerJax
-    NetworksPython.layers.ForceRateEulerJax
+    layers.FFIAFNest
+    layers.RecIAFSpkInNest
+    layers.RecAEIFSpkInNest
+    layers.RecDynapSE
+    layers.RecRateEulerJax
+    layers.ForceRateEulerJax

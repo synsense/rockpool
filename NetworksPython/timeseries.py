@@ -131,7 +131,7 @@ class TimeSeries:
         :param Optional[float] t_start:         If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:          If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param Optional[str] plotting_backend:  Determines plotting backend. If ``None``, backend will be chosen automatically based on what is available.
-        :param str name:                        Name of the TimeSeries object. Default: `unnamed`
+        :param str name:                        Name of the TimeSeries object. Default: ``unnamed``
         """
 
         # - Convert time trace to numpy arrays
@@ -166,11 +166,11 @@ class TimeSeries:
     def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
         """
         delay() - Return a copy of self that is delayed by an offset.
-                  For delaying self, use ".times += ..." instead.
+                  For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
 
         :param float Offset:    Time by which to offset this time series
         :param bool inplace:    Conduct operation in-place (Default: False; create a copy)
-        :return: New TimeSeries, delayed
+        :return TimeSeries: New TimeSeries, delayed
         """
         if not inplace:
             series = self.copy()
@@ -347,8 +347,7 @@ class TimeSeries:
 
 class TSContinuous(TimeSeries):
     """
-    TSContinuous - Represents a continuously-sampled time series. Mutliple time series can be represented by a single
-    :py:class:`TSContinuous` object, and have identical time bases. Temporal periodicity is supported.
+    Represents a continuously-sampled time series. Mutliple time series can be represented by a single :py:class:`.TSContinuous` object, and have identical time bases. Temporal periodicity is supported. See :ref:`timeseriesdocs` for further explanation and examples.
 
     :Examples:
 
@@ -370,7 +369,30 @@ class TSContinuous(TimeSeries):
     >>> samples = numpy.random.rand((100, 5))
     >>> ts = TSContinuous(time_base, samples)
 
-    Resample a time series using functional notation, list notation, or using the :py:func:`resample` method.
+    Manipulate time series using standard operators
+
+    >>> ts + 5
+    >>> ts - 3
+    >>> ts * 2
+    >>> ts / 7
+    >>> ts // 3
+    >>> ts ** 2
+    >>> ts1 + ts2
+    ...
+
+    Manipulate time series data in time
+
+    >>> ts.delay(4)
+    >>> ts.clip(start, stop, [channel1, channel2, channel3])
+
+    Combine time series data
+
+    >>> ts1.append_t(ts2)    # Appends the second time series, along the time axis
+    >>> ts1.append_c(ts2)    # Appends the second time series as an extra channel
+
+    .. note:: All :py:class:`TSContinuous` manipulation methods return a copy by default. Most methods accept an optional ``inplace`` flag, which if ``True`` causes the operation to be performed in place.
+
+    Resample a time series using functional notation, list notation, or using the :py:func:`.resample` method.
 
     >>> ts(0.5)
     >>> ts([0, .1, .2, .3])
@@ -452,7 +474,7 @@ class TSContinuous(TimeSeries):
         **kwargs,
     ):
         """
-        plot() - Visualise a time series on a line plot
+        Visualise a time series on a line plot
 
         :param Optional[ArrayLike] times: Time base on which to plot. Default: time base of time series
         :param Optional target:  Axes (or other) object to which plot will be added.
@@ -637,11 +659,7 @@ class TSContinuous(TimeSeries):
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        clip() - Return a TSContinuous which is restricted to given time limits and only
-               contains events of selected channels. If no time limits are provided,
-               t_start and t_stop attributes will correspond to those.
-               If ``inplace`` is ``True``, modify ``self`` accordingly.
-        clip - Clip a TimeSeries to data only within a new set of time bounds (exclusive end points)
+        clip() - Return a TSContinuous which is restricted to given time limits and only contains events of selected channels
 
         :param float t_start:       Time from which on events are returned
         :param float t_stop:        Time until which events are returned

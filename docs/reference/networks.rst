@@ -1,3 +1,5 @@
+.. _networkdocs:
+
 Working with :py:class:`Network` s
 =====================
 

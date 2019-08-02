@@ -1,5 +1,7 @@
-Usage examples for NetworksPython
-=================================
+.. _basicexamples:
+
+Usage examples for |project|
+============================
 
 Building a feed-forward network
 -------------------------------

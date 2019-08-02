@@ -1,5 +1,5 @@
-Types of ``Layer``s available in NetworksPython
+Types of ``Layer`` available in NetworksPython
 =============================================
 
-.. autosummary::
-    NetworksPython.layers
+.. automodule::NetworksPython.layers
+    :members:

@@ -1,3 +1,5 @@
-Getting started with NetworksPython
-===================================
+.. _gettingstarted:
+
+Getting started with |project|
+==============================
 

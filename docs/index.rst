@@ -3,14 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Documentation for NetworksPython
+.. image:: _static/Color_perspective.png
+
+Welcome to |project|
 ================================
 
-NetworksPython is a Python package for working with dynamics neural networks architectures, particularly for designing
-networks for Neuromorphic computing hardware. NetworksPython provides a convenient interface for designing, training
+|project| is a Python package for working with dynamical neural networks architectures, particularly for designing
+networks for Neuromorphic computing hardware. |project| provides a convenient interface for designing, training
 and evaluating recurrent networks, which can operate both with continuous-time dynamics and event-driven dynamics.
 
-NetworksPython is an open-source project produced by aiCTX AG.
+|project| is an open-source project managed by aiCTX AG.
 
 .. toctree::
    :maxdepth: 2
