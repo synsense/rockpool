@@ -433,6 +433,12 @@ dl {
     padding: 0;
 }
 
+dl.method {
+	border-top-style: dotted;
+	margin-top: 2em;
+	padding-top: .25em;
+}
+
 dl dd {
     margin-left: 30px;
 }

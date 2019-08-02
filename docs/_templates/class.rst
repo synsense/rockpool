@@ -1,11 +1,15 @@
-{{ fullname }}
+API reference for class {{ fullname }}
 {{ underline }}
-
-USING MY CLASS TEMPLATE
 
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
+   :members:
+   :no-undoc-members:
+   :inherited-members:
+   :show-inheritance:
+
+   .. automethod:: __init__
 
    {% block methods %}
 
@@ -31,4 +35,3 @@ USING MY CLASS TEMPLATE
    {%- endfor %}
    {% endif %}
    {% endblock %}
-

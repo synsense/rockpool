@@ -12,7 +12,7 @@ Main classes
     :toctree: _autosummary
     :template: class.rst
 
-    network.Network
+    networks.Network
     layers.Layer
 
 
