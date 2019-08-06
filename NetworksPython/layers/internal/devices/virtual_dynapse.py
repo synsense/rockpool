@@ -1,15 +1,5 @@
 ##########
-# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE
-#                      processor. Its purpose is to provide an understanding of
-#                      which operations are possible with the hardware. The
-#                      implemented neuron model is a simplification of the actual
-#                      circuits and therefore only serves as a rough approximation.
-#                      Accordingly, hyperparameters such as time constants or
-#                      baseweights give an idea on the parameters that can be set
-#                      but there is no direct correspondence to the hardware biases.
-#                      Furthermore, when connecting neurons it is possible to
-#                      achieveby large fan-ins by exploiting connection aliasing.
-#                      This elaborate approach has not been accounted for in this module.
+# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
 # Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
 ##########
 
@@ -40,6 +30,11 @@ CONNECTION_ALIASING = 4
 
 
 class VirtualDynapse(Layer):
+    """
+    A :py:class:`Layer` subclass that simulates a DynapSE processor
+
+    The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
+    """
 
     _num_chips = params.NUM_CHIPS
     _num_cores_chip = params.NUM_CORES_CHIP
@@ -68,83 +63,47 @@ class VirtualDynapse(Layer):
         dt: float = 1e-5,
         connections_ext: Optional[np.ndarray] = None,
         connections_rec: Optional[np.ndarray] = None,
-        tau_mem_1: Union[float, np.ndarray] = 0.02,
-        tau_mem_2: Union[float, np.ndarray] = 0.02,
-        has_tau_mem_2: Union[bool, np.ndarray] = False,
-        tau_syn_exc: Union[float, np.ndarray] = 0.05,
-        tau_syn_inh: Union[float, np.ndarray] = 0.05,
-        baseweight_e: Union[float, np.ndarray] = 0.01,
-        baseweight_i: Union[float, np.ndarray] = 0.01,
-        bias: Union[float, np.ndarray] = 0,
-        refractory: Union[float, np.ndarray] = 0.001,
-        v_thresh: Union[float, np.ndarray] = 0.01,
-        spike_adapt: Union[float, np.ndarray] = 0.0,
-        tau_adapt: Union[float, np.ndarray] = 0.1,
-        delta_t: Union[float, np.ndarray] = 0.002,
-        name: str = "unnamed",
-        num_threads: int = 1,
-        mismatch: Union[bool, np.ndarray] = True,
-        record: bool = False,
+        tau_mem_1: Optional[Union[float, np.ndarray]] = 0.02,
+        tau_mem_2: Optional[Union[float, np.ndarray]] = 0.02,
+        has_tau_mem_2: Optional[Union[bool, np.ndarray]] = False,
+        tau_syn_exc: Optional[Union[float, np.ndarray]] = 0.05,
+        tau_syn_inh: Optional[Union[float, np.ndarray]] = 0.05,
+        baseweight_e: Optional[Union[float, np.ndarray]] = 0.01,
+        baseweight_i: Optional[Union[float, np.ndarray]] = 0.01,
+        bias: Optional[Union[float, np.ndarray]] = 0,
+        refractory: Optional[Union[float, np.ndarray]] = 0.001,
+        v_thresh: Optional[Union[float, np.ndarray]] = 0.01,
+        spike_adapt: Optional[Union[float, np.ndarray]] = 0.0,
+        tau_adapt: Optional[Union[float, np.ndarray]] = 0.1,
+        delta_t: Optional[Union[float, np.ndarray]] = 0.002,
+        name: Optional[str] = "unnamed",
+        num_threads: Optional[int] = 1,
+        mismatch: Optional[Union[bool, np.ndarray]] = True,
+        record: Optional[bool] = False,
     ):
         """
-        VritualDynapse - Simulation of DynapSE neurmorphic processor.
-        :param dt:        Time step size in seconds
-        :param connections_ext:  2D-array defining connections from external input.
-                                 Size at most `num_neurons_chip` x `num_neurons`. 1st axis
-                                 will be filled with 0s if smaller than `num_neurons_chip`.
-                                 2nd axis wil be filled with 0s if smaller than `num_neurons`.
-                                 If `None`, will generate arrays filled with `0`s, meaning
-                                 no connections exist. Default: `None`.
-        :param connections_rec:  Square 2D-array defining connections between neurons.
-                                 Size at most `num_neurons` x `num_neurons`. Will be
-                                 filled with 0s if smaller.
-                                 If `None`, will generate arrays filled with `0`s, meaning
-                                 no connections exist. Default: `None`.
-        :param tau_mem_1:        float or 1D-array of size `num_cores`, with membrane time constant
-                                 for each core, in seconds. If float, same for all cores.
-                                 Default: 0.02.
-        :param tau_mem_2:        float or 1D-array of size `num_cores` with alternative membrane time
-                                 constant for each core, in seconds. If float, same for all
-                                 cores.
-                                 Default: 0.02.
-        :param has_tau_mem_2:    bool or 1D-array of size `num_neurons`, indicating which neuron
-                                 usees the alternative membrane time constant. If bool,
-                                 same for all cores. Default: `False`.
-        :param tau_syn_exc:      float or 1D-array of size `num_cores` with time constant for
-                                 excitatory synapses for each core, in seconds. If float,
-                                 same for all cores. Default 0.05.
-        :param tau_syn_inh:      float or 1D-array of size `num_cores` with time constant for
-                                 inhibitory synapses for each core, in seconds. If float,
-                                 same for all cores. Default 0.05.
-        :param baseweight_e:     float or 1D-array of size `num_cores` with multiplicator (>=0) for
-                                 binary excitatory weights for each core. If float, same
-                                 for all cores. Default: 0.01.
-        :param baseweight_i:     float or 1D-array of size `num_cores` with multiplicator (>=0) for
-                                 binary inhibitory weights for each core. If float, same
-                                 for all cores. Default: 0.01.
-        :param bias:             float or 1D-array of size `num_cores` with constant neuron bias (>=0)
-                                 for each core. If float, same for all cores.  Default: 0.
-        :param refractory:       float or 1D-array of size `num_cores` with refractory time in
-                                 secondsfor each core. If float, same for all cores. Default: 0.001.
-        :param v_thresh:         float or 1D-array of size `num_cores` with neuron firing threshold
-                                 in Volt for each core. If float, same for all cores. Default: 0.01.
-        :param spike_adapt:      Scaling for spike triggered adaptation. Default: 0.
-        :param tau_adapt:        Adaptation time constant in seconds. Default: 0.1.
-        :param delta_t:          Scaling for exponential part of activation function.
-        :param name:             Name for this object instance. Default: "unnamed".
-        :param num_threads:      Number of cpu cores available for simulation. Default: 1.
-        :param mismatch:         If True, parameters for each neuron are drawn from Gaussian
-                                 around provided values for core.
-                                 If an array is passed, it must be of shape
-                                 `len(_param_names) + 2*num_neurons` x `num_neurons` and provide individual
-                                 mismatch factors for each parameter and neuron as well as
-                                 excitatory and inhibitory weights. Order of rows:
-                                 `baseweight_e`, `baseweight_i`, `bias`, `refractory`, `tau_mem_1`,
-                                 `tau_mem_2`, `tau_syn_exc`, `tau_syn_inh`, `v_thresh`,
-                                 `weights_excit`, `weights_inhib`
-                                 Default: True.
-        :param record:           Record membrane potentials during evolution. NOTE: This may not be
-                                 possible with actual hardware. Default: False.
+        A recurrent layer that simulates a DynapSE neurmorphic processor
+
+        :param float dt:                                    Time step duration in seconds
+        :param Optional[ndarray[float] connections_ext:     2D-array defining connections from external input. Size at most ``num_neurons_chip`` x ``num_neurons``. 1st axis will be filled with 0s if smaller than ``num_neurons_chip``. 2nd axis wil be filled with 0s if smaller than ``num_neurons``. If ``None``, will generate arrays filled with `0`s, meaning no connections exist. Default: ``None``.
+        :param Optional[ndarray[float]] connections_rec:    Square 2D-array defining connections between neurons. Size at most ``num_neurons`` x ``num_neurons``. Will be filled with 0s if smaller. If `None`, will generate arrays filled with `0`s, meaning no connections exist. Default: ``None``.
+        :param Optional[ArrayLike[float]] tau_mem_1:        Scalar or 1D-array of floats with size ``num_cores``, with membrane time constant for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.02.
+        :param Optional[ArrayLike[float]] tau_mem_2:        Scalar or 1D-array of floats with size ``num_cores``, with alternative membrane time constant for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.02.
+        :param Optional[ArrayLike[bool]] has_tau_mem_2:    Scalar or 1D-array of booleans with size ``num_neurons``, indicating which neuron uses the alternative membrane time constant. If scalar bool, use the same for all cores. Default: ``False``.
+        :param Optional[ArrayLike[float]] tau_syn_exc:      Scalar or 1D-array of floats with size ``num_cores``, with time constant for excitatory synapses for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.05.
+        :param Optional[ArrayLike[float]] tau_syn_inh:      Scalar or 1D-array of floats with size ``num_cores``, with time constant for inhibitory synapses for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.05.
+        :param Optional[ArrayLike[float]] baseweight_e:     Scalar or 1D-array of floats with size ``num_cores`` with multiplicatory factor (>=0) for quantal synapse excitatory weights for each core. If scalar float, use the same for all cores. Default: 0.01.
+        :param Optional[ArrayLike[float]] baseweight_i:     Scalar or 1D-array of floats with size ``num_cores`` with multiplicatory factor (>=0) for quantal synapse inhibitory weights for each core. If scalar float, use the same for all cores. Default: 0.01.
+        :param Optional[ArrayLike[float]] bias:             Scalar or 1D-array of floats with size ``num_cores`` with constant neuron bias (>=0) for each core. If scalar float, use the same bias value for all cores.  Default: 0.
+        :param Optional[ArrayLike[float]] refractory:       Scalar or 1D-array of floats with size ``num_cores`` with refractory time in seconds for each core. If scalar float, use the same refractory period for all cores. Default: 0.001.
+        :param Optional[ArrayLike[float]] v_thresh:         Scalar or 1D-array of floats with size ``num_cores`` with neuron firing threshold in Volts for each core. If scalar float, use the same threshold voltage for all cores. Default: 0.01.
+        :param Optional[ArrayLike[float]] spike_adapt:      Scalar or 1D-array of floats with size ``num_cores`` with scaling for spike triggered adaptation. If scalar float, use the same value for all cores. Default: 0.
+        :param Optional[ArrayLike[float]] tau_adapt:        Scalar or 1D-array of floats with size ``num_cores`` with adaptation time constant in seconds. If scalar float, use the same value for all cores. Default: 0.1.
+        :param Optional[ArrayLike[float]] delta_t:          Scalar or 1D-array of floats with size ``num_cores`` with scaling for exponential part of activation function. If scalar float, use the same value for all cores. Default: 0.002
+        :param Optional[str] name:                          Name for this object instance. Default: "unnamed".
+        :param Optional[int] num_threads:                   Number of cpu cores available for simulation. Default: 1.
+        :param Optional[Union[bool, ArrayLike[float]]] mismatch:    If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib`` Default: ``True``.
+        :param Optional[bool] record:                       If ``True``, record membrane potentials during evolution. NOTE: This may not be possible with actual hardware. Default: ``False``, do not record membrane potentials.
         """
         # - Settings wrt connection validation
         self.validate_fanin = True
@@ -248,6 +207,11 @@ class VirtualDynapse(Layer):
         )
 
     def _setup_mismatch(self, mismatch):
+        """
+        Initialise the parameters for simulating mismatch
+
+        :param Union[bool, ArrayLike[float]] mismatch:  If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib``
+        """
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
             self._draw_mismatch(mismatch)
@@ -257,6 +221,7 @@ class VirtualDynapse(Layer):
                 num_params_noweights + 2 * self.num_neurons,
                 self.num_neurons,
             )
+
             # - Use individual mismatch factors
             if mismatch.shape == shape_mismatch:
                 # - Store mismatch in dict (except for weights)
@@ -283,14 +248,10 @@ class VirtualDynapse(Layer):
 
     def _draw_mismatch(self, consider_mismatch: bool = True):
         """
-        _draw_mismatch - For each neuron and parameter draw a mismatch factor that
-                         individual neuron parameters will be multiplied with. Store
-                         factors in dict.
-                         Parameters are drawn from a Gaussian around 1 with standard
-                         deviation = `self.stddev_mismatch` and truncated at 0.1 to
-                         avoid too small values.
-        :param consider_mismatch:  If `False`, mismatch factors are all 1, corresponding
-                                   to not having any mismatch.
+        Generate a mismatch value for each neuron and parameter in the layer
+
+        For each neuron and parameter draw a mismatch factor that individual neuron parameters will be multiplied with. Store factors in dict. Parameters are drawn from a Gaussian around 1 with standard deviation = ``.stddev_mismatch`` and truncated at 0.1 to avoid too small values.
+        :param Optional[bool] consider_mismatch:  If ``False``, mismatch factors are all 1, corresponding to not having any mismatch. Default: ``True``, simulate mismatch.
         """
 
         if consider_mismatch:
@@ -324,13 +285,23 @@ class VirtualDynapse(Layer):
             self._mismatch_factors = {param: 1 for param in self._param_names}
 
     def add_mismatch(self, mean_values: np.ndarray, param_name: str):
+        """
+        Simulate mismatch on a specified parameter
+
+        :param ndarray[float] mean_values:  The mean parameter value on which to simulate mismatch
+        :param str param_name:              Specifies the parameter on which to simulate mismatch
+
+        :return ndarray[float]:             The array of parameter values, with mismatch simulated. The layer parameter values have not been changed.
+        """
         if param_name in ("weights_ext", "weights_rec"):
             # - Separate inhibitory and excitatory weights
             weights_excit = np.clip(mean_values, 0, None)
             weights_inhib = np.clip(mean_values, None, 0)
+
             # - Add mismatch
             weights_excit *= self.mismatch_factors["weights_excit"]
             weights_inhib *= self.mismatch_factors["weights_inhib"]
+
             # - Combine weights and return
             return weights_excit + weights_inhib
         else:
@@ -342,25 +313,19 @@ class VirtualDynapse(Layer):
         connections: np.ndarray,
         ids_pre: np.ndarray,
         ids_post: Optional[np.ndarray] = None,
-        external: bool = False,
-        add: bool = False,
+        external: Optional[bool] = False,
+        add: Optional[bool] = False,
     ):
         """
-        set_connections - Set connections between specific neuron populations.
-                          Verify that connections are supported by the hardware.
-        :param connections: 2D np.ndarray: Will assume positive (negative) values
-                            correspond to excitatory (inhibitory) synapses.
-                            Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
-                            Sizes must match `ids_pre` and `ids_post`.
-        :param ids_pre:     Array-like with IDs of presynaptic neurons or input channels
-                            that `connections` refer to. If None, use all neurons
-                            (from 0 to self.num_neurons - 1) or input channels.
-        :param ids_post:    Array-like with IDs of postsynaptic neurons that `connections`
-                            refer to. If None, use same IDs as presynaptic neurons, unless
-                            `external` is True. In this case use all neurons.
-        :param add:         If True, new connections are added to exising ones, otherweise
-                            connections between given neuron populations are replaced.
-        :param external:    If True, presynaptic neurons are external.
+        Set connections between specific neurons
+
+        This method additionally verifies that a concrete connection matrix is supported by the hardware
+
+        :param ArrayLike[int] connections: A 2D integer matrix of quantal synaptic connections. Must be of size ``ids_pre`` x ``ids_post``. Positive values correspond to excitatory connections; negative values correspond to inhibitory connections. Matrix is indexed as [``pre_id``, ``post_id``]
+        :param ArrayLike[int] ids_pre:     Array-like with IDs of presynaptic neurons or input channels that ``connections`` refer to. If ``None``, use all neurons (from 0 to ``.num_neurons`` - 1) or input channels.
+        :param Optional[ArrayLike[int]] ids_post:    Array-like with IDs of postsynaptic neurons that ``connections`` refer to. If ``None``, use same IDs as presynaptic neurons, unless ``external`` is ``True``. In this case use all neurons.
+        :param Optional[bool] external:    If ``True``, presynaptic neurons are considered to be external. Default: ``False``, pre- and post-synaptic neurons are considered to be from the same population (recurrent connections)
+        :param Optional[bool] add:         If ``True``, new connections are added to exising ones; otherwise connections between given neuron populations are replaced. Default: ``False``, replace connections between neurons.
         """
         if ids_pre is None:
             ids_pre = np.arange(self.num_external if external else self.size)
