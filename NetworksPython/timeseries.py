@@ -48,8 +48,6 @@ _TOLERANCE_ABSOLUTE = 1e-9
 
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
-    global _global_plotting_backend
-def set_plotting_backend(backend: Union[str, None], verbose: bool = True):
     """
     Set the plotting backend for use by :py:class:`TimeSeries` classes
 
@@ -81,7 +79,6 @@ def set_plotting_backend(backend: Union[str, None], verbose: bool = True):
 
 
 def get_global_ts_plotting_backend() -> str:
-def get_plotting_backend() -> str:
     """
     Return a string representing the current plotting backend
 
