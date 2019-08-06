@@ -1392,6 +1392,11 @@ class TSContinuous(TimeSeries):
         self._create_interpolator()
 
     # - Extend setter of times to update interpolator
+    @property
+    def times(self):
+        """ (ArrayLike[float]) Array of sample times """
+        return self._times
+
     @times.setter
     def times(self, new_times: ArrayLike):
         super(TSContinuous, self.__class__).times.fset(self, new_times)
