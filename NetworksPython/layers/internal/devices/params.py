@@ -14,7 +14,11 @@ NUM_CAMS_NEURON = 64  # Fan-in per neuron
 NUM_SRAMS_NEURON = 3  # Fan-out chips per neuron
 NUM_NEURONS = NUM_CHIPS * NUM_NEURONS_CHIP  # Total numeber of neurons on DynapSE board
 # (This can be changed to 4 but then activities of the corresponding neuron cannot be recoreded anymore)
+<<<<<<< HEAD
 SYNAPSE_TYPES = ("fast_exc", "slow_exc", "fast_inh", "slow_inh")
+=======
+# SYNAPSE_TYPES = ("fast_exc", "slow_exc", "fast_inh", "slow_inh")  # Available synapse types. Currently not supported by VirtualDynapse
+>>>>>>> origin/dev-virtualdynapse
 BIT_RESOLUTION_WEIGHTS = 1  # Resolution of individual weights in bits
 # Standard deviation of the distribution for drawing mismatched parameters (relative to mean)
 STDDEV_MISMATCH = 0.2

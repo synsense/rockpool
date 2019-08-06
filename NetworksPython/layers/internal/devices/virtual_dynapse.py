@@ -1,5 +1,19 @@
 ##########
+<<<<<<< HEAD
 # virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
+=======
+# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE
+#                      processor. Its purpose is to provide an understanding of
+#                      which operations are possible with the hardware. The
+#                      implemented neuron model is a simplification of the actual
+#                      circuits and therefore only serves as a rough approximation.
+#                      Accordingly, hyperparameters such as time constants or
+#                      baseweights give an idea on the parameters that can be set
+#                      but there is no direct correspondence to the hardware biases.
+#                      Furthermore, when connecting neurons it is possible to
+#                      achieveby large fan-ins by exploiting connection aliasing.
+#                      This elaborate approach has not been accounted for in this module.
+>>>>>>> origin/dev-virtualdynapse
 # Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
 ##########
 
@@ -30,11 +44,14 @@ CONNECTION_ALIASING = 4
 
 
 class VirtualDynapse(Layer):
+<<<<<<< HEAD
     """
     A :py:class:`Layer` subclass that simulates a DynapSE processor
 
     The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
     """
+=======
+>>>>>>> origin/dev-virtualdynapse
 
     _num_chips = params.NUM_CHIPS
     _num_cores_chip = params.NUM_CORES_CHIP
@@ -58,6 +75,7 @@ class VirtualDynapse(Layer):
         "weights_inhib",
     ]
 
+<<<<<<< HEAD
     def __init__(
         self,
         dt: float = 1e-5,
@@ -104,6 +122,92 @@ class VirtualDynapse(Layer):
         :param Optional[int] num_threads:                   Number of cpu cores available for simulation. Default: 1.
         :param Optional[Union[bool, ArrayLike[float]]] mismatch:    If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib`` Default: ``True``.
         :param Optional[bool] record:                       If ``True``, record membrane potentials during evolution. NOTE: This may not be possible with actual hardware. Default: ``False``, do not record membrane potentials.
+=======
+    ## -- Class constructor
+
+    def __init__(
+        self,
+        dt: float = 1e-4,
+        connections_ext: Optional[np.ndarray] = None,
+        connections_rec: Optional[np.ndarray] = None,
+        tau_mem_1: Union[float, np.ndarray] = 0.02,
+        tau_mem_2: Union[float, np.ndarray] = 0.02,
+        has_tau_mem_2: Union[bool, np.ndarray] = False,
+        tau_syn_exc: Union[float, np.ndarray] = 0.05,
+        tau_syn_inh: Union[float, np.ndarray] = 0.05,
+        baseweight_e: Union[float, np.ndarray] = 0.01,
+        baseweight_i: Union[float, np.ndarray] = 0.01,
+        bias: Union[float, np.ndarray] = 0,
+        refractory: Union[float, np.ndarray] = 0.001,
+        v_thresh: Union[float, np.ndarray] = 0.01,
+        spike_adapt: Union[float, np.ndarray] = 0.0,
+        tau_adapt: Union[float, np.ndarray] = 0.1,
+        delta_t: Union[float, np.ndarray] = 0.002,
+        name: str = "unnamed",
+        num_threads: int = 1,
+        mismatch: Union[bool, np.ndarray] = True,
+        record: bool = False,
+    ):
+        """
+        VritualDynapse - Simulation of DynapSE neurmorphic processor.
+        :param dt:        Time step size in seconds
+        :param connections_ext:  2D-array defining connections from external input.
+                                 Size at most `num_neurons_chip` x `num_neurons`. 1st axis
+                                 will be filled with 0s if smaller than `num_neurons_chip`.
+                                 2nd axis wil be filled with 0s if smaller than `num_neurons`.
+                                 If `None`, will generate arrays filled with `0`s, meaning
+                                 no connections exist. Default: `None`.
+        :param connections_rec:  Square 2D-array defining connections between neurons.
+                                 Size at most `num_neurons` x `num_neurons`. Will be
+                                 filled with 0s if smaller.
+                                 If `None`, will generate arrays filled with `0`s, meaning
+                                 no connections exist. Default: `None`.
+        :param tau_mem_1:        float or 1D-array of size `num_cores`, with membrane time constant
+                                 for each core, in seconds. If float, same for all cores.
+                                 Default: 0.02.
+        :param tau_mem_2:        float or 1D-array of size `num_cores` with alternative membrane time
+                                 constant for each core, in seconds. If float, same for all
+                                 cores.
+                                 Default: 0.02.
+        :param has_tau_mem_2:    bool or 1D-array of size `num_neurons`, indicating which neuron
+                                 usees the alternative membrane time constant. If bool,
+                                 same for all cores. Default: `False`.
+        :param tau_syn_exc:      float or 1D-array of size `num_cores` with time constant for
+                                 excitatory synapses for each core, in seconds. If float,
+                                 same for all cores. Default 0.05.
+        :param tau_syn_inh:      float or 1D-array of size `num_cores` with time constant for
+                                 inhibitory synapses for each core, in seconds. If float,
+                                 same for all cores. Default 0.05.
+        :param baseweight_e:     float or 1D-array of size `num_cores` with multiplicator (>=0) for
+                                 binary excitatory weights for each core. If float, same
+                                 for all cores. Default: 0.01.
+        :param baseweight_i:     float or 1D-array of size `num_cores` with multiplicator (>=0) for
+                                 binary inhibitory weights for each core. If float, same
+                                 for all cores. Default: 0.01.
+        :param bias:             float or 1D-array of size `num_cores` with constant neuron bias (>=0)
+                                 for each core. If float, same for all cores.  Default: 0.
+        :param refractory:       float or 1D-array of size `num_cores` with refractory time in
+                                 secondsfor each core. If float, same for all cores. Default: 0.001.
+        :param v_thresh:         float or 1D-array of size `num_cores` with neuron firing threshold
+                                 in Volt for each core. If float, same for all cores. Default: 0.01.
+        :param spike_adapt:      Scaling for spike triggered adaptation. Default: 0.
+        :param tau_adapt:        Adaptation time constant in seconds. Default: 0.1.
+        :param delta_t:          Scaling for exponential part of activation function.
+        :param name:             Name for this object instance. Default: "unnamed".
+        :param num_threads:      Number of cpu cores available for simulation. Default: 1.
+        :param mismatch:         If True, parameters for each neuron are drawn from Gaussian
+                                 around provided values for core.
+                                 If an array is passed, it must be of shape
+                                 `len(_param_names) + 2*num_neurons` x `num_neurons` and provide individual
+                                 mismatch factors for each parameter and neuron as well as
+                                 excitatory and inhibitory weights. Order of rows:
+                                 `baseweight_e`, `baseweight_i`, `bias`, `refractory`, `tau_mem_1`,
+                                 `tau_mem_2`, `tau_syn_exc`, `tau_syn_inh`, `v_thresh`,
+                                 `weights_excit`, `weights_inhib`
+                                 Default: True.
+        :param record:           Record membrane potentials during evolution. NOTE: This may not be
+                                 possible with actual hardware. Default: False.
+>>>>>>> origin/dev-virtualdynapse
         """
         # - Settings wrt connection validation
         self.validate_fanin = True
@@ -189,10 +293,19 @@ class VirtualDynapse(Layer):
         self._simulator = RecAEIFSpkInNest(
             weights_in=weights_ext.copy(),
             weights_rec=weights_rec.copy(),
+<<<<<<< HEAD
+=======
+            delay_in=dt,
+            delay_rec=dt,
+>>>>>>> origin/dev-virtualdynapse
             bias=bias,
             v_thresh=v_thresh,
             v_reset=0,
             v_rest=0,
+<<<<<<< HEAD
+=======
+            refractory=refractory,
+>>>>>>> origin/dev-virtualdynapse
             tau_mem=self._tau_mem_,
             tau_syn_exc=tau_syn_exc,
             tau_syn_inh=tau_syn_inh,
@@ -206,22 +319,52 @@ class VirtualDynapse(Layer):
             record=record,
         )
 
+<<<<<<< HEAD
     def _setup_mismatch(self, mismatch):
         """
         Initialise the parameters for simulating mismatch
 
         :param Union[bool, ArrayLike[float]] mismatch:  If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib``
+=======
+        print(self.start_print, "Ready.")
+
+    ## -- Methods for handling mismatch
+
+    def _setup_mismatch(self, mismatch: Union[bool, np.ndarray]):
+        """
+        _setup_mismatch - Generate and store factors that are multiplied with
+                          core parameters to obtain individual mismatched neuron
+                          parameters.
+        :param mismatch:  If `True`, draw mismatch factors from Gaussian
+                          distribution. If `False`, set factors to 1 (no mismatch).
+                          If an array is passed, it must be of shape
+                          `len(_param_names) + 2*num_neurons` x `num_neurons` and
+                          provide individual mismatch factors for each parameter
+                          and neuron as well as excitatory and inhibitory weights.
+                          Order of rows:
+                           `baseweight_e`, `baseweight_i`, `bias`, `refractory`,
+                           `tau_mem_1`, `tau_mem_2`, `tau_syn_exc`, `tau_syn_inh`,
+                           `v_thresh`, `weights_excit`, `weights_inhib`
+>>>>>>> origin/dev-virtualdynapse
         """
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
             self._draw_mismatch(mismatch)
         else:
+<<<<<<< HEAD
             num_params_noweights = len(self._spike_adapt) - 2
+=======
+            mismatch = np.asarray(mismatch)
+            num_params_noweights = len(self._param_names) - 2
+>>>>>>> origin/dev-virtualdynapse
             shape_mismatch = (
                 num_params_noweights + 2 * self.num_neurons,
                 self.num_neurons,
             )
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/dev-virtualdynapse
             # - Use individual mismatch factors
             if mismatch.shape == shape_mismatch:
                 # - Store mismatch in dict (except for weights)
@@ -248,10 +391,21 @@ class VirtualDynapse(Layer):
 
     def _draw_mismatch(self, consider_mismatch: bool = True):
         """
+<<<<<<< HEAD
         Generate a mismatch value for each neuron and parameter in the layer
 
         For each neuron and parameter draw a mismatch factor that individual neuron parameters will be multiplied with. Store factors in dict. Parameters are drawn from a Gaussian around 1 with standard deviation = ``.stddev_mismatch`` and truncated at 0.1 to avoid too small values.
         :param Optional[bool] consider_mismatch:  If ``False``, mismatch factors are all 1, corresponding to not having any mismatch. Default: ``True``, simulate mismatch.
+=======
+        _draw_mismatch - For each neuron and parameter draw a mismatch factor that
+                         individual neuron parameters will be multiplied with. Store
+                         factors in dict.
+                         Parameters are drawn from a Gaussian around 1 with standard
+                         deviation = `self.stddev_mismatch` and truncated at 0.1 to
+                         avoid too small values.
+        :param consider_mismatch:  If `False`, mismatch factors are all 1, corresponding
+                                   to not having any mismatch.
+>>>>>>> origin/dev-virtualdynapse
         """
 
         if consider_mismatch:
@@ -284,6 +438,7 @@ class VirtualDynapse(Layer):
             # - Factor 1 corresponds to no mismatch at all.
             self._mismatch_factors = {param: 1 for param in self._param_names}
 
+<<<<<<< HEAD
     def add_mismatch(self, mean_values: np.ndarray, param_name: str):
         """
         Simulate mismatch on a specified parameter
@@ -292,22 +447,41 @@ class VirtualDynapse(Layer):
         :param str param_name:              Specifies the parameter on which to simulate mismatch
 
         :return ndarray[float]:             The array of parameter values, with mismatch simulated. The layer parameter values have not been changed.
+=======
+    def _apply_mismatch(self, mean_values: np.ndarray, param_name: str):
+        """
+        _apply_mismatch - Apply mismatch to provided values of individual neurons
+                          for specific paraemeter by multiplying stored mismatch
+                          factors.
+        :param mean_values:     Values to which mismatch should be applied. Must
+                                be of size `self.num_neurons`.
+        :param param_name:      Name of the parameter whose mismatch is to be applied.
+        :return:
+            Array with mismatched values
+>>>>>>> origin/dev-virtualdynapse
         """
         if param_name in ("weights_ext", "weights_rec"):
             # - Separate inhibitory and excitatory weights
             weights_excit = np.clip(mean_values, 0, None)
             weights_inhib = np.clip(mean_values, None, 0)
+<<<<<<< HEAD
 
             # - Add mismatch
             weights_excit *= self.mismatch_factors["weights_excit"]
             weights_inhib *= self.mismatch_factors["weights_inhib"]
 
+=======
+            # - Add mismatch
+            weights_excit *= self.mismatch_factors["weights_excit"]
+            weights_inhib *= self.mismatch_factors["weights_inhib"]
+>>>>>>> origin/dev-virtualdynapse
             # - Combine weights and return
             return weights_excit + weights_inhib
         else:
             # - Multiply mismatch factors
             return mean_values * self.mismatch_factors[param_name]
 
+<<<<<<< HEAD
     def set_connections(
         self,
         connections: np.ndarray,
@@ -332,6 +506,51 @@ class VirtualDynapse(Layer):
 
         if ids_post is None:
             ids_post = ids_pre if not external else np.arange(self.size)
+=======
+    ## -- Methods for handling connections and weights
+
+    def set_connections(
+        self,
+        connections: np.ndarray,
+        ids_pre: Optional[np.ndarray] = None,
+        ids_post: Optional[np.ndarray] = None,
+        external: bool = False,
+        add: bool = False,
+    ):
+        """
+        set_connections - Set connections between specific neuron populations.
+                          Verify that connections are supported by the hardware.
+        :param connections: 2D np.ndarray: Will assume positive (negative) values
+                            correspond to excitatory (inhibitory) synapses.
+                            Axis 0 (1) corresponds to pre- (post-) synaptic neurons.
+                            Sizes must match `ids_pre` and `ids_post`.
+        :param ids_pre:     Array-like with IDs of presynaptic neurons or input channels
+                            that `connections` refer to. If None, use all neurons
+                            (from 0 to connections.shape[0] - 1) or input channels.
+        :param ids_post:    Array-like with IDs of postsynaptic neurons that `connections`
+                            refer to. If None, use same IDs as presynaptic neurons, unless
+                            `external` is True. In this case use all neurons.
+        :param add:         If True, new connections are added to exising ones, otherweise
+                            connections between given neuron populations are replaced.
+        :param external:    If True, presynaptic neurons are external.
+        """
+        # - Make sure `connections` is 2D array
+        connections = np.atleast_2d(connections)
+
+        if ids_pre is None:
+            ids_pre = np.arange(connections.shape[0])
+            print(
+                self.start_print
+                + f"Presynaptic IDs for connection: From 0 to {ids_pre[-1]}."
+            )
+
+        if ids_post is None:
+            ids_post = np.arange(connections.shape[1])
+            print(
+                self.start_print
+                + f"Postsynaptic IDs for connection: From 0 to {ids_post[-1]}."
+            )
+>>>>>>> origin/dev-virtualdynapse
 
         # - Warn in case of non-integer connections
         if connections.dtype.kind not in ["i", "u"]:
@@ -446,7 +665,11 @@ class VirtualDynapse(Layer):
             connections_rec = connections_rec_0
 
         # - Get 2D matrix with number of connections between neurons
+<<<<<<< HEAD
         conn_count_onchip = self.get_connection_counts(connections_rec)
+=======
+        conn_count_onchip = self._get_connection_counts(connections_rec)
+>>>>>>> origin/dev-virtualdynapse
 
         # - Handle external connections
         if connections_ext is not None:
@@ -486,7 +709,11 @@ class VirtualDynapse(Layer):
                     self.start_print
                     + f"There can be at most {self.num_neurons_chip} external channels. "
                 )
+<<<<<<< HEAD
             conn_count_ext = self.get_connection_counts(connections_ext)
+=======
+            conn_count_ext = self._get_connection_counts(connections_ext)
+>>>>>>> origin/dev-virtualdynapse
             conn_count_full = np.vstack((conn_count_onchip, conn_count_ext))
         else:
             conn_count_full = conn_count_onchip
@@ -571,6 +798,10 @@ class VirtualDynapse(Layer):
             if alias_pre_chips:
                 result += CONNECTION_ALIASING
                 if verbose:
+<<<<<<< HEAD
+=======
+                    # - Print information about aliasing
+>>>>>>> origin/dev-virtualdynapse
                     print_output = (
                         "\tConnection aliasing detected: Neurons on the same core should not "
                         + "have presynaptic connections with neurons that have same IDs (within "
@@ -599,9 +830,15 @@ class VirtualDynapse(Layer):
 
         return result
 
+<<<<<<< HEAD
     def get_connection_counts(self, connections: np.ndarray) -> np.ndarray:
         """
         get_connection_counts - From an array of connections generate a 2D matrix
+=======
+    def _get_connection_counts(self, connections: np.ndarray) -> np.ndarray:
+        """
+        _get_connection_counts - From an array of connections generate a 2D matrix
+>>>>>>> origin/dev-virtualdynapse
                                 with the total number of connections between each
                                 neuron pair.
         :params connections:  2D np.ndarray (NxN): Will assume positive (negative)
@@ -633,6 +870,7 @@ class VirtualDynapse(Layer):
         weights = self.weights_ext if external else self.weights_rec
         return weights[idcs_pre, idcs_post].copy()
 
+<<<<<<< HEAD
     def evolve(
         self,
         ts_input: Optional[TSEvent] = None,
@@ -687,6 +925,8 @@ class VirtualDynapse(Layer):
     def reset_all(self):
         self._simulator.reset_all()
 
+=======
+>>>>>>> origin/dev-virtualdynapse
     def _generate_weights(self, external: bool = False) -> np.ndarray:
         """
         _generate_weights: Generate weight matrix from connections and base weights
@@ -723,6 +963,11 @@ class VirtualDynapse(Layer):
             # - Weight update
             self._simulator.weights_rec = weights_rec.copy()
 
+<<<<<<< HEAD
+=======
+    ## -- Methods for updating  and storing neuron parameters
+
+>>>>>>> origin/dev-virtualdynapse
     def _process_parameter(
         self,
         parameter: Union[bool, int, float, ArrayLike],
@@ -760,10 +1005,17 @@ class VirtualDynapse(Layer):
                 neuron_params.reshape(1, -1), self.num_neurons, axis=0
             )
             # - Different mismatch for each synapse
+<<<<<<< HEAD
             syn_params = self.add_mismatch(syn_params, name)
         else:
             # - Add mismatch for each neuron
             neuron_params = self.add_mismatch(neuron_params, name)
+=======
+            syn_params = self._apply_mismatch(syn_params, name)
+        else:
+            # - Add mismatch for each neuron
+            neuron_params = self._apply_mismatch(neuron_params, name)
+>>>>>>> origin/dev-virtualdynapse
 
         return core_params, neuron_params
 
@@ -782,6 +1034,10 @@ class VirtualDynapse(Layer):
             # - Remove all connections
             return np.zeros((num_rows, self.num_neurons))
         else:
+<<<<<<< HEAD
+=======
+            connections = np.asarray(connections)
+>>>>>>> origin/dev-virtualdynapse
             # - Warn in case of non-integer
             if connections.dtype.kind not in ["i", "u"]:
                 warn(
@@ -798,6 +1054,27 @@ class VirtualDynapse(Layer):
                 connections = connections0
             return connections
 
+<<<<<<< HEAD
+=======
+    def _update_parameter(self, new_val: np.ndarray, name: str, nonnegative: bool):
+        """
+        _update_parameter - Method for updating parameters through item assignment
+                            of properties.
+                            Update parameter by calling its property setter.
+        :param new_val:     New values for the parameter
+        :param name:        Name of the parameter
+        """
+        setattr(self, name, new_val)
+
+    def _immutable_error(self, name):
+        error_message = (
+            f"VirtualDynapse `{self.name}`: Neuron-wise assignment is not possible for "
+            + "this attribute. Core parameters can be accessed and modified through "
+            + f"`{name}` attribute."
+        )
+        return error_message
+
+>>>>>>> origin/dev-virtualdynapse
     def to_dict(self) -> dict:
         """
         to_dict - Convert parameters of `self` to a dict if they are relevant for
@@ -811,7 +1088,11 @@ class VirtualDynapse(Layer):
         config["tau_mem_2"] = self.tau_mem_2.tolist()
         config["has_tau_mem_2"] = self.has_tau_mem_2.tolist()
         config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+<<<<<<< HEAD
         config["tau_syn_exc"] = self.tau_syn_exc.tolist()
+=======
+        config["tau_syn_inh"] = self.tau_syn_inh.tolist()
+>>>>>>> origin/dev-virtualdynapse
         config["baseweight_e"] = self.baseweight_e.tolist()
         config["baseweight_i"] = self.baseweight_i.tolist()
         config["bias"] = self.bias.tolist()
@@ -819,6 +1100,7 @@ class VirtualDynapse(Layer):
         config["v_thresh"] = self.v_thresh.tolist()
         config["name"] = self.name
         config["num_threads"] = self.num_threads
+<<<<<<< HEAD
         config["mismatch"] = self._mismatch_factors.tolist()
 
     def _update_parameter(self, new_val: np.ndarray, name: str, nonnegative: bool):
@@ -838,6 +1120,115 @@ class VirtualDynapse(Layer):
             + f"`{name}` attribute."
         )
         return error_message
+=======
+        config["class_name"] = self.class_name
+        config["record"] = self.record
+        # - Array holding mismatch factors
+        mismatch_array = np.concatenate(
+            [
+                self._mismatch_factors[param].reshape(-1, self.num_neurons)
+                for param in self._param_names
+            ]
+        )
+        config["mismatch"] = mismatch_array.tolist()
+
+        return config
+
+    ## -- Methods for evolving or resetting the neuron state
+
+    def evolve(
+        self,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        ids_in: Optional[np.ndarray] = None,
+        ids_out: Optional[np.ndarray] = None,
+        remap_out_channels: bool = True,
+        verbose: bool = False,
+    ) -> TSEvent:
+        """
+        evolve : Function to evolve the states of this layer given an input
+
+        :param ts_input:       TSEvent  Input spike trian
+        :param duration:       float    Simulation/Evolution time
+        :param num_timesteps   int      Number of evolution time steps
+        :param verbose:        bool     Currently no effect, just for conformity
+        :param ids_in:         Array with IDs of input channels corresponding to
+                               the channels in `ts_input`. If `None` will use same
+                               IDs.
+        :param ids_out:        Array with IDs of neurons whose spiking activity
+                               should recorded be returned. If `None`, return
+                               activity of all neurons.
+        :param remap_out_channels:  If `True`, IDs of recorded spikes in the
+                               returned timeseries will be mapped to continuous
+                               sequence of integers startin from 0 (e.g.
+                               [1,6,3]->[0,2,1]). Otherwise channels will
+                               correspond to actual neuron IDs.
+
+        :return:               TSEvent  output spike series
+
+        """
+        if ids_in is not None and ts_input is not None:
+            # - Map from time series channels to input IDs
+            ts_input = ts_input.remap_channels(ids_in, inplace=False)
+            if verbose:
+                print(
+                    self.start_print,
+                    "Mapping channels in input series from "
+                    f"{np.sort(np.unique(ts_input.channels))} to {ids_out}.",
+                )
+        if verbose:
+            print(
+                self.start_print,
+                +"Starting simulation. Will only record firing activity from "
+                + f"neurons {np.unique(ids_out)}.",
+            )
+        output: TSEvent = self._simulator.evolve(
+            ts_input, duration, num_timesteps, verbose
+        )
+        if verbose:
+            print(self.start_print, "Simulation successful.")
+        if ids_out is not None:
+            if verbose and remap_out_channels:
+                print(
+                    self.start_print,
+                    "Mapping output channels {} to {}.".format(
+                        np.sort(np.unique(ids_out)), np.arange(np.unique(ids_out).size)
+                    ),
+                )
+            # - Only keep neurons that should be recorded
+            output.clip(
+                channels=ids_out, remap_channels=remap_out_channels, inplace=True
+            )
+        return output
+
+    def reset_time(self):
+        self._simulator.reset_time()
+
+    def reset_state(self):
+        self._simulator.reset_state()
+
+    def reset_all(self):
+        self._simulator.reset_all()
+
+    ## -- Magic methods
+
+    def __repr__(self):
+        # - Which neurons are connected to other neurons or external input
+        connected_to_ext = np.nonzero(self.connections_ext)[1]
+        connected_rec = np.nonzero(self.connections_rec)
+        connected = np.unique(np.hstack(connected_rec + (connected_to_ext,)))
+        return (
+            self.start_print
+            + "with {} of {} neurons connected. Internal time: {} s.".format(
+                connected.size, self.num_neurons, self.t
+            )
+        )
+
+    ## -- Properties
+
+    # - Connections and weights
+>>>>>>> origin/dev-virtualdynapse
 
     @property
     def connections_rec(self):
@@ -939,6 +1330,11 @@ class VirtualDynapse(Layer):
         )
         self._update_weights(external=True, recurrent=True)
 
+<<<<<<< HEAD
+=======
+    # - Neuron parameters
+
+>>>>>>> origin/dev-virtualdynapse
     @property
     def bias_(self):
         return ImmutableArray(
@@ -1128,6 +1524,11 @@ class VirtualDynapse(Layer):
             tau_syn_i_new, "tau_syn_inh", nonnegative=True
         )
 
+<<<<<<< HEAD
+=======
+    # - Hardware parameters
+
+>>>>>>> origin/dev-virtualdynapse
     @property
     def num_chips(self):
         return self._num_chips
@@ -1161,12 +1562,23 @@ class VirtualDynapse(Layer):
         return self._weight_resolution
 
     @property
+<<<<<<< HEAD
     def input_type(self):
         return TSEvent
 
     @property
     def output_type(self):
         return TSEvent
+=======
+    def stddev_mismatch(self):
+        return self._stddev_mismatch
+
+    @property
+    def mismatch_factors(self):
+        return self._mismatch_factors
+
+    # - Properties regarding current state
+>>>>>>> origin/dev-virtualdynapse
 
     @property
     def dt(self):
@@ -1177,6 +1589,7 @@ class VirtualDynapse(Layer):
         return self._simulator._timestep
 
     @property
+<<<<<<< HEAD
     def size(self):
         return self.num_neurons
 
@@ -1195,14 +1608,9 @@ class VirtualDynapse(Layer):
     @property
     def mismatch_factors(self):
         return self._mismatch_factors
-
-    @property
-    def num_threads(self):
-        return self._simulator.num_cores
-
-    @property
-    def record(self):
-        return self._simulator.record
+=======
+    def state(self):
+        return self._simulator.state
 
     @property
     def recorded_states(self):
@@ -1211,3 +1619,41 @@ class VirtualDynapse(Layer):
         except AttributeError:
             # - No recroded states - object is `None`
             return None
+
+    # - General settings and class properties
+
+    @property
+    def input_type(self):
+        return TSEvent
+
+    @property
+    def output_type(self):
+        return TSEvent
+
+    @property
+    def size(self):
+        return self.num_neurons
+
+    @property
+    def size_in(self):
+        return self.num_external
+>>>>>>> origin/dev-virtualdynapse
+
+    @property
+    def num_threads(self):
+        return self._simulator.num_cores
+
+    @property
+    def record(self):
+        return self._simulator.record
+<<<<<<< HEAD
+
+    @property
+    def recorded_states(self):
+        try:
+            return self._simulator.recorded_states
+        except AttributeError:
+            # - No recroded states - object is `None`
+            return None
+=======
+>>>>>>> origin/dev-virtualdynapse
