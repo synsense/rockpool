@@ -1719,7 +1719,7 @@ class TSEvent(TimeSeries):
 
         return new_series
 
-    def remap_channels(self, channel_map: ArrayLike[int], inplace: bool = False) -> "TSEvent":
+    def remap_channels(self, channel_map: ArrayLike, inplace: bool = False) -> "TSEvent":
         """
         Renumber channels in the :py:class:`TSEvent`
 

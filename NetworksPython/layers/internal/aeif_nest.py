@@ -195,6 +195,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             + "`conductance`, and `capacity` only one can be `None`."
             + "You may set `conductance` to 1 (nS)."
         )  # Exception to be raised when more than one of the three parameters is `None`
+
         if tau_mem is not None:
             tau_mem = self._expand_to_net_size(
                 tau_mem, "tau_mem", allow_none=False
@@ -246,6 +247,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         ).astype(float)
         delta_t = self._expand_to_net_size(delta_t, "delta_t", allow_none=False)
         self._delta_t = delta_t.astype(float)
+
         # - Determine v_thresh to determine v_peak (otherwise done by super().__init__)
         v_thresh = self._expand_to_net_size(v_thresh, "v_thresh", allow_none=False)
         self._v_peak = v_thresh.copy().astype(float)
