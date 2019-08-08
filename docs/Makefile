@@ -14,7 +14,20 @@ help:
 
 .PHONY: help Makefile
 
+livehtml:
+	sphinx-autobuild \
+		-B $(SOURCEDIR) $(BUILDDIR)/html \
+		-i "*.tmp*" \
+		-i "*.ai" \
+		-i "*.tmp" \
+		-i "*.ipynb_checkpoints/*" \
+		-i "*.~*" \
+		-i "*.xml" \
+		-i "Makefile"
+
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+

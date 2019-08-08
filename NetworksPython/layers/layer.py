@@ -499,11 +499,11 @@ class Layer(ABC):
         """
         Generate instance of a :py:class:`Layer` subclass with parameters loaded from a dictionary
 
-        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
+        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
         :param Dict config: Dictionary containing parameters of a :py:class:`Layer` subclass
-        :param kwargs:      Any keyword arguments of the class ``__init__`` method where the parameters from ``config`` should be overridden
+        :param kwargs:      Any keyword arguments of the class `__init__` method where the parameters from `config` should be overridden
 
-        :return Layer: Instance of ``cls`` with paramters from ``config``
+        :return Layer: Instance of `cls` with paramters from `config`
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
@@ -516,7 +516,7 @@ class Layer(ABC):
         """
         Reset the internal state of this layer
 
-        Sets ``.state`` to all zeros
+        Sets `.state` attribute to all zeros
         """
         self.state = np.zeros(self.size)
 
@@ -532,6 +532,9 @@ class Layer(ABC):
 
     @property
     def start_print(self):
+        """
+        (str) Return a string containing the layer subclass name and the layer `.name` attribute
+        """
         return f"{self.class_name} '{self.name}': "
 
     @property
@@ -623,7 +626,7 @@ class Layer(ABC):
         """
         (float) Noise injected into the state of this layer during evolution
 
-        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be correctected by :py:attr:`.dt`
+        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be correctected by the :py:attr:`.dt` attribute
         """
         return self._noise_std
 

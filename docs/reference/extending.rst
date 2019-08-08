@@ -5,5 +5,5 @@ Extending |project|
 
 
 .. _addlayersubclass:
-Adding a new `Layer` subclass
+Adding a new `.Layer` subclass
 ---------------------------------------

@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath('../NetworksPython'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'NetworksPython'
+project = 'Rockpool'
 copyright = '2019, aiCTX AG'
 author = 'Dylan Muir, Felix Bauer'
 
@@ -36,6 +36,8 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autosummary',
     'sphinx.ext.viewcode',
+    'nbsphinx',
+    'sphinx.ext.mathjax',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -54,7 +56,7 @@ default_role = 'py:obj'
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -64,5 +66,31 @@ html_static_path = ['_static']
 autosummary_generate = True
 
 rst_prolog = """
-.. |project| replace:: NetworksPython
+.. |project| replace:: Rockpool
+"""
+
+nbsphinx_prolog = r"""
+{% set docname = env.doc2path(env.docname, base='docs') %}
+
+.. only:: html
+
+    .. role:: raw-html(raw)
+        :format: html
+        
+    .. nbinfo::
+        This page was generated from `{{ docname }}`__.
+        Interactive online version:
+        :raw-html:`<a href="https://mybinder.org/__basepath__/{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
+        
+    __ https://__basepath__/
+        {{ env.config.release }}/{{ docname }}
+        
+.. raw:: latex
+    \nbsphinxstartnotebook{\scriptsize\noindent\strut
+    \textcolor{gray}{The following section was generated from
+    \sphinxcode{\sphinxupquote{\strut {{ docname | escape_latex }}}} \dotfill}}
+"""
+
+nbsphinx_epilog = """
+.. |project| replace:: Rockpool
 """

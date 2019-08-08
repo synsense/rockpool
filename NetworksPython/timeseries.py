@@ -9,6 +9,7 @@ import copy
 from typing import Union, List, Tuple, Optional, Iterable
 import collections
 
+_global_plotting_backend = None
 try:
     import matplotlib as mpl
     from matplotlib import pyplot as plt
@@ -17,6 +18,7 @@ try:
     _global_plotting_backend = "matplotlib"
 except ModuleNotFoundError:
     _MPL_AVAILABLE = False
+
 try:
     import holoviews as hv
 
@@ -54,6 +56,8 @@ def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
     :param str backend:     One of {"holoviews", "matplotlib"}
     :param bool verbose:    If ``True``, print feedback about the backend. Default: ``True``
     """
+    global _global_plotting_backend
+
     if backend in ("holoviews", "holo", "Holoviews", "HoloViews", "hv"):
         if _HV_AVAILABLE:
             _global_plotting_backend = "holoviews"
@@ -84,6 +88,7 @@ def get_global_ts_plotting_backend() -> str:
 
     :return str:    Current plotting backend. One of  {"holoviews", "matplotlib"}
     """
+    global _global_plotting_backend
     return _global_plotting_backend
 
 
@@ -140,7 +145,7 @@ def full_nan(shape: Union[tuple, int]) -> np.array:
 
 class TimeSeries:
     """
-    Super-class to represent a continuous or event-based time series. You should use the subclasses :py:class:`TSContinuous` and :py:class:`TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`timeseriesdocs` for futher explanation and examples.
+    Super-class to represent a continuous or event-based time series. You should use the subclasses `TSContinuous` and `TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`timeseriesdocs` for futher explanation and examples.
     """
 
     def __init__(
@@ -160,7 +165,7 @@ class TimeSeries:
         :param Optional[float] t_start:         If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:          If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param Optional[str] plotting_backend:  Determines plotting backend. If ``None``, backend will be chosen automatically based on what is available.
-        :param str name:                        Name of the TimeSeries object. Default: ``unnamed``
+        :param str name:                        Name of the TimeSeries object. Default: "unnamed"
         """
 
         # - Convert time trace to numpy arrays
@@ -193,7 +198,7 @@ class TimeSeries:
         """
         Return a copy of ``self`` that is delayed by an offset
 
-        For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
+        For delaying self, use the `inplace` argument, or ``.times += ...`` instead.
 
         :param float Offset:    Time by which to offset this time series
         :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
@@ -421,7 +426,7 @@ class TSContinuous(TimeSeries):
     >>> ts1.append_t(ts2)    # Appends the second time series, along the time axis
     >>> ts1.append_c(ts2)    # Appends the second time series as an extra channel
 
-    .. note:: All :py:class:`TSContinuous` manipulation methods return a copy by default. Most methods accept an optional ``inplace`` flag, which if ``True`` causes the operation to be performed in place.
+    .. note:: All :py:class:`TSContinuous` manipulation methods return a copy by default. Most methods accept an optional `inplace` flag, which if ``True`` causes the operation to be performed in place.
 
     Resample a time series using functional notation, list notation, or using the :py:func:`.resample` method.
 
@@ -459,12 +464,12 @@ class TSContinuous(TimeSeries):
 
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
-        :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
+        :param Optional[in] num_channels:   If `samples` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
         :param bool periodic:               Treat the time series as periodic around the end points. Default: False
         :param float t_start:               If not None, the series start time is t_start, otherwise times[0]
         :param float t_stop:                If not None, the series stop time is t_stop, otherwise times[-1]
-        :param str name:                    Name of the ``TSContinuous`` object. Default: ``unnamed``
-        :param str interp_kind:             Specify the interpolation type. Default: ``linear``
+        :param str name:                    Name of the `.TSContinuous` object. Default: "unnamed"
+        :param str interp_kind:             Specify the interpolation type. Default: "linear"
 
         If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
         """
@@ -600,9 +605,9 @@ class TSContinuous(TimeSeries):
         Print an overview of the time series and its values
 
         :param bool full:          Print all samples of ``self``, no matter how long it is
-        :param int num_first:      Shortened version of printout contains samples at first ``num_first`` points in ``self.times``
-        :param int num_last:       Shortened version of printout contains samples at last ``num_last`` points in ``self.times``
-        :param int limit_shorten:  Print shortened version of self if it comprises more than ``limit_shorten`` time points and if ``full`` is False
+        :param int num_first:      Shortened version of printout contains samples at first `num_first` points in `.times`
+        :param int num_last:       Shortened version of printout contains samples at last `num_last` points in `.times`
+        :param int limit_shorten:  Print shortened version of self if it comprises more than `limit_shorten` time points and if `full` is False
         """
 
         s = "\n"
@@ -907,10 +912,10 @@ class TSContinuous(TimeSeries):
         """
         Append another time series to this one, along the samples axis (i.e. add new channels)
 
-        :param TSContinuous other_series:   Another time series. Will be resampled to the time base of ``self`` :py:class:`TSContinuous object
+        :param TSContinuous other_series:   Another time series. Will be resampled to the time base of ``self``
         :param bool inplace:                Conduct operation in-place (Default: ``False``; create a copy)
 
-        :return TSContinuous:               Current time series, with new channels appended
+        :return `TSContinuous`:             Current time series, with new channels appended
         """
         # - Check other_series
         if not isinstance(other_series, TSContinuous):
@@ -1672,18 +1677,18 @@ class TSEvent(TimeSeries):
         inplace: bool = False,
     ) -> "TSEvent":
         """
-        clip - Return a :py:class:`TSEvent` which is restricted to given time limits and only contains events of selected channels
+        Return a `TSEvent` which is restricted to given time limits and only contains events of selected channels
 
-        If time limits are provided, ``t_start`` and ``t_stop`` attributes of the new time series will correspond to those. If ``remap_channels`` is ``True``, channels IDs will be mapped to a continuous sequence of integers starting from 0 (e.g. [1, 3, 6]->[0, 1, 2]). In this case ``num_channels`` will be set to the number of different channels in ``channels``. Otherwise ``num_channels` will keep its original values, which is also the case for all other attributes. If ``inplace`` is True, modify ``self`` accordingly.
+        If time limits are provided, `.t_start` and `.t_stop` attributes of the new time series will correspond to those. If `remap_channels` is ``True``, channels IDs will be mapped to a continuous sequence of integers starting from 0 (e.g. [1, 3, 6]->[0, 1, 2]). In this case `.num_channels` will be set to the number of different channels in ``channels``. Otherwise `.num_channels` will keep its original values, which is also the case for all other attributes. If `inplace` is True, modify ``self`` accordingly.
 
-        :param Optional[float] t_start:             Time from which on events are returned. Default: ``self.t_start``
-        :param Optional[float] t_stop:              Time until which events are returned. Default: ``self.t_stop``
+        :param Optional[float] t_start:             Time from which on events are returned. Default: `.t_start`
+        :param Optional[float] t_stop:              Time until which events are returned. Default: `.t_stop`
         :param Optional[ArrayLike[int]] channels:   Channels of which events are returned. Default: All channels
-        :param Optional[bool] include_stop:          If there are events with time ``t_stop``, include them or not. Default: ``False``, do not include events at ``t_stop``
+        :param Optional[bool] include_stop:          If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
         :param Optional[bool] remap_channels:        Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
         :param Optional[bool] inplace:              Iff ``True``, the operation is performed in place (Default: False)
 
-        :return TSEvent:                            :py:`TSEvent` containing events from the requested channels
+        :return TSEvent:                            `TSEvent` containing events from the requested channels
         """
 
         if not inplace:
