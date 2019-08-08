@@ -117,7 +117,7 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
 
 class Network:
     """
-    Network - Super class to encapsulate several Layers and manage signal routing
+    Super class to encapsulate several Layers and manage signal routing
     """
     def __init__(self, *layers: Layer, dt=None):
         """

@@ -3,7 +3,7 @@ Full API summary for NetworksPython
 
 .. py:currentmodule::NetworksPython
 
-Main classes
+Base classes
 ------------
 
 .. seealso:: :ref:`gettingstarted`, :ref:`basicexamples` and :ref:`networkdocs`
@@ -30,7 +30,7 @@ Time series classes
     timeseries.TSEvent
 
 
-:py:class:`Layer` classes
+:py:class:`Layer` subclasses
 -------------------------
 
 .. seealso:: :ref:`layersdocs` and :ref:`layerssummary`
@@ -71,5 +71,6 @@ Time series classes
     layers.RecIAFSpkInNest
     layers.RecAEIFSpkInNest
     layers.RecDynapSE
+    layers.VirtualDynapse
     layers.RecRateEulerJax
     layers.ForceRateEulerJax

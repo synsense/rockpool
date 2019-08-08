@@ -60,7 +60,7 @@ class VirtualDynapse(Layer):
 
     def __init__(
         self,
-        dt: float = 1e-4,
+        dt: Optional[float] = 1e-4,
         connections_ext: Optional[np.ndarray] = None,
         connections_rec: Optional[np.ndarray] = None,
         tau_mem_1: Optional[Union[float, np.ndarray]] = 0.02,
@@ -84,12 +84,12 @@ class VirtualDynapse(Layer):
         """
         A recurrent layer that simulates a DynapSE neurmorphic processor
 
-        :param float dt:                                    Time step duration in seconds
+        :param Optional[float] dt:                          Time step duration in seconds
         :param Optional[ndarray[float] connections_ext:     2D-array defining connections from external input. Size at most ``num_neurons_chip`` x ``num_neurons``. 1st axis will be filled with 0s if smaller than ``num_neurons_chip``. 2nd axis wil be filled with 0s if smaller than ``num_neurons``. If ``None``, will generate arrays filled with `0`s, meaning no connections exist. Default: ``None``.
         :param Optional[ndarray[float]] connections_rec:    Square 2D-array defining connections between neurons. Size at most ``num_neurons`` x ``num_neurons``. Will be filled with 0s if smaller. If `None`, will generate arrays filled with `0`s, meaning no connections exist. Default: ``None``.
         :param Optional[ArrayLike[float]] tau_mem_1:        Scalar or 1D-array of floats with size ``num_cores``, with membrane time constant for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.02.
         :param Optional[ArrayLike[float]] tau_mem_2:        Scalar or 1D-array of floats with size ``num_cores``, with alternative membrane time constant for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.02.
-        :param Optional[ArrayLike[bool]] has_tau_mem_2:    Scalar or 1D-array of booleans with size ``num_neurons``, indicating which neuron uses the alternative membrane time constant. If scalar bool, use the same for all cores. Default: ``False``.
+        :param Optional[ArrayLike[bool]] has_tau_mem_2:     Scalar or 1D-array of booleans with size ``num_neurons``, indicating which neuron uses the alternative membrane time constant. If scalar bool, use the same for all cores. Default: ``False``.
         :param Optional[ArrayLike[float]] tau_syn_exc:      Scalar or 1D-array of floats with size ``num_cores``, with time constant for excitatory synapses for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.05.
         :param Optional[ArrayLike[float]] tau_syn_inh:      Scalar or 1D-array of floats with size ``num_cores``, with time constant for inhibitory synapses for each core, in seconds. If scalar float, use the same time constant for all cores. Default: 0.05.
         :param Optional[ArrayLike[float]] baseweight_e:     Scalar or 1D-array of floats with size ``num_cores`` with multiplicatory factor (>=0) for quantal synapse excitatory weights for each core. If scalar float, use the same for all cores. Default: 0.01.
@@ -1422,14 +1422,20 @@ class VirtualDynapse(Layer):
     @property
     def size_in(self):
         """
-        :return int:
+        (int) Number of input neurons
         """
         return self.num_external
 
     @property
     def num_threads(self):
+        """
+        (int) Number of threads used by simulation
+        """
         return self._simulator.num_cores
 
     @property
     def record(self):
+        """
+        (bool) Flag indicating whether the simulator should record internal state during evolution
+        """
         return self._simulator.record

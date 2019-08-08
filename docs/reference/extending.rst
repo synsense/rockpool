@@ -1,5 +1,9 @@
-Extending NetworksPython
+.. _extending:
+
+Extending |project|
 ========================
 
-Adding a new ``Layer`` subclass
------------------------------
+
+.. _addlayersubclass:
+Adding a new `Layer` subclass
+---------------------------------------

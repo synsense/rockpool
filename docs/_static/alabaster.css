@@ -238,6 +238,7 @@ a.headerlink:hover {
 
 div.body p, div.body dd, div.body li {
     line-height: 1.4em;
+	margin-top: 1ex;
 }
 
 div.admonition {
@@ -384,7 +385,7 @@ table.docutils td, table.docutils th {
 }
 
 td p {
-	hyphens: manual !important;	
+	hyphens: manual !important;
 }
 
 table.field-list, table.footnote {

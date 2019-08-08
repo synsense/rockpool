@@ -1,7 +1,7 @@
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Optional
+from typing import Optional, Any
 import json
 
 import numpy as np
@@ -21,6 +21,13 @@ tol_abs = 1e-9
 
 
 class Layer(ABC):
+    """
+    Base class for Layers in NetworksPython
+
+    This abstract class acts as a base class from which to derive subclasses that represent layers of neurons. As an abstract class, :py:class:`Layer` cannot be instantiated.
+
+    .. seealso:: See :ref:`layersdocs` for examples of instantiating and using :py:class:`Layer` subclasses. See :ref:`extending` for how to design and implement a new :py:class:`Layer` subclass.
+    """
     def __init__(
         self,
         weights: np.ndarray,
@@ -29,12 +36,11 @@ class Layer(ABC):
         name: Optional[str] = "unnamed",
     ):
         """
-        Layer class - Implement an abstract layer of neurons (no implementation)
+        Implement an abstract layer of neurons (no implementation, must be subclasses)
 
-        :param weights:         np.ndarray Weight matrix for this layer
-        :param dt:         float Time-step used for evolving this layer. Default: 1
-        :param noise_std:   float Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected
-                                    std. dev. after 1s of integration time
+        :param ArrayLike[float] weights:    Weight matrix for this layer. Indexed as [pre, post]
+        :param float dt:                    Time-step used for evolving this layer. Default: 1
+        :param float noise_std:             Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected std. dev. after 1s of integration time
         :param name:       str Name of this layer. Default: 'unnamed'
         """
 
@@ -78,13 +84,13 @@ class Layer(ABC):
         num_timesteps: Optional[int] = None,
     ) -> int:
         """
-        _determine_timesteps - Determine over how many time steps to evolve with the given input
+        Determine how many time steps to evolve with the given input
 
-        :param ts_input:       TimeSeries  TxM or Tx1 Input signals for this layer
-        :param duration:     float  Duration of the desired evolution, in seconds
-        :param num_timesteps: int  Number of evolution time steps
+        :param Optional[TimeSeries] ts_input:   TxM or Tx1 time series of input signals for this layer
+        :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, ``num_timesteps`` or the duration of ``ts_input`` will be used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of :py:attr:`.dt`. If not provided, ``duration`` or the duration of ``ts_input`` will be used to determine evolution time
 
-        :return num_timesteps: int  Number of evolution time steps
+        :return int:                            Number of evolution time steps
         """
 
         if num_timesteps is None:
@@ -102,7 +108,7 @@ class Layer(ABC):
                     duration = ts_input.duration
 
                 else:
-                    # - Evolve until the end of the input TImeSeries
+                    # - Evolve until the end of the input TimeSeries
                     duration = ts_input.t_stop - self.t
                     assert duration > 0, (
                         "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
@@ -122,21 +128,23 @@ class Layer(ABC):
 
     def _prepare_input(
         self,
-        ts_input: Optional[TSContinuous] = None,
+        ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, np.ndarray, float):
         """
-        _prepare_input - Sample input, set up time base
+        Sample input, set up time base
 
-        :param ts_input:       TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:     float Duration of the desired evolution, in seconds
-        :param num_timesteps: int Number of evolution time steps
+        This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
 
-        :return: (time_base, input_steps, duration)
-            time_base:     ndarray T1 Discretised time base for evolution
-            input_steps:    ndarray (T1xN) Discretised input signal for layer
-            num_timesteps:  int Actual number of evolution time steps
+        :param Optional[TimeSeries] ts_input:   :py:class:`TimeSeries` of TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
+        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
+
+        :return (ndarray, ndarray, float): (time_base, input_steps, duration)
+            time_base:      T1 Discretised time base for evolution
+            input_steps:    (T1xN) Discretised input signal for layer
+            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
 
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
@@ -192,15 +200,17 @@ class Layer(ABC):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input_events - Sample input from TSEvent, set up time base
+        Sample input from a :py:class:`TSEvent` time series, set up evolution time base
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
 
-        :return:
-            spike_raster:    ndarray Boolean or integer raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
+        :param Optional[TSEvent] ts_input:  TimeSeries of TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:    Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will determine evolution itme
+        :param Optional[int] num_timesteps: Number of evolution time steps, in units of ``.dt``. If not provided, then either ``duration`` or the duration of ``ts_input`` will determine evolution time
+
+        :return (ndarray, int):
+            spike_raster:   Boolean or integer raster containing spike information. T1xM array
+            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
@@ -214,6 +224,7 @@ class Layer(ABC):
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
             )[2]
+
             # - Make sure size is correct
             spike_raster = spike_raster[:num_timesteps, :]
 
@@ -224,12 +235,14 @@ class Layer(ABC):
 
     def _check_input_dims(self, inp: np.ndarray) -> np.ndarray:
         """
-        Verify if dimension of input matches layer instance. If input
-        dimension == 1, scale it up to self._size_in by repeating signal.
-            inp : np.ndarray with input data
-            return : inp, possibly with dimensions repeated
+        Verify if dimensions of an input matches this layer instance
+
+        If input dimension == 1, scale it up to self._size_in by repeating signal.
+
+        :param ndarray inp: ArrayLike containing input data
+        :return ndarray: ``inp``, possibly with dimensions repeated
         """
-        # - Replicate `ts_input` if necessary
+        # - Replicate input data if necessary
         if inp.ndim == 1 or (inp.ndim > 1 and inp.shape[1]) == 1:
             if self.size_in > 1:
                 warn(
@@ -250,11 +263,12 @@ class Layer(ABC):
 
     def _gen_time_trace(self, t_start: float, num_timesteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at t_start, of length num_timesteps+1 with
-        time step length self._dt. Make sure it does not go beyond
-        t_start+duration.
+        Generate a time trace starting at t_start, of length num_timesteps+1 with time step length self._dt. Make sure it does not go beyond t_start+duration.
 
-        :return time_trace, duration
+        :param float t_start:       Start time, in seconds
+        :param int num_timesteps:   Number of time steps to generate, in units of ``.dt``
+
+        :return (ndarray): Generated time trace
         """
         # - Generate a trace
         time_trace = np.arange(num_timesteps + 1) * self._dt + t_start
@@ -265,13 +279,17 @@ class Layer(ABC):
         self, inp, shape: tuple, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
-        _expand_to_shape: Replicate out a scalar to an array of shape shape
+        Replicate out a scalar to an array of shape ``shape``
 
-        :param inp:          scalar or array-like (size)
-        :param shape:        tuple of int Shape that input should be expanded to
-        :param var_name:   str Name of the variable to include in error messages
-        :param allow_none:      bool Allow None as argument for inp
-        :return:                np.ndarray (N) vector
+        :param Any inp:                     scalar or array-like of input data
+        :param Tuple[int] shape:            tuple defining array shape that input should be expanded to
+        :param Optional[str] var_name:      Name of the variable to include in error messages. Default: "input"
+        :param Optional[bool] allow_none:   If ``True``, then ``None`` is permitted as argument for ``inp``. Otherwise an error will be raised. Default: ``True``, allow ``None``
+
+        :return ndarray:                    ``inp``, replicated to the correct shape
+
+        :raises AssertionError:             If ``inp`` is shaped incompatibly to be replicated to the desired shape
+        :raises AssertionError:             If ``inp`` is ``None`` and ``allow_none`` is ``False``
         """
         if not allow_none:
             assert inp is not None, "Layer `{}`: `{}` must not be None".format(
@@ -297,13 +315,17 @@ class Layer(ABC):
         self, inp, size: int, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
-        _expand_to_size: Replicate out a scalar to size
+        Replicate out a scalar to a desired size
 
-        :param inp:          scalar or array-like (size)
-        :param size:           integer Size that input should be expanded to
-        :param var_name:   str Name of the variable to include in error messages
-        :param allow_none:      bool Allow None as argument for inp
-        :return:                np.ndarray (N) vector
+        :param Any inp:                     scalar or array-like
+        :param int size:                    Size that input should be expanded to
+        :param Optional[str] var_name:      Name of the variable to include in error messages. Default: "input"
+        :param Optional[bool] allow_none:   If ``True``, allow None as a value for ``inp``. Otherwise and error will be raised. Defualt: ``True``, allow ``None``
+
+        :return ndarray:                    Array of ``inp``, possibly expanded to the desired size
+
+        :raises AssertionError:             If ``inp`` is incompatibly shaped to expand to the desired size
+        :raises AssertionError:             If ``inp`` is ``None`` and ``allow_none`` is ``False``
         """
         return self._expand_to_shape(inp, (size,), var_name, allow_none)
 
@@ -311,12 +333,16 @@ class Layer(ABC):
         self, inp, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
-        _expand_to_net_size: Replicate out a scalar to the size of the layer
+        Replicate out a scalar to the size of the layer
 
-        :param inp:          scalar or array-like (N)
-        :param var_name:   str Name of the variable to include in error messages
-        :param allow_none:      bool Allow None as argument for inp
-        :return:                np.ndarray (N) vector
+        :param Any inp:                     scalar or array-like
+        :param Optional[str] var_name:      Name of the variable to include in error messages. Default: "input"
+        :param Optionbal[bool] allow_none:  If ``True``, allow ``None`` as a value for ``inp``. Otherwise an error will be raised. Default: ``True``, allow ``None``
+
+        :return ndarray:                    Values of ``inp``, replicated out to the size of the current layer
+
+        :raises AssertionError:             If ``inp`` is incompatibly sized to replicate out to the layer size
+        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False
         """
         return self._expand_to_shape(inp, (self.size,), var_name, allow_none)
 
@@ -324,14 +350,17 @@ class Layer(ABC):
         self, inp, var_name: str = "input", allow_none: bool = True
     ) -> np.ndarray:
         """
-        _expand_to_weight_size: Replicate out a scalar to the size of the layer's weights
+        Replicate out a scalar to the size of the layer's weights
 
-        :param inp:          scalar or array-like (NxN)
-        :param var_name:   str Name of the variable to include in error messages
-        :param allow_none:      bool Allow None as argument for inp
-        :return:                np.ndarray (NxN) vector
+        :param Any inp:                     scalar or array-like
+        :param Optional[str] var_name:      Name of the variable to include in error messages. Default: "input"
+        :param Optionbal[bool] allow_none:  If ``True``, allow ``None`` as a value for ``inp``. Otherwise an error will be raised. Default: ``True``, allow ``None``
+
+        :return ndarray:                    Values of ``inp``, replicated out to the size of the current layer
+
+        :raises AssertionError:             If ``inp`` is incompatibly sized to replicate out to the layer size
+        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False
         """
-
         return self._expand_to_shape(inp, (self.size, self.size), var_name, allow_none)
 
     ### --- String representations
@@ -359,12 +388,15 @@ class Layer(ABC):
         num_timesteps: Optional[int] = None,
     ) -> TimeSeries:
         """
-        evolve - Abstract method to evolve the state of this layer
+        Abstract method to evolve the state of this layer
 
-        :param ts_input:     TimeSeries (TxM) External input trace to use when evolving the layer
-        :param duration:   float Duration in seconds to evolve the layer
-        :param num_timesteps: int Number of time steps to evolve the layer
-        :return:            TimeSeries (TxN) Output of this layer
+        This method must be overridden to produce a concrete :py:class:`Layer` subclass. The :py:class:`evolve` method is the main interface for simulating a layer. It must accept an input time series which determines the signals injected into the layer as input, and return an output time series representing the output of the layer.
+
+        :param Optional[TimeSeries] ts_input:   (TxM) External input trace to use when evolving the layer
+        :param Optional[float] duration:        Duration in seconds to evolve the layer. If not provided, then ``num_timesteps`` or the duration of ``ts_input`` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of time steps to evolve the layer, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` is used to determine evolution time
+
+        :return TimeSeries:                     (TxN) Output of this layer
         """
         pass
 
@@ -386,32 +418,34 @@ class Layer(ABC):
 
     def reset_time(self):
         """
-        reset_time - Reset the internal clock
-        :return:
+        Reset the internal clock of this layer to 0
         """
         self._timestep = 0
 
     def randomize_state(self):
         """
-        randomize_state - Randomise the internal state of this layer
+        Randomise the internal state of this layer
 
-        :return: None
+        Unless overridden, this method randomises the layer state based on the current state, using a Normal distribution with std. dev. of 20% of the current state values
         """
-        # create random initial state with a gaussian distribution with mean
-        # the values that were given and std the 20% of the absolute value
+        # create random initial state with a gaussian distribution with mean the values that were given and std the 20% of the absolute value
         self.state = np.random.normal(
             self.state, np.abs(self.state) * 0.02, size=(self.size,)
         )
 
     def reset_all(self):
+        """
+        Reset both the internal clock and the internal state of the layer
+        """
         self.reset_time()
         self.reset_state()
 
     @abstractmethod
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
+
+        :return Dict:   A dictionary that can be used to reconstruct the layer
         """
         config = {}
         config["weights"] = self.weights.tolist()
@@ -424,55 +458,65 @@ class Layer(ABC):
         return config
 
     def save(self, config: dict, filename: str):
-        """save - Save parameters from `config` in a json file.
-        :param config:    dict of attributes to be saved.
-        :param filename:  Path of file where parameters are stored.
+        """
+        Save a set of parameters to a ``json`` file
+
+        :param Dict config:     Dictionary of attributes to be saved
+        :param str filename:    Path of file where parameters are stored
         """
         with open(filename, "w") as f:
             json.dump(config, f)
 
     def save_layer(self, filename: str):
-        """save - Obtain layer paramters from `self.to_dict` and save in a json file.
-        :param filename:  Path of file where parameters are stored.
+        """
+        Obtain layer paramters from `.to_dict` and save in a ``json`` file
+
+        :param str filename:    Path of file where parameters are to be stored
         """
         config = self.to_dict()
         self.save(config, filename)
 
     @classmethod
-    def load_from_file(cls, filename: str, **kwargs) -> "cls":
-        """load_from_file - Generate instance of `cls` with parameters loaded from file.
-        :param filename: Path to the file where parameters are stored.
-        :param kwargs:   Any keyword argument of the class __init__ method where the
-                         parameter stored in the file should be overwritten.
-        :return:
-            Instance of cls with paramters from file.
+    def load_from_file(cls: Any, filename: str, **kwargs) -> "cls":
+        """
+        Generate an instance of a :py:class:`Layer` subclass, with parameters loaded from a file
+
+        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
+        :param str filename:    Path to the file where parameters are stored
+        :param kwargs:          Any keyword arguments of the class __init__ method where the parameter stored in the file should be overridden
+
+        :return Layer: Instance of `cls` with paramters loaded from `filename`
         """
         # - Load dict from file
         with open(filename, "r") as f:
             config = json.load(f)
+
         # - Instantiate new class member from dict
         return cls.load_from_dict(config, **kwargs)
 
     @classmethod
-    def load_from_dict(cls, config: dict, **kwargs) -> "cls":
-        """load_from_dict - Generate instance of `cls` with parameters loaded from dict.
-        :param config: Dict with parameters.
-        :param kwargs: Any keyword argument of the class __init__ method where the
-                       parameter from `config` should be overwritten.
-        :return:
-            Instance of cls with paramters from dict.
+    def load_from_dict(cls: Any, config: dict, **kwargs) -> "cls":
+        """
+        Generate instance of a :py:class:`Layer` subclass with parameters loaded from a dictionary
+
+        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
+        :param Dict config: Dictionary containing parameters of a :py:class:`Layer` subclass
+        :param kwargs:      Any keyword arguments of the class ``__init__`` method where the parameters from ``config`` should be overridden
+
+        :return Layer: Instance of ``cls`` with paramters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
+
         # - Remove class name from dict
         config.pop("class_name")
         return cls(**config)
 
     def reset_state(self):
         """
-        reset_state - Reset the internal state of this layer. Sets state to zero
+        Reset the internal state of this layer
 
-        :return: None
+        Sets ``.state`` to all zeros
         """
         self.state = np.zeros(self.size)
 
@@ -480,7 +524,9 @@ class Layer(ABC):
 
     @property
     def class_name(self) -> str:
-        """class_name - Return name of `self` as a string."""
+        """
+        (str) Class name of ``self``
+        """
         # - Determine class name by removing "<class '" and "'>" and the package information
         return str(self.__class__).split("'")[1].split(".")[-1]
 
@@ -490,22 +536,37 @@ class Layer(ABC):
 
     @property
     def output_type(self):
+        """
+        (TSContinuous) Output `.TimeSeries` subclass emitted by this layer. Default: :py:class:`.TSContinuous`
+        """
         return TSContinuous
 
     @property
     def input_type(self):
+        """
+        (TSContinuous) Input :py:class:`.TimeSeries` subclass accepted by this layer. Default: :py:class:`.TSContinuous`
+        """
         return TSContinuous
 
     @property
     def size(self) -> int:
+        """
+        (int) Number of units in this layer (N)
+        """
         return self._size
 
     @property
     def size_in(self) -> int:
+        """
+        (int) Number of input channels accepted by this layer (M)
+        """
         return self._size_in
 
     @property
     def dt(self) -> float:
+        """
+        (float) Simulation time step of this layer
+        """
         return self._dt
 
     @dt.setter
@@ -514,6 +575,9 @@ class Layer(ABC):
 
     @property
     def weights(self) -> np.ndarray:
+        """
+        (ndarray) Weights encapsulated by this layer (MxN)
+        """
         return self._weights
 
     @weights.setter
@@ -541,6 +605,9 @@ class Layer(ABC):
 
     @property
     def state(self):
+        """
+        (ndarray) Internal state of this layer (N)
+        """
         return self._state
 
     @state.setter
@@ -553,6 +620,11 @@ class Layer(ABC):
 
     @property
     def noise_std(self):
+        """
+        (float) Noise injected into the state of this layer during evolution
+
+        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be correctected by :py:attr:`.dt`
+        """
         return self._noise_std
 
     @noise_std.setter
@@ -561,6 +633,9 @@ class Layer(ABC):
 
     @property
     def t(self):
+        """
+        (float) The current evolution time of this layer
+        """
         return self._timestep * self.dt
 
     @t.setter

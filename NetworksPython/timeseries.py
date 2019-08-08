@@ -191,12 +191,13 @@ class TimeSeries:
 
     def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
         """
-        delay() - Return a copy of self that is delayed by an offset.
-                  For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
+        Return a copy of ``self`` that is delayed by an offset
+
+        For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
 
         :param float Offset:    Time by which to offset this time series
-        :param bool inplace:    Conduct operation in-place (Default: False; create a copy)
-        :return TimeSeries: New TimeSeries, delayed
+        :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
+        :return TimeSeries:     New TimeSeries, delayed
         """
         if not inplace:
             series = self.copy()
@@ -218,9 +219,9 @@ class TimeSeries:
 
     def isempty(self) -> bool:
         """
-        isempty() - Test if this TimeSeries object is empty
+        Test if this TimeSeries object is empty
 
-        :return bool: True iff the TimeSeries object contains no samples
+        :return bool: ``True`` iff the TimeSeries object contains no samples
         """
         return np.size(self.times) == 0
 
@@ -230,7 +231,7 @@ class TimeSeries:
 
     def set_plotting_backend(self, backend: Union[str, None], verbose: bool = True):
         """
-        set_plotting_backend() - Set which plotting backend to use with the .plot() method
+        Set which plotting backend to use with the .plot() method
 
         :param str backend:     Specify a backend to use. Supported: {"holoviews", "matplotlib"}
         :param bool verbose:    If True, print feedback about which backend has been set
@@ -273,7 +274,7 @@ class TimeSeries:
 
     def copy(self) -> "TimeSeries":
         """
-        copy() - Return a deep copy of this time series
+        Return a deep copy of this time series
 
         :return TimeSeries: copy of `self`
         """
@@ -699,7 +700,7 @@ class TSContinuous(TimeSeries):
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        clip() - Return a TSContinuous which is restricted to given time limits and only contains events of selected channels
+        Return a TSContinuous which is restricted to given time limits and only contains events of selected channels
 
         :param float t_start:       Time from which on events are returned
         :param float t_stop:        Time until which events are returned
@@ -1726,7 +1727,6 @@ class TSEvent(TimeSeries):
         Maps channels 0..``self.num_channels-1`` to the channels in ``channel_map``.
 
         :param ArrayLike[int] channel_map:  List of channels that existing channels should be mapped to, in order.. Must be of size ``self.num_channels``.
-
         :param bool inplace:                Specify whether operation should be performed in place (Default: ``False``, a copy is returned)
         """
 
