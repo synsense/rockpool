@@ -285,6 +285,10 @@ big, small {
 	font-size: 100%
 }
 
+div#welcome-to-project.section img.main-logo {
+	margin-bottom: -20%;
+}
+
 @media print {
 	html, body, section {
 		background: none !important
@@ -5818,12 +5822,21 @@ footer span.commit code, footer span.commit .rst-content tt, .rst-content footer
 }
 
 .rst-content dl {
-	margin-bottom: 24px
+	margin-bottom: 24px;
+}
+.rst-content dl.method {
+	margin-top: 1ex;
+	padding-top: 1ex;
+	border-top-style: dotted;
 }
 
 .rst-content dl dt {
 	font-weight: bold;
 	margin-bottom: 12px
+}
+
+table.longtable.docutils tbody td p {
+	margin-bottom: 0 !important;
 }
 
 .rst-content dl p, .rst-content dl table, .rst-content dl ul, .rst-content dl ol {

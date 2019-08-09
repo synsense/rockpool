@@ -6,8 +6,10 @@
 Welcome to |project|
 ================================
 
-.. image:: _static/logo_Color_perspective.png
-   :width: 80 %
+.. raw:: html
+
+    <img src='_static/logo_Color_perspective.png' width=80% class='main-logo' />
+
 
 |project| is a Python package for working with dynamical neural networks architectures, particularly for designing event-driven
 networks for Neuromorphic computing hardware. |project| provides a convenient interface for designing, training
@@ -26,7 +28,16 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    basics/installation
    basics/time_series.ipynb
-   basics/building_reservoir.ipynb
+   basics/getting_started.ipynb
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/building_reservoir.ipynb
+   tutorials/jax_sgd.ipynb
+   tutorials/RecDynapSE.ipynb
 
 .. toctree::
    :maxdepth: 2
@@ -34,11 +45,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    advanced/extending_layers.ipynb
 
-   reference/time_series
-   reference/networks
-   reference/layers
    reference/layer_types
-   reference/extending
    reference/hardware
 
    reference/api

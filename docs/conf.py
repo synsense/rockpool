@@ -94,3 +94,6 @@ nbsphinx_prolog = r"""
 nbsphinx_epilog = """
 .. |project| replace:: Rockpool
 """
+
+nbsphinx_allow_errors = True
+

@@ -3,6 +3,17 @@ Full API summary for NetworksPython
 
 .. py:currentmodule::NetworksPython
 
+Modules
+-------
+
+.. autosummary::
+    :toctree: _autosummary
+    NetworksPython.networks
+    NetworksPython.layers
+    NetworksPython.weights
+    NetworksPython.devices
+    NetworksPython.timeseries
+
 Base classes
 ------------
 
