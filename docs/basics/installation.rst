@@ -1,6 +1,6 @@
 .. _installation:
 
-How to install |project|
+Installing |project|
 ========================
 
 Cloning from Gitlab in edit mode

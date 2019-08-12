@@ -286,7 +286,7 @@ big, small {
 }
 
 div#welcome-to-project.section img.main-logo {
-	margin-bottom: -20%;
+	margin-bottom: -25%;
 }
 
 @media print {
@@ -5824,6 +5824,15 @@ footer span.commit code, footer span.commit .rst-content tt, .rst-content footer
 .rst-content dl {
 	margin-bottom: 24px;
 }
+
+.rst-content dl.class {
+	border-bottom: 1ex solid #ebebeb;
+}
+
+.rst-content dl.function {
+	border-bottom: 1ex solid #ebebeb;
+}
+
 .rst-content dl.method {
 	margin-top: 1ex;
 	padding-top: 1ex;

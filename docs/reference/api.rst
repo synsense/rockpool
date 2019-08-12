@@ -3,21 +3,10 @@ Full API summary for NetworksPython
 
 .. py:currentmodule::NetworksPython
 
-Modules
--------
-
-.. autosummary::
-    :toctree: _autosummary
-    NetworksPython.networks
-    NetworksPython.layers
-    NetworksPython.weights
-    NetworksPython.devices
-    NetworksPython.timeseries
-
 Base classes
 ------------
 
-.. seealso:: :ref:`gettingstarted`, :ref:`basicexamples` and :ref:`networkdocs`
+.. seealso:: :ref:`/basics/getting_started.ipynb` and :ref:`/basics/time_series.ipynb`.
 
 .. autosummary::
     :toctree: _autosummary
@@ -30,7 +19,7 @@ Base classes
 Time series classes
 -----------------------------
 
-.. seealso:: :ref:`timeseriesdocs`
+.. seealso:: :ref:`/basics/time_series.ipynb`.
 
 .. autosummary::
     :toctree: _autosummary
@@ -40,11 +29,18 @@ Time series classes
     timeseries.TSContinuous
     timeseries.TSEvent
 
+Utility modules
+------------------
+
+:ref:`/reference/weights.rst` provides several useful functions for generating network weights.
+
+:ref:`/reference/utils.rst` provides several useful utility functions.
+
 
 :py:class:`Layer` subclasses
--------------------------
+-----------------------------
 
-.. seealso:: :ref:`layersdocs` and :ref:`layerssummary`
+.. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
 
 .. autosummary::
     :toctree: _autosummary

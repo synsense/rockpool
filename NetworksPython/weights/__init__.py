@@ -29,6 +29,9 @@ dModules = {
 # - Define current package
 strBasePackage = "NetworksPython.weights"
 
+# - Define docstring for module
+__doc__ = """Defines functions for generating recurrent weight matrices"""
+
 # - Initialise list of available modules
 __all__ = []
 
