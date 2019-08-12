@@ -2,9 +2,36 @@
 About |project|
 ===============
 
+.. image:: _static/logo_Color_trimmed.png
+    :width: 80%
+
 |project| is an open source project released by aiCTX AG.
 
 About aiCTX
 -----------
 
-aiCTX is a Neuromorphic computing hardware and solutions startup, based in Zurich Switzerland.
+.. image:: _static/aictx_logo.png
+    :width: 40%
+
+aiCTX_ is a Neuromorphic computing hardware and solutions startup, based in Zurich Switzerland. The company specializes in developing mixed-signal neuromorphic silicon hardware for neural simulation and signal processing; it develops software for interfacing with and configuring neuromorphic hardware; and develops solutions to analyse and process bio-signals. aiCTX_ is a commercial spin-off from the Institute of Neuroinformatics (INI_), University of Zurich (UZH_) and ETH Zurich (ETHZ_).
+
+.. _aiCTX: https://aictx.ai
+.. _INI: https://ini.uzh.ch
+.. _UZH: https://uzh.ch
+.. _ETHZ: https://ethz.ch
+
+About Noodle
+------------
+
+.. image:: _static/noodle.png
+    :width: 40%
+
+Noodle is the mascot of |project|. Noodle is a Nudibranch_, `Glaucus marginatus`_. Nudibranches are a group of amazing sea snails that shed their shells after the larval stage, to display an incredible array of forms, patterns and colours. `Glaucus marginatus`_ is a species found in the Pacific ocean, and often seen at beaches and in rock pools of the eastern Australian coast.
+
+`CC BY 2.0`_ `Taro Taylor`_
+
+.. _Nudibranch: https://en.wikipedia.org/wiki/Nudibranch
+.. _Glaucus marginatus: https://en.wikipedia.org/wiki/Glaucus_marginatus
+
+.. _CC BY 2.0: https://creativecommons.org/licenses/by/2.0/
+.. _Taro Taylor: https://www.flickr.com/people/tjt195/

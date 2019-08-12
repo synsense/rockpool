@@ -1,5 +1,5 @@
-Full API summary for NetworksPython
-===================================
+Full API summary for |project|
+==============================
 
 .. py:currentmodule::NetworksPython
 
@@ -17,7 +17,7 @@ Base classes
 
 
 Time series classes
------------------------------
+-------------------
 
 .. seealso:: :ref:`/basics/time_series.ipynb`.
 
@@ -30,7 +30,7 @@ Time series classes
     timeseries.TSEvent
 
 Utility modules
-------------------
+---------------
 
 :ref:`/reference/weights.rst` provides several useful functions for generating network weights.
 

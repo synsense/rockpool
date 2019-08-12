@@ -1,8 +1,3 @@
-.. NetworksPython documentation master file, created by
-   sphinx-quickstart on Mon Jun 24 12:12:37 2019.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to |project|
 ================================
 
@@ -11,7 +6,7 @@ Welcome to |project|
     <img src='_static/logo_Color_perspective.png' width=80% class='main-logo' />
 
 
-|project| is a Python package for working with dynamical neural networks architectures, particularly for designing event-driven
+|project| is a Python package for working with dynamical neural network architectures, particularly for designing event-driven
 networks for Neuromorphic computing hardware. |project| provides a convenient interface for designing, training
 and evaluating recurrent networks, which can operate both with continuous-time dynamics and event-driven dynamics.
 
@@ -23,7 +18,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    about
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: The basics
 
    basics/installation
@@ -32,7 +27,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Tutorials
 
    tutorials/building_reservoir.ipynb
@@ -40,7 +35,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/RecDynapSE.ipynb
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Advanced topics
 
    advanced/extending_layers.ipynb
@@ -50,9 +45,4 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    reference/api
 
-Indices and tables
-==================
-
 * :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
