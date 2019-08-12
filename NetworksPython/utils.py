@@ -4,7 +4,18 @@ utils.py - Collection of useful objects used by multiple scripts in this package
 
 from typing import Optional, Any, Union, List, Tuple, Callable
 import numpy as np
-from torch import Tensor, from_numpy
+
+# - Try to import PyTorch functions
+try:
+    from torch import Tensor, from_numpy
+
+except ModuleNotFoundError:
+    # - Define dummy class and function
+    class Tensor:
+        pass
+
+    def from_numpy(o):
+        return o
 
 # - Configure exports
 __all__ = ["ArrayLike", "SetterArray", "ImmutableArray", "RefArray", "RefProperty"]

@@ -25,12 +25,22 @@ setup(
         "numba",
         "numpy",
         "scipy",
-        "tqdm",
-        "brian2",
-        "scikit-image",
-        "pandas",
-	"jax",
-	"jaxlib"
     ],
+    extras_require={
+        'all': [
+            "tqdm",
+            "brian2",
+            "nest",
+            "pytest",
+            "torch",
+            "torchvision",
+            "rpyc",
+            "jax",
+            "jaxlib",
+            "sphinx",
+            "nbsphinx",
+            "sphinx-autobuild",
+        ],
+    },
     long_description=open("README.txt").read(),
 )
