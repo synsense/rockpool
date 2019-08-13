@@ -1,4 +1,5 @@
-.. _about::
+.. _about:
+
 About |project|
 ===============
 
