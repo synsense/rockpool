@@ -1,5 +1,5 @@
 The `.utils` module
 ---------------------
 
-.. automodule:: NetworksPython.utils
+.. automodule:: Rockpool.utils
     :members:

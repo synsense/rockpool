@@ -1,4 +1,4 @@
-NetworksPython
+Rockpool
 ========
 
 Installation instructions
@@ -9,7 +9,7 @@ Clone the repository.
 `$ git checkout <git url>`
 `$ cd network-architectures`
 
-Use `pip` to install NetworksPython and required dependencies
+Use `pip` to install Rockpool and required dependencies
 
 `$ pip install -e . --user`
 
@@ -23,4 +23,4 @@ If you want to install all the extra dependencies required for NEST, Brian, PyTo
 License
 =======
 
-NetworksPython is released under a GPL license, unless otherwise agreed.
+Rockpool is released under a GPL license, unless otherwise agreed.

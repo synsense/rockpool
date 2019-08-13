@@ -12,12 +12,12 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../NetworksPython'))
+sys.path.insert(0, os.path.abspath('../Rockpool'))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'NetworksPython'
+project = 'Rockpool'
 copyright = '2019, aiCTX AG'
 author = 'Dylan Muir, Felix Bauer'
 
@@ -66,7 +66,7 @@ html_static_path = ['_static']
 autosummary_generate = True
 
 rst_prolog = """
-.. |project| replace:: NetworksPython
+.. |project| replace:: Rockpool
 """
 
 nbsphinx_prolog = r"""
@@ -92,7 +92,7 @@ nbsphinx_prolog = r"""
 """
 
 nbsphinx_epilog = """
-.. |project| replace:: NetworksPython
+.. |project| replace:: Rockpool
 """
 
 nbsphinx_allow_errors = True

@@ -27,7 +27,7 @@ dModules = {
 
 
 # - Define current package
-strBasePackage = "NetworksPython.weights"
+strBasePackage = "Rockpool.weights"
 
 # - Define docstring for module
 __doc__ = """Defines functions for generating recurrent weight matrices"""

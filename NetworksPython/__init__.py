@@ -14,7 +14,7 @@ dModules = {
 }
 
 # - Define current package
-strBasePackage = "NetworksPython"
+strBasePackage = "Rockpool"
 
 # - Initialise list of available modules
 __all__ = []

@@ -10,7 +10,7 @@ dModules = {
 }
 
 # - Define current package
-strBasePackage = "NetworksPython.networks"
+strBasePackage = "Rockpool.networks"
 
 # - Define docstring for module
 __doc__ = """Defines classes for encapsulating and generating networks of layers"""

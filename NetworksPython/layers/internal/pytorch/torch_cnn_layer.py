@@ -1,5 +1,5 @@
 ##
-# torch_cnn_layer.py - Torch implementation of a FF NetworksPython layer using convolutional weights
+# torch_cnn_layer.py - Torch implementation of a FF Rockpool layer using convolutional weights
 ##
 
 from .iaf_conv2d import TorchSpikingConv2dLayer
