@@ -11,7 +11,7 @@ setup(
         "Rockpool.utilities",
         "Rockpool.utilities.gpl",
         "Rockpool.utilities.internal",
-        "Rockpool.devices"
+        "Rockpool.devices",
         "Rockpool.networks",
         "Rockpool.networks.gpl",
         "Rockpool.networks.internal",
