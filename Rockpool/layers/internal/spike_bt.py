@@ -76,31 +76,27 @@ class RecFSSpikeEulerBT(Layer):
         name: str = None,
     ):
         """
-        DeneveReservoir - Implement a spiking reservoir with tight E/I balance
-            This class does NOT use a Brian2 back-end. See the class code for possibilities
-            to modify neuron and synapse dynamics. Currently uses leaky IAF neurons and exponential
-            current synapses. Note that network parameters are tightly constrained for the reservoir
-            to work as desired. See the documentation and source publications for details.
+        Implement a spiking reservoir with tight E/I balance This class does NOT use a Brian2 back-end. See the class code for possibilities to modify neuron and synapse dynamics. Currently uses leaky IAF neurons and exponential current synapses. Note that network parameters are tightly constrained for the reservoir to work as desired. See the documentation and source publications for details.
 
-        :param weights_fast:           ndarray [NxN] Recurrent weight matrix (fast synapses)
-        :param weights_slow:           ndarray [NxN] Recurrent weight matrix (slow synapses)
-        :param bias:          ndarray [Nx1] Bias currents for each neuron
-        :param noise_std:       float Noise Std. Dev.
+        :param ndarray weights_fast:            [NxN] Recurrent weight matrix (fast synapses)
+        :param ndarray weights_slow:            [NxN] Recurrent weight matrix (slow synapses)
+        :param Optional[ArrayLike[float]] bias: [Nx1] Bias currents for each neuron
+        :param Optional[float] noise_std:       Noise Std. Dev.
 
-        :param tau_mem:          ndarray [Nx1] Neuron time constants
-        :param tau_syn_r_fast:     ndarray [Nx1] Post-synaptic neuron fast synapse TCs
-        :param tau_syn_r_slow:     ndarray [Nx1] Post-synaptic neuron slow synapse TCs
+        :param ArrayLike[float] tau_mem:        [Nx1] Neuron time constants
+        :param ArrayLike[float] tau_syn_r_fast: [Nx1] Post-synaptic neuron fast synapse TCs
+        :param ArrayLike[float] tau_syn_r_slow: [Nx1] Post-synaptic neuron slow synapse TCs
 
-        :param v_thresh:       ndarray [Nx1] Neuron firing thresholds
-        :param v_reset:        ndarray [Nx1] Neuron reset potentials
-        :param v_rest:         ndarray [Nx1] Neuron rest potentials
+        :param ArrayLike[float] v_thresh:       [Nx1] Neuron firing thresholds
+        :param ArrayLike[float] v_reset:        [Nx1] Neuron reset potentials
+        :param ArrayLike[float] v_rest:         [Nx1] Neuron rest potentials
 
-        :param refractory: float         Post-spike refractory period
+        :param Optional[float] refractory:      Post-spike refractory period
 
-        :param spike_callback  Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: None.
+        :param Callable spike_callback:         Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: None.
 
-        :param dt:             float         Nominal time step (Euler solver)
-        :param name:           str           Name of this layer
+        :param Optional[float] dt:              Nominal time step (Euler solver). Default: `None`, choose a reasonable `.dt` as `min(tau)`
+        :param Optional[str] name:              Name of this layer. Default: `None`
         """
         # - Initialise object and set properties
         super().__init__(weights=weights_fast, noise_std=noise_std, name=name)
@@ -464,7 +460,7 @@ class RecFSSpikeEulerBT(Layer):
             "static_input": static_input,
         }
 
-        use_hv, _ = GetPlottingBackend()
+        use_hv, _ = get_global_ts_plotting_backend()
         if use_hv:
             spikes = {"times": spike_times, "vnNeuron": spike_indices}
 
@@ -490,6 +486,9 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Return output TimeSeries
         return TSEvent(spike_times, spike_indices)
+
+    def to_dict(self) -> dict:
+        NotImplemented
 
     @property
     def output_type(self):
