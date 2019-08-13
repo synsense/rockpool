@@ -145,7 +145,7 @@ def full_nan(shape: Union[tuple, int]) -> np.array:
 
 class TimeSeries:
     """
-    Super-class to represent a continuous or event-based time series. You should use the subclasses `TSContinuous` and `TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`timeseriesdocs` for futher explanation and examples.
+    Super-class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
     """
 
     def __init__(
@@ -383,7 +383,7 @@ class TimeSeries:
 
 class TSContinuous(TimeSeries):
     """
-    Represents a continuously-sampled time series. Mutliple time series can be represented by a single :py:class:`.TSContinuous` object, and have identical time bases. Temporal periodicity is supported. See :ref:`timeseriesdocs` for further explanation and examples.
+    Represents a continuously-sampled time series. Mutliple time series can be represented by a single `.TSContinuous` object, and have identical time bases. Temporal periodicity is supported. See :ref:`/basics/time_series.ipynb` for further explanation and examples.
 
     :Examples:
 
@@ -1453,9 +1453,9 @@ class TSContinuous(TimeSeries):
 
 class TSEvent(TimeSeries):
     """
-    Represents a discrete time series, composed of binary events (present or absent). This class is primarily used to represent spike trains or event trains to communicate with spiking neuron layers, or to communicate with event-based computing systems. See :ref:`timeseriesdocs` for further explanation and examples.
+    Represents a discrete time series, composed of binary events (present or absent). This class is primarily used to represent spike trains or event trains to communicate with spiking neuron layers, or to communicate with event-based computing systems. See :ref:`/basics/time_series.ipynb` for further explanation and examples.
 
-    :py:class:`TSEvent` supports multiple channels of event time series encapsulated by a single object, as well as periodic time series.
+    `.TSEvent` supports multiple channels of event time series encapsulated by a single object, as well as periodic time series.
 
     :Examples:
 
