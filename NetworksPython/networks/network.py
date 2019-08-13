@@ -1,6 +1,6 @@
-"""Network module.
+"""
 
-This module encapsulates networks -- combinations of multiple `Layer`s, connected in a directed acyclic graph.
+This module encapsulates networks -- combinations of multiple `.Layer` s, connected in a directed acyclic graph.
 
 """
 
@@ -16,12 +16,13 @@ import numpy as np
 from decimal import Decimal
 from copy import deepcopy
 from NetworksPython import layers
-from typing import Tuple
+from typing import Tuple, List
 
+# - Try to import tqdm
 try:
     from tqdm.autonotebook import tqdm
-
     use_tqdm = True
+
 except ImportError:
     use_tqdm = False
 
@@ -68,11 +69,13 @@ def is_multiple(
     tol_abs: RealValue = tol_abs,
 ) -> bool:
     """
-    is_multiple - Check whether a%b is 0 within some tolerance.
-    :param a: float The number that may be multiple of b
-    :param b: float The number a may be a multiple of
-    :param tol_rel: float Relative tolerance
-    :return bool: True if a is a multiple of b within some tolerance
+    Check whether a%b is 0 within some tolerance.
+
+    :param float a:         The number that may be multiple of `b`
+    :param float b:         The number `a` may be a multiple of
+    :param float tol_rel:   Relative tolerance
+
+    :return bool:   True if `a` is a multiple of `b` within some tolerance
     """
     # - Convert to decimals
     a = Decimal(str(a))
@@ -84,7 +87,14 @@ def is_multiple(
 
 
 def gcd(a: RealValue, b: RealValue) -> Decimal:
-    """ gcd - Return the greatest common divisor of two values a and b"""
+    """
+    Return the greatest common divisor of two values
+
+    :param float a: Value `a`
+    :param float b: Value `b`
+
+    :return int: Greatest common divisor of `a` and `b`
+    """
     a = Decimal(str(a))
     b = Decimal(str(b))
     if b == 0:
@@ -94,7 +104,14 @@ def gcd(a: RealValue, b: RealValue) -> Decimal:
 
 
 def lcm(a: RealValue, b: RealValue) -> Decimal:
-    """ lcm - Return the least common multiple of two values a and b"""
+    """
+    Return the least common multiple of two values
+
+    :param float a: Value a
+    :param float b: Value b
+
+    :return int: Least common integer multiple of `a` and `b`
+    """
     # - Make sure that values used are sufficiently large
     # Transform to integer-values
     a_rnd = np.round(float(a) / decimal_base)
@@ -117,22 +134,43 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
 
 class Network:
     """
-    Super class to encapsulate several Layers and manage signal routing
-    """
-    def __init__(self, *layers: Layer, dt=None):
-        """
-        Network - Super class to encapsulate several Layers and manage signal routing
+    Base class to manage networks (collections of `.Layer` objects)
 
-        :param Layer layers:   Layers to be added to the network. They will
-                         be connected in series. The Order in which
-                         they are received determines the order in
-                         which they are connected. First layer will
-                         receive external input
-        :param float dt: If not none, network time step is forced to
-                               this values. Layers that are added must have
-                               time step that is multiple of dt.
-                               If None, network will try to determine
-                               suitable dt each time a layer is added.
+    `.Network` objects allow you to encapsulate a stack of layers with various configurations. Using a `.Network` object allows you to connect layers in an acyclic graph, and verifies that adjacent layers have compatible sizes and signal classes.
+
+    :Example of building a network:
+
+    Specify the network sizes
+
+    >>> input_size = 2
+    >>> reservoir_size = 10
+    >>> output_size = 1
+
+    Generate layer weights
+
+    >>> weights_in = np.random.rand(input_size, reservoir_size)
+    >>> weights_rec = np.random.randn(reservoir_size, reservoir_size)
+    >>> weights_out = np.random.rand(reservoir_size, output_size)
+
+    Generate the layers
+
+    >>> lyr_in = FFRateEuler(weights_in)
+    >>> lyr_rec = RecRateEuler(weights_rec)
+    >>> lyr_out = PassThrough(weights_out)
+
+    Generate the `Network` object
+
+    >>> net = Network([lyr_in, lyr_rec, lyr_out])
+
+    .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` illustrates using a `.Network` object to encapsulate a reservoir network.
+
+    """
+    def __init__(self, *layers: List[Layer], dt: Optional[float] = None):
+        """
+        Base class to encapsulate several `.Layer` s and manage signal routing
+
+        :param Iterable[Layer] layers:   Layers to be added to the network. They will be connected in series. The order in which they are received determines the order in which they are connected. First layer will receive external input
+        :param Optional[float] dt: If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
         """
 
         # - Network time
@@ -180,20 +218,17 @@ class Network:
         verbose: bool = False,
     ) -> Layer:
         """
-        add_layer - Add a new layer to the network
+        Add a new layer to the network
 
-        Add lyr to self and to self.layerset. Its attribute name
-        is 'lyr'+lyr.name. Check whether layer with this name
-        already exists (replace anyway).
-        Connect lyr to input_layer and output_layer.
+        Add `lyr` to `self` and to `.layerset`. Its attribute name is 'lyr'+lyr.name. Check whether layer with this name already exists (replace anyway). Connect `lyr` to `input_layer` and `output_layer`.
 
-        :param lyr:             Layer layer to be added to self
-        :param input_layer:     Layer input layer to lyr
-        :param output_layer:    Layer layer to which lyr is input layer
-        :param external_input:  bool This layer receives external input (Default: False)
-        :param verbose:         bool Print feedback about layer addition (Default: False)
+        :param Layer lyr:                       layer to be added to the network
+        :param Optional[Layer] input_layer:     Layer to connect as an input layer to `lyr`
+        :param Optional[Layer] output_layer:    Layer to connect as an output layer from `lyr`
+        :param Optional[bool] external_input:   If `True`, this layer should receive external input. Default: `False`, `lyr` should not be connected to external input
+        :param Optional[bool] verbose:          If `True`, print feedback about layer addition. Default: `False`, do not display feedback
 
-        :return:                Layer lyr
+        :return Layer:                          `lyr`, the connected layer
         """
         # - Check whether layer time matches network time
         assert np.isclose(lyr.t, self.t), (
@@ -255,11 +290,11 @@ class Network:
     @staticmethod
     def _new_name(name: str) -> str:
         """
-        _new_name: Generate a new name by first checking whether
-                  the old name ends with '_i', with i an integer.
-                  If so, replace i by i+1, otherwise append '_0'
-        :param name:   str - Name to be modified
-        :return:        str - Modified name
+        Generate a new name by first checking whether the old name ends with '_i', with i an integer. If so, replace i by i+1, otherwise append '_0'
+
+        :param str name:    Name to be modified
+
+        :return str:        Modified name
         """
 
         # - Check wheter name already ends with '_...'
@@ -279,10 +314,9 @@ class Network:
 
     def remove_layer(self, del_layer: Layer):
         """
-        remove_layer: Remove a layer from the network by removing it
-                      from the layer inventory and make sure that no
-                      other layer receives input from it.
-        :param del_layer: Layer to be removed from network
+        Remove a layer from the network by removing it from the layer inventory and make sure that no other layer receives input from it
+
+        :param Layer del_layer: Layer to be removed from the network
         """
 
         # - Remove connections from del_layer to others
@@ -301,11 +335,13 @@ class Network:
 
     def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
         """
-        connect: Connect two layers by defining one as the input layer
-                 of the other.
-        :param pre_layer:   The source layer
-        :param post_layer:   The target layer
-        :param verbose:    bool Flag indicating whether to print feedback
+        Connect two layers by defining one as the input layer of the other
+
+        :param Layer pre_layer:         The source layer
+        :param Layer post_layer:        The target layer
+        :param Optional[bool] verbose:  If `True`, display feedback about the connection process. Default: `False`, do not display feedback
+
+        :raises NetworkError: if layers do not have compatible output / input sizes, or incompatible time series classes
         """
         # - Make sure that layer dimensions match
 
@@ -345,23 +381,26 @@ class Network:
             post_layer.pre_layer = None
             raise e
 
-    def disconnect(self, pre_layer: Layer, post_layer: Layer):
+    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
         """
-        disconnect: Remove the connection between two layers by setting
-                    the input of the target layer to None.
-        :param pre_layer:   The source layer
-        :param post_layer:   The target layer
+        Remove the connection between two layers by setting the input of the target layer to `None`
+
+        :param Layer pre_layer:     The source layer
+        :param Layer post_layer:    The target layer
+        :param Optional[bool] verbose:  If `True`, display feedback about the connection process. Default: `False`, do not display feedback
         """
 
         # - Check whether layers are connected at all
         if post_layer.pre_layer is pre_layer:
             # - Remove the connection
             post_layer.pre_layer = None
-            print(
-                "Network: Layer {} no longer receives input from layer `{}`".format(
-                    post_layer.name, pre_layer.name
+
+            if verbose:
+                print(
+                    "Network: Layer {} no longer receives input from layer `{}`".format(
+                        post_layer.name, pre_layer.name
+                    )
                 )
-            )
 
             # - Reevaluate evolution order
             try:
@@ -370,17 +409,16 @@ class Network:
                 raise e
 
         else:
-            print(
-                "Network: There is no connection from layer `{}` to layer `{}`".format(
-                    pre_layer.name, post_layer.name
+            if verbose:
+                print(
+                    "Network: There is no connection from layer `{}` to layer `{}`".format(
+                        pre_layer.name, post_layer.name
+                    )
                 )
-            )
 
     def _set_evolution_order(self) -> list:
         """
-        _set_evolution_order() - Determine the order in which layers are evolved. Requires Network
-        to be a directed acyclic graph, otherwise evolution has to happen
-        timestep-wise instead of layer-wise.
+        Determine the order in which layers are evolved. Requires Network to be a directed acyclic graph, otherwise evolution has to happen timestep-wise instead of layer-wise
         """
 
         # - Function to find next evolution layer
@@ -388,6 +426,7 @@ class Network:
             while True:
                 try:
                     candidate_lyr = candidates.pop()
+
                 # If no candidate is left, raise an exception
                 except KeyError:
                     raise NetworkError(
@@ -395,20 +434,15 @@ class Network:
                     )
                     # Could implement timestep-wise evolution...
                 else:
-                    # - If there is a candidate and none of the remaining layers
-                    #   is its input layer, this will be the next
+                    # - If there is a candidate and none of the remaining layers is its input layer, this will be the next
                     if not (candidate_lyr.pre_layer in remaining_lyrs):
                         return candidate_lyr
 
         # - Set of layers that are not in evolution order yet
         remaining_lyrs: set = self.layerset.copy()
 
-        # # - Begin with input layer
-        # order = [self.input_layer]
-        # remaining_lyrs.remove(self.input_layer)
-        order = []
-
         # - Loop through layers
+        order = []
         while bool(remaining_lyrs):
             # - Find the next layer to be evolved
             next_lyr = find_next_layer(remaining_lyrs.copy())
@@ -420,11 +454,11 @@ class Network:
 
     def _set_dt(self, max_factor: float = 100):
         """
-        _set_dt - Set a time step size for the network
-                   which is the lcm of all layers' dt's.
-            :param max_factor   float - By which factor can the network dt
-                                        exceed the largest layer dt before
-                                        an error is assumed
+        Set a time step size for the network which is the lcm of all layers' dt's.
+
+        :param float max_factor:    Factor by which the network `.dt` may exceed the largest layer `.Layer.dt` before an error is raised
+
+        :raises ValueError: If a sensible `.dt` cannot be found
         """
         if self._force_dt:
             # - Just make sure layer dt are multiples of self.dt
@@ -474,14 +508,13 @@ class Network:
 
     def _fix_duration(self, t: float) -> float:
         """
-        _fix_duration - Due to rounding errors it can happen that a
-                        duration or end time t is slightly below its intened
-                        value, causing the layers to not evolve sufficiently.
-                        This method fixes the problem by increasing
-                        t if it is slightly below a multiple of
-                        dt of any of the layers in the network.
-            :param t:   float - time to be fixed
-            :return:    float - Fixed duration
+        Correct an evolution duration so that it is a multiple of `.dt`
+
+        Due to rounding errors it can happen that a duration or end time `t` is slightly below its intened value, causing the layers to not evolve sufficiently. This method fixes the problem by increasing `t` if it is slightly below a multiple of `.dt` of any of the layers in the network.
+
+        :param float t: Time to be fixed
+
+        :return float:  Corrected duration
         """
 
         # - All dt
@@ -500,18 +533,20 @@ class Network:
         verbose: bool = True,
     ) -> dict:
         """
-        evolve - Evolve each layer in the network according to self.evol_order.
-                 For layers with external_input==True their input is
-                 ts_input. If not but an input layer is defined, it
-                 will be the output of that, otherwise None.
-                 Return a dict with each layer's output.
-        :param ts_input:  TimeSeries with external input data.
-        :param duration:        float - duration over which netŵork should
-                                         be evolved. If None, evolution is
-                                         over the duration of ts_input
-        :param num_timesteps:    int - Number of evolution time steps
-        :param verbose:         bool - Print info about evolution state
-        :return:                 Dict with each layer's output time Series
+        Evolve the network by evolving each layer in turn
+
+        Evolve each layer in the network according to self.evol_order. For layers with external_input==True their input is ts_input. If not but an input layer is defined, it will be the output of that, otherwise None. Return a dict with each layer's output.
+
+        .. seealso:: :ref:`/basics/getting_started.ipynb` and the tutorial :ref:`/tutorials/building_reservoir.ipynb` show examples of using the `.evolve` method.
+
+        :param Optional[TimeSeries] ts_input:   External input to the network. Default: `None`, no external input
+        :param Optional[float] duration:        Duration over which network should be evolved. If not provided, then `num_timesteps` or the duration of `ts_input` will determine the evolution duration
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` of the duration of `ts_input` will determine evolution duration
+        :param Optional[bool] verbose:         If `True`, display info about evolution state. Default: `True`, display feedback
+
+        :return dict:                           Dictionary containing the output time series of each layer. Entries in the dictionary will be have keys taken from the names of each layer
+
+        :raises AssertionError: If no duration can be determined
         """
 
         if num_timesteps is None:
@@ -618,26 +653,24 @@ class Network:
         high_verbosity: bool = False,
     ):
         """
-        train - Train the network batch-wise by evolving the layers and
-                calling training_fct.
+        Train the network batch-wise by evolving the layers and calling the training function
 
-        :param training_fct:      Function that is called after each evolution
+        .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` illustrates how to call `.train` and how to build a training function.
+
+        :param Callable training_fct:           Function that is called after each evolution
                 training_fct(netObj, dtsSignals, is_first, is_last)
-                :param netObj:      Network the network object to be trained
-                :param dtsSignals:  Dictionary containing all signals in the current evolution batch
-                :param is_first:      bool Is this the first batch?
-                :param is_last:      bool Is this the final batch?
+                :param Network netObj:  Network the network object to be trained
+                :param Dict dtsSignals: Dictionary containing all signals in the current evolution batch
+                :param bool is_first:   Is this the first batch?
+                :param bool is_last:    Is this the final batch?
 
-        :param ts_input:         TimeSeries with external input to network
-        :param duration:       float - Duration over which netŵork should
-                                        be evolved. If None, evolution is
-                                        over the duration of ts_input
-        :param batch_durs:      Array-like or float - Duration of one batch (can also pass array with several values)
-        :param num_timesteps:   int   - Total number of training time steps
-        :param nums_ts_batch:    Array-like or int - Number of time steps per batch
-        :param verbose:        bool  - Print info about training progress
-        :param high_verbosity:  bool  - Print info about layer evolution
-                                        (only has effect if verbose is True)
+        :param Optional[TimeSeries] ts_input:           Time series containing external input to network
+        :param Optional[float] duration:                Duration over which network should be evolved. If None, evolution is over the duration of ts_input
+        :param Optional[ArrayLike[float]] batch_durs:   Array-like or float - Duration of one batch (can also pass array with several values)
+        :param Optional[int]num_timesteps:              Total number of training time steps
+        :param Optional[ArrayLike[int]] nums_ts_batch:  Array-like or int - Number of time steps per batch (or array of several values)
+        :param Optional[bool] verbose:                  If `True`, print info about training progress. Default: `True`, display progress
+        :param Optional[bool] high_verbosity:           If `True`, print info about layer evolution (only has effect if `verbose` is `True`) Default: `False`, dont' display extra feedback
         """
 
         if num_timesteps is None:
@@ -750,20 +783,21 @@ class Network:
     def stream(
         self,
         ts_input: TimeSeries,
-        duration: float = None,
-        num_timesteps: int = None,
-        verbose: bool = False,
-        step_callback: Callable = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: Optional[bool] = False,
+        step_callback: Optional[Callable] = None,
     ) -> dict:
         """
-        stream - Stream data through layers, evolving by single time steps
+        Stream data through layers, evolving by single time steps
 
-        :param ts_input:         TimeSeries External input to the network
-        :param duration:       float Total duration to stream for
-        :param verbose:        bool Display feedback
-        :param step_callback:  Callable[Network]
+        :param TimeSeries ts_input:                 External input to the network
+        :param Optional[float] duration:            Total duration to stream for. If not provided, use `num_timesteps` or the duration of `ts_input` to determine duration
+        :param Optional[int] num_timesteps:         Number of time steps to stream for, in units of `.dt`. If not provided, using `duration` of the duration of `ts_input` to determine duration
+        :param Optional[bool] verbose:              If `True`, display feedback during streaming. Default: `False`, do not display feedback
+        :param Optional[Callable] step_callback:    Callback function that will be called on each time step. Has the signature Callable[[Network]]
 
-        :return: dtsSignals dict Collected output signals from each layer
+        :return dict:       Collected output signals from each layer
         """
 
         # - Check that all layers implement the streaming interface
@@ -903,8 +937,11 @@ class Network:
 
     def _check_sync(self, verbose: bool = True) -> bool:
         """
-        _check_sync - Check whether the time t of all layers matches self.t
-                     If not, throw an exception.
+        Check whether the time `t` of all layers matches `self.t`. If not, raise an exception
+
+        :param Optional[bool] verbose:  If `True`, display feedback. Default: `True`, display feedback.
+
+        :raises NetworkError: If layers are not in synch with global network time
         """
         in_sync = True
         if verbose:
@@ -931,7 +968,7 @@ class Network:
 
     def reset_time(self):
         """
-        reset_time() - Reset the time of the network to zero. Does not reset state.
+        Reset the time of the network to zero by resetting each layer and the global network timestamp. Does not reset state.
         """
         # - Reset time for each layer
         for lyr in self.layerset:
@@ -942,7 +979,7 @@ class Network:
 
     def reset_state(self):
         """
-        reset_state() - Reset the state of the network. Does not reset time.
+        Reset the state of the network by resetting each layer. Does not reset time.
         """
         # - Reset state for each layer
         for lyr in self.layerset:
@@ -950,7 +987,7 @@ class Network:
 
     def reset_all(self):
         """
-        reset_all() - Reset state and time of the network.
+        Reset all state and time of the network and layers
         """
         for lyr in self.layerset:
             lyr.reset_all()
@@ -969,6 +1006,7 @@ class Network:
 
     @property
     def t(self):
+        """(float) Global network time"""
         return (
             0
             if not hasattr(self, "_dt") or self._dt is None
@@ -977,9 +1015,15 @@ class Network:
 
     @property
     def dt(self):
+        """(float) Time step to use in layer simulations"""
         return self._dt
 
     def save(self, filename: str):
+        """
+        Save this network to a JSON file
+
+        :param str filename:    The path to a file in which to save the network and state.
+        """
         # - List with layers in their evolution order
         list_layers = []
         for lyr in self.evol_order:
@@ -994,9 +1038,10 @@ class Network:
     @staticmethod
     def load(filename: str) -> "Network":
         """
-        load the network from a json file
-        :param filename: filename of json that contains
-        :return: returns a network object with all the layers
+        Load a network from a JSON file
+
+        :param str filename:    filename of a JSON filr that contains a saved network
+        :return Network:        A network object with all the layers loaded from `filename`
         """
 
         with open(filename, "r") as f:
@@ -1014,15 +1059,19 @@ class Network:
     @staticmethod
     def add_layer_class(cls_lyr: Type[Layer], name: str):
         """
-        add_layer_class - Add layer class of to namespace so that layers that are
-                          defined outside the NetworksPython.layers package can
-                          still be loaded.
-        :param cls:   The class that is to be added.
-        :param name:  Name of the class as a string.
+        Add external layer class to the namespace
+
+        This method adds a externally-defined `.Layer` subclass to the `.layers` namespace, so that layers that are defined outside the `.NetworksPython.layers` module can still be loaded
+
+        :param Layer cls:   The class that is to be added
+        :param str name:    Name of the class as a string
         """
         setattr(layers, name, cls_lyr)
 
 
 ### --- NetworkError exception class
 class NetworkError(Exception):
+    """
+    Define an exception class to encapsulate network errors
+    """
     pass

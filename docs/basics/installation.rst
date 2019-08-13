@@ -23,7 +23,7 @@ The best way to stay up to date with bug fixes and improvements is to clone the 
 This command installs the packages without copying them from the repository location. This means that when you pull updates to |project|, they will be applied automatically without reinstalling.
 
 Dependencies
-============
+------------
 
 |project| has several dependencies for various aspects of the package. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed layers (e.g. `.RecRateEulerJax`); PyTorch_ is required to use the Torch_-backed layers (e.g. `.RecIAFTorch`), and so on. But if these dependencies are not available, the remainder of |project| is still usable.
 
@@ -42,7 +42,7 @@ To automatically install all the extra dependencies required by |project|, use t
     pip install -e .[all]
 
 Running tests
-=============
+-------------
 
 To run all the unit tests for |project|, use `pytest`:
 
@@ -51,7 +51,7 @@ To run all the unit tests for |project|, use `pytest`:
     pytest tests
 
 Building documentation
-======================
+----------------------
 
 The |project| documentation requires Sphinx_, NBSphinx_ and Sphinx-autobuild_. The commands
 
@@ -80,3 +80,4 @@ Will compile the documentation and open a web browser to the local copy of the d
 .. _miniconda: https://docs.conda.io/en/latest/miniconda.html
 .. _Matplotlib: https://matplotlib.org
 .. _Holoviews: http://holoviews.org
+.. _tqdm: https://github.com/tqdm/tqdm

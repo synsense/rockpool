@@ -1,5 +1,5 @@
 Welcome to |project|
-================================
+==============================
 
 .. raw:: html
 
@@ -22,8 +22,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: The basics
 
    basics/installation
-   basics/time_series.ipynb
    basics/getting_started.ipynb
+   basics/time_series.ipynb
 
 
 .. toctree::
@@ -41,7 +41,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    advanced/extending_layers.ipynb
 
    reference/layer_types
-   reference/hardware
 
    reference/api
 

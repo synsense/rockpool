@@ -48,6 +48,7 @@ Utility modules
 
     layers.RecRateEuler
     layers.FFRateEuler
+    layers.PassThrough
 
     layers.FFIAFBrian
     layers.FFIAFSpkInBrian
