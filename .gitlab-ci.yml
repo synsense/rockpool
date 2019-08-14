@@ -50,3 +50,17 @@ documentation_linting:
   script:
     - sphinx-build -n -b dummy docs docs/_build/html
 
+docs_build:
+  stage: building
+  allow_failure: true
+  image: aictx/ci-python-arch:latest
+  tags:
+    - python
+    - aiCTX
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install .[all] --no-cache-dir
+
+  script:
+    - sphinx-build -b html docs docs/_build/html
