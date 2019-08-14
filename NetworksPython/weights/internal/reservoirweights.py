@@ -1126,3 +1126,82 @@ def iaf_sparse_net(
         np.random.randn(res_size ** 2) * np.asarray(std) + np.asarray(mean)
     ) * vbConnection
     return weights.reshape(res_size, res_size)
+
+
+def gen_sparse_partitioned_network(
+        partition_sizes: ArrayLike,
+        num_internal_inputs: int = 0,
+        num_between_inputs: int = 0,
+) -> np.ndarray:
+    """
+    Generate weight matrices that embody sparse networks with defined partition sizes
+
+    :Example:
+
+    >>> w, cl = gen_sparse_partitioned_network([3, 3, 3], 2, 1)
+    >>> cl
+
+    .. raw::
+
+        [[0, [2, 0, 7]],
+         [1, [2, 0, 8]],
+         [2, [2, 1, 5]],
+         [3, [3, 4, 6]],
+         [4, [3, 5, 2]],
+         [5, [4, 5, 6]],
+         [8, [8, 7, 0]],
+         [6, [8, 6, 4]],
+         [7, [8, 6, 5]]]
+
+    This will generate a network with three partitions, each with three elements. Each neuron will receive
+    two inputs from within its partition, and one input from outside the partition.
+
+    The total network size is the sum of the partition sizes. Only fan-in is limited; fan-out is not limited.
+
+    :param ArrayLike[int] partition_sizes: List of partition sizes
+    :param int num_internal_inputs:        Number of inputs to each neuron from within its partition
+    :param int num_between_inputs:         Number of inputs to each neuron from outside its partition
+
+    :return (ndarray, list): (weights, conn_lists)
+        weights is an NxN matrix indexed as [source, dest], with `1` between connected neurons
+        conn_lists is a list of lists, with each element [dest, list_sources]
+    """
+    # - Get total network size
+    net_size = np.sum(partition_sizes)
+
+    # - Make the weights matrix
+    weights = np.zeros((net_size, net_size))
+
+    # - Determine partition index beginnings
+    partition_start = np.cumsum(np.concatenate(([0], partition_sizes)))
+    partition_end = np.concatenate((partition_start[1:], [net_size]))
+
+    # - Loop over partitions
+    conn_list = []
+    for part_size, start, end in zip(partition_sizes, partition_start, partition_end):
+        # - Get the partition indices
+        part_indices = set(range(start, end))
+        nonpart_indices = set(range(net_size)) - part_indices
+
+        # - For each neuron in the partition, find a set of random inputs
+        for dest in part_indices:
+            # - Get in-partition sources
+            sources_in = list(copy(part_indices))
+            shuffle(sources_in)
+            sources_in = sources_in[:num_internal_inputs]
+
+            # - Assign in-partition connections
+            weights[sources_in, dest] = 1
+
+            # - Get out-partition sources
+            sources_out = list(copy(nonpart_indices))
+            shuffle(sources_out)
+            sources_out = sources_out[:num_between_inputs]
+
+            # - Assign out-partition connections
+            weights[sources_out, dest] = 1
+
+            # - Append to connection lists
+            conn_list.append([dest, list(np.concatenate((sources_in, sources_out)))])
+
+    return weights, conn_list
