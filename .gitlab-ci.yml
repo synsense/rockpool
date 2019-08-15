@@ -69,6 +69,7 @@ docs_build:
   artifacts:
     paths:
       - docs/_build/html
+    expire_in: 15 mins
 
 pages:
   stage: deployment
