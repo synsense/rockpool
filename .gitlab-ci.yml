@@ -67,4 +67,5 @@ docs_build:
     - sphinx-build -b html docs docs/_build/html
 
   artifacts:
-    - docs/build/_html
+    path:
+      - docs/build/_html
