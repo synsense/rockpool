@@ -1,7 +1,7 @@
 stages:
   - testing
   - building
-  - packaging
+  - deployment
 
 unit_tests:
   stage: testing
@@ -69,3 +69,22 @@ docs_build:
   artifacts:
     paths:
       - docs/_build/html
+
+pages:
+  stage: deployment
+  allow_failure: true
+  image: aictx/ci-python-arch:latest
+  tags:
+    - python
+    - aiCTX
+
+  dependencies:
+    - docs_build
+
+  script:
+    - mv docs/_build/html/ public/
+
+  artifacts:
+    paths:
+      - public
+
