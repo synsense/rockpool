@@ -74,19 +74,56 @@ class RecDynapSE(Layer):
         :param Optional[float] speedup:                     If `fastmode`==True, speed up input events to Dynapse by this factor. (No effect with `RecDynapSEDemo` class). Default: 1.0 (no speedup)
         """
 
-        # - Instantiate DynapseControl
-        if clearcores_list is None:
-            init_chips = None
-        else:
-            init_chips = list(
-                # - Convert to set to remove duplicates
-                set(
-                    [
-                        core_id // DynapseControlExtd._num_cores_chip
-                        for core_id in clearcores_list
-                    ]
-                )
+        # - Round weight matrices
+        weights_in = np.asarray(np.round(weights_in), int)
+        weights_rec = np.asarray(np.round(weights_rec), int)
+
+        # - Check weight matrices
+        if weights_in.shape[1] != weights_rec.shape[0]:
+            raise ValueError(
+                f"RecDynapSE `{name}`: `mnWIn` and `weights_rec` must have compatible "
+                + "shapes: `mnWIn` is MxN, `weights_rec` is NxN."
             )
+        if weights_rec.shape[0] != weights_rec.shape[1]:
+            raise ValueError(
+                f"RecDynapSE `{name}`: The recurrent weight matrix `weights_rec` must be square."
+            )
+
+        # - Initialise superclass
+        super().__init__(
+            weights=np.asarray(np.round(weights_in), "int"), dt=dt, name=name
+        )
+        print("RecDynapSE `{}`: Superclass initialized".format(name))
+
+        # - Store weight matrices
+        self.weights_in = weights_in
+        self.weights_rec = weights_rec
+
+        # - Store initialization arguments for `to_dict` method
+        self._l_input_core_ids = l_input_core_ids
+        self._clearcores_list = clearcores_list
+        self._rpyc_port = rpyc_port
+        self._skip_weights = skip_weights
+        self.fastmode = fastmode
+        self.speedup = speedup
+
+        # - Record input core mask and chip ID
+        self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
+        self._input_chip_id = input_chip_id
+
+        # - Determine which chips should be initialized
+        if not skip_neuron_allocation:
+            num_neur_chip = (
+                DynapseControlExtd._num_cores_chip * DynapseControlExtd._num_neur_core
+            )
+            if neuron_ids is None:
+                init_chips = np.arange(int(np.ceil((self.size + 1) / num_neur_chip)))
+            else:
+                init_chips = np.unique(np.asarray(neuron_ids) // num_neur_chip)
+        else:
+            init_chips = None
+
+        # - Instantiate DynapseControl
         if controller is None:
             if dt is None:
                 raise ValueError(
@@ -103,60 +140,6 @@ class RecDynapSE(Layer):
             self.controller.fpga_isibase = dt
             self.controller.init_chips(init_chips, enforce=False)
             self.controller.clear_connections(clearcores_list)
-
-        # - Check supplied arguments
-        assert (
-            weights_rec.shape[0] == weights_rec.shape[1]
-        ), "Layer `{}`: The recurrent weight matrix `weights_rec` must be square.".format(
-            name
-        )
-
-        # - Initialise superclass
-        super().__init__(
-            weights=np.asarray(np.round(weights_in), "int"), dt=dt, name=name
-        )
-        print("Layer `{}`: Superclass initialized".format(name))
-
-        # - Check weight matrices
-        assert (
-            weights_in.shape[1] == weights_rec.shape[0]
-        ), "Layer `{}`: `mnWIn` and `weights_rec` must have compatible shapes: `mnWIn` is MxN, `weights_rec` is NxN.".format(
-            name
-        )
-
-        # - Store initialization arguments for `to_dict` method
-        self._l_input_core_ids = l_input_core_ids
-        self._clearcores_list = clearcores_list
-        self._rpyc_port = rpyc_port
-        self._skip_weights = skip_weights
-        self.fastmode = fastmode
-        self.speedup = speedup
-
-        # - Store weight matrices
-        self.weights_in = weights_in
-        self.weights_rec = weights_rec
-
-        # - Record input core mask and chip ID
-        self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
-        self._input_chip_id = input_chip_id
-
-        # - Store evolution batch size limitations
-        self.max_num_trials_batch = max_num_trials_batch
-        self.max_num_events_batch = (
-            self.controller.fpga_event_limit
-            if max_num_events_batch is None
-            else max_num_events_batch
-        )
-        if max_num_timesteps is not None:
-            if max_batch_dur is not None:
-                warn(
-                    "Layer `{}`: Caution: If both `max_num_timesteps` and `max_batch_dur` are provided, only `max_num_timesteps` is considered.".format(
-                        name
-                    )
-                )
-            self.max_num_timesteps = max_num_timesteps
-        else:
-            self.max_batch_dur = max_batch_dur
 
         # - Allocate layer neurons
         if skip_neuron_allocation:
@@ -208,8 +191,23 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Virtual neurons allocated".format(name))
 
-        # - Store recurrent weights
-        self._weights_rec = np.asarray(np.round(weights_rec), int)
+        # - Store evolution batch size limitations
+        self.max_num_trials_batch = max_num_trials_batch
+        self.max_num_events_batch = (
+            self.controller.fpga_event_limit
+            if max_num_events_batch is None
+            else max_num_events_batch
+        )
+        if max_num_timesteps is not None:
+            if max_batch_dur is not None:
+                warn(
+                    "Layer `{}`: Caution: If both `max_num_timesteps` and `max_batch_dur` are provided, only `max_num_timesteps` is considered.".format(
+                        name
+                    )
+                )
+            self.max_num_timesteps = max_num_timesteps
+        else:
+            self.max_batch_dur = max_batch_dur
 
         if not skip_weights:
             # - Configure connectivity
