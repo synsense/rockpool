@@ -12,6 +12,8 @@ dModules = {
 # - Define current package
 strBasePackage = "NetworksPython.networks"
 
+# - Define docstring for module
+__doc__ = """Defines classes for encapsulating and generating networks of layers"""
 
 # - Initialise list of available modules
 __all__ = []

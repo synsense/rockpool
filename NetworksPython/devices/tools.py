@@ -31,6 +31,7 @@ __all__ = [
     "init_chips",
     "reset_connections",
     "remove_all_connections_to",
+    "remove_all_connections_from",
     "set_connections",
     "silence_neurons",
     "reset_silencing",
@@ -508,6 +509,46 @@ def remove_all_connections_to(
         print("dynapse_control: New state has been applied to the hardware")
 
 
+def remove_all_connections_from(
+    neuron_ids: List, model: CtxDynapse.Model, apply_diff: bool = True
+):
+    """
+    remove_all_connections_to - Remove all postsynaptic connections
+                                from neurons defined in neuron_ids
+    :param neuron_ids:      list  IDs of neurons whose postsynaptic
+                                  connections should be removed
+    :param model:          CtxDynapse.model
+    :param apply_diff:      bool If False do not apply the changes to
+                                 chip but only to shadow states of the
+                                 neurons. Useful if new connections are
+                                 going to be added to the given neurons.
+    """
+    # - Make sure that neuron_ids is on correct side of RPyC connection
+    neuron_ids = copy.copy(neuron_ids)
+
+    # - Get shadow state neurons
+    shadow_neurons = CtxDynapse.model.get_shadow_state_neurons()
+
+    # - Neurons that whose cams are to be cleared
+    clear_neurons = [shadow_neurons[i] for i in neuron_ids]
+
+    # - Reset neuron weights in model
+    for neuron in clear_neurons:
+        # - Reset SRAMs
+        for sram in neuron.get_srams():
+            sram.set_target_chip_id(0)
+            sram.set_virtual_core_id(0)
+            sram.set_core_mask(0)
+            sram.set_used(False)
+
+    print("dynapse_control: Shadow state neuron weights have been reset")
+
+    if apply_diff:
+        # - Apply changes to the connections on chip
+        model.apply_diff_state()
+        print("dynapse_control: New state has been applied to the hardware")
+
+
 def set_connections(
     preneuron_ids: list,
     postneuron_ids: list,
@@ -574,6 +615,10 @@ def get_connection_info(
     consider_chips = (
         list(range(NUM_CHIPS)) if consider_chips is None else consider_chips
     )
+
+    if len(consider_chips) == 0:
+        return [], [], [], []
+
     shadowneurons = CtxDynapse.model.get_shadow_state_neurons()
     # - IDs of neurons that are considered
     neuron_ids = [
@@ -594,7 +639,8 @@ def get_connection_info(
         for neuron in neuron_list
     ]
     # - List of input IDs to all neurons
-    cam_info = [
+    #   (list over neurons, contains list over cams, contains tuples with pre_neuron id and camtype)
+    cam_info: List[List[Tuple[int, int]]] = [
         [
             (
                 NUM_NEURONS_CORE * cam.get_pre_neuron_core_id()

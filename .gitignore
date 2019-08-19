@@ -7,3 +7,5 @@ __pycache__
 AnomalyDetection/rate-based/build
 AnomalyDetection/rate-based/dist
 NetworksPython.egg-info/*
+docs/_build
+docs/reference/_autosummary

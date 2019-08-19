@@ -16,8 +16,8 @@ def test_imports():
     from NetworksPython.timeseries import TimeSeries
     from NetworksPython.timeseries import TSContinuous
     from NetworksPython.timeseries import TSEvent
-    from NetworksPython.timeseries import set_plotting_backend
-    from NetworksPython.timeseries import get_plotting_backend
+    from NetworksPython.timeseries import set_global_ts_plotting_backend
+    from NetworksPython.timeseries import get_global_ts_plotting_backend
     import NetworksPython.timeseries as ts
 
 
@@ -25,12 +25,15 @@ def test_backends():
     """
     Test using the plotting backend setting functions
     """
-    from NetworksPython.timeseries import set_plotting_backend, get_plotting_backend
+    from NetworksPython.timeseries import (
+        set_global_ts_plotting_backend,
+        get_global_ts_plotting_backend,
+    )
 
-    get_plotting_backend()
+    get_global_ts_plotting_backend()
     try:
-        set_plotting_backend("matplotlib")
-        set_plotting_backend("holoviews")
+        set_global_ts_plotting_backend("matplotlib")
+        set_global_ts_plotting_backend("holoviews")
     except RuntimeError:
         pass
 

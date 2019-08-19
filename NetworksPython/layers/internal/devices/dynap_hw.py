@@ -22,7 +22,10 @@ ABS_TOLERANCE = 1e-9
 # -- Define the HW layer class for recurrent networks
 class RecDynapSE(Layer):
     """
-    RecDynapSE - Recurrent layer implemented on DynapSE
+    Recurrent spiking layer implemented with a DynapSE backend.
+
+    This class represents a recurrent layer of spiking neurons, implemented with a HW backend on DynapSE hardware from aiCTX.
+
     """
 
     def __init__(
@@ -48,50 +51,79 @@ class RecDynapSE(Layer):
         speedup: float = 1.0,
     ):
         """
-        RecDynapSE - Recurrent layer implemented on DynapSE
+        Recurrent spiking layer implemented with a DynapSE backend
 
-        :param weights_in:               ndarray[int] MxN matrix of input weights from virtual to hardware neurons
-        :param weights_rec:              ndarray[int] NxN matrix of weights between hardware neurons.
-                                                 Supplied in units of synaptic connection. Negative elements
-                                                 lead to inhibitory synapses
-        :param neuron_ids:    ndarray  1D array of IDs of N hardware neurons that are to be used as layer neurons
-        :param virtual_neuron_ids:  ndarray  1D array of IDs of M virtual neurons that are to be used as input neurons
-        :param dt:                 float   Time-step.
-        :param max_num_trials_batch:  int  Maximum number of trials (specified in input timeseries) per batch.
-                                         Longer evolution periods will automatically split in smaller batches.
-        :param max_batch_dur:        float  Maximum duration of single evolution batch.
-        :param max_num_timesteps:    float  Maximum number of time steps of of single evolution batch.
-        :param max_num_events_batch:  float  Maximum number of input events per evolution batch.
-        :param l_input_core_ids:      array-like  IDs of the cores that contain neurons receiving external inputs.
-                                                To avoid ID collisions neurons on these cores should not receive inputs
-                                                from other neurons.
-        :param input_chip_id:        int  ID of the chip with neurons that receive external input.
-        :param clearcores_list:        list or None  IDs of chips where configurations should be cleared.
-        :param controller:          DynapseControl object to interface the hardware
-        :param rpyc_port:           Port at which RPyC connection should be established. Only considered if controller is None.
-        :param name:             str     Layer name
-        :param skip_weights:        bool    Do not upload weight configuration to chip. (Use carecully)
-        :param skip_neuron_allocation:  Do not verify if neurons are usable.
-        :param fastmode:    bool  DynapseControl will not load buffered event filters when data is sent.
-                                  Recording buffer is set to 0.
-                                 (No effect with `RecDynapSEDemo` class)
-        :param speedup:  float   If `fastmode`==True, speed up input events to Dynapse by this factor.
-                                 (No effect with `RecDynapSEDemo` class)
+        :param ndarray[int] weights_in:                     MxN matrix of input weights from virtual to hardware neurons. Supplied in units of synaptic connection.
+        :param ndarray[int] weights_rec:                    NxN matrix of weights between hardware neurons. Supplied in units of synaptic connection. Negative elements give rise to inhibitory synapses.
+        :param Optional[ndarray[int]] neuron_ids:           1xN array of IDs of hardware neurons that are to be used as layer neurons. Default: None
+        :param Optional[ndarray[int]] virtual_neuron_ids:   1xM array of IDs of virtual neurons that are to be used as input neurons. Default: None
+        :param Optional[float] dt:                          Layer time-step. Default: 2e-5 s
+        :param Optional[int] max_num_trials_batch:          Maximum number of trials (specified in input timeseries) per batch.Longer evolution periods will automatically split in smaller batches.
+        :param Optional[float] max_batch_dur:               Maximum duration of single evolution batch.
+        :param Optional[int] max_num_timesteps:             Maximum number of time steps of of single evolution batch.
+        :param Optional[float] max_num_events_batch:        Maximum number of input events per evolution batch.
+        :param Optional[ArrayLike[int]] l_input_core_ids:   IDs of the cores that contain neurons receiving external inputs. To avoid ID collisions neurons on these cores should not receive inputs from other neurons.
+        :param Optional[int] input_chip_id:                 ID of the chip with neurons that receive external input.
+        :param Optional[List[int]] clearcores_list:         IDs of chips where configurations should be cleared.
+        :param Optional[DynapseControl] controller:         DynapseControl object to use to interface with the DynapSE hardware.
+        :param Optional[int] rpyc_port:                     Port at which RPyC connection should be established. Only considered if controller is ``None``.
+        :param Optional[str] name:                          Layer name.
+        :param Optional[bool] skip_weights:                 Do not upload weight configuration to chip. (Use carefully)
+        :param Optional[bool] skip_neuron_allocation:       If ``True``, do not verify if neurons are usable. Default: ``False`` (check that specified neurons are usable).
+        :param Optional[bool] fastmode:                     If ``True``, ``DynapseControl`` will not load buffered event filters when data is sent. Recording buffer is set to 0. (No effect with `RecDynapSEDemo` class). Default:``False``.
+        :param Optional[float] speedup:                     If `fastmode`==True, speed up input events to Dynapse by this factor. (No effect with `RecDynapSEDemo` class). Default: 1.0 (no speedup)
         """
 
-        # - Instantiate DynapseControl
-        if clearcores_list is None:
-            init_chips = None
-        else:
-            init_chips = list(
-                # - Convert to set to remove duplicates
-                set(
-                    [
-                        core_id // DynapseControlExtd._num_cores_chip
-                        for core_id in clearcores_list
-                    ]
-                )
+        # - Round weight matrices
+        weights_in = np.asarray(np.round(weights_in), int)
+        weights_rec = np.asarray(np.round(weights_rec), int)
+
+        # - Check weight matrices
+        if weights_in.shape[1] != weights_rec.shape[0]:
+            raise ValueError(
+                f"RecDynapSE `{name}`: `mnWIn` and `weights_rec` must have compatible "
+                + "shapes: `mnWIn` is MxN, `weights_rec` is NxN."
             )
+        if weights_rec.shape[0] != weights_rec.shape[1]:
+            raise ValueError(
+                f"RecDynapSE `{name}`: The recurrent weight matrix `weights_rec` must be square."
+            )
+
+        # - Initialise superclass
+        super().__init__(
+            weights=np.asarray(np.round(weights_in), "int"), dt=dt, name=name
+        )
+        print("RecDynapSE `{}`: Superclass initialized".format(name))
+
+        # - Store weight matrices
+        self.weights_in = weights_in
+        self.weights_rec = weights_rec
+
+        # - Store initialization arguments for `to_dict` method
+        self._l_input_core_ids = l_input_core_ids
+        self._clearcores_list = clearcores_list
+        self._rpyc_port = rpyc_port
+        self._skip_weights = skip_weights
+        self.fastmode = fastmode
+        self.speedup = speedup
+
+        # - Record input core mask and chip ID
+        self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
+        self._input_chip_id = input_chip_id
+
+        # - Determine which chips should be initialized
+        if not skip_neuron_allocation:
+            num_neur_chip = (
+                DynapseControlExtd._num_cores_chip * DynapseControlExtd._num_neur_core
+            )
+            if neuron_ids is None:
+                init_chips = np.arange(int(np.ceil((self.size + 1) / num_neur_chip)))
+            else:
+                init_chips = np.unique(np.asarray(neuron_ids) // num_neur_chip)
+        else:
+            init_chips = None
+
+        # - Instantiate DynapseControl
         if controller is None:
             if dt is None:
                 raise ValueError(
@@ -108,57 +140,6 @@ class RecDynapSE(Layer):
             self.controller.fpga_isibase = dt
             self.controller.init_chips(init_chips, enforce=False)
             self.controller.clear_connections(clearcores_list)
-
-        # - Check supplied arguments
-        assert (
-            weights_rec.shape[0] == weights_rec.shape[1]
-        ), "Layer `{}`: The recurrent weight matrix `weights_rec` must be square.".format(
-            name
-        )
-
-        # - Initialise superclass
-        super().__init__(
-            weights=np.asarray(np.round(weights_in), "int"), dt=dt, name=name
-        )
-        print("Layer `{}`: Superclass initialized".format(name))
-
-        # - Check weight matrices
-        assert (
-            weights_in.shape[1] == weights_rec.shape[0]
-        ), "Layer `{}`: `mnWIn` and `weights_rec` must have compatible shapes: `mnWIn` is MxN, `weights_rec` is NxN.".format(
-            name
-        )
-
-        # - Store initialization arguments for `to_dict` method
-        self._l_input_core_ids = l_input_core_ids
-        self._clearcores_list = clearcores_list
-        self._rpyc_port = rpyc_port
-        self._skip_weights = skip_weights
-        self.fastmode = fastmode
-        self.speedup = speedup
-        # - Store weight matrices
-        self.weights_in = weights_in
-        self.weights_rec = weights_rec
-        # - Record input core mask and chip ID
-        self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
-        self._input_chip_id = input_chip_id
-        # - Store evolution batch size limitations
-        self.max_num_trials_batch = max_num_trials_batch
-        self.max_num_events_batch = (
-            self.controller.fpga_event_limit
-            if max_num_events_batch is None
-            else max_num_events_batch
-        )
-        if max_num_timesteps is not None:
-            if max_batch_dur is not None:
-                warn(
-                    "Layer `{}`: Caution: If both `max_num_timesteps` and `max_batch_dur` are provided, only `max_num_timesteps` is considered.".format(
-                        name
-                    )
-                )
-            self.max_num_timesteps = max_num_timesteps
-        else:
-            self.max_batch_dur = max_batch_dur
 
         # - Allocate layer neurons
         if skip_neuron_allocation:
@@ -210,8 +191,23 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Virtual neurons allocated".format(name))
 
-        # - Store recurrent weights
-        self._weights_rec = np.asarray(np.round(weights_rec), int)
+        # - Store evolution batch size limitations
+        self.max_num_trials_batch = max_num_trials_batch
+        self.max_num_events_batch = (
+            self.controller.fpga_event_limit
+            if max_num_events_batch is None
+            else max_num_events_batch
+        )
+        if max_num_timesteps is not None:
+            if max_batch_dur is not None:
+                warn(
+                    "Layer `{}`: Caution: If both `max_num_timesteps` and `max_batch_dur` are provided, only `max_num_timesteps` is considered.".format(
+                        name
+                    )
+                )
+            self.max_num_timesteps = max_num_timesteps
+        else:
+            self.max_batch_dur = max_batch_dur
 
         if not skip_weights:
             # - Configure connectivity
@@ -222,9 +218,19 @@ class RecDynapSE(Layer):
     def _batch_input_data(
         self, ts_input: TSEvent, num_timesteps: int, verbose: bool = False
     ) -> (np.ndarray, int):
-        """_batch_input_data: Generator that returns the data in batches"""
+        """
+        Generator that returns the data in batches
+
+        :param TSEvent ts_input:        Input event time series of data to convert into batches
+        :param int num_timesteps:       Number of time steps to return in each batch
+        :param Optional[bool] verbose:  If ``True``, display information about the batch. Default: ``False``, do not display information
+
+        :yields :   (vn_tpts_evts_inp_batch, vn_chnls_inp_batch, tstp_start_batch, num_tstps_batch * self.dt)
+        """
+
         # - Time points of input trace in discrete layer time base
         vn_tpts_evts_inp = np.floor(ts_input.times / self.dt).astype(int)
+
         # - Make sure evolution is within correct interval
         start_idx_all = np.searchsorted(vn_tpts_evts_inp, self._timestep)
         end_idx_all = np.searchsorted(vn_tpts_evts_inp, self._timestep + num_timesteps)
@@ -250,6 +256,7 @@ class RecDynapSE(Layer):
             num_trials = vn_trial_starts.size
             # - Array indices of ts_input.times and ts_input.channels where trials start
             v_trialstart_idcs = np.searchsorted(vn_tpts_evts_inp, vn_trial_starts)
+
             # - Count number of events for each trial (np.r_ to include last trial)
             vn_cumul_evts_trial = np.r_[v_trialstart_idcs, vn_tpts_evts_inp.size]
 
@@ -271,8 +278,7 @@ class RecDynapSE(Layer):
                     )
                 else:
                     max_num_trials_mnts = np.inf
-                # - Number of trials to be used in current batch, considering max. number of trials per batch,
-                #   events per batch and (if applies) time steps per batch
+                # - Number of trials to be used in current batch, considering max. number of trials per batch, events per batch and (if applies) time steps per batch
                 num_trials_batch = min(
                     self.max_num_trials_batch, max_num_trials_e, max_num_trials_mnts
                 )
@@ -384,14 +390,14 @@ class RecDynapSE(Layer):
         verbose: bool = True,
     ) -> TSEvent:
         """
-        evolve - Evolve the layer by queueing spikes, stimulating and recording
+        Evolve the layer by queueing spikes, stimulating and recording
 
-        :param ts_input:         TSEvent input time series, containing `self.size` channels
-        :param duration:       float   Desired evolution duration, in seconds
-        :param num_timesteps:   int     Desired evolution duration, in integer steps of `self.dt`
-        :param verbose:        bool    Output information on evolution progress
+        :param Optional[TSEvent] ts_input:  input time series, containing `self.size` channels. Default: ``None``, just record for a specified duration
+        :param Optional[float] duration:    Desired evolution duration, in seconds. Default: ``None``, use the duration implied by ``ts_input``
+        :param Optional[int] num_timesteps: Desired evolution duration, in integer steps of `self.dt`. Default: ``None``, use ``duration`` or ``ts_input` to determine duration
+        :param Optional[bool] verbose:      If ``True``, display information on evolution progress. Default: ``True``, display information during evolution
 
-        :return:                TSEvent spikes emitted by the neurons in this layer, during the evolution time
+        :return TSEvent:                Output spikes emitted by the neurons in this layer, during the evolution time
         """
         # - Compute duration for evolution
         if num_timesteps is None:
@@ -479,6 +485,15 @@ class RecDynapSE(Layer):
     def _send_batch(
         self, timesteps: np.ndarray, channels: np.ndarray, dur_batch: float
     ):
+        """
+        Send a batch of input events to the hardware
+
+        :param ndarray timesteps:   1xT array of event times
+        :param ndarray channels:    1xT array of event channels corresponding to event times in ``timesteps``
+        :param float dur_batch:     Duration of this batch in seconds
+
+        :return Tuple[times_out, channels_out]: Spike data emitted by the hardware during this batch
+        """
         try:
             if self.fastmode:
                 times_out, channels_out = self.controller.send_arrays(
@@ -519,12 +534,15 @@ class RecDynapSE(Layer):
             ## -- Split the batch in two parts, then set it together
             # - Total number of time steps in batch
             num_tstps_batch = int(np.round(dur_batch / self.dt))
+
             # - Number of time steps and durations of first and second part:
             num_tstps_part1 = num_tstps_batch // 2
             num_tstps_part2 = num_tstps_batch - num_tstps_part1
             tup_durations = (self.dt * num_tstps_part1, self.dt * num_tstps_part2)
+
             # - Determine where to split arrays of input time steps and channels
             idx_split = np.searchsorted(timesteps, num_tstps_part1)
+
             # - Event time steps for each part
             tup_v_tstps = (
                 timesteps[:idx_split],
@@ -532,6 +550,7 @@ class RecDynapSE(Layer):
             )
             # - Event channels for each part$
             tup_v_chnls = (channels[:idx_split], channels[idx_split:])
+
             # - Evolve the two parts. l_outputs is list with two tuples, each tuple corresponding to one part
             l_outputs: List[Tuple[np.ndarray]] = [
                 list(  # - Wrap in list to be able to modify elements (add time) later on
@@ -541,6 +560,7 @@ class RecDynapSE(Layer):
             ]
             # - Correct time of second part
             l_outputs[-1][0] += tup_durations[0]
+
             # - Separate output into arrays
             times_out, channels_out = [
                 np.hstack(tup_out) for tup_out in zip(*l_outputs)
@@ -550,7 +570,9 @@ class RecDynapSE(Layer):
 
     def _compile_weights_and_configure(self):
         """
-        _compile_weights_and_configure - Configure DynapSE weights from the weight matrices
+        Configure DynapSE weights from the weight matrices
+
+        Use the input and recurrent weight matrices to determine an approximate discretised synapse configuration consistent with the weights, and try to configure the DynapSE hardware with the configuration.
         """
 
         # - Connect virtual neurons to hardware neurons
@@ -603,6 +625,11 @@ class RecDynapSE(Layer):
         print("Layer `{}`: Recurrent connections have been set.".format(self.name))
 
     def to_dict(self):
+        """
+        Return a dictionary encapsulating the layer
+
+        :return Dict:   A description of the layer that can be used to recreate the object
+        """
 
         config = {}
         config["name"] = self.name
@@ -629,14 +656,23 @@ class RecDynapSE(Layer):
 
     @property
     def input_type(self):
+        """
+        (TimeSeries subclass)   The input class of this layer (:py:class:`TSEvent`)
+        """
         return TSEvent
 
     @property
     def output_type(self):
+        """
+        (TimeSeries subclass)   The ouput class of this layer (:py:class:`TSEvent`)
+        """
         return TSEvent
 
     @property
     def weights_in(self):
+        """
+        (ndarray[float])   MxN array of input weights from input neurons to recurrent neurons
+        """
         return self._weights_in
 
     @weights_in.setter
@@ -649,6 +685,10 @@ class RecDynapSE(Layer):
 
     @property
     def weights_rec(self):
+        """
+        (ndarray[float])    NxN array of recurrent weights
+        :return:
+        """
         return self._weights_rec
 
     @weights_rec.setter
@@ -662,6 +702,10 @@ class RecDynapSE(Layer):
     # weights as alias for weights_rec
     @property
     def weights(self):
+        """
+        (ndarray[float])    NxN array of recurrent weights. Alias for ``.weights_rec``.
+        :return:
+        """
         return self.weights_rec
 
     @weights.setter
@@ -671,6 +715,9 @@ class RecDynapSE(Layer):
     # _weights as alias for _weights_rec
     @property
     def _weights(self):
+        """
+        (ndarray[float])    NxN array of recurrent weights. Alias for ``._weights_rec``.
+        """
         return self._weights_rec
 
     @_weights.setter
@@ -679,6 +726,9 @@ class RecDynapSE(Layer):
 
     @property
     def max_num_trials_batch(self):
+        """
+        (int)   Maximum number of trials in a batch. ``None`` or ``int`` > 0.
+        """
         return self._max_num_trials_batch
 
     @max_num_trials_batch.setter
@@ -692,6 +742,9 @@ class RecDynapSE(Layer):
 
     @property
     def max_num_timesteps(self):
+        """
+        (int)   Maxmimum number of timesteps. ``None`` or ``int`` > 0.
+        """
         return self._max_num_timesteps
 
     @max_num_timesteps.setter
@@ -712,6 +765,9 @@ class RecDynapSE(Layer):
 
     @property
     def max_batch_dur(self):
+        """
+        (int)   Maximum duration of a batch, in integer timesteps. ``None`` or ``int`` > 0
+        """
         return (
             None
             if self._max_num_timesteps is None
@@ -731,6 +787,9 @@ class RecDynapSE(Layer):
 
     @property
     def max_num_events_batch(self):
+        """
+        (int)   Maximum number of events in a batch. ``int`` >= 0
+        """
         return self._max_num_events_batch
 
     @max_num_events_batch.setter
@@ -744,14 +803,26 @@ class RecDynapSE(Layer):
 
     @property
     def virtual_neuron_ids(self):
+        """
+        (ndarray[int])  1xM Array of virtual neuron IDs implementing the input layer
+        :return:
+        """
         return self._virtual_neuron_ids
 
     @property
     def neuron_ids(self):
+        """
+        (ndarray[int])  1xN array of neuron IDs implementing the recurrent layer
+        :return:
+        """
         return self._neuron_ids
 
     @property
     def l_input_core_ids(self):
+        """
+        Core mask as a reversed binary string
+        :return:
+        """
         # - Core mask as reversed binary string
         bin_coremask = reversed(bin(self._input_coremask)[-4:])
         return [core_id for core_id, mask in enumerate(bin_coremask) if int(mask)]
@@ -760,10 +831,38 @@ class RecDynapSE(Layer):
 # -- Define subclass of RecDynapSE to be used in demos with preloaded events
 class RecDynapSEDemo(RecDynapSE):
     """
-    RecDynapSE - Recurrent layer implemented on DynapSE, using preloaded events during evolution
+    Recurrent layer implemented on DynapSE, using preloaded events during evolution
+
+    This layer plays back a set of provided events during evolution. Events are loaded on to the FPGA in the DynapSE box, then played back during evolution.
+
+    .. rubric:: Usage
+    Create the layer, then use the :py:`.load_events` method to provide a time series of events to load.
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Recurrent spiking layer, which plays back preloaded events during evolution
+
+        :param ndarray[int] weights_in:                     MxN matrix of input weights from virtual to hardware neurons. Supplied in units of synaptic connection.
+        :param ndarray[int] weights_rec:                    NxN matrix of weights between hardware neurons. Supplied in units of synaptic connection. Negative elements give rise to inhibitory synapses.
+        :param Optional[ndarray[int]] neuron_ids:           1xN array of IDs of hardware neurons that are to be used as layer neurons. Default: None
+        :param Optional[ndarray[int]] virtual_neuron_ids:   1xM array of IDs of virtual neurons that are to be used as input neurons. Default: None
+        :param Optional[float] dt:                          Layer time-step. Default: 2e-5 s
+        :param Optional[int] max_num_trials_batch:          Maximum number of trials (specified in input timeseries) per batch.Longer evolution periods will automatically split in smaller batches.
+        :param Optional[float] max_batch_dur:               Maximum duration of single evolution batch.
+        :param Optional[int] max_num_timesteps:             Maximum number of time steps of of single evolution batch.
+        :param Optional[float] max_num_events_batch:        Maximum number of input events per evolution batch.
+        :param Optional[ArrayLike[int]] l_input_core_ids:   IDs of the cores that contain neurons receiving external inputs. To avoid ID collisions neurons on these cores should not receive inputs from other neurons.
+        :param Optional[int] input_chip_id:                 ID of the chip with neurons that receive external input.
+        :param Optional[List[int]] clearcores_list:         IDs of chips where configurations should be cleared.
+        :param Optional[DynapseControl] controller:         DynapseControl object to use to interface with the DynapSE hardware.
+        :param Optional[int] rpyc_port:                     Port at which RPyC connection should be established. Only considered if controller is ``None``.
+        :param Optional[str] name:                          Layer name.
+        :param Optional[bool] skip_weights:                 Do not upload weight configuration to chip. (Use carefully)
+        :param Optional[bool] skip_neuron_allocation:       If ``True``, do not verify if neurons are usable. Default: ``False`` (check that specified neurons are usable).
+        :param Optional[bool] fastmode:                     If ``True``, ``DynapseControl`` will not load buffered event filters when data is sent. Recording buffer is set to 0. (No effect with `RecDynapSEDemo` class). Default:``False``.
+        :param Optional[float] speedup:                     If `fastmode`==True, speed up input events to Dynapse by this factor. (No effect with `RecDynapSEDemo` class). Default: 1.0 (no speedup)
+        """
 
         # - Call parent initializer
         super().__init__(*args, **kwargs)
@@ -771,7 +870,14 @@ class RecDynapSEDemo(RecDynapSE):
         # - Set up filter for recording spikes
         self.controller.add_buffered_event_filter(self.neuron_ids)
 
-    def load_events(self, ts_as, vt_rhythm_start, dur_total: float):
+    def load_events(self, ts_as: TSEvent, vt_rhythm_start, dur_total: float):
+        """
+        Load a series of events for later playback
+
+        :param TSEvent ts_as:               Set of events to load to FPGA for later playback
+        :param List[float] vt_rhythm_start: List of times that indicate the beginning of a playback trial
+        :param float dur_total:             Total duration of event sequence, in seconds
+        """
         if ts_as.times.size > self.controller.sram_event_limit:
             raise MemoryError(
                 "Layer `{}`: Can upload at most {} events. {} are too many.".format(
@@ -792,8 +898,7 @@ class RecDynapSEDemo(RecDynapSE):
             targetcore_mask=1,
             targetchip_id=0,
         )
-        # - Set interspike interval of first event of each rhythm so that it corresponds
-        #   to the rhythm start and not the last event from the previous rhythm
+        # - Set interspike interval of first event of each rhythm so that it corresponds to the rhythm start and not the last event from the previous rhythm
         for idx_rhythm, idx_evt in enumerate(v_rhythm_start_idcs):
             events[idx_evt].isi = np.round(
                 (ts_as.times[idx_evt] - vt_rhythm_start[idx_rhythm])
@@ -820,6 +925,7 @@ class RecDynapSEDemo(RecDynapSE):
 
         # - Fpga adresses where beats start
         self.v_rhythm_addrs = 2 * (v_rhythm_start_idcs)
+
         # - Number of events per rhythm: do -1 for each rhythm, due to ctxctl syntax
         self.v_num_evts_rhythm = np.diff(np.r_[v_rhythm_start_idcs, len(events)]) - 1
 
@@ -828,13 +934,13 @@ class RecDynapSEDemo(RecDynapSE):
         self, idx_rhythm: int, duration: Optional[float] = None, verbose: bool = True
     ) -> TSEvent:
         """
-        evolve - Evolve the layer by playing back from the given base address and recording
+        Evolve the layer by playing back from the given base address and recording
 
-        :param idx_rhythm:     int     Index of the rhythm to be played back
-        :param duration:   float   Desired evolution duration, in seconds, use rhythm duration if None
-        :param nNumEvents:  int     Number of input events to play back on FPGA starting from base address
+        :param int idx_rhythm:  Index of the rhythm to be played back
+        :param float duration:  Desired evolution duration, in seconds, use rhythm duration if None
+        :param int nNumEvents:  Number of input events to play back on FPGA starting from base address
 
-        :return:                TSEvent spikes emitted by the neurons in this layer, during the evolution time
+        :return TSEvent:        Spikes emitted by the neurons in this layer, during the evolution time
         """
 
         # - Determine evolution duration
