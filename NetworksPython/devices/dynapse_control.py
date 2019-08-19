@@ -121,7 +121,8 @@ def initialize_hardware(
     if isinstance(use_chips, int):
         use_chips = [use_chips]
     else:
-        use_chips = list(use_chips)
+        # - Convert to rpyc-safe format
+        use_chips = [int(chip) for chip in use_chips]
     print("dynapse_control: Initializing hardware...", end="\r")
     if not _USE_RPYC:
         tools.init_chips(use_chips)
