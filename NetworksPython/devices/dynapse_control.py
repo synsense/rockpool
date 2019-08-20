@@ -800,7 +800,8 @@ class DynapseControl:
         # - Handle non-list arguments for core_ids
         if not isinstance(core_ids, list):
             try:
-                core_ids = list(core_ids)
+                # - Make sure core_ids is in rpyc-compatible format
+                core_ids = [int(idc) for idc in core_ids]
             except TypeError:
                 if isinstance(core_ids, int):
                     core_ids = [core_ids]
