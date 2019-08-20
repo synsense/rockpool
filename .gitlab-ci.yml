@@ -4,7 +4,7 @@ stages:
   - deploy
 
 unit_tests:
-  stage: testing
+  stage: test
   image: aictx/ci-python-arch:latest
   tags:
     - python
