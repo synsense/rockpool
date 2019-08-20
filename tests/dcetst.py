@@ -37,6 +37,19 @@ assert (conn_post == np.array([3, 2, 258, 3])).all()
 assert (
     con.connections_virtual[con.connections_virtual != 0] == np.array([1, 2, 1, 1])
 ).all()
+
+# - Provoke aliasing with virtual weights
+try:
+    con.set_connections_from_weights(
+        [-1], [1], [3], syn_inh=con.syn_inh_slow, virtual_pre=True
+    )
+except ValueError:
+    pass
+else:
+    raise AssertionError(
+        "Should have raised exception because of aliasing with virtual weights."
+    )
+
 # - Provoke aliasing
 try:
     con.set_connections_from_weights([-1], [1025], [4], syn_inh=con.syn_inh_slow)
@@ -52,7 +65,7 @@ camtype, conn_pre, conn_post = np.nonzero(con.connections)
 assert (camtype == np.array([1, 1, 1, 2, 3, 3])).all()
 assert (conn_pre == np.array([1, 1025, 1025, 1026, 1, 1025])).all()
 assert (conn_post == np.array([2, 2, 258, 3, 4, 4])).all()
-assert (con.connections[con.connections != 0] == np.array([1, 1, 2, 1, 1, 1])).all()
+assert (con.connections[con.connections != 0] == np.array([2, 2, 1, 1, 1, 1])).all()
 # Something is still wrong with weights...
 
 # Test removing connections from/to neurons
