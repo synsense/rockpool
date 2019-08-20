@@ -3,10 +3,11 @@
 ###
 
 from typing import Callable, Optional, Tuple, Union
-import numpy as np
-import scipy.stats as stats
 from copy import deepcopy
 import random
+import numpy as np
+import scipy.stats as stats
+from ...utils import ArrayLike
 
 
 def combine_ff_rec_stack(weights_ff: np.ndarray, weights_rec: np.ndarray) -> np.ndarray:
@@ -1129,9 +1130,9 @@ def iaf_sparse_net(
 
 
 def gen_sparse_partitioned_network(
-        partition_sizes: ArrayLike,
-        num_internal_inputs: int = 0,
-        num_between_inputs: int = 0,
+    partition_sizes: ArrayLike,
+    num_internal_inputs: int = 0,
+    num_between_inputs: int = 0,
 ) -> np.ndarray:
     """
     Generate weight matrices that embody sparse networks with defined partition sizes
