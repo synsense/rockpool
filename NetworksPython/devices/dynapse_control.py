@@ -823,11 +823,11 @@ class DynapseControl:
             for i in range(cid * self.num_neur_core, (cid + 1) * self.num_neur_core)
         ]
         if postsynaptic:
-            # - Update internal representation of SRAM cells
-            self._sram_connections[neuron_ids, :] = False
+            # - Reset internal representation of SRAM cells
+            self._reset_srams(neuron_ids)
         if presynaptic:
-            # - Update internal representation of CAM cells
-            self._cam_connections[:, :, neuron_ids] = 0
+            # - Reset internal representation of CAM cells
+            self._reset_cams(neuron_ids)
         self._connections = self._extract_connections_from_memory(
             self._sram_connections, self._cam_connections
         )
@@ -1390,6 +1390,26 @@ class DynapseControl:
         self._cam_connections = cam_connections
         self._connections = new_connections
 
+    def _reset_cams(self, neuron_ids: Iterable[int]):
+        """
+        Reset internal representation of CAM cells for given neurons to default
+        NOTE that connections matrix needs to be updated after this! (`_extract_connections_from_memory`)
+        :param neuron_ids:  List-like with IDs of neurons whose CAMs should be reset.
+        """
+        # - Clear all connections for given neurons
+        self._cam_connections[:, :, neuron_ids] = 0
+        # - Default setting for cams is slow_exc to preneuron 0
+        self._cam_connections[1, 0, neuron_ids] = 64
+
+    def _reset_srams(self, neuron_ids: Iterable[int]):
+        """
+        Reset internal representation of SRAM cells for given neurons to default
+        NOTE that connections matrix needs to be updated after this! (`_extract_connections_from_memory`)
+        :param neuron_ids:  List-like with IDs of neurons whose SRAMs should be reset.
+        """
+        # - Clear all SRAM cells
+        self._sram_connections[neuron_ids, :] = 0
+
     def remove_all_connections_to(self, neuron_ids, apply_diff: bool = True):
         """
         remove_all_connections_to - Remove all presynaptic connections
@@ -1406,9 +1426,9 @@ class DynapseControl:
 
         # - Call `remove_all_connections_to` function
         self.tools.remove_all_connections_to(neuron_ids, self.model, apply_diff)
-
-        # - Update internal representation of CAM cells
-        self._cam_connections[:, :, neuron_ids] = 0
+        # - Reset internal representation of CAM cells
+        self._reset_cams(neuron_ids)
+        # - Update internal connection representation
         self._connections = self._extract_connections_from_memory(
             self._sram_connections, self._cam_connections
         )
@@ -1429,9 +1449,9 @@ class DynapseControl:
 
         # - Call `remove_all_connections_to` function
         self.tools.remove_all_connections_from(neuron_ids, self.model, apply_diff)
-
-        # - Update internal representation of CAM cells
-        self._sram_connections[neuron_ids, :] = 0
+        # - Reset internal representation of SRAM cells
+        self._reset_srams(neuron_ids)
+        # - Update internal connection representation
         self._connections = self._extract_connections_from_memory(
             self._sram_connections, self._cam_connections
         )

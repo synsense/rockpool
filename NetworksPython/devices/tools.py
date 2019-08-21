@@ -462,6 +462,7 @@ def reset_connections(
                 for cam in neuron.get_cams():
                     cam.set_pre_neuron_id(0)
                     cam.set_pre_neuron_core_id(0)
+                    cam.set_type(CtxDynapse.DynapseCamType.SLOW_EXC)
         print("\t Model neuron weights have been reset.")
     print("dynapse_control: {} core(s) cleared.".format(len(core_ids)))
 
@@ -500,6 +501,7 @@ def remove_all_connections_to(
         for cam in neuron.get_cams():
             cam.set_pre_neuron_id(0)
             cam.set_pre_neuron_core_id(0)
+            cam.set_type(CtxDynapse.DynapseCamType.SLOW_EXC)
 
     print("dynapse_control: Shadow state neuron weights have been reset")
 
@@ -587,7 +589,7 @@ def set_connections(
             raise ValueError(
                 "dynapse_control: Some of the presynaptic neurons are on chips that have not"
                 + " been cleared since starting cortexcontrol. This may result in unexpected"
-                + " behavior. Clear those chips first."
+                + " behavior. Use the `init_chips` method to clear those chips first."
             )
     # - Logical IDs of post neurons
     logical_post_ids = [neuron.get_id() for neuron in postsyn_neurons]
@@ -596,7 +598,7 @@ def set_connections(
         raise ValueError(
             "dynapse_control: Some of the postsynaptic neurons are on chips that have not"
             + " been cleared since starting cortexcontrol. This may result in unexpected"
-            + " behavior. Clear those chips first."
+            + " behavior. Use the `init_chips` method to clear those chips first."
         )
 
     # - Set connections
