@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from NetworksPython import TSContinuous
@@ -7,7 +9,9 @@ from NetworksPython.layers.internal.devices.dynap_hw import RecDynapSEDemo
 import ECG.recordings as rec
 
 ### --- Test connections
-con = dce.DynapseControl(init_chips=[0, 1])
+con = dce.DynapseControlExtd(
+    init_chips=[0, 1], clearcores_list=range(8), rpyc_connection="1301"
+)
 # - Set connections
 ids_pre = [1, 1025, 1026]
 ids_post = [2, 258, 3]
@@ -31,16 +35,20 @@ assert (conn_post == np.array([2, 258, 3])).all()
 assert (con.connections[con.connections != 0] == np.array([2, 1, 1])).all()
 # connections_virtual
 camtype, conn_pre, conn_post = np.nonzero(con.connections_virtual)
-assert (camtype == np.array([0, 1, 1, 2])).all()
-assert (conn_pre == np.array([3, 1, 1, 2])).all()
-assert (conn_post == np.array([3, 2, 258, 3])).all()
-assert (
-    con.connections_virtual[con.connections_virtual != 0] == np.array([1, 2, 1, 1])
-).all()
+# by default, cams are set to preneur 0, slow_inh
+camtype_tgt = np.array([0, 1, 1, 2] + 2048 * [3])
+conn_pre_tgt = np.array([3, 1, 1, 2] + 2048 * [0])
+conn_post_tgt = np.array([3, 2, 258, 3] + list(range(2048)))
+weight_tgt = np.array([1, 2, 1, 1] + 2048 * [64])
+weight_tgt[[6, 7, 262]] = [62, 62, 63]
+assert (camtype == camtype_tgt).all()
+assert (conn_pre == conn_pre_tgt).all()
+assert (conn_post == conn_post_tgt).all()
+assert (con.connections_virtual[con.connections_virtual != 0] == weight_tgt).all()
 
 # - Provoke aliasing with virtual weights
 try:
-    con.set_connections_from_weights(
+    con.add_connections_from_weights(
         [-1], [1], [3], syn_inh=con.syn_inh_slow, virtual_pre=True
     )
 except ValueError:
@@ -52,13 +60,13 @@ else:
 
 # - Provoke aliasing
 try:
-    con.set_connections_from_weights([-1], [1025], [4], syn_inh=con.syn_inh_slow)
+    con.add_connections_from_weights([-1], [1025], [4], syn_inh=con.syn_inh_slow)
 except ValueError:
     pass
 else:
     raise AssertionError("Should have raised exception because of aliasing.")
 # - Ignore aliasing
-con.set_connections_from_weights(
+con.add_connections_from_weights(
     [-1], [1025], [4], syn_inh=con.syn_inh_slow, prevent_aliasing=False
 )
 camtype, conn_pre, conn_post = np.nonzero(con.connections)
@@ -66,10 +74,47 @@ assert (camtype == np.array([1, 1, 1, 2, 3, 3])).all()
 assert (conn_pre == np.array([1, 1025, 1025, 1026, 1, 1025])).all()
 assert (conn_post == np.array([2, 2, 258, 3, 4, 4])).all()
 assert (con.connections[con.connections != 0] == np.array([2, 2, 1, 1, 1, 1])).all()
-# Something is still wrong with weights...
 
-# Test removing connections from/to neurons
+# - Setting weights instead of adding
+con.set_connections_from_weights([2], [5], [4], con.syn_exc_fast)
+camtype, conn_pre, conn_post = np.nonzero(con.connections)
+assert (camtype == np.array([0, 1, 1, 1, 2])).all()
+assert (conn_pre == np.array([5, 1, 1025, 1025, 1026])).all()
+assert (conn_post == np.array([4, 2, 2, 258, 3])).all()
+assert (con.connections[con.connections != 0] == np.array([2, 2, 2, 1, 1])).all()
+
+# Remove connections to neurons
+con.remove_all_connections_to([2])
+camtype, conn_pre, conn_post = np.nonzero(con.connections)
+assert (camtype == np.array([0, 1, 2])).all()
+assert (conn_pre == np.array([5, 1025, 1026])).all()
+assert (conn_post == np.array([4, 258, 3])).all()
+assert (con.connections[con.connections != 0] == np.array([2, 1, 1])).all()
+
+# Remove connections from neurons
+con.remove_all_connections_from([1026])
+camtype, conn_pre, conn_post = np.nonzero(con.connections)
+assert (camtype == np.array([0, 1])).all()
+assert (conn_pre == np.array([5, 1025])).all()
+assert (conn_post == np.array([4, 258])).all()
+assert (con.connections[con.connections != 0] == np.array([2, 1])).all()
+
 # Test clearing
+con.clear_connections([0])
+camtype, conn_pre, conn_post = np.nonzero(con.connections)
+assert (camtype == np.array([1])).all()
+assert (conn_pre == np.array([1025])).all()
+assert (conn_post == np.array([258])).all()
+assert (con.connections[con.connections != 0] == np.array([1])).all()
+con.clear_connections(range(1, 8))
+assert np.sum(con.connections) == 0
+camtype, conn_pre, conn_post = np.nonzero(con.connections_virtual)
+assert (camtype == np.array(2048 * [3])).all()
+assert (conn_pre == np.array(2048 * [0])).all()
+assert (conn_post == np.arange(2048)).all()
+assert (
+    con.connections_virtual[con.connections_virtual != 0] == np.array([64] * 2048)
+).all()
 
 ### --- Test layer
 
@@ -78,11 +123,11 @@ dt_in = 1.0 / 360.0
 neuron_ids = (
     list(range(3, 7)) + list(range(19, 23)) + list(range(24, 32)) + list(range(40, 48))
 )
-virtual_neuron_ids = list(range(1, 3)) + list(range(16, 17))
-con = dce.DynapseControlExtd(dt, clearcores_list=None, initialize_chips=[0])
-con.load_biases(
-    "/home/felix/gitlab/Projects/AnomalyDetection/ECG/ECGDemo/hardware/realecg/networks/C30_0/biases.py"
-)
+virtual_neuron_ids = list(range(1, 3))
+
+scriptpath = Path(__file__).parent
+con.load_biases(scriptpath / "files" / "biases.py")
+
 con.silence_hot_neurons(range(64), duration=5)
 
 # - Weights
@@ -95,13 +140,13 @@ w_rec = np.hstack((np.zeros((24, 8)), w_irr))
 reservoir = RecDynapSEDemo(
     weights_in=w_in,
     weights_rec=w_rec,
-    vnLayerNeuronIDs=neuron_ids,
-    vnVirtualNeuronIDs=virtual_neuron_ids,
-    nMaxTrialsPerBatch=120,
-    lnClearCores=None,
+    neuron_ids=neuron_ids,
+    virtual_neuron_ids=virtual_neuron_ids,
+    max_num_trials_batch=120,
+    clearcores_list=None,
     controller=con,
     name="test",
-    bSkipWeights=False,
+    skip_weights=False,
 )
 
 # - AS layer
@@ -137,7 +182,7 @@ spike_input = aslayer.evolve(TSContinuous(times, data_in))
 
 # - Load to chip
 reservoir.load_events(
-    tsAS=spike_input,
-    vtRhythmStart=np.array(rhythm_starts) * dt_in,
-    tTotalDuration=(data_in.shape[0] + 1) * dt_in,
+    ts_as=spike_input,
+    vt_rhythm_start=np.array(rhythm_starts) * dt_in,
+    dur_total=(data_in.shape[0] + 1) * dt_in,
 )

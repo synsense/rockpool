@@ -598,6 +598,7 @@ class DynapseControl:
     _num_neur_core = params.NUM_NEURONS_CORE
     _num_cores_chip = params.NUM_CORES_CHIP
     _num_chips = params.NUM_CHIPS
+    _default_cam_str = params.DEF_CAM_STR
 
     def __init__(
         self,
@@ -733,6 +734,9 @@ class DynapseControl:
             getattr(ctxdynapse.DynapseCamType, camtype): i
             for i, camtype in enumerate(params.CAMTYPES)
         }
+        # - ID of default cam type to which cams are reset
+        def_camtype = getattr(ctxdynapse.DynapseCamType, self._default_cam_str)
+        self._default_cam_type_index = self._camtypes[def_camtype]
         # - Store SRAM information
         self._sram_connections = np.zeros((self.num_neurons, self.num_cores))
         # - Store CAM information
@@ -1224,21 +1228,27 @@ class DynapseControl:
                                   instance setting (`self.prevent_aliasing`).
         """
         # - Remove existing connections
-        if neuron_ids_post is None:
-            self.remove_all_connections_to(neuron_ids, apply_diff=False)
-        else:
-            self.remove_all_connections_to(neuron_ids_post, apply_diff=False)
+        ids_remove = neuron_ids if neuron_ids_post is None else neuron_ids_post
+        self.remove_all_connections_to(ids_remove, apply_diff=False)
+
         # - Set new connections
-        self.add_connections_from_weights(
-            weights=weights,
-            neuron_ids=neuron_ids,
-            syn_exc=syn_exc,
-            syn_inh=syn_inh,
-            neuron_ids_post=neuron_ids_post,
-            virtual_pre=virtual_pre,
-            apply_diff=apply_diff,
-            prevent_aliasing=prevent_aliasing,
-        )
+        try:
+            self.add_connections_from_weights(
+                weights=weights,
+                neuron_ids=neuron_ids,
+                syn_exc=syn_exc,
+                syn_inh=syn_inh,
+                neuron_ids_post=neuron_ids_post,
+                virtual_pre=virtual_pre,
+                apply_diff=apply_diff,
+                prevent_aliasing=prevent_aliasing,
+            )
+        except ValueError as e:
+            raise ValueError(
+                str(e)
+                + f"Note that all all connections to neurons {ids_remove} have been "
+                + "removed in this process!"
+            )
 
     def add_connections_from_weights(
         self,
@@ -1317,9 +1327,13 @@ class DynapseControl:
         preneur_ids_chip_exc = np.asarray(preneur_ids_exc) % self.num_neur_chip
         for id_pre, id_post in zip(preneur_ids_chip_exc, postneur_ids_exc):
             cam_connections[self._camtypes[syn_exc], id_pre, id_post] += 1
+            # - Reduce number of cam cells that are set to default
+            cam_connections[self._default_cam_type_index, 0, id_post] -= 1
         preneur_ids_chip_inh = np.asarray(preneur_ids_inh) % self.num_neur_chip
         for id_pre, id_post in zip(preneur_ids_chip_inh, postneur_ids_inh):
             cam_connections[self._camtypes[syn_inh], id_pre, id_post] += 1
+            # - Reduce number of cam cells that are set to default
+            cam_connections[self._default_cam_type_index, 0, id_post] -= 1
 
         # - Make sure no aliasing occurs
         target_connections = self.connections.copy()
@@ -1399,7 +1413,7 @@ class DynapseControl:
         # - Clear all connections for given neurons
         self._cam_connections[:, :, neuron_ids] = 0
         # - Default setting for cams is slow_exc to preneuron 0
-        self._cam_connections[1, 0, neuron_ids] = 64
+        self._cam_connections[self._default_cam_type_index, 0, neuron_ids] = 64
 
     def _reset_srams(self, neuron_ids: Iterable[int]):
         """
