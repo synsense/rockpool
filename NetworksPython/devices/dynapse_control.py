@@ -738,14 +738,14 @@ class DynapseControl:
         def_camtype = getattr(ctxdynapse.DynapseCamType, self._default_cam_str)
         self._default_cam_type_index = self._camtypes[def_camtype]
         # - Store SRAM information
-        self._sram_connections = np.zeros((self.num_neurons, self.num_cores))
+        self._sram_connections = np.zeros((self.num_neurons, self.num_cores), int)
         # - Store CAM information
         self._cam_connections = np.zeros(
-            (len(self._camtypes), self.num_neur_chip, self.num_neurons)
+            (len(self._camtypes), self.num_neur_chip, self.num_neurons), int
         )
         # - Store connectivity array
         self._connections = np.zeros(
-            (len(params.CAMTYPES), self.num_neurons, self.num_neurons)
+            (len(params.CAMTYPES), self.num_neurons, self.num_neurons), int
         )
         # Include previously existing connections in the model
         self._update_connectivity_array(initialized_chips)
@@ -1191,6 +1191,8 @@ class DynapseControl:
         # - Update internal representation of CAM cells
         for syntype, pre_id, post_id in zip(syntypes, virtualneuron_ids, neuron_ids):
             self._cam_connections[self._camtypes[syntype], pre_id, post_id] += 1
+            # - Reduce number of cam cells that are set to default
+            self._cam_connections[self._default_cam_type_index, 0, post_id] -= 1
 
     def set_connections_from_weights(
         self,
@@ -1338,8 +1340,8 @@ class DynapseControl:
         # - Make sure no aliasing occurs
         target_connections = self.connections.copy()
         idcs_pre, idcs_post = np.meshgrid(neuron_ids, neuron_ids_post, indexing="ij")
-        conns_exc = np.clip(weights, 0, None)
-        conns_inh = np.abs(np.clip(weights, None, 0))
+        conns_exc = np.clip(weights, 0, None).astype(int)
+        conns_inh = np.abs(np.clip(weights, None, 0)).astype(int)
         if not virtual_pre:
             target_connections[
                 self._camtypes[syn_exc], idcs_pre, idcs_post
@@ -1469,6 +1471,57 @@ class DynapseControl:
         self._connections = self._extract_connections_from_memory(
             self._sram_connections, self._cam_connections
         )
+
+    def get_connections(
+        self,
+        pre_ids: Iterable[int],
+        post_ids: Optional[Iterable[int]] = None,
+        syn_types: Union[Iterable[int], int, None] = None,
+        virtual_pre: bool = False,
+    ) -> np.ndarray:
+        """
+        get_connections - Return connections between specific populations.
+        :param pre_ids:   IDs of presynaptic neurons.
+        :param post_ids:  IDs of postsynaptic neurons. If `None`, and `virtual_pre` is
+                          `False`, use the same as `pre_ids`.
+        :param syn_types: If not `None` must be an integer or iterable of integers
+                          specifying which synapse types are to be returned. If `None`
+                          return connections for all synapse types. Indices 0, 1, 2, and 3
+                          correspond to types `fast_exc`, `slow_exc`, `fast_inh`, and
+                          `slow_inh`, respectively.
+        :param virtual_pre:  If `True`, return connections to virtual (external) neurons.
+
+        :return:
+            3D-connectivity matrix for selected neurons. 1st axis corresponds to synapse type.
+            The order of synapse types is `fast_exc`, `slow_exc`, `fast_inh`, and `slow_inh`,
+            respectively. 2nd and 3rd axis correspond to pre- and postsynaptic neurons.
+        """
+        if post_ids is None:
+            if virtual_pre:
+                raise ValueError(
+                    "DynapseControl: For virtual connections need to define both "
+                    + "`pre_ids` and `post_ids`."
+                )
+            else:
+                pre_ids = post_ids
+        if syn_types is None:
+            syn_types = np.arange(len(self._camtypes))
+        idx_pre, idx_post = np.meshgrid(pre_ids, post_ids, indexing="ij")
+
+        try:
+            # - Increase index dimensionality
+            idx_pre = np.stack(len(syn_types) * (idx_pre,))
+        except TypeError:
+            # - If syn_types has no len, try treating it as integer
+            syn_types = int(syn_types)
+        else:
+            idx_post = np.stack(len(syn_types) * (idx_post,))
+            syn_types = np.stack(len(pre_ids) * (syn_types,), axis=-1)
+            syn_types = np.stack(len(post_ids) * (syn_types,), axis=-1)
+        if virtual_pre:
+            return self.connections_virtual[syn_types, idx_pre, idx_post]
+        else:
+            return self.connections[syn_types, idx_pre, idx_post]
 
     ### --- Stimulation, event generation and recording
 

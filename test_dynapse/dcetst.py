@@ -6,6 +6,7 @@ on port 1301 and not through the normal unit test pipeline.
 
 from pathlib import Path
 from typing import List
+from warnings import warn
 
 import numpy as np
 
@@ -52,6 +53,15 @@ assert (camtype == camtype_tgt).all()
 assert (conn_pre == conn_pre_tgt).all()
 assert (conn_post == conn_post_tgt).all()
 assert (con.connections_virtual[con.connections_virtual != 0] == weight_tgt).all()
+
+# - get_connections method
+conns = con.get_connections(ids_pre, ids_post, [1, 2])
+camtype, conn_pre, conn_post = np.nonzero(conns)
+assert (camtype == np.array([0, 0, 1])).all()
+assert (conn_pre == np.array([0, 1, 2])).all()
+assert (conn_post == np.array([0, 1, 2])).all()
+conns_virt = con.get_connections([3], ids_post, syn_types=0, virtual_pre=True)
+assert (conns_virt == np.array([[0, 0, 1]])).all()
 
 # - Provoke aliasing with virtual weights
 try:
