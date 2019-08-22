@@ -1,11 +1,18 @@
+"""
+This unit test for the DynapseControl, RecDynapSE and RecDynapSEDemo classes
+is intended to be run interactively, with an available cortexcontrol instance
+on port 1301 and not through the normal unit test pipeline.
+"""
+
 from pathlib import Path
+from typing import List
 
 import numpy as np
 
-from NetworksPython import TSContinuous
+from NetworksPython import TSContinuous, TSEvent
 from NetworksPython.devices import dynapse_control_extd as dce
 from NetworksPython.layers import FFUpDown
-from NetworksPython.layers.internal.devices.dynap_hw import RecDynapSEDemo
+from NetworksPython.layers.internal.devices.dynap_hw import RecDynapSEDemo, RecDynapSE
 import ECG.recordings as rec
 
 ### --- Test connections
@@ -123,7 +130,7 @@ dt_in = 1.0 / 360.0
 neuron_ids = (
     list(range(3, 7)) + list(range(19, 23)) + list(range(24, 32)) + list(range(40, 48))
 )
-virtual_neuron_ids = list(range(1, 3))
+virtual_neuron_ids = [1, 2, 17, 18]
 
 scriptpath = Path(__file__).parent
 con.load_biases(scriptpath / "files" / "biases.py")
@@ -131,7 +138,8 @@ con.load_biases(scriptpath / "files" / "biases.py")
 con.silence_hot_neurons(range(64), duration=5)
 
 # - Weights
-w_in = np.hstack((np.ones((2, 8)), np.zeros((2, 16))))
+w_in = np.hstack((np.random.randint(3, size=(4, 8)), np.zeros((4, 16))))
+w_in[1::2] *= -1
 w_ir = np.random.choice(3, p=(0.5, 0.4, 0.1), size=(8, 16))
 w_rr = np.random.choice(3, p=(0.5, 0.4, 0.1), size=(16, 16))
 w_irr = np.vstack((w_ir, w_rr))
@@ -147,6 +155,7 @@ reservoir = RecDynapSEDemo(
     controller=con,
     name="test",
     skip_weights=False,
+    fastmode=True,
 )
 
 # - AS layer
@@ -165,7 +174,7 @@ aslayer = FFUpDown(
 classprobs = {0: 0.8, 1: 0.05, 2: 0, 3: 0.05, 4: 0.05, 5: 0, 18: 0.05}
 annotations, recordings = rec.load_from_file(rec.save_path)
 data_in, data_tgt, anno_curr = rec.generate_data(
-    num_beats=1000,
+    num_beats=10,
     annotations=annotations,
     rec_data=recordings,
     use_recordings=None,
@@ -186,3 +195,37 @@ reservoir.load_events(
     vt_rhythm_start=np.array(rhythm_starts) * dt_in,
     dur_total=(data_in.shape[0] + 1) * dt_in,
 )
+rhythm_sizes = np.diff(np.r_[rhythm_starts, data_in.shape[0]])
+
+# - Stimulate in random order and collect activities
+activities: List[TSEvent] = []
+rndm_order = np.random.permutation(rhythm_sizes.size)
+for idx_rhythm in rndm_order:
+    num_ts = rhythm_sizes[idx_rhythm]
+    activities.append(reservoir.evolve(idx_rhythm))
+# - Make sure durations of recorded beats are correct
+durations = [tse.duration * 360 for tse in activities]
+activity_sizes = np.round(durations).astype(int)
+if np.sum(np.abs(rhythm_sizes[rndm_order] - activity_sizes)) > 0:
+    warn(
+        "Rhythm times differ slightly from what is expected. This may be normal however."
+    )
+
+# - Test normal DynapSE layer
+reservoir1 = RecDynapSE(
+    weights_in=w_in,
+    weights_rec=w_rec,
+    neuron_ids=neuron_ids,
+    virtual_neuron_ids=virtual_neuron_ids,
+    max_num_trials_batch=120,
+    clearcores_list=None,
+    controller=con,
+    name="test_normal",
+    skip_weights=True,
+    skip_neuron_allocation=True,
+)
+
+ts_out = reservoir1.evolve(spike_input)
+assert isinstance(ts_out, TSEvent)
+assert ts_out.num_channels == 24
+assert ts_out.times.size > 100
