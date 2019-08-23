@@ -19,6 +19,7 @@ setup(
         "NetworksPython.layers.internal",
         "NetworksPython.layers.internal.pytorch",
         "NetworksPython.layers.internal.devices",
+        "NetworksPython.layers.utilities",
     ],
     license="All rights reserved aiCTX AG",
     install_requires=[
