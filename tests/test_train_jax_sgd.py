@@ -7,12 +7,12 @@ import pytest
 
 
 def test_imports():
-    from NetworksPython.layers.utilities import add_train_output
+    from NetworksPython.layers.training import add_train_output
 
 
 def test_adam():
     from NetworksPython.layers import RecRateEulerJax
-    from NetworksPython.layers.utilities import add_train_output
+    from NetworksPython.layers.training import add_train_output
     from NetworksPython import TSContinuous
 
     # - Generic parameters

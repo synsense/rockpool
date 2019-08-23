@@ -7,7 +7,7 @@ dModules = {".internal.train_jax_sgd": "add_train_output"}
 
 
 # - Define current package
-strBasePackage = "NetworksPython.layers.utilities"
+strBasePackage = "NetworksPython.layers.training"
 
 # - Initialise list of available modules
 __all__ = []
