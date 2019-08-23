@@ -111,18 +111,6 @@ class RecDynapSE(Layer):
         self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
         self._input_chip_id = input_chip_id
 
-        # - Determine which chips should be initialized
-        if not skip_neuron_allocation:
-            num_neur_chip = (
-                DynapseControlExtd._num_cores_chip * DynapseControlExtd._num_neur_core
-            )
-            if neuron_ids is None:
-                init_chips = np.arange(int(np.ceil((self.size + 1) / num_neur_chip)))
-            else:
-                init_chips = np.unique(np.asarray(neuron_ids) // num_neur_chip)
-        else:
-            init_chips = None
-
         # - Instantiate DynapseControl
         if controller is None:
             if dt is None:
@@ -133,15 +121,13 @@ class RecDynapSE(Layer):
                 fpga_isibase=dt,
                 clearcores_list=clearcores_list,
                 rpyc_connection=rpyc_port,
-                init_chips=init_chips,
             )
         else:
             self.controller = controller
             self.controller.fpga_isibase = dt
-            self.controller.init_chips(init_chips, enforce=False)
             self.controller.clear_connections(clearcores_list)
 
-        # - Allocate layer neurons
+        # - Allocate layer neurons (and thereby cause initialization of required chips)
         if skip_neuron_allocation:
             neuron_ids = range(1, 1 + self.size) if neuron_ids is None else neuron_ids
             self._hw_neurons = np.array(

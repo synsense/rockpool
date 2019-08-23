@@ -2,6 +2,8 @@
 This unit test for the DynapseControl, RecDynapSE and RecDynapSEDemo classes
 is intended to be run interactively, with an available cortexcontrol instance
 on port 1301 and not through the normal unit test pipeline.
+Some assertions will fail if chips other than 0 and 1 have previously been
+initialized in the current cortexcontrol instance.
 """
 
 from pathlib import Path
@@ -133,7 +135,33 @@ assert (
     con.connections_virtual[con.connections_virtual != 0] == np.array([64] * 2048)
 ).all()
 
-### --- Test layer
+## -- Neuron assignment
+# - allocate neurons that are available
+con.allocate_hw_neurons(range(1, 1024))
+# - Try to request already allocated neurons
+try:
+    con.allocate_hw_neurons(range(10, 20))
+except ValueError:
+    pass
+else:
+    raise AssertionError("Did not notice request of already allocated neurons.")
+# - Allocate the next 500 available neurons
+con.allocate_hw_neurons(500)
+# - Now there should be 523 available neurons (from 1524 to 2047) -> request 524, so that chip 2 gets initialized
+con.allocate_hw_neurons(524)
+# - Request neurons, some of which are on chip 3
+con.allocate_hw_neurons([2050, 4000])
+# - Request more neurons than can be made available
+try:
+    con.allocate_hw_neurons(2044)
+except ValueError:
+    pass
+else:
+    raise AssertionError("Did not notice request of too many neurons.")
+# - Clear neuron allocation
+con.clear_neuron_assignments(range(16))
+assert np.sum(con.hwneurons_isavailable) == 409
+### --- Dynapse layers
 
 dt = 2 / 9 * 1e-4
 dt_in = 1.0 / 360.0

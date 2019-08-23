@@ -9,7 +9,7 @@
 
 import copy
 from warnings import warn
-from typing import Tuple, List, Optional, Union, Iterable
+from typing import Tuple, List, Optional, Union, Iterable, Set
 import time
 import os
 import threading
@@ -100,6 +100,12 @@ def setup_rpyc_namespace(connection: "rpyc.core.protocol.Connection"):
     connection.namespace["params"] = connection.modules.params
     if "initialized_chips" not in connection.modules.tools.storage.keys():
         connection.modules.tools.store_var("initialized_chips", [])
+    else:
+        print(
+            "dynapse_control: Already initialized chips: {}".format(
+                connection.modules.tools.storage["initialized_chips"]
+            )
+        )
     if "initialized_neurons" not in connection.modules.tools.storage.keys():
         connection.modules.tools.store_var("initialized_neurons", [])
 
@@ -168,7 +174,9 @@ def initialize_hardware(
             # - Clear those chips and add them to list of initialized chips.
             connection.modules.tools.init_chips(do_chips)
             connection.modules.tools.store_var(
-                "initialized_chips", copy.copy(initialized_chips) + do_chips
+                "initialized_chips",
+                # `initialized_chips` needs to be copied to local environment for concatenation
+                [int(ch) for ch in np.unique(copy.copy(initialized_chips) + do_chips)],
             )
             # - Also update list of initialized neurons
             initialized_neurons = connection.modules.tools.storage.get(
@@ -1004,31 +1012,55 @@ class DynapseControl:
             # - Choose first available neurons
             num_neurons = neuron_ids
             # - Are there sufficient unallocated neurons?
-            if np.sum(self.hwneurons_isavailable) < num_neurons:
-                raise ValueError(
-                    "Insufficient unallocated neurons available. {} requested.".format(
-                        num_neurons
+            num_available_neurons = np.sum(self.hwneurons_isavailable)
+            if num_available_neurons < num_neurons:
+                num_missing_neurs = num_neurons - num_available_neurons
+                # - Check if by clearing chips, enough neurons can be made available
+                num_missing_chips = int(np.ceil(num_missing_neurs / self.num_neur_chip))
+                num_unused_chips = self.num_chips - len(initialized_chips)
+                if num_unused_chips >= num_missing_chips:
+                    print(
+                        "DynapseControl: Not sufficient neurons available. Initializing "
+                        + " chips to make more neurons available."
                     )
-                )
-            else:
-                # - Pick the first available neurons
-                ids_neurons_to_allocate = np.nonzero(self.hwneurons_isavailable)[0][
-                    :num_neurons
-                ]
+                    # - Initialize chips so that enough neurons are available
+                    all_chips: Set[int] = set(range(self.num_chips))
+                    unused_chips: Set[int] = all_chips.difference(initialized_chips)
+                    self.init_chips(list(unused_chips)[:num_missing_chips])
+                else:
+                    raise ValueError(
+                        "Insufficient unallocated neurons available "
+                        + f"({num_available_neurons}, requested: {num_neurons})."
+                    )
+            # - Pick the first available neurons
+            ids_neurons_to_allocate = np.nonzero(self.hwneurons_isavailable)[0][
+                :num_neurons
+            ]
 
         else:
             # - Choose neurons defined in neuron_ids
             ids_neurons_to_allocate = np.array(neuron_ids).flatten()
-            # - Make sure neurons are available
-            num_unavailable_neurons = np.sum(
-                self.hwneurons_isavailable[ids_neurons_to_allocate] == False
-            )
-            if num_unavailable_neurons > 0:
+            # - Make sure neurons have not been allocated already
+            already_allocated = self._hwneurons_isfree[ids_neurons_to_allocate] == False
+            if already_allocated.any():
                 raise ValueError(
-                    "{} of the requested neurons are not available.".format(
-                        num_unavailable_neurons
+                    "Some of the requested neurons have already been allocated: {}".format(
+                        ids_neurons_to_allocate[already_allocated]
                     )
                 )
+            else:
+                # - Check whether any of the requested neurons is on a not initialized chip
+                not_initialized = (
+                    np.isin(ids_neurons_to_allocate, initialized_neurons) == False
+                )
+                if not_initialized.any():
+                    print(
+                        "DynapseControl: For some of the requested neurons, "
+                        + "chips need to be prepared."
+                    )
+                    missing_neurons = ids_neurons_to_allocate[not_initialized]
+                    missing_chips = np.unique(missing_neurons // self.num_neur_chip)
+                    self.init_chips(missing_chips)
 
         # - Mark these neurons as allocated
         self._hwneurons_isfree[ids_neurons_to_allocate] = False
@@ -1073,13 +1105,13 @@ class DynapseControl:
         else:
             ids_neurons_to_allocate = np.array(neuron_ids).flatten()
             # - Make sure neurons are available
-            num_unavailable_neurons = np.sum(
+            num_unavailable_neurs = np.sum(
                 self.virtualneurons_isavailable[ids_neurons_to_allocate] == False
             )
-            if num_unavailable_neurons > 0:
+            if num_unavailable_neurs > 0:
                 raise ValueError(
                     "{} of the requested neurons are already allocated.".format(
-                        num_unavailable_neurons
+                        num_unavailable_neurs
                     )
                 )
 
