@@ -11,7 +11,7 @@ from jax import grad, jit
 from typing import Callable, Tuple, Union, Optional, Dict
 
 from NetworksPython.layers import RecRateEulerJax
-from NetworksPython import TimeSeries, TSContinuous
+from NetworksPython import TimeSeries
 import types
 
 
