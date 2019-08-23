@@ -310,8 +310,12 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         )
         self.nest_process.start()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
 
+        :return Dict:   A dictionary that can be used to reconstruct the layer
+        """
         config = super().to_dict()
         config["subthresh_adapt"] = self._subthresh_adapt.tolist()
         config["spike_adapt"] = self._spike_adapt.tolist()
