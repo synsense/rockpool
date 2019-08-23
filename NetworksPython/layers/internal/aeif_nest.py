@@ -15,7 +15,7 @@ from .iaf_nest import (
     COMMAND_GET,
     COMMAND_SET,
 )
-from ...utils import SetterArray, ImmutableArray
+from ...utilities import SetterArray, ImmutableArray
 
 
 if importlib.util.find_spec("nest") is None:

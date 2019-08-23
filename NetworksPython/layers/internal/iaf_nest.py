@@ -6,7 +6,7 @@ from warnings import warn
 import numpy as np
 
 from ...timeseries import TSContinuous, TSEvent
-from ...utils import SetterArray, ImmutableArray
+from ...utilities import SetterArray, ImmutableArray
 from ..layer import Layer
 
 if importlib.util.find_spec("nest") is None:

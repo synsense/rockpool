@@ -12,7 +12,7 @@ import numpy as np
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
-from ....utils import RefProperty
+from ....utilities import RefProperty
 from ...layer import Layer
 
 # - Configure exports

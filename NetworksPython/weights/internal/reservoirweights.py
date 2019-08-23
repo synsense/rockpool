@@ -7,7 +7,7 @@ from copy import deepcopy
 import random
 import numpy as np
 import scipy.stats as stats
-from ...utils import ArrayLike
+from ...utilities import ArrayLike
 
 
 def combine_ff_rec_stack(weights_ff: np.ndarray, weights_rec: np.ndarray) -> np.ndarray:

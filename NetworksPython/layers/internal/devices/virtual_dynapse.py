@@ -14,7 +14,7 @@ import numpy as np
 
 # NetworksPython modules
 from ....timeseries import TSEvent
-from ....utils import ArrayLike, ImmutableArray, SetterArray
+from ....utilities import ArrayLike, ImmutableArray, SetterArray
 from ...layer import Layer
 from ...internal.aeif_nest import RecAEIFSpkInNest
 from . import params

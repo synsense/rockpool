@@ -11,7 +11,7 @@ import numpy as np
 
 # - Local imports
 from ...timeseries import TSContinuous, TSEvent
-from ...utils import ArrayLike
+from ...utilities import ArrayLike
 from ..layer import Layer
 
 # - Default maximum numbers of time steps for a single evolution batch

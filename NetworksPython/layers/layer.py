@@ -7,7 +7,7 @@ import json
 import numpy as np
 
 from ..timeseries import TimeSeries, TSContinuous, TSEvent
-from ..utils import to_scalar
+from ..utilities import to_scalar
 
 # - Configure exports
 __all__ = ["Layer"]

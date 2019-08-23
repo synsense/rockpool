@@ -1,9 +1,11 @@
 """
-utils.py - Collection of useful objects used by multiple scripts in this package.
+property_arrays.py - Collection of array classes to be used as properties to control
+                     access to underlying object (e.g. to enable or disable item assignment).
 """
 
-from typing import Optional, Any, Union, List, Tuple, Callable
+from typing import Optional, Any, Union, Callable
 import numpy as np
+from .type_handling import ArrayLike
 
 # - Try to import PyTorch functions
 try:
@@ -17,24 +19,9 @@ except ModuleNotFoundError:
     def from_numpy(o):
         return o
 
+
 # - Configure exports
-__all__ = ["ArrayLike", "SetterArray", "ImmutableArray", "RefArray", "RefProperty"]
-
-# - Type alias for array-like objects
-ArrayLike = Union[np.ndarray, List, Tuple]
-
-
-### --- Convenience functions
-
-
-def to_scalar(value, str_type: str = None):
-    # - Check the value is a scalar
-    assert np.size(value) == 1, "The value must be a scalar"
-
-    if str_type is not None:
-        return np.asscalar(np.array(value).astype(str_type))
-    else:
-        return np.asscalar(np.array(value))
+__all__ = ["SetterArray", "ImmutableArray", "RefArray", "RefProperty"]
 
 
 ### --- Customized subclasses of np.ndarray
