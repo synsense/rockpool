@@ -419,7 +419,7 @@ class FFRateEuler(Layer):
                 + "supported. Use `rr` for ridge regression."
             )
         # - Call training method
-        training_method(
+        return training_method(
             ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
         )
 
