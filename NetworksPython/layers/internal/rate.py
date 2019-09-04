@@ -383,6 +383,46 @@ class FFRateEuler(Layer):
         # - Return final state
         return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
 
+    def train(
+        self,
+        ts_target: TSContinuous,
+        ts_input: TSContinuous,
+        is_first: bool,
+        is_last: bool,
+        method: str = "rr",
+        **kwargs,
+    ):
+        """
+        train - Wrapper to standardize training syntax across layers. Use
+                specified training method to train layer for current batch.
+        :param ts_target: Target time series for current batch.
+        :param ts_input:  Input to the layer during the current batch.
+        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
+        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
+        :param method:    String indicating which training method to choose.
+                          Currently only ridge regression ("rr") is supported.
+        kwargs will be passed on to corresponding training method.
+        """
+        # - Choose training method
+        if method in {
+            "rr",
+            "ridge",
+            "ridge regression",
+            "regression",
+            "linear regression",
+            "linreg",
+        }:
+            training_method = self.train_rr
+        else:
+            raise ValueError(
+                f"FFRateEuler `{self.name}`: Training method `{method}` is currently not "
+                + "supported. Use `rr` for ridge regression."
+            )
+        # - Call training method
+        training_method(
+            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
+        )
+
     def train_rr(
         self,
         ts_target: TSContinuous,
@@ -812,6 +852,7 @@ class RecRateEuler(Layer):
 
     .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` demonstrates using this layer.
     """
+
     def __init__(
         self,
         weights: np.ndarray,

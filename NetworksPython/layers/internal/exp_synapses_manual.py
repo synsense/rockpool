@@ -313,6 +313,50 @@ class FFExpSyn(Layer):
         # - Output time series with output data and bias
         return TSContinuous(time_base, out, name="Receiver current")
 
+    def train(
+        self,
+        ts_target: TSContinuous,
+        ts_input: TSContinuous,
+        is_first: bool,
+        is_last: bool,
+        method: str = "rr",
+        **kwargs,
+    ):
+        """
+        train - Wrapper to standardize training syntax across layers. Use
+                specified training method to train layer for current batch.
+        :param ts_target: Target time series for current batch.
+        :param ts_input:  Input to the layer during the current batch.
+        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
+        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
+        :param method:    String indicating which training method to choose.
+                          Currently only ridge regression ("rr") and logistic
+                          regression are supported.
+        kwargs will be passed on to corresponding training method.
+        """
+        # - Choose training method
+        if method in {
+            "rr",
+            "ridge",
+            "ridge regression",
+            "regression",
+            "linear regression",
+            "linreg",
+        }:
+            training_method = self.train_rr
+        elif method in {"logreg", "logistic", "logistic regression"}:
+            training_method = self.train_logreg
+        else:
+            raise ValueError(
+                f"FFExpSyn `{self.name}`: Training method `{method}` is currently not "
+                + "supported. Use `rr` for ridge regression or `logreg` for logistic "
+                + "regression."
+            )
+        # - Call training method
+        training_method(
+            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
+        )
+
     def train_rr(
         self,
         ts_target: TSContinuous,
@@ -323,7 +367,6 @@ class FFExpSyn(Layer):
         store_states: bool = True,
         train_biases: bool = True,
     ):
-
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
