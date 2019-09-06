@@ -18,7 +18,7 @@ The -e option allows you to install this as a development version so you can mak
 
 If you want to install all the extra dependencies required for NEST, Brian, PyTorch and Jax layers, use the command
 
-`$ pip insyall -e .[all] --user`
+`$ pip install -e .[all] --user`
 
 License
 =======
