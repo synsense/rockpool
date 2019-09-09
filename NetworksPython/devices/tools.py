@@ -34,6 +34,7 @@ __all__ = [
     "remove_all_connections_to",
     "remove_all_connections_from",
     "set_connections",
+    "get_connection_info",
     "silence_neurons",
     "reset_silencing",
 ]
