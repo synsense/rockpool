@@ -28,6 +28,7 @@ class Layer(ABC):
 
     .. seealso:: See :ref:`layersdocs` for examples of instantiating and using :py:class:`Layer` subclasses. See :ref:`extending` for how to design and implement a new :py:class:`Layer` subclass.
     """
+
     def __init__(
         self,
         weights: np.ndarray,
@@ -474,6 +475,11 @@ class Layer(ABC):
         :param str filename:    Path of file where parameters are to be stored
         """
         config = self.to_dict()
+        assert isinstance(config, dict), (
+            self.start_print
+            + "This should not have happened. If you encounter this statement, please "
+            + f"the developers of this package. ({self.class_name})"
+        )
         self.save(config, filename)
 
     @classmethod

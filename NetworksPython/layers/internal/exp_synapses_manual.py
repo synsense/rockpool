@@ -756,6 +756,8 @@ class FFExpSyn(Layer):
         config["name"] = self.name
         config["add_events"] = self.add_events
 
+        return config
+
     ### --- Properties
 
     @property
