@@ -11,7 +11,7 @@ def test_butter_mel_filter():
 
     fs = 16000
 
-    filter_layer = ButterMelFilter(fs=fs)
+    filter_layer = ButterMelFilter(fs=fs, num_workers=2)
 
     signal = np.load(base_path + "/files/TC4KW.npy")
     filtered = np.load(base_path + "/files/TC4KW_ButterMelWithLPF.npy")

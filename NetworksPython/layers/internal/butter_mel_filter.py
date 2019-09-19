@@ -18,6 +18,7 @@ class ButterMelFilter(Layer):
         name: str = "unnamed",
         cutoff_fs: float = 100,
         num_filters: int = 64,
+        num_passthrough_dimensions = 0,
         mean_subtraction = False,
         normalize = False,
         order:int = 2,
@@ -32,6 +33,8 @@ class ButterMelFilter(Layer):
         :param name:         str Name for the layer. Default: 'unnamed'
         :param cutoff_fs:        float frequency to lowpass the output of the filters. Default: 100 Hz
         :param num_filters:            int number of filters Default: 64
+        :param num_passthrough_dimensions: int The first input dimension is filtered, the next num_passthrough_dimensions
+                                               are passed through. Default: 0
         :param mean_subtraction: bool True in fft filterbank subtract the mean per channel False otherwise
         :param order: int order of the butterworth filter. Default: 2
         :param num_workers: int number of workers for running the filters. Default: 1
@@ -39,7 +42,7 @@ class ButterMelFilter(Layer):
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
-            weights=np.ones([1, num_filters]),
+            weights=np.ones([1 + num_passthrough_dimensions, num_filters + num_passthrough_dimensions]),
             dt=np.asarray(dt),
             name=name,
         )
@@ -49,6 +52,7 @@ class ButterMelFilter(Layer):
         self.cutoff_fs = cutoff_fs
         self.mean_subtraction = mean_subtraction
         self.num_filters = num_filters
+        self.num_passthrough_dimensions = num_passthrough_dimensions
         self.normalize = normalize
         self.order = order
         self.num_workers = num_workers
@@ -86,6 +90,9 @@ class ButterMelFilter(Layer):
         """
         return 2595 * np.log10(1 + x / 700)
 
+    def terminate(self):
+        if not self.pool == None:
+            self.pool.close()
 
     def mel2hz(x: float):
         """
@@ -144,12 +151,20 @@ class ButterMelFilter(Layer):
         if self.mean_subtraction:
             filtOutput -= np.mean(filtOutput)
 
+        # passthrough
+        passthrough_data = input_step[:, 1:].T
+        # subsample to be in the same shape as filt output
+        passthrough_data = passthrough_data[:, ::int(np.shape(passthrough_data)[1]/np.shape(filtOutput)[0])].T[:len(filtOutput), :]
+
+        output = np.hstack([filtOutput, passthrough_data])
+
+
         if verbose:
-            print(filtOutput)
+            print(output)
 
         return TSContinuous(
             vtTimeBase,
-            filtOutput,
+            output,
             name="filteredInput")
 
 
@@ -163,6 +178,7 @@ class ButterMelFilter(Layer):
         config['num_filters'] = self.num_filters
         config['cutoff_fs'] = self.cutoff_fs
         config['mean_subtraction'] = self.mean_subtraction
+        config['num_passthrough_dimensions'] = self.num_passthrough_dimensions
         config['order'] = self.order
         config['num_workers'] = self.num_workers
         config["class_name"] = "ButterMelFilter"
@@ -180,6 +196,7 @@ class ButterMelFilter(Layer):
             num_filters=config['num_filters'],
             cutoff_fs=config['cutoff_fs'],
             mean_subtraction=config['mean_subtraction'],
+            num_passthrough_dimensions=config['num_passthrough_dimensions'],
             order=config['order'],
             num_workers=config['num_workers']
         )
@@ -197,6 +214,7 @@ class ButterMelFilter(Layer):
             num_filters=config['num_filters'],
             cutoff_fs=config['cutoff_fs'],
             mean_subtraction=config['mean_subtraction'],
+            num_passthrough_dimensions=config['num_passthrough_dimensions'],
             order=config['order'],
             num_workers=config['num_workers']
         )
