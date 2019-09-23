@@ -25,8 +25,8 @@ class ButterMelFilter(Layer):
         num_workers: int = 1,
     ):
         """
-        FFIAFBrian - Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end
-                     Inputs are continuous currents; outputs are spiking events
+        ButterMelFilter - Layer which applies the butterworth filter in MEL scale to a one-dimensional input signal.
+                          Further dimensions can be passed through the layer without being filtered.
 
         :param fs:              float sampling frequency of input signal
         :param dt:             float Time-step. Default: 0.1 ms
