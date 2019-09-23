@@ -4,14 +4,14 @@ updown.py - Feedforward layer that converts each analogue input channel to one s
             to be slower..
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 import json
 
 import numpy as np
 
 # - Local imports
 from ...timeseries import TSContinuous, TSEvent
-from ...utils import ArrayLike
+from ...utilities import ArrayLike
 from ..layer import Layer
 
 # - Default maximum numbers of time steps for a single evolution batch
@@ -28,7 +28,7 @@ class FFUpDown(Layer):
     ## - Constructor
     def __init__(
         self,
-        weights: Union[int, np.ndarray],
+        weights: Union[int, np.ndarray, Tuple[int, int]],
         repeat_output: int = 1,
         dt: float = 0.001,
         tau_decay: Union[ArrayLike, float, None] = None,

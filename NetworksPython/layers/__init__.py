@@ -44,6 +44,9 @@ dModules = {
 # - Define current package
 strBasePackage = "NetworksPython.layers"
 
+# - Define docstring for module
+__doc__ = """Defines classes for simulating layers of neurons"""
+
 # - Initialise list of available modules
 __all__ = []
 

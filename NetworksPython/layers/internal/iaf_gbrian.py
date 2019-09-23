@@ -706,6 +706,48 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
         return fConst * (np.exp(-t / self.tau_syn) - np.exp(-t / self.tau_mem))
 
+    def train(
+        self,
+        ts_target: None,
+        ts_input: TSContinuous,
+        is_first: bool,
+        is_last: bool,
+        method: str = "mst",
+        **kwargs,
+    ):
+        """
+        train - Wrapper to standardize training syntax across layers. Use
+                specified training method to train layer for current batch.
+        :param ts_target: Target time series for current batch. Can be skipped for `mst` method.
+        :param ts_input:  Input to the layer during the current batch.
+        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
+        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
+        :param method:    String indicating which training method to choose.
+                          Currently only multi-spike tempotron ("mst") is supported.
+        kwargs will be passed on to corresponding training method.
+        For 'mst' method, kwargs `duration` and `t_start` must be provided.
+        """
+        # - Choose training method
+        if method in {"mst", "multi-spike tempotron"}:
+            if "duration" not in kwargs.keys():
+                raise TypeError(
+                    f"FFIAFSpkInBrian `{self.name}`: For multi-spike tempotron, argument "
+                    + "`duration` must be provided."
+                )
+            if "t_start" not in kwargs.keys():
+                raise TypeError(
+                    f"FFIAFSpkInBrian `{self.name}`: For multi-spike tempotron, argument "
+                    + "`t_start` must be provided."
+                )
+            self.train_mst_simple(
+                ts_input=ts_input, is_first=is_first, is_last=is_last, **kwargs
+            )
+        else:
+            raise ValueError(
+                f"FFIAFSpkInBrian `{self.name}`: Training method `{method}` is currently "
+                + "not supported. Use `mst` for multi-spike tempotron."
+            )
+
     def train_mst_simple(
         self,
         duration: float,

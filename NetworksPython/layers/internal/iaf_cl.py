@@ -1,16 +1,26 @@
 ###
-# iaf_cl.py - Classes implementing feedforward and recurrent
-#             layers consisting of I&F-neurons with constant
-#             leak. Clock based.
+# Classes implementing feedforward and recurrent layers consisting of I&F-neurons with constant leak. Clock based.
 ###
 
 import numpy as np
 from typing import Optional, Union
-from tqdm import tqdm
 from collections import deque
 from ...timeseries import TSEvent, TSContinuous
-from ...utils import ArrayLike
+from ...utilities import ArrayLike
 from .. import Layer
+
+# - Try to import tqdm
+try:
+    from tqdm.autonotebook import tqdm
+    __use_tqdm = True
+
+except ModuleNotFoundError:
+    __use_tqdm = False
+
+    # - Define a fake tqdm shim
+    def tqdm(iter, *args, **kwargs):
+        return iter
+
 
 # - Absolute tolerance, e.g. for comparing float values
 tol_abs = 1e-9
@@ -20,31 +30,30 @@ __all__ = ["FFCLIAF", "RecCLIAF"]
 
 class CLIAF(Layer):
     """
-    CLIAF - Abstract layer class of integrate and fire neurons with constant leak
+    Abstract layer class of integrate and fire neurons with constant leak
     """
 
     def __init__(
         self,
         weights_in: np.ndarray,
-        bias: Union[ArrayLike, float] = 0,
-        v_thresh: Union[ArrayLike, float] = 8,
-        v_reset: Union[ArrayLike, float] = 0,
-        v_subtract: Union[ArrayLike, float, None] = 8,
-        dt: float = 1,
+        bias: Union[ArrayLike, float] = 0.,
+        v_thresh: Union[ArrayLike, float] = 8.,
+        v_reset: Union[ArrayLike, float] = 0.,
+        v_subtract: Union[ArrayLike, float, None] = 8.,
+        dt: float = 1.,
         monitor_id: Union[bool, int, None, ArrayLike] = [],
         name: str = "unnamed",
     ):
         """
-        CLIAF - Feedforward layer of integrate and fire neurons with constant leak
+        Feedforward layer of integrate and fire neurons with constant leak
 
-        :param weights_in:       array-like  Input weight matrix
-        :param bias:     array-like  Constant bias to be added to state at each time step
-        :param v_thresh:   array-like  Spiking threshold
-        :param v_reset:    array-like  Reset potential after spike (also see param bSubtract)
-        :param v_subtract: array-like  If not None, subtract provided values
-                                        from neuron state after spike. Otherwise will reset.
-        :monitor_id:       array-like  IDs of neurons to be recorded
-        :param name:     str  Name of this layer.
+        :param ArrayLike[float] weights_in:             Input weight matrix
+        :param Optional[ArrayLike[float]] bias:         Constant bias to be added to state at each time step. Default: 0.0
+        :param Optional[ArrayLike[float]] v_thresh:     Spiking threshold. Default: 8.0
+        :param Optional[ArrayLike[float]] v_reset:      Reset potential after spike (also see param `v_subtract`). Default: 8.0
+        :param Optional[ArrayLike[float]] v_subtract:   If not `None`, subtract provided values from neuron state after spike. Otherwise neurons will reset on each spike
+        :param Optional[ArrayLike[int]] monitor_id:     IDs of neurons to be recorded. Default: [], do not monitor any neurons
+        :param Optional[str] name:                      Name of this layer. Default: 'unnamed'
         """
 
         # Call parent constructor

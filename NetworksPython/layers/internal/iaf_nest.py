@@ -6,7 +6,7 @@ from warnings import warn
 import numpy as np
 
 from ...timeseries import TSContinuous, TSEvent
-from ...utils import ImmutableArray, SetterArray
+from ...utilities import SetterArray, ImmutableArray
 from ..layer import Layer
 
 if importlib.util.find_spec("nest") is None:
@@ -31,6 +31,10 @@ def mV2V(v):
 
 def A2mA(i):
     return i * 1000.0
+
+
+def mA2A(i):
+    return i / 1000.0
 
 
 def F2mF(c):
@@ -107,6 +111,12 @@ class _BaseNestProcess(multiprocessing.Process):
         self.nest_module.SetKernelStatus({"time": 0.0})
 
     def record_states(self, t_start: float) -> np.ndarray:
+        """
+        record_states - Record neuron states over time.
+        :param t_start:  Time from which on events should be recorded.
+        :return:
+            2D-Array of recorded neuron states
+        """
         events = self.nest_module.GetStatus(self._mm, "events")[0]
         use_event = events["times"] >= t_start
 
@@ -126,8 +136,16 @@ class _BaseNestProcess(multiprocessing.Process):
         return np.array(recorded_states)
 
     def evolve_nest(
-        self, num_timesteps: Optional[int] = None
+        self, num_timesteps: int
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
+        """
+        evolve_nest - Evolve state of nest simulation by defined number of timesteps.
+        :param num_timesteps:  Number of timesteps over which to evolve.
+        :return:
+            1D-array of recorded event times
+            1D-array of recorded event channels
+            If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+        """
         t_start = self.nest_module.GetKernelStatus("time")
 
         if t_start == 0:
@@ -158,11 +176,33 @@ class _BaseNestProcess(multiprocessing.Process):
             return [event_time_out, event_channel_out, None]
 
     def evolve(
-        self, event_times, event_channels, num_timesteps: Optional[int] = None
+        self, event_times, event_channels, num_timesteps: int
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-        """ IPC command running the network for num_timesteps with input_steps as input """
-
+        """
+        evolve - Evolve state of nest simulation by defined number of timesteps.
+        :param event_times:  Only used in child classes
+        :param event_channels:  Only used in child classes
+        :param num_timesteps:  Number of timesteps over which to evolve.
+        :return:
+            1D-array of recorded event times
+            1D-array of recorded event channels
+            If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+        """
         return self.evolve_nest(num_timesteps)
+
+    def read_weights(self, pop_pre: Tuple[int], pop_post: Tuple[int]):
+        # - Read out connections and convert to array
+        connections = self.nest_module.GetConnections(pop_pre, pop_post)
+        ids_pre, ids_post = np.array(connections)[:, :2].T
+        # - Map population IDs to indices starting from 0
+        ids_pre -= pop_pre[0]
+        ids_post -= pop_post[0]
+        # - Read out weights from connections
+        weights = self.nest_module.GetStatus(connections, "weight")
+        # - Generate weight matrix
+        weight_array = np.zeros((len(pop_pre), len(pop_post)))
+        weight_array[ids_pre, ids_post] = weights
+        return weight_array
 
     def update_weights(
         self,
@@ -314,6 +354,10 @@ class _BaseNestProcess(multiprocessing.Process):
         return params
 
     def set_all_connections(self):
+        """
+        set_all_connections - To be used for setting up layer connections. Is called
+                              from `self.setup_nest_network'.
+        """
         pass
 
     def set_connections(
@@ -324,6 +368,16 @@ class _BaseNestProcess(multiprocessing.Process):
         delays: Optional[np.ndarray] = None,
         connection_exists: Optional[np.ndarray] = None,
     ):
+        """
+        set_connections - Set connections between two neuron groups.
+        :param pop_pre:  Presynaptic (nest) population
+        :param pop_post:  Postsynaptic (nest) population
+        :param weights: 2D-array of weights to be set.
+        :param delays:  If not `None`: 2D-array of delays to be set.
+        :param connections:  If not `None`, 2D boolean array to indicate which
+                             connections exist. Will be set to `True` for
+                             non-zero connections that are set here.
+        """
         # - Indices of pre- and postsynaptic nonzero weights
         idcs_pre, idcs_post = np.nonzero(weights)
         # - Global IDs of pre- and postsynaptic neurons
@@ -428,6 +482,16 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
     ######### DEFINE IPC COMMANDS ######
 
+    def get_param(self, name):
+        """ IPC command for getting a parameter """
+        if name == "weights_in":
+            vms = self.read_weights(pop_pre=self._sg, pop_post=self._pop)
+        elif name == "weights_rec":
+            vms = self.read_weights(pop_pre=self._pop, pop_post=self._pop)
+        else:
+            vms = self.nest_module.GetStatus(self._pop, name)
+        return vms
+
     def set_param(self, name, value):
         """ IPC command for setting a parameter """
 
@@ -457,9 +521,18 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
             super().set_param(name, value)
 
     def evolve(
-        self, event_times, event_channels, num_timesteps: Optional[int] = None
+        self, event_times: np.ndarray, event_channels: np.ndarray, num_timesteps: int
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-        """ IPC command running the network for num_timesteps with input_steps as input """
+        """
+        evolve - Evolve state of nest simulation by defined number of timesteps.
+        :param event_times:  Input spike times
+        :param event_channels:  Input spike channels
+        :param num_timesteps:  Number of timesteps over which to evolve.
+        :return:
+            1D-array of recorded event times
+            1D-array of recorded event channels
+            If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+        """
         if len(event_channels > 0):
             # convert input index to NEST id
             event_channels += np.min(self._sg)
@@ -475,6 +548,12 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         return self.evolve_nest(num_timesteps)
 
     def setup_nest_network(self):
+        """
+        setup_nest_objects - Generate nest objects (neurons, input generators,
+                             monitors,...) and connect them. In addition to
+                             parent class generate spike generator object for
+                             input events.
+        """
         # - Add stimulation device
         self._sg = self.nest_module.Create("spike_generator", self.weights_in.shape[0])
 
@@ -559,7 +638,12 @@ class FFIAFNest(Layer):
             self.connection_exists = np.zeros_like(self.weights, bool)
 
         def setup_nest_network(self):
-
+            """
+            setup_nest_objects - Generate nest objects (neurons, input generators,
+                                 monitors,...) and connect them. In addition to
+                                 parent class generate step current generator for
+                                 inputs.
+            """
             # - Add stimulation device
             self._scg = self.nest_module.Create(
                 "step_current_generator", self.weights.shape[0]
@@ -587,6 +671,14 @@ class FFIAFNest(Layer):
 
         ######### DEFINE IPC COMMANDS ######
 
+        def get_param(self, name):
+            """ IPC command for getting a parameter """
+            if name == "weights":
+                vms = self.read_weights(pop_pre=self._scg, pop_post=self._pop)
+            else:
+                vms = self.nest_module.GetStatus(self._pop, name)
+            return vms
+
         def set_param(self, name, value):
             """ IPC command for setting a parameter """
 
@@ -605,9 +697,18 @@ class FFIAFNest(Layer):
                 super().set_param(name, value)
 
         def evolve(
-            self, time_base, input_steps, num_timesteps: Optional[int] = None
+            self, time_base: np.ndarray, input_steps: np.ndarray, num_timesteps: int
         ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
-            """ IPC command running the network for num_timesteps with input_steps as input """
+            """
+            evolve - Evolve state of nest simulation by defined number of timesteps.
+            :param time_base:  Input time base
+            :param input_steps:  Input current steps
+            :param num_timesteps:  Number of timesteps over which to evolve.
+            :return:
+                1D-array of recorded event times
+                1D-array of recorded event channels
+                If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+            """
 
             # NEST time starts with 1 (not with 0)
             time_base = s2ms(time_base) + 1
@@ -758,7 +859,15 @@ class FFIAFNest(Layer):
 
     # --- State evolution
 
-    def _process_evolution_output(self, num_timesteps: int):
+    def _process_evolution_output(self, num_timesteps: int) -> TSEvent:
+        """
+        _process_evolution_output - Internal method for processing recorded
+                                    event data and neuron states after evolution
+                                    into TSEvent objects.
+        :param num_timesteps:  Evolution duration in timesteps.
+        :return:
+            TSEvent with the recorded events
+        """
         if self.record:
             event_time_out, event_channel_out, recorded_states_array = (
                 self.result_q.get()
@@ -821,6 +930,7 @@ class FFIAFNest(Layer):
         return self._process_evolution_output(num_timesteps)
 
     def terminate(self):
+        """ terminate - Cleanly terminate underlying nest process. """
         self.request_q.close()
         self.result_q.close()
         self.request_q.cancel_join_thread()
@@ -828,7 +938,12 @@ class FFIAFNest(Layer):
         self.nest_process.terminate()
         self.nest_process.join()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
+
+        :return Dict:   A dictionary that can be used to reconstruct the layer
+        """
 
         config = {}
         config["weights"] = self.weights.tolist()
@@ -856,6 +971,12 @@ class FFIAFNest(Layer):
     @property
     def weights(self):
         return SetterArray(self._weights, owner=self, name="weights")
+
+    @property
+    def weights_(self):
+        self.request_q.put([COMMAND_GET, "weights"])
+        weights = mA2A(self.result_q.get())
+        return ImmutableArray(weights, name=self.start_print)
 
     @weights.setter
     def weights(self, new_weights):
@@ -1202,7 +1323,12 @@ class RecIAFSpkInNest(FFIAFNest):
 
         return self._process_evolution_output(num_timesteps)
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
+
+        :return Dict:   A dictionary that can be used to reconstruct the layer
+        """
         config = super().to_dict()
         config.pop("weights")
         config["weights_in"] = self._weights_in.tolist()
@@ -1225,6 +1351,12 @@ class RecIAFSpkInNest(FFIAFNest):
     def weights_in(self):
         return SetterArray(self._weights_in, owner=self, name="weights_in")
 
+    @property
+    def weights_in_(self):
+        self.request_q.put([COMMAND_GET, "weights_in"])
+        weights = mA2A(self.result_q.get())
+        return ImmutableArray(weights, name=self.start_print)
+
     @weights_in.setter
     def weights_in(self, new_weights):
         self._weights_in = self._expand_to_shape(
@@ -1235,6 +1367,12 @@ class RecIAFSpkInNest(FFIAFNest):
     @property
     def weights_rec(self):
         return SetterArray(self._weights_rec, owner=self, name="weights_rec")
+
+    @property
+    def weights_rec_(self):
+        self.request_q.put([COMMAND_GET, "weights_rec"])
+        weights = mA2A(self.result_q.get())
+        return ImmutableArray(weights, name=self.start_print)
 
     @weights_rec.setter
     def weights_rec(self, new_weights):

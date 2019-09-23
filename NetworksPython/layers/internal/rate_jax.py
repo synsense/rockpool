@@ -15,7 +15,7 @@ from jax import jit
 from jax.lax import scan
 import jax.random as rand
 import numpy as onp
-from typing import Optional, Tuple, Callable, Union, Any
+from typing import Optional, Tuple, Callable, Union
 from warnings import warn
 
 FloatVector = Union[float, np.ndarray]
@@ -225,7 +225,6 @@ class RecRateEulerJax(Layer):
         tau = np.array(tau)
         bias = np.array(bias)
 
-
         # - Get information about network size
         self._num_inputs = w_in.shape[0]
         self._size = w_in.shape[1]
@@ -382,10 +381,12 @@ class RecRateEulerJax(Layer):
         config["w_out"] = self.w_out.tolist()
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
-        config["noise_std"] = self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
+        config["noise_std"] = (
+            self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
+        )
         config["dt"] = self.dt
         config["name"] = self.name
-        #config["rng_key"] = [int(k) for k in self._rng_key]
+        # config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "

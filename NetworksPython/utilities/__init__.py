@@ -3,7 +3,15 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {".internal.train_jax_sgd": "add_train_output"}
+dModules = {
+    ".internal.property_arrays": (
+        "SetterArray",
+        "ImmutableArray",
+        "RefArray",
+        "RefProperty",
+    ),
+    ".internal.type_handling": ("ArrayLike", "to_scalar"),
+}
 
 
 # - Define current package

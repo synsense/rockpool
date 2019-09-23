@@ -1,8 +1,6 @@
 # ----
 # params.py - Constant hardware parameters
-# Author: Felix Bauer, aiCTX AG, felix.bauer@aictx.ai
-#
-# Copyright: aiCTX AG, 2019
+# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
 # ----
 
 SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded to SRAM
@@ -18,3 +16,12 @@ NUM_NEURONS_CORE = (
 NUM_CORES_CHIP = 4  # Number of cores per chip
 NUM_NEURONS_CHIP = NUM_NEURONS_CORE * NUM_CORES_CHIP  # Number of neurons per chip
 NUM_CHIPS = 4  # Number of available chips
+CAMTYPES = [
+    "FAST_EXC",
+    "SLOW_EXC",
+    "FAST_INH",
+    "SLOW_INH",
+]  # Names of available synapse types
+DEF_CAM_STR = (
+    "SLOW_INH"
+)  # Probably. In ctxctl it is `SLOW_EXC` but that seems to be wrong
