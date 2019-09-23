@@ -6,18 +6,18 @@
 # - Imports
 import json
 from warnings import warn
-from typing import Union, Optional
+from typing import Union, Optional, Dict
 import numpy as np
 from scipy.signal import fftconvolve
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
 from ..exp_synapses_manual import FFExpSyn
-from ....utils import RefProperty
+from ....utilities import RefProperty
 
 
 # - Configure exports
-__all__ = ["FFExpSyn"]
+__all__ = ["FFExpSynTorch"]
 
 # - Absolute tolerance, e.g. for comparing float values
 tol_abs = 1e-9
@@ -216,6 +216,50 @@ class FFExpSynTorch(FFExpSyn):
 
         return filtered
 
+    def train(
+        self,
+        ts_target: TSContinuous,
+        ts_input: TSContinuous,
+        is_first: bool,
+        is_last: bool,
+        method: str = "rr",
+        **kwargs,
+    ):
+        """
+        train - Wrapper to standardize training syntax across layers. Use
+                specified training method to train layer for current batch.
+        :param ts_target: Target time series for current batch.
+        :param ts_input:  Input to the layer during the current batch.
+        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
+        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
+        :param method:    String indicating which training method to choose.
+                          Currently only ridge regression ("rr") and logistic
+                          regression are supported.
+        kwargs will be passed on to corresponding training method.
+        """
+        # - Choose training method
+        if method in {
+            "rr",
+            "ridge",
+            "ridge regression",
+            "regression",
+            "linear regression",
+            "linreg",
+        }:
+            training_method = self.train_rr
+        elif method in {"logreg", "logistic", "logistic regression"}:
+            training_method = self.train_logreg
+        else:
+            raise ValueError(
+                f"FFExpSynTorch `{self.name}`: Training method `{method}` is currently "
+                + "not supported. Use `rr` for ridge regression or `logreg` for logistic "
+                + "regression."
+            )
+        # - Call training method
+        return training_method(
+            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
+        )
+
     def train_rr(
         self,
         ts_target: TSContinuous,
@@ -226,7 +270,8 @@ class FFExpSynTorch(FFExpSyn):
         store_states: bool = True,
         train_biases: bool = True,
         calc_intermediate_results: bool = False,
-    ):
+        return_training_progress: bool = False,
+    ) -> Union[Dict, None]:
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
@@ -244,6 +289,12 @@ class FFExpSynTorch(FFExpSyn):
                                        Otherwise present biases will be ignored in
                                        training and not be changed.
         :param calc_intermediate_results: bool - If True, calculates the intermediate weights not in the final batch
+        :param return_training_progress: bool - If True, return dict of current training
+                                               variables for each batch.
+        :return:
+            If `return_training_progress`, return dict with current trainig variables
+            (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
+            Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -384,12 +435,23 @@ class FFExpSynTorch(FFExpSyn):
                 self._xty = new_xty
                 self._xtx = new_xtx
 
+                if return_training_progress:
+                    current_trainig_progress = dict(
+                        xty=self._xty.cpu().numpy(),
+                        xtx=self._xtx.cpu().numpy(),
+                        kahan_comp_xty=self.kahan_comp_xty.cpu().numpy(),
+                        kahan_comp_xtx=self.kahan_comp_xtx.cpu().numpy(),
+                    )
+
                 if store_states:
                     # - Store last state for next batch
                     if train_biases:
                         self._training_state = inp[-1, :-1].clone()
                     else:
                         self._training_state = inp[-1, :].clone()
+                    current_trainig_progress[
+                        "training_state"
+                    ] = self._training_state.cpu().numpy()
 
                 if calc_intermediate_results:
                     a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
@@ -401,6 +463,9 @@ class FFExpSynTorch(FFExpSyn):
                         self.bias = solution[-1, :]
                     else:
                         self.weights = solution
+                    if return_training_progress:
+                        current_trainig_progress["weights"] = self.weights
+                        current_trainig_progress["bias"] = self.bias
             else:
                 # - In final step do not calculate rounding error but update matrices directly
                 self._xty += upd_xty
@@ -421,12 +486,23 @@ class FFExpSynTorch(FFExpSyn):
                 else:
                     self.weights = solution
 
+                if return_training_progress:
+                    current_trainig_progress = dict(
+                        xty=self._xty.cpu().numpy(),
+                        xtx=self._xtx.cpu().numpy(),
+                        bias=self.bias,
+                        weights=self.weights,
+                    )
+
                 # - Remove data stored during this trainig
                 self._xty = None
                 self._xtx = None
                 self._kahan_comp_xty = None
                 self._kahan_comp_xtx = None
                 self._training_state = None
+
+                if return_training_progress:
+                    return current_trainig_progress
 
     def train_logreg(
         self,

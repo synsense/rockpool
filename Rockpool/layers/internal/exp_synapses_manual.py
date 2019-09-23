@@ -4,17 +4,13 @@
 
 
 # - Imports
-from typing import Union
+from typing import Optional, Union, Tuple, List, Dict
 import numpy as np
 from scipy.signal import fftconvolve
-import torch
 
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
 
-from typing import Optional, Union, Tuple, List
-
-from warnings import warn
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -313,6 +309,50 @@ class FFExpSyn(Layer):
         # - Output time series with output data and bias
         return TSContinuous(time_base, out, name="Receiver current")
 
+    def train(
+        self,
+        ts_target: TSContinuous,
+        ts_input: TSContinuous,
+        is_first: bool,
+        is_last: bool,
+        method: str = "rr",
+        **kwargs,
+    ):
+        """
+        train - Wrapper to standardize training syntax across layers. Use
+                specified training method to train layer for current batch.
+        :param ts_target: Target time series for current batch.
+        :param ts_input:  Input to the layer during the current batch.
+        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
+        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
+        :param method:    String indicating which training method to choose.
+                          Currently only ridge regression ("rr") and logistic
+                          regression are supported.
+        kwargs will be passed on to corresponding training method.
+        """
+        # - Choose training method
+        if method in {
+            "rr",
+            "ridge",
+            "ridge regression",
+            "regression",
+            "linear regression",
+            "linreg",
+        }:
+            training_method = self.train_rr
+        elif method in {"logreg", "logistic", "logistic regression"}:
+            training_method = self.train_logreg
+        else:
+            raise ValueError(
+                f"FFExpSyn `{self.name}`: Training method `{method}` is currently not "
+                + "supported. Use `rr` for ridge regression or `logreg` for logistic "
+                + "regression."
+            )
+        # - Call training method
+        return training_method(
+            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
+        )
+
     def train_rr(
         self,
         ts_target: TSContinuous,
@@ -322,8 +362,9 @@ class FFExpSyn(Layer):
         is_last: bool = False,
         store_states: bool = True,
         train_biases: bool = True,
-    ):
-
+        calc_intermediate_results: bool = False,
+        return_training_progress: bool = True,
+    ) -> Union[Dict, None]:
         """
         train_rr - Train self with ridge regression over one of possibly
                    many batches. Use Kahan summation to reduce rounding
@@ -331,15 +372,22 @@ class FFExpSyn(Layer):
                    previous batches.
         :param ts_target:        TimeSeries - target for current batch
         :param ts_input:         TimeSeries - input to self for current batch
-        :regularize:           float - regularization for ridge regression
-        :is_first:                bool - True if current batch is the first in training
+        :regularize:             float - regularization for ridge regression
+        :is_first:               bool - True if current batch is the first in training
         :is_last:                bool - True if current batch is the last in training
         :store_states:           bool - Include last state from previous training and store state from this
                                        traning. This has the same effect as if data from both trainings
                                        were presented at once.
-        :param train_biases:    bool - If True, train biases as if they were weights
-                                       Otherwise present biases will be ignored in
-                                       training and not be changed.
+        :param train_biases:     bool - If True, train biases as if they were weights
+                                        Otherwise present biases will be ignored in
+                                        training and not be changed.
+        :param calc_intermediate_results: bool - If True, calculates the intermediate weights not in the final batch
+        :param return_training_progress:  bool - If True, return dict of current training
+                                                 variables for each batch.
+        :return:
+            If `return_training_progress`, return dict with current trainig variables
+            (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
+            Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -461,12 +509,35 @@ class FFExpSyn(Layer):
             self._xty = new_xty
             self._xtx = new_xtx
 
+            if return_training_progress:
+                current_trainig_progress = dict(
+                    xty=self._xty,
+                    xtx=self._xtx,
+                    kahan_comp_xty=self.kahan_comp_xty,
+                    kahan_comp_xtx=self.kahan_comp_xtx,
+                )
+
             if store_states:
                 # - Store last state for next batch
                 if train_biases:
                     self._training_state = inp[-1, :-1].copy()
                 else:
                     self._training_state = inp[-1, :].copy()
+                if return_training_progress:
+                    current_trainig_progress["training_state"] = self._training_state
+
+                if calc_intermediate_results:
+                    solution = np.linalg.solve(
+                        self._xtx + regularize * np.eye(input_size), self._xty
+                    )
+                    if train_biases:
+                        self.weights = solution[:-1, :]
+                        self.bias = solution[-1, :]
+                    else:
+                        self.weights = solution
+                    if return_training_progress:
+                        current_trainig_progress["weights"] = self.weights
+                        current_trainig_progress["bias"] = self.bias
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
@@ -483,12 +554,20 @@ class FFExpSyn(Layer):
             else:
                 self.weights = solution
 
+            if return_training_progress:
+                current_trainig_progress = dict(
+                    xtx=self._xtx, xty=self._xty, bias=self.bias, weights=self.weights
+                )
+
             # - Remove dat stored during this trainig
             self._xty = None
             self._xtx = None
             self.kahan_comp_xty = None
             self.kahan_comp_xtx = None
             self._training_state = None
+
+        if return_training_progress:
+            return current_trainig_progress
 
     def train_logreg(
         self,
@@ -676,6 +755,8 @@ class FFExpSyn(Layer):
         )
         config["name"] = self.name
         config["add_events"] = self.add_events
+
+        return config
 
     ### --- Properties
 

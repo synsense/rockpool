@@ -17,6 +17,7 @@ from params import (
     NUM_CHIPS,
     NUM_NEURONS_CHIP,
     CAMTYPES,
+    DEF_CAM_STR,
 )
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "remove_all_connections_to",
     "remove_all_connections_from",
     "set_connections",
+    "get_connection_info",
     "silence_neurons",
     "reset_silencing",
 ]
@@ -43,7 +45,8 @@ COREMASK_BASE = tuple(2 ** i for i in range(NUM_CORES_CHIP))
 CAMTYPE_DICT = {
     getattr(CtxDynapse.DynapseCamType, camtype): i for i, camtype in enumerate(CAMTYPES)
 }
-
+# - Default cam types that neurons are reset to
+DEF_CAM_TYPE = getattr(CtxDynapse.DynapseCamType, DEF_CAM_STR)
 # - Dict that can be used to store variables in cortexcontrol. They will persist even if
 #   RPyC connection breaks down.
 storage = dict()
@@ -409,9 +412,42 @@ def init_chips(chip_ids: Optional[list] = None):
         for chip in chip_ids
         for core in range(chip * NUM_CORES_CHIP, (chip + 1) * NUM_CORES_CHIP)
     ]
+    # - Reset ctxctl neuron model to match hardware state
+    _reset_ctxctl_model(core_ids)
+
     reset_connections(core_ids, True, True, True)
 
     print("dynapse_control: {} chip(s) cleared.".format(len(chip_ids)))
+
+
+def _reset_ctxctl_model(core_ids: List[int]):
+    """
+    _reset_ctxctl_model - Reset ctxctl neuron model to match hardware state
+    :param core_ids:  List with IDs of cores whose neuron need to be reset
+    """
+    # - Neuron IDs corresponding to provided cores
+    neuron_ids = [
+        n_id
+        for c_id in core_ids
+        for n_id in range(c_id * NUM_NEURONS_CORE, (c_id + 1) * NUM_NEURONS_CORE)
+    ]
+    # - Get neuron models from cortexcontrol
+    all_neurons = CtxDynapse.model.get_neurons()
+    # - Select only relevant neurons
+    neurons = [all_neurons[n_id] for n_id in neuron_ids]
+    # - Reset neuron states
+    for neuron in neurons:
+        # - SRAMs
+        for sram in neuron.get_srams()[1:]:
+            sram.set_target_chip_id(0)
+            sram.set_virtual_core_id(0)
+            sram.set_used(False)
+            sram.set_core_mask(0)
+        # - CAMs
+        for cam in neuron.get_cams():
+            cam.set_pre_neuron_id(0)
+            cam.set_pre_neuron_core_id(0)
+            cam.set_type(DEF_CAM_TYPE)
 
 
 def reset_connections(
@@ -445,7 +481,7 @@ def reset_connections(
     for core_id in core_ids:
         print("dynapse_control: Clearing connections of core {}.".format(core_id))
 
-        # - Reset neuron weights in model
+        # - Reset neuron states
         for neuron in shadow_neurons[
             core_id * NUM_NEURONS_CORE : (core_id + 1) * NUM_NEURONS_CORE
         ]:
@@ -462,6 +498,7 @@ def reset_connections(
                 for cam in neuron.get_cams():
                     cam.set_pre_neuron_id(0)
                     cam.set_pre_neuron_core_id(0)
+                    cam.set_type(DEF_CAM_TYPE)
         print("\t Model neuron weights have been reset.")
     print("dynapse_control: {} core(s) cleared.".format(len(core_ids)))
 
@@ -500,6 +537,7 @@ def remove_all_connections_to(
         for cam in neuron.get_cams():
             cam.set_pre_neuron_id(0)
             cam.set_pre_neuron_core_id(0)
+            cam.set_type(DEF_CAM_TYPE)
 
     print("dynapse_control: Shadow state neuron weights have been reset")
 
@@ -587,7 +625,7 @@ def set_connections(
             raise ValueError(
                 "dynapse_control: Some of the presynaptic neurons are on chips that have not"
                 + " been cleared since starting cortexcontrol. This may result in unexpected"
-                + " behavior. Clear those chips first."
+                + " behavior. Use the `init_chips` method to clear those chips first."
             )
     # - Logical IDs of post neurons
     logical_post_ids = [neuron.get_id() for neuron in postsyn_neurons]
@@ -596,7 +634,7 @@ def set_connections(
         raise ValueError(
             "dynapse_control: Some of the postsynaptic neurons are on chips that have not"
             + " been cleared since starting cortexcontrol. This may result in unexpected"
-            + " behavior. Clear those chips first."
+            + " behavior. Use the `init_chips` method to clear those chips first."
         )
 
     # - Set connections

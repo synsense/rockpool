@@ -3,19 +3,11 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {
-    ".internal.property_arrays": (
-        "SetterArray",
-        "ImmutableArray",
-        "RefArray",
-        "RefProperty",
-    ),
-    ".internal.type_handling": ("ArrayLike", "to_scalar"),
-}
+dModules = {".internal.train_jax_sgd": "add_train_output"}
 
 
 # - Define current package
-strBasePackage = "Rockpool.utilities"
+strBasePackage = "Rockpool.layers.training"
 
 # - Initialise list of available modules
 __all__ = []

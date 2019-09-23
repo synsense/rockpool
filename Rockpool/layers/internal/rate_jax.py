@@ -15,7 +15,7 @@ from jax import jit
 from jax.lax import scan
 import jax.random as rand
 import numpy as onp
-from typing import Optional, Tuple, Callable, Union, Any
+from typing import Optional, Tuple, Callable, Union
 from warnings import warn
 
 FloatVector = Union[float, np.ndarray]

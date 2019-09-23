@@ -7,12 +7,12 @@ import pytest
 
 
 def test_imports():
-    from Rockpool.utilities import add_train_output
+    from Rockpool.layers.training import add_train_output
 
 
 def test_adam():
     from Rockpool.layers import RecRateEulerJax
-    from Rockpool.utilities import add_train_output
+    from Rockpool.layers.training import add_train_output
     from Rockpool import TSContinuous
 
     # - Generic parameters

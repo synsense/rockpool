@@ -74,55 +74,30 @@ class RecDynapSE(Layer):
         :param Optional[float] speedup:                     If `fastmode`==True, speed up input events to Dynapse by this factor. (No effect with `RecDynapSEDemo` class). Default: 1.0 (no speedup)
         """
 
-        # - Instantiate DynapseControl
-        if clearcores_list is None:
-            init_chips = None
-        else:
-            init_chips = list(
-                # - Convert to set to remove duplicates
-                set(
-                    [
-                        core_id // DynapseControlExtd._num_cores_chip
-                        for core_id in clearcores_list
-                    ]
-                )
-            )
-        if controller is None:
-            if dt is None:
-                raise ValueError(
-                    "Layer `{}` Either dt or controller must be provided".format(name)
-                )
-            self.controller = DynapseControlExtd(
-                fpga_isibase=dt,
-                clearcores_list=clearcores_list,
-                rpyc_connection=rpyc_port,
-                init_chips=init_chips,
-            )
-        else:
-            self.controller = controller
-            self.controller.fpga_isibase = dt
-            self.controller.init_chips(init_chips, enforce=False)
-            self.controller.clear_connections(clearcores_list)
+        # - Round weight matrices
+        weights_in = np.asarray(np.round(weights_in), int)
+        weights_rec = np.asarray(np.round(weights_rec), int)
 
-        # - Check supplied arguments
-        assert (
-            weights_rec.shape[0] == weights_rec.shape[1]
-        ), "Layer `{}`: The recurrent weight matrix `weights_rec` must be square.".format(
-            name
-        )
+        # - Check weight matrices
+        if weights_in.shape[1] != weights_rec.shape[0]:
+            raise ValueError(
+                f"RecDynapSE `{name}`: `mnWIn` and `weights_rec` must have compatible "
+                + "shapes: `mnWIn` is MxN, `weights_rec` is NxN."
+            )
+        if weights_rec.shape[0] != weights_rec.shape[1]:
+            raise ValueError(
+                f"RecDynapSE `{name}`: The recurrent weight matrix `weights_rec` must be square."
+            )
 
         # - Initialise superclass
         super().__init__(
             weights=np.asarray(np.round(weights_in), "int"), dt=dt, name=name
         )
-        print("Layer `{}`: Superclass initialized".format(name))
+        print("RecDynapSE `{}`: Superclass initialized".format(name))
 
-        # - Check weight matrices
-        assert (
-            weights_in.shape[1] == weights_rec.shape[0]
-        ), "Layer `{}`: `mnWIn` and `weights_rec` must have compatible shapes: `mnWIn` is MxN, `weights_rec` is NxN.".format(
-            name
-        )
+        # - Store weight matrices
+        self.weights_in = weights_in
+        self.weights_rec = weights_rec
 
         # - Store initialization arguments for `to_dict` method
         self._l_input_core_ids = l_input_core_ids
@@ -132,33 +107,27 @@ class RecDynapSE(Layer):
         self.fastmode = fastmode
         self.speedup = speedup
 
-        # - Store weight matrices
-        self.weights_in = weights_in
-        self.weights_rec = weights_rec
-
         # - Record input core mask and chip ID
         self._input_coremask = int(np.sum([2 ** n_id for n_id in l_input_core_ids]))
         self._input_chip_id = input_chip_id
 
-        # - Store evolution batch size limitations
-        self.max_num_trials_batch = max_num_trials_batch
-        self.max_num_events_batch = (
-            self.controller.fpga_event_limit
-            if max_num_events_batch is None
-            else max_num_events_batch
-        )
-        if max_num_timesteps is not None:
-            if max_batch_dur is not None:
-                warn(
-                    "Layer `{}`: Caution: If both `max_num_timesteps` and `max_batch_dur` are provided, only `max_num_timesteps` is considered.".format(
-                        name
-                    )
+        # - Instantiate DynapseControl
+        if controller is None:
+            if dt is None:
+                raise ValueError(
+                    "Layer `{}` Either dt or controller must be provided".format(name)
                 )
-            self.max_num_timesteps = max_num_timesteps
+            self.controller = DynapseControlExtd(
+                fpga_isibase=dt,
+                clearcores_list=clearcores_list,
+                rpyc_connection=rpyc_port,
+            )
         else:
-            self.max_batch_dur = max_batch_dur
+            self.controller = controller
+            self.controller.fpga_isibase = dt
+            self.controller.clear_connections(clearcores_list)
 
-        # - Allocate layer neurons
+        # - Allocate layer neurons (and thereby cause initialization of required chips)
         if skip_neuron_allocation:
             neuron_ids = range(1, 1 + self.size) if neuron_ids is None else neuron_ids
             self._hw_neurons = np.array(
@@ -208,8 +177,23 @@ class RecDynapSE(Layer):
         )
         print("Layer `{}`: Virtual neurons allocated".format(name))
 
-        # - Store recurrent weights
-        self._weights_rec = np.asarray(np.round(weights_rec), int)
+        # - Store evolution batch size limitations
+        self.max_num_trials_batch = max_num_trials_batch
+        self.max_num_events_batch = (
+            self.controller.fpga_event_limit
+            if max_num_events_batch is None
+            else max_num_events_batch
+        )
+        if max_num_timesteps is not None:
+            if max_batch_dur is not None:
+                warn(
+                    "Layer `{}`: Caution: If both `max_num_timesteps` and `max_batch_dur` are provided, only `max_num_timesteps` is considered.".format(
+                        name
+                    )
+                )
+            self.max_num_timesteps = max_num_timesteps
+        else:
+            self.max_batch_dur = max_batch_dur
 
         if not skip_weights:
             # - Configure connectivity
@@ -954,11 +938,6 @@ class RecDynapSEDemo(RecDynapSE):
         self.controller.fpga_spikegen.set_base_addr(self.v_rhythm_addrs[idx_rhythm])
         self.controller.fpga_spikegen.set_stim_count(self.v_num_evts_rhythm[idx_rhythm])
 
-        # - Lists for storing collected events
-        timestamps: List[int] = []
-        channels: List[int] = []
-        trigger_events = []
-
         # - Clear event filter
         self.controller.bufferedfilter.get_events()
         self.controller.bufferedfilter.get_special_event_timestamps()
@@ -969,55 +948,17 @@ class RecDynapSEDemo(RecDynapSE):
         # Start stimulation
         self.controller.fpga_spikegen.start()
 
-        # - Until duration is over, record events and process in quick succession
-        while time.time() < t_stop:
-            # - Collect events and possibly trigger events
-            trigger_events += (
-                self.controller.bufferedfilter.get_special_event_timestamps()
-            )
-            l_evts_curr = self.controller.bufferedfilter.get_events()
-
-            timestamps_curr, channels_curr = DC.event_data_to_channels(
-                l_evts_curr, self.neuron_ids
-            )
-            timestamps += list(timestamps_curr)
-            channels += list(channels_curr)
-
-        print(
-            "Layer `{}`: Recorded {} event(s) and {} trigger event(s)".format(
-                self.name, len(timestamps), len(trigger_events)
-            )
+        # - Process recorded data
+        times, channels = self.controller._record_and_process(
+            t_stop=t_stop,
+            record_neur_ids=self.neuron_ids,
+            duration=duration,
+            fastmode=True,
         )
-
-        # - Post-processing of collected events
-        times = np.array(timestamps) * 1e-6
-        channels = np.array(channels)
-
-        # - Locate synchronisation timestamp
-        vt_start_triggers = np.array(trigger_events) * 1e-6
-        v_start_idcs = np.searchsorted(times, vt_start_triggers)
-        v_end_idcs = np.searchsorted(times, vt_start_triggers + duration)
-        # - Choose first trigger where start and end indices not equal. If not possible, take first trigger
-        try:
-            idx_trigger = np.argmax((v_end_idcs - v_start_idcs) > 0)
-            print("\t\t Using trigger event {}".format(idx_trigger))
-        except ValueError:
-            print("\t\t No Trigger found, using recording from beginning")
-            idx_start = 0
-            t_start_trigger = times[0]
-            idx_end = np.searchsorted(times, times[0] + duration)
-        else:
-            t_start_trigger = vt_start_triggers[idx_trigger]
-            idx_start = v_start_idcs[idx_trigger]
-            idx_end = v_end_idcs[idx_trigger]
-        # - Filter time trace
-        times = times[idx_start:idx_end] - t_start_trigger + self.t
-        channels = channels[idx_start:idx_end]
-        print("Layer `{}`: Extracted event data".format(self.name))
 
         # - Generate TSEvent from recorded data
         ts_response = TSEvent(
-            times,
+            times + self.t,
             channels,
             t_start=self.t,
             t_stop=self.t + duration,

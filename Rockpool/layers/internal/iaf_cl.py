@@ -6,7 +6,7 @@ import numpy as np
 from typing import Optional, Union
 from collections import deque
 from ...timeseries import TSEvent, TSContinuous
-from ...utils import ArrayLike
+from ...utilities import ArrayLike
 from .. import Layer
 
 # - Try to import tqdm

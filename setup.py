@@ -11,7 +11,6 @@ setup(
         "Rockpool.utilities",
         "Rockpool.utilities.gpl",
         "Rockpool.utilities.internal",
-        "Rockpool.devices",
         "Rockpool.networks",
         "Rockpool.networks.gpl",
         "Rockpool.networks.internal",
@@ -20,6 +19,9 @@ setup(
         "Rockpool.layers.internal",
         "Rockpool.layers.internal.pytorch",
         "Rockpool.layers.internal.devices",
+        "Rockpool.layers.training",
+        "Rockpool.layers.training.gpl",
+        "Rockpool.layers.training.internal",
     ],
     license="All rights reserved aiCTX AG",
     install_requires=[
