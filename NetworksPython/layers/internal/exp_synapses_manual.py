@@ -490,21 +490,21 @@ class FFExpSyn(Layer):
             self._xty = np.zeros((input_size, self.size))  # inp.T (dot) target
             self._xtx = np.zeros((input_size, input_size))  # inp.T (dot) inp
             # Corresponding Kahan compensations
-            self.kahan_comp_xty = np.zeros_like(self._xty)
-            self.kahan_comp_xtx = np.zeros_like(self._xtx)
+            self._kahan_comp_xty = np.zeros_like(self._xty)
+            self._kahan_comp_xtx = np.zeros_like(self._xtx)
 
         # - New data to be added, including compensation from last batch
         #   (Matrix summation always runs over time)
-        upd_xty = inp.T @ target - self.kahan_comp_xty
-        upd_xtx = inp.T @ inp - self.kahan_comp_xtx
+        upd_xty = inp.T @ target - self._kahan_comp_xty
+        upd_xtx = inp.T @ inp - self._kahan_comp_xtx
 
         if not is_last:
             # - Update matrices with new data
             new_xty = self._xty + upd_xty
             new_xtx = self._xtx + upd_xtx
             # - Calculate rounding error for compensation in next batch
-            self.kahan_comp_xty = (new_xty - self._xty) - upd_xty
-            self.kahan_comp_xtx = (new_xtx - self._xtx) - upd_xtx
+            self._kahan_comp_xty = (new_xty - self._xty) - upd_xty
+            self._kahan_comp_xtx = (new_xtx - self._xtx) - upd_xtx
             # - Store updated matrices
             self._xty = new_xty
             self._xtx = new_xtx
@@ -513,8 +513,8 @@ class FFExpSyn(Layer):
                 current_trainig_progress = dict(
                     xty=self._xty,
                     xtx=self._xtx,
-                    kahan_comp_xty=self.kahan_comp_xty,
-                    kahan_comp_xtx=self.kahan_comp_xtx,
+                    kahan_comp_xty=self._kahan_comp_xty,
+                    kahan_comp_xtx=self._kahan_comp_xtx,
                 )
 
             if store_states:
@@ -562,8 +562,8 @@ class FFExpSyn(Layer):
             # - Remove dat stored during this trainig
             self._xty = None
             self._xtx = None
-            self.kahan_comp_xty = None
-            self.kahan_comp_xtx = None
+            self._kahan_comp_xty = None
+            self._kahan_comp_xtx = None
             self._training_state = None
 
         if return_training_progress:
