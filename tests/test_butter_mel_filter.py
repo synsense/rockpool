@@ -1,13 +1,19 @@
+"""
+Test layer implementing butterworth / mel-spaced filterbanks
+"""
 
 
 def test_butter_mel_filter():
+    """
+    Test the operation of the `.ButterMelFilter` layer
+    """
 
-    from NetworksPython.layers import ButterMelFilter
-    from NetworksPython.timeseries import TSContinuous
+    from Rockpool.layers import ButterMelFilter
+    from Rockpool.timeseries import TSContinuous
     import numpy as np
     import os
 
-    base_path = "/".join(os.path.realpath(__file__).split('/')[:-1])
+    base_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
 
     fs = 16000
 
@@ -21,4 +27,4 @@ def test_butter_mel_filter():
 
     filter_output = filter_layer.evolve(tsSignal)
 
-    assert(abs(filtered - filter_output.samples) < 1e-5).all()
+    assert (abs(filtered - filter_output.samples) < 1e-5).all()
