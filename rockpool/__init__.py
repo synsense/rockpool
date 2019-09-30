@@ -4,16 +4,17 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".network": "Network",
-    ".internal.net_deneve": "NetworkDeneve",
-    ".internal.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
+    ".networks.network": "Network",
+    ".timeseries": (
+        "TimeSeries",
+        "TSContinuous",
+        "TSEvent",
+        "load_ts_from_file",
+    ),
 }
 
 # - Define current package
-strBasePackage = "Rockpool.networks"
-
-# - Define docstring for module
-__doc__ = """Defines classes for encapsulating and generating networks of layers"""
+strBasePackage = "rockpool"
 
 # - Initialise list of available modules
 __all__ = []

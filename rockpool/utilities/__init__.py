@@ -4,33 +4,18 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".internal.reservoirweights": (
-        "add_random_long_range",
-        "combine_ff_rec_stack",
-        "digital",
-        "DiscretiseWeightMatrix",
-        "dynapse_conform",
-        "iaf_sparse_net",
-        "in_res_digital",
-        "in_res_dynapse",
-        "in_res_dynapse_flex",
-        "one_dim_exc_res",
-        "partitioned_2d_reservoir",
-        "rndm_sparse_ei_net",
-        "rndm_ei_net",
-        "two_dim_exc_res",
-        "unit_lambda_net",
-        "wilson_cowan_net",
-        "wipe_non_switiching_eigs",
+    ".internal.property_arrays": (
+        "SetterArray",
+        "ImmutableArray",
+        "RefArray",
+        "RefProperty",
     ),
+    ".internal.type_handling": ("ArrayLike", "to_scalar"),
 }
 
 
 # - Define current package
-strBasePackage = "Rockpool.weights"
-
-# - Define docstring for module
-__doc__ = """Defines functions for generating recurrent weight matrices"""
+strBasePackage = "rockpool.utilities"
 
 # - Initialise list of available modules
 __all__ = []

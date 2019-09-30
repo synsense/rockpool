@@ -1,9 +1,9 @@
 def test_save_load():
     """ Test RecIAFNest"""
-    from Rockpool.layers import RecIAFSpkInNest, FFIAFNest, FFExpSynTorch
-    from Rockpool import timeseries as ts
-    from Rockpool.networks import network as nw
-    from Rockpool.networks import Network as nws
+    from rockpool.layers import RecIAFSpkInNest, FFIAFNest, FFExpSynTorch
+    from rockpool import timeseries as ts
+    from rockpool.networks import network as nw
+    from rockpool.networks import Network as nws
     import numpy as np
     import pylab as plt
 

@@ -4,48 +4,16 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".layer": "Layer",
-    ".internal.iaf_brian": (
-        "FFIAFBrian",
-        "FFIAFSpkInBrian",
-        "RecIAFBrian",
-        "RecIAFSpkInBrian",
-    ),
-    ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-    ".internal.event_pass": "PassThroughEvents",
-    ".internal.exp_synapses_brian": "FFExpSynBrian",
-    ".internal.exp_synapses_manual": "FFExpSyn",
-    ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
-    ".internal.softmaxlayer": "SoftMaxLayer",
-    ".internal.iaf_digital": "RecDIAF",
-    ".internal.spike_bt": "RecFSSpikeEulerBT",
-    ".internal.updown": "FFUpDown",
-    ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
-    ".internal.pytorch.iaf_torch": (
-        "FFIAFTorch",
-        "FFIAFRefrTorch",
-        "FFIAFSpkInTorch",
-        "FFIAFSpkInRefrTorch",
-        "RecIAFTorch",
-        "RecIAFRefrTorch",
-        "RecIAFSpkInTorch",
-        "RecIAFSpkInRefrTorch",
-        "RecIAFSpkInRefrCLTorch",
-    ),
-    ".internal.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
-    ".internal.aeif_nest": "RecAEIFSpkInNest",
-    ".internal.devices.dynap_hw": "RecDynapSE",
-    ".internal.devices.virtual_dynapse": "VirtualDynapse",
-    ".internal.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
-    ".internal.butter_mel_filter": "ButterMelFilter",
+    ".network": "Network",
+    ".internal.net_deneve": "NetworkDeneve",
+    ".internal.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
 }
 
-
 # - Define current package
-strBasePackage = "Rockpool.layers"
+strBasePackage = "rockpool.networks"
 
 # - Define docstring for module
-__doc__ = """Defines classes for simulating layers of neurons"""
+__doc__ = """Defines classes for encapsulating and generating networks of layers"""
 
 # - Initialise list of available modules
 __all__ = []
@@ -90,10 +58,3 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
-
-
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball
