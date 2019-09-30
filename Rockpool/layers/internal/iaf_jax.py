@@ -131,16 +131,24 @@ class RecIAFExpJax(Layer):
     .. math::
 
         \\tau_m \\cdot \\dot{v_j} + v_j = I_{ext,j} + I_{rec,j} + bias_j + \\zeta_j(t)
+
         I_{rec} = W \\cdot I_{syn}
+
         \\tau_s \\cdot \\dot{I_{syn,j}} + I_{syn,j} = 0
-        \dot{{ref}_j} = -1
 
-        \\textrm{Spiking:}
+        \\dot{r_j} = -1
 
-        \\operatorname{if} v_j > 1 \and {ref}_j < 0
-        \rightarrow I_{syn,j} += 1
-        \rightarrow v_j -= 1
-        \rightarrow {ref}_j = t_{ref}
+    On spiking:
+
+    .. math ::
+
+        \\operatorname{if} v_j > 1 \\and r_j < 0
+
+        \\rightarrow I_{syn,j} += 1
+
+        \\rightarrow v_j -= 1
+
+        \\rightarrow r_j = t_{ref}
 
     Each neuron has a membrane and synaptic time constant, :math:`\\tau_m` (`.tau_mem`) and :math:`\\tau_s` (`.tau_s`) respectively. Neurons share a common rest potential of 0, a firing threshold of 1, and a subtractive reset of -1. Neurons each have an optional bias current `.bias` (default: 0), and an optional refractory period :math:`{ref}` in seconds (`.refractory`, default: 0).
 
