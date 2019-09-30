@@ -29,7 +29,7 @@ __all__ = ["SetterArray", "ImmutableArray", "RefArray", "RefProperty"]
 
 class SetterArray(np.ndarray):
     """
-    SetterArrau - np.ndarray subclass that can be used for class properties with
+    SetterArray - np.ndarray subclass that can be used for class properties with
                   extended setter methods. It should be returned by property
                   getter. In case of item assignment it will call the
                   corresponding setter function.

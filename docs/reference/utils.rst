@@ -1,5 +1,5 @@
-The `.utils` module
+The `.utilities` module
 ---------------------
 
-.. automodule:: Rockpool.utils
+.. automodule:: Rockpool.utilities
     :members:
