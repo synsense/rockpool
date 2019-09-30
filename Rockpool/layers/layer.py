@@ -370,12 +370,13 @@ class Layer(ABC):
     ### --- String representations
 
     def __str__(self):
-        return '{} object: "{}" [{} {} in -> {} {} out]'.format(
+        return '{} object: "{}" [{} {} in -> {} internal -> {} {} out]'.format(
             self.__class__.__name__,
             self.name,
             self.size_in,
             self.input_type.__name__,
             self.size,
+            self.size_out,
             self.output_type.__name__,
         )
 
