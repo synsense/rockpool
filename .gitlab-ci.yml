@@ -28,6 +28,7 @@ nest_tests:
 
   before_script:
     - pip install --upgrade pip
+    - conda install -c conda-forge nest-simulator
     - pip install .[all] --no-cache-dir
 
 
