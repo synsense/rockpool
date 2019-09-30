@@ -4,33 +4,31 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".internal.reservoirweights": (
-        "add_random_long_range",
-        "combine_ff_rec_stack",
-        "digital",
-        "DiscretiseWeightMatrix",
-        "dynapse_conform",
-        "iaf_sparse_net",
-        "in_res_digital",
-        "in_res_dynapse",
-        "in_res_dynapse_flex",
-        "one_dim_exc_res",
-        "partitioned_2d_reservoir",
-        "rndm_sparse_ei_net",
-        "rndm_ei_net",
-        "two_dim_exc_res",
-        "unit_lambda_net",
-        "wilson_cowan_net",
-        "wipe_non_switiching_eigs",
+    ".dynapse_control_extd": "DynapseControlExtd",
+    ".dynapse_control": (
+        "connectivity_matrix_to_prepost_lists",
+        "connect_rpyc",
+        "correct_argument_types",
+        "correct_argument_types_and_teleport",
+        "correct_type",
+        "DynapseControl",
+        "evaluate_firing_rates",
+        "event_data_to_channels",
+        "generate_event_raster",
+        "initialize_hardware",
+        "rectangular_neuron_arrangement",
+        "remote_function",
+        "setup_rpyc",
+        "setup_rpyc_namespace",
+        "teleport_function",
     ),
 }
 
-
 # - Define current package
-strBasePackage = "NetworksPython.weights"
+strBasePackage = "Rockpool.devices"
 
 # - Define docstring for module
-__doc__ = """Defines functions for generating recurrent weight matrices"""
+__doc__ = """Defines classes for interacting with hardware"""
 
 # - Initialise list of available modules
 __all__ = []
@@ -75,10 +73,3 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
-
-
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball

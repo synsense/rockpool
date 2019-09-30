@@ -12,10 +12,10 @@ from warnings import warn
 
 import numpy as np
 
-from NetworksPython import TSContinuous, TSEvent
-from NetworksPython.devices import dynapse_control_extd as dce
-from NetworksPython.layers import FFUpDown
-from NetworksPython.layers.internal.devices.dynap_hw import RecDynapSEDemo, RecDynapSE
+from Rockpool import TSContinuous, TSEvent
+from Rockpool.devices import dynapse_control_extd as dce
+from Rockpool.layers import FFUpDown
+from Rockpool.layers.internal.devices.dynap_hw import RecDynapSEDemo, RecDynapSE
 import ECG.recordings as rec
 
 ### --- Test connections

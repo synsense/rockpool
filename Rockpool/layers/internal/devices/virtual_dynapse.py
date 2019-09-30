@@ -12,7 +12,7 @@ from typing import List, Union, Optional
 # Third-party modules
 import numpy as np
 
-# NetworksPython modules
+# Rockpool modules
 from ....timeseries import TSEvent
 from ....utilities import ArrayLike, ImmutableArray, SetterArray
 from ...layer import Layer

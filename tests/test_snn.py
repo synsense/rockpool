@@ -10,14 +10,14 @@ def test_import():
     """
     Test import of the class
     """
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.layers import PassThroughEvents
+    from Rockpool.layers import FFCLIAF
+    from Rockpool.layers import PassThroughEvents
 
 
 def test_pt_events():
     """ Test PassThroughEvents layer"""
-    from NetworksPython.layers import PassThroughEvents
-    from NetworksPython import TSEvent
+    from Rockpool.layers import PassThroughEvents
+    from Rockpool import TSEvent
 
     # - Input signal
     time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
@@ -40,7 +40,7 @@ def test_ffcliaf_none_attributes():
     Make sure an exception is thrown if FFCLIAF is to be assigned None
     as weight, bias or state.
     """
-    from NetworksPython.layers import FFCLIAF
+    from Rockpool.layers import FFCLIAF
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
@@ -68,8 +68,8 @@ def test_ffcliaf_evolve_subtracting():
     """
     Test initialization and evolution of FFCLIAF layer using subtraction after spikes.
     """
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import FFCLIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
@@ -115,8 +115,8 @@ def test_cliaf_evolve_resetting():
     """
     Test initialization and evolution of RecCLIAF layer using reset after spikes.
     """
-    from NetworksPython.layers import FFCLIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import FFCLIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
@@ -162,7 +162,7 @@ def test_cliaf_evolve_resetting():
 #    '''
 #    Test exception on size incompatibility
 #    '''
-#    from NetworksPython.weights import CNNWeight
+#    from Rockpool.weights import CNNWeight
 #
 #    W = CNNWeight(inp_shape=(200,200))
 #

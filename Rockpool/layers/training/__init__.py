@@ -3,17 +3,11 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {
-    ".network": "Network",
-    ".internal.net_deneve": "NetworkDeneve",
-    ".internal.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
-}
+dModules = {".internal.train_jax_sgd": "add_train_output"}
+
 
 # - Define current package
-strBasePackage = "NetworksPython.networks"
-
-# - Define docstring for module
-__doc__ = """Defines classes for encapsulating and generating networks of layers"""
+strBasePackage = "Rockpool.layers.training"
 
 # - Initialise list of available modules
 __all__ = []
@@ -58,3 +52,10 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
+
+
+# from .internal import *
+
+# from .internal import __all__ as suball
+
+# __all__ += suball

@@ -17,7 +17,7 @@ from ....utilities import RefProperty
 
 
 # - Configure exports
-__all__ = ["FFExpSyn"]
+__all__ = ["FFExpSynTorch"]
 
 # - Absolute tolerance, e.g. for comparing float values
 tol_abs = 1e-9

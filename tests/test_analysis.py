@@ -3,8 +3,8 @@ Test analysis methods
 """
 
 import numpy as np
-from NetworksPython import TSEvent
-from NetworksPython.analysis import lv, fano_factor
+from Rockpool import TSEvent
+from Rockpool.analysis import lv, fano_factor
 
 
 def test_lv_FF():
@@ -38,7 +38,7 @@ def test_lv_FF():
 
 def test_entropy():
 
-    from NetworksPython import TSEvent
+    from Rockpool import TSEvent
     import numpy as np
 
     # generate Poisson spike train

@@ -1,5 +1,5 @@
 The `.weights` module
 ---------------------
 
-.. automodule:: NetworksPython.weights
+.. automodule:: Rockpool.weights
     :members:
