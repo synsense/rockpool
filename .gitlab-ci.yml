@@ -20,7 +20,8 @@ unit_tests:
 
 nest_tests:
   stage: test
-  allow_failure: false
+  allow_failure: true
+  when: manual
   image: aictx/ci-python-arch:latest
   tags:
     - python
@@ -28,7 +29,6 @@ nest_tests:
 
   before_script:
     - pip install --upgrade pip
-    - conda install -c conda-forge nest-simulator
     - pip install .[all] --no-cache-dir
 
 
