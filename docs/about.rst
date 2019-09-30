@@ -1,4 +1,5 @@
-.. _about::
+.. _about:
+
 About |project|
 ===============
 
@@ -28,7 +29,7 @@ About Noodle
 
 Noodle is the mascot of |project|. Noodle is a Nudibranch_, `Glaucus marginatus`_. Nudibranches are a group of amazing sea snails that shed their shells after the larval stage, to display an incredible array of forms, patterns and colours. `Glaucus marginatus`_ is a species found in the Pacific ocean, and often seen at beaches and in rock pools of the eastern Australian coast.
 
-`CC BY 2.0`_ `Taro Taylor`_
+Photograph of Noodle is `CC BY 2.0`_ `Taro Taylor`_
 
 .. _Nudibranch: https://en.wikipedia.org/wiki/Nudibranch
 .. _Glaucus marginatus: https://en.wikipedia.org/wiki/Glaucus_marginatus

@@ -7,12 +7,12 @@ import pytest
 
 # - Test imports
 def test_imports():
-    from NetworksPython.networks import build_rate_reservoir
+    from Rockpool.networks import build_rate_reservoir
 
 
 # - Test building a reservoir
 def test_build():
-    from NetworksPython.networks import build_rate_reservoir
+    from Rockpool.networks import build_rate_reservoir
 
     # - Generate weight matrices
     mfWI = np.random.rand(10)
@@ -25,7 +25,7 @@ def test_build():
 
 
 def test_evolve():
-    from NetworksPython import TSContinuous
+    from Rockpool import TSContinuous
 
     # - Get a network
     netRes = test_build()

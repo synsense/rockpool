@@ -1,7 +1,7 @@
 Full API summary for |project|
 ==============================
 
-.. py:currentmodule::NetworksPython
+.. py:currentmodule::Rockpool
 
 Base classes
 ------------

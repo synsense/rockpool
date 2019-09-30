@@ -11,8 +11,8 @@ def test_cliaf_evolve_subtracting():
     """
     Test initialization and evolution of RecCLIAF layer using subtraction after spikes.
     """
-    from NetworksPython.layers import RecCLIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import RecCLIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 0], [0, 0, 10]])
@@ -58,8 +58,8 @@ def test_cliaf_evolve_resetting():
     """
     Test initialization and evolution of RecCLIAF layer using reset after spikes.
     """
-    from NetworksPython.layers import RecCLIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import RecCLIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 0], [0, 0, 10]])
@@ -107,8 +107,8 @@ def test_diaf_evolve_subtracting():
     """
     Test initialization and evolution of RecDIAF layer using subtraction after spikes.
     """
-    from NetworksPython.layers import RecDIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import RecDIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[16, 0, 0], [0, 0, 10]])
@@ -160,8 +160,8 @@ def test_diaf_evolve_resetting():
     Test initialization and evolution of RecDIAF layer using reset after spikes.
     """
 
-    from NetworksPython.layers import RecDIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import RecDIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[16, 0, 0], [0, 0, 10]])
@@ -209,8 +209,8 @@ def test_diaf_evolve_vfvrest():
     Test initialization and evolution of RecDIAF layer with resting potential and monitor.
     """
 
-    from NetworksPython.layers import RecDIAF
-    from NetworksPython.timeseries import TSEvent
+    from Rockpool.layers import RecDIAF
+    from Rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[16, 0, -10], [0, 90, 0]])

@@ -20,8 +20,7 @@ unit_tests:
 
 nest_tests:
   stage: test
-  when: manual
-  allow_failure: true
+  allow_failure: false
   image: aictx/ci-python-arch:latest
   tags:
     - python

@@ -2,13 +2,13 @@
 from warnings import warn
 import os.path
 import numpy as np
-from NetworksPython import TSEvent
+from Rockpool import TSEvent
 
 RUN_TEST = False
 
 try:
-    from NetworksPython.devices import DynapseControlExtd
-    from NetworksPython.devices import dynapse_control as dc
+    from Rockpool.devices import DynapseControlExtd
+    from Rockpool.devices import dynapse_control as dc
 except ImportError:
     warn("DynapseControl could not be imported. Maybe RPyC is not available.")
 else:
@@ -169,7 +169,7 @@ def test_dynapse_layer():
     if not RUN_TEST:
         return
 
-    from NetworksPython.layers import RecDynapSE
+    from Rockpool.layers import RecDynapSE
 
     # - Layer generation
     dynap_lyr = RecDynapSE(
