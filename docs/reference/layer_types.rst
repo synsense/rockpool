@@ -29,6 +29,14 @@ Event-driven spiking layers
     layers.RecFSSpikeEulerBT
     layers.FFUpDown
 
+JAX-based backend
+~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.RecIAFExpJax
+    layers.RecIAFExpSpikeOutJax
+    layers.RecIAFExpWithIOJax
+
 
 Layers with constant leak
 ~~~~~~~~~~~~~~~~~~~~~~~~~

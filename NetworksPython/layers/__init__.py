@@ -38,6 +38,7 @@ dModules = {
     ".internal.devices.virtual_dynapse": "VirtualDynapse",
     ".internal.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
     ".internal.butter_mel_filter": "ButterMelFilter",
+    ".internal.iaf_jax": {"RecIAFExpJax", "RecIAFExpSpikeOutJax", "RecIAFExpWithIOJax"},
 }
 
 
