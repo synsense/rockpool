@@ -54,10 +54,12 @@ class Layer(ABC):
         try:
             # Try this before enforcing with Numpy atleast to account for custom classes for weights
             self._size_in, self._size = weights.shape
+            self._size_out = self._size
             self._weights = weights
         except Exception:
             weights = np.atleast_2d(weights)
             self._size_in, self._size = weights.shape
+            self._size_out = self._size
             self._weights = weights
 
         # - Check and assign dt and noise_std
@@ -177,9 +179,10 @@ class Layer(ABC):
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
                             self.name, time_base[0], time_base[-1]
                         )
-                        + "not fully contained in input signal (t = {} to {})".format(
+                        + "is not fully contained in input signal (t = {} to {}).".format(
                             ts_input.t_start, ts_input.t_stop
                         )
+                        + " You may need to use a `periodic` time series."
                     )
 
             # - Sample input trace and check for correct dimensions
@@ -570,6 +573,13 @@ class Layer(ABC):
         (int) Number of input channels accepted by this layer (M)
         """
         return self._size_in
+
+    @property
+    def size_out(self) -> int:
+        """
+        (int) Number of output channels produced by this layer (O)
+        """
+        return self._size_out
 
     @property
     def dt(self) -> float:
