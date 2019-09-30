@@ -453,13 +453,14 @@ class RecIAFExpSpikeOutJax(RecIAFExpJax):
         verbose: Optional[bool] = False,
     ) -> TSEvent:
         """
-        evolve() - Evolve the reservoir state
+        Evolve the state of this layer given an input
 
-        :param ts_input:        TSContinuous Input time series
-        :param duration:        float Duration of evolution in seconds
-        :param num_timesteps:   int Number of time steps to evolve (based on self.dt)
+        :param Optional[TSContinuous] ts_input: Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[bool] verbose:          Currently no effect, just for conformity
 
-        :return: ts_output:     TSEvent Output time series
+        :return TSEvent:                   Output time series; spiking activity each neuron
         """
 
         # - Prepare time base and inputs
@@ -492,6 +493,7 @@ class RecIAFExpSpikeOutJax(RecIAFExpJax):
         return spikes_last_evolution
 
     def cOutput(self):
+        """ (TSEvent) Output `.TimeSeries` class: `.TSEvent` """
         return TSEvent
 
 
