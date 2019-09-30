@@ -21,6 +21,7 @@ from typing import Tuple, List
 # - Try to import tqdm
 try:
     from tqdm.autonotebook import tqdm
+
     use_tqdm = True
 
 except ImportError:
@@ -165,6 +166,7 @@ class Network:
     .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` illustrates using a `.Network` object to encapsulate a reservoir network.
 
     """
+
     def __init__(self, *layers: List[Layer], dt: Optional[float] = None):
         """
         Base class to encapsulate several `.Layer` s and manage signal routing
@@ -345,10 +347,10 @@ class Network:
         """
         # - Make sure that layer dimensions match
 
-        if pre_layer.size != post_layer.size_in:
+        if pre_layer.size_out != post_layer.size_in:
             raise NetworkError(
-                "Network: Dimensions of layers `{}` (size={}) and `{}`".format(
-                    pre_layer.name, pre_layer.size, post_layer.name
+                "Network: Dimensions of layers `{}` (size_out={}) and `{}`".format(
+                    pre_layer.name, pre_layer.size_out, post_layer.name
                 )
                 + " (size_in={}) do not match".format(post_layer.size_in)
             )
@@ -1074,4 +1076,5 @@ class NetworkError(Exception):
     """
     Define an exception class to encapsulate network errors
     """
+
     pass
