@@ -74,7 +74,7 @@ def _evolve_iaf_expsyn(
         I_noise = I_noise.T
 
         # - Compute recurrent input
-        I_rec = np.dot(w_rec, v_syn.reshape((-1, 1)))
+        I_rec = np.dot(w_rec, v_syn.reshape((-1, 1))).reshape((-1))
 
         # - Voltage update equation
         dV = (I_ext + I_noise + I_rec + bias + 0 - v_mem) / tau_m
@@ -190,11 +190,6 @@ class RecIAFExpJax(Layer):
         tau_syn = np.array(tau_syn)
         bias = np.array(bias)
         refractory = np.array(refractory)
-
-        # - Get information about network size
-        self._num_inputs = w_recurrent.shape[0]
-        self._size = w_recurrent.shape[1]
-        self._num_outputs = w_recurrent.shape[1]
 
         # - Set properties
         self.tau_mem = tau_mem
@@ -321,7 +316,7 @@ class RecIAFExpJax(Layer):
         config["tau_syn"] = self.tau_syn.tolist()
         config["bias"] = self.bias.tolist()
         config["refractory"] = self.refractory.tolist()
-        config["rng_key"] = self._rng_key
+        config["rng_key"] = self._rng_key.tolist()
         return config
 
     @property
@@ -525,11 +520,6 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
         w_in = np.atleast_2d(w_in)
         w_out = np.atleast_2d(w_out)
 
-        # - Get information about network size
-        self._num_inputs = w_recurrent.shape[0]
-        self._size = w_recurrent.shape[1]
-        self._num_outputs = w_recurrent.shape[1]
-
         # - Call super-class initialisation
         super().__init__(
             w_recurrent,
@@ -544,9 +534,8 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
         )
 
         # - Get information about network size
-        self._num_inputs = w_in.shape[0]
-        self._size = w_in.shape[1]
-        self._num_outputs = w_out.shape[1]
+        self._size_in = w_in.shape[0]
+        self._size_out = w_out.shape[1]
 
         # - Get compiled evolution function
         self._evolve_jit = jit(_evolve_iaf_expsyn)
@@ -558,6 +547,10 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, self._rng_key = rand.split(rng_key)
+
+        # - Store attribute values
+        self.w_in = w_in
+        self.w_out = w_out
 
     def evolve(
         self,
@@ -613,9 +606,9 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
         assert np.ndim(value) == 2, "`w_in` must be 2D"
 
         assert value.shape == (
-            self._num_inputs,
+            self._size_in,
             self._size,
-        ), "`w_in` must be [{:d}, {:d}]".format(self._num_inputs, self._size)
+        ), "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
 
         self._w_in = np.array(value).astype("float")
 
@@ -644,7 +637,18 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
 
         assert value.shape == (
             self._size,
-            self._num_outputs,
-        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._num_outputs)
+            self._size_out,
+        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
 
-        self.w_out = np.array(value).astype("float")
+        self._w_out = np.array(value).astype("float")
+
+    def to_dict(self) -> dict:
+        """
+        Convert the configuration of this layer into a dictionary to assist in reconstruction
+
+        :return: dict
+        """
+        config = super().to_dict()
+        config["w_in"] = self.w_in.tolist()
+        config["w_out"] = self.w_out.tolist()
+        return config
