@@ -439,8 +439,8 @@ class FFExpSynTorch(FFExpSyn):
                     current_trainig_progress = dict(
                         xty=self._xty.cpu().numpy(),
                         xtx=self._xtx.cpu().numpy(),
-                        kahan_comp_xty=self.kahan_comp_xty.cpu().numpy(),
-                        kahan_comp_xtx=self.kahan_comp_xtx.cpu().numpy(),
+                        kahan_comp_xty=self._kahan_comp_xty.cpu().numpy(),
+                        kahan_comp_xtx=self._kahan_comp_xtx.cpu().numpy(),
                     )
 
                 if store_states:
@@ -449,9 +449,10 @@ class FFExpSynTorch(FFExpSyn):
                         self._training_state = inp[-1, :-1].clone()
                     else:
                         self._training_state = inp[-1, :].clone()
-                    current_trainig_progress[
-                        "training_state"
-                    ] = self._training_state.cpu().numpy()
+                    if return_training_progress:
+                        current_trainig_progress[
+                            "training_state"
+                        ] = self._training_state.cpu().numpy()
 
                 if calc_intermediate_results:
                     a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
