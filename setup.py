@@ -24,16 +24,11 @@ setup(
         "Rockpool.layers.training.internal",
     ],
     license="All rights reserved aiCTX AG",
-    install_requires=[
-        "numba",
-        "numpy",
-        "scipy",
-    ],
+    install_requires=["numba", "numpy", "scipy"],
     extras_require={
-        'all': [
+        "all": [
             "tqdm",
             "brian2",
-            "nest",
             "pytest",
             "torch",
             "torchvision",
@@ -43,7 +38,7 @@ setup(
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
-        ],
+        ]
     },
     long_description=open("README.md").read(),
 )

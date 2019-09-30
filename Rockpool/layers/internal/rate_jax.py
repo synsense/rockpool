@@ -226,9 +226,9 @@ class RecRateEulerJax(Layer):
         bias = np.array(bias)
 
         # - Get information about network size
-        self._num_inputs = w_in.shape[0]
+        self._size_in = w_in.shape[0]
         self._size = w_in.shape[1]
-        self._num_outputs = w_out.shape[1]
+        self._size_out = w_out.shape[1]
 
         # -- Set properties
         self.w_recurrent = w_recurrent
@@ -242,6 +242,10 @@ class RecRateEulerJax(Layer):
 
         # - Call super-class initialisation
         super().__init__(w_in, dt, noise_std, name)
+
+        # - Correct layer size
+        self._size_in = w_in.shape[0]
+        self._size_out = w_out.shape[1]
 
         # - Get compiled evolution function
         self._evolve_jit = _get_rec_evolve_jit(activation_func)
@@ -403,9 +407,9 @@ class RecRateEulerJax(Layer):
         assert np.ndim(value) == 2, "`w_in` must be 2D"
 
         assert value.shape == (
-            self._num_inputs,
+            self._size_in,
             self._size,
-        ), "`win` must be [{:d}, {:d}]".format(self._num_inputs, self._size)
+        ), "`win` must be [{:d}, {:d}]".format(self._size_in, self._size)
 
         self._weights = np.array(value).astype("float")
 
@@ -434,8 +438,8 @@ class RecRateEulerJax(Layer):
 
         assert value.shape == (
             self._size,
-            self._num_outputs,
-        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._num_outputs)
+            self._size_out,
+        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
 
         self._w_out = np.array(value).astype("float")
 
@@ -519,9 +523,9 @@ class ForceRateEulerJax(RecRateEulerJax):
         w_out = np.atleast_2d(w_out)
 
         # - Get information about network size
-        self._num_inputs = w_in.shape[0]
+        self._size_in = w_in.shape[0]
         self._size = w_in.shape[1]
-        self._num_outputs = w_out.shape[1]
+        self._size_out = w_out.shape[1]
 
         # - Call super-class initialisation
         super().__init__(
@@ -536,6 +540,10 @@ class ForceRateEulerJax(RecRateEulerJax):
             name,
             rng_key,
         )
+
+        # - Correct layer size
+        self._size_in = w_in.shape[0]
+        self._size_out = w_out.shape[1]
 
         # - Get compiled evolution function for forced reservoir
         self._evolve_jit = _get_force_evolve_jit(activation_func)
