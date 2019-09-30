@@ -1,32 +1,34 @@
 import json
 from itertools import product
 import numpy as np
-from NetworksPython.timeseries import TSContinuous, TSEvent
-from NetworksPython.layers import Layer
+from ...timeseries import TSContinuous, TSEvent
+from ..layer import Layer
 from typing import Optional, Union, Tuple, List
 from scipy.signal import butter, sosfilt
 from multiprocessing import Pool
 
+
 class ButterMelFilter(Layer):
-    """ Filter - Class: define a filtering layer with continuous time series output
     """
-## - Constructor
+    Define a Butterworth filter bank (mel spacing) filtering layer with continuous time series output
+    """
+
+    ## - Constructor
     def __init__(
         self,
         fs: float,
-        dt: float = None ,
+        dt: float = None,
         name: str = "unnamed",
         cutoff_fs: float = 100,
         num_filters: int = 64,
-        num_passthrough_dimensions = 0,
-        mean_subtraction = False,
-        normalize = False,
-        order:int = 2,
+        num_passthrough_dimensions=0,
+        mean_subtraction=False,
+        normalize=False,
+        order: int = 2,
         num_workers: int = 1,
     ):
         """
-        ButterMelFilter - Layer which applies the butterworth filter in MEL scale to a one-dimensional input signal.
-                          Further dimensions can be passed through the layer without being filtered.
+        Layer which applies the butterworth filter in MEL scale to a one-dimensional input signal. Further dimensions can be passed through the layer without being filtered.
 
         :param fs:              float sampling frequency of input signal
         :param dt:             float Time-step. Default: 0.1 ms
@@ -42,7 +44,12 @@ class ButterMelFilter(Layer):
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
-            weights=np.ones([1 + num_passthrough_dimensions, num_filters + num_passthrough_dimensions]),
+            weights=np.ones(
+                [
+                    1 + num_passthrough_dimensions,
+                    num_filters + num_passthrough_dimensions,
+                ]
+            ),
             dt=np.asarray(dt),
             name=name,
         )
@@ -57,12 +64,10 @@ class ButterMelFilter(Layer):
         self.order = order
         self.num_workers = num_workers
 
-
         if dt == None:
-            self.dt = 1/fs
+            self.dt = 1 / fs
         else:
             self.dt = dt
-
 
         filter_bandwidth = 5 / self.num_filters
         nyquist = self.fs / 2
@@ -70,13 +75,24 @@ class ButterMelFilter(Layer):
 
         low_freq = ButterMelFilter.hz2mel(self.cutoff_fs)
         high_freq = ButterMelFilter.hz2mel(self.fs / 2 / (1 + filter_bandwidth) - 1)
-        freqs = ButterMelFilter.mel2hz(np.linspace(low_freq, high_freq, self.num_filters))
+        freqs = ButterMelFilter.mel2hz(
+            np.linspace(low_freq, high_freq, self.num_filters)
+        )
 
         freq_bands = np.array([freqs, freqs * (1 + filter_bandwidth)]) / nyquist
-        filters = list(map(lambda fb: butter(self.order, fb, analog=False, btype="band", output="sos"), freq_bands.T))
-        self.filter_lowpass = butter(3, self.cutoff_fs / nyquist, analog=False, btype="low", output="sos")
+        filters = list(
+            map(
+                lambda fb: butter(
+                    self.order, fb, analog=False, btype="band", output="sos"
+                ),
+                freq_bands.T,
+            )
+        )
+        self.filter_lowpass = butter(
+            3, self.cutoff_fs / nyquist, analog=False, btype="low", output="sos"
+        )
 
-        chunk_size = int(np.ceil(self.num_filters/ num_workers))
+        chunk_size = int(np.ceil(self.num_filters / num_workers))
         self.chunks = ButterMelFilter.generate_chunks(filters, chunk_size)
 
         self.pool = None
@@ -98,7 +114,7 @@ class ButterMelFilter(Layer):
         """
         Takes value from mel and returns hz
         """
-        return 700 * (10 ** (x/2595) - 1)
+        return 700 * (10 ** (x / 2595) - 1)
 
     def generate_chunks(l, n):
         chunks = []
@@ -106,7 +122,7 @@ class ButterMelFilter(Layer):
             if i + n > len(l):
                 chunks.append(l[i:])
             else:
-                chunks.append(l[i:i + n])
+                chunks.append(l[i : i + n])
         return chunks
 
     def process_filters(args):
@@ -125,15 +141,19 @@ class ButterMelFilter(Layer):
         ts_input: Optional[TSContinuous] = None,
         t_duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: bool = False
-    ) ->TSContinuous:
+        verbose: bool = False,
+    ) -> TSContinuous:
 
         # - Prepare time base
         time_base, input_step, num_time_steps = self._prepare_input(
             ts_input, t_duration, num_timesteps
         )
 
-        args = list(product(self.chunks, [(input_step.T[0], self.filter_lowpass, self.downsample)]))
+        args = list(
+            product(
+                self.chunks, [(input_step.T[0], self.filter_lowpass, self.downsample)]
+            )
+        )
 
         if self.pool == None:
             self.pool = Pool(self.num_workers)
@@ -154,19 +174,16 @@ class ButterMelFilter(Layer):
         # passthrough
         passthrough_data = input_step[:, 1:].T
         # subsample to be in the same shape as filt output
-        passthrough_data = passthrough_data[:, ::int(np.shape(passthrough_data)[1]/np.shape(filtOutput)[0])].T[:len(filtOutput), :]
+        passthrough_data = passthrough_data[
+            :, :: int(np.shape(passthrough_data)[1] / np.shape(filtOutput)[0])
+        ].T[: len(filtOutput), :]
 
         output = np.hstack([filtOutput, passthrough_data])
-
 
         if verbose:
             print(output)
 
-        return TSContinuous(
-            vtTimeBase,
-            output,
-            name="filteredInput")
-
+        return TSContinuous(vtTimeBase, output, name="filteredInput")
 
     def to_dict(self):
 
@@ -174,13 +191,13 @@ class ButterMelFilter(Layer):
         config["fs"] = self.fs if type(self.fs) in (float, int) else self.fs.tolist()
         config["dt"] = self.dt if type(self.dt) is float else self.dt.tolist()
         config["name"] = self.name
-        config['normalize'] = self.normalize
-        config['num_filters'] = self.num_filters
-        config['cutoff_fs'] = self.cutoff_fs
-        config['mean_subtraction'] = self.mean_subtraction
-        config['num_passthrough_dimensions'] = self.num_passthrough_dimensions
-        config['order'] = self.order
-        config['num_workers'] = self.num_workers
+        config["normalize"] = self.normalize
+        config["num_filters"] = self.num_filters
+        config["cutoff_fs"] = self.cutoff_fs
+        config["mean_subtraction"] = self.mean_subtraction
+        config["num_passthrough_dimensions"] = self.num_passthrough_dimensions
+        config["order"] = self.order
+        config["num_workers"] = self.num_workers
         config["class_name"] = "ButterMelFilter"
 
         return config
@@ -189,16 +206,16 @@ class ButterMelFilter(Layer):
     def load_from_dict(config):
 
         return ButterMelFilter(
-            dt=config['dt'],
+            dt=config["dt"],
             fs=config["fs"],
-            name=config['name'],
-            normalize=config['normalize'],
-            num_filters=config['num_filters'],
-            cutoff_fs=config['cutoff_fs'],
-            mean_subtraction=config['mean_subtraction'],
-            num_passthrough_dimensions=config['num_passthrough_dimensions'],
-            order=config['order'],
-            num_workers=config['num_workers']
+            name=config["name"],
+            normalize=config["normalize"],
+            num_filters=config["num_filters"],
+            cutoff_fs=config["cutoff_fs"],
+            mean_subtraction=config["mean_subtraction"],
+            num_passthrough_dimensions=config["num_passthrough_dimensions"],
+            order=config["order"],
+            num_workers=config["num_workers"],
         )
 
     @staticmethod
@@ -207,14 +224,14 @@ class ButterMelFilter(Layer):
             config = json.load(f)
 
         return ButterMelFilter(
-            dt=config['dt'],
+            dt=config["dt"],
             fs=config["fs"],
-            name=config['name'],
-            normalize=config['normalize'],
-            num_filters=config['num_filters'],
-            cutoff_fs=config['cutoff_fs'],
-            mean_subtraction=config['mean_subtraction'],
-            num_passthrough_dimensions=config['num_passthrough_dimensions'],
-            order=config['order'],
-            num_workers=config['num_workers']
+            name=config["name"],
+            normalize=config["normalize"],
+            num_filters=config["num_filters"],
+            cutoff_fs=config["cutoff_fs"],
+            mean_subtraction=config["mean_subtraction"],
+            num_passthrough_dimensions=config["num_passthrough_dimensions"],
+            order=config["order"],
+            num_workers=config["num_workers"],
         )
