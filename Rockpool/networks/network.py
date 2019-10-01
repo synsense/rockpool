@@ -16,18 +16,18 @@ import numpy as np
 from decimal import Decimal
 from copy import deepcopy
 from Rockpool import layers
-from typing import Tuple, List
 
 # - Try to import tqdm
 try:
     from tqdm.autonotebook import tqdm
+
     use_tqdm = True
 
 except ImportError:
     use_tqdm = False
 
 
-from typing import Callable, Union, List, Type, Optional
+from typing import Callable, Union, Tuple, List, Type, Optional
 
 from ..timeseries import TimeSeries
 from ..layers import Layer
@@ -49,7 +49,7 @@ def digits_after_point(value):
     strval = str(value)
     # - Make sure that value is actually a number
     try:
-        fval = float(value)
+        _ = float(value)
     except TypeError as e:
         raise e
     if "." in strval:
@@ -165,6 +165,7 @@ class Network:
     .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` illustrates using a `.Network` object to encapsulate a reservoir network.
 
     """
+
     def __init__(self, *layers: List[Layer], dt: Optional[float] = None):
         """
         Base class to encapsulate several `.Layer` s and manage signal routing
@@ -1074,4 +1075,5 @@ class NetworkError(Exception):
     """
     Define an exception class to encapsulate network errors
     """
+
     pass
