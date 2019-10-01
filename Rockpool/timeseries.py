@@ -682,15 +682,14 @@ class TSContinuous(TimeSeries):
     def contains(self, times: Union[int, float, ArrayLike]) -> bool:
         """
         Does the time series contain the time range specified in the given time trace?
+        Always true for periodic series
 
         :param ArrayLike times: Array-like containing time points
 
         :return bool:           True iff all specified time points are contained within this time series
         """
-        return (
-            True
-            if self.t_start <= np.min(times) and self.t_stop >= np.max(times)
-            else False
+        return self.periodic or (
+            self.t_start <= np.min(times) and self.t_stop >= np.max(times)
         )
 
     ## -- Methods for manipulating timeseries
@@ -1725,7 +1724,9 @@ class TSEvent(TimeSeries):
 
         return new_series
 
-    def remap_channels(self, channel_map: ArrayLike, inplace: bool = False) -> "TSEvent":
+    def remap_channels(
+        self, channel_map: ArrayLike, inplace: bool = False
+    ) -> "TSEvent":
         """
         Renumber channels in the :py:class:`TSEvent`
 

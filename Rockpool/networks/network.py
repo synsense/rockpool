@@ -16,7 +16,6 @@ import numpy as np
 from decimal import Decimal
 from copy import deepcopy
 from Rockpool import layers
-from typing import Tuple, List
 
 # - Try to import tqdm
 try:
@@ -28,7 +27,7 @@ except ImportError:
     use_tqdm = False
 
 
-from typing import Callable, Union, List, Type, Optional
+from typing import Callable, Union, Tuple, List, Type, Optional
 
 from ..timeseries import TimeSeries
 from ..layers import Layer
@@ -50,7 +49,7 @@ def digits_after_point(value):
     strval = str(value)
     # - Make sure that value is actually a number
     try:
-        fval = float(value)
+        _ = float(value)
     except TypeError as e:
         raise e
     if "." in strval:
