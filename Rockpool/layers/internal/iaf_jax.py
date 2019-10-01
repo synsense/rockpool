@@ -61,16 +61,16 @@ def _evolve_iaf_expsyn(
     :param key:                     pRNG key for JAX. Used to generate white noise
     :param float dt:                Time step for forward Euler solver
 
-    :return (state, v_mem_ts, v_syn_ts, spike_raster_ts):
+    :return (state, v_mem_ts, i_syn_ts, spike_raster_ts):
         state: Tuple(v_mem, I_syn, refractory)
         v_mem_ts: ndarray [T,N] Array of time series of membrane potentials per neuron
-        v_syn_ts: ndarray [T,N] Array of time series of synaptic output currents per neuron
-        spike_raster_ts: ndarrau [T,N] Boolean array of spiking activity per neuron
+        i_syn_ts: ndarray [T,N] Array of time series of synaptic output currents per neuron
+        spike_raster_ts: ndarray [T,N] Boolean array of spiking activity per neuron
     """
 
     def step_iaf_exp(X, I):
         # - Unpack carry state and inputs
-        (v_mem, v_syn, t_refractory) = X
+        (v_mem, i_syn, t_refractory) = X
         (I_ext, I_noise) = I
 
         # - Reshape input slices
@@ -78,7 +78,7 @@ def _evolve_iaf_expsyn(
         I_noise = I_noise.T
 
         # - Compute recurrent input
-        I_rec = np.dot(w_rec, v_syn.reshape((-1, 1))).reshape((-1))
+        I_rec = np.dot(w_rec, i_syn.reshape((-1, 1))).reshape((-1))
 
         # - Voltage update equation
         dV = (I_ext + I_noise + I_rec + bias + 0 - v_mem) / tau_m
@@ -103,9 +103,9 @@ def _evolve_iaf_expsyn(
         v_mem = v_mem - vbSpikes * (1 - 0)
 
         # - Update synaptic currents
-        v_syn = v_syn * np.exp(-dt / tau_s) + vbSpikes
+        i_syn = i_syn * np.exp(-dt / tau_s) + vbSpikes
 
-        return (v_mem, v_syn, t_refractory), v_mem, v_syn, vbSpikes
+        return (v_mem, i_syn, t_refractory), v_mem, i_syn, vbSpikes
 
     # - Set up initial carry state
     carry0 = (v0, syn0, refractory0)
@@ -116,12 +116,12 @@ def _evolve_iaf_expsyn(
     noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(v0)))
 
     # - Call scan to evaluate layer
-    state, v_mem_ts, v_syn_ts, spike_raster_ts = scan(
+    state, v_mem_ts, i_syn_ts, spike_raster_ts = scan(
         step_iaf_exp, carry0, (inputs, noise)
     )
 
     # - Return state and outputs
-    return state, v_mem_ts, v_syn_ts, spike_raster_ts
+    return state, v_mem_ts, i_syn_ts, spike_raster_ts
 
 
 def _evolve_iaf_expsyn_io(
@@ -140,8 +140,41 @@ def _evolve_iaf_expsyn_io(
     key,
     dt: float,
 ) -> Tuple[Tuple, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Raw JAX-backed forward Euler evolution function for an IAF recurrent layer, with input and output weights
+
+    Neurons are implemented as integrate-and-fire spiking neurons, with exponential function synaptic output currents. Neurons have a membrane and a synaptic time constant. Resting potentials and reset potentials are 0.0; thresholds are 1.0 for all neurons. A forward Euler solver is used to solve the neuron dynamics.
+
+    Neurons are optionally refractory. Membrane potentials are not clamped during the refractory period, and neurons are prevented from firing.
+
+    On spiking, neurons undergo a subtractive reset of -1.
+
+    Synaptic current variables undergo a positive step of +1 when their neuron spikes, followed by an exponential decay governed by `tau_s`.
+
+    :param np.ndarray v0:           Initial membrane potential state [N,]
+    :param np.ndarray syn0:         Initial synaptic output variable state [N,]
+    :param np.ndarray refractory0:  Initial refractory state for each neuron [N,]
+    :param np.ndarray bias:         Bias current for each neuron [N,]
+    :param np.ndarray tau_m:        Membrane time constant for each neuron [N,]
+    :param np.ndarray tau_s:        Output synaptic time constant for each neuron [N,]
+    :param np.ndarray refractory:   Refractory period for each neuron [N,]
+    :param np.ndarray w_in:         Input weights [M, N]
+    :param np.ndarray w_rec:        Recurrent weights [N, N]
+    :param np.ndarray w_out:        Output weights [N, O]
+    :param np.ndarray inputs:       Raw rasterised time series of input currents for each neuron [T, N]
+    :param float noise_std:         White noise standard deviation injected into each membrane
+    :param key:                     pRNG key for JAX. Used to generate white noise
+    :param float dt:                Time step for forward Euler solver
+
+    :return (state, v_mem_ts, i_syn_ts, spike_raster_ts, output_ts):
+        state: Tuple(v_mem, I_syn, refractory)
+        v_mem_ts: ndarray [T,N] Array of time series of membrane potentials per neuron
+        i_syn_ts: ndarray [T,N] Array of time series of synaptic output currents per neuron
+        spike_raster_ts: ndarray [T,N] Boolean array of spiking activity per neuron
+        output_ts: ndarray [T,O] Array of time series of current outputs per output
+    """
     # - Call recurrent evolution function
-    state, v_mem_ts, v_syn_ts, spike_raster_ts = _evolve_iaf_expsyn(
+    state, v_mem_ts, i_syn_ts, spike_raster_ts = _evolve_iaf_expsyn(
         v0,
         syn0,
         refractory0,
@@ -157,7 +190,7 @@ def _evolve_iaf_expsyn_io(
     )
 
     # - Return state and outputs
-    return state, v_mem_ts, v_syn_ts, spike_raster_ts, np.dot(v_syn_ts, w_out)
+    return state, v_mem_ts, i_syn_ts, spike_raster_ts, np.dot(i_syn_ts, w_out)
 
 
 class RecIAFExpJax(Layer):
@@ -291,7 +324,7 @@ class RecIAFExpJax(Layer):
 
         # - Call raw evolution function
         time_start = self.t
-        v_mem_ts, v_syn_ts, spike_raster_ts = self._evolve_raw(inps)
+        v_mem_ts, i_syn_ts, spike_raster_ts = self._evolve_raw(inps)
 
         # - Record membrane traces
         self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
@@ -308,7 +341,7 @@ class RecIAFExpJax(Layer):
         )
 
         # - Wrap synaptic outputs as time series
-        return TSContinuous(time_base, onp.array(v_syn_ts))
+        return TSContinuous(time_base, onp.array(i_syn_ts))
 
     def _evolve_raw(
         self, inps: np.ndarray
@@ -318,13 +351,13 @@ class RecIAFExpJax(Layer):
 
         :param ndarray inps:    Input matrix [T, I]
 
-        :return:  (v_mem_ts, v_syn_ts, spike_raster_ts)
+        :return:  (v_mem_ts, i_syn_ts, spike_raster_ts)
                 v_mem_ts:        (np.ndarray) Time trace of neuron membrane potentials [T, N]
-                v_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
+                i_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
                 spike_raster_ts: (np.ndarray) Boolean raster [T, N]; `True` if a spike occurred in time step `t`, from neuron `n`
         """
         # - Call compiled Euler solver to evolve reservoir
-        state, v_mem_ts, v_syn_ts, spike_raster_ts = self._evolve_jit(
+        state, v_mem_ts, i_syn_ts, spike_raster_ts = self._evolve_jit(
             self._state,
             self._state_syn,
             self._state_refractory,
@@ -346,7 +379,7 @@ class RecIAFExpJax(Layer):
         self._timestep += inps.shape[0] - 1
 
         # - Return layer activity
-        return v_mem_ts, v_syn_ts, spike_raster_ts
+        return v_mem_ts, i_syn_ts, spike_raster_ts
 
     def to_dict(self) -> dict:
         """
@@ -525,13 +558,13 @@ class RecIAFExpSpikeOutJax(RecIAFExpJax):
 
         # - Call raw evolution function
         time_start = self.t
-        v_mem_ts, v_syn_ts, spike_raster_ts = self._evolve_raw(inps)
+        v_mem_ts, i_syn_ts, spike_raster_ts = self._evolve_raw(inps)
 
         # - Record membrane traces
         self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
 
         # - Record synaptic output currents
-        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(v_syn_ts))
+        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(i_syn_ts))
 
         # - Convert spike raster to TSEvent
         spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
@@ -664,13 +697,13 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
 
         # - Call raw evolution function
         time_start = self.t
-        v_mem_ts, v_syn_ts, spike_raster_ts, outputs = self._evolve_raw(inps)
+        v_mem_ts, i_syn_ts, spike_raster_ts, outputs = self._evolve_raw(inps)
 
         # - Record membrane traces
         self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
 
         # - Record synaptic output currents
-        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(v_syn_ts))
+        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(i_syn_ts))
 
         # - Convert spike raster to TSEvent and record
         spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
@@ -694,14 +727,14 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
 
         :param ndarray inps:    Input matrix [T, I]
 
-        :return:  (v_mem_ts, v_syn_ts, spike_raster_ts, outputs)
+        :return:  (v_mem_ts, i_syn_ts, spike_raster_ts, outputs)
                 v_mem_ts:        (np.ndarray) Time trace of neuron membrane potentials [T, N]
-                v_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
+                i_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
                 spike_raster_ts: (np.ndarray) Boolean raster [T, N]; `True` if a spike occurred in time step `t`, from neuron `n`
                 outputs:         (np.ndarray) Time trace of output currents [T, O]
         """
         # - Call compiled Euler solver to evolve reservoir
-        state, v_mem_ts, v_syn_ts, spike_raster_ts, outputs = self._evolve_jit(
+        state, v_mem_ts, i_syn_ts, spike_raster_ts, outputs = self._evolve_jit(
             self._state,
             self._state_syn,
             self._state_refractory,
@@ -725,7 +758,7 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
         self._timestep += inps.shape[0] - 1
 
         # - Return layer activity
-        return v_mem_ts, v_syn_ts, spike_raster_ts, outputs
+        return v_mem_ts, i_syn_ts, spike_raster_ts, outputs
 
     @property
     def w_in(self) -> np.ndarray:
