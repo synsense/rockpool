@@ -11,12 +11,15 @@ This module encapsulates networks -- combinations of multiple `.Layer` s, connec
 
 ### --- Imports
 import json
-
-import numpy as np
 from decimal import Decimal
 from copy import deepcopy
+from typing import Callable, Union, Tuple, List, Type, Optional
+from warnings import warn
+
+import numpy as np
+
+from ..timeseries import TimeSeries
 from .. import layers
-from typing import Tuple, List
 
 # - Try to import tqdm
 try:
@@ -26,12 +29,6 @@ try:
 
 except ImportError:
     use_tqdm = False
-
-
-from typing import Callable, Union, List, Type, Optional
-
-from ..timeseries import TimeSeries
-from ..layers import Layer
 
 RealValue = Union[float, Decimal, str]
 
@@ -50,7 +47,7 @@ def digits_after_point(value):
     strval = str(value)
     # - Make sure that value is actually a number
     try:
-        fval = float(value)
+        _ = float(value)
     except TypeError as e:
         raise e
     if "." in strval:
@@ -167,7 +164,7 @@ class Network:
 
     """
 
-    def __init__(self, *layers: List[Layer], dt: Optional[float] = None):
+    def __init__(self, *layers: List[layers.Layer], dt: Optional[float] = None):
         """
         Base class to encapsulate several `.Layer` s and manage signal routing
 
@@ -191,34 +188,36 @@ class Network:
 
         if layers:
             # - First layer receives external input
-            self.input_layer: Layer = self.add_layer(layers[0], external_input=True)
+            self.input_layer: layers.Layer = self.add_layer(
+                layers[0], external_input=True
+            )
 
             # - Keep track of most recently added layer
-            recent_layer: Layer = layers[0]
+            recent_layer: layers.Layer = layers[0]
 
             # - Add and connect subsequent layers
-            lyr: Layer
+            lyr: layers.Layer
             for lyr in layers[1:]:
                 self.add_layer(lyr, input_layer=recent_layer)
-                recent_layer: Layer = lyr
+                recent_layer: layers.Layer = lyr
 
             # - Handle to last layer
-            self.output_layer: Layer = recent_layer
+            self.output_layer: layers.Layer = recent_layer
 
         # - Set evolution order and time step if no layers have been connected
         if not hasattr(self, "evol_order"):
-            self.evol_order: List[Layer] = self._set_evolution_order()
+            self.evol_order: List[layers.Layer] = self._set_evolution_order()
         if not hasattr(self, "_dt"):
             self._dt = None
 
     def add_layer(
         self,
-        lyr: Layer,
-        input_layer: Layer = None,
-        output_layer: Layer = None,
+        lyr: layers.Layer,
+        input_layer: layers.Layer = None,
+        output_layer: layers.Layer = None,
         external_input: bool = False,
         verbose: bool = False,
-    ) -> Layer:
+    ) -> layers.Layer:
         """
         Add a new layer to the network
 
@@ -314,7 +313,7 @@ class Network:
 
         return newname
 
-    def remove_layer(self, del_layer: Layer):
+    def remove_layer(self, del_layer: layers.Layer):
         """
         Remove a layer from the network by removing it from the layer inventory and make sure that no other layer receives input from it
 
@@ -322,9 +321,17 @@ class Network:
         """
 
         # - Remove connections from del_layer to others
+        post_layers = []
         for lyr in self.layerset:
             if del_layer is lyr.pre_layer:
                 lyr.pre_layer = None
+                post_layers.append(lyr)
+        if post_layers:
+            warn(
+                f"Network: After removing layer {del_layer.name} the following layers "
+                + "will not receive input anymore:\n"
+                + "\n".join(repr(lyr) for lyr in post_layers)
+            )
 
         # - Remove del_layer from the inventory and delete it
         self.layerset.remove(del_layer)
@@ -333,9 +340,11 @@ class Network:
         self._dt = self._set_dt()
 
         # - Reevaluate the layer evolution order
-        self.evol_order: List[Layer] = self._set_evolution_order()
+        self.evol_order: List[layers.Layer] = self._set_evolution_order()
 
-    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
+    def connect(
+        self, pre_layer: layers.Layer, post_layer: layers.Layer, verbose: bool = False
+    ):
         """
         Connect two layers by defining one as the input layer of the other
 
@@ -383,7 +392,9 @@ class Network:
             post_layer.pre_layer = None
             raise e
 
-    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
+    def disconnect(
+        self, pre_layer: layers.Layer, post_layer: layers.Layer, verbose: bool = False
+    ):
         """
         Remove the connection between two layers by setting the input of the target layer to `None`
 
@@ -418,13 +429,16 @@ class Network:
                     )
                 )
 
+    def get_subnet(self, *layers):
+        pass
+
     def _set_evolution_order(self) -> list:
         """
         Determine the order in which layers are evolved. Requires Network to be a directed acyclic graph, otherwise evolution has to happen timestep-wise instead of layer-wise
         """
 
         # - Function to find next evolution layer
-        def find_next_layer(candidates: set) -> Layer:
+        def find_next_layer(candidates: set) -> layers.Layer:
             while True:
                 try:
                     candidate_lyr = candidates.pop()
@@ -1059,7 +1073,7 @@ class Network:
         return Network(*evol_order, dt=dt)
 
     @staticmethod
-    def add_layer_class(cls_lyr: Type[Layer], name: str):
+    def add_layer_class(cls_lyr: Type[layers.Layer], name: str):
         """
         Add external layer class to the namespace
 
