@@ -779,7 +779,7 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
     @property
     def w_recurrent(self) -> np.ndarray:
         """ (ndarray) [N,N] Recurrent weight matrix """
-        return onp.array(self._w_recurrent)
+        return onp.array(self._weights)
 
     @w_recurrent.setter
     def w_recurrent(self, value: np.ndarray):
@@ -790,7 +790,7 @@ class RecIAFExpWithIOJax(RecIAFExpJax):
             self._size,
         ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
 
-        self._w_recurrent = np.array(value).astype("float")
+        self._weights = np.array(value).astype("float")
 
     @property
     def w_out(self) -> np.ndarray:
