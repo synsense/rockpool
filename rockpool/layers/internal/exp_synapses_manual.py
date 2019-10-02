@@ -364,6 +364,7 @@ class FFExpSyn(Layer):
         train_biases: bool = True,
         calc_intermediate_results: bool = False,
         return_training_progress: bool = True,
+        return_trained_output: bool = False,
     ) -> Union[Dict, None]:
         """
         train_rr - Train self with ridge regression over one of possibly
@@ -388,6 +389,8 @@ class FFExpSyn(Layer):
             If `return_training_progress`, return dict with current trainig variables
             (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
             Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
+            If `return_trained_output`, the dict contains the output of evolveing with
+            the newly trained weights.
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -511,8 +514,8 @@ class FFExpSyn(Layer):
 
             if return_training_progress:
                 current_trainig_progress = dict(
-                    xty=self._xty,
-                    xtx=self._xtx,
+                    xty=self._xty.copy(),
+                    xtx=self._xtx.copy(),
                     kahan_comp_xty=self._kahan_comp_xty,
                     kahan_comp_xtx=self._kahan_comp_xtx,
                 )
@@ -526,7 +529,7 @@ class FFExpSyn(Layer):
                 if return_training_progress:
                     current_trainig_progress["training_state"] = self._training_state
 
-                if calc_intermediate_results:
+                if calc_intermediate_results or return_trained_output:
                     solution = np.linalg.solve(
                         self._xtx + regularize * np.eye(input_size), self._xty
                     )
@@ -556,18 +559,27 @@ class FFExpSyn(Layer):
 
             if return_training_progress:
                 current_trainig_progress = dict(
-                    xtx=self._xtx, xty=self._xty, bias=self.bias, weights=self.weights
+                    xtx=self._xtx.copy(),
+                    xty=self._xty.copy(),
+                    bias=self.bias,
+                    weights=self.weights,
                 )
 
-            # - Remove dat stored during this trainig
+            # - Remove data stored during this trainig epoch
             self._xty = None
             self._xtx = None
             self._kahan_comp_xty = None
             self._kahan_comp_xtx = None
             self._training_state = None
 
-        if return_training_progress:
-            return current_trainig_progress
+        if return_trained_output or return_training_progress:
+            return_data = dict()
+            if return_trained_output:
+                output_samples = inp @ self.weights + self.biases
+                return_data["output"] = TSContinuous(time_base, output_samples)
+            if return_training_progress:
+                return_data["current_trainig_progress"] = current_trainig_progress
+        return return_data
 
     def train_logreg(
         self,
