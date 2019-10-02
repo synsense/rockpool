@@ -304,13 +304,16 @@ class _BaseNestProcess(multiprocessing.Process):
 
         self.nest_module.ResetKernel()
         self.nest_module.hl_api.set_verbosity("M_FATAL")
-        self.nest_module.SetKernelStatus(
-            {
-                "resolution": self.dt,
-                "local_num_threads": self.num_cores,
-                "print_time": False,
-            }
-        )
+        try:
+            self.nest_module.SetKernelStatus(
+                {
+                    "resolution": self.dt,
+                    "local_num_threads": self.num_cores,
+                    "print_time": False,
+                }
+            )
+        except self.nest_module.pynestkernel.NESTError:
+            raise ValueError("The provided value for `dt` is not supported.")
 
     def setup_nest_network(self):
         """
