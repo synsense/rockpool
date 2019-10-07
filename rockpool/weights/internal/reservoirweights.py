@@ -3,6 +3,7 @@
 ###
 
 from typing import Callable, Optional, Tuple, Union
+from mpmath import mp
 from copy import deepcopy
 import random
 import numpy as np
@@ -500,6 +501,24 @@ def partitioned_2d_reservoir(
     mnW[-size_inhib:, size_in : size_in + size_rec] = mnWInhibToRec
 
     return mnW
+
+
+def ring_reservoir(size_in: int = 64, size_rec: int = 256, num_inp_to_rec: int = 16):
+    # - Random connections from input stage to recurrent stage
+    presyn_neuron_ids = np.random.randint(size_in, size=(size_rec, num_inp_to_rec))
+    conn_inp_rec = np.zeros((size_in, size_rec))
+    conn_signs = np.random.choice((-1, 1), size=presyn_neuron_ids.shape)
+    for i_post in range(size_rec):
+        for i_pre, sign in zip(presyn_neuron_ids[i_post], conn_signs[i_post]):
+            conn_inp_rec[i_pre, i_post] += sign
+    # - Recurrent stage is one ring
+    conn_rec = np.roll(np.eye(size_rec), 1, axis=0)
+    # - Put everything together to a full connection matrix
+    full_size = size_in + size_rec
+    connections_full = np.zeros((full_size, full_size))
+    connections_full[:size_in, size_in:] = conn_inp_rec
+    connections_full[size_in:, size_in:] = conn_rec
+    return connections_full
 
 
 def dynapse_conform(

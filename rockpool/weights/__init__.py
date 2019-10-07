@@ -16,13 +16,14 @@ dModules = {
         "in_res_dynapse_flex",
         "one_dim_exc_res",
         "partitioned_2d_reservoir",
+        "ring_reservoir",
         "rndm_sparse_ei_net",
         "rndm_ei_net",
         "two_dim_exc_res",
         "unit_lambda_net",
         "wilson_cowan_net",
         "wipe_non_switiching_eigs",
-    ),
+    )
 }
 
 

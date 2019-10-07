@@ -188,21 +188,18 @@ class Network:
 
         if layers:
             # - First layer receives external input
-            self.input_layer: layers.Layer = self.add_layer(
-                layers[0], external_input=True
-            )
+            self.input_layer = self.add_layer(layers[0], external_input=True)
 
             # - Keep track of most recently added layer
             recent_layer: layers.Layer = layers[0]
 
             # - Add and connect subsequent layers
-            lyr: layers.Layer
             for lyr in layers[1:]:
                 self.add_layer(lyr, input_layer=recent_layer)
-                recent_layer: layers.Layer = lyr
+                recent_layer = lyr
 
             # - Handle to last layer
-            self.output_layer: layers.Layer = recent_layer
+            self.output_layer = recent_layer
 
         # - Set evolution order and time step if no layers have been connected
         if not hasattr(self, "evol_order"):
