@@ -15,7 +15,6 @@ import json
 import numpy as np
 from decimal import Decimal
 from copy import deepcopy
-from Rockpool import layers
 
 # - Try to import tqdm
 try:
@@ -30,6 +29,7 @@ except ImportError:
 from typing import Callable, Union, Tuple, List, Type, Optional
 
 from ..timeseries import TimeSeries
+from .. import layers
 from ..layers import Layer
 
 RealValue = Union[float, Decimal, str]
@@ -1062,7 +1062,7 @@ class Network:
         """
         Add external layer class to the namespace
 
-        This method adds a externally-defined `.Layer` subclass to the `.layers` namespace, so that layers that are defined outside the `.Rockpool.layers` module can still be loaded
+        This method adds a externally-defined `.Layer` subclass to the `.layers` namespace, so that layers that are defined outside the `.rockpool.layers` module can still be loaded
 
         :param Layer cls:   The class that is to be added
         :param str name:    Name of the class as a string

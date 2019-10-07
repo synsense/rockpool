@@ -1,9 +1,9 @@
 import numpy as np
 
-from Rockpool import TSContinuous
-from Rockpool.devices import dynapse_control_extd as dce
-from Rockpool.layers import FFUpDown
-from Rockpool.layers.internal.devices.dynap_hw import RecDynapSEDemo
+from rockpool import TSContinuous
+from rockpool.devices import dynapse_control_extd as dce
+from rockpool.layers import FFUpDown
+from rockpool.layers.internal.devices.dynap_hw import RecDynapSEDemo
 import ECG.recordings as rec
 
 ### --- Test connections

@@ -7,13 +7,13 @@ import pytest
 
 
 def test_imports():
-    from Rockpool.layers.training import add_train_output
+    from rockpool.layers.training import add_train_output
 
 
 def test_adam():
-    from Rockpool.layers import RecRateEulerJax
-    from Rockpool.layers.training import add_train_output
-    from Rockpool import TSContinuous
+    from rockpool.layers import RecRateEulerJax
+    from rockpool.layers.training import add_train_output
+    from rockpool import TSContinuous
 
     # - Generic parameters
     w_in = 2 * np.random.rand(1, 2) - 1

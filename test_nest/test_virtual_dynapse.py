@@ -1,7 +1,7 @@
 import numpy as np
 
-from Rockpool.layers import VirtualDynapse
-from Rockpool import TSEvent
+from rockpool.layers import VirtualDynapse
+from rockpool import TSEvent
 
 
 def test_change_baseweight():

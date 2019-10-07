@@ -4,17 +4,31 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".networks.network": "Network",
-    ".timeseries": (
-        "TimeSeries",
-        "TSContinuous",
-        "TSEvent",
-        "load_ts_from_file",
+    ".dynapse_control_extd": "DynapseControlExtd",
+    ".dynapse_control": (
+        "connectivity_matrix_to_prepost_lists",
+        "connect_rpyc",
+        "correct_argument_types",
+        "correct_argument_types_and_teleport",
+        "correct_type",
+        "DynapseControl",
+        "evaluate_firing_rates",
+        "event_data_to_channels",
+        "generate_event_raster",
+        "initialize_hardware",
+        "rectangular_neuron_arrangement",
+        "remote_function",
+        "setup_rpyc",
+        "setup_rpyc_namespace",
+        "teleport_function",
     ),
 }
 
 # - Define current package
-strBasePackage = "Rockpool"
+strBasePackage = "rockpool.devices"
+
+# - Define docstring for module
+__doc__ = """Defines classes for interacting with hardware"""
 
 # - Initialise list of available modules
 __all__ = []

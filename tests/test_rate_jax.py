@@ -7,13 +7,13 @@ import pytest
 
 
 def test_imports():
-    from Rockpool.layers import RecRateEulerJax
+    from rockpool.layers import RecRateEulerJax
 
 
 def test_RecRateEulerJax():
     """ Test RecRateEulerJax """
-    from Rockpool import TSContinuous
-    from Rockpool.layers import RecRateEulerJax
+    from rockpool import TSContinuous
+    from rockpool.layers import RecRateEulerJax
 
     # - Generic parameters
     w_in = 2 * np.random.rand(1, 2) - 1
@@ -86,8 +86,8 @@ def test_RecRateEulerJax():
 
 def test_ForceRateEulerJax():
     """ Test ForceRateEulerJax """
-    from Rockpool import TSContinuous
-    from Rockpool.layers import ForceRateEulerJax
+    from rockpool import TSContinuous
+    from rockpool.layers import ForceRateEulerJax
 
     # - Generic parameters
     w_in = 2 * np.random.rand(1, 2) - 1
