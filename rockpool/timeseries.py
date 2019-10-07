@@ -642,7 +642,7 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def save(self, path: str):
+    def save(self, path: str, verbose: bool = False):
         """
         Save this time series as an ``npz`` file using np.savez
 
@@ -671,11 +671,12 @@ class TSContinuous(TimeSeries):
             trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
-        print(
-            "TSContinuous `{}` has been stored in `{}`.".format(
-                self.name, path + missing_ending * ".npz"
+        if verbose:
+            print(
+                "TSContinuous `{}` has been stored in `{}`.".format(
+                    self.name, path + missing_ending * ".npz"
+                )
             )
-        )
 
     ## -- Methods for finding and extracting data
 
@@ -1887,7 +1888,7 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
-    def save(self, path: str):
+    def save(self, path: str, verbose: bool = False):
         """
         Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
 
@@ -1914,11 +1915,12 @@ class TSEvent(TimeSeries):
             trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
-        print(
-            "TSEvent `{}` has been stored in `{}`.".format(
-                self.name, path + missing_ending * ".npz"
+        if verbose:
+            print(
+                "TSEvent `{}` has been stored in `{}`.".format(
+                    self.name, path + missing_ending * ".npz"
+                )
             )
-        )
 
     ## -- Methods for combining time series
 
