@@ -6,12 +6,12 @@ import numpy as np
 import pytest
 
 def test_imports():
-   from Rockpool.layers import FFRateEuler, RecRateEuler
+   from rockpool.layers import FFRateEuler, RecRateEuler
 
 def test_FFRateEuler():
     """ Test FFRateEuler """
-    from Rockpool import TSContinuous
-    from Rockpool.layers import FFRateEuler
+    from rockpool import TSContinuous
+    from rockpool.layers import FFRateEuler
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 3) - 1
@@ -55,8 +55,8 @@ def test_FFRateEuler():
 
 def test_RecRateEuler():
     """ Test RecRateEuler """
-    from Rockpool import TSContinuous
-    from Rockpool.layers import RecRateEuler
+    from rockpool import TSContinuous
+    from rockpool.layers import RecRateEuler
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 2) - 1

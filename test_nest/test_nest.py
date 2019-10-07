@@ -4,7 +4,7 @@ Test Nest-based spiking layers from layers.internal.iaf_nest
 
 import numpy as np
 
-from Rockpool.timeseries import set_global_ts_plotting_backend
+from rockpool.timeseries import set_global_ts_plotting_backend
 
 set_global_ts_plotting_backend("plt")
 
@@ -15,7 +15,7 @@ def test_chargeSingleNeuron():
     charge neuron exactly to threshold without crossing using the bias
     """
 
-    from Rockpool.layers import FFIAFNest
+    from rockpool.layers import FFIAFNest
 
     weights = [[1.0]]
     epsilon = 1e-5
@@ -58,8 +58,8 @@ def test_chargeAndSpikeSingleNeuron():
     add small input to make it spike
     """
 
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest
 
     weights = [[1.0]]
     bias = [0.375]
@@ -101,8 +101,8 @@ def test_chargeAndSpikeSingleNeuron():
 
 def test_FFNestLayer():
     """ Test FFIAFNest"""
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -140,7 +140,7 @@ def test_FFNestLayer():
 
 def test_RecNestLayer():
     """ Test RecIAFNest"""
-    from Rockpool.layers import RecIAFSpkInNest
+    from rockpool.layers import RecIAFSpkInNest
     import numpy as np
 
     # - Generic parameters
@@ -180,8 +180,8 @@ def test_RecNestLayer():
 
 def test_setWeightsIn():
     """ Test weight setting"""
-    from Rockpool.layers import FFIAFNest, RecIAFSpkInNest, RecAEIFSpkInNest
-    from Rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFIAFNest, RecIAFSpkInNest, RecAEIFSpkInNest
+    from rockpool import TSEvent, TSContinuous
     import numpy as np
 
     # - Generic parameters
@@ -300,8 +300,8 @@ def test_setWeightsIn():
 
 def test_setWeightsRec():
     """ Test RecIAFNest"""
-    from Rockpool.layers import RecIAFSpkInNest
-    from Rockpool import TSEvent
+    from rockpool.layers import RecIAFSpkInNest
+    from rockpool import TSEvent
     import numpy as np
 
     # - Generic parameters
@@ -360,9 +360,9 @@ def test_setWeightsRec():
 def test_FFToRecLayer():
     """ Test FFToRecNest"""
 
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest, RecIAFSpkInNest
-    from Rockpool.networks import network as nw
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest, RecIAFSpkInNest
+    from rockpool.networks import network as nw
     import numpy as np
 
     weights = [[0.0, 0.001, 0.0]]
@@ -441,7 +441,7 @@ def test_randomizeStateRec():
     """ test Randomize State """
 
     """ Test RecIAFNest"""
-    from Rockpool.layers import RecIAFSpkInNest
+    from rockpool.layers import RecIAFSpkInNest
     import numpy as np
 
     # - Generic parameters
@@ -477,8 +477,8 @@ def test_randomizeStateRec():
 
 def test_randomizeStateFF():
     """ Test FFIAFNest"""
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -509,8 +509,8 @@ def test_recording():
     """ tests if the shape of recording is correct """
 
     import numpy as np
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -542,9 +542,9 @@ def test_recording():
 def test_FFToRecLayerRepeat():
     """ Test FFToRecNest"""
 
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest, RecIAFSpkInNest
-    from Rockpool.networks import network as nw
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest, RecIAFSpkInNest
+    from rockpool.networks import network as nw
     import numpy as np
 
     weights = [[0.0, 0.001, 0.0]]
@@ -622,9 +622,9 @@ def test_FFToRecLayerRepeat():
 
 def test_DefaultParams():
     """ Test RecIAFNest"""
-    from Rockpool.layers import RecIAFSpkInNest, FFIAFNest
-    from Rockpool import timeseries as ts
-    from Rockpool.networks import network as nw
+    from rockpool.layers import RecIAFSpkInNest, FFIAFNest
+    from rockpool import timeseries as ts
+    from rockpool.networks import network as nw
     import numpy as np
 
     # - Generic parameters
@@ -708,9 +708,9 @@ def test_DefaultParams():
 
 def test_timeconstants():
     """ test delays """
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest, RecIAFSpkInNest
-    from Rockpool.networks import network as nw
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest, RecIAFSpkInNest
+    from rockpool.networks import network as nw
     import numpy as np
 
     weights = [[0.001]]
@@ -783,9 +783,9 @@ def test_timeconstants():
 
 def test_delays():
     """ test delays """
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFNest, RecIAFSpkInNest
-    from Rockpool.networks import network as nw
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFNest, RecIAFSpkInNest
+    from rockpool.networks import network as nw
     import numpy as np
 
     weights = [[0.001, 0.0, 0.0, 0.0]]
@@ -881,9 +881,9 @@ def test_delays():
 
 def test_IAF2AEIFNest():
     """ Test RecIAFNest to RecAEIFNest """
-    from Rockpool.layers import RecIAFSpkInNest
-    from Rockpool.layers import RecAEIFSpkInNest
-    from Rockpool import timeseries as ts
+    from rockpool.layers import RecIAFSpkInNest
+    from rockpool.layers import RecAEIFSpkInNest
+    from rockpool import timeseries as ts
     import numpy as np
 
     # - Generic parameters
@@ -954,10 +954,10 @@ def test_IAF2AEIFNest():
 
 def test_SaveLoad():
     """ Test save and load RecAEIFNest """
-    from Rockpool.layers import RecIAFSpkInNest
-    from Rockpool.layers import RecAEIFSpkInNest
-    from Rockpool import timeseries as ts
-    from Rockpool.networks import network as nw
+    from rockpool.layers import RecIAFSpkInNest
+    from rockpool.layers import RecAEIFSpkInNest
+    from rockpool import timeseries as ts
+    from rockpool.networks import network as nw
     import numpy as np
 
     # - Generic parameters

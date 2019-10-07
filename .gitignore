@@ -6,6 +6,6 @@ __pycache__
 .pytest_cache
 AnomalyDetection/rate-based/build
 AnomalyDetection/rate-based/dist
-Rockpool.egg-info/*
+*.egg-info/*
 docs/_build
 docs/reference/_autosummary

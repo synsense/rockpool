@@ -15,7 +15,7 @@ import json
 import numpy as np
 from decimal import Decimal
 from copy import deepcopy
-from Rockpool import layers
+from .. import layers
 from typing import Tuple, List
 
 # - Try to import tqdm
@@ -1063,7 +1063,7 @@ class Network:
         """
         Add external layer class to the namespace
 
-        This method adds a externally-defined `.Layer` subclass to the `.layers` namespace, so that layers that are defined outside the `.Rockpool.layers` module can still be loaded
+        This method adds a externally-defined `.Layer` subclass to the `.layers` namespace, so that layers that are defined outside the `.rockpool.layers` module can still be loaded
 
         :param Layer cls:   The class that is to be added
         :param str name:    Name of the class as a string

@@ -8,16 +8,16 @@ import os.path
 
 
 # def test_imports():
-#    from Rockpool.layers import iaf_brian
+#    from rockpool.layers import iaf_brian
 #
-#    # from Rockpool.layers import iaf_brian
+#    # from rockpool.layers import iaf_brian
 
 
 def test_ffiaf():
     """ Test FFIAFBrian """
     from brian2 import second
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFBrian
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFBrian
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -50,8 +50,8 @@ def test_ffiaf():
 
 def test_ffiaf_spkin():
     """ Test FFIAFSpkInBrian """
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import FFIAFSpkInBrian
+    from rockpool import timeseries as ts
+    from rockpool.layers import FFIAFSpkInBrian
 
     # - Generic parameters
     weights = np.array([[-0.1, 0.02, 0.4], [0.2, -0.3, -0.15]])
@@ -85,8 +85,8 @@ def test_ffiaf_spkin():
 def test_reciaf():
     """ Test RecIAFBrian """
     from brian2 import second
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import RecIAFBrian
+    from rockpool import timeseries as ts
+    from rockpool.layers import RecIAFBrian
 
     # - Generic parameters
     np.random.seed(1)
@@ -121,8 +121,8 @@ def test_reciaf():
 
 def test_reciaf_spkin():
     """ Test RecIAFSpkInBrian """
-    from Rockpool import timeseries as ts
-    from Rockpool.layers import RecIAFSpkInBrian
+    from rockpool import timeseries as ts
+    from rockpool.layers import RecIAFSpkInBrian
 
     # - Negative weights, so that layer doesn't spike and gets reset
     np.random.seed(1)

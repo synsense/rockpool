@@ -2,13 +2,13 @@
 from warnings import warn
 import os.path
 import numpy as np
-from Rockpool import TSEvent
+from rockpool import TSEvent
 
 RUN_TEST = False
 
 try:
-    from Rockpool.devices import DynapseControlExtd
-    from Rockpool.devices import dynapse_control as dc
+    from rockpool.devices import DynapseControlExtd
+    from rockpool.devices import dynapse_control as dc
 except ImportError:
     warn("DynapseControl could not be imported. Maybe RPyC is not available.")
 else:
@@ -169,7 +169,7 @@ def test_dynapse_layer():
     if not RUN_TEST:
         return
 
-    from Rockpool.layers import RecDynapSE
+    from rockpool.layers import RecDynapSE
 
     # - Layer generation
     dynap_lyr = RecDynapSE(

@@ -13,11 +13,11 @@ import sys
 strNetworkPath = sys.path[0] + "../../.."
 sys.path.insert(1, strNetworkPath)
 
-from Rockpool.timeseries import TSContinuous, TSEvent
+from ...timeseries import TSContinuous, TSEvent
 
-from Rockpool.layers import Layer
+from ..layer import Layer
 
-from Rockpool.layers import TimedArray as TAShift
+from .. import TimedArray as TAShift
 
 # - Teili
 from teili import Neurons as teiliNG, Connections as teiliSyn, teiliNetwork
