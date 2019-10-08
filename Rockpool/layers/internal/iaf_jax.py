@@ -1,5 +1,5 @@
 ##
-# Spiking recurrent and FFwd layers with JAX backend
+# Spiking  layers with JAX backend
 #
 
 # - Imports
@@ -68,6 +68,9 @@ def _evolve_iaf_expsyn(
         spike_raster_ts: ndarray [T,N] Boolean array of spiking activity per neuron
     """
 
+    alpha_mem = tau_m / dt
+    beta_syn = np.exp(-dt / tau_s)
+
     def step_iaf_exp(X, I):
         # - Unpack carry state and inputs
         (v_mem, i_syn, t_refractory) = X
@@ -78,20 +81,19 @@ def _evolve_iaf_expsyn(
         I_noise = I_noise.T
 
         # - Compute recurrent input
-        I_rec = np.dot(w_rec, i_syn.reshape((-1, 1))).reshape((-1))
+        I_rec = np.dot(i_syn, w_rec).reshape((-1))
 
         # - Voltage update equation
-        dV = (I_ext + I_noise + I_rec + bias + 0 - v_mem) / tau_m
-
-        # - Find refractory neurons
-        vbRefractory = t_refractory > 0
-        dV = dV * (1 - vbRefractory)
+        dV = I_ext + I_noise + I_rec + bias + 0 - v_mem
 
         # - Update membrane voltage
-        v_mem = v_mem + dV * dt
+        v_mem = v_mem + dV * alpha_mem
+
+        # - Find refractory neurons
+        vbNonRefractory = t_refractory < 0
 
         # - Discover spiking neurons
-        vbSpikes = v_mem > 1
+        vbSpikes = (v_mem > 1) * vbNonRefractory
 
         # - Decay refractory period
         t_refractory -= dt
@@ -103,7 +105,7 @@ def _evolve_iaf_expsyn(
         v_mem = v_mem - vbSpikes * (1 - 0)
 
         # - Update synaptic currents
-        i_syn = i_syn * np.exp(-dt / tau_s) + vbSpikes
+        i_syn = i_syn * beta_syn + vbSpikes
 
         return (v_mem, i_syn, t_refractory), v_mem, i_syn, vbSpikes, I_rec
 
@@ -166,11 +168,12 @@ def _evolve_iaf_expsyn_io(
     :param key:                     pRNG key for JAX. Used to generate white noise
     :param float dt:                Time step for forward Euler solver
 
-    :return (state, v_mem_ts, i_syn_ts, spike_raster_ts, output_ts):
+    :return (state, v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts, output_ts):
         state: Tuple(v_mem, I_syn, refractory)
         v_mem_ts: ndarray [T,N] Array of time series of membrane potentials per neuron
         i_syn_ts: ndarray [T,N] Array of time series of synaptic output currents per neuron
         spike_raster_ts: ndarray [T,N] Boolean array of spiking activity per neuron
+        i_rec_ts: ndarray [T,N] Array of time series of recurrent input per neuron
         output_ts: ndarray [T,O] Array of time series of current outputs per output
     """
     # - Call recurrent evolution function
