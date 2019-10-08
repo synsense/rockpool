@@ -155,8 +155,11 @@ class _BaseNestProcess(multiprocessing.Process):
         else:
             self.nest_module.Simulate(num_timesteps * self.dt)
 
-        # - Build response TimeSeries
+        # - Fetch events from spike detector
         events = self.nest_module.GetStatus(self._sd, "events")[0]
+        # - Clear memory of spike detector to avoid accumulating past events
+        self.nest_module.SetStatus(self._sd, {"n_events": 0})
+        # - Process fetched events
         use_event = events["times"] >= t_start
         event_time_out = ms2s(events["times"][use_event])
         event_channel_out = events["senders"][use_event]
@@ -301,13 +304,16 @@ class _BaseNestProcess(multiprocessing.Process):
 
         self.nest_module.ResetKernel()
         self.nest_module.hl_api.set_verbosity("M_FATAL")
-        self.nest_module.SetKernelStatus(
-            {
-                "resolution": self.dt,
-                "local_num_threads": self.num_cores,
-                "print_time": False,
-            }
-        )
+        try:
+            self.nest_module.SetKernelStatus(
+                {
+                    "resolution": self.dt,
+                    "local_num_threads": self.num_cores,
+                    "print_time": False,
+                }
+            )
+        except self.nest_module.pynestkernel.NESTError:
+            raise ValueError("The provided value for `dt` is not supported.")
 
     def setup_nest_network(self):
         """

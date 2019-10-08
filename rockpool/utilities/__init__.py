@@ -4,31 +4,18 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".dynapse_control_extd": "DynapseControlExtd",
-    ".dynapse_control": (
-        "connectivity_matrix_to_prepost_lists",
-        "connect_rpyc",
-        "correct_argument_types",
-        "correct_argument_types_and_teleport",
-        "correct_type",
-        "DynapseControl",
-        "evaluate_firing_rates",
-        "event_data_to_channels",
-        "generate_event_raster",
-        "initialize_hardware",
-        "rectangular_neuron_arrangement",
-        "remote_function",
-        "setup_rpyc",
-        "setup_rpyc_namespace",
-        "teleport_function",
+    ".internal.property_arrays": (
+        "SetterArray",
+        "ImmutableArray",
+        "RefArray",
+        "RefProperty",
     ),
+    ".internal.type_handling": ("ArrayLike", "to_scalar"),
 }
 
-# - Define current package
-strBasePackage = "Rockpool.devices"
 
-# - Define docstring for module
-__doc__ = """Defines classes for interacting with hardware"""
+# - Define current package
+strBasePackage = "rockpool.utilities"
 
 # - Initialise list of available modules
 __all__ = []
@@ -73,3 +60,10 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
+
+
+# from .internal import *
+
+# from .internal import __all__ as suball
+
+# __all__ += suball

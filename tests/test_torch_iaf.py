@@ -7,8 +7,8 @@ fTol = 1e-7  # - Tolerance for numerical comparisons
 
 def test_ffiaf_torch():
     # - Test FFIAFTorch
-    from Rockpool.layers import FFIAFTorch
-    from Rockpool.timeseries import TSContinuous
+    from rockpool.layers import FFIAFTorch
+    from rockpool.timeseries import TSContinuous
     import numpy as np
 
     size_in = 384
@@ -51,8 +51,8 @@ def test_ffiaf_torch():
 
 def test_ffiaf_spkin_torch():
     # - Test FFIAFSpkInTorch
-    from Rockpool.layers import FFIAFSpkInTorch
-    from Rockpool.timeseries import TSEvent
+    from rockpool.layers import FFIAFSpkInTorch
+    from rockpool.timeseries import TSEvent
     import numpy as np
 
     size_in = 384
@@ -89,8 +89,8 @@ def test_ffiaf_spkin_torch():
 def test_reciaf_torch():
     # - Test RecIAFTorch
 
-    from Rockpool.layers import RecIAFTorch
-    from Rockpool.timeseries import TSContinuous
+    from rockpool.layers import RecIAFTorch
+    from rockpool.timeseries import TSContinuous
     import numpy as np
 
     size = 4
@@ -132,8 +132,8 @@ def test_reciaf_torch():
 
 def test_reciaf_spkin_torch():
     # - Test RecIAFSpkInTorch
-    from Rockpool.layers import RecIAFSpkInTorch
-    from Rockpool.timeseries import TSEvent
+    from rockpool.layers import RecIAFSpkInTorch
+    from rockpool.timeseries import TSEvent
     import numpy as np
 
     size_in = 384
@@ -170,9 +170,9 @@ def test_reciaf_spkin_torch():
 
 def test_ffiaf_refr_torch():
     # - Test FFIAFTorch
-    from Rockpool.layers import FFIAFTorch
-    from Rockpool.layers import FFIAFRefrTorch
-    from Rockpool.timeseries import TSContinuous
+    from rockpool.layers import FFIAFTorch
+    from rockpool.layers import FFIAFRefrTorch
+    from rockpool.timeseries import TSContinuous
     import numpy as np
 
     size_in = 384
@@ -235,9 +235,9 @@ def test_ffiaf_refr_torch():
 
 def test_ffiaf_spkin_refr_torch():
     # - Test FFIAFSpkInTorch
-    from Rockpool.layers import FFIAFSpkInTorch
-    from Rockpool.layers import FFIAFSpkInRefrTorch
-    from Rockpool.timeseries import TSEvent
+    from rockpool.layers import FFIAFSpkInTorch
+    from rockpool.layers import FFIAFSpkInRefrTorch
+    from rockpool.timeseries import TSEvent
     import numpy as np
 
     size_in = 384
@@ -293,9 +293,9 @@ def test_ffiaf_spkin_refr_torch():
 def test_reciaf_refr_torch():
     # - Test RecIAFTorch
 
-    from Rockpool.layers import RecIAFTorch
-    from Rockpool.layers import RecIAFRefrTorch
-    from Rockpool.timeseries import TSContinuous
+    from rockpool.layers import RecIAFTorch
+    from rockpool.layers import RecIAFRefrTorch
+    from rockpool.timeseries import TSContinuous
     import numpy as np
 
     np.random.seed(0)
@@ -360,9 +360,9 @@ def test_reciaf_refr_torch():
 
 def test_reciaf_spkin_refr_torch():
     # - Test RecIAFSpkInTorch
-    from Rockpool.layers import RecIAFSpkInTorch
-    from Rockpool.layers import RecIAFSpkInRefrTorch
-    from Rockpool.timeseries import TSEvent
+    from rockpool.layers import RecIAFSpkInTorch
+    from rockpool.layers import RecIAFSpkInRefrTorch
+    from rockpool.timeseries import TSEvent
     import numpy as np
 
     np.random.seed(1)
@@ -422,8 +422,8 @@ def test_reciaf_spkin_refr_torch():
 
 def test_reciaf_spkin_refr_cl_torch():
     # - Test RecIAFSpkInTorch
-    from Rockpool.layers import RecIAFSpkInRefrCLTorch
-    from Rockpool.timeseries import TSEvent
+    from rockpool.layers import RecIAFSpkInRefrCLTorch
+    from rockpool.timeseries import TSEvent
     import numpy as np
 
     np.random.seed(1)

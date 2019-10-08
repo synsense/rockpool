@@ -3,8 +3,8 @@ Test the saving and loading of network model
 """
 
 def test_load_save_net():
-    from Rockpool.layers import FFIAFTorch, FFIAFNest, RecIAFSpkInTorch, RecIAFSpkInNest
-    from Rockpool import networks as nw
+    from rockpool.layers import FFIAFTorch, FFIAFNest, RecIAFSpkInTorch, RecIAFSpkInNest
+    from rockpool import networks as nw
 
     lfftorch = FFIAFNest([[1,2],[3,4]], name="torchff")
     lrectorch = RecIAFSpkInNest([[1,2],[3,4]],[[1,2],[3,4]], name="torchrec")

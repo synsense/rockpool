@@ -22,7 +22,7 @@ tol_abs = 1e-9
 
 class Layer(ABC):
     """
-    Base class for Layers in Rockpool
+    Base class for Layers in rockpool
 
     This abstract class acts as a base class from which to derive subclasses that represent layers of neurons. As an abstract class, :py:class:`Layer` cannot be instantiated.
 

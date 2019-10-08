@@ -1,9 +1,9 @@
 def test_ffexpsyn():
     # - Test FFExpSyn
 
-    # from Rockpool.layers import FFExpSynTorch
-    from Rockpool.layers import FFExpSyn
-    from Rockpool.timeseries import TSEvent, TSContinuous
+    # from rockpool.layers import FFExpSynTorch
+    from rockpool.layers import FFExpSyn
+    from rockpool.timeseries import TSEvent, TSContinuous
     import numpy as np
 
     # - Layers
@@ -59,10 +59,10 @@ def test_ffexpsyn():
 def test_ffexpsyntorch():
     # - Test FFIAFTorch
 
-    # from Rockpool.layers import FFExpSynTorch
-    from Rockpool.layers import FFExpSyn
-    from Rockpool.layers import FFExpSynTorch
-    from Rockpool.timeseries import TSEvent, TSContinuous
+    # from rockpool.layers import FFExpSynTorch
+    from rockpool.layers import FFExpSyn
+    from rockpool.layers import FFExpSynTorch
+    from rockpool.timeseries import TSEvent, TSContinuous
     import numpy as np
 
     # - Layers

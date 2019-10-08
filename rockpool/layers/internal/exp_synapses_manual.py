@@ -213,102 +213,6 @@ class FFExpSyn(Layer):
         # - Output time series with output data and bias
         return TSContinuous(time_base, filtered + self.bias, name="Receiver current")
 
-    def evolve_train(
-        self,
-        ts_target: TSContinuous,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-        regularize: float = 0,
-        learning_rate: float = 0.01,
-        verbose: bool = False,
-    ) -> TSContinuous:
-        """
-        evolve : Function to evolve the states of this layer given an input
-
-        :param ts_target:        TSContinuous  Target time series
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param regularize:     float    Regularization parameter
-        :param learning_rate:   flaot    Factor determining scale of weight increments at each step
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSContinuous  output spike series
-
-        """
-
-        # - Prepare input signal
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
-        inp_raster, num_timesteps = self._prepare_input(
-            ts_input, duration, num_timesteps
-        )
-
-        # - Time base
-        time_base = (np.arange(num_timesteps + 1) + self._timestep) * self.dt
-
-        # - Define exponential kernel
-        kernel = np.exp(-(np.arange(num_timesteps) * self.dt) / self.tau_syn)
-        # - Make sure spikes only have effect on next time step
-        kernel = np.r_[0, kernel]
-
-        # Empty input array with additional dimension for training biases
-        inp = np.zeros((np.size(time_base), self.size_in + 1))
-        inp[:, -1] = 1
-
-        # - Apply kernel to spike trains and add filtered trains to input array
-        for channel, events in enumerate(inp_raster.T):
-            inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
-
-        # - Evolution:
-        weighted = inp[:, :-1] @ self.weights
-        out = weighted + self.bias
-
-        # - Update time and state
-        self._timestep += num_timesteps
-
-        ## -- Training
-        # - Prepare target data
-        target = ts_target(time_base)
-
-        # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            target
-        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
-            self.name, np.where(np.isnan(target))
-        )
-
-        # - Check target dimensions
-        if target.ndim == 1 and self.size == 1:
-            target = target.reshape(-1, 1)
-
-        assert (
-            target.shape[-1] == self.size
-        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, target.shape[-1], self.size
-        )
-
-        # - Weight update
-        # mfUpdate = inp.T @ (target - out)
-        # print(np.linalg.norm(target-out))
-        # # Normalize learning rate by number of inputs
-        # learning_rate /= (self.size_in * inp.shape[0] * vfG)
-        # self.weights += learning_rate * (mfUpdate[:-1]) - regularize * self.weights
-        # self.bias += learning_rate * (mfUpdate[-1]) - regularize * self.bias
-
-        xtx = inp.T @ inp
-        xty = inp.T @ target
-        new_weights = np.linalg.solve(xtx + regularize * np.eye(inp.shape[1]), xty)
-        print(np.linalg.norm(target - out))
-        self.weights = (self.weights + learning_rate * new_weights[:-1]) / (
-            1.0 + learning_rate
-        )
-        self.bias = (self.bias + learning_rate * new_weights[-1]) / (
-            1.0 + learning_rate
-        )
-
-        # - Output time series with output data and bias
-        return TSContinuous(time_base, out, name="Receiver current")
-
     def train(
         self,
         ts_target: TSContinuous,
@@ -364,6 +268,7 @@ class FFExpSyn(Layer):
         train_biases: bool = True,
         calc_intermediate_results: bool = False,
         return_training_progress: bool = True,
+        return_trained_output: bool = False,
     ) -> Union[Dict, None]:
         """
         train_rr - Train self with ridge regression over one of possibly
@@ -388,6 +293,8 @@ class FFExpSyn(Layer):
             If `return_training_progress`, return dict with current trainig variables
             (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
             Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
+            If `return_trained_output`, the dict contains the output of evolveing with
+            the newly trained weights.
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -511,8 +418,8 @@ class FFExpSyn(Layer):
 
             if return_training_progress:
                 current_trainig_progress = dict(
-                    xty=self._xty,
-                    xtx=self._xtx,
+                    xty=self._xty.copy(),
+                    xtx=self._xtx.copy(),
                     kahan_comp_xty=self._kahan_comp_xty,
                     kahan_comp_xtx=self._kahan_comp_xtx,
                 )
@@ -526,7 +433,7 @@ class FFExpSyn(Layer):
                 if return_training_progress:
                     current_trainig_progress["training_state"] = self._training_state
 
-                if calc_intermediate_results:
+                if calc_intermediate_results or return_trained_output:
                     solution = np.linalg.solve(
                         self._xtx + regularize * np.eye(input_size), self._xty
                     )
@@ -556,18 +463,27 @@ class FFExpSyn(Layer):
 
             if return_training_progress:
                 current_trainig_progress = dict(
-                    xtx=self._xtx, xty=self._xty, bias=self.bias, weights=self.weights
+                    xtx=self._xtx.copy(),
+                    xty=self._xty.copy(),
+                    bias=self.bias,
+                    weights=self.weights,
                 )
 
-            # - Remove dat stored during this trainig
+            # - Remove data stored during this trainig epoch
             self._xty = None
             self._xtx = None
             self._kahan_comp_xty = None
             self._kahan_comp_xtx = None
             self._training_state = None
 
-        if return_training_progress:
-            return current_trainig_progress
+        if return_trained_output or return_training_progress:
+            return_data = dict()
+            if return_trained_output:
+                output_samples = inp @ self.weights + self.biases
+                return_data["output"] = TSContinuous(time_base, output_samples)
+            if return_training_progress:
+                return_data["current_trainig_progress"] = current_trainig_progress
+        return return_data
 
     def train_logreg(
         self,

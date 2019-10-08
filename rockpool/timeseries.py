@@ -642,7 +642,7 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def save(self, path: str):
+    def save(self, path: str, verbose: bool = False):
         """
         Save this time series as an ``npz`` file using np.savez
 
@@ -671,26 +671,26 @@ class TSContinuous(TimeSeries):
             trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
-        print(
-            "TSContinuous `{}` has been stored in `{}`.".format(
-                self.name, path + missing_ending * ".npz"
+        if verbose:
+            print(
+                "TSContinuous `{}` has been stored in `{}`.".format(
+                    self.name, path + missing_ending * ".npz"
+                )
             )
-        )
 
     ## -- Methods for finding and extracting data
 
     def contains(self, times: Union[int, float, ArrayLike]) -> bool:
         """
         Does the time series contain the time range specified in the given time trace?
+        Always true for periodic series
 
         :param ArrayLike times: Array-like containing time points
 
         :return bool:           True iff all specified time points are contained within this time series
         """
-        return (
-            True
-            if self.t_start <= np.min(times) and self.t_stop >= np.max(times)
-            else False
+        return self.periodic or (
+            self.t_start <= np.min(times) and self.t_stop >= np.max(times)
         )
 
     ## -- Methods for manipulating timeseries
@@ -1725,7 +1725,9 @@ class TSEvent(TimeSeries):
 
         return new_series
 
-    def remap_channels(self, channel_map: ArrayLike, inplace: bool = False) -> "TSEvent":
+    def remap_channels(
+        self, channel_map: ArrayLike, inplace: bool = False
+    ) -> "TSEvent":
         """
         Renumber channels in the :py:class:`TSEvent`
 
@@ -1886,7 +1888,7 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
-    def save(self, path: str):
+    def save(self, path: str, verbose: bool = False):
         """
         Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
 
@@ -1913,11 +1915,12 @@ class TSEvent(TimeSeries):
             trial_start_times=trial_start_times,
         )
         missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
-        print(
-            "TSEvent `{}` has been stored in `{}`.".format(
-                self.name, path + missing_ending * ".npz"
+        if verbose:
+            print(
+                "TSEvent `{}` has been stored in `{}`.".format(
+                    self.name, path + missing_ending * ".npz"
+                )
             )
-        )
 
     ## -- Methods for combining time series
 

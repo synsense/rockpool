@@ -3,11 +3,35 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {".internal.train_jax_sgd": "add_train_output"}
+dModules = {
+    ".internal.reservoirweights": (
+        "add_random_long_range",
+        "combine_ff_rec_stack",
+        "digital",
+        "DiscretiseWeightMatrix",
+        "dynapse_conform",
+        "iaf_sparse_net",
+        "in_res_digital",
+        "in_res_dynapse",
+        "in_res_dynapse_flex",
+        "one_dim_exc_res",
+        "partitioned_2d_reservoir",
+        "ring_reservoir",
+        "rndm_sparse_ei_net",
+        "rndm_ei_net",
+        "two_dim_exc_res",
+        "unit_lambda_net",
+        "wilson_cowan_net",
+        "wipe_non_switiching_eigs",
+    )
+}
 
 
 # - Define current package
-strBasePackage = "Rockpool.layers.training"
+strBasePackage = "rockpool.weights"
+
+# - Define docstring for module
+__doc__ = """Defines functions for generating recurrent weight matrices"""
 
 # - Initialise list of available modules
 __all__ = []

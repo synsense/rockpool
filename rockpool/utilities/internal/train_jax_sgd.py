@@ -10,8 +10,8 @@ from jax import grad, jit
 
 from typing import Callable, Tuple, Union, Optional, Dict
 
-from Rockpool.layers import RecRateEulerJax
-from Rockpool import TimeSeries
+from ...layers import RecRateEulerJax
+from ....timeseries import TimeSeries, TSContinuous
 import types
 
 

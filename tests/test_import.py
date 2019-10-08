@@ -9,14 +9,14 @@ def test_import():
     """
     Test the import of top level package
     """
-    import Rockpool
+    import rockpool
 
 
 def test_submodule_import():
     """
     Test the import of submodules
     """
-    from Rockpool import layers
+    from rockpool import layers
 
-    # from Rockpool.layers import recurrent
-    # from Rockpool.layers import internal
+    # from rockpool.layers import recurrent
+    # from rockpool.layers import internal

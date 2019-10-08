@@ -4,18 +4,16 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".internal.property_arrays": (
-        "SetterArray",
-        "ImmutableArray",
-        "RefArray",
-        "RefProperty",
-    ),
-    ".internal.type_handling": ("ArrayLike", "to_scalar"),
+    ".network": "Network",
+    ".internal.net_deneve": "NetworkDeneve",
+    ".internal.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
 }
 
-
 # - Define current package
-strBasePackage = "Rockpool.utilities"
+strBasePackage = "rockpool.networks"
+
+# - Define docstring for module
+__doc__ = """Defines classes for encapsulating and generating networks of layers"""
 
 # - Initialise list of available modules
 __all__ = []
@@ -60,10 +58,3 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
-
-
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball

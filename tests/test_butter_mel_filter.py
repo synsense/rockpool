@@ -8,8 +8,8 @@ def test_butter_mel_filter():
     Test the operation of the `.ButterMelFilter` layer
     """
 
-    from Rockpool.layers import ButterMelFilter
-    from Rockpool.timeseries import TSContinuous
+    from rockpool.layers import ButterMelFilter
+    from rockpool.timeseries import TSContinuous
     import numpy as np
     import os
 
