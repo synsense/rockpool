@@ -1,5 +1,5 @@
 The `.weights` module
 ---------------------
 
-.. automodule:: Rockpool.weights
+.. automodule:: rockpool.weights
     :members:
