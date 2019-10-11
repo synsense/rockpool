@@ -433,18 +433,18 @@ class FFExpSyn(Layer):
                 if return_training_progress:
                     current_trainig_progress["training_state"] = self._training_state
 
-                if calc_intermediate_results or return_trained_output:
-                    solution = np.linalg.solve(
-                        self._xtx + regularize * np.eye(input_size), self._xty
-                    )
-                    if train_biases:
-                        self.weights = solution[:-1, :]
-                        self.bias = solution[-1, :]
-                    else:
-                        self.weights = solution
-                    if return_training_progress:
-                        current_trainig_progress["weights"] = self.weights
-                        current_trainig_progress["bias"] = self.bias
+            if calc_intermediate_results or return_trained_output:
+                solution = np.linalg.solve(
+                    self._xtx + regularize * np.eye(input_size), self._xty
+                )
+                if train_biases:
+                    self.weights = solution[:-1, :]
+                    self.bias = solution[-1, :]
+                else:
+                    self.weights = solution
+                if return_training_progress:
+                    current_trainig_progress["weights"] = self.weights
+                    current_trainig_progress["bias"] = self.bias
 
         else:
             # - In final step do not calculate rounding error but update matrices directly
@@ -479,7 +479,7 @@ class FFExpSyn(Layer):
         if return_trained_output or return_training_progress:
             return_data = dict()
             if return_trained_output:
-                output_samples = inp @ self.weights + self.biases
+                output_samples = inp[:, :-1] @ self.weights + self.bias
                 return_data["output"] = TSContinuous(time_base, output_samples)
             if return_training_progress:
                 return_data["current_trainig_progress"] = current_trainig_progress
