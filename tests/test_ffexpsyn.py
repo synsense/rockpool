@@ -48,7 +48,14 @@ def test_ffexpsyn():
     tsTgt = TSContinuous(np.arange(int(tDur / dt)) * dt, mfTgt)
 
     # flT.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
-    flM.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
+    flM.train_rr(
+        tsTgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        return_trained_output=True,
+    )
 
     # assert(
     #             np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
