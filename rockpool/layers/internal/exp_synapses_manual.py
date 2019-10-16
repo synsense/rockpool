@@ -269,6 +269,7 @@ class FFExpSyn(Layer):
         calc_intermediate_results: bool = False,
         return_training_progress: bool = True,
         return_trained_output: bool = False,
+        fisher_relabelling: bool = False,
     ) -> Union[Dict, None]:
         """
         train_rr - Train self with ridge regression over one of possibly
@@ -391,6 +392,30 @@ class FFExpSyn(Layer):
             for channel, events in enumerate(spike_raster.T):
                 inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
 
+        if store_states:
+            # - Store last state for next batch
+            if train_biases:
+                self._training_state = inp[-1, :-1].copy()
+            else:
+                self._training_state = inp[-1, :].copy()
+
+        self._curr_tr_params = dict(
+            return_training_progress=return_training_progress,
+            store_states=store_states,
+            train_biases=train_biases,
+            calc_intermediate_results=calc_intermediate_results,
+            return_trained_output=return_trained_output,
+            regularize=regularize,
+        )
+
+        if fisher_relabelling:
+            return self._train_rr_fisher(inp, target, is_first, is_last, time_base)
+        else:
+            return self._train_rr_standard(inp, target, is_first, is_last, time_base)
+
+    def _train_rr_standard(self, inp, target, is_first, is_last, time_base):
+        input_size = inp.shape[1]
+
         # - For first batch, initialize summands
         if is_first:
             # Matrices to be updated for each batch
@@ -400,90 +425,225 @@ class FFExpSyn(Layer):
             self._kahan_comp_xty = np.zeros_like(self._xty)
             self._kahan_comp_xtx = np.zeros_like(self._xtx)
 
-        # - New data to be added, including compensation from last batch
-        #   (Matrix summation always runs over time)
-        upd_xty = inp.T @ target - self._kahan_comp_xty
-        upd_xtx = inp.T @ inp - self._kahan_comp_xtx
+        if self._curr_tr_params["return_training_progress"]:
+            current_trainig_progress = dict()
+            if self._curr_tr_params["store_states"]:
+                current_trainig_progress["training_state"] = self._training_state
+
+        new_data = self._batch_update(
+            inp=inp,
+            target=target,
+            xty_old=self._xty,
+            xtx_old=self._xtx,
+            kahan_comp_xty_old=self._kahan_comp_xty,
+            kahan_comp_xtx_old=self._kahan_comp_xtx,
+            input_size=input_size,
+            is_last=is_last,
+        )
 
         if not is_last:
-            # - Update matrices with new data
-            new_xty = self._xty + upd_xty
-            new_xtx = self._xtx + upd_xtx
-            # - Calculate rounding error for compensation in next batch
-            self._kahan_comp_xty = (new_xty - self._xty) - upd_xty
-            self._kahan_comp_xtx = (new_xtx - self._xtx) - upd_xtx
-            # - Store updated matrices
-            self._xty = new_xty
-            self._xtx = new_xtx
+            self._xty = new_data["xty"]
+            self._xtx = new_data["xtx"]
+            self._kahan_comp_xty = new_data["kahan_comp_xty"]
+            self._kahan_comp_xtx = new_data["kahan_comp_xtx"]
 
-            if return_training_progress:
-                current_trainig_progress = dict(
-                    xty=self._xty.copy(),
-                    xtx=self._xtx.copy(),
-                    kahan_comp_xty=self._kahan_comp_xty,
-                    kahan_comp_xtx=self._kahan_comp_xtx,
-                )
+        if is_last or self._curr_tr_params["calc_intermediate_results"]:
+            # - Update layer weights
+            assert new_data["weights"].shape == (self.size_in, self.size)
+            self.weights = new_data["weights"]
+            if self._curr_tr_params["train_biases"]:
+                self.bias = new_data["bias"]
 
-            if store_states:
-                # - Store last state for next batch
-                if train_biases:
-                    self._training_state = inp[-1, :-1].copy()
-                else:
-                    self._training_state = inp[-1, :].copy()
-                if return_training_progress:
-                    current_trainig_progress["training_state"] = self._training_state
-
-            if calc_intermediate_results or return_trained_output:
-                solution = np.linalg.solve(
-                    self._xtx + regularize * np.eye(input_size), self._xty
-                )
-                if train_biases:
-                    self.weights = solution[:-1, :]
-                    self.bias = solution[-1, :]
-                else:
-                    self.weights = solution
-                if return_training_progress:
-                    current_trainig_progress["weights"] = self.weights
-                    current_trainig_progress["bias"] = self.bias
-
-        else:
-            # - In final step do not calculate rounding error but update matrices directly
-            self._xty += upd_xty
-            self._xtx += upd_xtx
-
-            # - Weight and bias update by ridge regression
-            solution = np.linalg.solve(
-                self._xtx + regularize * np.eye(input_size), self._xty
-            )
-            if train_biases:
-                self.weights = solution[:-1, :]
-                self.bias = solution[-1, :]
-            else:
-                self.weights = solution
-
-            if return_training_progress:
-                current_trainig_progress = dict(
-                    xtx=self._xtx.copy(),
-                    xty=self._xty.copy(),
-                    bias=self.bias,
-                    weights=self.weights,
-                )
-
+        if is_last:
             # - Remove data stored during this trainig epoch
             self._xty = None
             self._xtx = None
             self._kahan_comp_xty = None
             self._kahan_comp_xtx = None
-            self._training_state = None
 
-        if return_trained_output or return_training_progress:
+        if (
+            self._curr_tr_params["return_trained_output"]
+            or self._curr_tr_params["return_training_progress"]
+        ):
             return_data = dict()
-            if return_trained_output:
-                output_samples = inp[:, :-1] @ self.weights + self.bias
+            if self._curr_tr_params["return_trained_output"]:
+                if self._curr_tr_params["train_biases"]:
+                    inp_nobias = inp[:, :-1]
+                else:
+                    inp_nobias = inp
+                output_samples = inp_nobias @ new_data["weights"] + new_data["bias"]
                 return_data["output"] = TSContinuous(time_base, output_samples)
-            if return_training_progress:
+            if self._curr_tr_params["return_training_progress"]:
+                current_trainig_progress.update(new_data["curr_tr_prog"])
                 return_data["current_trainig_progress"] = current_trainig_progress
+
         return return_data
+
+    def _train_rr_fisher(self, inp, target, is_first, is_last, time_base):
+        input_size = inp.shape[1]
+        num_timesteps = time_base.size
+
+        # - Relabel target based on number of occurences of corresponding data points
+        bool_tgt = target.astype(bool)
+        nums_true = np.sum(bool_tgt, axis=0)
+        nums_false = num_timesteps - nums_true
+        labels_true = num_timesteps / nums_true
+        labels_false = num_timesteps / nums_false
+        target = target.astype(float)
+        for i_tgt, (tgt_vec_bool, lbl_t, lbl_f) in enumerate(
+            zip(bool_tgt.T, labels_true, labels_false)
+        ):
+            target[tgt_vec_bool, i_tgt] = lbl_t
+            target[tgt_vec_bool == False, i_tgt] = lbl_f
+
+        # - For first batch, initialize summands
+        if is_first:
+            self._xty = {}  # inp.T (dot) target
+            self._xtx = {}  # inp.T (dot) inp
+            self._kahan_comp_xty = {}  # Kahan compensation for xty
+            self._kahan_comp_xtx = {}  # Kahan compensation for xtx
+
+            for i_unit in range(self.size):
+                self._xty[i_unit] = np.zeros((input_size, 1))
+                self._kahan_comp_xty[i_unit] = np.zeros((input_size, 1))
+                self._xtx[i_unit] = np.zeros((input_size, input_size))
+                self._kahan_comp_xtx[i_unit] = np.zeros((input_size, input_size))
+
+        if self._curr_tr_params["return_trained_output"]:
+            output_samples = np.zeros((target.shape[0], target.shape[1]))
+
+        if self._curr_tr_params["return_training_progress"]:
+            current_trainig_progress = dict()
+            if self._curr_tr_params["store_states"]:
+                current_trainig_progress["training_state"] = self._training_state
+
+        for i_unit in range(self.size):
+            inp_unit = inp.copy()
+            inp_unit[bool_tgt[:, i_unit] == False, :] *= -1
+            tgt_unit = target[:, i_unit].reshape(num_timesteps, 1)
+
+            new_data = self._batch_update(
+                inp=inp_unit,
+                target=tgt_unit,
+                xty_old=self._xty[i_unit],
+                xtx_old=self._xtx[i_unit],
+                kahan_comp_xty_old=self._kahan_comp_xty[i_unit],
+                kahan_comp_xtx_old=self._kahan_comp_xtx[i_unit],
+                input_size=input_size,
+                is_last=is_last,
+            )
+            if not is_last:
+                self._xty[i_unit] = new_data["xty"]
+                self._xtx[i_unit] = new_data["xtx"]
+                self._kahan_comp_xty[i_unit] = new_data["kahan_comp_xty"]
+                self._kahan_comp_xtx[i_unit] = new_data["kahan_comp_xtx"]
+
+            if is_last or self._curr_tr_params["calc_intermediate_results"]:
+                # - Update layer weights
+                assert new_data["weights"].shape == (self.size_in, 1)
+                self.weights[:, i_unit] = new_data["weights"].flatten()
+                if self._curr_tr_params["train_biases"]:
+                    self.bias[i_unit] = new_data["bias"]
+
+            if self._curr_tr_params["return_trained_output"]:
+                if self._curr_tr_params["train_biases"]:
+                    inp_nobias = inp[:, :-1]
+                else:
+                    inp_nobias = inp
+                output_unit = inp_nobias @ new_data["weights"] + new_data["bias"]
+                output_samples[:, i_unit] = output_unit.flatten()
+
+            if self._curr_tr_params["return_training_progress"]:
+                current_trainig_progress[i_unit] = new_data["curr_tr_prog"]
+
+        if is_last:
+            # - Remove data stored during this trainig epoch
+            self._xty = None
+            self._xtx = None
+            self._kahan_comp_xty = None
+            self._kahan_comp_xtx = None
+
+        if (
+            self._curr_tr_params["return_trained_output"]
+            or self._curr_tr_params["return_training_progress"]
+        ):
+            return_data = dict()
+            if self._curr_tr_params["return_trained_output"]:
+                return_data["output"] = TSContinuous(time_base, output_samples)
+            if self._curr_tr_params["return_training_progress"]:
+                return_data["current_trainig_progress"] = current_trainig_progress
+
+        return return_data
+
+    def _batch_update(
+        self,
+        inp,
+        target,
+        xty_old,
+        xtx_old,
+        kahan_comp_xty_old,
+        kahan_comp_xtx_old,
+        input_size,
+        is_last,
+    ):
+        # - New data to be added, including compensation from last batch
+        #   (Matrix summation always runs over time)
+        upd_xty = inp.T @ target - kahan_comp_xty_old
+        upd_xtx = inp.T @ inp - kahan_comp_xtx_old
+
+        # - Collect new data in dict
+        new_data = dict()
+        # - Update matrices with new data
+        new_data["xty"] = xty_old + upd_xty
+        new_data["xtx"] = xtx_old + upd_xtx
+
+        if self._curr_tr_params["return_training_progress"]:
+            new_data["curr_tr_prog"] = dict(xty=new_data["xty"], xtx=new_data["xtx"])
+
+        if not is_last:
+            # - Calculate rounding error for compensation in next batch
+            kahan_comp_xty_new = (new_data["xty"] - xty_old) - upd_xty
+            kahan_comp_xtx_new = (new_data["xtx"] - xtx_old) - upd_xtx
+            new_data["kahan_comp_xty"] = kahan_comp_xty_new
+            new_data["kahan_comp_xtx"] = kahan_comp_xtx_new
+
+            if self._curr_tr_params["return_training_progress"]:
+                new_data["curr_tr_prog"]["kahan_comp_xty"] = kahan_comp_xty_new
+                new_data["curr_tr_prog"]["kahan_comp_xtx"] = kahan_comp_xtx_new
+
+            if (
+                self._curr_tr_params["calc_intermediate_results"]
+                or self._curr_tr_params["return_trained_output"]
+            ):
+                regularization = self._curr_tr_params["regularize"]
+                reg_data = new_data["xtx"] + regularization * np.eye(input_size)
+                solution = np.linalg.solve(reg_data, new_data["xty"])
+                if self._curr_tr_params["train_biases"]:
+                    new_data["weights"] = solution[:-1, :]
+                    new_data["bias"] = solution[-1, :]
+                else:
+                    new_data["weights"] = solution
+                if self._curr_tr_params["return_training_progress"]:
+                    new_data["curr_tr_prog"]["weights"] = new_data["weights"]
+                    if self._curr_tr_params["train_biases"]:
+                        new_data["curr_tr_prog"]["bias"] = new_data["bias"]
+
+        else:
+            # - Weight and bias update by ridge regression
+            regularization = self._curr_tr_params["regularize"]
+            reg_data = new_data["xtx"] + regularization * np.eye(input_size)
+            solution = np.linalg.solve(reg_data, new_data["xty"])
+            if self._curr_tr_params["train_biases"]:
+                new_data["weights"] = solution[:-1, :]
+                new_data["bias"] = solution[-1, :]
+            else:
+                new_data["weights"] = solution
+            if self._curr_tr_params["return_training_progress"]:
+                new_data["curr_tr_prog"]["weights"] = new_data["weights"]
+                if self._curr_tr_params["train_biases"]:
+                    new_data["curr_tr_prog"]["bias"] = new_data["bias"]
+
+        return new_data
 
     def train_logreg(
         self,
