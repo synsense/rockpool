@@ -62,8 +62,8 @@ class RecFSSpikeEulerBT(Layer):
         self,
         weights_fast: np.ndarray = None,
         weights_slow: np.ndarray = None,
-        bias: np.ndarray = 0.,
-        noise_std: float = 0.,
+        bias: np.ndarray = 0.0,
+        noise_std: float = 0.0,
         tau_mem: Union[np.ndarray, float] = 20e-3,
         tau_syn_r_fast: Union[np.ndarray, float] = 1e-3,
         tau_syn_r_slow: Union[np.ndarray, float] = 100e-3,
@@ -102,12 +102,15 @@ class RecFSSpikeEulerBT(Layer):
         super().__init__(weights=weights_fast, noise_std=noise_std, name=name)
 
         # - Check weight shape
-        assert weights_slow.shape[0] == weights_slow.shape[1], \
-            '`weights_slow` must be a square matrix'
-        assert weights_fast.shape[0] == weights_fast.shape[1], \
-            '`weights_fast` must be a square matrix'
-        assert weights_slow.shape[0] == weights_fast.shape[0], \
-            '`weights_fast` and `weights_slow` must be the same size'
+        assert (
+            weights_slow.shape[0] == weights_slow.shape[1]
+        ), "`weights_slow` must be a square matrix"
+        assert (
+            weights_fast.shape[0] == weights_fast.shape[1]
+        ), "`weights_fast` must be a square matrix"
+        assert (
+            weights_slow.shape[0] == weights_fast.shape[0]
+        ), "`weights_fast` and `weights_slow` must be the same size"
 
         self.weights_slow = weights_slow
         self.bias = np.asarray(bias).astype("float")
@@ -179,10 +182,11 @@ class RecFSSpikeEulerBT(Layer):
         assert min_delta < self.dt, "`min_delta` must be shorter than `dt`"
 
         # - Get discretised input and nominal time trace
-        input_time_trace, static_input, num_timesteps = self._prepare_input(
+        input_time_trace, static_input, num_timesteps_ideal = self._prepare_input(
             ts_input, duration, num_timesteps
         )
         final_time = input_time_trace[-1]
+        num_timesteps = num_timesteps_ideal
 
         # - Generate a noise trace
         noise_step = (
@@ -196,7 +200,7 @@ class RecFSSpikeEulerBT(Layer):
         v = full_nan((self.size, num_timesteps))
         s = full_nan((self.size, num_timesteps))
         f = full_nan((self.size, num_timesteps))
-        dot_v = full_nan((self.size, num_timesteps))
+        dot_v_ts = full_nan((self.size, num_timesteps))
 
         # - Allocate storage for spike times
         max_spike_pointer = num_timesteps * self.size
@@ -210,7 +214,7 @@ class RecFSSpikeEulerBT(Layer):
         t_time = self._t
         t_start = self._t
         step = 0
-        t_last = 0.
+        t_last = 0.0
         v_last = self._state.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
@@ -412,7 +416,7 @@ class RecFSSpikeEulerBT(Layer):
                 v = np.append(v, full_nan((self.size, extend)), axis=1)
                 s = np.append(s, full_nan((self.size, extend)), axis=1)
                 f = np.append(f, full_nan((self.size, extend)), axis=1)
-                dot_v = np.append(dot_v, full_nan((self.size, extend)), axis=1)
+                dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
                 num_timesteps += extend
 
             # - Store the network states for this time step
@@ -420,7 +424,7 @@ class RecFSSpikeEulerBT(Layer):
             v[:, step] = self._state
             s[:, step] = self.I_s_S
             f[:, step] = self.I_s_F
-            dot_v[:, step] = dot_v
+            dot_v_ts[:, step] = dot_v
 
             # - Next nominal time step
             t_last = copy.copy(t_time)
@@ -445,7 +449,7 @@ class RecFSSpikeEulerBT(Layer):
         v = v[:, :step]
         s = s[:, :step]
         f = f[:, :step]
-        dot_v = dot_v[:, :step]
+        dot_v_ts = dot_v_ts[:, :step]
         spike_times = spike_times[:spike_pointer]
         spike_indices = spike_indices[:spike_pointer]
 
@@ -456,33 +460,27 @@ class RecFSSpikeEulerBT(Layer):
             "a": s,
             "f": f,
             "mfFast": f,
-            "dot_v": dot_v,
+            "dot_v": dot_v_ts,
             "static_input": static_input,
         }
 
-        use_hv, _ = get_global_ts_plotting_backend()
-        if use_hv:
+        use_hv = get_global_ts_plotting_backend()
+        if use_hv == "holoviews":
             spikes = {"times": spike_times, "vnNeuron": spike_indices}
 
             resp["spReservoir"] = hv.Points(
                 spikes, kdims=["times", "vnNeuron"], label="Reservoir spikes"
-            ).redim.range(
-                times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size)
-            )
+            ).redim.range(times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size))
         else:
             resp["spReservoir"] = dict(times=spike_times, vnNeuron=spike_indices)
 
         # - Convert some elements to time series
-        resp["tsX"] = TSContinuous(
-            resp["vt"], resp["mfX"].T, name="Membrane potential"
-        )
-        resp["tsA"] = TSContinuous(
-            resp["vt"], resp["a"].T, name="Slow synaptic state"
-        )
+        resp["tsX"] = TSContinuous(resp["vt"], resp["mfX"].T, name="Membrane potential")
+        resp["tsA"] = TSContinuous(resp["vt"], resp["a"].T, name="Slow synaptic state")
 
         # - Store "last evolution" state
         self._last_evolve = resp
-        self._timestep += num_timesteps
+        self._timestep += num_timesteps_ideal
 
         # - Return output TimeSeries
         return TSEvent(spike_times, spike_indices)
@@ -624,7 +622,7 @@ def clip_scalar(val: float, f_min: float, f_max: float):
     :return: Clipped value
     """
     if val < f_min:
-        return min
+        return f_min
     elif val > f_max:
         return f_max
     else:
