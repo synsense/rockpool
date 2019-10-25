@@ -1,29 +1,12 @@
 from distutils.core import setup
+import setuptools
 
 setup(
     name="rockpool",
-    version="0.2",
-    packages=[
-        "rockpool",
-        "rockpool.weights",
-        "rockpool.weights.gpl",
-        "rockpool.weights.internal",
-        "rockpool.utilities",
-        "rockpool.utilities.gpl",
-        "rockpool.utilities.internal",
-        "rockpool.networks",
-        "rockpool.networks.gpl",
-        "rockpool.networks.internal",
-        "rockpool.layers",
-        "rockpool.layers.gpl",
-        "rockpool.layers.internal",
-        "rockpool.layers.internal.pytorch",
-        "rockpool.layers.internal.devices",
-        "rockpool.layers.training",
-        "rockpool.layers.training.gpl",
-        "rockpool.layers.training.internal",
-    ],
-    license="All rights reserved aiCTX AG",
+    author="aiCTX",
+    author_email="dylan.muir@aictx.ai",
+    version="1.0.1",
+    packages=setuptools.find_packages(),
     install_requires=["numba", "numpy", "scipy"],
     extras_require={
         "all": [
@@ -38,6 +21,7 @@ setup(
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
+            "sphinx-rtd-theme",
         ]
     },
     long_description=open("README.md").read(),

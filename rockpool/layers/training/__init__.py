@@ -3,7 +3,7 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {".internal.train_jax_sgd": "add_train_output"}
+dModules = {".gpl.train_jax_sgd": "add_train_output"}
 
 
 # - Define current package
@@ -54,8 +54,3 @@ for strModule, classnames in dModules.items():
         print(err)
 
 
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball

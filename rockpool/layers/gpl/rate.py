@@ -574,7 +574,7 @@ class FFRateEuler(Layer):
         return config
 
     @property
-    def vActivation(self):
+    def activation(self):
         """
         (ArrayLike[float]) The activation of this layer, after the activation function
         """

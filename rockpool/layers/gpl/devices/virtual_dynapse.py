@@ -16,7 +16,7 @@ import numpy as np
 from ....timeseries import TSEvent
 from ....utilities import ArrayLike, ImmutableArray, SetterArray
 from ...layer import Layer
-from ...internal.aeif_nest import RecAEIFSpkInNest
+from ...gpl.aeif_nest import RecAEIFSpkInNest
 from . import params
 
 ### --- Constants

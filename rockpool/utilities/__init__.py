@@ -4,13 +4,14 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".internal.property_arrays": (
+    ".gpl.property_arrays": (
         "SetterArray",
         "ImmutableArray",
         "RefArray",
         "RefProperty",
     ),
-    ".internal.type_handling": ("ArrayLike", "to_scalar"),
+    ".gpl.type_handling": ("ArrayLike", "to_scalar"),
+    ".gpl.timedarray_shift": "TimedArray",
 }
 
 
@@ -62,8 +63,3 @@ for strModule, classnames in dModules.items():
         print(err)
 
 
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball
