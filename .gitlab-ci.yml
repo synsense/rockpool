@@ -31,6 +31,8 @@ nest_tests:
 
   before_script:
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
 
@@ -47,6 +49,8 @@ documentation_linting:
 
   before_script:
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
@@ -61,8 +65,9 @@ docs_build:
     - aiCTX
 
   before_script:
-    - pip install sphinx_rtd_theme
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
