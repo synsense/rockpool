@@ -9,3 +9,5 @@ AnomalyDetection/rate-based/dist
 *.egg-info/*
 docs/_build
 docs/reference/_autosummary
+build/
+dist/

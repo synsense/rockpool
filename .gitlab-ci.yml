@@ -94,9 +94,13 @@ pages:
 
 pipy:
   stage: deploy
+
   only:
     - feature/deploy 
+
   image: aictx/ci-python-arch:latest
+
+  allow_failure: true
 
   tags:
     - python
