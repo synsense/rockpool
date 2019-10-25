@@ -13,7 +13,7 @@ from brian2.units.allunits import *
 
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
-from rockpool.utils import TimedArray as TAShift
+from rockpool.utilities import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
 
