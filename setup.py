@@ -21,6 +21,7 @@ setup(
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
+            "sphinx-rtd-theme",
         ]
     },
     long_description=open("README.md").read(),
