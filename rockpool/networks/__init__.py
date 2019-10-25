@@ -5,8 +5,8 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".network": "Network",
-    ".internal.net_deneve": "NetworkDeneve",
-    ".internal.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
+    ".gpl.net_deneve": "NetworkDeneve",
+    ".gpl.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
 }
 
 # - Define current package

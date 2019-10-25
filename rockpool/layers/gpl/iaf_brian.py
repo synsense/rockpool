@@ -4,6 +4,8 @@
 
 
 # - Imports
+from warnings import warn
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
@@ -12,7 +14,7 @@ from brian2.units.allunits import *
 from ...timeseries import TSContinuous, TSEvent
 
 from ..layer import Layer
-from .timedarray_shift import TimedArray as TAShift
+from rockpool.utils import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
 
@@ -172,6 +174,8 @@ class FFIAFBrian(Layer):
 
         :param record:         bool Record membrane potential during evolutions
         """
+        
+        warn("FFIAFBrian: This layer is deprecated. You can use FFIAFTorch or FFIAFNest instead.")
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
@@ -560,6 +564,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
         :param record:         bool Record membrane potential during evolutions
         """
+
+        warn("FFIAFSpkInBrian: This layer is deprecated. You can use FFIAFSpkInTorch instad.")
 
         # - Call Layer constructor
         Layer.__init__(
@@ -1035,6 +1041,7 @@ class RecIAFBrian(Layer):
         :param record:         bool Record membrane potential during evolutions
         """
 
+        warn("RecIAFBrian: This layer is deprecated. You can use RecIAFTorch instad.")
         assert (
             np.atleast_2d(weights).shape[0] == np.atleast_2d(weights).shape[1]
         ), "Layer `{}`: weights must be a square matrix.".format(name)
@@ -1431,6 +1438,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
         :param record:         bool Record membrane potential during evolutions
         """
 
+        warn("RecIAFSpkInBrian: This layer is deprecated. You can use RecIAFSpkInTorch or RecIAFSpkInNest instad.")
         # - Call Layer constructor
         Layer.__init__(
             self,
