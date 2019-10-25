@@ -10,6 +10,8 @@ unit_tests:
     - python
     - aiCTX
 
+  allow_failure: true
+
   before_script:
     - pip install --upgrade pip
     - pip install .[all] --no-cache-dir
@@ -91,4 +93,31 @@ pages:
   artifacts:
     paths:
       - public
+
+pipy:
+  stage: deploy
+
+  only:
+    - feature/deploy 
+
+  image: aictx/ci-python-arch:latest
+
+
+  tags:
+    - python
+    - aiCTX
+
+  dependencies:
+    - unit_tests
+    - nest_tests
+    - documentation_linting
+    - docs_build 
+
+  script:
+    - pip install -U twine
+    - python setup.py sdist
+    - python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+
+
+  
 
