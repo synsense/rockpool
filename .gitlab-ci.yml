@@ -106,7 +106,7 @@ pipy:
     - unit_tests
     - nest_tests
     - documentation_linting
-    - pages
+    - docs_build 
 
   script:
     - pip install -U twine
