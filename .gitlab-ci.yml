@@ -94,11 +94,11 @@ pages:
     paths:
       - public
 
-pipy:
+pypi:
   stage: deploy
 
   only:
-    - feature/deploy 
+    - master 
 
   image: aictx/ci-python-arch:latest
 
@@ -116,7 +116,7 @@ pipy:
   script:
     - pip install -U twine
     - python setup.py sdist
-    - python -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+    - python -m twine upload dist/*
 
 
   
