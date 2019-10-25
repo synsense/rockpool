@@ -428,9 +428,9 @@ class Layer(ABC):
 
     def randomize_state(self):
         """
-        Randomise the internal state of this layer
+        Randomize the internal state of this layer
 
-        Unless overridden, this method randomises the layer state based on the current state, using a Normal distribution with std. dev. of 20% of the current state values
+        Unless overridden, this method randomizes the layer state based on the current state, using a Normal distribution with std. dev. of 20% of the current state values
         """
         # create random initial state with a gaussian distribution with mean the values that were given and std the 20% of the absolute value
         self.state = np.random.normal(
@@ -549,14 +549,14 @@ class Layer(ABC):
     @property
     def output_type(self):
         """
-        (Type[TimeSeries]) Output `.TimeSeries` subclass emitted by this layer. Default: :py:class:`.TSContinuous`
+        (Type[TimeSeries]) Output :py:class:`.TimeSeries` subclass emitted by this layer. 
         """
         return TSContinuous
 
     @property
     def input_type(self):
         """
-        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer. Default: :py:class:`.TSContinuous`
+        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer. 
         """
         return TSContinuous
 
