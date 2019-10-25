@@ -66,8 +66,8 @@ docs_build:
 
 pages:
   stage: deploy
-  only:
-    - master
+  # only:
+  #  - master
 
   allow_failure: true
   image: aictx/ci-python-arch:latest
