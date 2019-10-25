@@ -5,7 +5,7 @@ setup(
     name="rockpool",
     author="aiCTX",
     author_email="dylan.muir@aictx.ai",
-    version="1.0a",
+    version="1.0b",
     packages=setuptools.find_packages(),
     license="All rights reserved aiCTX AG",
     install_requires=["numba", "numpy", "scipy"],
