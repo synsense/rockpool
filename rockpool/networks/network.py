@@ -1,6 +1,6 @@
 """
 
-This module encapsulates networks -- combinations of multiple `.Layer` s, connected in a directed acyclic graph.
+This module encapsulates networks -- combinations of multiple `.Layer` objects, connected in a directed acyclic graph.
 
 """
 
@@ -166,7 +166,7 @@ class Network:
 
     def __init__(self, *layers: List[layers.Layer], dt: Optional[float] = None):
         """
-        Base class to encapsulate several `.Layer` s and manage signal routing
+        Base class to encapsulate several `.Layer` objects and manage signal routing
 
         :param Iterable[Layer] layers:   Layers to be added to the network. They will be connected in series. The order in which they are received determines the order in which they are connected. First layer will receive external input
         :param Optional[float] dt: If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
@@ -425,9 +425,6 @@ class Network:
                         pre_layer.name, post_layer.name
                     )
                 )
-
-    def get_subnet(self, *layers):
-        pass
 
     def _set_evolution_order(self) -> list:
         """
