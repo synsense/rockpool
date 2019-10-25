@@ -98,7 +98,7 @@ pypi:
   stage: deploy
 
   only:
-    - master 
+    - feature/deploy 
 
   image: aictx/ci-python-arch:latest
 
