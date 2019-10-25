@@ -77,7 +77,6 @@ pages:
 
   script:
     - mv docs/_build/html/ public/
-    - ./conda_merge_request.sh
 
   artifacts:
     paths:
@@ -103,4 +102,4 @@ pypi:
     - pip install -U twine
     - python setup.py sdist
     - python -m twine upload dist/*
-    - conda_merge_request.sh
+    - ./conda_merge_request.sh
