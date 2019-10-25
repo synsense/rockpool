@@ -13,7 +13,7 @@ This module encapsulates networks -- combinations of multiple `.Layer` objects, 
 import json
 from decimal import Decimal
 from copy import deepcopy
-from typing import Callable, Union, Tuple, List, Type, Optional
+from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any
 from warnings import warn
 
 import numpy as np
@@ -653,7 +653,7 @@ class Network:
 
     def train(
         self,
-        training_fct: Callable,
+        training_fct: Callable[["Network", Dict[str, TimeSeries], bool, bool], Any],
         ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         batch_durs: Union[np.ndarray, float, None] = None,
@@ -667,17 +667,16 @@ class Network:
 
         .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` illustrates how to call `.train` and how to build a training function.
 
-        :param Callable training_fct:           Function that is called after each evolution
-                training_fct(netObj, dtsSignals, is_first, is_last)
-                :param Network netObj:  Network the network object to be trained
-                :param Dict dtsSignals: Dictionary containing all signals in the current evolution batch
-                :param bool is_first:   Is this the first batch?
-                :param bool is_last:    Is this the final batch?
+        :param Callable training_fct:           Function that is called after each evolution, taking the following arguments:
+            - `net` (`Network`):  Network the network object to be trained.
+            - `signals` (`Dict`): Dictionary containing all signals in the current evolution batch.
+            - `is_first` (`bool`):   Is this the first batch?
+            - `is_last` (`bool`):    Is this the final batch?
 
         :param Optional[TimeSeries] ts_input:           Time series containing external input to network
         :param Optional[float] duration:                Duration over which network should be evolved. If None, evolution is over the duration of ts_input
         :param Optional[ArrayLike[float]] batch_durs:   Array-like or float - Duration of one batch (can also pass array with several values)
-        :param Optional[int]num_timesteps:              Total number of training time steps
+        :param Optional[int] num_timesteps:              Total number of training time steps
         :param Optional[ArrayLike[int]] nums_ts_batch:  Array-like or int - Number of time steps per batch (or array of several values)
         :param Optional[bool] verbose:                  If `True`, print info about training progress. Default: `True`, display progress
         :param Optional[bool] high_verbosity:           If `True`, print info about layer evolution (only has effect if `verbose` is `True`) Default: `False`, dont' display extra feedback

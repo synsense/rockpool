@@ -549,14 +549,14 @@ class Layer(ABC):
     @property
     def output_type(self):
         """
-        (TSContinuous) Output `.TimeSeries` subclass emitted by this layer. Default: :py:class:`.TSContinuous`
+        (Type[TimeSeries]) Output `.TimeSeries` subclass emitted by this layer. Default: :py:class:`.TSContinuous`
         """
         return TSContinuous
 
     @property
     def input_type(self):
         """
-        (TSContinuous) Input :py:class:`.TimeSeries` subclass accepted by this layer. Default: :py:class:`.TSContinuous`
+        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer. Default: :py:class:`.TSContinuous`
         """
         return TSContinuous
 
