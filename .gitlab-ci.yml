@@ -102,4 +102,4 @@ pypi:
     - pip install -U twine
     - python setup.py sdist
     - python -m twine upload dist/*
-
+    - conda_merge_request.sh
