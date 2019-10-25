@@ -4,6 +4,8 @@
 
 
 # - Imports
+from warnings import warn
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
@@ -11,7 +13,7 @@ from brian2.units.allunits import *
 
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
-from .timedarray_shift import TimedArray as TAShift
+from rockpool.utilities import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
 
@@ -60,6 +62,7 @@ class FFExpSynBrian(Layer):
 
         :param name:         str Name for the layer. Default: 'unnamed'
         """
+        warn("FFExpSynBrian - This layer is deprecated. You can use FFExpSyn or FFExpSynTorch instead.")
 
         # - Provide default dt
         if dt is None:
