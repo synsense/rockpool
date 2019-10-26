@@ -41,15 +41,15 @@ The NEST simulator cannot be installed using `pip`. Please see the documentation
 License
 =======
 
-Rockpool is released under a AGPL license. Commercial licenses are available on request.
+Rockpool is released under a AGPL-v3 license. Commercial licenses are available on request to dylan.muir@aictx.ai.
 
 Contributing
 ============
 
-Clone the public repository at https://gitlab.com/ai-ctx/rockpool
+Fork the public repository at https://gitlab.com/ai-ctx/rockpool, then clone your repository.
 
 ```bash
-$ git clone https://gitlab.com/ai-ctx/rockpool.git rockpool
+$ git clone https://gitlab.com/${your-repository}/rockpool.git rockpool
 ```
 
 Install the package in development mode using `pip`
@@ -65,3 +65,18 @@ or
 $ pip install -e .[all] --user
 ```
 
+The main branch is `development`. You should commit your modifications to a new feature branch.
+
+```bash
+$ git checkout -b feature/my-feature develop
+...
+$ git commit -m 'This is a verbose commit message.'
+```
+
+Then push your new branch to your repository
+
+```bash
+$ git push -u origin feature/my-feature
+```
+
+When you're finished with your modifications, make a merge request on gitlab.com, from your branch in your fork to https://gitlab.com/ai-ctx/rockpool.
