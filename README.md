@@ -1,6 +1,21 @@
 Rockpool
 ========
 
+Rockpool is a Python package for developing signal processing applications with spiking neural networks.
+
+Rockpool allows you to build networks, simulate, train and test them, deploy them either in simulation or on event-driven neuromorphic compute hardware.
+
+Rockpool provides layers with a number of simulation backends, including Brian2, NEST, Torch, JAX, Numba and raw numpy.
+
+Rockpool is designed to make machine learning based on SNNs easier. It is not designed for detailed simulation of biological networks.
+
+Documentation and getting started
+=============
+
+The best place to start with Rockpool is the documentation, which contains several tutorials and getting started guides.
+
+The documentation is hosted on gitlab: XXX
+
 Installation instructions
 =========================
 
@@ -28,7 +43,8 @@ License
 
 Rockpool is released under a AGPL license. Commercial licenses are available on request.
 
-# Contributing
+Contributing
+============
 
 Clone the public repository at https://gitlab.com/ai-ctx/rockpool
 
