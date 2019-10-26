@@ -3,7 +3,7 @@ import setuptools
 
 setup(
     name="rockpool",
-    author="aiCTX",
+    author="aiCTX AG",
     author_email="dylan.muir@aictx.ai",
     version="1.0.2",
     packages=setuptools.find_packages(),
@@ -24,5 +24,17 @@ setup(
             "sphinx-rtd-theme",
         ]
     },
+    description="A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
     long_description=open("README.md").read(),
+    long_description_content_type='text/markdown',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: AGPLv3 License',
+    ],
+    keywords='spiking neural network SNN neuromorphic',
+    python_requires='>=3.6',
+    project_urls={
+        'Source': 'https://github.com/aiCTX/rockpool',
+    },
 )
