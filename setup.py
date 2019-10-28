@@ -30,7 +30,7 @@ setup(
     classifiers=[
         'Development Status :: 4 - Beta',
         'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: AGPLv3 License',
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
     ],
     keywords='spiking neural network SNN neuromorphic',
     python_requires='>=3.6',
