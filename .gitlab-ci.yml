@@ -5,15 +5,12 @@ stages:
 
 unit_tests:
   stage: test
-  tags:
-    - gitlab-org
 
   before_script:
     - pip install --upgrade pip
     - pip install --upgrade --force-reinstall torch
     - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
-
 
   script:
     - pytest -v tests
@@ -22,10 +19,6 @@ nest_tests:
   stage: test
   allow_failure: true
   when: manual
-  image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
     - pip install --upgrade pip
@@ -33,17 +26,12 @@ nest_tests:
     - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
-
   script:
     - pytest -v test_nest
 
 documentation_linting:
   stage: test
   allow_failure: true
-  image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
     - pip install --upgrade pip
@@ -57,10 +45,6 @@ documentation_linting:
 docs_build:
   stage: build
   allow_failure: true
-  image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
     - pip install --upgrade pip
@@ -82,10 +66,6 @@ pages:
     - master
 
   allow_failure: true
-  image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   dependencies:
     - docs_build
@@ -103,9 +83,6 @@ pypi:
   only:
     - master
 
-  image: aictx/ci-python-arch:latest
-
-
   tags:
     - python
     - aiCTX
@@ -120,7 +97,4 @@ pypi:
     - pip install -U twine
     - python setup.py sdist
     - python -m twine upload dist/*
-
-
-  
 
