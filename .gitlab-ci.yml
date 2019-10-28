@@ -5,6 +5,7 @@ stages:
 
 unit_tests:
   stage: test
+  image: aictx/ci-python-arch:latest
 
   before_script:
     - pip install --upgrade pip
@@ -19,6 +20,7 @@ nest_tests:
   stage: test
   allow_failure: true
   when: manual
+  image: aictx/ci-python-arch:latest
 
   before_script:
     - pip install --upgrade pip
@@ -32,6 +34,7 @@ nest_tests:
 documentation_linting:
   stage: test
   allow_failure: true
+  image: aictx/ci-python-arch:latest
 
   before_script:
     - pip install --upgrade pip
@@ -45,6 +48,7 @@ documentation_linting:
 docs_build:
   stage: build
   allow_failure: true
+  image: aictx/ci-python-arch:latest
 
   before_script:
     - pip install --upgrade pip
@@ -66,6 +70,7 @@ pages:
     - master
 
   allow_failure: true
+  image: aictx/ci-python-arch:latest
 
   dependencies:
     - docs_build
@@ -79,6 +84,7 @@ pages:
 
 pypi:
   stage: deploy
+  image: aictx/ci-python-arch:latest
 
   only:
     - master
