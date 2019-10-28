@@ -8,19 +8,14 @@ Base requirements
 
 |project| requires `Python 3.6`_, numpy_, scipy_ and numba_ to install. These requirements will be installed by `pip` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
 
-Cloning from Gitlab in edit mode
---------------------------------
+Installation using `pip`
+------------------------
 
-The best way to stay up to date with bug fixes and improvements is to clone the ``git`` repository and install the package from source.
-
-* Clone the repository using your favourite ``git`` tool
-* Install using ``pip``:
+The simplest way to install |project| is by using `pip` to download and install the latest version from PyPI.
 
 .. code-block:: Bash
 
-    pip install -e .
-
-This command installs the packages without copying them from the repository location. This means that when you pull updates to |project|, they will be applied automatically without reinstalling.
+    pip install rockpool
 
 Dependencies
 ------------
@@ -39,16 +34,65 @@ To automatically install all the extra dependencies required by |project|, use t
 
 .. code-block:: Bash
 
-    pip install -e .[all]
+    $ pip install rockpool[all]
+
+
+Contributing
+============
+
+If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/ai-ctx/rockpool to your own account. Then clone your fork to your development machine
+
+.. code-block:: Bash
+
+    $ git clone https://gitlab.com/your-fork-location/rockpool.git rockpool
+
+
+Install the package in development mode using `pip`
+
+.. code-block:: Bash
+
+    $ cd rockpool
+    $ pip install -e . --user
+
+
+or
+
+.. code-block:: Bash
+
+    $ pip install -e .[all] --user
+
+
+The main branch is `development`. You should commit your modifications to a new feature branch.
+
+.. code-block:: Bash
+
+    $ git checkout -b feature/my-feature develop
+    ...
+    $ git commit -m 'This is a verbose commit message.'
+
+
+Then push your new branch to your repository
+
+.. code-block:: Bash
+
+    $ git push -u origin feature/my-feature
+
+
+Use the [Black code formatter][https://black.readthedocs.io/en/stable/] on your submission during your final commit. This is required for us to merge your changes. If your modifications aren't already covered by a unit test, please include a unit test with your merge request. Unit tests go in the `tests` directory.
+
+Then when you're ready, make a merge request on gitlab.com, from the feature branch in your fork to https://gitlab.com/ai-ctx/rockpool.
 
 Running tests
 -------------
+
+As part of the merge review process, we'll check that all the unit tests pass. You can check this yourself (and probably should before making your merge request), by running the unit tests locally.
 
 To run all the unit tests for |project|, use `pytest`:
 
 .. code-block:: Bash
 
-    pytest tests
+    $ pytest tests
+
 
 Building documentation
 ----------------------
@@ -57,8 +101,9 @@ The |project| documentation requires Sphinx_, NBSphinx_ and Sphinx-autobuild_. T
 
 .. code-block:: Bash
 
-    cd docs
-    make livehtml
+    $ cd docs
+    $ make livehtml
+
 
 Will compile the documentation and open a web browser to the local copy of the docs.
 
