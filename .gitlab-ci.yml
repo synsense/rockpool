@@ -84,6 +84,7 @@ pages:
 
 pypi:
   stage: deploy
+  when: manual
   image: aictx/ci-python-arch:latest
 
   only:
@@ -97,7 +98,7 @@ pypi:
     - unit_tests
     - nest_tests
     - documentation_linting
-    - docs_build 
+    - docs_build
 
   script:
     - pip install -U twine
