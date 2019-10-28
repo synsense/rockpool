@@ -1,16 +1,16 @@
 # Rockpool
 
-[![pipeline status](https://gitlab.com/aiCTX/rockpool/badges/develop/pipeline.svg)](https://spinystellate.office.ai-ctx.com/research/rockpool/commits/master) ![PyPI - Package](https://img.shields.io/pypi/v/rockpool.svg) ![Conda](https://img.shields.io/conda/v/conda-forge/rockpool) [![Documentation Status](https://readthedocs.org/projects/rockpool/badge/?version=latest)](https://rockpool.readthedocs.io/en/latest/?badge=latest) ![PyPI - Language support](https://img.shields.io/pypi/pyversions/rockpool.svg) ![Black - formatter](https://img.shields.io/badge/code%20style-black-000000.svg) ![PyPI - Downloads](https://img.shields.io/pypi/dd/rockpool)
+[![pipeline status](https://gitlab.com/aiCTX/rockpool/badges/develop/pipeline.svg)](https://gitlab.com/aiCTX/rockpool/commits/master) ![PyPI - Package](https://img.shields.io/pypi/v/rockpool.svg) ![Conda](https://img.shields.io/conda/v/conda-forge/rockpool) [![Documentation Status](https://readthedocs.org/projects/rockpool/badge/?version=latest)](https://rockpool.readthedocs.io/en/latest/?badge=latest) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rockpool?logo=python) ![Black - formatter](https://img.shields.io/badge/code%20style-black-black) ![PyPI - Downloads](https://img.shields.io/pypi/dd/rockpool)
+
+![Noodle](https://aictx.gitlab.io/rockpool/_static/noodle-small.png)
 
 Rockpool is a Python package for developing signal processing applications with spiking neural networks. Rockpool allows you to build networks, simulate, train and test them, deploy them either in simulation or on event-driven neuromorphic compute hardware. Rockpool provides layers with a number of simulation backends, including Brian2, NEST, Torch, JAX, Numba and raw numpy. Rockpool is designed to make machine learning based on SNNs easier. It is not designed for detailed simulation of biological networks.
 
 # Documentation and getting started
 
-[![Documentation Status](https://readthedocs.org/projects/rockpool/badge/?version=latest)](https://rockpool.readthedocs.io/en/latest/?badge=latest)
+The best place to start with Rockpool is the [documentation](https://aictx.gitlab.io/rockpool), which contains several tutorials and getting started guides.
 
-The best place to start with Rockpool is the [documentation][https://rockpool.readthedocs.io], which contains several tutorials and getting started guides.
-
-The documentation is hosted on ReadTheDocs: [https://rockpool.readthedocs.io]
+The documentation is hosted on GitLab: [https://aictx.gitlab.io/rockpool/]
 
 # Installation instructions
 

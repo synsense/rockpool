@@ -78,9 +78,11 @@ Then push your new branch to your repository
     $ git push -u origin feature/my-feature
 
 
-Use the [Black code formatter][https://black.readthedocs.io/en/stable/] on your submission during your final commit. This is required for us to merge your changes. If your modifications aren't already covered by a unit test, please include a unit test with your merge request. Unit tests go in the `tests` directory.
+Use the `Black code formatter`_ on your submission during your final commit. This is required for us to merge your changes. If your modifications aren't already covered by a unit test, please include a unit test with your merge request. Unit tests go in the `tests` directory.
 
 Then when you're ready, make a merge request on gitlab.com, from the feature branch in your fork to https://gitlab.com/ai-ctx/rockpool.
+
+.. _`Black code formatter`: https://black.readthedocs.io/en/stable/
 
 Running tests
 -------------
