@@ -97,8 +97,6 @@ pypi:
   dependencies:
     - unit_tests
     - nest_tests
-    - documentation_linting
-    - docs_build
 
   script:
     - pip install -U twine
