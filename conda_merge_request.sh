@@ -16,7 +16,7 @@ echo ${sha}
 
 version=$(echo "${file_name}" | sed -n "s/^.*-\s*\(\S*\).*.tar.gz$/\1/p")
 
-git clone https://ai-cortex:aicortexAtgithub2019@github.com/ai-cortex/staged-recipes.git staged-recipes
+git clone https://${GITHUB_USER}:${GITHUB_PASS}@github.com/ai-cortex/staged-recipes.git staged-recipes
 
 cd ./staged-recipes
 
