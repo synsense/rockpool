@@ -67,7 +67,7 @@ docs_build:
 pages:
   stage: deploy
   only:
-   - master
+    - master
 
   allow_failure: true
   image: aictx/ci-python-arch:latest
@@ -87,8 +87,8 @@ pypi:
   when: manual
   image: aictx/ci-python-arch:latest
 
-  # only:
-  # - master
+  only:
+    - master
 
   tags:
     - python
