@@ -103,7 +103,7 @@ pages:
     paths:
       - public
 
-pypi_conda_deploy:
+pypi_deploy:
   stage: deploy
   when: manual
   image: aictx/ci-python-arch:latest
@@ -120,4 +120,21 @@ pypi_conda_deploy:
 
   script:
     - python -m twine upload dist/*
+
+conda_deploy:
+  stage: deploy
+  when: manual
+  image: aictx/ci-python-arch:latest
+
+  only:
+    - master
+
+  tags:
+    - python
+    - aiCTX
+
+  dependencies:
+    - dist_build
+
+  script:
     - ./conda_merge_request.sh
