@@ -10,7 +10,7 @@ Rockpool is a Python package for developing signal processing applications with 
 
 The best place to start with Rockpool is the [documentation](https://aictx.gitlab.io/rockpool), which contains several tutorials and getting started guides.
 
-The documentation is hosted on GitLab: [https://aictx.gitlab.io/rockpool/]
+The documentation is hosted on GitLab: [https://aictx.gitlab.io/rockpool/](https://aictx.gitlab.io/rockpool/)
 
 # Installation instructions
 
