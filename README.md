@@ -1,6 +1,6 @@
 # Rockpool
 
-[![pipeline status](https://gitlab.com/aiCTX/rockpool/badges/develop/pipeline.svg)](https://gitlab.com/aiCTX/rockpool/commits/master) ![PyPI - Package](https://img.shields.io/pypi/v/rockpool.svg) ![Conda](https://img.shields.io/conda/v/conda-forge/rockpool) [![Documentation Status](https://readthedocs.org/projects/rockpool/badge/?version=latest)](https://rockpool.readthedocs.io/en/latest/?badge=latest) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rockpool?logo=python) ![Black - formatter](https://img.shields.io/badge/code%20style-black-black) ![PyPI - Downloads](https://img.shields.io/pypi/dd/rockpool)
+![PyPI - Package](https://img.shields.io/pypi/v/rockpool.svg) ![Conda](https://img.shields.io/conda/v/conda-forge/rockpool) [![Documentation Status](https://img.shields.io/badge/docs-ok-green)](https://aictx.gitlab.io/rockpool) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rockpool?logo=python) ![Black - formatter](https://img.shields.io/badge/code%20style-black-black) ![PyPI - Downloads](https://img.shields.io/pypi/dd/rockpool)
 
 ![Noodle](https://aictx.gitlab.io/rockpool/_static/noodle-small.png)
 
