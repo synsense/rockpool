@@ -45,19 +45,18 @@ echo "" >> meta.yaml
 echo "build:" >> meta.yaml
 echo "  noarch: python" >> meta.yaml
 echo "  number: 0" >> meta.yaml
-echo "  skip: True  # [py<36]" >> meta.yaml
 echo "  script: \"{{ PYTHON }} -m pip install . -vv\"" >> meta.yaml
 echo "" >> meta.yaml
 echo "requirements:" >> meta.yaml
 echo "  build:" >> meta.yaml
 echo "  host:" >> meta.yaml
-echo "    - python" >> meta.yaml
+echo "    - python >= 3.6" >> meta.yaml
 echo "    - pip" >> meta.yaml
 echo "  run:" >> meta.yaml
 echo "    - numpy" >> meta.yaml
 echo "    - scipy" >> meta.yaml
 echo "    - numba" >> meta.yaml
-echo "    - python" >> meta.yaml
+echo "    - python >= 3.6" >> meta.yaml
 echo "" >> meta.yaml
 echo "test:" >> meta.yaml
 echo "  requires:" >> meta.yaml
@@ -83,7 +82,6 @@ echo "" >> meta.yaml
 echo "extra:" >> meta.yaml
 echo "  recipe-maintainers:" >> meta.yaml
 echo "    - DylanMuir" >> meta.yaml
-echo "" >> meta.yaml
 
 cd ../..
 
