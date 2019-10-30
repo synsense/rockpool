@@ -14,7 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../rockpool"))
-
+exec(open('../version.py').read())
 
 # -- Project information -----------------------------------------------------
 
@@ -23,7 +23,7 @@ copyright = "2019, aiCTX AG"
 author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags
-release = "1.0.4"
+release = version
 
 
 # -- General configuration ---------------------------------------------------
