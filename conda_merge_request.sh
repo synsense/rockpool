@@ -28,6 +28,9 @@ cd ./recipes/rockpool
 
 cp ../../../LICENSE .
 
+git config user.email "info@aictx.ai"
+git config user.name ${GITHUB_USER}
+
 echo "{% set name = \"rockpool\" %}" > meta.yaml
 echo "{% set version = \"${version}\" %}" >> meta.yaml
 echo "" >> meta.yaml
@@ -85,7 +88,7 @@ echo "" >> meta.yaml
 cd ../..
 
 git add -A
-git commit -m "Staging conda-forge for version ${file_name}"
+git commit -m "Staging conda-forge for ${file_name}"
 git push origin
 
 cd ..
