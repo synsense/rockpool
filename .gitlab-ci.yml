@@ -101,5 +101,6 @@ pypi:
   script:
     - pip install -U twine
     - python setup.py sdist
+    - python setup.py bdist_wheel
     - python -m twine upload dist/*
     - ./conda_merge_request.sh

@@ -1,11 +1,14 @@
 from distutils.core import setup
 import setuptools
 
+# - Read version
+exec(open('version.py').read())
+
 setup(
     name="rockpool",
     author="aiCTX AG",
     author_email="dylan.muir@aictx.ai",
-    version="1.0.4",
+    version=version,
     packages=setuptools.find_packages(),
     install_requires=["numba", "numpy", "scipy"],
     extras_require={

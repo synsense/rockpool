@@ -14,7 +14,7 @@ About |project|
 
 .. image:: https://img.shields.io/conda/v/conda-forge/rockpool
 
-.. image:: https://img.shields.io/pypi/pyversions/rockpool.svg
+.. image:: https://img.shields.io/pypi/pyversions/rockpool?logo=python
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
 
