@@ -51,6 +51,9 @@ echo "  host:" >> meta.yaml
 echo "    - python" >> meta.yaml
 echo "    - pip" >> meta.yaml
 echo "  run:" >> meta.yaml
+echo "    - numpy" >> meta.yaml
+echo "    - scipy" >> meta.yaml
+echo "    - numba" >> meta.yaml
 echo "    - python" >> meta.yaml
 echo "" >> meta.yaml
 echo "test:" >> meta.yaml
