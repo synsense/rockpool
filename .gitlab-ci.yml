@@ -128,10 +128,6 @@ conda_deploy:
   only:
     - master
 
-  tags:
-    - python
-    - aiCTX
-
   dependencies:
     - dist_build
 
