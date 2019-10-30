@@ -75,6 +75,7 @@ dist_build:
   before_script:
     - pip install --upgrade pip
     - pip install -U twine
+    - pip install wheel
 
   script:
     - python setup.py sdist
