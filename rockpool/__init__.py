@@ -11,6 +11,7 @@ dModules = {
         "TSEvent",
         "load_ts_from_file",
     ),
+    ".version": "__version__",
 }
 
 # - Define current package

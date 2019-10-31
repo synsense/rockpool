@@ -14,7 +14,7 @@ sha=${sha_with_tag#*:}
 echo ${file_name}
 echo ${sha}
 
-version=$(python -c "exec(open('rockpool/version.py').read()); print(version)")
+version=$(python -c "exec(open('rockpool/version.py').read()); print(__version__)")
 
 echo ${version}
 
