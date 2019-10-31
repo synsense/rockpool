@@ -12,17 +12,18 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../rockpool'))
 
+sys.path.insert(0, os.path.abspath("../rockpool"))
+exec(open('../version.py').read())
 
 # -- Project information -----------------------------------------------------
 
-project = 'Rockpool'
-copyright = '2019, aiCTX AG'
-author = 'Dylan Muir, Felix Bauer'
+project = "Rockpool"
+copyright = "2019, aiCTX AG"
+author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = version
 
 
 # -- General configuration ---------------------------------------------------
@@ -31,25 +32,25 @@ release = '0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.viewcode',
-    'nbsphinx',
-    'sphinx.ext.mathjax',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.viewcode",
+    "nbsphinx",
+    "sphinx.ext.mathjax",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '_templates']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", "_templates"]
 
 # - Set the default role to construct python references by default
-default_role = 'py:obj'
+default_role = "py:obj"
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -61,7 +62,7 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 autosummary_generate = True
 
@@ -96,4 +97,3 @@ nbsphinx_epilog = """
 """
 
 nbsphinx_allow_errors = True
-

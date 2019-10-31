@@ -453,6 +453,8 @@ def partitioned_2d_reservoir(
     num_rec_short: int = 24,
     num_rec_long: int = 8,
     width_neighbour: Union[float, Tuple[float, float]] = (16.0, 16.0),
+    input_sparsity: float = 1.0,
+    input_sparsity_type: Optional[str] = None,
 ):
     if max_fanin is not None:
         assert (
@@ -464,9 +466,24 @@ def partitioned_2d_reservoir(
 
     # - Input-To-Recurrent part
     mnWInToRec = np.zeros((size_in, size_rec))
-    viPreSynConnect = np.random.choice(size_in, size=num_inp_to_rec * size_rec)
+    if input_sparsity_type is None:
+        num_receive_input = size_rec
+        input_receivers = np.arange(size_rec)
+    else:
+        num_receive_input = int(np.round(input_sparsity * size_rec))
+        if input_sparsity_type == "random":
+            input_receivers = np.random.choice(
+                size_rec, size=num_receive_input, replace=False
+            )
+        elif input_sparsity_type == "first":
+            input_receivers = np.arange(num_receive_input)
+        else:
+            raise ValueError(
+                f"Input sparsity type ({input_sparsity_type}) not recognized."
+            )
+    viPreSynConnect = np.random.choice(size_in, size=num_inp_to_rec * num_receive_input)
     for iPreIndex, iPostIndex in zip(
-        viPreSynConnect, np.repeat(np.arange(size_rec), num_inp_to_rec)
+        viPreSynConnect, np.repeat(input_receivers, num_inp_to_rec)
     ):
         mnWInToRec[iPreIndex, iPostIndex] += 1
     # - Recurrent-To-Inhibitory part

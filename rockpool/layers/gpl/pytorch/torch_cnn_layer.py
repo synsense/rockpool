@@ -50,7 +50,9 @@ class FFCLIAFCNNTorch(FFCLIAF):
         :monitor_id:       array-like  IDs of neurons to be recorded
         :param name:     str  Name of this layer.
         """
-
+        
+        warn("FFCLIAFCNNTorch: This layer is deprecated.")
+        
         # Call parent constructor
         FFCLIAF.__init__(
             self,
