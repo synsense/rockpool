@@ -6,13 +6,13 @@ import numpy as np
 
 
 def test_imports():
-    from Rockpool.layers import FFUpDown
+    from rockpool.layers import FFUpDown
 
 
 def test_updown():
     """ Test FFUpDown """
-    from Rockpool import TSContinuous
-    from Rockpool.layers import FFUpDown
+    from rockpool import TSContinuous
+    from rockpool.layers import FFUpDown
 
     # - Generic parameters
     weights = np.random.rand(2, 4)
@@ -47,10 +47,10 @@ def test_updown():
 
 def test_updown_in_net():
     """ Test RecRateEuler """
-    from Rockpool import TSContinuous
-    from Rockpool.networks import Network
-    from Rockpool.layers import FFUpDown
-    from Rockpool.layers import RecDIAF
+    from rockpool import TSContinuous
+    from rockpool.networks import Network
+    from rockpool.layers import FFUpDown
+    from rockpool.layers import RecDIAF
 
     # - Generic parameters
     weights = np.random.rand(2, 4)

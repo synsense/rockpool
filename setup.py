@@ -1,39 +1,20 @@
 from distutils.core import setup
+import setuptools
+
+# - Read version
+exec(open('version.py').read())
 
 setup(
-    name="Rockpool",
-    version="0.2",
-    packages=[
-        "Rockpool",
-        "Rockpool.weights",
-        "Rockpool.weights.gpl",
-        "Rockpool.weights.internal",
-        "Rockpool.utilities",
-        "Rockpool.utilities.gpl",
-        "Rockpool.utilities.internal",
-        "Rockpool.networks",
-        "Rockpool.networks.gpl",
-        "Rockpool.networks.internal",
-        "Rockpool.layers",
-        "Rockpool.layers.gpl",
-        "Rockpool.layers.internal",
-        "Rockpool.layers.internal.pytorch",
-        "Rockpool.layers.internal.devices",
-        "Rockpool.layers.training",
-        "Rockpool.layers.training.gpl",
-        "Rockpool.layers.training.internal",
-    ],
-    license="All rights reserved aiCTX AG",
-    install_requires=[
-        "numba",
-        "numpy",
-        "scipy",
-    ],
+    name="rockpool",
+    author="aiCTX AG",
+    author_email="dylan.muir@aictx.ai",
+    version=version,
+    packages=setuptools.find_packages(),
+    install_requires=["numba", "numpy", "scipy"],
     extras_require={
-        'all': [
+        "all": [
             "tqdm",
             "brian2",
-            "nest",
             "pytest",
             "torch",
             "torchvision",
@@ -43,7 +24,20 @@ setup(
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
-        ],
+            "sphinx-rtd-theme",
+        ]
     },
+    description="A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
     long_description=open("README.md").read(),
+    long_description_content_type='text/markdown',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+    ],
+    keywords='spiking neural network SNN neuromorphic',
+    python_requires='>=3.6',
+    project_urls={
+        'Source': 'https://github.com/aiCTX/rockpool',
+    },
 )

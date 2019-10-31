@@ -6,30 +6,27 @@ stages:
 unit_tests:
   stage: test
   image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
-
 
   script:
     - pytest -v tests
 
 nest_tests:
   stage: test
-  allow_failure: false
+  allow_failure: true
+  when: manual
   image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
-
 
   script:
     - pytest -v test_nest
@@ -38,12 +35,11 @@ documentation_linting:
   stage: test
   allow_failure: true
   image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
@@ -53,13 +49,11 @@ docs_build:
   stage: build
   allow_failure: true
   image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   before_script:
-    - pip install sphinx_rtd_theme
     - pip install --upgrade pip
+    - pip install --upgrade --force-reinstall torch
+    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
@@ -70,6 +64,26 @@ docs_build:
       - docs/_build/html
     expire_in: 15 mins
 
+dist_build:
+  stage: build
+  image: aictx/ci-python-arch:latest
+
+  dependencies:
+    - unit_tests
+    - nest_tests
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install wheel
+
+  script:
+    - python setup.py sdist
+    - python setup.py bdist_wheel
+
+  artifacts:
+    paths:
+      - dist
+
 pages:
   stage: deploy
   only:
@@ -77,9 +91,6 @@ pages:
 
   allow_failure: true
   image: aictx/ci-python-arch:latest
-  tags:
-    - python
-    - aiCTX
 
   dependencies:
     - docs_build
@@ -91,3 +102,34 @@ pages:
     paths:
       - public
 
+pypi_deploy:
+  stage: deploy
+  when: manual
+  image: aictx/ci-python-arch:latest
+
+  only:
+    - master
+
+  dependencies:
+    - dist_build
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install -U twine
+
+  script:
+    - python -m twine upload dist/*
+
+conda_deploy:
+  stage: deploy
+  when: manual
+  image: aictx/ci-python-arch:latest
+
+  only:
+    - master
+
+  dependencies:
+    - dist_build
+
+  script:
+    - ./conda_merge_request.sh

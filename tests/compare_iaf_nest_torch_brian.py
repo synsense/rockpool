@@ -4,14 +4,14 @@ from brian2 import volt
 
 plt.ion()
 
-from Rockpool import TSEvent
-from Rockpool.layers import RecIAFSpkInBrian
+from rockpool import TSEvent
+from rockpool.layers import RecIAFSpkInBrian
 
-# from Rockpool.layers import RecIAFSpkInTorch
-from Rockpool.layers import RecIAFSpkInRefrTorch
-from Rockpool.layers import RecIAFSpkInNest
-from Rockpool.layers import RecAEIFSpkInNest
-from Rockpool.layers import VirtualDynapse
+# from rockpool.layers import RecIAFSpkInTorch
+from rockpool.layers import RecIAFSpkInRefrTorch
+from rockpool.layers import RecIAFSpkInNest
+from rockpool.layers import RecAEIFSpkInNest
+from rockpool.layers import VirtualDynapse
 
 # - Negative weights, so that layer doesn't spike and gets reset
 

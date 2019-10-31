@@ -1,9 +1,9 @@
 def test_ffexpsyn():
     # - Test FFExpSyn
 
-    # from Rockpool.layers import FFExpSynTorch
-    from Rockpool.layers import FFExpSyn
-    from Rockpool.timeseries import TSEvent, TSContinuous
+    # from rockpool.layers import FFExpSynTorch
+    from rockpool.layers import FFExpSyn
+    from rockpool.timeseries import TSEvent, TSContinuous
     import numpy as np
 
     # - Layers
@@ -48,7 +48,14 @@ def test_ffexpsyn():
     tsTgt = TSContinuous(np.arange(int(tDur / dt)) * dt, mfTgt)
 
     # flT.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
-    flM.train_rr(tsTgt, tsIn, regularize=0.1, is_first=True, is_last=True)
+    flM.train_rr(
+        tsTgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        return_trained_output=True,
+    )
 
     # assert(
     #             np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
@@ -59,10 +66,10 @@ def test_ffexpsyn():
 def test_ffexpsyntorch():
     # - Test FFIAFTorch
 
-    # from Rockpool.layers import FFExpSynTorch
-    from Rockpool.layers import FFExpSyn
-    from Rockpool.layers import FFExpSynTorch
-    from Rockpool.timeseries import TSEvent, TSContinuous
+    # from rockpool.layers import FFExpSynTorch
+    from rockpool.layers import FFExpSyn
+    from rockpool.layers import FFExpSynTorch
+    from rockpool.timeseries import TSEvent, TSContinuous
     import numpy as np
 
     # - Layers
