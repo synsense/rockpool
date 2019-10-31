@@ -81,9 +81,9 @@ nbsphinx_prolog = r"""
     .. nbinfo::
         This page was generated from `{{ docname }}`__.
         Interactive online version:
-        :raw-html:`<a href="https://mybinder.org/__basepath__/{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
+        :raw-html:`<a href="https://mybinder.org/v2/gl/aiCTX%2Frockpool/v{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
         
-    __ https://__basepath__/
+    __ https://mybinder.org/v2/gl/aiCTX%2Frockpool/
         {{ env.config.release }}/{{ docname }}
         
 .. raw:: latex
