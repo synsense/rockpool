@@ -14,7 +14,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../rockpool"))
-exec(open('../version.py').read())
+exec(open('../rockpool/version.py').read())
 
 # -- Project information -----------------------------------------------------
 

@@ -2,7 +2,7 @@ from distutils.core import setup
 import setuptools
 
 # - Read version
-exec(open('version.py').read())
+exec(open('rockpool/version.py').read())
 
 setup(
     name="rockpool",
