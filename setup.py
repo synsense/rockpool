@@ -2,13 +2,13 @@ from distutils.core import setup
 import setuptools
 
 # - Read version
-exec(open('version.py').read())
+exec(open('rockpool/version.py').read())
 
 setup(
     name="rockpool",
     author="aiCTX AG",
     author_email="dylan.muir@aictx.ai",
-    version=version,
+    version=__version__,
     packages=setuptools.find_packages(),
     install_requires=["numba", "numpy", "scipy"],
     extras_require={
@@ -38,6 +38,6 @@ setup(
     keywords='spiking neural network SNN neuromorphic',
     python_requires='>=3.6',
     project_urls={
-        'Source': 'https://github.com/aiCTX/rockpool',
+        'Source': 'https://gitlab.com/aiCTX/rockpool',
     },
 )
