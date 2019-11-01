@@ -409,9 +409,23 @@ class FFExpSyn(Layer):
         )
 
         if fisher_relabelling:
-            return self._train_rr_fisher(inp, target, is_first, is_last, time_base)
-        else:
-            return self._train_rr_standard(inp, target, is_first, is_last, time_base)
+
+            num_timesteps = time_base.size
+
+            # - Relabel target based on number of occurences of corresponding data points
+            bool_tgt = target.astype(bool)
+            nums_true = np.sum(bool_tgt, axis=0)
+            nums_false = num_timesteps - nums_true
+            labels_true = num_timesteps / nums_true
+            labels_false = -num_timesteps / nums_false
+            target = target.astype(float)
+            for i_tgt, (tgt_vec_bool, lbl_t, lbl_f) in enumerate(
+                zip(bool_tgt.T, labels_true, labels_false)
+            ):
+                target[tgt_vec_bool, i_tgt] = lbl_t
+                target[tgt_vec_bool == False, i_tgt] = lbl_f
+
+        return self._train_rr_standard(inp, target, is_first, is_last, time_base)
 
     def _train_rr_standard(self, inp, target, is_first, is_last, time_base):
         input_size = inp.shape[1]
@@ -475,102 +489,6 @@ class FFExpSyn(Layer):
                 return_data["output"] = TSContinuous(time_base, output_samples)
             if self._curr_tr_params["return_training_progress"]:
                 current_trainig_progress.update(new_data["curr_tr_prog"])
-                return_data["current_trainig_progress"] = current_trainig_progress
-
-        return return_data
-
-    def _train_rr_fisher(self, inp, target, is_first, is_last, time_base):
-        input_size = inp.shape[1]
-        num_timesteps = time_base.size
-
-        # - Relabel target based on number of occurences of corresponding data points
-        bool_tgt = target.astype(bool)
-        nums_true = np.sum(bool_tgt, axis=0)
-        nums_false = num_timesteps - nums_true
-        labels_true = num_timesteps / nums_true
-        labels_false = num_timesteps / nums_false
-        target = target.astype(float)
-        for i_tgt, (tgt_vec_bool, lbl_t, lbl_f) in enumerate(
-            zip(bool_tgt.T, labels_true, labels_false)
-        ):
-            target[tgt_vec_bool, i_tgt] = lbl_t
-            target[tgt_vec_bool == False, i_tgt] = lbl_f
-
-        # - For first batch, initialize summands
-        if is_first:
-            self._xty = {}  # inp.T (dot) target
-            self._xtx = {}  # inp.T (dot) inp
-            self._kahan_comp_xty = {}  # Kahan compensation for xty
-            self._kahan_comp_xtx = {}  # Kahan compensation for xtx
-
-            for i_unit in range(self.size):
-                self._xty[i_unit] = np.zeros((input_size, 1))
-                self._kahan_comp_xty[i_unit] = np.zeros((input_size, 1))
-                self._xtx[i_unit] = np.zeros((input_size, input_size))
-                self._kahan_comp_xtx[i_unit] = np.zeros((input_size, input_size))
-
-        if self._curr_tr_params["return_trained_output"]:
-            output_samples = np.zeros((target.shape[0], target.shape[1]))
-
-        if self._curr_tr_params["return_training_progress"]:
-            current_trainig_progress = dict()
-            if self._curr_tr_params["store_states"]:
-                current_trainig_progress["training_state"] = self._training_state
-
-        for i_unit in range(self.size):
-            inp_unit = inp.copy()
-            inp_unit[bool_tgt[:, i_unit] == False, :] *= -1
-            tgt_unit = target[:, i_unit].reshape(num_timesteps, 1)
-
-            new_data = self._batch_update(
-                inp=inp_unit,
-                target=tgt_unit,
-                xty_old=self._xty[i_unit],
-                xtx_old=self._xtx[i_unit],
-                kahan_comp_xty_old=self._kahan_comp_xty[i_unit],
-                kahan_comp_xtx_old=self._kahan_comp_xtx[i_unit],
-                input_size=input_size,
-                is_last=is_last,
-            )
-            if not is_last:
-                self._xty[i_unit] = new_data["xty"]
-                self._xtx[i_unit] = new_data["xtx"]
-                self._kahan_comp_xty[i_unit] = new_data["kahan_comp_xty"]
-                self._kahan_comp_xtx[i_unit] = new_data["kahan_comp_xtx"]
-
-            if is_last or self._curr_tr_params["calc_intermediate_results"]:
-                # - Update layer weights
-                assert new_data["weights"].shape == (self.size_in, 1)
-                self.weights[:, i_unit] = new_data["weights"].flatten()
-                if self._curr_tr_params["train_biases"]:
-                    self.bias[i_unit] = new_data["bias"]
-
-            if self._curr_tr_params["return_trained_output"]:
-                if self._curr_tr_params["train_biases"]:
-                    inp_nobias = inp[:, :-1]
-                else:
-                    inp_nobias = inp
-                output_unit = inp_nobias @ new_data["weights"] + new_data["bias"]
-                output_samples[:, i_unit] = output_unit.flatten()
-
-            if self._curr_tr_params["return_training_progress"]:
-                current_trainig_progress[i_unit] = new_data["curr_tr_prog"]
-
-        if is_last:
-            # - Remove data stored during this trainig epoch
-            self._xty = None
-            self._xtx = None
-            self._kahan_comp_xty = None
-            self._kahan_comp_xtx = None
-
-        if (
-            self._curr_tr_params["return_trained_output"]
-            or self._curr_tr_params["return_training_progress"]
-        ):
-            return_data = dict()
-            if self._curr_tr_params["return_trained_output"]:
-                return_data["output"] = TSContinuous(time_base, output_samples)
-            if self._curr_tr_params["return_training_progress"]:
                 return_data["current_trainig_progress"] = current_trainig_progress
 
         return return_data
