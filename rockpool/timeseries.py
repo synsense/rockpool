@@ -1785,6 +1785,7 @@ class TSEvent(TimeSeries):
         elif np.amax(channels) >= self.num_channels:
             # - Only use channels that are within range of channels of this timeseries
             channels_clip = np.intersect1d(channels, np.arange(self.num_channels))
+
             # - Channels for which series is not defined
             channels_undefined = np.setxor1d(channels_clip, channels)
             warn(
@@ -2184,17 +2185,22 @@ class TSEvent(TimeSeries):
             np.ndarray  Times of events
             np.ndarray  Channels of events
         """
+        # - Get default start and end values from time series data
         if t_start is None:
             t_start: float = self.t_start
+
         if t_stop is None:
             t_stop: float = self.t_stop
             include_stop = True
+
         # - Permit unsorted bounds
         if t_stop < t_start:
             t_start, t_stop = t_stop, t_start
+
         # - Events with matching channels
         channel_matches = self._matching_channels(channels)
 
+        # - Handle a periodic time series
         if self.periodic:
             # - Repeat events sufficiently often
             all_times = _extend_periodic_times(t_start, t_stop, self)
@@ -2204,11 +2210,13 @@ class TSEvent(TimeSeries):
             all_times = self.times
             all_channels = self.channels
 
+        # - Handle events at stop time
         if include_stop:
             choose_events_stop: np.ndarray = all_times <= t_stop
         else:
             choose_events_stop: np.ndarray = all_times < t_stop
 
+        # - Extract matching events and return
         choose_events: np.ndarray = (
             (all_times >= t_start) & (choose_events_stop) & channel_matches
         )

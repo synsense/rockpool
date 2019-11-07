@@ -218,6 +218,9 @@ class Layer(ABC):
         """
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
+        # - Generate discrete time base
+        time_base = self._gen_time_trace(self.t, num_timesteps)
+
         # - Extract spike timings and channels
         if ts_input is not None:
             # Extract spike data from the input variable
@@ -227,15 +230,18 @@ class Layer(ABC):
                 num_timesteps=num_timesteps,
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
-            )[2]
+            )
 
-            # - Make sure size is correct
+            # - Make sure duration of raster is correct
             spike_raster = spike_raster[:num_timesteps, :]
 
         else:
             spike_raster = np.zeros((num_timesteps, self.size_in))
 
-        return spike_raster, num_timesteps
+        # - Check for correct input dimensions
+        spike_raster = self._check_input_dims(spike_raster)
+
+        return time_base, spike_raster, num_timesteps
 
     def _check_input_dims(self, inp: np.ndarray) -> np.ndarray:
         """
