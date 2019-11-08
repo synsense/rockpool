@@ -386,11 +386,14 @@ class FFExpSyn(Layer):
             # - Define exponential kernel
             kernel = np.exp(-(np.arange(time_base.size - 1) * self.dt) / self.tau_syn)
             # - Make sure spikes only have effect on next time step
-            kernel = np.r_[0, kernel]
+            kernel = np.r_[0, kernel].reshape(-1, 1)
 
             # - Apply kernel to spike trains and add filtered trains to input array
-            for channel, events in enumerate(spike_raster.T):
-                inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
+            filtered = fftconvolve(spike_raster, kernel, "full", axes=0)
+            inp[:, :input_size] = filtered[: time_base.size]
+
+            # for channel, events in enumerate(spike_raster.T):
+            #     inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
 
         if store_states:
             # - Store last state for next batch
