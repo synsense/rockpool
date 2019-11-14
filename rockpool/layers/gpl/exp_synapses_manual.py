@@ -200,11 +200,8 @@ class FFExpSyn(Layer):
         kernel = np.r_[0, kernel]
 
         # - Apply kernel to spike trains
-        filtered = np.zeros((num_timesteps + 1, self.size))
-        for channel, events in enumerate(weighted_input.T):
-            conv = fftconvolve(events, kernel, "full")
-            conv_short = conv[: time_base.size]
-            filtered[:, channel] = conv_short
+        filtered = fftconvolve(weighted_input, kernel.reshape(-1, 1), "full", axes=0)
+        filtered = filtered[: time_base.size]
 
         # - Update time and state
         self._timestep += num_timesteps
@@ -390,7 +387,7 @@ class FFExpSyn(Layer):
 
             # - Apply kernel to spike trains and add filtered trains to input array
             filtered = fftconvolve(spike_raster, kernel, "full", axes=0)
-            inp[:, :input_size] = filtered[: time_base.size]
+            inp[:, : self.size_in] = filtered[: time_base.size]
 
             # for channel, events in enumerate(spike_raster.T):
             #     inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
