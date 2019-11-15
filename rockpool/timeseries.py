@@ -2139,12 +2139,14 @@ class TSEvent(TimeSeries):
     ## -- Internal methods
 
     def _matching_channels(
-        self, channels: Union[int, ArrayLike, None] = None
+        self, channels: Union[int, ArrayLike, None] = None,
+        event_channels: Union[int, ArrayLike, None] = None,
     ) -> np.ndarray:
         """
         Return boolean array of which events match a given channel selection
 
-        :param ArrayLike[int] channels: Channels of which events are to be indicated ``True``. Default: ``None``, use all channels
+        :param ArrayLike[int] channels:         Channels of which events are to be indicated ``True``. Default: ``None``, use all channels
+        :params ArrayLike[int] event_channels:  Channel IDs for each event. If not provided (Default: ``None``), then use self._channels
 
         :return ArrayLike[bool]:        A matrix ``TxC`` indicating which events match the requested channels
         """
@@ -2160,8 +2162,12 @@ class TSEvent(TimeSeries):
         # - Make sure elements in `channels` are unique for better performance
         channels = np.unique(channels)
 
+        # - Use a defined list of event channels, if provided
+        if event_channels is None:
+            event_channels = self._channels
+
         # - Boolean array of which events match selected channels
-        include_events = np.isin(self._channels, channels)
+        include_events = np.isin(event_channels, channels)
 
         return include_events
 
@@ -2197,9 +2203,6 @@ class TSEvent(TimeSeries):
         if t_stop < t_start:
             t_start, t_stop = t_stop, t_start
 
-        # - Events with matching channels
-        channel_matches = self._matching_channels(channels)
-
         # - Handle a periodic time series
         if self.periodic:
             # - Repeat events sufficiently often
@@ -2209,6 +2212,9 @@ class TSEvent(TimeSeries):
         else:
             all_times = self.times
             all_channels = self.channels
+
+        # - Events with matching channels
+        channel_matches = self._matching_channels(channels, all_channels)
 
         # - Handle events at stop time
         if include_stop:
