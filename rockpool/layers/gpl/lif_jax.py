@@ -20,7 +20,10 @@ from warnings import warn
 FloatVector = Union[float, np.ndarray]
 
 # - Define module exports
-__all__ = ["RecLIFJax",]
+__all__ = ["RecLIFJax",
+           "RecLIFCurrentInJax",
+           "RecLIFJax_IO",
+           ]
 
 def _evolve_lif_jax(
         state0,
@@ -77,7 +80,7 @@ def _evolve_lif_jax(
     # - Generate membrane noise trace
     # - Build noise trace
     # - Compute random numbers for reservoir noise
-    num_timesteps = np.max(I_input_ts.shape[0], sp_input_ts.shape[0])
+    num_timesteps = sp_input_ts.shape[0]
     __all__, subkey = rand.split(key)
     noise_ts = noise_std * rand.normal(subkey, shape=(num_timesteps, np.size(state0['Vmem'])))
 
@@ -85,7 +88,7 @@ def _evolve_lif_jax(
     state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
         forward,
         state0,
-        (np.dot(sp_input_ts, w_in), I_input_ts + noise_ts)
+        (np.dot(sp_input_ts, w_in), np.dot(I_input_ts, w_in) + noise_ts)
     )
 
     # - Generate output surrogate
@@ -128,7 +131,6 @@ class RecLIFJax(Layer):
         tau_mem: FloatVector,
         tau_syn: FloatVector,
         bias: Optional[FloatVector] = -1.0,
-        refractory: Optional[FloatVector] = 0.0,
         noise_std: Optional[float] = 0.0,
         dt: Optional[float] = None,
         name: Optional[str] = None,
@@ -154,7 +156,6 @@ class RecLIFJax(Layer):
         tau_mem = np.array(tau_mem)
         tau_syn = np.array(tau_syn)
         bias = np.array(bias)
-        refractory = np.array(refractory)
 
         if dt is None:
             dt = np.min(np.array((np.min(tau_mem), np.min(tau_syn)))) / 10.0
@@ -166,7 +167,6 @@ class RecLIFJax(Layer):
         self.tau_mem = tau_mem
         self.tau_syn = tau_syn
         self.bias = bias
-        self.refractory = refractory
 
         # - Get compiled evolution function
         self._evolve_jit = jit(_evolve_lif_jax)
@@ -199,7 +199,7 @@ class RecLIFJax(Layer):
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         verbose: Optional[bool] = False,
-    ) -> TSContinuous:
+    ) -> TSEvent:
         """
         Evolve the state of this layer given an input
 
@@ -238,7 +238,7 @@ class RecLIFJax(Layer):
         self.i_rec_last_evolution = TSContinuous(time_base, onp.array(i_rec_ts))
 
         # - Wrap spiking outputs as time series
-        return TSEvent(time_base, onp.array(spike_raster_ts))
+        return self.spikes_last_evolution
 
     def _evolve_raw(
         self, sp_input_ts: np.ndarray
@@ -257,15 +257,15 @@ class RecLIFJax(Layer):
         # - Call compiled Euler solver to evolve reservoir
         self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
             self._state,
-            0,
+            1,
             self._weights,
-            0,
+            1,
             self._tau_mem,
             self._tau_syn,
             self._bias,
             self._noise_std,
             sp_input_ts,
-            0,
+            sp_input_ts * 0.,
             self._rng_key,
             self._dt,
         )
@@ -304,7 +304,7 @@ class RecLIFJax(Layer):
             self._size,
         ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
 
-        self._weights = np.array(value).astype("float")
+        self._weights = np.array(value).astype("float32")
 
     @property
     def tau_mem(self) -> np.ndarray:
@@ -321,7 +321,7 @@ class RecLIFJax(Layer):
             np.size(value) == self._size
         ), "`tau_mem` must have {:d} elements or be a scalar".format(self._size)
 
-        self._tau_mem = np.reshape(value, self._size).astype("float")
+        self._tau_mem = np.reshape(value, self._size).astype("float32")
 
     @property
     def tau_syn(self) -> np.ndarray:
@@ -338,7 +338,7 @@ class RecLIFJax(Layer):
             np.size(value) == self._size
         ), "`tau_syn` must have {:d} elements or be a scalar".format(self._size)
 
-        self._tau_syn = np.reshape(value, self._size).astype("float")
+        self._tau_syn = np.reshape(value, self._size).astype("float32")
 
     @property
     def bias(self) -> np.ndarray:
@@ -355,7 +355,7 @@ class RecLIFJax(Layer):
             np.size(value) == self._size
         ), "`bias` must have {:d} elements or be a scalar".format(self._size)
 
-        self._bias = np.reshape(value, self._size).astype("float")
+        self._bias = np.reshape(value, self._size).astype("float32")
 
     @property
     def dt(self) -> float:
@@ -364,6 +364,7 @@ class RecLIFJax(Layer):
 
     @dt.setter
     def dt(self, value: float):
+        """ (float) Time step in seconds """
         # - Ensure dt is numerically stable
         tau_min = np.min(np.min(self._tau_mem), np.min(self._tau_syn)) / 10.0
         if value is None:
@@ -371,7 +372,7 @@ class RecLIFJax(Layer):
 
         assert value >= tau_min, "`tau` must be at least {:.2e}".format(tau_min)
 
-        self._dt = np.array(value).astype("float")
+        self._dt = np.array(value).astype("float32")
 
     @property
     def output_type(self):
@@ -453,7 +454,7 @@ class RecLIFCurrentInJax(RecLIFJax):
         self.i_rec_last_evolution = TSContinuous(time_base, onp.array(i_rec_ts))
 
         # - Wrap spiking outputs as time series
-        return TSEvent(time_base, onp.array(spike_raster_ts))
+        return self.spikes_last_evolution
 
     def _evolve_raw(
         self, I_input_ts: np.ndarray
@@ -472,14 +473,14 @@ class RecLIFCurrentInJax(RecLIFJax):
         # - Call compiled Euler solver to evolve reservoir
         self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
             self._state,
-            0,
+            1,
             self._weights,
-            0,
+            1,
             self._tau_mem,
             self._tau_syn,
             self._bias,
             self._noise_std,
-            0,
+            I_input_ts * 0.,
             I_input_ts,
             self._rng_key,
             self._dt,
@@ -498,5 +499,157 @@ class RecLIFCurrentInJax(RecLIFJax):
 
     @property
     def input_type(self):
+        """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
+        return TSContinuous
+
+class RecLIFJax_IO(RecLIFJax):
+    def __init__(
+        self,
+        w_in: np.ndarray,
+        w_recurrent: np.ndarray,
+        w_out: np.ndarray,
+        tau_mem: FloatVector,
+        tau_syn: FloatVector,
+        bias: Optional[FloatVector] = -1.0,
+        noise_std: Optional[float] = 0.0,
+        dt: Optional[float] = None,
+        name: Optional[str] = None,
+        rng_key: Optional[int] = None,
+    ):
+        # - Convert arguments to arrays
+        w_in = np.array(w_in)
+        w_out = np.array(w_out)
+
+        # - Call superclass constructor
+        super().__init__(w_recurrent, tau_mem, tau_syn, bias, noise_std, dt, name, rng_key)
+
+        # - Set correct information about network size
+        self._size_in = w_in.shape[0]
+        self._size = w_in.shape[1]
+        self._size_out = w_out.shape[1]
+
+        # -- Set properties
+        self.w_in = w_in
+        self.w_out = w_out
+
+    def evolve(
+        self,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: Optional[bool] = False,
+    ) -> TSContinuous:
+        """
+        Evolve the state of this layer given an input
+
+        :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[bool]verbose:           Currently no effect, just for conformity
+
+        :return TSContinuous:                   Output time series; the synaptic currents of each neuron
+        """
+
+        # - Prepare time base and inputs
+        time_base, inps, num_timesteps = self._prepare_input_events(
+            ts_input, duration, num_timesteps
+        )
+
+        # - Call raw evolution function
+        time_start = self.t
+        v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts, output_ts = self._evolve_raw(inps)
+
+        # - Record membrane traces
+        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
+
+        # - Record spike raster
+        spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
+        self.spikes_last_evolution = TSEvent(
+            spikes_ids[:, 0] * self.dt + time_start,
+            spikes_ids[:, 1],
+            t_start=time_start,
+            t_stop=self.t,
+            name="Spikes " + self.name,
+            num_channels=self.size,
+        )
+
+        # - Record recurrent inputs
+        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(i_rec_ts))
+
+        # - Wrap weighted output as time series
+        return TSContinuous(time_base, output_ts)
+
+    def _evolve_raw(
+        self, sp_input_ts: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Raw evolution over an input array
+
+        :param ndarray sp_input_ts:    Input matrix [T, I]
+
+        :return:  (v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts, output_ts)
+                v_mem_ts:        (np.ndarray) Time trace of neuron membrane potentials [T, N]
+                i_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
+                spike_raster_ts: (np.ndarray) Boolean raster [T, N]; `True` if a spike occurred in time step `t`, from neuron `n`
+                i_rec_ts:        (np.ndarray) Time trace of recurrent current inputs per neuron [T, N]
+                output_ts:       (np.ndarray) Time trace of weighted surrogate outputs [T, O]
+        """
+        # - Call compiled Euler solver to evolve reservoir
+        self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
+            self._state,
+            self._w_in,
+            self._weights,
+            self._w_out,
+            self._tau_mem,
+            self._tau_syn,
+            self._bias,
+            self._noise_std,
+            sp_input_ts,
+            sp_input_ts * 0.,
+            self._rng_key,
+            self._dt,
+        )
+
+        # - Increment timesteps attribute
+        self._timestep += sp_input_ts.shape[0] - 1
+
+        # - Return layer activity
+        return Vmem_ts, Isyn_ts, spike_raster_ts, Irec_ts, output_ts
+
+
+    @property
+    def w_in(self) -> np.ndarray:
+        """ (np.ndarray) [IxN] input weights """
+        return onp.array(self._w_in)
+
+    @w_in.setter
+    def w_in(self, value: np.ndarray):
+        assert np.ndim(value) == 2, "`w_in` must be 2D"
+
+        assert value.shape == (
+            self._size_in,
+            self._size,
+        ), "`win` must be [{:d}, {:d}]".format(self._size_in, self._size)
+
+        self._w_in = np.array(value).astype("float32")
+
+    @property
+    def w_out(self) -> np.ndarray:
+        """ (np.ndarray) [NxO] output weights """
+        return onp.array(self._w_out)
+
+    @w_out.setter
+    def w_out(self, value: np.ndarray):
+        assert np.ndim(value) == 2, "`w_out` must be 2D"
+
+        assert value.shape == (
+            self._size,
+            self._size_out,
+        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
+
+        self._w_out = np.array(value).astype("float32")
+
+    @property
+    def output_type(self):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous
