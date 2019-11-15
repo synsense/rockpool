@@ -910,7 +910,7 @@ def test_save_load():
     remove("test_tsc.npz")
     remove("test_tse.npz")
 
-def test_event_raster_periodic():
+def test_event_raster_periodic_iss5():
     from rockpool import TSEvent
 
     # - Build a periodic event time series
@@ -919,5 +919,12 @@ def test_event_raster_periodic():
 
     # - Test rasterisation
     raster = ts.raster(t_start = 0, t_stop = 8, dt = 1)
+    assert raster.shape == (9, 2), 'Shape must be (9, 2)'
 
-    assert raster.shape == (8, 7), 'Shape must be (8, 7)'
+    # - Build a non-periodic event time series
+    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0],
+                 periodic = False)
+
+    # - Test rasterisation
+    raster = ts.raster(t_start = 0, t_stop = 8, dt = 1)
+    assert raster.shape == (9, 2), 'Shape must be (9, 2)'
