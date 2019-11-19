@@ -383,6 +383,11 @@ class RecRateEulerJax(Layer):
         return time_base, np.array(input_steps), num_timesteps
 
     def to_dict(self):
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
         config = {}
         config["class_name"] = "RecRateEulerJax"
         config["w_in"] = self.w_in.tolist()
@@ -405,6 +410,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_in(self) -> np.ndarray:
+        """ (np.ndarray) [IxN] input weights """
         return onp.array(self._weights)
 
     @w_in.setter
@@ -420,6 +426,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_recurrent(self) -> np.ndarray:
+        """ (np.ndarray) [NxN] recurrent weights """
         return onp.array(self._w_recurrent)
 
     @w_recurrent.setter
@@ -435,6 +442,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_out(self) -> np.ndarray:
+        """ (np.ndarray) [NxO] output weights """
         return onp.array(self._w_out)
 
     @w_out.setter
