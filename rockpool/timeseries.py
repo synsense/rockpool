@@ -532,7 +532,7 @@ class TSContinuous(TimeSeries):
         if channels is not None:
             samples = samples[:, channels]
 
-        if skip is not None:
+        if skip is not None and skip is not 0:
             samples = samples[:, ::skip]
 
         if stagger is not None and stagger is not 0:
