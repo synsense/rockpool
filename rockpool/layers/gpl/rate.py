@@ -10,7 +10,7 @@ from numba import njit
 
 from ...timeseries import TSContinuous
 from ..layer import Layer
-from ..training.gpl.rr_trained_layer import RRTrainedLayer
+from .training.rr_trained_layer import RRTrainedLayer
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
