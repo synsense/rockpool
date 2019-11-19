@@ -1,5 +1,5 @@
 ##
-# Spiking  layers with JAX backend
+# Spiking layers with JAX backend
 #
 
 # - Imports
@@ -13,82 +13,163 @@ from jax import jit, custom_gradient
 from jax.lax import scan
 import jax.random as rand
 
-from typing import Optional, Tuple, Union
-from warnings import warn
+from typing import Optional, Tuple, Union, Dict, Callable
 
 # - Define a float / array type
 FloatVector = Union[float, np.ndarray]
 
+# - Define a layer state type
+LayerState = Dict[
+    str, np.ndarray
+]  # TypedDict("LayerState", {"spikes": np.ndarray, "Imem": np.ndarray, "Vmem": np.ndarray})
+
 # - Define module exports
-__all__ = ["RecLIFJax",
-           "RecLIFCurrentInJax",
-           "RecLIFJax_IO",
-           ]
+__all__ = ["RecLIFJax", "RecLIFCurrentInJax", "RecLIFJax_IO"]
+
 
 def _evolve_lif_jax(
-        state0,
-        w_in,
-        w_rec,
-        w_out_surrogate,
-        tau_mem,
-        tau_syn,
-        bias,
-        noise_std,
-        sp_input_ts,
-        I_input_ts,
-        key,
-        dt,
+    state0: LayerState,
+    w_in: np.ndarray,
+    w_rec: np.ndarray,
+    w_out_surrogate: np.ndarray,
+    tau_mem: np.ndarray,
+    tau_syn: np.ndarray,
+    bias: np.ndarray,
+    noise_std: float,
+    sp_input_ts: np.ndarray,
+    I_input_ts: np.ndarray,
+    key: int,
+    dt: float,
+) -> (
+    LayerState,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
 ):
+    """
+    Raw JAX evolution function for an LIF spiking layer
+
+    .. math::
+
+        I_{rec} = Spikes
+
+    :param LayerState state0:           Layer state at start of evolution
+    :param np.ndarray w_in:             Input weights [I, N]
+    :param np.ndarray w_rec:            Recurrent weights [N, N]
+    :param np.ndarray w_out_surrogate:  Output weights [N, O]
+    :param np.ndarray tau_mem:          Membrane time constants for each neuron [N,]
+    :param np.ndarray tau_syn:          Input synapse time constants for each neuron [N,]
+    :param np.ndarray bias:             Bias values for each neuron [N,]
+    :param float noise_std:             Noise injected onto the membrane of each neuron. Standard deviation at each time step.
+    :param np.ndarray sp_input_ts:      Logical spike raster of input events on input channels [T, I]
+    :param np.ndarray I_input_ts:       Time trace of currents injected on input channels (direct current injection) [T, I]
+    :param int key:                     pRNG key for JAX
+    :param float dt:                    Time step in seconds
+
+    :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
+        state:          (LayerState) Layer state at end of evolution
+        Irec_ts:        (np.ndarray) Recurrent input received at each neuron over time [T, N]
+        output_ts:      (np.ndarray) Weighted output surrogate over time [T, O]
+        surrogate_ts:   (np.ndarray) Surrogate time trace for each neuron [T, N]
+        spikes_ts:      (np.ndarray) Logical spiking raster for each neuron [T, N]
+        Vmem_ts:        (np.ndarray) Membrane voltage of each neuron over time [T, N]
+        Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
+    """
+
     # - Get evolution constants
     alpha = dt / tau_mem
     beta = np.exp(-dt / tau_syn)
 
     # - Surrogate functions to use in learning
-    def sigmoid(x):
+    def sigmoid(x: float) -> float:
+        """
+        Sigmoid function
+
+        :param float x: Input value
+
+        :return float: Output value
+        """
         return 1 / (1 + np.exp(-x))
 
     @custom_gradient
-    def step_pwl(x):
-        s = np.clip(np.floor(x + 1.), 0.)
-        return s, lambda g: (g * (x > -.5),)
+    def step_pwl(x: float) -> (float, Callable[[float], float]):
+        """
+        Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
+
+        :param float x: Input value
+
+        :return (float, Callable[[float], float]): output value and gradient function
+        """
+        s = np.clip(np.floor(x + 1.0), 0.0)
+        return s, lambda g: (g * (x > -0.5),)
 
     # - Single-step LIF dynamics
-    def forward(state, inputs_t):
+    def forward(
+        state: LayerState, inputs_t: Tuple[np.ndarray, np.ndarray]
+    ) -> (
+        LayerState,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+    ):
+        """
+        Single-step LIF dynamics for a recurrent LIF layer
+
+        :param LayerState state:
+        :param Tuple[np.ndarray, np.ndarray] inputs_t: (spike_inputs_ts, current_inputs_ts)
+
+        :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
+            state:          (LayerState) Layer state at end of evolution
+            Irec_ts:        (np.ndarray) Recurrent input received at each neuron over time [T, N]
+            output_ts:      (np.ndarray) Weighted output surrogate over time [T, O]
+            surrogate_ts:   (np.ndarray) Surrogate time trace for each neuron [T, N]
+            spikes_ts:      (np.ndarray) Logical spiking raster for each neuron [T, N]
+            Vmem_ts:        (np.ndarray) Membrane voltage of each neuron over time [T, N]
+            Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
+        """
         # - Unpack inputs
         (sp_in_t, I_in_t) = inputs_t
         sp_in_t = sp_in_t.reshape(-1)
         Iin = I_in_t.reshape(-1)
 
         # - Synaptic input
-        Irec = np.dot(state['spikes'], w_rec)
+        Irec = np.dot(state["spikes"], w_rec)
         dIsyn = sp_in_t + Irec
-        state['Isyn'] = beta * state['Isyn'] + dIsyn
+        state["Isyn"] = beta * state["Isyn"] + dIsyn
 
         # - Apply subtractive reset
-        state['Vmem'] = state['Vmem'] - state['spikes']
+        state["Vmem"] = state["Vmem"] - state["spikes"]
 
         # - Membrane potentials
-        dVmem = state['Isyn'] + Iin + bias - state['Vmem']
-        state['Vmem'] = state['Vmem'] + alpha * dVmem
+        dVmem = state["Isyn"] + Iin + bias - state["Vmem"]
+        state["Vmem"] = state["Vmem"] + alpha * dVmem
 
         # - Detect next spikes (with custom gradient)
-        state['spikes'] = step_pwl(state['Vmem'])
+        state["spikes"] = step_pwl(state["Vmem"])
 
         # - Return state and outputs
-        return state, (Irec, state['spikes'], state['Vmem'], state['Isyn'])
+        return state, (Irec, state["spikes"], state["Vmem"], state["Isyn"])
 
     # - Generate membrane noise trace
     # - Build noise trace
     # - Compute random numbers for reservoir noise
     num_timesteps = sp_input_ts.shape[0]
     __all__, subkey = rand.split(key)
-    noise_ts = noise_std * rand.normal(subkey, shape=(num_timesteps, np.size(state0['Vmem'])))
+    noise_ts = noise_std * rand.normal(
+        subkey, shape=(num_timesteps, np.size(state0["Vmem"]))
+    )
 
     # - Evolve over spiking inputs
     state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
         forward,
         state0,
-        (np.dot(sp_input_ts, w_in), np.dot(I_input_ts, w_in) + noise_ts)
+        (np.dot(sp_input_ts, w_in), np.dot(I_input_ts, w_in) + noise_ts),
     )
 
     # - Generate output surrogate
@@ -99,6 +180,7 @@ def _evolve_lif_jax(
 
     # - Return outputs
     return state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts
+
 
 class RecLIFJax(Layer):
     """
@@ -143,7 +225,6 @@ class RecLIFJax(Layer):
         :param ArrayLike[float] tau_mem:                [N,] Membrane time constants
         :param ArrayLike[float] tau_syn:                [N,] Output synaptic time constants
         :param Optional[ArrayLike[float]] bias:         [N,] Bias currents for each neuron (Default: 0)
-        :param Optional[ArrayLike[float]] refractory:   [N,] Refractory period for each neuron (Default: 0)
         :param Optional[float] noise_std:               Std. dev. of white noise injected independently onto the membrane of each neuron (Default: 0)
         :param Optional[float] dt:                      Forward Euler solver time step. Default: min(tau_mem, tau_syn) / 10
         :param Optional[str] name:                      Name of this layer. Default: `None`
@@ -168,6 +249,9 @@ class RecLIFJax(Layer):
         self.tau_syn = tau_syn
         self.bias = bias
 
+        self._w_in = 1
+        self._w_out = 1
+
         # - Get compiled evolution function
         self._evolve_jit = jit(_evolve_lif_jax)
 
@@ -188,10 +272,10 @@ class RecLIFJax(Layer):
         Reset the membrane potentials, synaptic currents and refractory state for this layer
         """
         self._state = {
-            'Vmem': np.zeros((self._size,)),
-            'Isyn': np.zeros((self._size,)),
-            'spikes': np.zeros((self._size,)),
-                       }
+            "Vmem": np.zeros((self._size,)),
+            "Isyn": np.zeros((self._size,)),
+            "spikes": np.zeros((self._size,)),
+        }
 
     def evolve(
         self,
@@ -218,10 +302,12 @@ class RecLIFJax(Layer):
 
         # - Call raw evolution function
         time_start = self.t
-        v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts = self._evolve_raw(inps)
+        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
+            inps, inps * 0.0
+        )
 
         # - Record membrane traces
-        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
+        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(Vmem_ts))
 
         # - Record spike raster
         spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
@@ -235,37 +321,40 @@ class RecLIFJax(Layer):
         )
 
         # - Record recurrent inputs
-        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(i_rec_ts))
+        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
 
         # - Wrap spiking outputs as time series
         return self.spikes_last_evolution
 
     def _evolve_raw(
-        self, sp_input_ts: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        self, sp_input_ts: np.ndarray, I_input_ts: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Raw evolution over an input array
 
-        :param ndarray sp_input_ts:    Input matrix [T, I]
+        :param ndarray sp_input_ts:     Input matrix [T, I]
+        :param ndarray I_input_ts:      Input matrix [T, N]
 
-        :return:  (v_mem_ts, i_syn_ts, spike_raster_ts)
-                v_mem_ts:        (np.ndarray) Time trace of neuron membrane potentials [T, N]
-                i_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
+        :return:  (Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts)
+                Irec_ts:         (np.ndarray) Time trace of recurrent current inputs per neuron [T, N]
+                output_ts:       (np.ndarray) Time trace of surrogate weighted output [T, O]
+                surrogate_ts:    (np.ndarray) Time trace of surrogate from each neuron [T, N]
                 spike_raster_ts: (np.ndarray) Boolean raster [T, N]; `True` if a spike occurred in time step `t`, from neuron `n`
-                i_rec_ts:        (np.ndarray) Time trace of recurrent current inputs per neuron [T, N]
+                Vmem_ts:         (np.ndarray) Time trace of neuron membrane potentials [T, N]
+                Isyn_ts:         (np.ndarray) Time trace of output synaptic currents [T, N]
         """
         # - Call compiled Euler solver to evolve reservoir
         self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
             self._state,
-            1,
+            self._w_in,
             self._weights,
-            1,
+            self._w_out,
             self._tau_mem,
             self._tau_syn,
             self._bias,
             self._noise_std,
             sp_input_ts,
-            sp_input_ts * 0.,
+            I_input_ts,
             self._rng_key,
             self._dt,
         )
@@ -274,7 +363,7 @@ class RecLIFJax(Layer):
         self._timestep += sp_input_ts.shape[0] - 1
 
         # - Return layer activity
-        return Vmem_ts, Isyn_ts, spike_raster_ts, Irec_ts
+        return Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts
 
     def to_dict(self) -> dict:
         """
@@ -286,13 +375,12 @@ class RecLIFJax(Layer):
         config["tau_mem"] = self.tau_mem.tolist()
         config["tau_syn"] = self.tau_syn.tolist()
         config["bias"] = self.bias.tolist()
-        config["refractory"] = self.refractory.tolist()
         config["rng_key"] = self._rng_key.tolist()
         return config
 
     @property
     def w_recurrent(self) -> np.ndarray:
-        """ (ndarray) Recurrent weight matrix [N,N] """
+        """ (ndarray) Recurrent weight matrix [N, N] """
         return onp.array(self._weights)
 
     @w_recurrent.setter
@@ -384,6 +472,7 @@ class RecLIFJax(Layer):
         """ (TSEvent) Input `.TimeSeries` class: `.TSEvent` """
         return TSEvent
 
+
 class RecLIFCurrentInJax(RecLIFJax):
     """
     Recurrent spiking neuron layer (LIF), direct current input and spiking output. No input / output weights.
@@ -434,10 +523,12 @@ class RecLIFCurrentInJax(RecLIFJax):
 
         # - Call raw evolution function
         time_start = self.t
-        v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts = self._evolve_raw(inps)
+        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
+            inps * 0.0, inps
+        )
 
         # - Record membrane traces
-        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
+        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(Vmem_ts))
 
         # - Record spike raster
         spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
@@ -451,46 +542,10 @@ class RecLIFCurrentInJax(RecLIFJax):
         )
 
         # - Record recurrent inputs
-        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(i_rec_ts))
+        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
 
         # - Wrap spiking outputs as time series
         return self.spikes_last_evolution
-
-    def _evolve_raw(
-        self, I_input_ts: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Raw evolution over an input array
-
-        :param ndarray I_input_ts:    Input matrix [T, I]
-
-        :return:  (v_mem_ts, i_syn_ts, spike_raster_ts)
-                v_mem_ts:        (np.ndarray) Time trace of neuron membrane potentials [T, N]
-                i_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
-                spike_raster_ts: (np.ndarray) Boolean raster [T, N]; `True` if a spike occurred in time step `t`, from neuron `n`
-                i_rec_ts:        (np.ndarray) Time trace of recurrent current inputs per neuron [T, N]
-        """
-        # - Call compiled Euler solver to evolve reservoir
-        self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
-            self._state,
-            1,
-            self._weights,
-            1,
-            self._tau_mem,
-            self._tau_syn,
-            self._bias,
-            self._noise_std,
-            I_input_ts * 0.,
-            I_input_ts,
-            self._rng_key,
-            self._dt,
-        )
-
-        # - Increment timesteps attribute
-        self._timestep += I_input_ts.shape[0] - 1
-
-        # - Return layer activity
-        return Vmem_ts, Isyn_ts, spike_raster_ts, Irec_ts
 
     @property
     def output_type(self):
@@ -501,6 +556,7 @@ class RecLIFCurrentInJax(RecLIFJax):
     def input_type(self):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous
+
 
 class RecLIFJax_IO(RecLIFJax):
     def __init__(
@@ -521,7 +577,9 @@ class RecLIFJax_IO(RecLIFJax):
         w_out = np.array(w_out)
 
         # - Call superclass constructor
-        super().__init__(w_recurrent, tau_mem, tau_syn, bias, noise_std, dt, name, rng_key)
+        super().__init__(
+            w_recurrent, tau_mem, tau_syn, bias, noise_std, dt, name, rng_key
+        )
 
         # - Set correct information about network size
         self._size_in = w_in.shape[0]
@@ -557,10 +615,12 @@ class RecLIFJax_IO(RecLIFJax):
 
         # - Call raw evolution function
         time_start = self.t
-        v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts, output_ts = self._evolve_raw(inps)
+        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
+            inps, inps * 0.0
+        )
 
         # - Record membrane traces
-        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(v_mem_ts))
+        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(Vmem_ts))
 
         # - Record spike raster
         spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
@@ -574,48 +634,13 @@ class RecLIFJax_IO(RecLIFJax):
         )
 
         # - Record recurrent inputs
-        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(i_rec_ts))
+        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
+
+        # - Record neuron surrogates
+        self.surrogate_last_evolution = TSContinuous(time_base, onp.array(surrogate_ts))
 
         # - Wrap weighted output as time series
         return TSContinuous(time_base, output_ts)
-
-    def _evolve_raw(
-        self, sp_input_ts: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Raw evolution over an input array
-
-        :param ndarray sp_input_ts:    Input matrix [T, I]
-
-        :return:  (v_mem_ts, i_syn_ts, spike_raster_ts, i_rec_ts, output_ts)
-                v_mem_ts:        (np.ndarray) Time trace of neuron membrane potentials [T, N]
-                i_syn_ts:        (np.ndarray) Time trace of output synaptic currents [T, N]
-                spike_raster_ts: (np.ndarray) Boolean raster [T, N]; `True` if a spike occurred in time step `t`, from neuron `n`
-                i_rec_ts:        (np.ndarray) Time trace of recurrent current inputs per neuron [T, N]
-                output_ts:       (np.ndarray) Time trace of weighted surrogate outputs [T, O]
-        """
-        # - Call compiled Euler solver to evolve reservoir
-        self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
-            self._state,
-            self._w_in,
-            self._weights,
-            self._w_out,
-            self._tau_mem,
-            self._tau_syn,
-            self._bias,
-            self._noise_std,
-            sp_input_ts,
-            sp_input_ts * 0.,
-            self._rng_key,
-            self._dt,
-        )
-
-        # - Increment timesteps attribute
-        self._timestep += sp_input_ts.shape[0] - 1
-
-        # - Return layer activity
-        return Vmem_ts, Isyn_ts, spike_raster_ts, Irec_ts, output_ts
-
 
     @property
     def w_in(self) -> np.ndarray:
@@ -651,5 +676,64 @@ class RecLIFJax_IO(RecLIFJax):
 
     @property
     def output_type(self):
+        """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
+        return TSContinuous
+
+
+class RecLIFCurrentInJax_IO(RecLIFJax_IO):
+    def evolve(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: Optional[bool] = False,
+    ) -> TSEvent:
+        """
+        Evolve the state of this layer given an input
+
+        :param Optional[TSContinuous] ts_input: Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[bool] verbose:          Currently no effect, just for conformity
+
+        :return TSEvent:                   Output time series; spiking activity each neuron
+        """
+
+        # - Prepare time base and inputs
+        time_base, inps, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
+        )
+
+        # - Call raw evolution function
+        time_start = self.t
+        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
+            inps * 0.0, inps
+        )
+
+        # - Record membrane traces
+        self.v_mem_last_evolution = TSContinuous(time_base, onp.array(Vmem_ts))
+
+        # - Record spike raster
+        spikes_ids = onp.argwhere(onp.array(spike_raster_ts))
+        self.spikes_last_evolution = TSEvent(
+            spikes_ids[:, 0] * self.dt + time_start,
+            spikes_ids[:, 1],
+            t_start=time_start,
+            t_stop=self.t,
+            name="Spikes " + self.name,
+            num_channels=self.size,
+        )
+
+        # - Record recurrent inputs
+        self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
+
+        # - Record neuron surrogates
+        self.surrogate_last_evolution = TSContinuous(time_base, onp.array(surrogate_ts))
+
+        # - Wrap weighted output as time series
+        return TSContinuous(time_base, output_ts)
+
+    @property
+    def input_type(self):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous

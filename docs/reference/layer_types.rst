@@ -33,9 +33,10 @@ JAX-based backend
 ~~~~~~~~~~~~~~~~~
 
 .. autosummary::
-    layers.RecIAFExpJax
-    layers.RecIAFExpSpikeOutJax
-    layers.RecIAFExpWithIOJax
+    layers.RecLIFJax
+    layers.RecLIFCurrentInJax
+    layers.RecLIFJax_IO
+    layers.RecLIFCurrentInJax_IO
 
 
 Layers with constant leak

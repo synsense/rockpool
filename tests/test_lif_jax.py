@@ -10,6 +10,7 @@ def test_imports():
     from rockpool.layers import RecLIFJax
     from rockpool.layers import RecLIFCurrentInJax
     from rockpool.layers import RecLIFJax_IO
+    from rockpool.layers import RecLIFCurrentInJax_IO
 
 
 def test_RecLIFJax():
@@ -37,17 +38,17 @@ def test_RecLIFJax():
     )
 
     # - Input signal
-    tsInSp = TSEvent(times=np.arange(15) * dt, channels=np.ones(15) * (net_size-1))
+    tsInSp = TSEvent(times=np.arange(15) * dt, channels=np.ones(15) * (net_size - 1))
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl0.state['Vmem'])
+    vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
-    assert (vStateBefore != fl0.state['Vmem']).any()
+    assert (vStateBefore != fl0.state["Vmem"]).any()
 
     fl0.reset_all()
     assert fl0.t == 0
-    assert (vStateBefore == fl0.state['Vmem']).all()
+    assert (vStateBefore == fl0.state["Vmem"]).all()
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
@@ -73,6 +74,7 @@ def test_RecLIFJax():
             tau_syn=np.zeros(3),
             bias=np.zeros(3),
         )
+
 
 def test_RecLIFCurrentInJax():
     """ Test RecLIFCurrentInJax """
@@ -102,14 +104,14 @@ def test_RecLIFCurrentInJax():
     tsInCont = TSContinuous(times=np.arange(15) * dt, samples=np.ones((15, net_size)))
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl0.state['Vmem'])
+    vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
-    assert (vStateBefore != fl0.state['Vmem']).any()
+    assert (vStateBefore != fl0.state["Vmem"]).any()
 
     fl0.reset_all()
     assert fl0.t == 0
-    assert (vStateBefore == fl0.state['Vmem']).all()
+    assert (vStateBefore == fl0.state["Vmem"]).all()
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
@@ -135,6 +137,7 @@ def test_RecLIFCurrentInJax():
             tau_syn=np.zeros(3),
             bias=np.zeros(3),
         )
+
 
 def test_RecLIFJax_IO():
     """ Test RecLIFJax_IO """
@@ -156,9 +159,9 @@ def test_RecLIFJax_IO():
 
     # - Layer generation
     fl0 = RecLIFJax_IO(
-        w_in = w_in,
+        w_in=w_in,
         w_recurrent=w_recurrent,
-        w_out = w_out,
+        w_out=w_out,
         bias=bias,
         noise_std=0.1,
         tau_mem=tau_m,
@@ -167,24 +170,24 @@ def test_RecLIFJax_IO():
     )
 
     # - Input signal
-    tsInSp = TSEvent(times=np.arange(15) * dt, channels=np.ones(15) * (in_size-1))
+    tsInSp = TSEvent(times=np.arange(15) * dt, channels=np.ones(15) * in_size)
 
     # - Compare states and time before and after
-    vStateBefore = np.copy(fl0.state['Vmem'])
+    vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
-    assert (vStateBefore != fl0.state['Vmem']).any()
+    assert (vStateBefore != fl0.state["Vmem"]).any()
 
     fl0.reset_all()
     assert fl0.t == 0
-    assert (vStateBefore == fl0.state['Vmem']).all()
+    assert (vStateBefore == fl0.state["Vmem"]).all()
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
         fl1 = RecLIFJax_IO(
-            w_in = np.zeros((2, 3)),
+            w_in=np.zeros((2, 3)),
             w_recurrent=np.zeros((3, 2)),
-            w_out = np.zeros((3, 2)),
+            w_out=np.zeros((3, 2)),
             tau_mem=np.zeros(3),
             tau_syn=np.zeros(3),
             bias=np.zeros(3),
@@ -192,9 +195,9 @@ def test_RecLIFJax_IO():
 
     with pytest.raises(AssertionError):
         fl1 = RecLIFJax_IO(
-            w_in = np.zeros((2, 3)),
+            w_in=np.zeros((2, 3)),
             w_recurrent=np.zeros((2, 2)),
-            w_out = np.zeros((3, 2)),
+            w_out=np.zeros((3, 2)),
             tau_mem=np.zeros(3),
             tau_syn=np.zeros(3),
             bias=np.zeros(3),
@@ -202,13 +205,89 @@ def test_RecLIFJax_IO():
 
     with pytest.raises(AssertionError):
         fl1 = RecLIFJax_IO(
-            w_in = np.zeros((2, 3)),
+            w_in=np.zeros((2, 3)),
             w_recurrent=np.zeros((2, 2)),
-            w_out = np.zeros((3, 2)),
+            w_out=np.zeros((3, 2)),
             tau_mem=np.zeros(2),
             tau_syn=np.zeros(3),
             bias=np.zeros(3),
         )
+
+
+def test_RecLIFCurrentInJax_IO():
+    """ Test RecLIFJax_IO """
+    from rockpool import TSContinuous, TSEvent
+    from rockpool.layers import RecLIFCurrentInJax_IO
+
+    # - Generic parameters
+    in_size = 3
+    net_size = 2
+    out_size = 4
+    dt = 10e-3
+
+    w_in = 2 * np.random.rand(in_size, net_size) - 1
+    w_recurrent = 2 * np.random.rand(net_size, net_size) - 1
+    w_out = 2 * np.random.rand(net_size, out_size) - 1
+    bias = 2 * np.random.rand(net_size) - 1
+    tau_m = 20e-3 * np.ones(net_size)
+    tau_s = 20e-3 * np.ones(net_size)
+
+    # - Layer generation
+    fl0 = RecLIFCurrentInJax_IO(
+        w_in=w_in,
+        w_recurrent=w_recurrent,
+        w_out=w_out,
+        bias=bias,
+        noise_std=0.1,
+        tau_mem=tau_m,
+        tau_syn=tau_s,
+        dt=dt,
+    )
+
+    # - Input signal
+    tsInCont = TSContinuous(times=np.arange(15) * dt, samples=np.ones((15, in_size)))
+
+    # - Compare states and time before and after
+    vStateBefore = np.copy(fl0.state["Vmem"])
+    ts_output = fl0.evolve(tsInCont, duration=0.1)
+    assert fl0.t == 0.1
+    assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    fl0.reset_all()
+    assert fl0.t == 0
+    assert (vStateBefore == fl0.state["Vmem"]).all()
+
+    # - Test that some errors are caught
+    with pytest.raises(AssertionError):
+        fl1 = RecLIFCurrentInJax_IO(
+            w_in=np.zeros((2, 3)),
+            w_recurrent=np.zeros((3, 2)),
+            w_out=np.zeros((3, 2)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = RecLIFCurrentInJax_IO(
+            w_in=np.zeros((2, 3)),
+            w_recurrent=np.zeros((2, 2)),
+            w_out=np.zeros((3, 2)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = RecLIFCurrentInJax_IO(
+            w_in=np.zeros((2, 3)),
+            w_recurrent=np.zeros((2, 2)),
+            w_out=np.zeros((3, 2)),
+            tau_mem=np.zeros(2),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
 
 def test_largescale():
     from rockpool import TSEvent, TSContinuous
@@ -224,16 +303,16 @@ def test_largescale():
 
     tau_mem = 50e-3
     tau_syn = 100e-3
-    bias = 0.
+    bias = 0.0
 
     def rand_params(N, Nin, Nout, tau_mem, tau_syn, bias):
         return {
-            'w_in': np.random.rand(Nin, N) - .5,
-            'w_recurrent': 0.1 * np.random.randn(N, N) / np.sqrt(N),
-            'w_out': 2 * np.random.rand(N, Nout) - 1,
-            'tau_mem': tau_mem,
-            'tau_syn': tau_syn,
-            'bias': (np.ones(N) * bias).reshape(N),
+            "w_in": np.random.rand(Nin, N) - 0.5,
+            "w_recurrent": 0.1 * np.random.randn(N, N) / np.sqrt(N),
+            "w_out": 2 * np.random.rand(N, Nout) - 1,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
         }
 
     # - Build a random network
@@ -250,13 +329,19 @@ def test_largescale():
 
     trigger = np.atleast_2d(timebase < 50e-3).T
 
-    chirp = np.atleast_2d(np.sin(timebase * 2*np.pi * (timebase * 10))).T
-    target_ts = TSContinuous(timebase, chirp, periodic = True, name = 'Target')
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
 
-    spiking_prob = .01
+    spiking_prob = 0.01
     sp_in_ts = np.random.rand(T * numRepeats, Nin) < spiking_prob * trigger
     spikes = np.argwhere(sp_in_ts)
-    input_sp_ts = TSEvent(timebase[spikes[:, 0]], spikes[:, 1], name = 'Input', periodic = True,
-                          t_start = 0., t_stop = dur_input)
+    input_sp_ts = TSEvent(
+        timebase[spikes[:, 0]],
+        spikes[:, 1],
+        name="Input",
+        periodic=True,
+        t_start=0.0,
+        t_stop=dur_input,
+    )
 
     lyrIO.evolve(input_sp_ts)
