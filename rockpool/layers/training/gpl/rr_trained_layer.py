@@ -10,6 +10,9 @@ from abc import ABC, abstractmethod
 from typing import Union, Dict
 from warnings import warn
 
+# - Third party packages
+import numpy as np
+
 # - Local imports
 from ....timeseries import TSEvent, TSContinuous
 from .train_rr import RidgeRegrTrainer
@@ -23,7 +26,7 @@ class RRTrainedLayer(ABC):
     def train_rr(
         self,
         ts_target: TSContinuous,
-        ts_input: TSEvent = None,
+        ts_input: Union[TSEvent, TSContinuous] = None,
         regularize: float = 0,
         is_first: bool = True,
         is_last: bool = False,
@@ -159,5 +162,53 @@ class RRTrainedLayer(ABC):
         return training_data
 
     @abstractmethod
-    def _prepare_training_data(self):
-        pass
+    def _prepare_training_data(self, ts_target, ts_input, is_last):
+        # - Discrete time steps for evaluating input and target time series
+        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
+
+        if not is_last:
+            # - Discard last sample to avoid counting time points twice
+            time_base = time_base[:-1]
+
+        # - Make sure time_base does not exceed ts_target
+        time_base = time_base[time_base <= ts_target.t_stop]
+
+        # - Prepare target data
+        target = ts_target(time_base)
+
+        # - Make sure no nan is in target, as this causes learning to fail
+        assert not np.isnan(
+            target
+        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
+            self.name, np.where(np.isnan(target))
+        )
+
+        # - Check target dimensions
+        if target.ndim == 1 and self.size == 1:
+            target = target.reshape(-1, 1)
+
+        assert (
+            target.shape[-1] == self.size
+        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
+            self.name, target.shape[-1], self.size
+        )
+
+        # Warn if input time range does not cover whole target time range
+        if (
+            not ts_target.contains(time_base)
+            and not ts_input.periodic
+            and not ts_target.periodic
+        ):
+            warn(
+                "WARNING: ts_input (t = {} to {}) does not cover ".format(
+                    ts_input.t_start, ts_input.t_stop
+                )
+                + "full time range of ts_target (t = {} to {})\n".format(
+                    ts_target.t_start, ts_target.t_stop
+                )
+                + "Assuming input to be 0 outside of defined range.\n"
+                + "If you are training by batches, check that the target signal is also split by batch.\n"
+            )
+
+        return target, time_base

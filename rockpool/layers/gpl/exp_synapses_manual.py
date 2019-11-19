@@ -268,39 +268,9 @@ class FFExpSyn(Layer, RRTrainedLayer):
     def _prepare_training_data(
         self, ts_target, ts_input, is_first, is_last, store_states
     ):
-        # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
-        time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
-
-        # - Make sure time_base does not exceed ts_target
-        time_base = time_base[time_base <= ts_target.t_stop]
-
-        # - Prepare target data
-        target = ts_target(time_base)
-
-        # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            target
-        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
-            self.name, np.where(np.isnan(target))
-        )
-
-        # - Check target dimensions
-        if target.ndim == 1 and self.size == 1:
-            target = target.reshape(-1, 1)
-
-        assert (
-            target.shape[-1] == self.size
-        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, target.shape[-1], self.size
-        )
+        target, time_base = super()._prepare_training_data(ts_target, ts_input, is_last)
 
         # - Prepare input data
-        # Empty input array with additional dimension for training biases
         inp = np.zeros((np.size(time_base), self.size_in))
 
         # - Generate spike trains from ts_input

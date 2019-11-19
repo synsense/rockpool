@@ -2,15 +2,15 @@
 # rate.py - Non-spiking rate-coded dynamical layers, with ReLu / LT neurons. Euler solvers
 ##
 
+from typing import Callable, Optional, Union, Tuple, List
+from warnings import warn
+
 import numpy as np
-from typing import Callable
 from numba import njit
 
 from ...timeseries import TSContinuous
 from ..layer import Layer
-from typing import Optional, Union, Tuple, List
-
-from warnings import warn
+from ..training.gpl.rr_trained_layer import RRTrainedLayer
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -174,7 +174,7 @@ def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarra
 ### --- FFRateEuler class
 
 
-class FFRateEuler(Layer):
+class FFRateEuler(Layer, RRTrainedLayer):
     """
     Feedforward layer consisting of rate-based neurons
 
@@ -423,133 +423,29 @@ class FFRateEuler(Layer):
             ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
         )
 
-    def train_rr(
-        self,
-        ts_target: TSContinuous,
-        ts_input: TSContinuous,
-        regularize: Optional[float] = 0.0,
-        is_first: Optional[bool] = True,
-        is_last: Optional[bool] = False,
+    def _prepare_training_data(
+        self, ts_target, ts_input, is_first, is_last, store_states
     ):
-        """
-        Train this layer with ridge regression
-
-        Train the layer using ridge regression (regularised linear regression), over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
-
-        .. warning:: You must set `is_first` to `False` to continue training, or else the training process will reset on each trial.
-
-        :param TSContinuous ts_target:      Target time series for current batch
-        :param TSContinuous ts_input:       Input to self for current batch
-        :param Optional[float] regularize:  Regularization parameter for ridge regression. Default: 0.0, no regularisation
-        :param Optional[bool] is_first:     `True` if current batch is the first in training. Default: `True`, this is the first batch. **You must set `is_first` to `False` to continue training, or else the training process will reset on each trial.**
-        :param Optional[bool] is_last:      `True` if current batch is the last in training. Default: `False`, this is not the last batch.
-        """
-
-        # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_input.duration / self.dt))
-        time_base = self._gen_time_trace(ts_input.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
-
-        # - Make sure time_base does not exceed ts_input
-        time_base = time_base[time_base <= ts_input.t_stop]
-
-        # - Prepare target data
-        target = ts_target(time_base)
-
-        # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            target
-        ).any(), "nan values have been found in target (where: {})".format(
-            np.where(np.isnan(target))
-        )
-
-        # - Check target dimensions
-        if target.ndim == 1 and self.size == 1:
-            target = target.reshape(-1, 1)
-
-        assert (
-            target.shape[-1] == self.size
-        ), "Target dimensions ({}) does not match layer size ({})".format(
-            target.shape[-1], self.size
-        )
+        target, time_base = super()._prepare_training_data(ts_target, ts_input, is_last)
 
         # - Prepare input data
+        inp = np.zeros((np.size(time_base), self.size_in))
 
-        # Empty input array with additional dimension for training biases
-        inp = np.zeros((np.size(time_base), self.size_in + 1))
-        inp[:, -1] = 1
-
-        # Warn if input time range does not cover whole target time range
-        if (
-            not ts_target.contains(time_base)
-            and not ts_input.periodic
-            and not ts_target.periodic
-        ):
-            warn(
-                "WARNING: ts_input (t = {} to {}) does not cover ".format(
-                    ts_input.t_start, ts_input.t_stop
+        if ts_input is None:
+            # - Assume zero input
+            print(
+                "Layer `{}`: No ts_input defined, assuming input to be 0.".format(
+                    self.name
                 )
-                + "full time range of ts_target (t = {} to {})\n".format(
-                    ts_target.t_start, ts_target.t_stop
-                )
-                + "Assuming input to be 0 outside of defined range.\n"
-                + "If you are training by batches, check that the target signal is also split by batch.\n"
             )
-
-        # - Sample input trace and check for correct dimensions
-        inp[:, :-1] = self._check_input_dims(ts_input(time_base))
-
-        # - Treat "NaN" as zero inputs
-        inp[np.where(np.isnan(inp))] = 0
-
-        # - For first batch, initialize summands
-        if is_first:
-            # Matrices to be updated for each batch
-            self._xty = np.zeros((self.size_in + 1, self.size))  # inp.T (dot) target
-            self._xtx = np.zeros(
-                (self.size_in + 1, self.size_in + 1)
-            )  # inp.T (dot) inp
-
-            # Corresponding Kahan compensations
-            self._kahan_comp_xty = np.zeros_like(self._xty)
-            self._kahan_comp_xtx = np.zeros_like(self._xtx)
-
-        # - New data to be added, including compensation from last batch
-        #   (Matrix summation always runs over time)
-        upd_xty = inp.T @ target - self._kahan_comp_xty
-        upd_xtx = inp.T @ inp - self._kahan_comp_xtx
-
-        if not is_last:
-            # - Update matrices with new data
-            new_xty = self._xty + upd_xty
-            new_xtx = self._xtx + upd_xtx
-
-            # - Calculate rounding error for compensation in next batch
-            self._kahan_comp_xty = (new_xty - self._xty) - upd_xty
-            self._kahan_comp_xtx = (new_xtx - self._xtx) - upd_xtx
-
-            # - Store updated matrices
-            self._xty = new_xty
-            self._xtx = new_xtx
-
         else:
-            # - In final step do not calculate rounding error but update matrices directly
-            self._xty += upd_xty
-            self._xtx += upd_xtx
+            # - Sample input trace and check for correct dimensions
+            inp = self._check_input_dims(ts_input(time_base))
 
-            # - Weight and bias update by ridge regression
-            solution = np.linalg.solve(
-                self._xtx + regularize * np.eye(self.size_in + 1), self._xty
-            )
+            # - Treat "NaN" as zero inputs
+            inp[np.where(np.isnan(inp))] = 0
 
-            self.weights = solution[:-1, :]
-            self.bias = solution[-1, :]
-
-            # - Remove data stored during this training
-            self._xty = self._xtx = self._kahan_comp_xty = self._kahan_comp_xtx = None
+        return inp, target, time_base
 
     def __repr__(self):
         return "FFRateEuler layer object `{}`.\nnSize: {}, size_in: {}   ".format(
