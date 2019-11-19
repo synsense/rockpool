@@ -503,9 +503,11 @@ class TSContinuous(TimeSeries):
 
     def plot(
         self,
-        times: Union[int, float, ArrayLike] = None,
-        target: Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay", None] = None,
-        channels: Union[ArrayLike, int, None] = None,
+        times: Optional[Union[int, float, ArrayLike]] = None,
+        target: Optional[Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay"]] = None,
+        channels: Optional[Union[ArrayLike, int]] = None,
+        stagger: Optional[Union[float, int]] = None,
+        skip: Optional[int] = None,
         *args,
         **kwargs,
     ):
@@ -515,6 +517,8 @@ class TSContinuous(TimeSeries):
         :param Optional[ArrayLike] times: Time base on which to plot. Default: time base of time series
         :param Optional target:  Axes (or other) object to which plot will be added.
         :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
+        :param Optional[float] stagger: Stagger to use to separate each series when plotting multiple series. (Default: `None`, no stagger)
+        :param Optional[int] skip: Skip several series when plotting multiple series
         :param args, kwargs:  Optional arguments to pass to plotting function
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
@@ -524,8 +528,15 @@ class TSContinuous(TimeSeries):
             samples = self.samples
         else:
             samples = self(times)
+
         if channels is not None:
             samples = samples[:, channels]
+
+        if skip is not None:
+            samples = samples[:, ::skip]
+
+        if stagger is not None and stagger is not 0:
+            samples = samples + np.arange(0, samples.shape[1] * stagger, stagger)
 
         if target is None:
             # - Determine plotting backend
