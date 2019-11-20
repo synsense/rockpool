@@ -4,7 +4,7 @@
 
 
 # - Imports
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union, Tuple, List, Dict
 import numpy as np
 from scipy.signal import fftconvolve
 
@@ -265,9 +265,7 @@ class FFExpSyn(Layer, RRTrainedLayer):
 
         return filtered
 
-    def _prepare_training_data(
-        self, ts_target, ts_input, is_first, is_last, store_states
-    ):
+    def _prepare_training_data(self, ts_target, ts_input, is_first, is_last):
         target, time_base = super()._prepare_training_data(ts_target, ts_input, is_last)
 
         # - Prepare input data
@@ -313,7 +311,7 @@ class FFExpSyn(Layer, RRTrainedLayer):
                 )
             ).astype(float)
 
-            if store_states and not is_first:
+            if self._store_states and not is_first:
                 try:
                     # - Include last state from previous batch
                     spike_raster[0, :] += self._training_state
@@ -323,11 +321,76 @@ class FFExpSyn(Layer, RRTrainedLayer):
             # - Filter input spike trains
             inp = self._filter_data(spike_raster, num_timesteps=time_base.size)
 
-        if store_states:
+        if self._store_states:
             # - Store last state for next batch
             self._training_state = inp[-1, :].copy()
 
         return inp, target, time_base
+
+    def train_rr(
+        self,
+        ts_target: TSContinuous,
+        ts_input: Union[TSEvent, TSContinuous] = None,
+        regularize: float = 0,
+        is_first: bool = True,
+        is_last: bool = False,
+        store_states: bool = True,
+        train_biases: bool = True,
+        calc_intermediate_results: bool = False,
+        return_training_progress: bool = True,
+        return_trained_output: bool = False,
+        fisher_relabelling: bool = False,
+        standardize: bool = False,
+    ) -> Union[Dict, None]:
+        """
+        train_rr - Train self with ridge regression over one of possibly
+                   many batches. Use Kahan summation to reduce rounding
+                   errors when adding data to existing matrices from
+                   previous batches.
+        :param ts_target:        TimeSeries - target for current batch
+        :param ts_input:         TimeSeries - input to self for current batch
+        :param regularize:       float - regularization for ridge regression
+        :param is_first:         bool - True if current batch is the first in training
+        :param is_last:          bool - True if current batch is the last in training
+        :param store_states:     bool - Include last state from previous training and store state from this
+                                        traning. This has the same effect as if data from both trainings
+                                        were presented at once.
+        :param train_biases:     bool - If True, train biases as if they were weights
+                                        Otherwise present biases will be ignored in
+                                        training and not be changed.
+        :param calc_intermediate_results: bool - If True, calculates the intermediate weights not in the final batch
+        :param return_training_progress:  bool - If True, return dict of current training
+                                                 variables for each batch.
+        :param standardize:      bool  -  Train with z-score standardized data, based on
+                                          means and standard deviations from first batch
+        :return:
+            If `return_training_progress`, return dict with current trainig variables
+            (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
+            Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
+            If `return_trained_output`, the dict contains the output of evolveing with
+            the newly trained weights.
+        """
+
+        self._store_states = store_states
+        tr_data = super().train_rr(
+            ts_target=ts_target,
+            ts_input=ts_input,
+            regularize=regularize,
+            is_first=is_first,
+            is_last=is_last,
+            train_biases=train_biases,
+            calc_intermediate_results=calc_intermediate_results,
+            return_training_progress=return_training_progress,
+            return_trained_output=return_trained_output,
+            fisher_relabelling=fisher_relabelling,
+            standardize=standardize,
+        )
+
+        if store_states and return_training_progress:
+            tr_data["trainig_progress"]["training_state"] = self._training_state
+
+        if return_trained_output or return_training_progress:
+            return tr_data
 
     def train_logreg(
         self,

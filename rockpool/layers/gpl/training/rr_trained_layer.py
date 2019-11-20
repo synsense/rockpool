@@ -30,7 +30,6 @@ class RRTrainedLayer(ABC):
         regularize: float = 0,
         is_first: bool = True,
         is_last: bool = False,
-        store_states: bool = True,
         train_biases: bool = True,
         calc_intermediate_results: bool = False,
         return_training_progress: bool = True,
@@ -45,10 +44,9 @@ class RRTrainedLayer(ABC):
                    previous batches.
         :param ts_target:        TimeSeries - target for current batch
         :param ts_input:         TimeSeries - input to self for current batch
-        :regularize:             float - regularization for ridge regression
-        :is_first:               bool - True if current batch is the first in training
-        :is_last:                bool - True if current batch is the last in training
-        :store_states:           bool - Include last state from previous training and store state from this
+        :param regularize:       float - regularization for ridge regression
+        :param is_first:         bool - True if current batch is the first in training
+        :param is_last:          bool - True if current batch is the last in training
                                        traning. This has the same effect as if data from both trainings
                                        were presented at once.
         :param train_biases:     bool - If True, train biases as if they were weights
@@ -67,11 +65,7 @@ class RRTrainedLayer(ABC):
             the newly trained weights.
         """
         inp, target, time_base = self._prepare_training_data(
-            ts_target=ts_target,
-            ts_input=ts_input,
-            is_first=is_first,
-            is_last=is_last,
-            store_states=store_states,
+            ts_target=ts_target, ts_input=ts_input, is_first=is_first, is_last=is_last
         )
 
         if is_first:
@@ -112,9 +106,6 @@ class RRTrainedLayer(ABC):
         if return_trained_output:
             output_samples = inp @ self.trainer.weights + self.trainer.bias
             tr_data["output"] = TSContinuous(time_base, output_samples)
-
-        if store_states and return_training_progress:
-            tr_data["trainig_progress"]["training_state"] = self._training_state
 
         if return_trained_output or return_training_progress:
             return tr_data

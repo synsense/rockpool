@@ -423,9 +423,7 @@ class FFRateEuler(Layer, RRTrainedLayer):
             ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
         )
 
-    def _prepare_training_data(
-        self, ts_target, ts_input, is_first, is_last, store_states
-    ):
+    def _prepare_training_data(self, ts_target, ts_input, is_first, is_last):
         target, time_base = super()._prepare_training_data(ts_target, ts_input, is_last)
 
         # - Prepare input data
