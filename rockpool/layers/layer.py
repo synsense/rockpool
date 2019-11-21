@@ -227,13 +227,13 @@ class Layer(ABC):
             spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
-                num_timesteps=num_timesteps+1,
+                num_timesteps=num_timesteps + 1,
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
             )
 
             # - Make sure duration of raster is correct
-            spike_raster = spike_raster[:num_timesteps+1, :]
+            spike_raster = spike_raster[: num_timesteps + 1, :]
 
         else:
             spike_raster = np.zeros((num_timesteps, self.size_in))

@@ -2150,7 +2150,8 @@ class TSEvent(TimeSeries):
     ## -- Internal methods
 
     def _matching_channels(
-        self, channels: Union[int, ArrayLike, None] = None,
+        self,
+        channels: Union[int, ArrayLike, None] = None,
         event_channels: Union[int, ArrayLike, None] = None,
     ) -> np.ndarray:
         """

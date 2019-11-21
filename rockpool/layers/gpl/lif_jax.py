@@ -52,9 +52,39 @@ def _evolve_lif_jax(
     """
     Raw JAX evolution function for an LIF spiking layer
 
-    .. math::
+    This function implements the dynamics:
 
-        I_{rec} = Spikes
+    .. math ::
+
+        \\tau_{syn} \dot{I}_{syn} + I_{syn} = 0
+
+        I_{syn} += S_{in}(t)
+
+        \\tau_{syn} \dot{V}_{mem} + V_{mem} = I_{syn} + b + \sigma\zeta(t)
+
+    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
+
+    :On spiking:
+
+    When the membane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
+
+    .. math ::
+
+        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
+
+        I_{syn} = I_{syn} + S_{rec} \cdot w_{rec}
+
+        V_{mem, j} = V_{mem, j} - 1
+
+    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+
+    :Surrogate signals:
+
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
+
+    .. math ::
+
+        U_j = \\textrm{sig}(V_j)
 
     :param LayerState state0:           Layer state at start of evolution
     :param np.ndarray w_in:             Input weights [I, N]
@@ -84,24 +114,24 @@ def _evolve_lif_jax(
     beta = np.exp(-dt / tau_syn)
 
     # - Surrogate functions to use in learning
-    def sigmoid(x: float) -> float:
+    def sigmoid(x: FloatVector) -> FloatVector:
         """
         Sigmoid function
 
-        :param float x: Input value
+        :param FloatVector x: Input value
 
-        :return float: Output value
+        :return FloatVector: Output value
         """
         return 1 / (1 + np.exp(-x))
 
     @custom_gradient
-    def step_pwl(x: float) -> (float, Callable[[float], float]):
+    def step_pwl(x: FloatVector) -> (FloatVector, Callable[[FloatVector], FloatVector]):
         """
         Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
 
-        :param float x: Input value
+        :param FloatVector x: Input value
 
-        :return (float, Callable[[float], float]): output value and gradient function
+        :return (FloatVector, Callable[[FloatVector], FloatVector]): output value and gradient function
         """
         s = np.clip(np.floor(x + 1.0), 0.0)
         return s, lambda g: (g * (x > -0.5),)
@@ -190,21 +220,47 @@ class RecLIFJax(Layer):
 
     This layer can be used to implement gradient-based learning systems, using the JAX-provided automatic differentiation functionality of `jax.grad`.
 
+    :Dynamics:
+
+    The dynamics of the :math:`N` neurons' membrane potential :math:`V_{mem}` and the :math:`N` synaptic currents :math:`I_{syn}` evolve under the system
+
     .. math::
 
-        tba
+        \\tau_{syn} \dot{I}_{syn} + I_{syn} = 0
 
-    On spiking:
+        I_{syn} += S_{in}(t)
+
+        \\tau_{syn} \dot{V}_{mem} + V_{mem} = I_{syn} + b + \sigma\zeta(t)
+
+    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
+
+    :On spiking:
+
+    When the membane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
 
     .. math ::
 
-        tba
+        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
 
-    Each neuron has a membrane and synaptic time constant, :math:`\\tau_m` (`.tau_mem`) and :math:`\\tau_s` (`.tau_s`) respectively. Neurons share a common rest potential of 0, a firing threshold of 0, and a subtractive reset of -1. Neurons each have an optional bias current `.bias` (default: -1).
+        I_{syn} = I_{syn} + S_{rec} \cdot w_{rec}
 
-    On spiking, the synaptic variable :math:`I_{syn,j}` associated with each neuron is incremented by +1, and decays towards 0 with time constant :math:`\\tau_s` (`.tau_syn`).
+        V_{mem, j} = V_{mem, j} - 1
 
-    As output, this layer returns the synaptic current traces from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
+    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+
+    :Surrogate signals:
+
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
+
+    .. math ::
+
+        U_j = \\textrm{sig}(V_j)
+
+    Where :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
+
+    :Outputs from evolution:
+
+    As output, this layer returns the spiking activity of the :math:`N` neurons from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` and `.surrogate_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
     """
 
     def __init__(
@@ -219,7 +275,7 @@ class RecLIFJax(Layer):
         rng_key: Optional[int] = None,
     ):
         """
-        A basic recurrent spiking neuron layer, with a JAX-implemented forward Euler solver
+        A basic recurrent spiking neuron layer, with a JAX-implemented forward Euler solver.
 
         :param ndarray w_recurrent:                     [N,N] Recurrent weight matrix
         :param ArrayLike[float] tau_mem:                [N,] Membrane time constants
@@ -475,27 +531,51 @@ class RecLIFJax(Layer):
 
 class RecLIFCurrentInJax(RecLIFJax):
     """
-    Recurrent spiking neuron layer (LIF), direct current input and spiking output. No input / output weights.
+    Recurrent spiking neuron layer (LIF), current injection input and spiking output. No input / output weights.
 
-    `.RecLIFCurrentInJax` is a basic recurrent spiking neuron layer, implemented with a JAX-backed Euler solver backend. Outputs are exponential synaptic currents generated by each layer neuron; no output weighting is provided. Inputs are provided by direct current injection onto the membrane of each neuron; no input weighting is provided. The layer is therefore N inputs -> N neurons -> N outputs.
+    `.RecLIFCurrentInJax` is a basic recurrent spiking neuron layer, implemented with a JAX-backed Euler solver backend. Outputs are spikes generated by each layer neuron; no output weighting is provided. Inputs are provided by direct current injection onto each neuron membrane; no input weighting is provided. The layer is therefore N inputs -> N neurons -> N outputs.
 
     This layer can be used to implement gradient-based learning systems, using the JAX-provided automatic differentiation functionality of `jax.grad`.
 
+    :Dynamics:
+
+    The dynamics of the :math:`N` neurons' membrane potential :math:`V_{mem}` and the :math:`N` synaptic currents :math:`I_{syn}` evolve under the system
+
     .. math::
 
-        tba
+        \\tau_{syn} \dot{I}_{syn} + I_{syn} = 0
 
-    On spiking:
+        \\tau_{syn} \dot{V}_{mem} + V_{mem} = I_{syn} + I_{in}(t) + b + \sigma\zeta(t)
+
+    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`I_{in}(t)` is a vector of input currents injected directly onto the neuron membranes; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
+
+    :On spiking:
+
+    When the membane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
 
     .. math ::
 
-        tba
+        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
 
-    Each neuron has a membrane and synaptic time constant, :math:`\\tau_m` (`.tau_mem`) and :math:`\\tau_s` (`.tau_s`) respectively. Neurons share a common rest potential of 0, a firing threshold of 0, and a subtractive reset of -1. Neurons each have an optional bias current `.bias` (default: -1).
+        I_{syn} = I_{syn} + S_{rec} \cdot w_{rec}
 
-    On spiking, the synaptic variable :math:`I_{syn,j}` associated with each neuron is incremented by +1, and decays towards 0 with time constant :math:`\\tau_s` (`.tau_syn`).
+        V_{mem, j} = V_{mem, j} - 1
 
-    As output, this layer returns the evoked spikes from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `i_rec_last_evolution` and `.v_mem_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
+    Neurons threfore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+
+    :Surrogate signals:
+
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
+
+    .. math ::
+
+        U_j = \\textrm{sig}(V_j)
+
+    Where :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
+
+    :Outputs from evolution:
+
+    As output, this layer returns the spiking activity of the :math:`N` neurons from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` and `.surrogate_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
     """
 
     def evolve(
@@ -559,6 +639,58 @@ class RecLIFCurrentInJax(RecLIFJax):
 
 
 class RecLIFJax_IO(RecLIFJax):
+    """
+    Recurrent spiking neuron layer (LIF), spiking input and weighted surrogate output. Input and output weights.
+
+    `.RecLIFJax` is a basic recurrent spiking neuron layer, implemented with a JAX-backed Euler solver backend. Outputs are surrogates generated by each layer neuron, weighted by a set of ourput weights. Inputs are provided by spiking through a synapse onto each layer neuronvia a set of input weights. The layer is therefore M inputs -> N neurons -> O outputs.
+
+    This layer can be used to implement gradient-based learning systems, using the JAX-provided automatic differentiation functionality of `jax.grad`.
+
+    :Dynamics:
+
+    The dynamics of the :math:`N` neurons' membrane potential :math:`V_{mem}` and the :math:`N` synaptic currents :math:`I_{syn}` evolve under the system
+
+    .. math::
+
+        \\tau_{syn} \dot{I}_{syn} + I_{syn} = 0
+
+        I_{syn} += S_{in}(t) \cdot w_{in}
+
+        \\tau_{syn} \dot{V}_{mem} + V_{mem} = I_{syn} + I_{in}(t) \cdot w_{in} + b + \sigma\zeta(t)
+
+    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`w_{in}` is a :math:`[N_{in} \\times N]` matrix of input weights; :math:`I_{in}(t)` is a vector of input currents injected directly onto the neuron membranes; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
+
+    :On spiking:
+
+    When the membane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
+
+    .. math ::
+
+        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
+
+        I_{syn} = I_{syn} + S_{rec} \cdot w_{rec}
+
+        V_{mem, j} = V_{mem, j} - 1
+
+    Neurons threfore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+
+    :Surrogate signals:
+
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron. This is used to provide a weighted output :math:`O(t)`.
+
+    .. math ::
+
+        U_j = \\textrm{sig}(V_j)
+
+        O(t) = U(t) \cdot w_{out}
+
+    Where :math:`w_{out}` is a :math:`[N \\times N_{out}]` matrix of output weights, and :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
+
+    :Outputs from evolution:
+
+    As output, this layer returns the weighted surrogate activity of the :math:`N` neurons from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` and `.surrogate_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
+    """
+
     def __init__(
         self,
         w_in: np.ndarray,
@@ -681,6 +813,58 @@ class RecLIFJax_IO(RecLIFJax):
 
 
 class RecLIFCurrentInJax_IO(RecLIFJax_IO):
+    """
+    Recurrent spiking neuron layer (LIF), weighted current input and weighted surrogate output. Input / output weighting provided.
+
+    `.RecLIFJax` is a basic recurrent spiking neuron layer, implemented with a JAX-backed Euler solver backend. Outputs are surrogates generated by each layer neuron, via a set of output weights. Inputs are provided by weighted current injection to each layer neuron, via a set of input weights. The layer is therefore M inputs -> N neurons -> O outputs.
+
+    This layer can be used to implement gradient-based learning systems, using the JAX-provided automatic differentiation functionality of `jax.grad`.
+
+    :Dynamics:
+
+    The dynamics of the :math:`N` neurons' membrane potential :math:`V_{mem}` and the :math:`N` synaptic currents :math:`I_{syn}` evolve under the system
+
+    .. math::
+
+        \\tau_{syn} \dot{I}_{syn} + I_{syn} = 0
+
+        I_{syn} += S_{in}(t) \cdot w_{in}
+
+        \\tau_{syn} \dot{V}_{mem} + V_{mem} = I_{syn} + I_{in}(t) \cdot w_{in} + b + \sigma\zeta(t)
+
+    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`w_{in}` is a :math:`[N_{in} \\times N]` matrix of input weights; :math:`I_{in}(t)` is a vector of input currents injected directly onto the neuron membranes; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
+
+    :On spiking:
+
+    When the membane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
+
+    .. math ::
+
+        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
+
+        I_{syn} = I_{syn} + S_{rec} \cdot w_{rec}
+
+        V_{mem, j} = V_{mem, j} - 1
+
+    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+
+    :Surrogate signals:
+
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron. This is used to provide a weighted output :math:`O(t)`.
+
+    .. math ::
+
+        U_j = \\textrm{sig}(V_j)
+
+        O(t) = U(t) \cdot w_{out}
+
+    Where :math:`w_{out}` is a :math:`[N \\times N_{out}]` matrix of output weights, and :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
+
+    :Outputs from evolution:
+
+    As output, this layer returns the weighted surrogate activity of the :math:`N` neurons from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` and `.surrogate_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
+    """
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
