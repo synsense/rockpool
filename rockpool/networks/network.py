@@ -1027,6 +1027,21 @@ class Network:
         """(float) Time step to use in layer simulations"""
         return self._dt
 
+    def shallow_copy(self) -> "Network":
+        """
+        shallow_copy - Generate and return a `Network` of the same structure with
+                       the *same* layer objects.
+        :return:
+            The new `Network` object.
+        """
+        dt = self.dt if self._force_dt else None
+        newnet = Network(dt)
+        for lyr in self.evol_order:
+            # - Network structure already contained in layers
+            newnet.add_layer(lyr)
+
+        return newnet
+
     def save(self, filename: str):
         """
         Save this network to a JSON file
