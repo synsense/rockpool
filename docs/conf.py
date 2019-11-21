@@ -14,7 +14,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath("../rockpool"))
-exec(open('../version.py').read())
 
 # -- Project information -----------------------------------------------------
 
@@ -23,7 +22,8 @@ copyright = "2019, aiCTX AG"
 author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags
-release = version
+exec(open('../rockpool/version.py').read())
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -81,9 +81,9 @@ nbsphinx_prolog = r"""
     .. nbinfo::
         This page was generated from `{{ docname }}`__.
         Interactive online version:
-        :raw-html:`<a href="https://mybinder.org/__basepath__/{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
+        :raw-html:`<a href="https://mybinder.org/v2/gl/aiCTX%2Frockpool/v{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
         
-    __ https://__basepath__/
+    __ https://mybinder.org/v2/gl/aiCTX%2Frockpool/
         {{ env.config.release }}/{{ docname }}
         
 .. raw:: latex

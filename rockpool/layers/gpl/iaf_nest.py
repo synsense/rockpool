@@ -1,5 +1,5 @@
 import multiprocessing
-import importlib
+from importlib import util
 from typing import Optional, Union, List, Dict, Tuple
 from warnings import warn
 
@@ -9,7 +9,7 @@ from ...timeseries import TSContinuous, TSEvent
 from ...utilities import SetterArray, ImmutableArray
 from ..layer import Layer
 
-if importlib.util.find_spec("nest") is None:
+if util.find_spec("nest") is None:
     raise ModuleNotFoundError("No module named 'nest'.")
 
 
