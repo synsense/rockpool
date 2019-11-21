@@ -1034,12 +1034,16 @@ class Network:
         :return:
             The new `Network` object.
         """
-        dt = self.dt if self._force_dt else None
-        newnet = Network(dt)
+        newnet = Network(dt=self.dt)
         for lyr in self.evol_order:
             # - Network structure already contained in layers
             newnet.add_layer(lyr)
-
+        try:
+            newnet.input_layer = self.input_layer
+        except AttributeError:
+            pass
+        # - Strictly keep evolution order
+        newnet.evol_order = self.evol_order.copy()
         return newnet
 
     def save(self, filename: str):
