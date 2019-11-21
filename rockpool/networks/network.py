@@ -1062,6 +1062,10 @@ class Network:
         # - Include dt if it has been enforced at instantiation
         if self._force_dt:
             savedict["dt"] = self.dt
+        try:
+            savedict["input_layer_name"] = self.input_layer.name
+        except AttributeError:
+            pass
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
@@ -1108,6 +1112,10 @@ class Network:
                     input_layer=pre_layer,
                     external_input=ext if ext is not None else False,
                 )
+            try:
+                newnet.input_layer = getattr(newnet, loaddict["input_layer_name"])
+            except KeyError:
+                pass
             return newnet
 
     @staticmethod
