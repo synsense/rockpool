@@ -503,9 +503,11 @@ class TSContinuous(TimeSeries):
 
     def plot(
         self,
-        times: Union[int, float, ArrayLike] = None,
-        target: Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay", None] = None,
-        channels: Union[ArrayLike, int, None] = None,
+        times: Optional[Union[int, float, ArrayLike]] = None,
+        target: Optional[Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay"]] = None,
+        channels: Optional[Union[ArrayLike, int]] = None,
+        stagger: Optional[Union[float, int]] = None,
+        skip: Optional[int] = None,
         *args,
         **kwargs,
     ):
@@ -515,6 +517,8 @@ class TSContinuous(TimeSeries):
         :param Optional[ArrayLike] times: Time base on which to plot. Default: time base of time series
         :param Optional target:  Axes (or other) object to which plot will be added.
         :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
+        :param Optional[float] stagger: Stagger to use to separate each series when plotting multiple series. (Default: `None`, no stagger)
+        :param Optional[int] skip: Skip several series when plotting multiple series
         :param args, kwargs:  Optional arguments to pass to plotting function
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
@@ -524,8 +528,15 @@ class TSContinuous(TimeSeries):
             samples = self.samples
         else:
             samples = self(times)
+
         if channels is not None:
             samples = samples[:, channels]
+
+        if skip is not None and skip is not 0:
+            samples = samples[:, ::skip]
+
+        if stagger is not None and stagger is not 0:
+            samples = samples + np.arange(0, samples.shape[1] * stagger, stagger)
 
         if target is None:
             # - Determine plotting backend
@@ -1785,6 +1796,7 @@ class TSEvent(TimeSeries):
         elif np.amax(channels) >= self.num_channels:
             # - Only use channels that are within range of channels of this timeseries
             channels_clip = np.intersect1d(channels, np.arange(self.num_channels))
+
             # - Channels for which series is not defined
             channels_undefined = np.setxor1d(channels_clip, channels)
             warn(
@@ -2138,12 +2150,14 @@ class TSEvent(TimeSeries):
     ## -- Internal methods
 
     def _matching_channels(
-        self, channels: Union[int, ArrayLike, None] = None
+        self, channels: Union[int, ArrayLike, None] = None,
+        event_channels: Union[int, ArrayLike, None] = None,
     ) -> np.ndarray:
         """
         Return boolean array of which events match a given channel selection
 
-        :param ArrayLike[int] channels: Channels of which events are to be indicated ``True``. Default: ``None``, use all channels
+        :param ArrayLike[int] channels:         Channels of which events are to be indicated ``True``. Default: ``None``, use all channels
+        :params ArrayLike[int] event_channels:  Channel IDs for each event. If not provided (Default: ``None``), then use self._channels
 
         :return ArrayLike[bool]:        A matrix ``TxC`` indicating which events match the requested channels
         """
@@ -2159,8 +2173,12 @@ class TSEvent(TimeSeries):
         # - Make sure elements in `channels` are unique for better performance
         channels = np.unique(channels)
 
+        # - Use a defined list of event channels, if provided
+        if event_channels is None:
+            event_channels = self._channels
+
         # - Boolean array of which events match selected channels
-        include_events = np.isin(self._channels, channels)
+        include_events = np.isin(event_channels, channels)
 
         return include_events
 
@@ -2184,17 +2202,19 @@ class TSEvent(TimeSeries):
             np.ndarray  Times of events
             np.ndarray  Channels of events
         """
+        # - Get default start and end values from time series data
         if t_start is None:
             t_start: float = self.t_start
+
         if t_stop is None:
             t_stop: float = self.t_stop
             include_stop = True
+
         # - Permit unsorted bounds
         if t_stop < t_start:
             t_start, t_stop = t_stop, t_start
-        # - Events with matching channels
-        channel_matches = self._matching_channels(channels)
 
+        # - Handle a periodic time series
         if self.periodic:
             # - Repeat events sufficiently often
             all_times = _extend_periodic_times(t_start, t_stop, self)
@@ -2204,11 +2224,16 @@ class TSEvent(TimeSeries):
             all_times = self.times
             all_channels = self.channels
 
+        # - Events with matching channels
+        channel_matches = self._matching_channels(channels, all_channels)
+
+        # - Handle events at stop time
         if include_stop:
             choose_events_stop: np.ndarray = all_times <= t_stop
         else:
             choose_events_stop: np.ndarray = all_times < t_stop
 
+        # - Extract matching events and return
         choose_events: np.ndarray = (
             (all_times >= t_start) & (choose_events_stop) & channel_matches
         )
