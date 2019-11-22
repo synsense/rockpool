@@ -1,13 +1,13 @@
-## training.py Smart importer for submodules to be imported within `training` namespace.
+## __init__.py Smart importer for submodules
 import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {".gpl.training.train_jax_sgd": "add_train_output"}
+dModules = {".gpl.train_jax_sgd": "add_train_output"}
 
 
 # - Define current package
-strBasePackage = "rockpool.layers"
+strBasePackage = "rockpool.layers.training"
 
 # - Initialise list of available modules
 __all__ = []
@@ -52,3 +52,5 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
+
+

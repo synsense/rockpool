@@ -10,7 +10,7 @@ from scipy.signal import fftconvolve
 
 from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
-from .training.rr_trained_layer import RRTrainedLayer
+from ..training.gpl.rr_trained_layer import RRTrainedLayer
 
 
 # - Type alias for array-like objects
