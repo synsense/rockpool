@@ -236,7 +236,7 @@ class Layer(ABC):
             spike_raster = spike_raster[:num_timesteps, :]
 
         else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
+            spike_raster = np.zeros((num_timesteps + 1, self.size_in))
 
         # - Check for correct input dimensions
         spike_raster = self._check_input_dims(spike_raster)
