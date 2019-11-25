@@ -57,6 +57,10 @@ Utility modules
     layers.PassThroughEvents
     layers.FFExpSynBrian
     layers.FFExpSyn
+    layers.RecLIFJax
+    layers.RecLIFCurrentInJax
+    layers.RecLIFJax_IO
+    layers.RecLIFCurrentInJax_IO
     layers.FFCLIAF
     layers.RecCLIAF
     layers.CLIAF

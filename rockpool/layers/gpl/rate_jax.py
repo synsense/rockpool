@@ -280,7 +280,12 @@ class RecRateEulerJax(Layer):
         )
 
         # - Call raw evolution function
-        _, _, _, outputs = self._evolve_raw(inps)
+        res_inputs, rec_inputs, res_acts, outputs = self._evolve_raw(inps)
+
+        # - Store evolution time series
+        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
 
         # - Wrap outputs as time series
         return TSContinuous(time_base, onp.array(outputs))
