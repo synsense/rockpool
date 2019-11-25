@@ -20,7 +20,7 @@ def test_RecLIFJax():
 
     # - Generic parameters
     net_size = 2
-    dt = 10e-3
+    dt = 1e-3
 
     w_recurrent = 2 * np.random.rand(net_size, net_size) - 1
     bias = 2 * np.random.rand(net_size) - 1
@@ -49,6 +49,9 @@ def test_RecLIFJax():
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.state["Vmem"]).all()
+
+    # - Test evolution with only duration
+    fl0.evolve(duration=1.0)
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
