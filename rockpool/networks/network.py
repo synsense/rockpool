@@ -599,7 +599,7 @@ class Network:
         # - Dict to store external input and each layer's output time series
         signal_dict = {"external": ts_input}
 
-        # - Make sure layers are in sync with netowrk
+        # - Make sure layers are in sync with network
         self._check_sync(verbose=False)
 
         # - Iterate over evolution order and evolve layers
@@ -645,7 +645,7 @@ class Network:
         # - Update network time
         self._timestep += num_timesteps
 
-        # - Make sure layers are still in sync with netowrk
+        # - Make sure layers are still in sync with network
         self._check_sync(verbose=False)
 
         # - Return dict with layer outputs
