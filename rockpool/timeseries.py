@@ -453,10 +453,11 @@ class TSContinuous(TimeSeries):
         times: Optional[ArrayLike] = None,
         samples: Optional[ArrayLike] = None,
         num_channels: Optional[int] = None,
-        periodic: bool = False,
+        periodic: Optional[bool] = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        name: str = "unnamed",
+        name: Optional[str] = "unnamed",
+        units: Optional[str] = None,
         interp_kind: str = "linear",
     ):
         """
@@ -464,18 +465,20 @@ class TSContinuous(TimeSeries):
 
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
-        :param Optional[in] num_channels:   If `samples` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
-        :param bool periodic:               Treat the time series as periodic around the end points. Default: False
-        :param float t_start:               If not None, the series start time is t_start, otherwise times[0]
-        :param float t_stop:                If not None, the series stop time is t_stop, otherwise times[-1]
-        :param str name:                    Name of the `.TSContinuous` object. Default: "unnamed"
-        :param str interp_kind:             Specify the interpolation type. Default: "linear"
+        :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
+        :param Optional[bool] periodic:     Treat the time series as periodic around the end points. Default: ``False``
+        :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
+        :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
+        :param Optional[str] name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
+        :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
+        :param Optional[str] interp_kind:   Specify the interpolation type. Default: ``"linear"``
 
         If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
         """
 
         if times is None:
             times = np.array([])
+
         if samples is None:
             num_channels = 0 if num_channels is None else num_channels
             samples = np.zeros((0, num_channels))
@@ -498,6 +501,7 @@ class TSContinuous(TimeSeries):
         # - Assign attributes
         self.interp_kind = interp_kind
         self.samples = samples.astype("float")
+        self.units = units
 
     ## -- Methods for plotting and printing
 
@@ -544,6 +548,8 @@ class TSContinuous(TimeSeries):
                 backend = _global_plotting_backend
             else:
                 backend = self._plotting_backend
+
+            # - Handle holoviews plotting
             if backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
@@ -563,7 +569,24 @@ class TSContinuous(TimeSeries):
             elif backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
-                return plt.plot(times, samples, **kwargs)
+
+                # - Get current axes
+                ax = plt.gca()
+
+                # - Set the ylabel, if it isn't already set
+                if ax.get_ylabel() is "" and self.units is not None:
+                    ax.set_ylabel(self.units)
+
+                # - Set the xlabel, if it isn't already set
+                if ax.get_xlabel() is "":
+                    ax.set_xlabel("Time (s)")
+
+                # - Set the title, if it isn't already set
+                if ax.get_title() is "" and self.name is not "unnamed":
+                    ax.set_title(self.name)
+
+                # - Plot the curves
+                return ax.plot(times, samples, **kwargs)
             else:
                 raise RuntimeError(
                     f"TSContinuous: `{self.name}`: No plotting back-end set."
@@ -1641,7 +1664,24 @@ class TSEvent(TimeSeries):
             elif backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
-                return plt.scatter(times, channels, *args, **kwargs)
+
+                # - Get current axes
+                ax = plt.gca()
+
+                # - Set the ylabel, if it isn't already set
+                if ax.get_ylabel() is "":
+                    ax.set_ylabel("Channels")
+
+                # - Set the xlabel, if it isn't already set
+                if ax.get_xlabel() is "":
+                    ax.set_xlabel("Time (s)")
+
+                # - Set the title, if it isn't already set
+                if ax.get_title() is "" and self.name is not "unnamed":
+                    ax.set_title(self.name)
+
+                # - Plot the curves
+                return ax.scatter(times, channels, *args, **kwargs)
 
             else:
                 raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
