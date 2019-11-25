@@ -1643,9 +1643,10 @@ class TSEvent(TimeSeries):
                     raise ValueError(exception_limits)
                 else:
                     t_start = self.t_start if time_limits[0] is None else time_limits[0]
-                    t_start = self.t_stop if time_limits[1] is None else time_limits[1]
+                    t_stop = self.t_stop if time_limits[1] is None else time_limits[1]
             except TypeError:
                 raise TypeError(exception_limits)
+
         # - Choose matching events
         times, channels = self(t_start, t_stop, channels)
 
