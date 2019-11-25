@@ -382,6 +382,9 @@ class RecLIFJax(Layer):
         # - Record recurrent inputs
         self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
 
+        # - Record synaptic currents
+        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(Isyn_ts))
+
         # - Wrap spiking outputs as time series
         return self.spikes_last_evolution
 
@@ -650,6 +653,9 @@ class RecLIFCurrentInJax(RecLIFJax):
         # - Record recurrent inputs
         self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
 
+        # - Record synaptic currents
+        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(Isyn_ts))
+
         # - Wrap spiking outputs as time series
         return self.spikes_last_evolution
 
@@ -797,6 +803,9 @@ class RecLIFJax_IO(RecLIFJax):
         # - Record neuron surrogates
         self.surrogate_last_evolution = TSContinuous(time_base, onp.array(surrogate_ts))
 
+        # - Record synaptic currents
+        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(Isyn_ts))
+
         # - Wrap weighted output as time series
         return TSContinuous(time_base, output_ts)
 
@@ -939,6 +948,9 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
 
         # - Record neuron surrogates
         self.surrogate_last_evolution = TSContinuous(time_base, onp.array(surrogate_ts))
+
+        # - Record synaptic currents
+        self.i_syn_last_evolution = TSContinuous(time_base, onp.array(Isyn_ts))
 
         # - Wrap weighted output as time series
         return TSContinuous(time_base, output_ts)
