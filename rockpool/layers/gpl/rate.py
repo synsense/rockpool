@@ -182,7 +182,7 @@ class FFRateEuler(Layer):
 
     .. math::
 
-        \\tau \cdot \\dot{x} + x = g \\cdot W I(t) + \\sigma \\cdot \\zeta(t)
+        \\tau \\cdot \\dot{x} + x = g \\cdot W I(t) + \\sigma \\cdot \\zeta(t)
 
     where :math:`x` is the Nx1 vector of internal states of neurons in the layer; :math:`\\dot{x}` is the derivative of those staes with respect to time; :math:`\\tau` is the vector of time constants of the neurons in the layer; :math:`I(t)` is the instantaneous input injected into each neuron at time :math:`t`; :math:`W` is the MxN matrix of weights connecting the input to the neurons in the layer; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with standard deviation :math:`\\sigma``.
 
@@ -574,7 +574,7 @@ class FFRateEuler(Layer):
         return config
 
     @property
-    def vActivation(self):
+    def activation(self):
         """
         (ArrayLike[float]) The activation of this layer, after the activation function
         """

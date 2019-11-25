@@ -3,6 +3,8 @@
 ###
 
 # - Imports
+from warnings import warn
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
@@ -68,6 +70,7 @@ class RecDynapseBrian(Layer):
 
         :param name:         str Name for the layer. Default: 'unnamed'
         """
+        warn("RecDynapseBrian: This layer is deprecated.")
 
         # - Call super constructor
         super().__init__(

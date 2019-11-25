@@ -203,11 +203,17 @@ class CLIAF(Layer):
 
     @property
     def output_type(self):
+        """
+        (Type) Output subclass emitted by this layer (`TSEvent`).
+        """
         return TSEvent
 
     @property
     def input_type(self):
         return TSEvent
+        """
+        (Type) Input subclass accepted by this layer (`TSEvent`).
+        """
 
     @property
     def weights_in(self):

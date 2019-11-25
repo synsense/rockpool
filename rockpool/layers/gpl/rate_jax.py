@@ -280,7 +280,12 @@ class RecRateEulerJax(Layer):
         )
 
         # - Call raw evolution function
-        _, _, _, outputs = self._evolve_raw(inps)
+        res_inputs, rec_inputs, res_acts, outputs = self._evolve_raw(inps)
+
+        # - Store evolution time series
+        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
 
         # - Wrap outputs as time series
         return TSContinuous(time_base, onp.array(outputs))
@@ -378,6 +383,11 @@ class RecRateEulerJax(Layer):
         return time_base, np.array(input_steps), num_timesteps
 
     def to_dict(self):
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
         config = {}
         config["class_name"] = "RecRateEulerJax"
         config["w_in"] = self.w_in.tolist()
@@ -385,6 +395,7 @@ class RecRateEulerJax(Layer):
         config["w_out"] = self.w_out.tolist()
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
+        config["rng_key"] = self._rng_key.tolist()
         config["noise_std"] = (
             self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
         )
@@ -400,6 +411,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_in(self) -> np.ndarray:
+        """ (np.ndarray) [IxN] input weights """
         return onp.array(self._weights)
 
     @w_in.setter
@@ -415,6 +427,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_recurrent(self) -> np.ndarray:
+        """ (np.ndarray) [NxN] recurrent weights """
         return onp.array(self._w_recurrent)
 
     @w_recurrent.setter
@@ -430,6 +443,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_out(self) -> np.ndarray:
+        """ (np.ndarray) [NxO] output weights """
         return onp.array(self._w_out)
 
     @w_out.setter
@@ -623,6 +637,7 @@ class ForceRateEulerJax(RecRateEulerJax):
         config["w_out"] = self.w_out.tolist()
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
+        config["rng_key"] = self._rng_key.tolist()
         config["noise_std"] = self.noise_std.tolist()
         config["dt"] = self.dt
         config["name"] = self.name

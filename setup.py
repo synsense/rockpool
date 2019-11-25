@@ -1,29 +1,15 @@
 from distutils.core import setup
+import setuptools
+
+# - Read version
+exec(open('rockpool/version.py').read())
 
 setup(
     name="rockpool",
-    version="0.2",
-    packages=[
-        "rockpool",
-        "rockpool.weights",
-        "rockpool.weights.gpl",
-        "rockpool.weights.internal",
-        "rockpool.utilities",
-        "rockpool.utilities.gpl",
-        "rockpool.utilities.internal",
-        "rockpool.networks",
-        "rockpool.networks.gpl",
-        "rockpool.networks.internal",
-        "rockpool.layers",
-        "rockpool.layers.gpl",
-        "rockpool.layers.internal",
-        "rockpool.layers.internal.pytorch",
-        "rockpool.layers.internal.devices",
-        "rockpool.layers.training",
-        "rockpool.layers.training.gpl",
-        "rockpool.layers.training.internal",
-    ],
-    license="All rights reserved aiCTX AG",
+    author="aiCTX AG",
+    author_email="dylan.muir@aictx.ai",
+    version=__version__,
+    packages=setuptools.find_packages(),
     install_requires=["numba", "numpy", "scipy"],
     extras_require={
         "all": [
@@ -38,7 +24,20 @@ setup(
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
+            "sphinx-rtd-theme",
         ]
     },
+    description="A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",
     long_description=open("README.md").read(),
+    long_description_content_type='text/markdown',
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)',
+    ],
+    keywords='spiking neural network SNN neuromorphic',
+    python_requires='>=3.6',
+    project_urls={
+        'Source': 'https://gitlab.com/aiCTX/rockpool',
+    },
 )

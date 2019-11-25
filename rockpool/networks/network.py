@@ -1,6 +1,6 @@
 """
 
-This module encapsulates networks -- combinations of multiple `.Layer` s, connected in a directed acyclic graph.
+This module encapsulates networks -- combinations of multiple `.Layer` objects, connected in a directed acyclic graph.
 
 """
 
@@ -13,7 +13,7 @@ This module encapsulates networks -- combinations of multiple `.Layer` s, connec
 import json
 from decimal import Decimal
 from copy import deepcopy
-from typing import Callable, Union, Tuple, List, Type, Optional
+from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any
 from warnings import warn
 
 import numpy as np
@@ -166,7 +166,7 @@ class Network:
 
     def __init__(self, *layers: List[layers.Layer], dt: Optional[float] = None):
         """
-        Base class to encapsulate several `.Layer` s and manage signal routing
+        Base class to encapsulate several `.Layer` objects and manage signal routing
 
         :param Iterable[Layer] layers:   Layers to be added to the network. They will be connected in series. The order in which they are received determines the order in which they are connected. First layer will receive external input
         :param Optional[float] dt: If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
@@ -426,9 +426,6 @@ class Network:
                     )
                 )
 
-    def get_subnet(self, *layers):
-        pass
-
     def _set_evolution_order(self) -> list:
         """
         Determine the order in which layers are evolved. Requires Network to be a directed acyclic graph, otherwise evolution has to happen timestep-wise instead of layer-wise
@@ -656,7 +653,7 @@ class Network:
 
     def train(
         self,
-        training_fct: Callable,
+        training_fct: Callable[["Network", Dict[str, TimeSeries], bool, bool], Any],
         ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         batch_durs: Union[np.ndarray, float, None] = None,
@@ -670,17 +667,16 @@ class Network:
 
         .. seealso:: The tutorial :ref:`/tutorials/building_reservoir.ipynb` illustrates how to call `.train` and how to build a training function.
 
-        :param Callable training_fct:           Function that is called after each evolution
-                training_fct(netObj, dtsSignals, is_first, is_last)
-                :param Network netObj:  Network the network object to be trained
-                :param Dict dtsSignals: Dictionary containing all signals in the current evolution batch
-                :param bool is_first:   Is this the first batch?
-                :param bool is_last:    Is this the final batch?
+        :param Callable training_fct:           Function that is called after each evolution, taking the following arguments:
+            - `net` (`Network`):  Network the network object to be trained.
+            - `signals` (`Dict`): Dictionary containing all signals in the current evolution batch.
+            - `is_first` (`bool`):   Is this the first batch?
+            - `is_last` (`bool`):    Is this the final batch?
 
         :param Optional[TimeSeries] ts_input:           Time series containing external input to network
         :param Optional[float] duration:                Duration over which network should be evolved. If None, evolution is over the duration of ts_input
         :param Optional[ArrayLike[float]] batch_durs:   Array-like or float - Duration of one batch (can also pass array with several values)
-        :param Optional[int]num_timesteps:              Total number of training time steps
+        :param Optional[int] num_timesteps:              Total number of training time steps
         :param Optional[ArrayLike[int]] nums_ts_batch:  Array-like or int - Number of time steps per batch (or array of several values)
         :param Optional[bool] verbose:                  If `True`, print info about training progress. Default: `True`, display progress
         :param Optional[bool] high_verbosity:           If `True`, print info about layer evolution (only has effect if `verbose` is `True`) Default: `False`, dont' display extra feedback
@@ -1040,11 +1036,21 @@ class Network:
         # - List with layers in their evolution order
         list_layers = []
         for lyr in self.evol_order:
-            list_layers.append(lyr.to_dict())
+            lyr_dict = lyr.to_dict()
+            try:
+                lyr_dict["pre_layer_name"] = lyr.pre_layer.name
+            except AttributeError:
+                pass
+            lyr_dict["external_input"] = lyr.external_input
+            list_layers.append(lyr_dict)
         savedict = {"layers": list_layers}
         # - Include dt if it has been enforced at instantiation
         if self._force_dt:
             savedict["dt"] = self.dt
+        try:
+            savedict["input_layer_name"] = self.input_layer.name
+        except AttributeError:
+            pass
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
@@ -1056,18 +1062,46 @@ class Network:
         :param str filename:    filename of a JSON filr that contains a saved network
         :return Network:        A network object with all the layers loaded from `filename`
         """
-
+        # - Load dict holding the parameters
         with open(filename, "r") as f:
             loaddict: dict = json.load(f)
-        # - Instantiate layers
+        # - List of layers in their original evolution order
         list_layers = loaddict["layers"]
+        pre_layers = []
+        external = []
         evol_order = []
+        # - Generate layers, extract information about input sources
         for lyr in list_layers:
             cls_layer = getattr(layers, lyr["class_name"])
+            pre_layers.append(lyr.pop("pre_layer_name", None))
+            external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
-        # - If dt has been stored, include as parameter for new Network object
         dt = loaddict.get("dt", None)
-        return Network(*evol_order, dt=dt)
+        if all(ext is None for ext in external) and all(
+            pre is None for pre in pre_layers
+        ):
+            warn(
+                "This network has been stored with an old routine that did not keep "
+                + "information about the network structure. Will infer 1-dimensional "
+                + "structure from evolution order. In future implementations this will "
+                + "no longer be supported"
+            )
+            return Network(*evol_order, dt=dt)
+        else:
+            newnet = Network(dt=dt)
+            # - Add layers accordign to evolution order. Maintain network structure by specifying input sources
+            for lyr, ext, pre in zip(evol_order, external, pre_layers):
+                pre_layer = getattr(newnet, pre) if pre is not None else None
+                newnet.add_layer(
+                    lyr,
+                    input_layer=pre_layer,
+                    external_input=ext if ext is not None else False,
+                )
+            try:
+                newnet.input_layer = getattr(newnet, loaddict["input_layer_name"])
+            except KeyError:
+                pass
+            return newnet
 
     @staticmethod
     def add_layer_class(cls_lyr: Type[layers.Layer], name: str):

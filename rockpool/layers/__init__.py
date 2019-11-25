@@ -5,23 +5,23 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".layer": "Layer",
-    ".internal.iaf_brian": (
+    ".gpl.iaf_brian": (
         "FFIAFBrian",
         "FFIAFSpkInBrian",
         "RecIAFBrian",
         "RecIAFSpkInBrian",
     ),
-    ".internal.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
-    ".internal.event_pass": "PassThroughEvents",
-    ".internal.exp_synapses_brian": "FFExpSynBrian",
-    ".internal.exp_synapses_manual": "FFExpSyn",
-    ".internal.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
-    ".internal.softmaxlayer": "SoftMaxLayer",
-    ".internal.iaf_digital": "RecDIAF",
-    ".internal.spike_bt": "RecFSSpikeEulerBT",
-    ".internal.updown": "FFUpDown",
-    ".internal.pytorch.exp_synapses_torch": "FFExpSynTorch",
-    ".internal.pytorch.iaf_torch": (
+    ".gpl.rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
+    ".gpl.event_pass": "PassThroughEvents",
+    ".gpl.exp_synapses_brian": "FFExpSynBrian",
+    ".gpl.exp_synapses_manual": "FFExpSyn",
+    ".gpl.iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
+    ".gpl.softmaxlayer": "SoftMaxLayer",
+    ".gpl.iaf_digital": "RecDIAF",
+    ".gpl.spike_bt": "RecFSSpikeEulerBT",
+    ".gpl.updown": "FFUpDown",
+    ".gpl.pytorch.exp_synapses_torch": "FFExpSynTorch",
+    ".gpl.pytorch.iaf_torch": (
         "FFIAFTorch",
         "FFIAFRefrTorch",
         "FFIAFSpkInTorch",
@@ -32,12 +32,18 @@ dModules = {
         "RecIAFSpkInRefrTorch",
         "RecIAFSpkInRefrCLTorch",
     ),
-    ".internal.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
-    ".internal.aeif_nest": "RecAEIFSpkInNest",
-    ".internal.devices.dynap_hw": "RecDynapSE",
-    ".internal.devices.virtual_dynapse": "VirtualDynapse",
-    ".internal.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
-    ".internal.butter_mel_filter": "ButterMelFilter",
+    ".gpl.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
+    ".gpl.aeif_nest": "RecAEIFSpkInNest",
+    ".gpl.devices.dynap_hw": "RecDynapSE",
+    ".gpl.devices.virtual_dynapse": "VirtualDynapse",
+    ".gpl.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
+    ".gpl.butter_mel_filter": "ButterMelFilter",
+    ".gpl.lif_jax": (
+        "RecLIFJax",
+        "RecLIFCurrentInJax",
+        "RecLIFJax_IO",
+        "RecLIFCurrentInJax_IO",
+    ),
 }
 
 
@@ -90,10 +96,3 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
-
-
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball

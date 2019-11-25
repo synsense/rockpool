@@ -20,6 +20,6 @@ def to_scalar(value, str_type: str = None):
     assert np.size(value) == 1, "The value must be a scalar"
 
     if str_type is not None:
-        return np.asscalar(np.array(value).astype(str_type))
+        return np.array(value).astype(str_type).item()
     else:
-        return np.asscalar(np.array(value))
+        return np.array(value).item()

@@ -218,24 +218,30 @@ class Layer(ABC):
         """
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
+        # - Generate discrete time base
+        time_base = self._gen_time_trace(self.t, num_timesteps)
+
         # - Extract spike timings and channels
         if ts_input is not None:
             # Extract spike data from the input variable
             spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
-                num_timesteps=num_timesteps,
+                num_timesteps=num_timesteps + 1,
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
-            )[2]
+            )
 
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
+            # - Make sure duration of raster is correct
+            spike_raster = spike_raster[: num_timesteps + 1, :]
 
         else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
+            spike_raster = np.zeros((num_timesteps + 1, self.size_in))
 
-        return spike_raster, num_timesteps
+        # - Check for correct input dimensions
+        spike_raster = self._check_input_dims(spike_raster)
+
+        return time_base, spike_raster, num_timesteps
 
     def _check_input_dims(self, inp: np.ndarray) -> np.ndarray:
         """
@@ -370,12 +376,13 @@ class Layer(ABC):
     ### --- String representations
 
     def __str__(self):
-        return '{} object: "{}" [{} {} in -> {} {} out]'.format(
+        return '{} object: "{}" [{} {} in -> {} internal -> {} {} out]'.format(
             self.__class__.__name__,
             self.name,
             self.size_in,
             self.input_type.__name__,
             self.size,
+            self.size_out,
             self.output_type.__name__,
         )
 
@@ -428,9 +435,9 @@ class Layer(ABC):
 
     def randomize_state(self):
         """
-        Randomise the internal state of this layer
+        Randomize the internal state of this layer
 
-        Unless overridden, this method randomises the layer state based on the current state, using a Normal distribution with std. dev. of 20% of the current state values
+        Unless overridden, this method randomizes the layer state based on the current state, using a Normal distribution with std. dev. of 20% of the current state values
         """
         # create random initial state with a gaussian distribution with mean the values that were given and std the 20% of the absolute value
         self.state = np.random.normal(
@@ -549,14 +556,14 @@ class Layer(ABC):
     @property
     def output_type(self):
         """
-        (TSContinuous) Output `.TimeSeries` subclass emitted by this layer. Default: :py:class:`.TSContinuous`
+        (Type[TimeSeries]) Output :py:class:`.TimeSeries` subclass emitted by this layer.
         """
         return TSContinuous
 
     @property
     def input_type(self):
         """
-        (TSContinuous) Input :py:class:`.TimeSeries` subclass accepted by this layer. Default: :py:class:`.TSContinuous`
+        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer.
         """
         return TSContinuous
 
