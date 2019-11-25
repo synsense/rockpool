@@ -86,7 +86,7 @@ def test_RecLIFCurrentInJax():
 
     # - Generic parameters
     net_size = 2
-    dt = 10e-3
+    dt = 1e-3
 
     w_recurrent = 2 * np.random.rand(net_size, net_size) - 1
     bias = 2 * np.random.rand(net_size) - 1
@@ -151,7 +151,7 @@ def test_RecLIFJax_IO():
     in_size = 3
     net_size = 2
     out_size = 4
-    dt = 10e-3
+    dt = 1e-3
 
     w_in = 2 * np.random.rand(in_size, net_size) - 1
     w_recurrent = 2 * np.random.rand(net_size, net_size) - 1
@@ -226,7 +226,7 @@ def test_RecLIFCurrentInJax_IO():
     in_size = 3
     net_size = 2
     out_size = 4
-    dt = 10e-3
+    dt = 1e-3
 
     w_in = 2 * np.random.rand(in_size, net_size) - 1
     w_recurrent = 2 * np.random.rand(net_size, net_size) - 1
