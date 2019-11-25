@@ -19,6 +19,14 @@ from .train_rr import RidgeRegrTrainer
 
 
 class RRTrainedLayer(ABC):
+    """
+    RRTrainedLayer - Base class that defines methods for training with ridge
+                     regression. `Layer` subclasses can inherit from this class
+                     (by means of multiple inheritance) to provide ridge
+                     regression functionality.
+
+    """
+
     @abstractmethod
     def __init__(self, size_in: int):
         self.size_in = size_in
@@ -92,14 +100,16 @@ class RRTrainedLayer(ABC):
                         + f"training batch. Will keep old value ({old_val})."
                     )
 
+        update_weights = (
+            is_last or return_training_progress or calc_intermediate_results
+        )
         tr_data = self._batch_update(
             inp=inp,
             target=target,
-            is_last=is_last,
+            reset=is_last,
             train_biases=train_biases,
             standardize=standardize,
-            calc_intermediate_results=calc_intermediate_results,
-            return_trained_output=return_trained_output,
+            update_weights=update_weights,
             return_training_progress=return_training_progress,
         )
 
@@ -112,16 +122,28 @@ class RRTrainedLayer(ABC):
 
     def _batch_update(
         self,
-        inp,
-        target,
-        is_last,
-        train_biases,
-        standardize,
-        calc_intermediate_results,
-        return_trained_output,
-        return_training_progress,
-    ):
-
+        inp: np.ndarray,
+        target: np.ndarray,
+        reset: bool,
+        train_biases: bool,
+        standardize: bool,
+        update_weights: bool,
+        return_training_progress: bool,
+    ) -> Dict:
+        """
+        _batch_update - Train with the already processed input and target data
+                        of the current batch. Update layer wegihts and biases
+                        if requested. Provide information on training state if
+                        requested.
+        :param np.ndarray inp:                  2D-array (num_samples x num_features) of input data.
+        :param np.ndarray target:               2D-array (num_samples x 'self.size') of target data.
+        :param bool reset:                      If `True', internal variables will be reset at the end.
+        :param bool train_bises:                Should biases be trained or only weights?
+        :param bool standardize:                Has input data been z-score standardized?
+        :param bool update_weights:             Set 'True' to update layer weights and biases.
+        :param bool return_training_progress:   Return intermediate training data (e.g. xtx, xty,...)
+        :return dict:                           Dict with information on training progress, depending on values of other function arguments.
+        """
         self.trainer.train_batch(inp, target)
 
         training_data = dict()
@@ -137,7 +159,7 @@ class RRTrainedLayer(ABC):
                 training_data["trainig_progress"]["inp_mean"] = self.trainer.inp_mean
                 training_data["trainig_progress"]["inp_std"] = self.trainer.inp_std
 
-        if calc_intermediate_results or return_trained_output or is_last:
+        if update_weights:
             self.trainer.update_model()
             self.weights = self.trainer.weights
             if train_biases:
@@ -147,13 +169,30 @@ class RRTrainedLayer(ABC):
                 if train_biases:
                     training_data["trainig_progress"]["biases"] = self.trainer.bias
 
-        if is_last:
+        if reset:
             self.trainer.reset()
 
         return training_data
 
     @abstractmethod
-    def _prepare_training_data(self, ts_target, ts_input, is_last):
+    def _prepare_training_data(
+        self, ts_target, ts_input, is_last
+    ) -> (np.ndarray, np.ndarray):
+        """
+        _prepare_training_data - Template for preparation of training data.
+                                 Length of data is determined, dimensions are
+                                 verified and target data is extracted from
+                                 TSContinuous. Can be used in child classes
+                                 through `super()._prepare_training_data`.
+                                 Extraction of input data needs to be
+                                 implemented in child classes.
+        :param TimeSeries ts_target:    Target time series
+        :param TSContinuous ts_input:   Input time series
+        :param bool is_last:            Set `True` if batch is last of trianing.
+
+        :return np.ndarray:             Extracted target data.
+        :return np.ndarray:             Time points corresponding to target data.
+        """
         # - Discrete time steps for evaluating input and target time series
         num_timesteps = int(np.round(ts_target.duration / self.dt))
         time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)

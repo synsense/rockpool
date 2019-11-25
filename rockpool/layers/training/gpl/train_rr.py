@@ -6,6 +6,10 @@ import numpy as np
 
 
 class RidgeRegrTrainer:
+    """
+    RidgeRegrTrainer - Class to perform ridge regression.
+    """
+
     def __init__(
         self,
         num_features: int,
@@ -15,6 +19,15 @@ class RidgeRegrTrainer:
         standardize: bool,
         train_biases: bool,
     ):
+        """
+        RidgeRegrTrainer - Class to perform ridge regression.
+        :param int num_features:        Number of input features.
+        :param int num_outputs:         Number of output units to be trained.
+        :param float regularization:    Regularization parameter.
+        :param bool fisher_relabelling: Relabel target data such that algorithm is equivalent to Fisher discriminant analysis.
+        :param bool standardize:        Perform z-score standardization based on mean and variance of first input batch.
+        :param bool train_biases:       Train constant biases along with weights.
+        """
         self.num_features = num_features
         self.num_outputs = num_outputs
         self.regularization = regularization
@@ -24,6 +37,9 @@ class RidgeRegrTrainer:
         self.init_matrices()
 
     def init_matrices(self):
+        """
+        init_matrices - Initialize matrices for storing intermediate training data.
+        """
         self.xty = np.zeros((self.num_features + 1, self.num_outputs))
         self.xtx = np.zeros(
             (self.num_features + 1, self.num_features + int(self.train_biases))
@@ -31,22 +47,31 @@ class RidgeRegrTrainer:
         self.kahan_comp_xty = np.zeros_like(self.xty)
         self.kahan_comp_xtx = np.zeros_like(self.xtx)
 
-    def determine_z_score_params(self, inp):
+    def determine_z_score_params(self, inp: np.ndarray):
         """
         determine_z_score_params - For each feature, find its mean and standard
                                    deviation and store them internally
+        :param np.ndarray inp:     Input data in 2D-array (num_samples x num_features)
         """
         self.inp_mean = np.mean(axis=0).reshape(-1, 1)
         self.inp_std = np.std(axis=0).reshape(-1, 1)
 
-    def z_score_standardization(self, inp):
+    def z_score_standardization(self, inp: np.ndarray) -> np.ndarray:
         """
-        z_score_standardization - For each feature subtract `self.inp_mean` and
-                                  scale it with `self.inp_std`
+        z_score_standardization - For each feature subtract `self.inp_mean` and scale it with `self.inp_std`
+        :param np.ndarray inp:    Input data in 2D-array (num_samples x num_features)
+        :return np.ndarray:       Standardized input data.
         """
         return (inp - self.mean) / self.inp_std
 
-    def _relabel_fisher(self, target):
+    def _relabel_fisher(self, target: np.ndarray) -> np.ndarray:
+        """
+        _relabel_fisher - Relabel target such that training is equivalent to
+                          Fisher discriminant analysis.
+        :param np.ndarray target:  2D-array (num_samples x num_outputs) of target data
+        :return np.ndarray:        Relabeled target data.
+        """
+
         num_timesteps = len(target)
 
         # - Relabel target based on number of occurences of corresponding data points
@@ -64,7 +89,18 @@ class RidgeRegrTrainer:
 
         return target
 
-    def _prepare_data(self, inp, target):
+    def _prepare_data(
+        self, inp: np.ndarray, target: np.ndarray
+    ) -> (np.ndarray, np.ndarray):
+        """
+        _prepare_data - Prepare input and target data by verifying shapes and,
+                        if required, standardization and Fisher relabelling.
+        :param np.ndarray inp:     Input data in 2D-array (num_samples x num_features)
+        :param np.ndarray target:  2D-array (num_samples x num_outputs) of target data
+
+        :return np.ndarray:        Processed input data.
+        :return np.ndarray:        Processed target data.
+        """
         if inp.shape[1] != self.num_features:
             raise ValueError(
                 f"RidgeRegrTrainer: Number of columns in `inp` must be {self.num_features}."
@@ -92,8 +128,12 @@ class RidgeRegrTrainer:
 
         return inp, target
 
-    def train_batch(self, inp, target, update_model=False):
-
+    def train_batch(self, inp: np.ndarray, target: np.ndarray, update_model=False):
+        """
+        train_batch - Update internal variables for one training batch
+        :param np.ndarray inp:     Prepared input data in 2D-array (num_samples x num_features)
+        :param np.ndarray target:  2D-array (num_samples x num_outputs) of prepared target data
+        """
         inp, target = self._prepare_data(inp, target)
         print(inp)
         upd_xty = inp.T @ target - self.kahan_comp_xty
@@ -109,12 +149,20 @@ class RidgeRegrTrainer:
         if update_model:
             self.update_model()
 
-    def fit(self, inp, target):
+    def fit(self, inp: np.ndarray, target: np.ndarray):
+        """
+        fit - Train with one single batch
+        :param np.ndarray inp:     Prepared input data in 2D-array (num_samples x num_features)
+        :param np.ndarray target:  2D-array (num_samples x num_outputs) of prepared target data
+        """
         self.init_matrices()
         self.train_batch(inp, target, update_model=True)
         self.reset()
 
     def update_model(self):
+        """
+        update_model - Update model weights and biases based on current collected training data.
+        """
         solution = np.linalg.solve(
             self.xtx
             + self.regularization * np.eye(self.num_features + int(self.train_biases)),
@@ -132,6 +180,7 @@ class RidgeRegrTrainer:
                 self.bias -= self.inp_mean @ self.weights
 
     def reset(self):
+        """reset - Reset internal training data."""
         self.init_matrices()
         if self.standardize:
             del self.inp_mean
