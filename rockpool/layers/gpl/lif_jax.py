@@ -376,6 +376,9 @@ class RecLIFJax(Layer):
             num_channels=self.size,
         )
 
+        # - Record neuron surrogates
+        self.surrogate_last_evolution = TSContinuous(time_base, onp.array(surrogate_ts))
+
         # - Record recurrent inputs
         self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
 
@@ -465,6 +468,15 @@ class RecLIFJax(Layer):
             np.size(value) == self._size
         ), "`tau_mem` must have {:d} elements or be a scalar".format(self._size)
 
+        # - Check for valid time constant
+        assert np.all(value > 0.0), "`tau_mem` must be larger than zero"
+
+        if hasattr(self, "dt"):
+            tau_min = self.dt * 10.0
+            assert np.all(
+                value >= tau_min
+            ), "`tau_mem` must be larger than {:4f}".format(tau_min)
+
         self._tau_mem = np.reshape(value, self._size).astype("float32")
 
     @property
@@ -481,6 +493,15 @@ class RecLIFJax(Layer):
         assert (
             np.size(value) == self._size
         ), "`tau_syn` must have {:d} elements or be a scalar".format(self._size)
+
+        # - Check for valid time constant
+        assert np.all(value > 0.0), "`tau_syn` must be larger than zero"
+
+        if hasattr(self, "dt"):
+            tau_min = self.dt * 10.0
+            assert np.all(
+                value >= tau_min
+            ), "`tau_syn` must be larger than {:4f}".format(tau_min)
 
         self._tau_syn = np.reshape(value, self._size).astype("float32")
 
@@ -514,7 +535,9 @@ class RecLIFJax(Layer):
         if value is None:
             value = tau_min
 
-        assert value >= tau_min, "`tau` must be at least {:.2e}".format(tau_min)
+        # - Check for valid time constant
+        assert np.all(value > 0.0), "`dt` must be larger than zero"
+        assert value >= tau_min, "`dt` must be at least {:.2e}".format(tau_min)
 
         self._dt = np.array(value).astype("float32")
 
@@ -620,6 +643,9 @@ class RecLIFCurrentInJax(RecLIFJax):
             name="Spikes " + self.name,
             num_channels=self.size,
         )
+
+        # - Record neuron surrogates
+        self.surrogate_last_evolution = TSContinuous(time_base, onp.array(surrogate_ts))
 
         # - Record recurrent inputs
         self.i_rec_last_evolution = TSContinuous(time_base, onp.array(Irec_ts))
@@ -776,7 +802,7 @@ class RecLIFJax_IO(RecLIFJax):
 
     @property
     def w_in(self) -> np.ndarray:
-        """ (np.ndarray) [IxN] input weights """
+        """ (np.ndarray) [M,N] input weights """
         return onp.array(self._w_in)
 
     @w_in.setter
@@ -792,7 +818,7 @@ class RecLIFJax_IO(RecLIFJax):
 
     @property
     def w_out(self) -> np.ndarray:
-        """ (np.ndarray) [NxO] output weights """
+        """ (np.ndarray) [N,O] output weights """
         return onp.array(self._w_out)
 
     @w_out.setter
