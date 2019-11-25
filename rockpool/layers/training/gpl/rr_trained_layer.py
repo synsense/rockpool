@@ -14,11 +14,12 @@ from warnings import warn
 import numpy as np
 
 # - Local imports
-from ....timeseries import TSEvent, TSContinuous
+from ....timeseries import TSEvent, TSContinuous, TimeSeries
+from ...layer import Layer
 from .train_rr import RidgeRegrTrainer
 
 
-class RRTrainedLayer(ABC):
+class RRTrainedLayer(Layer, ABC):
     """
     RRTrainedLayer - Base class that defines methods for training with ridge
                      regression. `Layer` subclasses can inherit from this class
@@ -26,10 +27,6 @@ class RRTrainedLayer(ABC):
                      regression functionality.
 
     """
-
-    @abstractmethod
-    def __init__(self, size_in: int):
-        self.size_in = size_in
 
     def train_rr(
         self,
@@ -176,8 +173,8 @@ class RRTrainedLayer(ABC):
 
     @abstractmethod
     def _prepare_training_data(
-        self, ts_target, ts_input, is_last
-    ) -> (np.ndarray, np.ndarray):
+        self, ts_target: TSContinuous, ts_input: TimeSeries, is_last: bool
+    ) -> (Union[None, np.ndarray], np.ndarray, np.ndarray):
         """
         _prepare_training_data - Template for preparation of training data.
                                  Length of data is determined, dimensions are
@@ -186,12 +183,13 @@ class RRTrainedLayer(ABC):
                                  through `super()._prepare_training_data`.
                                  Extraction of input data needs to be
                                  implemented in child classes.
-        :param TimeSeries ts_target:    Target time series
-        :param TSContinuous ts_input:   Input time series
+        :param TSContinuous ts_target:  Target time series
+        :param TimeSeries ts_input:     Input time series
         :param bool is_last:            Set `True` if batch is last of trianing.
 
-        :return np.ndarray:             Extracted target data.
-        :return np.ndarray:             Time points corresponding to target data.
+        :return Union[None, np.ndarray]:  Extracted input data or 'None'.
+        :return np.ndarray:               Extracted target data.
+        :return np.ndarray:               Time points corresponding to target data.
         """
         # - Discrete time steps for evaluating input and target time series
         num_timesteps = int(np.round(ts_target.duration / self.dt))
@@ -241,4 +239,4 @@ class RRTrainedLayer(ABC):
                 + "If you are training by batches, check that the target signal is also split by batch.\n"
             )
 
-        return target, time_base
+        return None, target, time_base

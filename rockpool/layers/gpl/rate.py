@@ -174,7 +174,7 @@ def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarra
 ### --- FFRateEuler class
 
 
-class FFRateEuler(Layer, RRTrainedLayer):
+class FFRateEuler(RRTrainedLayer):
     """
     Feedforward layer consisting of rate-based neurons
 
@@ -424,7 +424,9 @@ class FFRateEuler(Layer, RRTrainedLayer):
         )
 
     def _prepare_training_data(self, ts_target, ts_input, is_first, is_last):
-        target, time_base = super()._prepare_training_data(ts_target, ts_input, is_last)
+        __, target, time_base = super()._prepare_training_data(
+            ts_target, ts_input, is_last
+        )
 
         # - Prepare input data
         inp = np.zeros((np.size(time_base), self.size_in))

@@ -9,7 +9,6 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from ...timeseries import TSContinuous, TSEvent
-from ..layer import Layer
 from ..training.gpl.rr_trained_layer import RRTrainedLayer
 
 
@@ -28,7 +27,7 @@ def sigmoid(z):
 
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
-class FFExpSyn(Layer, RRTrainedLayer):
+class FFExpSyn(RRTrainedLayer):
     """ FFExpSyn - Class: define an exponential synapse layer (spiking input)
     """
 
@@ -266,7 +265,9 @@ class FFExpSyn(Layer, RRTrainedLayer):
         return filtered
 
     def _prepare_training_data(self, ts_target, ts_input, is_first, is_last):
-        target, time_base = super()._prepare_training_data(ts_target, ts_input, is_last)
+        __, target, time_base = super()._prepare_training_data(
+            ts_target, ts_input, is_last
+        )
 
         # - Prepare input data
         inp = np.zeros((np.size(time_base), self.size_in))
