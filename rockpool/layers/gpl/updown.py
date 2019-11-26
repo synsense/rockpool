@@ -22,60 +22,46 @@ __all__ = ["FFUpDown"]
 ## - FFUpDown - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
 class FFUpDown(Layer):
     """
-    FFUpDown - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
+    Define a spiking feedforward layer to convert analogue inputs to up and down channels
     """
 
     ## - Constructor
     def __init__(
         self,
         weights: Union[int, np.ndarray, Tuple[int, int]],
-        repeat_output: int = 1,
-        dt: float = 0.001,
-        tau_decay: Union[ArrayLike, float, None] = None,
-        noise_std: float = 0,
-        thr_up: Union[ArrayLike, float] = 0.001,
-        thr_down: Union[ArrayLike, float] = 0.001,
-        name: str = "unnamed",
-        max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
-        multiplex_spikes: bool = True,
+        repeat_output: Optional[int] = 1,
+        dt: Optional[float] = 0.001,
+        tau_decay: Optional[Union[ArrayLike, float, None]] = None,
+        noise_std: Optional[float] = 0.0,
+        thr_up: Optional[Union[ArrayLike, float]] = 0.001,
+        thr_down: Optional[Union[ArrayLike, float]] = 0.001,
+        name: Optional[str] = "unnamed",
+        max_num_timesteps: Optional[int] = MAX_NUM_TIMESTEPS_DEFAULT,
+        multiplex_spikes: Optional[bool] = True,
     ):
         """
-        FFUpDownBatch - Construct a spiking feedforward layer to convert analogue inputs to up and down channels
-        This layer is exceptional in that self.state has the same size as self.size_in, not self.size.
-        It corresponds to the input, inferred from the output spikes by inverting the up-/down-algorithm.
+        Construct a spiking feedforward layer to convert analogue inputs to up and down channels.
 
-        :param weights:         np.array MxN weight matrix.
-            Unlike other Layer classes, only important thing about weights its shape. The first
-            dimension determines the number of input channels (self.size_in). The second
-            dimension corresponds to size and has to be n*2*size_in, n up and n down
-            channels for each input). If n>1 the up-/and down-spikes are distributed over
-            multiple channels. The values of the weight matrix do not have any effect.
-            It is also possible to pass only an integer, which will correspond to size_in.
-            size is then set to 2*size_in, i.e. n=1. Alternatively a tuple of two values,
-            corresponding to size_in and n can be passed.
-        :param dt:         float Time-step. Default: 0.1 ms
-        :param tau_decay:  array-like  States that tracks input signal for threshold comparison
-                                        decay with this time constant unless it is None
+        This layer is exceptional in that :py:attr:`.state` has the same size as :py:attr:`.size_in`, not :py:attr:`.size`. It corresponds to the input, inferred from the output spikes by inverting the up-/down-algorithm.
 
-        :param noise_std:   float Noise std. dev. per second. Default: 0
-
-        :param thr_up:     array-like Thresholds for creating up-spikes
-        :param thr_down:   array-like Thresholds for creating down-spikes
-
-        :param name:     str Name for the layer. Default: 'unnamed'
-
-        :max_num_timesteps:  int   Maximum number of timesteps during single evolution batch. Longer
-                                  evolution periods will automatically split in smaller batches.
-
-        :multiplex_spikes:  bool  Allow a channel to emit multiple spikes per time, according to
-                                  how much the corresponding threshold is exceeded
+        :param np.array weights:        MxN weight matrix. Unlike other `.Layer` classes, the only important thing about weights its shape. The first dimension determines the number of input channels (self.size_in). The second dimension corresponds to size and has to be n*2*size_in, n up and n down channels for each input). If n>1 the up-/and down-spikes are distributed over multiple channels. The values of the weight matrix do not have any effect. It is also possible to pass only an integer, which will correspond to size_in. size is then set to 2*size_in, i.e. n=1. Alternatively a tuple of two values, corresponding to size_in and n can be passed.
+        :param Optional[float] dt:      Time-step. Default: 0.1 ms
+        :param Optional[ArrayLike] tau_decay:     The states that track the input signal for threshold comparison decay with this time constant, unless it is ``None``. Default: ``None``, do not decay tracking states.
+        :param Optional[float] noise_std:         Noise std. dev. per second. Default: ``0.``, no noise
+        :param Optional[ArrayLike] thr_up:        Thresholds for creating up-spikes. Default: ``0.001``
+        :param Optional[ArrayLike] thr_down:      Thresholds for creating down-spikes. Default: ``0.001``
+        :param Optional[str] name:                Name for the layer. Default: ``'unnamed'``
+        :param Optional[int] max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer evolution periods will automatically split in smaller batches. Default: ``MAX_NUM_TIMESTEPS_DEFAULT``
+        :param Optional[bool] multiplex_spikes:   If ``True``, allows a channel to emit multiple spikes per time, according to how much the corresponding threshold is exceeded. Default: ``True``, emit multiple spikes per time step
         """
 
         if np.size(weights) == 1:
             size_in = weights
             size = 2 * size_in * repeat_output
-            # - On how many output channels is the are the up-/down-spikes from each input distributed
+
+            # - Over how many output channels are the up-/down-spikes from each input distributed
             self._multi_channels = 1
+
         elif np.size(weights) == 2:
             # - Tuple determining shape
             (size_in, self._multi_channels) = weights
@@ -90,6 +76,7 @@ class FFUpDown(Layer):
             # - On how many output channels is the are the up-/down-spikes from each input distributed
             self._multi_channels = size / (2 * size_in)
             size *= repeat_output
+
         # - Make sure self._multi_channels is an integer
         self._multi_channels = int(self._multi_channels)
 
@@ -108,7 +95,6 @@ class FFUpDown(Layer):
 
         self.reset_all()
 
-    # @profile
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -117,14 +103,14 @@ class FFUpDown(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param Optional[TSContinuous] tsSpkInput:   Input signal
+        :param Optional[float] duration:            Simulation/Evolution time
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param Optional[bool] verbose:              Currently no effect, just for conformity
 
+        :return TSEvent:    Output spike series
         """
 
         # - Prepare time base
