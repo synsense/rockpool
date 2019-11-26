@@ -24,9 +24,9 @@ tol_abs = 1e-9
 MAX_NUM_TIMESTEPS_DEFAULT = 400
 
 
-## - _RefractoryBase - Class: Base class for providing refractoriness-related properties
-##                            and methods so that refractory layers can inherit them
 class _RefractoryBase:
+    """ Base class for providing refractoriness-related properties and methods so that refractory layers can inherit them """
+
     def _single_batch_evolution(
         self,
         inp: np.ndarray,
@@ -35,7 +35,7 @@ class _RefractoryBase:
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
         :param inp:     np.ndarray   Input to layer as matrix
         :param evolution_timestep int    Time step within current evolution at beginning of current batch
@@ -116,8 +116,7 @@ class _RefractoryBase:
         return matr_is_spiking.cpu()
 
     def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
+        """ Reset the internal state of the layer
         """
         self.state = self.v_reset
         self.synapse_state = 0
@@ -140,7 +139,7 @@ class _RefractoryBase:
 
 ## - FFIAFTorch - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFTorch(Layer):
-    """ FFIAFTorch - Class: define a spiking feedforward layer with spiking outputs
+    """ Define a spiking feedforward layer with spiking outputs, with a PyTorch backend
     """
 
     ## - Constructor
@@ -159,8 +158,7 @@ class FFIAFTorch(Layer):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFIAFTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
-                     Inputs are continuous currents; outputs are spiking events
+        Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events
 
         :param weights:             np.array MxN weight matrix.
         :param bias:          np.array Nx1 bias vector. Default: 10mA
@@ -178,7 +176,7 @@ class FFIAFTorch(Layer):
 
         :param record:         bool Record membrane potential during evolutions
 
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
+        :param max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
                                       evolution periods will automatically split in smaller batches.
         """
 
@@ -209,7 +207,6 @@ class FFIAFTorch(Layer):
         # - Store "reset" state
         self.reset_all()
 
-    # @profile
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -218,14 +215,14 @@ class FFIAFTorch(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input. Automatically splits evolution in batches,
+        Function to evolve the states of this layer given an input. Automatically splits evolution in batches
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
+        :param ts_input:      TSContinuous  Input spike trian
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps:   int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
 
+        :return:            TSEvent  output spike series
         """
 
         # - Layer time step before evolution
@@ -303,11 +300,10 @@ class FFIAFTorch(Layer):
 
         return event_out
 
-    # @profile
     def _batch_data(
         self, inp: np.ndarray, num_timesteps: int, max_num_timesteps: int = None
     ) -> (np.ndarray, int):
-        """_batch_data: Generator that returns the data in batches"""
+        """ Generator that returns the data in batches """
         # - Handle None for max_num_timesteps
         max_num_timesteps = (
             num_timesteps if max_num_timesteps is None else max_num_timesteps
@@ -322,7 +318,6 @@ class FFIAFTorch(Layer):
             # - Update n_start
             n_start = n_end
 
-    # @profile
     def _single_batch_evolution(
         self,
         inp: np.ndarray,
@@ -337,8 +332,7 @@ class FFIAFTorch(Layer):
         :param evolution_timestep int    Time step within current evolution at beginning of current batch
         :param num_timesteps:   int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
-
+        :return TSEvent:              output spike series
         """
 
         # - Get synapse input to neurons
@@ -402,13 +396,11 @@ class FFIAFTorch(Layer):
 
         return matr_is_spiking.cpu()
 
-    # @profile
     def _prepare_neural_input(
         self, inp: np.array, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
-        _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
-                                and return it together with number of evolution time steps
+        Prepare the weighted, noisy synaptic input to the neurons and return it together with number of evolution time steps
 
         :param inp:     np.ndarray   Input to layer as matrix
         :param num_timesteps    int      Number of evolution time steps
@@ -435,7 +427,6 @@ class FFIAFTorch(Layer):
 
         return neural_input, num_timesteps
 
-    # @profile
     def _prepare_input(
         self,
         ts_input: TSContinuous = None,
@@ -443,9 +434,9 @@ class FFIAFTorch(Layer):
         num_timesteps: int = None,
     ) -> (torch.Tensor, int):
         """
-        _prepare_input - Sample input, set up time base
+        Sample input, set up time base
 
-        :param ts_input:       TimeSeries TxM or Tx1 Input signals for this layer
+        :param TSContinuous ts_input:       TxM or Tx1 Input signals for this layer
         :param duration:     float Duration of the desired evolution, in seconds
         :param num_timesteps: int Number of evolution time steps
 
@@ -527,8 +518,7 @@ class FFIAFTorch(Layer):
         return (input_steps, num_timesteps)
 
     def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
+        """ Reset the internal state of the layer
         """
         self.state = self.v_reset
         self.synapse_state = 0
@@ -552,6 +542,7 @@ class FFIAFTorch(Layer):
         return essential_dict
 
     def save(self, essential_dict, filename):
+        """ Save a dictionary to a file """
         with open(filename, "w") as f:
             json.dump(essential_dict, f)
 

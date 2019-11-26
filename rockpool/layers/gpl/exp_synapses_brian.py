@@ -34,7 +34,7 @@ eqSynapseExp = b2.Equations(
 
 ## - FFExpSynBrian - Class: define an exponential synapse layer (spiking input)
 class FFExpSynBrian(Layer):
-    """ FFExpSynBrian - Class: define an exponential synapse layer (spiking input)
+    """ Define an exponential synapse layer (spiking input), with a Brian2 backend
     """
 
     ## - Constructor
@@ -49,7 +49,7 @@ class FFExpSynBrian(Layer):
         name: str = "unnamed",
     ):
         """
-        FFExpSynBrian - Construct an exponential synapse layer (spiking input)
+        Construct an exponential synapse layer (spiking input), with a Brian2 backend
 
         :param weights:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
@@ -62,7 +62,9 @@ class FFExpSynBrian(Layer):
 
         :param name:         str Name for the layer. Default: 'unnamed'
         """
-        warn("FFExpSynBrian - This layer is deprecated. You can use FFExpSyn or FFExpSynTorch instead.")
+        warn(
+            "FFExpSynBrian - This layer is deprecated. You can use FFExpSyn or FFExpSynTorch instead."
+        )
 
         # - Provide default dt
         if dt is None:
@@ -73,12 +75,7 @@ class FFExpSynBrian(Layer):
             weights = np.identity(weights, "float")
 
         # - Call super constructor
-        super().__init__(
-            weights=weights,
-            dt=np.asarray(dt),
-            noise_std=np.asarray(noise_std),
-            name=name,
-        )
+        super().__init__(weights=weights, dt=dt, noise_std=noise_std, name=name)
 
         # - Set up spike source to receive spiking input
         self._input_generator = b2.SpikeGeneratorGroup(
@@ -129,20 +126,18 @@ class FFExpSynBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
+        """ Reset the internal state of the layer
         """
         self._neuron_group.I_syn = 0 * amp
 
     def randomize_state(self):
-        """ .randomize_state() - arguments:: randomize the internal state of the layer
-            Usage: .randomize_state()
+        """ Randomize the internal state of the layer
         """
         self.reset_state()
 
     def reset_time(self):
         """
-        reset_time - Reset the internal clock of this layer
+        Reset the internal clock of this layer
         """
 
         # - Sotre state variables
@@ -173,13 +168,13 @@ class FFExpSynBrian(Layer):
         verbose: bool = False,
     ) -> TSContinuous:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
+        :param ts_input:      TSEvent  Input spike trian
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps    int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSContinuous  output spike series
+        :return TSContinuous:              output spike series
 
         """
 
