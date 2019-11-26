@@ -264,9 +264,28 @@ class FFExpSyn(RRTrainedLayer):
 
         return filtered
 
-    def _prepare_training_data(self, ts_target, ts_input, is_first, is_last):
+    def _prepare_training_data(
+        self,
+        ts_target: TSContinuous,
+        ts_input: Optional[Union[TSEvent, None]] = None,
+        is_first: Optional[bool] = True,
+        is_last: Optional[bool] = False,
+    ):
+        """
+        Check and rasterize input and target signals for this batch
+
+        :param TSContinuous ts_target:      Target signal for this batch
+        :param Optional[TSEvent] ts_input:  Input signal for this batch. Default: ``None``, no input for this batch
+        :param Optional[bool] is_first:     If ``True``, this is the first batch in training. Default: ``True``, this is the first batch
+        :param optional[bool] is_last:      If ``True``, this is the last training batch. Default: ``False``, this is not the last batch
+
+        :return (inp, target, time_base)
+            inp np.ndarray:         Rasterized input signal [T, M]
+            target np.ndarray:      Rasterized target signal [T, O]
+            time_base np.ndarray:   Time base for ``inp`` and ``target``
+        """
         __, target, time_base = super()._prepare_training_data(
-            ts_target, ts_input, is_last
+            ts_target, ts_input, is_first, is_last
         )
 
         # - Prepare input data
@@ -388,7 +407,7 @@ class FFExpSyn(RRTrainedLayer):
         )
 
         if store_states and return_training_progress:
-            tr_data["trainig_progress"]["training_state"] = self._training_state
+            tr_data["training_progress"]["training_state"] = self._training_state
 
         if return_trained_output or return_training_progress:
             return tr_data
