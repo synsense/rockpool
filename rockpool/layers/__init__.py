@@ -34,7 +34,7 @@ dModules = {
     ),
     ".gpl.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
     ".gpl.aeif_nest": "RecAEIFSpkInNest",
-    ".gpl.devices.dynap_hw": "RecDynapSE",
+    ".gpl.devices.dynap_hw": ("RecDynapSE", "RecDynapSEDemo"),
     ".gpl.devices.virtual_dynapse": "VirtualDynapse",
     ".gpl.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
     ".gpl.butter_mel_filter": "ButterMelFilter",

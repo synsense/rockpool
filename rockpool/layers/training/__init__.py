@@ -3,7 +3,10 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {".gpl.train_jax_sgd": "add_train_output"}
+dModules = {
+    ".gpl.train_jax_sgd": "add_train_output",
+    ".gpl.rr_trained_layer": "RRTrainedLayer",
+}
 
 
 # - Define current package
@@ -52,5 +55,3 @@ for strModule, classnames in dModules.items():
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
         print(err)
-
-
