@@ -7,7 +7,7 @@ rr_trained_layer.py - Define a super class that layers can inherit from if they
 
 # - Built-ins
 from abc import ABC, abstractmethod
-from typing import Union, Dict
+from typing import Union, Dict, Optional
 from warnings import warn
 
 # - Third party packages
@@ -21,53 +21,52 @@ from .train_rr import RidgeRegrTrainer
 
 class RRTrainedLayer(Layer, ABC):
     """
-    RRTrainedLayer - Base class that defines methods for training with ridge
-                     regression. `Layer` subclasses can inherit from this class
-                     (by means of multiple inheritance) to provide ridge
-                     regression functionality.
+    Base class that defines methods for training with ridge regression. Subclasses can inherit from this class to provide ridge regression functionality.
+
+    :Usage:
+
+    When writing a new layer class, simply inherit from `.RRTrainedLayer` instead of from `.Layer`. Subclasses must provide a concrete implementation of the the `._prepare_training_data` abstract method. See the documentation for that method below, to understand how this can be implemented. `.RRTrainedLayer` provides an implementation that can be called with :py:func:`super`.
+
+    This class provides the `.train_rr` method, which performs ridge regression training over multiple batches, called independently for each batch.
+
+    `.RRTrainedLayer` also provides the `._batch_update` private method
+
 
     """
 
     def train_rr(
         self,
         ts_target: TSContinuous,
-        ts_input: Union[TSEvent, TSContinuous] = None,
-        regularize: float = 0,
-        is_first: bool = True,
-        is_last: bool = False,
-        train_biases: bool = True,
-        calc_intermediate_results: bool = False,
-        return_training_progress: bool = True,
-        return_trained_output: bool = False,
-        fisher_relabelling: bool = False,
-        standardize: bool = False,
+        ts_input: Optional[Union[TSEvent, TSContinuous, None]] = None,
+        regularize: Optional[float] = 0,
+        is_first: Optional[bool] = True,
+        is_last: Optional[bool] = False,
+        train_biases: Optional[bool] = True,
+        calc_intermediate_results: Optional[bool] = False,
+        return_training_progress: Optional[bool] = True,
+        return_trained_output: Optional[bool] = False,
+        fisher_relabelling: Optional[bool] = False,
+        standardize: Optional[bool] = False,
     ) -> Union[Dict, None]:
         """
-        train_rr - Train self with ridge regression over one of possibly
-                   many batches. Use Kahan summation to reduce rounding
-                   errors when adding data to existing matrices from
-                   previous batches.
-        :param ts_target:        TimeSeries - target for current batch
-        :param ts_input:         TimeSeries - input to self for current batch
-        :param regularize:       float - regularization for ridge regression
-        :param is_first:         bool - True if current batch is the first in training
-        :param is_last:          bool - True if current batch is the last in training
-                                       traning. This has the same effect as if data from both trainings
-                                       were presented at once.
-        :param train_biases:     bool - If True, train biases as if they were weights
-                                        Otherwise present biases will be ignored in
-                                        training and not be changed.
-        :param calc_intermediate_results: bool - If True, calculates the intermediate weights not in the final batch
-        :param return_training_progress:  bool - If True, return dict of current training
-                                                 variables for each batch.
-        :param standardize:      bool  -  Train with z-score standardized data, based on
-                                          means and standard deviations from first batch
+        Train this layer with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
+
+        :param TSContinuous ts_target:                      Target signal for current batch
+        :param Optional[TimeSeries] ts_input:               Input to layer for current batch. Default: ``None``, no input for this batch
+        :param Optional[float] regularize:                  Regularization parameter for ridge regression. Default: ``0``, no regularization
+        :param Optional[bool] is_first:                     Set to ``True`` if current batch is the first in training. Default: ``True``, initialise training with this batch as the first batch
+        :param Optional[bool] is_last:                      Set to ``True`` if current batch is the last in training. This has the same effect as if data from both trainings were presented at once.
+        :param Optional[bool] train_biases:                 If ``True``, train biases as if they were weights. Otherwise present biases will be ignored in training and not be changed. Default: ``True``, train biases as well as weights
+        :param Optional[bool] calc_intermediate_results:    If ``True``, calculates the intermediate weights not in the final batch. Default: ``False``, do not compute intermediate weights
+        :param Optional[bool] return_training_progress:     If ``True``, return dict of current training variables for each batch. Default: ``True``, return training progress
+        :param Optional[bool] return_trained_output:        If ``True``, return the result of evolving the layer with the trained weights in the output dict. Default: ``False``, do not return the trained output
+        :param Optional[bool] fisher_relabelling:           If ``True``, relabel target data such that the training algorithm is equivalent to Fisher discriminant analysis. Default: ``False``, use standard ridge / linear regression
+        :param Optional[bool] standardize:                  Train with z-score standardized data, based on means and standard deviations from first batch. Default: ``False``, do not standardize data
+
         :return:
-            If `return_training_progress`, return dict with current trainig variables
-            (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
-            Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
-            If `return_trained_output`, the dict contains the output of evolveing with
-            the newly trained weights.
+            If ``return_training_progress`` is ``True``, return a dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
+            Weights and biases are returned if ``is_last`` is ``True`` or if ``calc_intermediate_results`` is ``True``.
+            If ``return_trained_output`` is ``True``, the dict contains the output of evolving the layer with the newly trained weights.
         """
         inp, target, time_base = self._prepare_training_data(
             ts_target=ts_target, ts_input=ts_input, is_first=is_first, is_last=is_last
@@ -84,7 +83,7 @@ class RRTrainedLayer(Layer, ABC):
                 train_biases=train_biases,
             )
         else:
-            # - Make sure that trainig parameters are consistent
+            # - Make sure that training parameters are consistent
             for new_val, name in zip(
                 (regularize, fisher_relabelling, standardize, train_biases),
                 ("regularize", "fisher_relabelling", "standardize", "train_biases"),
@@ -100,6 +99,8 @@ class RRTrainedLayer(Layer, ABC):
         update_weights = (
             is_last or return_training_progress or calc_intermediate_results
         )
+
+        # - Update the training for this batch
         tr_data = self._batch_update(
             inp=inp,
             target=target,
@@ -128,10 +129,8 @@ class RRTrainedLayer(Layer, ABC):
         return_training_progress: bool,
     ) -> Dict:
         """
-        _batch_update - Train with the already processed input and target data
-                        of the current batch. Update layer wegihts and biases
-                        if requested. Provide information on training state if
-                        requested.
+        Train with the already processed input and target data of the current batch. Update layer weights and biases if requested. Provide information on training state if requested.
+
         :param np.ndarray inp:                  2D-array (num_samples x num_features) of input data.
         :param np.ndarray target:               2D-array (num_samples x 'self.size') of target data.
         :param bool reset:                      If `True', internal variables will be reset at the end.
@@ -139,6 +138,7 @@ class RRTrainedLayer(Layer, ABC):
         :param bool standardize:                Has input data been z-score standardized?
         :param bool update_weights:             Set 'True' to update layer weights and biases.
         :param bool return_training_progress:   Return intermediate training data (e.g. xtx, xty,...)
+
         :return dict:                           Dict with information on training progress, depending on values of other function arguments.
         """
         self.trainer.train_batch(inp, target)
@@ -146,25 +146,27 @@ class RRTrainedLayer(Layer, ABC):
         training_data = dict()
 
         if return_training_progress:
-            training_data["trainig_progress"] = dict(
+            training_data["training_progress"] = dict(
                 xtx=self.trainer.xtx,
                 xty=self.trainer.xty,
                 kahan_comp_xtx=self.trainer.kahan_comp_xtx,
                 kahan_comp_xty=self.trainer.kahan_comp_xty,
             )
             if standardize:
-                training_data["trainig_progress"]["inp_mean"] = self.trainer.inp_mean
-                training_data["trainig_progress"]["inp_std"] = self.trainer.inp_std
+                training_data["training_progress"]["inp_mean"] = self.trainer.inp_mean
+                training_data["training_progress"]["inp_std"] = self.trainer.inp_std
 
         if update_weights:
             self.trainer.update_model()
             self.weights = self.trainer.weights
+
             if train_biases:
                 self.bias = self.trainer.bias
+
             if return_training_progress:
-                training_data["trainig_progress"]["weights"] = self.trainer.weights
+                training_data["training_progress"]["weights"] = self.trainer.weights
                 if train_biases:
-                    training_data["trainig_progress"]["biases"] = self.trainer.bias
+                    training_data["training_progress"]["biases"] = self.trainer.bias
 
         if reset:
             self.trainer.reset()
@@ -173,23 +175,33 @@ class RRTrainedLayer(Layer, ABC):
 
     @abstractmethod
     def _prepare_training_data(
-        self, ts_target: TSContinuous, ts_input: TimeSeries, is_last: bool
+        self,
+        ts_target: TSContinuous,
+        ts_input: TimeSeries,
+        is_first: bool,
+        is_last: bool,
     ) -> (Union[None, np.ndarray], np.ndarray, np.ndarray):
         """
-        _prepare_training_data - Template for preparation of training data.
-                                 Length of data is determined, dimensions are
-                                 verified and target data is extracted from
-                                 TSContinuous. Can be used in child classes
-                                 through `super()._prepare_training_data`.
-                                 Extraction of input data needs to be
-                                 implemented in child classes.
+        Template for preparation of training data. Length of data is determined, dimensions are verified and target data is extracted from `ts_target` argument. Can be used in child classes through ``super()._prepare_training_data``. Extraction of input data needs to be implemented in child classes.
+
         :param TSContinuous ts_target:  Target time series
         :param TimeSeries ts_input:     Input time series
-        :param bool is_last:            Set `True` if batch is last of trianing.
+        :param bool is_first:           Set ``True`` if batch is first of training.
+        :param bool is_last:            Set ``True`` if batch is last of training.
 
-        :return Union[None, np.ndarray]:  Extracted input data or 'None'.
-        :return np.ndarray:               Extracted target data.
-        :return np.ndarray:               Time points corresponding to target data.
+        :return (input, target, time_base):
+            input np.ndarray:           Should be extracted input data. This abstract method returns ``None``
+            target np.ndarray:          Extracted target data
+            time_base np.ndarray:       Time base for the input and target data
+
+        :Usage:
+
+        Child classes must implement this method to be instantiated. However, the abstract method provided here performs several checks and useful functions::
+
+            # - In the child class, call the superclass method
+            __, target, time_base = super()._prepare_training_data(ts_target, ts_input, is_first, is_last)
+
+            # ... perform input extraction from ``ts_input`` here in child class
         """
         # - Discrete time steps for evaluating input and target time series
         num_timesteps = int(np.round(ts_target.duration / self.dt))
@@ -222,7 +234,7 @@ class RRTrainedLayer(Layer, ABC):
             self.name, target.shape[-1], self.size
         )
 
-        # Warn if input time range does not cover whole target time range
+        # - Warn if input time range does not cover whole target time range
         if (
             not ts_target.contains(time_base)
             and not ts_input.periodic

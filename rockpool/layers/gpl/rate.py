@@ -178,11 +178,11 @@ class FFRateEuler(RRTrainedLayer):
     """
     Feedforward layer consisting of rate-based neurons
 
-    `FFRateEuler` is a simple feed-forward layer of dynamical neurons, backed with a forward-Euler solver with a fixed time step. The neurons in this layer implement the dynamics
+    `.FFRateEuler` is a simple feed-forward layer of dynamical neurons, backed with a forward-Euler solver with a fixed time step. The neurons in this layer implement the dynamics
 
     .. math::
 
-        \\tau \cdot \\dot{x} + x = g \\cdot W I(t) + \\sigma \\cdot \\zeta(t)
+        \\tau \\cdot \\dot{x} + x = g \\cdot W I(t) + \\sigma \\cdot \\zeta(t)
 
     where :math:`x` is the Nx1 vector of internal states of neurons in the layer; :math:`\\dot{x}` is the derivative of those staes with respect to time; :math:`\\tau` is the vector of time constants of the neurons in the layer; :math:`I(t)` is the instantaneous input injected into each neuron at time :math:`t`; :math:`W` is the MxN matrix of weights connecting the input to the neurons in the layer; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with standard deviation :math:`\\sigma``.
 
@@ -192,6 +192,26 @@ class FFRateEuler(RRTrainedLayer):
         o = H(x + b)
 
     where :math:`H(x)` is the neuron transfer function, which by default is the linear-threshold (or "rectified linear" or ReLU) function :math:`H(x) = max(0, x)`; :math:`b` is the Nx1 vector of bias values for this layer; and :math:`g` is the Nx1 vector of gain parameters for the neurons in this layer.
+
+    :Training:
+
+    `.FFRateEuler` supports weight training with linear or ridge regression, using the `.train` method. To use this facility, use the `.train` method instead of the `.evolve` method, calling `.train` in turn over multiple batches::
+
+        lyr = FFRateEuler(...)
+
+        # - Loop over batches and train
+        is_first = True
+        is_last = False
+
+        for (input_batch_ts, target_batch_ts) in batches[:-1]:
+            lyr.train(target_batch_tsm, input_batch_ts, is_first, is_last)
+            is_first = False
+
+        # - Finalise training for last batch
+        is_last = True
+        (input_batch_ts, target_batch_ts) = batches[-1]
+        lyr.train(target_batch_ts, input_batch_ts, is_first, is_last)
+
     """
 
     def __init__(
@@ -393,15 +413,14 @@ class FFRateEuler(RRTrainedLayer):
         **kwargs,
     ):
         """
-        train - Wrapper to standardize training syntax across layers. Use
-                specified training method to train layer for current batch.
-        :param ts_target: Target time series for current batch.
-        :param ts_input:  Input to the layer during the current batch.
-        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
-        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
-        :param method:    String indicating which training method to choose.
-                          Currently only ridge regression ("rr") is supported.
-        kwargs will be passed on to corresponding training method.
+        Wrapper to standardize training syntax across layers. Use specified training method to train layer for current batch.
+
+        :param ts_target:   Target time series for current batch.
+        :param ts_input:    Input to the layer during the current batch.
+        :param is_first:    Set ``True`` to indicate that this batch is the first in training procedure.
+        :param is_last:     Set ``True`` to indicate that this batch is the last in training procedure.
+        :param method:      String indicating which training method to choose. Currently only ridge regression (``'rr'``) is supported.
+        :param kwargs:      will be passed on to corresponding training method.
         """
         # - Choose training method
         if method in {
@@ -423,9 +442,30 @@ class FFRateEuler(RRTrainedLayer):
             ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
         )
 
-    def _prepare_training_data(self, ts_target, ts_input, is_first, is_last):
+    def _prepare_training_data(
+        self,
+        ts_target: TSContinuous,
+        ts_input: Optional[Union[TSContinuous, None]] = None,
+        is_first: Optional[bool] = True,
+        is_last: Optional[bool] = False,
+    ):
+        """
+        Check and rasterize input and target data for this batch
+
+        :param TSContinuous ts_target:                          Target time series for this batch
+        :param Optional[Union[TSContinuous, None]] ts_input:    Input time series for this batch. Default: ``None``
+        :param Optional[bool] is_first:                         Set to ``True`` if this is the first batch in training. Default: ``True``
+        :param Optional[bool] is_last:                          Set to ``True`` if this is the last batch in training. Default: ``False``
+
+        :return: (inp, target, time_base)
+            inp np.ndarray:                 Rasterized input time series for this batch [T, M]
+            target np.ndarray:              Rasterized target time series for this batch [T, O]
+            time_base np.ndarray:           Time base for ``inp`` and ``target`` [T,]
+        """
+
+        # - Call superclass method
         __, target, time_base = super()._prepare_training_data(
-            ts_target, ts_input, is_last
+            ts_target, ts_input, is_first, is_last
         )
 
         # - Prepare input data
@@ -448,7 +488,7 @@ class FFRateEuler(RRTrainedLayer):
         return inp, target, time_base
 
     def __repr__(self):
-        return "FFRateEuler layer object `{}`.\nnSize: {}, size_in: {}   ".format(
+        return "FFRateEuler layer object `{}`.\nnSize: {}, size_in: {}".format(
             self.name, self.size, self.size_in
         )
 
