@@ -227,13 +227,13 @@ class Layer(ABC):
             spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
-                num_timesteps=num_timesteps,
+                num_timesteps=num_timesteps + 1,
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
             )
 
             # - Make sure duration of raster is correct
-            spike_raster = spike_raster[:num_timesteps, :]
+            spike_raster = spike_raster[: num_timesteps + 1, :]
 
         else:
             spike_raster = np.zeros((num_timesteps + 1, self.size_in))
@@ -376,12 +376,13 @@ class Layer(ABC):
     ### --- String representations
 
     def __str__(self):
-        return '{} object: "{}" [{} {} in -> {} {} out]'.format(
+        return '{} object: "{}" [{} {} in -> {} internal -> {} {} out]'.format(
             self.__class__.__name__,
             self.name,
             self.size_in,
             self.input_type.__name__,
             self.size,
+            self.size_out,
             self.output_type.__name__,
         )
 
@@ -555,14 +556,14 @@ class Layer(ABC):
     @property
     def output_type(self):
         """
-        (Type[TimeSeries]) Output :py:class:`.TimeSeries` subclass emitted by this layer. 
+        (Type[TimeSeries]) Output :py:class:`.TimeSeries` subclass emitted by this layer.
         """
         return TSContinuous
 
     @property
     def input_type(self):
         """
-        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer. 
+        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer.
         """
         return TSContinuous
 

@@ -38,6 +38,12 @@ dModules = {
     ".gpl.devices.virtual_dynapse": "VirtualDynapse",
     ".gpl.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
     ".gpl.butter_mel_filter": "ButterMelFilter",
+    ".gpl.lif_jax": (
+        "RecLIFJax",
+        "RecLIFCurrentInJax",
+        "RecLIFJax_IO",
+        "RecLIFCurrentInJax_IO",
+    ),
 }
 
 
