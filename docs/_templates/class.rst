@@ -5,6 +5,7 @@ API reference for {{ fullname }}
 
 .. autoclass:: {{ objname }}
    :members:
+   :private-members:
    :no-undoc-members:
    :inherited-members:
    :show-inheritance:

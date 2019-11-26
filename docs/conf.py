@@ -22,7 +22,7 @@ copyright = "2019, aiCTX AG"
 author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags
-exec(open('../rockpool/version.py').read())
+exec(open("../rockpool/version.py").read())
 release = __version__
 
 
@@ -97,3 +97,5 @@ nbsphinx_epilog = """
 """
 
 nbsphinx_allow_errors = True
+
+autodoc_default_options = {"special-members": "__init__", "private-members": True}

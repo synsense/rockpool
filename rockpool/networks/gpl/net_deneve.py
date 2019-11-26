@@ -13,6 +13,10 @@ __all__ = ["NetworkDeneve"]
 
 
 class NetworkDeneve(Network):
+    """
+    `.Network` base class that defines and builds networks of Deneve reservoirs to solve linear problems.
+    """
+
     def __init__(self):
         # - Call super-class constructor
         super().__init__()
@@ -197,7 +201,11 @@ class NetworkDeneve(Network):
 
         # - Construct output layer
         output_layer = FFExpSyn(
-            weights_out, dt=0.1e-4, noise_std=noise_std, tau_syn=tau_syn_out, name="Output"
+            weights_out,
+            dt=0.1e-4,
+            noise_std=noise_std,
+            tau_syn=tau_syn_out,
+            name="Output",
         )
 
         # - Build network

@@ -599,7 +599,7 @@ class Network:
         # - Dict to store external input and each layer's output time series
         signal_dict = {"external": ts_input}
 
-        # - Make sure layers are in sync with netowrk
+        # - Make sure layers are in sync with network
         self._check_sync(verbose=False)
 
         # - Iterate over evolution order and evolve layers
@@ -645,7 +645,7 @@ class Network:
         # - Update network time
         self._timestep += num_timesteps
 
-        # - Make sure layers are still in sync with netowrk
+        # - Make sure layers are still in sync with network
         self._check_sync(verbose=False)
 
         # - Return dict with layer outputs
@@ -1026,6 +1026,25 @@ class Network:
     def dt(self):
         """(float) Time step to use in layer simulations"""
         return self._dt
+
+    def shallow_copy(self) -> "Network":
+        """
+        shallow_copy - Generate and return a `Network` of the same structure with
+                       the *same* layer objects.
+        :return:
+            The new `Network` object.
+        """
+        newnet = Network(dt=self.dt)
+        for lyr in self.evol_order:
+            # - Network structure already contained in layers
+            newnet.add_layer(lyr)
+        try:
+            newnet.input_layer = self.input_layer
+        except AttributeError:
+            pass
+        # - Strictly keep evolution order
+        newnet.evol_order = self.evol_order.copy()
+        return newnet
 
     def save(self, filename: str):
         """
