@@ -15,6 +15,16 @@ Base classes
     networks.Network
     layers.Layer
 
+Layer and Network alternative base classes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    networks.NetworkDeneve
+    layers.training.RRTrainedLayer
+
 
 Time series classes
 -------------------
