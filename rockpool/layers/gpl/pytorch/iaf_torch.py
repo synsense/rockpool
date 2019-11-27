@@ -694,9 +694,8 @@ class FFIAFTorch(Layer):
         self._weights = torch.from_numpy(new_w).to(self.device).float()
 
 
-## - FFIAFRefrTorch - Class: define a spiking feedforward layer with spiking outputs and refractoriness
 class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
-    """ FFIAFRefrTorch - Class: define a spiking feedforward layer with spiking outputs and refractoriness
+    """ A spiking feedforward layer with spiking outputs and refractoriness
     """
 
     ## - Constructor
@@ -716,8 +715,7 @@ class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFIAFRefrTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
-                         Inputs are continuous currents; outputs are spiking events. Support Refractoriness.
+        Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events. Supports Refractoriness.
 
         :param weights:             np.array MxN weight matrix.
         :param bias:          np.array Nx1 bias vector. Default: 10mA
@@ -759,9 +757,8 @@ class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
         self.refractory = refractory
 
 
-# - FFIAFSpkInTorch - Class: Spiking feedforward layer with spiking in- and outputs
 class FFIAFSpkInTorch(FFIAFTorch):
-    """ FFIAFSpkInTorch - Class: Spiking feedforward layer with spiking in- and outputs
+    """ Spiking feedforward layer with spiking in- and outputs
     """
 
     ## - Constructor
@@ -781,8 +778,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFIAFSpkInTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
-                          in- and outputs are spiking events
+        Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. In- and outputs are spiking events
 
         :param weights:             np.array MxN weight matrix.
         :param bias:          np.array Nx1 bias vector. Default: 10mA
@@ -823,13 +819,11 @@ class FFIAFSpkInTorch(FFIAFTorch):
         # - Record neuron parameters
         self.tau_syn = tau_syn
 
-    # @profile
     def _prepare_neural_input(
         self, inp: np.array, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
-        _prepare_neural_input : Prepare the weighted, noisy synaptic input to the neurons
-                                and return it together with number of evolution time steps
+        Prepare the weighted, noisy synaptic input to the neurons and return it together with number of evolution time steps
 
         :param inp:         np.ndarray    Input data
         :param num_timesteps    int      Number of evolution time steps
@@ -883,7 +877,6 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
         return neural_input, num_timesteps
 
-    # @profile
     def _prepare_input(
         self,
         ts_input: Optional[TSEvent] = None,
@@ -891,9 +884,9 @@ class FFIAFSpkInTorch(FFIAFTorch):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input, set up time base
+        Sample input, set up time base
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param TSEvent ts_input:      TxM or Tx1 spiking input signals for this layer
         :param duration:    float Duration of the desired evolution, in seconds
         :param num_timesteps int Number of evolution time steps
 
@@ -953,10 +946,12 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
     @property
     def input_type(self):
+        """ (`.TSEvent`) Time series class accepted by this layer (`.TSEvent`) """
         return TSEvent
 
     @RefProperty
     def tau_syn(self):
+        """ (np.ndarray) Synaptic time constants for this layer [N,] """
         return self._tau_syn
 
     @tau_syn.setter
@@ -965,9 +960,8 @@ class FFIAFSpkInTorch(FFIAFTorch):
         self._tau_syn = torch.from_numpy(new_tau_syn).to(self.device).float()
 
 
-# - FFIAFSpkInRefrTorch - Class: Spiking feedforward layer with spiking in- and outputs and refractoriness
 class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
-    """ FFIAFSpkInTorch - Class: Spiking feedforward layer with spiking in- and outputs and refractoriness
+    """ Spiking feedforward layer with spiking in- and outputs and refractoriness, using a PyTorch backend
     """
 
     ## - Constructor
@@ -988,8 +982,7 @@ class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFIAFSpkInTorch - Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch
-                          in- and outputs are spiking events. Support refractoriness.
+        Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. In- and outputs are spiking events. Supports refractoriness.
 
         :param weights:             np.array MxN weight matrix.
         :param bias:          np.array Nx1 bias vector. Default: 10mA
@@ -1035,7 +1028,7 @@ class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
 
 ## - RecIAFTorch - Class: define a spiking recurrent layer with spiking outputs
 class RecIAFTorch(FFIAFTorch):
-    """ FFIAFTorch - Class: define a spiking recurrent layer with spiking outputs
+    """ A spiking recurrent layer with input currents and spiking outputs
     """
 
     ## - Constructor
@@ -1055,8 +1048,7 @@ class RecIAFTorch(FFIAFTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFIAFTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
-                     Inputs are continuous currents; outputs are spiking events
+        Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events
 
         :param weights:             np.array MxN weight matrix.
         :param bias:          np.array Nx1 bias vector. Default: 0.015
@@ -1101,7 +1093,6 @@ class RecIAFTorch(FFIAFTorch):
         # - Record neuron parameters
         self.tau_syn_r = tau_syn_r
 
-    # @profile
     def _single_batch_evolution(
         self,
         inp: np.ndarray,
@@ -1110,7 +1101,7 @@ class RecIAFTorch(FFIAFTorch):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
         :param inp:     np.ndarray   Input to layer as matrix
         :param evolution_timestep int    Time step within current evolution at beginning of current batch
@@ -1191,13 +1182,11 @@ class RecIAFTorch(FFIAFTorch):
 
         return matr_is_spiking.cpu()
 
-    # @profile
     def _prepare_neural_input(
         self, inp: np.array, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
-        _prepare_neural_input : Prepare the noisy synaptic input to the neurons
-                                and return it together with number of evolution time steps
+        Prepare the noisy synaptic input to the neurons and return it together with number of evolution time steps
 
         :param tsSpkInput:      TSContinuous  Input spike trian
         :param duration:       float    Simulation/Evolution time
@@ -1234,6 +1223,7 @@ class RecIAFTorch(FFIAFTorch):
 
     @property
     def tau_syn_r(self):
+        """ (np.ndarray) Synaptic time constants for this layer [N,] """
         return self._vtTauSynR.cpu().numpy()
 
     @tau_syn_r.setter
@@ -1259,6 +1249,7 @@ class RecIAFTorch(FFIAFTorch):
 
     @property
     def dt(self):
+        """ (float) Time step used by this layer, in s """
         return self._dt
 
     @dt.setter
@@ -1270,9 +1261,8 @@ class RecIAFTorch(FFIAFTorch):
             self.tau_syn_r = self.tau_syn_r
 
 
-## - RecIAFRefrTorch - Class: define a spiking recurrent layer with spiking outputs and refractoriness
 class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
-    """ FFIAFRefrTorch - Class: define a spiking recurrent layer with spiking outputs and refractoriness
+    """ A spiking recurrent layer with current inputs, spiking outputs and refractoriness. PyTorch backend.
     """
 
     ## - Constructor
@@ -1293,8 +1283,7 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFIAFRefrTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
-                         Inputs are continuous currents; outputs are spiking events. Support refractoriness
+        Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events. Supports refractoriness
 
         :param weights:             np.array MxN weight matrix.
         :param bias:          np.array Nx1 bias vector. Default: 0.015
@@ -1345,7 +1334,7 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
         :param inp:     np.ndarray   Input to layer as matrix
         :param evolution_timestep int    Time step within current evolution at beginning of current batch
@@ -1435,9 +1424,8 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         return matr_is_spiking.cpu()
 
 
-## - RecIAFSpkInTorch - Class: define a spiking recurrent layer with spiking in- and outputs
 class RecIAFSpkInTorch(RecIAFTorch):
-    """ RecIAFSpkInTorch - Class: define a spiking recurrent layer with spiking in- and outputs
+    """ A spiking recurrent layer with spiking in- and outputs
     """
 
     ## - Constructor
@@ -1460,8 +1448,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        RecIAFSpkInTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
-                           Inputs and outputs are spiking events
+        Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs and outputs are spiking events
 
         :param weights_in:           np.array MxN input weight matrix.
         :param weights_rec:          np.array NxN recurrent weight matrix.
@@ -1527,13 +1514,11 @@ class RecIAFSpkInTorch(RecIAFTorch):
         # - Store "reset" state
         self.reset_all()
 
-    # @profile
     def _prepare_neural_input(
         self, inp: np.array, num_timesteps: Optional[int] = None
     ) -> (np.ndarray, int):
         """
-        _prepare_neural_input : Prepare the noisy synaptic input to the neurons
-                                and return it together with number of evolution time steps
+        Prepare the noisy synaptic input to the neurons and return it together with number of evolution time steps
 
         :param inp          np.ndarray  External input spike raster
         :param num_timesteps    int         Number of evolution time steps
@@ -1604,7 +1589,6 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
         return neural_input, num_timesteps
 
-    # @profile
     def _prepare_input(
         self,
         ts_input: Optional[TSEvent] = None,
@@ -1612,9 +1596,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input, set up time base
+        Sample input, set up time base
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
+        :param TSEvent ts_input:      TxM or Tx1 Input spikes for this layer
         :param duration:    float Duration of the desired evolution, in seconds
         :param num_timesteps int Number of evolution time steps
 
@@ -1676,11 +1660,16 @@ class RecIAFSpkInTorch(RecIAFTorch):
         return spike_raster, num_timesteps
 
     def reset_all(self):
+        """ Reset internal state and clock for this layer """
         super().reset_all()
         self.synapse_state_inp = 0
 
     def to_dict(self):
+        """
+        Convert the essential parameters of this layer to a dictionary for saving
 
+        :return dict:
+        """
         essential_dict = {}
         essential_dict["name"] = self.name
         essential_dict["weights_rec"] = self._weights_rec.cpu().tolist()
@@ -1701,35 +1690,37 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
         return essential_dict
 
-    def save(self, essential_dict, filename):
+    def save(self, essential_dict: dict, filename: str):
+        """
+        Save a dictionary to a file in JSON format
+
+        :param dict essential_dict:     Dictionary to save
+        :param str filename:            File to save to
+        """
         with open(filename, "w") as f:
             json.dump(essential_dict, f)
 
     @staticmethod
-    def load(filename):
+    def load(filename: str):
+        """
+        Load parameters from a file and construct a layer from the parameters
+
+        :param str filename:        File to load from
+        :return RecIAFSpkInTorch:   Reconstructed layer
+        """
         with open(filename, "r") as f:
             config = json.load(f)
-        return RecIAFSpkInTorch(
-            weights_in=config["weights_in"],
-            weights_rec=config["weights_rec"],
-            bias=config["bias"],
-            dt=config["dt"],
-            noise_std=config["noise_std"],
-            tau_mem=config["tau_mem"],
-            tau_syn_inp=config["tau_syn_inp"],
-            tau_syn_rec=config["tau_syn_rec"],
-            v_thresh=config["v_thresh"],
-            v_reset=config["v_reset"],
-            v_rest=config["v_rest"],
-            name=config["name"],
-            record=config["record"],
-            add_events=config["add_events"],
-            max_num_timesteps=config["max_num_timesteps"],
-        )
+
+        return RecIAFSpkInTorch.load_from_dict(config)
 
     @staticmethod
-    def load_from_dict(config):
+    def load_from_dict(config: dict):
+        """
+        Construct a layer from a dictionary of parameters
 
+        :param dict config:         Dictionary of parameters for the layer
+        :return RecIAFSpkInTorch:   Reconstructed layer
+        """
         return RecIAFSpkInTorch(
             weights_in=config["weights_in"],
             weights_rec=config["weights_rec"],
@@ -1749,6 +1740,8 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
 
     def _update_rec_kernel(self):
+        """ Update the kernel for this layer
+        """
         # - Kernel for filtering recurrent spikes
         kernel_size = min(
             50
@@ -1768,10 +1761,12 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @property
     def input_type(self):
+        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent`) """
         return TSEvent
 
     @property
     def dt(self):
+        """ (float) Time step used by this layer, in s"""
         return self._dt
 
     @dt.setter
@@ -1784,6 +1779,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @RefProperty
     def tau_syn_rec(self):
+        """ (np.ndarray) Recurrent synaptic time constants for this layer [N,] """
         return self._vtTauSRec
 
     @tau_syn_rec.setter
@@ -1801,6 +1797,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @RefProperty
     def tau_syn_inp(self):
+        """ (np.ndarray) Input synaptic time constants for this layer [M,] """
         return self._vtTauSInp
 
     @tau_syn_inp.setter
@@ -1810,6 +1807,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @RefProperty
     def weights_in(self):
+        """ (np.ndarray) Input weights for this layer [M, N] """
         return self._weights_in
 
     @weights_in.setter
@@ -1821,6 +1819,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @RefProperty
     def weights_rec(self):
+        """ (np.ndarray) Recurrent weights for this layer [N, N] """
         return self._weights_rec
 
     @weights_rec.setter
@@ -1833,7 +1832,8 @@ class RecIAFSpkInTorch(RecIAFTorch):
     # weights as alias for weights_rec
     @property
     def weights(self):
-        return self.weights_rec
+        """ (np.ndarray) Recurrent weights for this layer [N, N] """
+        return self._weights_rec
 
     @weights.setter
     def weights(self, new_w):
@@ -1842,6 +1842,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
     # _weights as alias for _weights_rec
     @property
     def _weights(self):
+        """ (np.ndarray) Recurrent weights for this layer [N, N] """
         return self._weights_rec
 
     @_weights.setter
@@ -1850,6 +1851,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @RefProperty
     def synapse_state_inp(self):
+        """ (np.ndarray) Synaptic state for the input synapses of this layer [M, N] """
         return self._synapse_state_inp
 
     @synapse_state_inp.setter
@@ -1859,6 +1861,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
     @property
     def max_num_timesteps(self):
+        """ (int) Maxmimum number of timesteps used by synaptic kernel """
         return self._max_num_timesteps
 
     @max_num_timesteps.setter
@@ -1874,7 +1877,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
 ## - RecIAFSpkInRefrTorch - Class: define a spiking recurrent layer with spiking in- and outputs and refractoriness
 class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
-    """ RecIAFSpkInRefrTorch - Class: define a spiking recurrent layer with spiking in- and outputs and refractoriness
+    """ A spiking recurrent layer with spiking in- and outputs and refractoriness, and a PyTorch backend
     """
 
     ## - Constructor
@@ -1898,8 +1901,7 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        RecIAFSpkInRefrTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
-                               Inputs and outputs are spiking events. Support refractoriness
+        Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs and outputs are spiking events. Supports refractoriness
 
         :param weights_in:           np.array MxN input weight matrix.
         :param weights_rec:          np.array NxN recurrent weight matrix.
@@ -1959,7 +1961,7 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
         :param inp:            Input to layer as matrix
         :param evolution_timestep  Time step within current evolution at beginning of current batch
@@ -2051,8 +2053,7 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
 
 ## - RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that is constant over time.
 class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
-    """ RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that
-                                        is constant over time.
+    """ A recurrent spiking layer with constant leak. Spiking inputs and outputs, PyTorch backend.
     """
 
     ## - Constructor
@@ -2077,8 +2078,7 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        RecIAFSpkInRefrCLTorch - Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch
-                                 Inputs and outputs are spiking events. Support refractoriness. Constant leak
+        Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs and outputs are spiking events. Support refractoriness. Constant leak.
 
         :param weights_in:           np.array MxN input weight matrix.
         :param weights_rec:          np.array NxN recurrent weight matrix.
@@ -2142,7 +2142,7 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
         :param inp:     np.ndarray   Input to layer as matrix
         :param evolution_timestep int    Time step within current evolution at beginning of current batch
@@ -2238,12 +2238,14 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         return matr_is_spiking.cpu()
 
     def reset_state(self):
+        """ Reset the internal state of this layer """
         super().reset_state()
         # - Set previous synaptic input to 0
         self._last_synaptic = self.tensors.FloatTensor(self._state.size()).fill_(0)
 
     @RefProperty
     def leak_rate(self):
+        """ (float) Leak rate used by the neurons in this layer """
         return self._leak_rate
 
     @leak_rate.setter
@@ -2253,6 +2255,7 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
 
     @RefProperty
     def state_min(self):
+        """ (float) Minimum state for the neurons in this layer """
         return self._state_min
 
     @state_min.setter
@@ -2265,6 +2268,7 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
 
     @RefProperty
     def v_rest(self):
+        """ (np.ndarray) Resting potential for the neurons in this layer [N,] """
         return self._v_rest
 
     @v_rest.setter

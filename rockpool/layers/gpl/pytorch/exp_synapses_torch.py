@@ -677,7 +677,7 @@ class FFExpSynTorch(FFExpSyn):
             ct_sample_order = torch.randperm(num_timesteps)
 
         if verbose:
-            print("Layer `{}`: Finished trainig.              ".format(self.name))
+            print("Layer `{}`: Finished training.              ".format(self.name))
 
         if store_states:
             # - Store last state for next batch
@@ -708,7 +708,7 @@ class FFExpSynTorch(FFExpSyn):
         return ct_gradients
 
     def _update_kernels(self):
-        """Generate kernels for filtering input spikes during evolution and training"""
+        """ Generate kernels for filtering input spikes during evolution and training """
         kernel_size = min(
             50
             * int(
@@ -769,6 +769,7 @@ class FFExpSynTorch(FFExpSyn):
 
     @property
     def tau_syn(self):
+        """ (np.ndarray) Synaptic time constants for this layer [N,] """
         return self._tau_syn
 
     @tau_syn.setter
@@ -781,6 +782,7 @@ class FFExpSynTorch(FFExpSyn):
 
     @RefProperty
     def bias(self):
+        """ (np.ndarray) Bias currents used by the neurons in this layer [N,] """
         return self._bias
 
     @bias.setter
@@ -790,14 +792,17 @@ class FFExpSynTorch(FFExpSyn):
 
     @RefProperty
     def xtx(self):
+        """ (np.ndarray) $X^{T}X$ intermediate training computed value """
         return self._xtx
 
     @RefProperty
     def xty(self):
+        """ (np.ndarray) $X^{T}Y$ intermediate training computed value """
         return self._xty
 
     @property
     def state(self):
+        """ (np.ndarray) Internal state of the neurons in this layer [N,] """
         warn(
             "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's state".format(
                 self.name
@@ -814,6 +819,7 @@ class FFExpSynTorch(FFExpSyn):
 
     @property
     def max_num_timesteps(self):
+        """ (int) Maximum number of timesteps used by the synaptic kernel """
         return self._max_num_timesteps
 
     @max_num_timesteps.setter
@@ -826,8 +832,12 @@ class FFExpSynTorch(FFExpSyn):
         self._max_num_timesteps = new_max
         self._update_kernels()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert the essential parameters of this layer to a dictionary for saving
 
+        :return dict:
+        """
         config = {}
         config["weights"] = self.weights.tolist()
         config["bias"] = (
@@ -845,12 +855,17 @@ class FFExpSynTorch(FFExpSyn):
 
         return config
 
-    def save(self, config, filename):
+    def save(self, config: dict, filename: str):
+        """
+        Save the contents of a dictionary to a file
+        :param config:
+        :param filename:
+        """
         with open(filename, "w") as f:
             json.dump(config, f)
 
     @staticmethod
-    def load_from_dict(config):
+    def load_from_dict(config: dict):
         return FFExpSynTorch(
             weights=config["weights"],
             bias=config["bias"],

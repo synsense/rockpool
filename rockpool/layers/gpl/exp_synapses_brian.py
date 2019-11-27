@@ -34,7 +34,7 @@ eqSynapseExp = b2.Equations(
 
 ## - FFExpSynBrian - Class: define an exponential synapse layer (spiking input)
 class FFExpSynBrian(Layer):
-    """ Define an exponential synapse layer (spiking input), with a Brian2 backend
+    """ *DEPRECATED* Define an exponential synapse layer (spiking input), with a Brian2 backend
     """
 
     ## - Constructor
