@@ -1833,7 +1833,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
     @property
     def weights(self):
         """ (np.ndarray) Recurrent weights for this layer [N, N] """
-        return self._weights_rec
+        return self.weights_rec
 
     @weights.setter
     def weights(self, new_w):
