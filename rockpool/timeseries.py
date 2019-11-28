@@ -1013,11 +1013,11 @@ class TSContinuous(TimeSeries):
         """
         Append another time series to this one, along the time axis
 
-        :param Union["TSContinuous", Iterable["TSContinuous"]] other_series:    Time series to be tacked on to the end of the called series object. This series must have the same number of channels as ``self`` or be empty.
-        :param Optional[float] offset:                                          If not None, defines distance between last sample of one series and first sample of the next. Otherwise the offset will be the median of all timestep sizes of ``self.samples``.
-        :param bool inplace:                                                    Conduct operation in-place (Default: ``False``; create a copy)
+        :param Union["TSContinuous", Iterable[TSContinuous]] other_series:    Time series to be tacked on to the end of the called series object. These series must have the same number of channels as ``self`` or be empty.
+        :param Optional[float] offset:                                        If not None, defines distance between last sample of one series and first sample of the next. Otherwise the offset will be the median of all timestep sizes of ``self.samples``.
+        :param bool inplace:                                                  Conduct operation in-place (Default: ``False``; create a copy)
 
-        :return TSContinuous:               Time series containing data from ``self``, with the other series appended in time
+        :return TSContinuous:                                                 Time series containing data from ``self``, with the other series appended in time
         """
 
         # - Ensure there is a list of timeseries to work on
@@ -1060,9 +1060,16 @@ class TSContinuous(TimeSeries):
         )
 
     @classmethod
-    def concatenate(cls, other_series: Iterable["TSContinuous"]):
+    def concatenate(cls, series: Iterable["TSContinuous"]):
+        """
+        Append multiple TSContinuous objects in time to a new series
 
-        ...
+        :param Iterable[TSContinuous] series:    Time series to be tacked at the end of each other. These series must have the same number of channels.
+
+        :return TSContinuous:                    TSContinuous with data from series in ``series``
+        """
+        new_series = TSContinuous()
+        return new_series.append_t(series)
 
     ## -- Internal methods
 
