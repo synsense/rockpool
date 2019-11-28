@@ -973,13 +973,13 @@ class FFIAFNest(Layer):
     def weights_(self):
         """ (np.ndarray) Feedforward weights matrix for this layer, in nA """
         self.request_q.put([COMMAND_GET, "weights"])
-        weights = uA2nA(self.result_q.get())
+        weights = nA2uA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
 
     @weights.setter
     def weights(self, new_weights: np.ndarray):
         Layer.weights.fset(self, new_weights)
-        self.request_q.put([COMMAND_SET, "weights", nA2uA(self._weights)])
+        self.request_q.put([COMMAND_SET, "weights", uA2nA(self._weights)])
 
     @property
     def refractory(self):
