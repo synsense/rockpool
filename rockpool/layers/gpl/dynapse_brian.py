@@ -38,7 +38,7 @@ __all__ = ["RecDynapseBrian"]
 
 ## - RecIAFBrian - Class: define a spiking recurrent layer based on Dynap equations
 class RecDynapseBrian(Layer):
-    """ RecIAFBrian - Class: define a spiking recurrent layer based on Dynap equations
+    """ Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend
     """
 
     ## - Constructor
@@ -55,7 +55,7 @@ class RecDynapseBrian(Layer):
         name: str = "unnamed",
     ):
         """
-        RecIAFBrian - Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
+        Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end
 
         :param weights:             np.array NxN weight matrix
         :param weights_in:             np.array 1xN input weight matrix.
@@ -167,8 +167,7 @@ class RecDynapseBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
+        """ Reset the internal state of the layer
         """
         self._neuron_group.i_mem = 0 * amp
         self._neuron_group.i_ahp = 0.5 * pamp
@@ -179,7 +178,7 @@ class RecDynapseBrian(Layer):
 
     def reset_time(self):
         """
-        reset_time - Reset the internal clock of this layer
+        Reset the internal clock of this layer
         """
 
         # - Save state variables
@@ -220,13 +219,14 @@ class RecDynapseBrian(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
+        :param TSContinuous ts_input:      Input time series
         :param duration:       float    Simulation/Evolution time
         :param num_timesteps    int      Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+
+        :return TSEvent:            Output spike series
 
         """
 

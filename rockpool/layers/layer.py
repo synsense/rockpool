@@ -330,7 +330,7 @@ class Layer(ABC):
         :param Any inp:                     scalar or array-like
         :param int size:                    Size that input should be expanded to
         :param Optional[str] var_name:      Name of the variable to include in error messages. Default: "input"
-        :param Optional[bool] allow_none:   If ``True``, allow None as a value for ``inp``. Otherwise and error will be raised. Defualt: ``True``, allow ``None``
+        :param Optional[bool] allow_none:   If ``True``, allow None as a value for ``inp``. Otherwise and error will be raised. Default: ``True``, allow ``None``
 
         :return ndarray:                    Array of ``inp``, possibly expanded to the desired size
 
@@ -352,7 +352,7 @@ class Layer(ABC):
         :return ndarray:                    Values of ``inp``, replicated out to the size of the current layer
 
         :raises AssertionError:             If ``inp`` is incompatibly sized to replicate out to the layer size
-        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False
+        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False``
         """
         return self._expand_to_shape(inp, (self.size,), var_name, allow_none)
 
@@ -369,7 +369,7 @@ class Layer(ABC):
         :return ndarray:                    Values of ``inp``, replicated out to the size of the current layer
 
         :raises AssertionError:             If ``inp`` is incompatibly sized to replicate out to the layer size
-        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False
+        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False``
         """
         return self._expand_to_shape(inp, (self.size, self.size), var_name, allow_none)
 
@@ -495,13 +495,13 @@ class Layer(ABC):
     @classmethod
     def load_from_file(cls: Any, filename: str, **kwargs) -> "cls":
         """
-        Generate an instance of a :py:class:`Layer` subclass, with parameters loaded from a file
+        Generate an instance of a :py:class:`.Layer` subclass, with parameters loaded from a file
 
-        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
+        :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
         :param str filename:    Path to the file where parameters are stored
-        :param kwargs:          Any keyword arguments of the class __init__ method where the parameter stored in the file should be overridden
+        :param kwargs:          Any keyword arguments of the class `.__init__` method where the parameter stored in the file should be overridden
 
-        :return Layer: Instance of `cls` with paramters loaded from `filename`
+        :return Layer: Instance of ``cls`` with parameters loaded from ``filename``
         """
         # - Load dict from file
         with open(filename, "r") as f:
@@ -513,13 +513,13 @@ class Layer(ABC):
     @classmethod
     def load_from_dict(cls: Any, config: dict, **kwargs) -> "cls":
         """
-        Generate instance of a :py:class:`Layer` subclass with parameters loaded from a dictionary
+        Generate instance of a :py:class:`.Layer` subclass with parameters loaded from a dictionary
 
-        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
-        :param Dict config: Dictionary containing parameters of a :py:class:`Layer` subclass
-        :param kwargs:      Any keyword arguments of the class `__init__` method where the parameters from `config` should be overridden
+        :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
+        :param Dict config: Dictionary containing parameters of a :py:class:`.Layer` subclass
+        :param kwargs:      Any keyword arguments of the class `.__init__` method where the parameters from ``config`` should be overridden
 
-        :return Layer: Instance of `cls` with paramters from `config`
+        :return Layer: Instance of ``cls`` with parameters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)

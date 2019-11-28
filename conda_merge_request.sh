@@ -64,6 +64,7 @@ echo "" >> meta.yaml
 echo "about:" >> meta.yaml
 echo "  home: https://gitlab.com/ai-ctx/rockpool" >> meta.yaml
 echo "  license: AGPL-3.0" >> meta.yaml
+echo "  license_family: AGPL" >> meta.yaml
 echo "  license_file: LICENSE" >> meta.yaml
 echo "  summary: 'Python package for developing, simulating and training spiking neural networks, and deploying on Neuromorphic hardware'" >> meta.yaml
 echo "" >> meta.yaml

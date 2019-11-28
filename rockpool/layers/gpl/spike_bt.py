@@ -7,7 +7,7 @@
 from ..layer import Layer
 from ...timeseries import *
 import numpy as np
-from typing import Union, Callable
+from typing import Union, Callable, Optional, Tuple, Any
 import copy
 
 from numba import njit
@@ -58,6 +58,12 @@ def _backstep(vCurrent, vLast, tStep, tDesiredStep):
 
 
 class RecFSSpikeEulerBT(Layer):
+    """
+    Implement a spiking reservoir with tight E/I balance.
+
+    This class does NOT use a Brian2 back-end. See the class code for possibilities to modify neuron and synapse dynamics. Currently uses leaky IAF neurons and exponential current synapses. Note that network parameters are tightly constrained for the reservoir to work as desired. See the documentation and source publications for details.
+    """
+
     def __init__(
         self,
         weights_fast: np.ndarray = None,
@@ -76,27 +82,27 @@ class RecFSSpikeEulerBT(Layer):
         name: str = None,
     ):
         """
-        Implement a spiking reservoir with tight E/I balance This class does NOT use a Brian2 back-end. See the class code for possibilities to modify neuron and synapse dynamics. Currently uses leaky IAF neurons and exponential current synapses. Note that network parameters are tightly constrained for the reservoir to work as desired. See the documentation and source publications for details.
+        Implement a spiking reservoir with fast and slow recurrent synapses, and a custom solver with precise spike timing.
 
-        :param ndarray weights_fast:            [NxN] Recurrent weight matrix (fast synapses)
-        :param ndarray weights_slow:            [NxN] Recurrent weight matrix (slow synapses)
-        :param Optional[ArrayLike[float]] bias: [Nx1] Bias currents for each neuron
-        :param Optional[float] noise_std:       Noise Std. Dev.
+        :param ndarray weights_fast:            [NxN] Recurrent weight matrix (fast synapses). Default: ``None``
+        :param ndarray weights_slow:            [NxN] Recurrent weight matrix (slow synapses). Default: ``None``
+        :param Optional[ArrayLike[float]] bias: [Nx1] Bias currents for each neuron. Default: 0., no biases
+        :param Optional[float] noise_std:       Noise Std. Dev. Default: 0., no noise
 
-        :param ArrayLike[float] tau_mem:        [Nx1] Neuron time constants
-        :param ArrayLike[float] tau_syn_r_fast: [Nx1] Post-synaptic neuron fast synapse TCs
-        :param ArrayLike[float] tau_syn_r_slow: [Nx1] Post-synaptic neuron slow synapse TCs
+        :param ArrayLike[float] tau_mem:        [Nx1] Neuron time constants. Default: ``20 ms``
+        :param ArrayLike[float] tau_syn_r_fast: [Nx1] Post-synaptic neuron fast synapse TCs. Default: ``1 ms``
+        :param ArrayLike[float] tau_syn_r_slow: [Nx1] Post-synaptic neuron slow synapse TCs. Default: ``100 ms``
 
-        :param ArrayLike[float] v_thresh:       [Nx1] Neuron firing thresholds
-        :param ArrayLike[float] v_reset:        [Nx1] Neuron reset potentials
-        :param ArrayLike[float] v_rest:         [Nx1] Neuron rest potentials
+        :param ArrayLike[float] v_thresh:       [Nx1] Neuron firing thresholds. Default: ``-55 mV``
+        :param ArrayLike[float] v_reset:        [Nx1] Neuron reset potentials. Default: ``-65 mV``
+        :param ArrayLike[float] v_rest:         [Nx1] Neuron rest potentials. Default: ``-65 mV``
 
-        :param Optional[float] refractory:      Post-spike refractory period
+        :param Optional[float] refractory:      Post-spike refractory period. Default: ``0.``, no refractoriness
 
-        :param Callable spike_callback:         Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: None.
+        :param Callable[] spike_callback:       Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: ``None``.
 
-        :param Optional[float] dt:              Nominal time step (Euler solver). Default: `None`, choose a reasonable `.dt` as `min(tau)`
-        :param Optional[str] name:              Name of this layer. Default: `None`
+        :param Optional[float] dt:              Nominal time step (Euler solver). Default: ``None``, choose a reasonable `.dt` as ``min(tau)``
+        :param Optional[str] name:              Name of this layer. Default: ``None``
         """
         # - Initialise object and set properties
         super().__init__(weights=weights_fast, noise_std=noise_std, name=name)
@@ -134,7 +140,7 @@ class RecFSSpikeEulerBT(Layer):
 
     def reset_state(self):
         """
-        reset_state() - Reset the internal state of the network
+        Reset the internal state of the network
         """
         self.state = self.v_rest.copy()
         self.I_s_S = np.zeros(self.size)
@@ -143,35 +149,31 @@ class RecFSSpikeEulerBT(Layer):
     @property
     def _min_tau(self):
         """
-        ._min_tau - Smallest time constant of the layer
+        (float) Smallest time constant of the layer
         """
         return min(np.min(self.tau_syn_r_slow), np.min(self.tau_syn_r_fast))
 
     def evolve(
         self,
-        ts_input: TimeSeries = None,
-        duration: float = None,
-        num_timesteps: int = None,
-        verbose: bool = False,
-        min_delta: float = None,
-    ) -> TimeSeries:
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: Optional[bool] = False,
+        min_delta: Optional[float] = None,
+    ) -> TSEvent:
         """
-        evolve() - Simulate the spiking reservoir, using a precise-time spike detector
-            This method implements an Euler integrator, coupled with precise spike time detection using a linear
-            interpolation between integration steps. Time is then reset to the spike time, and integration proceeds.
-            For this reason, the time steps returned by the integrator are not homogenous. A minimum time step can be set;
-            by default this is 1/10 of the nominal time step.
+        Simulate the spiking reservoir, using a precise-time spike detector
 
-        :param ts_input:         TimeSeries input for a given time t [TxN]
-        :param duration:       float Duration of simulation in seconds. Default: 100ms
-        :param num_timesteps    int Number of evolution time steps
-        :param verbose:    bool Currently no effect, just for conformity
-        :param min_delta:       float Minimum time step taken. Default: 1/10 nominal TC
-        :param ts_input:         TimeSeries input for a given time t [TxN]
-        :param min_delta:       float Minimum time step taken. Default: 1/10 nominal TC
-        :param spike_callback  Callable(lyrSpikeBT, t_time, nSpikeInd). Spike-based learning callback function. Default: None.
+        This method implements an Euler integrator, coupled with precise spike time detection using a linear interpolation between integration steps. Time is then reset to the spike time, and integration proceeds. For this reason, the time steps returned by the integrator are not homogenous. A minimum time step can be set; by default this is 1/10 of the nominal time step.
 
-        :return: TimeSeries containing the output currents of the reservoir
+        :param Optional[TSContinuous] ts_input: Input signals over time [TxN]
+        :param Optional[float] duration:        Duration of simulation in seconds. Default: 100ms
+        :param Optional[int] num_timesteps:     Number of evolution time steps
+        :param Optional[bool] verbose:          Currently no effect, just for conformity
+        :param Optional[float] min_delta:       Minimum time step taken. Default: 1/10 nominal TC
+        :param Optional[float] min_delta:       Minimum time step taken. Default: 1/10 nominal TC
+
+        :return TSEvent: Time series containing the output currents of the reservoir
         """
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
@@ -486,14 +488,20 @@ class RecFSSpikeEulerBT(Layer):
         return TSEvent(spike_times, spike_indices)
 
     def to_dict(self) -> dict:
+        """
+        Convert this layer to a dictionary for saving
+        :return dict:
+        """
         NotImplemented
 
     @property
     def output_type(self):
+        """ (`TSEvent`) Output `TimeSeries` class (`TSEvent`) """
         return TSEvent
 
     @property
     def tau_syn_r_f(self):
+        """ (flot) Fast synaptic time constant (s) """
         return self.__tau_syn_r_f
 
     @tau_syn_r_f.setter
@@ -502,6 +510,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def tau_syn_r_s(self):
+        """ (float) Slow synaptic time constant (s) """
         return self.__tau_syn_r_s
 
     @tau_syn_r_s.setter
@@ -510,6 +519,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def v_thresh(self):
+        """ (float) Threshold potential """
         return self.__thresh
 
     @v_thresh.setter
@@ -518,6 +528,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def v_rest(self):
+        """ (float) Resting potential """
         return self.__rest
 
     @v_rest.setter
@@ -526,6 +537,7 @@ class RecFSSpikeEulerBT(Layer):
 
     @property
     def v_reset(self):
+        """ (float) Reset potential"""
         return self.__reset
 
     @v_reset.setter
@@ -555,13 +567,13 @@ def full_nan(shape: Union[tuple, int]):
 
 
 @njit
-def min_argmin(data: np.ndarray):
+def min_argmin(data: np.ndarray) -> Tuple[float, int]:
     """
-    min_argmin - Accelerated function to find minimum and location of minimum
+    Accelerated function to find minimum and location of minimum
 
     :param data:  np.ndarray of data
 
-    :return:        min_val, min_loc
+    :return (float, int):        min_val, min_loc
     """
     n = 0
     min_loc = -1
@@ -576,13 +588,13 @@ def min_argmin(data: np.ndarray):
 
 
 @njit
-def argwhere(data: np.ndarray):
+def argwhere(data: np.ndarray) -> list:
     """
-    argwhere - Accelerated argwhere function
+    Accelerated argwhere function
 
-    :param data:  np.ndarray Boolean array
+    :param np.ndarray data:  Boolean array
 
-    :return:        list vnLocations where data = True
+    :return list:         vnLocations where data = True
     """
     vnLocs = []
     n = 0
@@ -595,15 +607,15 @@ def argwhere(data: np.ndarray):
 
 
 @njit
-def clip_vector(v: np.ndarray, f_min: float, f_max: float):
+def clip_vector(v: np.ndarray, f_min: float, f_max: float) -> np.ndarray:
     """
-    clip_vector - Accelerated vector clip function
+    Accelerated vector clip function
 
-    :param v:
-    :param min:
-    :param max:
+    :param np.ndarray v:
+    :param float min:
+    :param float max:
 
-    :return: Clipped vector
+    :return np.ndarray: Clipped vector
     """
     v[v < f_min] = f_min
     v[v > f_max] = f_max
@@ -611,15 +623,15 @@ def clip_vector(v: np.ndarray, f_min: float, f_max: float):
 
 
 @njit
-def clip_scalar(val: float, f_min: float, f_max: float):
+def clip_scalar(val: float, f_min: float, f_max: float) -> float:
     """
-    clip_scalar - Accelerated scalar clip function
+    Accelerated scalar clip function
 
-    :param val:
-    :param min:
-    :param max:
+    :param float val:
+    :param float min:
+    :param float max:
 
-    :return: Clipped value
+    :return float: Clipped value
     """
     if val < f_min:
         return f_min
@@ -629,7 +641,15 @@ def clip_scalar(val: float, f_min: float, f_max: float):
         return val
 
 
-def rep_to_net_size(data, size):
+def rep_to_net_size(data: Any, size: Tuple):
+    """
+    Repeat some data to match the layer size
+
+    :param Any data:
+    :param Tuple size:
+
+    :return np.ndarray:
+    """
     if np.size(data) == 1:
         return np.repeat(data, size)
     else:

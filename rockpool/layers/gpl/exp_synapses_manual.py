@@ -28,7 +28,7 @@ def sigmoid(z):
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
 class FFExpSyn(RRTrainedLayer):
-    """ FFExpSyn - Class: define an exponential synapse layer (spiking input)
+    """ Define an exponential synapse layer with spiking inputs and current outputs
     """
 
     ## - Constructor
@@ -43,7 +43,7 @@ class FFExpSyn(RRTrainedLayer):
         add_events: bool = True,
     ):
         """
-        FFExpSyn - Construct an exponential synapse layer (spiking input)
+        Construct an exponential synapse layer (spiking inputs, current outputs)
 
         :param weights:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
@@ -93,15 +93,15 @@ class FFExpSyn(RRTrainedLayer):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input and return as raster.
+        Sample input and return as raster
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        :param Optional[TSEvent] ts_input:  Spiking input signals for this layer
+        :param Optional[float] duration:    Duration of the desired evolution, in seconds
+        :param Optional[int] num_timesteps: Number of evolution time steps
 
-        :return:
-            mnInput:          ndarray Raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
+        :return (spike_raster, num_timesteps):
+            spike_raster:   (np.ndarray) Raster containing spike info
+            num_timesteps:  (np.ndarray) Number of evolution time steps
         """
         if num_timesteps is None:
             # - Determine num_timesteps
@@ -159,14 +159,14 @@ class FFExpSyn(RRTrainedLayer):
         verbose: bool = False,
     ) -> TSContinuous:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSContinuous  output spike series
+        :param Optional[TSEvent] ts_input:  Input spike train
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param Optional[bool] verbose:      Currently no effect, just for conformity
 
+        :return TSContinuous:               Output currents
         """
 
         # - Prepare weighted input signal
@@ -214,16 +214,14 @@ class FFExpSyn(RRTrainedLayer):
         **kwargs,
     ):
         """
-        train - Wrapper to standardize training syntax across layers. Use
-                specified training method to train layer for current batch.
-        :param ts_target: Target time series for current batch.
-        :param ts_input:  Input to the layer during the current batch.
-        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
-        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
-        :param method:    String indicating which training method to choose.
-                          Currently only ridge regression ("rr") and logistic
-                          regression are supported.
-        kwargs will be passed on to corresponding training method.
+        Wrapper to standardize training syntax across layers. Use specified training method to train layer for current batch.
+
+        :param TSContinuous ts_target:  Target time series for current batch.
+        :param TSContinuous ts_input:   Input to the layer during the current batch.
+        :param bool is_first:           Set ``True`` to indicate that this batch is the first in training procedure.
+        :param bool is_last:            Set ``True`` to indicate that this batch is the last in training procedure.
+        :param str method:              String indicating which training method to choose. Currently only ridge regression ("rr") and logistic regression are supported.
+        :param kwargs:                  Will be passed on to corresponding training method.
         """
         # - Choose training method
         if method in {
@@ -248,13 +246,22 @@ class FFExpSyn(RRTrainedLayer):
             ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
         )
 
-    def _filter_data(self, data, num_timesteps):
+    def _filter_data(self, data: np.ndarray, num_timesteps: int):
+        """
+        Filter input data y convolving with the synaptic kernel
+
+        :param np.ndarray data:     Input data
+        :param int num_timesteps:   The number of time steps to return
+
+        :return np.ndarray:         The filtered data
+        """
 
         if num_timesteps is None:
             num_timesteps = len(data)
 
         # - Define exponential kernel
         kernel = np.exp(-np.arange(num_timesteps) * self.dt / self.tau_syn)
+
         # - Make sure spikes only have effect on next time step
         kernel = np.r_[0, kernel]
 
@@ -363,32 +370,23 @@ class FFExpSyn(RRTrainedLayer):
         standardize: bool = False,
     ) -> Union[Dict, None]:
         """
-        train_rr - Train self with ridge regression over one of possibly
-                   many batches. Use Kahan summation to reduce rounding
-                   errors when adding data to existing matrices from
-                   previous batches.
-        :param ts_target:        TimeSeries - target for current batch
-        :param ts_input:         TimeSeries - input to self for current batch
-        :param regularize:       float - regularization for ridge regression
-        :param is_first:         bool - True if current batch is the first in training
-        :param is_last:          bool - True if current batch is the last in training
-        :param store_states:     bool - Include last state from previous training and store state from this
-                                        traning. This has the same effect as if data from both trainings
-                                        were presented at once.
-        :param train_biases:     bool - If True, train biases as if they were weights
-                                        Otherwise present biases will be ignored in
-                                        training and not be changed.
-        :param calc_intermediate_results: bool - If True, calculates the intermediate weights not in the final batch
-        :param return_training_progress:  bool - If True, return dict of current training
-                                                 variables for each batch.
-        :param standardize:      bool  -  Train with z-score standardized data, based on
-                                          means and standard deviations from first batch
-        :return:
-            If `return_training_progress`, return dict with current trainig variables
-            (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
+        Train self with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
+
+        :param TSContinuous ts_target:                  Target for current batch
+        :param Union[TSEvent, TSContinuous] ts_input:   Input to self for current batch
+        :param float regularize:                        Regularization parameter for ridge regression
+        :param bool is_first:                           ``True`` if current batch is the first in training
+        :param bool is_last:                            ``True`` if current batch is the last in training
+        :param bool store_states:                       If ``True``, include last state from previous training and store state from this training. This has the same effect as if data from both trainings were presented at once.
+        :param bool train_biases:                       If ``True``, train biases as if they were weights Otherwise present biases will be ignored in training and not be changed.
+        :param bool calc_intermediate_results:          If ``True``, calculates the intermediate weights not in the final batch
+        :param bool return_training_progress:           If ``True``, return dict of current training variables for each batch.
+        :param bool standardize:                        If ``True``, train with z-score standardized data, based on means and standard deviations from first batch
+
+        :return Union[None, dict]:
+            If `return_training_progress`, return dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
             Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
-            If `return_trained_output`, the dict contains the output of evolveing with
-            the newly trained weights.
+            If `return_trained_output`, the dict contains the output of evolving with the newly trained weights.
         """
 
         self._store_states = store_states
@@ -424,19 +422,16 @@ class FFExpSyn(RRTrainedLayer):
         verbose: bool = False,
     ):
         """
-        train_logreg - Train self with logistic regression over one of possibly many batches.
-                       Note that this training method assumes that a sigmoid funciton is applied
-                       to the layer output, which is not the case in self.evolve.
-        :param ts_target:    TimeSeries - target for current batch
-        :param ts_input:     TimeSeries - input to self for current batch
-        :learning_rate:     flaot - Factor determining scale of weight increments at each step
-        :regularize:       float - regularization parameter
-        :batch_size:        int - Number of samples per batch. If None, train with all samples at once
-        :epochs:           int - How many times is training repeated
-        :store_states:       bool - Include last state from previous training and store state from this
-                                   traning. This has the same effect as if data from both trainings
-                                   were presented at once.
-        :verbose:          bool - Print output about training progress
+        Train self with logistic regression over one of possibly many batches. Note that this training method assumes that a sigmoid function is applied to the layer output, which is not the case in `.evolve`.
+
+        :param TSContinuous ts_target:  Target for current batch
+        :param TSEvent ts_input:        Input to self for current batch
+        :param float learning_rate:     Factor determining scale of weight increments at each step
+        :param float regularize:        Regularization parameter
+        :param int batch_size:          Number of samples per batch. If None, train with all samples at once
+        :param int epochs:              How many times is training repeated
+        :param bool store_states:       Include last state from previous training and store state from this training. This has the same effect as if data from both trainings were presented at once.
+        :param bool verbose:            Print output about training progress
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -570,14 +565,27 @@ class FFExpSyn(RRTrainedLayer):
             # - Store last state for next batch
             self._training_state = inp[-1, :-1].copy()
 
-    def _gradients(self, inp, target, regularize):
+    def _gradients(
+        self, inp: np.ndarray, target: np.ndarray, regularize: float
+    ) -> np.ndarray:
+        """
+        Compute gradients for this batch
+
+        :param np.ndarray inp:      Input time series for this batch [T, M]
+        :param np.ndarray target:   Target time series for this batch [T, O]
+        :param float regularize:    Regularization parameter for weights. Reduces the L1-norm of the weights (weight sum)
+
+        :return np.ndarray:         Gradients for weights
+        """
         # - Output with current weights
         linear = inp[:, :-1] @ self.weights + self.bias
         output = sigmoid(linear)
+
         # - Gradients for weights
         num_samples = inp.shape[0]
         error = output - target
         gradients = (inp.T @ error) / float(num_samples)
+
         # - Regularization of weights
         if regularize > 0:
             gradients[:-1, :] += regularize / float(self.size_in) * self.weights
@@ -586,8 +594,7 @@ class FFExpSyn(RRTrainedLayer):
 
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of ``self`` to a dict if they are relevant for reconstructing an identical layer
         """
         # - Basic layer attributes from super class
         config = super().to_dict()
@@ -605,10 +612,12 @@ class FFExpSyn(RRTrainedLayer):
 
     @property
     def input_type(self):
+        """ (`.TSEvent`) Time series class accepted by this layer (`.TSEvent`) """
         return TSEvent
 
     @property
     def tau_syn(self):
+        """ (float) Output synaptic time constants for this layer """
         return self._tau_syn
 
     @tau_syn.setter
@@ -620,6 +629,7 @@ class FFExpSyn(RRTrainedLayer):
 
     @property
     def bias(self):
+        """ (np.ndarray) Bias currents for the neurons in this layer [N,]"""
         return self._bias
 
     @bias.setter
@@ -628,6 +638,7 @@ class FFExpSyn(RRTrainedLayer):
 
     @property
     def state(self):
+        """ (np.ndarray) Internal neuron state of the neurons in this layer [N,] """
         return self._state_no_bias + self._bias
 
     @state.setter
@@ -637,8 +648,10 @@ class FFExpSyn(RRTrainedLayer):
 
     @property
     def xtx(self):
+        """ (np.ndarray) $X^{T}X$ intermediate training value """
         return self._xtx
 
     @property
     def xty(self):
+        """ (np.ndarray) $X^{T}Y$ intermediate training value """
         return self._xty
