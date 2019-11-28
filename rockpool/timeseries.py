@@ -879,21 +879,27 @@ class TSContinuous(TimeSeries):
                 + "`other_series` must be a TSContinuous object."
             )
 
-        if self.num_channels == 0 and len(self) == 0:
-            # - Handle empty `self`
-            self._samples = np.zeros((0, other_series.num_channels))
-
-        if other_series.num_channels != self.num_channels:
-            raise ValueError(
-                f"TSContinuous `{self.name}`: `other_series` must include "
-                f"the same number of traces ({self.num_channels})."
-            )
-
         # - Create a new time series, or modify this time series
         if not inplace:
             merged_series = self.copy()
         else:
             merged_series = self
+
+        if merged_series.num_channels == 0 and len(merged_series) == 0:
+            # - Handle empty `self`
+            merged_series._samples = np.zeros((0, other_series.num_channels))
+
+        if other_series.num_channels == 0 and len(other_series) == 0:
+            # - Handle empty `other_series` (without changing original object)
+            other_series = other_series.copy()
+            other_series._samples = np.zeros((0, merged_series.num_channels))
+
+        if other_series.num_channels != merged_series.num_channels:
+            raise ValueError(
+                f"TSContinuous `{self.name}`: `other_series` must include "
+                f"the same number of traces ({other_series.num_channels}, {merged_series.num_channels})."
+                f"{merged_series._samples.shape}"
+            )
 
         # - If the other TimeSeries is empty, just return
         if other_series.isempty():
@@ -903,16 +909,17 @@ class TSContinuous(TimeSeries):
         #   time points of other_series that are also included in self (assuming both
         #   TimeSeries have a sorted vTimeTrace)
         if remove_duplicates and not (
-            self.t_start > other_series.t_stop or self.t_stop < other_series.t_start
+            merged_series.t_start > other_series.t_stop
+            or merged_series.t_stop < other_series.t_start
         ):
             # Determine region of overlap
             overlap: np.ndarray = np.where(
-                (self.times >= other_series.t_start)
-                & (self.times <= other_series.t_stop)
+                (merged_series.times >= other_series.t_start)
+                & (merged_series.times <= other_series.t_stop)
             )[0]
             # Array of bools indicating which sampled time points of other_series do not occur in self
             is_unique = np.array(
-                [(t != self.times[overlap]).all() for t in other_series.times]
+                [(t != merged_series.times[overlap]).all() for t in other_series.times]
             )
             # Time trace and samples to be merged into self
             times_other: np.ndarray = other_series.times[is_unique]
@@ -922,8 +929,10 @@ class TSContinuous(TimeSeries):
             samples_other: np.ndarray = other_series.samples
 
         # - Merge time traces and samples
-        times_new: np.ndarray = np.concatenate((self._times, times_other))
-        samples_new: np.ndarray = np.concatenate((self.samples, samples_other), axis=0)
+        times_new: np.ndarray = np.concatenate((merged_series._times, times_other))
+        samples_new: np.ndarray = np.concatenate(
+            (merged_series.samples, samples_other), axis=0
+        )
 
         #  - Indices for sorting new time trace and samples. Use mergesort as stable sorting algorithm.
         viSorted: np.ndarray = np.argsort(times_new, kind="mergesort")
@@ -931,8 +940,8 @@ class TSContinuous(TimeSeries):
         # - Update data of new time series
         merged_series._times = times_new[viSorted]
         merged_series._samples = samples_new[viSorted]
-        merged_series._t_start: float = min(self.t_start, other_series.t_start)
-        merged_series._t_stop: float = max(self.t_stop, other_series.t_stop)
+        merged_series._t_start: float = min(merged_series.t_start, other_series.t_start)
+        merged_series._t_stop: float = max(merged_series.t_stop, other_series.t_stop)
 
         # - Create new interpolator
         merged_series._create_interpolator()
@@ -1006,6 +1015,11 @@ class TSContinuous(TimeSeries):
         return self.merge(
             other_series.delay(delay), remove_duplicates=False, inplace=inplace
         )
+
+    @classmethod
+    def concatenate(cls, other_series: Iterable["TSContinuous"]):
+
+        ...
 
     ## -- Internal methods
 
