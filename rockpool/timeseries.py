@@ -858,26 +858,19 @@ class TSContinuous(TimeSeries):
 
     def merge(
         self,
-        other_series: "TSContinuous",
+        other_series: Union["TSContinuous", Iterable["TSContinuous"]],
         remove_duplicates: bool = True,
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        Merge another time series to this one, by interleaving in time. Maintain each time series' time values and channel IDs.
+        Merge other time series to this one, by interleaving in time. Maintain each time series' time values and channel IDs.
 
-        :param TSContinuous other_series:           time series that is merged to self
-        :param Optional[bool] remove_duplicates:    If ``True``, time points in ``other_series.times`` that are also in ``self.times`` are discarded. Otherwise they are included in the new time trace and come after the corresponding points of self.times.
-        :param Optional[bool] inplace:              Conduct operation in-place (Default: ``False``; create a copy)
+        :param Union["TSContinuous", Iterable["TSContinuous"]] other_series:    time series that is merged to self or iterable thereof to merge multiple series
+        :param Optional[bool] remove_duplicates:                                If ``True``, time points in other series that are also in ``self.times`` are discarded. Otherwise they are included in the new time trace and come after the corresponding points of self.times.
+        :param Optional[bool] inplace:                                          Conduct operation in-place (Default: ``False``; create a copy)
 
         :return TSContinuous:                       The merged time series
         """
-
-        # - Check other_series
-        if not isinstance(other_series, TSContinuous):
-            raise TypeError(
-                f"TSContinuous `{self.name}`: "
-                + "`other_series` must be a TSContinuous object."
-            )
 
         # - Create a new time series, or modify this time series
         if not inplace:
@@ -885,69 +878,93 @@ class TSContinuous(TimeSeries):
         else:
             merged_series = self
 
-        if merged_series.num_channels == 0 and len(merged_series) == 0:
-            # - Handle empty `self`
-            merged_series._samples = np.zeros((0, other_series.num_channels))
-
-        if other_series.num_channels == 0 and len(other_series) == 0:
-            # - Handle empty `other_series` (without changing original object)
-            other_series = other_series.copy()
-            other_series._samples = np.zeros((0, merged_series.num_channels))
-
-        if other_series.num_channels != merged_series.num_channels:
-            raise ValueError(
-                f"TSContinuous `{self.name}`: `other_series` must include "
-                f"the same number of traces ({other_series.num_channels}, {merged_series.num_channels})."
-                f"{merged_series._samples.shape}"
-            )
-
-        # - If the other TimeSeries is empty, just return
-        if other_series.isempty():
-            return merged_series
-
-        # - If remove_duplicates == True and time ranges overlap,  find and remove
-        #   time points of other_series that are also included in self (assuming both
-        #   TimeSeries have a sorted vTimeTrace)
-        if remove_duplicates and not (
-            merged_series.t_start > other_series.t_stop
-            or merged_series.t_stop < other_series.t_start
-        ):
-            # Determine region of overlap
-            overlap: np.ndarray = np.where(
-                (merged_series.times >= other_series.t_start)
-                & (merged_series.times <= other_series.t_stop)
-            )[0]
-            # Array of bools indicating which sampled time points of other_series do not occur in self
-            is_unique = np.array(
-                [(t != merged_series.times[overlap]).all() for t in other_series.times]
-            )
-            # Time trace and samples to be merged into self
-            times_other: np.ndarray = other_series.times[is_unique]
-            samples_other: np.ndarray = other_series.samples[is_unique]
+        # - Ensure there is a list of timeseries to work on
+        if isinstance(other_series, TSContinuous):
+            series_list = [merged_series, other_series]
         else:
-            times_other: np.ndarray = other_series.times
-            samples_other: np.ndarray = other_series.samples
+            try:
+                series_list = [merged_series] + list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: `other_series` must be `TSContinuous`"
+                    " or iterable thereof."
+                )
+            # - Check series class
+            if not all(isinstance(series, TSContinuous) for series in series_list):
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: Can only merge with `TSContinuous` objects."
+                )
+
+        # - Handle empty `self`
+        if merged_series.num_channels == 0 and len(merged_series) == 0:
+            num_channels = max(series.num_channels for series in series_list)
+            merged_series._samples = np.zeros((0, num_channels))
+
+        # - Handle empty other series (without changing original object) and channel numbers
+        for i_series, series in enumerate(series_list[1:]):
+            if series.num_channels == 0 and len(series) == 0:
+                series = series.copy()
+                series._samples = np.zeros((0, merged_series.num_channels))
+                series_list[i_series + 1] = series.copy()
+            elif series.num_channels != merged_series.num_channels:
+                raise ValueError(
+                    f"TSContinuous `{self.name}`: `other_series` must include "
+                    f"the same number of traces ({merged_series.num_channels}). "
+                    f"Other series number {i_series} has {series.num_channels}."
+                )
+
+        if remove_duplicates:
+            # - For each time point in each series a boolean array indicating whether points are used or removed
+            use_points_list = [
+                np.ones(series.times.size, bool) for series in series_list
+            ]
+            # - Iterate over series pairwise and remove duplicate time points in second series of pair
+            for i_s0, series0 in enumerate(series_list[:-1]):
+                for series1, use_points1 in zip(
+                    series_list[i_s0 + 1 :], use_points_list[i_s0 + 1 :]
+                ):
+                    self._mask_duplicate_time_points(series0, series1, use_points1)
+            times_series = [
+                series._times[use] for series, use in zip(series_list, use_points_list)
+            ]
+            samples_series = [
+                series._samples[use]
+                for series, use in zip(series_list, use_points_list)
+            ]
+        else:
+            times_series = [series._times for series in series_list]
+            samples_series = [series._samples for series in series_list]
 
         # - Merge time traces and samples
-        times_new: np.ndarray = np.concatenate((merged_series._times, times_other))
-        samples_new: np.ndarray = np.concatenate(
-            (merged_series.samples, samples_other), axis=0
-        )
+        times_new: np.ndarray = np.concatenate(times_series)
+        samples_new: np.ndarray = np.concatenate(samples_series, axis=0)
 
         #  - Indices for sorting new time trace and samples. Use mergesort as stable sorting algorithm.
-        viSorted: np.ndarray = np.argsort(times_new, kind="mergesort")
+        idcs_sorted: np.ndarray = np.argsort(times_new, kind="mergesort")
 
         # - Update data of new time series
-        merged_series._times = times_new[viSorted]
-        merged_series._samples = samples_new[viSorted]
-        merged_series._t_start: float = min(merged_series.t_start, other_series.t_start)
-        merged_series._t_stop: float = max(merged_series.t_stop, other_series.t_stop)
+        merged_series._times = times_new[idcs_sorted]
+        merged_series._samples = samples_new[idcs_sorted]
+        merged_series._t_start: float = min(series.t_start for series in series_list)
+        merged_series._t_stop: float = max(series.t_stop for series in series_list)
 
         # - Create new interpolator
         merged_series._create_interpolator()
 
         # - Return merged TS
         return merged_series
+
+    @staticmethod
+    def _mask_duplicate_time_points(series0, series1, use_points1):
+        if not (series0.t_start > series1.t_stop or series0.t_stop < series1.t_start):
+            # Determine region of overlap
+            overlap: np.ndarray = np.where(
+                (series0.times >= series1.t_start) & (series0.times <= series1.t_stop)
+            )[0]
+            # Array of bools indicating which sampled time points of series1 do not occur in series0
+            not_unique = [(t == series0.times[overlap]).any() for t in series1.times]
+            # Update which points of series1 are to be used
+            use_points1[not_unique] = False
 
     def append_c(
         self, other_series: "TSContinuous", inplace: bool = False
@@ -1004,9 +1021,13 @@ class TSContinuous(TimeSeries):
         """
 
         if offset is None:
-            # - If ``self`` is empty then append new elements directly. Otherwise leave an offset
-            #   corresponding to the median distance between time points in `self._times`.
-            offset = np.median(np.diff(self._times)) if self.times.size > 0 else 0
+            if len(other_series) > 0 and len(self) > 0:
+                # - If ``self`` is empty then append new elements directly. Otherwise leave an offset
+                #   corresponding to the median distance between time points in `self._times`.
+                offset = np.median(np.diff(self._times))
+            else:
+                # - No offset with empty series
+                offset = 0
 
         # - Time by which ``other_series`` has to be delayed
         delay = self.t_stop + offset - other_series.t_start
