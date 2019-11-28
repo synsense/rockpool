@@ -343,7 +343,7 @@ def test_setWeightsRec():
     )
     # - Set recurrent weights to same as fl0
     fl1.weights_rec = fl0.weights_rec
-    assert (fl1.weights_rec_ == weights_rec).all()
+    assert np.isclose(fl1.weights_rec_, weights_rec, rtol=1e-3, atol=1e-6).all()
 
     tsInp = TSEvent([0.1], [0])
 
