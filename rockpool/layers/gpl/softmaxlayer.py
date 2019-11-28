@@ -13,32 +13,37 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 def softmax(x: np.ndarray) -> float:
     """
-    softmax - Compute softmax values for each of scores in x
-    :param x:   ndarray Vector of values over which to compute softmax
-    :return:    float   SoftMax of the input values
+    Compute softmax values for each of scores in x
+
+    :param np.ndarray x:    Vector of values over which to compute softmax
+    :return float:          SoftMax of the input values
     """
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
 
 class SoftMaxLayer(FFCLIAF):
     """
-    SoftMaxLayer: SoftMaxLayer with spiking inputs and outputs. Constant leak.
+    A spiking SoftMax layer with spiking inputs and outputs, and constant leak
+
+    This layer implements an approximation of the "soft-max" function used often in deep classification networks.
     """
 
     def __init__(
         self,
-        weights: np.ndarray = None,
-        thresh: float = 1e10,         # Just some absurdly large number that will never be reachable
-        dt: float = 1,
-        name: str = "unnamed",
+        weights: Optional[np.ndarray] = None,
+        thresh: Optional[
+            float
+        ] = 1e10,  # Just some absurdly large number that will never be reachable
+        dt: Optional[float] = 1.0,
+        name: Optional[str] = "unnamed",
     ):
         """
-        SoftMaxLayer - Implements a softmax on the inputs
+        Implements a spiking softmax on the inputs
 
-        :param weights:     np.ndarray  Weight matrix
-        :param thresh:    float       Spiking threshold
-        :param dt:     float       Time step
-        :param name: str         Name of this layer.
+        :param Optional[np.ndarray] weights:    Weight matrix. Default: ``None``
+        :param Optional[float] thresh:          Spiking threshold. Default: ``1e10``
+        :param Optional[float] dt:              Time step. Default: ``1.``
+        :param Optional[str] name:              Name of this layer. Default: ``"unnamed"``
         """
 
         # Call parent constructor
@@ -54,14 +59,13 @@ class SoftMaxLayer(FFCLIAF):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:                TSEvent  output spike series
-
+        :param Optional[TSEvent] ts_input:      Input spike trian
+        :param Optional[float] duration:        Simulation/Evolution time
+        :param Optional[int] num_timesteps      Number of evolution time steps
+        :param Optional[bool] verbose:          Currently no effect, just for conformity
+        :return TSEvent:                        Output spike series
         """
 
         # - Use `evolve()` from the base class
@@ -82,12 +86,11 @@ class SoftMaxLayer(FFCLIAF):
         # - Compute softmax over the input states
         soft_max = softmax(ts_state)
         ts_out = TSContinuous(
-            times=np.arange(duration),
-            samples=soft_max,
-            name="SoftMaxOutput",
+            times=np.arange(duration), samples=soft_max, name="SoftMaxOutput"
         )
         return ts_out
 
     @property
     def output_type(self):
-        return TSContinuous
+        """ (`.TSEvent`) Output `.TimeSeries` class of this layer (`.TSEvent`) """
+        return TSEvent

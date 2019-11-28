@@ -16,6 +16,17 @@ Base classes
     layers.Layer
 
 
+Layer and Network alternative base classes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    networks.NetworkDeneve
+    layers.training.RRTrainedLayer
+
+
 Time series classes
 -------------------
 
@@ -57,6 +68,10 @@ Utility modules
     layers.PassThroughEvents
     layers.FFExpSynBrian
     layers.FFExpSyn
+    layers.RecLIFJax
+    layers.RecLIFCurrentInJax
+    layers.RecLIFJax_IO
+    layers.RecLIFCurrentInJax_IO
     layers.FFCLIAF
     layers.RecCLIAF
     layers.CLIAF

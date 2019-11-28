@@ -3,19 +3,17 @@
 ##
 
 import itertools
+from typing import Callable, Tuple, Union, Optional, Dict
+import types
 
 import jax.numpy as np
 from jax.experimental.optimizers import adam
 from jax import grad, jit
 
-from typing import Callable, Tuple, Union, Optional, Dict
+from rockpool.timeseries import TimeSeries
+from ...gpl import rate_jax as rj
 
-from ... import RecRateEulerJax
-from ....timeseries import TimeSeries
-import types
-
-
-def pack_params(self: RecRateEulerJax) -> Dict:
+def pack_params(self: rj.RecRateEulerJax) -> Dict:
     """
     .pack_params() - Pack trainable parameters into a dictionary
 
@@ -37,7 +35,7 @@ def pack_params(self: RecRateEulerJax) -> Dict:
     }
 
 
-def apply_params(self: RecRateEulerJax, params: Dict) -> None:
+def apply_params(self: rj.RecRateEulerJax, params: Dict) -> None:
     """
     .apply_params() - Apply packed parameters to the layer
 
@@ -204,7 +202,7 @@ def train_adam(
     )
 
 
-def add_train_output(lyr: RecRateEulerJax) -> RecRateEulerJax:
+def add_train_output(lyr: rj.RecRateEulerJax) -> rj.RecRateEulerJax:
     """
     add_train_output() - Insert methods that support gradient-based training of the reservoir
 
@@ -217,7 +215,7 @@ def add_train_output(lyr: RecRateEulerJax) -> RecRateEulerJax:
     """
     # - Check that we have a RecRateEulerJax object
     assert (
-        type(lyr) == RecRateEulerJax
+        type(lyr) == rj.RecRateEulerJax
     ), "This function is only compatible with RecRateEulerJax layers"
 
     # - Insert methods required for training

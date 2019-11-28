@@ -188,6 +188,14 @@ def _get_force_evolve_jit(H: Callable):
 
 
 class RecRateEulerJax(Layer):
+    """
+    ``JAX``-backed firing-rate recurrent layer
+
+    `.RecRateEuler` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
+
+    `.RecRateEuler` is compatible with the `.layers.training.train_jax_sgd` module.
+    """
+
     def __init__(
         self,
         w_in: np.ndarray,
@@ -202,18 +210,18 @@ class RecRateEulerJax(Layer):
         rng_key: Optional[int] = None,
     ):
         """
-        RecRateEulerJax - `jax`-backed firing rate reservoir
+        RecRateEulerJax - ``JAX``-backed firing rate reservoir
 
-        :param w_in:            np.ndarray Input weights [IxN]
-        :param w_recurrent:     np.ndarray Recurrent weights [NxN]
-        :param w_out:           np.ndarray Output weights [NxO]
-        :param tau:             np.ndarray Time constants [N]
-        :param bias:            np.ndarray Bias values [N]
-        :param noise_std:       Optional[float] White noise standard deviation applied to reservoir neurons. Default: 0.0
-        :param activation_func: Optional[Callable] Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
-        :param dt:              Optional[float] Reservoir time step. Default: np.min(tau) / 10.0
-        :param name:            Optional[str] Name of the layer. Default: None
-        :param rng_key          Optional[Jax RNG key] Jax RNG key to use for noise. Default: Internally generated
+        :param np.ndarray w_in:                     Input weights [IxN]
+        :param np.ndarray w_recurrent:              Recurrent weights [NxN]
+        :param np.ndarray w_out:                    Output weights [NxO]
+        :param np.ndarray tau:                      Time constants [N]
+        :param np.ndarray bias:                     Bias values [N]
+        :param Optional[float] noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Optional[Callable]activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
+        :param Optional[str] name:                  Name of the layer. Default: ``None``
+        :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
         """
 
         # - Everything should be 2D
@@ -280,7 +288,12 @@ class RecRateEulerJax(Layer):
         )
 
         # - Call raw evolution function
-        _, _, _, outputs = self._evolve_raw(inps)
+        res_inputs, rec_inputs, res_acts, outputs = self._evolve_raw(inps)
+
+        # - Store evolution time series
+        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
 
         # - Wrap outputs as time series
         return TSContinuous(time_base, onp.array(outputs))
@@ -377,7 +390,12 @@ class RecRateEulerJax(Layer):
 
         return time_base, np.array(input_steps), num_timesteps
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
         config = {}
         config["class_name"] = "RecRateEulerJax"
         config["w_in"] = self.w_in.tolist()
@@ -385,12 +403,13 @@ class RecRateEulerJax(Layer):
         config["w_out"] = self.w_out.tolist()
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
+        config["rng_key"] = self._rng_key.tolist()
         config["noise_std"] = (
             self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
         )
         config["dt"] = self.dt
         config["name"] = self.name
-        # config["rng_key"] = [int(k) for k in self._rng_key]
+        config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
@@ -400,6 +419,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_in(self) -> np.ndarray:
+        """ (np.ndarray) [IxN] input weights """
         return onp.array(self._weights)
 
     @w_in.setter
@@ -415,6 +435,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_recurrent(self) -> np.ndarray:
+        """ (np.ndarray) [NxN] recurrent weights """
         return onp.array(self._w_recurrent)
 
     @w_recurrent.setter
@@ -430,6 +451,7 @@ class RecRateEulerJax(Layer):
 
     @property
     def w_out(self) -> np.ndarray:
+        """ (np.ndarray) [NxO] output weights """
         return onp.array(self._w_out)
 
     @w_out.setter
@@ -492,6 +514,12 @@ class RecRateEulerJax(Layer):
 
 
 class ForceRateEulerJax(RecRateEulerJax):
+    """
+    Implements a pseudo recurrent reservoir, for use in reservoir transfer
+
+    In this layer, input and output weights are present, but no recurrent connectivity exists. Instead, "recurrent inputs" are injected into each layer neuron. The activations of the neurons are then compared to those of a target reservoir, and the recurrent weights can be solved for using linear regression.
+    """
+
     def __init__(
         self,
         w_in: np.ndarray,
@@ -505,17 +533,17 @@ class ForceRateEulerJax(RecRateEulerJax):
         rng_key: Optional[int] = None,
     ):
         """
-        ForceRateEulerJax - `jax`-backed firing rate reservoir, used for reservoir transfer
+        ``JAX``-backed firing rate reservoir, used for reservoir transfer
 
-        :param w_in:            np.ndarray Input weights [IxN]
-        :param w_out:           np.ndarray Output weights [NxO]
-        :param tau:             np.ndarray Time constants [N]
-        :param bias:            np.ndarray Bias values [N]
-        :param noise_std:       Optional[float] White noise standard deviation applied to reservoir neurons. Default: 0.0
-        :param activation_func: Optional[Callable] Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
-        :param dt:              Optional[float] Reservoir time step. Default: np.min(tau) / 10.0
-        :param name:            Optional[str] Name of the layer. Default: None
-        :param rng_key          Optional[Jax RNG key] Jax RNG key to use for noise. Default: Internally generated
+        :param np.ndarray w_in:                     Input weights [IxN]
+        :param np.ndarray w_out:                    Output weights [NxO]
+        :param np.ndarray tau:                      Time constants [N]
+        :param np.ndarray bias:                     Bias values [N]
+        :param Optional[float] noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Optional[Callable] activation_func:  Neuron transfer function f(x: float) -> float. Must be vectorised. Default: ``H_ReLU``
+        :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
+        :param Optional[str] name:                  Name of the layer. Default: ``None``
+        :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
         """
 
         # - Everything should be 2D
@@ -616,18 +644,25 @@ class ForceRateEulerJax(RecRateEulerJax):
 
         return res_inputs, res_acts, outputs
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert the layer to a dictionary for saving
+        :return dict:
+        """
         config = {}
         config["class_name"] = "ForceRateEulerJax"
         config["w_in"] = self.w_in.tolist()
         config["w_out"] = self.w_out.tolist()
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
+        config["rng_key"] = self._rng_key.tolist()
         config["noise_std"] = self.noise_std.tolist()
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = self.rng_key
+        config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"ForceRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
         )
+
+        return config

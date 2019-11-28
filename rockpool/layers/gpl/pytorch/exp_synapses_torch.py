@@ -21,6 +21,7 @@ __all__ = ["FFExpSynTorch"]
 
 # - Absolute tolerance, e.g. for comparing float values
 tol_abs = 1e-9
+
 # - Default maximum numbers of time steps for a single evolution batch
 MAX_NUM_TIMESTEPS_DEFAULT = 5000
 
@@ -31,7 +32,7 @@ def sigmoid(z):
 
 ## - FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
 class FFExpSynTorch(FFExpSyn):
-    """ FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
+    """ Define an exponential synapse layer (spiking input, pytorch as backend)
     """
 
     ## - Constructor
@@ -47,7 +48,7 @@ class FFExpSynTorch(FFExpSyn):
         max_num_timesteps: int = MAX_NUM_TIMESTEPS_DEFAULT,
     ):
         """
-        FFExpSynTorch - Construct an exponential synapse layer (spiking input, pytorch as backend)
+        Construct an exponential synapse layer (spiking input, pytorch as backend)
 
         :param weights:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
@@ -107,7 +108,7 @@ class FFExpSynTorch(FFExpSyn):
         verbose: bool = False,
     ) -> TSContinuous:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
         :param duration:       float    Simulation/Evolution time
@@ -164,7 +165,7 @@ class FFExpSynTorch(FFExpSyn):
     def _batch_data(
         self, inp: np.ndarray, num_timesteps: int, max_num_timesteps: int = None
     ) -> (np.ndarray, int):
-        """_batch_data: Generator that returns the data in batches"""
+        """ Generator that returns the data in batches"""
         # - Handle None for max_num_timesteps
         max_num_timesteps = (
             num_timesteps if max_num_timesteps is None else max_num_timesteps
@@ -186,7 +187,7 @@ class FFExpSynTorch(FFExpSyn):
         self, weighted_input: np.ndarray, num_timesteps: int, verbose: bool = False
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
         :param weighted_input: np.ndarray   Weighted input
         :param num_timesteps:   int      Number of evolution time steps
@@ -226,16 +227,14 @@ class FFExpSynTorch(FFExpSyn):
         **kwargs,
     ):
         """
-        train - Wrapper to standardize training syntax across layers. Use
-                specified training method to train layer for current batch.
+        Wrapper to standardize training syntax across layers. Use specified training method to train layer for current batch.
+
         :param ts_target: Target time series for current batch.
         :param ts_input:  Input to the layer during the current batch.
         :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
         :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
-        :param method:    String indicating which training method to choose.
-                          Currently only ridge regression ("rr") and logistic
-                          regression are supported.
-        kwargs will be passed on to corresponding training method.
+        :param method:    String indicating which training method to choose. Currently only ridge regression ("rr") and logistic regression are supported.
+        :param kwargs:     Will be passed on to corresponding training method.
         """
         # - Choose training method
         if method in {
@@ -273,10 +272,8 @@ class FFExpSynTorch(FFExpSyn):
         return_training_progress: bool = False,
     ) -> Union[Dict, None]:
         """
-        train_rr - Train self with ridge regression over one of possibly
-                   many batches. Use Kahan summation to reduce rounding
-                   errors when adding data to existing matrices from
-                   previous batches.
+        train_rr - Train self with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
+
         :param ts_target:        TimeSeries - target for current batch
         :param ts_input:         TimeSeries - input to self for current batch
         :regularize:           float - regularization for ridge regression
@@ -517,20 +514,18 @@ class FFExpSynTorch(FFExpSyn):
         verbose: bool = False,
     ):
         """
-        train_logreg - Train self with logistic regression over one of possibly many batches.
-                       Note that this training method assumes that a sigmoid funciton is applied
-                       to the layer output, which is not the case in self.evolve.
-                       Use pytorch as backend
+        Train self with logistic regression over one of possibly many batches. Note that this training method assumes that a sigmoid funciton is applied to the layer output, which is not the case in `.evolve`. Use pytorch as backend.
+
         :param ts_target:    TimeSeries - target for current batch
         :param ts_input:     TimeSeries - input to self for current batch
-        :learning_rate:     flaot - Factor determining scale of weight increments at each step
-        :regularize:       float - regularization parameter
-        :batch_size:        int - Number of samples per batch. If None, train with all samples at once
-        :epochs:           int - How many times is training repeated
-        :store_states:       bool - Include last state from previous training and store state from this
+        :param learning_rate:     flaot - Factor determining scale of weight increments at each step
+        :param regularize:       float - regularization parameter
+        :param batch_size:        int - Number of samples per batch. If None, train with all samples at once
+        :param epochs:           int - How many times is training repeated
+        :param store_states:       bool - Include last state from previous training and store state from this
                                    traning. This has the same effect as if data from both trainings
                                    were presented at once.
-        :verbose:          bool - Print output about training progress
+        :param verbose:          bool - Print output about training progress
         """
 
         if not torch.cuda.is_available():
@@ -682,13 +677,23 @@ class FFExpSynTorch(FFExpSyn):
             ct_sample_order = torch.randperm(num_timesteps)
 
         if verbose:
-            print("Layer `{}`: Finished trainig.              ".format(self.name))
+            print("Layer `{}`: Finished training.              ".format(self.name))
 
         if store_states:
             # - Store last state for next batch
             self._training_state = ct_input[-1, :-1].cpu().numpy()
 
     def _gradients(self, ct_weights, ct_biases, ct_input, ct_target, regularize):
+        """
+        Compute weight gradients
+
+        :param ct_weights:
+        :param ct_biases:
+        :param ct_input:
+        :param ct_target:
+        :param regularize:
+        :return:
+        """
         # - Output with current weights
         ct_linear = torch.mm(ct_input[:, :-1], ct_weights) + ct_biases
         ct_output = sigmoid(ct_linear)
@@ -703,7 +708,7 @@ class FFExpSynTorch(FFExpSyn):
         return ct_gradients
 
     def _update_kernels(self):
-        """Generate kernels for filtering input spikes during evolution and training"""
+        """ Generate kernels for filtering input spikes during evolution and training """
         kernel_size = min(
             50
             * int(
@@ -764,6 +769,7 @@ class FFExpSynTorch(FFExpSyn):
 
     @property
     def tau_syn(self):
+        """ (np.ndarray) Synaptic time constants for this layer [N,] """
         return self._tau_syn
 
     @tau_syn.setter
@@ -776,6 +782,7 @@ class FFExpSynTorch(FFExpSyn):
 
     @RefProperty
     def bias(self):
+        """ (np.ndarray) Bias currents used by the neurons in this layer [N,] """
         return self._bias
 
     @bias.setter
@@ -785,14 +792,17 @@ class FFExpSynTorch(FFExpSyn):
 
     @RefProperty
     def xtx(self):
+        """ (np.ndarray) $X^{T}X$ intermediate training computed value """
         return self._xtx
 
     @RefProperty
     def xty(self):
+        """ (np.ndarray) $X^{T}Y$ intermediate training computed value """
         return self._xty
 
     @property
     def state(self):
+        """ (np.ndarray) Internal state of the neurons in this layer [N,] """
         warn(
             "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's state".format(
                 self.name
@@ -809,6 +819,7 @@ class FFExpSynTorch(FFExpSyn):
 
     @property
     def max_num_timesteps(self):
+        """ (int) Maximum number of timesteps used by the synaptic kernel """
         return self._max_num_timesteps
 
     @max_num_timesteps.setter
@@ -821,8 +832,12 @@ class FFExpSynTorch(FFExpSyn):
         self._max_num_timesteps = new_max
         self._update_kernels()
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
+        """
+        Convert the essential parameters of this layer to a dictionary for saving
 
+        :return dict:
+        """
         config = {}
         config["weights"] = self.weights.tolist()
         config["bias"] = (
@@ -840,12 +855,17 @@ class FFExpSynTorch(FFExpSyn):
 
         return config
 
-    def save(self, config, filename):
+    def save(self, config: dict, filename: str):
+        """
+        Save the contents of a dictionary to a file
+        :param config:
+        :param filename:
+        """
         with open(filename, "w") as f:
             json.dump(config, f)
 
     @staticmethod
-    def load_from_dict(config):
+    def load_from_dict(config: dict):
         return FFExpSynTorch(
             weights=config["weights"],
             bias=config["bias"],

@@ -33,6 +33,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/building_reservoir.ipynb
    tutorials/jax_sgd.ipynb
    tutorials/RecDynapSE.ipynb
+   tutorials/jax_lif_tutorial.ipynb
 
 .. toctree::
    :maxdepth: 1

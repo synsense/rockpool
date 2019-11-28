@@ -48,7 +48,6 @@ echo "  number: 0" >> meta.yaml
 echo "  script: \"{{ PYTHON }} -m pip install . -vv\"" >> meta.yaml
 echo "" >> meta.yaml
 echo "requirements:" >> meta.yaml
-echo "  build:" >> meta.yaml
 echo "  host:" >> meta.yaml
 echo "    - python >=3.6" >> meta.yaml
 echo "    - pip" >> meta.yaml
@@ -59,17 +58,13 @@ echo "    - numba" >> meta.yaml
 echo "    - python >=3.6" >> meta.yaml
 echo "" >> meta.yaml
 echo "test:" >> meta.yaml
-echo "  requires:" >> meta.yaml
-echo "    - numpy" >> meta.yaml
-echo "    - scipy" >> meta.yaml
-echo "    - numba" >> meta.yaml
-echo "    - pytest" >> meta.yaml
 echo "  imports:" >> meta.yaml
 echo "    - rockpool" >> meta.yaml
 echo "" >> meta.yaml
 echo "about:" >> meta.yaml
 echo "  home: https://gitlab.com/ai-ctx/rockpool" >> meta.yaml
 echo "  license: AGPL-3.0" >> meta.yaml
+echo "  license_family: AGPL" >> meta.yaml
 echo "  license_file: LICENSE" >> meta.yaml
 echo "  summary: 'Python package for developing, simulating and training spiking neural networks, and deploying on Neuromorphic hardware'" >> meta.yaml
 echo "" >> meta.yaml

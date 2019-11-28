@@ -9,9 +9,12 @@ from ...timeseries import TSEvent, TSContinuous
 from ...utilities import ArrayLike
 from .. import Layer
 
+FloatVector = Union[ArrayLike, float]
+
 # - Try to import tqdm
 try:
     from tqdm.autonotebook import tqdm
+
     __use_tqdm = True
 
 except ModuleNotFoundError:
@@ -36,24 +39,24 @@ class CLIAF(Layer):
     def __init__(
         self,
         weights_in: np.ndarray,
-        bias: Union[ArrayLike, float] = 0.,
-        v_thresh: Union[ArrayLike, float] = 8.,
-        v_reset: Union[ArrayLike, float] = 0.,
-        v_subtract: Union[ArrayLike, float, None] = 8.,
-        dt: float = 1.,
-        monitor_id: Union[bool, int, None, ArrayLike] = [],
-        name: str = "unnamed",
+        bias: Optional[FloatVector] = 0.0,
+        v_thresh: Optional[FloatVector] = 8.0,
+        v_reset: Optional[FloatVector] = 0.0,
+        v_subtract: Optional[Union[FloatVector, None]] = 8.0,
+        dt: Optional[float] = 1.0,
+        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
+        name: Optional[str] = "unnamed",
     ):
         """
         Feedforward layer of integrate and fire neurons with constant leak
 
-        :param ArrayLike[float] weights_in:             Input weight matrix
-        :param Optional[ArrayLike[float]] bias:         Constant bias to be added to state at each time step. Default: 0.0
-        :param Optional[ArrayLike[float]] v_thresh:     Spiking threshold. Default: 8.0
-        :param Optional[ArrayLike[float]] v_reset:      Reset potential after spike (also see param `v_subtract`). Default: 8.0
-        :param Optional[ArrayLike[float]] v_subtract:   If not `None`, subtract provided values from neuron state after spike. Otherwise neurons will reset on each spike
-        :param Optional[ArrayLike[int]] monitor_id:     IDs of neurons to be recorded. Default: [], do not monitor any neurons
-        :param Optional[str] name:                      Name of this layer. Default: 'unnamed'
+        :param FloatVector weights_in:              Input weight matrix
+        :param Optional[FloatVector] bias:          Constant bias to be added to state at each time step. Default: ``0.0``
+        :param Optional[FloatVector] v_thresh:      Spiking threshold. Default: ``8.0``
+        :param Optional[FloatVector] v_reset:       Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
+        :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise neurons will reset on each spike
+        :param Optional[ArrayLike[int]] monitor_id: IDs of neurons to be recorded. Default: ``[]``, do not monitor any neurons
+        :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
 
         # Call parent constructor
@@ -78,19 +81,13 @@ class CLIAF(Layer):
         debug: bool = False,
     ):
         """
-        _add_to_record: Convenience function to record current state of the layer
-                     or individual neuron
+        Convenience function to record current state of the layer or individual neuron
 
-        :param state_time_series: list  A simple python list object to which the
-                                       state needs to be appended
-        :param t_now:     float Current simulation time
-        :param id_out:          np.ndarray   Neuron IDs to record the state of,
-                                              if True all the neuron's states
-                                              will be added to the record.
-                                              Default = True
-        :param state:           np.ndarray If not None, record this as state,
-                                            otherwise self.state
-        :param debug:           bool Print debug info
+        :param list state_time_series:      A simple python list object to which the state needs to be appended
+        :param float t_now:                 Current simulation time
+        :param Optional[np.ndarray] id_out: Neuron IDs to record the state of. If ``True`` all the neuron's states will be added to the record. Default: ``True``, record all neurons
+        :param Optional[np.ndarray] state:  If not ``None``, record this as state, otherwise record ``self.state``
+        :param Optional[bool] debug:        If ``True``, print debug info. Default: ``False``, do not print debug info
         """
 
         state = self.state if state is None else state
@@ -114,15 +111,15 @@ class CLIAF(Layer):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input, set up time base
+        Sample input, set up time base
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        :param Optional[TSEvent] ts_input:  TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:    Duration of the desired evolution, in seconds
+        :param Optional[int] num_timesteps: Number of evolution time steps
 
-        :return:
-            spike_raster:    ndarray Boolean raster containing spike info
-            num_timesteps:    int Number of evlution time steps
+        :return (spike_raster, num_timesteps):
+            spike_raster:   (np.ndarray) Boolean raster containing spike info
+            num_timesteps:  (int) Number of evolution time steps
         """
         print("Preparing input for processing")
         if num_timesteps is None:
@@ -175,17 +172,20 @@ class CLIAF(Layer):
         return spike_raster, num_timesteps
 
     def reset_time(self):
+        """ Reset the internal clock of this layer """
         # - Set internal clock to 0
         self._timestep = 0
 
     def reset_state(self):
+        """ Reset the internal state of this layer """
         # - Reset neuron state to 0
         self._state = self.v_reset
 
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer.
+
+        :return dict:   Dictionary of layer parameters
         """
         config = super().to_dict()
         config.pop("weights")
@@ -204,19 +204,20 @@ class CLIAF(Layer):
     @property
     def output_type(self):
         """
-        (Type) Output subclass emitted by this layer (`TSEvent`).
+        (`.TSEvent`) Output subclass emitted by this layer (`.TSEvent`).
         """
         return TSEvent
 
     @property
     def input_type(self):
+        """
+        (`.TSEvent`) Input subclass accepted by this layer (`.TSEvent`).
+        """
         return TSEvent
-        """
-        (Type) Input subclass accepted by this layer (`TSEvent`).
-        """
 
     @property
     def weights_in(self):
+        """ (np.ndarray) Input weights for this layer [N_in, N]"""
         return self._weights_in
 
     @weights_in.setter
@@ -228,6 +229,7 @@ class CLIAF(Layer):
 
     @property
     def state(self):
+        """ (np.ndarray) Internal state of this layer """
         return self._state
 
     @state.setter
@@ -236,6 +238,7 @@ class CLIAF(Layer):
 
     @property
     def v_thresh(self):
+        """ (np.ndarray) Threshold potental for the neurons in this layer [N,] """
         return self._v_thresh
 
     @v_thresh.setter
@@ -246,6 +249,7 @@ class CLIAF(Layer):
 
     @property
     def v_reset(self):
+        """ (np.ndarray) Reset potential for the neurons in this layer [N,] """
         return self._v_reset
 
     @v_reset.setter
@@ -256,6 +260,7 @@ class CLIAF(Layer):
 
     @property
     def v_subtract(self):
+        """ (np.ndarray) Subtractive reset values for the neurons in this layer [N,] """
         return self._v_subtract
 
     @v_subtract.setter
@@ -267,20 +272,21 @@ class CLIAF(Layer):
 
     @property
     def bias(self):
+        """ (np.ndarray) Bias values for the neurons in this layer [N,] """
         return self._bias
 
     @bias.setter
     def bias(self, new_bias):
-
         self._bias = self._expand_to_net_size(new_bias, "bias", allow_none=False)
 
     @Layer.dt.setter
     def dt(self, new_dt):
-        assert new_dt > 0, "dt must be greater than 0."
+        assert new_dt > 0, "`dt` must be greater than 0."
         self._dt = new_dt
 
     @property
     def monitor_id(self):
+        """ (list) List of neurons that should be monitored during evolution """
         return self._id_monitor
 
     @monitor_id.setter
@@ -295,31 +301,30 @@ class CLIAF(Layer):
 
 class FFCLIAF(CLIAF):
     """
-    FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
+    Feedforward layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
         self,
         weights: np.ndarray,
-        bias: Union[ArrayLike, float] = 0,
-        v_thresh: Union[ArrayLike, float] = 8,
-        v_reset: Union[ArrayLike, float] = 0,
-        v_subtract: Union[ArrayLike, float, None] = 8,
-        dt: float = 1,
-        monitor_id: Union[bool, int, None, ArrayLike] = [],
-        name: str = "unnamed",
+        bias: Optional[FloatVector] = 0.0,
+        v_thresh: Optional[FloatVector] = 8.0,
+        v_reset: Optional[FloatVector] = 0.0,
+        v_subtract: Optional[Union[FloatVector, None]] = 8.0,
+        dt: Optional[float] = 1.0,
+        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
+        name: Optional[str] = "unnamed",
     ):
         """
-        FFCLIAF - Feedforward layer of integrate and fire neurons with constant leak
+        Feedforward layer of integrate and fire neurons with constant leak
 
-        :param weights:         array-like  Input weight matrix
-        :param bias:     array-like  Constant bias to be added to state at each time step
-        :param v_thresh:   array-like  Spiking threshold
-        :param v_reset:    array-like  Reset potential after spike (also see param bSubtract)
-        :param v_subtract: array-like  If not None, subtract provided values
-                                        from neuron state after spike. Otherwise will reset.
-        :monitor_id:       array-like  IDs of neurons to be recorded
-        :param name:     str  Name of this layer.
+        :param np.ndarray weights:                  Input weight matrix [N_in, N]
+        :param Optional[FloatVector] bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param Optional[FloatVector] v_thresh:      Spiking threshold [N,]. Default: ``8.``
+        :param Optional[FloatVector] v_reset:       Reset potential after spike [N,]. Default: ``0.``
+        :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
+        :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not record neuron state
+        :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
 
         # Call parent constructor
@@ -344,14 +349,14 @@ class FFCLIAF(CLIAF):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param Optional[TSEvent] ts_input:  Input spike train
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param Optional[bool] verbose:      Currently no effect, just for conformity
 
+        :return TSEvent:                    Output spike series
         """
 
         # - Generate input in rasterized form, get actual evolution duration
@@ -469,8 +474,7 @@ class FFCLIAF(CLIAF):
 
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of ``self`` to a dict if they are relevant for reconstructing an identical layer.
         """
         config = super().to_dict()
         config.pop("weights_in")
@@ -489,53 +493,42 @@ class FFCLIAF(CLIAF):
 
 class RecCLIAF(CLIAF):
     """
-    RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
+    Recurrent layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        bias: Union[ArrayLike, float] = 0,
-        v_thresh: Union[ArrayLike, float] = 8,
-        v_reset: Union[ArrayLike, float] = 0,
-        v_subtract: Union[ArrayLike, float, None] = 8,
-        refractory: Union[ArrayLike, float] = 0,
-        dt: float = 1e-4,
+        bias: Optional[FloatVector] = 0.0,
+        v_thresh: Optional[FloatVector] = 8.0,
+        v_reset: Optional[FloatVector] = 0.0,
+        v_subtract: Optional[Union[FloatVector, None]] = 8.0,
+        refractory: Optional[FloatVector] = 0.0,
+        dt: Optional[float] = 1e-4,
         delay: Optional[float] = None,
         tTauBias: Optional[float] = None,
-        monitor_id: Union[bool, int, None, ArrayLike] = [],
-        state_type: Union[type, str] = float,
-        name: str = "unnamed",
+        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
+        state_type: Optional[Union[type, str]] = float,
+        name: Optional[str] = "unnamed",
     ):
         """
-        RecCLIAF - Recurrent layer of integrate and fire neurons with constant leak
+        Recurrent layer of integrate and fire neurons with constant leak
 
-        :param weights_in:       array-like  nSizeInxN input weight matrix.
-        :param weights_rec:      array-like  Weight matrix
+        :param np.ndarray weights_in:               Input weight matrix [N_in, N]
+        :param np.ndarray weights_rec:              Recurrent weight matrix [N, N]
 
-        :param bias:     array-like  Constant bias to be added to state at each time step
-        :param v_thresh:   array-like  Spiking threshold
-        :param v_reset:    array-like  Reset potential after spike (also see param bSubtract)
-        :param v_subtract: array-like  If not None, subtract provided values
-                                        from neuron state after spike. Otherwise will reset.
-
-        :param refractory: array-like Nx1 vector of refractory times.
-        :param dt:         float       time step size
-        :param delay: float       Time after which a spike within the
-                                        layer arrives at the recurrent
-                                        synapses of the receiving neurons
-                                        within the network. Rounded down to multiple of dt.
-                                        Must be at least dt.
-        :param tTauBias:    float       Period for applying bias. Must be at least dt.
-                                        Is rounded down to multiple of dt.
-                                        If None, will be set to dt
-
-        :monitor_id:       array-like  IDs of neurons to be recorded
-
-        :param state_type:  type data type for the membrane potential
-
-        :param name:     str  Name of this layer.
+        :param Optional[FloatVector] bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param Optional[FloatVector] v_thresh:      Spiking threshold [N,]. Default: ``8.``
+        :param Optional[FloatVector] v_reset:       Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
+        :param Optional[FloatVector] v_subtract:    [N,] If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
+        :param Optional[FloatVector] refractory:    Vector of refractory times  [N,]
+        :param Optional[float] dt:                  Time step size in s. Default: ``0.1 ms``
+        :param Optional[float] delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Rounded down to multiple of `.dt`. Must be at least `.dt`. Default: ``None``, use `.dt`
+        :param Optional[float] tTauBias:            Period for applying bias. Must be at least `.dt`. Is rounded down to multiple of `.dt`. If ``None``, will be set to `.dt`. Default: ``None``, use `.dt`
+        :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not monitor neurons
+        :param Optional[type] state_type:           Data type for the membrane potential. Default: ``float``
+        :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
 
         # Call parent constructor
@@ -567,14 +560,14 @@ class RecCLIAF(CLIAF):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Show progress bar during evolution
-        :return:            TSEvent  output spike series
+        :param Optional[TSEvent] ts_input:  Input spike trian
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param Optional[bool] verbose:      Show progress bar during evolution
 
+        :return TSEvent:                    Output spike series
         """
 
         # - Generate input in rasterized form, get actual evolution duration
@@ -745,6 +738,7 @@ class RecCLIAF(CLIAF):
         return event_out
 
     def reset_state(self):
+        """ Reset the internal state of this layer """
         # - Delete spikes that would arrive in recurrent synapses during future time steps
         #   by filling up deque with zeros
         num_ts_per_delay = self._num_rec_spikes_q.maxlen
@@ -757,7 +751,8 @@ class RecCLIAF(CLIAF):
         )
 
     def randomize_state(self):
-        # - Set state to random values between reset value and theshold
+        """ Randomize the internal state of this layer """
+        # - Set state to random values between reset value and threshold
         self.state = np.clip(
             (np.amin(self.v_thresh) - np.amin(self.v_reset)) * np.random.rand(self.size)
             - np.amin(self.v_reset),
@@ -767,8 +762,7 @@ class RecCLIAF(CLIAF):
 
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer.
         """
         config = super().to_dict()
         config["weights_in"] = self.weights_in.tolist()
@@ -783,6 +777,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def weights(self):
+        """ (np.ndarray) Recurrent weights for this layer """
         return self.weights_rec
 
     # - weights as synonym for weights_rec
@@ -792,6 +787,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def weights_rec(self):
+        """ (np.ndarray) Recurrent weights for this layer """
         return self._weights_rec
 
     @weights_rec.setter
@@ -802,6 +798,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def tTauBias(self):
+        """ (float) Time step on which to apply biases """
         return self._num_ts_per_bias * self._dt
 
     @tTauBias.setter
@@ -816,6 +813,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def delay(self):
+        """ (float) Event transmission delay for the events in this layer, in s """
         return self._num_rec_spikes_q.maxlen * self._dt
 
     @delay.setter
@@ -858,6 +856,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def refractory(self):
+        """ (float) Refractory period for the neurons in this layer """
         return None if self._ts_per_refr is None else self._ts_per_refr * self.dt
 
     @refractory.setter
@@ -871,6 +870,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def state(self):
+        """ (np.ndarray) Internal state of the neurons in this layer [N,] """
         return self._state
 
     @state.setter
@@ -883,6 +883,7 @@ class RecCLIAF(CLIAF):
 
     @property
     def state_type(self):
+        """ (type) Data type of the neuron state in this layer """
         return self._state_type
 
     @state_type.setter

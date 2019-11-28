@@ -26,7 +26,7 @@ class Layer(ABC):
 
     This abstract class acts as a base class from which to derive subclasses that represent layers of neurons. As an abstract class, :py:class:`Layer` cannot be instantiated.
 
-    .. seealso:: See :ref:`layersdocs` for examples of instantiating and using :py:class:`Layer` subclasses. See :ref:`extending` for how to design and implement a new :py:class:`Layer` subclass.
+    .. seealso:: See :ref:`layerssummary` for examples of instantiating and using :py:class:`Layer` subclasses. See "Writing a new Layer subclass" for how to design and implement a new :py:class:`Layer` subclass.
     """
 
     def __init__(
@@ -218,24 +218,30 @@ class Layer(ABC):
         """
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
+        # - Generate discrete time base
+        time_base = self._gen_time_trace(self.t, num_timesteps)
+
         # - Extract spike timings and channels
         if ts_input is not None:
             # Extract spike data from the input variable
             spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
-                num_timesteps=num_timesteps,
+                num_timesteps=num_timesteps + 1,
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
-            )[2]
+            )
 
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
+            # - Make sure duration of raster is correct
+            spike_raster = spike_raster[: num_timesteps + 1, :]
 
         else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
+            spike_raster = np.zeros((num_timesteps + 1, self.size_in))
 
-        return spike_raster, num_timesteps
+        # - Check for correct input dimensions
+        spike_raster = self._check_input_dims(spike_raster)
+
+        return time_base, spike_raster, num_timesteps
 
     def _check_input_dims(self, inp: np.ndarray) -> np.ndarray:
         """
@@ -324,7 +330,7 @@ class Layer(ABC):
         :param Any inp:                     scalar or array-like
         :param int size:                    Size that input should be expanded to
         :param Optional[str] var_name:      Name of the variable to include in error messages. Default: "input"
-        :param Optional[bool] allow_none:   If ``True``, allow None as a value for ``inp``. Otherwise and error will be raised. Defualt: ``True``, allow ``None``
+        :param Optional[bool] allow_none:   If ``True``, allow None as a value for ``inp``. Otherwise and error will be raised. Default: ``True``, allow ``None``
 
         :return ndarray:                    Array of ``inp``, possibly expanded to the desired size
 
@@ -346,7 +352,7 @@ class Layer(ABC):
         :return ndarray:                    Values of ``inp``, replicated out to the size of the current layer
 
         :raises AssertionError:             If ``inp`` is incompatibly sized to replicate out to the layer size
-        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False
+        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False``
         """
         return self._expand_to_shape(inp, (self.size,), var_name, allow_none)
 
@@ -363,19 +369,20 @@ class Layer(ABC):
         :return ndarray:                    Values of ``inp``, replicated out to the size of the current layer
 
         :raises AssertionError:             If ``inp`` is incompatibly sized to replicate out to the layer size
-        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False
+        :raises AssertionError:             If ``inp`` is ``None``, and ``allow_none`` is ``False``
         """
         return self._expand_to_shape(inp, (self.size, self.size), var_name, allow_none)
 
     ### --- String representations
 
     def __str__(self):
-        return '{} object: "{}" [{} {} in -> {} {} out]'.format(
+        return '{} object: "{}" [{} {} in -> {} internal -> {} {} out]'.format(
             self.__class__.__name__,
             self.name,
             self.size_in,
             self.input_type.__name__,
             self.size,
+            self.size_out,
             self.output_type.__name__,
         )
 
@@ -488,13 +495,13 @@ class Layer(ABC):
     @classmethod
     def load_from_file(cls: Any, filename: str, **kwargs) -> "cls":
         """
-        Generate an instance of a :py:class:`Layer` subclass, with parameters loaded from a file
+        Generate an instance of a :py:class:`.Layer` subclass, with parameters loaded from a file
 
-        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
+        :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
         :param str filename:    Path to the file where parameters are stored
-        :param kwargs:          Any keyword arguments of the class __init__ method where the parameter stored in the file should be overridden
+        :param kwargs:          Any keyword arguments of the class `.__init__` method where the parameter stored in the file should be overridden
 
-        :return Layer: Instance of `cls` with paramters loaded from `filename`
+        :return Layer: Instance of ``cls`` with parameters loaded from ``filename``
         """
         # - Load dict from file
         with open(filename, "r") as f:
@@ -506,13 +513,13 @@ class Layer(ABC):
     @classmethod
     def load_from_dict(cls: Any, config: dict, **kwargs) -> "cls":
         """
-        Generate instance of a :py:class:`Layer` subclass with parameters loaded from a dictionary
+        Generate instance of a :py:class:`.Layer` subclass with parameters loaded from a dictionary
 
-        :param Any cls:         A :py:class:`Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in `filename`
-        :param Dict config: Dictionary containing parameters of a :py:class:`Layer` subclass
-        :param kwargs:      Any keyword arguments of the class `__init__` method where the parameters from `config` should be overridden
+        :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
+        :param Dict config: Dictionary containing parameters of a :py:class:`.Layer` subclass
+        :param kwargs:      Any keyword arguments of the class `.__init__` method where the parameters from ``config`` should be overridden
 
-        :return Layer: Instance of `cls` with paramters from `config`
+        :return Layer: Instance of ``cls`` with parameters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
@@ -549,14 +556,14 @@ class Layer(ABC):
     @property
     def output_type(self):
         """
-        (Type[TimeSeries]) Output :py:class:`.TimeSeries` subclass emitted by this layer. 
+        (Type[TimeSeries]) Output :py:class:`.TimeSeries` subclass emitted by this layer.
         """
         return TSContinuous
 
     @property
     def input_type(self):
         """
-        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer. 
+        (Type[TimeSeries]) Input :py:class:`.TimeSeries` subclass accepted by this layer.
         """
         return TSContinuous
 

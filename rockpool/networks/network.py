@@ -599,7 +599,7 @@ class Network:
         # - Dict to store external input and each layer's output time series
         signal_dict = {"external": ts_input}
 
-        # - Make sure layers are in sync with netowrk
+        # - Make sure layers are in sync with network
         self._check_sync(verbose=False)
 
         # - Iterate over evolution order and evolve layers
@@ -645,7 +645,7 @@ class Network:
         # - Update network time
         self._timestep += num_timesteps
 
-        # - Make sure layers are still in sync with netowrk
+        # - Make sure layers are still in sync with network
         self._check_sync(verbose=False)
 
         # - Return dict with layer outputs
@@ -1027,6 +1027,25 @@ class Network:
         """(float) Time step to use in layer simulations"""
         return self._dt
 
+    def shallow_copy(self) -> "Network":
+        """
+        shallow_copy - Generate and return a `Network` of the same structure with
+                       the *same* layer objects.
+        :return:
+            The new `Network` object.
+        """
+        newnet = Network(dt=self.dt)
+        for lyr in self.evol_order:
+            # - Network structure already contained in layers
+            newnet.add_layer(lyr)
+        try:
+            newnet.input_layer = self.input_layer
+        except AttributeError:
+            pass
+        # - Strictly keep evolution order
+        newnet.evol_order = self.evol_order.copy()
+        return newnet
+
     def save(self, filename: str):
         """
         Save this network to a JSON file
@@ -1036,11 +1055,21 @@ class Network:
         # - List with layers in their evolution order
         list_layers = []
         for lyr in self.evol_order:
-            list_layers.append(lyr.to_dict())
+            lyr_dict = lyr.to_dict()
+            try:
+                lyr_dict["pre_layer_name"] = lyr.pre_layer.name
+            except AttributeError:
+                pass
+            lyr_dict["external_input"] = lyr.external_input
+            list_layers.append(lyr_dict)
         savedict = {"layers": list_layers}
         # - Include dt if it has been enforced at instantiation
         if self._force_dt:
             savedict["dt"] = self.dt
+        try:
+            savedict["input_layer_name"] = self.input_layer.name
+        except AttributeError:
+            pass
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
@@ -1052,18 +1081,46 @@ class Network:
         :param str filename:    filename of a JSON filr that contains a saved network
         :return Network:        A network object with all the layers loaded from `filename`
         """
-
+        # - Load dict holding the parameters
         with open(filename, "r") as f:
             loaddict: dict = json.load(f)
-        # - Instantiate layers
+        # - List of layers in their original evolution order
         list_layers = loaddict["layers"]
+        pre_layers = []
+        external = []
         evol_order = []
+        # - Generate layers, extract information about input sources
         for lyr in list_layers:
             cls_layer = getattr(layers, lyr["class_name"])
+            pre_layers.append(lyr.pop("pre_layer_name", None))
+            external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
-        # - If dt has been stored, include as parameter for new Network object
         dt = loaddict.get("dt", None)
-        return Network(*evol_order, dt=dt)
+        if all(ext is None for ext in external) and all(
+            pre is None for pre in pre_layers
+        ):
+            warn(
+                "This network has been stored with an old routine that did not keep "
+                + "information about the network structure. Will infer 1-dimensional "
+                + "structure from evolution order. In future implementations this will "
+                + "no longer be supported"
+            )
+            return Network(*evol_order, dt=dt)
+        else:
+            newnet = Network(dt=dt)
+            # - Add layers accordign to evolution order. Maintain network structure by specifying input sources
+            for lyr, ext, pre in zip(evol_order, external, pre_layers):
+                pre_layer = getattr(newnet, pre) if pre is not None else None
+                newnet.add_layer(
+                    lyr,
+                    input_layer=pre_layer,
+                    external_input=ext if ext is not None else False,
+                )
+            try:
+                newnet.input_layer = getattr(newnet, loaddict["input_layer_name"])
+            except KeyError:
+                pass
+            return newnet
 
     @staticmethod
     def add_layer_class(cls_lyr: Type[layers.Layer], name: str):

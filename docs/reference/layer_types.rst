@@ -29,6 +29,14 @@ Event-driven spiking layers
     layers.RecFSSpikeEulerBT
     layers.FFUpDown
 
+JAX-based backend
+~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.RecLIFJax
+    layers.RecLIFCurrentInJax
+    layers.RecLIFJax_IO
+    layers.RecLIFCurrentInJax_IO
 
 Layers with constant leak
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,6 +46,7 @@ Layers with constant leak
     layers.FFCLIAF
     layers.RecCLIAF
     layers.SoftMaxLayer
+    layers.FFCLIAFCNNTorch
 
 Brian-based backend
 ~~~~~~~~~~~~~~~~~~~
@@ -64,6 +73,7 @@ Torch-based backend
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
+    layers.FFCLIAFCNNTorch
 
 Nest-based backend
 ~~~~~~~~~~~~~~~~~~

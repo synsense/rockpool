@@ -453,10 +453,11 @@ class TSContinuous(TimeSeries):
         times: Optional[ArrayLike] = None,
         samples: Optional[ArrayLike] = None,
         num_channels: Optional[int] = None,
-        periodic: bool = False,
+        periodic: Optional[bool] = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        name: str = "unnamed",
+        name: Optional[str] = "unnamed",
+        units: Optional[str] = None,
         interp_kind: str = "linear",
     ):
         """
@@ -464,18 +465,20 @@ class TSContinuous(TimeSeries):
 
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
-        :param Optional[in] num_channels:   If `samples` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
-        :param bool periodic:               Treat the time series as periodic around the end points. Default: False
-        :param float t_start:               If not None, the series start time is t_start, otherwise times[0]
-        :param float t_stop:                If not None, the series stop time is t_stop, otherwise times[-1]
-        :param str name:                    Name of the `.TSContinuous` object. Default: "unnamed"
-        :param str interp_kind:             Specify the interpolation type. Default: "linear"
+        :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
+        :param Optional[bool] periodic:     Treat the time series as periodic around the end points. Default: ``False``
+        :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
+        :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
+        :param Optional[str] name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
+        :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
+        :param Optional[str] interp_kind:   Specify the interpolation type. Default: ``"linear"``
 
         If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
         """
 
         if times is None:
             times = np.array([])
+
         if samples is None:
             num_channels = 0 if num_channels is None else num_channels
             samples = np.zeros((0, num_channels))
@@ -498,14 +501,17 @@ class TSContinuous(TimeSeries):
         # - Assign attributes
         self.interp_kind = interp_kind
         self.samples = samples.astype("float")
+        self.units = units
 
     ## -- Methods for plotting and printing
 
     def plot(
         self,
-        times: Union[int, float, ArrayLike] = None,
-        target: Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay", None] = None,
-        channels: Union[ArrayLike, int, None] = None,
+        times: Optional[Union[int, float, ArrayLike]] = None,
+        target: Optional[Union["mpl.axes.Axes", "hv.Curve", "hv.Overlay"]] = None,
+        channels: Optional[Union[ArrayLike, int]] = None,
+        stagger: Optional[Union[float, int]] = None,
+        skip: Optional[int] = None,
         *args,
         **kwargs,
     ):
@@ -515,6 +521,8 @@ class TSContinuous(TimeSeries):
         :param Optional[ArrayLike] times: Time base on which to plot. Default: time base of time series
         :param Optional target:  Axes (or other) object to which plot will be added.
         :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
+        :param Optional[float] stagger: Stagger to use to separate each series when plotting multiple series. (Default: `None`, no stagger)
+        :param Optional[int] skip: Skip several series when plotting multiple series
         :param args, kwargs:  Optional arguments to pass to plotting function
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
@@ -524,8 +532,15 @@ class TSContinuous(TimeSeries):
             samples = self.samples
         else:
             samples = self(times)
+
         if channels is not None:
             samples = samples[:, channels]
+
+        if skip is not None and skip is not 0:
+            samples = samples[:, ::skip]
+
+        if stagger is not None and stagger is not 0:
+            samples = samples + np.arange(0, samples.shape[1] * stagger, stagger)
 
         if target is None:
             # - Determine plotting backend
@@ -533,6 +548,8 @@ class TSContinuous(TimeSeries):
                 backend = _global_plotting_backend
             else:
                 backend = self._plotting_backend
+
+            # - Handle holoviews plotting
             if backend == "holoviews":
                 if kwargs == {}:
                     vhCurves = [
@@ -552,7 +569,24 @@ class TSContinuous(TimeSeries):
             elif backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
-                return plt.plot(times, samples, **kwargs)
+
+                # - Get current axes
+                ax = plt.gca()
+
+                # - Set the ylabel, if it isn't already set
+                if ax.get_ylabel() is "" and self.units is not None:
+                    ax.set_ylabel(self.units)
+
+                # - Set the xlabel, if it isn't already set
+                if ax.get_xlabel() is "":
+                    ax.set_xlabel("Time (s)")
+
+                # - Set the title, if it isn't already set
+                if ax.get_title() is "" and self.name is not "unnamed":
+                    ax.set_title(self.name)
+
+                # - Plot the curves
+                return ax.plot(times, samples, **kwargs)
             else:
                 raise RuntimeError(
                     f"TSContinuous: `{self.name}`: No plotting back-end set."
@@ -1609,9 +1643,10 @@ class TSEvent(TimeSeries):
                     raise ValueError(exception_limits)
                 else:
                     t_start = self.t_start if time_limits[0] is None else time_limits[0]
-                    t_start = self.t_stop if time_limits[1] is None else time_limits[1]
+                    t_stop = self.t_stop if time_limits[1] is None else time_limits[1]
             except TypeError:
                 raise TypeError(exception_limits)
+
         # - Choose matching events
         times, channels = self(t_start, t_stop, channels)
 
@@ -1630,7 +1665,24 @@ class TSEvent(TimeSeries):
             elif backend == "matplotlib":
                 # - Add `self.name` as label only if a label is not already present
                 kwargs["label"] = kwargs.get("label", self.name)
-                return plt.scatter(times, channels, *args, **kwargs)
+
+                # - Get current axes
+                ax = plt.gca()
+
+                # - Set the ylabel, if it isn't already set
+                if ax.get_ylabel() is "":
+                    ax.set_ylabel("Channels")
+
+                # - Set the xlabel, if it isn't already set
+                if ax.get_xlabel() is "":
+                    ax.set_xlabel("Time (s)")
+
+                # - Set the title, if it isn't already set
+                if ax.get_title() is "" and self.name is not "unnamed":
+                    ax.set_title(self.name)
+
+                # - Plot the curves
+                return ax.scatter(times, channels, *args, **kwargs)
 
             else:
                 raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
@@ -1785,6 +1837,7 @@ class TSEvent(TimeSeries):
         elif np.amax(channels) >= self.num_channels:
             # - Only use channels that are within range of channels of this timeseries
             channels_clip = np.intersect1d(channels, np.arange(self.num_channels))
+
             # - Channels for which series is not defined
             channels_undefined = np.setxor1d(channels_clip, channels)
             warn(
@@ -2138,12 +2191,15 @@ class TSEvent(TimeSeries):
     ## -- Internal methods
 
     def _matching_channels(
-        self, channels: Union[int, ArrayLike, None] = None
+        self,
+        channels: Union[int, ArrayLike, None] = None,
+        event_channels: Union[int, ArrayLike, None] = None,
     ) -> np.ndarray:
         """
         Return boolean array of which events match a given channel selection
 
-        :param ArrayLike[int] channels: Channels of which events are to be indicated ``True``. Default: ``None``, use all channels
+        :param ArrayLike[int] channels:         Channels of which events are to be indicated ``True``. Default: ``None``, use all channels
+        :params ArrayLike[int] event_channels:  Channel IDs for each event. If not provided (Default: ``None``), then use self._channels
 
         :return ArrayLike[bool]:        A matrix ``TxC`` indicating which events match the requested channels
         """
@@ -2159,8 +2215,12 @@ class TSEvent(TimeSeries):
         # - Make sure elements in `channels` are unique for better performance
         channels = np.unique(channels)
 
+        # - Use a defined list of event channels, if provided
+        if event_channels is None:
+            event_channels = self._channels
+
         # - Boolean array of which events match selected channels
-        include_events = np.isin(self._channels, channels)
+        include_events = np.isin(event_channels, channels)
 
         return include_events
 
@@ -2184,17 +2244,19 @@ class TSEvent(TimeSeries):
             np.ndarray  Times of events
             np.ndarray  Channels of events
         """
+        # - Get default start and end values from time series data
         if t_start is None:
             t_start: float = self.t_start
+
         if t_stop is None:
             t_stop: float = self.t_stop
             include_stop = True
+
         # - Permit unsorted bounds
         if t_stop < t_start:
             t_start, t_stop = t_stop, t_start
-        # - Events with matching channels
-        channel_matches = self._matching_channels(channels)
 
+        # - Handle a periodic time series
         if self.periodic:
             # - Repeat events sufficiently often
             all_times = _extend_periodic_times(t_start, t_stop, self)
@@ -2204,11 +2266,16 @@ class TSEvent(TimeSeries):
             all_times = self.times
             all_channels = self.channels
 
+        # - Events with matching channels
+        channel_matches = self._matching_channels(channels, all_channels)
+
+        # - Handle events at stop time
         if include_stop:
             choose_events_stop: np.ndarray = all_times <= t_stop
         else:
             choose_events_stop: np.ndarray = all_times < t_stop
 
+        # - Extract matching events and return
         choose_events: np.ndarray = (
             (all_times >= t_start) & (choose_events_stop) & channel_matches
         )

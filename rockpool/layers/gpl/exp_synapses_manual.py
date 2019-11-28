@@ -9,7 +9,7 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from ...timeseries import TSContinuous, TSEvent
-from ..layer import Layer
+from ..training.gpl.rr_trained_layer import RRTrainedLayer
 
 
 # - Type alias for array-like objects
@@ -27,8 +27,8 @@ def sigmoid(z):
 
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
-class FFExpSyn(Layer):
-    """ FFExpSyn - Class: define an exponential synapse layer (spiking input)
+class FFExpSyn(RRTrainedLayer):
+    """ Define an exponential synapse layer with spiking inputs and current outputs
     """
 
     ## - Constructor
@@ -43,7 +43,7 @@ class FFExpSyn(Layer):
         add_events: bool = True,
     ):
         """
-        FFExpSyn - Construct an exponential synapse layer (spiking input)
+        Construct an exponential synapse layer (spiking inputs, current outputs)
 
         :param weights:             np.array MxN weight matrix
                                 int Size of layer -> creates one-to-one conversion layer
@@ -93,15 +93,15 @@ class FFExpSyn(Layer):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, int):
         """
-        _prepare_input - Sample input and return as raster.
+        Sample input and return as raster
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        :param Optional[TSEvent] ts_input:  Spiking input signals for this layer
+        :param Optional[float] duration:    Duration of the desired evolution, in seconds
+        :param Optional[int] num_timesteps: Number of evolution time steps
 
-        :return:
-            mnInput:          ndarray Raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
+        :return (spike_raster, num_timesteps):
+            spike_raster:   (np.ndarray) Raster containing spike info
+            num_timesteps:  (np.ndarray) Number of evolution time steps
         """
         if num_timesteps is None:
             # - Determine num_timesteps
@@ -159,14 +159,14 @@ class FFExpSyn(Layer):
         verbose: bool = False,
     ) -> TSContinuous:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSContinuous  output spike series
+        :param Optional[TSEvent] ts_input:  Input spike train
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param Optional[bool] verbose:      Currently no effect, just for conformity
 
+        :return TSContinuous:               Output currents
         """
 
         # - Prepare weighted input signal
@@ -194,17 +194,8 @@ class FFExpSyn(Layer):
             -self.dt / self.tau_syn
         )
 
-        # - Define exponential kernel
-        kernel = np.exp(-np.arange(num_timesteps + 1) * self.dt / self.tau_syn)
-        # - Make sure spikes only have effect on next time step
-        kernel = np.r_[0, kernel]
-
-        # - Apply kernel to spike trains
-        filtered = np.zeros((num_timesteps + 1, self.size))
-        for channel, events in enumerate(weighted_input.T):
-            conv = fftconvolve(events, kernel, "full")
-            conv_short = conv[: time_base.size]
-            filtered[:, channel] = conv_short
+        # - Filter input spike trains
+        filtered = self._filter_data(weighted_input, num_timesteps=time_base.size)
 
         # - Update time and state
         self._timestep += num_timesteps
@@ -223,16 +214,14 @@ class FFExpSyn(Layer):
         **kwargs,
     ):
         """
-        train - Wrapper to standardize training syntax across layers. Use
-                specified training method to train layer for current batch.
-        :param ts_target: Target time series for current batch.
-        :param ts_input:  Input to the layer during the current batch.
-        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
-        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
-        :param method:    String indicating which training method to choose.
-                          Currently only ridge regression ("rr") and logistic
-                          regression are supported.
-        kwargs will be passed on to corresponding training method.
+        Wrapper to standardize training syntax across layers. Use specified training method to train layer for current batch.
+
+        :param TSContinuous ts_target:  Target time series for current batch.
+        :param TSContinuous ts_input:   Input to the layer during the current batch.
+        :param bool is_first:           Set ``True`` to indicate that this batch is the first in training procedure.
+        :param bool is_last:            Set ``True`` to indicate that this batch is the last in training procedure.
+        :param str method:              String indicating which training method to choose. Currently only ridge regression ("rr") and logistic regression are supported.
+        :param kwargs:                  Will be passed on to corresponding training method.
         """
         # - Choose training method
         if method in {
@@ -257,84 +246,57 @@ class FFExpSyn(Layer):
             ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
         )
 
-    def train_rr(
+    def _filter_data(self, data: np.ndarray, num_timesteps: int):
+        """
+        Filter input data y convolving with the synaptic kernel
+
+        :param np.ndarray data:     Input data
+        :param int num_timesteps:   The number of time steps to return
+
+        :return np.ndarray:         The filtered data
+        """
+
+        if num_timesteps is None:
+            num_timesteps = len(data)
+
+        # - Define exponential kernel
+        kernel = np.exp(-np.arange(num_timesteps) * self.dt / self.tau_syn)
+
+        # - Make sure spikes only have effect on next time step
+        kernel = np.r_[0, kernel]
+
+        # - Apply kernel to spike trains
+        filtered = fftconvolve(data, kernel.reshape(-1, 1), "full", axes=0)
+        filtered = filtered[:num_timesteps]
+
+        return filtered
+
+    def _prepare_training_data(
         self,
         ts_target: TSContinuous,
-        ts_input: TSEvent = None,
-        regularize: float = 0,
-        is_first: bool = True,
-        is_last: bool = False,
-        store_states: bool = True,
-        train_biases: bool = True,
-        calc_intermediate_results: bool = False,
-        return_training_progress: bool = True,
-        return_trained_output: bool = False,
-        fisher_relabelling: bool = False,
-    ) -> Union[Dict, None]:
+        ts_input: Optional[Union[TSEvent, None]] = None,
+        is_first: Optional[bool] = True,
+        is_last: Optional[bool] = False,
+    ):
         """
-        train_rr - Train self with ridge regression over one of possibly
-                   many batches. Use Kahan summation to reduce rounding
-                   errors when adding data to existing matrices from
-                   previous batches.
-        :param ts_target:        TimeSeries - target for current batch
-        :param ts_input:         TimeSeries - input to self for current batch
-        :regularize:             float - regularization for ridge regression
-        :is_first:               bool - True if current batch is the first in training
-        :is_last:                bool - True if current batch is the last in training
-        :store_states:           bool - Include last state from previous training and store state from this
-                                       traning. This has the same effect as if data from both trainings
-                                       were presented at once.
-        :param train_biases:     bool - If True, train biases as if they were weights
-                                        Otherwise present biases will be ignored in
-                                        training and not be changed.
-        :param calc_intermediate_results: bool - If True, calculates the intermediate weights not in the final batch
-        :param return_training_progress:  bool - If True, return dict of current training
-                                                 variables for each batch.
-        :return:
-            If `return_training_progress`, return dict with current trainig variables
-            (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
-            Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
-            If `return_trained_output`, the dict contains the output of evolveing with
-            the newly trained weights.
+        Check and rasterize input and target signals for this batch
+
+        :param TSContinuous ts_target:      Target signal for this batch
+        :param Optional[TSEvent] ts_input:  Input signal for this batch. Default: ``None``, no input for this batch
+        :param Optional[bool] is_first:     If ``True``, this is the first batch in training. Default: ``True``, this is the first batch
+        :param optional[bool] is_last:      If ``True``, this is the last training batch. Default: ``False``, this is not the last batch
+
+        :return (inp, target, time_base)
+            inp np.ndarray:         Rasterized input signal [T, M]
+            target np.ndarray:      Rasterized target signal [T, O]
+            time_base np.ndarray:   Time base for ``inp`` and ``target``
         """
-
-        # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
-        time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
-
-        # - Make sure time_base does not exceed ts_target
-        time_base = time_base[time_base <= ts_target.t_stop]
-
-        # - Prepare target data
-        target = ts_target(time_base)
-
-        # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            target
-        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
-            self.name, np.where(np.isnan(target))
-        )
-
-        # - Check target dimensions
-        if target.ndim == 1 and self.size == 1:
-            target = target.reshape(-1, 1)
-
-        assert (
-            target.shape[-1] == self.size
-        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, target.shape[-1], self.size
+        __, target, time_base = super()._prepare_training_data(
+            ts_target, ts_input, is_first, is_last
         )
 
         # - Prepare input data
-        input_size = self.size_in + int(train_biases)
-        # Empty input array with additional dimension for training biases
-        inp = np.zeros((np.size(time_base), input_size))
-        if train_biases:
-            inp[:, -1] = 1
+        inp = np.zeros((np.size(time_base), self.size_in))
 
         # - Generate spike trains from ts_input
         if ts_input is None:
@@ -376,274 +338,77 @@ class FFExpSyn(Layer):
                 )
             ).astype(float)
 
-            if store_states and not is_first:
+            if self._store_states and not is_first:
                 try:
                     # - Include last state from previous batch
                     spike_raster[0, :] += self._training_state
                 except AttributeError:
                     pass
 
-            # - Define exponential kernel
-            kernel = np.exp(-(np.arange(time_base.size - 1) * self.dt) / self.tau_syn)
-            # - Make sure spikes only have effect on next time step
-            kernel = np.r_[0, kernel]
+            # - Filter input spike trains
+            inp = self._filter_data(spike_raster, num_timesteps=time_base.size)
 
-            # - Apply kernel to spike trains and add filtered trains to input array
-            for channel, events in enumerate(spike_raster.T):
-                inp[:, channel] = fftconvolve(events, kernel, "full")[: time_base.size]
-
-        if store_states:
+        if self._store_states:
             # - Store last state for next batch
-            if train_biases:
-                self._training_state = inp[-1, :-1].copy()
-            else:
-                self._training_state = inp[-1, :].copy()
+            self._training_state = inp[-1, :].copy()
 
-        self._curr_tr_params = dict(
-            return_training_progress=return_training_progress,
-            store_states=store_states,
+        return inp, target, time_base
+
+    def train_rr(
+        self,
+        ts_target: TSContinuous,
+        ts_input: Union[TSEvent, TSContinuous] = None,
+        regularize: float = 0,
+        is_first: bool = True,
+        is_last: bool = False,
+        store_states: bool = True,
+        train_biases: bool = True,
+        calc_intermediate_results: bool = False,
+        return_training_progress: bool = True,
+        return_trained_output: bool = False,
+        fisher_relabelling: bool = False,
+        standardize: bool = False,
+    ) -> Union[Dict, None]:
+        """
+        Train self with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
+
+        :param TSContinuous ts_target:                  Target for current batch
+        :param Union[TSEvent, TSContinuous] ts_input:   Input to self for current batch
+        :param float regularize:                        Regularization parameter for ridge regression
+        :param bool is_first:                           ``True`` if current batch is the first in training
+        :param bool is_last:                            ``True`` if current batch is the last in training
+        :param bool store_states:                       If ``True``, include last state from previous training and store state from this training. This has the same effect as if data from both trainings were presented at once.
+        :param bool train_biases:                       If ``True``, train biases as if they were weights Otherwise present biases will be ignored in training and not be changed.
+        :param bool calc_intermediate_results:          If ``True``, calculates the intermediate weights not in the final batch
+        :param bool return_training_progress:           If ``True``, return dict of current training variables for each batch.
+        :param bool standardize:                        If ``True``, train with z-score standardized data, based on means and standard deviations from first batch
+
+        :return Union[None, dict]:
+            If `return_training_progress`, return dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
+            Weights and biases are returned if `is_last` or if `calc_intermediate_results`.
+            If `return_trained_output`, the dict contains the output of evolving with the newly trained weights.
+        """
+
+        self._store_states = store_states
+        tr_data = super().train_rr(
+            ts_target=ts_target,
+            ts_input=ts_input,
+            regularize=regularize,
+            is_first=is_first,
+            is_last=is_last,
             train_biases=train_biases,
             calc_intermediate_results=calc_intermediate_results,
+            return_training_progress=return_training_progress,
             return_trained_output=return_trained_output,
-            regularize=regularize,
+            fisher_relabelling=fisher_relabelling,
+            standardize=standardize,
         )
 
-        if fisher_relabelling:
-            return self._train_rr_fisher(inp, target, is_first, is_last, time_base)
-        else:
-            return self._train_rr_standard(inp, target, is_first, is_last, time_base)
+        if store_states and return_training_progress:
+            tr_data["training_progress"]["training_state"] = self._training_state
 
-    def _train_rr_standard(self, inp, target, is_first, is_last, time_base):
-        input_size = inp.shape[1]
-
-        # - For first batch, initialize summands
-        if is_first:
-            # Matrices to be updated for each batch
-            self._xty = np.zeros((input_size, self.size))  # inp.T (dot) target
-            self._xtx = np.zeros((input_size, input_size))  # inp.T (dot) inp
-            # Corresponding Kahan compensations
-            self._kahan_comp_xty = np.zeros_like(self._xty)
-            self._kahan_comp_xtx = np.zeros_like(self._xtx)
-
-        if self._curr_tr_params["return_training_progress"]:
-            current_trainig_progress = dict()
-            if self._curr_tr_params["store_states"]:
-                current_trainig_progress["training_state"] = self._training_state
-
-        new_data = self._batch_update(
-            inp=inp,
-            target=target,
-            xty_old=self._xty,
-            xtx_old=self._xtx,
-            kahan_comp_xty_old=self._kahan_comp_xty,
-            kahan_comp_xtx_old=self._kahan_comp_xtx,
-            input_size=input_size,
-            is_last=is_last,
-        )
-
-        if not is_last:
-            self._xty = new_data["xty"]
-            self._xtx = new_data["xtx"]
-            self._kahan_comp_xty = new_data["kahan_comp_xty"]
-            self._kahan_comp_xtx = new_data["kahan_comp_xtx"]
-
-        if is_last or self._curr_tr_params["calc_intermediate_results"]:
-            # - Update layer weights
-            assert new_data["weights"].shape == (self.size_in, self.size)
-            self.weights = new_data["weights"]
-            if self._curr_tr_params["train_biases"]:
-                self.bias = new_data["bias"]
-
-        if is_last:
-            # - Remove data stored during this trainig epoch
-            self._xty = None
-            self._xtx = None
-            self._kahan_comp_xty = None
-            self._kahan_comp_xtx = None
-
-        if (
-            self._curr_tr_params["return_trained_output"]
-            or self._curr_tr_params["return_training_progress"]
-        ):
-            return_data = dict()
-            if self._curr_tr_params["return_trained_output"]:
-                if self._curr_tr_params["train_biases"]:
-                    inp_nobias = inp[:, :-1]
-                else:
-                    inp_nobias = inp
-                output_samples = inp_nobias @ new_data["weights"] + new_data["bias"]
-                return_data["output"] = TSContinuous(time_base, output_samples)
-            if self._curr_tr_params["return_training_progress"]:
-                current_trainig_progress.update(new_data["curr_tr_prog"])
-                return_data["current_trainig_progress"] = current_trainig_progress
-
-        return return_data
-
-    def _train_rr_fisher(self, inp, target, is_first, is_last, time_base):
-        input_size = inp.shape[1]
-        num_timesteps = time_base.size
-
-        # - Relabel target based on number of occurences of corresponding data points
-        bool_tgt = target.astype(bool)
-        nums_true = np.sum(bool_tgt, axis=0)
-        nums_false = num_timesteps - nums_true
-        labels_true = num_timesteps / nums_true
-        labels_false = num_timesteps / nums_false
-        target = target.astype(float)
-        for i_tgt, (tgt_vec_bool, lbl_t, lbl_f) in enumerate(
-            zip(bool_tgt.T, labels_true, labels_false)
-        ):
-            target[tgt_vec_bool, i_tgt] = lbl_t
-            target[tgt_vec_bool == False, i_tgt] = lbl_f
-
-        # - For first batch, initialize summands
-        if is_first:
-            self._xty = {}  # inp.T (dot) target
-            self._xtx = {}  # inp.T (dot) inp
-            self._kahan_comp_xty = {}  # Kahan compensation for xty
-            self._kahan_comp_xtx = {}  # Kahan compensation for xtx
-
-            for i_unit in range(self.size):
-                self._xty[i_unit] = np.zeros((input_size, 1))
-                self._kahan_comp_xty[i_unit] = np.zeros((input_size, 1))
-                self._xtx[i_unit] = np.zeros((input_size, input_size))
-                self._kahan_comp_xtx[i_unit] = np.zeros((input_size, input_size))
-
-        if self._curr_tr_params["return_trained_output"]:
-            output_samples = np.zeros((target.shape[0], target.shape[1]))
-
-        if self._curr_tr_params["return_training_progress"]:
-            current_trainig_progress = dict()
-            if self._curr_tr_params["store_states"]:
-                current_trainig_progress["training_state"] = self._training_state
-
-        for i_unit in range(self.size):
-            inp_unit = inp.copy()
-            inp_unit[bool_tgt[:, i_unit] == False, :] *= -1
-            tgt_unit = target[:, i_unit].reshape(num_timesteps, 1)
-
-            new_data = self._batch_update(
-                inp=inp_unit,
-                target=tgt_unit,
-                xty_old=self._xty[i_unit],
-                xtx_old=self._xtx[i_unit],
-                kahan_comp_xty_old=self._kahan_comp_xty[i_unit],
-                kahan_comp_xtx_old=self._kahan_comp_xtx[i_unit],
-                input_size=input_size,
-                is_last=is_last,
-            )
-            if not is_last:
-                self._xty[i_unit] = new_data["xty"]
-                self._xtx[i_unit] = new_data["xtx"]
-                self._kahan_comp_xty[i_unit] = new_data["kahan_comp_xty"]
-                self._kahan_comp_xtx[i_unit] = new_data["kahan_comp_xtx"]
-
-            if is_last or self._curr_tr_params["calc_intermediate_results"]:
-                # - Update layer weights
-                assert new_data["weights"].shape == (self.size_in, 1)
-                self.weights[:, i_unit] = new_data["weights"].flatten()
-                if self._curr_tr_params["train_biases"]:
-                    self.bias[i_unit] = new_data["bias"]
-
-            if self._curr_tr_params["return_trained_output"]:
-                if self._curr_tr_params["train_biases"]:
-                    inp_nobias = inp[:, :-1]
-                else:
-                    inp_nobias = inp
-                output_unit = inp_nobias @ new_data["weights"] + new_data["bias"]
-                output_samples[:, i_unit] = output_unit.flatten()
-
-            if self._curr_tr_params["return_training_progress"]:
-                current_trainig_progress[i_unit] = new_data["curr_tr_prog"]
-
-        if is_last:
-            # - Remove data stored during this trainig epoch
-            self._xty = None
-            self._xtx = None
-            self._kahan_comp_xty = None
-            self._kahan_comp_xtx = None
-
-        if (
-            self._curr_tr_params["return_trained_output"]
-            or self._curr_tr_params["return_training_progress"]
-        ):
-            return_data = dict()
-            if self._curr_tr_params["return_trained_output"]:
-                return_data["output"] = TSContinuous(time_base, output_samples)
-            if self._curr_tr_params["return_training_progress"]:
-                return_data["current_trainig_progress"] = current_trainig_progress
-
-        return return_data
-
-    def _batch_update(
-        self,
-        inp,
-        target,
-        xty_old,
-        xtx_old,
-        kahan_comp_xty_old,
-        kahan_comp_xtx_old,
-        input_size,
-        is_last,
-    ):
-        # - New data to be added, including compensation from last batch
-        #   (Matrix summation always runs over time)
-        upd_xty = inp.T @ target - kahan_comp_xty_old
-        upd_xtx = inp.T @ inp - kahan_comp_xtx_old
-
-        # - Collect new data in dict
-        new_data = dict()
-        # - Update matrices with new data
-        new_data["xty"] = xty_old + upd_xty
-        new_data["xtx"] = xtx_old + upd_xtx
-
-        if self._curr_tr_params["return_training_progress"]:
-            new_data["curr_tr_prog"] = dict(xty=new_data["xty"], xtx=new_data["xtx"])
-
-        if not is_last:
-            # - Calculate rounding error for compensation in next batch
-            kahan_comp_xty_new = (new_data["xty"] - xty_old) - upd_xty
-            kahan_comp_xtx_new = (new_data["xtx"] - xtx_old) - upd_xtx
-            new_data["kahan_comp_xty"] = kahan_comp_xty_new
-            new_data["kahan_comp_xtx"] = kahan_comp_xtx_new
-
-            if self._curr_tr_params["return_training_progress"]:
-                new_data["curr_tr_prog"]["kahan_comp_xty"] = kahan_comp_xty_new
-                new_data["curr_tr_prog"]["kahan_comp_xtx"] = kahan_comp_xtx_new
-
-            if (
-                self._curr_tr_params["calc_intermediate_results"]
-                or self._curr_tr_params["return_trained_output"]
-            ):
-                regularization = self._curr_tr_params["regularize"]
-                reg_data = new_data["xtx"] + regularization * np.eye(input_size)
-                solution = np.linalg.solve(reg_data, new_data["xty"])
-                if self._curr_tr_params["train_biases"]:
-                    new_data["weights"] = solution[:-1, :]
-                    new_data["bias"] = solution[-1, :]
-                else:
-                    new_data["weights"] = solution
-                if self._curr_tr_params["return_training_progress"]:
-                    new_data["curr_tr_prog"]["weights"] = new_data["weights"]
-                    if self._curr_tr_params["train_biases"]:
-                        new_data["curr_tr_prog"]["bias"] = new_data["bias"]
-
-        else:
-            # - Weight and bias update by ridge regression
-            regularization = self._curr_tr_params["regularize"]
-            reg_data = new_data["xtx"] + regularization * np.eye(input_size)
-            solution = np.linalg.solve(reg_data, new_data["xty"])
-            if self._curr_tr_params["train_biases"]:
-                new_data["weights"] = solution[:-1, :]
-                new_data["bias"] = solution[-1, :]
-            else:
-                new_data["weights"] = solution
-            if self._curr_tr_params["return_training_progress"]:
-                new_data["curr_tr_prog"]["weights"] = new_data["weights"]
-                if self._curr_tr_params["train_biases"]:
-                    new_data["curr_tr_prog"]["bias"] = new_data["bias"]
-
-        return new_data
+        if return_trained_output or return_training_progress:
+            return tr_data
 
     def train_logreg(
         self,
@@ -657,19 +422,16 @@ class FFExpSyn(Layer):
         verbose: bool = False,
     ):
         """
-        train_logreg - Train self with logistic regression over one of possibly many batches.
-                       Note that this training method assumes that a sigmoid funciton is applied
-                       to the layer output, which is not the case in self.evolve.
-        :param ts_target:    TimeSeries - target for current batch
-        :param ts_input:     TimeSeries - input to self for current batch
-        :learning_rate:     flaot - Factor determining scale of weight increments at each step
-        :regularize:       float - regularization parameter
-        :batch_size:        int - Number of samples per batch. If None, train with all samples at once
-        :epochs:           int - How many times is training repeated
-        :store_states:       bool - Include last state from previous training and store state from this
-                                   traning. This has the same effect as if data from both trainings
-                                   were presented at once.
-        :verbose:          bool - Print output about training progress
+        Train self with logistic regression over one of possibly many batches. Note that this training method assumes that a sigmoid function is applied to the layer output, which is not the case in `.evolve`.
+
+        :param TSContinuous ts_target:  Target for current batch
+        :param TSEvent ts_input:        Input to self for current batch
+        :param float learning_rate:     Factor determining scale of weight increments at each step
+        :param float regularize:        Regularization parameter
+        :param int batch_size:          Number of samples per batch. If None, train with all samples at once
+        :param int epochs:              How many times is training repeated
+        :param bool store_states:       Include last state from previous training and store state from this training. This has the same effect as if data from both trainings were presented at once.
+        :param bool verbose:            Print output about training progress
         """
 
         # - Discrete time steps for evaluating input and target time series
@@ -803,14 +565,27 @@ class FFExpSyn(Layer):
             # - Store last state for next batch
             self._training_state = inp[-1, :-1].copy()
 
-    def _gradients(self, inp, target, regularize):
+    def _gradients(
+        self, inp: np.ndarray, target: np.ndarray, regularize: float
+    ) -> np.ndarray:
+        """
+        Compute gradients for this batch
+
+        :param np.ndarray inp:      Input time series for this batch [T, M]
+        :param np.ndarray target:   Target time series for this batch [T, O]
+        :param float regularize:    Regularization parameter for weights. Reduces the L1-norm of the weights (weight sum)
+
+        :return np.ndarray:         Gradients for weights
+        """
         # - Output with current weights
         linear = inp[:, :-1] @ self.weights + self.bias
         output = sigmoid(linear)
+
         # - Gradients for weights
         num_samples = inp.shape[0]
         error = output - target
         gradients = (inp.T @ error) / float(num_samples)
+
         # - Regularization of weights
         if regularize > 0:
             gradients[:-1, :] += regularize / float(self.size_in) * self.weights
@@ -819,8 +594,7 @@ class FFExpSyn(Layer):
 
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of ``self`` to a dict if they are relevant for reconstructing an identical layer
         """
         # - Basic layer attributes from super class
         config = super().to_dict()
@@ -838,10 +612,12 @@ class FFExpSyn(Layer):
 
     @property
     def input_type(self):
+        """ (`.TSEvent`) Time series class accepted by this layer (`.TSEvent`) """
         return TSEvent
 
     @property
     def tau_syn(self):
+        """ (float) Output synaptic time constants for this layer """
         return self._tau_syn
 
     @tau_syn.setter
@@ -853,6 +629,7 @@ class FFExpSyn(Layer):
 
     @property
     def bias(self):
+        """ (np.ndarray) Bias currents for the neurons in this layer [N,]"""
         return self._bias
 
     @bias.setter
@@ -861,6 +638,7 @@ class FFExpSyn(Layer):
 
     @property
     def state(self):
+        """ (np.ndarray) Internal neuron state of the neurons in this layer [N,] """
         return self._state_no_bias + self._bias
 
     @state.setter
@@ -870,8 +648,10 @@ class FFExpSyn(Layer):
 
     @property
     def xtx(self):
+        """ (np.ndarray) $X^{T}X$ intermediate training value """
         return self._xtx
 
     @property
     def xty(self):
+        """ (np.ndarray) $X^{T}Y$ intermediate training value """
         return self._xty

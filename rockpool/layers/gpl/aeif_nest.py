@@ -24,7 +24,7 @@ if importlib.util.find_spec("nest") is None:
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecAEIFSpkInNest(RecIAFSpkInNest):
-    """ RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
+    """ Spiking recurrent layer with spiking in- and outputs, with a NEST backend
     """
 
     class NestProcess(_BaseNestProcessSpkInRec):
@@ -145,8 +145,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         num_cores: int = 1,
     ):
         """
-        RecAEIFSpkInNest - Construct a spiking recurrent layer with AEIF neurons, with a NEST back-end
-                           in- and outputs are spiking events
+        Construct a spiking recurrent layer with AEIF neurons, with a NEST back-end in- and outputs are spiking events
 
         :param weights_in:          np.array MxN input weight matrix.
         :param weights_rec:         np.array NxN recurrent weight matrix.

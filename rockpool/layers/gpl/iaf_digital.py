@@ -20,11 +20,14 @@ from ..layer import Layer
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
+FloatVector = Union[ArrayLike, float]
+
 # - Configure exports
 __all__ = ["RecDIAF"]
 
 # - Absolute tolerance, e.g. for comparing float values
 tol_abs = 1e-10
+
 # - Minimum refractory time
 tMinRefractory = 1e-9
 
@@ -33,7 +36,8 @@ tMinRefractory = 1e-9
 
 
 class RecDIAF(Layer):
-    """ RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
+    """
+    Define a spiking recurrent layer based on quantized digital IAF neurons
     """
 
     ## - Constructor
@@ -41,49 +45,36 @@ class RecDIAF(Layer):
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        dt: float = 1e-4,
-        delay: float = 1e-8,
-        tau_leak: float = 1e-3,
-        refractory: Union[ArrayLike, float] = tMinRefractory,
-        v_thresh: Union[ArrayLike, float] = 100,
-        v_reset: Union[ArrayLike, float] = 0,
-        v_rest: Union[ArrayLike, float, None] = None,
-        leak: Union[ArrayLike, float] = 1,
-        v_subtract: Union[ArrayLike, float, None] = None,
-        state_type: Union[type, str] = "int8",
-        monitor_id: Union[bool, int, None, ArrayLike] = [],
-        name: str = "unnamed",
+        dt: Optional[float] = 0.1e-3,
+        delay: Optional[float] = 1e-8,
+        tau_leak: Optional[float] = 1e-3,
+        refractory: Optional[FloatVector] = tMinRefractory,
+        v_thresh: Optional[FloatVector] = 100.0,
+        v_reset: Optional[FloatVector] = 0.0,
+        v_rest: Optional[Union[FloatVector, None]] = None,
+        leak: Optional[FloatVector] = 1,
+        v_subtract: Optional[Union[FloatVector, None]] = None,
+        state_type: Optional[Union[type, str]] = "int8",
+        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
+        name: Optional[str] = "unnamed",
     ):
         """
-        RecDIAF - Construct a spiking recurrent layer with digital IAF neurons
+        Construct a spiking recurrent layer with digital IAF neurons
 
-        :param weights_in:           np.array nSizeInxN input weight matrix.
-        :param weights_rec:          np.array NxN weight matrix
-
-        :param dt:             float Length of single time step
-
-        :param delay:     float Time after which a spike within the
-                                      layer arrives at the recurrent
-                                      synapses of the receiving neurons
-                                      within the network.
-        :param tau_leak:        float Period for applying leak
-        :param refractory:np.array Nx1 vector of refractory times.
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds.
-        :param v_reset:        np.array Nx1 vector of neuron reset potentials.
-        :param v_rest:         np.array Nx1 vector of neuron resting potentials.
-                                Leak will change sign for neurons with state below this.
-                                If None, leak will not change sign
-        :param leak:         np.array Nx1 vector of leak values.
-
-        :param v_subtract:     np.array If not None, subtract provided values
-                                         from neuron state after spike.
-                                         Otherwise will reset.
-
-        :param state_type:      type data type for the membrane potential
-        :param monitor_id:     array-like  IDs of neurons to be recorded
-
-        :param name:         str Name for the layer. Default: 'unnamed'
+        :param np.array weights_in:                 nSizeInxN input weight matrix.
+        :param np.array weights_rec:                NxN weight matrix
+        :param Optional[float] dt:                  Length of single time step in s. Default: ``0.1 ms``
+        :param Optional[float] delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
+        :param Optional[float] tau_leak:            Period for applying leak in s. Default: ``1 ms``
+        :param Optional[FloatVector] refractory:    Nx1 vector of refractory times. Default: ``1 ns``
+        :param Optional[FloatVector] v_thresh:      Nx1 vector of neuron thresholds. Default: ``100.``
+        :param Optional[FloatVector] v_reset:       Nx1 vector of neuron reset potentials. Default: ``0.``
+        :param Optional[FloatVector] v_rest:        Nx1 vector of neuron resting potentials. Leak will change sign for neurons with state below this. If ``None``, leak will not change sign. Default: ``None``
+        :param Optional[FloatVector] leak:          Nx1 vector of leak values. Default: ``None``, no leak
+        :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset to `.v_reset`.
+        :param Optional state_type:                 Data type for the membrane potential. Default: ``"int8"``
+        :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``
+        :param Optional[str] name:                  Name for the layer. Default: ``'unnamed'``
         """
 
         # - Call super constructor
@@ -123,8 +114,8 @@ class RecDIAF(Layer):
         self.reset_state()
 
     def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
+        """
+        Reset the internal state of the layer
         """
         self.state = np.clip(self.v_reset, self._min_state, self._max_state).astype(
             self.state_type
@@ -134,7 +125,7 @@ class RecDIAF(Layer):
 
     def reset_time(self):
         """
-        reset_time - Reset the internal clock of this layer
+        Reset the internal clock of this layer
         """
 
         # - Adapt spike times in heap
@@ -153,15 +144,14 @@ class RecDIAF(Layer):
         verbose: Optional[bool] = False,
     ) -> TSEvent:
         """
-        evolve - Evolve the state of this layer
+        Evolve the state of this layer
 
-        :param ts_input:         TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param Optional[TSEvent] ts_input:  Input spike trian
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param Optional[bool] verbose:      Currently no effect, just for conformity
 
-        :return: TimeSeries Output of this layer during evolution period
+        :return TSEvent:                    Output spike series
         """
 
         # - Prepare input and infer real duration of evolution
@@ -174,9 +164,11 @@ class RecDIAF(Layer):
         # - Leak timings
         # First leak is at multiple of self.tau_leak
         t_first_leak = np.ceil(self.t / self.tau_leak) * self.tau_leak
+
         # Maximum possible number of leak steps in evolution period
         max_num_leaks = np.ceil((t_final - self.t) / self.tau_leak) + 1
         leak = np.arange(max_num_leaks) * self.tau_leak + t_first_leak
+
         # - Do not apply leak at t=self.t, assume it has already been applied previously
         leak = leak[np.logical_and(leak <= t_final + tol_abs, leak > self.t + tol_abs)]
 
@@ -198,13 +190,9 @@ class RecDIAF(Layer):
         # - Times when neurons are able to spike again
         t_refractory_ends = np.zeros(self.size)
 
-        # print("prepared")
-
-        # import time
-        # t0 = time.time()
-
         t_time = self.t
         i = 0
+
         # - Iterate over spike times. Stop when t_final is exceeded.
 
         # - Copy instance variables to local variables
@@ -261,12 +249,15 @@ class RecDIAF(Layer):
                     state_below_rest = (
                         state[is_not_refractory] < v_rest[is_not_refractory]
                     )
+
                     # Flip sign of leak for corresponding neurons
                     sign = -2 * state_below_rest + 1
+
                     # Make sure leak is 0 when resting potential is reached
                     sign[state[is_not_refractory] == v_rest[is_not_refractory]] = 0
                 else:
                     sign = 1
+
                 # - State updates after incoming spike
                 state[is_not_refractory] = np.clip(
                     state[is_not_refractory]
@@ -289,13 +280,16 @@ class RecDIAF(Layer):
                     state[is_spiking] = np.clip(
                         state[is_spiking] - v_subtract[is_spiking], min_state, max_state
                     ).astype(state_type)
+
                     # - Check if among the neurons that are spiking there are still states above threshold
                     is_still_above_thresh = (state >= v_thresh) & is_spiking
+
                     # - Add the time(s) when they stop being refractory to the heap
                     #   on the last channel, where weights are 0, so that no neuron
                     #   states are updated but neurons that are still above threshold
                     #   can spike immediately after they stop being refractory
                     t_stop_refr = refractory[is_still_above_thresh] + t_time + tol_abs
+
                     # - Could use np.unique to only add each time once, but is very slow
                     # t_stop_refr = np.unique(refractory[is_still_above_thresh]) + t_time + tol_abs
                     for tStopRefr in t_stop_refr:
@@ -315,7 +309,7 @@ class RecDIAF(Layer):
 
                 # - IDs of spiking neurons
                 l_spike_ids = np.where(is_spiking)[0]
-                # print("spiking: ", l_spike_ids)
+
                 # - Append spike events to lists
                 spike_times += [t_time] * np.sum(is_spiking)
                 spike_ids += list(l_spike_ids)
@@ -325,14 +319,10 @@ class RecDIAF(Layer):
                     # - Delay spikes by self.delay. Set IDs off by self.size_in in order
                     #   to distinguish them from spikes coming from the input
                     heapq.heappush(heap_spikes, (t_time + delay, n_id + size_in))
-                # print("heap: ", heapq.nsmallest(5, heap_spikes))
             i += 1
 
         # - Update state variable
         self._state = state
-
-        # print("finished loop")
-        # print(time.time() - t0)
 
         # - Store remaining spikes (happening after t_final) for next call of evolution
         self.heap_remaining_spikes = heap_spikes
@@ -349,7 +339,7 @@ class RecDIAF(Layer):
             states = np.hstack((states, np.reshape(channels, (-1, 1))))
             self.ts_recorded = TSContinuous(times, states)
 
-            # - Output time series
+        # - Output time series
         return TSEvent(
             np.clip(spike_times, t_start, t_stop),
             spike_ids,
@@ -365,17 +355,17 @@ class RecDIAF(Layer):
         num_timesteps: Optional[int] = None,
     ) -> (np.ndarray, np.ndarray, float, float):
         """
-        _prepare_input - Sample input, set up time base
+        Sample input, set up time base
 
-        :param ts_input:      TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        :param Optional[TSEvent] ts_input:  TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:    Duration of the desired evolution, in seconds
+        :param Optional[int] num_timesteps: Number of evolution time steps
 
-        :return:
-            event_times:     ndarray Event times
-            event_channels:  ndarray Event channels
-            num_timesteps:    int Number of evlution time steps
-            t_final:           float End time of evolution
+        :return (event_times, event_channels, num_timesteps, t_final):
+            event_times:        (np.ndarray) Event times
+            event_channels:     (np.ndarray) Event channels
+            num_timesteps:      (int) Number of evlution time steps
+            t_final:            (float) End time of evolution
         """
 
         if num_timesteps is None:
@@ -430,6 +420,9 @@ class RecDIAF(Layer):
         return event_times, event_channels, num_timesteps, t_final
 
     def randomize_state(self):
+        """
+        Set layer states to random values
+        """
         # - Set state to random values between reset value and theshold
         self.state = np.clip(
             (np.amin(self.v_thresh) - np.amin(self.v_reset)) * np.random.rand(self.size)
@@ -440,8 +433,7 @@ class RecDIAF(Layer):
 
     def to_dict(self) -> dict:
         """
-        to_dict - Convert parameters of `self` to a dict if they are relevant for
-                  reconstructing an identical layer.
+        Convert parameters of ``self`` to a dict if they are relevant for reconstructing an identical layer.
         """
         config = super().to_dict()
         config.pop("weights")
@@ -464,14 +456,17 @@ class RecDIAF(Layer):
 
     @property
     def output_type(self):
+        """ (`.TSEvent`) Output time series class for this layer (`.TSEvent`) """
         return TSEvent
 
     @property
     def input_type(self):
+        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent) """
         return TSEvent
 
     @property
     def weights(self):
+        """ (np.ndarray) Recurrent weights for this layer [N, N] """
         return self.weights_rec
 
     @weights.setter
@@ -480,17 +475,18 @@ class RecDIAF(Layer):
 
     @property
     def weights_rec(self):
+        """ (np.ndarray) Recurrent weights for this layer [N, N] """
         return self._weights_total[self.size_in : self._leak_channel, :]
 
     @weights_rec.setter
     def weights_rec(self, new_w):
-
         self._weights_total[
             self.size_in : self._leak_channel, :
         ] = self._expand_to_weight_size(new_w, "weights_rec")
 
     @property
     def weights_in(self):
+        """ (np.ndarray) Input weights for this layer [N_in,] """
         return self._weights_total[: self.size_in, :]
 
     @weights_in.setter
@@ -503,6 +499,7 @@ class RecDIAF(Layer):
 
     @property
     def state(self):
+        """ (np.ndarray) Internal state of this layer [N,] """
         return self._state
 
     @state.setter
@@ -515,6 +512,7 @@ class RecDIAF(Layer):
 
     @property
     def v_thresh(self):
+        """ (np.ndarray) Threshold potential for this layer [N,] """
         return self._v_thresh
 
     @v_thresh.setter
@@ -523,6 +521,7 @@ class RecDIAF(Layer):
 
     @property
     def v_reset(self):
+        """ (np.ndarray) Reset potential for the neurons in this layer [N,] """
         return self._v_reset
 
     @v_reset.setter
@@ -531,6 +530,7 @@ class RecDIAF(Layer):
 
     @property
     def v_rest(self):
+        """ (float) Resting potential for the neurons in this layer [N,] """
         return self._v_rest
 
     @v_rest.setter
@@ -542,6 +542,7 @@ class RecDIAF(Layer):
 
     @property
     def leak(self):
+        """ (np.ndarray) Leak for the neurons in this layer [N,] """
         return -self._weights_total[self._leak_channel, :]
 
     @leak.setter
@@ -552,6 +553,7 @@ class RecDIAF(Layer):
 
     @property
     def v_subtract(self):
+        """ (np.ndarray) Subtractive reset for the neurons in this layer [N,] """
         return self._v_subtract
 
     @v_subtract.setter
@@ -563,11 +565,11 @@ class RecDIAF(Layer):
 
     @property
     def refractory(self):
+        """ (np.ndarray) Refractory period for the neurons in this layer [N,] """
         return self._refractory
 
     @refractory.setter
     def refractory(self, new_refractory):
-
         self._refractory = np.clip(
             self._expand_to_net_size(new_refractory, "refractory"),
             max(0, self._min_refractory),
@@ -583,10 +585,12 @@ class RecDIAF(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
+        """ (float) Time step for this layer """
         raise ValueError("The `dt` property cannot be set for this layer")
 
     @property
     def tau_leak(self):
+        """ (float) Leak period for this layer """
         return self._tau_leak
 
     @tau_leak.setter
@@ -599,6 +603,7 @@ class RecDIAF(Layer):
 
     @property
     def delay(self):
+        """ (float) Spiking delay for this layer"""
         return self._delay
 
     @delay.setter
@@ -611,6 +616,7 @@ class RecDIAF(Layer):
 
     @property
     def state_type(self):
+        """Type of neuron state for this layer (e.g. ``int8``)"""
         return self._state_type
 
     @state_type.setter
@@ -635,6 +641,7 @@ class RecDIAF(Layer):
 
     @property
     def monitor_id(self):
+        """(list) Neurons to monitor during evolution"""
         return self._id_monitor
 
     @monitor_id.setter

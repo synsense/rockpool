@@ -23,8 +23,7 @@ tol_abs = 1e-9
 
 class FFCLIAFCNNTorch(FFCLIAF):
     """
-    FFCLIAFTorch - Feedforward layer of integrate and fire neurons with constant leak
-    Implemented using pytorch for speed and is meant to be used for convolutions
+    *DEPRECATED* Feedforward layer of integrate and fire neurons with constant leak. Implemented using pytorch for speed and is meant to be used for convolutions.
     """
 
     def __init__(
@@ -39,7 +38,7 @@ class FFCLIAFCNNTorch(FFCLIAF):
         name: str = "unnamed",
     ):
         """
-        FFCLIAFTorch - Feedforward layer of integrate and fire neurons with constant leak
+        Feedforward layer of integrate and fire neurons with constant leak, with a PyTorch backend
 
         :param weights:         array-like  Input weight matrix
         :param bias:     array-like  Constant bias to be added to state at each time step
@@ -50,9 +49,9 @@ class FFCLIAFCNNTorch(FFCLIAF):
         :monitor_id:       array-like  IDs of neurons to be recorded
         :param name:     str  Name of this layer.
         """
-        
+
         warn("FFCLIAFCNNTorch: This layer is deprecated.")
-        
+
         # Call parent constructor
         FFCLIAF.__init__(
             self,
