@@ -17,34 +17,24 @@ from ..layer import Layer
 if util.find_spec("nest") is None:
     raise ModuleNotFoundError("No module named 'nest'.")
 
+# - Unit conversion functions
+U2mU = lambda x: x * 1e3
+mU2U = lambda x: x / 1e3
 
-def s2ms(t):
-    return t * 1000.0
+s2ms = U2mU
+ms2s = mU2U
 
+V2mV = U2mU
+mV2V = mU2U
 
-def ms2s(t):
-    return t / 1000.0
+A2mA = U2mU
+mA2A = mU2U
 
+uA2nA = U2mU
+nA2uA = mU2U
 
-def V2mV(v):
-    return v * 1000.0
-
-
-def mV2V(v):
-    return v / 1000.0
-
-
-def A2mA(i):
-    return i * 1000.0
-
-
-def mA2A(i):
-    return i / 1000.0
-
-
-def F2mF(c):
-    return c * 1000.0
-
+F2mF = U2mU
+mF2F = mU2U
 
 COMMAND_GET = 0
 COMMAND_SET = 1
@@ -981,15 +971,15 @@ class FFIAFNest(Layer):
 
     @property
     def weights_(self):
-        """ (np.ndarray) Unit-less weights matrix for this layer """
+        """ (np.ndarray) Feedforward weights matrix for this layer, in nA """
         self.request_q.put([COMMAND_GET, "weights"])
-        weights = mA2A(self.result_q.get())
+        weights = uA2nA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
 
     @weights.setter
     def weights(self, new_weights: np.ndarray):
         Layer.weights.fset(self, new_weights)
-        self.request_q.put([COMMAND_SET, "weights", A2mA(self._weights)])
+        self.request_q.put([COMMAND_SET, "weights", nA2uA(self._weights)])
 
     @property
     def refractory(self):
@@ -1387,9 +1377,9 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def weights_in_(self):
-        """ (np.ndarray) Unit-less input weights for this layer """
+        """ (np.ndarray) Input weights for this layer, in nA """
         self.request_q.put([COMMAND_GET, "weights_in"])
-        weights = mA2A(self.result_q.get())
+        weights = nA2uA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
 
     @weights_in.setter
@@ -1397,7 +1387,7 @@ class RecIAFSpkInNest(FFIAFNest):
         self._weights_in = self._expand_to_shape(
             new_weights, (self.size_in, self.size), "weights_in", allow_none=False
         ).astype(float)
-        self.request_q.put([COMMAND_SET, "weights_in", A2mA(self._weights_in)])
+        self.request_q.put([COMMAND_SET, "weights_in", uA2nA(self._weights_in)])
 
     @property
     def weights_rec(self):
@@ -1406,9 +1396,9 @@ class RecIAFSpkInNest(FFIAFNest):
 
     @property
     def weights_rec_(self):
-        """ (np.ndarray) Unit-less recurrent weights for this layer """
+        """ (np.ndarray) Recurrent weights for this layer, in nA """
         self.request_q.put([COMMAND_GET, "weights_rec"])
-        weights = mA2A(self.result_q.get())
+        weights = nA2uA(self.result_q.get())
         return ImmutableArray(weights, name=self.start_print)
 
     @weights_rec.setter
@@ -1416,7 +1406,7 @@ class RecIAFSpkInNest(FFIAFNest):
         self._weights_rec = self._expand_to_shape(
             new_weights, (self.size, self.size), "weights_rec", allow_none=False
         ).astype(float)
-        self.request_q.put([COMMAND_SET, "weights_rec", A2mA(self._weights_rec)])
+        self.request_q.put([COMMAND_SET, "weights_rec", uA2nA(self._weights_rec)])
 
     @property
     def delay_in(self):
