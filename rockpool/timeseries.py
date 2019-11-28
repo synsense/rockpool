@@ -1006,22 +1006,39 @@ class TSContinuous(TimeSeries):
 
     def append_t(
         self,
-        other_series: "TSContinuous",
+        other_series: Union["TSContinuous", Iterable["TSContinuous"]],
         offset: Optional[float] = None,
         inplace: bool = False,
     ) -> "TSContinuous":
         """
         Append another time series to this one, along the time axis
 
-        :param TSContinuous other_series:   Another time series. Will be tacked on to the end of the called series object. ``other_series`` must have the same number of channels
-        :param Optional[float] offset:      If not None, defines distance between last sample of ``self`` and first sample of ``other_series``. Otherwise the offset will be the median of all timestep sizes of ``self.samples``.
-        :param bool inplace:                Conduct operation in-place (Default: ``False``; create a copy)
+        :param Union["TSContinuous", Iterable["TSContinuous"]] other_series:    Time series to be tacked on to the end of the called series object. This series must have the same number of channels as ``self`` or be empty.
+        :param Optional[float] offset:                                          If not None, defines distance between last sample of one series and first sample of the next. Otherwise the offset will be the median of all timestep sizes of ``self.samples``.
+        :param bool inplace:                                                    Conduct operation in-place (Default: ``False``; create a copy)
 
         :return TSContinuous:               Time series containing data from ``self``, with the other series appended in time
         """
 
+        # - Ensure there is a list of timeseries to work on
+        if isinstance(other_series, TSContinuous):
+            series_list = [other_series]
+        else:
+            try:
+                series_list = list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: `other_series` must be `TSContinuous`"
+                    " or iterable thereof."
+                )
+            # - Check series class
+            if not all(isinstance(series, TSContinuous) for series in series_list):
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: Can only merge with `TSContinuous` objects."
+                )
+
         if offset is None:
-            if len(other_series) > 0 and len(self) > 0:
+            if any(len(series) > 0 for series in series_list) and len(self) > 0:
                 # - If ``self`` is empty then append new elements directly. Otherwise leave an offset
                 #   corresponding to the median distance between time points in `self._times`.
                 offset = np.median(np.diff(self._times))
@@ -1029,12 +1046,17 @@ class TSContinuous(TimeSeries):
                 # - No offset with empty series
                 offset = 0
 
-        # - Time by which ``other_series`` has to be delayed
-        delay = self.t_stop + offset - other_series.t_start
+        # - Time by which other series have to be delayed
+        delay_list = [0]
+        for prev_series, series in zip([self] + series_list[:-1], series_list):
+            delay = prev_series.t_stop + delay_list[-1] + offset - series.t_start
+            delay_list.append(delay)
 
         # - Let ``self.merge()`` do the rest
         return self.merge(
-            other_series.delay(delay), remove_duplicates=False, inplace=inplace
+            [series.delay(delay) for series, delay in zip(series_list, delay_list[1:])],
+            remove_duplicates=False,
+            inplace=inplace,
         )
 
     @classmethod
