@@ -151,7 +151,7 @@ class TimeSeries:
 
     def __init__(
         self,
-        times: ArrayLike,
+        times: ArrayLike = [],
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
@@ -308,20 +308,24 @@ class TimeSeries:
         :param Union[None, float, Iterable]     Offset to be introduced between time traces. First value corresponds to delay of first time series.
         :return TimeSeries:        Time series with data from series in ``series``
         """
-        # - Determine t_start of first series, to avoid wrong delays
+        # - Convert `series` to list, to be able to extract information about objects
         if isinstance(series, cls):
-            t_start = series.t_start
+            series = [series]
         elif isinstance(series, collections.abc.Iterable):
             series = list(series)
-            try:
-                t_start = series[0].t_start
-            except IndexError:  # `series` is empty
-                return cls()
         else:
             cls_name = str(cls).split("'")[1].split(".")[-1]
             raise TypeError(f"{cls_name}: `series` must be of type {cls_name}.")
 
-        new_series = cls(t_start=t_start)
+        # - Determine t_start of first series, to avoid wrong delays.
+        #   Determine class to enable calling the method through `TimeSeries` parent class.
+        try:
+            t_start = series[0].t_start
+            subclass = series[0].__class__
+        except IndexError:  # `series` is empty
+            return cls()
+
+        new_series = subclass(t_start=t_start)
         return new_series.append_t(series, offset=offset, inplace=False)
 
     @property
