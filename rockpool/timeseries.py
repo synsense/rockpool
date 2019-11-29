@@ -453,10 +453,10 @@ class TSContinuous(TimeSeries):
         times: Optional[ArrayLike] = None,
         samples: Optional[ArrayLike] = None,
         num_channels: Optional[int] = None,
-        periodic: Optional[bool] = False,
+        periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        name: Optional[str] = "unnamed",
+        name: str = "unnamed",
         units: Optional[str] = None,
         interp_kind: str = "linear",
     ):
@@ -466,7 +466,7 @@ class TSContinuous(TimeSeries):
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
         :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
-        :param Optional[bool] periodic:     Treat the time series as periodic around the end points. Default: ``False``
+        :param bool periodic:     Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param Optional[str] name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
@@ -1502,28 +1502,28 @@ class TSEvent(TimeSeries):
 
     def __init__(
         self,
-        times: ArrayLike = None,
-        channels: Union[int, ArrayLike] = None,
+        times: Optional[ArrayLike] = None,
+        channels: Optional[Union[int, ArrayLike]] = None,
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        name: str = None,
-        num_channels: int = None,
+        name: Optional[str] = None,
+        num_channels: Optional[int] = None,
     ):
         """
         Represent discrete events in time
 
-        :param ArrayLike[float] times:     ``Tx1`` vector of event times
-        :param ArrayLike[int] channels:     ``Tx1`` vector of event channels (Default: all events are in channel 0)
+        :param Optional[ArrayLike[float]] times:     ``Tx1`` vector of event times
+        :param Optional[ArrayLike[int]] channels:     ``Tx1`` vector of event channels (Default: all events are in channel 0)
 
         :param bool periodic:               Is this a periodic TimeSeries (Default: False; non-periodic)
 
         :param float t_start:               Explicitly specify the start time of this series. If ``None``, then ``times[0]`` is taken to be the start time
         :param float t_stop:                Explicitly specify the stop time of this series. If ``None``, then ``times[-1]`` is taken to be the stop time
 
-        :param str name:                    Name of the time series (Default: None)
+        :param Optional[str] name:                    Name of the time series (Default: None)
 
-        :param int num_channels:            Total number of channels in the data source. If ``None``, max(channels) is taken to be the total channel number
+        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, max(channels) is taken to be the total channel number
         """
 
         # - Default time trace: empty
@@ -2230,16 +2230,17 @@ class TSEvent(TimeSeries):
         self,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        channels: Union[int, ArrayLike, None] = None,
+        channels: Optional[Union[int, ArrayLike]] = None,
         include_stop: bool = False,
     ) -> (np.ndarray, np.ndarray):
         """
         ts(...) - Return events in interval between indicated times
 
-        :param t_start:     Time from which on events are returned
-        :param t_stop:      Time until which events are returned
-        :param channels:  Channels of which events are returned
-        :param include_stop:  If there are events with time t_stop include them or not
+        :param Optional[float] t_start:     Time from which on events are returned
+        :param Optional[float] t_stop:      Time until which events are returned
+        :param Optional[Union[int, ArrayLike]] channels:  Channels of which events are returned
+        :param bool include_stop:  If there are events with time t_stop include them or not. Default: ``False``, do not include events at time ``t_stop``
+
         :return:
             np.ndarray  Times of events
             np.ndarray  Channels of events

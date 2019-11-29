@@ -552,7 +552,7 @@ class Network:
         :param Optional[TimeSeries] ts_input:   External input to the network. Default: `None`, no external input
         :param Optional[float] duration:        Duration over which network should be evolved. If not provided, then `num_timesteps` or the duration of `ts_input` will determine the evolution duration
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` of the duration of `ts_input` will determine evolution duration
-        :param Optional[bool] verbose:         If `True`, display info about evolution state. Default: `True`, display feedback
+        :param bool verbose:         If `True`, display info about evolution state. Default: `True`, display feedback
 
         :return dict:                           Dictionary containing the output time series of each layer. Entries in the dictionary will be have keys taken from the names of each layer
 
@@ -794,7 +794,7 @@ class Network:
         ts_input: TimeSeries,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
         step_callback: Optional[Callable] = None,
     ) -> dict:
         """
@@ -803,7 +803,7 @@ class Network:
         :param TimeSeries ts_input:                 External input to the network
         :param Optional[float] duration:            Total duration to stream for. If not provided, use `num_timesteps` or the duration of `ts_input` to determine duration
         :param Optional[int] num_timesteps:         Number of time steps to stream for, in units of `.dt`. If not provided, using `duration` of the duration of `ts_input` to determine duration
-        :param Optional[bool] verbose:              If `True`, display feedback during streaming. Default: `False`, do not display feedback
+        :param bool verbose:              If `True`, display feedback during streaming. Default: `False`, do not display feedback
         :param Optional[Callable] step_callback:    Callback function that will be called on each time step. Has the signature Callable[[Network]]
 
         :return dict:       Collected output signals from each layer
