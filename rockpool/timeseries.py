@@ -313,7 +313,13 @@ class TimeSeries:
             t_start = series.t_start
         elif isinstance(series, collections.abc.Iterable):
             series = list(series)
-            t_start = series[0].t_start
+            try:
+                t_start = series[0].t_start
+            except IndexError:  # `series` is empty
+                return cls()
+        else:
+            cls_name = str(cls).split("'")[1].split(".")[-1]
+            raise TypeError(f"{cls_name}: `series` must be of type {cls_name}.")
 
         new_series = cls(t_start=t_start)
         return new_series.append_t(series, offset=offset, inplace=False)
