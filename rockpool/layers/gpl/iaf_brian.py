@@ -144,7 +144,7 @@ class FFIAFBrian(Layer):
         v_reset: FloatVector = -65 * mV,
         v_rest: FloatVector = -65 * mV,
         refractory: float = 0 * ms,
-        neuron_eq: Union[brian2.Equations, str] = eqNeuronIAFFF,
+        neuron_eq: Union[b2.Equations, str] = eqNeuronIAFFF,
         integrator_name: str = "rk4",
         name: str = "unnamed",
         record: bool = False,
