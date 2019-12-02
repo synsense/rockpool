@@ -268,8 +268,8 @@ class RecLIFJax(Layer):
         w_recurrent: np.ndarray,
         tau_mem: FloatVector,
         tau_syn: FloatVector,
-        bias: Optional[FloatVector] = -1.0,
-        noise_std: Optional[float] = 0.0,
+        bias: FloatVector = -1.0,
+        noise_std: float = 0.0,
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
@@ -278,10 +278,10 @@ class RecLIFJax(Layer):
         A basic recurrent spiking neuron layer, with a JAX-implemented forward Euler solver.
 
         :param ndarray w_recurrent:                     [N,N] Recurrent weight matrix
-        :param ArrayLike[float] tau_mem:                [N,] Membrane time constants
-        :param ArrayLike[float] tau_syn:                [N,] Output synaptic time constants
-        :param Optional[ArrayLike[float]] bias:         [N,] Bias currents for each neuron (Default: 0)
-        :param Optional[float] noise_std:               Std. dev. of white noise injected independently onto the membrane of each neuron (Default: 0)
+        :param FloatVector tau_mem:                     [N,] Membrane time constants
+        :param FloatVector tau_syn:                     [N,] Output synaptic time constants
+        :param FloatVector bias:                        [N,] Bias currents for each neuron (Default: 0)
+        :param float noise_std:                         Std. dev. of white noise injected independently onto the membrane of each neuron (Default: 0)
         :param Optional[float] dt:                      Forward Euler solver time step. Default: min(tau_mem, tau_syn) / 10
         :param Optional[str] name:                      Name of this layer. Default: `None`
         :param Optional[int] rng_key:                   JAX pRNG key. Default: generate a new key
@@ -338,7 +338,7 @@ class RecLIFJax(Layer):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         Evolve the state of this layer given an input
@@ -346,7 +346,7 @@ class RecLIFJax(Layer):
         :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
         :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[bool]verbose:           Currently no effect, just for conformity
+        :param bool verbose:           Currently no effect, just for conformity
 
         :return TSContinuous:                   Output time series; the synaptic currents of each neuron
         """
@@ -609,7 +609,7 @@ class RecLIFCurrentInJax(RecLIFJax):
         ts_input: Optional[TSContinuous] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         Evolve the state of this layer given an input
@@ -617,7 +617,7 @@ class RecLIFCurrentInJax(RecLIFJax):
         :param Optional[TSContinuous] ts_input: Input time series. Default: `None`, no stimulus is provided
         :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[bool] verbose:          Currently no effect, just for conformity
+        :param bool verbose:          Currently no effect, just for conformity
 
         :return TSEvent:                   Output time series; spiking activity each neuron
         """
@@ -730,12 +730,26 @@ class RecLIFJax_IO(RecLIFJax):
         w_out: np.ndarray,
         tau_mem: FloatVector,
         tau_syn: FloatVector,
-        bias: Optional[FloatVector] = -1.0,
-        noise_std: Optional[float] = 0.0,
-        dt: Optional[float] = None,
+        bias: FloatVector = -1.0,
+        noise_std: float = 0.0,
+        dt: float = 1.,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
     ):
+        """
+        Build a spiking recurrent layer with weighted spiking inputs and weighted surrogate outputs, and a JAX backend.
+
+        :param np.ndarray w_in:         Input weights [M, N]
+        :param np.ndarray w_recurrent:  Recurrent weights [N, N]
+        :param np.ndarray w_out:        Output weights [N, O]
+        :param FloatVector tau_mem:     Membrane time constants [N,]
+        :param FloatVector tau_syn:     Synaptic time constants [N,]
+        :param FloatVector bias:        Neuron biases [N,]
+        :param float noise_std:         Std. dev. of noise injected onto neuron membranes. Default: ``0.``, no noise
+        :param Optional[float] dt:      Time step for simulation, in s. Default: ``1.``
+        :param Optional[str] name:      Name of this layer. Default: ``None``
+        :param Optional[int] rng_key:   JAX pRNG key. Default: Generate a new key
+        """
         # - Convert arguments to arrays
         w_in = np.array(w_in)
         w_out = np.array(w_out)
@@ -759,7 +773,7 @@ class RecLIFJax_IO(RecLIFJax):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
     ) -> TSContinuous:
         """
         Evolve the state of this layer given an input
@@ -767,7 +781,7 @@ class RecLIFJax_IO(RecLIFJax):
         :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
         :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[bool]verbose:           Currently no effect, just for conformity
+        :param bool verbose:           Currently no effect, just for conformity
 
         :return TSContinuous:                   Output time series; the synaptic currents of each neuron
         """
@@ -905,7 +919,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
         ts_input: Optional[TSContinuous] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         Evolve the state of this layer given an input
@@ -913,7 +927,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
         :param Optional[TSContinuous] ts_input: Input time series. Default: `None`, no stimulus is provided
         :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[bool] verbose:          Currently no effect, just for conformity
+        :param bool verbose:          Currently no effect, just for conformity
 
         :return TSEvent:                   Output time series; spiking activity each neuron
         """
