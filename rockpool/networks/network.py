@@ -1046,11 +1046,12 @@ class Network:
         newnet.evol_order = self.evol_order.copy()
         return newnet
 
-    def save(self, filename: str):
+    def to_dict(self) -> Dict:
         """
-        Save this network to a JSON file
+        Generate dict with parameters that can be used to re-generate an identical
+        network.
 
-        :param str filename:    The path to a file in which to save the network and state.
+        :return Dict:   Dict containing parameters of ``self`` and its layers.
         """
         # - List with layers in their evolution order
         list_layers = []
@@ -1062,14 +1063,25 @@ class Network:
                 pass
             lyr_dict["external_input"] = lyr.external_input
             list_layers.append(lyr_dict)
-        savedict = {"layers": list_layers}
+        params = {"layers": list_layers}
         # - Include dt if it has been enforced at instantiation
         if self._force_dt:
-            savedict["dt"] = self.dt
+            params["dt"] = self.dt
         try:
-            savedict["input_layer_name"] = self.input_layer.name
+            params["input_layer_name"] = self.input_layer.name
         except AttributeError:
             pass
+
+        return params
+
+    def save(self, filename: str):
+        """
+        Save this network to a JSON file
+
+        :param str filename:    The path to a file in which to save the network and state.
+        """
+        savedict = self.to_dict()
+
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
