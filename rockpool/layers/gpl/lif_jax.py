@@ -732,7 +732,7 @@ class RecLIFJax_IO(RecLIFJax):
         tau_syn: FloatVector,
         bias: FloatVector = -1.0,
         noise_std: float = 0.0,
-        dt: float = 1.,
+        dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
     ):
@@ -746,7 +746,7 @@ class RecLIFJax_IO(RecLIFJax):
         :param FloatVector tau_syn:     Synaptic time constants [N,]
         :param FloatVector bias:        Neuron biases [N,]
         :param float noise_std:         Std. dev. of noise injected onto neuron membranes. Default: ``0.``, no noise
-        :param Optional[float] dt:      Time step for simulation, in s. Default: ``1.``
+        :param Optional[float] dt:      Time step for simulation, in s. Default: ``None``, will be determined automatically from ``tau_...``
         :param Optional[str] name:      Name of this layer. Default: ``None``
         :param Optional[int] rng_key:   JAX pRNG key. Default: Generate a new key
         """
