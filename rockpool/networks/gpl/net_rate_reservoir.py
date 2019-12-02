@@ -5,7 +5,7 @@
 from ..network import Network
 from ...layers import FFRateEuler, RecRateEuler, PassThrough
 
-from typing import Union, List
+from typing import Union, List, Optional
 import numpy as np
 
 ArrayLike = Union[List, np.ndarray, float, int]
@@ -15,30 +15,33 @@ def build_rate_reservoir(
     weights_in: ArrayLike,
     weights_res: ArrayLike,
     weights_out: ArrayLike,
-    tau_in: ArrayLike = 1.0,
-    tau_res: ArrayLike = 1.0,
-    bias_in: ArrayLike = 0.0,
-    bias_res: ArrayLike = 0.0,
-    dt: float = 1.0 / 10.0,
-    noise_std_in: float = 0.0,
-    noise_std_res: float = 0.0,
-    noise_std_out: float = 0.0,
+    tau_in: Optional[ArrayLike] = 1.0,
+    tau_res: Optional[ArrayLike] = 1.0,
+    bias_in: Optional[ArrayLike] = 0.0,
+    bias_res: Optional[ArrayLike] = 0.0,
+    dt: Optional[float] = 1.0 / 10.0,
+    noise_std_in: Optional[float] = 0.0,
+    noise_std_res: Optional[float] = 0.0,
+    noise_std_out: Optional[float] = 0.0,
 ):
     """
-    build_rate_reservoir - Build a rate-based reservoir network, with the defined weights
+    Build a rate-based reservoir network, with the defined weights.
 
-    :param weights_in:
-    :param weights_res:
-    :param weights_out:
-    :param tau_in:
-    :param tau_res:
-    :param bias_in:
-    :param bias_res:
-    :param dt:
-    :param noise_std_in:
-    :param noise_std_res:
-    :param noise_std_out:
-    :return:                Network - A reservoir network
+    This function will return a reservoir built with `.FFRateEuler` and `.RecRateEuler` layers, encapsulating a rate-based recurrent reservoir network, with current-based inputs and outputs.
+
+    :param ArrayLike weights_in:            Input weights [M, N]
+    :param ArrayLike weights_res:           Recurrent weights [N, N]
+    :param ArrayLike weights_out:           Output weights [N, O]
+    :param Optional[ArrayLike] tau_in:      Time constants for input layer neurons [M,]. Default: ``1.``
+    :param Optional[ArrayLike] tau_res:     Time constants for recurrent layer neurons [N,]. Default: ``1.``
+    :param Optional[ArrayLike] bias_in:     Bias values to use in input layer [M,]. Default: ``0.``
+    :param Optional[ArrayLike] bias_res:    Bias values to use in recurrent layer [N,]. Default: ``0.``
+    :param Optional[float] dt:              Time step for all layers, in s. Default: ``0.1``
+    :param Optional[float] noise_std_in:    Noise std. dev. to use in input layer. Default: ``0.``
+    :param Optional[float] noise_std_res:   Noise std. dev. to use in recurrent layer. Default: ``0.``
+    :param Optional[float] noise_std_out:   Noise std. dev. to use in output layer. Default: ``0.``
+
+    :return Network:                        A reservoir network with the defined parameters
     """
 
     # - Build the input layer
@@ -71,45 +74,48 @@ def build_rate_reservoir(
 
 
 def build_random_reservoir(
-    input_size: int = 1,
-    reservoir_size: int = 100,
-    output_size: int = 1,
-    weights_in_std: float = 1.0,
-    weights_res_std: float = 1.0,
-    weights_out_std: float = 1.0,
-    weights_in_mean: float = 0.0,
-    weights_res_mean: float = 0.0,
-    weights_out_mean: float = 0.0,
-    tau_in: ArrayLike = 1.0,
-    tau_res: ArrayLike = 1.0,
-    bias_in: ArrayLike = 0.0,
-    bias_res: ArrayLike = 0.0,
-    dt: float = 1.0 / 10.0,
-    noise_std_in: float = None,
-    noise_std_res: float = None,
-    noise_std_out: float = None,
+    input_size: Optional[int] = 1,
+    reservoir_size: Optional[int] = 100,
+    output_size: Optional[int] = 1,
+    weights_in_std: Optional[float] = 1.0,
+    weights_res_std: Optional[float] = 1.0,
+    weights_out_std: Optional[float] = 1.0,
+    weights_in_mean: Optional[float] = 0.0,
+    weights_res_mean: Optional[float] = 0.0,
+    weights_out_mean: Optional[float] = 0.0,
+    tau_in: Optional[ArrayLike] = 1.0,
+    tau_res: Optional[ArrayLike] = 1.0,
+    bias_in: Optional[ArrayLike] = 0.0,
+    bias_res: Optional[ArrayLike] = 0.0,
+    dt: Optional[float] = 1.0 / 10.0,
+    noise_std_in: Optional[float] = None,
+    noise_std_res: Optional[float] = None,
+    noise_std_out: Optional[float] = None,
 ):
     """
-    build_random_reservoir - Build a randomly-generated reservoir network
+    Build a randomly-generated reservoir network
 
-    :param input_size:
-    :param reservoir_size:
-    :param output_size:
-    :param weights_in_std:
-    :param weights_res_std:
-    :param weights_out_std:
-    :param weights_in_mean:
-    :param weights_res_mean:
-    :param weights_out_mean:
-    :param tau_in:
-    :param tau_res:
-    :param bias_in:
-    :param bias_res:
-    :param dt:
-    :param noise_std_in:
-    :param noise_std_res:
-    :param noise_std_out:
-    :return:
+    This function will return a reservoir built with `.FFRateEuler` and `.RecRateEuler` layers, encapsulating a rate-based recurrent reservoir network, with current-based inputs and outputs. The input, recurrent and output weights will be set randomly, according to the defined parameters.
+
+    :param Optional[int] input_size:            Input size (M). Default: ``1``
+    :param Optional[int] reservoir_size:        Recurrent size (N). Default: ``100``
+    :param Optional[int] output_size:           Output size (O). Default: ``1``
+    :param Optional[float] weights_in_std:      Std. dev. of input weights. Default: ``1.``
+    :param Optional[float] weights_res_std:     Std. dev. of recurrent weights. Default: ``1.``
+    :param Optional[float] weights_out_std:     Std. dev. of output weights. Default: ``1.``
+    :param Optional[float] weights_in_mean:     Mean input weight. Default: ``0.``
+    :param Optional[float] weights_res_mean:    Mean recurrent weight. Default: ``0.``
+    :param Optional[float] weights_out_mean:    Mean output weight. Default: ``0.``
+    :param Optional[ArrayLike] tau_in:          Input layer neuron time constants [M,]. Default: ``1.``
+    :param Optional[ArrayLike] tau_res:         Recurrent layer neuron time constants [N,]. Default: ``1.``
+    :param Optional[ArrayLike] bias_in:         Input layer neuron bias currents [M,]. Default: ``0.``
+    :param Optional[ArrayLike] bias_res:        Recurrent layer neuron bias currents [N,]. Default: ``0.``
+    :param Optional[float] dt:                  Time step for all layers. Default: ``0.1``
+    :param Optional[float] noise_std_in:        Noise injected into input layer. Default: ``None``
+    :param Optional[float] noise_std_res:       Noise injected into recurrent layer. Default: ``None``
+    :param Optional[float] noise_std_out:       Noise injected into output layer. Default: ``None``
+
+    :return Network:                            A randomly-generated firing-rate reservoir network
     """
 
     # - Generate weights

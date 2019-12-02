@@ -11,6 +11,8 @@ __all__ = ["PassThroughEvents"]
 
 
 class PassThroughEvents(Layer):
+    """ Pass through events by routing to different channels """
+
     def __init__(
         self,
         weights: np.ndarray,
@@ -19,7 +21,7 @@ class PassThroughEvents(Layer):
         name: str = "unnamed",
     ):
         """
-        PassThroughEvents class - route events to different channels
+        Pass through events by routing to different channels
 
         :param weights:         np.ndarray Positive integer weight matrix for this layer
         :param dt:         float Time step duration. Only used for determining evolution period and internal clock.
@@ -46,7 +48,7 @@ class PassThroughEvents(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Function to evolve the states of this layer given an input
 
         :param tsSpkInput:      TSEvent  Input spike trian
         :param duration:       float    Simulation/Evolution time

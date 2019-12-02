@@ -31,7 +31,7 @@ CONNECTION_ALIASING = 4
 
 class VirtualDynapse(Layer):
     """
-    A :py:class:`Layer` subclass that simulates a DynapSE processor
+    A :py:class:`.Layer` subclass that simulates a DynapSE processor
 
     The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
     """
@@ -617,7 +617,10 @@ class VirtualDynapse(Layer):
         return count_excit_conns + count_inhib_conns
 
     def get_weights(
-        self, ids_pre: np.ndarray, ids_post: np.ndarray, external: Optional[bool] = False
+        self,
+        ids_pre: np.ndarray,
+        ids_post: np.ndarray,
+        external: Optional[bool] = False,
     ) -> np.ndarray:
         """
         Return a weight matrix connecting specific pre- and post-synaptic neurons
