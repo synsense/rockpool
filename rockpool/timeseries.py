@@ -296,7 +296,7 @@ class TimeSeries:
         return self._times.size
 
     @classmethod
-    def concatenate(
+    def concatenate_t(
         cls: Type[TS],
         series: Iterable[TS],
         offset: Union[None, float, Iterable[Union[float, None]]] = None,
