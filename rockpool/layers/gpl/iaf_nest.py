@@ -191,6 +191,8 @@ class _BaseNestProcess(multiprocessing.Process):
     def read_weights(self, pop_pre: Tuple[int], pop_post: Tuple[int]):
         # - Read out connections and convert to array
         connections = self.nest_module.GetConnections(pop_pre, pop_post)
+        if not connections:
+            return np.zeros((len(pop_pre), len(pop_post)))
         ids_pre, ids_post = np.array(connections)[:, :2].T
         # - Map population IDs to indices starting from 0
         ids_pre -= pop_pre[0]
@@ -732,33 +734,33 @@ class FFIAFNest(Layer):
     def __init__(
         self,
         weights: np.ndarray,
-        bias: Optional[FloatVector] = 0.0,
-        dt: Optional[float] = 0.1e-3,
-        tau_mem: Optional[FloatVector] = 20e-3,
-        capacity: Optional[Union[FloatVector, None]] = None,
-        v_thresh: Optional[FloatVector] = -55e-3,
-        v_reset: Optional[FloatVector] = -65e-3,
-        v_rest: Optional[FloatVector] = -65e-3,
-        refractory: Optional[FloatVector] = 1e-3,
-        name: Optional[str] = "unnamed",
-        record: Optional[bool] = False,
-        num_cores: Optional[int] = 1,
+        bias: FloatVector = 0.0,
+        dt: float = 0.1e-3,
+        tau_mem: FloatVector = 20e-3,
+        capacity: Optional[FloatVector] = None,
+        v_thresh: FloatVector = -55e-3,
+        v_reset: FloatVector = -65e-3,
+        v_rest: FloatVector = -65e-3,
+        refractory: FloatVector = 1e-3,
+        name: str = "unnamed",
+        record: bool = False,
+        num_cores: int = 1,
     ):
         """
         Construct a spiking feedforward layer with IAF neurons, with a NEST back-end. Inputs are continuous currents; outputs are spiking events
 
         :param np.ndarray weights:                  MxN FFwd weight matrix in nA
-        :param Optional[FloatVector] bias:          Nx1 bias current vector in nA. Default: ``0.0``
-        :param Optional[float] dt:                  Time-step in seconds. Default: ``0.1 ms``
-        :param Optional[FloatVector] tau_mem:       Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
+        :param FloatVector bias:          Nx1 bias current vector in nA. Default: ``0.0``
+        :param float dt:                  Time-step in seconds. Default: ``0.1 ms``
+        :param FloatVector tau_mem:       Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
         :param Optional[FloatVector] capacity:      Nx1 vector of neuron membrance capacity in nF. Will be set to tau_mem (* 1 nS) if ``None``. Default: ``None``.
-        :param Optional[FloatVector] v_thresh:      Nx1 vector of neuron thresholds in Volt. Default: ``-55 mV``
-        :param Optional[FloatVector] v_reset:       Nx1 vector of neuron reset potential in Volt. Default: ``-65 mV``
-        :param Optional[FloatVector] v_rest:        Nx1 vector of neuron resting potential in Volt. Default: ``-65 mV``
-        :param Optional[FloatVector] refractory:    Refractory period after each spike in seconds. Default: ``1 ms``
-        :param Optional[str] name:                  Name for the layer. Default: ``'unnamed'``
-        :param Optional[bool] record:               Record membrane potential during evolutions
-        :param Optional[int] num_cores:             Number of CPU cores to use in simulation. Default: ``1``
+        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds in Volt. Default: ``-55 mV``
+        :param FloatVector v_reset:       Nx1 vector of neuron reset potential in Volt. Default: ``-65 mV``
+        :param FloatVector v_rest:        Nx1 vector of neuron resting potential in Volt. Default: ``-65 mV``
+        :param FloatVector refractory:    Refractory period after each spike in seconds. Default: ``1 ms``
+        :param str name:                  Name for the layer. Default: ``'unnamed'``
+        :param bool record:               Record membrane potential during evolutions
+        :param int num_cores:             Number of CPU cores to use in simulation. Default: ``1``
         """
 
         # - Call super constructor
@@ -801,7 +803,7 @@ class FFIAFNest(Layer):
         Set up and start a nest process
         """
 
-        self.nest_process = self.NestProcess(
+        self._nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             self._weights,
@@ -816,7 +818,7 @@ class FFIAFNest(Layer):
             self._record,
             self._num_cores,
         )
-        self.nest_process.start()
+        self._nest_process.start()
 
     def reset_state(self):
         """
@@ -902,7 +904,7 @@ class FFIAFNest(Layer):
         :param Optional[TSContinuous] ts_input: Input spike trian
         :param Optional[float] duration:        Simulation/Evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps
-        :param Optional[bool] verbose:          Currently no effect, just for conformity
+        :param bool verbose:          Currently no effect, just for conformity
 
         :return TSEvent:                        Output spike series
 
@@ -930,8 +932,8 @@ class FFIAFNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        self._nest_process.terminate()
+        self._nest_process.join()
 
     def to_dict(self) -> dict:
         """
@@ -1189,42 +1191,42 @@ class RecIAFSpkInNest(FFIAFNest):
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        delay_in: Optional[FloatVector] = 0.1e-3,
-        delay_rec: Optional[FloatVector] = 0.1e-3,
-        bias: Optional[FloatVector] = 0.0,
-        dt: Optional[float] = 0.1e-3,
-        tau_mem: Optional[FloatVector] = 20e-3,
-        tau_syn: Optional[Union[np.ndarray, float, None]] = 50e-3,
-        tau_syn_exc: Optional[Union[FloatVector, None]] = None,
-        tau_syn_inh: Optional[Union[FloatVector, None]] = None,
-        v_thresh: Optional[FloatVector] = -55e-3,
-        v_reset: Optional[FloatVector] = -65e-3,
-        v_rest: Optional[FloatVector] = -65e-3,
-        capacity: Optional[Union[FloatVector, None]] = None,
-        refractory: Optional[FloatVector] = 1e-3,
-        name: Optional[str] = "unnamed",
-        record: Optional[bool] = False,
-        num_cores: Optional[int] = 1,
+        delay_in: FloatVector = 0.1e-3,
+        delay_rec: FloatVector = 0.1e-3,
+        bias: FloatVector = 0.0,
+        dt: float = 0.1e-3,
+        tau_mem: FloatVector = 20e-3,
+        tau_syn: Optional[Union[np.ndarray, float]] = 50e-3,
+        tau_syn_exc: Optional[FloatVector] = None,
+        tau_syn_inh: Optional[FloatVector] = None,
+        v_thresh: FloatVector = -55e-3,
+        v_reset: FloatVector = -65e-3,
+        v_rest: FloatVector = -65e-3,
+        capacity: Optional[FloatVector] = None,
+        refractory: FloatVector = 1e-3,
+        name: str = "unnamed",
+        record: bool = False,
+        num_cores: int = 1,
     ):
         """
         RecIAFSpkInNest - Construct a spiking recurrent layer with IAF neurons, with a NEST back-end. Spiking input and output
 
         :param FloatVector weights_in:              MxN input weight matrix in nA
         :param FloatVector weights_rec:             NxN recurrent weight matrix in nA
-        :param Optional[FloatVector] delay_in:      Input delay in s. Default: ``0.1 ms``
-        :param Optional[FloatVector] bias:          Nx1 bias current vector in nA. Default 0.
-        :param Optional[float] dt:                  Time-step in seconds. Default: ``0.1 ms``
-        :param Optional[FloatVector] tau_mem:       Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
-        :param Optional[FloatVector] tau_syn:       Nx1 vector of synapse time constants in seconds. Used instead of `tau_syn_exc` or `tau_syn_inh` if they are ``None``. Default: ``50 ms``
+        :param FloatVector delay_in:      Input delay in s. Default: ``0.1 ms``
+        :param FloatVector bias:          Nx1 bias current vector in nA. Default 0.
+        :param float dt:                  Time-step in seconds. Default: ``0.1 ms``
+        :param FloatVector tau_mem:       Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
+        :param FloatVector tau_syn:       Nx1 vector of synapse time constants in seconds. Used instead of `tau_syn_exc` or `tau_syn_inh` if they are ``None``. Default: ``50 ms``
         :param Optional[FloatVector] tau_syn_exc:   Nx1 vector of excitatory synapse time constants in seconds. If ``None``, use ``tau_syn``. Default: ``None``
         :param Optional[FloatVector] tau_syn_inh:   Nx1 vector of inhibitory synapse time constants in seconds. If ``None``, use ``tau_syn``. Default: ``None``
-        :param Optional[FloatVector] v_thresh:      Nx1 vector of neuron thresholds in Volt. Default: -55 mV
-        :param Optional[FloatVector] v_reset:       Nx1 vector of neuron reset potential in Volt. Default: -65 mV
-        :param Optional[FloatVector] v_rest:        Nx1 vector of neuron resting potential in Volt. Default: -65 mV
+        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds in Volt. Default: -55 mV
+        :param FloatVector v_reset:       Nx1 vector of neuron reset potential in Volt. Default: -65 mV
+        :param FloatVector v_rest:        Nx1 vector of neuron resting potential in Volt. Default: -65 mV
         :param Optional[FloatVector] capacity:      Nx1 vector of neuron membrance capacity in nF. Will be set to ``tau_mem`` (* 1 nS) if ``None``. Default: ``None``.
-        :param Optional[float] refractory:          Refractory period after each spike in seconds. Default: ``1 ms``
-        :param Optional[str] name:                  Name for the layer. Default: ``'unnamed'``
-        :param Optional[bool] record:               Record membrane potential during evolutions
+        :param float refractory:          Refractory period after each spike in seconds. Default: ``1 ms``
+        :param str name:                  Name for the layer. Default: ``'unnamed'``
+        :param bool record:               Record membrane potential during evolutions
         """
 
         # - Determine layer size and name to run `_expand_to_net_size` method and store input weights
@@ -1275,7 +1277,7 @@ class RecIAFSpkInNest(FFIAFNest):
         Set up and start a nest process for this layer
         """
 
-        self.nest_process = self.NestProcess(
+        self._nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             weights_in=self._weights_in,
@@ -1295,7 +1297,7 @@ class RecIAFSpkInNest(FFIAFNest):
             record=self._record,
             num_cores=self._num_cores,
         )
-        self.nest_process.start()
+        self._nest_process.start()
 
     # --- State evolution
 
@@ -1312,7 +1314,7 @@ class RecIAFSpkInNest(FFIAFNest):
         :param Optional[TSEvent]ts_input:   Input spike trian
         :param Optional[float] duration:    Simulation/Evolution time
         :param Optional[int] num_timesteps: Number of evolution time steps
-        :param Optional[bool] verbose:      Currently no effect, just for conformity
+        :param bool verbose:      Currently no effect, just for conformity
         :return TSEvent:                    Output spike series
 
         """

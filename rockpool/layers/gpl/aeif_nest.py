@@ -282,7 +282,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         self.request_q = multiprocessing.Queue()
         self.result_q = multiprocessing.Queue()
 
-        self.nest_process = self.NestProcess(
+        self._nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             weights_in=self._weights_in,
@@ -307,7 +307,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
             delta_t=self._delta_t,
             tau_w=self._tau_adapt,
         )
-        self.nest_process.start()
+        self._nest_process.start()
 
     def to_dict(self) -> dict:
         """

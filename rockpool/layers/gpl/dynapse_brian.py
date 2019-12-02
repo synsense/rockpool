@@ -221,9 +221,9 @@ class RecDynapseBrian(Layer):
         """
         Function to evolve the states of this layer given an input
 
-        :param TSContinuous ts_input:      Input time series
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
+        :param Optional[TSContinuous] ts_input:      Input time series
+        :param Optional[float]duration:           Simulation/Evolution time
+        :param Optional[int] num_timesteps:          Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
 
         :return TSEvent:            Output spike series

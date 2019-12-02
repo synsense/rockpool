@@ -32,9 +32,9 @@ class Layer(ABC):
     def __init__(
         self,
         weights: np.ndarray,
-        dt: Optional[float] = 1,
-        noise_std: Optional[float] = 0,
-        name: Optional[str] = "unnamed",
+        dt: float = 1.,
+        noise_std: float = 0.,
+        name: str = "unnamed",
     ):
         """
         Implement an abstract layer of neurons (no implementation, must be subclasses)
