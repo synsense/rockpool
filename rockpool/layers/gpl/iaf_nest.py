@@ -803,7 +803,7 @@ class FFIAFNest(Layer):
         Set up and start a nest process
         """
 
-        self.nest_process = self.NestProcess(
+        self._nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             self._weights,
@@ -818,7 +818,7 @@ class FFIAFNest(Layer):
             self._record,
             self._num_cores,
         )
-        self.nest_process.start()
+        self._nest_process.start()
 
     def reset_state(self):
         """
@@ -932,8 +932,8 @@ class FFIAFNest(Layer):
         self.result_q.close()
         self.request_q.cancel_join_thread()
         self.result_q.cancel_join_thread()
-        self.nest_process.terminate()
-        self.nest_process.join()
+        self._nest_process.terminate()
+        self._nest_process.join()
 
     def to_dict(self) -> dict:
         """
@@ -1277,7 +1277,7 @@ class RecIAFSpkInNest(FFIAFNest):
         Set up and start a nest process for this layer
         """
 
-        self.nest_process = self.NestProcess(
+        self._nest_process = self.NestProcess(
             self.request_q,
             self.result_q,
             weights_in=self._weights_in,
@@ -1297,7 +1297,7 @@ class RecIAFSpkInNest(FFIAFNest):
             record=self._record,
             num_cores=self._num_cores,
         )
-        self.nest_process.start()
+        self._nest_process.start()
 
     # --- State evolution
 
