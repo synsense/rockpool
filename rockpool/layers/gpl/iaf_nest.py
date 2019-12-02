@@ -191,6 +191,8 @@ class _BaseNestProcess(multiprocessing.Process):
     def read_weights(self, pop_pre: Tuple[int], pop_post: Tuple[int]):
         # - Read out connections and convert to array
         connections = self.nest_module.GetConnections(pop_pre, pop_post)
+        if not connections:
+            return np.zeros((len(pop_pre), len(pop_post)))
         ids_pre, ids_post = np.array(connections)[:, :2].T
         # - Map population IDs to indices starting from 0
         ids_pre -= pop_pre[0]
