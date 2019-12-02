@@ -63,17 +63,17 @@ def train_adam(
     ts_input: Union[TSContinuous, np.ndarray],
     ts_target: Union[TSContinuous, np.ndarray],
     min_tau: Optional[float] = None,
-    is_first: Optional[bool] = False,
-    is_last: Optional[bool] = False,
+    is_first: bool = False,
+    is_last: bool = False,
 ) -> Tuple[Callable[[], float], Callable[[], float]]:
     """
     Perform one trial of Adam stochastic gradient descent to train the reservoir
 
-    :param ts_input:    TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
-    :param ts_target:   TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
-    :param min_tau:     Optional[float]: Minimum time constant to permit
-    :param is_first:    Optional[bool]: Flag to indicate this is the first trial. Resets learning and causes initialisation.
-    :param is_last:     Optional[bool]: Flag to indicate this is the last trial. Performs clean-up (not essential)
+    :param TimeSeries ts_input:    TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
+    :param TimeSeries ts_target:    TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
+    :param Optional[float] min_tau:    Minimum time constant to permit
+    :param bool is_first:    Flag to indicate this is the first trial. Resets learning and causes initialisation.
+    :param bool is_last:     Flag to indicate this is the last trial. Performs clean-up (not essential)
 
     Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
     be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated

@@ -37,31 +37,31 @@ class RRTrainedLayer(Layer, ABC):
     def train_rr(
         self,
         ts_target: TSContinuous,
-        ts_input: Optional[Union[TSEvent, TSContinuous, None]] = None,
-        regularize: Optional[float] = 0,
-        is_first: Optional[bool] = True,
-        is_last: Optional[bool] = False,
-        train_biases: Optional[bool] = True,
-        calc_intermediate_results: Optional[bool] = False,
-        return_training_progress: Optional[bool] = True,
-        return_trained_output: Optional[bool] = False,
-        fisher_relabelling: Optional[bool] = False,
-        standardize: Optional[bool] = False,
+        ts_input: Optional[Union[TSEvent, TSContinuous]] = None,
+        regularize: float = 0,
+        is_first: bool = True,
+        is_last: bool = False,
+        train_biases: bool = True,
+        calc_intermediate_results: bool = False,
+        return_training_progress: bool = True,
+        return_trained_output: bool = False,
+        fisher_relabelling: bool = False,
+        standardize: bool = False,
     ) -> Union[Dict, None]:
         """
         Train this layer with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
 
         :param TSContinuous ts_target:                      Target signal for current batch
         :param Optional[TimeSeries] ts_input:               Input to layer for current batch. Default: ``None``, no input for this batch
-        :param Optional[float] regularize:                  Regularization parameter for ridge regression. Default: ``0``, no regularization
-        :param Optional[bool] is_first:                     Set to ``True`` if current batch is the first in training. Default: ``True``, initialise training with this batch as the first batch
-        :param Optional[bool] is_last:                      Set to ``True`` if current batch is the last in training. This has the same effect as if data from both trainings were presented at once.
-        :param Optional[bool] train_biases:                 If ``True``, train biases as if they were weights. Otherwise present biases will be ignored in training and not be changed. Default: ``True``, train biases as well as weights
-        :param Optional[bool] calc_intermediate_results:    If ``True``, calculates the intermediate weights not in the final batch. Default: ``False``, do not compute intermediate weights
-        :param Optional[bool] return_training_progress:     If ``True``, return dict of current training variables for each batch. Default: ``True``, return training progress
-        :param Optional[bool] return_trained_output:        If ``True``, return the result of evolving the layer with the trained weights in the output dict. Default: ``False``, do not return the trained output
-        :param Optional[bool] fisher_relabelling:           If ``True``, relabel target data such that the training algorithm is equivalent to Fisher discriminant analysis. Default: ``False``, use standard ridge / linear regression
-        :param Optional[bool] standardize:                  Train with z-score standardized data, based on means and standard deviations from first batch. Default: ``False``, do not standardize data
+        :param float regularize:                  Regularization parameter for ridge regression. Default: ``0``, no regularization
+        :param bool is_first:                     Set to ``True`` if current batch is the first in training. Default: ``True``, initialise training with this batch as the first batch
+        :param bool is_last:                      Set to ``True`` if current batch is the last in training. This has the same effect as if data from both trainings were presented at once.
+        :param bool train_biases:                 If ``True``, train biases as if they were weights. Otherwise present biases will be ignored in training and not be changed. Default: ``True``, train biases as well as weights
+        :param bool calc_intermediate_results:    If ``True``, calculates the intermediate weights not in the final batch. Default: ``False``, do not compute intermediate weights
+        :param bool return_training_progress:     If ``True``, return dict of current training variables for each batch. Default: ``True``, return training progress
+        :param bool return_trained_output:        If ``True``, return the result of evolving the layer with the trained weights in the output dict. Default: ``False``, do not return the trained output
+        :param bool fisher_relabelling:           If ``True``, relabel target data such that the training algorithm is equivalent to Fisher discriminant analysis. Default: ``False``, use standard ridge / linear regression
+        :param bool standardize:                  Train with z-score standardized data, based on means and standard deviations from first batch. Default: ``False``, do not standardize data
 
         :return:
             If ``return_training_progress`` is ``True``, return a dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
