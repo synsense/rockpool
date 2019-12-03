@@ -171,6 +171,9 @@ def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarra
     return evolve_Euler_complete
 
 
+### --- FFRateLayer base class
+
+
 class FFRateLayer(RRTrainedLayer):
     """ Base class for feed-forward layers of rate based neurons """
 
@@ -328,7 +331,7 @@ class FFRateLayer(RRTrainedLayer):
         self._bias = self._correct_param_shape(new_bias)
 
 
-### --- PassThrough Class
+### --- PassThrough class
 
 
 class PassThrough(FFRateLayer):
@@ -566,7 +569,6 @@ class FFRateEuler(FFRateLayer):
         :param ArrayLike[float] tau:                      [Nx1] Vector of neuron time constants in seconds. Default: 10.0
         :param ArrayLike[float] gain:                     [Nx1] Vector of gain factors. Default: 1.0, unitary gain
         :param ArrayLike[float] bias:                     [Nx1] Vector of bias currents. Default: 0.0
-
 
         """
 

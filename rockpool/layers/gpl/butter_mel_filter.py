@@ -135,9 +135,9 @@ class ButterMelFilter(Layer):
         """
         Evolve the state of the filterbanks, given an input
 
-        :param TSContinuous ts_input:   Raw input signal
-        :param float duration:          Duration of evolution, in s
-        :param int num_timesteps:       Number of time steps to evolve
+        :param Optional[TSContinuous] ts_input:   Raw input signal
+        :param Optional[float] duration:          Duration of evolution, in s
+        :param Optional[int] num_timesteps:       Number of time steps to evolve
         :param bool verbose:            Currently unused
 
         :return TSContinuous:           Output of the filterbanks

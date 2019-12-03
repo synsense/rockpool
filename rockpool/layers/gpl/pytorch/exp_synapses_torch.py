@@ -110,12 +110,12 @@ class FFExpSynTorch(FFExpSyn):
         """
         Function to evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
+        :param Optional[TSEvent] ts_input:       Input spike trian
+        :param Optional[float] duration:          Simulation/Evolution time
+        :param Optional[int] num_timesteps         Number of evolution time steps
         :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSContinuous  output spike series
 
+        :return:            TSContinuous  output time series
         """
 
         # - Prepare input signal
@@ -505,7 +505,7 @@ class FFExpSynTorch(FFExpSyn):
     def train_logreg(
         self,
         ts_target: TSContinuous,
-        ts_input: TSEvent = None,
+        ts_input: Optional[TSEvent] = None,
         learning_rate: float = 0,
         regularize: float = 0,
         batch_size: Optional[int] = None,
@@ -516,16 +516,14 @@ class FFExpSynTorch(FFExpSyn):
         """
         Train self with logistic regression over one of possibly many batches. Note that this training method assumes that a sigmoid funciton is applied to the layer output, which is not the case in `.evolve`. Use pytorch as backend.
 
-        :param ts_target:    TimeSeries - target for current batch
-        :param ts_input:     TimeSeries - input to self for current batch
-        :param learning_rate:     flaot - Factor determining scale of weight increments at each step
-        :param regularize:       float - regularization parameter
-        :param batch_size:        int - Number of samples per batch. If None, train with all samples at once
-        :param epochs:           int - How many times is training repeated
-        :param store_states:       bool - Include last state from previous training and store state from this
-                                   traning. This has the same effect as if data from both trainings
-                                   were presented at once.
-        :param verbose:          bool - Print output about training progress
+        :param TSContinuous ts_target:    Target for current batch
+        :param Optional[TSEvent] ts_input:     input to self for current batch
+        :param float learning_rate:      Factor determining scale of weight increments at each step
+        :param float regularize:        regularization parameter
+        :param Optional[int] batch_size:        Number of samples per batch. If None, train with all samples at once
+        :param int epochs:            How many times is training repeated
+        :param bool store_states:        Include last state from previous training and store state from this training. This has the same effect as if data from both trainings were presented at once.
+        :param bool verbose:           Print output about training progress
         """
 
         if not torch.cuda.is_available():

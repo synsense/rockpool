@@ -31,19 +31,17 @@ class SoftMaxLayer(FFCLIAF):
     def __init__(
         self,
         weights: Optional[np.ndarray] = None,
-        thresh: Optional[
-            float
-        ] = 1e10,  # Just some absurdly large number that will never be reachable
-        dt: Optional[float] = 1.0,
-        name: Optional[str] = "unnamed",
+        thresh: float = 1e10,  # Just some absurdly large number that will never be reachable
+        dt: float = 1.0,
+        name: str = "unnamed",
     ):
         """
         Implements a spiking softmax on the inputs
 
         :param Optional[np.ndarray] weights:    Weight matrix. Default: ``None``
-        :param Optional[float] thresh:          Spiking threshold. Default: ``1e10``
-        :param Optional[float] dt:              Time step. Default: ``1.``
-        :param Optional[str] name:              Name of this layer. Default: ``"unnamed"``
+        :param float thresh:          Spiking threshold. Default: ``1e10``
+        :param float dt:              Time step. Default: ``1.``
+        :param str name:              Name of this layer. Default: ``"unnamed"``
         """
 
         # Call parent constructor
@@ -64,7 +62,7 @@ class SoftMaxLayer(FFCLIAF):
         :param Optional[TSEvent] ts_input:      Input spike trian
         :param Optional[float] duration:        Simulation/Evolution time
         :param Optional[int] num_timesteps      Number of evolution time steps
-        :param Optional[bool] verbose:          Currently no effect, just for conformity
+        :param bool verbose:          Currently no effect, just for conformity
         :return TSEvent:                        Output spike series
         """
 

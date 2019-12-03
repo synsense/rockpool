@@ -37,12 +37,12 @@ class _RefractoryBase:
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param np.ndarray inp:      Input to layer as matrix
+        :param int evolution_timestep:     Time step within current evolution at beginning of current batch
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param bool verbose:             Currently no effect, just for conformity
 
+        :return:            TSEvent  output spike series
         """
         # - Get synapse input to neurons
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)
@@ -217,10 +217,10 @@ class FFIAFTorch(Layer):
         """
         Function to evolve the states of this layer given an input. Automatically splits evolution in batches
 
-        :param ts_input:      TSContinuous  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
+        :param Optional[TSContinuous] ts_input:       Input time series
+        :param Optional[float] duration:          Simulation/Evolution time
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param bool verbose:            Currently no effect, just for conformity
 
         :return:            TSEvent  output spike series
         """

@@ -39,22 +39,23 @@ class CLIAF(Layer):
     def __init__(
         self,
         weights_in: np.ndarray,
-        bias: Optional[FloatVector] = 0.0,
-        v_thresh: Optional[FloatVector] = 8.0,
-        v_reset: Optional[FloatVector] = 0.0,
-        v_subtract: Optional[Union[FloatVector, None]] = 8.0,
-        dt: Optional[float] = 1.0,
-        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
-        name: Optional[str] = "unnamed",
+        bias: FloatVector = 0.0,
+        v_thresh: FloatVector = 8.0,
+        v_reset: FloatVector = 0.0,
+        v_subtract: Optional[FloatVector] = 8.0,
+        dt: float = 1.0,
+        monitor_id: Optional[Union[bool, int, ArrayLike]] = [],
+        name: str = "unnamed",
     ):
         """
         Feedforward layer of integrate and fire neurons with constant leak
 
         :param FloatVector weights_in:              Input weight matrix
-        :param Optional[FloatVector] bias:          Constant bias to be added to state at each time step. Default: ``0.0``
-        :param Optional[FloatVector] v_thresh:      Spiking threshold. Default: ``8.0``
-        :param Optional[FloatVector] v_reset:       Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
+        :param FloatVector bias:          Constant bias to be added to state at each time step. Default: ``0.0``
+        :param FloatVector v_thresh:      Spiking threshold. Default: ``8.0``
+        :param FloatVector v_reset:       Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise neurons will reset on each spike
+        :param float dt:                    Time step for simulation of this layer, in s. Default: ``1.0``
         :param Optional[ArrayLike[int]] monitor_id: IDs of neurons to be recorded. Default: ``[]``, do not monitor any neurons
         :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
@@ -307,22 +308,23 @@ class FFCLIAF(CLIAF):
     def __init__(
         self,
         weights: np.ndarray,
-        bias: Optional[FloatVector] = 0.0,
-        v_thresh: Optional[FloatVector] = 8.0,
-        v_reset: Optional[FloatVector] = 0.0,
-        v_subtract: Optional[Union[FloatVector, None]] = 8.0,
-        dt: Optional[float] = 1.0,
-        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
-        name: Optional[str] = "unnamed",
+        bias: FloatVector = 0.0,
+        v_thresh: FloatVector = 8.0,
+        v_reset: FloatVector = 0.0,
+        v_subtract: Optional[FloatVector] = 8.0,
+        dt: float = 1.0,
+        monitor_id: Optional[Union[bool, int, ArrayLike]] = [],
+        name: str = "unnamed",
     ):
         """
         Feedforward layer of integrate and fire neurons with constant leak
 
         :param np.ndarray weights:                  Input weight matrix [N_in, N]
-        :param Optional[FloatVector] bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
-        :param Optional[FloatVector] v_thresh:      Spiking threshold [N,]. Default: ``8.``
-        :param Optional[FloatVector] v_reset:       Reset potential after spike [N,]. Default: ``0.``
+        :param FloatVector bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param FloatVector v_thresh:      Spiking threshold [N,]. Default: ``8.``
+        :param FloatVector v_reset:       Reset potential after spike [N,]. Default: ``0.``
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
+        :param float dt:                    Time step for simulation of this layer, in s. Default: ``1.0``
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not record neuron state
         :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
@@ -500,17 +502,17 @@ class RecCLIAF(CLIAF):
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        bias: Optional[FloatVector] = 0.0,
-        v_thresh: Optional[FloatVector] = 8.0,
-        v_reset: Optional[FloatVector] = 0.0,
-        v_subtract: Optional[Union[FloatVector, None]] = 8.0,
-        refractory: Optional[FloatVector] = 0.0,
-        dt: Optional[float] = 1e-4,
+        bias: FloatVector = 0.0,
+        v_thresh: FloatVector = 8.0,
+        v_reset: FloatVector = 0.0,
+        v_subtract: Optional[FloatVector] = 8.0,
+        refractory: FloatVector = 0.0,
+        dt: float = 1e-4,
         delay: Optional[float] = None,
         tTauBias: Optional[float] = None,
-        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
-        state_type: Optional[Union[type, str]] = float,
-        name: Optional[str] = "unnamed",
+        monitor_id: Optional[Union[bool, int, ArrayLike]] = [],
+        state_type: Union[type, str] = float,
+        name: str = "unnamed",
     ):
         """
         Recurrent layer of integrate and fire neurons with constant leak
@@ -518,17 +520,17 @@ class RecCLIAF(CLIAF):
         :param np.ndarray weights_in:               Input weight matrix [N_in, N]
         :param np.ndarray weights_rec:              Recurrent weight matrix [N, N]
 
-        :param Optional[FloatVector] bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
-        :param Optional[FloatVector] v_thresh:      Spiking threshold [N,]. Default: ``8.``
-        :param Optional[FloatVector] v_reset:       Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
+        :param FloatVector bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param FloatVector v_thresh:      Spiking threshold [N,]. Default: ``8.``
+        :param FloatVector v_reset:       Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
         :param Optional[FloatVector] v_subtract:    [N,] If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
-        :param Optional[FloatVector] refractory:    Vector of refractory times  [N,]
-        :param Optional[float] dt:                  Time step size in s. Default: ``0.1 ms``
+        :param FloatVector refractory:    Vector of refractory times  [N,]
+        :param float dt:                  Time step size in s. Default: ``0.1 ms``
         :param Optional[float] delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Rounded down to multiple of `.dt`. Must be at least `.dt`. Default: ``None``, use `.dt`
         :param Optional[float] tTauBias:            Period for applying bias. Must be at least `.dt`. Is rounded down to multiple of `.dt`. If ``None``, will be set to `.dt`. Default: ``None``, use `.dt`
-        :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not monitor neurons
-        :param Optional[type] state_type:           Data type for the membrane potential. Default: ``float``
-        :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
+        :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not monitor neurons. If ``True``, monitor all neurons
+        :param type state_type:           Data type for the membrane potential. Default: ``float``
+        :param str name:                  Name of this layer. Default: ``'unnamed'``
         """
 
         # Call parent constructor
@@ -565,7 +567,7 @@ class RecCLIAF(CLIAF):
         :param Optional[TSEvent] ts_input:  Input spike trian
         :param Optional[float] duration:    Simulation/Evolution time
         :param Optional[int] num_timesteps: Number of evolution time steps
-        :param Optional[bool] verbose:      Show progress bar during evolution
+        :param bool verbose:      Show progress bar during evolution
 
         :return TSEvent:                    Output spike series
         """
