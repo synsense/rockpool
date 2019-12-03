@@ -77,7 +77,7 @@ class RRTrainedLayer(Layer, ABC):
             self.trainer = RidgeRegrTrainer(
                 num_features=self.size_in,
                 num_outputs=self.size_out,
-                regularization=regularize,
+                regularize=regularize,
                 fisher_relabelling=fisher_relabelling,
                 standardize=standardize,
                 train_biases=train_biases,
