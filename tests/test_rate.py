@@ -128,11 +128,11 @@ def test_RecRateEuler():
     assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEuler(weights=np.zeros((1, 2)))
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         RecRateEuler(weights=np.zeros((2, 2)), tau=None)
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         RecRateEuler(weights=np.zeros((2, 2)), noise_std=None)
