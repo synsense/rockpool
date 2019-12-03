@@ -6,7 +6,7 @@ import numpy as np
 import scipy.interpolate as spint
 from warnings import warn
 import copy
-from typing import Union, List, Tuple, Optional, Iterable
+from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
 import collections
 
 _global_plotting_backend = None
@@ -40,6 +40,7 @@ __all__ = [
     "load_ts_from_file",
 ]
 
+TS = TypeVar("TimeSeries")
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -150,7 +151,7 @@ class TimeSeries:
 
     def __init__(
         self,
-        times: ArrayLike,
+        times: ArrayLike = [],
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
@@ -293,6 +294,39 @@ class TimeSeries:
 
     def __len__(self):
         return self._times.size
+
+    @classmethod
+    def concatenate_t(
+        cls: Type[TS],
+        series: Iterable[TS],
+        offset: Union[None, float, Iterable[Union[float, None]]] = None,
+    ) -> TS:
+        """
+        Append multiple TimeSeries objects in time to a new series
+
+        :param Iterable series:    Time series to be tacked at the end of each other. These series must have the same number of channels.
+        :param Union[None, float, Iterable]     Offset to be introduced between time traces. First value corresponds to delay of first time series.
+        :return TimeSeries:        Time series with data from series in ``series``
+        """
+        # - Convert `series` to list, to be able to extract information about objects
+        if isinstance(series, cls):
+            series = [series]
+        elif isinstance(series, collections.abc.Iterable):
+            series = list(series)
+        else:
+            cls_name = str(cls).split("'")[1].split(".")[-1]
+            raise TypeError(f"{cls_name}: `series` must be of type {cls_name}.")
+
+        # - Determine t_start of first series, to avoid wrong delays.
+        #   Determine class to enable calling the method through `TimeSeries` parent class.
+        try:
+            t_start = series[0].t_start
+            subclass = series[0].__class__
+        except IndexError:  # `series` is empty
+            return cls()
+
+        new_series = subclass(t_start=t_start)
+        return new_series.append_t(series, offset=offset, inplace=False)
 
     @property
     def times(self):
@@ -469,7 +503,7 @@ class TSContinuous(TimeSeries):
         :param bool periodic:     Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
-        :param Optional[str] name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
+        :param str name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
         :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
         :param Optional[str] interp_kind:   Specify the interpolation type. Default: ``"linear"``
 
@@ -858,36 +892,19 @@ class TSContinuous(TimeSeries):
 
     def merge(
         self,
-        other_series: "TSContinuous",
+        other_series: Union["TSContinuous", Iterable["TSContinuous"]],
         remove_duplicates: bool = True,
         inplace: bool = False,
     ) -> "TSContinuous":
         """
-        Merge another time series to this one, by interleaving in time. Maintain each time series' time values and channel IDs.
+        Merge other time series to this one, by interleaving in time. Maintain each time series' time values and channel IDs.
 
-        :param TSContinuous other_series:           time series that is merged to self
-        :param Optional[bool] remove_duplicates:    If ``True``, time points in ``other_series.times`` that are also in ``self.times`` are discarded. Otherwise they are included in the new time trace and come after the corresponding points of self.times.
-        :param Optional[bool] inplace:              Conduct operation in-place (Default: ``False``; create a copy)
+        :param Union["TSContinuous", Iterable["TSContinuous"]] other_series:    time series that is merged to self or iterable thereof to merge multiple series
+        :param bool remove_duplicates:                                If ``True``, time points in other series that are also in ``self.times`` are discarded. Otherwise they are included in the new time trace and come after the corresponding points of self.times.
+        :param bool inplace:                                          Conduct operation in-place (Default: ``False``; create a copy)
 
         :return TSContinuous:                       The merged time series
         """
-
-        # - Check other_series
-        if not isinstance(other_series, TSContinuous):
-            raise TypeError(
-                f"TSContinuous `{self.name}`: "
-                + "`other_series` must be a TSContinuous object."
-            )
-
-        if self.num_channels == 0 and len(self) == 0:
-            # - Handle empty `self`
-            self._samples = np.zeros((0, other_series.num_channels))
-
-        if other_series.num_channels != self.num_channels:
-            raise ValueError(
-                f"TSContinuous `{self.name}`: `other_series` must include "
-                f"the same number of traces ({self.num_channels})."
-            )
 
         # - Create a new time series, or modify this time series
         if not inplace:
@@ -895,50 +912,93 @@ class TSContinuous(TimeSeries):
         else:
             merged_series = self
 
-        # - If the other TimeSeries is empty, just return
-        if other_series.isempty():
-            return merged_series
-
-        # - If remove_duplicates == True and time ranges overlap,  find and remove
-        #   time points of other_series that are also included in self (assuming both
-        #   TimeSeries have a sorted vTimeTrace)
-        if remove_duplicates and not (
-            self.t_start > other_series.t_stop or self.t_stop < other_series.t_start
-        ):
-            # Determine region of overlap
-            overlap: np.ndarray = np.where(
-                (self.times >= other_series.t_start)
-                & (self.times <= other_series.t_stop)
-            )[0]
-            # Array of bools indicating which sampled time points of other_series do not occur in self
-            is_unique = np.array(
-                [(t != self.times[overlap]).all() for t in other_series.times]
-            )
-            # Time trace and samples to be merged into self
-            times_other: np.ndarray = other_series.times[is_unique]
-            samples_other: np.ndarray = other_series.samples[is_unique]
+        # - Ensure there is a list of timeseries to work on
+        if isinstance(other_series, TSContinuous):
+            series_list = [merged_series, other_series]
         else:
-            times_other: np.ndarray = other_series.times
-            samples_other: np.ndarray = other_series.samples
+            try:
+                series_list = [merged_series] + list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: `other_series` must be `TSContinuous`"
+                    " or iterable thereof."
+                )
+            # - Check series class
+            if not all(isinstance(series, TSContinuous) for series in series_list):
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: Can only merge with `TSContinuous` objects."
+                )
+
+        # - Handle empty `self`
+        if merged_series.num_channels == 0 and len(merged_series) == 0:
+            num_channels = max(series.num_channels for series in series_list)
+            merged_series._samples = np.zeros((0, num_channels))
+
+        # - Handle empty other series (without changing original object) and channel numbers
+        for i_series, series in enumerate(series_list[1:]):
+            if series.num_channels == 0 and len(series) == 0:
+                series = series.copy()
+                series._samples = np.zeros((0, merged_series.num_channels))
+                series_list[i_series + 1] = series.copy()
+            elif series.num_channels != merged_series.num_channels:
+                raise ValueError(
+                    f"TSContinuous `{self.name}`: `other_series` must include "
+                    f"the same number of traces ({merged_series.num_channels}). "
+                    f"Other series number {i_series} has {series.num_channels}."
+                )
+
+        if remove_duplicates:
+            # - For each time point in each series a boolean array indicating whether points are used or removed
+            use_points_list = [
+                np.ones(series.times.size, bool) for series in series_list
+            ]
+            # - Iterate over series pairwise and remove duplicate time points in second series of pair
+            for i_s0, series0 in enumerate(series_list[:-1]):
+                for series1, use_points1 in zip(
+                    series_list[i_s0 + 1 :], use_points_list[i_s0 + 1 :]
+                ):
+                    self._mask_duplicate_time_points(series0, series1, use_points1)
+            times_series = [
+                series._times[use] for series, use in zip(series_list, use_points_list)
+            ]
+            samples_series = [
+                series._samples[use]
+                for series, use in zip(series_list, use_points_list)
+            ]
+        else:
+            times_series = [series._times for series in series_list]
+            samples_series = [series._samples for series in series_list]
 
         # - Merge time traces and samples
-        times_new: np.ndarray = np.concatenate((self._times, times_other))
-        samples_new: np.ndarray = np.concatenate((self.samples, samples_other), axis=0)
+        times_new: np.ndarray = np.concatenate(times_series)
+        samples_new: np.ndarray = np.concatenate(samples_series, axis=0)
 
         #  - Indices for sorting new time trace and samples. Use mergesort as stable sorting algorithm.
-        viSorted: np.ndarray = np.argsort(times_new, kind="mergesort")
+        idcs_sorted: np.ndarray = np.argsort(times_new, kind="mergesort")
 
         # - Update data of new time series
-        merged_series._times = times_new[viSorted]
-        merged_series._samples = samples_new[viSorted]
-        merged_series._t_start: float = min(self.t_start, other_series.t_start)
-        merged_series._t_stop: float = max(self.t_stop, other_series.t_stop)
+        merged_series._times = times_new[idcs_sorted]
+        merged_series._samples = samples_new[idcs_sorted]
+        merged_series._t_start: float = min(series.t_start for series in series_list)
+        merged_series._t_stop: float = max(series.t_stop for series in series_list)
 
         # - Create new interpolator
         merged_series._create_interpolator()
 
         # - Return merged TS
         return merged_series
+
+    @staticmethod
+    def _mask_duplicate_time_points(series0, series1, use_points1):
+        if not (series0.t_start > series1.t_stop or series0.t_stop < series1.t_start):
+            # Determine region of overlap
+            overlap: np.ndarray = np.where(
+                (series0.times >= series1.t_start) & (series0.times <= series1.t_stop)
+            )[0]
+            # Array of bools indicating which sampled time points of series1 do not occur in series0
+            not_unique = [(t == series0.times[overlap]).any() for t in series1.times]
+            # Update which points of series1 are to be used
+            use_points1[not_unique] = False
 
     def append_c(
         self, other_series: "TSContinuous", inplace: bool = False
@@ -980,32 +1040,88 @@ class TSContinuous(TimeSeries):
 
     def append_t(
         self,
-        other_series: "TSContinuous",
-        offset: Optional[float] = None,
+        other_series: Union["TSContinuous", Iterable["TSContinuous"]],
+        offset: Union[float, Iterable[Union[float, None]], None] = None,
         inplace: bool = False,
     ) -> "TSContinuous":
         """
         Append another time series to this one, along the time axis
 
-        :param TSContinuous other_series:   Another time series. Will be tacked on to the end of the called series object. ``other_series`` must have the same number of channels
-        :param Optional[float] offset:      If not None, defines distance between last sample of ``self`` and first sample of ``other_series``. Otherwise the offset will be the median of all timestep sizes of ``self.samples``.
-        :param bool inplace:                Conduct operation in-place (Default: ``False``; create a copy)
+        :param Union["TSContinuous", Iterable[TSContinuous]] other_series:    Time series to be tacked on to the end of the called series object. These series must have the same number of channels as ``self`` or be empty.
+        :param Union[float, Iterable[float], Iterable[None], None] offset:    If not None, defines distance between last sample of one series and first sample of the next. Otherwise the offset will be the median of all timestep sizes of the first of the two series, or 0 if that series has len < 2.
+        :param bool inplace:                                                  Conduct operation in-place (Default: ``False``; create a copy)
 
-        :return TSContinuous:               Time series containing data from ``self``, with the other series appended in time
+        :return TSContinuous:                                                 Time series containing data from ``self``, with the other series appended in time
         """
+        print("offset0:", offset)
 
-        if offset is None:
-            # - If ``self`` is empty then append new elements directly. Otherwise leave an offset
-            #   corresponding to the median distance between time points in `self._times`.
-            offset = np.median(np.diff(self._times)) if self.times.size > 0 else 0
+        # - Ensure there is a list of timeseries to work on
+        if isinstance(other_series, TSContinuous):
+            other_series = [other_series]
+        else:
+            try:
+                other_series = list(other_series)
+            except TypeError:
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: `other_series` must be `TSContinuous`"
+                    " or iterable thereof."
+                )
+            # - Check series class
+            if not all(isinstance(series, TSContinuous) for series in other_series):
+                raise TypeError(
+                    f"TSContinuous `{self.name}`: Can only merge with `TSContinuous` objects."
+                )
 
-        # - Time by which ``other_series`` has to be delayed
-        delay = self.t_stop + offset - other_series.t_start
+        # - Same for offsets
+        if not isinstance(offset, collections.abc.Iterable):
+            offset_list = [offset] * len(other_series)
+        else:
+            offset_list = list(offset)
+            if len(offset_list) != len(other_series):
+                warn(
+                    f"TSContinuous `{self.name}`: Numbers of provided offsets and "
+                    + "TSContinuous objects do not match. Will ignore excess elements."
+                )
+        for i, (prev_series, series, offset) in enumerate(
+            zip([self] + other_series[:-1], other_series, offset_list)
+        ):
+            if offset is None:
+                if len(series) > 0 and len(prev_series) > 1:
+                    # - If ``self`` is empty then append new elements directly. Otherwise leave an offset
+                    #   corresponding to the median distance between time points in `self._times`.
+                    offset_list[i] = np.median(np.diff(prev_series._times))
+                else:
+                    # - No offset with empty series
+                    offset_list[i] = 0
+
+        print("offset1:", offset_list)
+        # - Translate offsets so that they correspond to indiviual delays for each series
+        # Delay for first appended series:
+        delay1 = offset_list[0] + self.t_stop - other_series[0].t_start
+        delay_list = [delay1]
+        # Add delays for other lists
+        for prev_series, curr_series, offset in zip(
+            other_series[:-1], other_series[1:], offset_list[1:]
+        ):
+            # Time at which previous series stops
+            stop_previous = delay_list[-1] + prev_series.t_stop
+            # Delay for current series
+            delay_list.append(stop_previous + offset - curr_series.t_start)
+        print("delays:", delay_list)
+        other_series = [
+            series.delay(delay) for series, delay in zip(other_series, delay_list)
+        ]
 
         # - Let ``self.merge()`` do the rest
-        return self.merge(
-            other_series.delay(delay), remove_duplicates=False, inplace=inplace
-        )
+        try:
+            return self.merge(
+                other_series=other_series, remove_duplicates=False, inplace=inplace
+            )
+        except TypeError:
+            # - Provide matching exception
+            raise TypeError(
+                f"TSContinuous `{self.name}`: Can only append `TSContinuous` objects."
+            )
 
     ## -- Internal methods
 
@@ -1736,9 +1852,9 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_start:             Time from which on events are returned. Default: `.t_start`
         :param Optional[float] t_stop:              Time until which events are returned. Default: `.t_stop`
         :param Optional[ArrayLike[int]] channels:   Channels of which events are returned. Default: All channels
-        :param Optional[bool] include_stop:          If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
-        :param Optional[bool] remap_channels:        Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
-        :param Optional[bool] inplace:              Iff ``True``, the operation is performed in place (Default: False)
+        :param bool include_stop:          If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
+        :param bool remap_channels:        Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
+        :param bool inplace:              Iff ``True``, the operation is performed in place (Default: False)
 
         :return TSEvent:                            `TSEvent` containing events from the requested channels
         """
@@ -1825,7 +1941,7 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_stop:              Time where to stop raster. This time point is not included in the raster. Default: ``None`` (use ``self.t_stop``. If ``num_timesteps`` is provided, ``t_stop`` is ignored.
         :param Optional[int] num_timesteps:         Specify number of time steps directly, instead of providing ``t_stop``. Default: ``None`` (use ``t_start``, ``t_stop`` and ``dt`` to determine raster size)
         :param Optional[ArrayLike[int]] channels:   Channels from which data is to be used. Default: ``None`` (use all channels)
-        :param Optional[bool] add_events:           If ``True``, return an integer raster containing number of events for each time step and channel. Default: ``False``, merge simultaneous events in a single channel, and return a boolean raster
+        :param bool add_events:           If ``True``, return an integer raster containing number of events for each time step and channel. Default: ``False``, merge simultaneous events in a single channel, and return a boolean raster
 
         :return ArrayLike:  event_raster - Boolean matrix with ``True`` indicating presence of events for each time step and channel. If ``add_events == True``, the raster consists of integers indicating the number of events per time step and channel. First axis corresponds to time, second axis to channel.
         """
@@ -1984,7 +2100,7 @@ class TSEvent(TimeSeries):
         The channel IDs in ``other_series`` are shifted by ``self.num_channels``. Event times remain the same.
 
         :param TSEvent other_series:    :py:class:`TSEvent` or list of :py:class:`TSEvent` that will be appended to ``self``.
-        :param Optional[bool] inplace:  Conduct operation in-place (Default: ``False``; create a copy)
+        :param bool inplace:  Conduct operation in-place (Default: ``False``; create a copy)
 
         :return TSEvent:                :py:class:`TSEvent` containing data in ``self``, with other TS appended along the channels axis
         """
@@ -2047,7 +2163,7 @@ class TSEvent(TimeSeries):
     def append_t(
         self,
         other_series: Union[TimeSeries, Iterable[TimeSeries]],
-        offset: float = 0,
+        offset: Union[float, Iterable[Union[float, None]], None] = None,
         remove_duplicates: bool = False,
         inplace: bool = False,
     ) -> "TSEvent":
@@ -2058,8 +2174,8 @@ class TSEvent(TimeSeries):
 
         :param TSEvent other_series:                :py:class:`TSEvent` or list of :py:class:`TSEvent` that will be appended to ``self`` along the time axis
         :param Optional[float] offset:              Scalar or iterable with at least the same number of elements as ``other_series``. If scalar, use same value for all timeseries. Event times from ``other_series`` will be shifted by ``self.t_stop + offset``. Default: 0
-        :param Optional[bool] remove_duplicates:    If ``True``, duplicate events will be removed from the resulting timeseries. Duplicates can occur if ``offset`` is negative. Default: ``False``, do not remove duplicate events.
-        :param Optional[bool] inplace:              If ``True``, conduct operation in-place (Default: ``False``; return a copy)
+        :param bool remove_duplicates:              If ``True``, duplicate events will be removed from the resulting timeseries. Duplicates can occur if ``offset`` is negative. Default: ``False``, do not remove duplicate events.
+        :param bool inplace:                        If ``True``, conduct operation in-place (Default: ``False``; return a copy)
 
         :return TSEvent: :py:class:`TSEvent` containing events from ``self``, with other TS appended in time
         """
@@ -2076,6 +2192,9 @@ class TSEvent(TimeSeries):
                 )
         # - Same for offsets
         if not isinstance(offset, collections.abc.Iterable):
+            # - Handle `None` offsets
+            if offset is None:
+                offset = 0
             offset_list = [offset] * len(other_series)
         else:
             offset_list = list(offset)
@@ -2084,6 +2203,10 @@ class TSEvent(TimeSeries):
                     f"TSEvent `{self.name}`: Numbers of provided offsets and TSEvent "
                     + "objects do not match. Will ignore excess elements."
                 )
+            # - Handle `None` offsets
+            for i, os in enumerate(offset_list):
+                if os is None:
+                    offset_list[i] = 0
 
         # - Translate offsets so that they correspond to indiviual delays for each series
         # Delay for first appended series:
@@ -2122,9 +2245,9 @@ class TSEvent(TimeSeries):
         Merge another :py:class:`TSEvent` into this one so that they may overlap in time
 
         :param TSEvent other_series:    :py:class:`TSEvent` or list of :py:class:`TSEvent` to merge into ``self``
-        :param Optional[float] delay:   Scalar or iterable with at least the number of elements as other_series. If scalar, use same value for all timeseries. Delay ``other_series`` series by this value before merging.
-        :param Optional[bool] remove_duplicates:  If ``True``, remove duplicate events in resulting timeseries. Default: ``False``, do not remove duplicates.
-        :param Optional[bool] inplace:  If ``True``, operation will be performed in place (Default: ``False``, return a copy)
+        :param Union[float, Iterable[float]] delay:   Scalar or iterable with at least the number of elements as other_series. If scalar, use same value for all timeseries. Delay ``other_series`` series by this value before merging.
+        :param bool remove_duplicates:  If ``True``, remove duplicate events in resulting timeseries. Default: ``False``, do not remove duplicates.
+        :param bool inplace:  If ``True``, operation will be performed in place (Default: ``False``, return a copy)
 
         :return TSEvent:                ``self`` with new samples included
         """

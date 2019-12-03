@@ -639,8 +639,9 @@ class Network:
                 signal_dict[lyr.name].trial_start_times = trial_start_times.copy()
 
             # - Set name for response time series, if not already set
-            if signal_dict[lyr.name].name is None:
-                signal_dict[lyr.name].name = lyr.name
+            if not isinstance(lyr, Network):
+                if signal_dict[lyr.name].name is None:
+                    signal_dict[lyr.name].name = lyr.name
 
         # - Update network time
         self._timestep += num_timesteps
