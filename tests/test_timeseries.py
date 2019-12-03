@@ -446,7 +446,7 @@ def test_continuous_append_t():
     ).all(), "Wrong samples when appending from list"
 
     # - Generating from list of TSContinuous
-    appended_fromlist = TSContinuous.concatenate(series_list)
+    appended_fromlist = TSContinuous.concatenate_t(series_list)
 
     assert (
         appended_fromthree.times == appended_fromlist.times
@@ -834,7 +834,7 @@ def test_event_append_t():
     # - Generating from list of TSContinuous
     # First offset changed to match `appended_with_list`
     # (where empty series has t_stop=0, causing first series to be shifted as it has t_start = -1)
-    appended_fromlist = TSEvent.concatenate(series_list, offset=[4, 2, 1])
+    appended_fromlist = TSEvent.concatenate_t(series_list, offset=[4, 2, 1])
 
     assert (
         appended_with_list.times == appended_fromlist.times
