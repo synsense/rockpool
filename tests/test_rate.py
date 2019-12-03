@@ -36,7 +36,7 @@ def test_FFRateEuler():
     assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         fl1 = FFRateEuler(weights=None)
 
     with pytest.raises(AssertionError):

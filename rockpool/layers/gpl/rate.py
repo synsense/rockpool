@@ -171,107 +171,41 @@ def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarra
     return evolve_Euler_complete
 
 
-### --- FFRateEuler class
-
-
-class FFRateEuler(RRTrainedLayer):
-    """
-    Feedforward layer consisting of rate-based neurons
-
-    `.FFRateEuler` is a simple feed-forward layer of dynamical neurons, backed with a forward-Euler solver with a fixed time step. The neurons in this layer implement the dynamics
-
-    .. math::
-
-        \\tau \\cdot \\dot{x} + x = g \\cdot W I(t) + \\sigma \\cdot \\zeta(t)
-
-    where :math:`x` is the Nx1 vector of internal states of neurons in the layer; :math:`\\dot{x}` is the derivative of those staes with respect to time; :math:`\\tau` is the vector of time constants of the neurons in the layer; :math:`I(t)` is the instantaneous input injected into each neuron at time :math:`t`; :math:`W` is the MxN matrix of weights connecting the input to the neurons in the layer; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with standard deviation :math:`\\sigma``.
-
-    The output of the layer is given by
-
-    .. math ::
-        o = H(x + b)
-
-    where :math:`H(x)` is the neuron transfer function, which by default is the linear-threshold (or "rectified linear" or ReLU) function :math:`H(x) = max(0, x)`; :math:`b` is the Nx1 vector of bias values for this layer; and :math:`g` is the Nx1 vector of gain parameters for the neurons in this layer.
-
-    :Training:
-
-    `.FFRateEuler` supports weight training with linear or ridge regression, using the `.train` method. To use this facility, use the `.train` method instead of the `.evolve` method, calling `.train` in turn over multiple batches::
-
-        lyr = FFRateEuler(...)
-
-        # - Loop over batches and train
-        is_first = True
-        is_last = False
-
-        for (input_batch_ts, target_batch_ts) in batches[:-1]:
-            lyr.train(target_batch_tsm, input_batch_ts, is_first, is_last)
-            is_first = False
-
-        # - Finalise training for last batch
-        is_last = True
-        (input_batch_ts, target_batch_ts) = batches[-1]
-        lyr.train(target_batch_ts, input_batch_ts, is_first, is_last)
-
-    """
+class FFRateLayer(RRTrainedLayer):
+    """ Base class for feed-forward layers of rate based neurons """
 
     def __init__(
         self,
         weights: np.ndarray,
-        dt: Optional[float] = None,
-        name: Optional[str] = None,
-        noise_std: Optional[float] = 0.0,
-        activation_func: Optional[Callable[[np.ndarray], np.ndarray]] = re_lu,
-        tau: Optional[Union[float, np.ndarray]] = 10.0,
-        gain: Optional[Union[float, np.ndarray]] = 1.0,
-        bias: Optional[Union[float, np.ndarray]] = 0.0,
+        dt: float = 1.0,
+        noise_std: float = 0.0,
+        bias: Union[float, np.ndarray] = 0.0,
+        delay: float = 0.0,
+        name: str = None,
     ):
         """
-        Implement a feed-forward non-spiking neuron layer, with an Euler method solver
+        Base class for feed-forward layers of rate based neurons
 
-        :param ndarray weights:                                     [MxN] Weight matrix
-        :param Optional[float] dt:                                  Time step for Euler solver, in seconds. Default: `None`, which will use `min(tau) / 10` as the time step, for numerical stability
-        :param Optional[str] name:                                  Name of this layer. Default: `None`
-        :param Optional[float] noise_std:                           Noise std. dev. per second. Default: 0.0, no noise
-        :param Optional[Callable[[float], float] activation_func:   Callable a = f(x) Neuron activation function. Default: ReLU
-        :param Optional[ArrayLike[float]] tau:                      [Nx1] Vector of neuron time constants in seconds. Default: 10.0
-        :param Optional[ArrayLike[float]] gain:                     [Nx1] Vector of gain factors. Default: 1.0, unitary gain
-        :param Optional[ArrayLike[float]] bias:                     [Nx1] Vector of bias currents. Default: 0.0
+        :param ndarray weights:             [MxN] Weight matrix
+        :param Optional[float] dt:          Evolution time step in seconds. Default: 1.0
+        :param Optional[float] noise_std:   Noise std. dev. per second. Default: 0.0, no noise
+        :param Optional[ndarray] bias:      [Nx1] Vector of bias currents. Default: 0.0, no bias
+        :param Optional[str] name:          Name of this layer. Default: None
         """
 
         # - Make sure some required parameters are set
-        assert weights is not None, "`weights` is required"
-
-        assert tau is not None, "`tau` is required"
-
-        assert bias is not None, "`bias` is required"
-
-        assert gain is not None, "`gain` is required"
-
-        # - Set a reasonable dt
-        if dt is None:
-            min_tau = np.min(tau)
-            dt = min_tau / 10
+        if weights is None:
+            raise TypeError(
+                f"{self.class_name} `{name}`: `weights` must not be `None`."
+            )
+        if bias is None:
+            raise TypeError(f"{self.class_name} `{name}`: `bias` must not be `None`.")
 
         # - Call super-class initialiser
         super().__init__(
             weights=np.asarray(weights, float), dt=dt, noise_std=noise_std, name=name
         )
-
-        # - Check all parameter shapes
-        try:
-            self.tau, self.gain, self.bias = map(
-                self._correct_param_shape, (tau, gain, bias)
-            )
-        except AssertionError:
-            raise AssertionError(
-                "Numbers of elements in tau, gain and bias"
-                + " must be 1 or match layer size."
-            )
-
-        # - Reset this layer state and set attributes
-        self.reset_all()
-        self.alpha = self._dt / self.tau
-        self.activation_func = activation_func
+        self.bias = self._correct_param_shape(bias)
 
     def _correct_param_shape(self, v) -> np.ndarray:
         """
@@ -290,118 +224,6 @@ class FFRateEuler(RRTrainedLayer):
             1,
         ), "Numbers of elements in v must be 1 or match layer size"
         return v
-
-    def evolve(
-        self,
-        ts_input: Optional[TSContinuous] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-        verbose: bool = False,
-    ) -> TSContinuous:
-        """
-        Evolve the state of this layer given an input
-
-        :param Optional[TSContinuous] ts_input: Input time series. Default: `None`, no stimulus is provided
-        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[bool]verbose:           Currently no effect, just for conformity
-
-        :return TSContinuous:                   Output time series
-        """
-
-        # - Prepare time base
-        time_base, inp, num_timesteps = self._prepare_input(
-            ts_input, duration, num_timesteps
-        )
-
-        sample_act = self._evolveEuler(
-            state=self._state,  # self._state is automatically updated
-            inp=inp,
-            weights=self._weights,
-            size=self._size,
-            num_steps=num_timesteps,
-            gain=self._gain,
-            bias=self._bias,
-            alpha=self._alpha,
-            # Without correction, standard deviation after some time will be
-            # self._noise_std * sqrt(self._alpha/2)
-            noise_std=self._noise_std * np.sqrt(2.0 / self._alpha),
-        )
-
-        # - Increment internal time representation
-        self._timestep += num_timesteps
-
-        return TSContinuous(time_base, sample_act)
-
-    def stream(
-        self, duration: float, dt: float, verbose: Optional[bool] = False
-    ) -> Tuple[float, List[float]]:
-        """
-        Stream data through this layer
-
-        :param float duration:          Total duration for which to handle streaming
-        :param float dt:                Streaming time step
-        :param Optional[bool] verbose:  Display feedback. Default: `False`, don't display feedback
-
-        :yield (float, ndarray):        (t, state)
-
-        :return (float, ndarray):       Final output (t, state)
-        """
-
-        # - Initialise simulation, determine how many dt to evolve for
-        if verbose:
-            print("Layer: I'm preparing")
-        time_trace = np.arange(0, duration + dt, dt)
-        num_steps = np.size(time_trace) - 1
-        euler_steps_per_dt = int(np.round(dt / self._dt))
-
-        if verbose:
-            print("Layer: Prepared")
-
-        # - Loop over dt steps
-        for step in range(num_steps):
-            if verbose:
-                print("Layer: Yielding from internal state.")
-            if verbose:
-                print("Layer: step", step)
-            if verbose:
-                print("Layer: Waiting for input...")
-
-            # - Yield current output, receive input for next time step
-            inp = (
-                yield self._t,
-                np.reshape(self._activation(self._state + self._bias), (1, -1)),
-            )
-
-            # - Set zero input if no input provided
-            if inp is None:
-                inp = np.zeros(euler_steps_per_dt, self._size_in)
-            else:
-                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
-
-            if verbose:
-                print("Layer: Input was: ", inp)
-
-            # - Evolve layer
-            _ = self._evolveEuler(
-                state=self._state,  # self._state is automatically updated
-                inp=inp,
-                weights=self._weights,
-                size=self._size,
-                num_steps=euler_steps_per_dt,
-                gain=self._gain,
-                bias=self._bias,
-                alpha=self._alpha,
-                # Without correction, standard deviation after some time will be
-                # self._noise_std * sqrt(self._alpha/2)
-                noise_std=self._noise_std * np.sqrt(2.0 / self._alpha),
-            )
-
-            # - Increment time
-            self._timestep += euler_steps_per_dt
-
-        # - Return final state
-        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
 
     def train(
         self,
@@ -434,7 +256,8 @@ class FFRateEuler(RRTrainedLayer):
             training_method = self.train_rr
         else:
             raise ValueError(
-                f"FFRateEuler `{self.name}`: Training method `{method}` is currently not "
+                self.start_print
+                + f"Training method `{method}` is currently not "
                 + "supported. Use `rr` for ridge regression."
             )
         # - Call training method
@@ -473,11 +296,7 @@ class FFRateEuler(RRTrainedLayer):
 
         if ts_input is None:
             # - Assume zero input
-            print(
-                "Layer `{}`: No ts_input defined, assuming input to be 0.".format(
-                    self.name
-                )
-            )
+            print(self.start_print + "No `ts_input` defined, assuming input to be 0.")
         else:
             # - Sample input trace and check for correct dimensions
             inp = self._check_input_dims(ts_input(time_base))
@@ -487,66 +306,15 @@ class FFRateEuler(RRTrainedLayer):
 
         return inp, target, time_base
 
-    def __repr__(self):
-        return "FFRateEuler layer object `{}`.\nnSize: {}, size_in: {}".format(
-            self.name, self.size, self.size_in
-        )
-
     def to_dict(self) -> dict:
         """
         Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer
 
-        :return dict: Dictionary of parameters to use when reconstructing this layer
+        :return dict:   A dictionary containing the parameters of this layer
         """
         config = super().to_dict()
-        config["tau"] = self.tau.tolist()
-        config["gain"] = self.gain.tolist()
         config["bias"] = self.bias.tolist()
-        warn(
-            f"FFRateEuler `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-            + "default activation function."
-        )
         return config
-
-    @property
-    def activation(self):
-        """
-        (ArrayLike[float]) The activation of this layer, after the activation function
-        """
-        return self.activation_func(self.state)
-
-    ### --- properties
-
-    @property
-    def tau(self):
-        """
-        (ArayLike[float]) (N) Vector of time constants for the neurons in this layer
-        """
-        return self._tau
-
-    @tau.setter
-    def tau(self, new_tau):
-        new_tau = self._correct_param_shape(new_tau)
-        if not (new_tau >= self._dt).all():
-            raise ValueError("All tau must be at least dt.")
-        self._tau = new_tau
-        self._alpha = self._dt / new_tau
-
-    @property
-    def alpha(self):
-        """
-        (ndarray) (N) Vector `.tau` / `.dt` for the neurons in this layer
-        """
-        return self._alpha
-
-    @alpha.setter
-    def alpha(self, new_alpha):
-        new_alpha = self._correct_param_shape(new_alpha)
-        if not (new_alpha <= 1).all():
-            raise ValueError("All alpha must be at most 1.")
-        self._alpha = new_alpha
-        self._tau = self._dt / new_alpha
 
     @property
     def bias(self):
@@ -559,41 +327,11 @@ class FFRateEuler(RRTrainedLayer):
     def bias(self, new_bias):
         self._bias = self._correct_param_shape(new_bias)
 
-    @property
-    def gain(self):
-        """
-        (ArrayLike[float]) (N) Vector of gain parameters for this layer
-        """
-        return self._gain
-
-    @gain.setter
-    def gain(self, new_gain):
-        self._gain = self._correct_param_shape(new_gain)
-
-    @property
-    def activation_func(self):
-        """
-        (Callable[[ndarray], ndarray) Activation function for the neurons in this layer
-        """
-        return self._activation
-
-    @activation_func.setter
-    def activation_func(self, f):
-        self._activation = f
-        self._evolveEuler = get_ff_evolution_function(f)
-
-    @Layer.dt.setter
-    def dt(self, new_dt):
-        if not (self.tau >= new_dt).all():
-            raise ValueError("All tau must be at least dt.")
-        self._dt = new_dt
-        self._alpha = new_dt / self._tau
-
 
 ### --- PassThrough Class
 
 
-class PassThrough(FFRateEuler):
+class PassThrough(FFRateLayer):
     """ Feed-forward layer with neuron states directly corresponding to input with an optional delay """
 
     def __init__(
@@ -620,12 +358,7 @@ class PassThrough(FFRateEuler):
 
         # - Call super-class initialiser
         super().__init__(
-            weights=np.asarray(weights, float),
-            dt=dt,
-            noise_std=noise_std,
-            activation_func=lambda x: x,
-            bias=bias,
-            name=name,
+            weights=np.asarray(weights, float), dt=dt, noise_std=noise_std, name=name
         )
 
         self.reset_all()
@@ -766,6 +499,301 @@ class PassThrough(FFRateEuler):
         (int) The delay imposed by this layer, in units of `.dt`
         """
         return self._delay_steps
+
+
+### --- FFRateEuler class
+
+
+class FFRateEuler(FFRateLayer):
+    """
+    Feedforward layer consisting of rate-based neurons
+
+    `.FFRateEuler` is a simple feed-forward layer of dynamical neurons, backed with a forward-Euler solver with a fixed time step. The neurons in this layer implement the dynamics
+
+    .. math::
+
+        \\tau \\cdot \\dot{x} + x = g \\cdot W I(t) + \\sigma \\cdot \\zeta(t)
+
+    where :math:`x` is the Nx1 vector of internal states of neurons in the layer; :math:`\\dot{x}` is the derivative of those staes with respect to time; :math:`\\tau` is the vector of time constants of the neurons in the layer; :math:`I(t)` is the instantaneous input injected into each neuron at time :math:`t`; :math:`W` is the MxN matrix of weights connecting the input to the neurons in the layer; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with standard deviation :math:`\\sigma``.
+
+    The output of the layer is given by
+
+    .. math ::
+        o = H(x + b)
+
+    where :math:`H(x)` is the neuron transfer function, which by default is the linear-threshold (or "rectified linear" or ReLU) function :math:`H(x) = max(0, x)`; :math:`b` is the Nx1 vector of bias values for this layer; and :math:`g` is the Nx1 vector of gain parameters for the neurons in this layer.
+
+    :Training:
+
+    `.FFRateEuler` supports weight training with linear or ridge regression, using the `.train` method. To use this facility, use the `.train` method instead of the `.evolve` method, calling `.train` in turn over multiple batches::
+
+        lyr = FFRateEuler(...)
+
+        # - Loop over batches and train
+        is_first = True
+        is_last = False
+
+        for (input_batch_ts, target_batch_ts) in batches[:-1]:
+            lyr.train(target_batch_tsm, input_batch_ts, is_first, is_last)
+            is_first = False
+
+        # - Finalise training for last batch
+        is_last = True
+        (input_batch_ts, target_batch_ts) = batches[-1]
+        lyr.train(target_batch_ts, input_batch_ts, is_first, is_last)
+
+    """
+
+    def __init__(
+        self,
+        weights: np.ndarray,
+        dt: Optional[float] = None,
+        name: Optional[str] = None,
+        noise_std: Optional[float] = 0.0,
+        activation_func: Optional[Callable[[np.ndarray], np.ndarray]] = re_lu,
+        tau: Optional[Union[float, np.ndarray]] = 10.0,
+        gain: Optional[Union[float, np.ndarray]] = 1.0,
+        bias: Optional[Union[float, np.ndarray]] = 0.0,
+    ):
+        """
+        Implement a feed-forward non-spiking neuron layer, with an Euler method solver
+
+        :param ndarray weights:                                     [MxN] Weight matrix
+        :param Optional[float] dt:                                  Time step for Euler solver, in seconds. Default: `None`, which will use `min(tau) / 10` as the time step, for numerical stability
+        :param Optional[str] name:                                  Name of this layer. Default: `None`
+        :param Optional[float] noise_std:                           Noise std. dev. per second. Default: 0.0, no noise
+        :param Optional[Callable[[float], float] activation_func:   Callable a = f(x) Neuron activation function. Default: ReLU
+        :param Optional[ArrayLike[float]] tau:                      [Nx1] Vector of neuron time constants in seconds. Default: 10.0
+        :param Optional[ArrayLike[float]] gain:                     [Nx1] Vector of gain factors. Default: 1.0, unitary gain
+        :param Optional[ArrayLike[float]] bias:                     [Nx1] Vector of bias currents. Default: 0.0
+        """
+
+        # - Make sure some required parameters are set
+        if tau is None:
+            raise TypeError(f"{self.class_name} `{name}`: `tau` may not be `None`.")
+        if gain is None:
+            raise TypeError(f"{self.class_name} `{name}`: `gain` may not be `None`.")
+
+        # - Set a reasonable dt
+        if dt is None:
+            min_tau = np.min(tau)
+            dt = min_tau / 10
+
+        # - Call super-class initialiser
+        super().__init__(
+            weights=weights, dt=dt, noise_std=noise_std, bias=bias, name=name
+        )
+
+        # - Check remaining parameter shapes
+        try:
+            self.tau, self.gain = map(self._correct_param_shape, (tau, gain))
+        except AssertionError:
+            raise AssertionError(
+                self.start_print
+                + "Numbers of elements in tau and gain must be 1 or match layer size."
+            )
+
+        # - Reset this layer state and set attributes
+        self.reset_all()
+        self.alpha = self._dt / self.tau
+        self.activation_func = activation_func
+
+    def evolve(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
+    ) -> TSContinuous:
+        """
+        Evolve the state of this layer given an input
+
+        :param Optional[TSContinuous] ts_input: Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[bool]verbose:           Currently no effect, just for conformity
+
+        :return TSContinuous:                   Output time series
+        """
+
+        # - Prepare time base
+        time_base, inp, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
+        )
+
+        sample_act = self._evolveEuler(
+            state=self._state,  # self._state is automatically updated
+            inp=inp,
+            weights=self._weights,
+            size=self._size,
+            num_steps=num_timesteps,
+            gain=self._gain,
+            bias=self._bias,
+            alpha=self._alpha,
+            # Without correction, standard deviation after some time will be
+            # self._noise_std * sqrt(self._alpha/2)
+            noise_std=self._noise_std * np.sqrt(2.0 / self._alpha),
+        )
+
+        # - Increment internal time representation
+        self._timestep += num_timesteps
+
+        return TSContinuous(time_base, sample_act)
+
+    def stream(
+        self, duration: float, dt: float, verbose: Optional[bool] = False
+    ) -> Tuple[float, List[float]]:
+        """
+        Stream data through this layer
+
+        :param float duration:          Total duration for which to handle streaming
+        :param float dt:                Streaming time step
+        :param Optional[bool] verbose:  Display feedback. Default: `False`, don't display feedback
+
+        :yield (float, ndarray):        (t, state)
+
+        :return (float, ndarray):       Final output (t, state)
+        """
+
+        # - Initialise simulation, determine how many dt to evolve for
+        if verbose:
+            print("Layer: I'm preparing")
+        time_trace = np.arange(0, duration + dt, dt)
+        num_steps = np.size(time_trace) - 1
+        euler_steps_per_dt = int(np.round(dt / self._dt))
+
+        if verbose:
+            print("Layer: Prepared")
+
+        # - Loop over dt steps
+        for step in range(num_steps):
+            if verbose:
+                print("Layer: Yielding from internal state.")
+            if verbose:
+                print("Layer: step", step)
+            if verbose:
+                print("Layer: Waiting for input...")
+
+            # - Yield current output, receive input for next time step
+            inp = (
+                yield self._t,
+                np.reshape(self._activation(self._state + self._bias), (1, -1)),
+            )
+
+            # - Set zero input if no input provided
+            if inp is None:
+                inp = np.zeros(euler_steps_per_dt, self._size_in)
+            else:
+                inp = np.repeat(np.atleast_2d(inp[1][0, :]), euler_steps_per_dt, axis=0)
+
+            if verbose:
+                print("Layer: Input was: ", inp)
+
+            # - Evolve layer
+            _ = self._evolveEuler(
+                state=self._state,  # self._state is automatically updated
+                inp=inp,
+                weights=self._weights,
+                size=self._size,
+                num_steps=euler_steps_per_dt,
+                gain=self._gain,
+                bias=self._bias,
+                alpha=self._alpha,
+                # Without correction, standard deviation after some time will be
+                # self._noise_std * sqrt(self._alpha/2)
+                noise_std=self._noise_std * np.sqrt(2.0 / self._alpha),
+            )
+
+            # - Increment time
+            self._timestep += euler_steps_per_dt
+
+        # - Return final state
+        return (self.t, np.reshape(self._activation(self._state + self._bias), (1, -1)))
+
+    def to_dict(self) -> dict:
+        """
+        Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer
+
+        :return dict: Dictionary of parameters to use when reconstructing this layer
+        """
+        config = super().to_dict()
+        config["tau"] = self.tau.tolist()
+        config["gain"] = self.gain.tolist()
+        warn(
+            f"FFRateEuler `{self.name}`: `activation_func` can not be stored with this "
+            + "method. When creating a new instance from this dict, it will use the "
+            + "default activation function."
+        )
+        return config
+
+    @property
+    def activation(self):
+        """
+        (ArrayLike[float]) The activation of this layer, after the activation function
+        """
+        return self.activation_func(self.state)
+
+    ### --- properties
+
+    @property
+    def tau(self):
+        """
+        (ArayLike[float]) (N) Vector of time constants for the neurons in this layer
+        """
+        return self._tau
+
+    @tau.setter
+    def tau(self, new_tau):
+        new_tau = self._correct_param_shape(new_tau)
+        if not (new_tau >= self._dt).all():
+            raise ValueError("All tau must be at least dt.")
+        self._tau = new_tau
+        self._alpha = self._dt / new_tau
+
+    @property
+    def alpha(self):
+        """
+        (ndarray) (N) Vector `.tau` / `.dt` for the neurons in this layer
+        """
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, new_alpha):
+        new_alpha = self._correct_param_shape(new_alpha)
+        if not (new_alpha <= 1).all():
+            raise ValueError("All alpha must be at most 1.")
+        self._alpha = new_alpha
+        self._tau = self._dt / new_alpha
+
+    @property
+    def gain(self):
+        """
+        (ArrayLike[float]) (N) Vector of gain parameters for this layer
+        """
+        return self._gain
+
+    @gain.setter
+    def gain(self, new_gain):
+        self._gain = self._correct_param_shape(new_gain)
+
+    @property
+    def activation_func(self):
+        """
+        (Callable[[ndarray], ndarray) Activation function for the neurons in this layer
+        """
+        return self._activation
+
+    @activation_func.setter
+    def activation_func(self, f):
+        self._activation = f
+        self._evolveEuler = get_ff_evolution_function(f)
+
+    @Layer.dt.setter
+    def dt(self, new_dt):
+        if not (self.tau >= new_dt).all():
+            raise ValueError("All tau must be at least dt.")
+        self._dt = new_dt
+        self._alpha = new_dt / self._tau
 
 
 class RecRateEuler(Layer):
@@ -911,7 +939,7 @@ class RecRateEuler(Layer):
 
         # - Generate a noise trace
         noise_step = (
-            np.random.randn(np.size(time_base), self.size)
+            np.random.randn(np.size(time_trace), self.size)
             * self.noise_std
             * np.sqrt(2.0 * self._tau / self._dt)
         )
