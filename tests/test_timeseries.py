@@ -377,11 +377,12 @@ def test_continuous_append_t():
     from rockpool import TSContinuous
 
     # - Generate a few TSEvent objects
-    samples = np.random.randint(10, size=(2, 4))
+    samples = np.random.randint(10, size=(2, 6))
     empty_series = TSContinuous(t_start=1)
     series_list = []
     series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=3))
-    series_list.append(TSContinuous([1], samples[0, 2:], t_start=0, t_stop=2))
+    series_list.append(TSContinuous([1], samples[0, 2:4], t_start=0, t_stop=2))
+    series_list.append(TSContinuous([1, 3], samples[:2, 4:], t_start=0, t_stop=3))
 
     # Appending two series
     appended_fromtwo = series_list[0].append_t(series_list[1])
@@ -392,7 +393,7 @@ def test_continuous_append_t():
     ).all(), "Wrong time trace for appended series."
     assert (
         (appended_fromtwo.samples[:2] == samples[:2, :2]).all()
-        and (appended_fromtwo.samples[2:] == samples[[0], 2:])
+        and (appended_fromtwo.samples[2:] == samples[[0], 2:4])
     ).all(), "Wrong samples for appended series."
 
     # Appending with empty series
@@ -426,6 +427,34 @@ def test_continuous_append_t():
         appended_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when appending with empty"
 
+    # Appending multiple time series
+    appended_fromthree = series_list[0].append_t(series_list[1:], offset=None)
+    exptd_offset = np.median(np.diff(series_list[0].times))
+    exptd_ts2_delay = exptd_offset + series_list[0].t_stop - series_list[1].t_start
+    # - No offset between ts2 and ts3 because ts2 has only one element
+    exptd_ts3_delay = exptd_ts2_delay + series_list[1].t_stop - series_list[2].t_start
+    exptd_ts2_times = series_list[1].times + exptd_ts2_delay
+    exptd_ts3_times = series_list[2].times + exptd_ts3_delay
+
+    assert (
+        appended_fromthree.times
+        == np.r_[series_list[0].times, exptd_ts2_times, exptd_ts3_times]
+    ).all(), "Wrong time trace when appending from list"
+    assert (
+        appended_fromthree.samples
+        == np.vstack([series.samples for series in series_list])
+    ).all(), "Wrong samples when appending from list"
+
+    # - Generating from list of TSContinuous
+    appended_fromlist = TSContinuous.concatenate_t(series_list)
+
+    assert (
+        appended_fromthree.times == appended_fromlist.times
+    ).all(), "Wrong time trace when appending from list"
+    assert (
+        appended_fromthree.samples == appended_fromlist.samples
+    ).all(), "Wrong samples when appending from list"
+
 
 def test_continuous_merge():
     """
@@ -434,11 +463,12 @@ def test_continuous_merge():
     from rockpool import TSContinuous
 
     # - Generate a few TSEvent objects
-    samples = np.random.randint(10, size=(2, 4))
+    samples = np.random.randint(10, size=(2, 6))
     empty_series = TSContinuous(t_start=1)
     series_list = []
     series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=3))
-    series_list.append(TSContinuous([1.5], samples[0, 2:], t_start=0, t_stop=4))
+    series_list.append(TSContinuous([1.5], samples[0, 2:4], t_start=0, t_stop=4))
+    series_list.append(TSContinuous([2, 2.5], samples[:2, 4:6], t_start=-2, t_stop=3))
 
     # Merging two series
     merged_fromtwo = series_list[0].merge(series_list[1])
@@ -447,7 +477,7 @@ def test_continuous_merge():
     assert (
         merged_fromtwo.times == np.array([1, 1.5, 2])
     ).all(), "Wrong time trace for merged series."
-    correct_samples = np.vstack((samples[0, :2], samples[0, 2:], samples[1, :2]))
+    correct_samples = np.vstack((samples[0, :2], samples[0, 2:4], samples[1, :2]))
     assert (
         merged_fromtwo.samples == correct_samples
     ).all(), "Wrong samples for merged series."
@@ -480,6 +510,21 @@ def test_continuous_merge():
     assert (
         merged_empty_last.times == series_list[0].times
     ).all(), "Wrong time trace when merging with empty"
+
+    # Merging with list of series
+    merged_with_list = empty_series.merge(series_list, remove_duplicates=True)
+    assert (
+        merged_with_list.num_channels == 2
+    ), "Wrong channel count when merging with list."
+    assert merged_with_list.t_start == -2, "Wrong t_start when merging with list."
+    assert merged_with_list.t_stop == 4, "Wrong t_stop when merging with list."
+    assert (
+        merged_with_list.times == np.array([1, 1.5, 2, 2.5])
+    ).all(), "Wrong time trace when merging with list."
+    assert (
+        merged_with_list.samples
+        == np.vstack((samples[0, :2], samples[0, 2:4], samples[1, :2], samples[1, 4:6]))
+    ).all(), "Wrong samples when merging with list."
 
 
 def test_event_call():
@@ -786,6 +831,18 @@ def test_event_append_t():
         appended_with_list.channels == np.array([2, 0, 1, 1, 0, 0])
     ).all(), "Wrong channels when appending with list."
 
+    # - Generating from list of TSContinuous
+    # First offset changed to match `appended_with_list`
+    # (where empty series has t_stop=0, causing first series to be shifted as it has t_start = -1)
+    appended_fromlist = TSEvent.concatenate_t(series_list, offset=[4, 2, 1])
+
+    assert (
+        appended_with_list.times == appended_fromlist.times
+    ).all(), "Wrong time trace when appending from list"
+    assert (
+        appended_with_list.channels == appended_fromlist.channels
+    ).all(), "Wrong channels when appending from list"
+
 
 def test_event_merge():
     """
@@ -910,21 +967,20 @@ def test_save_load():
     remove("test_tsc.npz")
     remove("test_tse.npz")
 
+
 def test_event_raster_periodic_iss5():
     from rockpool import TSEvent
 
     # - Build a periodic event time series
-    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0],
-                 periodic = True)
+    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=True)
 
     # - Test rasterisation
-    raster = ts.raster(t_start = 0, t_stop = 8, dt = 1)
-    assert raster.shape == (9, 2), 'Shape must be (9, 2)'
+    raster = ts.raster(t_start=0, t_stop=8, dt=1)
+    assert raster.shape == (9, 2), "Shape must be (9, 2)"
 
     # - Build a non-periodic event time series
-    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0],
-                 periodic = False)
+    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=False)
 
     # - Test rasterisation
-    raster = ts.raster(t_start = 0, t_stop = 8, dt = 1)
-    assert raster.shape == (9, 2), 'Shape must be (9, 2)'
+    raster = ts.raster(t_start=0, t_stop=8, dt=1)
+    assert raster.shape == (9, 2), "Shape must be (9, 2)"
