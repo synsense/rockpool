@@ -135,7 +135,6 @@ class RidgeRegrTrainer:
         :param np.ndarray target:  2D-array (num_samples x num_outputs) of prepared target data
         """
         inp, target = self._prepare_data(inp, target)
-        print(inp)
         upd_xty = inp.T @ target - self.kahan_comp_xty
         upd_xtx = inp.T @ inp - self.kahan_comp_xtx
         xty_new = self.xty + upd_xty
