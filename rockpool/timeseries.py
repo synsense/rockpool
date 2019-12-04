@@ -1053,7 +1053,6 @@ class TSContinuous(TimeSeries):
 
         :return TSContinuous:                                                 Time series containing data from ``self``, with the other series appended in time
         """
-        print("offset0:", offset)
 
         # - Ensure there is a list of timeseries to work on
         if isinstance(other_series, TSContinuous):
@@ -1094,7 +1093,6 @@ class TSContinuous(TimeSeries):
                     # - No offset with empty series
                     offset_list[i] = 0
 
-        print("offset1:", offset_list)
         # - Translate offsets so that they correspond to indiviual delays for each series
         # Delay for first appended series:
         delay1 = offset_list[0] + self.t_stop - other_series[0].t_start
@@ -1107,7 +1105,6 @@ class TSContinuous(TimeSeries):
             stop_previous = delay_list[-1] + prev_series.t_stop
             # Delay for current series
             delay_list.append(stop_previous + offset - curr_series.t_start)
-        print("delays:", delay_list)
         other_series = [
             series.delay(delay) for series, delay in zip(other_series, delay_list)
         ]
