@@ -627,11 +627,9 @@ def test_event_raster_explicit_num_channels():
     from rockpool import TSEvent
 
     testTSEvent = TSEvent([0, 30], 0, num_channels=5)
-    for i in range(1, 4):
-        testTSEvent.merge(TSEvent(None, i), inplace=True)
 
     raster = testTSEvent.raster(dt=1)
-    assert raster.shape == (31, 5)
+    assert raster.shape == (30, 5)
 
 
 def test_event_empty():
@@ -989,12 +987,40 @@ def test_event_raster_periodic_iss5():
     ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=True)
 
     # - Test rasterisation
-    raster = ts.raster(t_start=0, t_stop=8, dt=1)
-    assert raster.shape == (9, 2), "Shape must be (9, 2)"
+    raster = ts.raster(t_start=0, t_stop=10, dt=1)
+    assert np.all(
+        raster
+        == [
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, True],
+        ]
+    )
 
     # - Build a non-periodic event time series
     ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=False)
 
     # - Test rasterisation
-    raster = ts.raster(t_start=0, t_stop=8, dt=1)
-    assert raster.shape == (9, 2), "Shape must be (9, 2)"
+    raster = ts.raster(t_start=0, t_stop=10, dt=1)
+    assert np.all(
+        raster
+        == [
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, True],
+            [True, False],
+            [False, False],
+            [False, False],
+            [False, False],
+        ]
+    )
