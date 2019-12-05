@@ -1849,11 +1849,11 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_start:             Time from which on events are returned. Default: `.t_start`
         :param Optional[float] t_stop:              Time until which events are returned. Default: `.t_stop`
         :param Optional[ArrayLike[int]] channels:   Channels of which events are returned. Default: All channels
-        :param bool include_stop:          If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
-        :param bool remap_channels:        Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
-        :param bool inplace:              Iff ``True``, the operation is performed in place (Default: False)
+        :param bool include_stop:                   If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
+        :param bool remap_channels:                 Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
+        :param bool inplace:                        Iff ``True``, the operation is performed in place (Default: False)
 
-        :return TSEvent:                            `TSEvent` containing events from the requested channels
+        :return `.TSEvent`:                         `.TSEvent` containing events from the requested channels
         """
 
         if not inplace:
@@ -1927,21 +1927,45 @@ class TSEvent(TimeSeries):
         num_timesteps: int = None,
         channels: np.ndarray = None,
         add_events: bool = False,
+        include_t_stop: bool = False,
     ) -> np.ndarray:
         """
         Return a rasterized version of the time series data, where each data point represents a time step
 
         Events are represented in a boolean matrix, where the first axis corresponds to time, the second axis to the channel. Events that happen between time steps are projected to the preceding step. If two events happen during one time step within a single channel, they are counted as one, unless ``add_events`` is ``True``.
 
+        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at ``t+dt``**. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
+
+        To generate a time trace that corresponds to the raster, you can use :py:func:`numpy.arange` as follows::
+
+            num_timesteps = np.ceil((t_stop - t_start) / dt) + ((t_stop - t_start) % dt == 0) and include_t_stop
+            bin_starts = np.arange(num_timesteps) * dt + t_start
+            bin_stops = bin_starts + dt
+            bin_mid = bin_starts + dt/2
+
+        Note that the modulo computation is numerically unstable as expressed above. Internally we use a numerically more stable version, with::
+
+            def mod(num, div):
+                return (num - div * np.floor(num/div))
+
+            num_timesteps = int(np.ceil((t_stop - t_start) / dt) +
+                int((np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE) and include_t_stop))
+
         :param float dt:                            Duration of single time step in raster
         :param Optional[float] t_start:             Time where to start raster. Default: None (use ``self.t_start``)
         :param Optional[float] t_stop:              Time where to stop raster. This time point is not included in the raster. Default: ``None`` (use ``self.t_stop``. If ``num_timesteps`` is provided, ``t_stop`` is ignored.
         :param Optional[int] num_timesteps:         Specify number of time steps directly, instead of providing ``t_stop``. Default: ``None`` (use ``t_start``, ``t_stop`` and ``dt`` to determine raster size)
         :param Optional[ArrayLike[int]] channels:   Channels from which data is to be used. Default: ``None`` (use all channels)
-        :param bool add_events:           If ``True``, return an integer raster containing number of events for each time step and channel. Default: ``False``, merge simultaneous events in a single channel, and return a boolean raster
+        :param bool add_events:                     If ``True``, return an integer raster containing number of events for each time step and channel. Default: ``False``, merge simultaneous events in a single channel, and return a boolean raster
+        :param bool endpoint:                       If ``True``, an extra time bin is added to the raster after ``t_stop``, to ensure that any events occurring at ``t_stop`` are included in the raster. Default: ``False``, do not include events occurring at ``t_stop``.
 
-        :return ArrayLike:  event_raster - Boolean matrix with ``True`` indicating presence of events for each time step and channel. If ``add_events == True``, the raster consists of integers indicating the number of events per time step and channel. First axis corresponds to time, second axis to channel.
+        :return ArrayLike:  event_raster            Boolean matrix with ``True`` indicating presence of events for each time step and channel. If ``add_events == True``, the raster consists of integers indicating the number of events per time step and channel. First axis corresponds to time, second axis to channel.
         """
+
+        # - Numerically stable modulo function
+        def mod(num, div):
+            return num - div * np.floor(num / div)
+
         # - Filter time and channels
         t_start = self.t_start if t_start is None else t_start
         if channels is None:
@@ -1961,32 +1985,53 @@ class TSEvent(TimeSeries):
         else:
             channels_clip = channels
 
-        # - Work out number of time steps
-        if num_timesteps is None:
-            series = self.clip(
-                t_start=t_start,
-                t_stop=t_stop,
-                channels=channels_clip,
-                remap_channels=False,
+        # - Determine t_stop and num_timesteps
+        if num_timesteps is not None and t_stop is not None:
+            # - Check that only one of `t_stop` and `num_timesteps` is provided
+            raise ValueError(
+                "Only one of `t_stop` and `num_timesteps` may be provided."
             )
-            # - Make sure that last point is also included if ``duration`` is a
-            #   multiple of dt. Therefore floor(...) + 1
-            num_timesteps = int(np.floor((series.duration) / dt)) + 1
 
-        else:
+        elif num_timesteps is not None:
+            # - Use `num_timesteps` to determine `t_stop`
             t_stop = t_start + num_timesteps * dt
-            series = self.clip(
-                t_start=t_start,
-                t_stop=t_stop,
-                channels=channels_clip,
-                remap_channels=False,
-            )
 
-        # - Raster for storing event data
+            # - `include_t_stop` is ignored in this case
+            if include_t_stop:
+                warn("`include_t_stop` is ignored if `num_timesteps` is provided.")
+                include_t_stop = False
+
+        elif t_stop is None:
+            # - Use own `t_stop`
+            t_stop = self.t_stop
+
+        # - Compute number of raster timesteps, taking into account `include_t_stop` argument
+        num_timesteps = int(
+            np.ceil((t_stop - t_start) / dt)
+            + int(
+                (np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE)
+                and include_t_stop
+            )
+        )
+
+        # - If the final time bin spans over `t_stop`, then we should include spikes at `t_stop`
+        if t_start + num_timesteps * dt > t_stop:
+            include_t_stop = True
+
+        # - Clip the time series to include only the events of interest
+        series = self.clip(
+            t_start=t_start,
+            t_stop=t_stop,
+            channels=channels_clip,
+            remap_channels=False,
+            include_stop=include_t_stop,
+        )
+
+        # - Create raster for storing event data
         raster_type = int if add_events else bool
         event_raster = np.zeros((num_timesteps, channels.size), raster_type)
 
-        # - Handle empty series
+        # - Handle empty time series
         if len(series) == 0:
             return event_raster
 
@@ -1997,12 +2042,12 @@ class TSEvent(TimeSeries):
         ## -- Convert input events and samples to boolean or integer raster
         # - Only consider rasters that have non-zero length
         if num_timesteps > 0:
-            # - Compute indices for times
+            # - Compute indices for event times and filter to valid time bins
             time_indices = np.floor((event_times - t_start) / dt).astype(int)
             time_indices = time_indices[time_indices < num_timesteps]
 
             if add_events:
-                # Count events per time step and channel
+                # - Accumulate events per time step and channel
                 for idx_t, idx_ch in zip(time_indices, event_channels):
                     event_raster[idx_t, idx_ch] += 1
             else:
@@ -2017,11 +2062,12 @@ class TSEvent(TimeSeries):
                 ):
                     print(
                         f"TSEvent `{self.name}`: There are channels with multiple events"
-                        + " per time step. Consider smaller dt or setting add_events True."
+                        + " per time step. Consider using a smaller `dt` or setting `add_events = True`."
                     )
-                # Mark spiking indices with True
+                # - Mark spiking indices with True
                 event_raster[time_indices, event_channels] = True
 
+        # - Return the raster
         return event_raster
 
     def xraster(
@@ -2031,6 +2077,8 @@ class TSEvent(TimeSeries):
         t_stop: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         channels: Optional[np.ndarray] = None,
+        add_events: Optional[bool] = None,
+        endpoint: Optional[bool] = None,
     ) -> np.ndarray:
         """
         Generator which ``yield`` s a rasterized time series data, where each data point represents a time step
@@ -2042,6 +2090,8 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_stop:              Time where to stop raster. This time point is not included in the raster. Default: ``None`` (use ``self.t_stop``. If ``num_timesteps`` is provided, ``t_stop`` is ignored.
         :param Optional[int] num_timesteps:         Specify number of time steps directly, instead of providing ``t_stop``. Default: ``None`` (use ``t_start``, ``t_stop`` and ``dt`` to determine raster size.
         :param Optional[ArrayLike[int]] channels:   Channels from which data is to be used. Default: ``None`` (use all channels)
+        :param Optional[bool] add_events:           If ``True``, return an integer raster containing number of events for each time step and channel. Default: ``False``, merge simultaneous events in a single channel, and return a boolean raster
+        :param Optional[bool] endpoint:            If ``True``, an extra time bin is added to the raster after ``t_stop``, to ensure that any events occurring at ``t_stop`` are included in the raster. Default: ``False``, do not include events occurring at ``t_stop``.
 
         :yields ArrayLike: event_raster - Boolean matrix with ``True`` indicating presence of events for each time step and channel. If ``add_events == True``, the raster consists of integers indicating the number of events per time step and channel. First axis corresponds to time, second axis to channel.
         """
@@ -2051,6 +2101,8 @@ class TSEvent(TimeSeries):
             t_stop=t_stop,
             num_timesteps=num_timesteps,
             channels=channels,
+            add_events=add_events,
+            endpoint=endpoint,
         )
         yield from event_raster  # Yield one row at a time
 

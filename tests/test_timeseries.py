@@ -598,12 +598,26 @@ def test_event_raster():
     """
     from rockpool import TSEvent
 
-    testTSEvent = TSEvent([0, 30], 0)
-    for i in range(1, 4):
-        testTSEvent.merge(TSEvent(None, i), inplace=True)
+    # - Build a test event time series
+    testTSEvent = TSEvent([0, 30], 0, num_channels=4)
 
+    # - Default operation, ignoring end time step
     raster = testTSEvent.raster(dt=1)
+    assert raster.shape == (30, 4)
+
+    # - Include end time step
+    raster = testTSEvent.raster(dt=1, include_t_stop=True)
     assert raster.shape == (31, 4)
+
+    # - Use a dt that is a non-modulo of duration
+    raster = TSEvent([0, 1], 0).raster(dt=0.9)
+    assert raster.shape == (2, 1)
+
+    raster = TSEvent([0, 1], 0).raster(dt=0.9, include_t_stop=True)
+    assert raster.shape == (2, 1)
+
+    raster = TSEvent([0, 1], 0).raster(dt=1.1, include_t_stop=True)
+    assert raster.shape == (1, 1)
 
 
 def test_event_raster_explicit_num_channels():
