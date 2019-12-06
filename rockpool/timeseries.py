@@ -1151,6 +1151,7 @@ class TSContinuous(TimeSeries):
                 axis=0,
                 assume_sorted=True,
                 bounds_error=False,
+                copy=False,
             )
 
     def _interpolate(self, times: Union[int, float, ArrayLike]) -> np.ndarray:
