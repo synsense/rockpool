@@ -260,7 +260,9 @@ class FFExpSyn(RRTrainedLayer):
             num_timesteps = len(data)
 
         # - Define exponential kernel
-        kernel = np.exp(-np.arange(num_timesteps) * self.dt / self.tau_syn)
+        # Make kernel shorter by setting values smaller than ``tol_abs`` to 0
+        len_kernel = -self.tau_syn / self.dt * np.log(tol_abs)
+        kernel = np.exp(-np.arange(len_kernel) * self.dt / self.tau_syn)
 
         # - Make sure spikes only have effect on next time step
         kernel = np.r_[0, kernel]
