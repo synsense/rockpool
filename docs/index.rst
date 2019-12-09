@@ -40,9 +40,9 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Advanced topics
 
    advanced/extending_layers.ipynb
-
    reference/layer_types
-
    reference/api
+   advanced/developers_notes
+   advanced/changelog_link
 
 * :ref:`genindex`
