@@ -38,13 +38,23 @@ def test_RecLIFJax():
     )
 
     # - Input signal
-    tsInSp = TSEvent(times=np.arange(15) * dt, channels=np.ones(15) * (net_size - 1))
+    tsInSp = TSEvent(
+        times=np.arange(15) * dt,
+        channels=np.ones(15) * (net_size - 1),
+        t_start=0.0,
+        t_stop=16 * dt,
+    )
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInSp)
+    assert fl0.t == 16 * dt
 
     fl0.reset_all()
     assert fl0.t == 0
@@ -104,13 +114,18 @@ def test_RecLIFCurrentInJax():
     )
 
     # - Input signal
-    tsInCont = TSContinuous(times=np.arange(15) * dt, samples=np.ones((15, net_size)))
+    tsInCont = TSContinuous(times=np.arange(100), samples=np.ones((100, net_size)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInCont)
+    assert fl0.t == 99
 
     fl0.reset_all()
     assert fl0.t == 0
@@ -173,13 +188,23 @@ def test_RecLIFJax_IO():
     )
 
     # - Input signal
-    tsInSp = TSEvent(times=np.arange(15) * dt, channels=np.ones(15) * in_size)
+    tsInSp = TSEvent(
+        times=np.arange(15) * dt,
+        channels=np.ones(15) * in_size,
+        t_start=0.0,
+        t_stop=16 * dt,
+    )
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInSp)
+    assert fl0.t == 16 * dt
 
     fl0.reset_all()
     assert fl0.t == 0
@@ -248,13 +273,23 @@ def test_RecLIFCurrentInJax_IO():
     )
 
     # - Input signal
-    tsInCont = TSContinuous(times=np.arange(15) * dt, samples=np.ones((15, in_size)))
+    tsInCont = TSContinuous(
+        times=np.arange(15) * dt,
+        samples=np.ones((15, in_size)),
+        t_start=0.0,
+        t_stop=16 * dt,
+    )
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInCont)
+    assert fl0.t == 16 * dt
 
     fl0.reset_all()
     assert fl0.t == 0

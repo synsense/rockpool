@@ -281,7 +281,7 @@ class Layer(ABC):
         :return (ndarray): Generated time trace
         """
         # - Generate a trace
-        time_trace = np.arange(num_timesteps + 1) * self._dt + t_start
+        time_trace = np.arange(num_timesteps + 1) * self.dt + t_start
 
         return time_trace
 
