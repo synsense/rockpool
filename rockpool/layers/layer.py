@@ -32,8 +32,8 @@ class Layer(ABC):
     def __init__(
         self,
         weights: np.ndarray,
-        dt: float = 1.,
-        noise_std: float = 0.,
+        dt: float = 1.0,
+        noise_std: float = 0.0,
         name: str = "unnamed",
     ):
         """
@@ -93,11 +93,11 @@ class Layer(ABC):
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, ``num_timesteps`` or the duration of ``ts_input`` will be used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of :py:attr:`.dt`. If not provided, ``duration`` or the duration of ``ts_input`` will be used to determine evolution time
 
-        :return int:                            Number of evolution time steps
+        :return int:                            num_timesteps: Number of evolution time steps
         """
 
         if num_timesteps is None:
-            # - Determine num_timesteps
+            # - Determine ``num_timesteps``
             if duration is None:
                 # - Determine duration
                 assert (
@@ -273,7 +273,7 @@ class Layer(ABC):
 
     def _gen_time_trace(self, t_start: float, num_timesteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at t_start, of length num_timesteps+1 with time step length self._dt. Make sure it does not go beyond t_start+duration.
+        Generate a time trace starting at ``t_start``, of length ``num_timesteps + 1`` with time step length :py:attr:`._dt`
 
         :param float t_start:       Start time, in seconds
         :param int num_timesteps:   Number of time steps to generate, in units of ``.dt``

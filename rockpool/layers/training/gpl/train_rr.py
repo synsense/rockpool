@@ -14,7 +14,7 @@ class RidgeRegrTrainer:
         self,
         num_features: int,
         num_outputs: int,
-        regularization: float,
+        regularize: float,
         fisher_relabelling: bool,
         standardize: bool,
         train_biases: bool,
@@ -23,14 +23,14 @@ class RidgeRegrTrainer:
         RidgeRegrTrainer - Class to perform ridge regression.
         :param int num_features:        Number of input features.
         :param int num_outputs:         Number of output units to be trained.
-        :param float regularization:    Regularization parameter.
+        :param float regularize:        Regularization parameter.
         :param bool fisher_relabelling: Relabel target data such that algorithm is equivalent to Fisher discriminant analysis.
         :param bool standardize:        Perform z-score standardization based on mean and variance of first input batch.
         :param bool train_biases:       Train constant biases along with weights.
         """
         self.num_features = num_features
         self.num_outputs = num_outputs
-        self.regularization = regularization
+        self.regularize = regularize
         self.fisher_relabelling = fisher_relabelling
         self.standardize = standardize
         self.train_biases = train_biases
@@ -135,7 +135,6 @@ class RidgeRegrTrainer:
         :param np.ndarray target:  2D-array (num_samples x num_outputs) of prepared target data
         """
         inp, target = self._prepare_data(inp, target)
-        print(inp)
         upd_xty = inp.T @ target - self.kahan_comp_xty
         upd_xtx = inp.T @ inp - self.kahan_comp_xtx
         xty_new = self.xty + upd_xty
@@ -165,7 +164,7 @@ class RidgeRegrTrainer:
         """
         solution = np.linalg.solve(
             self.xtx
-            + self.regularization * np.eye(self.num_features + int(self.train_biases)),
+            + self.regularize * np.eye(self.num_features + int(self.train_biases)),
             self.xty,
         )
         if self.train_biases:
