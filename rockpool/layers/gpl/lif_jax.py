@@ -190,7 +190,7 @@ def _evolve_lif_jax(
     # - Build noise trace
     # - Compute random numbers for reservoir noise
     num_timesteps = sp_input_ts.shape[0]
-    __all__, subkey = rand.split(key)
+    _, subkey = rand.split(key)
     noise_ts = noise_std * rand.normal(
         subkey, shape=(num_timesteps, np.size(state0["Vmem"]))
     )
@@ -203,7 +203,7 @@ def _evolve_lif_jax(
     )
 
     # - Generate output surrogate
-    surrogate_ts = sigmoid(Vmem_ts)
+    surrogate_ts = sigmoid(Vmem_ts*10)
 
     # - Weighted output
     output_ts = np.dot(surrogate_ts, w_out_surrogate)
@@ -333,6 +333,33 @@ class RecLIFJax(Layer):
             "spikes": np.zeros((self._size,)),
         }
 
+    @property
+    def state(self):
+        """
+        Internal state of the neurons in this layer
+        return: dict{"Vmem", "Isyn", "spikes"}
+        """
+        return {k: np.array(v) for k, v in self._state.items()}
+
+    @state.setter
+    def state(self, new_state):
+        """
+        Setter for state values. Verifies that new state dict contains correct keys and sizes
+        """
+        # - Verify that `new_state` has the correct sizes
+        for k, v in new_state.items():
+            assert np.size(v) == self.size, \
+                "New state values must have {} elements".format(self.size)
+
+        # - Verify that `new_state` contains the correct keys
+        if ("Vmem" not in new_state.keys() or
+            "Isyn" not in new_state.keys() or
+            "spikes" not in new_state.keys()):
+            raise ValueError("`new_state` must be a dict containing keys 'Vmem', 'Isyn' and 'spikes'.")
+
+        # - Update state dictionary
+        self._state.update(new_state)
+
     def evolve(
         self,
         ts_input: Optional[TSEvent] = None,
@@ -426,6 +453,18 @@ class RecLIFJax(Layer):
 
         # - Return layer activity
         return Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts
+
+    def randomize_state(self):
+        """
+        Randomize the internal state of this layer.
+
+        `.state['Isyn']` will be drawn from a Normal distribution with std. dev. 1/10. `.state['Vmem']` will be uniformly distributed between -1. and 1. `.state['spikes']` will be zeroed.
+        """
+        _, subkey = rand.split(self._rng_key)
+        self._state["Isyn"] = rand.normal(subkey, (self.size,)) / 10.0
+        _, subkey = rand.split(self._rng_key)
+        self._state["Vmem"] = rand.uniform(subkey, (self.size,), minval=-1., maxval=0.)
+        self._state["spikes"] = np.zeros((self.size,))
 
     def to_dict(self) -> dict:
         """
@@ -973,3 +1012,39 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
     def input_type(self):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous
+
+
+class FFLIFJax_IO(RecLIFJax_IO):
+    def __init__(
+        self,
+        w_in: FloatVector,
+        w_out: FloatVector,
+        tau_mem: FloatVector,
+        tau_syn: FloatVector,
+        bias: FloatVector = -1.0,
+        noise_std: float = 0.0,
+        dt: Optional[float] = None,
+        name: Optional[str] = None,
+        rng_key: Optional[int] = None,
+    ):
+        # - Determine network shape
+        w_in = np.atleast_2d(w_in)
+        w_out = np.atleast_2d(w_out)
+        net_size = w_in.shape[1]
+
+        # - Initialise layer object
+        super().__init__(
+            w_in=w_in,
+            w_recurrent=np.zeros((net_size, net_size)),
+            w_out=w_out,
+            tau_mem=tau_mem,
+            tau_syn=tau_syn,
+            bias=bias,
+            noise_std=noise_std,
+            dt=dt,
+            name=name,
+            rng_key=rng_key,
+        )
+
+        # - Set recurrent weights to zero
+        self._weights = 0.0
