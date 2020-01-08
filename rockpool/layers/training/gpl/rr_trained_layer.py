@@ -112,7 +112,10 @@ class RRTrainedLayer(Layer, ABC):
         )
 
         if return_trained_output:
-            output_samples = inp @ self.trainer.weights + self.trainer.bias
+
+            bias = self.trainer.bias if train_biases else self.bias
+
+            output_samples = inp @ self.trainer.weights + bias
             tr_data["output"] = TSContinuous(time_base, output_samples)
 
         if return_trained_output or return_training_progress:

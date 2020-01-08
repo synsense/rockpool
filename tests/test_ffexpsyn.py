@@ -56,6 +56,16 @@ def test_ffexpsyn():
         is_last=True,
         return_trained_output=True,
     )
+    # Test training without biases
+    flM.train_rr(
+        tsTgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        return_trained_output=True,
+        train_biases=False,
+    )
 
     # assert(
     #             np.isclose(flT.weights, flM.weights, rtol=1e-4, atol=1e-2).all()
