@@ -40,9 +40,9 @@ class RidgeRegrTrainer:
         """
         init_matrices - Initialize matrices for storing intermediate training data.
         """
-        self.xty = np.zeros((self.num_features + 1, self.num_outputs))
+        self.xty = np.zeros((self.num_features + int(self.train_biases), self.num_outputs))
         self.xtx = np.zeros(
-            (self.num_features + 1, self.num_features + int(self.train_biases))
+            (self.num_features + int(self.train_biases), self.num_features + int(self.train_biases))
         )
         self.kahan_comp_xty = np.zeros_like(self.xty)
         self.kahan_comp_xtx = np.zeros_like(self.xtx)
