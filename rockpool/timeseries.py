@@ -628,38 +628,29 @@ class TSContinuous(TimeSeries):
 
         else:
             # - Infer current plotting backend from type of `target`
-            if isinstance(target, (hv.Curve, hv.Overlay)):
-                if _HV_AVAILABLE:
-                    if kwargs == {}:
-                        for data in samples.T:
-                            target *= hv.Curve((times, data)).redim(x="Time")
-                    else:
-                        for data in samples.T:
-                            target *= (
-                                hv.Curve((times, data))
-                                .redim(x="Time")
-                                .options(*args, **kwargs)
-                            )
-                    return target.relabel(group=self.name)
+            if _HV_AVAILABLE and isinstance(target, (hv.Curve, hv.Overlay)):
+                if kwargs == {}:
+                    for data in samples.T:
+                        target *= hv.Curve((times, data)).redim(x="Time")
                 else:
-                    raise RuntimeError(
-                        f"TSContinuous `{self.name}`: Holoviews is not available."
-                    )
+                    for data in samples.T:
+                        target *= (
+                            hv.Curve((times, data))
+                            .redim(x="Time")
+                            .options(*args, **kwargs)
+                        )
+                return target.relabel(group=self.name)
 
-            elif isinstance(target, mpl.axes.Axes):
-                if _MPL_AVAILABLE:
-                    # - Add `self.name` as label only if a label is not already present
-                    kwargs["label"] = kwargs.get("label", self.name)
-                    target.plot(times, samples, **kwargs)
-                    return target
-                else:
-                    raise RuntimeError(
-                        f"TSContinuous `{self.name}`: Holoviews is not available."
-                    )
+            elif _MPL_AVAILABLE and isinstance(target, mpl.axes.Axes):
+                # - Add `self.name` as label only if a label is not already present
+                kwargs["label"] = kwargs.get("label", self.name)
+                target.plot(times, samples, **kwargs)
+                return target
             else:
                 raise TypeError(
                     f"TSContinuous: `{self.name}`: Unrecognized type for `target`. "
-                    + "It must be matplotlib Axes or holoviews Curve or Overlay."
+                    + "It must be matplotlib Axes or holoviews Curve or Overlay and "
+                    + "the corresponding backend must be installed in your environment."
                 )
 
     def print(
@@ -1803,32 +1794,23 @@ class TSEvent(TimeSeries):
 
         else:
             # - Infer current plotting backend from type of `target`
-            if isinstance(target, (hv.Curve, hv.Overlay)):
-                if _HV_AVAILABLE:
-                    target *= (
-                        hv.Scatter((times, channels), *args, **kwargs)
-                        .redim(x="Time", y="Channel")
-                        .relabel(self.name)
-                    )
-                    return target.relabel(group=self.name)
-                else:
-                    raise RuntimeError(
-                        f"TSEvent: `{self.name}`: Holoviews not available."
-                    )
-            elif isinstance(target, mpl.axes.Axes):
-                if _MPL_AVAILABLE:
-                    # - Add `self.name` as label only if a label is not already present
-                    kwargs["label"] = kwargs.get("label", self.name)
-                    target.scatter(times, channels, *args, **kwargs)
-                    return target
-                else:
-                    raise RuntimeError(
-                        f"TSEvent: `{self.name}`: Matplotlib not available."
-                    )
+            if _HV_AVAILABLE and isinstance(target, (hv.Curve, hv.Overlay)):
+                target *= (
+                    hv.Scatter((times, channels), *args, **kwargs)
+                    .redim(x="Time", y="Channel")
+                    .relabel(self.name)
+                )
+                return target.relabel(group=self.name)
+            elif _MPL_AVAILABLE and isinstance(target, mpl.axes.Axes):
+                # - Add `self.name` as label only if a label is not already present
+                kwargs["label"] = kwargs.get("label", self.name)
+                target.scatter(times, channels, *args, **kwargs)
+                return target
             else:
                 raise TypeError(
                     f"TSEvent: `{self.name}`: Unrecognized type for `target`. "
-                    + "It must be matplotlib Axes or holoviews Curve or Overlay."
+                    + "It must be matplotlib Axes or holoviews Curve or Overlay and "
+                    + "the corresponding backend must be installed in your environment."
                 )
 
     ## -- Methods for manipulating timeseries
