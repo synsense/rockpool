@@ -114,6 +114,8 @@ def test_RecRateEuler():
     # - Layer generation
     fl0 = RecRateEuler(weights=weights, bias=bias, noise_std=0.1, dt=0.01)
 
+    assert fl0.dt == 0.01
+
     # - Input signal
     tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 2)))
 
