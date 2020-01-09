@@ -827,7 +827,7 @@ class RecRateEuler(Layer):
         bias: np.ndarray = 0.0,
         tau: np.ndarray = 1.0,
         activation_func: Callable[[np.ndarray], np.ndarray] = re_lu,
-        dt: float = 1.0,
+        dt: float = 0.1,
         noise_std: float = 0.0,
         name: str = "unnamed",
     ):
@@ -844,7 +844,7 @@ class RecRateEuler(Layer):
         """
 
         # - Call super-class init
-        super().__init__(weights=np.asarray(weights, float), name=name)
+        super().__init__(weights=np.asarray(weights, float), name=name, dt=dt)
 
         # - Check size and shape of `weights`
         if weights.ndim != 2:
