@@ -827,7 +827,7 @@ class RecRateEuler(Layer):
         bias: np.ndarray = 0.0,
         tau: np.ndarray = 1.0,
         activation_func: Callable[[np.ndarray], np.ndarray] = re_lu,
-        dt: float = 1.0,
+        dt: float = 0.1,
         noise_std: float = 0.0,
         name: str = "unnamed",
     ):
@@ -844,7 +844,7 @@ class RecRateEuler(Layer):
         """
 
         # - Call super-class init
-        super().__init__(weights=np.asarray(weights, float), name=name)
+        super().__init__(weights=np.asarray(weights, float), name=name, dt=dt)
 
         # - Check size and shape of `weights`
         if weights.ndim != 2:
@@ -1067,4 +1067,9 @@ class RecRateEuler(Layer):
         self._tau = self._expand_to_net_size(new_tau, "new_tau")
 
         # - Ensure dt is reasonable for numerical accuracy
-        self.dt = np.min(self.tau) / 10
+        if np.min(self._tau) < 10 * self.dt:
+            warn(
+                self.start_print
+                + "Some values in `tau` are quite small. For numerical stability"
+                + "`dt` should be reduced to at most 0.1 * `smallest tau`."
+            )
