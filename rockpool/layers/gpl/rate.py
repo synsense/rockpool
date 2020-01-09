@@ -1067,4 +1067,9 @@ class RecRateEuler(Layer):
         self._tau = self._expand_to_net_size(new_tau, "new_tau")
 
         # - Ensure dt is reasonable for numerical accuracy
-        self.dt = np.min(self.tau) / 10
+        if np.min(self._tau) < 10 * self.dt:
+            warn(
+                self.start_print
+                + "Some values in `tau` are quite small. For numerical stability"
+                + "`dt` should be reduced to at most 0.1 * `smallest tau`."
+            )
