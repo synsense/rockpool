@@ -430,7 +430,7 @@ class RecLIFJax(Layer):
         )
 
         # - Record membrane traces
-        self.v_mem_last_evolution = TSContinuous(
+        self._v_mem_last_evolution = TSContinuous(
             time_base, onp.array(Vmem_ts), name="V_mem " + self.name
         )
 
