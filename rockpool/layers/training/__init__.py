@@ -6,7 +6,7 @@ from warnings import warn
 dModules = {
     ".gpl.train_jax_sgd": "add_train_output",
     ".gpl.rr_trained_layer": "RRTrainedLayer",
-    ".gpl.train_jax_lif_sgd": "add_train_output",
+    ".gpl.train_jax_lif_sgd": "add_shim_lif_jax_sgd",
 }
 
 

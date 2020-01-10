@@ -383,3 +383,76 @@ def test_largescale():
     )
 
     lyrIO.evolve(input_sp_ts)
+
+
+def test_training_FFwd():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import RecLIFCurrentInJax, RecLIFJax, RecLIFJax_IO, FFLIFJax_IO
+    import numpy as np
+
+    N = 100
+    Nin = 100
+    Nout = 1
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, Nin, Nout, tau_mem, tau_syn, bias):
+        return {
+            "w_in": (np.random.rand(Nin, N) - 0.5) / Nin,
+            "w_out": 2 * np.random.rand(N, Nout) - 1,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, Nin, Nout, tau_mem, tau_syn, bias)
+    lyrIO = FFLIFJax_IO(**params0, dt=dt)
+
+    # - Define input and target
+    numRepeats = 1
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.linspace(0, T * dt, T)
+
+    trigger = np.atleast_2d(timebase < dur_input).T
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    spiking_prob = 0.01
+    sp_in_ts = np.random.rand(T * numRepeats, Nin) < spiking_prob * trigger
+    spikes = np.argwhere(sp_in_ts)
+    input_sp_ts = TSEvent(
+        timebase[spikes[:, 0]],
+        spikes[:, 1],
+        name="Input",
+        periodic=True,
+        t_start=0,
+        t_stop=dur_input,
+    )
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(input_sp_ts)
+
+    # - Add training shim
+    from rockpool.layers.training import add_shim_lif_jax_sgd
+
+    lyrIO = add_shim_lif_jax_sgd(lyrIO)
+
+    # - Train
+    steps = 100
+    for t in range(steps):
+        lyrIO.randomize_state()
+        l_fcn, g_fcn = lyrIO.train_output_target(
+            input_sp_ts, target_ts, is_first=(t == 0)
+        )
+
+        l_fcn()
+        g_fcn()
