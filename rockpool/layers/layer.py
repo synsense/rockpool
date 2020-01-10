@@ -62,20 +62,23 @@ class Layer(ABC):
             self._size_out = self._size
             self._weights = weights
 
-        # - Check and assign dt and noise_std
-        assert (
-            np.size(dt) == 1 and np.size(noise_std) == 1
-        ), "Layer `{}`: `dt` and `noise_std` must be scalars.".format(self.name)
+        # - Make sure `dt` is a float
+        try:
+            self._dt = float(dt)
+        except TypeError:
+            raise TypeError(self.start_print + "`dt` must be a scalar.")
 
-        # - Assign default noise
-        if noise_std is None:
-            noise_std = 0.0
+        # Handle format of `noise_std`
+        try:
+            self.noise_std = float(noise_std)
+        except TypeError:
+            if noise_std is None:
+                self.noise_std = 0.0
+            else:
+                raise TypeError(
+                    self.start_print + "`noise_std` must be a scalar or `None`"
+                )
 
-        # - Check dt
-        assert dt is not None, "`dt` must be a numerical value"
-
-        self._dt = dt
-        self.noise_std = noise_std
         self._timestep = 0
 
     ### --- Common methods
