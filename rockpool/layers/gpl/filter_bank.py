@@ -1,12 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union
 from itertools import product
-import numpy as np
-import json
 from multiprocessing import Pool
-from rockpool.timeseries import TSContinuous, TSEvent
-from rockpool.layers import Layer
+
+import numpy as np
 from scipy.signal import butter, sosfilt, sosfreqz
+
+from rockpool.timeseries import TSContinuous
+from rockpool.layers import Layer
+
 
 class FilterBank(Layer, ABC):
     """
@@ -19,22 +21,22 @@ class FilterBank(Layer, ABC):
         self,
         fs: float,
         name: str = "unnamed",
-        cutoff_fs: float = 100.,
+        cutoff_fs: float = 100.0,
         num_filters: int = 64,
         order: int = 2,
         mean_subtraction: bool = False,
         normalize: bool = False,
-        num_workers: int =1,
+        num_workers: int = 1,
     ):
         """
-        :param float fs:                input signal sampling frequency 
+        :param float fs:                input signal sampling frequency
         :param str name:                name of the layer. Default ``"unnamed``
         :param float cutoff_fs:         lowpass frequency to get only the enveloppe
                                         of filters output. Default: ``100 Hz``
         :param int num_filters:         number of filters. Default: ``64``
         :param int order:               filter order. Default: ``2``
-        :param bool mean_subtraction:   subtract the mean of output signals (per channel). 
-                                        Default ``False`` 
+        :param bool mean_subtraction:   subtract the mean of output signals (per channel).
+                                        Default ``False``
         :param bool normalize:          divide output signals by their maximum value (i.e. filter
                                         responses in the range [-1, 1]). Default: ``False``
         :param int num_workers:         Number of CPU cores to use in simulation. Default: ``1``
@@ -42,25 +44,28 @@ class FilterBank(Layer, ABC):
 
         self.name = name
 
-        assert (fs > 0. and isinstance(fs, (int, float))), (
-            self.start_print 
-            + f"`fs` must be a strictly positive float (given: {fs})"
+        assert fs > 0.0 and isinstance(fs, (int, float)), (
+            self.start_print + f"`fs` must be a strictly positive float (given: {fs})"
         )
         self._fs = fs
 
-        assert (cutoff_fs > 0. and cutoff_fs < self.nyquist and isinstance(cutoff_fs, (int, float))), (
+        assert (
+            cutoff_fs > 0.0
+            and cutoff_fs < self.nyquist
+            and isinstance(cutoff_fs, (int, float))
+        ), (
             self.start_print
             + f"`cutoff_fs` must be greater than 0 and lesser than `fs`/2 (given: {cutoff_fs})"
         )
         self._cutoff_fs = cutoff_fs
 
-        assert (order > 0 and isinstance(order, int)), (
+        assert order > 0 and isinstance(order, int), (
             self.start_print
             + f"`order` must be a strictly positive integer (given: {order})"
         )
         self._order = order
 
-        assert (num_workers > 0 and isinstance(num_workers, int)), (
+        assert num_workers > 0 and isinstance(num_workers, int), (
             self.start_print
             + f"`num_workers` must be a strictly postive integer (given: {num_workers})"
         )
@@ -69,16 +74,20 @@ class FilterBank(Layer, ABC):
         self.mean_subtraction = mean_subtraction
         self.normalize = normalize
 
-        super().__init__(weights=np.ones([1, num_filters]), dt=1/self.fs, name=name)
+        super().__init__(weights=np.ones([1, num_filters]), dt=1 / self.fs, name=name)
 
         self.filter_lowpass = butter(
-            self.order, self.cutoff_fs / self.nyquist, analog=False, btype="low", output="sos"
+            self.order,
+            self.cutoff_fs / self.nyquist,
+            analog=False,
+            btype="low",
+            output="sos",
         )
 
         self.pool = None
 
     def terminate(self):
-        if not self.pool == None:
+        if self.pool is not None:
             self.pool.close()
 
     @staticmethod
@@ -123,22 +132,24 @@ class FilterBank(Layer, ABC):
 
         # - Prepare time base
         time_base, input_step, num_time_steps = self._prepare_input(
-            ts_input=ts_input, 
-            duration=duration, 
-            num_timesteps=num_timesteps
+            ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
         )
 
         args = list(
-            product(self.chunks, [(input_step.T[0], self.filter_lowpass, self.downsample)])
+            product(
+                self.chunks, [(input_step.T[0], self.filter_lowpass, self.downsample)]
+            )
         )
 
-        if self.pool == None:
+        if self.pool is None:
             self.pool = Pool(self.num_workers)
 
         res = self.pool.map(ButterMelFilter.process_filters, args)
         filtOutput = np.concatenate(res).T
 
-        vtTimeBase = time_base[0] + np.arange(len(filtOutput)) * self.downsample / self.fs
+        vtTimeBase = (
+            time_base[0] + np.arange(len(filtOutput)) * self.downsample / self.fs
+        )
         self._timestep += input_step.shape[0] - 1
 
         if self.normalize:
@@ -169,7 +180,7 @@ class FilterBank(Layer, ABC):
         }
 
     def get_analytical_filter_response(self, n_pts: int) -> (np.array, np.array):
-        """ 
+        """
         Compute the analytical response of each filter as a function of frequency (for plotting)
 
         :param int n_pts:           number of elements of returned arrays
@@ -184,7 +195,7 @@ class FilterBank(Layer, ABC):
         freqs = w / np.pi * self.fs / 2
 
         return freqs, np.array(responses)
-    
+
     @property
     def fs(self) -> float:
         """ (float) return the sampling frequency of the input signal """
@@ -225,7 +236,7 @@ class ButterMelFilter(FilterBank):
         self,
         fs: float,
         name: str = "unnamed",
-        cutoff_fs: float = 100.,
+        cutoff_fs: float = 100.0,
         num_filters: int = 64,
         mean_subtraction: bool = False,
         normalize: bool = False,
@@ -233,18 +244,18 @@ class ButterMelFilter(FilterBank):
         num_workers: int = 1,
     ):
         """
-        Layer which applies the butterworth filter in MEL scale to a one-dimensional input signal. 
+        Layer which applies the butterworth filter in MEL scale to a one-dimensional input signal.
         Further dimensions can be passed through the layer without being filtered.
 
-        :param float fs:                input signal sampling frequency 
+        :param float fs:                input signal sampling frequency
         :param str name:                name of the layer. Default ``"unnamed"``
-        :param float cutoff_fs:         lowpass frequency to get only the enveloppe of filters output. 
+        :param float cutoff_fs:         lowpass frequency to get only the enveloppe of filters output.
                                         Also the lowest frequency of the filter bank. Default: ``100 Hz``
                                         Don't set it yourself unless you know what you're doing.
         :param int num_filters:         number of filters. Default: ``64``
         :param int order:               filter order. Default: ``2``
-        :param bool mean_subtraction:   subtract the mean of output signals (per channel). 
-                                        Default ``False`` 
+        :param bool mean_subtraction:   subtract the mean of output signals (per channel).
+                                        Default ``False``
         :param bool normalize:          divide output signals by their maximum value (i.e. filter
                                         responses in the range [-1, 1]). Default: ``False``
         :param int num_workers:         Number of CPU cores to use in simulation. Default: ``1``
@@ -267,18 +278,26 @@ class ButterMelFilter(FilterBank):
         filter_bandwidth = 5 / self.num_filters
         low_freq = ButterMelFilter.hz2mel(self.cutoff_fs)
         high_freq = ButterMelFilter.hz2mel(self.nyquist / (1 + filter_bandwidth) - 1)
-        freqs = ButterMelFilter.mel2hz(np.linspace(low_freq, high_freq, self.num_filters))
+        freqs = ButterMelFilter.mel2hz(
+            np.linspace(low_freq, high_freq, self.num_filters)
+        )
 
-        if np.max(freqs * (1 + filter_bandwidth) / self.nyquist) >= 1.:
+        if np.max(freqs * (1 + filter_bandwidth) / self.nyquist) >= 1.0:
             raise ValueError(
-            "{} `{}`: `cutoff_fs` is too large (given: {})".format(
-                self.__class__.__name__, self.name, self.cutoff_fs))
+                "{} `{}`: `cutoff_fs` is too large (given: {})".format(
+                    self.__class__.__name__, self.name, self.cutoff_fs
+                )
+            )
 
         freq_bands = np.array([freqs, freqs * (1 + filter_bandwidth)]) / self.nyquist
-        self.filters = list(map(
-            lambda fb: butter(self.order, fb, analog=False, btype="band", output="sos"),
-            freq_bands.T,
-        ))
+        self.filters = list(
+            map(
+                lambda fb: butter(
+                    self.order, fb, analog=False, btype="band", output="sos"
+                ),
+                freq_bands.T,
+            )
+        )
 
         chunk_size = int(np.ceil(self.num_filters / num_workers))
         self.chunks = ButterMelFilter.generate_chunks(self.filters, chunk_size)
@@ -301,7 +320,6 @@ class ButterMelFilter(FilterBank):
         config["class_name"] = "ButterMelFilter"
         return config
 
-    
 
 class ButterFilter(FilterBank):
     """
@@ -315,25 +333,25 @@ class ButterFilter(FilterBank):
         frequency: Union[float, np.ndarray],
         bandwidth: Union[float, np.ndarray],
         name: str = "unnamed",
-        order:int = 2,
-        mean_subtraction = False,
-        normalize = False,
+        order: int = 2,
+        mean_subtraction=False,
+        normalize=False,
         num_workers: int = 1,
     ):
         """
-        Layer which applies the butterworth filter to a one-dimensional input signal. 
+        Layer which applies the butterworth filter to a one-dimensional input signal.
 
-        :param float fs:                    input signal sampling frequency 
+        :param float fs:                    input signal sampling frequency
         :param array frequency:             frequency center positions of filters
                                             (low bound: where the filter response start to be maximal)
                                             the size determines the number of filters
-        :param (float, array) bandwidth:    filters response bandwidth 
+        :param (float, array) bandwidth:    filters response bandwidth
                                             (high bound: frequency + bandwidth)
-        :param str name:                    name of the layer. Default ``"unnamed"``                                    
+        :param str name:                    name of the layer. Default ``"unnamed"``
         :param int order:                   filter order. Default: ``2``
-        :param bool mean_subtraction:       subtract the mean of output signals (per channel). 
-                                            Default ``False`` 
-        :param bool normalize:              divide output signals by their maximum absolute value. 
+        :param bool mean_subtraction:       subtract the mean of output signals (per channel).
+                                            Default ``False``
+        :param bool normalize:              divide output signals by their maximum absolute value.
                                             Default: ``False``
         :param int num_workers:             number of CPU cores to use in simulation. Default: ``1``
         """
@@ -343,27 +361,26 @@ class ButterFilter(FilterBank):
 
         if np.size(bandwidth) == 1:
             self._bandwidth = np.ones(self.frequency.shape) * bandwidth
-        else: 
+        else:
             self._bandwidth = np.asarray(bandwidth)
 
-        assert (np.size(self.frequency) == np.size(self.bandwidth)), (
-            self.start_print 
+        assert np.size(self.frequency) == np.size(self.bandwidth), (
+            self.start_print
             + "`bandwidth` must be either a scalar or of the same size than `frequency`"
         )
 
-        assert (self.frequency - self.bandwidth / 2 > 0.).any(), (
-            self.start_print
-            + "`frequency` must be greater than `bandwidth` / 2"
+        assert (self.frequency - self.bandwidth / 2 > 0.0).any(), (
+            self.start_print + "`frequency` must be greater than `bandwidth` / 2"
         )
 
         assert (self.frequency + self.bandwidth / 2 < fs / 2).any(), (
             self.start_print
             + "`frequency` must be lesser than (`fs` - `bandwidth`) / 2"
         )
-        
-        #idx = np.argmin(self.frequency)
-        #cutoff_fs = self.frequency[idx] - self.bandwidth[idx] / 2
-        cutoff_fs = 100.
+
+        # idx = np.argmin(self.frequency)
+        # cutoff_fs = self.frequency[idx] - self.bandwidth[idx] / 2
+        cutoff_fs = 100.0
 
         # - Call super constructor
         super().__init__(
@@ -378,15 +395,25 @@ class ButterFilter(FilterBank):
         )
 
         self.downsample = 1
-        
-        freq_bands = np.array(
-            [self.frequency - self.bandwidth / 2, self.frequency + self.bandwidth / 2]
-        ) / self.nyquist
-        
-        self.filters = list(map(
-            lambda fb: butter(self.order, fb, analog=False, btype="band", output="sos"), 
-            freq_bands.T
-        ))
+
+        freq_bands = (
+            np.array(
+                [
+                    self.frequency - self.bandwidth / 2,
+                    self.frequency + self.bandwidth / 2,
+                ]
+            )
+            / self.nyquist
+        )
+
+        self.filters = list(
+            map(
+                lambda fb: butter(
+                    self.order, fb, analog=False, btype="band", output="sos"
+                ),
+                freq_bands.T,
+            )
+        )
 
         chunk_size = int(np.ceil(self.num_filters / num_workers))
         self.chunks = ButterFilter.generate_chunks(self.filters, chunk_size)
