@@ -314,8 +314,8 @@ class FFIAFBrian(Layer):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -688,8 +688,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time
         self._timestep += num_timesteps
@@ -1231,8 +1231,8 @@ class RecIAFBrian(Layer):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -1590,8 +1590,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time step
         self._timestep += num_timesteps
