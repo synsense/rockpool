@@ -221,25 +221,27 @@ class RRTrainedLayer(Layer, ABC):
         target = ts_target(time_base)
 
         # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            target
-        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
-            self.name, np.where(np.isnan(target))
-        )
+        if np.isnan(target).any():
+            raise ValueError(
+                self.start_print
+                + "'nan' values have been found in target "
+                + f"(where: {np.where(np.isnan(target))})"
+            )
 
         # - Check target dimensions
         if target.ndim == 1 and self.size == 1:
             target = target.reshape(-1, 1)
 
-        assert (
-            target.shape[-1] == self.size
-        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, target.shape[-1], self.size
-        )
+        if target.shape[-1] != self.size:
+            raise ValueError(
+                self.start_print
+                + f"Target dimensions ({target.shape[-1]}) does not match "
+                + f"layer size ({self.size})"
+            )
 
         # - Warn if input time range does not cover whole target time range
         if (
-            not ts_target.contains(time_base)
+            not ts_input.contains(time_base)
             and not ts_input.periodic
             and not ts_target.periodic
         ):
