@@ -281,7 +281,7 @@ class Layer(ABC):
         :return (ndarray): Generated time trace
         """
         # - Generate a trace
-        time_trace = np.arange(num_timesteps + 1) * self._dt + t_start
+        time_trace = np.arange(num_timesteps + 1) * self.dt + t_start
 
         return time_trace
 
@@ -649,7 +649,7 @@ class Layer(ABC):
         """
         (float) Noise injected into the state of this layer during evolution
 
-        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be correctected by the :py:attr:`.dt` attribute
+        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be corrected by the :py:attr:`.dt` attribute
         """
         return self._noise_std
 
