@@ -295,6 +295,19 @@ class TimeSeries:
         """
         return copy.deepcopy(self)
 
+    def contains(self, times: Union[int, float, ArrayLike]) -> bool:
+        """
+        Does the time series contain the time range specified in the given time trace?
+        Always true for periodic series
+
+        :param ArrayLike times: Array-like containing time points
+
+        :return bool:           True iff all specified time points are contained within this time series
+        """
+        return self.periodic or (
+            self.t_start <= np.min(times) and self.t_stop >= np.max(times)
+        )
+
     def _modulo_period(
         self, times: Union[ArrayLike, float, int]
     ) -> Union[ArrayLike, float, int]:
@@ -745,21 +758,6 @@ class TSContinuous(TimeSeries):
                     self.name, path + missing_ending * ".npz"
                 )
             )
-
-    ## -- Methods for finding and extracting data
-
-    def contains(self, times: Union[int, float, ArrayLike]) -> bool:
-        """
-        Does the time series contain the time range specified in the given time trace?
-        Always true for periodic series
-
-        :param ArrayLike times: Array-like containing time points
-
-        :return bool:           True iff all specified time points are contained within this time series
-        """
-        return self.periodic or (
-            self.t_start <= np.min(times) and self.t_stop >= np.max(times)
-        )
 
     ## -- Methods for manipulating timeseries
 
