@@ -727,7 +727,7 @@ class FFIAFNest(Layer):
                 [
                     {
                         "amplitude_times": time_base,
-                        "amplitude_values": A2mA(input_steps[:, i]),
+                        "amplitude_values": input_steps[:, i],
                     }
                     for i in range(len(self._scg))
                 ],

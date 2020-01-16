@@ -103,6 +103,9 @@ def test_continuous_methods():
     assert ts1.t_start == 0
     assert ts2.t_start == 1
 
+    ts20 = ts1.start_at_zero()
+    assert ts20.t_start == 0
+
     # - Contains
     assert ts1.contains(0)
     assert ~ts1.contains(-1)
@@ -312,6 +315,10 @@ def test_continuous_inplace_mutation():
     # - clip
     ts1.clip(0.5, 1.5, inplace=True)
     assert ts1.t_start == 0.5
+
+    # - Start at 0
+    ts1.start_at_zero(inplace=True)
+    assert ts1.t_start == 0
 
 
 def test_continuous_append_c():
@@ -1024,3 +1031,24 @@ def test_event_raster_periodic_iss5():
             [False, False],
         ]
     )
+
+
+def test_event_delay():
+    from rockpool import TSEvent
+
+    ts = TSEvent([2, 4, 6], [0, 1, 0])
+    assert ts.t_start == 2
+
+    ts0 = ts.delay(1)
+    assert ts0.t_start == 3
+
+    ts.delay(1, inplace=True)
+    assert ts.t_start == 3
+
+    ts0 = ts.start_at_zero()
+    assert ts.t_start == 3
+    assert ts0.t_start == 0
+
+    ts0 = ts.start_at_zero(inplace=True)
+    assert ts.t_start == 0
+    assert ts0.t_start == 0

@@ -223,6 +223,15 @@ class TimeSeries:
 
         return series
 
+    def start_at_zero(self, inplace: bool = False) -> "TimeSeries":
+        """
+        Convenience function that calls the 'delay' method such that 't_start'
+        falls at 0.
+
+        :return TimeSeries:     New TimeSeries, with t_start at 0
+        """
+        return self.delay(offset=-self.t_start, inplace=inplace)
+
     def isempty(self) -> bool:
         """
         Test if this TimeSeries object is empty
