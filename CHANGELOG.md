@@ -2,7 +2,7 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## [v1.0.8]
+## [v1.0.8] -- 2020-01-17
 
 ### Added
 - Introduced new `TimeSeries` class method `concatenate_t()`, which permits construction of a new time series by concatenating a set of existing time series, in the time dimension 
