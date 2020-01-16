@@ -492,7 +492,12 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         elif name == "weights_rec":
             vms = self.read_weights(pop_pre=self._pop, pop_post=self._pop)
         else:
-            vms = self.nest_module.GetStatus(self._pop, name)
+            try:
+                vms = self.nest_module.GetStatus(self._pop, name)
+            except self.nest_module.kernel.NESTError:
+                # - Catch 'DictErrors' from nest that sometimes occur with
+                #   auto-completion in iPython when typing "wei" + <TAB>
+                return
         return vms
 
     def set_param(self, name, value):
