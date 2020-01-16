@@ -1097,8 +1097,17 @@ class Network:
         # - Load dict holding the parameters
         with open(filename, "r") as f:
             loaddict: dict = json.load(f)
+
+        return Network.load_from_dict(loaddict)
+
+    @staticmethod
+    def load_from_dict(config: dict, **kwargs):
+
+        # - Overwrite parameters with kwargs
+        config = dict(config, **kwargs)
+
         # - List of layers in their original evolution order
-        list_layers = loaddict["layers"]
+        list_layers = config["layers"]
         pre_layers = []
         external = []
         evol_order = []
@@ -1108,7 +1117,7 @@ class Network:
             pre_layers.append(lyr.pop("pre_layer_name", None))
             external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
-        dt = loaddict.get("dt", None)
+        dt = config.get("dt", None)
         if all(ext is None for ext in external) and all(
             pre is None for pre in pre_layers
         ):
@@ -1130,7 +1139,7 @@ class Network:
                     external_input=ext if ext is not None else False,
                 )
             try:
-                newnet.input_layer = getattr(newnet, loaddict["input_layer_name"])
+                newnet.input_layer = getattr(newnet, config["input_layer_name"])
             except KeyError:
                 pass
             return newnet
