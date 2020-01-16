@@ -238,6 +238,7 @@ class ButterMelFilter(FilterBank):
         name: str = "unnamed",
         cutoff_fs: float = 100.0,
         num_filters: int = 64,
+        filter_width: float = 2.,
         mean_subtraction: bool = False,
         normalize: bool = False,
         order: int = 2,
@@ -253,6 +254,8 @@ class ButterMelFilter(FilterBank):
                                         Also the lowest frequency of the filter bank. Default: ``100 Hz``
                                         Don't set it yourself unless you know what you're doing.
         :param int num_filters:         number of filters. Default: ``64``
+        :param float filter_width:      The width of the filters which is scaled with the number of filters. This
+                                        determines the overlap between channels. Default: 2.
         :param int order:               filter order. Default: ``2``
         :param bool mean_subtraction:   subtract the mean of output signals (per channel).
                                         Default ``False``
@@ -275,7 +278,7 @@ class ButterMelFilter(FilterBank):
 
         self.downsample = int(self.fs / self.cutoff_fs)
 
-        filter_bandwidth = 5 / self.num_filters
+        filter_bandwidth = filter_width / self.num_filters
         low_freq = ButterMelFilter.hz2mel(self.cutoff_fs)
         high_freq = ButterMelFilter.hz2mel(self.nyquist / (1 + filter_bandwidth) - 1)
         freqs = ButterMelFilter.mel2hz(
