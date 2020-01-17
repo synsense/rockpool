@@ -119,17 +119,3 @@ pypi_deploy:
 
   script:
     - python -m twine upload dist/*
-
-conda_deploy:
-  stage: deploy
-  when: manual
-  image: aictx/ci-python-arch:latest
-
-  only:
-    - master
-
-  dependencies:
-    - dist_build
-
-  script:
-    - ./conda_merge_request.sh
