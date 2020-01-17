@@ -136,35 +136,35 @@ class FFIAFBrian(Layer):
     def __init__(
         self,
         weights: np.ndarray,
-        bias: Optional[FloatVector] = 15 * mA,
-        dt: Optional[float] = 0.1 * ms,
-        noise_std: Optional[float] = 0 * mV,
-        tau_mem: Optional[FloatVector] = 20 * ms,
-        v_thresh: Optional[FloatVector] = -55 * mV,
-        v_reset: Optional[FloatVector] = -65 * mV,
-        v_rest: Optional[FloatVector] = -65 * mV,
-        refractory: Optional[float] = 0 * ms,
-        neuron_eq: Optional[str] = eqNeuronIAFFF,
-        integrator_name: Optional[str] = "rk4",
-        name: Optional[str] = "unnamed",
-        record: Optional[bool] = False,
+        bias: FloatVector = 15 * mA,
+        dt: float = 0.1 * ms,
+        noise_std: float = 0 * mV,
+        tau_mem: FloatVector = 20 * ms,
+        v_thresh: FloatVector = -55 * mV,
+        v_reset: FloatVector = -65 * mV,
+        v_rest: FloatVector = -65 * mV,
+        refractory: float = 0 * ms,
+        neuron_eq: Union[b2.Equations, str] = eqNeuronIAFFF,
+        integrator_name: str = "rk4",
+        name: str = "unnamed",
+        record: bool = False,
     ):
         """
         Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end. Inputs are continuous currents; outputs are spiking events
 
         :param np.array weights:                            Layer weight matrix [N_in, N]
-        :param Optional[np.array] bias:                     Nx1 bias vector. Default: ``10mA``
-        :param Optional[float] dt:                          Time-step. Default: ``0.1 ms``
-        :param Optional[float] noise_std:                   Noise std. dev. per second. Default:`` 0.``
-        :param Optional[FloatVector] tau_mem:               Nx1 vector of neuron time constants. Default: ``20ms``
-        :param Optional[FloatVector] v_thresh:              Nx1 vector of neuron thresholds. Default: ``-55mV``
-        :param Optional[FloatVector] v_reset:               Nx1 vector of neuron thresholds. Default: ``-65mV``
-        :param Optional[FloatVector] v_rest:                Nx1 vector of neuron thresholds. Default: ``-65mV``
-        :param Optional[float] refractory:                  Refractory period after each spike. Default: ``0ms``
-        :param Optional[Brian2.Equations, str] neuron_eq:   Set of neuron equations. Default: IAF equation set
-        :param Optional[str] integrator_name:               Integrator to use for simulation. Default: ``'rk4'``
-        :param Optional[str] name:                          Name for the layer. Default: ``'unnamed'``
-        :param Optional[bool] record:                       Record membrane potential during evolutions
+        :param nparray bias:                     Nx1 bias vector. Default: ``10mA``
+        :param float dt:                          Time-step. Default: ``0.1 ms``
+        :param float noise_std:                   Noise std. dev. per second. Default:`` 0.``
+        :param FloatVector tau_mem:               Nx1 vector of neuron time constants. Default: ``20ms``
+        :param FloatVector v_thresh:              Nx1 vector of neuron thresholds. Default: ``-55mV``
+        :param FloatVector v_reset:               Nx1 vector of neuron thresholds. Default: ``-65mV``
+        :param FloatVector v_rest:                Nx1 vector of neuron thresholds. Default: ``-65mV``
+        :param float refractory:                  Refractory period after each spike. Default: ``0ms``
+        :param Union[Brian2.Equations, str] neuron_eq:   Set of neuron equations. Default: IAF equation set
+        :param str integrator_name:               Integrator to use for simulation. Default: ``'rk4'``
+        :param str name:                          Name for the layer. Default: ``'unnamed'``
+        :param bool record:                       Record membrane potential during evolutions
         """
 
         warn(
@@ -269,7 +269,7 @@ class FFIAFBrian(Layer):
         ts_input: Optional[TSContinuous] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         Function to evolve the states of this layer given an input
@@ -277,7 +277,7 @@ class FFIAFBrian(Layer):
         :param Optional[TSContinuous] ts_input: Input time series
         :param Optional[float] duration:        Simulation/Evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps
-        :param Optional[bool]verbose:           Currently no effect, just for conformity
+        :param bool verbose:           Currently no effect, just for conformity
 
         :return TSEvent:                    Output spike series
         """
@@ -314,8 +314,8 @@ class FFIAFBrian(Layer):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -688,8 +688,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time
         self._timestep += num_timesteps
@@ -1231,8 +1231,8 @@ class RecIAFBrian(Layer):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -1590,8 +1590,8 @@ class RecIAFSpkInBrian(RecIAFBrian):
         )
 
         # - Start and stop times for output time series
-        t_start = self._timestep * np.asscalar(self.dt)
-        t_stop = (self._timestep + num_timesteps) * np.asscalar(self.dt)
+        t_start = self._timestep * float(self.dt)
+        t_stop = (self._timestep + num_timesteps) * float(self.dt)
 
         # - Update layer time step
         self._timestep += num_timesteps

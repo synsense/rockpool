@@ -45,36 +45,36 @@ class RecDIAF(Layer):
         self,
         weights_in: np.ndarray,
         weights_rec: np.ndarray,
-        dt: Optional[float] = 0.1e-3,
-        delay: Optional[float] = 1e-8,
-        tau_leak: Optional[float] = 1e-3,
-        refractory: Optional[FloatVector] = tMinRefractory,
-        v_thresh: Optional[FloatVector] = 100.0,
-        v_reset: Optional[FloatVector] = 0.0,
-        v_rest: Optional[Union[FloatVector, None]] = None,
-        leak: Optional[FloatVector] = 1,
-        v_subtract: Optional[Union[FloatVector, None]] = None,
-        state_type: Optional[Union[type, str]] = "int8",
-        monitor_id: Optional[Union[bool, int, None, ArrayLike]] = [],
-        name: Optional[str] = "unnamed",
+        dt: float = 0.1e-3,
+        delay: float = 1e-8,
+        tau_leak: float = 1e-3,
+        refractory: FloatVector = tMinRefractory,
+        v_thresh: FloatVector = 100.0,
+        v_reset: FloatVector = 0.0,
+        v_rest: Optional[FloatVector] = None,
+        leak: FloatVector = 1.,
+        v_subtract: Optional[FloatVector] = None,
+        state_type: Union[type, str] = "int8",
+        monitor_id: Optional[Union[bool, int, ArrayLike]] = [],
+        name: str = "unnamed",
     ):
         """
         Construct a spiking recurrent layer with digital IAF neurons
 
         :param np.array weights_in:                 nSizeInxN input weight matrix.
         :param np.array weights_rec:                NxN weight matrix
-        :param Optional[float] dt:                  Length of single time step in s. Default: ``0.1 ms``
-        :param Optional[float] delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
-        :param Optional[float] tau_leak:            Period for applying leak in s. Default: ``1 ms``
-        :param Optional[FloatVector] refractory:    Nx1 vector of refractory times. Default: ``1 ns``
-        :param Optional[FloatVector] v_thresh:      Nx1 vector of neuron thresholds. Default: ``100.``
-        :param Optional[FloatVector] v_reset:       Nx1 vector of neuron reset potentials. Default: ``0.``
+        :param float dt:                  Length of single time step in s. Default: ``0.1 ms``
+        :param float delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
+        :param float tau_leak:            Period for applying leak in s. Default: ``1 ms``
+        :param FloatVector refractory:    Nx1 vector of refractory times. Default: ``1 ns``
+        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds. Default: ``100.``
+        :param FloatVector v_reset:       Nx1 vector of neuron reset potentials. Default: ``0.``
         :param Optional[FloatVector] v_rest:        Nx1 vector of neuron resting potentials. Leak will change sign for neurons with state below this. If ``None``, leak will not change sign. Default: ``None``
-        :param Optional[FloatVector] leak:          Nx1 vector of leak values. Default: ``None``, no leak
+        :param FloatVector leak:          Nx1 vector of leak values. Default: ``None``, no leak
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset to `.v_reset`.
-        :param Optional state_type:                 Data type for the membrane potential. Default: ``"int8"``
+        :param Union[type, str] state_type:                 Data type for the membrane potential. Default: ``"int8"``
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``
-        :param Optional[str] name:                  Name for the layer. Default: ``'unnamed'``
+        :param str name:                  Name for the layer. Default: ``'unnamed'``
         """
 
         # - Call super constructor
@@ -141,7 +141,7 @@ class RecDIAF(Layer):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
     ) -> TSEvent:
         """
         Evolve the state of this layer
@@ -149,7 +149,7 @@ class RecDIAF(Layer):
         :param Optional[TSEvent] ts_input:  Input spike trian
         :param Optional[float] duration:    Simulation/Evolution time
         :param Optional[int] num_timesteps: Number of evolution time steps
-        :param Optional[bool] verbose:      Currently no effect, just for conformity
+        :param bool verbose:      Currently no effect, just for conformity
 
         :return TSEvent:                    Output spike series
         """

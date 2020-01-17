@@ -10,8 +10,9 @@ import jax.numpy as np
 from jax.experimental.optimizers import adam
 from jax import grad, jit
 
-from rockpool.timeseries import TimeSeries
+from rockpool.timeseries import TimeSeries, TSContinuous
 from ...gpl import rate_jax as rj
+
 
 def pack_params(self: rj.RecRateEulerJax) -> Dict:
     """
@@ -59,24 +60,24 @@ def apply_params(self: rj.RecRateEulerJax, params: Dict) -> None:
 
 def train_adam(
     self,
-    ts_input: Union[TimeSeries, np.ndarray],
-    ts_target: Union[TimeSeries, np.ndarray],
+    ts_input: Union[TSContinuous, np.ndarray],
+    ts_target: Union[TSContinuous, np.ndarray],
     min_tau: Optional[float] = None,
-    is_first: Optional[bool] = False,
-    is_last: Optional[bool] = False,
+    is_first: bool = False,
+    is_last: bool = False,
 ) -> Tuple[Callable[[], float], Callable[[], float]]:
     """
-    .train_adam() - Perform one trial of Adam stochastic gradient descent to train the reservoir
+    Perform one trial of Adam stochastic gradient descent to train the reservoir
 
-    :param ts_input:    TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
-    :param ts_target:   TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
-    :param min_tau:     Optional[float]: Minimum time constant to permit
-    :param is_first:    Optional[bool]: Flag to indicate this is the first trial. Resets learning and causes initialisation.
-    :param is_last:     Optional[bool]: Flag to indicate this is the last trial. Performs clean-up (not essential)
+    :param TimeSeries ts_input:    TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
+    :param TimeSeries ts_target:    TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
+    :param Optional[float] min_tau:    Minimum time constant to permit
+    :param bool is_first:    Flag to indicate this is the first trial. Resets learning and causes initialisation.
+    :param bool is_last:     Flag to indicate this is the last trial. Performs clean-up (not essential)
 
     Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
     be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
-    on each call of ``train_adam()`, but the layer time and state are *not* updated.
+    on each call of `.train_adam`, but the layer time and state are *not* updated.
 
     :return:            (loss_fcn, grad_fcn):
                             loss_fcn:   Callable[[], float] Function that returns the current loss
@@ -195,7 +196,7 @@ def train_adam(
     if is_last:
         del self.__in_training_sgd_adam
 
-    # - Return a lambda that evaluates the loss and the gradient
+    # - Return lambdas that evaluate the loss and the gradient
     return (
         lambda: self.__loss_fcn(self.__get_params(self.__opt_state), (inps, target)),
         lambda: self.__grad_fcn(self.__get_params(self.__opt_state), (inps, target)),

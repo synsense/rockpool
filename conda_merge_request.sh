@@ -22,11 +22,11 @@ git clone https://${GITHUB_USER}:${GITHUB_PASS}@github.com/ai-cortex/staged-reci
 
 cd ./staged-recipes
 
-git checkout rockpool
+git checkout master
 
 cd ./recipes/rockpool
 
-cp ../../../LICENSE .
+cp ../../LICENSE .
 
 git config user.email "info@aictx.ai"
 git config user.name ${GITHUB_USER}
@@ -78,11 +78,12 @@ echo "extra:" >> meta.yaml
 echo "  recipe-maintainers:" >> meta.yaml
 echo "    - DylanMuir" >> meta.yaml
 
-cd ../..
+cd ..
 
 git add -A
 git commit -m "Staging conda-forge for ${file_name}"
 git push origin
+git request-pull master https://github.com/conda-forge/rockpool-feedstock
 
 cd ..
 
