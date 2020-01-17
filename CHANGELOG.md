@@ -16,7 +16,6 @@ All notable changes between Rockpool releases will be documented in this file.
 ### Changed
 - Improved `TSEvent.raster()` to make it more intuitive. Rasters are now produced in line with time bases that can be created easily with `numpy.arange()`
 - Updated `conda_merge_request.sh` to work for conda feedstock
-- `Network` class implicitly handles other `Network` instances as `Layer` objects
 - `TimeSeries.concatenate()` renamed to `concatenate_t()`
 - `RecRateEuler` warns if `tau` is too small instead of silently changing `dt`
 
