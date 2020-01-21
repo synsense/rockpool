@@ -14,6 +14,7 @@ def test_FFRateEuler():
     """ Test FFRateEuler """
     from rockpool import TSContinuous
     from rockpool.layers import FFRateEuler
+    import pytest
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 3) - 1
@@ -36,6 +37,9 @@ def test_FFRateEuler():
     assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
+    with pytest.raises(ValueError):
+        fl0.weights = weights[:-1]
+
     with pytest.raises(TypeError):
         fl1 = FFRateEuler(weights=None)
 
