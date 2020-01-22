@@ -602,6 +602,7 @@ class DynapseControl:
     _sram_event_limit = params.SRAM_EVENT_LIMIT
     _fpga_event_limit = params.FPGA_EVENT_LIMIT
     _fpga_isi_limit = params.FPGA_ISI_LIMIT
+    _fpga_isi_multiplier_limit = params.FPGA_ISI_LIMIT + 1
     _fpga_timestep = params.FPGA_TIMESTEP
     _num_neur_core = params.NUM_NEURONS_CORE
     _num_cores_chip = params.NUM_CORES_CHIP
@@ -1999,78 +2000,98 @@ class DynapseControl:
         # print(time.time() - t0)
         # t0 = time.time()
 
-        # - Lists for storing collected events
-        timestamps_full = []
-        channels_full = []
-        triggerevents = []
-
         # - Clear event filter
         self.bufferedfilter.get_events()
         self.bufferedfilter.get_special_event_timestamps()
 
-        # Time at which stimulation/recording stops, including buffer
-        t_wait = duration + (0.0 if t_buffer is None else t_buffer)
-        t_stop = time.time() + t_wait
-
         if events:
             # - Stimulate
-            # print(time.time() - t0)
-            # t0 = time.time()
-
+            self.fpga_spikegen.start()
             print(
-                "DynapseControl: Starting{} stimulation{}.".format(
+                "DynapseControl: Started{} stimulation{}.".format(
                     periodic * " periodic",
                     (not periodic) * " for {} s".format(duration),
                 )
             )
-            self.fpga_spikegen.start()
 
         if (duration is None) or periodic:
             # - Keep running indefinitely
             return
 
-        if record:
-            # - Until duration is over, record events and process in quick succession
-            # Set go_on to 2 to enforce another run of the loop after time is over.
-            # Otherwise, if last iteration takes too long, events may be lost.
-            go_on = 2
-            # print(time.time() - t0)
-            while go_on:
-                # - Collect events and possibly trigger events
-                triggerevents += self.bufferedfilter.get_special_event_timestamps()
-                current_events = self.bufferedfilter.get_events()
-
-                timestamps_curr, channels_curr = event_data_to_channels(
-                    current_events, record_neur_ids
-                )
-                timestamps_full += list(timestamps_curr)
-                channels_full += list(channels_curr)
-                go_on -= int(time.time() >= t_stop)
-                # print(t_stop - time.time())
         else:
-            time.sleep(t_wait)
+            # Time at which stimulation/recording stops, including buffer
+            t_wait = duration + (0.0 if t_buffer is None else t_buffer)
+            t_stop = time.time() + t_wait
 
-        # print(time.time() - t0)
-        # t0 = time.time()
-        print("DynapseControl: Stimulation ended.")
-
-        if record:
-            if not fastmode:
-                self.bufferedfilter.clear()
-
-            print(
-                "\tRecorded {} event(s) and {} trigger event(s)".format(
-                    len(timestamps_full), len(triggerevents)
+            if record:
+                return self._record_and_process(
+                    t_stop=t_stop,
+                    record_neur_ids=record_neur_ids,
+                    duration=duration,
+                    fastmode=fastmode,
                 )
+            else:
+                time.sleep(t_wait)
+                print("DynapseControl: Stimulation ended.")
+
+    def _record_and_process(
+        self,
+        t_stop: float,
+        record_neur_ids: np.ndarray,
+        duration: float,
+        fastmode: bool,
+    ) -> (np.array, np.array):
+        """
+        _record_and_process - Until system time reaches t_stop, record events
+                              and process in quick succession. Afterwards do
+                              final processing of event times and channels and
+                              return them.
+        :param t_stop:  System time at which to stop recording.
+        :record_neur_ids:  IDs of neurons from which to record
+        :duration:         Recording duration without buffer
+        :fastmode:         If `True`, don't clear buffered filter after recording.
+
+        :return:
+            1D-array with event times (relative to start of recording)
+            1D-array with corresponding event channels
+        """
+        # -
+        # - Lists for storing collected events
+        timestamps_full = []
+        channels_full = []
+        triggerevents = []
+
+        # Set go_on to 2 to enforce another run of the loop after time is over.
+        # Otherwise, if last iteration takes too long, events may be lost.
+        go_on = 2
+        while go_on:
+            # - Collect events and possibly trigger events
+            triggerevents += self.bufferedfilter.get_special_event_timestamps()
+            current_events = self.bufferedfilter.get_events()
+
+            timestamps_curr, channels_curr = event_data_to_channels(
+                current_events, record_neur_ids
             )
-            x = self._process_extracted_events(
-                timestamps=timestamps_full,
-                channels=channels_full,
-                triggerevents=triggerevents,
-                duration=duration,
+            timestamps_full += list(timestamps_curr)
+            channels_full += list(channels_curr)
+            go_on -= int(time.time() >= t_stop)
+
+        if not fastmode:
+            self.bufferedfilter.clear()
+
+        print(
+            "\tRecorded {} event(s) and {} trigger event(s)".format(
+                len(timestamps_full), len(triggerevents)
             )
-            # print(time.time() - t0)
-            return x
+        )
+        return self._process_extracted_events(
+            timestamps=timestamps_full,
+            channels=channels_full,
+            triggerevents=triggerevents,
+            duration=duration,
+        )
+
+        return timestamps_full, channels_full, triggerevents
 
     def _process_extracted_events(
         self,
@@ -2522,20 +2543,24 @@ class DynapseControl:
         return self._fpga_timestep
 
     @property
+    def max_dt(self):
+        return self.fpga_timestep * self._fpga_isi_multiplier_limit
+
+    @property
     def fpga_isibase(self):
-        return self._nFpgaIsiMultiplier * self.fpga_timestep
+        return self._fpga_isi_multiplier * self.fpga_timestep
 
     @fpga_isibase.setter
     def fpga_isibase(self, tNewBase):
-        if not tNewBase > self.fpga_timestep:
+        if not self.max_dt > tNewBase > self.fpga_timestep:
             raise ValueError(
-                "DynapseControl: `fpga_timestep` must be at least {}".format(
-                    self.fpga_timestep
-                )
+                "DynapseControl: `fpga_timestep` must be between "
+                + f"{self.fpga_timestep} and {self.max_dt}."
             )
         else:
-            self._nFpgaIsiMultiplier = int(np.floor(tNewBase / self.fpga_timestep))
-            self.fpga_spikegen.set_isi_multiplier(self._nFpgaIsiMultiplier)
+            multiplier = int(np.floor(tNewBase / self.fpga_timestep))
+            self._fpga_isi_multiplier = multiplier
+            self.fpga_spikegen.set_isi_multiplier(self._fpga_isi_multiplier)
 
     @property
     def initialized_chips(self):

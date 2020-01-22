@@ -602,6 +602,7 @@ class DynapseControl:
     _sram_event_limit = params.SRAM_EVENT_LIMIT
     _fpga_event_limit = params.FPGA_EVENT_LIMIT
     _fpga_isi_limit = params.FPGA_ISI_LIMIT
+    _fpga_isi_multiplier_limit = params.FPGA_ISI_LIMIT + 1
     _fpga_timestep = params.FPGA_TIMESTEP
     _num_neur_core = params.NUM_NEURONS_CORE
     _num_cores_chip = params.NUM_CORES_CHIP
@@ -2542,20 +2543,24 @@ class DynapseControl:
         return self._fpga_timestep
 
     @property
+    def max_dt(self):
+        return self.fpga_timestep * self._fpga_isi_multiplier_limit
+
+    @property
     def fpga_isibase(self):
-        return self._nFpgaIsiMultiplier * self.fpga_timestep
+        return self._fpga_isi_multiplier * self.fpga_timestep
 
     @fpga_isibase.setter
     def fpga_isibase(self, tNewBase):
-        if not tNewBase > self.fpga_timestep:
+        if not self.max_dt > tNewBase > self.fpga_timestep:
             raise ValueError(
-                "DynapseControl: `fpga_timestep` must be at least {}".format(
-                    self.fpga_timestep
-                )
+                "DynapseControl: `fpga_timestep` must be between "
+                + f"{self.fpga_timestep} and {self.max_dt}."
             )
         else:
-            self._nFpgaIsiMultiplier = int(np.floor(tNewBase / self.fpga_timestep))
-            self.fpga_spikegen.set_isi_multiplier(self._nFpgaIsiMultiplier)
+            multiplier = int(np.floor(tNewBase / self.fpga_timestep))
+            self._fpga_isi_multiplier = multiplier
+            self.fpga_spikegen.set_isi_multiplier(self._fpga_isi_multiplier)
 
     @property
     def initialized_chips(self):
