@@ -6,6 +6,7 @@ Some assertions will fail if chips other than 0 and 1 have previously been
 initialized in the current cortexcontrol instance.
 """
 
+import pytest
 from pathlib import Path
 from typing import List
 from warnings import warn
@@ -161,6 +162,12 @@ else:
 # - Clear neuron allocation
 con.clear_neuron_assignments(range(16))
 assert np.sum(con.hwneurons_isavailable) == 409
+
+# - Make sure dt is not too large
+with pytest.raises(ValueError):
+    con.fpga_isibase = (2 ** 16 + 1) * 1 / 9 * 1e-7
+
+
 ### --- Dynapse layers
 
 dt = 2 / 9 * 1e-4
