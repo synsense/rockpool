@@ -623,11 +623,11 @@ class Layer(ABC):
             new_w = np.atleast_2d(new_w)
 
         # - Check dimensionality of new weights
-        assert (
-            new_w.size == self.size_in * self.size
-        ), "Layer `{}`: `new_w` must be of shape {}".format(
-            (self.name, self.size_in, self.size)
-        )
+        if new_w.size != self.size_in * self.size:
+            raise ValueError(
+                self.start_print
+                + f"new_w` must be of shape {(self.size_in, self.size)}"
+            )
 
         # - Save weights with appropriate size
         self._weights = np.reshape(new_w, (self.size_in, self.size))
