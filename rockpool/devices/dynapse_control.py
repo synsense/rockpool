@@ -1984,10 +1984,6 @@ class DynapseControl:
                     )
                 )
 
-            print(f"Number events: {len(events)}")
-            isisum = sum(ev.isi for ev in events)
-            print(f"Isi sum all events {isisum}")
-
             # - Prepare FPGA
             self.fpga_spikegen.set_repeat_mode(periodic)
             self.fpga_spikegen.preload_stimulus(events)
