@@ -799,7 +799,7 @@ class DynapseControl:
         apply_diff=True,
     ):
         """
-        reset_connections -   Remove pre- and/or postsynaptic connections of all nerons
+        clear_connections -   Remove pre- and/or postsynaptic connections of all nerons
                               of cores defined in core_ids.
         :param core_ids:      IDs of cores to be reset (between 0 and 15)
         :param presynaptic:   Remove presynaptic connections to neurons on specified cores.

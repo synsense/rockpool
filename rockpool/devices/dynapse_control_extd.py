@@ -44,8 +44,9 @@ class DynapseControlExtd(DynapseControl):
 
         # - Convert to ISIs
         t_start = series.t_start
-        isi_array = np.diff(np.r_[t_start, times])
-        isi_array_discrete = (np.round(isi_array / self.fpga_isibase)).astype("int")
+        times = np.r_[t_start, times]
+        times_discrete = (np.round(times / self.fpga_isibase)).astype("int")
+        isi_array_discrete = np.diff(times_discrete)
 
         # - Convert events to an FpgaSpikeEvent
         print("dynapse_control: Generating FPGA event list from TSEvent.")
