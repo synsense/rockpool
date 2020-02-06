@@ -32,9 +32,9 @@ class Layer(ABC):
     def __init__(
         self,
         weights: np.ndarray,
-        dt: Optional[float] = 1,
-        noise_std: Optional[float] = 0,
-        name: Optional[str] = "unnamed",
+        dt: float = 1.0,
+        noise_std: float = 0.0,
+        name: str = "unnamed",
     ):
         """
         Implement an abstract layer of neurons (no implementation, must be subclasses)
@@ -62,20 +62,23 @@ class Layer(ABC):
             self._size_out = self._size
             self._weights = weights
 
-        # - Check and assign dt and noise_std
-        assert (
-            np.size(dt) == 1 and np.size(noise_std) == 1
-        ), "Layer `{}`: `dt` and `noise_std` must be scalars.".format(self.name)
+        # - Make sure `dt` is a float
+        try:
+            self._dt = float(dt)
+        except TypeError:
+            raise TypeError(self.start_print + "`dt` must be a scalar.")
 
-        # - Assign default noise
-        if noise_std is None:
-            noise_std = 0.0
+        # Handle format of `noise_std`
+        try:
+            self.noise_std = float(noise_std)
+        except TypeError:
+            if noise_std is None:
+                self.noise_std = 0.0
+            else:
+                raise TypeError(
+                    self.start_print + "`noise_std` must be a scalar or `None`"
+                )
 
-        # - Check dt
-        assert dt is not None, "`dt` must be a numerical value"
-
-        self._dt = dt
-        self.noise_std = noise_std
         self._timestep = 0
 
     ### --- Common methods
@@ -93,11 +96,11 @@ class Layer(ABC):
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, ``num_timesteps`` or the duration of ``ts_input`` will be used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of :py:attr:`.dt`. If not provided, ``duration`` or the duration of ``ts_input`` will be used to determine evolution time
 
-        :return int:                            Number of evolution time steps
+        :return int:                            num_timesteps: Number of evolution time steps
         """
 
         if num_timesteps is None:
-            # - Determine num_timesteps
+            # - Determine ``num_timesteps``
             if duration is None:
                 # - Determine duration
                 assert (
@@ -273,7 +276,7 @@ class Layer(ABC):
 
     def _gen_time_trace(self, t_start: float, num_timesteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at t_start, of length num_timesteps+1 with time step length self._dt. Make sure it does not go beyond t_start+duration.
+        Generate a time trace starting at ``t_start``, of length ``num_timesteps + 1`` with time step length :py:attr:`._dt`
 
         :param float t_start:       Start time, in seconds
         :param int num_timesteps:   Number of time steps to generate, in units of ``.dt``
@@ -281,7 +284,7 @@ class Layer(ABC):
         :return (ndarray): Generated time trace
         """
         # - Generate a trace
-        time_trace = np.arange(num_timesteps + 1) * self._dt + t_start
+        time_trace = np.arange(num_timesteps + 1) * self.dt + t_start
 
         return time_trace
 
@@ -620,11 +623,11 @@ class Layer(ABC):
             new_w = np.atleast_2d(new_w)
 
         # - Check dimensionality of new weights
-        assert (
-            new_w.size == self.size_in * self.size
-        ), "Layer `{}`: `new_w` must be of shape {}".format(
-            (self.name, self.size_in, self.size)
-        )
+        if new_w.size != self.size_in * self.size:
+            raise ValueError(
+                self.start_print
+                + f"new_w` must be of shape {(self.size_in, self.size)}"
+            )
 
         # - Save weights with appropriate size
         self._weights = np.reshape(new_w, (self.size_in, self.size))
@@ -649,7 +652,7 @@ class Layer(ABC):
         """
         (float) Noise injected into the state of this layer during evolution
 
-        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be correctected by the :py:attr:`.dt` attribute
+        This value represents the standard deviation of a white noise process. When subclassing :py:class:`Layer`, this value should be corrected by the :py:attr:`.dt` attribute
         """
         return self._noise_std
 

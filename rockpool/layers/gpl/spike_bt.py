@@ -158,7 +158,7 @@ class RecFSSpikeEulerBT(Layer):
         ts_input: Optional[TSContinuous] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
         min_delta: Optional[float] = None,
     ) -> TSEvent:
         """
@@ -169,8 +169,7 @@ class RecFSSpikeEulerBT(Layer):
         :param Optional[TSContinuous] ts_input: Input signals over time [TxN]
         :param Optional[float] duration:        Duration of simulation in seconds. Default: 100ms
         :param Optional[int] num_timesteps:     Number of evolution time steps
-        :param Optional[bool] verbose:          Currently no effect, just for conformity
-        :param Optional[float] min_delta:       Minimum time step taken. Default: 1/10 nominal TC
+        :param bool verbose:          Currently no effect, just for conformity
         :param Optional[float] min_delta:       Minimum time step taken. Default: 1/10 nominal TC
 
         :return TSEvent: Time series containing the output currents of the reservoir

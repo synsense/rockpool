@@ -37,31 +37,31 @@ class RRTrainedLayer(Layer, ABC):
     def train_rr(
         self,
         ts_target: TSContinuous,
-        ts_input: Optional[Union[TSEvent, TSContinuous, None]] = None,
-        regularize: Optional[float] = 0,
-        is_first: Optional[bool] = True,
-        is_last: Optional[bool] = False,
-        train_biases: Optional[bool] = True,
-        calc_intermediate_results: Optional[bool] = False,
-        return_training_progress: Optional[bool] = True,
-        return_trained_output: Optional[bool] = False,
-        fisher_relabelling: Optional[bool] = False,
-        standardize: Optional[bool] = False,
+        ts_input: Optional[Union[TSEvent, TSContinuous]] = None,
+        regularize: float = 0,
+        is_first: bool = True,
+        is_last: bool = False,
+        train_biases: bool = True,
+        calc_intermediate_results: bool = False,
+        return_training_progress: bool = True,
+        return_trained_output: bool = False,
+        fisher_relabelling: bool = False,
+        standardize: bool = False,
     ) -> Union[Dict, None]:
         """
         Train this layer with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
 
         :param TSContinuous ts_target:                      Target signal for current batch
         :param Optional[TimeSeries] ts_input:               Input to layer for current batch. Default: ``None``, no input for this batch
-        :param Optional[float] regularize:                  Regularization parameter for ridge regression. Default: ``0``, no regularization
-        :param Optional[bool] is_first:                     Set to ``True`` if current batch is the first in training. Default: ``True``, initialise training with this batch as the first batch
-        :param Optional[bool] is_last:                      Set to ``True`` if current batch is the last in training. This has the same effect as if data from both trainings were presented at once.
-        :param Optional[bool] train_biases:                 If ``True``, train biases as if they were weights. Otherwise present biases will be ignored in training and not be changed. Default: ``True``, train biases as well as weights
-        :param Optional[bool] calc_intermediate_results:    If ``True``, calculates the intermediate weights not in the final batch. Default: ``False``, do not compute intermediate weights
-        :param Optional[bool] return_training_progress:     If ``True``, return dict of current training variables for each batch. Default: ``True``, return training progress
-        :param Optional[bool] return_trained_output:        If ``True``, return the result of evolving the layer with the trained weights in the output dict. Default: ``False``, do not return the trained output
-        :param Optional[bool] fisher_relabelling:           If ``True``, relabel target data such that the training algorithm is equivalent to Fisher discriminant analysis. Default: ``False``, use standard ridge / linear regression
-        :param Optional[bool] standardize:                  Train with z-score standardized data, based on means and standard deviations from first batch. Default: ``False``, do not standardize data
+        :param float regularize:                  Regularization parameter for ridge regression. Default: ``0``, no regularization
+        :param bool is_first:                     Set to ``True`` if current batch is the first in training. Default: ``True``, initialise training with this batch as the first batch
+        :param bool is_last:                      Set to ``True`` if current batch is the last in training. This has the same effect as if data from both trainings were presented at once.
+        :param bool train_biases:                 If ``True``, train biases as if they were weights. Otherwise present biases will be ignored in training and not be changed. Default: ``True``, train biases as well as weights
+        :param bool calc_intermediate_results:    If ``True``, calculates the intermediate weights not in the final batch. Default: ``False``, do not compute intermediate weights
+        :param bool return_training_progress:     If ``True``, return dict of current training variables for each batch. Default: ``True``, return training progress
+        :param bool return_trained_output:        If ``True``, return the result of evolving the layer with the trained weights in the output dict. Default: ``False``, do not return the trained output
+        :param bool fisher_relabelling:           If ``True``, relabel target data such that the training algorithm is equivalent to Fisher discriminant analysis. Default: ``False``, use standard ridge / linear regression
+        :param bool standardize:                  Train with z-score standardized data, based on means and standard deviations from first batch. Default: ``False``, do not standardize data
 
         :return:
             If ``return_training_progress`` is ``True``, return a dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
@@ -77,7 +77,7 @@ class RRTrainedLayer(Layer, ABC):
             self.trainer = RidgeRegrTrainer(
                 num_features=self.size_in,
                 num_outputs=self.size_out,
-                regularization=regularize,
+                regularize=regularize,
                 fisher_relabelling=fisher_relabelling,
                 standardize=standardize,
                 train_biases=train_biases,
@@ -112,7 +112,10 @@ class RRTrainedLayer(Layer, ABC):
         )
 
         if return_trained_output:
-            output_samples = inp @ self.trainer.weights + self.trainer.bias
+
+            bias = self.trainer.bias if train_biases else self.bias
+
+            output_samples = inp @ self.trainer.weights + bias
             tr_data["output"] = TSContinuous(time_base, output_samples)
 
         if return_trained_output or return_training_progress:
@@ -218,25 +221,27 @@ class RRTrainedLayer(Layer, ABC):
         target = ts_target(time_base)
 
         # - Make sure no nan is in target, as this causes learning to fail
-        assert not np.isnan(
-            target
-        ).any(), "Layer `{}`: nan values have been found in target (where: {})".format(
-            self.name, np.where(np.isnan(target))
-        )
+        if np.isnan(target).any():
+            raise ValueError(
+                self.start_print
+                + "'nan' values have been found in target "
+                + f"(where: {np.where(np.isnan(target))})"
+            )
 
         # - Check target dimensions
         if target.ndim == 1 and self.size == 1:
             target = target.reshape(-1, 1)
 
-        assert (
-            target.shape[-1] == self.size
-        ), "Layer `{}`: Target dimensions ({}) does not match layer size ({})".format(
-            self.name, target.shape[-1], self.size
-        )
+        if target.shape[-1] != self.size:
+            raise ValueError(
+                self.start_print
+                + f"Target dimensions ({target.shape[-1]}) does not match "
+                + f"layer size ({self.size})"
+            )
 
         # - Warn if input time range does not cover whole target time range
         if (
-            not ts_target.contains(time_base)
+            not ts_input.contains(time_base)
             and not ts_input.periodic
             and not ts_target.periodic
         ):

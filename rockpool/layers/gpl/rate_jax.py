@@ -203,8 +203,8 @@ class RecRateEulerJax(Layer):
         w_out: np.ndarray,
         tau: np.ndarray,
         bias: np.ndarray,
-        noise_std: Optional[float] = 0.0,
-        activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
+        noise_std: float = 0.0,
+        activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
@@ -217,8 +217,8 @@ class RecRateEulerJax(Layer):
         :param np.ndarray w_out:                    Output weights [NxO]
         :param np.ndarray tau:                      Time constants [N]
         :param np.ndarray bias:                     Bias values [N]
-        :param Optional[float] noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
-        :param Optional[Callable]activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param float noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Callable[[FloatVector], float] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
         :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
         :param Optional[str] name:                  Name of the layer. Default: ``None``
         :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
@@ -340,9 +340,9 @@ class RecRateEulerJax(Layer):
         """
         _prepare_input - Sample input, set up time base
 
-        :param ts_input:        TimeSeries TxM or Tx1 Input signals for this layer
-        :param duration:        float Duration of the desired evolution, in seconds
-        :param num_timesteps:   int Number of evolution time steps
+        :param Optional[TSContinuous] ts_input:        TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:        Duration of the desired evolution, in seconds
+        :param Optional[int] num_timesteps:   Number of evolution time steps
 
         :return: (time_base, input_steps, duration)
             time_base:          ndarray T1 Discretised time base for evolution
@@ -527,7 +527,7 @@ class ForceRateEulerJax(RecRateEulerJax):
         tau: np.ndarray,
         bias: np.ndarray,
         noise_std: float = 0.0,
-        activation_func: Optional[Callable[[FloatVector], FloatVector]] = H_ReLU,
+        activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
@@ -540,7 +540,7 @@ class ForceRateEulerJax(RecRateEulerJax):
         :param np.ndarray tau:                      Time constants [N]
         :param np.ndarray bias:                     Bias values [N]
         :param Optional[float] noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
-        :param Optional[Callable] activation_func:  Neuron transfer function f(x: float) -> float. Must be vectorised. Default: ``H_ReLU``
+        :param Callable[[FloatVector], float] activation_func:  Neuron transfer function f(x: float) -> float. Must be vectorised. Default: ``H_ReLU``
         :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
         :param Optional[str] name:                  Name of the layer. Default: ``None``
         :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
@@ -586,10 +586,10 @@ class ForceRateEulerJax(RecRateEulerJax):
         """
         evolve() - Evolve the reservoir state
 
-        :param ts_input:        TSContinuous Input time series
-        :param ts_force:        TSContinuous Forced time series
-        :param duration:        float Duration of evolution in seconds
-        :param num_timesteps:   int Number of time steps to evolve (based on self.dt)
+        :param Optional[TSContinuous] ts_input:        Input time series
+        :param Optional[TSContinuous] ts_force:        Forced time series
+        :param Optional[float] duration:        Duration of evolution in seconds
+        :param Optional[int] num_timesteps:   Number of time steps to evolve (based on self.dt)
 
         :return: ts_output:     TSContinuous Output time series
         """

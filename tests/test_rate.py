@@ -36,7 +36,10 @@ def test_FFRateEuler():
     assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
+        fl0.weights = weights[:-1]
+
+    with pytest.raises(TypeError):
         fl1 = FFRateEuler(weights=None)
 
     with pytest.raises(AssertionError):
@@ -114,6 +117,8 @@ def test_RecRateEuler():
     # - Layer generation
     fl0 = RecRateEuler(weights=weights, bias=bias, noise_std=0.1, dt=0.01)
 
+    assert fl0.dt == 0.01
+
     # - Input signal
     tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 2)))
 
@@ -128,11 +133,11 @@ def test_RecRateEuler():
     assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEuler(weights=np.zeros((1, 2)))
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         RecRateEuler(weights=np.zeros((2, 2)), tau=None)
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         RecRateEuler(weights=np.zeros((2, 2)), noise_std=None)

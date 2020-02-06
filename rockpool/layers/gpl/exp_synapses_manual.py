@@ -260,7 +260,9 @@ class FFExpSyn(RRTrainedLayer):
             num_timesteps = len(data)
 
         # - Define exponential kernel
-        kernel = np.exp(-np.arange(num_timesteps) * self.dt / self.tau_syn)
+        # Make kernel shorter by setting values smaller than ``tol_abs`` to 0
+        len_kernel = -self.tau_syn / self.dt * np.log(tol_abs)
+        kernel = np.exp(-np.arange(len_kernel) * self.dt / self.tau_syn)
 
         # - Make sure spikes only have effect on next time step
         kernel = np.r_[0, kernel]
@@ -274,17 +276,17 @@ class FFExpSyn(RRTrainedLayer):
     def _prepare_training_data(
         self,
         ts_target: TSContinuous,
-        ts_input: Optional[Union[TSEvent, None]] = None,
-        is_first: Optional[bool] = True,
-        is_last: Optional[bool] = False,
+        ts_input: Optional[TSEvent] = None,
+        is_first: bool = True,
+        is_last: bool = False,
     ):
         """
         Check and rasterize input and target signals for this batch
 
         :param TSContinuous ts_target:      Target signal for this batch
         :param Optional[TSEvent] ts_input:  Input signal for this batch. Default: ``None``, no input for this batch
-        :param Optional[bool] is_first:     If ``True``, this is the first batch in training. Default: ``True``, this is the first batch
-        :param optional[bool] is_last:      If ``True``, this is the last training batch. Default: ``False``, this is not the last batch
+        :param bool is_first:     If ``True``, this is the first batch in training. Default: ``True``, this is the first batch
+        :param bool is_last:      If ``True``, this is the last training batch. Default: ``False``, this is not the last batch
 
         :return (inp, target, time_base)
             inp np.ndarray:         Rasterized input signal [T, M]

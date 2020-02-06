@@ -552,7 +552,7 @@ class Network:
         :param Optional[TimeSeries] ts_input:   External input to the network. Default: `None`, no external input
         :param Optional[float] duration:        Duration over which network should be evolved. If not provided, then `num_timesteps` or the duration of `ts_input` will determine the evolution duration
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` of the duration of `ts_input` will determine evolution duration
-        :param Optional[bool] verbose:         If `True`, display info about evolution state. Default: `True`, display feedback
+        :param bool verbose:         If `True`, display info about evolution state. Default: `True`, display feedback
 
         :return dict:                           Dictionary containing the output time series of each layer. Entries in the dictionary will be have keys taken from the names of each layer
 
@@ -639,8 +639,9 @@ class Network:
                 signal_dict[lyr.name].trial_start_times = trial_start_times.copy()
 
             # - Set name for response time series, if not already set
-            if signal_dict[lyr.name].name is None:
-                signal_dict[lyr.name].name = lyr.name
+            if not isinstance(lyr, Network):
+                if signal_dict[lyr.name].name is None:
+                    signal_dict[lyr.name].name = lyr.name
 
         # - Update network time
         self._timestep += num_timesteps
@@ -794,7 +795,7 @@ class Network:
         ts_input: TimeSeries,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-        verbose: Optional[bool] = False,
+        verbose: bool = False,
         step_callback: Optional[Callable] = None,
     ) -> dict:
         """
@@ -803,7 +804,7 @@ class Network:
         :param TimeSeries ts_input:                 External input to the network
         :param Optional[float] duration:            Total duration to stream for. If not provided, use `num_timesteps` or the duration of `ts_input` to determine duration
         :param Optional[int] num_timesteps:         Number of time steps to stream for, in units of `.dt`. If not provided, using `duration` of the duration of `ts_input` to determine duration
-        :param Optional[bool] verbose:              If `True`, display feedback during streaming. Default: `False`, do not display feedback
+        :param bool verbose:              If `True`, display feedback during streaming. Default: `False`, do not display feedback
         :param Optional[Callable] step_callback:    Callback function that will be called on each time step. Has the signature Callable[[Network]]
 
         :return dict:       Collected output signals from each layer
@@ -1046,11 +1047,12 @@ class Network:
         newnet.evol_order = self.evol_order.copy()
         return newnet
 
-    def save(self, filename: str):
+    def to_dict(self) -> Dict:
         """
-        Save this network to a JSON file
+        Generate dict with parameters that can be used to re-generate an identical
+        network.
 
-        :param str filename:    The path to a file in which to save the network and state.
+        :return Dict:   Dict containing parameters of ``self`` and its layers.
         """
         # - List with layers in their evolution order
         list_layers = []
@@ -1062,14 +1064,25 @@ class Network:
                 pass
             lyr_dict["external_input"] = lyr.external_input
             list_layers.append(lyr_dict)
-        savedict = {"layers": list_layers}
+        params = {"layers": list_layers}
         # - Include dt if it has been enforced at instantiation
         if self._force_dt:
-            savedict["dt"] = self.dt
+            params["dt"] = self.dt
         try:
-            savedict["input_layer_name"] = self.input_layer.name
+            params["input_layer_name"] = self.input_layer.name
         except AttributeError:
             pass
+
+        return params
+
+    def save(self, filename: str):
+        """
+        Save this network to a JSON file
+
+        :param str filename:    The path to a file in which to save the network and state.
+        """
+        savedict = self.to_dict()
+
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
@@ -1084,8 +1097,17 @@ class Network:
         # - Load dict holding the parameters
         with open(filename, "r") as f:
             loaddict: dict = json.load(f)
+
+        return Network.load_from_dict(loaddict)
+
+    @staticmethod
+    def load_from_dict(config: dict, **kwargs):
+
+        # - Overwrite parameters with kwargs
+        config = dict(config, **kwargs)
+
         # - List of layers in their original evolution order
-        list_layers = loaddict["layers"]
+        list_layers = config["layers"]
         pre_layers = []
         external = []
         evol_order = []
@@ -1095,7 +1117,7 @@ class Network:
             pre_layers.append(lyr.pop("pre_layer_name", None))
             external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
-        dt = loaddict.get("dt", None)
+        dt = config.get("dt", None)
         if all(ext is None for ext in external) and all(
             pre is None for pre in pre_layers
         ):
@@ -1117,7 +1139,7 @@ class Network:
                     external_input=ext if ext is not None else False,
                 )
             try:
-                newnet.input_layer = getattr(newnet, loaddict["input_layer_name"])
+                newnet.input_layer = getattr(newnet, config["input_layer_name"])
             except KeyError:
                 pass
             return newnet

@@ -72,6 +72,7 @@ Utility modules
     layers.RecLIFCurrentInJax
     layers.RecLIFJax_IO
     layers.RecLIFCurrentInJax_IO
+    layers.FFLIFJax_IO
     layers.FFCLIAF
     layers.RecCLIAF
     layers.CLIAF
