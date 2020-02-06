@@ -183,11 +183,10 @@ class RecFSSpikeEulerBT(Layer):
         assert min_delta < self.dt, "`min_delta` must be shorter than `dt`"
 
         # - Get discretised input and nominal time trace
-        input_time_trace, static_input, num_timesteps_ideal = self._prepare_input(
+        input_time_trace, static_input, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
         final_time = input_time_trace[-1]
-        num_timesteps = num_timesteps_ideal
 
         # - Generate a noise trace
         noise_step = (
@@ -196,15 +195,16 @@ class RecFSSpikeEulerBT(Layer):
         static_input += noise_step
 
         # - Allocate state storage variables
+        record_length = num_timesteps
         spike_pointer = 0
-        times = full_nan(num_timesteps)
-        v = full_nan((self.size, num_timesteps))
-        s = full_nan((self.size, num_timesteps))
-        f = full_nan((self.size, num_timesteps))
-        dot_v_ts = full_nan((self.size, num_timesteps))
+        times = full_nan(record_length)
+        v = full_nan((self.size, record_length))
+        s = full_nan((self.size, record_length))
+        f = full_nan((self.size, record_length))
+        dot_v_ts = full_nan((self.size, record_length))
 
         # - Allocate storage for spike times
-        max_spike_pointer = num_timesteps * self.size
+        max_spike_pointer = record_length * self.size
         spike_times = full_nan(max_spike_pointer)
         spike_indices = full_nan(max_spike_pointer)
 
@@ -411,14 +411,14 @@ class RecFSSpikeEulerBT(Layer):
             spike_pointer += 1
 
             # - Extend state storage variables, if needed
-            if step >= num_timesteps:
+            if step >= record_length:
                 extend = num_timesteps
                 times = np.append(times, full_nan(extend))
                 v = np.append(v, full_nan((self.size, extend)), axis=1)
                 s = np.append(s, full_nan((self.size, extend)), axis=1)
                 f = np.append(f, full_nan((self.size, extend)), axis=1)
                 dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
-                num_timesteps += extend
+                record_length += extend
 
             # - Store the network states for this time step
             times[step] = t_time
@@ -465,8 +465,8 @@ class RecFSSpikeEulerBT(Layer):
             "static_input": static_input,
         }
 
-        use_hv = get_global_ts_plotting_backend()
-        if use_hv == "holoviews":
+        backend = get_global_ts_plotting_backend()
+        if backend is "holoviews":
             spikes = {"times": spike_times, "vnNeuron": spike_indices}
 
             resp["spReservoir"] = hv.Points(
@@ -481,7 +481,7 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Store "last evolution" state
         self._last_evolve = resp
-        self._timestep += num_timesteps_ideal
+        self._timestep += num_timesteps
 
         # - Return output TimeSeries
         return TSEvent(spike_times, spike_indices)
