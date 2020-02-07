@@ -58,16 +58,25 @@ class RidgeRegrTrainer:
                                    deviation and store them internally
         :param np.ndarray inp:     Input data in 2D-array (num_samples x num_features)
         """
-        self.inp_mean = np.mean(axis=0).reshape(-1, 1)
-        self.inp_std = np.std(axis=0).reshape(-1, 1)
+        self.inp_mean = np.mean(inp, axis=0).reshape(1, -1)
+        self.inp_std = np.std(inp, axis=0).reshape(1, -1)
+        # - Set standard deviation to 1 wherever it is zero, to avoid division by zero
+        self.inp_std[self.inp_std == 0] = 1
 
     def z_score_standardization(self, inp: np.ndarray) -> np.ndarray:
         """
-        z_score_standardization - For each feature subtract `self.inp_mean` and scale it with `self.inp_std`
+        z_score_standardization - For each feature subtract `self.inp_mean` and scale it
+                                  with `self.inp_std`. If these parameters have not yet
+                                  been defined, use 'self.determine_z_score_params to
+                                  find them based on 'inp'.
         :param np.ndarray inp:    Input data in 2D-array (num_samples x num_features)
         :return np.ndarray:       Standardized input data.
         """
-        return (inp - self.mean) / self.inp_std
+        try:
+            return (inp - self.inp_mean) / self.inp_std
+        except AttributeError:
+            self.determine_z_score_params(inp)
+            return (inp - self.inp_mean) / self.inp_std
 
     def _relabel_fisher(self, target: np.ndarray) -> np.ndarray:
         """
@@ -179,9 +188,9 @@ class RidgeRegrTrainer:
             self.weights = solution
 
         if self.standardize:
-            self.weights /= self.inp_std
+            self.weights /= self.inp_std.T
             if self.train_biases:
-                self.bias -= self.inp_mean @ self.weights
+                self.bias -= (self.inp_mean @ self.weights).flatten()
 
     def reset(self):
         """reset - Reset internal training data."""
