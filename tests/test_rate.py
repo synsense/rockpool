@@ -101,6 +101,35 @@ def test_ff_rate_euler_train():
         and np.isclose(fl_exp_train.bias, fl_pt.bias, rtol=1e-4, atol=1e-2).all()
     ), "Training led to different results"
 
+    # - Train with z-score standardization
+    fl_exp_train.train_rr(
+        ts_tgt, tsIn, regularize=0.1, is_first=True, is_last=True, standardize=True
+    )
+
+    # - Train with Fisher relabeling
+    fl_exp_train.train_rr(
+        ts_tgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        fisher_relabelling=True,
+    )
+
+    # - Train with Fisher relabeling, z-score standardization but without biases
+    biases_before = fl_exp_train.bias.copy()
+    fl_exp_train.train_rr(
+        ts_tgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        fisher_relabelling=True,
+        standardize=True,
+        train_biases=False,
+    )
+    assert (biases_before == fl_exp_train.bias).all(), "Biases should not have changed."
+
 
 def test_RecRateEuler():
     """ Test RecRateEuler """
