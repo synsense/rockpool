@@ -92,17 +92,22 @@ class RidgeRegrTrainer:
                           Fisher discriminant analysis. Input will have additional axis
                           to habe individual relabelled input for each output dimension.
         :param np.ndarray inp:     2D-array (num_samples x num_features) of input data
+                                   Convention for target values:
+                                       1: Class is present (True)
+                                       0: Class is not present (False)
+                                      -1: Ignore this datapoint. This is particularly
+                                          useful for all-vs-all classifiers, where
+                                          the target class is not within the corresponding
+                                          pair of classes.
         :param np.ndarray target:  2D-array (num_samples x num_outputs) of target data
         :return np.ndarray:        Relabeled input data (num_outputs x num_samples x num_samples).
         :return np.ndarray:        Relabeled target data (num_samples x num_outputs).
         """
 
-        num_timesteps = len(target)
-
         # - Weight samples by relative number of occurences for each class
-        bool_tgt = target.astype(bool)
-        nums_true = np.sum(bool_tgt, axis=0)
-        nums_false = num_timesteps - nums_true
+        int_tgt = np.round(target).astype(int)
+        nums_true = np.sum(int_tgt == 1, axis=0)
+        nums_false = np.sum(int_tgt == 0, axis=0)
         weights_true = 1.0 / nums_true
         weights_false = 1.0 / nums_false
 
@@ -113,13 +118,16 @@ class RidgeRegrTrainer:
         inp_extd = np.repeat(inp, repeats=self.num_outputs, axis=0)
 
         # - Apply weights
-        for i_tgt, (tgt_vec_bool, w_t, w_f) in enumerate(
-            zip(bool_tgt.T, weights_true, weights_false)
+        for i_tgt, (tgt_vec, w_t, w_f) in enumerate(
+            zip(int_tgt.T, weights_true, weights_false)
         ):
-            target[tgt_vec_bool, i_tgt] = w_t
-            target[tgt_vec_bool == False, i_tgt] = -w_f
-            inp_extd[i_tgt, tgt_vec_bool] *= w_t
-            inp_extd[i_tgt, tgt_vec_bool == False] *= w_f
+            target[tgt_vec == 1, i_tgt] = w_t
+            target[tgt_vec == 0, i_tgt] = -w_f
+            inp_extd[i_tgt, tgt_vec == 1] *= w_t
+            inp_extd[i_tgt, tgt_vec == 0] *= w_f
+            # Points with target -1 get weight 0, to be ignored during training
+            target[tgt_vec == -1, i_tgt] = 0
+            inp_extd[i_tgt, tgt_vec == -1] = 0
 
         return inp_extd, target
 
