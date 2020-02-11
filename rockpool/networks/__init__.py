@@ -6,6 +6,7 @@ from warnings import warn
 dModules = {
     ".network": "Network",
     ".gpl.net_deneve": "NetworkDeneve",
+    ".gpl.net_ads": "NetworkADS",
     ".gpl.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
 }
 

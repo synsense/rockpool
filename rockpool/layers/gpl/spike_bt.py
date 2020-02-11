@@ -129,6 +129,7 @@ class RecFSSpikeEulerBT(Layer):
         self.refractory = float(refractory)
         self.spike_callback = spike_callback
 
+
         # - Set a reasonable dt
         if dt is None:
             self.dt = self._min_tau / 10
@@ -259,11 +260,12 @@ class RecFSSpikeEulerBT(Layer):
                 # - Locate spiking neurons
                 spike_ids = state > v_thresh
                 spike_ids = argwhere(spike_ids)
-                num_spikes = np.sum(spike_ids)
+                num_spikes = len(spike_ids)
 
                 # - Were there any spikes?
                 if num_spikes > 0:
-                    # - Predict the precise spike times using linear interpolation
+                    # - Predict the precise spike times using linear interpolation, returns a value between 0 and dt depending on whether V(t) or V(t-1) is closer to the threshold.
+                    # We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
                     spike_deltas = (
                         (v_thresh[spike_ids] - v_last[spike_ids])
                         * dt

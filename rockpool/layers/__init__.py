@@ -19,6 +19,7 @@ dModules = {
     ".gpl.softmaxlayer": "SoftMaxLayer",
     ".gpl.iaf_digital": "RecDIAF",
     ".gpl.spike_bt": "RecFSSpikeEulerBT",
+    ".gpl.spike_ads": "RecFSSpikeADS",
     ".gpl.updown": "FFUpDown",
     ".gpl.pytorch.exp_synapses_torch": "FFExpSynTorch",
     ".gpl.pytorch.iaf_torch": (
