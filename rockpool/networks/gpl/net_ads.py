@@ -6,8 +6,18 @@ Note that ADS stands for Arbitrary Dynamical System
 import numpy as np
 from ..network import Network
 from ...layers import PassThrough, FFExpSyn, RecFSSpikeADS
+from ...timeseries import TSContinuous
 
 from typing import Union, Callable
+
+import matplotlib
+matplotlib.rc('font', family='Times New Roman')
+matplotlib.rc('text')
+matplotlib.rcParams['lines.linewidth'] = 0.5
+matplotlib.rcParams['lines.markersize'] = 0.5
+import matplotlib.pyplot as plt # For quick plottings
+
+import time
 
 #! Need to import RecFSSpikeADS
 
@@ -84,7 +94,7 @@ class NetworkADS(Network):
         # Output layer
         output_layer = FFExpSyn(
             weights_out,
-            dt=0.1e-4,
+            dt=dt,
             noise_std=noise_std,
             tau_syn=tau_syn_out,
             name="Output"
@@ -96,6 +106,70 @@ class NetworkADS(Network):
         net_ads.output_layer = net_ads.add_layer(output_layer, ads_layer) # ADS -> Output
 
         return net_ads
+
+
+    def train(self, data_train : np.ndarray, data_val : np.ndarray, time_base : np.ndarray, validation_step : int = 2):
+        """
+        Function for teaching the network an arbitrary dynamical system defined by x_dot = f(x) = c
+            Inputs:
+                data_train : List of length 'number_training_samples' where each element is a tuple (input,target)
+                data_val   : List of length 'number_validation_samples' where each element is a tuple (input,target)
+                time_base  : The time base used to convert the np.ndarrays to TSContinuous, which could be done pre training
+                validation_step : After these amount of steps, the network is run on the validation data and an error is printed to indicate performance
+        """
+        print("Start training network...")
+        t0 = time.time()
+
+        #TODO define the callback which is used for learning
+        def learning_callback():
+            return 0
+
+        # Set the learning_callback in the layer that implements the learning
+        self.lyrRes.learning_callback = learning_callback
+
+        # Do the training TODO: Implement batched training for future tasks
+        for num_iter,(input_train, target_train) in enumerate(data_train):
+            # Create TSContinuous for these instances
+            
+            ts_input_train = TSContinuous(time_base, input_train.T)
+            ts_target_train = TSContinuous(time_base, target_train.T)
+
+            # Set training flag in layer lyrRes
+            self.lyrRes.is_training = True
+            # Set ts_target in the main layer. This will be used by the layer for training when evolve is called with the is_training flag set to True
+            self.lyrRes.ts_target = ts_target_train
+
+            # Call evolve on self to perform one iteration of the network
+            self.evolve(ts_input=ts_input_train, verbose=False)
+            
+            # Reset state and time
+            self.reset_all()
+
+            # Reset to non-training state
+            self.lyrRes.is_training = False
+
+            if((num_iter % validation_step) == 0):
+                errors = np.zeros(len(data_val))
+                # Run on data_val to get feedback
+                for idx,(input_val,target_val) in enumerate(data_val):
+                    ts_input_val = TSContinuous(time_base, input_val.T)
+
+                    val_sim = self.evolve(ts_input=ts_input_val, verbose=False)
+                    out_val = val_sim["Output"].samples.T
+                    self.reset_all()
+                    # Compute the error
+                    N = out_val.shape[1]
+                    
+                    #TODO Need to be careful how to calculate error
+                    err = np.mean(1/N * np.linalg.norm(out_val-target_val, axis=1))
+                    errors[idx] = err
+
+                print("Number of steps: %d Validation error: %.6f" % (num_iter, np.mean(errors)))
+
+        self.lyrRes.learning_callback = None
+        print("Finished training in %.4f seconds" % (time.time() - t0))
+
+            
 
 
 def _expand_to_size(inp, size: int, var_name: str = "input") -> np.ndarray:

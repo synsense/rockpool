@@ -60,6 +60,9 @@ class RecFSSpikeADS(Layer):
         self.tau_syn_r_slow = np.asarray(tau_syn_r_slow).astype("float")
         self.refractory = float(refractory)
         self.phi = phi
+        self.learning_callback = None
+        self.is_training = False
+        self._ts_target = None
 
         # - Set a reasonable dt
         if dt is None:
@@ -163,7 +166,17 @@ class RecFSSpikeADS(Layer):
         # - Call super-class setter
         super(RecFSSpikeADS, RecFSSpikeADS).dt.__set__(self, new_dt)
 
+    @property
+    def ts_target(self):
+        return self._ts_target
+
     # TODO Need to implement a setter for self.ts_target :TSContinuous
+    @ts_target.setter
+    def ts_target(self, t):
+        self._ts_target = t
+        print("ts_target setter called")
+
+
 
 ###### Convenience functions
 
