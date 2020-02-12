@@ -4,12 +4,18 @@ an arbitrary dynamical system.
 """
 
 from ..layer import Layer
-from rockpool.timeseries import TSEvent
+from rockpool.timeseries import TSEvent, TSContinuous
 import numpy as np
-from typing import Union, Callable, Any, Tuple
+from typing import Union, Callable, Any, Tuple, Optional
 import copy
 from numba import njit
 
+import matplotlib
+matplotlib.rc('font', family='Times New Roman')
+matplotlib.rc('text')
+matplotlib.rcParams['lines.linewidth'] = 0.5
+matplotlib.rcParams['lines.markersize'] = 0.5
+import matplotlib.pyplot as plt # For quick plottings
 
 __all__ = ["RecFSSpikeADS"]
 
@@ -73,8 +79,19 @@ class RecFSSpikeADS(Layer):
         self.I_s_F = np.zeros(self.size)
 
 
-    def evolve(self) -> TSEvent:
-        NotImplemented
+    def evolve(self,
+                ts_input: Optional[TSContinuous] = None,
+                duration: Optional[float] = None,
+                num_timesteps: Optional[int] = None,
+                verbose: bool = False,
+                min_delta: Optional[float] = None,) -> TSEvent:
+        """
+        Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
+        """
+
+        # This is a dummy evolution so no errors are produced when executing net.evolve(..)
+        self.t = num_timesteps * self.dt
+        return TSEvent([0.5, 0.6],[0, 0])
 
     def to_dict(self):
         NotImplemented
@@ -94,7 +111,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def tau_syn_r_f(self):
-        """ (flot) Fast synaptic time constant (s) """
+        """ (float) Fast synaptic time constant (s) """
         return self.__tau_syn_r_f
 
     @tau_syn_r_f.setter
@@ -146,6 +163,7 @@ class RecFSSpikeADS(Layer):
         # - Call super-class setter
         super(RecFSSpikeADS, RecFSSpikeADS).dt.__set__(self, new_dt)
 
+    # TODO Need to implement a setter for self.ts_target :TSContinuous
 
 ###### Convenience functions
 
