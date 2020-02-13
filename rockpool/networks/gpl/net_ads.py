@@ -42,6 +42,7 @@ class NetworkADS(Network):
                         k : float,
                         noise_std : float,
                         dt : float,
+                        bias : np.ndarray = 0.0,
                         v_thresh: Union[np.ndarray, float] = -0.055,
                         v_reset: Union[np.ndarray, float] = -0.065,
                         v_rest: Union[np.ndarray, float] = -0.065,
@@ -50,6 +51,7 @@ class NetworkADS(Network):
                         tau_syn_r_slow: float = 0.1,
                         tau_syn_out: float = 0.1,
                         refractory: float = -np.finfo(float).eps,
+                        record : bool = False,
                         phi : Callable[[np.ndarray],np.ndarray] = lambda x : np.tanh(x)):
 
 
@@ -82,11 +84,11 @@ class NetworkADS(Network):
         assert (weights_slow.shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(weights_slow.shape),Nb,N))
         assert (theta.shape == (Nb,1) or theta.shape == (Nb,)), ("Theta has shape %s but should have shape (%d,1)" % (str(theta.shape),Nb))
 
-        ads_layer = RecFSSpikeADS(weights_fast=weights_fast, weights_slow=weights_slow,
-                                    M=M,theta=theta,eta=eta,k=k,noise_std=noise_std,
+        ads_layer = RecFSSpikeADS(weights_fast=weights_fast, weights_slow=weights_slow, weights_out = weights_out, weights_in=weights_in,
+                                    M=M,theta=theta,eta=eta,k=k,bias=bias,noise_std=noise_std,
                                     dt=dt,v_thresh=v_thresh,v_reset=v_reset,v_rest=v_rest,
                                     tau_mem=tau_mem,tau_syn_r_fast=tau_syn_r_fast,tau_syn_r_slow=tau_syn_r_slow,
-                                    refractory=refractory,phi=phi,name="ADS-Layer")
+                                    refractory=refractory,phi=phi,learning_callback=None,record=record,name="ADS-Layer")
 
         # Input layer
         input_layer = PassThrough(weights_in, dt=dt, noise_std=noise_std, name="Input")
@@ -120,9 +122,11 @@ class NetworkADS(Network):
         print("Start training network...")
         t0 = time.time()
 
-        #TODO define the callback which is used for learning
-        def learning_callback():
-            return 0
+        def learning_callback(weights_slow, eta, phi_r, weights_in, e, dt):
+            """
+            Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
+            """
+            return eta*(np.outer(phi_r,(weights_in.T @ e).T))
 
         # Set the learning_callback in the layer that implements the learning
         self.lyrRes.learning_callback = learning_callback
@@ -166,6 +170,7 @@ class NetworkADS(Network):
 
                 print("Number of steps: %d Validation error: %.6f" % (num_iter, np.mean(errors)))
 
+        # self.is_training = False
         self.lyrRes.learning_callback = None
         print("Finished training in %.4f seconds" % (time.time() - t0))
 

@@ -68,6 +68,7 @@ class RecFSSpikeEulerBT(Layer):
         self,
         weights_fast: np.ndarray = None,
         weights_slow: np.ndarray = None,
+        weights_out: np.ndarray = None,
         bias: np.ndarray = 0.0,
         noise_std: float = 0.0,
         tau_mem: Union[np.ndarray, float] = 20e-3,
@@ -128,6 +129,7 @@ class RecFSSpikeEulerBT(Layer):
         self.v_rest = np.asarray(v_rest).astype("float")
         self.refractory = float(refractory)
         self.spike_callback = spike_callback
+        self.weights_out = weights_out
 
 
         # - Set a reasonable dt
@@ -460,7 +462,7 @@ class RecFSSpikeEulerBT(Layer):
         resp = {
             "vt": times,
             "mfX": v,
-            "a": s,
+            "s": s,
             "f": f,
             "mfFast": f,
             "dot_v": dot_v_ts,
@@ -479,7 +481,7 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Convert some elements to time series
         resp["tsX"] = TSContinuous(resp["vt"], resp["mfX"].T, name="Membrane potential")
-        resp["tsA"] = TSContinuous(resp["vt"], resp["a"].T, name="Slow synaptic state")
+        resp["tsA"] = TSContinuous(resp["vt"], resp["s"].T, name="Slow synaptic state")
 
         # - Store "last evolution" state
         self._last_evolve = resp
