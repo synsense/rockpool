@@ -40,7 +40,7 @@ __all__ = [
     "load_ts_from_file",
 ]
 
-TS = TypeVar("TimeSeries")
+TS = TypeVar("TS", bound="TimeSeries")
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -195,7 +195,7 @@ class TimeSeries:
             plotting_backend if plotting_backend is not None else None, verbose=False
         )
 
-    def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
+    def delay(self: TS, offset: Union[int, float], inplace: bool = False) -> TS:
         """
         Return a copy of ``self`` that is delayed by an offset
 
@@ -223,14 +223,25 @@ class TimeSeries:
 
         return series
 
-    def start_at_zero(self, inplace: bool = False) -> "TimeSeries":
+    def start_at_zero(self: TS, inplace: bool = False) -> TS:
         """
-        Convenience function that calls the 'delay' method such that 't_start'
+        Convenience function that calls the 'delay' method such that 'self.t_start'
         falls at 0.
 
         :return TimeSeries:     New TimeSeries, with t_start at 0
         """
         return self.delay(offset=-self.t_start, inplace=inplace)
+
+    def start_at(self: TS, t_start: float, inplace: bool = False) -> TS:
+        """
+        Convenience function that casse the 'delay' mehtod such that 'self.t_start'
+        falls at 't_start'.
+
+        :param float t_start:   Time to which 'self.t_start' should be shifted;
+        :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
+        :return TimeSeries:     New TimeSeries, delayed
+        """
+        return self.delay(offset=t_start - self.t_start, inplace=inplace)
 
     def isempty(self) -> bool:
         """
@@ -287,7 +298,7 @@ class TimeSeries:
         else:
             raise ValueError("Plotting backend not recognized.")
 
-    def copy(self) -> "TimeSeries":
+    def copy(self: TS) -> TS:
         """
         Return a deep copy of this time series
 
