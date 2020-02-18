@@ -17,6 +17,15 @@ The simplest way to install |project| is by using `pip` to download and install 
 
     pip install rockpool
 
+Installation using `conda`
+--------------------------
+
+You can also install |project| using `conda`, from the `conda-forge` channel.
+
+.. code-block:: Bash
+
+    conda install -c conda-forge rockpool
+
 Dependencies
 ------------
 

@@ -99,4 +99,6 @@ nbsphinx_epilog = """
 
 nbsphinx_allow_errors = True
 
+nbsphinx_execute = 'never'
+
 autodoc_default_options = {"special-members": "__init__", "private-members": True}
