@@ -103,6 +103,8 @@ class RecFSSpikeADS(Layer):
         self._ts_target = None
         self.recorded_states = None
         self.record = record
+        self.k_initial = k
+        self.eta_initial = eta
 
         self.learning_callback = learning_callback
 
@@ -194,6 +196,8 @@ class RecFSSpikeADS(Layer):
         v_last = self._state.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
+
+        frobenius_norm = 0
 
         zeros = np.zeros(self.size)
 
@@ -406,8 +410,10 @@ class RecFSSpikeADS(Layer):
 
             # Call the training. Note this is not spike based (but should probably be). Add "first_spike_id > -1 and" to if to make spike based
             if(self.is_training and self.learning_callback is not None):
-                dot_W_slow = self.learning_callback(weights_slow = self.weights_slow, eta=self.eta, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
+                dot_W_slow = self.learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
                 self.weights_slow = self.weights_slow + self.eta*dot_W_slow
+                if(verbose):
+                    frobenius_norm += np.linalg.norm(dot_W_slow, 'fro')
 
             # - Extend spike record, if necessary
             if spike_pointer >= max_spike_pointer:
@@ -508,7 +514,55 @@ class RecFSSpikeADS(Layer):
             self.recorded_states = resp
 
         # - Return output TimeSeries
-        return TSEvent(spike_times, spike_indices)
+        ts_event_return = TSEvent(spike_times, spike_indices)
+
+        if(verbose):
+            
+            print("Delta W slow is %.6f" % (frobenius_norm / (self.size * self.weights_slow.shape[0])))
+
+            # Compare the current traces
+            fig = plt.figure(figsize=(20,20))
+            plt.subplot(711)
+            plt.plot(times, f[0:5,:].T)
+            plt.title(r"$I_f$")
+
+            out_val = self.weights_out.T @ s
+
+            plt.subplot(712)
+            plt.plot(times, (out_val).T)
+            plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target)
+            plt.title(r"$D^Tr$")
+
+            plt.subplot(713)
+            plt.plot(times, v[0:5,:].T)
+            plt.title(r"$V(t)$")
+
+            plt.subplot(714)
+            plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,0:5])
+            plt.title(r"$I_{ext}$")
+            
+            _ = fig.add_subplot(715)
+            ts_event_return.plot()
+            plt.xlim([0,final_time])
+
+            plt.subplot(716)
+            plt.plot(times, I_W_slow_phi_x_track[0:5,:].T)
+            plt.title(r"$I_{W_{slow}^T\phi(r)}$")
+
+            plt.subplot(717)
+            plt.plot(times, I_kDte_track[0:5,:].T)
+            plt.title(r"$I_{kD^Te}$")
+                
+            plt.tight_layout()
+            plt.show()
+
+            im = plt.matshow(self.weights_slow, fignum=False)
+            plt.xticks([], [])
+            plt.colorbar(im,fraction=0.046, pad=0.04)
+            plt.show()
+                
+
+        return ts_event_return
 
     def to_dict(self):
         NotImplemented
@@ -612,6 +666,7 @@ class RecFSSpikeADS(Layer):
             self._ts_target = t
         else:
             self._ts_target = None
+
         
 
     # Override _prepare_input to also allow preparing the target variable and setting the time base according to the layers dt
