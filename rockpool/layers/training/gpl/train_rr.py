@@ -231,7 +231,7 @@ class RidgeRegrTrainer:
         if self.standardize:
             self.weights /= self.inp_std.T
             if self.train_biases:
-                self.bias -= (self.inp_mean @ self.weights).flatten()
+                self.bias -= (self.inp_mean @ self.weights).ravel()
 
     def reset(self):
         """reset - Reset internal training data."""
