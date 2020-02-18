@@ -90,7 +90,7 @@ class RidgeRegrTrainer:
         """
         _relabel_fisher - Relabel target and input such that training is equivalent to
                           Fisher discriminant analysis. Input will have additional axis
-                          to habe individual relabelled input for each output dimension.
+                          to have individual relabelled input for each output dimension.
         :param np.ndarray inp:     2D-array (num_samples x num_features) of input data
                                    Convention for target values:
                                        1: Class is present (True)
