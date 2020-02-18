@@ -7,7 +7,8 @@ SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded 
 FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
 FPGA_ISI_LIMIT = int(
     2 ** 16 - 1
-)  # Max. number of timesteps for single inter-spike interval between FPGA events
+)  # Max. number of timesteps for single inter-spike interval between FPGA events, as well
+# as max. value for the isi_multiplier
 FPGA_TIMESTEP = 1.0 / 9.0 * 1e-7  # Internal clock of FPGA, 11.111...ns
 CORE_DIMENSIONS = (16, 16)  # Numbers of neurons in core (rows, columns)
 NUM_NEURONS_CORE = (
