@@ -188,7 +188,7 @@ class NetworkADS(Network):
                 ts_input_val = TSContinuous(time_base, input_val.T)
                 ts_target_val = TSContinuous(time_base, target_val.T)
                 self.lyrRes.ts_target = ts_target_val
-                val_sim = self.evolve(ts_input=ts_input_val, verbose=(verbose > 0))
+                val_sim = self.evolve(ts_input=ts_input_val, verbose=(verbose > 1))
     
                 out_val = val_sim["Output"].samples.T
                 self.reset_all()
@@ -218,7 +218,7 @@ class NetworkADS(Network):
 
             def perform_validation():
                 assert(self.lyrRes.is_training == False), "Validating, but is_training flag is set"
-                val_sim = self.evolve(ts_input=ts_input, verbose=(verbose > 0))
+                val_sim = self.evolve(ts_input=ts_input, verbose=(verbose > 1))
         
                 out_val = val_sim["Output"].samples.T
                 self.reset_all()
