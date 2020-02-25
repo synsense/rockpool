@@ -111,7 +111,19 @@ class NetworkADS(Network):
 
         return net_ads
 
-    # net.train(num_training_samples=100, Amp=Amp, duration=duration, sigma=sigma, func=get_signal_output_bistable, data_val=data_val, time_base=time_base, validation_step=2)
+    def pISI_variance(self, sim_result):
+        """
+        Compute the variance of the population inter-spike intervals
+        Parameters:
+            sim_result : Object of type evolution Object that was returned after having called evolve
+        Returns:
+            variance of difference array (variance of pISI)
+        """
+        times_c = sim_result['ADS-Layer'].times[sim_result['ADS-Layer'].channels > -1]
+        np.sort(times_c) # Sorts in ascending order
+        diff = np.diff(times_c)
+        return np.var(1000*diff)
+
 
     def train_network(self,
                         single_data : Tuple[np.ndarray,np.ndarray] = None,
@@ -184,27 +196,38 @@ class NetworkADS(Network):
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
             errors = []
+            errors_last_third = []
+            variances = []
             for (input_val, target_val) in data_val:
                 ts_input_val = TSContinuous(time_base, input_val.T)
                 ts_target_val = TSContinuous(time_base, target_val.T)
                 self.lyrRes.ts_target = ts_target_val
-                val_sim = self.evolve(ts_input=ts_input_val, verbose=(verbose > 1))
-    
+                val_sim = self.evolve(ts_input=ts_input_val, verbose=(verbose > 0))
+                variances.append(self.pISI_variance(val_sim))
                 out_val = val_sim["Output"].samples.T
                 self.reset_all()
 
                 if(verbose > 0):
-                    plt.figure(figsize=(20,5))
+                    fig = plt.figure(figsize=(20,5))
                     plt.plot(time_base, out_val.T, label=r"Reconstructed")
                     plt.plot(time_base, target_val.T, label=r"Target")
                     plt.title(r"Target vs reconstruction")
-                    plt.show()
-                
+                    plt.draw()
+                    plt.waitforbuttonpress(0) # this will wait for indefinite time
+                    plt.close(fig)
+
+                if(target_val.ndim == 1):
+                    target_val = np.reshape(target_val, (out_val.shape))
+                    target_val = target_val.T
+                    out_val = out_val.T
+                last_third_start = int(out_val.shape[0] * 2/3)
+                err_last_third = np.sum(np.var(target_val[last_third_start:,:]-out_val[last_third_start:,:], axis=0, ddof=1)) / (np.sum(np.var(target_val[last_third_start:,:], axis=0, ddof=1)))
                 err = np.sum(np.var(target_val-out_val, axis=0, ddof=1)) / (np.sum(np.var(target_val, axis=0, ddof=1)))
                 errors.append(err)
+                errors_last_third.append(err_last_third)
                 self.lyrRes.ts_target = None
             
-            print("Number of signal iterations: %d Validation error: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors))))
+            print("Number of signal iterations: %d Validation error: %.6f XOR error: %.6f Mean pISI variance: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors)),np.mean(np.asarray(errors_last_third)), np.mean(np.asarray(variances))))
         # End perform_validation_set
 
         ########## Perform training/validation on single data point ##########
@@ -224,14 +247,16 @@ class NetworkADS(Network):
                 self.reset_all()
 
                 if(verbose > 0):
-                    plt.figure(figsize=(20,5))
+                    fig = plt.figure(figsize=(20,5))
                     plt.plot(time_base, out_val.T, label=r"Reconstructed")
                     plt.plot(time_base, single_data[1].T, label=r"Target")
                     plt.title(r"Target vs reconstruction")
-                    plt.show()
+                    plt.draw()
+                    plt.waitforbuttonpress(0) # this will wait for indefinite time
+                    plt.close(fig)
                 
                 err = np.sum(np.var(single_data[1]-out_val, axis=0, ddof=1)) / (np.sum(np.var(single_data[1], axis=0, ddof=1)))
-                print("Number of steps: %d Validation error: %.6f" % (iteration, err))
+                print("Number of steps: %d Validation error: %.6f pISI variance: %.6f" % (iteration, err, self.pISI_variance(val_sim)))
 
             for iteration in range(num_iter):
                 if(iteration % validation_step == 0):
@@ -280,13 +305,20 @@ class NetworkADS(Network):
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
             bar = ChargingBar(message="Training", max=num_iter+1)
-            for iteration in range(num_iter):
+            for iteration in range(1,num_iter+1):
                 if(num_signal_iterations % validation_step == 0):
                         perform_validation_set()
                 (input_train, target_train) = get_data()
                 self.lyrRes.is_training = True
                 ts_input_train = TSContinuous(time_base, input_train.T)
                 ts_target_train = TSContinuous(time_base, target_train.T)
+
+                if(iteration % 10 == 0 and self.lyrRes.eta > 0.00005):
+                    self.lyrRes.eta = 1/np.sqrt(iteration) * self.lyrRes.eta_initial
+                    print("Reduced learning rate to %.7f" % self.lyrRes.eta)
+                if(iteration % 100 == 0 and self.lyrRes.k > 0.001):
+                    self.lyrRes.k = 1/np.sqrt(iteration) * self.lyrRes.k_initial
+                    print("Reduced k to %.7f" % self.lyrRes.k)
 
                 self.lyrRes.ts_target = ts_target_train
                 self.evolve(ts_input=ts_input_train, verbose=(verbose==2))

@@ -264,7 +264,7 @@ class RecRateEulerJax(Layer):
         # - Seed RNG
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-        _, self._rng_key = rand.split(rng_key)
+        _, self._rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
     def evolve(
         self,
