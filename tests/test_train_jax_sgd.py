@@ -85,3 +85,10 @@ def test_adam():
     assert np.all(np.abs(fl0.w_in - w_in_target) < target_eps)
     assert np.all(np.abs(fl0.w_out - w_out_target) < target_eps)
     assert np.all(np.abs(fl0.w_recurrent - w_recurrent_target) < target_eps)
+
+    # - Test known output values
+    ts_output = fl0.evolve(ts_input)
+
+    ts_output_target = [[0.], [9.99895], [29.49645996], [67.51574707]]
+
+    assert np.all(np.abs(ts_output.samples - ts_output_target) < target_eps)
