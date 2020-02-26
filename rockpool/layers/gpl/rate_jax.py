@@ -204,7 +204,7 @@ class RecRateEulerJax(Layer):
         tau: np.ndarray,
         bias: np.ndarray,
         noise_std: float = 0.0,
-        activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
+        activation_func: Union[str, Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
@@ -243,7 +243,12 @@ class RecRateEulerJax(Layer):
         self.w_out = w_out
         self.tau = tau
         self.bias = bias
-        self._H = activation_func
+        if(activation_func == "relu"):
+            self._H = H_ReLU
+        elif(activation_func == "tanh"):
+            self._H = H_tanh
+        else: # It can only be either relu or tanh (except for somebody changed the JSON file)
+            self._H = activation_func
 
         if dt is None:
             dt = np.min(tau) / 10.0
@@ -256,7 +261,7 @@ class RecRateEulerJax(Layer):
         self._size_out = w_out.shape[1]
 
         # - Get compiled evolution function
-        self._evolve_jit = _get_rec_evolve_jit(activation_func)
+        self._evolve_jit = _get_rec_evolve_jit(self._H)
 
         # - Reset layer state
         self.reset_all()
@@ -410,11 +415,13 @@ class RecRateEulerJax(Layer):
         config["dt"] = self.dt
         config["name"] = self.name
         config["rng_key"] = [int(k) for k in self._rng_key]
-        warn(
-            f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-            + "default activation function."
-        )
+        assert(self._H == H_ReLU or self._H == H_tanh), "Only models using ReLU or tanh are savable"
+        if(self._H == H_ReLU):
+            config["activation_func"] = "relu"
+        elif(self._H == H_tanh): # For the case if the assert is taken away
+            config["activation_func"] = "tanh"
+        else:
+            raise(Exception)
         return config
 
     @property
