@@ -669,9 +669,12 @@ class ForceRateEulerJax(RecRateEulerJax):
         config["dt"] = self.dt
         config["name"] = self.name
         config["rng_key"] = [int(k) for k in self._rng_key]
-        warn(
-            f"ForceRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-        )
+        assert(self._H == H_ReLU or self._H == H_tanh), "Only models using ReLU or tanh are savable"
+        if(self._H == H_ReLU):
+            config["activation_func"] = "relu"
+        elif(self._H == H_tanh): # For the case if the assert is taken away
+            config["activation_func"] = "tanh"
+        else:
+            raise(Exception)
 
         return config
