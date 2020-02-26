@@ -663,7 +663,9 @@ class ForceRateEulerJax(RecRateEulerJax):
         config["tau"] = self.tau.tolist()
         config["bias"] = self.bias.tolist()
         config["rng_key"] = self._rng_key.tolist()
-        config["noise_std"] = self.noise_std.tolist()
+        config["noise_std"] = (
+            self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
+        )
         config["dt"] = self.dt
         config["name"] = self.name
         config["rng_key"] = [int(k) for k in self._rng_key]
