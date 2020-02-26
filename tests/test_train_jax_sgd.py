@@ -45,9 +45,6 @@ def test_adam():
     l = loss_fcn()
     g = grad_fcn()
 
-    print(l)
-    print(g)
-
     # - Test known loss and gradient values
     l_target = 1477
     g_target = {
@@ -59,14 +56,32 @@ def test_adam():
     }
 
     # - Check loss
-    assert np.abs(np.round(l) - l_target) < 1
+    assert np.abs(np.round(l) - l_target) < 1, \
+        'MSE loss value does not match known target'
 
     # - Check gradients
     for k, v in g.items():
-        assert np.all(np.abs(np.round(v) - g_target[k]) < 1)
+        assert np.all(np.abs(np.round(v) - g_target[k]) < 1), \
+            'Gradient value for [' + k + '] does not match known target'
 
     # - Perform intermediate training step
     fl0.train_adam(ts_input, ts_target)
 
     # - Perform final training step
     fl0.train_adam(ts_input, ts_target, is_last=True)
+
+    target_eps = 1e-3
+
+    state_target = [0., 0.]
+    tau_target = [20.000298, 20.000298]
+    bias_target = [-0.0003, -0.0003]
+    w_in_target = [[9.9997, 9.9997]]
+    w_out_target = [[9.9997],[9.9997]]
+    w_recurrent_target = [[9.9997, 9.9997], [9.9997, 9.9997]]
+
+    assert np.all(np.abs(fl0.state - state_target) < target_eps)
+    assert np.all(np.abs(fl0.tau - tau_target) < target_eps)
+    assert np.all(np.abs(fl0.bias - bias_target) < target_eps)
+    assert np.all(np.abs(fl0.w_in - w_in_target) < target_eps)
+    assert np.all(np.abs(fl0.w_out - w_out_target) < target_eps)
+    assert np.all(np.abs(fl0.w_recurrent - w_recurrent_target) < target_eps)
