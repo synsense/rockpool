@@ -16,18 +16,18 @@ def test_adam():
     from rockpool import TSContinuous
 
     # - Generic parameters
-    w_in = 2 * np.random.rand(1, 2) - 1
-    w_recurrent = 2 * np.random.rand(2, 2) - 1
-    w_out = 2 * np.random.rand(2, 1) - 1
+    w_in = 10. * np.ones((1, 2))
+    w_recurrent = 10. * np.ones((2, 2))
+    w_out = 10. * np.ones((2, 1))
 
     # - Layer generation
     fl0 = RecRateEulerJax(
         w_in=w_in,
         w_recurrent=w_recurrent,
         w_out=w_out,
-        bias=0,
-        noise_std=0.1,
-        tau=20,
+        bias=0.,
+        noise_std=0.,
+        tau=20.,
         dt=1,
     )
 
@@ -35,15 +35,35 @@ def test_adam():
     fl0 = add_train_output(fl0)
 
     # - Define simple input and target
-    ts_input = TSContinuous([0, 1, 2, 3], [0, 1, 0, 0])
-    ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.2, 0.3, 0.4])
+    ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1])
+    ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.1, 0.1, 0.1])
 
     # - Initialise training
     loss_fcn, grad_fcn = fl0.train_adam(ts_input, ts_target, is_first=True)
 
     # - Test loss and gradient functions
-    loss_fcn()
-    grad_fcn()
+    l = loss_fcn()
+    g = grad_fcn()
+
+    print(l)
+    print(g)
+
+    # - Test known loss and gradient values
+    l_target = 1477
+    g_target = {
+        'bias': np.array([138, 138]),
+        'tau': np.array([-112, -112]),
+        'w_in': np.array([[138, 138]]),
+        'w_out': np.array([[138], [138]]),
+        'w_recurrent': np.array([[50, 50], [50, 50]]),
+    }
+
+    # - Check loss
+    assert np.abs(np.round(l) - l_target) < 1
+
+    # - Check gradients
+    for k, v in g.items():
+        assert np.all(np.abs(np.round(v) - g_target[k]) < 1)
 
     # - Perform intermediate training step
     fl0.train_adam(ts_input, ts_target)
