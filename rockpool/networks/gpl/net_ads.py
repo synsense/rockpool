@@ -7,6 +7,7 @@ import numpy as np
 from ..network import Network
 from ...layers import PassThrough, FFExpSyn, RecFSSpikeADS
 from ...timeseries import TSContinuous
+import json
 
 from progress.bar import ChargingBar
 
@@ -29,6 +30,33 @@ class NetworkADS(Network):
 
     def __init__(self):
         super().__init__()
+
+    @staticmethod
+    def load(filename: str) -> "Network":
+        """
+        Load a network from a JSON file
+
+        :param str filename:    filename of a JSON filr that contains a saved network
+        :return Network:        A network object with all the layers loaded from `filename`
+        """
+        # - Load dict holding the parameters
+        with open(filename, "r") as f:
+            loaddict: dict = json.load(f)
+
+        return NetworkADS.load_from_dict(loaddict)
+
+    @staticmethod
+    def load_from_dict(config: dict, **kwargs):
+
+        # - Overwrite parameters with kwargs
+        config = dict(config, **kwargs)
+        conf = config["layers"][1]
+        conf.pop("class_name", None)
+        conf.pop("name", None)
+        conf["tau_syn_out"] = config["layers"][2]["tau_syn"]
+        conf.pop("pre_layer_name", None)
+        conf.pop("external_input", None)
+        return NetworkADS.SpecifyNetwork(**conf)
 
     @staticmethod
     def SpecifyNetwork(N : int,
@@ -54,7 +82,7 @@ class NetworkADS(Network):
                         tau_syn_out: float = 0.1,
                         refractory: float = -np.finfo(float).eps,
                         record : bool = False,
-                        phi : Callable[[np.ndarray],np.ndarray] = lambda x : np.tanh(x)):
+                        phi : str = "tanh"):
 
 
         """
@@ -80,28 +108,29 @@ class NetworkADS(Network):
         """
 
         # Assertions for checking the dimensions
-        assert (weights_in.shape == (Nc,N)), ("Input matrix has shape %s but should have shape (%d,%d)" % (str(weights_in.shape),N,Nc))
-        assert (weights_out.shape == (N,Nc)), ("Output matrix has shape %s but should have shape (%d,%d)" % (str(weights_out.shape),Nc,N))
-        assert (weights_fast.shape == (N,N)), ("Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (str(weights_fast.shape),N,N))
-        assert (weights_slow.shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(weights_slow.shape),Nb,N))
-        assert (theta.shape == (Nb,1) or theta.shape == (Nb,)), ("Theta has shape %s but should have shape (%d,1)" % (str(theta.shape),Nb))
+        assert (np.asarray(weights_in).shape == (Nc,N)), ("Input matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_in).shape),N,Nc))
+        assert (np.asarray(weights_out).shape == (N,Nc)), ("Output matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_out).shape),Nc,N))
+        assert (np.asarray(weights_fast).shape == (N,N)), ("Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_fast).shape),N,N))
+        assert (np.asarray(weights_slow).shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_slow).shape),Nb,N))
+        assert (np.asarray(theta).shape == (Nb,1) or np.asarray(theta).shape == (Nb,)), ("Theta has shape %s but should have shape (%d,1)" % (str(np.asarray(theta).shape),Nb))
+        assert (phi == "tanh" or phi == "relu"), ("Please specify phi to be either tanh or relu")
 
-        ads_layer = RecFSSpikeADS(weights_fast=weights_fast, weights_slow=weights_slow, weights_out = weights_out, weights_in=weights_in,
-                                    M=M,theta=theta,eta=eta,k=k,bias=bias,noise_std=noise_std,
-                                    dt=dt,v_thresh=v_thresh,v_reset=v_reset,v_rest=v_rest,
+        ads_layer = RecFSSpikeADS(weights_fast=np.asarray(weights_fast).astype("float"), weights_slow=np.asarray(weights_slow).astype("float"), weights_out = np.asarray(weights_out).astype("float"), weights_in=np.asarray(weights_in).astype("float"),
+                                    M=np.asarray(M).astype("float"),theta=np.asarray(theta).astype("float"),eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,
+                                    dt=dt,v_thresh=np.asarray(v_thresh).astype("float"),v_reset=np.asarray(v_reset).astype("float"),v_rest=np.asarray(v_rest).astype("float"),
                                     tau_mem=tau_mem,tau_syn_r_fast=tau_syn_r_fast,tau_syn_r_slow=tau_syn_r_slow,
-                                    refractory=refractory,phi=phi,learning_callback=None,record=record,name="ADS-Layer")
+                                    refractory=refractory,phi=phi,record=record,name="lyrRes")
 
         # Input layer
-        input_layer = PassThrough(weights_in, dt=dt, noise_std=noise_std, name="Input")
+        input_layer = PassThrough(np.asarray(weights_in).astype("float"), dt=dt, noise_std=noise_std, name="input_layer")
 
         # Output layer
         output_layer = FFExpSyn(
-            weights_out,
+            np.asarray(weights_out).astype("float"),
             dt=dt,
             noise_std=noise_std,
             tau_syn=tau_syn_out,
-            name="Output"
+            name="output_layer"
         )
 
         net_ads = NetworkADS()
@@ -119,7 +148,7 @@ class NetworkADS(Network):
         Returns:
             variance of difference array (variance of pISI)
         """
-        times_c = sim_result['ADS-Layer'].times[sim_result['ADS-Layer'].channels > -1]
+        times_c = sim_result['lyrRes'].times[sim_result['lyrRes'].channels > -1]
         np.sort(times_c) # Sorts in ascending order
         diff = np.diff(times_c)
         return np.var(1000*diff)
@@ -179,16 +208,6 @@ class NetworkADS(Network):
 
         assert(time_base is not None), "Please specify time_base for creating TSContinuous object"
 
-        # Learning callback
-        def learning_callback(weights_slow, phi_r, weights_in, e, dt):
-            """
-            Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
-            """
-            return np.outer(phi_r,(weights_in.T @ e).T)
-
-        # Set the learning callback
-        self.lyrRes.learning_callback = learning_callback
-
         num_signal_iterations = 0
 
         def perform_validation_set():
@@ -203,7 +222,7 @@ class NetworkADS(Network):
                 self.lyrRes.ts_target = ts_target_val
                 val_sim = self.evolve(ts_input=ts_input_val, verbose=(verbose > 0))
                 variances.append(self.pISI_variance(val_sim))
-                out_val = val_sim["Output"].samples.T
+                out_val = val_sim["output_layer"].samples.T
                 self.reset_all()
 
                 if(verbose > 0):
@@ -240,7 +259,7 @@ class NetworkADS(Network):
                 assert(self.lyrRes.is_training == False), "Validating, but is_training flag is set"
                 val_sim = self.evolve(ts_input=ts_input, verbose=(verbose > 1))
         
-                out_val = val_sim["Output"].samples.T
+                out_val = val_sim["output_layer"].samples.T
                 self.reset_all()
 
                 if(verbose > 0):

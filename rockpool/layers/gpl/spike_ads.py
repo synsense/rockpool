@@ -11,8 +11,8 @@ import copy
 from numba import njit, jit
 from warnings import warn
 import time
-from rockpool.layers import H_ReLU, H_tanh
 
+FloatVector = Union[float, np.ndarray]
 
 # - Try to import holoviews
 try:
@@ -29,7 +29,6 @@ import matplotlib.pyplot as plt # For quick plottings
 
 __all__ = ["RecFSSpikeADS"]
 
-
 @njit
 def _backstep(vCurrent, vLast, tStep, tDesiredStep):
     return (vCurrent - vLast) / tStep * tDesiredStep + vLast
@@ -39,8 +38,8 @@ def neuron_dot_v(
     t,
     V,
     dt,
-    I_s_F,
-    I_W_slow_phi_x,
+    I_s_F : np.ndarray,
+    I_W_slow_phi_x : np.ndarray,
     I_kDte,
     I_ext,
     V_rest,
@@ -78,20 +77,19 @@ class RecFSSpikeADS(Layer):
                 tau_syn_r_fast : float,
                 tau_syn_r_slow : float,
                 refractory : float,
-                phi : Callable[[np.ndarray],np.ndarray],
-                learning_callback,
+                phi : str,
                 record : bool,
                 name : str):
         
-        super().__init__(weights=np.zeros((weights_fast.shape[0],weights_fast.shape[1])), noise_std=noise_std, name=name)
+        super().__init__(weights=np.zeros((np.asarray(weights_fast).shape[0],np.asarray(weights_fast).shape[1])), noise_std=noise_std, name=name)
 
         # Fast weights, noise_std and name are access. via self.XX or self._XX
-        self.weights_slow = weights_slow
-        self.weights_out = weights_out
-        self.weights_in = weights_in
-        self.weights_fast = weights_fast
-        self.M = M
-        self.theta = theta
+        self.weights_slow = np.asarray(weights_slow).astype("float")
+        self.weights_out = np.asarray(weights_out).astype("float")
+        self.weights_in = np.asarray(weights_in).astype("float")
+        self.weights_fast = np.asarray(weights_fast).astype("float")
+        self.M = np.asarray(M).astype("float")
+        self.theta = np.asarray(theta).astype("float")
         self.eta = eta
         self.k = k
         self.bias = np.asarray(bias).astype("float")
@@ -102,17 +100,30 @@ class RecFSSpikeADS(Layer):
         self.tau_syn_r_fast = np.asarray(tau_syn_r_fast).astype("float")
         self.tau_syn_r_slow = np.asarray(tau_syn_r_slow).astype("float")
         self.refractory = float(refractory)
-        self.phi = phi
         self.is_training = False # Set externally by train method in net_ads.py
         self._ts_target = None
         self.recorded_states = None
-        self.record = record
+        self.record = bool(record)
         self.k_initial = k
         self.eta_initial = eta
+        self.phi_name = phi
 
+        # Learning callback
+        def learning_callback(weights_slow, phi_r, weights_in, e, dt):
+            """
+            Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
+            """
+            return np.outer(phi_r,(weights_in.T @ e).T)
+
+        # Set the learning callback
         self.learning_callback = learning_callback
 
         self.optimal_weights_fast = None
+
+        if(phi == "tanh"):
+            self.phi = lambda x : np.tanh(x)
+        elif(phi == "relu"):
+            self.phi = lambda x : np.clip(x,0,None)
 
         # - Set a reasonable dt
         if dt is None:
@@ -184,7 +195,7 @@ class RecFSSpikeADS(Layer):
         if(verbose):
             I_kDte_track = full_nan((self.size, record_length))
             I_W_slow_phi_x_track = full_nan((self.size, record_length))
-            phi_r_track = full_nan((self.size, record_length))
+            phi_r_track = full_nan((self.weights_slow.shape[0], record_length))
         dot_v_ts = full_nan((self.size, record_length))
 
         # - Allocate storage for spike times
@@ -457,7 +468,7 @@ class RecFSSpikeADS(Layer):
                 if(verbose):
                     I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
                     I_W_slow_phi_x_track = np.append(I_W_slow_phi_x_track, full_nan((self.size, extend)), axis=1)
-                    phi_r_track = np.append(phi_r_track, full_nan((self.size, extend)), axis=1)
+                    phi_r_track = np.append(phi_r_track, full_nan((self.weights_slow.shape[0], extend)), axis=1)
                 dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
                 record_length += extend
 
@@ -614,32 +625,6 @@ class RecFSSpikeADS(Layer):
 
         return ts_event_return
 
-
-    """
-    weights_fast : np.ndarray,
-    weights_slow : np.ndarray,
-    weights_in : np.ndarray,
-    weights_out : np.ndarray,
-    M : np.ndarray,
-    theta : np.ndarray,
-    eta : float,
-    k : float,
-    bias: np.ndarray,
-    noise_std : float,
-    dt : float,
-    v_thresh : Union[np.ndarray,float],
-    v_reset : Union[np.ndarray,float],
-    v_rest : Union[np.ndarray,float],
-    tau_mem : float,
-    tau_syn_r_fast : float,
-    tau_syn_r_slow : float,
-    refractory : float,
-    phi : Callable[[np.ndarray],np.ndarray],
-    learning_callback,
-    record : bool,
-    name : str):
-    """
-
     def to_dict(self):
         """
         Convert the parameters of this class to a dictionary
@@ -647,6 +632,10 @@ class RecFSSpikeADS(Layer):
         :return dict:
         """
         config = {}
+        config["class_name"] = "RecFSSpikeADS"
+        config["N"] = self.size
+        config["Nc"] = self.weights_in.shape[0]
+        config["Nb"] = self.weights_slow.shape[0]
         config["weights_fast"] = self.weights_fast.tolist()
         config["weights_slow"] = self.weights_slow.tolist()
         config["weights_in"] = self.weights_in.tolist()
@@ -656,22 +645,18 @@ class RecFSSpikeADS(Layer):
         config["eta"] = self.eta
         config["k"] = self.k
         config["bias"] = self.bias.tolist()
-        config["noise_std"] = self.noise_std
+        config["noise_std"] = (
+            self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
+        )
         config["dt"] = self.dt
         config["v_thresh"] = self.v_thresh.tolist()
-        config["v_reset"] = self.v_reset
-        config["v_rest"] = self.v_rest 
-        config["tau_mem"] = self.tau_mem
-        config["tau_syn_r_fast"] = self.tau_syn_r_fast
-        config["tau_syn_r_slow"] = self.tau_syn_r_slow
-        config["refractory"] = self.refractory.tolist()
-        if(self.phi == H_tanh):
-            config["phi"] = "tanh"
-        elif(self.phi == H_ReLU):
-            config["phi"] = "relu"
-        else:
-            print("Function phi is not H_tanh or H_ReLU. Cannot save.")
-            raise(Exception)
+        config["v_reset"] = self.v_reset.tolist()
+        config["v_rest"] = self.v_rest.tolist() 
+        config["tau_mem"] = self.tau_mem.tolist()
+        config["tau_syn_r_fast"] = self.tau_syn_r_fast.tolist()
+        config["tau_syn_r_slow"] = self.tau_syn_r_slow.tolist()
+        config["refractory"] = self.refractory
+        config["phi"] = self.phi_name
         config["record"] = int(self.record)
         config["name"] = self.name
         

@@ -32,7 +32,6 @@ __all__ = ["RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"]
 def H_ReLU(x: FloatVector) -> FloatVector:
     return np.clip(x, 0, None)
 
-
 def H_tanh(x: FloatVector) -> FloatVector:
     return np.tanh(x)
 
