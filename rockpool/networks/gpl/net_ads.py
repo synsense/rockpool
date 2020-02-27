@@ -196,7 +196,6 @@ class NetworkADS(Network):
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
             errors = []
-            errors_last_third = []
             variances = []
             for (input_val, target_val) in data_val:
                 ts_input_val = TSContinuous(time_base, input_val.T)
@@ -209,9 +208,10 @@ class NetworkADS(Network):
 
                 if(verbose > 0):
                     fig = plt.figure(figsize=(20,5))
-                    plt.plot(time_base, out_val.T, label=r"Reconstructed")
-                    plt.plot(time_base, target_val.T, label=r"Target")
+                    plt.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
+                    plt.plot(time_base, target_val[0:2,:].T, label=r"Target")
                     plt.title(r"Target vs reconstruction")
+                    plt.legend()
                     plt.draw()
                     plt.waitforbuttonpress(0) # this will wait for indefinite time
                     plt.close(fig)
@@ -220,14 +220,11 @@ class NetworkADS(Network):
                     target_val = np.reshape(target_val, (out_val.shape))
                     target_val = target_val.T
                     out_val = out_val.T
-                last_third_start = int(out_val.shape[0] * 2/3)
-                err_last_third = np.sum(np.var(target_val[last_third_start:,:]-out_val[last_third_start:,:], axis=0, ddof=1)) / (np.sum(np.var(target_val[last_third_start:,:], axis=0, ddof=1)))
                 err = np.sum(np.var(target_val-out_val, axis=0, ddof=1)) / (np.sum(np.var(target_val, axis=0, ddof=1)))
                 errors.append(err)
-                errors_last_third.append(err_last_third)
                 self.lyrRes.ts_target = None
             
-            print("Number of signal iterations: %d Validation error: %.6f XOR error: %.6f Mean pISI variance: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors)),np.mean(np.asarray(errors_last_third)), np.mean(np.asarray(variances))))
+            print("Number of signal iterations: %d Validation error: %.6f Mean pISI variance: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors)), np.mean(np.asarray(variances))))
         # End perform_validation_set
 
         ########## Perform training/validation on single data point ##########

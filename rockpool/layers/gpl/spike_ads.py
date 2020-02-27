@@ -11,6 +11,8 @@ import copy
 from numba import njit, jit
 from warnings import warn
 import time
+from rockpool.layers import H_ReLU, H_tanh
+
 
 # - Try to import holoviews
 try:
@@ -558,8 +560,9 @@ class RecFSSpikeADS(Layer):
             out_val = self.weights_out.T @ s
 
             plt.subplot(812)
-            plt.plot(times, (out_val).T)
-            plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target)
+            plt.plot(times, (out_val[0:2,:]).T, label="Recon")
+            plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:2], label="Target")
+            plt.legend()
             plt.title(r"$D^Tr$")
 
             plt.subplot(813)
@@ -611,8 +614,68 @@ class RecFSSpikeADS(Layer):
 
         return ts_event_return
 
+
+    """
+    weights_fast : np.ndarray,
+    weights_slow : np.ndarray,
+    weights_in : np.ndarray,
+    weights_out : np.ndarray,
+    M : np.ndarray,
+    theta : np.ndarray,
+    eta : float,
+    k : float,
+    bias: np.ndarray,
+    noise_std : float,
+    dt : float,
+    v_thresh : Union[np.ndarray,float],
+    v_reset : Union[np.ndarray,float],
+    v_rest : Union[np.ndarray,float],
+    tau_mem : float,
+    tau_syn_r_fast : float,
+    tau_syn_r_slow : float,
+    refractory : float,
+    phi : Callable[[np.ndarray],np.ndarray],
+    learning_callback,
+    record : bool,
+    name : str):
+    """
+
     def to_dict(self):
-        NotImplemented
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
+        config = {}
+        config["weights_fast"] = self.weights_fast.tolist()
+        config["weights_slow"] = self.weights_slow.tolist()
+        config["weights_in"] = self.weights_in.tolist()
+        config["weights_out"] = self.weights_out.tolist()
+        config["M"] = self.M.tolist()
+        config["theta"] = self.theta.tolist()
+        config["eta"] = self.eta
+        config["k"] = self.k
+        config["bias"] = self.bias.tolist()
+        config["noise_std"] = self.noise_std
+        config["dt"] = self.dt
+        config["v_thresh"] = self.v_thresh.tolist()
+        config["v_reset"] = self.v_reset
+        config["v_rest"] = self.v_rest 
+        config["tau_mem"] = self.tau_mem
+        config["tau_syn_r_fast"] = self.tau_syn_r_fast
+        config["tau_syn_r_slow"] = self.tau_syn_r_slow
+        config["refractory"] = self.refractory.tolist()
+        if(self.phi == H_tanh):
+            config["phi"] = "tanh"
+        elif(self.phi == H_ReLU):
+            config["phi"] = "relu"
+        else:
+            print("Function phi is not H_tanh or H_ReLU. Cannot save.")
+            raise(Exception)
+        config["record"] = int(self.record)
+        config["name"] = self.name
+        
+        return config
 
     @property
     def _min_tau(self):
