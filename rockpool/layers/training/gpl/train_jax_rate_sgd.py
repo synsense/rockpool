@@ -14,7 +14,7 @@ from rockpool.timeseries import TimeSeries, TSContinuous
 from ...gpl import rate_jax as rj
 
 
-def pack_params(self: rj.RecRateEulerJax) -> Dict:
+def pack_params(self: rj.RecRateEulerJax_IO) -> Dict:
     """
     .pack_params() - Pack trainable parameters into a dictionary
 
@@ -28,15 +28,15 @@ def pack_params(self: rj.RecRateEulerJax) -> Dict:
     """
     # - Pack all pertinent parameters
     return {
-        "w_in": self._weights,
-        "w_recurrent": self._w_recurrent,
+        "w_in": self._w_in,
+        "w_recurrent": self._weights,
         "w_out": self._w_out,
         "tau": self._tau,
         "bias": self._bias,
     }
 
 
-def apply_params(self: rj.RecRateEulerJax, params: Dict) -> None:
+def apply_params(self: rj.RecRateEulerJax_IO, params: Dict) -> None:
     """
     .apply_params() - Apply packed parameters to the layer
 
@@ -49,7 +49,7 @@ def apply_params(self: rj.RecRateEulerJax, params: Dict) -> None:
                         )
     """
     # - Unpack and apply parameters
-    (self._weights, self._w_recurrent, self._w_out, self._tau, self._bias) = (
+    (self._w_in, self._weights, self._w_out, self._tau, self._bias) = (
         params["w_in"],
         params["w_recurrent"],
         params["w_out"],
@@ -243,10 +243,10 @@ def add_shim_rate_jax_sgd(lyr: rj.RecRateEulerJax) -> rj.RecRateEulerJax:
 
     :return: lyr:   RecRateEulerJax Layer with added functions
     """
-    # - Check that we have a RecRateEulerJax object
-    assert (
-        type(lyr) == rj.RecRateEulerJax
-    ), "This function is only compatible with RecRateEulerJax layers"
+    # - Check that we have a RecRateEulerJax object or subclass
+    assert isinstance(
+        lyr, rj.RecRateEulerJax
+    ), "This function is only compatible with RecRateEulerJax subclass layers"
 
     # - Insert methods required for training
     lyr.train_output_target = types.MethodType(train_output_target, lyr)

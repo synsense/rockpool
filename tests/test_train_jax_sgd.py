@@ -11,7 +11,7 @@ def test_imports():
 
 
 def test_train_rate_jax_sgd():
-    from rockpool.layers import RecRateEulerJax
+    from rockpool.layers import RecRateEulerJax_IO
     from rockpool.layers.training import add_shim_rate_jax_sgd
     from rockpool import TSContinuous
 
@@ -21,7 +21,7 @@ def test_train_rate_jax_sgd():
     w_out = 10. * np.ones((2, 1))
 
     # - Layer generation
-    fl0 = RecRateEulerJax(
+    fl0 = RecRateEulerJax_IO(
         w_in=w_in,
         w_recurrent=w_recurrent,
         w_out=w_out,
