@@ -24,7 +24,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    basics/installation
    basics/getting_started.ipynb
    basics/time_series.ipynb
-
+   basics/introduction_to_snns.ipynb
 
 .. toctree::
    :maxdepth: 1

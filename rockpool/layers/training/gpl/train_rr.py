@@ -1,7 +1,7 @@
 """
 train_rr.py - Define class for training ridge regression. Can be used by various layers.
 """
-
+from typing import Tuple
 import numpy as np
 
 
@@ -40,15 +40,21 @@ class RidgeRegrTrainer:
         """
         init_matrices - Initialize matrices for storing intermediate training data.
         """
-        self.xty = np.zeros(
-            (self.num_features + int(self.train_biases), self.num_outputs)
-        )
-        self.xtx = np.zeros(
-            (
-                self.num_features + int(self.train_biases),
-                self.num_features + int(self.train_biases),
-            )
-        )
+
+        # - Effective number of features, including one for the biases if they are trained
+        num_ftrs_effective = self.num_features + int(self.train_biases)
+        if self.fisher_relabelling:
+            xtx_shape = (self.num_outputs, num_ftrs_effective, num_ftrs_effective)
+        else:
+            xtx_shape = (num_ftrs_effective, num_ftrs_effective)
+
+        # - Array for holding features and target
+        self.xty = np.zeros((num_ftrs_effective, self.num_outputs))
+
+        # - Array for holding features
+        self.xtx = np.zeros(xtx_shape)
+
+        # - Arrays to be used for Kahan summation (against rounding errors)
         self.kahan_comp_xty = np.zeros_like(self.xty)
         self.kahan_comp_xtx = np.zeros_like(self.xtx)
 
@@ -58,41 +64,72 @@ class RidgeRegrTrainer:
                                    deviation and store them internally
         :param np.ndarray inp:     Input data in 2D-array (num_samples x num_features)
         """
-        self.inp_mean = np.mean(axis=0).reshape(-1, 1)
-        self.inp_std = np.std(axis=0).reshape(-1, 1)
+        self.inp_mean = np.mean(inp, axis=0).reshape(1, -1)
+        self.inp_std = np.std(inp, axis=0).reshape(1, -1)
+        # - Set standard deviation to 1 wherever it is zero, to avoid division by zero
+        self.inp_std[self.inp_std == 0] = 1
 
     def z_score_standardization(self, inp: np.ndarray) -> np.ndarray:
         """
-        z_score_standardization - For each feature subtract `self.inp_mean` and scale it with `self.inp_std`
+        z_score_standardization - For each feature subtract `self.inp_mean` and scale it
+                                  with `self.inp_std`. If these parameters have not yet
+                                  been defined, use 'self.determine_z_score_params to
+                                  find them based on 'inp'.
         :param np.ndarray inp:    Input data in 2D-array (num_samples x num_features)
         :return np.ndarray:       Standardized input data.
         """
-        return (inp - self.mean) / self.inp_std
+        try:
+            return (inp - self.inp_mean) / self.inp_std
+        except AttributeError:
+            self.determine_z_score_params(inp)
+            return (inp - self.inp_mean) / self.inp_std
 
-    def _relabel_fisher(self, target: np.ndarray) -> np.ndarray:
+    def _relabel_fisher(
+        self, inp: np.ndarray, target: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        _relabel_fisher - Relabel target such that training is equivalent to
-                          Fisher discriminant analysis.
+        _relabel_fisher - Relabel target and input such that training is equivalent to
+                          Fisher discriminant analysis. Input will have additional axis
+                          to have individual relabelled input for each output dimension.
+        :param np.ndarray inp:     2D-array (num_samples x num_features) of input data
+                                   Convention for target values:
+                                       1: Class is present (True)
+                                       0: Class is not present (False)
+                                      -1: Ignore this datapoint. This is particularly
+                                          useful for all-vs-all classifiers, where
+                                          the target class is not within the corresponding
+                                          pair of classes.
         :param np.ndarray target:  2D-array (num_samples x num_outputs) of target data
-        :return np.ndarray:        Relabeled target data.
+        :return np.ndarray:        Relabeled input data (num_outputs x num_samples x num_samples).
+        :return np.ndarray:        Relabeled target data (num_samples x num_outputs).
         """
 
-        num_timesteps = len(target)
+        # - Weight samples by relative number of occurences for each class
+        int_tgt = np.round(target).astype(int)
+        nums_true = np.sum(int_tgt == 1, axis=0)
+        nums_false = np.sum(int_tgt == 0, axis=0)
+        weights_true = 1.0 / nums_true
+        weights_false = 1.0 / nums_false
 
-        # - Relabel target based on number of occurences of corresponding data points
-        bool_tgt = target.astype(bool)
-        nums_true = np.sum(bool_tgt, axis=0)
-        nums_false = num_timesteps - nums_true
-        labels_true = num_timesteps / nums_true
-        labels_false = -num_timesteps / nums_false
+        # - New target vector
         target = target.astype(float)
-        for i_tgt, (tgt_vec_bool, lbl_t, lbl_f) in enumerate(
-            zip(bool_tgt.T, labels_true, labels_false)
-        ):
-            target[tgt_vec_bool, i_tgt] = lbl_t
-            target[tgt_vec_bool == False, i_tgt] = lbl_f
+        # - Extended input vector with weighted samples for each output dimension
+        inp = np.expand_dims(inp, axis=0)
+        inp_extd = np.repeat(inp, repeats=self.num_outputs, axis=0)
 
-        return target
+        # - Apply weights
+        for i_tgt, (tgt_vec, w_t, w_f) in enumerate(
+            zip(int_tgt.T, weights_true, weights_false)
+        ):
+            target[tgt_vec == 1, i_tgt] = w_t
+            target[tgt_vec == 0, i_tgt] = -w_f
+            inp_extd[i_tgt, tgt_vec == 1] *= w_t
+            inp_extd[i_tgt, tgt_vec == 0] *= w_f
+            # Points with target -1 get weight 0, to be ignored during training
+            target[tgt_vec == -1, i_tgt] = 0
+            inp_extd[i_tgt, tgt_vec == -1] = 0
+
+        return inp_extd, target
 
     def _prepare_data(
         self, inp: np.ndarray, target: np.ndarray
@@ -129,9 +166,10 @@ class RidgeRegrTrainer:
 
         # - Fisher relabelling
         if self.fisher_relabelling:
-            target = self._relabel_fisher(target)
-
-        return inp, target
+            inp_extd, target = self._relabel_fisher(inp, target)
+            return (inp, inp_extd), target
+        else:
+            return inp, target
 
     def train_batch(self, inp: np.ndarray, target: np.ndarray, update_model=False):
         """
@@ -139,9 +177,13 @@ class RidgeRegrTrainer:
         :param np.ndarray inp:     Prepared input data in 2D-array (num_samples x num_features)
         :param np.ndarray target:  2D-array (num_samples x num_outputs) of prepared target data
         """
-        inp, target = self._prepare_data(inp, target)
+        if self.fisher_relabelling:
+            (inp, inp_extd), target = self._prepare_data(inp, target)
+            upd_xtx = inp.T @ inp_extd - self.kahan_comp_xtx
+        else:
+            inp, target = self._prepare_data(inp, target)
+            upd_xtx = inp.T @ inp - self.kahan_comp_xtx
         upd_xty = inp.T @ target - self.kahan_comp_xty
-        upd_xtx = inp.T @ inp - self.kahan_comp_xtx
         xty_new = self.xty + upd_xty
         xtx_new = self.xtx + upd_xtx
 
@@ -167,11 +209,19 @@ class RidgeRegrTrainer:
         """
         update_model - Update model weights and biases based on current collected training data.
         """
-        solution = np.linalg.solve(
-            self.xtx
-            + self.regularize * np.eye(self.num_features + int(self.train_biases)),
-            self.xty,
-        )
+        # - Matrix for regularization
+        reg = self.regularize * np.eye(self.num_features + int(self.train_biases))
+
+        if self.fisher_relabelling:
+            solution = np.array(
+                [
+                    np.linalg.solve(xtx_this, xty_this)
+                    for xtx_this, xty_this in zip(self.xtx + reg, self.xty.T)
+                ]
+            ).T
+        else:
+            solution = np.linalg.solve(self.xtx + reg, self.xty)
+
         if self.train_biases:
             self.weights = solution[:-1]
             self.bias = solution[-1]
@@ -179,9 +229,9 @@ class RidgeRegrTrainer:
             self.weights = solution
 
         if self.standardize:
-            self.weights /= self.inp_std
+            self.weights /= self.inp_std.T
             if self.train_biases:
-                self.bias -= self.inp_mean @ self.weights
+                self.bias -= (self.inp_mean @ self.weights).ravel()
 
     def reset(self):
         """reset - Reset internal training data."""
