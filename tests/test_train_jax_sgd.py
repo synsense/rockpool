@@ -10,7 +10,7 @@ def test_imports():
     from rockpool.layers.training import add_shim_rate_jax_sgd
 
 
-def test_train_rate_jax_sgd():
+def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     from rockpool.layers import RecRateEulerJax_IO
     from rockpool.layers.training import add_shim_rate_jax_sgd
     from rockpool import TSContinuous
@@ -92,3 +92,40 @@ def test_train_rate_jax_sgd():
     ts_output_target = [[0.], [9.99895], [29.49645996], [67.51574707]]
 
     assert np.all(np.abs(ts_output.samples - ts_output_target) < target_eps)
+
+def test_train_rate_jax_sgd_FFRateEulerJax():
+    from rockpool.layers import FFRateEulerJax
+    from rockpool.layers.training import add_shim_rate_jax_sgd
+    from rockpool import TSContinuous
+
+    # - Generic parameters
+    w_in = 2 * np.random.rand(1, 2) - 1
+
+    # - Layer generation
+    fl0 = FFRateEulerJax(
+        weights=w_in,
+        bias=0,
+        noise_std=0.1,
+        tau=20,
+        dt=1,
+    )
+
+    # - Add training shim
+    fl0 = add_shim_rate_jax_sgd(fl0)
+
+    # - Define simple input and target
+    ts_input = TSContinuous([0, 1, 2, 3], [0, 1, 0, 0])
+    ts_target = TSContinuous([0, 1, 2, 3], np.array([[0.1, 0.2, 0.3, 0.4], [0.1, 0.2, 0.3, 0.4]]).T)
+
+    # - Initialise training
+    loss_fcn, grad_fcn = fl0.train_output_target(ts_input, ts_target, is_first=True)
+
+    # - Test loss and gradient functions
+    loss_fcn()
+    grad_fcn()
+
+    # - Perform intermediate training step
+    fl0.train_output_target(ts_input, ts_target)
+
+    # - Perform final training step
+    fl0.train_output_target(ts_input, ts_target, is_last=True)

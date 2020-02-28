@@ -409,7 +409,6 @@ class RecRateEulerJax(Layer):
         )
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
@@ -580,7 +579,6 @@ class RecRateEulerJax_IO(RecRateEulerJax):
         )
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"RecRateEulerJax_IO `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
@@ -758,7 +756,6 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         config["noise_std"] = onp.array(self.noise_std).tolist()
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = [int(k) for k in self._rng_key]
         warn(
             f"ForceRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
             + "method. When creating a new instance from this dict, it will use the "
@@ -829,3 +826,27 @@ class FFRateEulerJax(RecRateEulerJax):
         ), "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
 
         self._w_in = np.array(value).astype("float")
+
+    def to_dict(self) -> dict:
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
+        config = {}
+        config["class_name"] = "FFRateEulerJax"
+        config["weights"] = onp.array(self.w_in).tolist()
+        config["tau"] = onp.array(self.tau).tolist()
+        config["bias"] = onp.array(self.bias).tolist()
+        config["rng_key"] = onp.array(self._rng_key).tolist()
+        config["noise_std"] = (
+            self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
+        )
+        config["dt"] = self.dt
+        config["name"] = self.name
+        warn(
+            f"FFRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
+            + "method. When creating a new instance from this dict, it will use the "
+            + "default activation function."
+        )
+        return config
