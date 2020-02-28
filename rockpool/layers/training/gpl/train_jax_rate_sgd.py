@@ -1,5 +1,5 @@
 ##
-# train_jax_sgd.py - Support for gradient-based training of a Jax recurrent rate-based reservoir
+# train_jax_rate_sgd.py - Support for gradient-based training of a Jax recurrent rate-based reservoir
 ##
 
 import itertools
@@ -58,22 +58,30 @@ def apply_params(self: rj.RecRateEulerJax, params: Dict) -> None:
     )
 
 
-def train_adam(
+def train_output_target(
     self,
     ts_input: Union[TSContinuous, np.ndarray],
     ts_target: Union[TSContinuous, np.ndarray],
     min_tau: Optional[float] = None,
     is_first: bool = False,
     is_last: bool = False,
+    loss_fcn: Callable[[Dict, Tuple], float] = None,
+    loss_params: Dict = {},
+    optimizer: Callable = adam,
+    opt_params: Dict = {"step_size": 1e-4},
 ) -> Tuple[Callable[[], float], Callable[[], float]]:
     """
     Perform one trial of Adam stochastic gradient descent to train the reservoir
 
-    :param TimeSeries ts_input:    TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
+    :param TimeSeries ts_input:     TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
     :param TimeSeries ts_target:    TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
-    :param Optional[float] min_tau:    Minimum time constant to permit
-    :param bool is_first:    Flag to indicate this is the first trial. Resets learning and causes initialisation.
-    :param bool is_last:     Flag to indicate this is the last trial. Performs clean-up (not essential)
+    :param Optional[float] min_tau: Minimum time constant to permit
+    :param bool is_first:           Flag to indicate this is the first trial. Resets learning and causes initialisation.
+    :param bool is_last:            Flag to indicate this is the last trial. Performs clean-up (not essential)
+    :param Callable loss_fcn:       Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
+    :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
+    :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: `jax.experimental.optimizers.adam`
+    :param Dict opt_params:         A dictionary of parameters passed to `optimizer`. Default: {"step_size": 1e-4}
 
     Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
     be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
@@ -89,7 +97,7 @@ def train_adam(
         min_tau = self._dt * 10.0
 
     # - Get static arguments
-    x0 = self._state
+    # x0 = self._state
     dt = self._dt
     noise_std = self._noise_std
     rng_key = self._rng_key
@@ -97,13 +105,18 @@ def train_adam(
 
     # - Define loss function
     @jit
-    def loss_output_target(params: dict, batch: Tuple) -> float:
+    def loss_mse_reg(params: dict, batch: Tuple, state, min_tau: float, lambda_mse: float = 1., reg_tau: float = 10000., reg_l2_rec: float = 1.) -> float:
         """
-        loss_output_target() - Loss function for target versus output
+        loss_mse_reg() - Loss function for target versus output
 
-        :param params:      dict Dictionary of packed parameters
+        :param Dict params:         Dictionary of packed parameters
+        :param Tuple batch:         (input_t, target_t)
+        :param float min_tau:       Minimum time constant
+        :param float lambda_mse:    Factor when combining loss, on mean-squared error term. Default: 1.0
+        :param float reg_tau:       Factor when combining loss, on minimum time constant limit. Default: 1e5
+        :param float reg_l2_rec:    Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
 
-        :return: float: Current loss value
+        :return float: Current loss value
         """
 
         # - Get inputs and targets for this batch
@@ -111,7 +124,7 @@ def train_adam(
 
         # - Call compiled Euler solver to evolve reservoir
         _, _, _, _, outputs = evolve_func(
-            x0,
+            state,
             params["w_in"],
             params["w_recurrent"],
             params["w_out"],
@@ -124,15 +137,15 @@ def train_adam(
         )
 
         # - Measure output-target loss
-        mse = np.mean((outputs - target_batch_t) ** 2)
+        mse = lambda_mse * np.mean((outputs - target_batch_t) ** 2)
 
         # - Get loss for tau parameter constraints
-        tau_loss = 10000 * np.mean(
+        tau_loss = reg_tau * np.mean(
             np.where(params["tau"] < min_tau, np.exp(-(params["tau"] - min_tau)), 0)
         )
 
-        # Measure w_res norm
-        w_res_norm = np.mean(params["w_recurrent"] ** 2)
+        # - Measure recurrent L2 norm
+        w_res_norm = reg_l2_rec * np.mean(params["w_recurrent"] ** 2)
 
         # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
         fLoss = mse + tau_loss + w_res_norm
@@ -145,7 +158,8 @@ def train_adam(
 
     if initialise:
         # - Get optimiser
-        opt_init, opt_update, get_params = adam(1e-4)
+        (opt_init, opt_update, get_params) = optimizer(**opt_params)
+        # opt_init, opt_update, get_params = adam(1e-4)
         self.__get_params = get_params
 
         # - Make update function
@@ -162,12 +176,27 @@ def train_adam(
             params = get_params(opt_state)
 
             # - Call optimiser update function
-            return opt_update(i, grad(loss_output_target)(params, batch), opt_state)
+            return opt_update(i, self.__grad_fcn(params, batch, self._state), opt_state)
+
+        # - If using default loss, set up parameters
+        if loss_fcn is None:
+            loss_fcn = loss_mse_reg
+            default_loss_params = {
+                "lambda_mse": 1.0,
+                "reg_tau": 10000.0,
+                "reg_l2_rec": 1.0,
+                "min_tau": self._dt * 10.0,
+            }
+            default_loss_params.update(loss_params)
+            loss_params = default_loss_params
+
+        def loss_curried(opt_params: Dict, batch: Tuple, state: Dict):
+            return loss_fcn(opt_params, batch, state, **loss_params)
 
         # - Assign update, loss and gradient functions
         self.__update_fcn = update_fcn
-        self.__loss_fcn = loss_output_target
-        self.__grad_fcn = jit(grad(loss_output_target))
+        self.__loss_fcn = jit(loss_curried)
+        self.__grad_fcn = jit(grad(loss_curried))
 
         # - Initialise optimimser
         self.__opt_state = opt_init(self.__pack_params())
@@ -198,14 +227,14 @@ def train_adam(
 
     # - Return lambdas that evaluate the loss and the gradient
     return (
-        lambda: self.__loss_fcn(self.__get_params(self.__opt_state), (inps, target)),
-        lambda: self.__grad_fcn(self.__get_params(self.__opt_state), (inps, target)),
+        lambda: self.__loss_fcn(self.__get_params(self.__opt_state), (inps, target), self._state),
+        lambda: self.__grad_fcn(self.__get_params(self.__opt_state), (inps, target), self._state),
     )
 
 
-def add_train_output(lyr: rj.RecRateEulerJax) -> rj.RecRateEulerJax:
+def add_shim_rate_jax_sgd(lyr: rj.RecRateEulerJax) -> rj.RecRateEulerJax:
     """
-    add_train_output() - Insert methods that support gradient-based training of the reservoir
+    add_shim_rate_jax_sgd() - Insert methods that support gradient-based training of the reservoir
 
     :param lyr:     RecRateEulerJax Pre-configured layer to train
 
@@ -220,7 +249,7 @@ def add_train_output(lyr: rj.RecRateEulerJax) -> rj.RecRateEulerJax:
     ), "This function is only compatible with RecRateEulerJax layers"
 
     # - Insert methods required for training
-    lyr.train_adam = types.MethodType(train_adam, lyr)
+    lyr.train_output_target = types.MethodType(train_output_target, lyr)
     lyr.__pack_params = types.MethodType(pack_params, lyr)
     lyr.__apply_params = types.MethodType(apply_params, lyr)
 

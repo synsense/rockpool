@@ -106,7 +106,7 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
         res_inputs = np.dot(inputs, w_in)
 
         # - Compute random numbers for reservoir noise
-        __all__, subkey = rand.split(key)
+        _, subkey = rand.split(key)
         noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
 
         # - Use `scan` to evaluate reservoir
@@ -266,6 +266,13 @@ class RecRateEulerJax(Layer):
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, self._rng_key = rand.split(rng_key)
 
+    def randomize_state(self):
+        """
+        Randomize the internal state of the layer.
+        """
+        _, subkey = rand.split(self._rng_key)
+        self._state = rand.normal(subkey, shape=(self._size, ))
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -273,7 +280,7 @@ class RecRateEulerJax(Layer):
         num_timesteps: Optional[int] = None,
     ) -> TimeSeries:
         """
-        evolve() - Evolve the reservoir state
+        Evolve the reservoir state
 
         :param ts_input:        TSContinuous Input time series
         :param duration:        float Duration of evolution in seconds

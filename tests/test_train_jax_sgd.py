@@ -1,5 +1,5 @@
 """
-Test training of rate-based Euler models in rate-jax.py, using shim in train_jax_sgd.py
+Test training of rate-based Euler models in rate-jax.py, using shim in train_jax_rate_sgd.py
 """
 
 import numpy as np
@@ -7,12 +7,12 @@ import pytest
 
 
 def test_imports():
-    from rockpool.layers.training import add_train_output
+    from rockpool.layers.training import add_shim_rate_jax_sgd
 
 
-def test_adam():
+def test_train_rate_jax_sgd():
     from rockpool.layers import RecRateEulerJax
-    from rockpool.layers.training import add_train_output
+    from rockpool.layers.training import add_shim_rate_jax_sgd
     from rockpool import TSContinuous
 
     # - Generic parameters
@@ -32,14 +32,14 @@ def test_adam():
     )
 
     # - Add training shim
-    fl0 = add_train_output(fl0)
+    fl0 = add_shim_rate_jax_sgd(fl0)
 
     # - Define simple input and target
     ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1])
     ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.1, 0.1, 0.1])
 
     # - Initialise training
-    loss_fcn, grad_fcn = fl0.train_adam(ts_input, ts_target, is_first=True)
+    loss_fcn, grad_fcn = fl0.train_output_target(ts_input, ts_target, is_first=True)
 
     # - Test loss and gradient functions
     l = loss_fcn()
@@ -65,10 +65,10 @@ def test_adam():
             'Gradient value for [' + k + '] does not match known target'
 
     # - Perform intermediate training step
-    fl0.train_adam(ts_input, ts_target)
+    fl0.train_output_target(ts_input, ts_target)
 
     # - Perform final training step
-    fl0.train_adam(ts_input, ts_target, is_last=True)
+    fl0.train_output_target(ts_input, ts_target, is_last=True)
 
     target_eps = 1e-3
 

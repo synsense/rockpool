@@ -1,5 +1,5 @@
 ##
-# train_jax_sgd.py - Support for gradient-based training of a Jax recurrent LIF reservoir
+# train_jax_lif_sgd.py - Support for gradient-based training of a Jax recurrent LIF reservoir
 ##
 
 import itertools
@@ -126,7 +126,6 @@ def train_output_target(
     :param bool is_last:            Flag, `True` if this is the final training trial. If `True`, cleans up after training. Default: `False`, this is not the final trial.
     :param Callable loss_fcn:           Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
     :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
-    :param bool loss_has_aux:       boolean flag, `True` if `loss` returns several
     :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: `jax.experimental.optimizers.adam`
     :param Dict opt_params:         A dictionary of parameters passed to `optimizer`. Default: {"step_size": 1e-4}
 
