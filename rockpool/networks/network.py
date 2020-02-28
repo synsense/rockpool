@@ -18,7 +18,7 @@ from warnings import warn
 
 import numpy as np
 
-from ..timeseries import TimeSeries
+from ..timeseries import TimeSeries, TSDictOnDisk
 from .. import layers
 
 # - Try to import tqdm
@@ -164,7 +164,12 @@ class Network:
 
     """
 
-    def __init__(self, *layers: List[layers.Layer], dt: Optional[float] = None):
+    def __init__(
+        self,
+        *layers: List[layers.Layer],
+        dt: Optional[float] = None,
+        evolve_on_disk: bool = False,
+    ):
         """
         Base class to encapsulate several `.Layer` objects and manage signal routing
 
@@ -206,6 +211,9 @@ class Network:
             self.evol_order: List[layers.Layer] = self._set_evolution_order()
         if not hasattr(self, "_dt"):
             self._dt = None
+
+        # - Should evolution store its output on disk?
+        self.evolve_on_disk = evolve_on_disk
 
     def add_layer(
         self,
@@ -598,6 +606,8 @@ class Network:
 
         # - Dict to store external input and each layer's output time series
         signal_dict = {"external": ts_input}
+        if self.evolve_on_disk:
+            signal_dict = TSDictOnDisk(signal_dict)
 
         # - Make sure layers are in sync with network
         self._check_sync(verbose=False)
@@ -628,7 +638,7 @@ class Network:
                     )
                 )
             # - Evolve layer and store output in signal_dict
-            signal_dict[lyr.name] = lyr.evolve(
+            layer_output = lyr.evolve(
                 ts_input=ts_current_input,
                 num_timesteps=int(num_timesteps * lyr._timesteps_per_network_dt),
                 verbose=verbose,
@@ -636,12 +646,14 @@ class Network:
 
             # - Add information about trial timings if present
             if trial_start_times is not None:
-                signal_dict[lyr.name].trial_start_times = trial_start_times.copy()
+                layer_output.trial_start_times = trial_start_times.copy()
 
             # - Set name for response time series, if not already set
             if not isinstance(lyr, Network):
-                if signal_dict[lyr.name].name is None:
-                    signal_dict[lyr.name].name = lyr.name
+                if layer_output.name is None:
+                    layer_output.name = lyr.name
+
+            signal_dict[lyr.name] = layer_output
 
         # - Update network time
         self._timestep += num_timesteps

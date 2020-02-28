@@ -9,6 +9,7 @@ import copy
 from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
 import collections
 from os import remove
+from pathlib import Path
 
 _global_plotting_backend = None
 try:
@@ -2612,33 +2613,33 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
 ### --- Dict-like objects to store TimeSeries on disk
 class TSDictOnDisk(collections.MutableMapping):
     def __init__(self, data=(), path: Optional[Path] = "."):
-        self.path = Path(path)
-        self.mapping = {}
+        self._path = Path(path)
+        self._mapping = {}
         self.update(data)
 
     def __getitem__(self, key):
-        filename = self.mapping[key]
+        filename = self._mapping[key]
         return load_ts_from_file(self.path / filename)
 
     def __setitem__(self, key, value):
         filename = str(key) + ".npz"
-        self.mapping[key] = filename
+        self._mapping[key] = filename
         if not isinstance(value, TimeSeries):
             raise TypeError("TSDictOnDisk: Can only store `TimeSeries` objects.")
         value.save(self.path / filename)
 
     def __delitem__(self, key):
-        filename = self.mapping.pop(key)
+        filename = self._mapping.pop(key)
         remove(self.path / filename)
 
     def __len__(self):
-        return len(self.mapping)
+        return len(self._mapping)
 
     def __iter__(self):
-        return iter(self.mapping)
+        return iter(self._mapping)
 
     def __repr__(self):
-        return f"{type(self).__name__} with keys {list(self.mapping.keys())}"
+        return f"{type(self).__name__} with keys {list(self._mapping.keys())}"
 
     @property
     def mapping(self):
