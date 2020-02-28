@@ -143,7 +143,6 @@ def test_RecRateEulerJax_IO():
             bias=np.zeros(3),
         )
 
-
 def test_ForceRateEulerJax_IO():
     """ Test ForceRateEulerJax """
     from rockpool import TSContinuous

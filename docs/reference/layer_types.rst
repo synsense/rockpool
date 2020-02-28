@@ -16,7 +16,9 @@ JAX-based backend
 
 .. autosummary::
     layers.RecRateEulerJax
-    layers.ForceRateEulerJax
+    layers.RecRateEulerJax_IO
+    layers.FFRateEulerJax
+    layers.ForceRateEulerJax_IO
 
 
 Event-driven spiking layers

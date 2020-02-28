@@ -2,9 +2,11 @@
 # Firing rate reservoir with jax back-end
 #
 # Includes `RecRateEulerJax` - jax-backed firing rate reservoir
-# Includes `ForceRateEulerJax` - jax-backed firing rate FORCE reservoir
+# Includes `RecRateEulerJax_IO` - jax-backed firing rate reservoir with input / output weighting
+# Includes `ForceRateEulerJax_IO` - jax-backed firing rate FORCE reservoir with input / output weighting
+# Includes `FFRateEulerJax` - jax-backed firing rate feed-forward layer
 #
-# `RecRateEulerJax` is a standard reservoir, with input, recurrent and output layers
+# `RecRateEulerJax` and `RecRateEulerJax_IO` are standard reservoirs, with input, recurrent and output layers
 # `ForceRateEulerJax` is a driven reservoir, where "recurrent" inputs are inserted from an external source.
 #       Used in reservoir transfer.
 ##
@@ -194,6 +196,18 @@ class RecRateEulerJax(Layer):
     `.RecRateEulerJax` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
 
     `.RecRateEulerJax` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+
+    .. rubric:: Dynamics
+
+    The layer implements the dynamics
+
+    .. math:: \\tau \\cdot \\dot{x} + x = I(t) + W_{rec} \\cdot H(x) + b + \\sigma \\cdot \\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state of the neurons; :math:`I(t)` is the N-dimensional input signal; :math:`W_{rec}` is the NxN-dimensional matrix of recurrent synaptic connections; :math:`b` is the N-dimensional vector of bias currents for the neurons; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with std. dev :math:`\\sigma`.
+
+    The outputs of the layer are given by :math:`H(x)`, where :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
     """
 
     def __init__(
@@ -487,6 +501,18 @@ class RecRateEulerJax_IO(RecRateEulerJax):
     `.RecRateEulerJax_IO` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
 
     `.RecRateEulerJax_IO` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+
+    .. rubric:: Dynamics
+
+    The layer implements the dynamics
+
+    .. math:: \\tau \\cdot \\dot{x} + x = W_{in} \\dot I(t) + W_{rec} \\cdot H(x) + b + \\sigma \\cdot \\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state of the neurons; :math:`I(t)` is the I-dimensional input vector; :math:`W_{in}` is the [IxN] matrix of input weights; :math:`W_{rec}` is the NxN-dimensional matrix of recurrent synaptic connections; :math:`b` is the N-dimensional vector of bias currents for the neurons; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with std. dev :math:`\\sigma`.
+
+    The outputs of the layer are given by :math:`W_{out} \\cdot H(x)`, where :math:`W_{out}` is the NxM output weight matrix, and :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
     """
 
     def __init__(
@@ -624,6 +650,18 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
     Implements a pseudo recurrent reservoir, for use in reservoir transfer
 
     In this layer, input and output weights are present, but no recurrent connectivity exists. Instead, "recurrent inputs" are injected into each layer neuron. The activations of the neurons are then compared to those of a target reservoir, and the recurrent weights can be solved for using linear regression.
+
+    .. rubric:: Dynamics
+
+    The layer implements the dynamics
+
+    .. math:: \\tau \\cdot \\dot{x} + x = W_{in} \\dot I(t) + F(t) + b + \\sigma \\cdot \\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state of the neurons; :math:`I(t)` is the I-dimensional input vector; :math:`W_{in}` is the [IxN] matrix of input weights; :math:`F(t)` is the N-dimensional vector of forcing currents --- these should be the recurrent input currents taking from another reservoir; :math:`b` is the N-dimensional vector of bias currents for the neurons; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with std. dev :math:`\\sigma`.
+
+    The outputs of the layer are given by :math:`W_{out} \\cdot H(x)`, where :math:`W_{out}` is the NxO output weight matrix, and :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
     """
 
     def __init__(
@@ -764,6 +802,27 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         return config
 
 class FFRateEulerJax(RecRateEulerJax):
+    """
+    ``JAX``-backed firing-rate recurrent layer
+
+    `.FFRateEulerJax` implements a feed-forward dynamical layer, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
+
+    `.FFRateEulerJax` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+
+    .. rubric:: Dynamics
+
+    This layer implements the dynamical system
+
+    .. math:: \\tau \\cdot \\dot{x} + x = W \\cdot i(t) + b + \\sigma\\cdot\\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state vector of the layer neurons;
+    :math:`i(t)` is the I-dimensional input signal at time :math:`t`; :math:`W` is an [IxN] matrix defining the weight matrix of this layer; :math:`b` is a vector of bias inputs for each neuron; and :math:`\\sigma\\cdot\\zeta(t)` is a white noise process with std. dev. :math:`\\sigma``.
+
+    The output of the layer is :math:`H(x)`, where :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+    """
+
     def __init__(
             self,
             weights: np.ndarray,
@@ -775,6 +834,19 @@ class FFRateEulerJax(RecRateEulerJax):
             name: Optional[str] = None,
             rng_key: Optional[int] = None,
     ):
+        """
+        Implement a ``JAX``-backed feed-forward dynamical neuron layer.
+
+        :param np.ndarray weights:              Weights [IxN]
+        :param np.ndarray tau:                  Time constants [N]
+        :param np.ndarray bias:                 Bias values [N]
+        :param float noise_std:                 White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Callable[[FloatVector], float] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param Optional[float] dt:              Reservoir time step. Default: ``np.min(tau) / 10.0``
+        :param Optional[str] name:              Name of the layer. Default: ``None``
+        :param Optional[Jax RNG key] rng_key:   Jax RNG key to use for noise. Default: Internally generated
+        """
+
         # - Everything should be 2D
         weights = np.atleast_2d(weights)
 
