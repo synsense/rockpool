@@ -97,4 +97,6 @@ Utility modules
     layers.RecDynapSE
     layers.VirtualDynapse
     layers.RecRateEulerJax
+    layers.RecRateEulerJax_IO
+    layers.FFRateEulerJax
     layers.ForceRateEulerJax
