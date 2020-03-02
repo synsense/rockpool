@@ -118,6 +118,45 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
 
     return rec_evolve_jit
 
+def _get_rec_evolve_directly_jit(H: Callable[[float], float]):
+    @jit
+    def rec_evolve_jit(
+        x0: np.ndarray,
+        w_recurrent: np.ndarray,
+        w_out: np.ndarray,
+        bias: np.ndarray,
+        tau: np.ndarray,
+        inputs: np.ndarray,
+        noise_std: float,
+        key,
+        dt: float,
+    ):
+        # - Pre-compute dt/tau
+        dt_tau = dt / tau
+
+        # - Reservoir state step function (forward Euler solver)
+        def reservoir_step(x, inps):
+            inp, rand = inps
+            activation = H(x)
+            rec_input = np.dot(activation, w_recurrent)
+            dx = dt_tau * (-x + inp + bias + rand + rec_input)
+
+            return x + dx, (rec_input, activation)
+
+        # - Compute random numbers for reservoir noise
+        __all__, subkey = rand.split(key)
+        noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
+
+        # - Use `scan` to evaluate reservoir
+        x, (rec_inputs, res_acts) = scan(reservoir_step, x0, (inputs, noise))
+
+        # - Evaluate passthrough output layer
+        outputs = np.dot(res_acts, w_out)
+
+        return x, inputs, rec_inputs, res_acts, outputs
+
+    return rec_evolve_jit
+
 
 def _get_force_evolve_jit(H: Callable):
     @jit
@@ -261,6 +300,7 @@ class RecRateEulerJax(Layer):
 
         # - Get compiled evolution function
         self._evolve_jit = _get_rec_evolve_jit(self._H)
+        self._evolve_directly_jit = _get_rec_evolve_directly_jit(self._H)
 
         # - Reset layer state
         self.reset_all()
@@ -302,6 +342,38 @@ class RecRateEulerJax(Layer):
         # - Wrap outputs as time series
         return TSContinuous(time_base, onp.array(outputs))
 
+    def evolve_directly(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+    ) -> TimeSeries:
+        """
+        evolve() - Evolve the reservoir state
+
+        :param ts_input:        TSContinuous Input time series
+        :param duration:        float Duration of evolution in seconds
+        :param num_timesteps:   int Number of time steps to evolve (based on self.dt)
+
+        :return: ts_output:     TSContinuous Output time series
+        """
+        
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
+        # - Generate discrete time base
+        time_base = onp.array(self._gen_time_trace(self.t, num_timesteps))
+        inps = ts_input.samples
+
+        # - Call raw evolution function
+        res_inputs, rec_inputs, res_acts, outputs = self._evolve_directly_raw(inps)
+
+        # - Store evolution time series
+        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
+
+        # - Wrap outputs as time series
+        return TSContinuous(time_base, onp.array(outputs))
+
     def _evolve_raw(
         self, inps: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -331,6 +403,23 @@ class RecRateEulerJax(Layer):
         )
 
         # - Increment timesteps
+        self._timestep += inps.shape[0] - 1
+
+        return res_inputs, rec_inputs, res_acts, outputs
+
+    def _evolve_directly_raw(self, inps: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_directly_jit(
+            self._state,
+            self._w_recurrent,
+            self._w_out,
+            self._bias,
+            self._tau,
+            inps,
+            self._noise_std,
+            self._rng_key,
+            self._dt,
+        )
+
         self._timestep += inps.shape[0] - 1
 
         return res_inputs, rec_inputs, res_acts, outputs

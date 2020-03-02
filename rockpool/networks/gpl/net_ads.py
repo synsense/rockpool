@@ -329,7 +329,7 @@ class NetworkADS(Network):
                 ts_input_train = TSContinuous(time_base, input_train.T)
                 ts_target_train = TSContinuous(time_base, target_train.T)
 
-                if(iteration % 10 == 0 and self.lyrRes.eta > 0.00005):
+                if(iteration % 100 == 0 and self.lyrRes.eta > 0.0001):
                     self.lyrRes.eta = 1/np.sqrt(iteration) * self.lyrRes.eta_initial
                     print("Reduced learning rate to %.7f" % self.lyrRes.eta)
                 if(iteration % 100 == 0 and self.lyrRes.k > 0.001):
