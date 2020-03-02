@@ -9,7 +9,10 @@ import copy
 from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
 import collections
 from os import remove
+from time import strftime
 from pathlib import Path
+from .utilities.gpl.make_dir import make_dir
+
 
 _global_plotting_backend = None
 try:
@@ -2612,38 +2615,82 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
 
 ### --- Dict-like objects to store TimeSeries on disk
 class TSDictOnDisk(collections.MutableMapping):
-    def __init__(self, data=(), path: Optional[Path] = "."):
-        self._path = Path(path)
+    def __init__(self, data=(), path: Optional[Path] = "./.temp"):
+        self._path = Path(self._gen_path(path))
         self._mapping = {}
+        self._mapping_ts = {}
         self.update(data)
 
+    def _gen_path(self, path):
+        timestring = strftime("%Y%m%d%H%M%S")
+        return make_dir(Path(path) / timestring, unique=True, verbose=False)
+
+    def insert(self, other_dict):
+        if isinstance(other_dict, TSDictOnDisk):
+            self._mapping.update(other_dict._mapping)
+            self._mapping_ts.update(other_dict._mapping_ts)
+        else:
+            self._mapping.update(other_dict)
+
     def __getitem__(self, key):
-        filename = self._mapping[key]
-        return load_ts_from_file(self.path / filename)
+        if key in self._mapping_ts:
+            return self._mapping_ts[key].load()
+        else:
+            return self._mapping[key]
 
     def __setitem__(self, key, value):
-        filename = str(key) + ".npz"
-        self._mapping[key] = filename
-        if not isinstance(value, TimeSeries):
-            raise TypeError("TSDictOnDisk: Can only store `TimeSeries` objects.")
-        value.save(self.path / filename)
+        if isinstance(value, TimeSeries):
+            if key in self._mapping_ts:
+                self._mapping_ts[key].replace(value)
+            else:
+                file_path = self.path / f"{key}.npz"
+                self._mapping_ts[key] = _TSFileHandle(value, file_path)
+            if key in self._mapping:
+                del self._mapping[key]
+        else:
+            self._mapping[key] = value
+            if key in self._mapping_ts:
+                del self._mapping_ts[key]
 
     def __delitem__(self, key):
-        filename = self._mapping.pop(key)
-        remove(self.path / filename)
+        if key in self._mapping_ts:
+            del self._mapping_ts[key]
+        else:
+            del self._mapping[key]
 
     def __len__(self):
-        return len(self._mapping)
+        return len(self._mapping) + len(self._mapping_ts)
 
     def __iter__(self):
-        return iter(self._mapping)
+        for obj in iter(self._mapping):
+            yield obj
+        for obj in iter(self._mapping_ts):
+            yield obj
 
     def __repr__(self):
         return f"{type(self).__name__} with keys {list(self._mapping.keys())}"
 
     @property
-    def mapping(self):
-        return self._mapping
+    def path(self):
+        return self._path
+
+class _TSFileHandle:
+    def __init__(self, ts, path):
+        self._path = Path(path)
+        ts.save(self.path)
+
+    def load(self):
+        return load_ts_from_file(self.path)
+
+    def replace(self, ts):
+        ts.save(self.path)
+    
+    def __del__(self):
+        try:
+            remove(self.path)
+            print(f"Cleaned up file {self.path}.")
+        except FileNotFoundError:
+            print(f"Tried to clean up file {self.path} but it seems it has already been removed")
 
     @property
     def path(self):
