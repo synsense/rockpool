@@ -11,6 +11,7 @@ import collections
 from os import remove
 from time import strftime
 from pathlib import Path
+from tempfile import TemporaryFile
 from .utilities.gpl.make_dir import make_dir
 
 
@@ -2677,8 +2678,7 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
 
 ### --- Dict-like objects to store TimeSeries on disk
 class TSDictOnDisk(collections.MutableMapping):
-    def __init__(self, data=(), path: Optional[Path] = "./.temp"):
-        self._path = Path(self._gen_path(path))
+    def __init__(self, data=()):
         self._mapping = {}
         self._mapping_ts = {}
         self.update(data)
@@ -2696,17 +2696,14 @@ class TSDictOnDisk(collections.MutableMapping):
 
     def __getitem__(self, key):
         if key in self._mapping_ts:
-            return self._mapping_ts[key].load()
+            return load_ts_from_file(self._mapping_ts[key])
         else:
             return self._mapping[key]
 
     def __setitem__(self, key, value):
         if isinstance(value, TimeSeries):
-            if key in self._mapping_ts:
-                self._mapping_ts[key].replace(value)
-            else:
-                file_path = self.path / f"{key}.npz"
-                self._mapping_ts[key] = _TSFileHandle(value, file_path)
+            self._mapping_ts[key] = TemporaryFile()
+            value.save(self._mapping_ts[key])
             if key in self._mapping:
                 del self._mapping[key]
         else:
@@ -2720,11 +2717,6 @@ class TSDictOnDisk(collections.MutableMapping):
         else:
             del self._mapping[key]
 
-    # def __del__(self):
-    #     for key in self._mapping_ts:
-    #         del self._mapping_ts[key]
-    #     super().__del__()
-
     def __len__(self):
         return len(self._mapping) + len(self._mapping_ts)
 
@@ -2737,32 +2729,6 @@ class TSDictOnDisk(collections.MutableMapping):
     def __repr__(self):
         return (
             f"{type(self).__name__}.\nKeys of stored TimeSeries objects:\n"
-            + f"{list(self._mapping_ts.keys)}\nOther keys:\n"
-            + f"{list(self._mapping.keys())}"
+            + f"{list(self._mapping_ts)}\nOther keys:\n"
+            + f"{list(self._mapping)}"
         )
-
-    @property
-    def path(self):
-        return self._path
-
-class _TSFileHandle:
-    def __init__(self, ts, path):
-        self._path = Path(path)
-        ts.save(self.path)
-
-    def load(self):
-        return load_ts_from_file(self.path)
-
-    def replace(self, ts):
-        ts.save(self.path)
-    
-    def __del__(self):
-        try:
-            remove(self.path)
-            print(f"Cleaned up file {self.path}.")
-        except FileNotFoundError:
-            print(f"Tried to clean up file {self.path} but it seems it has already been removed")
-
-    @property
-    def path(self):
-        return self._path
