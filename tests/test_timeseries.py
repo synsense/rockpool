@@ -106,6 +106,9 @@ def test_continuous_methods():
     ts20 = ts1.start_at_zero()
     assert ts20.t_start == 0
 
+    ts25 = ts1.start_at(5)
+    assert ts25.t_start == 5
+
     # - Contains
     assert ts1.contains(0)
     assert ~ts1.contains(-1)
@@ -1052,3 +1055,8 @@ def test_event_delay():
     ts0 = ts.start_at_zero(inplace=True)
     assert ts.t_start == 0
     assert ts0.t_start == 0
+
+    ts5 = ts.start_at(5)
+    assert ts5.t_start == 5
+    ts5.start_at(4, inplace=True)
+    assert ts5.t_start == 4
