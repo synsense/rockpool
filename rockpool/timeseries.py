@@ -739,6 +739,26 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
+    def to_dict(self):
+
+        # - Collect attributes in dict
+        attributes = {
+            "times": self.times,
+            "samples": self.samples,
+            "t_start": np.array(self.t_start),
+            "t_stop": np.array(self.t_stop),
+            f"interp_kind_{self.interp_kind}": np.array([]),
+            "periodic": np.array(self.periodic),
+            f"name_{self.name}": np.array([]),
+            f"type_TSContinuous": np.array([]),  # Indicate that this object is TSContinuous
+        }
+        
+        # - Some modules add a `trial_start_times` attribute to the object.
+        if hasattr(self, "trial_start_times"):
+            attributes["trial_start_times"] = np.asarray(self.trial_start_times)
+
+        return attributes
+
     def save(self, path: str, verbose: bool = False):
         """
         Save this time series as an ``npz`` file using np.savez
@@ -746,29 +766,14 @@ class TSContinuous(TimeSeries):
         :param str path:    Path to save file
         """
 
-        # - Make sure path is a string (and not a Path object)
-        path = str(path)
-
-        # - Some modules add a `trial_start_times` attribute to the object.
-        trial_start_times = (
-            self.trial_start_times if hasattr(self, "trial_start_times") else None
-        )
+        # - Collect attributes in dict
+        attributes = self.to_dict()
 
         # - Write the file
-        np.savez(
-            path,
-            times=self.times,
-            samples=self.samples,
-            t_start=self.t_start,
-            t_stop=self.t_stop,
-            interp_kind=self.interp_kind,
-            periodic=self.periodic,
-            name=self.name,
-            str_type="TSContinuous",  # Indicate that this object is TSContinuous
-            trial_start_times=trial_start_times,
-        )
-        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
+        np.savez(path, **attributes)
+
         if verbose:
+            missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
                 "TSContinuous `{}` has been stored in `{}`.".format(
                     self.name, path + missing_ending * ".npz"
@@ -2112,6 +2117,26 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
+    def to_dict(self):
+
+        # - Collect attributes in dict
+        attributes = {
+            "times": self.times,
+            "channels": self.channels,
+            "t_start": np.array(self.t_start),
+            "t_stop": np.array(self.t_stop),
+            "periodic": np.array(self.periodic),
+            "num_channels": np.array(self.num_channels),
+            f"name_{self.name}": np.array([]),
+            f"type_TSEvent": np.array([]),  # Indicate that the object is TSEvent
+        }
+
+        # - Some modules add a `trial_start_times` attribute to the object.
+        if hasattr(self, "trial_start_times"):
+            attributes["trial_start_times"] = self.trial_start_times
+        
+        return attributes
+
     def save(self, path: str, verbose: bool = False):
         """
         Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
@@ -2122,24 +2147,14 @@ class TSEvent(TimeSeries):
         # - Make sure path is string (and not Path object)
         path = str(path)
 
-        # - Some modules add a `trial_start_times` attribute to the object.
-        trial_start_times = (
-            self.trial_start_times if hasattr(self, "trial_start_times") else None
-        )
-        np.savez(
-            path,
-            times=self.times,
-            channels=self.channels,
-            t_start=self.t_start,
-            t_stop=self.t_stop,
-            periodic=self.periodic,
-            num_channels=self.num_channels,
-            name=self.name,
-            str_type="TSEvent",  # Indicate that the object is TSEvent
-            trial_start_times=trial_start_times,
-        )
-        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
+        # - Collect attributes in dict
+        attributes = self.to_dict()
+
+        # - Write the file
+        np.savez(path, **attributes)
+        
         if verbose:
+            missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
                 "TSEvent `{}` has been stored in `{}`.".format(
                     self.name, path + missing_ending * ".npz"
@@ -2570,17 +2585,35 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
     :return TimeSeries: Loaded time series object
     :raises TypeError:  Unsupported or unexpected type
     """
-    # - Make sure path is string (and not Path object)
-    path = str(path)
-
     # - Load npz file from specified path
-    dLoaded = np.load(path)
+    try:
+        # Loading from temporary files may require "rewinding".
+        path.seek(0)
+    except AttributeError:
+        pass
+    loaded_data = np.load(path)
 
     # - Check for expected type
     try:
-        loaded_type = dLoaded["str_type"].item()
+        loaded_type = loaded_data["str_type"].item()
     except KeyError:
-        loaded_type = dLoaded["strType"].item()
+        try:
+            loaded_type = loaded_data["strType"].item()
+        except KeyError:
+            type_key = [k for k in loaded_data if k.startswith("type")]
+            if type_key:
+                loaded_type = type_key[0][5:]
+            else:
+                if expected_type is not None:
+                    loaded_type = expected_type
+                    warn(
+                        f"Cannot determine type of Timeseries at {path}. "
+                        + f"Will assume expected type ('{expected_type}')."
+                    )
+                else:
+                    raise KeyError(
+                        f"Cannot determine type of Timeseries at {path}."
+                    )
 
     if expected_type is not None:
         if not loaded_type == expected_type:
@@ -2589,28 +2622,57 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
                     path, loaded_type, expected_type
                 )
             )
+
+    if "name" in loaded_data:
+        name = loaded_data["name"].item()
+    else:
+        name_keys = [k for k in loaded_data if k.startswith("name")]
+        if name_keys:
+            name = name_keys[0][5: ]
+        else:
+            name = "unnamed"
+
     if loaded_type == "TSContinuous":
-        return TSContinuous(
-            times=dLoaded["times"],
-            samples=dLoaded["samples"],
-            t_start=dLoaded["t_start"].item(),
-            t_stop=dLoaded["t_stop"].item(),
-            interp_kind=dLoaded["interp_kind"].item(),
-            periodic=dLoaded["periodic"].item(),
-            name=dLoaded["name"].item(),
+        if "interp_kind" in loaded_data:
+            interp_kind = loaded_data["interp_kind"].item()
+        else:
+            interp_kind_keys = [k for k in loaded_data if k.startswith("interp_kind")]
+            if interp_kind_keys:
+                interp_kind = interp_kind_keys[0][12:]
+            else:
+                interp_kind = "linear"
+
+        ts = TSContinuous(
+            times=loaded_data["times"],
+            samples=loaded_data["samples"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            interp_kind=interp_kind,
+            periodic=loaded_data["periodic"].item(),
+            name=name,
         )
+        
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
     elif loaded_type == "TSEvent":
-        return TSEvent(
-            times=dLoaded["times"],
-            channels=dLoaded["channels"],
-            t_start=dLoaded["t_start"].item(),
-            t_stop=dLoaded["t_stop"].item(),
-            periodic=dLoaded["periodic"].item(),
-            num_channels=dLoaded["num_channels"].item(),
-            name=dLoaded["name"].item(),
+        ts = TSEvent(
+            times=loaded_data["times"],
+            channels=loaded_data["channels"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            periodic=loaded_data["periodic"].item(),
+            num_channels=loaded_data["num_channels"].item(),
+            name=name,
         )
+        
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+    
     else:
         raise TypeError("Type `{}` not supported.".format(loaded_type))
+
+    return ts
 
 
 ### --- Dict-like objects to store TimeSeries on disk
@@ -2658,6 +2720,11 @@ class TSDictOnDisk(collections.MutableMapping):
         else:
             del self._mapping[key]
 
+    # def __del__(self):
+    #     for key in self._mapping_ts:
+    #         del self._mapping_ts[key]
+    #     super().__del__()
+
     def __len__(self):
         return len(self._mapping) + len(self._mapping_ts)
 
@@ -2668,7 +2735,11 @@ class TSDictOnDisk(collections.MutableMapping):
             yield obj
 
     def __repr__(self):
-        return f"{type(self).__name__} with keys {list(self._mapping.keys())}"
+        return (
+            f"{type(self).__name__}.\nKeys of stored TimeSeries objects:\n"
+            + f"{list(self._mapping_ts.keys)}\nOther keys:\n"
+            + f"{list(self._mapping.keys())}"
+        )
 
     @property
     def path(self):
