@@ -421,7 +421,7 @@ class TimeSeries:
     def t_stop(self, new_stop):
         # - Smallest allowed value for new_stop
         min_stop = self._times[-1] if self._times.size > 0 else self._t_start
-        if new_stop >= min_stop:
+        if new_stop - min_stop > -1e-6:
             self._t_stop = new_stop
         else:
             raise ValueError(
