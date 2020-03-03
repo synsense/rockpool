@@ -456,3 +456,231 @@ def test_training_FFwd():
 
         l_fcn()
         g_fcn()
+
+
+def test_save_load_FFLIFJax_IO():
+    from rockpool.layers import FFLIFJax_IO
+    from rockpool.timeseries import TSEvent
+
+    n_inp = 4
+    n_neurons = 10
+    n_out = 2
+    dt = 0.0001
+
+    w_in = np.random.rand(n_inp, n_neurons)
+    w_out = np.random.rand(n_neurons, n_out)
+    tau_mem = np.random.rand(n_neurons) + 10 * dt
+    tau_syn = np.random.rand(n_neurons) + 10 * dt
+    bias = np.random.rand(n_neurons)
+    std_noise = np.random.rand()
+    rng_key_seed = np.random.randint(1e10) 
+
+
+    lyr = FFLIFJax_IO(w_in=w_in,
+                      w_out=w_out,
+                      tau_mem=tau_mem,
+                      tau_syn=tau_syn,
+                      bias=bias,
+                      noise_std=std_noise,
+                      dt=dt,
+                      name="test layer",
+                      rng_key_seed=rng_key_seed)
+
+    
+    lyr.save_layer("test.json")
+
+    lyr_loaded = FFLIFJax_IO.load_from_file("test.json")
+
+    assert(np.all(lyr.w_in == lyr_loaded.w_in))
+    assert(np.all(lyr.w_out == lyr_loaded.w_out))
+    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
+    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
+    assert(np.all(lyr.bias == lyr_loaded.bias))
+    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
+    assert(np.all(lyr.dt == lyr_loaded.dt))
+    assert(np.all(lyr.name == lyr_loaded.name))
+    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+
+
+    t_spikes = np.arange(0, 0.01, dt)
+    channels = np.random.randint(n_inp, size=len(t_spikes)) 
+    ts_inp = TSEvent(t_spikes, channels)
+
+    ts_out = lyr.evolve(ts_inp, duration=0.1)
+    ts_out_loaded = lyr_loaded.evolve(ts_inp, duration=0.1)
+
+    assert(np.all(ts_out.samples == ts_out_loaded.samples))
+
+
+
+def test_save_load_RecLIFCurrentInJax_IO():
+    from rockpool.layers import RecLIFCurrentInJax_IO
+
+    n_inp = 4
+    n_neurons = 10
+    n_out = 2
+    dt = 0.0001
+
+    w_in = np.random.rand(n_inp, n_neurons)
+    w_rec = np.random.rand(n_neurons, n_neurons)
+    w_out = np.random.rand(n_neurons, n_out)
+    tau_mem = np.random.rand(n_neurons) + 10 * dt
+    tau_syn = np.random.rand(n_neurons) + 10 * dt
+    bias = np.random.rand(n_neurons)
+    std_noise = np.random.rand()
+    rng_key_seed = np.random.randint(1e10) 
+
+
+    lyr = RecLIFCurrentInJax_IO(w_in=w_in,
+                                w_recurrent=w_rec,
+                                w_out=w_out,
+                                tau_mem=tau_mem,
+                                tau_syn=tau_syn,
+                                bias=bias,
+                                noise_std=std_noise,
+                                dt=dt,
+                                name="test layer",
+                                rng_key_seed=rng_key_seed)
+
+    
+    lyr.save_layer("test.json")
+
+    lyr_loaded = RecLIFCurrentInJax_IO.load_from_file("test.json")
+
+    assert(np.all(lyr.w_in == lyr_loaded.w_in))
+    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
+    assert(np.all(lyr.w_out == lyr_loaded.w_out))
+    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
+    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
+    assert(np.all(lyr.bias == lyr_loaded.bias))
+    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
+    assert(np.all(lyr.dt == lyr_loaded.dt))
+    assert(np.all(lyr.name == lyr_loaded.name))
+    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+
+
+
+def test_save_load_RecLIFJax_IO():
+    from rockpool.layers import RecLIFJax_IO
+
+    n_inp = 4
+    n_neurons = 10
+    n_out = 2
+    dt = 0.0001
+
+    w_in = np.random.rand(n_inp, n_neurons)
+    w_rec = np.random.rand(n_neurons, n_neurons)
+    w_out = np.random.rand(n_neurons, n_out)
+    tau_mem = np.random.rand(n_neurons) + 10 * dt
+    tau_syn = np.random.rand(n_neurons) + 10 * dt
+    bias = np.random.rand(n_neurons)
+    std_noise = np.random.rand()
+    rng_key_seed = np.random.randint(1e10) 
+
+
+    lyr = RecLIFJax_IO(w_in=w_in,
+                                w_recurrent=w_rec,
+                                w_out=w_out,
+                                tau_mem=tau_mem,
+                                tau_syn=tau_syn,
+                                bias=bias,
+                                noise_std=std_noise,
+                                dt=dt,
+                                name="test layer",
+                                rng_key_seed=rng_key_seed)
+
+    
+    lyr.save_layer("test.json")
+
+    lyr_loaded = RecLIFJax_IO.load_from_file("test.json")
+
+    assert(np.all(lyr.w_in == lyr_loaded.w_in))
+    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
+    assert(np.all(lyr.w_out == lyr_loaded.w_out))
+    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
+    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
+    assert(np.all(lyr.bias == lyr_loaded.bias))
+    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
+    assert(np.all(lyr.dt == lyr_loaded.dt))
+    assert(np.all(lyr.name == lyr_loaded.name))
+    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+
+
+       
+def test_save_load_RecLIFCurrentInJax():
+    from rockpool.layers import RecLIFCurrentInJax
+
+    n_neurons = 10
+    dt = 0.0001
+
+    w_rec = np.random.rand(n_neurons, n_neurons)
+    tau_mem = np.random.rand(n_neurons) + 10 * dt
+    tau_syn = np.random.rand(n_neurons) + 10 * dt
+    bias = np.random.rand(n_neurons)
+    std_noise = np.random.rand()
+    rng_key_seed = np.random.randint(1e10) 
+
+
+    lyr = RecLIFCurrentInJax(w_recurrent=w_rec,
+                    tau_mem=tau_mem,
+                    tau_syn=tau_syn,
+                    bias=bias,
+                    noise_std=std_noise,
+                    dt=dt,
+                    name="test layer",
+                    rng_key_seed=rng_key_seed)
+
+    
+    lyr.save_layer("test.json")
+
+    lyr_loaded = RecLIFCurrentInJax.load_from_file("test.json")
+
+    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
+    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
+    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
+    assert(np.all(lyr.bias == lyr_loaded.bias))
+    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
+    assert(np.all(lyr.dt == lyr_loaded.dt))
+    assert(np.all(lyr.name == lyr_loaded.name))
+    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+
+
+
+def test_save_load_RecLIFJax():
+    from rockpool.layers import RecLIFJax
+
+    n_neurons = 10
+    dt = 0.0001
+
+    w_rec = np.random.rand(n_neurons, n_neurons)
+    tau_mem = np.random.rand(n_neurons) + 10 * dt
+    tau_syn = np.random.rand(n_neurons) + 10 * dt
+    bias = np.random.rand(n_neurons)
+    std_noise = np.random.rand()
+    rng_key_seed = np.random.randint(1e10) 
+
+
+    lyr = RecLIFJax(w_recurrent=w_rec,
+                    tau_mem=tau_mem,
+                    tau_syn=tau_syn,
+                    bias=bias,
+                    noise_std=std_noise,
+                    dt=dt,
+                    name="test layer",
+                    rng_key_seed=rng_key_seed)
+
+    
+    lyr.save_layer("test.json")
+
+    lyr_loaded = RecLIFJax.load_from_file("test.json")
+
+    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
+    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
+    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
+    assert(np.all(lyr.bias == lyr_loaded.bias))
+    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
+    assert(np.all(lyr.dt == lyr_loaded.dt))
+    assert(np.all(lyr.name == lyr_loaded.name))
+    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+
+
