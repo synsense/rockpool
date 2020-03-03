@@ -103,7 +103,7 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
 
     # - Layer generation
     fl0 = FFRateEulerJax(
-        weights=w_in,
+        w_in=w_in,
         bias=0,
         noise_std=0.1,
         tau=20,

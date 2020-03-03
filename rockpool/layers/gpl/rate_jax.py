@@ -216,7 +216,7 @@ class RecRateEulerJax(Layer):
         tau: np.ndarray,
         bias: np.ndarray,
         noise_std: float = 0.0,
-        activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
+        activation_func: Union[str, Callable[[FloatVector], FloatVector]] = H_ReLU,
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[int] = None,
@@ -228,7 +228,7 @@ class RecRateEulerJax(Layer):
         :param np.ndarray tau:                      Time constants [N]
         :param np.ndarray bias:                     Bias values [N]
         :param float noise_std:                     White noise standard deviation applied to reservoir neurons. Default: ``0.0``
-        :param Callable[[FloatVector], float] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param Union[str, Callable[[FloatVector], float]] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU. Can be specified as a string: ['relu', 'tanh']
         :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
         :param Optional[str] name:                  Name of the layer. Default: ``None``
         :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
@@ -250,7 +250,7 @@ class RecRateEulerJax(Layer):
         self.w_recurrent = weights
         self.tau = tau
         self.bias = bias
-        self._H = activation_func
+        self.H = activation_func
 
         if dt is None:
             dt = np.min(tau) / 10.0
@@ -259,7 +259,7 @@ class RecRateEulerJax(Layer):
         super().__init__(weights, dt, noise_std, name)
 
         # - Get compiled evolution function
-        self._evolve_jit = _get_rec_evolve_jit(activation_func)
+        self._evolve_jit = _get_rec_evolve_jit(self._H)
 
         # - Reset layer state
         self.reset_all()
@@ -273,7 +273,7 @@ class RecRateEulerJax(Layer):
         # - Seed RNG
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-        _, self._rng_key = rand.split(rng_key)
+        _, self._rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
     def randomize_state(self):
         """
@@ -423,12 +423,49 @@ class RecRateEulerJax(Layer):
         )
         config["dt"] = self.dt
         config["name"] = self.name
-        warn(
-            f"RecRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-            + "default activation function."
-        )
+
+        # - Check for a supported activation function
+        assert self._H == H_ReLU or self._H == H_tanh,\
+            "Only models using ReLU or tanh activation functions are saveable."
+
+        # - Encode the activation function as a string
+        if self._H == H_ReLU:
+            config["activation_func"] = "relu"
+        elif self._H == H_tanh:
+            config["activation_func"] = "tanh"
+        else:
+            raise(Exception)
         return config
+
+    @property
+    def H(self):
+        """ (Callable) Activation function used by the neurons in this layer """
+        return self._H
+
+    @H.setter
+    def H(self, value):
+        if type(value) is str:
+            if value in ["relu", 'ReLU', "H_ReLU"]:
+                self._H = H_ReLU
+            elif value in ["tanh", "TANH", "H_tanh"]:
+                self._H = H_tanh
+            else:
+                raise ValueError('The activation function must be one of ["relu", "tanh"]')
+        else:
+            # - Test the activation function
+            try:
+                ret = value(np.array([0.1, 0.1]))
+            except:
+                raise TypeError('The activation function must be a Callable[[FloatVector], FloatVector]')
+
+            assert np.size(ret) == 2, \
+                'The activation function must return an array the same size as the input'
+
+            assert type(ret) is not tuple, \
+                'The activation function must not return multiple arguments'
+
+            # - Assign the activation function
+            self._H = value
 
     @property
     def w_recurrent(self) -> np.ndarray:
@@ -575,41 +612,25 @@ class RecRateEulerJax_IO(RecRateEulerJax):
         self._size_in = w_in.shape[0]
         self._size_out = w_out.shape[1]
 
-        # - Get compiled evolution function
-        self._evolve_jit = _get_rec_evolve_jit(activation_func)
-
-        # - Reset layer state
-        self.reset_all()
-
-        # - Seed RNG
-        if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-        _, self._rng_key = rand.split(rng_key)
-
     def to_dict(self) -> dict:
         """
         Convert the parameters of this class to a dictionary
 
         :return dict:
         """
-        config = {}
-        config["class_name"] = "RecRateEulerJax_IO"
-        config["w_in"] = onp.array(self.w_in).tolist()
-        config["w_recurrent"] = onp.array(self.w_recurrent).tolist()
-        config["w_out"] = onp.array(self.w_out).tolist()
-        config["tau"] = onp.array(self.tau).tolist()
-        config["bias"] = onp.array(self.bias).tolist()
-        config["rng_key"] = onp.array(self._rng_key).tolist()
-        config["noise_std"] = (
-            self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
-        )
-        config["dt"] = self.dt
-        config["name"] = self.name
-        warn(
-            f"RecRateEulerJax_IO `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-            + "default activation function."
-        )
+        # - Get base dictionary
+        config = super().to_dict()
+        config.pop('weights')
+
+        # - Include class-specific aspects
+        config.update({
+            "class_name": "RecRateEulerJax_IO",
+            "w_in": onp.array(self.w_in).tolist(),
+            "w_recurrent": onp.array(self.w_recurrent).tolist(),
+            "w_out": onp.array(self.w_out).tolist(),
+        })
+
+        # - Return configuration
         return config
 
     @property
@@ -784,21 +805,18 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         Convert the layer to a dictionary for saving
         :return dict:
         """
-        config = {}
-        config["class_name"] = "ForceRateEulerJax"
-        config["w_in"] = onp.array(self.w_in).tolist()
-        config["w_out"] = onp.array(self.w_out).tolist()
-        config["tau"] = onp.array(self.tau).tolist()
-        config["bias"] = onp.array(self.bias).tolist()
-        config["rng_key"] = onp.array(self._rng_key).tolist()
-        config["noise_std"] = onp.array(self.noise_std).tolist()
-        config["dt"] = self.dt
-        config["name"] = self.name
-        warn(
-            f"ForceRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-        )
+        # - Get base dictionary
+        config = super().to_dict()
+        config.pop('w_recurrent')
 
+        # - Include class-specific aspects
+        config.update({
+            "class_name": "ForceRateEulerJax_IO",
+            "w_in": onp.array(self.w_in).tolist(),
+            "w_out": onp.array(self.w_out).tolist(),
+        })
+
+        # - Return configuration
         return config
 
 class FFRateEulerJax(RecRateEulerJax):
@@ -825,7 +843,7 @@ class FFRateEulerJax(RecRateEulerJax):
 
     def __init__(
             self,
-            weights: np.ndarray,
+            w_in: np.ndarray,
             tau: np.ndarray,
             bias: np.ndarray,
             noise_std: float = 0.0,
@@ -837,7 +855,7 @@ class FFRateEulerJax(RecRateEulerJax):
         """
         Implement a ``JAX``-backed feed-forward dynamical neuron layer.
 
-        :param np.ndarray weights:              Weights [IxN]
+        :param np.ndarray w_in:                 Weights [IxN]
         :param np.ndarray tau:                  Time constants [N]
         :param np.ndarray bias:                 Bias values [N]
         :param float noise_std:                 White noise standard deviation applied to reservoir neurons. Default: ``0.0``
@@ -848,7 +866,7 @@ class FFRateEulerJax(RecRateEulerJax):
         """
 
         # - Everything should be 2D
-        weights = np.atleast_2d(weights)
+        w_in = np.atleast_2d(w_in)
 
         # - Transform to np.array if necessary
         tau = np.array(tau)
@@ -861,27 +879,27 @@ class FFRateEulerJax(RecRateEulerJax):
         super().__init__(0., 0., 0., noise_std, activation_func, dt, name, rng_key)
 
         # - Correct layer size
-        self._size_in = weights.shape[0]
-        self._size = weights.shape[1]
-        self._size_out = weights.shape[1]
+        self._size_in = w_in.shape[0]
+        self._size = w_in.shape[1]
+        self._size_out = w_in.shape[1]
 
         # -- Set properties
         self.tau = tau
         self.bias = bias
-        self.w_in = weights
+        self.w_in = w_in
         self._weights = 0.
         self._w_out = 1.
 
-        # - Get compiled evolution function
-        self._evolve_jit = _get_rec_evolve_jit(activation_func)
+        # # - Get compiled evolution function
+        # self._evolve_jit = _get_rec_evolve_jit(activation_func)
 
         # - Reset layer state
         self.reset_all()
 
-        # - Seed RNG
-        if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-        _, self._rng_key = rand.split(rng_key)
+        # # - Seed RNG
+        # if rng_key is None:
+        #     rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+        # _, self._rng_key = rand.split(rng_key)
 
     @property
     def w_in(self) -> np.ndarray:
@@ -905,20 +923,15 @@ class FFRateEulerJax(RecRateEulerJax):
 
         :return dict:
         """
-        config = {}
-        config["class_name"] = "FFRateEulerJax"
-        config["weights"] = onp.array(self.w_in).tolist()
-        config["tau"] = onp.array(self.tau).tolist()
-        config["bias"] = onp.array(self.bias).tolist()
-        config["rng_key"] = onp.array(self._rng_key).tolist()
-        config["noise_std"] = (
-            self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
-        )
-        config["dt"] = self.dt
-        config["name"] = self.name
-        warn(
-            f"FFRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-            + "default activation function."
-        )
+        # - Get base dictionary
+        config = super().to_dict()
+        config.pop('weights')
+
+        # - Include class-specific aspects
+        config.update({
+            "class_name": "FFRateEulerJax",
+            "w_in": onp.array(self.w_in).tolist(),
+        })
+
+        # - Return configuration
         return config
