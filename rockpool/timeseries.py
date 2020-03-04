@@ -8,7 +8,6 @@ from warnings import warn
 import copy
 from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
 import collections
-from os import remove
 from time import strftime
 from pathlib import Path
 from tempfile import TemporaryFile
@@ -41,6 +40,7 @@ __all__ = [
     "TimeSeries",
     "TSEvent",
     "TSContinuous",
+    "TSDictOnDisk",
     "set_global_ts_plotting_backend",
     "get_global_ts_plotting_backend",
     "load_ts_from_file",
@@ -97,6 +97,104 @@ def get_global_ts_plotting_backend() -> str:
     """
     global _global_plotting_backend
     return _global_plotting_backend
+
+
+def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> "TimeSeries":
+    """
+    Load a timeseries object from an ``npz`` file
+
+    :param str path:                    Filepath to load file
+    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
+
+    :return TimeSeries: Loaded time series object
+    :raises TypeError:  Unsupported or unexpected type
+    """
+    # - Load npz file from specified path
+    try:
+        # Loading from temporary files may require "rewinding".
+        path.seek(0)
+    except AttributeError:
+        pass
+    loaded_data = np.load(path)
+
+    # - Check for expected type
+    try:
+        loaded_type = loaded_data["str_type"].item()
+    except KeyError:
+        try:
+            loaded_type = loaded_data["strType"].item()
+        except KeyError:
+            type_key = [k for k in loaded_data if k.startswith("type")]
+            if type_key:
+                loaded_type = type_key[0][5:]
+            else:
+                if expected_type is not None:
+                    loaded_type = expected_type
+                    warn(
+                        f"Cannot determine type of Timeseries at {path}. "
+                        + f"Will assume expected type ('{expected_type}')."
+                    )
+                else:
+                    raise KeyError(f"Cannot determine type of Timeseries at {path}.")
+
+    if expected_type is not None:
+        if not loaded_type == expected_type:
+            raise TypeError(
+                "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
+                    path, loaded_type, expected_type
+                )
+            )
+
+    if "name" in loaded_data:
+        name = loaded_data["name"].item()
+    else:
+        name_keys = [k for k in loaded_data if k.startswith("name")]
+        if name_keys:
+            name = name_keys[0][5:]
+        else:
+            name = "unnamed"
+
+    if loaded_type == "TSContinuous":
+        if "interp_kind" in loaded_data:
+            interp_kind = loaded_data["interp_kind"].item()
+        else:
+            interp_kind_keys = [k for k in loaded_data if k.startswith("interp_kind")]
+            if interp_kind_keys:
+                interp_kind = interp_kind_keys[0][12:]
+            else:
+                interp_kind = "linear"
+
+        ts = TSContinuous(
+            times=loaded_data["times"],
+            samples=loaded_data["samples"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            interp_kind=interp_kind,
+            periodic=loaded_data["periodic"].item(),
+            name=name,
+        )
+
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
+    elif loaded_type == "TSEvent":
+        ts = TSEvent(
+            times=loaded_data["times"],
+            channels=loaded_data["channels"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            periodic=loaded_data["periodic"].item(),
+            num_channels=loaded_data["num_channels"].item(),
+            name=name,
+        )
+
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
+    else:
+        raise TypeError("Type `{}` not supported.".format(loaded_type))
+
+    return ts
 
 
 def _extend_periodic_times(
@@ -2575,105 +2673,7 @@ class TSEvent(TimeSeries):
             self._num_channels = new_num_ch
 
 
-def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
-    """
-    Load a timeseries object from an ``npz`` file
-
-    :param str path:                    Filepath to load file
-    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
-
-    :return TimeSeries: Loaded time series object
-    :raises TypeError:  Unsupported or unexpected type
-    """
-    # - Load npz file from specified path
-    try:
-        # Loading from temporary files may require "rewinding".
-        path.seek(0)
-    except AttributeError:
-        pass
-    loaded_data = np.load(path)
-
-    # - Check for expected type
-    try:
-        loaded_type = loaded_data["str_type"].item()
-    except KeyError:
-        try:
-            loaded_type = loaded_data["strType"].item()
-        except KeyError:
-            type_key = [k for k in loaded_data if k.startswith("type")]
-            if type_key:
-                loaded_type = type_key[0][5:]
-            else:
-                if expected_type is not None:
-                    loaded_type = expected_type
-                    warn(
-                        f"Cannot determine type of Timeseries at {path}. "
-                        + f"Will assume expected type ('{expected_type}')."
-                    )
-                else:
-                    raise KeyError(f"Cannot determine type of Timeseries at {path}.")
-
-    if expected_type is not None:
-        if not loaded_type == expected_type:
-            raise TypeError(
-                "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
-                    path, loaded_type, expected_type
-                )
-            )
-
-    if "name" in loaded_data:
-        name = loaded_data["name"].item()
-    else:
-        name_keys = [k for k in loaded_data if k.startswith("name")]
-        if name_keys:
-            name = name_keys[0][5:]
-        else:
-            name = "unnamed"
-
-    if loaded_type == "TSContinuous":
-        if "interp_kind" in loaded_data:
-            interp_kind = loaded_data["interp_kind"].item()
-        else:
-            interp_kind_keys = [k for k in loaded_data if k.startswith("interp_kind")]
-            if interp_kind_keys:
-                interp_kind = interp_kind_keys[0][12:]
-            else:
-                interp_kind = "linear"
-
-        ts = TSContinuous(
-            times=loaded_data["times"],
-            samples=loaded_data["samples"],
-            t_start=loaded_data["t_start"].item(),
-            t_stop=loaded_data["t_stop"].item(),
-            interp_kind=interp_kind,
-            periodic=loaded_data["periodic"].item(),
-            name=name,
-        )
-
-        if "trial_start_times" in loaded_data:
-            ts.trial_start_times = loaded_data["trial_start_times"]
-
-    elif loaded_type == "TSEvent":
-        ts = TSEvent(
-            times=loaded_data["times"],
-            channels=loaded_data["channels"],
-            t_start=loaded_data["t_start"].item(),
-            t_stop=loaded_data["t_stop"].item(),
-            periodic=loaded_data["periodic"].item(),
-            num_channels=loaded_data["num_channels"].item(),
-            name=name,
-        )
-
-        if "trial_start_times" in loaded_data:
-            ts.trial_start_times = loaded_data["trial_start_times"]
-
-    else:
-        raise TypeError("Type `{}` not supported.".format(loaded_type))
-
-    return ts
-
-
-### --- Dict-like objects to store TimeSeries on disk
+### --- Dict-like object to store TimeSeries on disk
 class TSDictOnDisk(collections.MutableMapping):
     def __init__(self, data=()):
         self._mapping = {}
