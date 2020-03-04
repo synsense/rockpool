@@ -14,7 +14,7 @@ from rockpool.timeseries import TimeSeries, TSContinuous
 from ...gpl import rate_jax as rj
 
 
-def pack_params(self: rj.RecRateEulerJax_IO) -> Dict:
+def pack_params(self: rj.RecRateEulerJax) -> Dict:
     """
     .pack_params() - Pack trainable parameters into a dictionary
 
@@ -36,7 +36,7 @@ def pack_params(self: rj.RecRateEulerJax_IO) -> Dict:
     }
 
 
-def apply_params(self: rj.RecRateEulerJax_IO, params: Dict) -> None:
+def apply_params(self: rj.RecRateEulerJax, params: Dict) -> None:
     """
     .apply_params() - Apply packed parameters to the layer
 
@@ -97,7 +97,6 @@ def train_output_target(
         min_tau = self._dt * 10.0
 
     # - Get static arguments
-    # x0 = self._state
     dt = self._dt
     noise_std = self._noise_std
     rng_key = self._rng_key

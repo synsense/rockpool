@@ -204,6 +204,7 @@ class Network:
         # - Set evolution order and time step if no layers have been connected
         if not hasattr(self, "evol_order"):
             self.evol_order: List[layers.Layer] = self._set_evolution_order()
+
         if not hasattr(self, "_dt"):
             self._dt = None
 
