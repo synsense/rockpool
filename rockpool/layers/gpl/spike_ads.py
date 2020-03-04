@@ -107,6 +107,7 @@ class RecFSSpikeADS(Layer):
         self.k_initial = k
         self.eta_initial = eta
         self.phi_name = phi
+        self.rate_layer = None
 
         # Learning callback
         def learning_callback(weights_slow, phi_r, weights_in, e, dt):
@@ -564,39 +565,43 @@ class RecFSSpikeADS(Layer):
 
             # Compare the current traces
             fig = plt.figure(figsize=(20,20))
-            plt.subplot(811)
+            plt.subplot(911)
             plt.plot(times, f[0:5,:].T)
             plt.title(r"$I_f$")
 
             out_val = self.weights_out.T @ s
 
-            plt.subplot(812)
+            plt.subplot(912)
             plt.plot(times, (out_val[0:2,:]).T, label="Recon")
             plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:2], label="Target")
             plt.legend()
             plt.title(r"$D^Tr$")
 
-            plt.subplot(813)
+            plt.subplot(913)
+            plt.plot(times, s[0:5,:].T)
+            plt.title(r"$I_{slow}$")
+
+            plt.subplot(914)
             plt.plot(times, v[0:5,:].T)
             plt.title(r"$V(t)$")
 
-            plt.subplot(814)
+            plt.subplot(915)
             plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,0:5])
             plt.title(r"$I_{ext}$")
             
-            _ = fig.add_subplot(815)
+            _ = fig.add_subplot(916)
             ts_event_return.plot()
             plt.xlim([0,final_time])
 
-            plt.subplot(816)
+            plt.subplot(917)
             plt.plot(times, I_W_slow_phi_x_track[0:5,:].T)
             plt.title(r"$I_{W_{slow}^T\phi(r)}$")
 
-            plt.subplot(817)
+            plt.subplot(918)
             plt.plot(times, I_kDte_track[0:5,:].T)
             plt.title(r"$I_{kD^Te}$")
 
-            plt.subplot(818)
+            plt.subplot(919)
             plt.plot(times, phi_r_track[0:5,:].T)
             plt.title(r"$\phi(r)$")
                 

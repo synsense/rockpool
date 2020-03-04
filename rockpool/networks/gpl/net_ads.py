@@ -81,8 +81,9 @@ class NetworkADS(Network):
                         tau_syn_r_slow: float = 0.1,
                         tau_syn_out: float = 0.1,
                         refractory: float = -np.finfo(float).eps,
+                        phi : str = "tanh",
                         record : bool = False,
-                        phi : str = "tanh"):
+                        ):
 
 
         """
@@ -114,6 +115,7 @@ class NetworkADS(Network):
         assert (np.asarray(weights_slow).shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_slow).shape),Nb,N))
         assert (np.asarray(theta).shape == (Nb,1) or np.asarray(theta).shape == (Nb,)), ("Theta has shape %s but should have shape (%d,1)" % (str(np.asarray(theta).shape),Nb))
         assert (phi == "tanh" or phi == "relu"), ("Please specify phi to be either tanh or relu")
+
 
         ads_layer = RecFSSpikeADS(weights_fast=np.asarray(weights_fast).astype("float"), weights_slow=np.asarray(weights_slow).astype("float"), weights_out = np.asarray(weights_out).astype("float"), weights_in=np.asarray(weights_in).astype("float"),
                                     M=np.asarray(M).astype("float"),theta=np.asarray(theta).astype("float"),eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,
@@ -215,8 +217,21 @@ class NetworkADS(Network):
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
             errors = []
+            xor_errors = []
             variances = []
-            for (input_val, target_val) in data_val:
+            correct_count = 0
+            for d in data_val:
+                input_val = d[0]
+                target_val = d[1]
+                try:
+                    xor_target = d[2]
+                except:
+                    xor_target = None
+
+                target_indices = np.argwhere(np.abs(xor_target) > 0.5)[-1][1]
+                target = xor_target[:,target_indices] > 0
+                
+
                 ts_input_val = TSContinuous(time_base, input_val.T)
                 ts_target_val = TSContinuous(time_base, target_val.T)
                 self.lyrRes.ts_target = ts_target_val
@@ -225,15 +240,54 @@ class NetworkADS(Network):
                 out_val = val_sim["output_layer"].samples.T
                 self.reset_all()
 
+                if(xor_target is not None and self.lyrRes.rate_layer is not None):
+                    xor_response = np.dot(out_val.T, self.lyrRes.rate_layer.w_out)
+                    def running_mean(x, N):
+                        cumsum = np.cumsum(np.insert(x, 0, 0)) 
+                        return (cumsum[N:] - cumsum[:-N]) / float(N)
+                    xor_response_filtered = running_mean(xor_response, 50)
+                    l = xor_response_filtered.shape[0]
+                    ld = xor_target.shape[1]
+                    xor_response_filtered_padded = np.zeros(xor_target.shape)
+                    xor_response_filtered_padded[:,ld-l:] = xor_response_filtered
+
+                    # What does the network decide?
+                    correct = False
+                    response_indices = np.argwhere(np.abs(xor_response_filtered_padded) > 0.3)
+                    if(response_indices.shape[0]>0):
+                        response_target = xor_response_filtered_padded[:,response_indices[-1][1]] > 0
+                        correct = response_target == target
+
+                    if(correct):
+                        correct_count += 1
+
+                    xor_error = np.linalg.norm(xor_target-xor_response_filtered_padded)
+                    xor_errors.append(xor_error)
+
                 if(verbose > 0):
-                    fig = plt.figure(figsize=(20,5))
-                    plt.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
-                    plt.plot(time_base, target_val[0:2,:].T, label=r"Target")
-                    plt.title(r"Target vs reconstruction")
-                    plt.legend()
-                    plt.draw()
-                    plt.waitforbuttonpress(0) # this will wait for indefinite time
-                    plt.close(fig)
+                    if(xor_response_filtered is None):
+                        fig = plt.figure(figsize=(20,5))
+                        plt.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
+                        plt.plot(time_base, target_val[0:2,:].T, label=r"Target")
+                        plt.title(r"Target vs reconstruction")
+                        plt.legend()
+                        plt.draw()
+                        plt.waitforbuttonpress(0) # this will wait for indefinite time
+                        plt.close(fig)
+                    else:
+                        fig = plt.figure(figsize=(20,5))
+                        ax0 = fig.add_subplot(211)
+                        ax0.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
+                        ax0.plot(time_base, target_val[0:2,:].T, label=r"Target")
+                        ax0.set_title(r"Target vs reconstruction")
+                        ax0.legend()
+                        ax1 = fig.add_subplot(212)
+                        ax1.plot(np.linspace(0,1.0,xor_response_filtered.shape[0]), xor_response_filtered, label="Recon")
+                        ax1.plot(time_base, xor_target.T, label="Target")
+                        ax1.legend()
+                        plt.draw()
+                        plt.waitforbuttonpress(0) # this will wait for indefinite time
+                        plt.close(fig)
 
                 if(target_val.ndim == 1):
                     target_val = np.reshape(target_val, (out_val.shape))
@@ -243,7 +297,10 @@ class NetworkADS(Network):
                 errors.append(err)
                 self.lyrRes.ts_target = None
             
-            print("Number of signal iterations: %d Validation error: %.6f Mean pISI variance: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors)), np.mean(np.asarray(variances))))
+            if(xor_response_filtered is None):
+                print("Number of signal iterations: %d Validation error: %.6f Mean pISI variance: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors)), np.mean(np.asarray(variances))))
+            else:
+                print("Number of signal iterations: %d Validation error: %.6f XOR error: %.6f XOR performance: %.6f Mean pISI variance: %.6f" % (num_signal_iterations, np.mean(np.asarray(errors)),np.mean(np.asarray(xor_errors)), correct_count/len(data_val) ,np.mean(np.asarray(variances))))
         # End perform_validation_set
 
         ########## Perform training/validation on single data point ##########
@@ -318,13 +375,16 @@ class NetworkADS(Network):
             print("Start training using get_data...")
             # Create val_data
             data_val = [get_data() for _ in range(num_validate)]
+
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
             bar = ChargingBar(message="Training", max=num_iter+1)
             for iteration in range(1,num_iter+1):
                 if(num_signal_iterations % validation_step == 0):
                         perform_validation_set()
-                (input_train, target_train) = get_data()
+                d = get_data()
+                input_train = d[0]
+                target_train = d[1]
                 self.lyrRes.is_training = True
                 ts_input_train = TSContinuous(time_base, input_train.T)
                 ts_target_train = TSContinuous(time_base, target_train.T)
@@ -332,7 +392,7 @@ class NetworkADS(Network):
                 if(iteration % 100 == 0 and self.lyrRes.eta > 0.0001):
                     self.lyrRes.eta = 1/np.sqrt(iteration) * self.lyrRes.eta_initial
                     print("Reduced learning rate to %.7f" % self.lyrRes.eta)
-                if(iteration % 100 == 0 and self.lyrRes.k > 0.001):
+                if(iteration % 100 == 0 and self.lyrRes.k > 0.0001):
                     self.lyrRes.k = 1/np.sqrt(iteration) * self.lyrRes.k_initial
                     print("Reduced k to %.7f" % self.lyrRes.k)
 
