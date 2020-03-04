@@ -2106,6 +2106,59 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
+    @staticmethod
+    def from_raster(raster: np.ndarray,
+                    dt: float = 1.,
+                    t_start: float = 0., t_stop: Optional[float] = None,
+                    name: Optional[str] = None,
+                    periodic: bool = False,
+                    spikes_at_bin_start: bool = False):
+        """
+        Create a `.TSEvent` object from a raster array
+
+        Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
+        time series as a `.TSEvent` object.
+
+        .. rubic:: Example
+
+        The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
+
+            T = 200
+            C = 20
+            dt = 1e-3
+            spike_prob = 0.1
+
+            raster = np.random.rand((T, C)) > spike_prob
+            spikes_ts = TSEvent.from_raster(raster, dt)
+
+        :param np.ndarray raster:           A TxC array of events. Each row corresponds to a clocked time step of  `dt` duration. Each bin contains the number of spikes present in that bin
+        :param float dt:                    Duration of each time bin in seconds
+        :param float t_start:               The start time of the first bin in ``raster``. Default: ``0.``
+        :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
+        :param Optional[str] name:          The name of the returned time series. Default: ``None``
+        :param bool periodic:               The ``periodic`` flag passed to the new time series
+        :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
+
+        :return TSEvent: A new `.TSEvent` containing the events in ``raster``
+        """
+
+        # - Compute `t_stop` if not provided
+        if t_stop is None:
+            t_stop = raster.shape[0] * dt + t_start
+
+        # - Find spike events
+        spike_present = raster > 0
+        spikes_per_bin = raster[spike_present]
+        spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis = 0)
+
+        # - Convert to a new TSEvent object and return
+        return TSEvent(spikes[:, 0] * dt + t_start + dt / 2 * int(not spikes_at_bin_start),
+                       spikes[:, 1],
+                       name = name,
+                       periodic = periodic,
+                       t_start = t_start,
+                       t_stop = t_stop)
+
     def save(self, path: str, verbose: bool = False):
         """
         Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
