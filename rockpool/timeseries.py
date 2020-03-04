@@ -1643,7 +1643,7 @@ class TSEvent(TimeSeries):
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        name: Optional[str] = None,
+        name: str = "unnamed",
         num_channels: Optional[int] = None,
     ):
         """
@@ -2684,10 +2684,26 @@ class TSDictOnDisk(collections.MutableMapping):
         timestring = strftime("%Y%m%d%H%M%S")
         return make_dir(Path(path) / timestring, unique=True, verbose=False)
 
-    def insert(self, other_dict):
+    def insert(self, other_dict: Union[dict, "TSDictOnDisk"]):
+        """
+        insert - Similar to 'self.update'. The difference is that `update` would store
+                 any TimeSeries in `other_dict` in a temporary file, whereas `insert`
+                 keeps TimeSeries from `other_dict` in the memory if they are not
+                 already in a temporary file (e.g. when including a dict).
+        :other_dict:  Dict or TSDictOnDisk that is to be inserted.
+        """
+
+        # - Make sure existing keys are overwritten
+        include_keys = set(other_dict.keys())
+        remove_keys = include_keys.intersection(self.keys())
+        for k in remove_keys:
+            del self[k]
+
+        # - Insert `TSDictOnDisk`
         if isinstance(other_dict, TSDictOnDisk):
             self._mapping.update(other_dict._mapping)
             self._mapping_ts.update(other_dict._mapping_ts)
+        # - Insert dict
         else:
             self._mapping.update(other_dict)
 
