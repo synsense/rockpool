@@ -213,7 +213,7 @@ class Network:
             self._dt = None
 
         # - Should evolution store its output on disk?
-        self.evolve_on_disk = evolve_on_disk
+        self._evolve_on_disk = evolve_on_disk
 
     def add_layer(
         self,
@@ -1026,20 +1026,6 @@ class Network:
             + "\n    ".join([str(lyr) for lyr in self.evol_order])
         )
 
-    @property
-    def t(self):
-        """(float) Global network time"""
-        return (
-            0
-            if not hasattr(self, "_dt") or self._dt is None
-            else self._dt * self._timestep
-        )
-
-    @property
-    def dt(self):
-        """(float) Time step to use in layer simulations"""
-        return self._dt
-
     def shallow_copy(self) -> "Network":
         """
         shallow_copy - Generate and return a `Network` of the same structure with
@@ -1167,6 +1153,25 @@ class Network:
         :param str name:    Name of the class as a string
         """
         setattr(layers, name, cls_lyr)
+
+    @property
+    def t(self):
+        """(float) Global network time"""
+        return (
+            0
+            if not hasattr(self, "_dt") or self._dt is None
+            else self._dt * self._timestep
+        )
+
+    @property
+    def dt(self):
+        """(float) Time step to use in layer simulations"""
+        return self._dt
+
+    @property
+    def evolve_on_disk(self):
+        """(bool) Whether to store evolution outputs in 'TSDictOnDisk'"""
+        return self._evolve_on_disk
 
 
 ### --- NetworkError exception class
