@@ -751,9 +751,11 @@ class TSContinuous(TimeSeries):
             f"interp_kind_{self.interp_kind}": np.array([]),
             "periodic": np.array(self.periodic),
             f"name_{self.name}": np.array([]),
-            f"type_TSContinuous": np.array([]),  # Indicate that this object is TSContinuous
+            f"type_TSContinuous": np.array(
+                []
+            ),  # Indicate that this object is TSContinuous
         }
-        
+
         # - Some modules add a `trial_start_times` attribute to the object.
         if hasattr(self, "trial_start_times"):
             attributes["trial_start_times"] = np.asarray(self.trial_start_times)
@@ -2135,7 +2137,7 @@ class TSEvent(TimeSeries):
         # - Some modules add a `trial_start_times` attribute to the object.
         if hasattr(self, "trial_start_times"):
             attributes["trial_start_times"] = self.trial_start_times
-        
+
         return attributes
 
     def save(self, path: str, verbose: bool = False):
@@ -2145,15 +2147,12 @@ class TSEvent(TimeSeries):
         :param str path: File path to save data
         """
 
-        # - Make sure path is string (and not Path object)
-        path = str(path)
-
         # - Collect attributes in dict
         attributes = self.to_dict()
 
         # - Write the file
         np.savez(path, **attributes)
-        
+
         if verbose:
             missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
@@ -2612,9 +2611,7 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
                         + f"Will assume expected type ('{expected_type}')."
                     )
                 else:
-                    raise KeyError(
-                        f"Cannot determine type of Timeseries at {path}."
-                    )
+                    raise KeyError(f"Cannot determine type of Timeseries at {path}.")
 
     if expected_type is not None:
         if not loaded_type == expected_type:
@@ -2629,7 +2626,7 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
     else:
         name_keys = [k for k in loaded_data if k.startswith("name")]
         if name_keys:
-            name = name_keys[0][5: ]
+            name = name_keys[0][5:]
         else:
             name = "unnamed"
 
@@ -2652,7 +2649,7 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
             periodic=loaded_data["periodic"].item(),
             name=name,
         )
-        
+
         if "trial_start_times" in loaded_data:
             ts.trial_start_times = loaded_data["trial_start_times"]
 
@@ -2666,10 +2663,10 @@ def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSer
             num_channels=loaded_data["num_channels"].item(),
             name=name,
         )
-        
+
         if "trial_start_times" in loaded_data:
             ts.trial_start_times = loaded_data["trial_start_times"]
-    
+
     else:
         raise TypeError("Type `{}` not supported.".format(loaded_type))
 
