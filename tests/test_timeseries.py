@@ -629,6 +629,47 @@ def test_event_raster():
     raster = TSEvent([0, 1], 0).raster(dt=1.1, include_t_stop=True)
     assert raster.shape == (1, 1)
 
+def test_event_from_raster():
+    """
+    Test TSEvent from_raster method
+    """
+    from rockpool import TSEvent
+
+    # - Build some test rasters
+    raster_bool = [False, False, True, False, True]
+    raster_int = [0, 0, 1, 1, 0, 0, 1]
+    raster_multi = [0, 1, 2, 1, 0]
+    raster_2d = [[0, 1], [0, 0], [1, 0], [1, 1]]
+
+    # - Test construction (boolean)
+    test_ts = TSEvent.from_raster(raster_bool)
+    assert len(test_ts.channels) == sum(raster_bool)
+    assert test_ts.num_channels == 1
+
+    # - Test construction (int)
+    test_ts = TSEvent.from_raster(raster_int)
+    assert len(test_ts.channels) == sum(raster_int)
+    assert test_ts.num_channels == 1
+
+    # - Test construction (multi)
+    test_ts = TSEvent.from_raster(raster_multi)
+    assert len(test_ts.channels) == sum(raster_multi)
+    assert test_ts.num_channels == 1
+
+    # - Test construction (2d)
+    test_ts = TSEvent.from_raster(raster_2d)
+    assert len(test_ts.channels) == np.sum(np.array(raster_2d).flatten())
+    assert test_ts.num_channels == 2
+
+    # - Test specifiying start time
+    test_ts  = TSEvent.from_raster(raster_bool, t_start = 2.)
+    assert test_ts.t_stop == 2. + 1. * len(raster_bool)
+
+    # - Test specifying stop time and number of channels
+    test_ts = TSEvent.from_raster(raster_bool, t_stop = 20., num_channels = 5)
+    assert test_ts.t_stop == 20.
+    assert test_ts.num_channels == 5
+
 
 def test_event_raster_explicit_num_channels():
     """

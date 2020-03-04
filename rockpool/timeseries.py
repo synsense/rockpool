@@ -2112,6 +2112,7 @@ class TSEvent(TimeSeries):
                     t_start: float = 0., t_stop: Optional[float] = None,
                     name: Optional[str] = None,
                     periodic: bool = False,
+                    num_channels: Optional[int] = None,
                     spikes_at_bin_start: bool = False):
         """
         Create a `.TSEvent` object from a raster array
@@ -2137,10 +2138,18 @@ class TSEvent(TimeSeries):
         :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
         :param Optional[str] name:          The name of the returned time series. Default: ``None``
         :param bool periodic:               The ``periodic`` flag passed to the new time series
+        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series
         :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
 
         :return TSEvent: A new `.TSEvent` containing the events in ``raster``
         """
+
+        # - Make sure ``raster`` is a numpy array
+        raster = np.array(raster)
+
+        # - Reshape if the array is 1d
+        if len(raster.shape) == 1 or raster.shape[1] == 1:
+            raster = np.atleast_2d(raster).T
 
         # - Compute `t_stop` if not provided
         if t_stop is None:
@@ -2156,6 +2165,7 @@ class TSEvent(TimeSeries):
                        spikes[:, 1],
                        name = name,
                        periodic = periodic,
+                       num_channels = num_channels,
                        t_start = t_start,
                        t_stop = t_stop)
 
