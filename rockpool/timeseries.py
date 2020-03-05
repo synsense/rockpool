@@ -2692,7 +2692,7 @@ class TSDictOnDisk(collections.MutableMapping):
     Behaves like a dict. However, if a `TimeSeries` is added, it will be stored in a temporary file to reduce main memory usage.
     """
 
-    def __init__(self, data: Union[Dict, "TSDictOnDisk"]):
+    def __init__(self, data: Union[Dict, "TSDictOnDisk"] = {}):
         """
         TSDictOnDisk - dict-like container that stores TimeSeries in temporary files to save memory.
 
