@@ -2,18 +2,31 @@
 timeseries.py - Classes to manage time series
 """
 
+## -- Import statements
+
+# - Built-ins
+import copy
+import collections
+from tempfile import TemporaryFile
+from typing import (
+    Union,
+    List,
+    Tuple,
+    Optional,
+    Iterable,
+    TypeVar,
+    Type,
+    Dict,
+    Hashable,
+    Any,
+)
+from warnings import warn
+
+# - Third party libraries
 import numpy as np
 import scipy.interpolate as spint
-from warnings import warn
-import copy
-from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
-import collections
-from time import strftime
-from pathlib import Path
-from tempfile import TemporaryFile
-from .utilities.gpl.make_dir import make_dir
 
-
+# - Plotting backends
 _global_plotting_backend = None
 try:
     import matplotlib as mpl
@@ -34,6 +47,7 @@ except ModuleNotFoundError:
     _HV_AVAILABLE = False
     if not _MPL_AVAILABLE:
         _global_plotting_backend = None
+
 
 # - Define exports
 __all__ = [
@@ -1422,7 +1436,7 @@ class TSContinuous(TimeSeries):
 
         return self.resample(time_points, channels, inplace=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return a string representation of this object
 
@@ -2675,71 +2689,104 @@ class TSEvent(TimeSeries):
 
 ### --- Dict-like object to store TimeSeries on disk
 class TSDictOnDisk(collections.MutableMapping):
-    def __init__(self, data=()):
+    """
+    Behaves like a dict. However, if a `TimeSeries` is added, it will be stored in a temporary file to reduce main memory usage.
+    """
+
+    def __init__(self, data: Union[Dict, "TSDictOnDisk"]):
+        """
+        TSDictOnDisk - dict-like container that stores TimeSeries in temporary files to save memory.
+
+        :param Union[Dict, TSDictOnDisk] data:   Data with which the object should be instantiatied.
+        """
+
+        # - Dict to hold non-`TimeSeries` objects, to emulate behavior of a normal dict
         self._mapping = {}
+        # - Dict for handles to temporary files that store `TimeSeries`
         self._mapping_ts = {}
+        # - Add provided data to `self`.
         self.update(data)
 
-    def _gen_path(self, path):
-        timestring = strftime("%Y%m%d%H%M%S")
-        return make_dir(Path(path) / timestring, unique=True, verbose=False)
-
-    def insert(self, other_dict: Union[dict, "TSDictOnDisk"]):
+    def insert(self, data: Union[Dict, "TSDictOnDisk"]):
         """
-        insert - Similar to 'self.update'. The difference is that `update` would store
-                 any TimeSeries in `other_dict` in a temporary file, whereas `insert`
-                 keeps TimeSeries from `other_dict` in the memory if they are not
-                 already in a temporary file (e.g. when including a dict).
-        :other_dict:  Dict or TSDictOnDisk that is to be inserted.
+        insert - Similar to 'self.update'. The difference is that `update` would store any TimeSeries in `data` in a temporary file, whereas `insert` keeps TimeSeries from `data` in the memory if they are not already in a temporary file (e.g. when including a dict).
+        :data:  Dict or TSDictOnDisk that is to be inserted.
         """
 
         # - Make sure existing keys are overwritten
-        include_keys = set(other_dict.keys())
+        include_keys = set(data.keys())
         remove_keys = include_keys.intersection(self.keys())
         for k in remove_keys:
             del self[k]
 
         # - Insert `TSDictOnDisk`
-        if isinstance(other_dict, TSDictOnDisk):
-            self._mapping.update(other_dict._mapping)
-            self._mapping_ts.update(other_dict._mapping_ts)
+        if isinstance(data, TSDictOnDisk):
+            self._mapping.update(data._mapping)
+            self._mapping_ts.update(data._mapping_ts)
         # - Insert dict
         else:
-            self._mapping.update(other_dict)
+            self._mapping.update(data)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Hashable) -> Any:
+        """
+        dod[key] - Access an object of `self` by its key.
+        :return:
+            The object to which the `key` corresponds.
+        """
         if key in self._mapping_ts:
+            # - Load `TimeSeries` from temporary file
             return load_ts_from_file(self._mapping_ts[key])
         else:
+            # - Return value stored under `key`.
             return self._mapping[key]
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: Hashable, value: Any):
+        """
+        dod[key] = value - Add an object to self together with a (hashable) key.
+        """
         if isinstance(value, TimeSeries):
+            # - Store `TimeSeries` in a temporary file, whose handle is added as value to `self._mapping_ts`.
             self._mapping_ts[key] = TemporaryFile()
             value.save(self._mapping_ts[key])
+            # - Make sure existing keys are overwritten, also in `self._mapping`.
             if key in self._mapping:
                 del self._mapping[key]
         else:
+            # - Store `value` in `self._mapping`.
             self._mapping[key] = value
+            # - Make sure existing keys are overwritten, also in `self._mapping_ts`.
             if key in self._mapping_ts:
                 del self._mapping_ts[key]
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: Hashable):
+        """del dod[key] - Delete an object from self by its key."""
+        # - Delete the object corresponding to `key` from the correct dict.
         if key in self._mapping_ts:
             del self._mapping_ts[key]
         else:
             del self._mapping[key]
 
     def __len__(self):
+        """len(dod) - Return the total number of objects stored in `self`."""
         return len(self._mapping) + len(self._mapping_ts)
 
     def __iter__(self):
+        """
+        for x in dod:... - First iterate over non-`TimeSeries` objects then over
+                           `TimeSeries` that are stored in temporary files.
+        :yield Any:     The objects stored in `self`.
+        """
         for obj in iter(self._mapping):
             yield obj
         for obj in iter(self._mapping_ts):
             yield obj
 
     def __repr__(self):
+        """
+        Return a string representation of this object
+
+        :return str: String description
+        """
         return (
             f"{type(self).__name__}.\nKeys of stored TimeSeries objects:\n"
             + f"{list(self._mapping_ts)}\nOther keys:\n"
