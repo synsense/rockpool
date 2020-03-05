@@ -264,7 +264,8 @@ def full_nan(shape: Union[tuple, int]) -> np.array:
 
 class TimeSeries:
     """
-    Super-class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
+    Base class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and
+    `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
     """
 
     def __init__(
@@ -277,14 +278,14 @@ class TimeSeries:
         name: str = "unnamed",
     ):
         """
-        TimeSeries - Represent a continuous or event-based time series
+        Represent a continuous or event-based time series
 
         :param ArrayLike times:                 [Tx1] vector of time samples
         :param bool periodic:                   Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:         If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:          If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param Optional[str] plotting_backend:  Determines plotting backend. If ``None``, backend will be chosen automatically based on what is available.
-        :param str name:                        Name of the TimeSeries object. Default: "unnamed"
+        :param str name:                        Name of the `.TimeSeries` object. Default: "unnamed"
         """
 
         # - Convert time trace to numpy arrays
@@ -317,11 +318,11 @@ class TimeSeries:
         """
         Return a copy of ``self`` that is delayed by an offset
 
-        For delaying self, use the `inplace` argument, or ``.times += ...`` instead.
+        For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
 
         :param float Offset:    Time by which to offset this time series
         :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
-        :return TimeSeries:     New TimeSeries, delayed
+        :return TimeSeries:     New `.TimeSeries`, delayed
         """
         if not inplace:
             series = self.copy()
@@ -343,8 +344,7 @@ class TimeSeries:
 
     def start_at_zero(self: TS, inplace: bool = False) -> TS:
         """
-        Convenience function that calls the 'delay' method such that 'self.t_start'
-        falls at 0.
+        Convenience function that calls the `~.TimeSeries.delay` method such that ``self.t_start`` falls at ``0``.
 
         :return TimeSeries:     New TimeSeries, with t_start at 0
         """
@@ -352,30 +352,29 @@ class TimeSeries:
 
     def start_at(self: TS, t_start: float, inplace: bool = False) -> TS:
         """
-        Convenience function that casse the 'delay' mehtod such that 'self.t_start'
-        falls at 't_start'.
+        Convenience function that calls the `~.TimeSeries.delay` method such that ``self.t_start`` falls at ``t_start``.
 
-        :param float t_start:   Time to which 'self.t_start' should be shifted;
+        :param float t_start:   Time to which ``self.t_start`` should be shifted;
         :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
-        :return TimeSeries:     New TimeSeries, delayed
+        :return TimeSeries:     New `.TimeSeries`, delayed
         """
         return self.delay(offset=t_start - self.t_start, inplace=inplace)
 
     def isempty(self) -> bool:
         """
-        Test if this TimeSeries object is empty
+        Test if this `.TimeSeries` object is empty
 
-        :return bool: ``True`` iff the TimeSeries object contains no samples
+        :return bool: ``True`` iff the `.TimeSeries` object contains no samples
         """
         return np.size(self.times) == 0
 
     def print(self):
-        """print() - Print an overview of the time series."""
+        """ Print an overview of the time series"""
         print(self.__repr__())
 
     def set_plotting_backend(self, backend: Union[str, None], verbose: bool = True):
         """
-        Set which plotting backend to use with the .plot() method
+        Set which plotting backend to use with the `~.TimeSeries.plot` method
 
         :param str backend:     Specify a backend to use. Supported: {"holoviews", "matplotlib"}
         :param bool verbose:    If True, print feedback about which backend has been set

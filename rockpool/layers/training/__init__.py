@@ -4,7 +4,7 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".gpl.train_jax_sgd": "add_train_output",
+    ".gpl.train_jax_rate_sgd": "add_shim_rate_jax_sgd",
     ".gpl.rr_trained_layer": "RRTrainedLayer",
     ".gpl.train_jax_lif_sgd": "add_shim_lif_jax_sgd",
 }
