@@ -174,7 +174,8 @@ class Network:
         Base class to encapsulate several `.Layer` objects and manage signal routing
 
         :param Iterable[Layer] layers:   Layers to be added to the network. They will be connected in series. The order in which they are received determines the order in which they are connected. First layer will receive external input
-        :param Optional[float] dt: If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
+        :param Optional[float] dt:       If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
+        :param bool evolve_on_disk:      If `True`, the data produced by `self.evolve` is stored in `TSDictOnDisk` to save memory.
         """
 
         # - Network time
