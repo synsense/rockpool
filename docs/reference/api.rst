@@ -100,4 +100,4 @@ Utility modules
     layers.RecRateEulerJax
     layers.RecRateEulerJax_IO
     layers.FFRateEulerJax
-    layers.ForceRateEulerJax
+    layers.ForceRateEulerJax_IO

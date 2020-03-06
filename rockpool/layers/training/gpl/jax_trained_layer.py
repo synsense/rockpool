@@ -3,19 +3,21 @@
 #
 
 # - Import base classes
-from rockpool.layers import Layer
-from abc import ABC, abstractmethod, abstractproperty
+from rockpool.layers.layer import Layer
+from abc import abstractmethod, ABC
 
 # - Import and define types
-from typing import Dict, Tuple, Any, Callable, Union
+from typing import Dict, Tuple, Any, Callable, Union, List
 
 State = Any
-Params = Union[Dict, Tuple]
+Params = Union[Dict, Tuple, List]
+
+__all__ = ['JaxTrainedLayer']
 
 # - Import jax elements
 from jax import numpy as np
 
-class JaxTrainedLayer(Layer):
+class JaxTrainedLayer(Layer, ABC):
     """
     Base class for a trainable layer, with evolution functions based on Jax
 
@@ -85,15 +87,39 @@ class JaxTrainedLayer(Layer):
     """
     @abstractmethod
     def _pack(self) -> Params:
+        """
+        Method returning a list or tuple or dict of Jax / numpy base classes, containing the tunable parameters of this layer
+
+        You must override this abstract method when implementing your own concrete Jax layer class
+
+        :return Params: params: list, tuple or dict of parameters
+        """
         pass
 
     @abstractmethod
     def _unpack(self, params: Params) -> None:
+        """
+        Method that sets the internal parameters of this layer, given a set of parameters returned from :py:meth:`._pack`
+
+        :param Params params:   list, tuple or dict of parameters
+        """
         pass
 
     @property
     @abstractmethod
     def _evolve_functional(self) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+        Functional form of evolution for this layer
+
+        This abstract property must return a function ``evol_func``, which evolves the dynamics of this layer given parameters, input and an initial state. The function must have the calling signature::
+
+            def evol_func(params: Params, state: State, input: np.ndarray) -> Tuple[np.ndarray, State]:
+                ...
+
+        ``evol_func`` returns ``(outputs, new_state)``, and *must* be side-effect free. The goal is that ``evol_func`` can be compiled using `jax.jit`.
+
+        :return Callable[[Params, State, np.ndarray)], Tuple[np.ndarray, State]]: evol_func: Evolution function
+        """
 
         def evol_func(params: Params, state: State, input: np.ndarray) -> Tuple[np.ndarray, State]:
             pass

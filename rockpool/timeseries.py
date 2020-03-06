@@ -336,9 +336,9 @@ class TimeSeries:
         """
         Append multiple TimeSeries objects in time to a new series
 
-        :param Iterable series:    Time series to be tacked at the end of each other. These series must have the same number of channels.
-        :param Union[None, float, Iterable]     Offset to be introduced between time traces. First value corresponds to delay of first time series.
-        :return TimeSeries:        Time series with data from series in ``series``
+        :param Iterable series:                     Time series to be tacked at the end of each other. These series must have the same number of channels.
+        :param Union[None, float, Iterable] offset: Offset to be introduced between time traces. First value corresponds to delay of first time series.
+        :return TimeSeries:                         Time series with data from series in ``series``
         """
         # - Convert `series` to list, to be able to extract information about objects
         if isinstance(series, cls):
@@ -737,7 +737,8 @@ class TSContinuous(TimeSeries):
         """
         Save this time series as an ``npz`` file using np.savez
 
-        :param str path:    Path to save file
+        :param str path:        Path to save file
+        :param bool verbose:    If ``True``, print information about saving. Default: ``False``, don't display information.
         """
 
         # - Make sure path is a string (and not a Path object)
@@ -1894,11 +1895,11 @@ class TSEvent(TimeSeries):
         self, channel_map: ArrayLike, inplace: bool = False
     ) -> "TSEvent":
         """
-        Renumber channels in the :py:class:`TSEvent`
+        Renumber channels in the `.TSEvent`
 
         Maps channels 0..``self.num_channels-1`` to the channels in ``channel_map``.
 
-        :param ArrayLike[int] channel_map:  List of channels that existing channels should be mapped to, in order.. Must be of size ``self.num_channels``.
+        :param ArrayLike[int] channel_map:  List of channels that existing channels should be mapped to, in order. Must be of size ``self.num_channels``.
         :param bool inplace:                Specify whether operation should be performed in place (Default: ``False``, a copy is returned)
         """
 
@@ -2108,9 +2109,10 @@ class TSEvent(TimeSeries):
 
     def save(self, path: str, verbose: bool = False):
         """
-        Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
+        Save this `.TSEvent` as an ``npz`` file using ``np.savez``
 
-        :param str path: File path to save data
+        :param str path:        File path to save data
+        :param bool verbose:    If ``True``, display feedback about saving the file. Default: ``False``, don't display feedback.
         """
 
         # - Make sure path is string (and not Path object)

@@ -1031,10 +1031,9 @@ class Network:
 
     def shallow_copy(self) -> "Network":
         """
-        shallow_copy - Generate and return a `Network` of the same structure with
-                       the *same* layer objects.
-        :return:
-            The new `Network` object.
+        Generate and return a `.Network` of the same structure with the *same* layer objects.
+
+        :return `.Network`: The new `.Network` object
         """
         newnet = Network(dt=self.dt)
         for lyr in self.evol_order:

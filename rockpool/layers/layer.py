@@ -1,7 +1,7 @@
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Optional, Any
+from typing import Optional, Any, Tuple, Dict
 import json
 
 import numpy as np
@@ -137,7 +137,7 @@ class Layer(ABC):
         ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, np.ndarray, float):
+    ) -> Tuple[np.ndarray, np.ndarray, float]:
         """
         Sample input, set up time base
 
@@ -205,7 +205,7 @@ class Layer(ABC):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
+    ) -> Tuple[np.ndarray, int]:
         """
         Sample input from a :py:class:`TSEvent` time series, set up evolution time base
 
@@ -455,7 +455,7 @@ class Layer(ABC):
         self.reset_state()
 
     @abstractmethod
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         """
         Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
 
@@ -471,7 +471,7 @@ class Layer(ABC):
 
         return config
 
-    def save(self, config: dict, filename: str):
+    def save(self, config: Dict, filename: str):
         """
         Save a set of parameters to a ``json`` file
 
@@ -514,7 +514,7 @@ class Layer(ABC):
         return cls.load_from_dict(config, **kwargs)
 
     @classmethod
-    def load_from_dict(cls: Any, config: dict, **kwargs) -> "cls":
+    def load_from_dict(cls: Any, config: Dict, **kwargs) -> "cls":
         """
         Generate instance of a :py:class:`.Layer` subclass with parameters loaded from a dictionary
 

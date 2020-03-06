@@ -1188,9 +1188,10 @@ class RecIAFTorch(FFIAFTorch):
         """
         Prepare the noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
+        :param `.TSContinuous` tsSpkInput:  Input spike train
+        :param float duration:              Simulation/Evolution time
+        :param int num_timesteps:           Number of evolution time steps
+
         :return:
                 neural_input   np.ndarray  Input to neurons
                 num_timesteps   int         Number of evolution time steps
@@ -1336,11 +1337,12 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param np.ndarray inp:          Input to layer as matrix
+        :param int evolution_timestep:  Time step within current evolution at beginning of current batch
+        :param int num_timesteps:       Number of evolution time steps
+        :param bool verbose:            Currently no effect, just for conformity
+
+        :return `.TSEvent`:            output spike series
 
         """
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)
@@ -1520,8 +1522,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
         """
         Prepare the noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param inp          np.ndarray  External input spike raster
-        :param num_timesteps    int         Number of evolution time steps
+        :param np.ndarray inp:      External input spike raster
+        :param int num_timesteps:   Number of evolution time steps
+
         :return:
                 neural_input   np.ndarray  Input to neurons
                 num_timesteps   int         Number of evolution time steps
@@ -1598,9 +1601,9 @@ class RecIAFSpkInTorch(RecIAFTorch):
         """
         Sample input, set up time base
 
-        :param TSEvent ts_input:      TxM or Tx1 Input spikes for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        :param `.TSEvent` ts_input: TxM or Tx1 Input spikes for this layer
+        :param float duration:      Duration of the desired evolution, in seconds
+        :param int num_timesteps:   Number of evolution time steps
 
         :return:
             spike_raster:    Tensor Boolean raster containing spike info
@@ -1963,10 +1966,10 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:            Input to layer as matrix
-        :param evolution_timestep  Time step within current evolution at beginning of current batch
-        :param num_timesteps:      Number of evolution time steps
-        :param verbose:           Currently no effect, just for conformity
+        :param np.ndarray inp:            Input to layer as matrix
+        :param int evolution_timestep:  Time step within current evolution at beginning of current batch
+        :param int num_timesteps:      Number of evolution time steps
+        :param bool verbose:           Currently no effect, just for conformity
         :return:                   output spike series
 
         """
@@ -2144,11 +2147,11 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param np.ndarray inp:        Input to layer as matrix
+        :param int evolution_timestep:    Time step within current evolution at beginning of current batch
+        :param int num_timesteps:      Number of evolution time steps
+        :param bool verbose:             Currently no effect, just for conformity
+        :return `.TSEvent`:              output spike series
 
         """
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)

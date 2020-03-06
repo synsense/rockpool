@@ -461,7 +461,7 @@ class RecDIAF(Layer):
 
     @property
     def input_type(self):
-        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent) """
+        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent`) """
         return TSEvent
 
     @property
