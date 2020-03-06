@@ -25,6 +25,7 @@ Layer and Network alternative base classes
 
     networks.NetworkDeneve
     layers.training.RRTrainedLayer
+    layers.training.JaxTrainedLayer
 
 
 Time series classes

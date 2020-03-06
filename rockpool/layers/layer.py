@@ -37,12 +37,12 @@ class Layer(ABC):
         name: str = "unnamed",
     ):
         """
-        Implement an abstract layer of neurons (no implementation, must be subclasses)
+        Implement an abstract layer of neurons (no implementation, must be subclassed)
 
         :param ArrayLike[float] weights:    Weight matrix for this layer. Indexed as [pre, post]
         :param float dt:                    Time-step used for evolving this layer. Default: 1
         :param float noise_std:             Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected std. dev. after 1s of integration time
-        :param name:       str Name of this layer. Default: 'unnamed'
+        :param str name:                    Name of this layer. Default: 'unnamed'
         """
 
         # - Assign properties
