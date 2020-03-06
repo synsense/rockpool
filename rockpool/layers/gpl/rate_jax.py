@@ -17,18 +17,20 @@ from jax import jit
 from jax.lax import scan
 import jax.random as rand
 import numpy as onp
-from typing import Optional, Tuple, Callable, Union
+from typing import Optional, Tuple, Callable, Union, Dict
 from warnings import warn
 
-FloatVector = Union[float, np.ndarray]
-
-from ..layer import Layer
+from rockpool.layers.layer import Layer
+from rockpool.layers.training.gpl.jax_trained_layer import JaxTrainedLayer
 from ...timeseries import TimeSeries, TSContinuous
 
 
 # -- Define module exports
 __all__ = ["RecRateEulerJax", "RecRateEulerJax_IO", "ForceRateEulerJax_IO", "FFRateEulerJax","H_ReLU", "H_tanh"]
 
+FloatVector = Union[float, np.ndarray]
+Params = Dict
+State = np.ndarray
 
 # -- Define useful neuron transfer functions
 def H_ReLU(x: FloatVector) -> FloatVector:
@@ -189,7 +191,7 @@ def _get_force_evolve_jit(H: Callable):
 # -- Recurrent reservoir
 
 
-class RecRateEulerJax(Layer):
+class RecRateEulerJax(JaxTrainedLayer, Layer):
     """
     ``JAX``-backed firing-rate recurrent layer
 
@@ -275,21 +277,26 @@ class RecRateEulerJax(Layer):
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, self._rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
-    def _pack(self) -> Tuple[dict, dict]:
+    def _pack(self) -> Params:
+        """
+        Return a packed form of the tunable parameters for this layer
+
+        :return Params: params: All parameters as a Dict
+        """
         return {
             'w_in': self._w_in,
             'w_recurrent': self._weights,
             'w_out': self._w_out,
             'bias': self._bias,
             'tau': self._tau,
-            }, {
-            'rng_key': self._rng_key,
-            'noise_std': self._noise_std,
-            'dt': self._dt,
-            'evolve_jit': self._evolve_jit,
             }
 
-    def _unpack(self, params):
+    def _unpack(self, params: Params):
+        """
+        Set the parameters for this layer, given a parameter dictionary
+
+        :param Params params:  Set of parameters for this layer
+        """
         (
             self._w_in,
             self._weights,
@@ -310,6 +317,43 @@ class RecRateEulerJax(Layer):
         """
         _, subkey = rand.split(self._rng_key)
         self._state = rand.normal(subkey, shape=(self._size, ))
+
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+        def evol_func(
+                params: Params,
+                state: State,
+                inputs: np.ndarray,
+                ):
+            # - Call the jitted evolution function for this layer
+            new_state, _, _, _, outputs = self._evolve_jit(
+                    state,
+                    params['w_in'],
+                    params['w_recurrent'],
+                    params['w_out'],
+                    params['bias'],
+                    params['tau'],
+                    inputs,
+                    self._noise_std,
+                    self._rng_key,
+                    self._dt,
+                    )
+
+            # - Return the outputs from this layer, and the final layer state
+            return outputs, new_state
+
+        # - Return the evolution function
+        return evol_func
+
 
     def evolve(
         self,
@@ -333,58 +377,7 @@ class RecRateEulerJax(Layer):
         )
 
         # - Call raw evolution function
-        outputs, (res_inputs, rec_inputs, res_acts, self._state) = self._evolve_raw(inps)
-
-        # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
-
-        # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
-        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
-        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
-
-        # - Wrap outputs as time series
-        return TSContinuous(time_base, onp.array(outputs))
-
-    @staticmethod
-    def _evolve_params(
-            params: dict,
-            fixed_params: dict,
-            state,
-            inputs,
-            ):
-        new_state, _, _, _, outputs = fixed_params['evolve_jit'](
-                state,
-                params['w_in'],
-                params['w_recurrent'],
-                params['w_out'],
-                params['bias'],
-                params['tau'],
-                inputs,
-                fixed_params['noise_std'],
-                fixed_params['rng_key'],
-                fixed_params['dt'],
-                )
-
-        return outputs, new_state
-
-    def _evolve_raw(
-        self, inps: np.ndarray
-    ) -> Tuple[np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-        """
-        _evolve_raw() - Raw evolution of an input array
-
-        :param inps:    np.ndarray Input matrix [T, I]
-
-        :return:  outputs, (res_inputs, rec_inputs, res_acts, state_new)
-                res_inputs:     np.ndarray Weighted inputs to reservoir units [T, N]
-                rec_inputs      np.ndarray Recurrent inputs to reservoir units [T, N]
-                res_acts        np.ndarray Reservoir activity trace [T, N]
-                outputs         np.ndarray Output of network [T, O]
-                state_new       np.nda
-        """
-        # - Call compiled Euler solver to evolve reservoir
-        state_new, res_inputs, rec_inputs, res_acts, outputs = self._evolve_jit(
+        self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
             self._w_in,
             self._weights,
@@ -397,7 +390,16 @@ class RecRateEulerJax(Layer):
             self._dt,
         )
 
-        return outputs, (res_inputs, rec_inputs, res_acts, state_new)
+        # - Increment timesteps
+        self._timestep += inps.shape[0] - 1
+
+        # - Store evolution time series
+        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
+
+        # - Wrap outputs as time series
+        return TSContinuous(time_base, onp.array(outputs))
 
     def _prepare_input(
         self,
@@ -784,6 +786,45 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         # - Get compiled evolution function for forced reservoir
         self._evolve_jit = _get_force_evolve_jit(activation_func)
 
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, (inputs, forces)) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+        def evol_func(
+                params: Params,
+                state: State,
+                inputs_forces: Tuple[np.ndarray, np.ndarray],
+                ):
+            # - Unpack inputs
+            inputs, forces = inputs_forces
+
+            # - Call the jitted evolution function for this layer
+            new_state, _, _, outputs = self._evolve_jit(
+                    state,
+                    params['w_in'],
+                    params['w_out'],
+                    params['bias'],
+                    params['tau'],
+                    inputs,
+                    forces,
+                    self._noise_std,
+                    self._rng_key,
+                    self._dt,
+                    )
+
+            # - Return the outputs from this layer, and the final layer state
+            return outputs, new_state
+
+        # - Return the evolution function
+        return evol_func
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -814,30 +855,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
             forces = ts_force(time_base)
 
         # - Call raw evolution function
-        outputs, (_, _, self._state) = self._evolve_raw(inps, forces)
-
-        # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
-
-        # - Wrap outputs as time series
-        return TSContinuous(time_base, outputs)
-
-    def _evolve_raw(
-        self, inps: np.ndarray, forces: np.ndarray
-    ) -> Tuple[np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
-        """
-        _evolve_raw() - Raw evolution of an input array
-
-        :param inps:    np.ndarray Input matrix [T, I]
-        :param forces:  np.ndarray Forcing signals [T, N]
-
-        :return:  (res_inputs, rec_inputs, res_acts, outputs)
-                res_inputs:     np.ndarray Weighted inputs to forced reservoir units [T, N]
-                res_acts        np.ndarray Reservoir activity trace [T, N]
-                outputs         np.ndarray Output of network [T, O]
-        """
-        # - Call compiled Euler solver to evolve reservoir
-        state_new, res_inputs, res_acts, outputs = self._evolve_jit(
+        self._state, _, _, outputs = self._evolve_jit(
             self._state,
             self._w_in,
             self._w_out,
@@ -850,7 +868,11 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
             self._dt,
         )
 
-        return outputs, (res_inputs, res_acts, state_new)
+        # - Increment timesteps
+        self._timestep += inps.shape[0] - 1
+
+        # - Wrap outputs as time series
+        return TSContinuous(time_base, outputs)
 
     def to_dict(self) -> dict:
         """
