@@ -640,35 +640,43 @@ def test_event_from_raster():
     raster_int = [0, 0, 1, 1, 0, 0, 1]
     raster_multi = [0, 1, 2, 1, 0]
     raster_2d = [[0, 1], [0, 0], [1, 0], [1, 1]]
+    dt = 1.
 
     # - Test construction (boolean)
-    test_ts = TSEvent.from_raster(raster_bool)
+    test_ts = TSEvent.from_raster(raster_bool, dt = dt)
     assert len(test_ts.channels) == sum(raster_bool)
     assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
 
     # - Test construction (int)
-    test_ts = TSEvent.from_raster(raster_int)
+    test_ts = TSEvent.from_raster(raster_int, dt = dt)
     assert len(test_ts.channels) == sum(raster_int)
     assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_int))
 
     # - Test construction (multi)
-    test_ts = TSEvent.from_raster(raster_multi)
+    test_ts = TSEvent.from_raster(raster_multi, dt = dt)
     assert len(test_ts.channels) == sum(raster_multi)
     assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt, add_events = True).flatten() == np.array(raster_multi))
 
     # - Test construction (2d)
-    test_ts = TSEvent.from_raster(raster_2d)
+    test_ts = TSEvent.from_raster(raster_2d, dt = dt)
     assert len(test_ts.channels) == np.sum(np.array(raster_2d).flatten())
     assert test_ts.num_channels == 2
+    assert np.all(test_ts.raster(dt) == np.array(raster_2d))
 
     # - Test specifiying start time
-    test_ts  = TSEvent.from_raster(raster_bool, t_start = 2.)
+    test_ts = TSEvent.from_raster(raster_bool, dt = dt, t_start = 2.)
     assert test_ts.t_stop == 2. + 1. * len(raster_bool)
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
 
     # - Test specifying stop time and number of channels
-    test_ts = TSEvent.from_raster(raster_bool, t_stop = 20., num_channels = 5)
+    test_ts = TSEvent.from_raster(raster_bool, dt = dt, t_stop = 20., num_channels = 5)
     assert test_ts.t_stop == 20.
     assert test_ts.num_channels == 5
+    test_raster = test_ts.raster(dt)
+    assert test_raster.shape == (20, 5)
 
 
 def test_event_raster_explicit_num_channels():
