@@ -7,13 +7,11 @@ import pytest
 
 
 def test_imports():
-    from rockpool.layers.training import add_shim_rate_jax_sgd
     from rockpool.layers.training import JaxTrainedLayer
 
 
 def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     from rockpool.layers import RecRateEulerJax_IO
-    from rockpool.layers.training import add_shim_rate_jax_sgd
     from rockpool import TSContinuous
 
     # - Generic parameters
@@ -31,9 +29,6 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
         tau=20.0,
         dt=1,
     )
-
-    # - Add training shim
-    fl0 = add_shim_rate_jax_sgd(fl0)
 
     # - Define simple input and target
     ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1])
@@ -99,7 +94,6 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
 
 def test_train_rate_jax_sgd_FFRateEulerJax():
     from rockpool.layers import FFRateEulerJax
-    from rockpool.layers.training import add_shim_rate_jax_sgd
     from rockpool import TSContinuous
 
     # - Generic parameters

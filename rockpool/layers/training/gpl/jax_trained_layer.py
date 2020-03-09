@@ -6,12 +6,20 @@
 from rockpool.layers.layer import Layer
 from rockpool.timeseries import TimeSeries
 
+import jax
 from jax import jit, grad
 from jax.experimental.optimizers import adam
 
 import itertools
 
+from copy import deepcopy
+
 from abc import abstractmethod, ABC
+
+from warnings import warn
+
+# - Import jax elements
+from jax import numpy as np
 
 # - Import and define types
 from typing import Dict, Tuple, Any, Callable, Union, List, Optional
@@ -20,9 +28,6 @@ State = Any
 Params = Union[Dict, Tuple, List]
 
 __all__ = ["JaxTrainedLayer"]
-
-# - Import jax elements
-from jax import numpy as np
 
 
 class JaxTrainedLayer(Layer, ABC):
@@ -135,7 +140,7 @@ class JaxTrainedLayer(Layer, ABC):
         def evol_func(
             params: Params, state: State, input: np.ndarray
         ) -> Tuple[np.ndarray, State]:
-            pass
+            raise NotImplementedError(params, state, input)
 
         return evol_func
 
@@ -143,7 +148,6 @@ class JaxTrainedLayer(Layer, ABC):
         self,
         ts_input: Union[TimeSeries, np.ndarray],
         ts_target: Union[TimeSeries, np.ndarray],
-        min_tau: Optional[float] = None,
         is_first: bool = False,
         is_last: bool = False,
         loss_fcn: Callable[[Dict, Tuple], float] = None,
@@ -173,17 +177,8 @@ class JaxTrainedLayer(Layer, ABC):
                                 grad_fcn:   Callable[[], float] Function that returns the gradient for the current batch
         """
 
-        # - Set a minimum tau, if not provided
-        if min_tau is None:
-            min_tau = self._dt * 10.0
-
-        # - Get static arguments
-        dt = self._dt
-        params = self._pack()
-        evol_func = self._evolve_functional
-
-        # - Define loss function
-        @jit
+        # - Define default loss function
+        # @jit
         def loss_mse_reg(
             params: Params,
             output_batch_t: np.ndarray,
@@ -206,6 +201,9 @@ class JaxTrainedLayer(Layer, ABC):
 
             :return float: Current loss value
             """
+            if isinstance(output_batch_t, jax.core.Tracer):
+                warn("loss_mse_reg: Being compiled!")
+
             # - Measure output-target loss
             mse = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
 
@@ -228,11 +226,11 @@ class JaxTrainedLayer(Layer, ABC):
 
         if initialise:
             # - Get optimiser
-            (opt_init, opt_update, get_params) = optimizer(**opt_params.copy())
+            (opt_init, opt_update, get_params) = optimizer(**deepcopy(opt_params))
             self.__get_params = get_params
 
             # - Make update function
-            @jit
+            # @jit
             def update_fcn(
                 i: int,
                 opt_state: Any,
@@ -252,11 +250,13 @@ class JaxTrainedLayer(Layer, ABC):
                 # - Get layer parameters
                 opt_params = get_params(opt_state)
 
-                # - Call the layer evolution function
-                output_batch_t, _ = evol_func(opt_params, self._state, input_batch_t)
+                if isinstance(input_batch_t, jax.core.Tracer):
+                    warn("update_fcn: Being compiled!")
 
                 # - Get the loss function gradients
-                g = self.__grad_fcn(opt_params, output_batch_t, target_batch_t)
+                g = self.__grad_fcn(
+                    opt_params, input_batch_t, target_batch_t, self._state
+                )
 
                 # - Call optimiser update function
                 return opt_update(i, g, opt_state)
@@ -268,32 +268,45 @@ class JaxTrainedLayer(Layer, ABC):
                     "lambda_mse": 1.0,
                     "reg_tau": 10000.0,
                     "reg_l2_rec": 1.0,
-                    "min_tau": self._dt * 10.0,
+                    "min_tau": self._dt * 11.0,
                 }
                 default_loss_params.update(loss_params)
                 loss_params = default_loss_params
 
-            # - Make a curried loss function, incorporating static loss parameters
+            # - Get functional evolution function
+            evol_func = self._evolve_functional
+
+            # - Make a curried loss function, incorporating static loss parameters and evolution
             def loss_curried(
                 opt_params: Params,
-                output_batch_t: np.ndarray,
+                input_batch_t: np.ndarray,
                 target_batch_t: np.ndarray,
+                state: State,
             ) -> float:
                 """
                 Curried loss function; absorbs loss parameters
 
                 :param Params opt_params:           Current values of the layer parameters, modified by optimization
-                :param np.ndarray output_batch_t:   Output rasterized time series for this batch [TxO]
+                :param np.ndarray input_batch_t:    Input rasterized time series for this batch [TxO]
                 :param np.ndarray target_batch_t:   Target rasterized time series for this batch [TxO]
+                :param State state:                 Initial state for the layer
 
                 :return float:                      Loss value for the parameters in `opt_params`, for the current batch
                 """
+
+                if isinstance(input_batch_t, jax.core.Tracer):
+                    warn("loss_curried: Being compiled!")
+
+                # - Call the layer evolution function
+                output_batch_t, _ = evol_func(opt_params, state, input_batch_t)
+
+                # - Call loss function and return loss
                 return loss_fcn(
                     opt_params, output_batch_t, target_batch_t, **loss_params
                 )
 
             # - Assign update, loss and gradient functions
-            self.__update_fcn = update_fcn
+            self.__update_fcn = jit(update_fcn)
             self.__loss_fcn = jit(loss_curried)
             self.__grad_fcn = jit(grad(loss_curried))
 
@@ -321,7 +334,7 @@ class JaxTrainedLayer(Layer, ABC):
 
         # - Perform one step of optimisation
         self.__opt_state = self.__update_fcn(
-            next(self.__itercount), self.__opt_state, (inps, target)
+            next(self.__itercount), self.__opt_state, inps, target
         )
 
         # - Apply the parameter updates
@@ -333,10 +346,10 @@ class JaxTrainedLayer(Layer, ABC):
 
         # - Return lambdas that evaluate the loss and the gradient
         return (
-            lambda: self.__loss_fcn(
+            lambda: jit(self.__loss_fcn)(
                 self.__get_params(self.__opt_state), inps, target, self._state
             ),
-            lambda: self.__grad_fcn(
-                self.__get_params(self.__opt_state), (inps, target), self._state
+            lambda: jit(self.__grad_fcn)(
+                self.__get_params(self.__opt_state), inps, target, self._state
             ),
         )
