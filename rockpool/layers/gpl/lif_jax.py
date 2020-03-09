@@ -425,9 +425,14 @@ class RecLIFJax(Layer):
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps, inps * 0.0
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps, inps * 0.0)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
@@ -481,7 +486,15 @@ class RecLIFJax(Layer):
                 Isyn_ts:         (np.ndarray) Time trace of output synaptic currents [T, N]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
+        (
+            self._state,
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_jit(
             self._state,
             self._w_in,
             self._weights,
@@ -720,9 +733,14 @@ class RecLIFCurrentInJax(RecLIFJax):
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps * 0.0, inps
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps * 0.0, inps)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
@@ -899,9 +917,14 @@ class RecLIFJax_IO(RecLIFJax):
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps, inps * 0.0
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps, inps * 0.0)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
@@ -1053,9 +1076,14 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps * 0.0, inps
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps * 0.0, inps)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(

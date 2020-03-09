@@ -104,7 +104,15 @@ def train_output_target(
 
     # - Define loss function
     @jit
-    def loss_mse_reg(params: dict, batch: Tuple, state, min_tau: float, lambda_mse: float = 1., reg_tau: float = 10000., reg_l2_rec: float = 1.) -> float:
+    def loss_mse_reg(
+        params: dict,
+        batch: Tuple,
+        state,
+        min_tau: float,
+        lambda_mse: float = 1.0,
+        reg_tau: float = 10000.0,
+        reg_l2_rec: float = 1.0,
+    ) -> float:
         """
         loss_mse_reg() - Loss function for target versus output
 
@@ -226,8 +234,12 @@ def train_output_target(
 
     # - Return lambdas that evaluate the loss and the gradient
     return (
-        lambda: self.__loss_fcn(self.__get_params(self.__opt_state), (inps, target), self._state),
-        lambda: self.__grad_fcn(self.__get_params(self.__opt_state), (inps, target), self._state),
+        lambda: self.__loss_fcn(
+            self.__get_params(self.__opt_state), (inps, target), self._state
+        ),
+        lambda: self.__grad_fcn(
+            self.__get_params(self.__opt_state), (inps, target), self._state
+        ),
     )
 
 

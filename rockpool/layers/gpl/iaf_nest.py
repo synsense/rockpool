@@ -870,9 +870,11 @@ class FFIAFNest(Layer):
         :return `.TSEvent`: `.TSEvent` with the recorded events
         """
         if self.record:
-            event_time_out, event_channel_out, recorded_states_array = (
-                self.result_q.get()
-            )
+            (
+                event_time_out,
+                event_channel_out,
+                recorded_states_array,
+            ) = self.result_q.get()
             self.recorded_states = TSContinuous(
                 (np.arange(recorded_states_array.shape[1]) + self._timestep) * self.dt,
                 recorded_states_array.T,

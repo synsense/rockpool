@@ -26,7 +26,14 @@ from ...timeseries import TimeSeries, TSContinuous
 
 
 # -- Define module exports
-__all__ = ["RecRateEulerJax", "RecRateEulerJax_IO", "ForceRateEulerJax_IO", "FFRateEulerJax","H_ReLU", "H_tanh"]
+__all__ = [
+    "RecRateEulerJax",
+    "RecRateEulerJax_IO",
+    "ForceRateEulerJax_IO",
+    "FFRateEulerJax",
+    "H_ReLU",
+    "H_tanh",
+]
 
 FloatVector = Union[float, np.ndarray]
 Params = Dict
@@ -267,10 +274,10 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         self.reset_all()
 
         # - Set unit internal input and output weights, for compatibility with later layers
-        if not hasattr(self, '_w_in'):
-            self._w_in = 1.
-        if not hasattr(self, '_w_out'):
-            self._w_out = 1.
+        if not hasattr(self, "_w_in"):
+            self._w_in = 1.0
+        if not hasattr(self, "_w_out"):
+            self._w_out = 1.0
 
         # - Seed RNG
         if rng_key is None:
@@ -284,12 +291,12 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         :return Params: params: All parameters as a Dict
         """
         return {
-            'w_in': self._w_in,
-            'w_recurrent': self._weights,
-            'w_out': self._w_out,
-            'bias': self._bias,
-            'tau': self._tau,
-            }
+            "w_in": self._w_in,
+            "w_recurrent": self._weights,
+            "w_out": self._w_out,
+            "bias": self._bias,
+            "tau": self._tau,
+        }
 
     def _unpack(self, params: Params):
         """
@@ -297,18 +304,12 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
 
         :param Params params:  Set of parameters for this layer
         """
-        (
-            self._w_in,
-            self._weights,
-            self._w_out,
-            self._bias,
-            self._tau,
-            ) = (
-            params['w_in'],
-            params['w_recurrent'],
-            params['w_out'],
-            params['bias'],
-            params['tau'],
+        (self._w_in, self._weights, self._w_out, self._bias, self._tau,) = (
+            params["w_in"],
+            params["w_recurrent"],
+            params["w_out"],
+            params["bias"],
+            params["tau"],
         )
 
     def randomize_state(self):
@@ -316,7 +317,7 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         Randomize the internal state of the layer.
         """
         _, subkey = rand.split(self._rng_key)
-        self._state = rand.normal(subkey, shape=(self._size, ))
+        self._state = rand.normal(subkey, shape=(self._size,))
 
     @property
     def _evolve_functional(self):
@@ -329,31 +330,29 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
 
         :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
         """
+
         def evol_func(
-                params: Params,
-                state: State,
-                inputs: np.ndarray,
-                ):
+            params: Params, state: State, inputs: np.ndarray,
+        ):
             # - Call the jitted evolution function for this layer
             new_state, _, _, _, outputs = self._evolve_jit(
-                    state,
-                    params['w_in'],
-                    params['w_recurrent'],
-                    params['w_out'],
-                    params['bias'],
-                    params['tau'],
-                    inputs,
-                    self._noise_std,
-                    self._rng_key,
-                    self._dt,
-                    )
+                state,
+                params["w_in"],
+                params["w_recurrent"],
+                params["w_out"],
+                params["bias"],
+                params["tau"],
+                inputs,
+                self._noise_std,
+                self._rng_key,
+                self._dt,
+            )
 
             # - Return the outputs from this layer, and the final layer state
             return outputs, new_state
 
         # - Return the evolution function
         return evol_func
-
 
     def evolve(
         self,
@@ -479,8 +478,9 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         config["name"] = self.name
 
         # - Check for a supported activation function
-        assert self._H == H_ReLU or self._H == H_tanh,\
-            "Only models using ReLU or tanh activation functions are saveable."
+        assert (
+            self._H == H_ReLU or self._H == H_tanh
+        ), "Only models using ReLU or tanh activation functions are saveable."
 
         # - Encode the activation function as a string
         if self._H == H_ReLU:
@@ -488,7 +488,7 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         elif self._H == H_tanh:
             config["activation_func"] = "tanh"
         else:
-            raise(Exception)
+            raise (Exception)
         return config
 
     @property
@@ -499,24 +499,30 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
     @H.setter
     def H(self, value):
         if type(value) is str:
-            if value in ["relu", 'ReLU', "H_ReLU"]:
+            if value in ["relu", "ReLU", "H_ReLU"]:
                 self._H = H_ReLU
             elif value in ["tanh", "TANH", "H_tanh"]:
                 self._H = H_tanh
             else:
-                raise ValueError('The activation function must be one of ["relu", "tanh"]')
+                raise ValueError(
+                    'The activation function must be one of ["relu", "tanh"]'
+                )
         else:
             # - Test the activation function
             try:
                 ret = value(np.array([0.1, 0.1]))
             except:
-                raise TypeError('The activation function must be a Callable[[FloatVector], FloatVector]')
+                raise TypeError(
+                    "The activation function must be a Callable[[FloatVector], FloatVector]"
+                )
 
-            assert np.size(ret) == 2, \
-                'The activation function must return an array the same size as the input'
+            assert (
+                np.size(ret) == 2
+            ), "The activation function must return an array the same size as the input"
 
-            assert type(ret) is not tuple, \
-                'The activation function must not return multiple arguments'
+            assert (
+                type(ret) is not tuple
+            ), "The activation function must not return multiple arguments"
 
             # - Assign the activation function
             self._H = value
@@ -660,7 +666,9 @@ class RecRateEulerJax_IO(RecRateEulerJax):
             dt = np.min(tau) / 10.0
 
         # - Call super-class initialisation
-        super().__init__(w_recurrent, tau, bias, noise_std, activation_func, dt, name, rng_key)
+        super().__init__(
+            w_recurrent, tau, bias, noise_std, activation_func, dt, name, rng_key
+        )
 
         # - Correct layer size
         self._size_in = w_in.shape[0]
@@ -674,15 +682,17 @@ class RecRateEulerJax_IO(RecRateEulerJax):
         """
         # - Get base dictionary
         config = super().to_dict()
-        config.pop('weights')
+        config.pop("weights")
 
         # - Include class-specific aspects
-        config.update({
-            "class_name": "RecRateEulerJax_IO",
-            "w_in": onp.array(self.w_in).tolist(),
-            "w_recurrent": onp.array(self.w_recurrent).tolist(),
-            "w_out": onp.array(self.w_out).tolist(),
-        })
+        config.update(
+            {
+                "class_name": "RecRateEulerJax_IO",
+                "w_in": onp.array(self.w_in).tolist(),
+                "w_recurrent": onp.array(self.w_recurrent).tolist(),
+                "w_out": onp.array(self.w_out).tolist(),
+            }
+        )
 
         # - Return configuration
         return config
@@ -797,27 +807,26 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         :return Callable[[Params, State, np.ndarray, np.ndarray], Tuple[np.ndarray, State]]:
         """
+
         def evol_func(
-                params: Params,
-                state: State,
-                inputs_forces: Tuple[np.ndarray, np.ndarray],
-                ):
+            params: Params, state: State, inputs_forces: Tuple[np.ndarray, np.ndarray],
+        ):
             # - Unpack inputs
             inputs, forces = inputs_forces
 
             # - Call the jitted evolution function for this layer
             new_state, _, _, outputs = self._evolve_jit(
-                    state,
-                    params['w_in'],
-                    params['w_out'],
-                    params['bias'],
-                    params['tau'],
-                    inputs,
-                    forces,
-                    self._noise_std,
-                    self._rng_key,
-                    self._dt,
-                    )
+                state,
+                params["w_in"],
+                params["w_out"],
+                params["bias"],
+                params["tau"],
+                inputs,
+                forces,
+                self._noise_std,
+                self._rng_key,
+                self._dt,
+            )
 
             # - Return the outputs from this layer, and the final layer state
             return outputs, new_state
@@ -881,17 +890,20 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         """
         # - Get base dictionary
         config = super().to_dict()
-        config.pop('w_recurrent')
+        config.pop("w_recurrent")
 
         # - Include class-specific aspects
-        config.update({
-            "class_name": "ForceRateEulerJax_IO",
-            "w_in": onp.array(self.w_in).tolist(),
-            "w_out": onp.array(self.w_out).tolist(),
-        })
+        config.update(
+            {
+                "class_name": "ForceRateEulerJax_IO",
+                "w_in": onp.array(self.w_in).tolist(),
+                "w_out": onp.array(self.w_out).tolist(),
+            }
+        )
 
         # - Return configuration
         return config
+
 
 class FFRateEulerJax(RecRateEulerJax):
     """
@@ -916,15 +928,15 @@ class FFRateEulerJax(RecRateEulerJax):
     """
 
     def __init__(
-            self,
-            w_in: np.ndarray,
-            tau: np.ndarray,
-            bias: np.ndarray,
-            noise_std: float = 0.0,
-            activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
-            dt: Optional[float] = None,
-            name: Optional[str] = None,
-            rng_key: Optional[int] = None,
+        self,
+        w_in: np.ndarray,
+        tau: np.ndarray,
+        bias: np.ndarray,
+        noise_std: float = 0.0,
+        activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
+        dt: Optional[float] = None,
+        name: Optional[str] = None,
+        rng_key: Optional[int] = None,
     ):
         """
         Implement a ``JAX``-backed feed-forward dynamical neuron layer.
@@ -950,7 +962,7 @@ class FFRateEulerJax(RecRateEulerJax):
             dt = np.min(tau) / 10.0
 
         # - Call super-class initialisation
-        super().__init__(0., 0., 0., noise_std, activation_func, dt, name, rng_key)
+        super().__init__(0.0, 0.0, 0.0, noise_std, activation_func, dt, name, rng_key)
 
         # - Correct layer size
         self._size_in = w_in.shape[0]
@@ -961,8 +973,8 @@ class FFRateEulerJax(RecRateEulerJax):
         self.tau = tau
         self.bias = bias
         self.w_in = w_in
-        self._weights = 0.
-        self._w_out = 1.
+        self._weights = 0.0
+        self._w_out = 1.0
 
         # - Reset layer state
         self.reset_all()
@@ -991,13 +1003,12 @@ class FFRateEulerJax(RecRateEulerJax):
         """
         # - Get base dictionary
         config = super().to_dict()
-        config.pop('weights')
+        config.pop("weights")
 
         # - Include class-specific aspects
-        config.update({
-            "class_name": "FFRateEulerJax",
-            "w_in": onp.array(self.w_in).tolist(),
-        })
+        config.update(
+            {"class_name": "FFRateEulerJax", "w_in": onp.array(self.w_in).tolist(),}
+        )
 
         # - Return configuration
         return config

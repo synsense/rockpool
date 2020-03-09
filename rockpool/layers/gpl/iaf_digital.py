@@ -52,7 +52,7 @@ class RecDIAF(Layer):
         v_thresh: FloatVector = 100.0,
         v_reset: FloatVector = 0.0,
         v_rest: Optional[FloatVector] = None,
-        leak: FloatVector = 1.,
+        leak: FloatVector = 1.0,
         v_subtract: Optional[FloatVector] = None,
         state_type: Union[type, str] = "int8",
         monitor_id: Optional[Union[bool, int, ArrayLike]] = [],
