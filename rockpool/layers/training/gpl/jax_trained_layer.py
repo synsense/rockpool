@@ -178,7 +178,7 @@ class JaxTrainedLayer(Layer, ABC):
         """
 
         # - Define default loss function
-        # @jit
+        @jit
         def loss_mse_reg(
             params: Params,
             output_batch_t: np.ndarray,
@@ -201,9 +201,6 @@ class JaxTrainedLayer(Layer, ABC):
 
             :return float: Current loss value
             """
-            if isinstance(output_batch_t, jax.core.Tracer):
-                warn("loss_mse_reg: Being compiled!")
-
             # - Measure output-target loss
             mse = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
 
@@ -222,7 +219,9 @@ class JaxTrainedLayer(Layer, ABC):
             return fLoss
 
         # - Initialise training
-        initialise = is_first or not hasattr(self, "__in_training_sgd_adam")
+        initialise = is_first or not hasattr(
+            self, "_JaxTrainedLayer__in_training_sgd_adam"
+        )
 
         if initialise:
             # - Get optimiser
@@ -230,7 +229,7 @@ class JaxTrainedLayer(Layer, ABC):
             self.__get_params = get_params
 
             # - Make update function
-            # @jit
+            @jit
             def update_fcn(
                 i: int,
                 opt_state: Any,
@@ -249,9 +248,6 @@ class JaxTrainedLayer(Layer, ABC):
                 """
                 # - Get layer parameters
                 opt_params = get_params(opt_state)
-
-                if isinstance(input_batch_t, jax.core.Tracer):
-                    warn("update_fcn: Being compiled!")
 
                 # - Get the loss function gradients
                 g = self.__grad_fcn(
@@ -277,6 +273,7 @@ class JaxTrainedLayer(Layer, ABC):
             evol_func = self._evolve_functional
 
             # - Make a curried loss function, incorporating static loss parameters and evolution
+            @jit
             def loss_curried(
                 opt_params: Params,
                 input_batch_t: np.ndarray,
@@ -293,10 +290,6 @@ class JaxTrainedLayer(Layer, ABC):
 
                 :return float:                      Loss value for the parameters in `opt_params`, for the current batch
                 """
-
-                if isinstance(input_batch_t, jax.core.Tracer):
-                    warn("loss_curried: Being compiled!")
-
                 # - Call the layer evolution function
                 output_batch_t, _ = evol_func(opt_params, state, input_batch_t)
 
@@ -306,8 +299,8 @@ class JaxTrainedLayer(Layer, ABC):
                 )
 
             # - Assign update, loss and gradient functions
-            self.__update_fcn = jit(update_fcn)
-            self.__loss_fcn = jit(loss_curried)
+            self.__update_fcn = update_fcn
+            self.__loss_fcn = loss_curried
             self.__grad_fcn = jit(grad(loss_curried))
 
             # - Initialise optimizer
@@ -346,10 +339,10 @@ class JaxTrainedLayer(Layer, ABC):
 
         # - Return lambdas that evaluate the loss and the gradient
         return (
-            lambda: jit(self.__loss_fcn)(
+            lambda: self.__loss_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
             ),
-            lambda: jit(self.__grad_fcn)(
+            lambda: self.__grad_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
             ),
         )

@@ -62,7 +62,7 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
     :return:     f(x0, w_in, w_recurrent, w_out, bias, tau, inputs, noise_std, key, dt) -> (x, res_inputs, rec_inputs, res_acts, outputs)
     """
 
-    # @jit
+    @jit
     def rec_evolve_jit(
         x0: np.ndarray,
         w_in: FloatVector,
@@ -96,9 +96,6 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
                 res_acts:   np.ndarray Time series of reservoir unit activities [TxN]
                 outputs:    np.ndarray Time series of output layer values [TxO]
         """
-        if isinstance(x0, jax.core.Tracer):
-            warn("rec_evolve_jit: Being compiled.")
-
         # - Pre-compute dt/tau
         dt_tau = dt / tau
 
@@ -138,7 +135,7 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
 
 
 def _get_force_evolve_jit(H: Callable):
-    # @jit
+    @jit
     def force_evolve_jit(
         x0: np.ndarray,
         w_in: FloatVector,
@@ -340,9 +337,6 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         def evol_func(
             params: Params, state: State, inputs: np.ndarray,
         ):
-            if isinstance(state, jax.core.Tracer):
-                warn("evol_func: Being compiled.")
-
             # - Call the jitted evolution function for this layer
             new_state, _, _, _, outputs = self._evolve_jit(
                 state,
