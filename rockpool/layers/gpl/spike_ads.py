@@ -76,6 +76,7 @@ class RecFSSpikeADS(Layer):
                 tau_mem : float,
                 tau_syn_r_fast : float,
                 tau_syn_r_slow : float,
+                tau_syn_r_out : float,
                 refractory : float,
                 phi : str,
                 record : bool,
@@ -99,6 +100,7 @@ class RecFSSpikeADS(Layer):
         self.tau_mem = np.asarray(tau_mem).astype("float")
         self.tau_syn_r_fast = np.asarray(tau_syn_r_fast).astype("float")
         self.tau_syn_r_slow = np.asarray(tau_syn_r_slow).astype("float")
+        self.tau_syn_r_out = np.asarray(tau_syn_r_out).astype("float")
         self.refractory = float(refractory)
         self.is_training = False # Set externally by train method in net_ads.py
         self._ts_target = None
@@ -107,6 +109,7 @@ class RecFSSpikeADS(Layer):
         self.k_initial = k
         self.eta_initial = eta
         self.phi_name = phi
+        self.out_size = self.weights_out.shape[1]
 
         # Learning callback
         def learning_callback(weights_slow, phi_r, weights_in, e, dt):
@@ -141,6 +144,7 @@ class RecFSSpikeADS(Layer):
         self.state = self.v_rest.copy()
         self.I_s_S = np.zeros(self.size)
         self.I_s_F = np.zeros(self.size)
+        self.I_s_O = np.zeros(self.out_size)
 
 
     def evolve(self,
@@ -192,6 +196,8 @@ class RecFSSpikeADS(Layer):
         v = full_nan((self.size, record_length))
         s = full_nan((self.size, record_length))
         f = full_nan((self.size, record_length))
+        out = full_nan((self.out_size, record_length))
+
         if(verbose):
             I_kDte_track = full_nan((self.size, record_length))
             I_W_slow_phi_x_track = full_nan((self.size, record_length))
@@ -214,12 +220,13 @@ class RecFSSpikeADS(Layer):
         v_last = self._state.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
+        I_s_O_Last = self.I_s_O.copy()
 
         sum_w_slow = 0
 
         zeros = np.zeros(self.size)
+        zeros_out = np.zeros(self.out_size)
 
-        t0 = time.time()
         # - Euler integrator loop
         while t_time < final_time:
 
@@ -239,10 +246,12 @@ class RecFSSpikeADS(Layer):
                 state,
                 I_s_S,
                 I_s_F,
+                I_s_O,
                 dt,
                 v_last,
                 I_s_S_Last,
                 I_s_F_Last,
+                I_s_O_Last,
                 v_reset,
                 v_rest,
                 v_thresh,
@@ -250,6 +259,7 @@ class RecFSSpikeADS(Layer):
                 tau_mem,
                 tau_syn_r_slow,
                 tau_syn_r_fast,
+                tau_syn_r_out,
                 refractory,
                 vec_refractory,
                 zeros,
@@ -298,6 +308,7 @@ class RecFSSpikeADS(Layer):
                     state = _backstep(state, v_last, dt, spike_delta)
                     I_s_S = _backstep(I_s_S, I_s_S_Last, dt, spike_delta)
                     I_s_F = _backstep(I_s_F, I_s_F_Last, dt, spike_delta)
+                    I_s_O = _backstep(I_s_O, I_s_O_Last, dt, spike_delta)
 
                     # - Apply reset to spiking neuron
                     state[first_spike_id] = v_reset[first_spike_id]
@@ -309,18 +320,21 @@ class RecFSSpikeADS(Layer):
                     I_spike_slow = np.copy(zeros)
                     I_spike_slow[first_spike_id] = 1.0
                     I_spike_fast = weights[:, first_spike_id]
+                    I_spike_out = weights_out[first_spike_id, :]
 
                 else:
                     # - Clear spike currents
                     first_spike_id = -1
                     I_spike_slow = zeros
                     I_spike_fast = zeros
+                    I_spike_out = zeros_out
 
                 ### End of back-tick spike detector
                 # - Save synapse and neuron states for previous time step
                 v_last[:] = state
                 I_s_S_Last[:] = I_s_S + I_spike_slow
                 I_s_F_Last[:] = I_s_F + I_spike_fast
+                I_s_O_Last[:] = I_s_O + I_spike_out
 
                 # - Update synapse and neuron states (Euler step)
                 dot_I_s_S = syn_dot_I(t_time, I_s_S, dt, I_spike_slow, tau_syn_r_slow)
@@ -328,6 +342,9 @@ class RecFSSpikeADS(Layer):
 
                 dot_I_s_F = syn_dot_I(t_time, I_s_F, dt, I_spike_fast, tau_syn_r_fast)
                 I_s_F += dot_I_s_F * dt
+
+                dot_I_s_O = syn_dot_I(t_time, I_s_O, dt, I_spike_out, tau_syn_r_out)
+                I_s_O += dot_I_s_O * dt
 
                 # Calculate phi(M@r +theta)
                 phi_r = phi(M @ I_s_S + theta)
@@ -339,7 +356,8 @@ class RecFSSpikeADS(Layer):
                 if(is_training):
                     # Compute x_hat
                     x = target[int_time, :]
-                    x_hat = weights_out.T @ I_s_S
+                    # x_hat = weights_out.T @ I_s_S
+                    x_hat = I_s_O
                     e = x - x_hat
                     I_kDte = k*weights_in.T @ e
                 else:
@@ -370,12 +388,14 @@ class RecFSSpikeADS(Layer):
                     state,
                     I_s_S,
                     I_s_F,
+                    I_s_O,
                     I_W_slow_phi_x,
                     I_kDte,
                     dt,
                     v_last,
                     I_s_S_Last,
                     I_s_F_Last,
+                    I_s_O_Last,
                     vec_refractory,
                     phi_r,
                     e
@@ -389,12 +409,14 @@ class RecFSSpikeADS(Layer):
                 self._state,
                 self.I_s_S,
                 self.I_s_F,
+                self.I_s_O,
                 I_W_slow_phi_x,
                 I_kDte,
                 self._dt,
                 v_last,
                 I_s_S_Last,
                 I_s_F_Last,
+                I_s_O_Last,
                 vec_refractory,
                 phi_r,
                 e,
@@ -412,10 +434,12 @@ class RecFSSpikeADS(Layer):
                 state = self._state,
                 I_s_S = self.I_s_S,
                 I_s_F = self.I_s_F,
+                I_s_O = self.I_s_O,
                 dt = self._dt,
                 v_last = v_last,
                 I_s_S_Last = I_s_S_Last,
                 I_s_F_Last = I_s_F_Last,
+                I_s_O_Last = I_s_O_Last,
                 v_reset = self.v_reset,
                 v_rest = self.v_rest,
                 v_thresh = self.v_thresh,
@@ -423,28 +447,19 @@ class RecFSSpikeADS(Layer):
                 tau_mem = self.tau_mem,
                 tau_syn_r_slow = self.tau_syn_r_slow,
                 tau_syn_r_fast = self.tau_syn_r_fast,
+                tau_syn_r_out = self.tau_syn_r_out,
                 refractory = self.refractory,
                 vec_refractory = vec_refractory,
                 zeros = zeros,
                 target = self.static_target
             )
 
-            # Call the training. Note this is not spike based (but should probably be). Add "first_spike_id > -1 and" to if to make spike based
+            # Call the training. Note this is not spike based
             if(self.is_training and self.learning_callback is not None):
                 dot_W_slow = self.eta*self.learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
                 self.weights_slow = self.weights_slow + dot_W_slow
                 if(verbose):
                     sum_w_slow += np.sum(np.abs(dot_W_slow))
-
-                """if(first_spike_id > -1):
-                    # Do training of fast recurrent weights
-                    ot = np.zeros((self.size,))
-                    ot[first_spike_id] = 1.0
-                    mu = 0.022
-                    beta = 1.11
-                    epsr = 0.01
-                    k = first_spike_id
-                    self.weights_fast[:,k] -= epsr*(beta*(v_last+mu*I_s_F_Last)+self.weights_fast[:,k])"""
 
             # - Extend spike record, if necessary
             if spike_pointer >= max_spike_pointer:
@@ -465,6 +480,7 @@ class RecFSSpikeADS(Layer):
                 v = np.append(v, full_nan((self.size, extend)), axis=1)
                 s = np.append(s, full_nan((self.size, extend)), axis=1)
                 f = np.append(f, full_nan((self.size, extend)), axis=1)
+                out = np.append(out, full_nan((self.out_size, extend)), axis=1)
                 if(verbose):
                     I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
                     I_W_slow_phi_x_track = np.append(I_W_slow_phi_x_track, full_nan((self.size, extend)), axis=1)
@@ -477,6 +493,7 @@ class RecFSSpikeADS(Layer):
             v[:, step] = self._state
             s[:, step] = self.I_s_S
             f[:, step] = self.I_s_F
+            out[:, step] = self.I_s_O
             if(verbose):
                 I_kDte_track[:, step] = I_kDte
                 I_W_slow_phi_x_track[:, step] = I_W_slow_phi_x
@@ -494,12 +511,14 @@ class RecFSSpikeADS(Layer):
         self.state = _backstep(self.state, v_last, self._dt, t_time - final_time)
         self.I_s_S = _backstep(self.I_s_S, I_s_S_Last, self._dt, t_time - final_time)
         self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._dt, t_time - final_time)
+        self.I_s_O = _backstep(self.I_s_O, I_s_O_Last, self._dt, t_time - final_time)
 
         ## - Store the network states for final time step
         times[step - 1] = final_time
         v[:, step - 1] = self.state
         s[:, step - 1] = self.I_s_S
         f[:, step - 1] = self.I_s_F
+        out[:, step - 1] = self.I_s_O
         if(verbose):
             I_kDte_track[:, step - 1] = I_kDte
             I_W_slow_phi_x_track[:, step - 1] = I_W_slow_phi_x
@@ -510,6 +529,7 @@ class RecFSSpikeADS(Layer):
         v = v[:, :step]
         s = s[:, :step]
         f = f[:, :step]
+        out = out[:, :step]
         if(verbose):
             I_kDte_track = I_kDte_track[:, :step]
             I_W_slow_phi_x_track = I_W_slow_phi_x_track[:, :step]
@@ -524,6 +544,7 @@ class RecFSSpikeADS(Layer):
             "mfX": v,
             "s": s,
             "f": f,
+            "out" : out,
             "mfFast": f,
             "dot_v": dot_v_ts,
             "static_input": static_input,
@@ -568,13 +589,11 @@ class RecFSSpikeADS(Layer):
             plt.plot(times, f[0:5,:].T)
             plt.title(r"$I_f$")
 
-            out_val = self.weights_out.T @ s
-
             plt.subplot(812)
-            plt.plot(times, (out_val[0:2,:]).T, label="Recon")
+            plt.plot(times, (out[0:2,:]).T, label="Recon")
             plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:2], label="Target")
             plt.legend()
-            plt.title(r"$D^Tr$")
+            plt.title(r"$I_{out}$")
 
             plt.subplot(813)
             plt.plot(times, v[0:5,:].T)
@@ -655,6 +674,7 @@ class RecFSSpikeADS(Layer):
         config["tau_mem"] = self.tau_mem.tolist()
         config["tau_syn_r_fast"] = self.tau_syn_r_fast.tolist()
         config["tau_syn_r_slow"] = self.tau_syn_r_slow.tolist()
+        config["tau_syn_r_out"] = self.tau_syn_r_out.tolist()
         config["refractory"] = self.refractory
         config["phi"] = self.phi_name
         config["record"] = int(self.record)
@@ -731,10 +751,6 @@ class RecFSSpikeADS(Layer):
 
     @Layer.dt.setter
     def dt(self, new_dt):
-        assert (
-            new_dt <= self._min_tau / 10
-        ), "`new_dt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
-
         # - Call super-class setter
         super(RecFSSpikeADS, RecFSSpikeADS).dt.__set__(self, new_dt)
 
