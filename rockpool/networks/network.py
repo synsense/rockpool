@@ -172,11 +172,14 @@ class Network:
         :param Optional[float] dt: If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
         """
 
-        # - Network time
-        self._timestep = 0
+        # - Initialise layers lists
+        self.evol_order: List[layers.Layer] = []
 
-        # Maintain set of all layers
+        # - Maintain set of all layers
         self.layerset = set()
+
+        # - Network time
+        self._timestep = 0.0
 
         if dt is not None:
             assert dt > 0, "Network: dt must be positive."
@@ -203,7 +206,7 @@ class Network:
 
         # - Set evolution order and time step if no layers have been connected
         if not hasattr(self, "evol_order"):
-            self.evol_order: List[layers.Layer] = self._set_evolution_order()
+            self.evol_order = self._set_evolution_order()
 
         if not hasattr(self, "_dt"):
             self._dt = None

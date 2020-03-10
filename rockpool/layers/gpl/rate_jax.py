@@ -16,11 +16,10 @@ import jax.numpy as np
 from jax import jit
 from jax.lax import scan
 import jax.random as rand
-import jax
 
 import numpy as onp
 
-from typing import Optional, Tuple, Callable, Union, Dict
+from typing import Optional, Tuple, Callable, Union, Dict, List
 from warnings import warn
 
 from rockpool.layers.layer import Layer
@@ -54,12 +53,28 @@ def H_tanh(x: FloatVector) -> FloatVector:
 # -- Generators for compiled evolution functions
 
 
-def _get_rec_evolve_jit(H: Callable[[float], float]):
+def _get_rec_evolve_jit(
+    H: Callable[[float], float]
+) -> Callable[
+    [
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        float,
+        List[int],
+        float,
+    ],
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+]:
     """
-    _get_rec_evolve_jit() - Return a compiled raw reservoir evolution function
+    Return a compiled raw reservoir evolution function
 
-    :param H:   Callable[[float], float] Neuron activation function
-    :return:     f(x0, w_in, w_recurrent, w_out, bias, tau, inputs, noise_std, key, dt) -> (x, res_inputs, rec_inputs, res_acts, outputs)
+    :param Callable[[float], float] H:   Neuron activation function
+    :return Callable:     f(x0, w_in, w_recurrent, w_out, bias, tau, inputs, noise_std, key, dt) -> (x, res_inputs, rec_inputs, res_acts, outputs)
     """
 
     @jit
@@ -74,20 +89,21 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
         noise_std: float,
         key,
         dt: float,
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        rec_evolve_jit() - Compiled recurrent evolution function
+        Compiled recurrent evolution function
 
-        :param x0:          np.ndarray Initial state of reservoir units
-        :param w_in:        np.ndarray Input weights [IxN]
-        :param w_recurrent: np.ndarray Recurrent weights [NxN]
-        :param w_out:       np.ndarray Output weights [NxO]
-        :param bias:        np.ndarray Bias values of reservoir units [N]
-        :param tau:         np.ndarray Time constants of reservoir units [N]
-        :param inputs:      np.ndarray Input time series [TxN]
-        :param noise_std:   float Standard deviation of noise injected into reservoir units
-        :param key:         Jax RNG key to use in noise generation
-        :param dt:          float Time step for forward Euler solver
+        :param np.ndarray x0:       Initial state of forced layer [N]
+        :param np.ndarray w_in:     Input weights [IxN]
+        :param np.ndarray w_recurrent:     Recurrent weights [NxN]
+        :param np.ndarray w_out:    Output weights [NxO]
+        :param np.ndarray bias:     Bias values of reservoir units [N]
+        :param np.ndarray tau:      Time constants of reservoir units [N]
+        :param np.ndarray inputs:   Input time series [TxN]
+        :param np.ndarray force:    Driving time series injected into reservoir units instead of recurrent activity [TxN]
+        :param float noise_std:     Standard deviation of noise injected into reservoir units
+        :param List[int] key:       Jax RNG key to use in noise generation
+        :param float dt:            Time step for forward Euler solver
 
         :return:    (x, res_inputs, rec_inputs, res_acts, outputs)
                 x:          np.ndarray State of
@@ -134,7 +150,30 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
     return rec_evolve_jit
 
 
-def _get_force_evolve_jit(H: Callable):
+def _get_force_evolve_jit(
+    H: Callable[[float], float]
+) -> Callable[
+    [
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        float,
+        List[int],
+        float,
+    ],
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray],
+]:
+    """
+    Return a compiled raw reservoir evolution function
+
+    :param Callable[[float], float] H:   Neuron activation function
+    :return Callable:     f(x0, w_in, w_out, bias, tau, inputs, forces, noise_std, key, dt) -> (x, res_inputs, res_acts, outputs)
+    """
+
     @jit
     def force_evolve_jit(
         x0: np.ndarray,
@@ -145,25 +184,24 @@ def _get_force_evolve_jit(H: Callable):
         inputs: np.ndarray,
         force: np.ndarray,
         noise_std: float,
-        key,
+        key: List[int],
         dt: float,
-    ):
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        force_evolve_jit() - Compiled recurrent evolution function
+        Compiled recurrent evolution function
 
-        :param x0:          np.ndarray Initial state of forced layer [N]
-        :param w_in:        np.ndarray Input weights [IxN]
-        :param w_recurrent: np.ndarray Recurrent weights [NxN]
-        :param w_out:       np.ndarray Output weights [NxO]
-        :param bias:        np.ndarray Bias values of reservoir units [N]
-        :param tau:         np.ndarray Time constants of reservoir units [N]
-        :param inputs:      np.ndarray Input time series [TxN]
-        :param force:       np.ndarray Driving time series injected into reservoir units instead of recurrent activity [TxN]
-        :param noise_std:   float Standard deviation of noise injected into reservoir units
-        :param key:         Jax RNG key to use in noise generation
-        :param dt:          float Time step for forward Euler solver
+        :param np.ndarray x0:       Initial state of forced layer [N]
+        :param np.ndarray w_in:     Input weights [IxN]
+        :param np.ndarray w_out:    Output weights [NxO]
+        :param np.ndarray bias:     Bias values of reservoir units [N]
+        :param np.ndarray tau:      Time constants of reservoir units [N]
+        :param np.ndarray inputs:   Input time series [TxN]
+        :param np.ndarray force:    Driving time series injected into reservoir units instead of recurrent activity [TxN]
+        :param float noise_std:     Standard deviation of noise injected into reservoir units
+        :param List[int] key:       Jax RNG key to use in noise generation
+        :param float dt:            Time step for forward Euler solver
 
-        :return:    (x, res_inputs, rec_inputs, res_acts, outputs)
+        :return:    (x, res_inputs, res_acts, outputs)
                 x:          np.ndarray State of
                 res_inputs: np.ndarray Time series of weighted external inputs to each reservoir unit [TxN]
                 res_acts:   np.ndarray Time series of reservoir unit activities [TxN]
@@ -243,7 +281,7 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         :param Union[str, Callable[[FloatVector], float]] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU. Can be specified as a string: ['relu', 'tanh']
         :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
         :param Optional[str] name:                  Name of the layer. Default: ``None``
-        :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
+        :param Optional[Jax RNG key] rng_key:       Jax RNG key to use for noise. Default: Internally generated
         """
 
         # - Everything should be 2D
@@ -274,13 +312,19 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
         self._evolve_jit = _get_rec_evolve_jit(self._H)
 
         # - Reset layer state
+        self._state = np.array(self._size)
         self.reset_all()
+
+        # - Reset "last evolution" attributes
+        self.res_inputs_last_evolution = TSContinuous()
+        self.rec_inputs_last_evolution = TSContinuous()
+        self.res_acts_last_evolution = TSContinuous()
 
         # - Set unit internal input and output weights, for compatibility with later layers
         if not hasattr(self, "_w_in"):
-            self._w_in = 1.0
+            self._w_in: FloatVector = 1.0
         if not hasattr(self, "_w_out"):
-            self._w_out = 1.0
+            self._w_out: FloatVector = 1.0
 
         # - Seed RNG
         if rng_key is None:
