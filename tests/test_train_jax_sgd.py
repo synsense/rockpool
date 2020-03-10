@@ -102,9 +102,6 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
     # - Layer generation
     fl0 = FFRateEulerJax(w_in=w_in, bias=0, noise_std=0.1, tau=20, dt=1,)
 
-    # - Add training shim
-    fl0 = add_shim_rate_jax_sgd(fl0)
-
     # - Define simple input and target
     ts_input = TSContinuous([0, 1, 2, 3], [0, 1, 0, 0])
     ts_target = TSContinuous(
