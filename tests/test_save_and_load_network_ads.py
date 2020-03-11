@@ -50,7 +50,7 @@ def test_it():
                                 tau_mem=tau_mem,
                                 tau_syn_r_fast=tau_syn_r_fast,
                                 tau_syn_r_slow=tau_syn_r_slow,
-                                tau_syn_out=tau_syn_out,
+                                tau_syn_r_out=tau_syn_out,
                                 phi=activation_func,
                                 record=True)
 
