@@ -245,7 +245,7 @@ class RecFSSpikeADS(Layer):
         zeros_out = np.zeros(self.out_size)
 
 
-        @njit
+        # @njit
         def _evolve_backstep(
             t_last,
             t_time,
