@@ -62,15 +62,9 @@ class NetworkADS(Network):
 
     @staticmethod
     def load_from_dict(config: dict, **kwargs):
-
-        # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
         conf = config["layers"][1]
-        conf.pop("class_name", None)
-        conf.pop("name", None)
         conf["tau_syn_r_out"] = config["layers"][2]["tau_syn"]
-        conf.pop("pre_layer_name", None)
-        conf.pop("external_input", None)
         return NetworkADS.SpecifyNetwork(**conf)
 
     @staticmethod
@@ -98,29 +92,27 @@ class NetworkADS(Network):
                         refractory: float = -np.finfo(float).eps,
                         phi : str = "tanh",
                         record : bool = False,
+                        **kwargs,
                         ):
 
 
         """
-        @brief
-            Creates a network for learning 
+        :brief Creates a network for learning 
 
-        @params
-            Nc : Dimension of input signal
-            N : Number of neurons in the recurrent layer
-            Nb : Number of basis functions used
+        :param Nc : Dimension of input signal
+        :param N : Number of neurons in the recurrent layer
+        :param Nb : Number of basis functions used
+        :param weights_in : [Nc,N] Weights that connect the input to the recurrent population
+        :param weights_out : [N,Nc] Weights that reconstruct desired output x from r of the netwok (x_hat = Dr), typically set to weights_in.T
+        :param weights_fast : [N,N] Recurrent weights for tight E/I-balance
+        :param weights_slow : [Nb,N] Weight matrix relating psi(r) to the neurons
+        :param theta : [Nb,1] Bias in the non-linear activation function
+        :param eta : Learning rate for adjusting weights_slow
+        :param k : Gain of error feedback during learning. Typically decreased while learning for generalization
+        :param noise_std : Standard deviation of noise added to the neurons membrane potentials
+        :param phi : Non-linear function of type ndarray -> ndarray. Implements tanh per default
 
-            The above are passed explicitly to ensure that the desired network size matches the matrix shapes
-
-            weights_in : [Nc,N] Weights that connect the input to the recurrent population
-            weights_out : [N,Nc] Weights that reconstruct desired output x from r of the netwok (x_hat = Dr), typically set to weights_in.T
-            weights_fast : [N,N] Recurrent weights for tight E/I-balance
-            weights_slow : [Nb,N] Weight matrix relating psi(r) to the neurons
-            theta : [Mb,1] Bias in the non-linear activation function
-            eta : Learning rate for adjusting weights_slow
-            k : Gain of error feedback during learning. Typically decreased while learning for generalization
-            noise_std : Standard deviation of noise added to the neurons membrane potentials
-            phi : Non-linear function of type ndarray -> ndarray. Implements tanh per default
+        :return : NetworkADS
         """
 
         # Assertions for checking the dimensions
@@ -138,10 +130,8 @@ class NetworkADS(Network):
                                     tau_mem=tau_mem,tau_syn_r_fast=tau_syn_r_fast,tau_syn_r_slow=tau_syn_r_slow, tau_syn_r_out=tau_syn_r_out,
                                     refractory=refractory,phi=phi,record=record,name="lyrRes")
 
-        # Input layer
         input_layer = PassThrough(np.asarray(weights_in).astype("float"), dt=dt, noise_std=noise_std, name="input_layer")
 
-        # Output layer
         output_layer = FFExpSyn(
             np.asarray(weights_out).astype("float"),
             dt=dt,
@@ -151,13 +141,13 @@ class NetworkADS(Network):
         )
 
         net_ads = NetworkADS()
-        net_ads.input_layer = net_ads.add_layer(input_layer, external_input=True) # External -> Input
-        net_ads.lyrRes = net_ads.add_layer(ads_layer, input_layer) # Input -> ADS
-        net_ads.output_layer = net_ads.add_layer(output_layer, ads_layer) # ADS -> Output
+        net_ads.input_layer = net_ads.add_layer(input_layer, external_input=True) # - External -> Input
+        net_ads.lyrRes = net_ads.add_layer(ads_layer, input_layer) # - Input -> ADS
+        net_ads.output_layer = net_ads.add_layer(output_layer, ads_layer) # - ADS -> Output
 
         return net_ads
 
-    def train_network(self,
+    def train(self,
                         data_train : List[Tuple[np.ndarray,np.ndarray]] = None,
                         data_val : List[Tuple[np.ndarray,np.ndarray]] = None,
                         get_data : Callable[[],np.ndarray] = None,
@@ -169,22 +159,26 @@ class NetworkADS(Network):
                         N_filter : int = 31,
                         ):
         """
-        Training function that trains the ADS network using either:
-            1) A function to generate input,target pairs. In this case the network will be trained for num_iter many iterations
+        :brief :
+            Function that trains the ADS network using either:
+            - A function to generate input,target pairs. In this case the network will be trained for num_iter many iterations
             and validated on a validation set of size num_validate generated by the function prior to training.
-            2) Two data-sets, data_train and data_val, which contain tuples of input,target pairs. The network will be trained on the whole training data-set
+            - Two data-sets, data_train and data_val, which contain tuples of input,target pairs. The network will be trained on the whole training data-set
             for num_iter many iterations. If function should step through the data-set once, simply set num_iter to 1. After validation_step many
             steps, the network will be evaluated on the validation data.
-        Parameters:
-            data_train : List[Tuple[np.ndarray,np.ndarray]] = None A list of training examples. Assert that data_val is not None if this field contains data
-            data_val : List[Tuple[np.ndarray,np.ndarray]] = None A list of validation examples.
-            get_data : Callable[[],np.ndarray] = None Should take no argument and simply return one training/validation example. This should be used for option 1)
-            num_validate : int = -1 Used for option 1). If get_data is not None assert that this is larger than -1. Used to set the number of validation examples.
-            num_iter : int = -1 Used for all options. If option is 1) num_iter = The number of training signals presented over training period. If the option is
-                                2) then num_iter will be the number of times data_train will be iterated over.
-            validation_step : int = 0 Equal meaning for all options: After how many signal iterations will the validation be performed. Assert that this is > 0
-            time_base : np.ndarray = None Time base used for creating TSContinuous inputs
-            verbose : int = 0 Verbose output. 0 for no verbosity, 1 for validation only and 2 for verbose output during training and validation
+            
+        :param data_train : List[Tuple[np.ndarray,np.ndarray]] = None A list of training examples. Assert that data_val is not None if this field contains data
+        :param data_val : List[Tuple[np.ndarray,np.ndarray]] = None A list of validation examples.
+        :param get_data : Callable[[],np.ndarray] = None Should take no argument and simply return one training/validation example. This should be used for option 1)
+        :param num_validate : int = -1 Used for option 1). If get_data is not None assert that this is larger than -1. Used to set the number of validation examples.
+        :param num_iter : int = -1 Used for all options. If option is 1) num_iter = The number of training signals presented over training period. If the option is
+                            2) then num_iter will be the number of times data_train will be iterated over.
+        :param validation_step : int = 0 Equal meaning for all options: After how many signal iterations will the validation be performed. Assert that this is > 0
+        :param time_base : np.ndarray = None Time base used for creating TSContinuous inputs
+        :param verbose : int = 0 Verbose output. 0 for no verbosity, 1 for validation only and 2 for verbose output during training and validation
+
+        :return Dictionary: dict["model"] = Best model during training according to validation error. This is also a dictionary
+                    dict["diagnostics"] = Validation error, var(pISI) and other factors recorded during training 
         """
 
         if(data_train is not None):
@@ -210,20 +204,10 @@ class NetworkADS(Network):
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
             errors = []
-            xor_errors = []
             variances = []
-            correct_count = 0
-            for d in data_val:
-                input_val = d[0]
-                target_val = d[1]
-                try:
-                    xor_target = d[2]
-                except:
-                    xor_target = None
-
-                target_indices = np.argwhere(np.abs(xor_target) > 0.5)[-1][1]
-                target = xor_target[:,target_indices] > 0
-                
+            for triplet in data_val:
+                input_val = triplet[0]
+                target_val = triplet[1]
 
                 ts_input_val = TSContinuous(time_base, input_val.T)
                 ts_target_val = TSContinuous(time_base, target_val.T)
@@ -233,54 +217,15 @@ class NetworkADS(Network):
                 out_val = val_sim["output_layer"].samples.T
                 self.reset_all()
 
-                if(xor_target is not None and self.lyrRes.rate_layer is not None):
-                    xor_response = np.dot(out_val.T, self.lyrRes.rate_layer.w_out)
-                    def running_mean(x, N):
-                        cumsum = np.cumsum(np.insert(x, 0, 0)) 
-                        return (cumsum[N:] - cumsum[:-N]) / float(N)
-                    xor_response_filtered = running_mean(xor_response, 50)
-                    l = xor_response_filtered.shape[0]
-                    ld = xor_target.shape[1]
-                    xor_response_filtered_padded = np.zeros(xor_target.shape)
-                    xor_response_filtered_padded[:,ld-l:] = xor_response_filtered
-
-                    # What does the network decide?
-                    correct = False
-                    response_indices = np.argwhere(np.abs(xor_response_filtered_padded) > 0.3)
-                    if(response_indices.shape[0]>0):
-                        response_target = xor_response_filtered_padded[:,response_indices[-1][1]] > 0
-                        correct = response_target == target
-
-                    if(correct):
-                        correct_count += 1
-
-                    xor_error = np.linalg.norm(xor_target-xor_response_filtered_padded)
-                    xor_errors.append(xor_error)
-
                 if(verbose > 0):
-                    if(xor_response_filtered is None):
-                        fig = plt.figure(figsize=(20,5))
-                        plt.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
-                        plt.plot(time_base, target_val[0:2,:].T, label=r"Target")
-                        plt.title(r"Target vs reconstruction")
-                        plt.legend()
-                        plt.draw()
-                        plt.waitforbuttonpress(0) # this will wait for indefinite time
-                        plt.close(fig)
-                    else:
-                        fig = plt.figure(figsize=(20,5))
-                        ax0 = fig.add_subplot(211)
-                        ax0.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
-                        ax0.plot(time_base, target_val[0:2,:].T, label=r"Target")
-                        ax0.set_title(r"Target vs reconstruction")
-                        ax0.legend()
-                        ax1 = fig.add_subplot(212)
-                        ax1.plot(np.linspace(0,1.0,xor_response_filtered.shape[0]), xor_response_filtered, label="Recon")
-                        ax1.plot(time_base, xor_target.T, label="Target")
-                        ax1.legend()
-                        plt.draw()
-                        plt.waitforbuttonpress(0) # this will wait for indefinite time
-                        plt.close(fig)
+                    fig = plt.figure(figsize=(20,5))
+                    plt.plot(time_base, out_val[0:2,:].T, label=r"Reconstructed")
+                    plt.plot(time_base, target_val[0:2,:].T, label=r"Target")
+                    plt.title(r"Target vs reconstruction")
+                    plt.legend()
+                    plt.draw()
+                    plt.waitforbuttonpress(0)
+                    plt.close(fig)
 
                 if(target_val.ndim == 1):
                     target_val = np.reshape(target_val, (out_val.shape))
@@ -296,9 +241,12 @@ class NetworkADS(Network):
                 errors.append(err)
                 self.lyrRes.ts_target = None
             return np.mean(np.asarray(errors)), np.mean(np.asarray(variances))
-        # End perform_validation_set
+        # - End perform_validation_set
 
-        ########## Training on data set and validating on validation set ##########
+        best_validation_error = np.inf
+        best_model = self.to_dict()
+        diagnostics = dict(validation_error=[], var_pISI=[])
+        # - Training on data set and validating on validation set
         if(data_train is not None and data_val is not None):
             print("Start training on data set...Total number of training signals presented: %d" % (num_iter*len(data_train)))
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
@@ -306,7 +254,7 @@ class NetworkADS(Network):
             with tqdm(total=num_iter) as pbar_outer:
                 pbar_outer.set_description("Batch")
             
-                with tqdm(total=len(data_train), bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]} Mean pISI: {postfix[1][mean_pISI]} eta: {postfix[1][eta]} k: {postfix[1][k]} {l_bar}{bar}",
+                with tqdm(total=len(data_train), bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]:.5f} Mean pISI: {postfix[1][mean_pISI]:.5f} eta: {postfix[1][eta]:.5f} k: {postfix[1][k]:.5f} {l_bar}{bar}",
                     postfix=["Training:", dict(num_signal_iterations=0,validation_error=0,mean_pISI=0,eta=0,k=0)]) as t:
 
                     for iteration in range(num_iter):
@@ -314,6 +262,12 @@ class NetworkADS(Network):
                             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
                             if(num_signal_iterations % validation_step == 0):
                                 validation_error, pISI = perform_validation_set()
+                                diagnostics["validation_error"].append(validation_error)
+                                diagnostics["var_pISI"].append(pISI)
+
+                                if(validation_error < best_validation_error):
+                                    best_model = self.to_dict()
+                                    best_validation_error = validation_error
 
                             self.lyrRes.is_training = True
                             ts_input_train = TSContinuous(time_base, input_train.T)
@@ -336,19 +290,28 @@ class NetworkADS(Network):
                         pbar_outer.update(1)
 
 
-        ########## Training using newly generated data from get_data ##########
+        # - Training using newly generated data from get_data
         elif(get_data is not None):
             print("Start training using get_data...")
-            # Create val_data
+            # - Create validation data
             data_val = [get_data() for _ in range(num_validate)]
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
-            with tqdm(total=num_iter, bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]} Mean pISI: {postfix[1][mean_pISI]} eta: {postfix[1][eta]} k: {postfix[1][k]} {l_bar}{bar}",
+            with tqdm(total=num_iter, bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]:.5f} Mean pISI: {postfix[1][mean_pISI]:.5f} eta: {postfix[1][eta]:.5f} k: {postfix[1][k]:.5f} {l_bar}{bar}",
                     postfix=["Training:", dict(num_signal_iterations=0,validation_error=0,mean_pISI=0,eta=0,k=0)]) as t:
                 for iteration in range(1,num_iter+1):
                     if(num_signal_iterations % validation_step == 0):
-                            validation_error, pISI = perform_validation_set()
-                    (input_train, target_train) = get_data()
+                        validation_error, pISI = perform_validation_set()
+                        diagnostics["validation_error"].append(validation_error)
+                        diagnostics["var_pISI"].append(pISI)
+                        if(validation_error < best_validation_error):
+                                best_model = self.to_dict()
+                                best_validation_error = validation_error    
+
+                    triplet = get_data()
+                    input_train = triplet[0]
+                    target_train = triplet[1]
+
                     self.lyrRes.is_training = True
                     ts_input_train = TSContinuous(time_base, input_train.T)
                     ts_target_train = TSContinuous(time_base, target_train.T)
@@ -371,6 +334,9 @@ class NetworkADS(Network):
                     t.postfix[1]["eta"] = self.lyrRes.eta
                     t.postfix[1]["k"] = self.lyrRes.k
                     t.update(1)
+
+        return_dict = dict(model=best_model, diagnostics=diagnostics)
+        return return_dict
 
 
 

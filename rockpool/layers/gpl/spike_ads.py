@@ -54,9 +54,9 @@ def syn_dot_I(t, I, dt, I_spike, tau_Syn):
 
 class RecFSSpikeADS(Layer):
     """
-    Implement the layer for the NetworkADS (Arbitrary Dynamical System), which is capable of learning
-    an arbitrary dynamical system.
-    See rockpool/networks/gpl/net_as.py for the parameters passed here.
+    :brief : Implement the layer for the NetworkADS (Arbitrary Dynamical System), which is capable of learning
+        an arbitrary dynamical system.
+        See rockpool/networks/gpl/net_as.py for the parameters passed here.
     """
     def __init__(self,
                 weights_fast : np.ndarray,
@@ -84,7 +84,7 @@ class RecFSSpikeADS(Layer):
         
         super().__init__(weights=np.zeros((np.asarray(weights_fast).shape[0],np.asarray(weights_fast).shape[1])), noise_std=noise_std, name=name)
 
-        # Fast weights, noise_std and name are access. via self.XX or self._XX
+        # - Fast weights, noise_std and name are access. via self.XX or self._XX
         self.weights_slow = np.asarray(weights_slow).astype("float")
         self.weights_out = np.asarray(weights_out).astype("float")
         self.weights_in = np.asarray(weights_in).astype("float")
@@ -111,10 +111,10 @@ class RecFSSpikeADS(Layer):
         self.phi_name = phi
         self.out_size = self.weights_out.shape[1]
 
-        # Learning callback
-        def learning_callback(weights_slow, phi_r, weights_in, e, dt):
+        # @njit
+        def learning_callback(weights_slow : np.ndarray, phi_r : np.ndarray , weights_in : np.ndarray, e : float , dt : float) -> np.ndarray:
             """
-            Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
+            :brief : Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
             """
             return np.outer(phi_r,(weights_in.T @ e).T)
 
@@ -125,6 +125,7 @@ class RecFSSpikeADS(Layer):
 
         if(phi == "tanh"):
             self.phi = lambda x : np.tanh(x)
+            
         elif(phi == "relu"):
             self.phi = lambda x : np.clip(x,0,None)
 
@@ -589,7 +590,7 @@ class RecFSSpikeADS(Layer):
             plt.plot(times, f[0:5,:].T)
             plt.title(r"$I_f$")
 
-            plt.subplot(812)
+            plt.subplot(912)
             plt.plot(times, (out[0:2,:]).T, label="Recon")
             plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:2], label="Target")
             plt.legend()
@@ -635,16 +636,6 @@ class RecFSSpikeADS(Layer):
             plt.draw()
             plt.waitforbuttonpress(0) # this will wait for indefinite time
             plt.close(fig)
-
-            # fig = plt.figure()
-            # im = plt.matshow(self.weights_fast, fignum=False)
-            # plt.xticks([], [])
-            # plt.colorbar(im,fraction=0.046, pad=0.04)
-            # plt.draw()
-            # plt.waitforbuttonpress(0) # this will wait for indefinite time
-            # plt.close(fig)
-
-                
 
         return ts_event_return
 
