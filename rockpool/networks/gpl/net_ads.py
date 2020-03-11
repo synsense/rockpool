@@ -254,7 +254,7 @@ class NetworkADS(Network):
             with tqdm(total=num_iter) as pbar_outer:
                 pbar_outer.set_description("Batch")
             
-                with tqdm(total=len(data_train), bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]:.5f} Mean pISI: {postfix[1][mean_pISI]:.5f} eta: {postfix[1][eta]:.5f} k: {postfix[1][k]:.5f} {l_bar}{bar}",
+                with tqdm(total=len(data_train), bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]:.5f} Mean pISI: {postfix[1][mean_pISI]:.5f} eta: {postfix[1][eta]:.5f} k: {postfix[1][k]:.5f} {l_bar}{bar}[{elapsed}<{remaining}, ' '{rate_fmt}]",
                     postfix=["Training:", dict(num_signal_iterations=0,validation_error=0,mean_pISI=0,eta=0,k=0)]) as t:
 
                     for iteration in range(num_iter):
@@ -297,7 +297,7 @@ class NetworkADS(Network):
             data_val = [get_data() for _ in range(num_validate)]
             assert(self.lyrRes.ts_target is None), "ts_target not set to None in spike_ads layer"
 
-            with tqdm(total=num_iter, bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]:.5f} Mean pISI: {postfix[1][mean_pISI]:.5f} eta: {postfix[1][eta]:.5f} k: {postfix[1][k]:.5f} {l_bar}{bar}",
+            with tqdm(total=num_iter, bar_format="{postfix[0]} # of signal iterations: {postfix[1][num_signal_iterations]} Validation error: {postfix[1][validation_error]:.5f} Mean pISI: {postfix[1][mean_pISI]:.5f} eta: {postfix[1][eta]:.5f} k: {postfix[1][k]:.5f} {l_bar}{bar}[{elapsed}<{remaining}, ' '{rate_fmt}]",
                     postfix=["Training:", dict(num_signal_iterations=0,validation_error=0,mean_pISI=0,eta=0,k=0)]) as t:
                 for iteration in range(1,num_iter+1):
                     if(num_signal_iterations % validation_step == 0):
