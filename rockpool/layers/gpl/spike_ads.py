@@ -67,17 +67,7 @@ def learning_callback(weights_slow : np.ndarray, phi_r : np.ndarray , weights_in
     """
     :brief : Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
     """
-    #return np.outer(phi_r,(weights_in.T @ e).T)
-    Nc = weights_in.shape[0]
-    N = weights_in.shape[1]
-    result = np.empty((N,), dtype=np.float64)
-    for c in range(N):
-        s = 0
-        for r in range(Nc):
-            s += e[r]*weights_in[r,c]
-        result[c] = s
-
-    return outer_numba(phi_r, result)
+    return outer_numba(phi_r, (weights_in.T @ e).T)
 
 
 class RecFSSpikeADS(Layer):
@@ -130,7 +120,7 @@ class RecFSSpikeADS(Layer):
         self.tau_syn_r_slow = np.asarray(tau_syn_r_slow).astype("float")
         self.tau_syn_r_out = np.asarray(tau_syn_r_out).astype("float")
         self.refractory = float(refractory)
-        self.is_training = False # Set externally by train method in net_ads.py
+        self.is_training = False
         self._ts_target = None
         self.recorded_states = None
         self.record = bool(record)
@@ -141,24 +131,18 @@ class RecFSSpikeADS(Layer):
 
         self.optimal_weights_fast = None
 
-        if(phi == "tanh"):
-            self.phi = lambda x : np.tanh(x)
-            
-        elif(phi == "relu"):
-            self.phi = lambda x : np.clip(x,0,None)
-
         # - Set a reasonable dt
         if dt is None:
             self.dt = self._min_tau / 10
         else:
             self.dt = np.asarray(dt).astype("float")
 
-        # Initialise the network
+        # - Initialise the network
         self.reset_all()
 
     def reset_state(self):
         """
-        Reset the internal state of the network
+        :brief Reset the internal state of the network
         """
         self.state = self.v_rest.copy()
         self.I_s_S = np.zeros(self.size)
@@ -173,14 +157,12 @@ class RecFSSpikeADS(Layer):
                 verbose: bool = False,
                 min_delta: Optional[float] = None,) -> TSEvent:
         """
-        Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
-
-        Params:
-            ts_input : [TSContinuous] Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
-            duration : [float] Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
-            num_timesteps : [int] Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
-            verbose : [bool] Print verbose output
-            min_delta : [float] Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
+        :brief Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
+        :param : ts_input : [TSContinuous] Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
+        :param : duration : [float] Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
+        :param : num_timesteps : [int] Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
+        :param : verbose : [bool] Print verbose output
+        :param : min_delta : [float] Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
         """
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
@@ -194,7 +176,7 @@ class RecFSSpikeADS(Layer):
         input_time_trace, static_input, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
         final_time = input_time_trace[-1]
 
-        # Assertions about training and the targets that were set
+        # - Assertions about training and the targets that were set
         if(self.is_training):
             assert (self.ts_target is not None), "Evolve called with learning flag set, but no target input provided"
             assert (input_time_trace.shape == self.target_time_trace.shape), "Input and target time_trace shapes don't match"
@@ -244,8 +226,7 @@ class RecFSSpikeADS(Layer):
         zeros = np.zeros(self.size)
         zeros_out = np.zeros(self.out_size)
 
-
-        # @njit
+        # @njit # - njit compiled is actually slower
         def _evolve_backstep(
             t_last,
             t_time,
@@ -285,7 +266,7 @@ class RecFSSpikeADS(Layer):
             b = vec_refractory > 0
             state[b] = v_reset[b]
 
-            ## - Back-tick spike detector
+            # - Back-tick spike detector
 
             # - Locate spiking neurons
             spike_ids = state > v_thresh
@@ -295,7 +276,7 @@ class RecFSSpikeADS(Layer):
             # - Were there any spikes?
             if num_spikes > 0:
                 # - Predict the precise spike times using linear interpolation, returns a value between 0 and dt depending on whether V(t) or V(t-1) is closer to the threshold.
-                # We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
+                # - We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
                 spike_deltas = ((v_thresh[spike_ids] - v_last[spike_ids]) * dt / (state[spike_ids] - v_last[spike_ids]))
 
                 # - Was there more than one neuron above threshold?
@@ -358,7 +339,7 @@ class RecFSSpikeADS(Layer):
             dot_I_s_O = syn_dot_I(I_s_O, dt, I_spike_out, tau_syn_r_out)
             I_s_O += dot_I_s_O * dt
 
-            # Calculate phi(M@r +theta)
+            # - Calculate phi(M@r +theta)
             if(phi_name == "tanh"):
                 phi_r = np.tanh(M @ I_s_S + theta)
             elif(phi_name == "relu"):
@@ -371,9 +352,7 @@ class RecFSSpikeADS(Layer):
             I_ext = static_input[int_time, :]
 
             if(is_training):
-                # Compute x_hat
                 x = target[int_time, :]
-                # x_hat = weights_out.T @ I_s_S
                 x_hat = I_s_O
                 e = x - x_hat
                 I_kDte = k*weights_in.T @ e
@@ -382,7 +361,6 @@ class RecFSSpikeADS(Layer):
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
                 e = zeros_out
 
-            # Calculate dot_v following dot_v = -lam + I_ext + I_s_F + I_W_slow_phi_x + I_kDte,  (V_rest - V + I_s_F + I_W_slow_phi_x + I_kDte + I_ext + bias) / tau_V
             dot_v = neuron_dot_v(
                 t = t_time,
                 V = state,
@@ -601,16 +579,11 @@ class RecFSSpikeADS(Layer):
         # - Return output TimeSeries
         ts_event_return = TSEvent(spike_times, spike_indices)
 
-        # optscale = np.trace(np.matmul(self.weights_fast.T, self.optimal_weights_fast)) / np.sum(self.optimal_weights_fast**2)
-        # Cnorm = np.sum(self.weights_fast**2)
-        # ErrorC = np.sum(np.sum((self.weights_fast - optscale*self.optimal_weights_fast)**2 ,axis=0)) / Cnorm
-        # print("Distance to optimal fast recurrent connection is %.5f" % ErrorC)
-
         if(verbose):
             
-            print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
+            if(self.is_training):
+                print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
 
-            # Compare the current traces
             fig = plt.figure(figsize=(20,20))
             plt.subplot(911)
             plt.plot(times, f[0:5,:].T)
@@ -801,7 +774,6 @@ class RecFSSpikeADS(Layer):
 
         
 
-    # Override _prepare_input to also allow preparing the target variable and setting the time base according to the layers dt
     def _prepare_input(
         self,
         ts_input: Optional[TimeSeries] = None,
