@@ -13,13 +13,15 @@ This module encapsulates networks -- combinations of multiple `.Layer` objects, 
 import json
 from decimal import Decimal
 from copy import deepcopy
-from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any
+from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any, Set
 from warnings import warn
 
 import numpy as np
 
 from ..timeseries import TimeSeries
-from .. import layers
+from ..layers import layer as l
+
+from ..layers.layer import Layer
 
 # - Try to import tqdm
 try:
@@ -164,7 +166,9 @@ class Network:
 
     """
 
-    def __init__(self, *layers: List[layers.Layer], dt: Optional[float] = None):
+    def __init__(
+        self, layers: List[Layer] = None, dt: Optional[float] = None, *args, **kwargs
+    ):
         """
         Base class to encapsulate several `.Layer` objects and manage signal routing
 
@@ -173,13 +177,16 @@ class Network:
         """
 
         # - Initialise layers lists
-        self.evol_order: List[layers.Layer] = []
+        self.evol_order: List[Layer] = []
 
         # - Maintain set of all layers
-        self.layerset = set()
+        self.layerset: Set = set()
 
         # - Network time
-        self._timestep = 0.0
+        self._timestep: float = 0.0
+
+        # - Call super-class init
+        super().__init__(*args, **kwargs)
 
         if dt is not None:
             assert dt > 0, "Network: dt must be positive."
@@ -189,12 +196,12 @@ class Network:
         else:
             self._force_dt = False
 
-        if layers:
+        if layers is not None:
             # - First layer receives external input
             self.input_layer = self.add_layer(layers[0], external_input=True)
 
             # - Keep track of most recently added layer
-            recent_layer: layers.Layer = layers[0]
+            recent_layer: Layer = layers[0]
 
             # - Add and connect subsequent layers
             for lyr in layers[1:]:
@@ -213,12 +220,12 @@ class Network:
 
     def add_layer(
         self,
-        lyr: layers.Layer,
-        input_layer: layers.Layer = None,
-        output_layer: layers.Layer = None,
+        lyr: Layer,
+        input_layer: Layer = None,
+        output_layer: Layer = None,
         external_input: bool = False,
         verbose: bool = False,
-    ) -> layers.Layer:
+    ) -> Layer:
         """
         Add a new layer to the network
 
@@ -314,7 +321,7 @@ class Network:
 
         return newname
 
-    def remove_layer(self, del_layer: layers.Layer):
+    def remove_layer(self, del_layer: Layer):
         """
         Remove a layer from the network by removing it from the layer inventory and make sure that no other layer receives input from it
 
@@ -341,11 +348,9 @@ class Network:
         self._dt = self._set_dt()
 
         # - Reevaluate the layer evolution order
-        self.evol_order: List[layers.Layer] = self._set_evolution_order()
+        self.evol_order = self._set_evolution_order()
 
-    def connect(
-        self, pre_layer: layers.Layer, post_layer: layers.Layer, verbose: bool = False
-    ):
+    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
         """
         Connect two layers by defining one as the input layer of the other
 
@@ -393,9 +398,7 @@ class Network:
             post_layer.pre_layer = None
             raise e
 
-    def disconnect(
-        self, pre_layer: layers.Layer, post_layer: layers.Layer, verbose: bool = False
-    ):
+    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
         """
         Remove the connection between two layers by setting the input of the target layer to `None`
 
@@ -436,7 +439,7 @@ class Network:
         """
 
         # - Function to find next evolution layer
-        def find_next_layer(candidates: set) -> layers.Layer:
+        def find_next_layer(candidates: set) -> Layer:
             while True:
                 try:
                     candidate_lyr = candidates.pop()
@@ -1116,7 +1119,7 @@ class Network:
         evol_order = []
         # - Generate layers, extract information about input sources
         for lyr in list_layers:
-            cls_layer = getattr(layers, lyr["class_name"])
+            cls_layer = getattr(lyr, lyr["class_name"])
             pre_layers.append(lyr.pop("pre_layer_name", None))
             external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
@@ -1133,7 +1136,7 @@ class Network:
             return Network(*evol_order, dt=dt)
         else:
             newnet = Network(dt=dt)
-            # - Add layers accordign to evolution order. Maintain network structure by specifying input sources
+            # - Add layers according to evolution order. Maintain network structure by specifying input sources
             for lyr, ext, pre in zip(evol_order, external, pre_layers):
                 pre_layer = getattr(newnet, pre) if pre is not None else None
                 newnet.add_layer(
@@ -1148,7 +1151,7 @@ class Network:
             return newnet
 
     @staticmethod
-    def add_layer_class(cls_lyr: Type[layers.Layer], name: str):
+    def add_layer_class(cls_lyr: Type[Layer], name: str):
         """
         Add external layer class to the namespace
 
@@ -1157,7 +1160,7 @@ class Network:
         :param Layer cls:   The class that is to be added
         :param str name:    Name of the class as a string
         """
-        setattr(layers, name, cls_lyr)
+        setattr(l, name, cls_lyr)
 
 
 ### --- NetworkError exception class

@@ -16,7 +16,7 @@ def test_load_save_net_structure():
     l3 = FFRateEuler(np.random.rand(4, 3))
     l4 = FFRateEuler(np.random.rand(3, 3))
 
-    net = Network(l1, l3, l4, dt=2)
+    net = Network([l1, l3, l4], dt=2)
     net.add_layer(l2, input_layer=l1)
 
     net1 = net.shallow_copy()

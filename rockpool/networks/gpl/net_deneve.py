@@ -17,9 +17,9 @@ class NetworkDeneve(Network):
     `.Network` base class that defines and builds networks of Deneve reservoirs to solve linear problems.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         # - Call super-class constructor
-        super().__init__()
+        super().__init__(**kwargs)
 
     @staticmethod
     def SolveLinearProblem(

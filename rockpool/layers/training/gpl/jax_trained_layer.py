@@ -6,7 +6,6 @@
 from rockpool.layers.layer import Layer
 from rockpool.timeseries import TimeSeries
 
-import jax
 from jax import jit, grad
 from jax.experimental.optimizers import adam
 
@@ -99,6 +98,10 @@ class JaxTrainedLayer(Layer, ABC):
             return evol_func
     """
 
+    def __init__(self, *args, **kwargs):
+        # - Ensure initialisation passes up the chain
+        super().__init__(*args, **kwargs)
+
     @abstractmethod
     def _pack(self) -> Params:
         """
@@ -172,6 +175,9 @@ class JaxTrainedLayer(Layer, ABC):
         be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
         on each call of `.train_adam`, but the layer time and state are *not* updated.
 
+        .. rubric:: Writing your own loss function
+
+
         :return:            (loss_fcn, grad_fcn):
                                 loss_fcn:   Callable[[], float] Function that returns the current loss
                                 grad_fcn:   Callable[[], float] Function that returns the gradient for the current batch
@@ -189,7 +195,7 @@ class JaxTrainedLayer(Layer, ABC):
             reg_l2_rec: float = 1.0,
         ) -> float:
             """
-            loss_mse_reg() - Loss function for target versus output
+            Loss function for target versus output
 
             :param Params params:               Set of packed parameters
             :param np.ndarray output_batch_t:   Output rasterised time series [TxO
@@ -224,6 +230,8 @@ class JaxTrainedLayer(Layer, ABC):
         )
 
         if initialise:
+            # print("initialise")
+
             # - Get optimiser
             (opt_init, opt_update, get_params) = optimizer(**deepcopy(opt_params))
             self.__get_params = get_params
@@ -259,6 +267,7 @@ class JaxTrainedLayer(Layer, ABC):
 
             # - If using default loss, set up parameters
             if loss_fcn is None:
+                # print("default loss function")
                 loss_fcn = loss_mse_reg
                 default_loss_params = {
                     "lambda_mse": 1.0,
@@ -298,6 +307,9 @@ class JaxTrainedLayer(Layer, ABC):
                     opt_params, output_batch_t, target_batch_t, **loss_params
                 )
 
+            # print("using loss function: ", loss_fcn)
+            # print("curried loss function: ", loss_curried)
+
             # - Assign update, loss and gradient functions
             self.__update_fcn = update_fcn
             self.__loss_fcn = loss_curried
@@ -309,6 +321,10 @@ class JaxTrainedLayer(Layer, ABC):
 
             # - Assign "in training" flag
             self.__in_training_sgd_adam = True
+
+        # print("loss function: ", self.__loss_fcn)
+        # print("grad function: ", self.__grad_fcn)
+        # print("update function: ", self.__update_fcn)
 
         # - Prepare time base and inputs
         if isinstance(ts_input, TimeSeries):
@@ -344,5 +360,8 @@ class JaxTrainedLayer(Layer, ABC):
             ),
             lambda: self.__grad_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
+            ),
+            lambda: self._evolve_functional(
+                self.__get_params(self.__opt_state), self._state, inps
             ),
         )

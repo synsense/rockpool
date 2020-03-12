@@ -35,6 +35,8 @@ class Layer(ABC):
         dt: float = 1.0,
         noise_std: float = 0.0,
         name: str = "unnamed",
+        *args,
+        **kwargs,
     ):
         """
         Implement an abstract layer of neurons (no implementation, must be subclassed)
@@ -44,6 +46,8 @@ class Layer(ABC):
         :param float noise_std:             Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected std. dev. after 1s of integration time
         :param str name:                    Name of this layer. Default: 'unnamed'
         """
+        # - Call super-class init
+        super().__init__(*args, **kwargs)
 
         # - Assign properties
         if name is None:

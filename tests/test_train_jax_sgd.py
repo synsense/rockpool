@@ -35,11 +35,14 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.1, 0.1, 0.1])
 
     # - Initialise training
-    loss_fcn, grad_fcn = fl0.train_output_target(ts_input, ts_target, is_first=True)
+    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+        ts_input, ts_target, is_first=True
+    )
 
     # - Test loss and gradient functions
     l = loss_fcn()
     g = grad_fcn()
+    o = output_fcn()
 
     # - Test known loss and gradient values
     l_target = 1477
@@ -109,11 +112,14 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
     )
 
     # - Initialise training
-    loss_fcn, grad_fcn = fl0.train_output_target(ts_input, ts_target, is_first=True)
+    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+        ts_input, ts_target, is_first=True
+    )
 
     # - Test loss and gradient functions
     loss_fcn()
     grad_fcn()
+    output_fcn()
 
     # - Perform intermediate training step
     fl0.train_output_target(ts_input, ts_target)
