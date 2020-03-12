@@ -49,8 +49,26 @@ def neuron_dot_v(
     return (V_rest - V + I_s_F + I_W_slow_phi_x + I_kDte + I_ext + bias) / tau_V
 
 @njit
-def syn_dot_I(t, I, dt, I_spike, tau_Syn):
+def syn_dot_I(I, dt, I_spike, tau_Syn):
     return -I / tau_Syn + I_spike / dt
+
+@njit
+def outer_numba(a, b):
+    m = a.shape[0]
+    n = b.shape[0]
+    result = np.empty((m, n), dtype=np.float64)
+    for i in range(m):
+        for j in range(n):
+            result[i, j] = a[i]*b[j]
+    return result
+
+@njit
+def learning_callback(weights_slow : np.ndarray, phi_r : np.ndarray , weights_in : np.ndarray, e : np.ndarray , dt : float) -> np.ndarray:
+    """
+    :brief : Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
+    """
+    return outer_numba(phi_r, (weights_in.T @ e).T)
+
 
 class RecFSSpikeADS(Layer):
     """
@@ -102,7 +120,7 @@ class RecFSSpikeADS(Layer):
         self.tau_syn_r_slow = np.asarray(tau_syn_r_slow).astype("float")
         self.tau_syn_r_out = np.asarray(tau_syn_r_out).astype("float")
         self.refractory = float(refractory)
-        self.is_training = False # Set externally by train method in net_ads.py
+        self.is_training = False
         self._ts_target = None
         self.recorded_states = None
         self.record = bool(record)
@@ -111,23 +129,7 @@ class RecFSSpikeADS(Layer):
         self.phi_name = phi
         self.out_size = self.weights_out.shape[1]
 
-        # @njit
-        def learning_callback(weights_slow : np.ndarray, phi_r : np.ndarray , weights_in : np.ndarray, e : float , dt : float) -> np.ndarray:
-            """
-            :brief : Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
-            """
-            return np.outer(phi_r,(weights_in.T @ e).T)
-
-        # Set the learning callback
-        self.learning_callback = learning_callback
-
         self.optimal_weights_fast = None
-
-        if(phi == "tanh"):
-            self.phi = lambda x : np.tanh(x)
-            
-        elif(phi == "relu"):
-            self.phi = lambda x : np.clip(x,0,None)
 
         # - Set a reasonable dt
         if dt is None:
@@ -135,12 +137,12 @@ class RecFSSpikeADS(Layer):
         else:
             self.dt = np.asarray(dt).astype("float")
 
-        # Initialise the network
+        # - Initialise the network
         self.reset_all()
 
     def reset_state(self):
         """
-        Reset the internal state of the network
+        :brief Reset the internal state of the network
         """
         self.state = self.v_rest.copy()
         self.I_s_S = np.zeros(self.size)
@@ -155,14 +157,12 @@ class RecFSSpikeADS(Layer):
                 verbose: bool = False,
                 min_delta: Optional[float] = None,) -> TSEvent:
         """
-        Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
-
-        Params:
-            ts_input : [TSContinuous] Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
-            duration : [float] Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
-            num_timesteps : [int] Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
-            verbose : [bool] Print verbose output
-            min_delta : [float] Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
+        :brief Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
+        :param : ts_input : [TSContinuous] Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
+        :param : duration : [float] Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
+        :param : num_timesteps : [int] Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
+        :param : verbose : [bool] Print verbose output
+        :param : min_delta : [float] Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
         """
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
@@ -176,9 +176,8 @@ class RecFSSpikeADS(Layer):
         input_time_trace, static_input, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
         final_time = input_time_trace[-1]
 
-        # Assertions about training and the targets that were set
+        # - Assertions about training and the targets that were set
         if(self.is_training):
-            assert (self.learning_callback is not None), "Learning flag set, but no callback provided"
             assert (self.ts_target is not None), "Evolve called with learning flag set, but no target input provided"
             assert (input_time_trace.shape == self.target_time_trace.shape), "Input and target time_trace shapes don't match"
             assert (static_input.shape[0] == self.static_target.shape[0]), "Input and target lengths don't match"
@@ -190,20 +189,19 @@ class RecFSSpikeADS(Layer):
         )
         static_input += noise_step
 
-        # - Allocate state storage variables
         record_length = num_timesteps
         spike_pointer = 0
-        times = full_nan(record_length)
-        v = full_nan((self.size, record_length))
-        s = full_nan((self.size, record_length))
-        f = full_nan((self.size, record_length))
-        out = full_nan((self.out_size, record_length))
 
         if(verbose):
+            times = full_nan(record_length)
+            v = full_nan((self.size, record_length))
+            s = full_nan((self.size, record_length))
+            f = full_nan((self.size, record_length))
+            out = full_nan((self.out_size, record_length))
             I_kDte_track = full_nan((self.size, record_length))
             I_W_slow_phi_x_track = full_nan((self.size, record_length))
             phi_r_track = full_nan((self.weights_slow.shape[0], record_length))
-        dot_v_ts = full_nan((self.size, record_length))
+            dot_v_ts = full_nan((self.size, record_length))
 
         # - Allocate storage for spike times
         max_spike_pointer = record_length * self.size
@@ -228,179 +226,179 @@ class RecFSSpikeADS(Layer):
         zeros = np.zeros(self.size)
         zeros_out = np.zeros(self.out_size)
 
-        # - Euler integrator loop
-        while t_time < final_time:
+        # @njit # - njit compiled is actually slower
+        def _evolve_backstep(
+            t_last,
+            t_time,
+            weights,
+            weights_slow,
+            weights_in,
+            weights_out,
+            M,
+            theta,
+            phi_name,
+            k,
+            is_training,
+            state,
+            I_s_S,
+            I_s_F,
+            I_s_O,
+            dt,
+            v_last,
+            I_s_S_Last,
+            I_s_F_Last,
+            I_s_O_Last,
+            v_reset,
+            v_rest,
+            v_thresh,
+            bias,
+            tau_mem,
+            tau_syn_r_slow,
+            tau_syn_r_fast,
+            tau_syn_r_out,
+            refractory,
+            vec_refractory,
+            zeros,
+            target
+        ):
 
-            ### --- Numba-compiled inner function for speed
-            # @njit
-            def _evolve_backstep(
+            # - Enforce refractory period by clamping membrane potential to reset
+            b = vec_refractory > 0
+            state[b] = v_reset[b]
+
+            # - Back-tick spike detector
+
+            # - Locate spiking neurons
+            spike_ids = state > v_thresh
+            spike_ids = np.asarray(argwhere(spike_ids))
+            num_spikes = len(spike_ids)
+
+            # - Were there any spikes?
+            if num_spikes > 0:
+                # - Predict the precise spike times using linear interpolation, returns a value between 0 and dt depending on whether V(t) or V(t-1) is closer to the threshold.
+                # - We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
+                spike_deltas = ((v_thresh[spike_ids] - v_last[spike_ids]) * dt / (state[spike_ids] - v_last[spike_ids]))
+
+                # - Was there more than one neuron above threshold?
+                if num_spikes > 1:
+                    # - Find the earliest spike
+                    spike_delta, first_spike_id = min_argmin(spike_deltas)
+                    first_spike_id = spike_ids[first_spike_id]
+                else:
+                    spike_delta = spike_deltas[0]
+                    first_spike_id = spike_ids[0]
+
+                # - Find time of actual spike
+                shortest_step = t_last + min_delta
+                spike = clip_scalar(t_last + spike_delta, shortest_step, t_time)
+                spike_delta = spike - t_last
+
+                # - Back-step time to spike
+                t_time = spike
+                vec_refractory = vec_refractory + dt - spike_delta
+
+                # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
+                state = _backstep(state, v_last, dt, spike_delta)
+                I_s_S = _backstep(I_s_S, I_s_S_Last, dt, spike_delta)
+                I_s_F = _backstep(I_s_F, I_s_F_Last, dt, spike_delta)
+                I_s_O = _backstep(I_s_O, I_s_O_Last, dt, spike_delta)
+
+                # - Apply reset to spiking neuron
+                state[first_spike_id] = v_reset[first_spike_id]
+
+                # - Begin refractory period for spiking neuron
+                vec_refractory[first_spike_id] = refractory
+
+                # - Set spike currents
+                I_spike_slow = np.copy(zeros)
+                I_spike_slow[first_spike_id] = 1.0
+                I_spike_fast = weights[:, first_spike_id]
+                I_spike_out = weights_out[first_spike_id, :]
+
+            else:
+                # - Clear spike currents
+                first_spike_id = -1
+                I_spike_slow = zeros
+                I_spike_fast = zeros
+                I_spike_out = zeros_out
+
+            ### End of back-tick spike detector
+            # - Save synapse and neuron states for previous time step
+            v_last[:] = state
+            I_s_S_Last[:] = I_s_S + I_spike_slow
+            I_s_F_Last[:] = I_s_F + I_spike_fast
+            I_s_O_Last[:] = I_s_O + I_spike_out
+
+            # - Update synapse and neuron states (Euler step)
+            dot_I_s_S = syn_dot_I(I_s_S, dt, I_spike_slow, tau_syn_r_slow)
+            I_s_S += dot_I_s_S * dt
+
+            dot_I_s_F = syn_dot_I(I_s_F, dt, I_spike_fast, tau_syn_r_fast)
+            I_s_F += dot_I_s_F * dt
+
+            dot_I_s_O = syn_dot_I(I_s_O, dt, I_spike_out, tau_syn_r_out)
+            I_s_O += dot_I_s_O * dt
+
+            # - Calculate phi(M@r +theta)
+            if(phi_name == "tanh"):
+                phi_r = np.tanh(M @ I_s_S + theta)
+            elif(phi_name == "relu"):
+                phi_r = M @ I_s_S + theta
+                phi_r[phi_r < 0] = 0
+
+            I_W_slow_phi_x = weights_slow.T @ phi_r
+
+            int_time = int((t_time - t_start) // dt)
+            I_ext = static_input[int_time, :]
+
+            if(is_training):
+                x = target[int_time, :]
+                x_hat = I_s_O
+                e = x - x_hat
+                I_kDte = k*weights_in.T @ e
+            else:
+                I_kDte = zeros
+                assert (I_kDte == 0).all(), "I_kDte is not zero"
+                e = zeros_out
+
+            dot_v = neuron_dot_v(
+                t = t_time,
+                V = state,
+                dt = dt,
+                I_s_F = I_s_F,
+                I_W_slow_phi_x = I_W_slow_phi_x,
+                I_kDte = I_kDte,
+                I_ext = I_ext,
+                V_rest = v_rest,
+                tau_V = tau_mem,
+                bias = bias
+            )
+
+            state += dot_v * dt
+
+            return (
                 t_time,
-                weights,
-                weights_slow,
-                weights_in,
-                weights_out,
-                M,
-                theta,
-                phi,
-                k,
-                is_training,
+                first_spike_id,
+                dot_v,
                 state,
                 I_s_S,
                 I_s_F,
                 I_s_O,
+                I_W_slow_phi_x,
+                I_kDte,
                 dt,
                 v_last,
                 I_s_S_Last,
                 I_s_F_Last,
                 I_s_O_Last,
-                v_reset,
-                v_rest,
-                v_thresh,
-                bias,
-                tau_mem,
-                tau_syn_r_slow,
-                tau_syn_r_fast,
-                tau_syn_r_out,
-                refractory,
                 vec_refractory,
-                zeros,
-                target
-            ):
+                phi_r,
+                e
+            )
 
-                # - Enforce refractory period by clamping membrane potential to reset
-                state[vec_refractory > 0] = v_reset[vec_refractory > 0]
 
-                ## - Back-tick spike detector
-
-                # - Locate spiking neurons
-                spike_ids = state > v_thresh
-                spike_ids = argwhere(spike_ids)
-                num_spikes = len(spike_ids)
-
-                # - Were there any spikes?
-                if num_spikes > 0:
-                    # - Predict the precise spike times using linear interpolation, returns a value between 0 and dt depending on whether V(t) or V(t-1) is closer to the threshold.
-                    # We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
-                    spike_deltas = (
-                        (v_thresh[spike_ids] - v_last[spike_ids])
-                        * dt
-                        / (state[spike_ids] - v_last[spike_ids])
-                    )
-
-                    # - Was there more than one neuron above threshold?
-                    if num_spikes > 1:
-                        # - Find the earliest spike
-                        spike_delta, first_spike_id = min_argmin(spike_deltas)
-                        first_spike_id = spike_ids[first_spike_id]
-                    else:
-                        spike_delta = spike_deltas[0]
-                        first_spike_id = spike_ids[0]
-
-                    # - Find time of actual spike
-                    shortest_step = t_last + min_delta
-                    spike = clip_scalar(t_last + spike_delta, shortest_step, t_time)
-                    spike_delta = spike - t_last
-
-                    # - Back-step time to spike
-                    t_time = spike
-                    vec_refractory = vec_refractory + dt - spike_delta
-
-                    # - Back-step all membrane and synaptic potentials to time of spike (linear interpolation)
-                    state = _backstep(state, v_last, dt, spike_delta)
-                    I_s_S = _backstep(I_s_S, I_s_S_Last, dt, spike_delta)
-                    I_s_F = _backstep(I_s_F, I_s_F_Last, dt, spike_delta)
-                    I_s_O = _backstep(I_s_O, I_s_O_Last, dt, spike_delta)
-
-                    # - Apply reset to spiking neuron
-                    state[first_spike_id] = v_reset[first_spike_id]
-
-                    # - Begin refractory period for spiking neuron
-                    vec_refractory[first_spike_id] = refractory
-
-                    # - Set spike currents
-                    I_spike_slow = np.copy(zeros)
-                    I_spike_slow[first_spike_id] = 1.0
-                    I_spike_fast = weights[:, first_spike_id]
-                    I_spike_out = weights_out[first_spike_id, :]
-
-                else:
-                    # - Clear spike currents
-                    first_spike_id = -1
-                    I_spike_slow = zeros
-                    I_spike_fast = zeros
-                    I_spike_out = zeros_out
-
-                ### End of back-tick spike detector
-                # - Save synapse and neuron states for previous time step
-                v_last[:] = state
-                I_s_S_Last[:] = I_s_S + I_spike_slow
-                I_s_F_Last[:] = I_s_F + I_spike_fast
-                I_s_O_Last[:] = I_s_O + I_spike_out
-
-                # - Update synapse and neuron states (Euler step)
-                dot_I_s_S = syn_dot_I(t_time, I_s_S, dt, I_spike_slow, tau_syn_r_slow)
-                I_s_S += dot_I_s_S * dt
-
-                dot_I_s_F = syn_dot_I(t_time, I_s_F, dt, I_spike_fast, tau_syn_r_fast)
-                I_s_F += dot_I_s_F * dt
-
-                dot_I_s_O = syn_dot_I(t_time, I_s_O, dt, I_spike_out, tau_syn_r_out)
-                I_s_O += dot_I_s_O * dt
-
-                # Calculate phi(M@r +theta)
-                phi_r = phi(M @ I_s_S + theta)
-                I_W_slow_phi_x = weights_slow.T @ phi_r
-
-                int_time = int((t_time - t_start) // dt)
-                I_ext = static_input[int_time, :]
-
-                if(is_training):
-                    # Compute x_hat
-                    x = target[int_time, :]
-                    # x_hat = weights_out.T @ I_s_S
-                    x_hat = I_s_O
-                    e = x - x_hat
-                    I_kDte = k*weights_in.T @ e
-                else:
-                    I_kDte = zeros
-                    assert (I_kDte == 0).all(), "I_kDte is not zero"
-                    e = 0
-
-                # Calculate dot_v following dot_v = -lam + I_ext + I_s_F + I_W_slow_phi_x + I_kDte,  (V_rest - V + I_s_F + I_W_slow_phi_x + I_kDte + I_ext + bias) / tau_V
-                dot_v = neuron_dot_v(
-                    t = t_time,
-                    V = state,
-                    dt = dt,
-                    I_s_F = I_s_F,
-                    I_W_slow_phi_x = I_W_slow_phi_x,
-                    I_kDte = I_kDte,
-                    I_ext = I_ext,
-                    V_rest = v_rest,
-                    tau_V = tau_mem,
-                    bias = bias
-                )
-
-                state += dot_v * dt
-
-                return (
-                    t_time,
-                    first_spike_id,
-                    dot_v,
-                    state,
-                    I_s_S,
-                    I_s_F,
-                    I_s_O,
-                    I_W_slow_phi_x,
-                    I_kDte,
-                    dt,
-                    v_last,
-                    I_s_S_Last,
-                    I_s_F_Last,
-                    I_s_O_Last,
-                    vec_refractory,
-                    phi_r,
-                    e
-                )
+        # - Euler integrator loop
+        while t_time < final_time:
 
             ### --- END of compiled inner function
             (
@@ -422,6 +420,7 @@ class RecFSSpikeADS(Layer):
                 phi_r,
                 e,
             ) = _evolve_backstep(
+                t_last=t_last,
                 t_time=t_time,
                 weights= self.weights_fast,
                 weights_slow=self.weights_slow,
@@ -429,7 +428,7 @@ class RecFSSpikeADS(Layer):
                 weights_out = self.weights_out,
                 M = self.M,
                 theta = self.theta,
-                phi = self.phi,
+                phi_name = self.phi_name,
                 k = self.k,
                 is_training = self.is_training,
                 state = self._state,
@@ -455,12 +454,13 @@ class RecFSSpikeADS(Layer):
                 target = self.static_target
             )
 
-            # Call the training. Note this is not spike based
-            if(self.is_training and self.learning_callback is not None):
-                dot_W_slow = self.eta*self.learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
+            # - Call the training. Note this is not spike based
+            if(self.is_training):
+                dot_W_slow = self.eta*learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
                 self.weights_slow = self.weights_slow + dot_W_slow
                 if(verbose):
                     sum_w_slow += np.sum(np.abs(dot_W_slow))
+
 
             # - Extend spike record, if necessary
             if spike_pointer >= max_spike_pointer:
@@ -474,38 +474,39 @@ class RecFSSpikeADS(Layer):
             spike_indices[spike_pointer] = first_spike_id
             spike_pointer += 1
 
-            # - Extend state storage variables, if needed
-            if step >= record_length:
-                extend = num_timesteps
-                times = np.append(times, full_nan(extend))
-                v = np.append(v, full_nan((self.size, extend)), axis=1)
-                s = np.append(s, full_nan((self.size, extend)), axis=1)
-                f = np.append(f, full_nan((self.size, extend)), axis=1)
-                out = np.append(out, full_nan((self.out_size, extend)), axis=1)
-                if(verbose):
-                    I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
-                    I_W_slow_phi_x_track = np.append(I_W_slow_phi_x_track, full_nan((self.size, extend)), axis=1)
-                    phi_r_track = np.append(phi_r_track, full_nan((self.weights_slow.shape[0], extend)), axis=1)
-                dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
-                record_length += extend
-
-             # - Store the network states for this time step
-            times[step] = t_time
-            v[:, step] = self._state
-            s[:, step] = self.I_s_S
-            f[:, step] = self.I_s_F
-            out[:, step] = self.I_s_O
             if(verbose):
+                # - Extend state storage variables, if needed
+                if step >= record_length:
+                    extend = num_timesteps
+                    times = np.append(times, full_nan(extend))
+                    v = np.append(v, full_nan((self.size, extend)), axis=1)
+                    s = np.append(s, full_nan((self.size, extend)), axis=1)
+                    f = np.append(f, full_nan((self.size, extend)), axis=1)
+                    out = np.append(out, full_nan((self.out_size, extend)), axis=1)
+                    if(verbose):
+                        I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
+                        I_W_slow_phi_x_track = np.append(I_W_slow_phi_x_track, full_nan((self.size, extend)), axis=1)
+                        phi_r_track = np.append(phi_r_track, full_nan((self.weights_slow.shape[0], extend)), axis=1)
+                    dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
+                    record_length += extend
+
+                # - Store the network states for this time step
+                times[step] = t_time
+                v[:, step] = self._state
+                s[:, step] = self.I_s_S
+                f[:, step] = self.I_s_F
+                out[:, step] = self.I_s_O
                 I_kDte_track[:, step] = I_kDte
                 I_W_slow_phi_x_track[:, step] = I_W_slow_phi_x
                 phi_r_track[:, step] = phi_r
-            dot_v_ts[:, step] = dot_v
+                dot_v_ts[:, step] = dot_v
 
             # - Next nominal time step
             t_last = copy.copy(t_time)
             t_time += self._dt
             step += 1
             vec_refractory -= self.dt
+
         ## END End of Euler integration loop
 
         ## - Back-step to exact final time
@@ -514,77 +515,75 @@ class RecFSSpikeADS(Layer):
         self.I_s_F = _backstep(self.I_s_F, I_s_F_Last, self._dt, t_time - final_time)
         self.I_s_O = _backstep(self.I_s_O, I_s_O_Last, self._dt, t_time - final_time)
 
-        ## - Store the network states for final time step
-        times[step - 1] = final_time
-        v[:, step - 1] = self.state
-        s[:, step - 1] = self.I_s_S
-        f[:, step - 1] = self.I_s_F
-        out[:, step - 1] = self.I_s_O
         if(verbose):
+            ## - Store the network states for final time step
+            times[step - 1] = final_time
+            v[:, step - 1] = self.state
+            s[:, step - 1] = self.I_s_S
+            f[:, step - 1] = self.I_s_F
+            out[:, step - 1] = self.I_s_O
             I_kDte_track[:, step - 1] = I_kDte
             I_W_slow_phi_x_track[:, step - 1] = I_W_slow_phi_x
             phi_r_track[:, step-1] = phi_r
 
-        ## - Trim state storage variables
-        times = times[:step]
-        v = v[:, :step]
-        s = s[:, :step]
-        f = f[:, :step]
-        out = out[:, :step]
-        if(verbose):
+            ## - Trim state storage variables
+            times = times[:step]
+            v = v[:, :step]
+            s = s[:, :step]
+            f = f[:, :step]
+            out = out[:, :step]
             I_kDte_track = I_kDte_track[:, :step]
             I_W_slow_phi_x_track = I_W_slow_phi_x_track[:, :step]
             phi_r_track = phi_r_track[:, :step]
-        dot_v_ts = dot_v_ts[:, :step]
+
+            dot_v_ts = dot_v_ts[:, :step]
         spike_times = spike_times[:spike_pointer]
         spike_indices = spike_indices[:spike_pointer]
 
-        ## - Construct return time series
-        resp = {
-            "vt": times,
-            "mfX": v,
-            "s": s,
-            "f": f,
-            "out" : out,
-            "mfFast": f,
-            "dot_v": dot_v_ts,
-            "static_input": static_input,
-        }
+        if(verbose):
+            ## - Construct return time series
+            resp = {
+                "vt": times,
+                "mfX": v,
+                "s": s,
+                "f": f,
+                "out" : out,
+                "mfFast": f,
+                "dot_v": dot_v_ts,
+                "static_input": static_input,
+            }
 
-        backend = get_global_ts_plotting_backend()
-        if backend is "holoviews":
-            spikes = {"times": spike_times, "vnNeuron": spike_indices}
+            backend = get_global_ts_plotting_backend()
+            if backend is "holoviews":
+                spikes = {"times": spike_times, "vnNeuron": spike_indices}
 
-            resp["spReservoir"] = hv.Points(
-                spikes, kdims=["times", "vnNeuron"], label="Reservoir spikes"
-            ).redim.range(times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size))
-        else:
-            resp["spReservoir"] = dict(times=spike_times, vnNeuron=spike_indices)
+                resp["spReservoir"] = hv.Points(
+                    spikes, kdims=["times", "vnNeuron"], label="Reservoir spikes"
+                ).redim.range(times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size))
+            else:
+                resp["spReservoir"] = dict(times=spike_times, vnNeuron=spike_indices)
 
-        # - Convert some elements to time series
-        resp["tsX"] = TSContinuous(resp["vt"], resp["mfX"].T, name="Membrane potential")
-        resp["tsA"] = TSContinuous(resp["vt"], resp["s"].T, name="Slow synaptic state")
+            # - Convert some elements to time series
+            resp["tsX"] = TSContinuous(resp["vt"], resp["mfX"].T, name="Membrane potential")
+            resp["tsA"] = TSContinuous(resp["vt"], resp["s"].T, name="Slow synaptic state")
 
-        # - Store "last evolution" state
-        self._last_evolve = resp
+            # - Store "last evolution" state
+            self._last_evolve = resp
+            
+            if(self.record):
+                self.recorded_states = resp
+
         self._timestep += num_timesteps
 
-        if(self.record):
-            self.recorded_states = resp
 
         # - Return output TimeSeries
         ts_event_return = TSEvent(spike_times, spike_indices)
 
-        # optscale = np.trace(np.matmul(self.weights_fast.T, self.optimal_weights_fast)) / np.sum(self.optimal_weights_fast**2)
-        # Cnorm = np.sum(self.weights_fast**2)
-        # ErrorC = np.sum(np.sum((self.weights_fast - optscale*self.optimal_weights_fast)**2 ,axis=0)) / Cnorm
-        # print("Distance to optimal fast recurrent connection is %.5f" % ErrorC)
-
         if(verbose):
             
-            print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
+            if(self.is_training):
+                print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
 
-            # Compare the current traces
             fig = plt.figure(figsize=(20,20))
             plt.subplot(911)
             plt.plot(times, f[0:5,:].T)
@@ -775,7 +774,6 @@ class RecFSSpikeADS(Layer):
 
         
 
-    # Override _prepare_input to also allow preparing the target variable and setting the time base according to the layers dt
     def _prepare_input(
         self,
         ts_input: Optional[TimeSeries] = None,
