@@ -141,22 +141,54 @@ class Layer(ABC):
         ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> Tuple[np.ndarray, np.ndarray, float]:
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input, set up time base
 
         This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
 
-        :param Optional[TimeSeries] ts_input:   :py:class:`TimeSeries` of TxM or Tx1 Input signals for this layer
+        :param Optional[TimeSeries] ts_input:   :py:class:`.TimeSeries` of TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
         :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
 
-        :return (ndarray, ndarray, float): (time_base, input_steps, duration)
+        :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
+            time_base:      T1 Discretised time base for evolution
+            input_raster    (T1xN) Discretised input signal for layer
+            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
+        """
+        if self.input_type is TSContinuous:
+            return self._prepare_input_continuous(ts_input, duration, num_timesteps)
+
+        elif self.input_type is TSEvent:
+            return self._prepare_input_events(ts_input, duration, num_timesteps)
+
+        else:
+            TypeError(
+                "Layer._prepare_input can only handle `TSContinuous` and `TSEvent` classes"
+            )
+
+    def _prepare_input_continuous(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
+        """
+        Sample input, set up time base
+
+        This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
+
+        :param Optional[TSContinuous] ts_input: :py:class:`.TSContinuous` of TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
+        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
+
+        :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
             time_base:      T1 Discretised time base for evolution
             input_steps:    (T1xN) Discretised input signal for layer
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
 
+        # - Work out how many time steps to take
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
@@ -209,7 +241,7 @@ class Layer(ABC):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> Tuple[np.ndarray, int]:
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input from a :py:class:`TSEvent` time series, set up evolution time base
 
@@ -219,10 +251,13 @@ class Layer(ABC):
         :param Optional[float] duration:    Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will determine evolution itme
         :param Optional[int] num_timesteps: Number of evolution time steps, in units of ``.dt``. If not provided, then either ``duration`` or the duration of ``ts_input`` will determine evolution time
 
-        :return (ndarray, int):
+        :return (ndarray, ndarray, int):
+            time_base:      T1X1 vector of time points -- time base for the rasterisation
             spike_raster:   Boolean or integer raster containing spike information. T1xM array
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
+
+        # - Work out how many time steps to take
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base

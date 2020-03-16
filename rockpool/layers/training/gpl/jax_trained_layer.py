@@ -157,7 +157,7 @@ class JaxTrainedLayer(Layer, ABC):
         loss_params: Dict = {},
         optimizer: Callable = adam,
         opt_params: Dict = {"step_size": 1e-4},
-    ) -> Tuple[Callable[[], float], Callable[[], float]]:
+    ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], np.ndarray]]:
         """
         Perform one trial of Adam stochastic gradient descent to train the reservoir
 
@@ -168,19 +168,70 @@ class JaxTrainedLayer(Layer, ABC):
         :param bool is_last:            Flag to indicate this is the last trial. Performs clean-up (not essential)
         :param Callable loss_fcn:       Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
         :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
-        :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: `jax.experimental.optimizers.adam`
+        :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: :py:func:`jax.experimental.optimizers.adam`
         :param Dict opt_params:         A dictionary of parameters passed to `optimizer`. Default: {"step_size": 1e-4}
 
         Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
         be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
-        on each call of `.train_adam`, but the layer time and state are *not* updated.
+        on each call of `.train_output_target`, but the layer time and state are *not* updated.
 
         .. rubric:: Writing your own loss function
 
+        The argument `loss_fcn` can be used to pass in your own loss function for use in optimisation. The default loss function computes a mean-squared error between output and target signals, and provides several forms of regularisation::
 
-        :return:            (loss_fcn, grad_fcn):
+            def loss_mse_reg(
+                params: Params,
+                output_batch_t: np.ndarray,
+                target_batch_t: np.ndarray,
+                min_tau: float,
+                lambda_mse: float = 1.0,
+                reg_tau: float = 10000.0,
+                reg_l2_rec: float = 1.0,
+            ) -> float:
+                '''
+                Loss function for target versus output
+
+                :param Params params:               Set of packed parameters
+                :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
+                :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
+                :param float min_tau:               Minimum time constant
+                :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
+                :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
+                :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
+
+                :return float: Current loss value
+                '''
+                # - Measure output-target loss
+                mse = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
+
+                # - Get loss for tau parameter constraints
+                tau_loss = reg_tau * np.mean(
+                    np.where(params["tau"] < min_tau, np.exp(-(params["tau"] - min_tau)), 0)
+                )
+
+                # - Measure recurrent L2 norm
+                w_res_norm = reg_l2_rec * np.mean(params["w_recurrent"] ** 2)
+
+                # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
+                fLoss = mse + tau_loss + w_res_norm
+
+                # - Return loss
+                return fLoss
+
+        You can replace this with your own loss function, as long as it obeys the calling signature::
+
+            def loss(params: Params, output_batch_t: np.ndarray, target_batch_t: np.ndarray, **loss_params) -> float:
+
+        ``loss_params`` will be a dictionary of whatever arguments you would like to pass to your loss function. ``params`` will be a set of parameters returned by the layer :py:meth:`_pack` method.
+
+        ``output_batch_t`` and ``target_batch_t`` will be rasterised versions of time series, for the output of the layer given the current parameters, and for the target signal, respectively. Both are computed for the current batch, and are aligned in time.
+
+        :py:func:`.loss` must return a scalar float of the calculated loss value for the current batch. You can use the values in ``params`` to compute regularisation terms. You may not modify anything in ``params``. You *must* implement :py:func:`.loss` using `jax.numpy`, and :py:func:`.loss` *must* be compilable by `jax.jit`.
+
+        :return (loss_fcn, grad_fcn, output_fcn):
                                 loss_fcn:   Callable[[], float] Function that returns the current loss
                                 grad_fcn:   Callable[[], float] Function that returns the gradient for the current batch
+                                output_fcn: Callable[[], np.ndarray] Function that returns the layer output for the current batch
         """
 
         # - Define default loss function
@@ -198,7 +249,7 @@ class JaxTrainedLayer(Layer, ABC):
             Loss function for target versus output
 
             :param Params params:               Set of packed parameters
-            :param np.ndarray output_batch_t:   Output rasterised time series [TxO
+            :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
             :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
             :param float min_tau:               Minimum time constant
             :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0

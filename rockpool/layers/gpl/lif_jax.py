@@ -419,7 +419,7 @@ class RecLIFJax(Layer):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input_events(
+        time_base, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -905,13 +905,13 @@ class RecLIFJax_IO(RecLIFJax):
         :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
         :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param bool verbose:           Currently no effect, just for conformity
+        :param bool verbose:                    Currently no effect, just for conformity
 
         :return TSContinuous:                   Output time series; the synaptic currents of each neuron
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input_events(
+        time_base, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
