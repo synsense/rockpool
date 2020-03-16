@@ -5,11 +5,14 @@
 from rockpool import TimeSeries, TSContinuous
 from rockpool.networks import Network
 from rockpool.layers.training import JaxTrainedLayer
-from typing import Tuple, List, Callable, Union, Dict, Sequence
+from typing import Tuple, List, Callable, Union, Dict, Sequence, Any
 
 from jax import jit
 from jax.experimental.optimizers import adam
 import jax.numpy as np
+
+Params = List
+State = List
 
 
 class JaxStack(Network, JaxTrainedLayer):
@@ -25,7 +28,7 @@ class JaxStack(Network, JaxTrainedLayer):
         Encapsulate a stack of Jax layers in a single layer / network
 
         :param Sequence layers: A Sequence of layers to initialise the stack with
-        :param float dt:        Timestep to force on each of the sublayers
+        :param float dt:        Unitary timestep to force on each of the sublayers
         """
         # - Check that the layers are subclasses of `JaxTrainedLayer`
         for layer in layers:
@@ -37,15 +40,17 @@ class JaxStack(Network, JaxTrainedLayer):
         super().__init__(layers=layers, dt=dt, weights=[], *args, **kwargs)
 
         # - Initialise timestep
-        self.__timestep = 0.0
+        self.__timestep: int = 0
 
         # - Get evolution functions
-        self._all_evolve_funcs = [lyr._evolve_functional for lyr in self.evol_order]
+        self._all_evolve_funcs: List = [
+            lyr._evolve_functional for lyr in self.evol_order
+        ]
 
         # - Set sizes
-        self._size_in = self.input_layer._size_in
-        self._size_out = self.evol_order[-1]._size_out
-        self._size = []
+        self._size_in: int = self.input_layer._size_in
+        self._size_out: int = self.evol_order[-1]._size_out
+        self._size: Any = []
 
     def evolve(
         self,
@@ -53,6 +58,13 @@ class JaxStack(Network, JaxTrainedLayer):
         duration: float = None,
         num_timesteps: int = None,
     ) -> TSContinuous:
+        """
+
+        :param ts_input:
+        :param duration:
+        :param num_timesteps:
+        :return:
+        """
 
         # - Prepare time base and inputs, using first layer
         time_base, ext_inps, num_timesteps = self.input_layer._prepare_input(
@@ -60,8 +72,6 @@ class JaxStack(Network, JaxTrainedLayer):
         )
 
         # - Evolve over layers
-        # output, new_states = self._evolve_functional(self._pack(), self.state, inps)
-
         new_states = []
         outputs = []
         inps = ext_inps
@@ -87,38 +97,65 @@ class JaxStack(Network, JaxTrainedLayer):
         for lyr, out in zip(self.evol_order, outputs):
             outputs_dict.update({lyr.name: TSContinuous(time_base, np.array(out))})
 
+        # - Return a dictionary of outputs for all of the sublayers in this stack
         return outputs_dict
 
-    def _pack(self):
+    def _pack(self) -> Params:
+        """
+        Return a set of parameters for all sublayers in this stack
+
+        :return Params: params
+        """
         # - Get lists of parameters
         return [lyr._pack() for lyr in self.evol_order]
 
-    def _unpack(self, params):
+    def _unpack(self, params: Params) -> None:
+        """
+        Apply a set of parameters to the sublayers in this stack
+
+        :param Params params:
+        """
         for layer, params in zip(self.evol_order, params):
             layer._unpack(params)
 
-    def randomize_state(self):
+    def randomize_state(self) -> None:
+        """
+        Randomise the state of each sublayer
+        """
         for lyr in self.evol_order:
             lyr.randomize_state()
 
     @property
-    def _timestep(self):
+    def _timestep(self) -> int:
+        """(int) Current integer time step"""
         return self.__timestep
 
     @_timestep.setter
-    def _timestep(self, timestep):
+    def _timestep(self, timestep) -> None:
         self.__timestep = timestep
 
+        # - Set the time step for each sublayer
         for lyr in self.evol_order:
             lyr._timestep = timestep
 
     @property
-    def _evolve_functional(self):
+    def _evolve_functional(
+        self,
+    ) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+        Return a functional form of the evolution function for this stack, with no side-effects
+
+        :return Callable: evol_func
+             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray) -> Tuple[np.ndarray, State]:
+        """
+
         def evol_func(
-            params: List, all_states: List, ext_inputs: np.ndarray,
-        ) -> Tuple[np.ndarray, List]:
+            params: Params, all_states: State, ext_inputs: np.ndarray,
+        ) -> Tuple[np.ndarray, State]:
+            # - Call the functional form of the evolution functions for each sublayer
             new_states = []
             inputs = ext_inputs
+            out = np.array([])
             for p, s, evol_func in zip(params, all_states, self._all_evolve_funcs):
                 # - Evolve layer
                 out, new_state = evol_func(p, s, inputs)
@@ -140,11 +177,30 @@ class JaxStack(Network, JaxTrainedLayer):
         ts_target: Union[TimeSeries, np.ndarray],
         is_first: bool = False,
         is_last: bool = False,
-        loss_fcn: Callable[[Dict, Tuple], float] = None,
+        loss_fcn: Callable[[Dict, np.ndarray, np.ndarray, Dict], float] = None,
         loss_params: Dict = {},
         optimizer: Callable = adam,
         opt_params: Dict = {"step_size": 1e-4},
-    ) -> Tuple[Callable[[], float], Callable[[], float]]:
+    ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], np.ndarray]]:
+        """
+        Train this Jax stack, using a Jax optimiser
+
+        See the documentation for :py:meth:`.TrainedJaxLayer.train_output_target` for details of how to train networks. This method provides a regularised MSE loss function that can cope with a Jax stack.
+
+        :param Union[TimeSeries, np.ndarray] ts_input:  Input signal for this batch
+        :param Union[TimeSeries, np.ndarray] ts_target: Target signal for this batch
+        :param bool is_first:                           If ``True``, this is the first batch in the optimisation. Default: ``False``
+        :param bool is_last:                            If ``True``, this is the last batch in the optimisation. Default: ``False``
+        :param Callable loss_fcn:                       Loss function to optimise. Default: :py:func:`loss_mse_reg_stack`
+        :param Dict loss_params:                        Dictionary of parameters to pass to :py:func:`loss_fcn`
+        :param Callable optimizer:                      A Jax optimiser. See `jax.experimental.optimisers`. Default: :py:func:`jax.experimental.optimisers.adam`.
+        :param Dict opt_params:                         Dictionary of parameters to pass to the optmiser. Default: {"step_size": 1e-4}
+
+        :return Callable[[], float], Callable[[], float], Callable[[], np.ndarray]:
+            loss_fcn:   A function that returns the loss for the current optimisation step
+            grad_fcn:   A function that returns the gradients for the current optimisation step
+            out_fcn:    A function that returns the output for the current optimisation step
+        """
         # - Define a loss function that can deal with nested parameters
         @jit
         def loss_mse_reg_stack(
@@ -160,7 +216,7 @@ class JaxStack(Network, JaxTrainedLayer):
             Loss function for target versus output
 
             :param List params:                 List of packed parameters from each layer
-            :param np.ndarray output_batch_t:   Output rasterised time series [TxO
+            :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
             :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
             :param float min_tau:               Minimum time constant
             :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0

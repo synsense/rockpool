@@ -101,3 +101,5 @@ Utility modules
     layers.RecRateEulerJax_IO
     layers.FFRateEulerJax
     layers.ForceRateEulerJax_IO
+
+    layers.JaxStack
