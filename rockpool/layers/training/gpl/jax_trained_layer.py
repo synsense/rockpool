@@ -169,7 +169,7 @@ class JaxTrainedLayer(Layer, ABC):
         :param Callable loss_fcn:       Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
         :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
         :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: :py:func:`jax.experimental.optimizers.adam`
-        :param Dict opt_params:         A dictionary of parameters passed to `optimizer`. Default: {"step_size": 1e-4}
+        :param Dict opt_params:         A dictionary of parameters passed to :py:func:`optimizer`. Default: {"step_size": 1e-4}
 
         Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
         be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
@@ -177,7 +177,7 @@ class JaxTrainedLayer(Layer, ABC):
 
         .. rubric:: Writing your own loss function
 
-        The argument `loss_fcn` can be used to pass in your own loss function for use in optimisation. The default loss function computes a mean-squared error between output and target signals, and provides several forms of regularisation::
+        The argument ``loss_fcn`` can be used to pass in your own loss function for use in optimisation. The default loss function computes a mean-squared error between output and target signals, and provides several forms of regularisation::
 
             def loss_mse_reg(
                 params: Params,
@@ -229,9 +229,9 @@ class JaxTrainedLayer(Layer, ABC):
         :py:func:`.loss` must return a scalar float of the calculated loss value for the current batch. You can use the values in ``params`` to compute regularisation terms. You may not modify anything in ``params``. You *must* implement :py:func:`.loss` using `jax.numpy`, and :py:func:`.loss` *must* be compilable by `jax.jit`.
 
         :return (loss_fcn, grad_fcn, output_fcn):
-                                loss_fcn:   Callable[[], float] Function that returns the current loss
-                                grad_fcn:   Callable[[], float] Function that returns the gradient for the current batch
-                                output_fcn: Callable[[], np.ndarray] Function that returns the layer output for the current batch
+                                ``loss_fcn``:   Callable[[], float] Function that returns the current loss
+                                ``grad_fcn``:   Callable[[], float] Function that returns the gradient for the current batch
+                                ``output_fcn``: Callable[[], np.ndarray] Function that returns the layer output for the current batch
         """
 
         # - Define default loss function

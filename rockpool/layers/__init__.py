@@ -52,7 +52,6 @@ dModules = {
         "RecLIFCurrentInJax_IO",
         "FFLIFJax_IO",
     ),
-    ".gpl.stack_jax": "JaxStack",
 }
 
 
