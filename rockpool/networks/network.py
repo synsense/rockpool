@@ -178,9 +178,11 @@ class Network:
 
         # - Initialise layers lists
         self.evol_order: List[Layer] = []
+        self.input_layer: Union[Layer, None] = None
+        self.output_layer: Union[Layer, None] = None
 
         # - Maintain set of all layers
-        self.layerset: Set = set()
+        self.layerset: Set[Layer] = set()
 
         # - Network time
         self._timestep: float = 0.0

@@ -2,9 +2,10 @@
 # stack_jax.py — Implement trainable stacks of jax layers
 #
 
-from rockpool import TimeSeries, TSContinuous
-from rockpool.networks import Network
-from rockpool.layers.training import JaxTrainedLayer
+from ...timeseries import TimeSeries, TSContinuous
+from ..network import Network
+from ...layers.training import JaxTrainedLayer
+
 from typing import Tuple, List, Callable, Union, Dict, Sequence, Any
 
 from jax import jit
@@ -14,6 +15,7 @@ import jax.numpy as np
 Params = List
 State = List
 
+__all__ = ["JaxStack"]
 
 class JaxStack(Network, JaxTrainedLayer):
     """
@@ -31,10 +33,11 @@ class JaxStack(Network, JaxTrainedLayer):
         :param float dt:        Unitary timestep to force on each of the sublayers
         """
         # - Check that the layers are subclasses of `JaxTrainedLayer`
-        for layer in layers:
-            assert isinstance(
-                layer, JaxTrainedLayer
-            ), "Each layer must inherit from the `JaxTrainedLayer` base class"
+        if layers is not None:
+            for layer in layers:
+                assert isinstance(
+                    layer, JaxTrainedLayer
+                ), "Each layer must inherit from the `JaxTrainedLayer` base class"
 
         # - Initialise super classes
         super().__init__(layers=layers, dt=dt, weights=[], *args, **kwargs)
@@ -42,29 +45,39 @@ class JaxStack(Network, JaxTrainedLayer):
         # - Initialise timestep
         self.__timestep: int = 0
 
+        self._size_in: Union[int, None] = None
+        self._size_out: Union[int, None] = None
+        self._size: Union[int, None] = None
+
         # - Get evolution functions
         self._all_evolve_funcs: List = [
             lyr._evolve_functional for lyr in self.evol_order
         ]
 
         # - Set sizes
-        self._size_in: int = self.input_layer._size_in
-        self._size_out: int = self.evol_order[-1]._size_out
-        self._size: Any = []
+        if layers is not None:
+            self._size_in: int = self.input_layer._size_in
+            self._size_out: int = self.evol_order[-1]._size_out
 
     def evolve(
         self,
         ts_input: TSContinuous = None,
         duration: float = None,
         num_timesteps: int = None,
-    ) -> TSContinuous:
+        verbose: bool = False,
+    ) -> Dict:
         """
 
-        :param ts_input:
-        :param duration:
-        :param num_timesteps:
+        :param TSContinuous ts_input:
+        :param float duration:
+        :param int num_timesteps:
+        :param bool verbose:
         :return:
         """
+
+        # - Catch an empty stack
+        if self.evol_order is None:
+            return {}
 
         # - Prepare time base and inputs, using first layer
         time_base, ext_inps, num_timesteps = self.input_layer._prepare_input(
