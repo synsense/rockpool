@@ -747,14 +747,18 @@ class DynapseControl:
         def_camtype = getattr(ctxdynapse.DynapseCamType, self._default_cam_str)
         self._default_cam_type_index = self._camtypes[def_camtype]
         # - Store SRAM information
-        self._sram_connections = np.zeros((self.num_neurons, self.num_cores), int)
+        self._sram_connections = np.zeros(
+            (self.num_neurons, self.num_cores), bool
+        )
         # - Store CAM information
         self._cam_connections = np.zeros(
-            (len(self._camtypes), self.num_neur_chip, self.num_neurons), int
+            (len(self._camtypes), self.num_neur_chip, self.num_neurons),
+            "uint8",
         )
         # - Store connectivity array
         self._connections = np.zeros(
-            (len(params.CAMTYPES), self.num_neurons, self.num_neurons), int
+            (len(params.CAMTYPES), self.num_neurons, self.num_neurons),
+            "uint8",
         )
         # Include previously existing connections in the model
         self._update_connectivity_array(initialized_chips)
@@ -1149,7 +1153,7 @@ class DynapseControl:
         neuron_ids, targetcore_lists, inputid_lists, camtype_lists = connection_info
 
         # - Reset SRAM and CAM info for considered neurons
-        self._sram_connections[neuron_ids, :] = 0
+        self._sram_connections[neuron_ids, :] = False
         self._cam_connections[:, :, neuron_ids] = 0
 
         # - Update SRAM info
@@ -1325,11 +1329,11 @@ class DynapseControl:
         syn_inh = self.syn_inh_fast if syn_inh is None else syn_inh
 
         ## -- Connect virtual neurons to hardware neurons
-        weights = np.atleast_2d(weights)
+        weights = np.atleast_2d(weights).astype("int16")
 
         # - Get virtual to hardware connections
         presyn_exc_list, postsyn_exc_list, presyn_inh_list, postsyn_inh_list = connectivity_matrix_to_prepost_lists(
-            weights.astype(int)
+            weights
         )
 
         if neuron_ids_post is None:
@@ -1373,8 +1377,8 @@ class DynapseControl:
         # - Make sure no aliasing occurs
         target_connections = self.connections.copy()
         idcs_pre, idcs_post = np.meshgrid(neuron_ids, neuron_ids_post, indexing="ij")
-        conns_exc = np.clip(weights, 0, None).astype(int)
-        conns_inh = np.abs(np.clip(weights, None, 0)).astype(int)
+        conns_exc = np.clip(weights, 0, None).astype("uint8")
+        conns_inh = np.abs(np.clip(weights, None, 0)).astype("uint8")
         if not virtual_pre:
             target_connections[
                 self._camtypes[syn_exc], idcs_pre, idcs_post
@@ -1457,7 +1461,7 @@ class DynapseControl:
         :param neuron_ids:  List-like with IDs of neurons whose SRAMs should be reset.
         """
         # - Clear all SRAM cells
-        self._sram_connections[neuron_ids, :] = 0
+        self._sram_connections[neuron_ids, :] = False
 
     def remove_all_connections_to(self, neuron_ids, apply_diff: bool = True):
         """
