@@ -1536,7 +1536,7 @@ class DynapseControl:
                     + "`pre_ids` and `post_ids`."
                 )
             else:
-                pre_ids = post_ids
+                post_ids = pre_ids
         if syn_types is None:
             syn_types = np.arange(len(self._camtypes))
         idx_pre, idx_post = np.meshgrid(pre_ids, post_ids, indexing="ij")
