@@ -136,13 +136,14 @@ def initialize_hardware(
         global initialized_chips, initialized_neurons
         cleared_chips = set(use_chips).difference(initialized_chips)
         initialized_chips = sorted(initialized_chips + cleared_chips)
-        initialized_neurons += [
+        cleard_neurons = [
             neuron
             for chip in cleared_chips
             for neuron in range(
                 params.NUM_NEURONS_CHIP * chip, params.NUM_NEURONS_CHIP * (chip + 1)
             )
         ]
+        initialized_neurons = sorted(initialized_neurons + cleard_neurons)
         if not use_chips:
             print(f"dynapse_control: No chips have been cleared.")
         elif len(use_chips == 1):
@@ -182,7 +183,7 @@ def initialize_hardware(
             initialized_neurons = connection.modules.tools.storage.get(
                 "initialized_neurons", []
             )
-            initialized_neurons += [
+            cleared_neurons = [
                 neuron_id
                 for chip_id in do_chips
                 for neuron_id in range(
@@ -191,7 +192,8 @@ def initialize_hardware(
                 )
             ]
             connection.modules.tools.store_var(
-                "initialized_neurons", initialized_neurons
+                "initialized_neurons",
+                [int(n) for n in np.unique(copy.copy(initialized_neurons) + cleared_neurons)],
             )
             # - Print which chips have been cleared.
             print_statement = "dynapse_control: Chips {} have been cleared.".format(
@@ -229,13 +231,11 @@ def setup_rpyc(
     if init_chips is not None:
         initialize_hardware(init_chips, connection, enforce=False)
     # - Make same objects available as when working wihtin cortexcontrol
-    global tools, params, ctxdynapse, nnconnector, initialized_chips, initialized_neurons
+    global tools, params, ctxdynapse, nnconnector
     tools = connection.modules.tools
     params = connection.modules.params
     ctxdynapse = connection.modules.CtxDynapse
     nnconnector = connection.modules.NeuronNeuronConnector
-    initialized_chips = connection.modules.tools.storage["initialized_chips"]
-    initialized_neurons = connection.modules.tools.storage["initialized_neurons"]
     print("dynapse_control: RPyC connection has been setup successfully.")
 
     return connection
@@ -721,7 +721,7 @@ class DynapseControl:
         # - Make sure no neuron is silenced, yet
         core_ids = [
             i
-            for chip in initialized_chips
+            for chip in self.initialized_chips
             for i in range(chip * self.num_cores_chip, (chip + 1) * self.num_cores_chip)
         ]
         self.reset_silencing(core_ids)
@@ -761,7 +761,7 @@ class DynapseControl:
             "uint8",
         )
         # Include previously existing connections in the model
-        self._update_connectivity_array(initialized_chips)
+        self._update_connectivity_array(self.initialized_chips)
         print("DynapseControl: Connectivity array initialized")
 
         # - Wipe configuration
@@ -872,7 +872,7 @@ class DynapseControl:
         if core_ids is not None:
             core_ids = np.array(core_ids)
             # - Only reset cores on chips that have been initialized
-            on_init_chip = np.isin(core_ids // self.num_cores_chip, initialized_chips)
+            on_init_chip = np.isin(core_ids // self.num_cores_chip, self.initialized_chips)
             if not on_init_chip.all():
                 warn(
                     "DynapseControl: Cores {} are on chips that have not been initialized.".format(
@@ -905,7 +905,7 @@ class DynapseControl:
         if core_ids is not None:
             core_ids = np.array(core_ids)
             # - Only reset cores on chips that have been initialized
-            on_init_chip = np.isin(core_ids // self.num_cores_chip, initialized_chips)
+            on_init_chip = np.isin(core_ids // self.num_cores_chip, self.initialized_chips)
             if not on_init_chip.all():
                 warn(
                     "DynapseControl: Cores {} are on chips that have not been initialized.".format(
@@ -929,7 +929,7 @@ class DynapseControl:
         # - Cores on initialized chips
         core_ids = [
             i
-            for chip in initialized_chips
+            for chip in self.initialized_chips
             for i in range(chip * self.num_cores_chip, (chip + 1) * self.num_cores_chip)
         ]
         # - Clear neuron assignments
@@ -1022,7 +1022,7 @@ class DynapseControl:
                 num_missing_neurs = num_neurons - num_available_neurons
                 # - Check if by clearing chips, enough neurons can be made available
                 num_missing_chips = int(np.ceil(num_missing_neurs / self.num_neur_chip))
-                num_unused_chips = self.num_chips - len(initialized_chips)
+                num_unused_chips = self.num_chips - len(self.initialized_chips)
                 if num_unused_chips >= num_missing_chips:
                     print(
                         "DynapseControl: Not sufficient neurons available. Initializing "
@@ -1030,7 +1030,7 @@ class DynapseControl:
                     )
                     # - Initialize chips so that enough neurons are available
                     all_chips: Set[int] = set(range(self.num_chips))
-                    unused_chips: Set[int] = all_chips.difference(initialized_chips)
+                    unused_chips: Set[int] = all_chips.difference(self.initialized_chips)
                     self.init_chips(list(unused_chips)[:num_missing_chips])
                 else:
                     raise ValueError(
@@ -1056,7 +1056,7 @@ class DynapseControl:
             else:
                 # - Check whether any of the requested neurons is on a not initialized chip
                 not_initialized = (
-                    np.isin(ids_neurons_to_allocate, initialized_neurons) == False
+                    np.isin(ids_neurons_to_allocate, self.initialized_neurons) == False
                 )
                 if not_initialized.any():
                     print(
@@ -1138,7 +1138,7 @@ class DynapseControl:
         """
         # - Determine which chips are to be considered for update
         if consider_chips is None:
-            consider_chips = initialized_chips
+            consider_chips = self.initialized_chips
         else:
             try:
                 consider_chips: List[int] = [int(chip_id) for chip_id in consider_chips]
@@ -2568,20 +2568,25 @@ class DynapseControl:
 
     @property
     def initialized_chips(self):
-        global initialized_chips
-        return initialized_chips
+        if not _USE_RPYC:
+            global initialized_chips
+            return initialized_chips
+        else:
+            return self.rpyc_connection.modules.tools.storage.get("initialized_chips", [])
 
     @property
     def initialized_neurons(self):
-        global initialized_neurons
-        return initialized_neurons
+        if not _USE_RPYC:
+            global initialized_neurons
+            return initialized_neurons
+        else:
+            return self.rpyc_connection.modules.tools.storage.get("initialized_neurons", [])
 
     @property
     def hwneurons_isavailable(self) -> np.ndarray:
         hwneurons_isinitialized = np.zeros(len(self.hw_neurons), bool)
-        global initialized_neurons
-        if initialized_neurons:
-            hwneurons_isinitialized[initialized_neurons] = True
+        if self.initialized_neurons:
+            hwneurons_isinitialized[self.initialized_neurons] = True
         return np.logical_and(self._hwneurons_isfree, hwneurons_isinitialized)
 
     @property
