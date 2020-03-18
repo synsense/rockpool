@@ -160,6 +160,9 @@ with pytest.raises(ValueError):
     con.fpga_isibase = (2 ** 16 + 1) * 1 / 9 * 1e-7
 
 
+## -- Record from some neurons
+con.record(neuron_ids=[1,2,3,4], duration=1, return_ts=True)
+
 ### --- Dynapse layers
 
 dt = 2 / 9 * 1e-4

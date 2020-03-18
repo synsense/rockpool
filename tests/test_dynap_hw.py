@@ -111,21 +111,6 @@ def test_dynapse_control():
         apply_diff=True,
     )
 
-    # Try setting weights on core that has not been cleared
-    try:
-        con.set_connections_from_weights(
-            weights=weights_rec,
-            neuron_ids=np.array(neuron_ids) + 1500,
-            syn_exc=con.syn_exc_slow,
-            syn_inh=con.syn_inh_fast,
-            apply_diff=True,
-        )
-    except ValueError:
-        pass
-    else:
-        raise AssertionError(
-            "Did not throw exception when trying to set connections on not-initialized chip"
-        )
     # Test connections
     neur = shadow_neurons[-1]
     cams = neur.get_cams()
@@ -138,7 +123,7 @@ def test_dynapse_control():
 
     # Stimulate
     ts_in = TSEvent(np.arange(100) * 0.01, np.tile([0, 1], 50))
-    times, channels = con.send_TSEvent(
+    ts_out = con.send_TSEvent(
         ts_in,
         t_record=1.2,
         virtual_neur_ids=virtual_ids,
@@ -146,6 +131,8 @@ def test_dynapse_control():
         record=True,
         return_ts=True,
     )
+    times = ts_out.times
+    channels = ts_out.channels
     assert len(times) == len(
         channels
     ), "Numbers of output channels and times don't match"
@@ -153,9 +140,8 @@ def test_dynapse_control():
 
     # - Remove connections
     con.remove_all_connections_to([69], apply_diff=True)
-    assert [c.get_type() for c in cams[:5]] == 5 * [
-        0
-    ], "Connections have not been removed"
+    assert [c.get_type() for c in cams[:5]] == 5 * [con.syn_inh_slow]
+    assert [c.get_pre_neuron_id() for c in cams[:5]] == 5 * [0]
 
     # - Reset first four cores
     con.reset_all()
