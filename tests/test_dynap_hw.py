@@ -141,7 +141,7 @@ def test_dynapse_control():
     times, channels = con.send_TSEvent(
         ts_in,
         t_record=1.2,
-        neuron_ids=virtual_ids,
+        virtual_neur_ids=virtual_ids,
         record_neur_ids=neuron_ids,
         record=True,
         return_ts=True,
