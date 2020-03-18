@@ -1770,6 +1770,7 @@ class DynapseControl:
         targetchip_id: int = 0,
         periodic: bool = False,
         record: bool = False,
+        inputneur_id=None,
     ) -> (np.ndarray, np.ndarray):
         """
         send_pulse - Send a pulse of periodic input events to the chip.
@@ -1790,6 +1791,15 @@ class DynapseControl:
         :return:
             (times, channels)  np.ndarrays that contain recorded data
         """
+
+        if inputneur_id is not None:
+            warn(
+                "DynapseControlExtd: The argument `inputneur_id` has been "
+                + "renamed to 'virtual_neur_id`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_id is None:
+                virtual_neur_id = inputneur_id
         # - Prepare input events
         # Actual input time steps
         timesteps = np.floor(
@@ -1838,6 +1848,7 @@ class DynapseControl:
         periodic: bool = False,
         record: bool = False,
         fastmode: bool = False,
+        neuron_ids = None,
     ) -> (np.ndarray, np.ndarray):
         """
         send_arrays - Send events defined in arrays to FPGA.
@@ -1864,6 +1875,15 @@ class DynapseControl:
         :return:
             (times, channels)  np.ndarrays that contain recorded data
         """
+
+        if neuron_ids is not None:
+            warn(
+                "DynapseControlExtd: The argument `neuron_ids` has been "
+                + "renamed to 'virtual_neur_ids`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_ids is None:
+                virtual_neur_ids = neuron_ids
 
         # - Process input arguments
         virtual_neur_ids = (

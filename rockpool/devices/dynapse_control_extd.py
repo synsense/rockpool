@@ -49,7 +49,7 @@ class DynapseControlExtd(DynapseControl):
         isi_array_discrete = np.diff(times_discrete)
 
         # - Convert events to an FpgaSpikeEvent
-        print("dynapse_control: Generating FPGA event list from TSEvent.")
+        print("DynapseControlExtd: Generating FPGA event list from TSEvent.")
         events: List = self.tools.generate_fpga_event_list(
             # Make sure that no np.int64 or other non-native type is passed
             [int(isi) for isi in isi_array_discrete],
@@ -73,6 +73,7 @@ class DynapseControlExtd(DynapseControl):
         periodic: bool = False,
         record: bool = False,
         return_ts: bool = False,
+        inputneur_id=None,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_pulse - Send a pulse of periodic input events to the chip.
@@ -96,6 +97,16 @@ class DynapseControlExtd(DynapseControl):
             elif return_ts:    TSEvent object of recorded data
             else:              (times_out, channels_out)  np.ndarrays that contain recorded data
         """
+        
+        if inputneur_id is not None:
+            warn(
+                "DynapseControlExtd: The argument `inputneur_id` has been "
+                + "renamed to 'virtual_neur_id`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_id is None:
+                virtual_neur_id = inputneur_id
+
         # - Stimulate and obtain recorded data if any
         recorded_data = super().send_pulse(
             width=width,
@@ -141,6 +152,7 @@ class DynapseControlExtd(DynapseControl):
         periodic=False,
         record=False,
         return_ts=False,
+        neuron_ids=None,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_TSEvent - Extract events from a TSEvent object and send them to FPGA.
@@ -167,6 +179,15 @@ class DynapseControlExtd(DynapseControl):
             else:               (times_out, channels_out)  np.ndarrays that contain recorded data
         """
 
+        if neuron_ids is not None:
+            warn(
+                "DynapseControlExtd: The argument `neuron_ids` has been "
+                + "renamed to 'virtual_neur_ids`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_ids is None:
+                virtual_neur_ids = neuron_ids
+
         # - Process input arguments
         virtual_neur_ids = (
             np.arange(series.num_channels)
@@ -184,7 +205,7 @@ class DynapseControlExtd(DynapseControl):
             targetchip_id=targetchip_id,
         )
         print(
-            "DynapseControl: Stimulus prepared from TSEvent `{}`.".format(series.name)
+            "DynapseControlExtd: Stimulus prepared from TSEvent `{}`.".format(series.name)
         )
 
         # - Stimulate and obtain recorded data if any
@@ -231,6 +252,7 @@ class DynapseControlExtd(DynapseControl):
         record=False,
         return_ts=False,
         fastmode: bool = False,
+        neuron_ids = None,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_arrays - Send events defined in timetrace and channel arrays to FPGA.
@@ -258,6 +280,15 @@ class DynapseControlExtd(DynapseControl):
             elif return_ts:      TSEvent object of recorded data
             else:               (times_out, channels_out)  np.ndarrays that contain recorded data
         """
+
+        if neuron_ids is not None:
+            warn(
+                "DynapseControlExtd: The argument `neuron_ids` has been "
+                + "renamed to 'virtual_neur_ids`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_ids is None:
+                virtual_neur_ids = neuron_ids
 
         # - Stimulate and obtain recorded data if any
         recorded_data = super().send_arrays(
@@ -333,7 +364,7 @@ class DynapseControlExtd(DynapseControl):
         try:
             self.bufferedfilter.clear()
         except AttributeError:
-            warn("dynapse_control: No recording has been started.")
+            warn("DynapseControlExtd: No recording has been started.")
             return np.array([]), np.array([])
         else:
             if return_ts:
