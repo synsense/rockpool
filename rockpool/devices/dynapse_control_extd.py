@@ -66,7 +66,7 @@ class DynapseControlExtd(DynapseControl):
         frequency: float = 1000,
         t_record: float = 3,
         t_buffer: float = 0.5,
-        inputneur_id: int = 0,
+        virtual_neur_id: int = 0,
         record_neur_ids: Union[int, np.ndarray] = np.arange(1024),
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
@@ -82,7 +82,7 @@ class DynapseControlExtd(DynapseControl):
         :param t_record:         float  Duration of the recording (including stimulus)
         :param t_buffer:         float  Record slightly longer than t_record to
                                         make sure to catch all relevant events
-        :param inputneur_id:     int    ID of input neuron
+        :param virtual_neur_id:     int    ID of input neuron
         :param record_neur_ids:  array-like  ID(s) of neuron(s) to be recorded
         :param nChipID:          int  Target chip ID
         :param nCoreMask:        int  Target core mask
@@ -102,7 +102,7 @@ class DynapseControlExtd(DynapseControl):
             frequency=frequency,
             t_record=t_record,
             t_buffer=t_buffer,
-            inputneur_id=inputneur_id,
+            virtual_neur_id=virtual_neur_id,
             record_neur_ids=record_neur_ids,
             targetcore_mask=targetcore_mask,
             targetchip_id=targetchip_id,
@@ -134,7 +134,7 @@ class DynapseControlExtd(DynapseControl):
         series,
         t_record: Optional[float] = None,
         t_buffer: float = 0.5,
-        neuron_ids: Optional[np.ndarray] = None,
+        virtual_neur_ids: Optional[np.ndarray] = None,
         record_neur_ids: Optional[np.ndarray] = None,
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
@@ -150,15 +150,15 @@ class DynapseControlExtd(DynapseControl):
                                        If None, use series.duration
         :param t_buffer:         float  Record slightly longer than t_record to
                                        make sure to catch all relevant events
-        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+        :param virtual_neur_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
                                              If None, use channels from series
         :param record_neur_ids: ArrayLike    IDs of neurons that should be recorded (if record==True)
-                                               If None and record==True, record neurons in neuron_ids
+                                               If None and record==True, record neurons in virtual_neur_ids
         :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
         :param targetchip_id:   int          ID of target chip
         :param periodic:       bool         Repeat the stimulus indefinitely
         :param record:         bool         Set up buffered event filter that records events
-                                             from neurons defined in neuron_ids
+                                             from neurons defined in record_neur_ids
         :param return_ts:        bool         If record: output TSEvent instead of arrays of times and channels
 
         :return:
@@ -168,18 +168,18 @@ class DynapseControlExtd(DynapseControl):
         """
 
         # - Process input arguments
-        neuron_ids = (
+        virtual_neur_ids = (
             np.arange(series.num_channels)
-            if neuron_ids is None
-            else np.array(neuron_ids)
+            if virtual_neur_ids is None
+            else np.array(virtual_neur_ids)
         )
-        record_neur_ids = neuron_ids if record_neur_ids is None else record_neur_ids
+        record_neur_ids = virtual_neur_ids if record_neur_ids is None else record_neur_ids
         t_record = series.duration if t_record is None else t_record
 
         # - Prepare event list
         events = self._TSEvent_to_spike_list(
             series,
-            neuron_ids=neuron_ids,
+            neuron_ids=virtual_neur_ids,
             targetcore_mask=targetcore_mask,
             targetchip_id=targetchip_id,
         )
@@ -223,7 +223,7 @@ class DynapseControlExtd(DynapseControl):
         times: Optional[np.ndarray] = None,
         t_record: Optional[float] = None,
         t_buffer: float = 0.5,
-        neuron_ids: Optional[np.ndarray] = None,
+        virtual_neur_ids: Optional[np.ndarray] = None,
         record_neur_ids: Optional[np.ndarray] = None,
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
@@ -242,15 +242,15 @@ class DynapseControlExtd(DynapseControl):
                                        If None, use times[-1]
         :param t_buffer:         float  Record slightly longer than t_record to
                                        make sure to catch all relevant events
-        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+        :param virtual_neur_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
                                              If None, use channels from channels
         :param record_neur_ids: ArrayLike    IDs of neurons that should be recorded (if record==True)
-                                               If None and record==True, record neurons in neuron_ids
+                                               If None and record==True, record neurons in virtual_neur_ids
         :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
         :param targetchip_id:   int          ID of target chip
         :param periodic:       bool         Repeat the stimulus indefinitely
         :param record:         bool         Set up buffered event filter that records events
-                                             from neurons defined in neuron_ids
+                                             from neurons defined in record_neur_ids
         :param return_ts:        bool         If record: output TSEvent instead of arrays of times and channels
 
         :return:
@@ -266,7 +266,7 @@ class DynapseControlExtd(DynapseControl):
             times=times,
             t_record=t_record,
             t_buffer=t_buffer,
-            neuron_ids=neuron_ids,
+            virtual_neur_ids=virtual_neur_ids,
             record_neur_ids=record_neur_ids,
             targetcore_mask=targetcore_mask,
             targetchip_id=targetchip_id,
