@@ -315,7 +315,7 @@ class DynapseControlExtd(DynapseControl):
                 channels,
                 t_start=0,
                 t_stop=duration,
-                num_channels=neuron_ids,
+                num_channels=len(neuron_ids),
                 name="DynapSE",
             )
         else:
