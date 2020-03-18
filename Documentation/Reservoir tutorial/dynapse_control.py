@@ -1764,7 +1764,7 @@ class DynapseControl:
         frequency: float = 1000,
         t_record: float = 3,
         t_buffer: float = 0.5,
-        inputneur_id: int = 0,
+        virtual_neur_id: int = 0,
         record_neur_ids: Union[int, np.ndarray] = np.arange(1024),
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
@@ -1779,7 +1779,7 @@ class DynapseControl:
         :param t_record:             float  Duration of the recording (including stimulus)
         :param t_buffer:             float  Record slightly longer than t_record to
                                            make sure to catch all relevant events
-        :param inputneur_id:      int    ID of input neuron
+        :param virtual_neur_id:      int    ID of neuron that appears as source of pulse
         :param record_neur_ids:   array-like  ID(s) of neuron(s) to be recorded
         :param chip_id:     int  Target chip ID
         :param coremask:   int  Target core mask
@@ -1803,7 +1803,7 @@ class DynapseControl:
         ]
         events = self._arrays_to_spike_list(
             timesteps=timesteps,
-            channels=np.repeat(inputneur_id, timesteps.size),
+            channels=np.repeat(virtual_neur_id, timesteps.size),
             neuron_ids=range(len(self.virtual_neurons)),
             ts_start=0,
             targetcore_mask=targetcore_mask,
@@ -1831,7 +1831,7 @@ class DynapseControl:
         times: Optional[np.ndarray] = None,
         t_record: Optional[float] = None,
         t_buffer: float = 0.5,
-        neuron_ids: Optional[np.ndarray] = None,
+        virtual_neur_ids: Optional[np.ndarray] = None,
         record_neur_ids: Optional[np.ndarray] = None,
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
@@ -1849,15 +1849,15 @@ class DynapseControl:
                                        If None, use times[-1]
         :param t_buffer:         float  Record slightly longer than t_record to
                                        make sure to catch all relevant events
-        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+        :param virtual_neur_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
                                              If None, use channels from channels
         :param record_neur_ids: ArrayLike    IDs of neurons that should be recorded (if record==True)
-                                               If None and record==True, record neurons in neuron_ids
+                                               If None and record==True, record neurons in virtual_neur_ids
         :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
         :param targetchip_id:   int          ID of target chip
         :param periodic:       bool         Repeat the stimulus indefinitely
         :param record:         bool         Set up buffered event filter that records events
-                                             from neurons defined in neuron_ids
+                                             from neurons defined in record_neur_ids
         :param fastmode:        bool        Skip generation of event buffers. Must be generated in advance!
                                             (saves around 0.3 s)
 
@@ -1866,12 +1866,12 @@ class DynapseControl:
         """
 
         # - Process input arguments
-        neuron_ids = (
+        virtual_neur_ids = (
             np.arange(np.amax(channels) + 1)
-            if neuron_ids is None
-            else np.array(neuron_ids, int)
+            if virtual_neur_ids is None
+            else np.array(virtual_neur_ids, int)
         )
-        record_neur_ids = neuron_ids if record_neur_ids is None else record_neur_ids
+        record_neur_ids = virtual_neur_ids if record_neur_ids is None else record_neur_ids
         if t_record is None:
             try:
                 t_record = times[-1]
@@ -1893,7 +1893,7 @@ class DynapseControl:
             times=times,
             timesteps=timesteps,
             channels=channels,
-            neuron_ids=neuron_ids,
+            neuron_ids=virtual_neur_ids,
             ts_start=0,
             targetcore_mask=targetcore_mask,
             targetchip_id=targetchip_id,
