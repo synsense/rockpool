@@ -169,7 +169,7 @@ class JaxTrainedLayer(Layer, ABC):
         :param Callable loss_fcn:       Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
         :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
         :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: :py:func:`jax.experimental.optimizers.adam`
-        :param Dict opt_params:         A dictionary of parameters passed to :py:func:`optimizer`. Default: {"step_size": 1e-4}
+        :param Dict opt_params:         A dictionary of parameters passed to :py:func:`optimizer`. Default: ``{"step_size": 1e-4}``
 
         Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
         be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated

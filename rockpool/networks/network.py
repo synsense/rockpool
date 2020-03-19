@@ -13,7 +13,7 @@ This module encapsulates networks -- combinations of multiple `.Layer` objects, 
 import json
 from decimal import Decimal
 from copy import deepcopy
-from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any, Set
+from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any, Set, NoReturn
 from warnings import warn
 
 import numpy as np
@@ -45,7 +45,7 @@ tol_abs = 1e-10
 ### --- Helper functions
 
 
-def digits_after_point(value):
+def digits_after_point(value) -> float:
     strval = str(value)
     # - Make sure that value is actually a number
     try:
@@ -186,6 +186,7 @@ class Network:
 
         # - Network time
         self._timestep: float = 0.0
+        self._dt: Optional[float] = None
 
         # - Call super-class init
         super().__init__(*args, **kwargs)
@@ -212,13 +213,6 @@ class Network:
 
             # - Handle to last layer
             self.output_layer = recent_layer
-
-        # - Set evolution order and time step if no layers have been connected
-        if not hasattr(self, "evol_order"):
-            self.evol_order = self._set_evolution_order()
-
-        if not hasattr(self, "_dt"):
-            self._dt = None
 
     def add_layer(
         self,
@@ -323,7 +317,7 @@ class Network:
 
         return newname
 
-    def remove_layer(self, del_layer: Layer):
+    def remove_layer(self, del_layer: Layer) -> NoReturn:
         """
         Remove a layer from the network by removing it from the layer inventory and make sure that no other layer receives input from it
 
@@ -352,7 +346,7 @@ class Network:
         # - Reevaluate the layer evolution order
         self.evol_order = self._set_evolution_order()
 
-    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
+    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False) -> NoReturn:
         """
         Connect two layers by defining one as the input layer of the other
 
@@ -400,7 +394,7 @@ class Network:
             post_layer.pre_layer = None
             raise e
 
-    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False):
+    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False) -> NoReturn:
         """
         Remove the connection between two layers by setting the input of the target layer to `None`
 
@@ -435,7 +429,7 @@ class Network:
                     )
                 )
 
-    def _set_evolution_order(self) -> list:
+    def _set_evolution_order(self) -> List:
         """
         Determine the order in which layers are evolved. Requires Network to be a directed acyclic graph, otherwise evolution has to happen timestep-wise instead of layer-wise
         """
@@ -471,7 +465,7 @@ class Network:
         # - Return a list with the layers in their evolution order
         return order
 
-    def _set_dt(self, max_factor: float = 100):
+    def _set_dt(self, max_factor: float = 100) -> NoReturn:
         """
         Set a time step size for the network which is the lcm of all layers' dt's.
 
@@ -550,7 +544,7 @@ class Network:
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         verbose: bool = True,
-    ) -> dict:
+    ) -> Dict:
         """
         Evolve the network by evolving each layer in turn
 
@@ -595,7 +589,7 @@ class Network:
                 ts_input.name = "External input"
             # - Check if input contains information about trial timings
             try:
-                trial_start_times: np.ndarray = ts_input.trial_start_times
+                trial_start_times: Optional[np.ndarray] = ts_input.trial_start_times
             except AttributeError:
                 try:
                     # Old variable name
@@ -671,7 +665,7 @@ class Network:
         nums_ts_batch: Union[np.ndarray, int, None] = None,
         verbose: bool = True,
         high_verbosity: bool = False,
-    ):
+    ) -> NoReturn:
         """
         Train the network batch-wise by evolving the layers and calling the training function
 
@@ -806,7 +800,7 @@ class Network:
         num_timesteps: Optional[int] = None,
         verbose: bool = False,
         step_callback: Optional[Callable] = None,
-    ) -> dict:
+    ) -> Dict:
         """
         Stream data through layers, evolving by single time steps
 
@@ -985,7 +979,7 @@ class Network:
             raise NetworkError("Network: Not all layers are in sync with the network.")
         return in_sync
 
-    def reset_time(self):
+    def reset_time(self) -> NoReturn:
         """
         Reset the time of the network to zero by resetting each layer and the global network timestamp. Does not reset state.
         """
@@ -996,7 +990,7 @@ class Network:
         # - Reset global network time
         self._timestep = 0
 
-    def reset_state(self):
+    def reset_state(self) -> NoReturn:
         """
         Reset the state of the network by resetting each layer. Does not reset time.
         """
@@ -1004,7 +998,7 @@ class Network:
         for lyr in self.layerset:
             lyr.reset_state()
 
-    def reset_all(self):
+    def reset_all(self) -> NoReturn:
         """
         Reset all state and time of the network and layers
         """
@@ -1014,7 +1008,12 @@ class Network:
         # - Reset global network time
         self._timestep = 0
 
-    def __repr__(self):
+    def __str__(self) -> str:
+        """
+        Construct a string representation of this `.Network`
+
+        :return str: String representation
+        """
         return (
             "{} object with {} layers\n".format(
                 self.__class__.__name__, len(self.layerset)
@@ -1023,8 +1022,16 @@ class Network:
             + "\n    ".join([str(lyr) for lyr in self.evol_order])
         )
 
+    def __repr__(self) -> str:
+        """
+        Construct a string representation of this `.Network`
+
+        :return str: String representation
+        """
+        return self.__str__()
+
     @property
-    def t(self):
+    def t(self) -> float:
         """(float) Global network time"""
         return (
             0
@@ -1033,7 +1040,7 @@ class Network:
         )
 
     @property
-    def dt(self):
+    def dt(self) -> float:
         """(float) Time step to use in layer simulations"""
         return self._dt
 
@@ -1083,7 +1090,7 @@ class Network:
 
         return params
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> None:
         """
         Save this network to a JSON file
 

@@ -6,7 +6,7 @@ from ...timeseries import TimeSeries, TSContinuous
 from ..network import Network
 from ...layers.training import JaxTrainedLayer
 
-from typing import Tuple, List, Callable, Union, Dict, Sequence, Any
+from typing import Tuple, List, Callable, Union, Dict, Sequence, Any, Optional
 
 from jax import jit
 from jax.experimental.optimizers import adam
@@ -45,9 +45,9 @@ class JaxStack(Network, JaxTrainedLayer):
         # - Initialise timestep
         self.__timestep: int = 0
 
-        self._size_in: Union[int, None] = None
-        self._size_out: Union[int, None] = None
-        self._size: Union[int, None] = None
+        self._size_in: Optional[int] = None
+        self._size_out: Optional[int] = None
+        self._size: Optional[int] = None
 
         # - Get evolution functions
         self._all_evolve_funcs: List = [
@@ -56,8 +56,8 @@ class JaxStack(Network, JaxTrainedLayer):
 
         # - Set sizes
         if layers is not None:
-            self._size_in: int = self.input_layer._size_in
-            self._size_out: int = self.evol_order[-1]._size_out
+            self._size_in = self.input_layer.size_in
+            self._size_out = self.evol_order[-1].size_out
 
     def evolve(
         self,
@@ -76,7 +76,7 @@ class JaxStack(Network, JaxTrainedLayer):
         """
 
         # - Catch an empty stack
-        if self.evol_order is None:
+        if self.evol_order is None or len(self.evol_order) == 0:
             return {}
 
         # - Prepare time base and inputs, using first layer

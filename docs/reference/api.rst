@@ -26,6 +26,7 @@ Layer and Network alternative base classes
     networks.NetworkDeneve
     layers.training.RRTrainedLayer
     layers.training.JaxTrainedLayer
+    networks.JaxStack
 
 
 Time series classes
@@ -101,5 +102,3 @@ Utility modules
     layers.RecRateEulerJax_IO
     layers.FFRateEulerJax
     layers.ForceRateEulerJax_IO
-
-    layers.JaxStack

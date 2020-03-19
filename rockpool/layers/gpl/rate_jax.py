@@ -260,6 +260,10 @@ class RecRateEulerJax(JaxTrainedLayer, Layer):
     The outputs of the layer are given by :math:`H(x)`, where :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
 
     .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+
+    .. rubric:: Training
+
+    `.RecRateEulerJax` implements the `.JaxTrainedLayer` training interface. See the documentation for :py:meth:`.JaxTrainedLayer.train_output_target` for information about training these layers.
     """
 
     def __init__(
@@ -683,6 +687,10 @@ class RecRateEulerJax_IO(RecRateEulerJax):
     The outputs of the layer are given by :math:`W_{out} \\cdot H(x)`, where :math:`W_{out}` is the NxM output weight matrix, and :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
 
     .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+
+    .. rubric:: Training
+
+    `.RecRateEulerJax` implements the `.JaxTrainedLayer` training interface. See the documentation for :py:meth:`.JaxTrainedLayer.train_output_target` for information about training these layers.
     """
 
     def __init__(
@@ -831,6 +839,10 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
     The outputs of the layer are given by :math:`W_{out} \\cdot H(x)`, where :math:`W_{out}` is the NxO output weight matrix, and :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
 
     .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+
+    .. rubric:: Training
+
+    `.RecRateEulerJax` implements the `.JaxTrainedLayer` training interface. See the documentation for :py:meth:`.JaxTrainedLayer.train_output_target` for information about training these layers.
     """
 
     def __init__(
@@ -1017,6 +1029,10 @@ class FFRateEulerJax(RecRateEulerJax):
     The output of the layer is :math:`H(x)`, where :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
 
     .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+
+    .. rubric:: Training
+
+    `.RecRateEulerJax` implements the `.JaxTrainedLayer` training interface. See the documentation for :py:meth:`.JaxTrainedLayer.train_output_target` for information about training these layers.
     """
 
     def __init__(

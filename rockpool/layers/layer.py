@@ -543,7 +543,7 @@ class Layer(ABC):
         :param str filename:    Path to the file where parameters are stored
         :param kwargs:          Any keyword arguments of the class `.__init__` method where the parameter stored in the file should be overridden
 
-        :return Layer: Instance of ``cls`` with parameters loaded from ``filename``
+        :return `.Layer`: Instance of `.Layer` subclass with parameters loaded from ``filename``
         """
         # - Load dict from file
         with open(filename, "r") as f:
@@ -559,9 +559,9 @@ class Layer(ABC):
 
         :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
         :param Dict config: Dictionary containing parameters of a :py:class:`.Layer` subclass
-        :param kwargs:      Any keyword arguments of the class `.__init__` method where the parameters from ``config`` should be overridden
+        :param kwargs:      Any keyword arguments of the class :py:meth:`.__init__` method where the parameters from ``config`` should be overridden
 
-        :return Layer: Instance of ``cls`` with parameters from ``config``
+        :return `.Layer`: Instance of `.Layer` subclass with parameters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
