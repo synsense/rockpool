@@ -17,7 +17,7 @@ def test_shallow_copy():
     l3 = FFRateEuler(np.random.rand(4, 3))
     l4 = FFRateEuler(np.random.rand(3, 3))
 
-    net = Network(l1, l3, l4, dt=2)
+    net = Network([l1, l3, l4], dt=2)
     net.add_layer(l2, input_layer=l1)
 
     net1 = net.shallow_copy()
@@ -36,7 +36,7 @@ def test_evolve_on_disk():
     l2 = FFRateEuler(np.random.rand(4, 3))
     l3 = FFRateEuler(np.random.rand(3, 3))
 
-    net = Network(l1, l2, l3, dt=2, evolve_on_disk=True)
+    net = Network([l1, l2, l3], dt=2, evolve_on_disk=True)
 
     # - Generate an input
     time_trace = np.linspace(0, 10, 100)
