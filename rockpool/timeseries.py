@@ -1750,7 +1750,7 @@ class TSContinuous(TimeSeries):
     def nan_exception(self, raise_exception: bool):
         try:
             self._nan_exception = bool(raise_exception)
-        except TypeError:
+        except (TypeError, ValueError):
             raise TypeError(
                 f"TSContinuous `{self.name}`: `nan_exception` must be of boolean type."
             )

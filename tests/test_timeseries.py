@@ -57,6 +57,8 @@ def test_continuous_operators():
     # - Addition
     ts = ts + 1
     ts += 5
+    # Suppress exception from nan values (because times don't match)
+    ts2.nan_exception = False
     ts = ts + ts2
     ts += ts2
 
@@ -217,6 +219,10 @@ def test_continuous_call():
     ts_empty = TSContinuous()
     ts_single = TSContinuous(2, [3, 2])
 
+    # Suppress exception from nan-values
+    ts.nan_exception = False
+    ts_single.nan_exception = False
+
     # - Call ts
     assert np.allclose(ts(0.1), np.array([[0, 2]]))
     assert np.allclose(ts(0.25), np.array([[1.5, 3.5]]))
@@ -293,6 +299,8 @@ def test_continuous_inplace_mutation():
     assert ts1.t_start == 1
 
     # - Resample
+    # Suppress exception from NaN value at t=0.125
+    ts1.nan_exception = False
     ts1.resample([0.125, 1.1, 1.9], inplace=True)
     assert ts1.t_start == 0.125
 
@@ -337,6 +345,10 @@ def test_continuous_append_c():
     series_list = []
     series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=2))
     series_list.append(TSContinuous([1], samples[0, -2:], t_start=0, t_stop=2))
+
+    # - Suppress exception from nans (because channels don't match)
+    for ts in series_list:
+        ts.nan_exception = False
 
     # Appending two series
     appended_fromtwo = series_list[0].append_c(series_list[1])
@@ -536,6 +548,31 @@ def test_continuous_merge():
         merged_with_list.samples
         == np.vstack((samples[0, :2], samples[0, 2:4], samples[1, :2], samples[1, 4:6]))
     ).all(), "Wrong samples when merging with list."
+
+
+def test_continuous_nan():
+    from rockpool import TSContinuous
+
+    times = np.arange(10) * 0.1 + 0.5
+    samples = np.random.rand(10, 3)
+    ts = TSContinuous(times, samples)
+
+    # - Make sure exception is thrown if trying to sample outside range
+    with pytest.raises(ValueError):
+        ts(0)
+    with pytest.raises(ValueError):
+        ts([0.1, 0.7, 1.9])
+    with pytest.raises(ValueError):
+        ts(1.6)
+
+    # - Same, with warnings insead
+    ts.nan_exception = False
+    with pytest.warns(UserWarning):
+        ts(0)
+    with pytest.warns(UserWarning):
+        ts([0.1, 0.7, 1.9])
+    with pytest.warns(UserWarning):
+        ts(1.6)
 
 
 def test_event_call():
