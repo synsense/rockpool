@@ -574,6 +574,19 @@ def test_continuous_nan():
     with pytest.warns(UserWarning):
         ts(1.6)
 
+    # - Correct values that are slightly out of range
+    t_small = times[0] - 8e-10
+    t_large = times[-1] + 8e-10
+    ts.approx_limit_times = True
+    assert (ts(t_small) == ts(times[0])).all()
+    assert (ts(t_large) == ts(times[-1])).all()
+    sample_times = np.random.rand(10) * 0.9 + 0.5
+    sample_times[[2, 5, 8]] = t_small
+    sample_times[[1, 4, 9]] = t_large
+    sampled_data = ts(sample_times)
+    assert (sampled_data[[2, 5, 8]] == ts(times[0])).all()
+    assert (sampled_data[[1, 4, 9]] == ts(times[-1])).all()
+
 
 def test_event_call():
     from rockpool import TSEvent
