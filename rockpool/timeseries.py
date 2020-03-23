@@ -1305,25 +1305,30 @@ class TSContinuous(TimeSeries):
         if self.periodic and self.duration > 0:
             times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
 
-        import time
+        if self.times.size > 0:  # Avoid errors with empty series
 
-        t0 = time.time()
-        # - Correct time points that are slightly out of range
-        if self.approx_limit_times:
-            if self.times.size > 0:  # Avoid errors with empty series
-                # Make sure `times` is an array
-                times = np.asarray(times)
+            # Make sure `times` is an array
+            times = np.asarray(times)
+
+            # Time points that define the range of the interpolator
+            t_first = self.times[0]
+            t_last = self.times[-1]
+
+            # Time points outside of this range
+            is_early = np.asarray(times < t_first)
+            is_late = np.asarray(times > t_last)
+
+            # - Correct time points that are slightly out of range
+            if self.approx_limit_times:
                 # Find values in `times` that are slightly before first or slightly after
                 # last sample
-                t_first = self.times[0]
-                t_last = self.times[-1]
                 t_first_approx = t_first - _TOLERANCE_ABSOLUTE
                 t_last_approx = t_last + _TOLERANCE_ABSOLUTE
-                set_t_first = np.logical_and(times < t_first, times >= t_first_approx)
-                set_t_last = np.logical_and(times > t_last, times <= t_last_approx)
+                set_t_first = np.logical_and(is_early, times >= t_first_approx)
+                set_t_last = np.logical_and(is_late, times <= t_last_approx)
                 times[set_t_first] = t_first
                 times[set_t_last] = t_last
-                if set_t_first.any():
+                if np.logical_or(set_t_first, set_t_last).any():
                     warn(
                         f"TSContinuous `{self.name}`: Some of the requested time points "
                         + "were slightly outside the time range of this series (by at "
@@ -1331,30 +1336,29 @@ class TSContinuous(TimeSeries):
                         + f"the first or last time point of this series. To prevent this "
                         + f"behavior, set the `approx_limit_times` attribute to `False`."
                     )
-        print(f"Correction took {time.time() - t0}.")
-        t1 = time.time()
-        samples = self.interp(times)
-        print(f"Sampling took {time.time() - t1}.")
+                    is_early[set_t_first] = False
+                    is_late[set_t_last] = False
 
-        # - Handle empty series
-        if samples is None:
-            return np.zeros((np.size(times), 0))
-        else:
             # - Warn or throw exception if output contains `NaN`s
-            t2 = time.time()
-            if np.isnan(samples).any():
+            if is_early.any() or is_late.any():
                 error_msg = (
-                    f"TSContinuous `{self.name}`: The sampled data contains "
-                    + "NaN-values. This is likely because the requested time points "
-                    + "are beyond the first and last time points of this series.\n"
+                    f"TSContinuous `{self.name}`: Some of the requested time points are "
+                    + "beyond the first and last time points of this series and cannot "
+                    + "be sampled.\n"
                     + "If you think that this is due to rounding errors, try setting "
                     + "the `approx_limit_times` attribute to `True`."
                 )
                 if self.nan_exception:
                     raise ValueError(error_msg)
                 else:
-                    warn(error_msg)
-            print(f"Nan-test took {time.time() - t2}.")
+                    warn(error_msg + "\nWill return `NaN` for these time points.")
+
+        samples = self.interp(times)
+
+        # - Handle empty series
+        if samples is None:
+            return np.zeros((np.size(times), 0))
+        else:
             return np.reshape(samples, (-1, self.num_channels))
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
