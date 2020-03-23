@@ -687,6 +687,9 @@ class TSContinuous(TimeSeries):
         self.samples = samples.astype("float")
         self.units = units
 
+        # - Default: Throw exceptions when sampled output contains `NaN`s
+        self.nan_exception = True
+
     ## -- Methods for plotting and printing
 
     def plot(
@@ -1305,7 +1308,18 @@ class TSContinuous(TimeSeries):
         if samples is None:
             return np.zeros((np.size(times), 0))
         else:
-            return np.reshape(self.interp(times), (-1, self.num_channels))
+            # - Warn or throw exception if output contains `NaN`s
+            if np.isnan(samples).any():
+                error_msg = (
+                    f"TSContinuous `{self.name}`: The sampled data contains "
+                    + "NaN-values. This is likely because the requested time points "
+                    + "are beyond the first and last time points of this series."
+                )
+                if self.nan_exception:
+                    raise ValueError(error_msg)
+                else:
+                    warn(error_msg)
+            return np.reshape(samples, (-1, self.num_channels))
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
         """
@@ -1727,6 +1741,19 @@ class TSContinuous(TimeSeries):
     def min(self):
         """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
+
+    @property
+    def nan_exception(self):
+        return self._nan_exception
+
+    @nan_exception.setter
+    def nan_exception(self, raise_exception: bool):
+        try:
+            self._nan_exception = bool(raise_exception)
+        except TypeError:
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `nan_exception` must be of boolean type."
+            )
 
 
 ### --- Event time series
