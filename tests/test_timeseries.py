@@ -1,7 +1,6 @@
 """
 Test TimeSeries methods
 """
-import sys
 import pytest
 import numpy as np
 
@@ -13,11 +12,13 @@ def test_imports():
     from rockpool import TimeSeries
     from rockpool import TSContinuous
     from rockpool import TSEvent
+    from rockpool import load_ts_from_file
+    from rockpool import set_global_ts_plotting_backend
+    from rockpool import TSDictOnDisk
     from rockpool.timeseries import TimeSeries
     from rockpool.timeseries import TSContinuous
     from rockpool.timeseries import TSEvent
     from rockpool.timeseries import set_global_ts_plotting_backend
-    from rockpool.timeseries import get_global_ts_plotting_backend
     import rockpool.timeseries as ts
 
 
@@ -993,6 +994,7 @@ def test_save_load():
     """
     Test saving and loading function for timeseries
     """
+    from tempfile import TemporaryFile
     from rockpool import TSEvent, TSContinuous, load_ts_from_file
     from os import remove
 
@@ -1012,31 +1014,121 @@ def test_save_load():
         periodic=True,
         name="events",
     )
-    # - Store objects
+
+    def assert_equality(tsc, tse, tscl, tsel):
+        # - Verify that attributes are still correct
+        assert (tscl.times == times).all(), "TSContinuous: times changed."
+        assert (
+            tscl.samples == samples.reshape(-1, 1)
+        ).all(), "TSContinuous: samples changed."
+        assert tscl.name == "continuous", "TSContinuous: name changed."
+        assert tscl.t_start == -1, "TSContinuous: t_start changed."
+        assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
+        assert tscl.periodic, "TSContinuous: periodic changed."
+        assert (tsel.times == times).all(), "TSEvent: times changed."
+        assert (tsel.channels == channels).all(), "TSEvent: channels changed."
+        assert tsel.name == "events", "TSEvent: name changed."
+        assert tsel.t_start == -1, "TSEvent: t_start changed."
+        assert tsel.t_stop == 8, "TSEvent: t_stop changed."
+        assert tsel.periodic, "TSEvent: periodic changed."
+        assert tsel.num_channels == 3, "TSEvent: num_channels changed."
+
+    # - Store objects in files
     tsc.save("test_tsc")
     tse.save("test_tse")
     # - Load objects
     tscl = load_ts_from_file("test_tsc.npz")
     tsel = load_ts_from_file("test_tse.npz")
-    # - Verify that attributes are still correct
-    assert (tscl.times == times).all(), "TSContinuous: times changed."
-    assert (
-        tscl.samples == samples.reshape(-1, 1)
-    ).all(), "TSContinuous: samples changed."
-    assert tscl.name == "continuous", "TSContinuous: name changed."
-    assert tscl.t_start == -1, "TSContinuous: t_start changed."
-    assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
-    assert tscl.periodic, "TSContinuous: periodic changed."
-    assert (tsel.times == times).all(), "TSEvent: times changed."
-    assert (tsel.channels == channels).all(), "TSEvent: channels changed."
-    assert tsel.name == "events", "TSEvent: name changed."
-    assert tsel.t_start == -1, "TSEvent: t_start changed."
-    assert tsel.t_stop == 8, "TSEvent: t_stop changed."
-    assert tsel.periodic, "TSEvent: periodic changed."
-    assert tsel.num_channels == 3, "TSEvent: num_channels changed."
+
+    assert_equality(tsc, tse, tscl, tsel)
+
     # - Remove saved files
     remove("test_tsc.npz")
     remove("test_tse.npz")
+
+    # - Store objects in temporary files
+    tfc = TemporaryFile()
+    tfe = TemporaryFile()
+    tsc.save(tfc)
+    tse.save(tfe)
+
+    # - Load objects
+    tscl = load_ts_from_file(tfc)
+    tsel = load_ts_from_file(tfe)
+
+    assert_equality(tsc, tse, tscl, tsel)
+
+
+def test_tsdictondisk():
+    from rockpool import TimeSeries, TSEvent, TSContinuous, TSDictOnDisk
+
+    def assert_equality(ts0, ts1):
+        # - Verify that attributes are still correct
+        assert (ts0.times == ts1.times).all(), "Times changed."
+        assert ts0.name == ts1.name, "Name changed."
+        assert ts0.t_start == ts1.t_start, "t_start changed."
+        assert ts0.t_stop == ts1.t_stop, "t_stop changed."
+        assert ts0.periodic == ts1.periodic, "periodic changed."
+        # TSContinuous
+        if isinstance(ts0, TSContinuous):
+            assert (ts0.samples == ts1.samples).all(), "Samples changed."
+        # TSEvent
+        elif isinstance(ts1, TSEvent):
+            assert (ts0.channels == ts1.channels).all(), "Channels changed."
+            assert ts0.num_channels == ts1.num_channels, "num_channels changed."
+
+    # - Dicts with timeseries
+    ts_dict = {
+        f"tsc{i}": TSContinuous(np.arange(3), np.random.rand(3, 2)) for i in range(2)
+    }
+    ts_dict.update(
+        {
+            f"tse{i}": TSEvent(np.sort(np.random.rand(4)), np.random.randint(3, size=4))
+            for i in range(3)
+        }
+    )
+
+    # - Instantiation
+    dod = TSDictOnDisk(ts_dict)
+    for k, ts in ts_dict.items():
+        assert_equality(ts, dod[k])
+    # - Instantiation empty
+    dod_0 = TSDictOnDisk()
+    # - Add non-ts element
+    dod_0["foo"] = 3
+    assert dod_0["foo"] == 3
+    # - Add ts
+    ts_foo = TSEvent([1, 4], [0, 1], name="foo", periodic=True)
+    dod_0["ts_foo"] = ts_foo
+    assert_equality(ts_foo, dod_0["ts_foo"])
+    # - Overwrite ts with ts
+    ts_foo_0 = TSEvent([1, 3], [1, 0], name="foo0", periodic=True)
+    dod_0["ts_foo"] = ts_foo_0
+    assert_equality(ts_foo_0, dod_0["ts_foo"])
+    # - Overwrite non-ts element with non-ts element
+    dod_0["foo"] = "bar"
+    assert dod_0["foo"] == "bar"
+    # - Overwrite non-ts element with ts
+    dod_0["foo"] = ts_foo
+    assert_equality(dod_0["foo"], ts_foo)
+    # - Overwrite ts with non-ts object
+    dod_0["foo"] = 1
+    assert dod_0["foo"] == 1
+    # - Include other `TSDictOnDisk` object, make sure some objects are overwritten
+    dod["x"] = 2
+    dod_0["foo"] = 5
+    dod_0["tse0"] = ts_foo_0
+    dod_0.insert(dod)
+    for k, v in dod.items():
+        if isinstance(v, TimeSeries):
+            assert_equality(dod_0[k], v)
+        else:
+            assert dod_0[k] == v
+    # - Include a dict
+    d = {"a": 1, "b": 2, "foo": 3, "ts_foo": 4}
+    dod_0.insert(d)
+    for k, v in d.items():
+        assert dod_0[k] == v
 
 
 def test_event_raster_periodic_iss5():

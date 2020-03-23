@@ -50,7 +50,7 @@ ts_input = TSEvent(spike_times, spike_channels)
 # - Send stimulus
 rec = controller.send_TSEvent(
     ts_input,
-    neuron_ids=virtual_neuron_ids,
+    virtual_neur_ids=virtual_neuron_ids,
     record_neur_ids=neuron_ids,
     record=True,
     return_ts=True,
