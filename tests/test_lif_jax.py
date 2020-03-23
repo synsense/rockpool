@@ -279,6 +279,7 @@ def test_RecLIFCurrentInJax_IO():
         t_start=0.0,
         t_stop=16 * dt,
     )
+    tsInCont.nan_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state["Vmem"])
