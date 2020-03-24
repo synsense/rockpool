@@ -6,7 +6,7 @@ timeseries.py - Classes to manage time series
 
 # - Built-ins
 import copy
-import collections
+import collections.abc
 from tempfile import TemporaryFile
 from typing import (
     Union,
@@ -2750,7 +2750,7 @@ class TSEvent(TimeSeries):
 
 
 ### --- Dict-like object to store TimeSeries on disk
-class TSDictOnDisk(collections.MutableMapping):
+class TSDictOnDisk(collections.abc.MutableMapping):
     """
     Behaves like a dict. However, if a `TimeSeries` is added, it will be stored in a temporary file to reduce main memory usage.
     """
