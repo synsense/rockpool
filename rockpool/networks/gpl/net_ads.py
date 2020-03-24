@@ -88,7 +88,7 @@ class NetworkADS(Network):
                         tau_syn_r_slow: float = 0.1,
                         tau_syn_r_out: float = 0.1,
                         refractory: float = -np.finfo(float).eps,
-                        record : bool = False,
+                        record: bool = False,
                         **kwargs,
                         ):
 
@@ -142,16 +142,16 @@ class NetworkADS(Network):
         return net_ads
 
     def train(self,
-                        data_train : List[Tuple[np.ndarray,np.ndarray]] = None,
-                        data_val : List[Tuple[np.ndarray,np.ndarray]] = None,
-                        get_data : Callable[[],np.ndarray] = None,
-                        num_validate : int = -1,
-                        num_iter : int = -1,
-                        validation_step : int = 0,
-                        time_base : np.ndarray = None,
-                        verbose : int = 0,
-                        N_filter : int = 31,
-                        ):
+                data_train : List[Tuple[np.ndarray,np.ndarray]] = None,
+                data_val : List[Tuple[np.ndarray,np.ndarray]] = None,
+                get_data : Callable[[],np.ndarray] = None,
+                num_validate : int = -1,
+                num_iter : int = -1,
+                validation_step : int = 0,
+                time_base : np.ndarray = None,
+                verbose : int = 0,
+                N_filter : int = 31,
+                ):
         """
         :brief :
             Function that trains the ADS network using either:

@@ -308,7 +308,7 @@ class RecFSSpikeADS(Layer):
                 # - Set spike currents
                 I_spike_rate = np.copy(zeros)
                 I_spike_rate[first_spike_id] = 1.0
-                I_spike_slow = weights_slow[first_spike_id, :] * 0.5 # Or take the transpose
+                I_spike_slow = weights_slow[first_spike_id, :]
                 I_spike_fast = weights[:, first_spike_id]
                 I_spike_out = weights_out[first_spike_id, :]
 
@@ -341,7 +341,7 @@ class RecFSSpikeADS(Layer):
             dot_rate = syn_dot_I(rate, dt, I_spike_rate, tau_syn_r_slow)
             rate += dot_rate * dt
 
-            phi_r = 0.5 * rate
+            phi_r = rate
 
             int_time = int((t_time - t_start) // dt)
             I_ext = static_input[int_time, :]
