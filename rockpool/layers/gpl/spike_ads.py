@@ -345,6 +345,8 @@ class RecFSSpikeADS(Layer):
             elif(phi_name == "relu"):
                 phi_r = M @ I_s_S + theta
                 phi_r[phi_r < 0] = 0
+            elif(phi_name == "eye"):
+                phi_r = M @ I_s_S + theta
 
             I_W_slow_phi_x = weights_slow.T @ phi_r
 

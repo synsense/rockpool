@@ -121,7 +121,7 @@ class NetworkADS(Network):
         assert (np.asarray(weights_fast).shape == (N,N)), ("Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_fast).shape),N,N))
         assert (np.asarray(weights_slow).shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_slow).shape),Nb,N))
         assert (np.asarray(theta).shape == (Nb,1) or np.asarray(theta).shape == (Nb,)), ("Theta has shape %s but should have shape (%d,1)" % (str(np.asarray(theta).shape),Nb))
-        assert (phi == "tanh" or phi == "relu"), ("Please specify phi to be either tanh or relu")
+        assert (phi == "tanh" or phi == "relu" or phi == "eye"), ("Please specify phi to be either tanh, relu or eye")
 
 
         ads_layer = RecFSSpikeADS(weights_fast=np.asarray(weights_fast).astype("float"), weights_slow=np.asarray(weights_slow).astype("float"), weights_out = np.asarray(weights_out).astype("float"), weights_in=np.asarray(weights_in).astype("float"),
