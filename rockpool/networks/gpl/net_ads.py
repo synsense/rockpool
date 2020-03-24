@@ -75,8 +75,6 @@ class NetworkADS(Network):
                         weights_out : np.ndarray,
                         weights_fast : np.ndarray,
                         weights_slow : np.ndarray,
-                        M : np.ndarray,
-                        theta : np.ndarray,
                         eta : float,
                         k : float,
                         noise_std : float,
@@ -90,7 +88,6 @@ class NetworkADS(Network):
                         tau_syn_r_slow: float = 0.1,
                         tau_syn_r_out: float = 0.1,
                         refractory: float = -np.finfo(float).eps,
-                        phi : str = "tanh",
                         record : bool = False,
                         **kwargs,
                         ):
@@ -120,15 +117,12 @@ class NetworkADS(Network):
         assert (np.asarray(weights_out).shape == (N,Nc)), ("Output matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_out).shape),Nc,N))
         assert (np.asarray(weights_fast).shape == (N,N)), ("Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_fast).shape),N,N))
         assert (np.asarray(weights_slow).shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_slow).shape),Nb,N))
-        assert (np.asarray(theta).shape == (Nb,1) or np.asarray(theta).shape == (Nb,)), ("Theta has shape %s but should have shape (%d,1)" % (str(np.asarray(theta).shape),Nb))
-        assert (phi == "tanh" or phi == "relu" or phi == "eye"), ("Please specify phi to be either tanh, relu or eye")
-
 
         ads_layer = RecFSSpikeADS(weights_fast=np.asarray(weights_fast).astype("float"), weights_slow=np.asarray(weights_slow).astype("float"), weights_out = np.asarray(weights_out).astype("float"), weights_in=np.asarray(weights_in).astype("float"),
-                                    M=np.asarray(M).astype("float"),theta=np.asarray(theta).astype("float"),eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,
+                                    eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,
                                     dt=dt,v_thresh=np.asarray(v_thresh).astype("float"),v_reset=np.asarray(v_reset).astype("float"),v_rest=np.asarray(v_rest).astype("float"),
                                     tau_mem=tau_mem,tau_syn_r_fast=tau_syn_r_fast,tau_syn_r_slow=tau_syn_r_slow, tau_syn_r_out=tau_syn_r_out,
-                                    refractory=refractory,phi=phi,record=record,name="lyrRes")
+                                    refractory=refractory,record=record,name="lyrRes")
 
         input_layer = PassThrough(np.asarray(weights_in).astype("float"), dt=dt, noise_std=noise_std, name="input_layer")
 
