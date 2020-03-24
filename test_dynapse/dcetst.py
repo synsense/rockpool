@@ -16,12 +16,12 @@ import numpy as np
 from rockpool import TSContinuous, TSEvent
 from rockpool.devices import dynapse_control_extd as dce
 from rockpool.layers import FFUpDown
-from rockpool.layers.internal.devices.dynap_hw import RecDynapSEDemo, RecDynapSE
+from rockpool.layers.gpl.devices.dynap_hw import RecDynapSEDemo, RecDynapSE
 import ECG.recordings as rec
 
 ### --- Test connections
 con = dce.DynapseControlExtd(
-    init_chips=[0, 1], clearcores_list=range(8), rpyc_connection="1301"
+    init_chips=[0, 1], clearcores_list=range(8), rpyc_connection="1300"
 )
 # - Set connections
 ids_pre = [1, 1025, 1026]
@@ -140,12 +140,8 @@ assert (
 # - allocate neurons that are available
 con.allocate_hw_neurons(range(1, 1024))
 # - Try to request already allocated neurons
-try:
+with pytest.raises(ValueError):
     con.allocate_hw_neurons(range(10, 20))
-except ValueError:
-    pass
-else:
-    raise AssertionError("Did not notice request of already allocated neurons.")
 # - Allocate the next 500 available neurons
 con.allocate_hw_neurons(500)
 # - Now there should be 523 available neurons (from 1524 to 2047) -> request 524, so that chip 2 gets initialized
@@ -153,20 +149,19 @@ con.allocate_hw_neurons(524)
 # - Request neurons, some of which are on chip 3
 con.allocate_hw_neurons([2050, 4000])
 # - Request more neurons than can be made available
-try:
+with pytest.raises(ValueError):
     con.allocate_hw_neurons(2044)
-except ValueError:
-    pass
-else:
-    raise AssertionError("Did not notice request of too many neurons.")
 # - Clear neuron allocation
 con.clear_neuron_assignments(range(16))
-assert np.sum(con.hwneurons_isavailable) == 409
+assert np.sum(con.hwneurons_isavailable) == 4092
 
 # - Make sure dt is not too large
 with pytest.raises(ValueError):
     con.fpga_isibase = (2 ** 16 + 1) * 1 / 9 * 1e-7
 
+
+## -- Record from some neurons
+con.record(neuron_ids=[1,2,3,4], duration=1, return_ts=True)
 
 ### --- Dynapse layers
 
@@ -216,19 +211,9 @@ aslayer = FFUpDown(
 )
 
 # - Load data
-classprobs = {0: 0.8, 1: 0.05, 2: 0, 3: 0.05, 4: 0.05, 5: 0, 18: 0.05}
-annotations, recordings = rec.load_from_file(rec.save_path)
-data_in, data_tgt, anno_curr = rec.generate_data(
-    num_beats=10,
-    annotations=annotations,
-    rec_data=recordings,
-    use_recordings=None,
-    probs=classprobs,
-    include_bad_signal=False,
-    min_len_segment=2,
-    use_cont_segments=True,
-)
-rhythm_starts = anno_curr.idx_new_start
+er = rec.ECGRecordings()
+anno_curr, data_in = er.provide_data(10)
+rhythm_starts = anno_curr.idx_start_new
 
 # - Convert to spikes
 times = np.arange(data_in.shape[0]) * dt_in

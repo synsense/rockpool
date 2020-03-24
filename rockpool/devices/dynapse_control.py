@@ -136,13 +136,14 @@ def initialize_hardware(
         global initialized_chips, initialized_neurons
         cleared_chips = set(use_chips).difference(initialized_chips)
         initialized_chips = sorted(initialized_chips + cleared_chips)
-        initialized_neurons += [
+        cleard_neurons = [
             neuron
             for chip in cleared_chips
             for neuron in range(
                 params.NUM_NEURONS_CHIP * chip, params.NUM_NEURONS_CHIP * (chip + 1)
             )
         ]
+        initialized_neurons = sorted(initialized_neurons + cleard_neurons)
         if not use_chips:
             print(f"dynapse_control: No chips have been cleared.")
         elif len(use_chips == 1):
@@ -182,7 +183,7 @@ def initialize_hardware(
             initialized_neurons = connection.modules.tools.storage.get(
                 "initialized_neurons", []
             )
-            initialized_neurons += [
+            cleared_neurons = [
                 neuron_id
                 for chip_id in do_chips
                 for neuron_id in range(
@@ -191,7 +192,8 @@ def initialize_hardware(
                 )
             ]
             connection.modules.tools.store_var(
-                "initialized_neurons", initialized_neurons
+                "initialized_neurons",
+                [int(n) for n in np.unique(copy.copy(initialized_neurons) + cleared_neurons)],
             )
             # - Print which chips have been cleared.
             print_statement = "dynapse_control: Chips {} have been cleared.".format(
@@ -229,13 +231,11 @@ def setup_rpyc(
     if init_chips is not None:
         initialize_hardware(init_chips, connection, enforce=False)
     # - Make same objects available as when working wihtin cortexcontrol
-    global tools, params, ctxdynapse, nnconnector, initialized_chips, initialized_neurons
+    global tools, params, ctxdynapse, nnconnector
     tools = connection.modules.tools
     params = connection.modules.params
     ctxdynapse = connection.modules.CtxDynapse
     nnconnector = connection.modules.NeuronNeuronConnector
-    initialized_chips = connection.modules.tools.storage["initialized_chips"]
-    initialized_neurons = connection.modules.tools.storage["initialized_neurons"]
     print("dynapse_control: RPyC connection has been setup successfully.")
 
     return connection
@@ -721,7 +721,7 @@ class DynapseControl:
         # - Make sure no neuron is silenced, yet
         core_ids = [
             i
-            for chip in initialized_chips
+            for chip in self.initialized_chips
             for i in range(chip * self.num_cores_chip, (chip + 1) * self.num_cores_chip)
         ]
         self.reset_silencing(core_ids)
@@ -747,17 +747,21 @@ class DynapseControl:
         def_camtype = getattr(ctxdynapse.DynapseCamType, self._default_cam_str)
         self._default_cam_type_index = self._camtypes[def_camtype]
         # - Store SRAM information
-        self._sram_connections = np.zeros((self.num_neurons, self.num_cores), int)
+        self._sram_connections = np.zeros(
+            (self.num_neurons, self.num_cores), bool
+        )
         # - Store CAM information
         self._cam_connections = np.zeros(
-            (len(self._camtypes), self.num_neur_chip, self.num_neurons), int
+            (len(self._camtypes), self.num_neur_chip, self.num_neurons),
+            "uint8",
         )
         # - Store connectivity array
         self._connections = np.zeros(
-            (len(params.CAMTYPES), self.num_neurons, self.num_neurons), int
+            (len(params.CAMTYPES), self.num_neurons, self.num_neurons),
+            "uint8",
         )
         # Include previously existing connections in the model
-        self._update_connectivity_array(initialized_chips)
+        self._update_connectivity_array(self.initialized_chips)
         print("DynapseControl: Connectivity array initialized")
 
         # - Wipe configuration
@@ -868,7 +872,7 @@ class DynapseControl:
         if core_ids is not None:
             core_ids = np.array(core_ids)
             # - Only reset cores on chips that have been initialized
-            on_init_chip = np.isin(core_ids // self.num_cores_chip, initialized_chips)
+            on_init_chip = np.isin(core_ids // self.num_cores_chip, self.initialized_chips)
             if not on_init_chip.all():
                 warn(
                     "DynapseControl: Cores {} are on chips that have not been initialized.".format(
@@ -901,7 +905,7 @@ class DynapseControl:
         if core_ids is not None:
             core_ids = np.array(core_ids)
             # - Only reset cores on chips that have been initialized
-            on_init_chip = np.isin(core_ids // self.num_cores_chip, initialized_chips)
+            on_init_chip = np.isin(core_ids // self.num_cores_chip, self.initialized_chips)
             if not on_init_chip.all():
                 warn(
                     "DynapseControl: Cores {} are on chips that have not been initialized.".format(
@@ -925,7 +929,7 @@ class DynapseControl:
         # - Cores on initialized chips
         core_ids = [
             i
-            for chip in initialized_chips
+            for chip in self.initialized_chips
             for i in range(chip * self.num_cores_chip, (chip + 1) * self.num_cores_chip)
         ]
         # - Clear neuron assignments
@@ -1018,7 +1022,7 @@ class DynapseControl:
                 num_missing_neurs = num_neurons - num_available_neurons
                 # - Check if by clearing chips, enough neurons can be made available
                 num_missing_chips = int(np.ceil(num_missing_neurs / self.num_neur_chip))
-                num_unused_chips = self.num_chips - len(initialized_chips)
+                num_unused_chips = self.num_chips - len(self.initialized_chips)
                 if num_unused_chips >= num_missing_chips:
                     print(
                         "DynapseControl: Not sufficient neurons available. Initializing "
@@ -1026,7 +1030,7 @@ class DynapseControl:
                     )
                     # - Initialize chips so that enough neurons are available
                     all_chips: Set[int] = set(range(self.num_chips))
-                    unused_chips: Set[int] = all_chips.difference(initialized_chips)
+                    unused_chips: Set[int] = all_chips.difference(self.initialized_chips)
                     self.init_chips(list(unused_chips)[:num_missing_chips])
                 else:
                     raise ValueError(
@@ -1052,7 +1056,7 @@ class DynapseControl:
             else:
                 # - Check whether any of the requested neurons is on a not initialized chip
                 not_initialized = (
-                    np.isin(ids_neurons_to_allocate, initialized_neurons) == False
+                    np.isin(ids_neurons_to_allocate, self.initialized_neurons) == False
                 )
                 if not_initialized.any():
                     print(
@@ -1134,7 +1138,7 @@ class DynapseControl:
         """
         # - Determine which chips are to be considered for update
         if consider_chips is None:
-            consider_chips = initialized_chips
+            consider_chips = self.initialized_chips
         else:
             try:
                 consider_chips: List[int] = [int(chip_id) for chip_id in consider_chips]
@@ -1149,7 +1153,7 @@ class DynapseControl:
         neuron_ids, targetcore_lists, inputid_lists, camtype_lists = connection_info
 
         # - Reset SRAM and CAM info for considered neurons
-        self._sram_connections[neuron_ids, :] = 0
+        self._sram_connections[neuron_ids, :] = False
         self._cam_connections[:, :, neuron_ids] = 0
 
         # - Update SRAM info
@@ -1325,11 +1329,11 @@ class DynapseControl:
         syn_inh = self.syn_inh_fast if syn_inh is None else syn_inh
 
         ## -- Connect virtual neurons to hardware neurons
-        weights = np.atleast_2d(weights)
+        weights = np.atleast_2d(weights).astype("int16")
 
         # - Get virtual to hardware connections
         presyn_exc_list, postsyn_exc_list, presyn_inh_list, postsyn_inh_list = connectivity_matrix_to_prepost_lists(
-            weights.astype(int)
+            weights
         )
 
         if neuron_ids_post is None:
@@ -1373,8 +1377,8 @@ class DynapseControl:
         # - Make sure no aliasing occurs
         target_connections = self.connections.copy()
         idcs_pre, idcs_post = np.meshgrid(neuron_ids, neuron_ids_post, indexing="ij")
-        conns_exc = np.clip(weights, 0, None).astype(int)
-        conns_inh = np.abs(np.clip(weights, None, 0)).astype(int)
+        conns_exc = np.clip(weights, 0, None).astype("uint8")
+        conns_inh = np.abs(np.clip(weights, None, 0)).astype("uint8")
         if not virtual_pre:
             target_connections[
                 self._camtypes[syn_exc], idcs_pre, idcs_post
@@ -1457,7 +1461,7 @@ class DynapseControl:
         :param neuron_ids:  List-like with IDs of neurons whose SRAMs should be reset.
         """
         # - Clear all SRAM cells
-        self._sram_connections[neuron_ids, :] = 0
+        self._sram_connections[neuron_ids, :] = False
 
     def remove_all_connections_to(self, neuron_ids, apply_diff: bool = True):
         """
@@ -1536,7 +1540,7 @@ class DynapseControl:
                     + "`pre_ids` and `post_ids`."
                 )
             else:
-                pre_ids = post_ids
+                post_ids = pre_ids
         if syn_types is None:
             syn_types = np.arange(len(self._camtypes))
         idx_pre, idx_post = np.meshgrid(pre_ids, post_ids, indexing="ij")
@@ -1760,12 +1764,13 @@ class DynapseControl:
         frequency: float = 1000,
         t_record: float = 3,
         t_buffer: float = 0.5,
-        inputneur_id: int = 0,
+        virtual_neur_id: int = 0,
         record_neur_ids: Union[int, np.ndarray] = np.arange(1024),
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
         periodic: bool = False,
         record: bool = False,
+        inputneur_id=None,
     ) -> (np.ndarray, np.ndarray):
         """
         send_pulse - Send a pulse of periodic input events to the chip.
@@ -1775,7 +1780,7 @@ class DynapseControl:
         :param t_record:             float  Duration of the recording (including stimulus)
         :param t_buffer:             float  Record slightly longer than t_record to
                                            make sure to catch all relevant events
-        :param inputneur_id:      int    ID of input neuron
+        :param virtual_neur_id:      int    ID of neuron that appears as source of pulse
         :param record_neur_ids:   array-like  ID(s) of neuron(s) to be recorded
         :param chip_id:     int  Target chip ID
         :param coremask:   int  Target core mask
@@ -1786,6 +1791,15 @@ class DynapseControl:
         :return:
             (times, channels)  np.ndarrays that contain recorded data
         """
+
+        if inputneur_id is not None:
+            warn(
+                "DynapseControlExtd: The argument `inputneur_id` has been "
+                + "renamed to 'virtual_neur_id`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_id is None:
+                virtual_neur_id = inputneur_id
         # - Prepare input events
         # Actual input time steps
         timesteps = np.floor(
@@ -1799,7 +1813,7 @@ class DynapseControl:
         ]
         events = self._arrays_to_spike_list(
             timesteps=timesteps,
-            channels=np.repeat(inputneur_id, timesteps.size),
+            channels=np.repeat(virtual_neur_id, timesteps.size),
             neuron_ids=range(len(self.virtual_neurons)),
             ts_start=0,
             targetcore_mask=targetcore_mask,
@@ -1827,13 +1841,14 @@ class DynapseControl:
         times: Optional[np.ndarray] = None,
         t_record: Optional[float] = None,
         t_buffer: float = 0.5,
-        neuron_ids: Optional[np.ndarray] = None,
+        virtual_neur_ids: Optional[np.ndarray] = None,
         record_neur_ids: Optional[np.ndarray] = None,
         targetcore_mask: int = 15,
         targetchip_id: int = 0,
         periodic: bool = False,
         record: bool = False,
         fastmode: bool = False,
+        neuron_ids = None,
     ) -> (np.ndarray, np.ndarray):
         """
         send_arrays - Send events defined in arrays to FPGA.
@@ -1845,15 +1860,15 @@ class DynapseControl:
                                        If None, use times[-1]
         :param t_buffer:         float  Record slightly longer than t_record to
                                        make sure to catch all relevant events
-        :param neuron_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
+        :param virtual_neur_ids:     ArrayLike    IDs of neurons that should appear as sources of the events
                                              If None, use channels from channels
         :param record_neur_ids: ArrayLike    IDs of neurons that should be recorded (if record==True)
-                                               If None and record==True, record neurons in neuron_ids
+                                               If None and record==True, record neurons in virtual_neur_ids
         :param targetcore_mask: int          Mask defining target cores (sum of 2**core_id)
         :param targetchip_id:   int          ID of target chip
         :param periodic:       bool         Repeat the stimulus indefinitely
         :param record:         bool         Set up buffered event filter that records events
-                                             from neurons defined in neuron_ids
+                                             from neurons defined in record_neur_ids
         :param fastmode:        bool        Skip generation of event buffers. Must be generated in advance!
                                             (saves around 0.3 s)
 
@@ -1861,13 +1876,22 @@ class DynapseControl:
             (times, channels)  np.ndarrays that contain recorded data
         """
 
+        if neuron_ids is not None:
+            warn(
+                "DynapseControlExtd: The argument `neuron_ids` has been "
+                + "renamed to 'virtual_neur_ids`. The old name will not be "
+                + "supported anymore in future versions."
+            )
+            if virtual_neur_ids is None:
+                virtual_neur_ids = neuron_ids
+
         # - Process input arguments
-        neuron_ids = (
+        virtual_neur_ids = (
             np.arange(np.amax(channels) + 1)
-            if neuron_ids is None
-            else np.array(neuron_ids, int)
+            if virtual_neur_ids is None
+            else np.array(virtual_neur_ids, int)
         )
-        record_neur_ids = neuron_ids if record_neur_ids is None else record_neur_ids
+        record_neur_ids = virtual_neur_ids if record_neur_ids is None else record_neur_ids
         if t_record is None:
             try:
                 t_record = times[-1]
@@ -1889,7 +1913,7 @@ class DynapseControl:
             times=times,
             timesteps=timesteps,
             channels=channels,
-            neuron_ids=neuron_ids,
+            neuron_ids=virtual_neur_ids,
             ts_start=0,
             targetcore_mask=targetcore_mask,
             targetchip_id=targetchip_id,
@@ -2564,20 +2588,25 @@ class DynapseControl:
 
     @property
     def initialized_chips(self):
-        global initialized_chips
-        return initialized_chips
+        if not _USE_RPYC:
+            global initialized_chips
+            return initialized_chips
+        else:
+            return self.rpyc_connection.modules.tools.storage.get("initialized_chips", [])
 
     @property
     def initialized_neurons(self):
-        global initialized_neurons
-        return initialized_neurons
+        if not _USE_RPYC:
+            global initialized_neurons
+            return initialized_neurons
+        else:
+            return self.rpyc_connection.modules.tools.storage.get("initialized_neurons", [])
 
     @property
     def hwneurons_isavailable(self) -> np.ndarray:
         hwneurons_isinitialized = np.zeros(len(self.hw_neurons), bool)
-        global initialized_neurons
-        if initialized_neurons:
-            hwneurons_isinitialized[initialized_neurons] = True
+        if self.initialized_neurons:
+            hwneurons_isinitialized[self.initialized_neurons] = True
         return np.logical_and(self._hwneurons_isfree, hwneurons_isinitialized)
 
     @property
