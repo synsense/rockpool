@@ -561,6 +561,15 @@ class TimeSeries:
             else _global_plotting_backend
         )
 
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, new_name: Optional[str] = None):
+        # - Default name: 'unnamed'
+        self._name = "unnamed" if new_name is None else new_name
+
 
 ### --- Continuous-valued time series
 
@@ -1778,6 +1787,9 @@ class TSEvent(TimeSeries):
             times = np.array([])
         else:
             times = np.atleast_1d(times).flatten().astype(float)
+
+        # - Default name: 'unnamed'
+        name = "unnamed" if name is None else name
 
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
