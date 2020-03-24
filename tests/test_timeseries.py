@@ -946,7 +946,7 @@ def test_save_load():
     Test saving and loading function for timeseries
     """
     from tempfile import TemporaryFile
-    from rockpool import TSEvent, TSContinuous, load_ts_from_file
+    from rockpool import TimeSeries, TSEvent, TSContinuous, load_ts_from_file
     from os import remove
 
     # - Generate time series objects
@@ -993,10 +993,6 @@ def test_save_load():
 
     assert_equality(tsc, tse, tscl, tsel)
 
-    # - Remove saved files
-    remove("test_tsc.npz")
-    remove("test_tse.npz")
-
     # - Store objects in temporary files
     tfc = TemporaryFile()
     tfe = TemporaryFile()
@@ -1008,6 +1004,34 @@ def test_save_load():
     tsel = load_ts_from_file(tfe)
 
     assert_equality(tsc, tse, tscl, tsel)
+
+    # - Load via classmethod
+    tscl = TimeSeries.load("test_tsc.npz")
+    tsel = TimeSeries.load("test_tse.npz")
+    assert_equality(tsc, tse, tscl, tsel)
+    tscl = TSContinuous.load("test_tsc.npz")
+    tsel = TSEvent.load("test_tse.npz")
+    assert_equality(tsc, tse, tscl, tsel)
+    tscl = TimeSeries.load("test_tsc.npz", expected_type="TSContinuous")
+    tsel = TimeSeries.load("test_tse.npz", expected_type="TSEvent")
+    assert_equality(tsc, tse, tscl, tsel)
+    # Detect not matching types
+    with pytest.raises(TypeError):
+        TSEvent.load("test_tsc.npz")
+    with pytest.raises(TypeError):
+        TSContinuous.load("test_tse.npz")
+    with pytest.raises(TypeError):
+        TimeSeries.load("test_tsc.npz", expected_type="TSEvent")
+    with pytest.raises(TypeError):
+        TimeSeries.load("test_tse.npz", expected_type="TSContinuous")
+    # Detect wron use of `expected_type` argument
+    with pytest.raises(TypeError):
+        TSContinuous.load("test_tsc.npz", expected_type="TSContinuous")
+        TSEvent.load("test_tse.npz", expected_type="TSEvent")
+
+    # - Remove saved files
+    remove("test_tsc.npz")
+    remove("test_tse.npz")
 
 
 def test_tsdictondisk():
