@@ -18,7 +18,7 @@ from warnings import warn
 
 import numpy as np
 
-from ..timeseries import TimeSeries
+from ..timeseries import TimeSeries, TSDictOnDisk
 from .. import layers
 
 # - Try to import tqdm
@@ -164,12 +164,18 @@ class Network:
 
     """
 
-    def __init__(self, *layers: List[layers.Layer], dt: Optional[float] = None):
+    def __init__(
+        self,
+        *layers: List[layers.Layer],
+        dt: Optional[float] = None,
+        evolve_on_disk: bool = False,
+    ):
         """
         Base class to encapsulate several `.Layer` objects and manage signal routing
 
         :param Iterable[Layer] layers:   Layers to be added to the network. They will be connected in series. The order in which they are received determines the order in which they are connected. First layer will receive external input
-        :param Optional[float] dt: If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
+        :param Optional[float] dt:       If not none, network time step is forced to this values. Layers that are added must have time step that is multiple of dt. If None, network will try to determine suitable dt each time a layer is added.
+        :param bool evolve_on_disk:      If `True`, the data produced by `self.evolve` is stored in `TSDictOnDisk` to save memory.
         """
 
         # - Network time
@@ -206,6 +212,9 @@ class Network:
             self.evol_order: List[layers.Layer] = self._set_evolution_order()
         if not hasattr(self, "_dt"):
             self._dt = None
+
+        # - Should evolution store its output on disk?
+        self._evolve_on_disk = evolve_on_disk
 
     def add_layer(
         self,
@@ -598,6 +607,8 @@ class Network:
 
         # - Dict to store external input and each layer's output time series
         signal_dict = {"external": ts_input}
+        if self.evolve_on_disk:
+            signal_dict = TSDictOnDisk(signal_dict)
 
         # - Make sure layers are in sync with network
         self._check_sync(verbose=False)
@@ -628,7 +639,7 @@ class Network:
                     )
                 )
             # - Evolve layer and store output in signal_dict
-            signal_dict[lyr.name] = lyr.evolve(
+            layer_output = lyr.evolve(
                 ts_input=ts_current_input,
                 num_timesteps=int(num_timesteps * lyr._timesteps_per_network_dt),
                 verbose=verbose,
@@ -636,12 +647,14 @@ class Network:
 
             # - Add information about trial timings if present
             if trial_start_times is not None:
-                signal_dict[lyr.name].trial_start_times = trial_start_times.copy()
+                layer_output.trial_start_times = trial_start_times.copy()
 
             # - Set name for response time series, if not already set
             if not isinstance(lyr, Network):
-                if signal_dict[lyr.name].name is None:
-                    signal_dict[lyr.name].name = lyr.name
+                if layer_output.name is None:
+                    layer_output.name = lyr.name
+
+            signal_dict[lyr.name] = layer_output
 
         # - Update network time
         self._timestep += num_timesteps
@@ -1014,20 +1027,6 @@ class Network:
             + "\n    ".join([str(lyr) for lyr in self.evol_order])
         )
 
-    @property
-    def t(self):
-        """(float) Global network time"""
-        return (
-            0
-            if not hasattr(self, "_dt") or self._dt is None
-            else self._dt * self._timestep
-        )
-
-    @property
-    def dt(self):
-        """(float) Time step to use in layer simulations"""
-        return self._dt
-
     def shallow_copy(self) -> "Network":
         """
         shallow_copy - Generate and return a `Network` of the same structure with
@@ -1155,6 +1154,25 @@ class Network:
         :param str name:    Name of the class as a string
         """
         setattr(layers, name, cls_lyr)
+
+    @property
+    def t(self):
+        """(float) Global network time"""
+        return (
+            0
+            if not hasattr(self, "_dt") or self._dt is None
+            else self._dt * self._timestep
+        )
+
+    @property
+    def dt(self):
+        """(float) Time step to use in layer simulations"""
+        return self._dt
+
+    @property
+    def evolve_on_disk(self):
+        """(bool) Whether to store evolution outputs in 'TSDictOnDisk'"""
+        return self._evolve_on_disk
 
 
 ### --- NetworkError exception class
