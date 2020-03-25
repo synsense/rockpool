@@ -223,7 +223,7 @@ class RecFSSpikeADS(Layer):
         zeros = np.zeros(self.size)
         zeros_out = np.zeros(self.out_size)
 
-        x_hat_Last = zeros_out.copy()
+        e = zeros_out.copy()
 
         # @njit # - njit compiled is actually slower
         def _evolve_backstep(
@@ -234,7 +234,7 @@ class RecFSSpikeADS(Layer):
             weights_in,
             weights_out,
             k,
-            x_hat_Last,
+            e_Last,
             is_training,
             state,
             I_s_S,
@@ -350,18 +350,19 @@ class RecFSSpikeADS(Layer):
             int_time = int((t_time - t_start) // dt)
             I_ext = static_input[int_time, :]
 
-            alpha = 0.99
+            alpha = 0.95
 
             if(is_training):
                 x = target[int_time, :]
-                x_hat = alpha*x_hat_Last + (1-alpha)*I_s_O
-                e = x - x_hat
+                x_hat = I_s_O
+                e_new = x - x_hat
+                e = alpha*e_Last + (1-alpha)*e_new
                 I_kDte = k*weights_in.T @ e
             else:
                 I_kDte = zeros
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
                 e = zeros_out
-                x_hat = zeros_out
+
 
             dot_v = neuron_dot_v(
                 t = t_time,
@@ -396,8 +397,7 @@ class RecFSSpikeADS(Layer):
                 rate_Last,
                 vec_refractory,
                 phi_r,
-                e,
-                x_hat
+                e
             )
 
 
@@ -424,7 +424,6 @@ class RecFSSpikeADS(Layer):
                 vec_refractory,
                 phi_r,
                 e,
-                x_hat_Last,
             ) = _evolve_backstep(
                 t_last=t_last,
                 t_time=t_time,
@@ -433,7 +432,7 @@ class RecFSSpikeADS(Layer):
                 weights_in=self.weights_in,
                 weights_out = self.weights_out,
                 k = self.k,
-                x_hat_Last = x_hat_Last,
+                e_Last = e,
                 is_training = self.is_training,
                 state = self._state,
                 I_s_S = self.I_s_S,
