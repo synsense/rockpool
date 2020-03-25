@@ -100,6 +100,7 @@ class RecFSSpikeADS(Layer):
         super().__init__(weights=np.zeros((np.asarray(weights_fast).shape[0],np.asarray(weights_fast).shape[1])), noise_std=noise_std, name=name)
 
         # - Fast weights, noise_std and name are access. via self.XX or self._XX
+        self.noise_std = noise_std
         self.weights_slow = np.asarray(weights_slow).astype("float")
         self.weights_out = np.asarray(weights_out).astype("float")
         self.weights_in = np.asarray(weights_in).astype("float")
@@ -222,6 +223,8 @@ class RecFSSpikeADS(Layer):
         zeros = np.zeros(self.size)
         zeros_out = np.zeros(self.out_size)
 
+        e = zeros_out.copy()
+
         # @njit # - njit compiled is actually slower
         def _evolve_backstep(
             t_last,
@@ -231,6 +234,7 @@ class RecFSSpikeADS(Layer):
             weights_in,
             weights_out,
             k,
+            e_Last,
             is_training,
             state,
             I_s_S,
@@ -346,15 +350,19 @@ class RecFSSpikeADS(Layer):
             int_time = int((t_time - t_start) // dt)
             I_ext = static_input[int_time, :]
 
+            alpha = 0.95
+
             if(is_training):
                 x = target[int_time, :]
                 x_hat = I_s_O
-                e = x - x_hat
+                e_new = x - x_hat
+                e = alpha*e_Last + (1-alpha)*e_new
                 I_kDte = k*weights_in.T @ e
             else:
                 I_kDte = zeros
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
                 e = zeros_out
+
 
             dot_v = neuron_dot_v(
                 t = t_time,
@@ -424,6 +432,7 @@ class RecFSSpikeADS(Layer):
                 weights_in=self.weights_in,
                 weights_out = self.weights_out,
                 k = self.k,
+                e_Last = e,
                 is_training = self.is_training,
                 state = self._state,
                 I_s_S = self.I_s_S,
