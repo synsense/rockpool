@@ -473,7 +473,6 @@ def test_save_load_FFLIFJax_IO():
     tau_syn = np.random.rand(n_neurons) + 10 * dt
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
-    rng_key_seed = np.random.randint(1e10) 
 
 
     lyr = FFLIFJax_IO(w_in=w_in,
@@ -483,8 +482,7 @@ def test_save_load_FFLIFJax_IO():
                       bias=bias,
                       noise_std=std_noise,
                       dt=dt,
-                      name="test layer",
-                      rng_key_seed=rng_key_seed)
+                      name="test layer")
 
     
     lyr.save_layer("test.json")
@@ -499,7 +497,7 @@ def test_save_load_FFLIFJax_IO():
     assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
     assert(np.all(lyr.dt == lyr_loaded.dt))
     assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
 
 
     t_spikes = np.arange(0, 0.01, dt)
@@ -528,7 +526,6 @@ def test_save_load_RecLIFCurrentInJax_IO():
     tau_syn = np.random.rand(n_neurons) + 10 * dt
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
-    rng_key_seed = np.random.randint(1e10) 
 
 
     lyr = RecLIFCurrentInJax_IO(w_in=w_in,
@@ -539,8 +536,7 @@ def test_save_load_RecLIFCurrentInJax_IO():
                                 bias=bias,
                                 noise_std=std_noise,
                                 dt=dt,
-                                name="test layer",
-                                rng_key_seed=rng_key_seed)
+                                name="test layer")
 
     
     lyr.save_layer("test.json")
@@ -556,7 +552,7 @@ def test_save_load_RecLIFCurrentInJax_IO():
     assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
     assert(np.all(lyr.dt == lyr_loaded.dt))
     assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
 
 
 
@@ -575,7 +571,6 @@ def test_save_load_RecLIFJax_IO():
     tau_syn = np.random.rand(n_neurons) + 10 * dt
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
-    rng_key_seed = np.random.randint(1e10) 
 
 
     lyr = RecLIFJax_IO(w_in=w_in,
@@ -586,8 +581,7 @@ def test_save_load_RecLIFJax_IO():
                                 bias=bias,
                                 noise_std=std_noise,
                                 dt=dt,
-                                name="test layer",
-                                rng_key_seed=rng_key_seed)
+                                name="test layer")
 
     
     lyr.save_layer("test.json")
@@ -603,7 +597,7 @@ def test_save_load_RecLIFJax_IO():
     assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
     assert(np.all(lyr.dt == lyr_loaded.dt))
     assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
 
 
        
@@ -618,7 +612,6 @@ def test_save_load_RecLIFCurrentInJax():
     tau_syn = np.random.rand(n_neurons) + 10 * dt
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
-    rng_key_seed = np.random.randint(1e10) 
 
 
     lyr = RecLIFCurrentInJax(w_recurrent=w_rec,
@@ -627,8 +620,7 @@ def test_save_load_RecLIFCurrentInJax():
                     bias=bias,
                     noise_std=std_noise,
                     dt=dt,
-                    name="test layer",
-                    rng_key_seed=rng_key_seed)
+                    name="test layer")
 
     
     lyr.save_layer("test.json")
@@ -642,12 +634,13 @@ def test_save_load_RecLIFCurrentInJax():
     assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
     assert(np.all(lyr.dt == lyr_loaded.dt))
     assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
 
 
 
 def test_save_load_RecLIFJax():
     from rockpool.layers import RecLIFJax
+    import numpy as np
 
     n_neurons = 10
     dt = 0.0001
@@ -657,7 +650,6 @@ def test_save_load_RecLIFJax():
     tau_syn = np.random.rand(n_neurons) + 10 * dt
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
-    rng_key_seed = np.random.randint(1e10) 
 
 
     lyr = RecLIFJax(w_recurrent=w_rec,
@@ -666,8 +658,7 @@ def test_save_load_RecLIFJax():
                     bias=bias,
                     noise_std=std_noise,
                     dt=dt,
-                    name="test layer",
-                    rng_key_seed=rng_key_seed)
+                    name="test layer")
 
     
     lyr.save_layer("test.json")
@@ -681,6 +672,6 @@ def test_save_load_RecLIFJax():
     assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
     assert(np.all(lyr.dt == lyr_loaded.dt))
     assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr.rng_key_seed == lyr_loaded.rng_key_seed))
+    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
 
 
