@@ -31,6 +31,7 @@ def test_ffiaf_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.nan_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl.state)
@@ -112,6 +113,7 @@ def test_reciaf_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.nan_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.state)
@@ -196,6 +198,7 @@ def test_ffiaf_refr_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.nan_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(flr.state)
@@ -320,6 +323,7 @@ def test_reciaf_refr_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.nan_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rlr.state)
@@ -343,9 +347,7 @@ def test_reciaf_refr_torch():
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
-    rlr2 = RecIAFRefrTorch(
-        weights, dt=dt, bias=0.0101, record=False, refractory=0.01
-    )
+    rlr2 = RecIAFRefrTorch(weights, dt=dt, bias=0.0101, record=False, refractory=0.01)
     tsOutR3 = rlr2.evolve(tsIn, duration=0.4)
 
     assert (tsOutR2.times == tsOutR3.times).all()
