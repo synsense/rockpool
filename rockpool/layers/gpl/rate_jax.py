@@ -2,9 +2,11 @@
 # Firing rate reservoir with jax back-end
 #
 # Includes `RecRateEulerJax` - jax-backed firing rate reservoir
-# Includes `ForceRateEulerJax` - jax-backed firing rate FORCE reservoir
+# Includes `RecRateEulerJax_IO` - jax-backed firing rate reservoir with input / output weighting
+# Includes `ForceRateEulerJax_IO` - jax-backed firing rate FORCE reservoir with input / output weighting
+# Includes `FFRateEulerJax` - jax-backed firing rate feed-forward layer
 #
-# `RecRateEulerJax` is a standard reservoir, with input, recurrent and output layers
+# `RecRateEulerJax` and `RecRateEulerJax_IO` are standard reservoirs, with input, recurrent and output layers
 # `ForceRateEulerJax` is a driven reservoir, where "recurrent" inputs are inserted from an external source.
 #       Used in reservoir transfer.
 ##
@@ -25,7 +27,7 @@ from ...timeseries import TimeSeries, TSContinuous
 
 
 # -- Define module exports
-__all__ = ["RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"]
+__all__ = ["RecRateEulerJax", "RecRateEulerJax_IO", "ForceRateEulerJax_IO", "FFRateEulerJax","H_ReLU", "H_tanh"]
 
 
 # -- Define useful neuron transfer functions
@@ -50,11 +52,11 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
     @jit
     def rec_evolve_jit(
         x0: np.ndarray,
-        w_in: np.ndarray,
-        w_recurrent: np.ndarray,
-        w_out: np.ndarray,
-        bias: np.ndarray,
-        tau: np.ndarray,
+        w_in: FloatVector,
+        w_recurrent: FloatVector,
+        w_out: FloatVector,
+        bias: FloatVector,
+        tau: FloatVector,
         inputs: np.ndarray,
         noise_std: float,
         key,
@@ -105,7 +107,7 @@ def _get_rec_evolve_jit(H: Callable[[float], float]):
         res_inputs = np.dot(inputs, w_in)
 
         # - Compute random numbers for reservoir noise
-        __all__, subkey = rand.split(key)
+        _, subkey = rand.split(key)
         noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
 
         # - Use `scan` to evaluate reservoir
@@ -162,10 +164,10 @@ def _get_force_evolve_jit(H: Callable):
     @jit
     def force_evolve_jit(
         x0: np.ndarray,
-        w_in: np.ndarray,
-        w_out: np.ndarray,
-        bias: np.ndarray,
-        tau: np.ndarray,
+        w_in: FloatVector,
+        w_out: FloatVector,
+        bias: FloatVector,
+        tau: FloatVector,
         inputs: np.ndarray,
         force: np.ndarray,
         noise_std: float,
@@ -229,16 +231,26 @@ class RecRateEulerJax(Layer):
     """
     ``JAX``-backed firing-rate recurrent layer
 
-    `.RecRateEuler` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
+    `.RecRateEulerJax` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
 
-    `.RecRateEuler` is compatible with the `.layers.training.train_jax_sgd` module.
+    `.RecRateEulerJax` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+
+    .. rubric:: Dynamics
+
+    The layer implements the dynamics
+
+    .. math:: \\tau \\cdot \\dot{x} + x = I(t) + W_{rec} \\cdot H(x) + b + \\sigma \\cdot \\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state of the neurons; :math:`I(t)` is the N-dimensional input signal; :math:`W_{rec}` is the NxN-dimensional matrix of recurrent synaptic connections; :math:`b` is the N-dimensional vector of bias currents for the neurons; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with std. dev :math:`\\sigma`.
+
+    The outputs of the layer are given by :math:`H(x)`, where :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
     """
 
     def __init__(
         self,
-        w_in: np.ndarray,
-        w_recurrent: np.ndarray,
-        w_out: np.ndarray,
+        weights: np.ndarray,
         tau: np.ndarray,
         bias: np.ndarray,
         noise_std: float = 0.0,
@@ -248,55 +260,41 @@ class RecRateEulerJax(Layer):
         rng_key: Optional[int] = None,
     ):
         """
-        RecRateEulerJax - ``JAX``-backed firing rate reservoir
+        ``JAX``-backed firing rate reservoir, with input and output weighting
 
-        :param np.ndarray w_in:                     Input weights [IxN]
-        :param np.ndarray w_recurrent:              Recurrent weights [NxN]
-        :param np.ndarray w_out:                    Output weights [NxO]
+        :param np.ndarray weights:                  Recurrent weights [NxN]
         :param np.ndarray tau:                      Time constants [N]
         :param np.ndarray bias:                     Bias values [N]
-        :param float noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
-        :param Callable[[FloatVector], float] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param float noise_std:                     White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Union[str, Callable[[FloatVector], float]] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU. Can be specified as a string: ['relu', 'tanh']
         :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
         :param Optional[str] name:                  Name of the layer. Default: ``None``
         :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
         """
 
         # - Everything should be 2D
-        w_in = np.atleast_2d(w_in)
-        w_recurrent = np.atleast_2d(w_recurrent)
-        w_out = np.atleast_2d(w_out)
+        weights = np.atleast_2d(weights)
 
         # transform to np.array if necessary
         tau = np.array(tau)
         bias = np.array(bias)
 
         # - Get information about network size
-        self._size_in = w_in.shape[0]
-        self._size = w_in.shape[1]
-        self._size_out = w_out.shape[1]
+        self._size_in = weights.shape[0]
+        self._size = weights.shape[1]
+        self._size_out = weights.shape[1]
 
         # -- Set properties
-        self.w_recurrent = w_recurrent
-        self.w_out = w_out
+        self.w_recurrent = weights
         self.tau = tau
         self.bias = bias
-        if(activation_func == "relu"):
-            self._H = H_ReLU
-        elif(activation_func == "tanh"):
-            self._H = H_tanh
-        else: # It can only be either relu or tanh (except for somebody changed the JSON file)
-            self._H = activation_func
+        self.H = activation_func
 
         if dt is None:
             dt = np.min(tau) / 10.0
 
         # - Call super-class initialisation
-        super().__init__(w_in, dt, noise_std, name)
-
-        # - Correct layer size
-        self._size_in = w_in.shape[0]
-        self._size_out = w_out.shape[1]
+        super().__init__(weights, dt, noise_std, name)
 
         # - Get compiled evolution function
         self._evolve_jit = _get_rec_evolve_jit(self._H)
@@ -305,10 +303,23 @@ class RecRateEulerJax(Layer):
         # - Reset layer state
         self.reset_all()
 
+        # - Set unit internal input and output weights, for compatibility with later layers
+        if not hasattr(self, '_w_in'):
+            self._w_in = 1.
+        if not hasattr(self, '_w_out'):
+            self._w_out = 1.
+
         # - Seed RNG
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, self._rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
+
+    def randomize_state(self):
+        """
+        Randomize the internal state of the layer.
+        """
+        _, subkey = rand.split(self._rng_key)
+        self._state = rand.normal(subkey, shape=(self._size, ))
 
     def evolve(
         self,
@@ -317,7 +328,7 @@ class RecRateEulerJax(Layer):
         num_timesteps: Optional[int] = None,
     ) -> TimeSeries:
         """
-        evolve() - Evolve the reservoir state
+        Evolve the reservoir state
 
         :param ts_input:        TSContinuous Input time series
         :param duration:        float Duration of evolution in seconds
@@ -391,8 +402,8 @@ class RecRateEulerJax(Layer):
         # - Call compiled Euler solver to evolve reservoir
         self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
+            self._w_in,
             self._weights,
-            self._w_recurrent,
             self._w_out,
             self._bias,
             self._tau,
@@ -433,9 +444,9 @@ class RecRateEulerJax(Layer):
         """
         _prepare_input - Sample input, set up time base
 
-        :param Optional[TSContinuous] ts_input:        TxM or Tx1 Input signals for this layer
+        :param Optional[TSContinuous] ts_input: TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:        Duration of the desired evolution, in seconds
-        :param Optional[int] num_timesteps:   Number of evolution time steps
+        :param Optional[int] num_timesteps:     Number of evolution time steps
 
         :return: (time_base, input_steps, duration)
             time_base:          ndarray T1 Discretised time base for evolution
@@ -491,47 +502,63 @@ class RecRateEulerJax(Layer):
         """
         config = {}
         config["class_name"] = "RecRateEulerJax"
-        config["w_in"] = self.w_in.tolist()
-        config["w_recurrent"] = self.w_recurrent.tolist()
-        config["w_out"] = self.w_out.tolist()
-        config["tau"] = self.tau.tolist()
-        config["bias"] = self.bias.tolist()
-        config["rng_key"] = self._rng_key.tolist()
+        config["weights"] = onp.array(self.weights).tolist()
+        config["tau"] = onp.array(self.tau).tolist()
+        config["bias"] = onp.array(self.bias).tolist()
+        config["rng_key"] = onp.array(self._rng_key).tolist()
         config["noise_std"] = (
             self.noise_std if type(self.noise_std) is float else self.noise_std.tolist()
         )
         config["dt"] = self.dt
         config["name"] = self.name
-        config["rng_key"] = [int(k) for k in self._rng_key]
-        assert(self._H == H_ReLU or self._H == H_tanh), "Only models using ReLU or tanh are savable"
-        if(self._H == H_ReLU):
+
+        # - Check for a supported activation function
+        assert self._H == H_ReLU or self._H == H_tanh,\
+            "Only models using ReLU or tanh activation functions are saveable."
+
+        # - Encode the activation function as a string
+        if self._H == H_ReLU:
             config["activation_func"] = "relu"
-        elif(self._H == H_tanh): # For the case if the assert is taken away
+        elif self._H == H_tanh:
             config["activation_func"] = "tanh"
         else:
             raise(Exception)
         return config
 
     @property
-    def w_in(self) -> np.ndarray:
-        """ (np.ndarray) [IxN] input weights """
-        return onp.array(self._weights)
+    def H(self):
+        """ (Callable) Activation function used by the neurons in this layer """
+        return self._H
 
-    @w_in.setter
-    def w_in(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_in` must be 2D"
+    @H.setter
+    def H(self, value):
+        if type(value) is str:
+            if value in ["relu", 'ReLU', "H_ReLU"]:
+                self._H = H_ReLU
+            elif value in ["tanh", "TANH", "H_tanh"]:
+                self._H = H_tanh
+            else:
+                raise ValueError('The activation function must be one of ["relu", "tanh"]')
+        else:
+            # - Test the activation function
+            try:
+                ret = value(np.array([0.1, 0.1]))
+            except:
+                raise TypeError('The activation function must be a Callable[[FloatVector], FloatVector]')
 
-        assert value.shape == (
-            self._size_in,
-            self._size,
-        ), "`win` must be [{:d}, {:d}]".format(self._size_in, self._size)
+            assert np.size(ret) == 2, \
+                'The activation function must return an array the same size as the input'
 
-        self._weights = np.array(value).astype("float")
+            assert type(ret) is not tuple, \
+                'The activation function must not return multiple arguments'
+
+            # - Assign the activation function
+            self._H = value
 
     @property
     def w_recurrent(self) -> np.ndarray:
         """ (np.ndarray) [NxN] recurrent weights """
-        return onp.array(self._w_recurrent)
+        return onp.array(self._weights)
 
     @w_recurrent.setter
     def w_recurrent(self, value: np.ndarray):
@@ -542,23 +569,7 @@ class RecRateEulerJax(Layer):
             self._size,
         ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
 
-        self._w_recurrent = np.array(value).astype("float")
-
-    @property
-    def w_out(self) -> np.ndarray:
-        """ (np.ndarray) [NxO] output weights """
-        return onp.array(self._w_out)
-
-    @w_out.setter
-    def w_out(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_out` must be 2D"
-
-        assert value.shape == (
-            self._size,
-            self._size_out,
-        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
-
-        self._w_out = np.array(value).astype("float")
+        self._weights = np.array(value).astype("float")
 
     @property
     def tau(self) -> np.ndarray:
@@ -608,19 +619,166 @@ class RecRateEulerJax(Layer):
         self._dt = np.array(value).astype("float")
 
 
-class ForceRateEulerJax(RecRateEulerJax):
+class RecRateEulerJax_IO(RecRateEulerJax):
+    """
+    ``JAX``-backed firing-rate recurrent layer, with input and output weights
+
+    `.RecRateEulerJax_IO` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
+
+    `.RecRateEulerJax_IO` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+
+    .. rubric:: Dynamics
+
+    The layer implements the dynamics
+
+    .. math:: \\tau \\cdot \\dot{x} + x = W_{in} \\dot I(t) + W_{rec} \\cdot H(x) + b + \\sigma \\cdot \\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state of the neurons; :math:`I(t)` is the I-dimensional input vector; :math:`W_{in}` is the [IxN] matrix of input weights; :math:`W_{rec}` is the NxN-dimensional matrix of recurrent synaptic connections; :math:`b` is the N-dimensional vector of bias currents for the neurons; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with std. dev :math:`\\sigma`.
+
+    The outputs of the layer are given by :math:`W_{out} \\cdot H(x)`, where :math:`W_{out}` is the NxM output weight matrix, and :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+    """
+
+    def __init__(
+        self,
+        w_in: np.ndarray,
+        w_recurrent: np.ndarray,
+        w_out: np.ndarray,
+        tau: FloatVector,
+        bias: FloatVector,
+        noise_std: float = 0.0,
+        activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
+        dt: Optional[float] = None,
+        name: Optional[str] = None,
+        rng_key: Optional[int] = None,
+    ):
+        """
+        RecRateEulerJax_IO - ``JAX``-backed firing rate reservoir, with input and output weighting
+
+        :param np.ndarray w_in:                     Input weights [IxN]
+        :param np.ndarray w_recurrent:              Recurrent weights [NxN]
+        :param np.ndarray w_out:                    Output weights [NxO]
+        :param np.ndarray tau:                      Time constants [N]
+        :param np.ndarray bias:                     Bias values [N]
+        :param float noise_std:           White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Callable[[FloatVector], float] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
+        :param Optional[str] name:                  Name of the layer. Default: ``None``
+        :param Optional[Jax RNG key] rng_key        Jax RNG key to use for noise. Default: Internally generated
+        """
+
+        # - Everything should be 2D
+        w_in = np.atleast_2d(w_in)
+        w_recurrent = np.atleast_2d(w_recurrent)
+        w_out = np.atleast_2d(w_out)
+
+        # transform to np.array if necessary
+        tau = np.array(tau)
+        bias = np.array(bias)
+
+        # - Get information about network size
+        self._size_in = w_in.shape[0]
+        self._size = w_in.shape[1]
+        self._size_out = w_out.shape[1]
+
+        # -- Set properties
+        self.w_in = w_in
+        self.w_recurrent = w_recurrent
+        self.w_out = w_out
+        self.tau = tau
+        self.bias = bias
+        self._H = activation_func
+
+        if dt is None:
+            dt = np.min(tau) / 10.0
+
+        # - Call super-class initialisation
+        super().__init__(w_recurrent, tau, bias, noise_std, activation_func, dt, name, rng_key)
+
+        # - Correct layer size
+        self._size_in = w_in.shape[0]
+        self._size_out = w_out.shape[1]
+
+    def to_dict(self) -> dict:
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
+        # - Get base dictionary
+        config = super().to_dict()
+        config.pop('weights')
+
+        # - Include class-specific aspects
+        config.update({
+            "class_name": "RecRateEulerJax_IO",
+            "w_in": onp.array(self.w_in).tolist(),
+            "w_recurrent": onp.array(self.w_recurrent).tolist(),
+            "w_out": onp.array(self.w_out).tolist(),
+        })
+
+        # - Return configuration
+        return config
+
+    @property
+    def w_in(self) -> np.ndarray:
+        """ (np.ndarray) [IxN] input weights """
+        return onp.array(self._w_in)
+
+    @w_in.setter
+    def w_in(self, value: np.ndarray):
+        assert np.ndim(value) == 2, "`w_in` must be 2D"
+
+        assert value.shape == (
+            self._size_in,
+            self._size,
+        ), "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
+
+        self._w_in = np.array(value).astype("float")
+
+    @property
+    def w_out(self) -> np.ndarray:
+        """ (np.ndarray) [NxO] output weights """
+        return onp.array(self._w_out)
+
+    @w_out.setter
+    def w_out(self, value: np.ndarray):
+        assert np.ndim(value) == 2, "`w_out` must be 2D"
+
+        assert value.shape == (
+            self._size,
+            self._size_out,
+        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
+
+        self._w_out = np.array(value).astype("float")
+
+
+class ForceRateEulerJax_IO(RecRateEulerJax_IO):
     """
     Implements a pseudo recurrent reservoir, for use in reservoir transfer
 
     In this layer, input and output weights are present, but no recurrent connectivity exists. Instead, "recurrent inputs" are injected into each layer neuron. The activations of the neurons are then compared to those of a target reservoir, and the recurrent weights can be solved for using linear regression.
+
+    .. rubric:: Dynamics
+
+    The layer implements the dynamics
+
+    .. math:: \\tau \\cdot \\dot{x} + x = W_{in} \\dot I(t) + F(t) + b + \\sigma \\cdot \\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state of the neurons; :math:`I(t)` is the I-dimensional input vector; :math:`W_{in}` is the [IxN] matrix of input weights; :math:`F(t)` is the N-dimensional vector of forcing currents --- these should be the recurrent input currents taking from another reservoir; :math:`b` is the N-dimensional vector of bias currents for the neurons; and :math:`\\sigma \\cdot \\zeta(t)` is a white noise process with std. dev :math:`\\sigma`.
+
+    The outputs of the layer are given by :math:`W_{out} \\cdot H(x)`, where :math:`W_{out}` is the NxO output weight matrix, and :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
     """
 
     def __init__(
         self,
         w_in: np.ndarray,
         w_out: np.ndarray,
-        tau: np.ndarray,
-        bias: np.ndarray,
+        tau: FloatVector,
+        bias: FloatVector,
         noise_std: float = 0.0,
         activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
         dt: Optional[float] = None,
@@ -645,15 +803,10 @@ class ForceRateEulerJax(RecRateEulerJax):
         w_in = np.atleast_2d(w_in)
         w_out = np.atleast_2d(w_out)
 
-        # - Get information about network size
-        self._size_in = w_in.shape[0]
-        self._size = w_in.shape[1]
-        self._size_out = w_out.shape[1]
-
         # - Call super-class initialisation
         super().__init__(
             w_in,
-            np.zeros((self._size, self._size)),
+            np.zeros((w_in.shape[1], w_in.shape[1])),
             w_out,
             tau,
             bias,
@@ -663,10 +816,6 @@ class ForceRateEulerJax(RecRateEulerJax):
             name,
             rng_key,
         )
-
-        # - Correct layer size
-        self._size_in = w_in.shape[0]
-        self._size_out = w_out.shape[1]
 
         # - Get compiled evolution function for forced reservoir
         self._evolve_jit = _get_force_evolve_jit(activation_func)
@@ -681,10 +830,10 @@ class ForceRateEulerJax(RecRateEulerJax):
         """
         evolve() - Evolve the reservoir state
 
-        :param Optional[TSContinuous] ts_input:        Input time series
-        :param Optional[TSContinuous] ts_force:        Forced time series
+        :param Optional[TSContinuous] ts_input: Input time series
+        :param Optional[TSContinuous] ts_force: Forced time series
         :param Optional[float] duration:        Duration of evolution in seconds
-        :param Optional[int] num_timesteps:   Number of time steps to evolve (based on self.dt)
+        :param Optional[int] num_timesteps:     Number of time steps to evolve (based on self.dt)
 
         :return: ts_output:     TSContinuous Output time series
         """
@@ -723,7 +872,7 @@ class ForceRateEulerJax(RecRateEulerJax):
         # - Call compiled Euler solver to evolve reservoir
         self._state, res_inputs, res_acts, outputs = self._evolve_jit(
             self._state,
-            self._weights,
+            self._w_in,
             self._w_out,
             self._bias,
             self._tau,
@@ -744,20 +893,133 @@ class ForceRateEulerJax(RecRateEulerJax):
         Convert the layer to a dictionary for saving
         :return dict:
         """
-        config = {}
-        config["class_name"] = "ForceRateEulerJax"
-        config["w_in"] = self.w_in.tolist()
-        config["w_out"] = self.w_out.tolist()
-        config["tau"] = self.tau.tolist()
-        config["bias"] = self.bias.tolist()
-        config["rng_key"] = self._rng_key.tolist()
-        config["noise_std"] = self.noise_std.tolist()
-        config["dt"] = self.dt
-        config["name"] = self.name
-        config["rng_key"] = [int(k) for k in self._rng_key]
-        warn(
-            f"ForceRateEulerJax `{self.name}`: `activation_func` can not be stored with this "
-            + "method. When creating a new instance from this dict, it will use the "
-        )
+        # - Get base dictionary
+        config = super().to_dict()
+        config.pop('w_recurrent')
 
+        # - Include class-specific aspects
+        config.update({
+            "class_name": "ForceRateEulerJax_IO",
+            "w_in": onp.array(self.w_in).tolist(),
+            "w_out": onp.array(self.w_out).tolist(),
+        })
+
+        # - Return configuration
+        return config
+
+class FFRateEulerJax(RecRateEulerJax):
+    """
+    ``JAX``-backed firing-rate recurrent layer
+
+    `.FFRateEulerJax` implements a feed-forward dynamical layer, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
+
+    `.FFRateEulerJax` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+
+    .. rubric:: Dynamics
+
+    This layer implements the dynamical system
+
+    .. math:: \\tau \\cdot \\dot{x} + x = W \\cdot i(t) + b + \\sigma\\cdot\\zeta(t)
+
+    where :math:`\\tau`` is the neuron time constants; :math:`x` is the N-dimensional state vector of the layer neurons;
+    :math:`i(t)` is the I-dimensional input signal at time :math:`t`; :math:`W` is an [IxN] matrix defining the weight matrix of this layer; :math:`b` is a vector of bias inputs for each neuron; and :math:`\\sigma\\cdot\\zeta(t)` is a white noise process with std. dev. :math:`\\sigma``.
+
+    The output of the layer is :math:`H(x)`, where :math:`H(x)` is a neuron transfer function. By default, :math:`H(x)` is the linear-threshold function
+
+    .. math:: H_{ReLU}(x) = \\text{max}(x, 0)
+    """
+
+    def __init__(
+            self,
+            w_in: np.ndarray,
+            tau: np.ndarray,
+            bias: np.ndarray,
+            noise_std: float = 0.0,
+            activation_func: Callable[[FloatVector], FloatVector] = H_ReLU,
+            dt: Optional[float] = None,
+            name: Optional[str] = None,
+            rng_key: Optional[int] = None,
+    ):
+        """
+        Implement a ``JAX``-backed feed-forward dynamical neuron layer.
+
+        :param np.ndarray w_in:                 Weights [IxN]
+        :param np.ndarray tau:                  Time constants [N]
+        :param np.ndarray bias:                 Bias values [N]
+        :param float noise_std:                 White noise standard deviation applied to reservoir neurons. Default: ``0.0``
+        :param Callable[[FloatVector], float] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU
+        :param Optional[float] dt:              Reservoir time step. Default: ``np.min(tau) / 10.0``
+        :param Optional[str] name:              Name of the layer. Default: ``None``
+        :param Optional[Jax RNG key] rng_key:   Jax RNG key to use for noise. Default: Internally generated
+        """
+
+        # - Everything should be 2D
+        w_in = np.atleast_2d(w_in)
+
+        # - Transform to np.array if necessary
+        tau = np.array(tau)
+        bias = np.array(bias)
+
+        if dt is None:
+            dt = np.min(tau) / 10.0
+
+        # - Call super-class initialisation
+        super().__init__(0., 0., 0., noise_std, activation_func, dt, name, rng_key)
+
+        # - Correct layer size
+        self._size_in = w_in.shape[0]
+        self._size = w_in.shape[1]
+        self._size_out = w_in.shape[1]
+
+        # -- Set properties
+        self.tau = tau
+        self.bias = bias
+        self.w_in = w_in
+        self._weights = 0.
+        self._w_out = 1.
+
+        # # - Get compiled evolution function
+        # self._evolve_jit = _get_rec_evolve_jit(activation_func)
+
+        # - Reset layer state
+        self.reset_all()
+
+        # # - Seed RNG
+        # if rng_key is None:
+        #     rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+        # _, self._rng_key = rand.split(rng_key)
+
+    @property
+    def w_in(self) -> np.ndarray:
+        """ (np.ndarray) [IxN] input weights """
+        return onp.array(self._w_in)
+
+    @w_in.setter
+    def w_in(self, value: np.ndarray):
+        assert np.ndim(value) == 2, "`w_in` must be 2D"
+
+        assert value.shape == (
+            self._size_in,
+            self._size,
+        ), "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
+
+        self._w_in = np.array(value).astype("float")
+
+    def to_dict(self) -> dict:
+        """
+        Convert the parameters of this class to a dictionary
+
+        :return dict:
+        """
+        # - Get base dictionary
+        config = super().to_dict()
+        config.pop('weights')
+
+        # - Include class-specific aspects
+        config.update({
+            "class_name": "FFRateEulerJax",
+            "w_in": onp.array(self.w_in).tolist(),
+        })
+
+        # - Return configuration
         return config

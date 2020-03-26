@@ -5,7 +5,15 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".networks.network": "Network",
-    ".timeseries": ("TimeSeries", "TSContinuous", "TSEvent", "load_ts_from_file"),
+    ".timeseries": (
+        "TimeSeries",
+        "TSContinuous",
+        "TSEvent",
+        "TSDictOnDisk",
+        "load_ts_from_file",
+        "get_global_ts_plotting_backend",
+        "set_global_ts_plotting_backend",
+    ),
     ".version": "__version__",
 }
 

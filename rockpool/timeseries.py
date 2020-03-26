@@ -2,13 +2,32 @@
 timeseries.py - Classes to manage time series
 """
 
+## -- Import statements
+
+# - Built-ins
+import copy
+import collections.abc
+from pathlib import Path
+from tempfile import TemporaryFile
+from typing import (
+    Union,
+    List,
+    Tuple,
+    Optional,
+    Iterable,
+    TypeVar,
+    Type,
+    Dict,
+    Hashable,
+    Any,
+)
+from warnings import warn
+
+# - Third party libraries
 import numpy as np
 import scipy.interpolate as spint
-from warnings import warn
-import copy
-from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
-import collections
 
+# - Plotting backends
 _global_plotting_backend = None
 try:
     import matplotlib as mpl
@@ -30,17 +49,19 @@ except ModuleNotFoundError:
     if not _MPL_AVAILABLE:
         _global_plotting_backend = None
 
+
 # - Define exports
 __all__ = [
     "TimeSeries",
     "TSEvent",
     "TSContinuous",
+    "TSDictOnDisk",
     "set_global_ts_plotting_backend",
     "get_global_ts_plotting_backend",
     "load_ts_from_file",
 ]
 
-TS = TypeVar("TimeSeries")
+TS = TypeVar("TS", bound="TimeSeries")
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -91,6 +112,106 @@ def get_global_ts_plotting_backend() -> str:
     """
     global _global_plotting_backend
     return _global_plotting_backend
+
+
+def load_ts_from_file(
+    path: Union[str, Path], expected_type: Optional[str] = None
+) -> "TimeSeries":
+    """
+    Load a timeseries object from an ``npz`` file
+
+    :param Union[str, Path] path:       Filepath to load file
+    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
+
+    :return TimeSeries: Loaded time series object
+    :raises TypeError:  Unsupported or unexpected type
+    """
+    # - Load npz file from specified path
+    try:
+        # Loading from temporary files may require "rewinding".
+        path.seek(0)
+    except AttributeError:
+        pass
+    loaded_data = np.load(path)
+
+    # - Check for expected type
+    try:
+        loaded_type = loaded_data["str_type"].item()
+    except KeyError:
+        try:
+            loaded_type = loaded_data["strType"].item()
+        except KeyError:
+            type_key = [k for k in loaded_data if k.startswith("type")]
+            if type_key:
+                loaded_type = type_key[0][5:]
+            else:
+                if expected_type is not None:
+                    loaded_type = expected_type
+                    warn(
+                        f"Cannot determine type of Timeseries at {path}. "
+                        + f"Will assume expected type ('{expected_type}')."
+                    )
+                else:
+                    raise KeyError(f"Cannot determine type of Timeseries at {path}.")
+
+    if expected_type is not None:
+        if not loaded_type == expected_type:
+            raise TypeError(
+                "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
+                    path, loaded_type, expected_type
+                )
+            )
+
+    if "name" in loaded_data:
+        name = loaded_data["name"].item()
+    else:
+        name_keys = [k for k in loaded_data if k.startswith("name")]
+        if name_keys:
+            name = name_keys[0][5:]
+        else:
+            name = "unnamed"
+
+    if loaded_type == "TSContinuous":
+        if "interp_kind" in loaded_data:
+            interp_kind = loaded_data["interp_kind"].item()
+        else:
+            interp_kind_keys = [k for k in loaded_data if k.startswith("interp_kind")]
+            if interp_kind_keys:
+                interp_kind = interp_kind_keys[0][12:]
+            else:
+                interp_kind = "linear"
+
+        ts = TSContinuous(
+            times=loaded_data["times"],
+            samples=loaded_data["samples"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            interp_kind=interp_kind,
+            periodic=loaded_data["periodic"].item(),
+            name=name,
+        )
+
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
+    elif loaded_type == "TSEvent":
+        ts = TSEvent(
+            times=loaded_data["times"],
+            channels=loaded_data["channels"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            periodic=loaded_data["periodic"].item(),
+            num_channels=loaded_data["num_channels"].item(),
+            name=name,
+        )
+
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
+    else:
+        raise TypeError("Type `{}` not supported.".format(loaded_type))
+
+    return ts
 
 
 def _extend_periodic_times(
@@ -146,7 +267,8 @@ def full_nan(shape: Union[tuple, int]) -> np.array:
 
 class TimeSeries:
     """
-    Super-class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
+    Base class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and
+    `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
     """
 
     def __init__(
@@ -159,14 +281,14 @@ class TimeSeries:
         name: str = "unnamed",
     ):
         """
-        TimeSeries - Represent a continuous or event-based time series
+        Represent a continuous or event-based time series
 
         :param ArrayLike times:                 [Tx1] vector of time samples
         :param bool periodic:                   Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:         If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:          If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param Optional[str] plotting_backend:  Determines plotting backend. If ``None``, backend will be chosen automatically based on what is available.
-        :param str name:                        Name of the TimeSeries object. Default: "unnamed"
+        :param str name:                        Name of the `.TimeSeries` object. Default: "unnamed"
         """
 
         # - Convert time trace to numpy arrays
@@ -195,15 +317,15 @@ class TimeSeries:
             plotting_backend if plotting_backend is not None else None, verbose=False
         )
 
-    def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
+    def delay(self: TS, offset: Union[int, float], inplace: bool = False) -> TS:
         """
         Return a copy of ``self`` that is delayed by an offset
 
-        For delaying self, use the `inplace` argument, or ``.times += ...`` instead.
+        For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
 
         :param float Offset:    Time by which to offset this time series
         :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
-        :return TimeSeries:     New TimeSeries, delayed
+        :return TimeSeries:     New `.TimeSeries`, delayed
         """
         if not inplace:
             series = self.copy()
@@ -223,30 +345,39 @@ class TimeSeries:
 
         return series
 
-    def start_at_zero(self, inplace: bool = False) -> "TimeSeries":
+    def start_at_zero(self: TS, inplace: bool = False) -> TS:
         """
-        Convenience function that calls the 'delay' method such that 't_start'
-        falls at 0.
+        Convenience function that calls the `~.TimeSeries.delay` method such that ``self.t_start`` falls at ``0``.
 
         :return TimeSeries:     New TimeSeries, with t_start at 0
         """
         return self.delay(offset=-self.t_start, inplace=inplace)
 
+    def start_at(self: TS, t_start: float, inplace: bool = False) -> TS:
+        """
+        Convenience function that calls the `~.TimeSeries.delay` method such that ``self.t_start`` falls at ``t_start``.
+
+        :param float t_start:   Time to which ``self.t_start`` should be shifted;
+        :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
+        :return TimeSeries:     New `.TimeSeries`, delayed
+        """
+        return self.delay(offset=t_start - self.t_start, inplace=inplace)
+
     def isempty(self) -> bool:
         """
-        Test if this TimeSeries object is empty
+        Test if this `.TimeSeries` object is empty
 
-        :return bool: ``True`` iff the TimeSeries object contains no samples
+        :return bool: ``True`` iff the `.TimeSeries` object contains no samples
         """
         return np.size(self.times) == 0
 
     def print(self):
-        """print() - Print an overview of the time series."""
+        """ Print an overview of the time series"""
         print(self.__repr__())
 
     def set_plotting_backend(self, backend: Union[str, None], verbose: bool = True):
         """
-        Set which plotting backend to use with the .plot() method
+        Set which plotting backend to use with the `~.TimeSeries.plot` method
 
         :param str backend:     Specify a backend to use. Supported: {"holoviews", "matplotlib"}
         :param bool verbose:    If True, print feedback about which backend has been set
@@ -287,7 +418,7 @@ class TimeSeries:
         else:
             raise ValueError("Plotting backend not recognized.")
 
-    def copy(self) -> "TimeSeries":
+    def copy(self: TS) -> TS:
         """
         Return a deep copy of this time series
 
@@ -349,6 +480,32 @@ class TimeSeries:
 
         new_series = subclass(t_start=t_start)
         return new_series.append_t(series, offset=offset, inplace=False)
+
+    @classmethod
+    def load(
+        cls: Type[TS], path: Union[str, Path], expected_type: Optional[str] = None
+    ) -> TS:
+        """
+        Load TimeSeries object from file. If called from a subclass of :py:class'TimeSeries`,
+        the type of the stored object must match that of the method class.
+
+        :param Union[str, Path] path:           Path to load from.
+        :param Optional[str] expected_type:     Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Can only be set if method is called from py:class:`TimeSeries` class. Default: ``None``, use whichever type is loaded.
+
+        :return TimeSeries: Loaded time series object
+        :raises TypeError:  Unsupported or unexpected type
+        :raises TypeError: Argument `expected_type` is defined if class is not `TimeSeries`.
+        """
+        if cls != TimeSeries:
+            if expected_type is not None:
+                raise TypeError(
+                    "Argument `expected_type` can only be provided when calling this "
+                    + "method from `TimeSeries` class."
+                )
+            # - Extract class name as string
+            expected_type = str(cls).strip("'<>").split(".")[-1]
+
+        return load_ts_from_file(path, expected_type)
 
     @property
     def times(self):
@@ -432,6 +589,15 @@ class TimeSeries:
             if self._plotting_backend is not None
             else _global_plotting_backend
         )
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, new_name: Optional[str] = None):
+        # - Default name: 'unnamed'
+        self._name = "unnamed" if new_name is None else new_name
 
 
 ### --- Continuous-valued time series
@@ -723,6 +889,28 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
+    def to_dict(self):
+
+        # - Collect attributes in dict
+        attributes = {
+            "times": self.times,
+            "samples": self.samples,
+            "t_start": np.array(self.t_start),
+            "t_stop": np.array(self.t_stop),
+            f"interp_kind_{self.interp_kind}": np.array([]),
+            "periodic": np.array(self.periodic),
+            f"name_{self.name}": np.array([]),
+            f"type_TSContinuous": np.array(
+                []
+            ),  # Indicate that this object is TSContinuous
+        }
+
+        # - Some modules add a `trial_start_times` attribute to the object.
+        if hasattr(self, "trial_start_times"):
+            attributes["trial_start_times"] = np.asarray(self.trial_start_times)
+
+        return attributes
+
     def save(self, path: str, verbose: bool = False):
         """
         Save this time series as an ``npz`` file using np.savez
@@ -730,29 +918,14 @@ class TSContinuous(TimeSeries):
         :param str path:    Path to save file
         """
 
-        # - Make sure path is a string (and not a Path object)
-        path = str(path)
-
-        # - Some modules add a `trial_start_times` attribute to the object.
-        trial_start_times = (
-            self.trial_start_times if hasattr(self, "trial_start_times") else None
-        )
+        # - Collect attributes in dict
+        attributes = self.to_dict()
 
         # - Write the file
-        np.savez(
-            path,
-            times=self.times,
-            samples=self.samples,
-            t_start=self.t_start,
-            t_stop=self.t_stop,
-            interp_kind=self.interp_kind,
-            periodic=self.periodic,
-            name=self.name,
-            str_type="TSContinuous",  # Indicate that this object is TSContinuous
-            trial_start_times=trial_start_times,
-        )
-        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
+        np.savez(path, **attributes)
+
         if verbose:
+            missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
                 "TSContinuous `{}` has been stored in `{}`.".format(
                     self.name, path + missing_ending * ".npz"
@@ -1300,7 +1473,7 @@ class TSContinuous(TimeSeries):
 
         return self.resample(time_points, channels, inplace=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return a string representation of this object
 
@@ -1643,6 +1816,9 @@ class TSEvent(TimeSeries):
             times = np.array([])
         else:
             times = np.atleast_1d(times).flatten().astype(float)
+
+        # - Default name: 'unnamed'
+        name = "unnamed" if name is None else name
 
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
@@ -2096,6 +2272,89 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
+    @staticmethod
+    def from_raster(raster: np.ndarray,
+                    dt: float = 1.,
+                    t_start: float = 0., t_stop: Optional[float] = None,
+                    name: Optional[str] = None,
+                    periodic: bool = False,
+                    num_channels: Optional[int] = None,
+                    spikes_at_bin_start: bool = False):
+        """
+        Create a `.TSEvent` object from a raster array
+
+        Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
+        time series as a `.TSEvent` object.
+
+        .. rubic:: Example
+
+        The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
+
+            T = 200
+            C = 20
+            dt = 1e-3
+            spike_prob = 0.1
+
+            raster = np.random.rand((T, C)) > spike_prob
+            spikes_ts = TSEvent.from_raster(raster, dt)
+
+        :param np.ndarray raster:           A TxC array of events. Each row corresponds to a clocked time step of  `dt` duration. Each bin contains the number of spikes present in that bin
+        :param float dt:                    Duration of each time bin in seconds
+        :param float t_start:               The start time of the first bin in ``raster``. Default: ``0.``
+        :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
+        :param Optional[str] name:          The name of the returned time series. Default: ``None``
+        :param bool periodic:               The ``periodic`` flag passed to the new time series
+        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series
+        :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
+
+        :return TSEvent: A new `.TSEvent` containing the events in ``raster``
+        """
+
+        # - Make sure ``raster`` is a numpy array
+        raster = np.array(raster)
+
+        # - Reshape if the array is 1d
+        if len(raster.shape) == 1 or raster.shape[1] == 1:
+            raster = np.atleast_2d(raster).T
+
+        # - Compute `t_stop` if not provided
+        if t_stop is None:
+            t_stop = raster.shape[0] * dt + t_start
+
+        # - Find spike events
+        spike_present = raster > 0
+        spikes_per_bin = raster[spike_present]
+        spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis = 0)
+
+        # - Convert to a new TSEvent object and return
+        return TSEvent(spikes[:, 0] * dt + t_start + dt / 2 * int(not spikes_at_bin_start),
+                       spikes[:, 1],
+                       name = name,
+                       periodic = periodic,
+                       num_channels = num_channels,
+                       t_start = t_start,
+                       t_stop = t_stop)
+
+    def to_dict(self):
+
+        # - Collect attributes in dict
+        attributes = {
+            "times": self.times,
+            "channels": self.channels,
+            "t_start": np.array(self.t_start),
+            "t_stop": np.array(self.t_stop),
+            "periodic": np.array(self.periodic),
+            "num_channels": np.array(self.num_channels),
+            f"name_{self.name}": np.array([]),
+            f"type_TSEvent": np.array([]),  # Indicate that the object is TSEvent
+        }
+
+        # - Some modules add a `trial_start_times` attribute to the object.
+        if hasattr(self, "trial_start_times"):
+            attributes["trial_start_times"] = self.trial_start_times
+
+        return attributes
+
     def save(self, path: str, verbose: bool = False):
         """
         Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
@@ -2103,27 +2362,14 @@ class TSEvent(TimeSeries):
         :param str path: File path to save data
         """
 
-        # - Make sure path is string (and not Path object)
-        path = str(path)
+        # - Collect attributes in dict
+        attributes = self.to_dict()
 
-        # - Some modules add a `trial_start_times` attribute to the object.
-        trial_start_times = (
-            self.trial_start_times if hasattr(self, "trial_start_times") else None
-        )
-        np.savez(
-            path,
-            times=self.times,
-            channels=self.channels,
-            t_start=self.t_start,
-            t_stop=self.t_stop,
-            periodic=self.periodic,
-            num_channels=self.num_channels,
-            name=self.name,
-            str_type="TSEvent",  # Indicate that the object is TSEvent
-            trial_start_times=trial_start_times,
-        )
-        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
+        # - Write the file
+        np.savez(path, **attributes)
+
         if verbose:
+            missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
                 "TSEvent `{}` has been stored in `{}`.".format(
                     self.name, path + missing_ending * ".npz"
@@ -2544,54 +2790,108 @@ class TSEvent(TimeSeries):
             self._num_channels = new_num_ch
 
 
-def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
+### --- Dict-like object to store TimeSeries on disk
+class TSDictOnDisk(collections.abc.MutableMapping):
     """
-    Load a timeseries object from an ``npz`` file
-
-    :param str path:                    Filepath to load file
-    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
-
-    :return TimeSeries: Loaded time series object
-    :raises TypeError:  Unsupported or unexpected type
+    Behaves like a dict. However, if a `TimeSeries` is added, it will be stored in a temporary file to reduce main memory usage.
     """
-    # - Make sure path is string (and not Path object)
-    path = str(path)
 
-    # - Load npz file from specified path
-    dLoaded = np.load(path)
+    def __init__(self, data: Union[Dict, "TSDictOnDisk"] = {}):
+        """
+        TSDictOnDisk - dict-like container that stores TimeSeries in temporary files to save memory.
 
-    # - Check for expected type
-    try:
-        loaded_type = dLoaded["str_type"].item()
-    except KeyError:
-        loaded_type = dLoaded["strType"].item()
+        :param Union[Dict, TSDictOnDisk] data:   Data with which the object should be instantiatied.
+        """
 
-    if expected_type is not None:
-        if not loaded_type == expected_type:
-            raise TypeError(
-                "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
-                    path, loaded_type, expected_type
-                )
-            )
-    if loaded_type == "TSContinuous":
-        return TSContinuous(
-            times=dLoaded["times"],
-            samples=dLoaded["samples"],
-            t_start=dLoaded["t_start"].item(),
-            t_stop=dLoaded["t_stop"].item(),
-            interp_kind=dLoaded["interp_kind"].item(),
-            periodic=dLoaded["periodic"].item(),
-            name=dLoaded["name"].item(),
+        # - Dict to hold non-`TimeSeries` objects, to emulate behavior of a normal dict
+        self._mapping = {}
+        # - Dict for handles to temporary files that store `TimeSeries`
+        self._mapping_ts = {}
+        # - Add provided data to `self`.
+        self.update(data)
+
+    def insert(self, data: Union[Dict, "TSDictOnDisk"]):
+        """
+        insert - Similar to 'self.update'. The difference is that `update` would store any TimeSeries in `data` in a temporary file, whereas `insert` keeps TimeSeries from `data` in the memory if they are not already in a temporary file (e.g. when including a dict).
+        :data:  Dict or TSDictOnDisk that is to be inserted.
+        """
+
+        # - Make sure existing keys are overwritten
+        include_keys = set(data.keys())
+        remove_keys = include_keys.intersection(self.keys())
+        for k in remove_keys:
+            del self[k]
+
+        # - Insert `TSDictOnDisk`
+        if isinstance(data, TSDictOnDisk):
+            self._mapping.update(data._mapping)
+            self._mapping_ts.update(data._mapping_ts)
+        # - Insert dict
+        else:
+            self._mapping.update(data)
+
+    def __getitem__(self, key: Hashable) -> Any:
+        """
+        dod[key] - Access an object of `self` by its key.
+        :return:
+            The object to which the `key` corresponds.
+        """
+        if key in self._mapping_ts:
+            # - Load `TimeSeries` from temporary file
+            return load_ts_from_file(self._mapping_ts[key])
+        else:
+            # - Return value stored under `key`.
+            return self._mapping[key]
+
+    def __setitem__(self, key: Hashable, value: Any):
+        """
+        dod[key] = value - Add an object to self together with a (hashable) key.
+        """
+        if isinstance(value, TimeSeries):
+            # - Store `TimeSeries` in a temporary file, whose handle is added as value to `self._mapping_ts`.
+            self._mapping_ts[key] = TemporaryFile()
+            value.save(self._mapping_ts[key])
+            # - Make sure existing keys are overwritten, also in `self._mapping`.
+            if key in self._mapping:
+                del self._mapping[key]
+        else:
+            # - Store `value` in `self._mapping`.
+            self._mapping[key] = value
+            # - Make sure existing keys are overwritten, also in `self._mapping_ts`.
+            if key in self._mapping_ts:
+                del self._mapping_ts[key]
+
+    def __delitem__(self, key: Hashable):
+        """del dod[key] - Delete an object from self by its key."""
+        # - Delete the object corresponding to `key` from the correct dict.
+        if key in self._mapping_ts:
+            del self._mapping_ts[key]
+        else:
+            del self._mapping[key]
+
+    def __len__(self):
+        """len(dod) - Return the total number of objects stored in `self`."""
+        return len(self._mapping) + len(self._mapping_ts)
+
+    def __iter__(self):
+        """
+        for x in dod:... - First iterate over non-`TimeSeries` objects then over
+                           `TimeSeries` that are stored in temporary files.
+        :yield Any:     The objects stored in `self`.
+        """
+        for obj in iter(self._mapping):
+            yield obj
+        for obj in iter(self._mapping_ts):
+            yield obj
+
+    def __repr__(self):
+        """
+        Return a string representation of this object
+
+        :return str: String description
+        """
+        return (
+            f"{type(self).__name__}.\nKeys of stored TimeSeries objects:\n"
+            + f"{list(self._mapping_ts)}\nOther keys:\n"
+            + f"{list(self._mapping)}"
         )
-    elif loaded_type == "TSEvent":
-        return TSEvent(
-            times=dLoaded["times"],
-            channels=dLoaded["channels"],
-            t_start=dLoaded["t_start"].item(),
-            t_stop=dLoaded["t_stop"].item(),
-            periodic=dLoaded["periodic"].item(),
-            num_channels=dLoaded["num_channels"].item(),
-            name=dLoaded["name"].item(),
-        )
-    else:
-        raise TypeError("Type `{}` not supported.".format(loaded_type))
