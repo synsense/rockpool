@@ -7,6 +7,7 @@ timeseries.py - Classes to manage time series
 # - Built-ins
 import copy
 import collections.abc
+from pathlib import Path
 from tempfile import TemporaryFile
 from typing import (
     Union,
@@ -113,11 +114,13 @@ def get_global_ts_plotting_backend() -> str:
     return _global_plotting_backend
 
 
-def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> "TimeSeries":
+def load_ts_from_file(
+    path: Union[str, Path], expected_type: Optional[str] = None
+) -> "TimeSeries":
     """
     Load a timeseries object from an ``npz`` file
 
-    :param str path:                    Filepath to load file
+    :param Union[str, Path] path:       Filepath to load file
     :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
 
     :return TimeSeries: Loaded time series object
@@ -477,6 +480,32 @@ class TimeSeries:
 
         new_series = subclass(t_start=t_start)
         return new_series.append_t(series, offset=offset, inplace=False)
+
+    @classmethod
+    def load(
+        cls: Type[TS], path: Union[str, Path], expected_type: Optional[str] = None
+    ) -> TS:
+        """
+        Load TimeSeries object from file. If called from a subclass of :py:class'TimeSeries`,
+        the type of the stored object must match that of the method class.
+
+        :param Union[str, Path] path:           Path to load from.
+        :param Optional[str] expected_type:     Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Can only be set if method is called from py:class:`TimeSeries` class. Default: ``None``, use whichever type is loaded.
+
+        :return TimeSeries: Loaded time series object
+        :raises TypeError:  Unsupported or unexpected type
+        :raises TypeError: Argument `expected_type` is defined if class is not `TimeSeries`.
+        """
+        if cls != TimeSeries:
+            if expected_type is not None:
+                raise TypeError(
+                    "Argument `expected_type` can only be provided when calling this "
+                    + "method from `TimeSeries` class."
+                )
+            # - Extract class name as string
+            expected_type = str(cls).strip("'<>").split(".")[-1]
+
+        return load_ts_from_file(path, expected_type)
 
     @property
     def times(self):
