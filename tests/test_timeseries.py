@@ -1212,5 +1212,6 @@ def test_rounding():
     ts = TSContinuous(t, v)
 
     ts.t_stop = t[-1] - 1e-10 
+    ts.t_start = t[0] + 1e-10 
 
 
