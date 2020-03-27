@@ -356,7 +356,8 @@ class RecFSSpikeADS(Layer):
                 x = target[int_time, :]
                 x_hat = I_s_O
                 e_new = x - x_hat
-                e = alpha*e_Last + (1-alpha)*e_new
+                # e = alpha*e_Last + (1-alpha)*e_new
+                e = e_new
                 I_kDte = k*weights_in.T @ e
             else:
                 I_kDte = zeros
@@ -460,7 +461,7 @@ class RecFSSpikeADS(Layer):
             )
 
             # - Call the training. Note this is not spike based
-            if(self.is_training):
+            if(self.is_training and first_spike_id >= 0):
                 dot_W_slow = self.eta*learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
                 self.weights_slow = self.weights_slow + dot_W_slow
                 if(verbose):
@@ -597,8 +598,8 @@ class RecFSSpikeADS(Layer):
             plt.title(r"$I_f$")
 
             plt.subplot(812)
-            plt.plot(times, (out[0:2,:]).T, label="Recon")
-            plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:2], label="Target")
+            plt.plot(times, (out[0:5,:]).T, label="Recon", color="C2")
+            plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:5], label="Target", color="C4")
             plt.legend()
             plt.title(r"$I_{out}$")
 
@@ -614,8 +615,10 @@ class RecFSSpikeADS(Layer):
             plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,0:5])
             plt.title(r"$I_{ext}$")
             
-            _ = fig.add_subplot(816)
-            ts_event_return.plot()
+            plt.subplot(816)
+            channels = ts_event_return.channels[ts_event_return.channels >= 0]
+            times_tmp = ts_event_return.times[ts_event_return.channels >= 0]
+            plt.scatter(times_tmp, channels, color="k")
             plt.xlim([0,final_time])
 
             plt.subplot(817)
