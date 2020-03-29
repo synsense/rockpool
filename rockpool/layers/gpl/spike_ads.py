@@ -225,6 +225,8 @@ class RecFSSpikeADS(Layer):
 
         e = zeros_out.copy()
 
+        last_input_time = -np.inf
+
         # @njit # - njit compiled is actually slower
         def _evolve_backstep(
             t_last,
@@ -258,7 +260,8 @@ class RecFSSpikeADS(Layer):
             refractory,
             vec_refractory,
             zeros,
-            target
+            target,
+            last_input_time,
         ):
 
             # - Enforce refractory period by clamping membrane potential to reset
@@ -352,13 +355,18 @@ class RecFSSpikeADS(Layer):
 
             alpha = 0.95
 
-            if(is_training):
-                x = target[int_time, :]
+            # - Do training only if there is input or the last time there was input has been less than 300 ms 
+            if(is_training):         
+                x = zeros_out
+                if((np.abs(I_ext) >= 2).any()):
+                    x = np.copy(target[int_time, :])
+                    last_input_time = t_time
+                elif((t_time - last_input_time) < 0.2):
+                    x = np.copy(target[int_time, :])
                 x_hat = I_s_O
-                e_new = x - x_hat
-                # e = alpha*e_Last + (1-alpha)*e_new
-                e = e_new
+                e = x - x_hat
                 I_kDte = k*weights_in.T @ e
+
             else:
                 I_kDte = zeros
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
@@ -398,7 +406,8 @@ class RecFSSpikeADS(Layer):
                 rate_Last,
                 vec_refractory,
                 phi_r,
-                e
+                e,
+                last_input_time
             )
 
 
@@ -425,6 +434,7 @@ class RecFSSpikeADS(Layer):
                 vec_refractory,
                 phi_r,
                 e,
+                last_input_time,
             ) = _evolve_backstep(
                 t_last=t_last,
                 t_time=t_time,
@@ -457,7 +467,8 @@ class RecFSSpikeADS(Layer):
                 refractory = self.refractory,
                 vec_refractory = vec_refractory,
                 zeros = zeros,
-                target = self.static_target
+                target = self.static_target,
+                last_input_time=last_input_time
             )
 
             # - Call the training. Note this is not spike based
@@ -612,7 +623,7 @@ class RecFSSpikeADS(Layer):
             plt.title(r"$V(t)$")
 
             plt.subplot(815)
-            plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,0:5])
+            plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,:])
             plt.title(r"$I_{ext}$")
             
             plt.subplot(816)
