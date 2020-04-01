@@ -1,5 +1,5 @@
 """
-Test training of rate-based Euler models in rate-jax.py, using shim in train_jax_rate_sgd.py
+Test training of rate-based Euler models in rate-jax.py
 """
 
 import numpy as np
