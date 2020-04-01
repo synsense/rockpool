@@ -245,19 +245,15 @@ class FFExpSynTorch(FFExpSyn):
             "linear regression",
             "linreg",
         }:
-            training_method = self.train_rr
+            return self.train_rr(ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs)
         elif method in {"logreg", "logistic", "logistic regression"}:
-            training_method = self.train_logreg
+            return self.train_logreg(ts_target, ts_input, **kwargs)  # is_first and is_last not required by logreg
         else:
             raise ValueError(
                 f"FFExpSynTorch `{self.name}`: Training method `{method}` is currently "
                 + "not supported. Use `rr` for ridge regression or `logreg` for logistic "
                 + "regression."
             )
-        # - Call training method
-        return training_method(
-            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
-        )
 
     def train_rr(
         self,
