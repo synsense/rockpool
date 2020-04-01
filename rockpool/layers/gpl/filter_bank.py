@@ -8,6 +8,8 @@ from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.timeseries import TSContinuous
 from rockpool.layers import Layer
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 
 class FilterBank(Layer, ABC):
@@ -103,12 +105,12 @@ class FilterBank(Layer, ABC):
     @staticmethod
     def process_filters(args) -> list:
         filters, params = args
-        signal, filter_lowpass, downsample = params
+        signal, filter_lowpass = params
         filters_output = []
         for f in filters:
             sig = sosfilt(f, signal)
             sig = np.abs(sig)
-            sig = sosfilt(filter_lowpass, sig)[::downsample]
+            sig = sosfilt(filter_lowpass, sig)
             filters_output.append(sig)
         return filters_output
 
@@ -137,7 +139,7 @@ class FilterBank(Layer, ABC):
 
         args = list(
             product(
-                self.chunks, [(input_step.T[0], self.filter_lowpass, self.downsample)]
+                self.chunks, [(input_step.T[0], self.filter_lowpass)]
             )
         )
 
@@ -148,7 +150,7 @@ class FilterBank(Layer, ABC):
         filtOutput = np.concatenate(res).T
 
         vtTimeBase = (
-            time_base[0] + np.arange(len(filtOutput)) * self.downsample / self.fs
+            time_base[0] + np.arange(len(filtOutput)) / self.fs
         )
         self._timestep += input_step.shape[0] - 1
 
@@ -243,6 +245,7 @@ class ButterMelFilter(FilterBank):
         normalize: bool = False,
         order: int = 2,
         num_workers: int = 1,
+        plot: bool = False,
     ):
         """
         Layer which applies the butterworth filter in MEL scale to a one-dimensional input signal.
@@ -262,6 +265,7 @@ class ButterMelFilter(FilterBank):
         :param bool normalize:          divide output signals by their maximum value (i.e. filter
                                         responses in the range [-1, 1]). Default: ``False``
         :param int num_workers:         Number of CPU cores to use in simulation. Default: ``1``
+        :param bool plot:               Plots the filter response 
         """
 
         # - Call super constructor (`asarray` is used to strip units)
@@ -275,8 +279,6 @@ class ButterMelFilter(FilterBank):
             normalize=normalize,
             num_workers=num_workers,
         )
-
-        self.downsample = int(self.fs / self.cutoff_fs)
 
         filter_bandwidth = filter_width / self.num_filters
         low_freq = ButterMelFilter.hz2mel(self.cutoff_fs)
@@ -304,6 +306,22 @@ class ButterMelFilter(FilterBank):
 
         chunk_size = int(np.ceil(self.num_filters / num_workers))
         self.chunks = ButterMelFilter.generate_chunks(self.filters, chunk_size)
+
+        if plot:
+            colors = cm.Blues(np.linspace(0.5, 1, len(self.filters)))
+            plt.figure(figsize=(16, 10))
+            for i, filt in enumerate(self.filters):
+                sos_freqz = sosfreqz(filt, worN=1024)
+                db = 20*np.log10(np.maximum(np.abs(sos_freqz[1]), 1e-5))
+                plt.plot(self.nyquist * sos_freqz[0]/np.pi, db, color=colors[i])
+
+            plt.xlabel('Frequency (Hz)')
+            plt.ylabel('Gain (db)')
+            plt.ylim([-10, 2])
+            plt.xlim([0, self.nyquist])
+            plt.tight_layout()
+            plt.show(block=True)
+
 
     @staticmethod
     def hz2mel(x: Union[float, np.array]) -> Union[float, np.array]:
@@ -396,8 +414,6 @@ class ButterFilter(FilterBank):
             normalize=normalize,
             num_workers=num_workers,
         )
-
-        self.downsample = 1
 
         freq_bands = (
             np.array(
