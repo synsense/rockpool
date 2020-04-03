@@ -227,6 +227,8 @@ class RecFSSpikeADS(Layer):
 
         last_input_time = -np.inf
 
+        fed_error = []
+
         # @njit # - njit compiled is actually slower
         def _evolve_backstep(
             t_last,
@@ -355,18 +357,28 @@ class RecFSSpikeADS(Layer):
 
             alpha = 0.95
 
-            # - Do training only if there is input or the last time there was input has been less than 300 ms 
+            # - Do training only if there is input or the last time there was input has been less than 200 ms 
             if(is_training):         
                 x = zeros_out
+                learning = False
+                x_hat = zeros_out
+                e = zeros_out
+                I_kDte = zeros
                 if((np.abs(I_ext) >= 2).any()):
                     x = np.copy(target[int_time, :])
                     last_input_time = t_time
-                elif((t_time - last_input_time) < 0.2):
+                    learning = True
+                    # if(verbose):
+                    #     fed_error.append(t_time)
+                elif((t_time - last_input_time) < 0.5):
                     x = np.copy(target[int_time, :])
-                x_hat = I_s_O
-                e = x - x_hat
-                I_kDte = k*weights_in.T @ e
-
+                    learning = True
+                    # if(verbose):
+                    #     fed_error.append(t_time)
+                if(learning):
+                    x_hat = I_s_O
+                    e = x - x_hat
+                    I_kDte = k*weights_in.T @ e
             else:
                 I_kDte = zeros
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
@@ -472,10 +484,11 @@ class RecFSSpikeADS(Layer):
             )
 
             # - Call the training. Note this is not spike based
-            if(self.is_training and first_spike_id >= 0):
+            if(self.is_training and (np.abs(e)>0).any()):
                 dot_W_slow = self.eta*learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
                 self.weights_slow = self.weights_slow + dot_W_slow
                 if(verbose):
+                    fed_error.append(t_time)
                     sum_w_slow += np.sum(np.abs(dot_W_slow))
 
 
@@ -599,6 +612,26 @@ class RecFSSpikeADS(Layer):
         ts_event_return = TSEvent(spike_times, spike_indices)
 
         if(verbose):
+
+            fed_error = np.asarray(fed_error)
+            start_error_feedback = []
+            stop_error_feedback = []
+            
+            for i in range(len(fed_error)):
+                if(i == 0):
+                    start_error_feedback.append(fed_error[i])
+                elif(i == len(fed_error)-1):
+                    stop_error_feedback.append(fed_error[i])
+                else:
+                    if(fed_error[i]-fed_error[i-1] > 0.1):
+                        stop_error_feedback.append(fed_error[i-1])
+                        start_error_feedback.append(fed_error[i])
+
+            def add_lines(plt):
+                for s in start_error_feedback:
+                    plt.axvline(s, color="g")
+                for s in stop_error_feedback:
+                    plt.axvline(s, color="r")
             
             if(self.is_training):
                 print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
@@ -607,38 +640,46 @@ class RecFSSpikeADS(Layer):
             plt.subplot(811)
             plt.plot(times, f[0:5,:].T)
             plt.title(r"$I_f$")
+            add_lines(plt)
 
             plt.subplot(812)
             plt.plot(times, (out[0:5,:]).T, label="Recon", color="C2")
             plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:5], label="Target", color="C4")
             plt.legend()
             plt.title(r"$I_{out}$")
+            add_lines(plt)
 
             plt.subplot(813)
             plt.plot(times, s[0:5,:].T)
             plt.title(r"$I_{slow}$")
+            add_lines(plt)
 
             plt.subplot(814)
             plt.plot(times, v[0:5,:].T)
             plt.title(r"$V(t)$")
+            add_lines(plt)
 
             plt.subplot(815)
             plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,:])
             plt.title(r"$I_{ext}$")
+            add_lines(plt)
             
             plt.subplot(816)
             channels = ts_event_return.channels[ts_event_return.channels >= 0]
             times_tmp = ts_event_return.times[ts_event_return.channels >= 0]
             plt.scatter(times_tmp, channels, color="k")
             plt.xlim([0,final_time])
+            add_lines(plt)
 
             plt.subplot(817)
             plt.plot(times, I_kDte_track[0:5,:].T)
             plt.title(r"$I_{kD^Te}$")
+            add_lines(plt)
 
             plt.subplot(818)
             plt.plot(times, phi_r_track[0:5,:].T)
             plt.title(r"$\phi(r)$")
+            add_lines(plt)
                 
             plt.tight_layout()
             plt.draw()
