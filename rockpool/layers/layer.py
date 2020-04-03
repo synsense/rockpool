@@ -230,16 +230,16 @@ class Layer(ABC):
             spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
-                num_timesteps=num_timesteps + 1,
+                num_timesteps=np.size(time_base),
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
             )
 
-            # - Make sure duration of raster is correct
-            spike_raster = spike_raster[: num_timesteps + 1, :]
+            # # - Make sure duration of raster is correct
+            # spike_raster = spike_raster[: num_timesteps + 1, :]
 
         else:
-            spike_raster = np.zeros((num_timesteps + 1, self.size_in))
+            spike_raster = np.zeros((np.size(time_base), self.size_in))
 
         # - Check for correct input dimensions
         spike_raster = self._check_input_dims(spike_raster)
@@ -284,7 +284,7 @@ class Layer(ABC):
         :return (ndarray): Generated time trace
         """
         # - Generate a trace
-        time_trace = np.arange(num_timesteps + 1) * self.dt + t_start
+        time_trace = np.arange(num_timesteps) * self.dt + t_start
 
         return time_trace
 
