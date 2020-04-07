@@ -643,11 +643,23 @@ class RecFSSpikeADS(Layer):
             add_lines(plt)
 
             plt.subplot(812)
-            plt.plot(times, (out[0:5,:]).T, label="Recon", color="C2")
-            plt.plot(np.linspace(0,final_time,int(final_time / self.dt)+1), self.static_target[:,0:5], label="Target", color="C4")
-            plt.legend()
-            plt.title(r"$I_{out}$")
-            add_lines(plt)
+            plot_num = 10
+            stagger_out = np.ones((plot_num, out.shape[1]))
+            stagger_target = np.ones((plot_num, self.static_target.shape[0]))
+            for i in range(plot_num):
+                stagger_out[i,:] *= i*0.5
+                stagger_target[i,:] *= i*0.5
+
+            colors = [("C%d"%i) for i in range(2,plot_num+2)]
+            l1 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,out.shape[1]), (stagger_out+out[0:plot_num,:]).T)
+            for line, color in zip(l1,colors):
+                line.set_color(color)
+            l2 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,self.static_target.shape[0]), (stagger_target.T+self.static_target[:,0:plot_num]), linestyle="--")
+            for line, color in zip(l2,colors):
+                line.set_color(color)
+            plt.title(r"Target vs reconstruction")
+            lines = [l1[0],l2[0]]
+            plt.legend(lines, ["Reconstruction", "Target"])
 
             plt.subplot(813)
             plt.plot(times, s[0:5,:].T)
