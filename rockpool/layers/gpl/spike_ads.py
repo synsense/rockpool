@@ -48,9 +48,15 @@ def neuron_dot_v(
 ):
     return (V_rest - V + I_s_F + I_s_S + I_kDte + I_ext + bias) / tau_V
 
+# - Not used
 @njit
 def syn_dot_I(I, dt, I_spike, tau_Syn):
     return -I / tau_Syn + I_spike / dt
+
+@njit
+def syn_dot_I_pre(I, dt_syn, I_spike):
+    return -dt_syn*I + I_spike
+
 
 @njit
 def outer_numba(a, b):
@@ -63,11 +69,11 @@ def outer_numba(a, b):
     return result
 
 @njit
-def learning_callback(weights_slow : np.ndarray, phi_r : np.ndarray , weights_in : np.ndarray, e : np.ndarray , dt : float) -> np.ndarray:
+def learning_callback(r : np.ndarray , weights_in : np.ndarray, e : np.ndarray , eta : float) -> np.ndarray:
     """
     :brief : Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
     """
-    return outer_numba(phi_r, (weights_in.T @ e).T)
+    return outer_numba(r, (weights_in.T @ (eta*e)).T)
 
 
 class RecFSSpikeADS(Layer):
@@ -195,9 +201,10 @@ class RecFSSpikeADS(Layer):
             r = full_nan((self.size, record_length))
             f = full_nan((self.size, record_length))
             out = full_nan((self.out_size, record_length))
+            err = full_nan((self.out_size, record_length))
             I_kDte_track = full_nan((self.size, record_length))
-            phi_r_track = full_nan((self.weights_slow.shape[0], record_length))
             dot_v_ts = full_nan((self.size, record_length))
+            dot_W_slow_track = np.zeros((self.size,self.size))
 
         # - Allocate storage for spike times
         max_spike_pointer = record_length * self.size
@@ -228,6 +235,20 @@ class RecFSSpikeADS(Layer):
         last_input_time = -np.inf
 
         fed_error = []
+
+        # - Precompute dt/syn_tau for different taus
+        dt_syn_slow = self.dt / self.tau_syn_r_slow
+        dt_syn_fast = self.dt / self.tau_syn_r_fast
+        dt_syn_out = self.dt / self.tau_syn_r_out
+
+        # - For getting spike-vectors
+        eye = np.eye(self.size)
+
+        # - Setup arrays for tracking
+        E = full_nan((self.out_size, record_length))
+        R = full_nan((self.size, record_length))
+        step_counter = 0
+        record_length_batched = num_timesteps
 
         # @njit # - njit compiled is actually slower
         def _evolve_backstep(
@@ -315,8 +336,7 @@ class RecFSSpikeADS(Layer):
                 vec_refractory[first_spike_id] = refractory
 
                 # - Set spike currents
-                I_spike_rate = np.copy(zeros)
-                I_spike_rate[first_spike_id] = 1.0
+                I_spike_rate = eye[first_spike_id, :]
                 I_spike_slow = weights_slow[first_spike_id, :]
                 I_spike_fast = weights[:, first_spike_id]
                 I_spike_out = weights_out[first_spike_id, :]
@@ -338,24 +358,20 @@ class RecFSSpikeADS(Layer):
             rate_Last[:] = rate + I_spike_rate
 
             # - Update synapse and neuron states (Euler step)
-            dot_I_s_S = syn_dot_I(I_s_S, dt, I_spike_slow, tau_syn_r_slow)
-            I_s_S += dot_I_s_S * dt
+            dot_I_s_S = syn_dot_I_pre(I_s_S, dt_syn_slow, I_spike_slow)
+            I_s_S += dot_I_s_S
 
-            dot_I_s_F = syn_dot_I(I_s_F, dt, I_spike_fast, tau_syn_r_fast)
-            I_s_F += dot_I_s_F * dt
+            dot_I_s_F = syn_dot_I_pre(I_s_F, dt_syn_fast, I_spike_fast)
+            I_s_F += dot_I_s_F
 
-            dot_I_s_O = syn_dot_I(I_s_O, dt, I_spike_out, tau_syn_r_out)
-            I_s_O += dot_I_s_O * dt
+            dot_I_s_O = syn_dot_I_pre(I_s_O, dt_syn_out, I_spike_out)
+            I_s_O += dot_I_s_O
 
-            dot_rate = syn_dot_I(rate, dt, I_spike_rate, tau_syn_r_slow)
-            rate += dot_rate * dt
-
-            phi_r = rate
+            dot_rate = syn_dot_I_pre(rate, dt_syn_slow, I_spike_rate)
+            rate += dot_rate
 
             int_time = int((t_time - t_start) // dt)
             I_ext = static_input[int_time, :]
-
-            alpha = 0.95
 
             # - Do training only if there is input or the last time there was input has been less than 200 ms 
             if(is_training):         
@@ -417,7 +433,6 @@ class RecFSSpikeADS(Layer):
                 I_s_O_Last,
                 rate_Last,
                 vec_refractory,
-                phi_r,
                 e,
                 last_input_time
             )
@@ -444,7 +459,6 @@ class RecFSSpikeADS(Layer):
                 I_s_O_Last,
                 rate_Last,
                 vec_refractory,
-                phi_r,
                 e,
                 last_input_time,
             ) = _evolve_backstep(
@@ -485,11 +499,23 @@ class RecFSSpikeADS(Layer):
 
             # - Call the training. Note this is not spike based
             if(self.is_training and (np.abs(e)>0).any()):
-                dot_W_slow = self.eta*learning_callback(weights_slow = self.weights_slow, phi_r=phi_r, weights_in=self.weights_in, e = e, dt=self.dt)  # def l(W_slow, eta, phi_r, weights_in, e, dt):
-                self.weights_slow = self.weights_slow + dot_W_slow
+                # dot_W_slow = learning_callback(r=self.rate, weights_in=self.weights_in, e = e, eta=self.eta)
+                # self.weights_slow = self.weights_slow + dot_W_slow
+
+                # - Check if tracking variables need extending
+                if(step_counter >= record_length_batched):
+                    E = np.append(E, full_nan((self.out_size, num_timesteps)), axis=1)
+                    R = np.append(R, full_nan((self.size, num_timesteps)), axis=1)
+                    record_length_batched += num_timesteps
+                # - Fill the tracking variables
+                R[:, step_counter] = self.rate
+                E[:, step_counter] = e
+                step_counter += 1
+
                 if(verbose):
                     fed_error.append(t_time)
-                    sum_w_slow += np.sum(np.abs(dot_W_slow))
+                    # sum_w_slow += np.sum(np.abs(dot_W_slow))
+                    # dot_W_slow_track += dot_W_slow
 
 
             # - Extend spike record, if necessary
@@ -513,10 +539,10 @@ class RecFSSpikeADS(Layer):
                     s = np.append(s, full_nan((self.size, extend)), axis=1)
                     f = np.append(f, full_nan((self.size, extend)), axis=1)
                     r = np.append(r, full_nan((self.size, extend)), axis=1)
+                    err = np.append(err, full_nan((self.out_size, extend)), axis=1)
                     out = np.append(out, full_nan((self.out_size, extend)), axis=1)
                     if(verbose):
                         I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
-                        phi_r_track = np.append(phi_r_track, full_nan((self.weights_slow.shape[0], extend)), axis=1)
                     dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
                     record_length += extend
 
@@ -526,9 +552,9 @@ class RecFSSpikeADS(Layer):
                 s[:, step] = self.I_s_S
                 f[:, step] = self.I_s_F
                 r[:, step] = self.rate
+                err[:, step] = e
                 out[:, step] = self.I_s_O
                 I_kDte_track[:, step] = I_kDte
-                phi_r_track[:, step] = phi_r
                 dot_v_ts[:, step] = dot_v
 
             # - Next nominal time step
@@ -554,8 +580,8 @@ class RecFSSpikeADS(Layer):
             f[:, step - 1] = self.I_s_F
             out[:, step - 1] = self.I_s_O
             r[:, step - 1] = self.rate
+            err[:, step - 1] = e
             I_kDte_track[:, step - 1] = I_kDte
-            phi_r_track[:, step-1] = phi_r
 
             ## - Trim state storage variables
             times = times[:step]
@@ -563,13 +589,21 @@ class RecFSSpikeADS(Layer):
             s = s[:, :step]
             f = f[:, :step]
             r = r[:, :step]
+            err = err[:, :step]
             out = out[:, :step]
             I_kDte_track = I_kDte_track[:, :step]
-            phi_r_track = phi_r_track[:, :step]
 
             dot_v_ts = dot_v_ts[:, :step]
         spike_times = spike_times[:spike_pointer]
         spike_indices = spike_indices[:spike_pointer]
+
+        R = R[:, :step_counter]
+        E = E[:, :step_counter]
+
+        # - Compute the weight update here
+        dot_W_slow_batched = self.eta*(R @ (self.weights_in.T @ E).T)
+        # - Perform the update
+        self.weights_slow = self.weights_slow + dot_W_slow_batched
 
         if(verbose):
             ## - Construct return time series
@@ -634,6 +668,7 @@ class RecFSSpikeADS(Layer):
                     plt.axvline(s, color="r")
             
             if(self.is_training):
+                sum_w_slow = np.sum(np.abs(dot_W_slow_batched))
                 print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
 
             fig = plt.figure(figsize=(20,20))
@@ -688,10 +723,6 @@ class RecFSSpikeADS(Layer):
             plt.title(r"$I_{kD^Te}$")
             add_lines(plt)
 
-            plt.subplot(818)
-            plt.plot(times, phi_r_track[0:5,:].T)
-            plt.title(r"$\phi(r)$")
-            add_lines(plt)
                 
             plt.tight_layout()
             plt.draw()
@@ -699,9 +730,17 @@ class RecFSSpikeADS(Layer):
             plt.close(fig)
 
             fig = plt.figure()
+            plt.subplot(121)
             im = plt.matshow(self.weights_slow, fignum=False)
             plt.xticks([], [])
             plt.colorbar(im,fraction=0.046, pad=0.04)
+            plt.title(r"$W_{slow}$")
+            plt.subplot(122)
+            im = plt.matshow(dot_W_slow_batched, fignum=False)
+            plt.xticks([], [])
+            plt.colorbar(im,fraction=0.046, pad=0.04)
+            plt.title(r"$\Delta W_{slow}$")
+            plt.tight_layout()
             plt.draw()
             plt.waitforbuttonpress(0) # this will wait for indefinite time
             plt.close(fig)
