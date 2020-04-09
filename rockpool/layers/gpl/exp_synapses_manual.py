@@ -134,7 +134,7 @@ class FFExpSyn(RRTrainedLayer):
                 num_timesteps, int
             ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
 
-        if ts_input is not None:
+        if ts_input is not None and ts_input.num_channels > 0:
             # Extract spike data from the input variable
             spike_raster = ts_input.raster(
                 dt=self.dt,

@@ -386,7 +386,7 @@ class RecFSSpikeADS(Layer):
                     learning = True
                     # if(verbose):
                     #     fed_error.append(t_time)
-                elif((t_time - last_input_time) < 0.5):
+                elif((t_time - last_input_time) < 0.4):
                     x = np.copy(target[int_time, :])
                     learning = True
                     # if(verbose):
@@ -686,7 +686,7 @@ class RecFSSpikeADS(Layer):
                 stagger_target[i,:] *= i*0.5
 
             colors = [("C%d"%i) for i in range(2,plot_num+2)]
-            l1 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,out.shape[1]), (stagger_out+out[0:plot_num,:]).T)
+            l1 = plt.plot(times, (stagger_out+out[0:plot_num,:]).T)
             for line, color in zip(l1,colors):
                 line.set_color(color)
             l2 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,self.static_target.shape[0]), (stagger_target.T+self.static_target[:,0:plot_num]), linestyle="--")
