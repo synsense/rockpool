@@ -631,6 +631,58 @@ def test_event_raster():
     assert raster.shape == (1, 1)
 
 
+def test_event_from_raster():
+    """
+    Test TSEvent from_raster method
+    """
+    from rockpool import TSEvent
+
+    # - Build some test rasters
+    raster_bool = [False, False, True, False, True]
+    raster_int = [0, 0, 1, 1, 0, 0, 1]
+    raster_multi = [0, 1, 2, 1, 0]
+    raster_2d = [[0, 1], [0, 0], [1, 0], [1, 1]]
+    dt = 1.0
+
+    # - Test construction (boolean)
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt)
+    assert len(test_ts.channels) == sum(raster_bool)
+    assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
+
+    # - Test construction (int)
+    test_ts = TSEvent.from_raster(raster_int, dt=dt)
+    assert len(test_ts.channels) == sum(raster_int)
+    assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_int))
+
+    # - Test construction (multi)
+    test_ts = TSEvent.from_raster(raster_multi, dt=dt)
+    assert len(test_ts.channels) == sum(raster_multi)
+    assert test_ts.num_channels == 1
+    assert np.all(
+        test_ts.raster(dt, add_events=True).flatten() == np.array(raster_multi)
+    )
+
+    # - Test construction (2d)
+    test_ts = TSEvent.from_raster(raster_2d, dt=dt)
+    assert len(test_ts.channels) == np.sum(np.array(raster_2d).flatten())
+    assert test_ts.num_channels == 2
+    assert np.all(test_ts.raster(dt) == np.array(raster_2d))
+
+    # - Test specifiying start time
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt, t_start=2.0)
+    assert test_ts.t_stop == 2.0 + 1.0 * len(raster_bool)
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
+
+    # - Test specifying stop time and number of channels
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt, t_stop=20.0, num_channels=5)
+    assert test_ts.t_stop == 20.0
+    assert test_ts.num_channels == 5
+    test_raster = test_ts.raster(dt)
+    assert test_raster.shape == (20, 5)
+
+
 def test_event_raster_explicit_num_channels():
     """
     Test TSEvent raster method when the function is initialized with explicit number of Channels
@@ -946,8 +998,9 @@ def test_save_load():
     Test saving and loading function for timeseries
     """
     from tempfile import TemporaryFile
-    from rockpool import TSEvent, TSContinuous, load_ts_from_file
+    from rockpool import TimeSeries, TSEvent, TSContinuous, load_ts_from_file
     from os import remove
+    from os.path import getsize
 
     # - Generate time series objects
     times = [1, 3, 6]
@@ -966,18 +1019,24 @@ def test_save_load():
         name="events",
     )
 
-    def assert_equality(tsc, tse, tscl, tsel):
+    def assert_equality(tsc, tse, tscl, tsel, isclose: bool = False):
         # - Verify that attributes are still correct
-        assert (tscl.times == times).all(), "TSContinuous: times changed."
-        assert (
-            tscl.samples == samples.reshape(-1, 1)
-        ).all(), "TSContinuous: samples changed."
+        if isclose:
+            np.isclose(tsc.times, tscl.times, atol=1e-8, rtol=1e-5)
+            np.isclose(tse.times, tsel.times, atol=1e-8, rtol=1e-5)
+            np.isclose(tsc.samples, tscl.samples, atol=1e-8, rtol=1e-5)
+        else:
+            assert (tscl.times == times).all(), "TSContinuous: times changed."
+            assert (
+                tscl.samples == samples.reshape(-1, 1)
+            ).all(), "TSContinuous: samples changed."
+            assert (tsel.times == times).all(), "TSEvent: times changed."
+
+        assert (tsel.channels == channels).all(), "TSEvent: channels changed."
         assert tscl.name == "continuous", "TSContinuous: name changed."
         assert tscl.t_start == -1, "TSContinuous: t_start changed."
         assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
         assert tscl.periodic, "TSContinuous: periodic changed."
-        assert (tsel.times == times).all(), "TSEvent: times changed."
-        assert (tsel.channels == channels).all(), "TSEvent: channels changed."
         assert tsel.name == "events", "TSEvent: name changed."
         assert tsel.t_start == -1, "TSEvent: t_start changed."
         assert tsel.t_stop == 8, "TSEvent: t_stop changed."
@@ -987,15 +1046,21 @@ def test_save_load():
     # - Store objects in files
     tsc.save("test_tsc")
     tse.save("test_tse")
+    tsc.save("test_tsc_lp", lower_precision=True)
+    tse.save("test_tse_lp", lower_precision=True)
     # - Load objects
     tscl = load_ts_from_file("test_tsc.npz")
     tsel = load_ts_from_file("test_tse.npz")
 
     assert_equality(tsc, tse, tscl, tsel)
 
-    # - Remove saved files
-    remove("test_tsc.npz")
-    remove("test_tse.npz")
+    tscl_lp = load_ts_from_file("test_tsc_lp.npz")
+    tsel_lp = load_ts_from_file("test_tse_lp.npz")
+
+    assert_equality(tsc, tse, tscl_lp, tsel_lp, isclose=True)
+
+    assert getsize("test_tsc_lp.npz") < getsize("test_tsc.npz")
+    assert getsize("test_tse_lp.npz") < getsize("test_tse.npz")
 
     # - Store objects in temporary files
     tfc = TemporaryFile()
@@ -1008,6 +1073,36 @@ def test_save_load():
     tsel = load_ts_from_file(tfe)
 
     assert_equality(tsc, tse, tscl, tsel)
+
+    # - Load via classmethod
+    tscl = TimeSeries.load("test_tsc.npz")
+    tsel = TimeSeries.load("test_tse.npz")
+    assert_equality(tsc, tse, tscl, tsel)
+    tscl = TSContinuous.load("test_tsc.npz")
+    tsel = TSEvent.load("test_tse.npz")
+    assert_equality(tsc, tse, tscl, tsel)
+    tscl = TimeSeries.load("test_tsc.npz", expected_type="TSContinuous")
+    tsel = TimeSeries.load("test_tse.npz", expected_type="TSEvent")
+    assert_equality(tsc, tse, tscl, tsel)
+    # Detect not matching types
+    with pytest.raises(TypeError):
+        TSEvent.load("test_tsc.npz")
+    with pytest.raises(TypeError):
+        TSContinuous.load("test_tse.npz")
+    with pytest.raises(TypeError):
+        TimeSeries.load("test_tsc.npz", expected_type="TSEvent")
+    with pytest.raises(TypeError):
+        TimeSeries.load("test_tse.npz", expected_type="TSContinuous")
+    # Detect wron use of `expected_type` argument
+    with pytest.raises(TypeError):
+        TSContinuous.load("test_tsc.npz", expected_type="TSContinuous")
+        TSEvent.load("test_tse.npz", expected_type="TSEvent")
+
+    # - Remove saved files
+    remove("test_tsc.npz")
+    remove("test_tse.npz")
+    remove("test_tsc_lp.npz")
+    remove("test_tse_lp.npz")
 
 
 def test_tsdictondisk():

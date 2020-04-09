@@ -6,7 +6,8 @@ timeseries.py - Classes to manage time series
 
 # - Built-ins
 import copy
-import collections
+import collections.abc
+from pathlib import Path
 from tempfile import TemporaryFile
 from typing import (
     Union,
@@ -113,11 +114,13 @@ def get_global_ts_plotting_backend() -> str:
     return _global_plotting_backend
 
 
-def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> "TimeSeries":
+def load_ts_from_file(
+    path: Union[str, Path], expected_type: Optional[str] = None
+) -> "TimeSeries":
     """
     Load a timeseries object from an ``npz`` file
 
-    :param str path:                    Filepath to load file
+    :param Union[str, Path] path:       Filepath to load file
     :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
 
     :return TimeSeries: Loaded time series object
@@ -478,6 +481,32 @@ class TimeSeries:
         new_series = subclass(t_start=t_start)
         return new_series.append_t(series, offset=offset, inplace=False)
 
+    @classmethod
+    def load(
+        cls: Type[TS], path: Union[str, Path], expected_type: Optional[str] = None
+    ) -> TS:
+        """
+        Load TimeSeries object from file. If called from a subclass of :py:class'TimeSeries`,
+        the type of the stored object must match that of the method class.
+
+        :param Union[str, Path] path:           Path to load from.
+        :param Optional[str] expected_type:     Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Can only be set if method is called from py:class:`TimeSeries` class. Default: ``None``, use whichever type is loaded.
+
+        :return TimeSeries: Loaded time series object
+        :raises TypeError:  Unsupported or unexpected type
+        :raises TypeError: Argument `expected_type` is defined if class is not `TimeSeries`.
+        """
+        if cls != TimeSeries:
+            if expected_type is not None:
+                raise TypeError(
+                    "Argument `expected_type` can only be provided when calling this "
+                    + "method from `TimeSeries` class."
+                )
+            # - Extract class name as string
+            expected_type = str(cls).strip("'<>").split(".")[-1]
+
+        return load_ts_from_file(path, expected_type)
+
     @property
     def times(self):
         """ (ArrayLike[float]) Array of sample times """
@@ -560,6 +589,15 @@ class TimeSeries:
             if self._plotting_backend is not None
             else _global_plotting_backend
         )
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, new_name: Optional[str] = None):
+        # - Default name: 'unnamed'
+        self._name = "unnamed" if new_name is None else new_name
 
 
 ### --- Continuous-valued time series
@@ -851,12 +889,22 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def to_dict(self):
+    def to_dict(self, lower_precision: bool = False) -> Dict:
+        """
+        Store data and attributes of this :py:`TSContinuous` in a :py:`Dict`.
+
+        :param bool lower_precision:    Store data in lower precision data type to save space.
+
+        :return:    Dict with data and attributes of this :py:`TSContinuous`.
+        """
+
+        times = self.times.astype("float16") if lower_precision else self.times
+        samples = self.samples.astype("float16") if lower_precision else self.samples
 
         # - Collect attributes in dict
         attributes = {
-            "times": self.times,
-            "samples": self.samples,
+            "times": times,
+            "samples": samples,
             "t_start": np.array(self.t_start),
             "t_stop": np.array(self.t_stop),
             f"interp_kind_{self.interp_kind}": np.array([]),
@@ -873,16 +921,22 @@ class TSContinuous(TimeSeries):
 
         return attributes
 
-    def save(self, path: str, verbose: bool = False):
+    def save(
+        self,
+        path: Union[str, Path],
+        verbose: bool = False,
+        lower_precision: bool = False,
+    ):
         """
         Save this time series as an ``npz`` file using np.savez
 
         :param str path:        Path to save file
-        :param bool verbose:    If ``True``, print information about saving. Default: ``False``, don't display information.
+        :param bool verbose:    Print path information after successfully saving.
+        :param bool lower_precision:    Store data in lower precision data type to save space.
         """
 
         # - Collect attributes in dict
-        attributes = self.to_dict()
+        attributes = self.to_dict(lower_precision=lower_precision)
 
         # - Write the file
         np.savez(path, **attributes)
@@ -1755,7 +1809,7 @@ class TSEvent(TimeSeries):
         periodic: bool = False,
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
-        name: str = "unnamed",
+        name: Optional[str] = None,
         num_channels: Optional[int] = None,
     ):
         """
@@ -1779,6 +1833,9 @@ class TSEvent(TimeSeries):
             times = np.array([])
         else:
             times = np.atleast_1d(times).flatten().astype(float)
+
+        # - Default name: 'unnamed'
+        name = "unnamed" if name is None else name
 
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
@@ -2020,7 +2077,7 @@ class TSEvent(TimeSeries):
         self, channel_map: ArrayLike, inplace: bool = False
     ) -> "TSEvent":
         """
-        Renumber channels in the `.TSEvent`
+        Renumber channels in the :py:class:`.TSEvent`
 
         Maps channels 0..``self.num_channels-1`` to the channels in ``channel_map``.
 
@@ -2232,12 +2289,91 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
-    def to_dict(self):
+    @staticmethod
+    def from_raster(
+        raster: np.ndarray,
+        dt: float = 1.0,
+        t_start: float = 0.0,
+        t_stop: Optional[float] = None,
+        name: Optional[str] = None,
+        periodic: bool = False,
+        num_channels: Optional[int] = None,
+        spikes_at_bin_start: bool = False,
+    ):
+        """
+        Create a `.TSEvent` object from a raster array
+
+        Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
+        time series as a `.TSEvent` object.
+
+        .. rubic:: Example
+
+        The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
+
+            T = 200
+            C = 20
+            dt = 1e-3
+            spike_prob = 0.1
+
+            raster = np.random.rand((T, C)) > spike_prob
+            spikes_ts = TSEvent.from_raster(raster, dt)
+
+        :param np.ndarray raster:           A TxC array of events. Each row corresponds to a clocked time step of  `dt` duration. Each bin contains the number of spikes present in that bin
+        :param float dt:                    Duration of each time bin in seconds
+        :param float t_start:               The start time of the first bin in ``raster``. Default: ``0.``
+        :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
+        :param Optional[str] name:          The name of the returned time series. Default: ``None``
+        :param bool periodic:               The ``periodic`` flag passed to the new time series
+        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series
+        :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
+
+        :return TSEvent: A new `.TSEvent` containing the events in ``raster``
+        """
+
+        # - Make sure ``raster`` is a numpy array
+        raster = np.array(raster)
+
+        # - Reshape if the array is 1d
+        if len(raster.shape) == 1 or raster.shape[1] == 1:
+            raster = np.atleast_2d(raster).T
+
+        # - Compute `t_stop` if not provided
+        if t_stop is None:
+            t_stop = raster.shape[0] * dt + t_start
+
+        # - Find spike events
+        spike_present = raster > 0
+        spikes_per_bin = raster[spike_present]
+        spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis=0)
+
+        # - Convert to a new TSEvent object and return
+        return TSEvent(
+            spikes[:, 0] * dt + t_start + dt / 2 * int(not spikes_at_bin_start),
+            spikes[:, 1],
+            name=name,
+            periodic=periodic,
+            num_channels=num_channels,
+            t_start=t_start,
+            t_stop=t_stop,
+        )
+
+    def to_dict(self, lower_precision: bool = False) -> Dict:
+        """
+        Store data and attributes of this :py:`TSEvent` in a :py:`Dict`.
+
+        :param bool lower_precision:    Store data in lower precision data type to save space.
+
+        :return:    Dict with data and attributes of this :py:`TSEvent`.
+        """
+
+        times = self.times.astype("float16") if lower_precision else self.times
+        use_uint16 = self.num_channels < 2 ** 16 and lower_precision
+        channels = self.channels.astype("uint16") if use_uint16 else self.channels
 
         # - Collect attributes in dict
         attributes = {
-            "times": self.times,
-            "channels": self.channels,
+            "times": times,
+            "channels": channels,
             "t_start": np.array(self.t_start),
             "t_stop": np.array(self.t_stop),
             "periodic": np.array(self.periodic),
@@ -2252,16 +2388,22 @@ class TSEvent(TimeSeries):
 
         return attributes
 
-    def save(self, path: str, verbose: bool = False):
+    def save(
+        self,
+        path: Union[str, Path],
+        verbose: bool = False,
+        lower_precision: bool = False,
+    ):
         """
-        Save this `.TSEvent` as an ``npz`` file using ``np.savez``
+        Save this :py:`.TSEvent` as an ``npz`` file using ``np.savez``
 
-        :param str path:        File path to save data
-        :param bool verbose:    If ``True``, display feedback about saving the file. Default: ``False``, don't display feedback.
+        :param str path:        Path to save file
+        :param bool verbose:    Print path information after successfully saving.
+        :param bool lower_precision:    Store data in lower precision data type to save space.
         """
 
         # - Collect attributes in dict
-        attributes = self.to_dict()
+        attributes = self.to_dict(lower_precision=lower_precision)
 
         # - Write the file
         np.savez(path, **attributes)
@@ -2689,7 +2831,7 @@ class TSEvent(TimeSeries):
 
 
 ### --- Dict-like object to store TimeSeries on disk
-class TSDictOnDisk(collections.MutableMapping):
+class TSDictOnDisk(collections.abc.MutableMapping):
     """
     Behaves like a dict. However, if a `TimeSeries` is added, it will be stored in a temporary file to reduce main memory usage.
     """
