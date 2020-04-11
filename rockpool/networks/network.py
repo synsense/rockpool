@@ -19,7 +19,7 @@ from warnings import warn
 import numpy as np
 
 from ..timeseries import TimeSeries, TSDictOnDisk
-from ..layers import layer as l
+import rockpool.layers as layer_module
 
 from ..layers.layer import Layer
 
@@ -1136,7 +1136,7 @@ class Network:
         evol_order = []
         # - Generate layers, extract information about input sources
         for lyr in list_layers:
-            cls_layer = getattr(lyr, lyr["class_name"])
+            cls_layer = getattr(layer_module, lyr["class_name"])
             pre_layers.append(lyr.pop("pre_layer_name", None))
             external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
@@ -1177,7 +1177,7 @@ class Network:
         :param Layer cls:   The class that is to be added
         :param str name:    Name of the class as a string
         """
-        setattr(l, name, cls_lyr)
+        setattr(layer_module, name, cls_lyr)
 
     @property
     def evolve_on_disk(self):
