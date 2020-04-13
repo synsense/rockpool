@@ -723,6 +723,11 @@ class RecFSSpikeADS(Layer):
             plt.title(r"$I_{kD^Te}$")
             add_lines(plt)
 
+            plt.subplot(818)
+            plt.plot(times, out[0:5,:].T)
+            plt.title(r"$I_{out}$")
+            add_lines(plt)
+
                 
             plt.tight_layout()
             plt.draw()
