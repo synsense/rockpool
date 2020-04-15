@@ -889,12 +889,22 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def to_dict(self):
+    def to_dict(self, lower_precision: bool = False) -> Dict:
+        """
+        Store data and attributes of this :py:`TSContinuous` in a :py:`Dict`.
+
+        :param bool lower_precision:    Store data in lower precision data type to save space.
+
+        :return:    Dict with data and attributes of this :py:`TSContinuous`.
+        """
+
+        times = self.times.astype("float16") if lower_precision else self.times
+        samples = self.samples.astype("float16") if lower_precision else self.samples
 
         # - Collect attributes in dict
         attributes = {
-            "times": self.times,
-            "samples": self.samples,
+            "times": times,
+            "samples": samples,
             "t_start": np.array(self.t_start),
             "t_stop": np.array(self.t_stop),
             f"interp_kind_{self.interp_kind}": np.array([]),
@@ -911,15 +921,22 @@ class TSContinuous(TimeSeries):
 
         return attributes
 
-    def save(self, path: str, verbose: bool = False):
+    def save(
+        self,
+        path: Union[str, Path],
+        verbose: bool = False,
+        lower_precision: bool = False,
+    ):
         """
         Save this time series as an ``npz`` file using np.savez
 
-        :param str path:    Path to save file
+        :param str path:        Path to save file
+        :param bool verbose:    Print path information after successfully saving.
+        :param bool lower_precision:    Store data in lower precision data type to save space.
         """
 
         # - Collect attributes in dict
-        attributes = self.to_dict()
+        attributes = self.to_dict(lower_precision=lower_precision)
 
         # - Write the file
         np.savez(path, **attributes)
@@ -2273,13 +2290,16 @@ class TSEvent(TimeSeries):
         yield from event_raster  # Yield one row at a time
 
     @staticmethod
-    def from_raster(raster: np.ndarray,
-                    dt: float = 1.,
-                    t_start: float = 0., t_stop: Optional[float] = None,
-                    name: Optional[str] = None,
-                    periodic: bool = False,
-                    num_channels: Optional[int] = None,
-                    spikes_at_bin_start: bool = False):
+    def from_raster(
+        raster: np.ndarray,
+        dt: float = 1.0,
+        t_start: float = 0.0,
+        t_stop: Optional[float] = None,
+        name: Optional[str] = None,
+        periodic: bool = False,
+        num_channels: Optional[int] = None,
+        spikes_at_bin_start: bool = False,
+    ):
         """
         Create a `.TSEvent` object from a raster array
 
@@ -2324,23 +2344,36 @@ class TSEvent(TimeSeries):
         # - Find spike events
         spike_present = raster > 0
         spikes_per_bin = raster[spike_present]
-        spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis = 0)
+        spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis=0)
 
         # - Convert to a new TSEvent object and return
-        return TSEvent(spikes[:, 0] * dt + t_start + dt / 2 * int(not spikes_at_bin_start),
-                       spikes[:, 1],
-                       name = name,
-                       periodic = periodic,
-                       num_channels = num_channels,
-                       t_start = t_start,
-                       t_stop = t_stop)
+        return TSEvent(
+            spikes[:, 0] * dt + t_start + dt / 2 * int(not spikes_at_bin_start),
+            spikes[:, 1],
+            name=name,
+            periodic=periodic,
+            num_channels=num_channels,
+            t_start=t_start,
+            t_stop=t_stop,
+        )
 
-    def to_dict(self):
+    def to_dict(self, lower_precision: bool = False) -> Dict:
+        """
+        Store data and attributes of this :py:`TSEvent` in a :py:`Dict`.
+
+        :param bool lower_precision:    Store data in lower precision data type to save space.
+
+        :return:    Dict with data and attributes of this :py:`TSEvent`.
+        """
+
+        times = self.times.astype("float16") if lower_precision else self.times
+        use_uint16 = self.num_channels < 2 ** 16 and lower_precision
+        channels = self.channels.astype("uint16") if use_uint16 else self.channels
 
         # - Collect attributes in dict
         attributes = {
-            "times": self.times,
-            "channels": self.channels,
+            "times": times,
+            "channels": channels,
             "t_start": np.array(self.t_start),
             "t_stop": np.array(self.t_stop),
             "periodic": np.array(self.periodic),
@@ -2355,15 +2388,22 @@ class TSEvent(TimeSeries):
 
         return attributes
 
-    def save(self, path: str, verbose: bool = False):
+    def save(
+        self,
+        path: Union[str, Path],
+        verbose: bool = False,
+        lower_precision: bool = False,
+    ):
         """
         Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
 
-        :param str path: File path to save data
+        :param str path:        Path to save file
+        :param bool verbose:    Print path information after successfully saving.
+        :param bool lower_precision:    Store data in lower precision data type to save space.
         """
 
         # - Collect attributes in dict
-        attributes = self.to_dict()
+        attributes = self.to_dict(lower_precision=lower_precision)
 
         # - Write the file
         np.savez(path, **attributes)
@@ -2616,7 +2656,9 @@ class TSEvent(TimeSeries):
             channels = np.arange(self.num_channels)
         else:
             # - Check `channels` for validity
-            if not (np.min(channels) >= 0 and np.max(channels) < self.num_channels):
+            if np.asarray(channels).size > 0 and not (
+                np.min(channels) >= 0 and np.max(channels) < self.num_channels
+            ):
                 raise IndexError(
                     f"TSEvent `{self.name}`: `channels` must be between 0 and {self.num_channels}."
                 )

@@ -847,11 +847,11 @@ class RecRateEuler(Layer):
         super().__init__(weights=np.asarray(weights, float), name=name, dt=dt)
 
         # - Check size and shape of `weights`
-        if weights.ndim != 2:
+        if self.weights.ndim != 2:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a matrix with 2 dimensions"
             )
-        if weights.shape[0] != weights.shape[1]:
+        if self.weights.shape[0] != self.weights.shape[1]:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a square matrix"
             )
