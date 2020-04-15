@@ -448,9 +448,9 @@ class FFExpSynTorch(FFExpSyn):
                         ] = self._training_state.cpu().numpy()
 
                 if calc_intermediate_results:
-                    a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
-                        self.device
-                    )
+                    a = self._xtx + regularize * torch.eye(
+                        self.size_in + int(train_biases)
+                    ).to(self.device)
                     solution = torch.mm(a.inverse(), self._xty).cpu().numpy()
                     if train_biases:
                         self.weights = solution[:-1, :]
@@ -495,8 +495,8 @@ class FFExpSynTorch(FFExpSyn):
                 self._kahan_comp_xtx = None
                 self._training_state = None
 
-                if return_training_progress:
-                    return current_trainig_progress
+            if return_training_progress:
+                return current_trainig_progress
 
     def train_logreg(
         self,
@@ -676,6 +676,9 @@ class FFExpSynTorch(FFExpSyn):
         if store_states:
             # - Store last state for next batch
             self._training_state = ct_input[-1, :-1].cpu().numpy()
+
+        self.weights = ct_weights.cpu().numpy()
+        self.bias = ct_biases.cpu().numpy()
 
     def _gradients(self, ct_weights, ct_biases, ct_input, ct_target, regularize):
         """
