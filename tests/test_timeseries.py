@@ -1050,8 +1050,15 @@ def test_save_load():
     # - Store objects in files
     tsc.save("test_tsc")
     tse.save("test_tse")
-    tsc.save("test_tsc_lp", lower_precision=True)
-    tse.save("test_tse_lp", lower_precision=True)
+    tsc.save("test_tsc_lp", dtype_times="float16", dtype_samples="float16")
+    tse.save("test_tse_lp", dtype_times="float16", dtype_channels="uint16")
+
+    # - Raise exception for incompatible dtype
+    tse_big = tse.copy()
+    tse_big.channels = [0, 6, 300]
+    with pytest.raises(ValueError):
+        tse_big.save("test_tse_big", dtype_channels="uint8")
+
     # - Load objects
     tscl = load_ts_from_file("test_tsc.npz")
     tsel = load_ts_from_file("test_tse.npz")
