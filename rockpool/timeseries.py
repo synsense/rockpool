@@ -2656,7 +2656,9 @@ class TSEvent(TimeSeries):
             channels = np.arange(self.num_channels)
         else:
             # - Check `channels` for validity
-            if not (np.min(channels) >= 0 and np.max(channels) < self.num_channels):
+            if np.asarray(channels).size > 0 and not (
+                np.min(channels) >= 0 and np.max(channels) < self.num_channels
+            ):
                 raise IndexError(
                     f"TSEvent `{self.name}`: `channels` must be between 0 and {self.num_channels}."
                 )

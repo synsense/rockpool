@@ -630,6 +630,10 @@ def test_event_raster():
     raster = TSEvent([0, 1], 0).raster(dt=1.1, include_t_stop=True)
     assert raster.shape == (1, 1)
 
+    # - Raster of empty series
+    raster = TSEvent().raster(dt=0.1)
+    assert raster.shape == (0, 0)
+
 
 def test_event_from_raster():
     """
