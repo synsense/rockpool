@@ -615,6 +615,7 @@ class RecFSSpikeADS(Layer):
                 "r": r,
                 "out" : out,
                 "mfFast": f,
+                "v":v,
                 "dot_v": dot_v_ts,
                 "static_input": static_input,
             }
