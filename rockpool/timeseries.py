@@ -904,9 +904,14 @@ class TSContinuous(TimeSeries):
 
         if dtype_times is not None:
             # Make sure that broadcast values in `times` are not beyond `t_stop` and `t_start`
-            times = np.clip(self.times.astype(dtype_times), self.t_start, self.t_stop)
+            times = self.times.astype(dtype_times)
+            # Cannot simply clip `times` because of rounding issues.
+            t_start = np.clip(self.t_start, None, np.min(times))
+            t_stop = np.clip(self.t_stop, np.max(times), None)
         else:
             times = self.times
+            t_start = self.t_start
+            t_stop = self.t_stop
         if dtype_samples is not None:
             samples = self.samples.astype(dtype_samples)
         else:
@@ -916,8 +921,8 @@ class TSContinuous(TimeSeries):
         attributes = {
             "times": times,
             "samples": samples,
-            "t_start": np.array(self.t_start),
-            "t_stop": np.array(self.t_stop),
+            "t_start": np.array(t_start),
+            "t_stop": np.array(t_stop),
             f"interp_kind_{self.interp_kind}": np.array([]),
             "periodic": np.array(self.periodic),
             f"name_{self.name}": np.array([]),
@@ -2384,9 +2389,14 @@ class TSEvent(TimeSeries):
 
         if dtype_times is not None:
             # Make sure that broadcast values in `times` are not beyond `t_stop` and `t_start`
-            times = np.clip(self.times.astype(dtype_times), self.t_start, self.t_stop)
+            times = self.times.astype(dtype_times)
+            # Cannot simply clip `times` because of rounding issues.
+            t_start = np.clip(self.t_start, None, np.min(times))
+            t_stop = np.clip(self.t_stop, np.max(times), None)
         else:
             times = self.times
+            t_start = self.t_start
+            t_stop = self.t_stop
         if dtype_channels is not None:
             if np.iinfo(dtype_channels).max < self.num_channels:
                 raise ValueError(
@@ -2401,8 +2411,8 @@ class TSEvent(TimeSeries):
         attributes = {
             "times": times,
             "channels": channels,
-            "t_start": np.array(self.t_start),
-            "t_stop": np.array(self.t_stop),
+            "t_start": np.array(t_start),
+            "t_stop": np.array(t_stop),
             "periodic": np.array(self.periodic),
             "num_channels": np.array(self.num_channels),
             f"name_{self.name}": np.array([]),
