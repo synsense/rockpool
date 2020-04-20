@@ -204,7 +204,6 @@ class RecFSSpikeADS(Layer):
             err = full_nan((self.out_size, record_length))
             I_kDte_track = full_nan((self.size, record_length))
             dot_v_ts = full_nan((self.size, record_length))
-            dot_W_slow_track = np.zeros((self.size,self.size))
 
         # - Allocate storage for spike times
         max_spike_pointer = record_length * self.size
@@ -415,6 +414,7 @@ class RecFSSpikeADS(Layer):
             )
 
             state += dot_v * dt
+            state[state < 0] = 0.0
 
             return (
                 t_time,
@@ -541,8 +541,7 @@ class RecFSSpikeADS(Layer):
                     r = np.append(r, full_nan((self.size, extend)), axis=1)
                     err = np.append(err, full_nan((self.out_size, extend)), axis=1)
                     out = np.append(out, full_nan((self.out_size, extend)), axis=1)
-                    if(verbose):
-                        I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
+                    I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
                     dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
                     record_length += extend
 
@@ -594,16 +593,21 @@ class RecFSSpikeADS(Layer):
             I_kDte_track = I_kDte_track[:, :step]
 
             dot_v_ts = dot_v_ts[:, :step]
+
         spike_times = spike_times[:spike_pointer]
         spike_indices = spike_indices[:spike_pointer]
 
         R = R[:, :step_counter]
         E = E[:, :step_counter]
 
-        # - Compute the weight update here
-        dot_W_slow_batched = self.eta*(R @ (self.weights_in.T @ E).T)
-        # - Perform the update
-        self.weights_slow = self.weights_slow + dot_W_slow_batched
+        if(self.is_training):
+            # - Compute the weight update here
+            dot_W_slow_batched = self.eta*(R @ (self.weights_in.T @ E).T)
+            np.fill_diagonal(dot_W_slow_batched, 0) # - No self updates. Should remain 0
+            # - Perform the update
+            self.weights_slow = self.weights_slow + dot_W_slow_batched
+            sum_w_slow = np.sum(np.abs(dot_W_slow_batched))
+            print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
 
         if(verbose):
             ## - Construct return time series
@@ -668,9 +672,7 @@ class RecFSSpikeADS(Layer):
                 for s in stop_error_feedback:
                     plt.axvline(s, color="r")
             
-            if(self.is_training):
-                sum_w_slow = np.sum(np.abs(dot_W_slow_batched))
-                print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
+            
 
             fig = plt.figure(figsize=(20,20))
             plt.subplot(811)
@@ -735,21 +737,22 @@ class RecFSSpikeADS(Layer):
             plt.waitforbuttonpress(0) # this will wait for indefinite time
             plt.close(fig)
 
-            fig = plt.figure()
-            plt.subplot(121)
-            im = plt.matshow(self.weights_slow, fignum=False)
-            plt.xticks([], [])
-            plt.colorbar(im,fraction=0.046, pad=0.04)
-            plt.title(r"$W_{slow}$")
-            plt.subplot(122)
-            im = plt.matshow(dot_W_slow_batched, fignum=False)
-            plt.xticks([], [])
-            plt.colorbar(im,fraction=0.046, pad=0.04)
-            plt.title(r"$\Delta W_{slow}$")
-            plt.tight_layout()
-            plt.draw()
-            plt.waitforbuttonpress(0) # this will wait for indefinite time
-            plt.close(fig)
+            if(self.is_training):
+                fig = plt.figure()
+                plt.subplot(121)
+                im = plt.matshow(self.weights_slow, fignum=False)
+                plt.xticks([], [])
+                plt.colorbar(im,fraction=0.046, pad=0.04)
+                plt.title(r"$W_{slow}$")
+                plt.subplot(122)
+                im = plt.matshow(dot_W_slow_batched, fignum=False)
+                plt.xticks([], [])
+                plt.colorbar(im,fraction=0.046, pad=0.04)
+                plt.title(r"$\Delta W_{slow}$")
+                plt.tight_layout()
+                plt.draw()
+                plt.waitforbuttonpress(0) # this will wait for indefinite time
+                plt.close(fig)
 
         return ts_event_return
 
