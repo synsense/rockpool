@@ -7,7 +7,7 @@ import pytest
 
 
 def test_imports():
-    from rockpool.layers.training import JaxTrainedLayer
+    from rockpool.layers.training import JaxTrainer
 
 
 def test_train_rate_jax_sgd_RecRateEulerJax_IO():

@@ -4,7 +4,8 @@
 
 from ...timeseries import TimeSeries, TSContinuous
 from ..network import Network
-from ...layers.training import JaxTrainedLayer
+from ...layers.training import JaxTrainer
+from ...layers.layer import Layer
 
 from typing import Tuple, List, Callable, Union, Dict, Sequence, Any, Optional
 
@@ -17,7 +18,7 @@ State = List
 
 __all__ = ["JaxStack"]
 
-class JaxStack(Network, JaxTrainedLayer):
+class JaxStack(Network, Layer, JaxTrainer):
     """
     Build a network of Jax layers, supporting parameter optimisation
 
@@ -32,12 +33,12 @@ class JaxStack(Network, JaxTrainedLayer):
         :param Sequence layers: A Sequence of layers to initialise the stack with
         :param float dt:        Unitary timestep to force on each of the sublayers
         """
-        # - Check that the layers are subclasses of `JaxTrainedLayer`
+        # - Check that the layers are subclasses of `JaxTrainer`
         if layers is not None:
             for layer in layers:
                 assert isinstance(
-                    layer, JaxTrainedLayer
-                ), "Each layer must inherit from the `JaxTrainedLayer` base class"
+                    layer, JaxTrainer
+                ), "Each layer must inherit from the `JaxTrainer` mixin class"
 
         # - Initialise super classes
         super().__init__(layers=layers, dt=dt, weights=[], *args, **kwargs)

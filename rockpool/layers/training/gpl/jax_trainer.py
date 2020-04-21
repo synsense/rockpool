@@ -26,14 +26,14 @@ from typing import Dict, Tuple, Any, Callable, Union, List, Optional
 State = Any
 Params = Union[Dict, Tuple, List]
 
-__all__ = ["JaxTrainedLayer"]
+__all__ = ["JaxTrainer"]
 
 
-class JaxTrainedLayer(Layer, ABC):
+class JaxTrainer(ABC):
     """
-    Base class for a trainable layer, with evolution functions based on Jax
+    Mixin class for a trainable layer, with evolution functions based on Jax
 
-    Derive from this base class to implement a new Jax-backed trainable layer.
+    Derive from this mixin class to implement a new Jax-backed trainable layer.
 
     .. rubric:: How to train a layer based on this class
 
@@ -52,7 +52,7 @@ class JaxTrainedLayer(Layer, ABC):
                 ...
             }
 
-    The :py:meth:`~.JaxTrainedLayer._pack()` method must return a dictionary or tuple or other collection of strictly jax-compatible types, that completely define the modifiable parameters for this layer. For example: weights; biases; time constants. Included should be all parameters that one might want to perform gradient descent on. *Excluded* should be parameters that are fixed: for example ``dt``, and ``noise_std``.
+    The :py:meth:`~.JaxTrainer._pack()` method must return a dictionary or tuple or other collection of strictly jax-compatible types, that completely define the modifiable parameters for this layer. For example: weights; biases; time constants. Included should be all parameters that one might want to perform gradient descent on. *Excluded* should be parameters that are fixed: for example ``dt``, and ``noise_std``.
 
     ::
 
@@ -67,7 +67,7 @@ class JaxTrainedLayer(Layer, ABC):
                 ...
             )
 
-    The :py:meth:`~.JaxTrainedLayer._unpack()` method must accept a parameters definition as returned by :py:meth:`~.JaxTrainedLayer._pack()`, and apply those parameters to the layer.
+    The :py:meth:`~.JaxTrainer._unpack()` method must accept a parameters definition as returned by :py:meth:`~.JaxTrainer._pack()`, and apply those parameters to the layer.
 
     ::
 
@@ -75,7 +75,7 @@ class JaxTrainedLayer(Layer, ABC):
         def _evolve_functional(self) -> Callable[]:
             return evol_func
 
-    The property :py:attr:`~.JaxTrainedLayer._evolve_functional` must return a *function* ``evol_func()`` with the following calling signature. This function must evolve the state of the layer, given an initial state, set of parameters and raw inputs, with *no side effects*. That means the function must not update the internal state of the layer, or update the `._t` attribute, etc. The function ``evol_func()`` must be compilable with `jax.jit`. An example property and function are shown here::
+    The property :py:attr:`~.JaxTrainer._evolve_functional` must return a *function* ``evol_func()`` with the following calling signature. This function must evolve the state of the layer, given an initial state, set of parameters and raw inputs, with *no side effects*. That means the function must not update the internal state of the layer, or update the `._t` attribute, etc. The function ``evol_func()`` must be compilable with `jax.jit`. An example property and function are shown here::
 
         @property
         def _evolve_functional(self) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
@@ -277,7 +277,7 @@ class JaxTrainedLayer(Layer, ABC):
 
         # - Initialise training
         initialise = is_first or not hasattr(
-            self, "_JaxTrainedLayer__in_training_sgd_adam"
+            self, "_JaxTrainer__in_training_sgd_adam"
         )
 
         if initialise:

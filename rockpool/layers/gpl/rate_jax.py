@@ -24,7 +24,7 @@ from typing import Optional, Tuple, Callable, Union, Dict, List, Any
 from warnings import warn
 
 from rockpool.layers.layer import Layer
-from rockpool.layers.training.gpl.jax_trained_layer import JaxTrainedLayer
+from rockpool.layers.training.gpl.jax_trainer import JaxTrainer
 from ...timeseries import TimeSeries, TSContinuous
 
 
@@ -241,7 +241,7 @@ def _get_force_evolve_jit(
 # -- Recurrent reservoir
 
 
-class RecRateEulerJax(JaxTrainedLayer, Layer):
+class RecRateEulerJax(JaxTrainer, Layer):
     """
     ``JAX``-backed firing-rate recurrent layer
 

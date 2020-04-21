@@ -7,7 +7,7 @@ dModules = {
     ".gpl.train_jax_rate_sgd": "add_shim_rate_jax_sgd",
     ".gpl.rr_trained_layer": "RRTrainedLayer",
     ".gpl.train_jax_lif_sgd": "add_shim_lif_jax_sgd",
-    ".gpl.jax_trained_layer": "JaxTrainedLayer",
+    ".gpl.jax_trainer": "JaxTrainer",
 }
 
 
