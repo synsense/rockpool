@@ -247,7 +247,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
     `.RecRateEulerJax` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
 
-    `.RecRateEulerJax` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+    `.RecRateEulerJax` is compatible with the `.layers.training.jax_trainer` module.
 
     .. rubric:: Dynamics
 
@@ -674,7 +674,7 @@ class RecRateEulerJax_IO(RecRateEulerJax):
 
     `.RecRateEulerJax_IO` implements a recurrent reservoir with input and output weighting, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
 
-    `.RecRateEulerJax_IO` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+    `.RecRateEulerJax_IO` is compatible with the `.layers.training.jax_trainer` module.
 
     .. rubric:: Dynamics
 
@@ -1015,7 +1015,7 @@ class FFRateEulerJax(RecRateEulerJax):
 
     `.FFRateEulerJax` implements a feed-forward dynamical layer, using a ``JAX``-implemented solver as a back end. The design permits gradient-based learning of weights, biases and time constants using `jax.grad`.
 
-    `.FFRateEulerJax` is compatible with the `.layers.training.train_jax_rate_sgd` module.
+    `.FFRateEulerJax` is compatible with the `.layers.training.jax_trainer` module.
 
     .. rubric:: Dynamics
 
