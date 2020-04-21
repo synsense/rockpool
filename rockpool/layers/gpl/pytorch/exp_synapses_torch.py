@@ -245,19 +245,15 @@ class FFExpSynTorch(FFExpSyn):
             "linear regression",
             "linreg",
         }:
-            training_method = self.train_rr
+            return self.train_rr(ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs)
         elif method in {"logreg", "logistic", "logistic regression"}:
-            training_method = self.train_logreg
+            return self.train_logreg(ts_target, ts_input, **kwargs)  # is_first and is_last not required by logreg
         else:
             raise ValueError(
                 f"FFExpSynTorch `{self.name}`: Training method `{method}` is currently "
                 + "not supported. Use `rr` for ridge regression or `logreg` for logistic "
                 + "regression."
             )
-        # - Call training method
-        return training_method(
-            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
-        )
 
     def train_rr(
         self,
@@ -452,9 +448,9 @@ class FFExpSynTorch(FFExpSyn):
                         ] = self._training_state.cpu().numpy()
 
                 if calc_intermediate_results:
-                    a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
-                        self.device
-                    )
+                    a = self._xtx + regularize * torch.eye(
+                        self.size_in + int(train_biases)
+                    ).to(self.device)
                     solution = torch.mm(a.inverse(), self._xty).cpu().numpy()
                     if train_biases:
                         self.weights = solution[:-1, :]
@@ -499,8 +495,8 @@ class FFExpSynTorch(FFExpSyn):
                 self._kahan_comp_xtx = None
                 self._training_state = None
 
-                if return_training_progress:
-                    return current_trainig_progress
+            if return_training_progress:
+                return current_trainig_progress
 
     def train_logreg(
         self,
@@ -680,6 +676,9 @@ class FFExpSynTorch(FFExpSyn):
         if store_states:
             # - Store last state for next batch
             self._training_state = ct_input[-1, :-1].cpu().numpy()
+
+        self.weights = ct_weights.cpu().numpy()
+        self.bias = ct_biases.cpu().numpy()
 
     def _gradients(self, ct_weights, ct_biases, ct_input, ct_target, regularize):
         """
