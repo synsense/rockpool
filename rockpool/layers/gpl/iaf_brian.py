@@ -274,12 +274,12 @@ class FFIAFBrian(Layer):
         """
         Function to evolve the states of this layer given an input
 
-        :param Optional[TSContinuous] ts_input: Input time series
+        :param Optional[`.TSContinuous`] ts_input: Input time series
         :param Optional[float] duration:        Simulation/Evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps
         :param bool verbose:           Currently no effect, just for conformity
 
-        :return TSEvent:                    Output spike series
+        :return `.TSEvent`:                    Output spike series
         """
 
         # - Prepare time base
@@ -639,14 +639,14 @@ class FFIAFSpkInBrian(FFIAFBrian):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param Optional[`.TSEvent`] ts_input:      Input spike train
+        :param Optional[float] duration:           Simulation/Evolution time
+        :param Optional[int] num_timesteps:          Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
+        :return `.TSEvent`:            Output spike series
         """
 
         # - Prepare time base
@@ -1187,14 +1187,14 @@ class RecIAFBrian(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param TSContinuous ts_input:        Input currents
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return TSEvent:              output spike series
+        :param Optional[`.TSContinuous`] ts_input:      Input spike train
+        :param Optional[float] duration:           Simulation/Evolution time
+        :param Optional[int] num_timesteps:          Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
+        :return `.TSEvent`:            Output spike series
         """
 
         # - Prepare time base
@@ -1541,14 +1541,14 @@ class RecIAFSpkInBrian(RecIAFBrian):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param TSEvent ts_input:        Input spike train
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return TSEvent:              output spike series
+        :param Optional[`.TSEvent`] ts_input:      Input spike train
+        :param Optional[float] duration:           Simulation/Evolution time
+        :param Optional[int] num_timesteps:          Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
+        :return `.TSEvent`:            Output spike series
         """
 
         # - Prepare time base

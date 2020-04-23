@@ -419,15 +419,20 @@ class RecLIFJax(Layer):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input_events(
+        time_base, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps, inps * 0.0
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps, inps * 0.0)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
@@ -481,7 +486,15 @@ class RecLIFJax(Layer):
                 Isyn_ts:         (np.ndarray) Time trace of output synaptic currents [T, N]
         """
         # - Call compiled Euler solver to evolve reservoir
-        self._state, Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_jit(
+        (
+            self._state,
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_jit(
             self._state,
             self._w_in,
             self._weights,
@@ -720,9 +733,14 @@ class RecLIFCurrentInJax(RecLIFJax):
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps * 0.0, inps
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps * 0.0, inps)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
@@ -887,21 +905,26 @@ class RecLIFJax_IO(RecLIFJax):
         :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
         :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param bool verbose:           Currently no effect, just for conformity
+        :param bool verbose:                    Currently no effect, just for conformity
 
         :return TSContinuous:                   Output time series; the synaptic currents of each neuron
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input_events(
+        time_base, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps, inps * 0.0
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps, inps * 0.0)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
@@ -1053,9 +1076,14 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
 
         # - Call raw evolution function
         time_start = self.t
-        Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts = self._evolve_raw(
-            inps * 0.0, inps
-        )
+        (
+            Irec_ts,
+            output_ts,
+            surrogate_ts,
+            spike_raster_ts,
+            Vmem_ts,
+            Isyn_ts,
+        ) = self._evolve_raw(inps * 0.0, inps)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(

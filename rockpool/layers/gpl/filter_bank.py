@@ -240,7 +240,7 @@ class ButterMelFilter(FilterBank):
         name: str = "unnamed",
         cutoff_fs: float = 100.0,
         num_filters: int = 64,
-        filter_width: float = 2.,
+        filter_width: float = 2.0,
         mean_subtraction: bool = False,
         normalize: bool = False,
         order: int = 2,

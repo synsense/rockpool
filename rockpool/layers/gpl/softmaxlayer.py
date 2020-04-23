@@ -61,8 +61,9 @@ class SoftMaxLayer(FFCLIAF):
 
         :param Optional[TSEvent] ts_input:      Input spike trian
         :param Optional[float] duration:        Simulation/Evolution time
-        :param Optional[int] num_timesteps      Number of evolution time steps
-        :param bool verbose:          Currently no effect, just for conformity
+        :param Optional[int] num_timesteps:     Number of evolution time steps
+        :param bool verbose:                    Currently no effect, just for conformity
+
         :return TSEvent:                        Output spike series
         """
 
