@@ -130,8 +130,6 @@ class RecFSSpikeADS(Layer):
         self.eta_initial = eta
         self.out_size = self.weights_out.shape[1]
 
-        self.optimal_weights_fast = None
-
         # - Set a reasonable dt
         if dt is None:
             self.dt = self._min_tau / 10
@@ -231,10 +229,6 @@ class RecFSSpikeADS(Layer):
 
         e = zeros_out.copy()
 
-        last_input_time = -np.inf
-
-        fed_error = []
-
         # - Precompute dt/syn_tau for different taus
         dt_syn_slow = self.dt / self.tau_syn_r_slow
         dt_syn_fast = self.dt / self.tau_syn_r_fast
@@ -283,7 +277,6 @@ class RecFSSpikeADS(Layer):
             vec_refractory,
             zeros,
             target,
-            last_input_time,
         ):
 
             # - Enforce refractory period by clamping membrane potential to reset
@@ -372,28 +365,12 @@ class RecFSSpikeADS(Layer):
             int_time = int((t_time - t_start) // dt)
             I_ext = static_input[int_time, :]
 
-            # - Do training only if there is input or the last time there was input has been less than 200 ms 
-            if(is_training):         
-                x = zeros_out
-                learning = False
-                x_hat = zeros_out
-                e = zeros_out
-                I_kDte = zeros
-                if((np.abs(I_ext) >= 2).any()):
-                    x = np.copy(target[int_time, :])
-                    last_input_time = t_time
-                    learning = True
-                    # if(verbose):
-                    #     fed_error.append(t_time)
-                elif((t_time - last_input_time) < 0.4):
-                    x = np.copy(target[int_time, :])
-                    learning = True
-                    # if(verbose):
-                    #     fed_error.append(t_time)
-                if(learning):
-                    x_hat = I_s_O
-                    e = x - x_hat
-                    I_kDte = k*weights_in.T @ e
+            if(is_training):
+                x = np.copy(target[int_time, :])    
+                x_hat = I_s_O
+                e = x - x_hat
+                I_kDte = k*(weights_in.T @ e)
+                
             else:
                 I_kDte = zeros
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
@@ -434,7 +411,6 @@ class RecFSSpikeADS(Layer):
                 rate_Last,
                 vec_refractory,
                 e,
-                last_input_time
             )
 
 
@@ -460,7 +436,6 @@ class RecFSSpikeADS(Layer):
                 rate_Last,
                 vec_refractory,
                 e,
-                last_input_time,
             ) = _evolve_backstep(
                 t_last=t_last,
                 t_time=t_time,
@@ -494,14 +469,9 @@ class RecFSSpikeADS(Layer):
                 vec_refractory = vec_refractory,
                 zeros = zeros,
                 target = self.static_target,
-                last_input_time=last_input_time
             )
 
-            # - Call the training. Note this is not spike based
             if(self.is_training and (np.abs(e)>0).any()):
-                # dot_W_slow = learning_callback(r=self.rate, weights_in=self.weights_in, e = e, eta=self.eta)
-                # self.weights_slow = self.weights_slow + dot_W_slow
-
                 # - Check if tracking variables need extending
                 if(step_counter >= record_length_batched):
                     E = np.append(E, full_nan((self.out_size, num_timesteps)), axis=1)
@@ -511,12 +481,6 @@ class RecFSSpikeADS(Layer):
                 R[:, step_counter] = self.rate
                 E[:, step_counter] = e
                 step_counter += 1
-
-                if(verbose):
-                    fed_error.append(t_time)
-                    # sum_w_slow += np.sum(np.abs(dot_W_slow))
-                    # dot_W_slow_track += dot_W_slow
-
 
             # - Extend spike record, if necessary
             if spike_pointer >= max_spike_pointer:
@@ -646,93 +610,64 @@ class RecFSSpikeADS(Layer):
 
         self._timestep += num_timesteps
 
-
         # - Return output TimeSeries
         ts_event_return = TSEvent(spike_times, spike_indices)
 
         if(verbose):
-
-            fed_error = np.asarray(fed_error)
-            start_error_feedback = []
-            stop_error_feedback = []
             
-            for i in range(len(fed_error)):
-                if(i == 0):
-                    start_error_feedback.append(fed_error[i])
-                elif(i == len(fed_error)-1):
-                    stop_error_feedback.append(fed_error[i])
-                else:
-                    if(fed_error[i]-fed_error[i-1] > 0.1):
-                        stop_error_feedback.append(fed_error[i-1])
-                        start_error_feedback.append(fed_error[i])
+            fig = plt.figure(figsize=(20,20),constrained_layout=True)
+            gs = fig.add_gridspec(6, 1)
 
-            def add_lines(plt):
-                for s in start_error_feedback:
-                    plt.axvline(s, color="g")
-                for s in stop_error_feedback:
-                    plt.axvline(s, color="r")
-            
-            
+            ax1 = fig.add_subplot(gs[0,0])
+            ax1.plot(times, s[0:5,:].T)
+            ax1.set_title(r"$I_{slow}$")
 
+            ax2 = fig.add_subplot(gs[1,0])
+            ax2.plot(times, v[0:5,:].T)
+            ax2.set_title(r"$V(t)$")
+
+            ax3 = fig.add_subplot(gs[2,0])
+            ax3.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,:])
+            ax3.set_title(r"$I_{ext}$")
+
+            ax4 = fig.add_subplot(gs[3,0])
+            channels = ts_event_return.channels[ts_event_return.channels >= 0]
+            times_tmp = ts_event_return.times[ts_event_return.channels >= 0]
+            ax4.scatter(times_tmp, channels, color="k")
+            ax4.set_xlim([0,final_time])
+            
+            ax5 = fig.add_subplot(gs[4,0])
+            ax5.plot(times, I_kDte_track[0:5,:].T)
+            ax5.set_title(r"$I_{kD^Te}$")
+        
+            ax6 = fig.add_subplot(gs[5,0])
+            ax6.plot(times, out[0:5,:].T)
+            ax6.set_title(r"$I_{out}$")
+
+            plt.tight_layout()
+            plt.draw()
+            plt.waitforbuttonpress(0) # this will wait for indefinite time
+            plt.close(fig)
+
+            # - Plot reconstruction
             fig = plt.figure(figsize=(20,20))
-            plt.subplot(811)
-            plt.plot(times, f[0:5,:].T)
-            plt.title(r"$I_f$")
-            add_lines(plt)
-
-            plt.subplot(812)
-            plot_num = 10
+            plot_num = 128
             stagger_out = np.ones((plot_num, out.shape[1]))
             stagger_target = np.ones((plot_num, self.static_target.shape[0]))
             for i in range(plot_num):
-                stagger_out[i,:] *= i*0.5
-                stagger_target[i,:] *= i*0.5
+                stagger_out[i,:] *= i
+                stagger_target[i,:] *= i
 
             colors = [("C%d"%i) for i in range(2,plot_num+2)]
-            l1 = plt.plot(times, (stagger_out+out[0:plot_num,:]).T)
+            l1 = plt.plot(times, (stagger_out+out[:plot_num,:]).T)
             for line, color in zip(l1,colors):
                 line.set_color(color)
-            l2 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,self.static_target.shape[0]), (stagger_target.T+self.static_target[:,0:plot_num]), linestyle="--")
+            l2 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,self.static_target.shape[0]), (stagger_target.T+self.static_target[:,:plot_num]), linestyle="--")
             for line, color in zip(l2,colors):
                 line.set_color(color)
             plt.title(r"Target vs reconstruction")
             lines = [l1[0],l2[0]]
             plt.legend(lines, ["Reconstruction", "Target"])
-
-            plt.subplot(813)
-            plt.plot(times, s[0:5,:].T)
-            plt.title(r"$I_{slow}$")
-            add_lines(plt)
-
-            plt.subplot(814)
-            plt.plot(times, v[0:5,:].T)
-            plt.title(r"$V(t)$")
-            add_lines(plt)
-
-            plt.subplot(815)
-            plt.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,:])
-            plt.title(r"$I_{ext}$")
-            add_lines(plt)
-            
-            plt.subplot(816)
-            channels = ts_event_return.channels[ts_event_return.channels >= 0]
-            times_tmp = ts_event_return.times[ts_event_return.channels >= 0]
-            plt.scatter(times_tmp, channels, color="k")
-            plt.xlim([0,final_time])
-            add_lines(plt)
-
-            plt.subplot(817)
-            plt.plot(times, I_kDte_track[0:5,:].T)
-            plt.title(r"$I_{kD^Te}$")
-            add_lines(plt)
-
-            plt.subplot(818)
-            plt.plot(times, out[0:5,:].T)
-            plt.title(r"$I_{out}$")
-            add_lines(plt)
-
-                
-            plt.tight_layout()
             plt.draw()
             plt.waitforbuttonpress(0) # this will wait for indefinite time
             plt.close(fig)
