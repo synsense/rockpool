@@ -889,24 +889,40 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def to_dict(self, lower_precision: bool = False) -> Dict:
+    def to_dict(
+        self,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_samples: Union[None, str, type, np.dtype] = None,
+    ) -> Dict:
         """
         Store data and attributes of this :py:`TSContinuous` in a :py:`Dict`.
 
-        :param bool lower_precision:    Store data in lower precision data type to save space.
-
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be returned, for example to save space.
         :return:    Dict with data and attributes of this :py:`TSContinuous`.
         """
 
-        times = self.times.astype("float16") if lower_precision else self.times
-        samples = self.samples.astype("float16") if lower_precision else self.samples
+        if dtype_times is not None:
+            # Make sure that broadcast values in `times` are not beyond `t_stop` and `t_start`
+            times = self.times.astype(dtype_times)
+            # Cannot simply clip `times` because of rounding issues.
+            t_start = np.clip(self.t_start, None, np.min(times))
+            t_stop = np.clip(self.t_stop, np.max(times), None)
+        else:
+            times = self.times
+            t_start = self.t_start
+            t_stop = self.t_stop
+        if dtype_samples is not None:
+            samples = self.samples.astype(dtype_samples)
+        else:
+            samples = self.samples
 
         # - Collect attributes in dict
         attributes = {
             "times": times,
             "samples": samples,
-            "t_start": np.array(self.t_start),
-            "t_stop": np.array(self.t_stop),
+            "t_start": np.array(t_start),
+            "t_stop": np.array(t_stop),
             f"interp_kind_{self.interp_kind}": np.array([]),
             "periodic": np.array(self.periodic),
             f"name_{self.name}": np.array([]),
@@ -925,18 +941,19 @@ class TSContinuous(TimeSeries):
         self,
         path: Union[str, Path],
         verbose: bool = False,
-        lower_precision: bool = False,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_samples: Union[None, str, type, np.dtype] = None,
     ):
         """
         Save this time series as an ``npz`` file using np.savez
 
         :param str path:        Path to save file
-        :param bool verbose:    Print path information after successfully saving.
-        :param bool lower_precision:    Store data in lower precision data type to save space.
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be stored, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be stored, for example to save space.
         """
 
         # - Collect attributes in dict
-        attributes = self.to_dict(lower_precision=lower_precision)
+        attributes = self.to_dict(dtype_times=dtype_times, dtype_samples=dtype_samples)
 
         # - Write the file
         np.savez(path, **attributes)
@@ -2357,25 +2374,45 @@ class TSEvent(TimeSeries):
             t_stop=t_stop,
         )
 
-    def to_dict(self, lower_precision: bool = False) -> Dict:
+    def to_dict(
+        self,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_channels: Union[None, str, type, np.dtype] = None,
+    ) -> Dict:
         """
         Store data and attributes of this :py:`TSEvent` in a :py:`Dict`.
 
-        :param bool lower_precision:    Store data in lower precision data type to save space.
-
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which `channels` are to be returned, for example to save space.
         :return:    Dict with data and attributes of this :py:`TSEvent`.
         """
 
-        times = self.times.astype("float16") if lower_precision else self.times
-        use_uint16 = self.num_channels < 2 ** 16 and lower_precision
-        channels = self.channels.astype("uint16") if use_uint16 else self.channels
+        if dtype_times is not None:
+            # Make sure that broadcast values in `times` are not beyond `t_stop` and `t_start`
+            times = self.times.astype(dtype_times)
+            # Cannot simply clip `times` because of rounding issues.
+            t_start = np.clip(self.t_start, None, np.min(times))
+            t_stop = np.clip(self.t_stop, np.max(times), None)
+        else:
+            times = self.times
+            t_start = self.t_start
+            t_stop = self.t_stop
+        if dtype_channels is not None:
+            if np.iinfo(dtype_channels).max < self.num_channels:
+                raise ValueError(
+                    f"TSEvent `{self.name}`: type `{dtype_channels}` not sufficient "
+                    + f"for number of channels in this series ({self.num_channels})."
+                )
+            channels = self.channels.astype(dtype_channels)
+        else:
+            channels = self.channels
 
         # - Collect attributes in dict
         attributes = {
             "times": times,
             "channels": channels,
-            "t_start": np.array(self.t_start),
-            "t_stop": np.array(self.t_stop),
+            "t_start": np.array(t_start),
+            "t_stop": np.array(t_stop),
             "periodic": np.array(self.periodic),
             "num_channels": np.array(self.num_channels),
             f"name_{self.name}": np.array([]),
@@ -2392,18 +2429,22 @@ class TSEvent(TimeSeries):
         self,
         path: Union[str, Path],
         verbose: bool = False,
-        lower_precision: bool = False,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_channels: Union[None, str, type, np.dtype] = None,
     ):
         """
         Save this :py:`.TSEvent` as an ``npz`` file using ``np.savez``
 
         :param str path:        Path to save file
         :param bool verbose:    Print path information after successfully saving.
-        :param bool lower_precision:    Store data in lower precision data type to save space.
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be stored, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which `channels` are to be stored, for example to save space.
         """
 
         # - Collect attributes in dict
-        attributes = self.to_dict(lower_precision=lower_precision)
+        attributes = self.to_dict(
+            dtype_times=dtype_times, dtype_channels=dtype_channels
+        )
 
         # - Write the file
         np.savez(path, **attributes)
@@ -2656,7 +2697,9 @@ class TSEvent(TimeSeries):
             channels = np.arange(self.num_channels)
         else:
             # - Check `channels` for validity
-            if not (np.min(channels) >= 0 and np.max(channels) < self.num_channels):
+            if np.asarray(channels).size > 0 and not (
+                np.min(channels) >= 0 and np.max(channels) < self.num_channels
+            ):
                 raise IndexError(
                     f"TSEvent `{self.name}`: `channels` must be between 0 and {self.num_channels}."
                 )
@@ -2788,6 +2831,9 @@ class TSEvent(TimeSeries):
 
     @channels.setter
     def channels(self, new_channels: np.ndarray):
+
+        new_channels = np.asarray(new_channels)
+
         # - Check size of new data
         assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
             self.times
