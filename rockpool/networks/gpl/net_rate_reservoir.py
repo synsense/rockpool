@@ -70,7 +70,7 @@ def build_rate_reservoir(
     )
 
     # - Return the network
-    return Network(input_layer, lyrRes, lyrOut)
+    return Network([input_layer, lyrRes, lyrOut])
 
 
 def build_random_reservoir(

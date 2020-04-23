@@ -59,7 +59,7 @@ def test_updown_in_net():
     fl0 = FFUpDown(weights=weights)
     fl1 = RecDIAF(np.zeros((4, 2)), np.zeros((2, 2)), dt=0.002)
     # - Generate network
-    net = Network(fl0, fl1)
+    net = Network([fl0, fl1])
 
     # - Input signal
     tsInCont = TSContinuous(
