@@ -621,7 +621,7 @@ class FFRateEuler(FFRateLayer):
         """
 
         # - Prepare time base
-        time_base, inp, num_timesteps = self._prepare_input(
+        time_base_inp, inp, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -641,6 +641,8 @@ class FFRateEuler(FFRateLayer):
 
         # - Increment internal time representation
         self._timestep += num_timesteps
+
+        time_base = np.r_[time_base_inp, self.t]
 
         return TSContinuous(time_base, sample_act)
 
@@ -894,14 +896,14 @@ class RecRateEuler(Layer):
         """
 
         # - Prepare time base
-        time_base, input_steps, num_timesteps = self._prepare_input(
+        time_base_inp, input_steps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Generate a noise trace
         # Noise correction: Standard deviation after some time would be noise_std * sqrt(0.5*dt/tau)
         noise_step = (
-            np.random.randn(np.size(time_base), self.size)
+            np.random.randn(num_timesteps, self.size)
             * self.noise_std
             * np.sqrt(2.0 * self._tau / self._dt)
         )
@@ -921,6 +923,8 @@ class RecRateEuler(Layer):
 
         # - Increment internal time representation
         self._timestep += num_timesteps
+
+        time_base = np.r_[time_base_inp, self.t]
 
         # - Construct a return TimeSeries
         return TSContinuous(time_base, activity)
