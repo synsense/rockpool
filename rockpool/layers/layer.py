@@ -156,31 +156,33 @@ class Layer(ABC):
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
-        time_base = self._gen_time_trace(self.t, num_timesteps)
+        time_base = self._gen_time_trace(self.t, num_timesteps + 1)
 
         if ts_input is not None:
             # - Make sure time_base matches ts_input
             if not isinstance(ts_input, TSEvent):
+                t_start_expected = time_base[0]
+                t_stop_expected = time_base[-2]
                 if not ts_input.periodic:
                     # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
                     if (
                         ts_input.t_start - 1e-3 * self.dt
-                        <= time_base[0]
+                        <= t_start_expected
                         <= ts_input.t_start
                     ):
-                        time_base[0] = ts_input.t_start
+                        t_start_expected = ts_input.t_start
                     if (
                         ts_input.t_stop
-                        <= time_base[-1]
+                        <= t_stop_expected
                         <= ts_input.t_stop + 1e-3 * self.dt
                     ):
-                        time_base[-1] = ts_input.t_stop
+                        t_stop_expected = ts_input.t_stop
 
                 # - Warn if evolution period is not fully contained in ts_input
                 if not (ts_input.contains(time_base) or ts_input.periodic):
                     warn(
                         "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.name, time_base[0], time_base[-1]
+                            self.name, t_start_expected, t_stop_expected
                         )
                         + "is not fully contained in input signal (t = {} to {}).".format(
                             ts_input.t_start, ts_input.t_stop
@@ -189,14 +191,14 @@ class Layer(ABC):
                     )
 
             # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base))
+            input_steps = self._check_input_dims(ts_input(time_base[:-1]))
 
             # - Treat "NaN" as zero inputs
             input_steps[np.where(np.isnan(input_steps))] = 0
 
         else:
             # - Assume zero inputs
-            input_steps = np.zeros((np.size(time_base), self.size_in))
+            input_steps = np.zeros((num_timesteps, self.size_in))
 
         return time_base, input_steps, num_timesteps
 
