@@ -630,6 +630,11 @@ def test_event_raster():
     raster = TSEvent([0, 1], 0).raster(dt=1.1, include_t_stop=True)
     assert raster.shape == (1, 1)
 
+    # - Raster of empty series
+    raster = TSEvent().raster(dt=0.1)
+    assert raster.shape == (0, 0)
+
+
 def test_event_from_raster():
     """
     Test TSEvent from_raster method
@@ -641,40 +646,42 @@ def test_event_from_raster():
     raster_int = [0, 0, 1, 1, 0, 0, 1]
     raster_multi = [0, 1, 2, 1, 0]
     raster_2d = [[0, 1], [0, 0], [1, 0], [1, 1]]
-    dt = 1.
+    dt = 1.0
 
     # - Test construction (boolean)
-    test_ts = TSEvent.from_raster(raster_bool, dt = dt)
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt)
     assert len(test_ts.channels) == sum(raster_bool)
     assert test_ts.num_channels == 1
     assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
 
     # - Test construction (int)
-    test_ts = TSEvent.from_raster(raster_int, dt = dt)
+    test_ts = TSEvent.from_raster(raster_int, dt=dt)
     assert len(test_ts.channels) == sum(raster_int)
     assert test_ts.num_channels == 1
     assert np.all(test_ts.raster(dt).flatten() == np.array(raster_int))
 
     # - Test construction (multi)
-    test_ts = TSEvent.from_raster(raster_multi, dt = dt)
+    test_ts = TSEvent.from_raster(raster_multi, dt=dt)
     assert len(test_ts.channels) == sum(raster_multi)
     assert test_ts.num_channels == 1
-    assert np.all(test_ts.raster(dt, add_events = True).flatten() == np.array(raster_multi))
+    assert np.all(
+        test_ts.raster(dt, add_events=True).flatten() == np.array(raster_multi)
+    )
 
     # - Test construction (2d)
-    test_ts = TSEvent.from_raster(raster_2d, dt = dt)
+    test_ts = TSEvent.from_raster(raster_2d, dt=dt)
     assert len(test_ts.channels) == np.sum(np.array(raster_2d).flatten())
     assert test_ts.num_channels == 2
     assert np.all(test_ts.raster(dt) == np.array(raster_2d))
 
     # - Test specifiying start time
-    test_ts = TSEvent.from_raster(raster_bool, dt = dt, t_start = 2.)
-    assert test_ts.t_stop == 2. + 1. * len(raster_bool)
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt, t_start=2.0)
+    assert test_ts.t_stop == 2.0 + 1.0 * len(raster_bool)
     assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
 
     # - Test specifying stop time and number of channels
-    test_ts = TSEvent.from_raster(raster_bool, dt = dt, t_stop = 20., num_channels = 5)
-    assert test_ts.t_stop == 20.
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt, t_stop=20.0, num_channels=5)
+    assert test_ts.t_stop == 20.0
     assert test_ts.num_channels == 5
     test_raster = test_ts.raster(dt)
     assert test_raster.shape == (20, 5)
@@ -997,6 +1004,7 @@ def test_save_load():
     from tempfile import TemporaryFile
     from rockpool import TimeSeries, TSEvent, TSContinuous, load_ts_from_file
     from os import remove
+    from os.path import getsize
 
     # - Generate time series objects
     times = [1, 3, 6]
@@ -1015,18 +1023,24 @@ def test_save_load():
         name="events",
     )
 
-    def assert_equality(tsc, tse, tscl, tsel):
+    def assert_equality(tsc, tse, tscl, tsel, isclose: bool = False):
         # - Verify that attributes are still correct
-        assert (tscl.times == times).all(), "TSContinuous: times changed."
-        assert (
-            tscl.samples == samples.reshape(-1, 1)
-        ).all(), "TSContinuous: samples changed."
+        if isclose:
+            np.isclose(tsc.times, tscl.times, atol=1e-8, rtol=1e-5)
+            np.isclose(tse.times, tsel.times, atol=1e-8, rtol=1e-5)
+            np.isclose(tsc.samples, tscl.samples, atol=1e-8, rtol=1e-5)
+        else:
+            assert (tscl.times == times).all(), "TSContinuous: times changed."
+            assert (
+                tscl.samples == samples.reshape(-1, 1)
+            ).all(), "TSContinuous: samples changed."
+            assert (tsel.times == times).all(), "TSEvent: times changed."
+
+        assert (tsel.channels == channels).all(), "TSEvent: channels changed."
         assert tscl.name == "continuous", "TSContinuous: name changed."
         assert tscl.t_start == -1, "TSContinuous: t_start changed."
         assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
         assert tscl.periodic, "TSContinuous: periodic changed."
-        assert (tsel.times == times).all(), "TSEvent: times changed."
-        assert (tsel.channels == channels).all(), "TSEvent: channels changed."
         assert tsel.name == "events", "TSEvent: name changed."
         assert tsel.t_start == -1, "TSEvent: t_start changed."
         assert tsel.t_stop == 8, "TSEvent: t_stop changed."
@@ -1036,11 +1050,28 @@ def test_save_load():
     # - Store objects in files
     tsc.save("test_tsc")
     tse.save("test_tse")
+    tsc.save("test_tsc_lp", dtype_times="float16", dtype_samples="float16")
+    tse.save("test_tse_lp", dtype_times="float16", dtype_channels="uint16")
+
+    # - Raise exception for incompatible dtype
+    tse_big = tse.copy()
+    tse_big.channels = [0, 6, 300]
+    with pytest.raises(ValueError):
+        tse_big.save("test_tse_big", dtype_channels="uint8")
+
     # - Load objects
     tscl = load_ts_from_file("test_tsc.npz")
     tsel = load_ts_from_file("test_tse.npz")
 
     assert_equality(tsc, tse, tscl, tsel)
+
+    tscl_lp = load_ts_from_file("test_tsc_lp.npz")
+    tsel_lp = load_ts_from_file("test_tse_lp.npz")
+
+    assert_equality(tsc, tse, tscl_lp, tsel_lp, isclose=True)
+
+    assert getsize("test_tsc_lp.npz") < getsize("test_tsc.npz")
+    assert getsize("test_tse_lp.npz") < getsize("test_tse.npz")
 
     # - Store objects in temporary files
     tfc = TemporaryFile()
@@ -1081,6 +1112,8 @@ def test_save_load():
     # - Remove saved files
     remove("test_tsc.npz")
     remove("test_tse.npz")
+    remove("test_tsc_lp.npz")
+    remove("test_tse_lp.npz")
 
 
 def test_tsdictondisk():

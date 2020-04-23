@@ -465,6 +465,57 @@ def partitioned_2d_reservoir(
         )
 
     # - Input-To-Recurrent part
+    mnWInToRec = inp_to_rec(
+        size_in=size_in,
+        size_rec=size_rec,
+        num_inp_to_rec=num_inp_to_rec,
+        input_sparsity=input_sparsity,
+        input_sparsity_type=input_sparsity_type,
+    )
+
+    # - Recurrent-To-Inhibitory part
+    mnWRecToInhib = np.zeros((size_rec, size_inhib))
+    viPreSynConnect = np.random.choice(size_rec, size=num_rec_to_inhib * size_inhib)
+    for iPreIndex, iPostIndex in zip(
+        viPreSynConnect, np.repeat(np.arange(size_inhib), num_rec_to_inhib)
+    ):
+        mnWRecToInhib[iPreIndex, iPostIndex] += 1
+
+    # - Inhibitory-To-Recurrent part
+    mnWInhibToRec = np.zeros((size_inhib, size_rec))
+    viPreSynConnect = np.random.choice(size_inhib, size=num_inhib_to_rec * size_rec)
+    for iPreIndex, iPostIndex in zip(
+        viPreSynConnect, np.repeat(np.arange(size_rec), num_inhib_to_rec)
+    ):
+        mnWInhibToRec[iPreIndex, iPostIndex] -= 1
+
+    # - Recurrent short range connecitons
+    mnWRec = two_dim_exc_res(
+        size_rec, n_neighbour=num_rec_short, width_neighbour=width_neighbour
+    )
+    # - Add long range connections
+    mnWRec = add_random_long_range(
+        mnWRec, num_rec_long, avoid_existing=False, multiple_conn=True
+    )
+
+    # - Put matrix together
+    nSizeTotal = size_in + size_rec + size_inhib
+    mnW = np.zeros((nSizeTotal, nSizeTotal))
+    mnW[:size_in, size_in : size_in + size_rec] = mnWInToRec
+    mnW[size_in : size_in + size_rec, size_in : size_in + size_rec] = mnWRec
+    mnW[size_in : size_in + size_rec, -size_inhib:] = mnWRecToInhib
+    mnW[-size_inhib:, size_in : size_in + size_rec] = mnWInhibToRec
+
+    return mnW
+
+
+def inp_to_rec(
+    size_in: int = 64,
+    size_rec: int = 256,
+    num_inp_to_rec: int = 16,
+    input_sparsity: float = 1.0,
+    input_sparsity_type: Optional[str] = None,
+):
     mnWInToRec = np.zeros((size_in, size_rec))
     if input_sparsity_type is None:
         num_receive_input = size_rec
@@ -486,38 +537,8 @@ def partitioned_2d_reservoir(
         viPreSynConnect, np.repeat(input_receivers, num_inp_to_rec)
     ):
         mnWInToRec[iPreIndex, iPostIndex] += 1
-    # - Recurrent-To-Inhibitory part
-    mnWRecToInhib = np.zeros((size_rec, size_inhib))
-    viPreSynConnect = np.random.choice(size_rec, size=num_rec_to_inhib * size_inhib)
-    for iPreIndex, iPostIndex in zip(
-        viPreSynConnect, np.repeat(np.arange(size_inhib), num_rec_to_inhib)
-    ):
-        mnWRecToInhib[iPreIndex, iPostIndex] += 1
-    # - Inhibitory-To-Recurrent part
-    mnWInhibToRec = np.zeros((size_inhib, size_rec))
-    viPreSynConnect = np.random.choice(size_inhib, size=num_inhib_to_rec * size_rec)
-    for iPreIndex, iPostIndex in zip(
-        viPreSynConnect, np.repeat(np.arange(size_rec), num_inhib_to_rec)
-    ):
-        mnWInhibToRec[iPreIndex, iPostIndex] -= 1
-    # - Recurrent short range connecitons
-    mnWRec = two_dim_exc_res(
-        size_rec, n_neighbour=num_rec_short, width_neighbour=width_neighbour
-    )
-    # - Add long range connections
-    mnWRec = add_random_long_range(
-        mnWRec, num_rec_long, avoid_existing=False, multiple_conn=True
-    )
 
-    # - Put matrix together
-    nSizeTotal = size_in + size_rec + size_inhib
-    mnW = np.zeros((nSizeTotal, nSizeTotal))
-    mnW[:size_in, size_in : size_in + size_rec] = mnWInToRec
-    mnW[size_in : size_in + size_rec, size_in : size_in + size_rec] = mnWRec
-    mnW[size_in : size_in + size_rec, -size_inhib:] = mnWRecToInhib
-    mnW[-size_inhib:, size_in : size_in + size_rec] = mnWInhibToRec
-
-    return mnW
+    return mnWInToRec
 
 
 def ring_reservoir(size_in: int = 64, size_rec: int = 256, num_inp_to_rec: int = 16):
@@ -974,7 +995,7 @@ def digital(
     nNumInhIn = nNumInputs - nNumExcIn
 
     # - Determine value range of weights
-    nMinWeight = int(-2 ** (bit_resolution / 2) * use_range)
+    nMinWeight = int(-(2 ** (bit_resolution / 2)) * use_range)
     nMaxWeight = int(
         2 ** (bit_resolution / 2) * use_range
     )  ## Due to how np.random.randin works, max weight will be nMaxWeight-1
@@ -1109,7 +1130,7 @@ def in_res_digital(
     vnWeights = np.zeros(nNumInputs)
 
     # - Determine value range of unnormalized weights
-    nMinWeight = int(-2 ** bit_resolution / 2)
+    nMinWeight = int(-(2 ** bit_resolution) / 2)
     nMaxWeight = int(2 ** bit_resolution / 2)
     # - Generate excitatory weights
     vnWeights[:nNumExcIn] = fScale * np.random.randint(1, nMaxWeight, size=nNumExcIn)
