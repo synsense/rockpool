@@ -156,13 +156,13 @@ class Layer(ABC):
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
-        time_base = self._gen_time_trace(self.t, num_timesteps + 1)
+        time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
             # - Make sure time_base matches ts_input
             if not isinstance(ts_input, TSEvent):
                 t_start_expected = time_base[0]
-                t_stop_expected = time_base[-2]
+                t_stop_expected = time_base[-1]
                 if not ts_input.periodic:
                     # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
                     if (
@@ -191,7 +191,7 @@ class Layer(ABC):
                     )
 
             # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base[:-1]))
+            input_steps = self._check_input_dims(ts_input(time_base))
 
             # - Treat "NaN" as zero inputs
             input_steps[np.where(np.isnan(input_steps))] = 0
