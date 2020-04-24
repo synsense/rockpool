@@ -142,14 +142,7 @@ def _get_rec_evolve_jit(
         noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
 
         # - Use `scan` to evaluate reservoir
-        x, (rec_inputs_0, res_acts_0) = scan(reservoir_step, x0, (res_inputs, noise))
-
-        # - Activations and rec inputs for final timestep
-        res_acts_final = H(x)
-        rec_inputs_final = np.dot(res_acts_final, w_recurrent)
-
-        rec_inputs = np.append(rec_inputs_0, rec_inputs_final.reshape(1, -1), axis=0)
-        res_acts = np.append(res_acts_0, res_acts_final.reshape(1, -1), axis=0)
+        x, (rec_inputs, res_acts) = scan(reservoir_step, x0, (res_inputs, noise))
 
         # - Evaluate passthrough output layer
         outputs = np.dot(res_acts, w_out)
@@ -235,11 +228,7 @@ def _get_force_evolve_jit(
         noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
 
         # - Use `scan` to evaluate reservoir
-        x, res_acts_0 = scan(reservoir_step, x0, (res_inputs, noise, force))
-
-        # - Activations and rec inputs for final timestep
-        res_acts_final = H(x)
-        res_acts = np.append(res_acts_0, res_acts_final.reshape(1, -1), axis=0)
+        x, res_acts = scan(reservoir_step, x0, (res_inputs, noise, force))
 
         # - Evaluate passthrough output layer
         outputs = np.dot(res_acts, w_out)
@@ -435,6 +424,13 @@ class RecRateEulerJax(JaxTrainer, Layer):
         # - Return the evolution function
         return evol_func
 
+    def get_output_from_current_state(self):
+        activity = self._H(self.state)
+        output = np.dot(activity, self._w_out)
+        rec_input = np.dot(activity, self._weights)
+
+        return output, activity, rec_input
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -479,6 +475,13 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         # - Increment timesteps
         self._timestep += inps.shape[0]
+
+        # - Activity, recurrent input and output for final timestep
+        out_final, res_act_final, rec_inp_final = self.get_output_from_current_state()
+
+        res_acts = np.append(res_acts, res_act_final.reshape(1, -1), axis=0)
+        rec_inputs = np.append(rec_inputs, rec_inp_final.reshape(1, -1), axis=0)
+        outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
 
         time_base = onp.append(time_base_inp, self.t)
 
@@ -917,6 +920,12 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         # - Return the evolution function
         return evol_func
 
+    def get_output_from_current_state(self):
+        activity = self._H(self.state)
+        output = np.dot(activity, self._w_out)
+
+        return output, activity
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -962,6 +971,10 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         # - Increment timesteps
         self._timestep += inps.shape[0]
+
+        # - Output for final timestep
+        out_final, __ = self.get_output_from_current_state()
+        outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
 
         time_base = onp.append(time_base_inp, self.t)
 
