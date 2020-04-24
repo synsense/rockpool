@@ -13,10 +13,13 @@ from jax import jit
 from jax.experimental.optimizers import adam
 import jax.numpy as np
 
+import numpy as onp
+
 Params = List
 State = List
 
 __all__ = ["JaxStack"]
+
 
 class JaxStack(Network, Layer, JaxTrainer):
     """
@@ -81,7 +84,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             return {}
 
         # - Prepare time base and inputs, using first layer
-        time_base, ext_inps, num_timesteps = self.input_layer._prepare_input(
+        time_base_inp, ext_inps, num_timesteps = self.input_layer._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -98,7 +101,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             new_states.append(new_state)
 
             # - Set up inputs for next layer
-            inps = out
+            inps = out[:-1]
 
         # - Assign updated states
         self._states = new_states
@@ -106,8 +109,10 @@ class JaxStack(Network, Layer, JaxTrainer):
         # - Update time stamps
         self._timestep += inps.shape[0]
 
+        time_base = onp.append(time_base_inp, self.t)
+
         # - Wrap outputs as time series
-        outputs_dict = {"external_input": TSContinuous(time_base, ext_inps)}
+        outputs_dict = {"external_input": ts_input}
         for lyr, out in zip(self.evol_order, outputs):
             outputs_dict.update({lyr.name: TSContinuous(time_base, np.array(out))})
 
