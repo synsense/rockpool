@@ -235,7 +235,11 @@ def _get_force_evolve_jit(
         noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
 
         # - Use `scan` to evaluate reservoir
-        x, res_acts = scan(reservoir_step, x0, (res_inputs, noise, force))
+        x, res_acts_0 = scan(reservoir_step, x0, (res_inputs, noise, force))
+
+        # - Activations and rec inputs for final timestep
+        res_acts_final = H(x)
+        res_acts = np.append(res_acts_0, res_acts_final.reshape(1, -1), axis=0)
 
         # - Evaluate passthrough output layer
         outputs = np.dot(res_acts, w_out)
@@ -966,7 +970,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
+        time_base_inp, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -974,7 +978,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         if ts_force is None:
             forces = np.zeros((num_timesteps, self._size))
         else:
-            forces = ts_force(time_base)
+            forces = ts_force(time_base_inp)
 
         # - Call raw evolution function
         self._state, _, _, outputs, self._rng_key = self._evolve_jit(
@@ -991,7 +995,9 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
+        self._timestep += inps.shape[0]
+
+        time_base = np.append(time_base_inp, self.t)
 
         # - Wrap outputs as time series
         return TSContinuous(time_base, outputs)
