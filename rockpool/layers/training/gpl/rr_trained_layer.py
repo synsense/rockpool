@@ -134,13 +134,13 @@ class RRTrainedLayer(Layer, ABC):
         """
         Train with the already processed input and target data of the current batch. Update layer weights and biases if requested. Provide information on training state if requested.
 
-        :param np.ndarray inp:                  2D-array (num_samples x num_features) of input data.
-        :param np.ndarray target:               2D-array (num_samples x ``self.size``) of target data.
+        :param np.ndarray inp:                  2D-array (``num_samples`` x ``num_features``) of input data.
+        :param np.ndarray target:               2D-array (``num_samples`` x ``self.size``) of target data.
         :param bool reset:                      If ``True``, internal variables will be reset at the end.
         :param bool train_bises:                Should biases be trained or only weights?
         :param bool standardize:                Has input data been z-score standardized?
-        :param bool update_weights:             Set ``True` to update layer weights and biases.
-        :param bool return_training_progress:   Return intermediate training data (e.g. xtx, xty,...)
+        :param bool update_weights:             Set ``True`` to update layer weights and biases.
+        :param bool return_training_progress:   Return intermediate training data (e.g. ``xtx``, ``xty``,...)
 
         :return dict:                           Dict with information on training progress, depending on values of other function arguments.
         """

@@ -47,6 +47,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    reference/layer_types
    reference/api
    advanced/developers_notes
-   advanced/changelog_link
+   advanced/CHANGELOG
 
 * :ref:`genindex`

@@ -11,3 +11,4 @@ docs/_build
 docs/reference/_autosummary
 build/
 dist/
+/docs/advanced/CHANGELOG.md

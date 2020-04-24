@@ -37,7 +37,7 @@ class JaxTrainer(ABC):
 
     .. rubric:: How to train a layer based on this class
 
-    This class defines a training method `~.train_output_target`, which performs one round of optimization based on a single trial, given an input and a target signal::
+    This class defines a training method `~.JaxTrainer.train_output_target`, which performs one round of optimization based on a single trial, given an input and a target signal::
 
         lyr.train_output_target(input_ts, target_ts)
 
@@ -52,7 +52,7 @@ class JaxTrainer(ABC):
                 ...
             }
 
-    The :py:meth:`~.JaxTrainer._pack()` method must return a dictionary or tuple or other collection of strictly jax-compatible types, that completely define the modifiable parameters for this layer. For example: weights; biases; time constants. Included should be all parameters that one might want to perform gradient descent on. *Excluded* should be parameters that are fixed: for example ``dt``, and ``noise_std``.
+    The :py:meth:`~.JaxTrainer.JaxTrainer._pack()` method must return a dictionary or tuple or other collection of strictly jax-compatible types, that completely define the modifiable parameters for this layer. For example: weights; biases; time constants. Included should be all parameters that one might want to perform gradient descent on. *Excluded* should be parameters that are fixed: for example ``dt``, and ``noise_std``.
 
     ::
 
@@ -67,7 +67,7 @@ class JaxTrainer(ABC):
                 ...
             )
 
-    The :py:meth:`~.JaxTrainer._unpack()` method must accept a parameters definition as returned by :py:meth:`~.JaxTrainer._pack()`, and apply those parameters to the layer.
+    The :py:meth:`~.JaxTrainer.JaxTrainer._unpack()` method must accept a parameters definition as returned by :py:meth:`~.JaxTrainer.JaxTrainer._pack()`, and apply those parameters to the layer.
 
     ::
 
@@ -159,7 +159,7 @@ class JaxTrainer(ABC):
         opt_params: Dict = {"step_size": 1e-4},
     ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], np.ndarray]]:
         """
-        Perform one trial of Adam stochastic gradient descent to train the reservoir
+        Perform one trial of Adam stochastic gradient descent to train the layer
 
         :param TimeSeries ts_input:     TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
         :param TimeSeries ts_target:    TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
@@ -173,7 +173,7 @@ class JaxTrainer(ABC):
 
         Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
         be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
-        on each call of `.train_output_target`, but the layer time and state are *not* updated.
+        on each call of `~.JaxTrainer.train_output_target`, but the layer time and state are *not* updated.
 
         .. rubric:: Writing your own loss function
 

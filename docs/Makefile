@@ -15,6 +15,8 @@ help:
 .PHONY: help Makefile
 
 livehtml:
+	cp -f $(SOURCEDIR)/../CHANGELOG.md advanced/
+	rm -rf $(SOURCEDIR)/reference/_autosummary/*
 	sphinx-autobuild \
 		-B $(SOURCEDIR) $(BUILDDIR)/html \
 		-i "*.tmp*" \
