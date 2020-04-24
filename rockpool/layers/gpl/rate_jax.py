@@ -480,7 +480,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         # - Increment timesteps
         self._timestep += inps.shape[0]
 
-        time_base = np.append(time_base_inp, self.t)
+        time_base = onp.append(time_base_inp, self.t)
 
         # - Store evolution time series
         self.res_inputs_last_evolution = TSContinuous(time_base_inp, res_inputs)
@@ -509,43 +509,9 @@ class RecRateEulerJax(JaxTrainer, Layer):
             num_timesteps:      int Actual number of evolution time steps
         """
 
-        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
-
-        # - Generate discrete time base
-        time_base = onp.array(self._gen_time_trace(self.t, num_timesteps))
-
-        if ts_input is not None:
-            if not ts_input.periodic:
-                # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                if (
-                    ts_input.t_start - 1e-3 * self.dt
-                    <= time_base[0]
-                    <= ts_input.t_start
-                ):
-                    time_base[0] = ts_input.t_start
-                if ts_input.t_stop <= time_base[-1] <= ts_input.t_stop + 1e-3 * self.dt:
-                    time_base[-1] = ts_input.t_stop
-
-            # - Warn if evolution period is not fully contained in ts_input
-            if not (ts_input.contains(time_base) or ts_input.periodic):
-                warn(
-                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                        self.name, time_base[0], time_base[-1]
-                    )
-                    + "not fully contained in input signal (t = {} to {})".format(
-                        ts_input.t_start, ts_input.t_stop
-                    )
-                )
-
-            # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base))
-
-            # - Treat "NaN" as zero inputs
-            input_steps[onp.where(np.isnan(input_steps))] = 0
-
-        else:
-            # - Assume zero inputs
-            input_steps = np.zeros((np.size(time_base), self.size_in))
+        time_base, input_steps, num_timesteps = super()._prepare_input_continuous(
+            ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
+        )
 
         return time_base, np.array(input_steps), num_timesteps
 
@@ -997,7 +963,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         # - Increment timesteps
         self._timestep += inps.shape[0]
 
-        time_base = np.append(time_base_inp, self.t)
+        time_base = onp.append(time_base_inp, self.t)
 
         # - Wrap outputs as time series
         return TSContinuous(time_base, outputs)
