@@ -276,9 +276,7 @@ class JaxTrainer(ABC):
             return fLoss
 
         # - Initialise training
-        initialise = is_first or not hasattr(
-            self, "_JaxTrainer__in_training_sgd_adam"
-        )
+        initialise = is_first or not hasattr(self, "_JaxTrainer__in_training_sgd_adam")
 
         if initialise:
             # print("initialise")

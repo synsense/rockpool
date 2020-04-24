@@ -94,7 +94,7 @@ class JaxStack(Network, Layer, JaxTrainer):
         inps = ext_inps
         for p, s, evol_func in zip(self._pack(), self.state, self._all_evolve_funcs):
             # - Evolve layer
-            out, new_state = evol_func(p, s, inps)
+            out, new_state = evol_func(p, s, inps, final_out=True)
 
             # - Record outputs and states
             outputs.append(out)
@@ -169,15 +169,21 @@ class JaxStack(Network, Layer, JaxTrainer):
         """
 
         def evol_func(
-            params: Params, all_states: State, ext_inputs: np.ndarray,
+            params: Params,
+            all_states: State,
+            ext_inputs: np.ndarray,
+            final_out: bool = False,
         ) -> Tuple[np.ndarray, State]:
             # - Call the functional form of the evolution functions for each sublayer
             new_states = []
             inputs = ext_inputs
             out = np.array([])
-            for p, s, evol_func in zip(params, all_states, self._all_evolve_funcs):
+            for i_lyr, (p, s, evol_func) in enumerate(
+                zip(params, all_states, self._all_evolve_funcs)
+            ):
                 # - Evolve layer
-                out, new_state = evol_func(p, s, inputs)
+                final = i_lyr == len(all_states) - 1
+                out, new_state = evol_func(p, s, inputs, final_out=final_out and final)
 
                 # - Record states
                 new_states.append(new_state)
