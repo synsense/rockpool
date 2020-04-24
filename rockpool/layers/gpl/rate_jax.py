@@ -142,7 +142,14 @@ def _get_rec_evolve_jit(
         noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
 
         # - Use `scan` to evaluate reservoir
-        x, (rec_inputs, res_acts) = scan(reservoir_step, x0, (res_inputs, noise))
+        x, (rec_inputs_0, res_acts_0) = scan(reservoir_step, x0, (res_inputs, noise))
+
+        # - Activations and rec inputs for final timestep
+        res_acts_final = H(x)
+        rec_inputs_final = np.dot(res_acts_final, w_recurrent)
+
+        rec_inputs = np.append(rec_inputs_0, rec_inputs_final.reshape(1, -1), axis=0)
+        res_acts = np.append(res_acts_0, res_acts_final.reshape(1, -1), axis=0)
 
         # - Evaluate passthrough output layer
         outputs = np.dot(res_acts, w_out)
@@ -441,7 +448,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
+        time_base_inp, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -467,10 +474,12 @@ class RecRateEulerJax(JaxTrainer, Layer):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
+        self._timestep += inps.shape[0]
+
+        time_base = np.append(time_base_inp, self.t)
 
         # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.res_inputs_last_evolution = TSContinuous(time_base_inp, res_inputs)
         self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
         self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
 
