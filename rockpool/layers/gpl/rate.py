@@ -391,8 +391,8 @@ class PassThrough(FFRateLayer):
         Evolve the state of this layer given an input
 
         :param Optional[TSContinuous] ts_input: Input time series
-        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` will be used for the evolution duration
-        :param Optional[int] num_timesteps      Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` will be used for the evolution duration
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then ``num_timesteps`` or the duration of ``ts_input`` will be used for the evolution duration
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then ``duration`` or the duration of ``ts_input`` will be used for the evolution duration
         :param bool verbose:                    Currently has no effect
 
         :return TSContinuous:                   Output time series

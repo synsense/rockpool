@@ -25,8 +25,16 @@ Layer and Network alternative base classes
 
     networks.NetworkDeneve
     layers.training.RRTrainedLayer
-    layers.training.JaxTrainedLayer
     networks.JaxStack
+
+Mixin classes for training
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    layers.training.JaxTrainer
 
 
 Time series classes

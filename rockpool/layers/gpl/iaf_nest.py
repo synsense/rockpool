@@ -663,7 +663,7 @@ class FFIAFNest(Layer):
             super().setup_nest_network()
 
         def set_all_connections(self):
-            # - Set connections from step current generator to neuron population
+            """ Set connections from step current generator to neuron population """
             self.set_connections(
                 pop_pre=self._scg,
                 pop_post=self._pop,
@@ -672,7 +672,7 @@ class FFIAFNest(Layer):
             )
 
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
-            """init_nest_params - Initialize nest neuron parameters and return as list"""
+            """ Initialize nest neuron parameters and return as list """
 
             params = super().generate_nest_params_list()
             for n in range(self.size):
@@ -711,11 +711,13 @@ class FFIAFNest(Layer):
             self, time_base: np.ndarray, input_steps: np.ndarray, num_timesteps: int
         ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
             """
-            evolve - Evolve state of nest simulation by defined number of timesteps.
-            :param time_base:  Input time base
-            :param input_steps:  Input current steps
-            :param num_timesteps:  Number of timesteps over which to evolve.
-            :return:
+            Evolve state of nest simulation by defined number of timesteps
+
+            :param np.ndarray time_base:    Input time base
+            :param np.ndarray input_steps:  Input current steps
+            :param int num_timesteps:       Number of timesteps over which to evolve.
+
+            :return (np.ndarray, np.ndarray, Union[np.ndarray, None]):
                 1D-array of recorded event times
                 1D-array of recorded event channels
                 If `self.record`: 2D-array of recorded neuron states, otherwise `None`
@@ -913,10 +915,9 @@ class FFIAFNest(Layer):
         :param Optional[TSContinuous] ts_input: Input spike trian
         :param Optional[float] duration:        Simulation/Evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps
-        :param bool verbose:          Currently no effect, just for conformity
+        :param bool verbose:                    Currently no effect, just for conformity
 
-        :return TSEvent:                        Output spike series
-
+        :return `TSEvent`:                      Output spike series
         """
         if ts_input is not None:
             # - Make sure timeseries is of correct type
