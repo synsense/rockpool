@@ -29,6 +29,7 @@ livehtml:
 		-i "*.~*" \
 		-i "*.xml" \
 		-i "Makefile" \
+		-i "_build" \
 		--delay 5 \
 		--watch ../rockpool
 

@@ -40,11 +40,12 @@ extensions = [
     "nbsphinx",
     "sphinx.ext.mathjax",
     "recommonmark",
+    "sphinx.ext.imgconverter",
 ]
 
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".md": "markdown",
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -104,6 +105,6 @@ nbsphinx_epilog = """
 
 nbsphinx_allow_errors = True
 
-nbsphinx_execute = 'never'
+nbsphinx_execute = "never"
 
 autodoc_default_options = {"special-members": "__init__", "private-members": True}
