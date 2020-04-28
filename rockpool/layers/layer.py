@@ -107,11 +107,11 @@ class Layer(ABC):
             # - Determine ``num_timesteps``
             if duration is None:
                 # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer `{}`: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
+                if ts_input is None:
+                    raise TypeError(
+                        self.start_print
+                        + "One of `num_timesteps`, `ts_input` or `duration` must be supplied."
+                    )
 
                 if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
@@ -120,19 +120,22 @@ class Layer(ABC):
                 else:
                     # - Evolve until the end of the input TimeSeries
                     duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
-                            self.name
+                    if duration <= 0:
+                        raise ValueError(
+                            self.start_print,
+                            +"Cannot determine an appropriate evolution duration."
+                            + " `ts_input` finishes before the current evolution time.",
                         )
-                        + " `ts_input` finishes before the current evolution time."
-                    )
             num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
         else:
-            assert (
-                isinstance(num_timesteps, int) and num_timesteps >= 0
-            ), "Layer `{}`: num_timesteps must be a non-negative integer.".format(
-                self.name
-            )
+            if not isinstance(num_timesteps, int):
+                raise TypeError(
+                    self.start_print + "`num_timesteps` must be a non-negative integer."
+                )
+            elif num_timesteps < 0:
+                raise ValueError(
+                    self.start_print + "`num_timesteps` must be a non-negative integer."
+                )
 
         return num_timesteps
 

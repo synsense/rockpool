@@ -21,7 +21,6 @@ import jax.random as rand
 import numpy as onp
 
 from typing import Optional, Tuple, Callable, Union, Dict, List, Any
-from warnings import warn
 
 from rockpool.layers.layer import Layer
 from rockpool.layers.training.gpl.jax_trainer import JaxTrainer

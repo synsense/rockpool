@@ -510,7 +510,7 @@ class RecLIFJax(Layer):
         )
 
         # - Increment timesteps attribute
-        self._timestep += sp_input_ts.shape[0] - 1
+        self._timestep += sp_input_ts.shape[0]
 
         # - Return layer activity
         return Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts
