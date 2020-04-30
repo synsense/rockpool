@@ -229,9 +229,7 @@ class FFIAFTorch(Layer):
         timestep_start = self._timestep
 
         # - Prepare input signal
-        __, inp, num_timesteps = self._prepare_input_continuous(
-            ts_input, duration, num_timesteps
-        )
+        __, inp, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
 
         # - Tensor for collecting output spike raster
         matr_is_spiking = torch.ByteTensor(num_timesteps, self.size).fill_(0)
