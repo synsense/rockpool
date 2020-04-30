@@ -119,7 +119,7 @@ class FFExpSynTorch(FFExpSyn):
         """
 
         # - Prepare input signal
-        inp_raster, num_timesteps = self._prepare_input(
+        __, inp_raster, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
         weighted_input = inp_raster @ self.weights
@@ -245,9 +245,13 @@ class FFExpSynTorch(FFExpSyn):
             "linear regression",
             "linreg",
         }:
-            return self.train_rr(ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs)
+            return self.train_rr(
+                ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
+            )
         elif method in {"logreg", "logistic", "logistic regression"}:
-            return self.train_logreg(ts_target, ts_input, **kwargs)  # is_first and is_last not required by logreg
+            return self.train_logreg(
+                ts_target, ts_input, **kwargs
+            )  # is_first and is_last not required by logreg
         else:
             raise ValueError(
                 f"FFExpSynTorch `{self.name}`: Training method `{method}` is currently "
