@@ -295,12 +295,8 @@ class FFExpSynTorch(FFExpSyn):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        num_timesteps = int(np.round(ts_target.duration / self.dt)) + int(is_last)
         time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
 
         # - Make sure time_base does not exceed ts_target
         time_base = time_base[time_base <= ts_target.t_stop]
