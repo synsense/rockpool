@@ -8,8 +8,6 @@ About |project|
 
 |project| is an open source project released by aiCTX AG.
 
-.. image:: https://gitlab.com/aiCTX/rockpool/badges/develop/pipeline.svg
-
 .. image:: https://img.shields.io/pypi/v/rockpool.svg
 
 .. image:: https://img.shields.io/conda/v/conda-forge/rockpool
@@ -20,6 +18,8 @@ About |project|
 
 .. image:: https://img.shields.io/pypi/dd/rockpool
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3773846.svg
+   :target: https://doi.org/10.5281/zenodo.3773846
 
 About aiCTX
 -----------

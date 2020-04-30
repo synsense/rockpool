@@ -110,12 +110,12 @@ class FFExpSynTorch(FFExpSyn):
         """
         Function to evolve the states of this layer given an input
 
-        :param Optional[TSEvent] ts_input:       Input spike trian
-        :param Optional[float] duration:          Simulation/Evolution time
-        :param Optional[int] num_timesteps         Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
+        :param Optional[TSEvent] ts_input:  Input spike trian
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param bool verbose:                Currently no effect, just for conformity
 
-        :return:            TSContinuous  output time series
+        :return `TSContinuous`:             Output time series
         """
 
         # - Prepare input signal
