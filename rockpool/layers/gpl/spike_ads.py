@@ -233,6 +233,12 @@ class RecFSSpikeADS(Layer):
         dt_syn_slow = self.dt / self.tau_syn_r_slow
         dt_syn_fast = self.dt / self.tau_syn_r_fast
         dt_syn_out = self.dt / self.tau_syn_r_out
+        if(len(np.unique(self.tau_syn_r_out)) > 1):
+            print("Warning: Non-uniform slow TC's. Using %.3f for the rate TC" % self.tau_syn_r_out[0])
+        if(self.tau_syn_r_out.ndim > 1):
+           dt_syn_rate = self.dt / self.tau_syn_r_out[0]
+        else:
+           dt_syn_rate = self.dt / self.tau_syn_r_out 
 
         # - For getting spike-vectors
         eye = np.eye(self.size)
@@ -359,7 +365,7 @@ class RecFSSpikeADS(Layer):
             dot_I_s_O = syn_dot_I_pre(I_s_O, dt_syn_out, I_spike_out)
             I_s_O += dot_I_s_O
 
-            dot_rate = syn_dot_I_pre(rate, dt_syn_slow, I_spike_rate)
+            dot_rate = syn_dot_I_pre(rate, dt_syn_rate, I_spike_rate)
             rate += dot_rate
 
             int_time = int((t_time - t_start) // dt)
@@ -566,12 +572,16 @@ class RecFSSpikeADS(Layer):
 
         if(self.is_training):
             # - Compute the weight update here
-            dot_W_slow_batched = self.eta*(R @ (self.weights_in.T @ E).T)
-            np.fill_diagonal(dot_W_slow_batched, 0) # - No self updates. Should remain 0
+            dot_W_slow_batched = (R @ (self.weights_in.T @ E).T)
+            # - No learning along the diagonal
+            np.fill_diagonal(dot_W_slow_batched, 0)
+            # - Normalize the update to have frobenius norm 1.0
+            dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)
+            # - Apply the learning rate
+            dot_W_slow_batched *= self.eta
             # - Perform the update
-            self.weights_slow = self.weights_slow + dot_W_slow_batched
-            sum_w_slow = np.sum(np.abs(dot_W_slow_batched))
-            print("Delta W slow is %.6f" % (sum_w_slow / (self.size * self.weights_slow.shape[0])))
+            self.weights_slow += dot_W_slow_batched
+            print("Delta W slow is %.6f" % (np.sum(np.abs(dot_W_slow_batched)) / self.size**2))
 
         if(verbose):
             ## - Construct return time series
