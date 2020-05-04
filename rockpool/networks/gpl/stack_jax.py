@@ -7,16 +7,19 @@ from ..network import Network
 from ...layers.training import JaxTrainer
 from ...layers.layer import Layer
 
-from typing import Tuple, List, Callable, Union, Dict, Sequence, Any, Optional
+from typing import Tuple, List, Callable, Union, Dict, Sequence, Optional
 
 from jax import jit
 from jax.experimental.optimizers import adam
 import jax.numpy as np
 
+import numpy as onp
+
 Params = List
 State = List
 
 __all__ = ["JaxStack"]
+
 
 class JaxStack(Network, Layer, JaxTrainer):
     """
@@ -81,7 +84,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             return {}
 
         # - Prepare time base and inputs, using first layer
-        time_base, ext_inps, num_timesteps = self.input_layer._prepare_input(
+        time_base_inp, ext_inps, num_timesteps = self.input_layer._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -91,14 +94,14 @@ class JaxStack(Network, Layer, JaxTrainer):
         inps = ext_inps
         for p, s, evol_func in zip(self._pack(), self.state, self._all_evolve_funcs):
             # - Evolve layer
-            out, new_state = evol_func(p, s, inps)
+            out, new_state = evol_func(p, s, inps, final_out=True)
 
             # - Record outputs and states
             outputs.append(out)
             new_states.append(new_state)
 
             # - Set up inputs for next layer
-            inps = out
+            inps = out[:-1]
 
         # - Assign updated states
         self._states = new_states
@@ -106,8 +109,10 @@ class JaxStack(Network, Layer, JaxTrainer):
         # - Update time stamps
         self._timestep += inps.shape[0]
 
+        time_base = onp.append(time_base_inp, self.t)
+
         # - Wrap outputs as time series
-        outputs_dict = {"external_input": TSContinuous(time_base, ext_inps)}
+        outputs_dict = {"external_input": ts_input}
         for lyr, out in zip(self.evol_order, outputs):
             outputs_dict.update({lyr.name: TSContinuous(time_base, np.array(out))})
 
@@ -160,19 +165,25 @@ class JaxStack(Network, Layer, JaxTrainer):
         Return a functional form of the evolution function for this stack, with no side-effects
 
         :return Callable: evol_func
-             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray) -> Tuple[np.ndarray, State]:
+             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray, final_out: bool) -> Tuple[np.ndarray, State]:
         """
 
         def evol_func(
-            params: Params, all_states: State, ext_inputs: np.ndarray,
+            params: Params,
+            all_states: State,
+            ext_inputs: np.ndarray,
+            final_out: bool = False,
         ) -> Tuple[np.ndarray, State]:
             # - Call the functional form of the evolution functions for each sublayer
             new_states = []
             inputs = ext_inputs
             out = np.array([])
-            for p, s, evol_func in zip(params, all_states, self._all_evolve_funcs):
+            for i_lyr, (p, s, evol_func) in enumerate(
+                zip(params, all_states, self._all_evolve_funcs)
+            ):
                 # - Evolve layer
-                out, new_state = evol_func(p, s, inputs)
+                final = i_lyr == len(all_states) - 1
+                out, new_state = evol_func(p, s, inputs, final_out=final_out and final)
 
                 # - Record states
                 new_states.append(new_state)

@@ -3,7 +3,6 @@
 #
 
 # - Import base classes
-from rockpool.layers.layer import Layer
 from rockpool.timeseries import TimeSeries
 
 from jax import jit, grad
@@ -15,13 +14,12 @@ from copy import deepcopy
 
 from abc import abstractmethod, ABC
 
-from warnings import warn
 
 # - Import jax elements
 from jax import numpy as np
 
 # - Import and define types
-from typing import Dict, Tuple, Any, Callable, Union, List, Optional
+from typing import Dict, Tuple, Any, Callable, Union, List
 
 State = Any
 Params = Union[Dict, Tuple, List]
@@ -276,9 +274,7 @@ class JaxTrainer(ABC):
             return fLoss
 
         # - Initialise training
-        initialise = is_first or not hasattr(
-            self, "_JaxTrainer__in_training_sgd_adam"
-        )
+        initialise = is_first or not hasattr(self, "_JaxTrainer__in_training_sgd_adam")
 
         if initialise:
             # print("initialise")

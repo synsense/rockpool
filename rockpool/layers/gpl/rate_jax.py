@@ -21,7 +21,6 @@ import jax.random as rand
 import numpy as onp
 
 from typing import Optional, Tuple, Callable, Union, Dict, List, Any
-from warnings import warn
 
 from rockpool.layers.layer import Layer
 from rockpool.layers.training.gpl.jax_trainer import JaxTrainer
@@ -392,13 +391,13 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, inputs) -> (outputs, new_state):
+            def evol_func(params, state, inputs, final_out) -> (outputs, new_state):
 
-        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, np.ndarray, bool], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
-            params: Params, state: State, inputs: np.ndarray,
+            params: Params, state: State, inputs: np.ndarray, final_out: bool = False
         ):
             # - Call the jitted evolution function for this layer
             new_state, _, _, _, outputs, key1 = self._evolve_jit(
@@ -414,6 +413,11 @@ class RecRateEulerJax(JaxTrainer, Layer):
                 self._dt,
             )
 
+            # - Include output of final state
+            if final_out:
+                out_final = self.get_output_from_state(state)[0]
+                outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
@@ -423,6 +427,13 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         # - Return the evolution function
         return evol_func
+
+    def get_output_from_state(self, state):
+        activity = self._H(state)
+        output = np.dot(activity, self._w_out)
+        rec_input = np.dot(activity, self._weights)
+
+        return output, activity, rec_input
 
     def evolve(
         self,
@@ -441,7 +452,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
+        time_base_inp, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -467,10 +478,21 @@ class RecRateEulerJax(JaxTrainer, Layer):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
+        self._timestep += inps.shape[0]
+
+        # - Activity, recurrent input and output for final timestep
+        out_final, res_act_final, rec_inp_final = self.get_output_from_state(
+            self._state
+        )
+
+        res_acts = np.append(res_acts, res_act_final.reshape(1, -1), axis=0)
+        rec_inputs = np.append(rec_inputs, rec_inp_final.reshape(1, -1), axis=0)
+        outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+
+        time_base = onp.append(time_base_inp, self.t)
 
         # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
+        self.res_inputs_last_evolution = TSContinuous(time_base_inp, res_inputs)
         self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
         self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
 
@@ -496,43 +518,9 @@ class RecRateEulerJax(JaxTrainer, Layer):
             num_timesteps:      int Actual number of evolution time steps
         """
 
-        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
-
-        # - Generate discrete time base
-        time_base = onp.array(self._gen_time_trace(self.t, num_timesteps))
-
-        if ts_input is not None:
-            if not ts_input.periodic:
-                # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                if (
-                    ts_input.t_start - 1e-3 * self.dt
-                    <= time_base[0]
-                    <= ts_input.t_start
-                ):
-                    time_base[0] = ts_input.t_start
-                if ts_input.t_stop <= time_base[-1] <= ts_input.t_stop + 1e-3 * self.dt:
-                    time_base[-1] = ts_input.t_stop
-
-            # - Warn if evolution period is not fully contained in ts_input
-            if not (ts_input.contains(time_base) or ts_input.periodic):
-                warn(
-                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                        self.name, time_base[0], time_base[-1]
-                    )
-                    + "not fully contained in input signal (t = {} to {})".format(
-                        ts_input.t_start, ts_input.t_stop
-                    )
-                )
-
-            # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base))
-
-            # - Treat "NaN" as zero inputs
-            input_steps[onp.where(np.isnan(input_steps))] = 0
-
-        else:
-            # - Assume zero inputs
-            input_steps = np.zeros((np.size(time_base), self.size_in))
+        time_base, input_steps, num_timesteps = super()._prepare_input_continuous(
+            ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
+        )
 
         return time_base, np.array(input_steps), num_timesteps
 
@@ -903,13 +891,16 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, (inputs, forces)) -> (outputs, new_state):
+            def evol_func(params, state, (inputs, forces), final_out) -> (outputs, new_state):
 
-        :return Callable[[Params, State, np.ndarray, np.ndarray], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, Tuple[np.ndarray], bool], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
-            params: Params, state: State, inputs_forces: Tuple[np.ndarray, np.ndarray],
+            params: Params,
+            state: State,
+            inputs_forces: Tuple[np.ndarray, np.ndarray],
+            final_out: bool = False,
         ):
             # - Unpack inputs
             inputs, forces = inputs_forces
@@ -928,6 +919,11 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
                 self._dt,
             )
 
+            # - Include output of final state
+            if final_out:
+                out_final = self.get_output_from_state(state)[0]
+                outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
@@ -937,6 +933,12 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         # - Return the evolution function
         return evol_func
+
+    def get_output_from_state(self, state):
+        activity = self._H(state)
+        output = np.dot(activity, self._w_out)
+
+        return output, activity
 
     def evolve(
         self,
@@ -957,7 +959,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
+        time_base_inp, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -965,7 +967,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         if ts_force is None:
             forces = np.zeros((num_timesteps, self._size))
         else:
-            forces = ts_force(time_base)
+            forces = ts_force(time_base_inp)
 
         # - Call raw evolution function
         self._state, _, _, outputs, self._rng_key = self._evolve_jit(
@@ -982,7 +984,13 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
+        self._timestep += inps.shape[0]
+
+        # - Output for final timestep
+        out_final, __ = self.get_output_from_state(self._state)
+        outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+
+        time_base = onp.append(time_base_inp, self.t)
 
         # - Wrap outputs as time series
         return TSContinuous(time_base, outputs)

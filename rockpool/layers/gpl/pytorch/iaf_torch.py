@@ -229,7 +229,7 @@ class FFIAFTorch(Layer):
         timestep_start = self._timestep
 
         # - Prepare input signal
-        inp, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
+        __, inp, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
 
         # - Tensor for collecting output spike raster
         matr_is_spiking = torch.ByteTensor(num_timesteps, self.size).fill_(0)
@@ -427,96 +427,6 @@ class FFIAFTorch(Layer):
             )
 
         return neural_input, num_timesteps
-
-    def _prepare_input(
-        self,
-        ts_input: TSContinuous = None,
-        duration: float = None,
-        num_timesteps: int = None,
-    ) -> (torch.Tensor, int):
-        """
-        Sample input, set up time base
-
-        :param TSContinuous ts_input:   TxM or Tx1 Input signals for this layer
-        :param float duration:          Duration of the desired evolution, in seconds
-        :param int num_timesteps:       Number of evolution time steps
-
-        :return: (time_base, input_steps, duration)
-            input_steps:    ndarray (T1xN) Discretised input signal for layer
-            num_timesteps:  int Actual number of evolution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer `{}`: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + " `ts_input` finishes before the current evolution time."
-                    )
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Generate discrete time base
-        time_base = self._gen_time_trace(self.t, num_timesteps)
-
-        if ts_input is not None:
-            # - Make sure time_base matches ts_input
-            if not isinstance(ts_input, TSEvent):
-                if not ts_input.periodic:
-                    # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                    if (
-                        ts_input.t_start - 1e-3 * self.dt
-                        <= time_base[0]
-                        <= ts_input.t_start
-                    ):
-                        time_base[0] = ts_input.t_start
-                    if (
-                        ts_input.t_stop
-                        <= time_base[-1]
-                        <= ts_input.t_stop + 1e-3 * self.dt
-                    ):
-                        time_base[-1] = ts_input.t_stop
-
-                # - Warn if evolution period is not fully contained in ts_input
-                if not (ts_input.contains(time_base) or ts_input.periodic):
-                    print(
-                        "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.name, time_base[0], time_base[-1]
-                        )
-                        + "not fully contained in input signal (t = {} to {})".format(
-                            ts_input.t_start, ts_input.t_stop
-                        )
-                    )
-
-            # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base))
-
-            # - Treat "NaN" as zero inputs
-            input_steps[np.isnan(input_steps)] = 0
-
-        else:
-            # - Assume zero inputs
-            input_steps = np.zeros((num_timesteps, self.size_in))
-
-        return (input_steps, num_timesteps)
 
     def reset_state(self):
         """ Reset the internal state of the layer
@@ -877,73 +787,6 @@ class FFIAFSpkInTorch(FFIAFTorch):
         neural_input = convSynapses(weighted_input)[0].detach().t()[:num_timesteps]
 
         return neural_input, num_timesteps
-
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input, set up time base
-
-        :param TSEvent ts_input:      TxM or Tx1 spiking input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
-
-        :return:
-            spike_raster:    ndarray Boolean raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Extract spike timings and channels
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                t_stop=(self._timestep + num_timesteps) * self._dt,
-                channels=np.arange(self.size_in),
-            )
-            # - Convert to supported format
-            spike_raster = spike_raster.astype(int)
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
-
-        return spike_raster, num_timesteps
 
     @property
     def input_type(self):
@@ -1592,76 +1435,6 @@ class RecIAFSpkInTorch(RecIAFTorch):
             )
 
         return neural_input, num_timesteps
-
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input, set up time base
-
-        :param `.TSEvent` ts_input: TxM or Tx1 Input spikes for this layer
-        :param float duration:      Duration of the desired evolution, in seconds
-        :param int num_timesteps:   Number of evolution time steps
-
-        :return:
-            spike_raster:    Tensor Boolean raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Extract spike timings and channels
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                t_stop=(self._timestep + num_timesteps) * self._dt,
-                channels=np.arange(
-                    self.size_in
-                ),  # This causes problems when ts_input has no events in some channels
-                add_events=self.add_events,  # Allow for multiple input spikes per time step
-            )
-            # - Convert to supportedformat
-            spike_raster = spike_raster.astype(int)
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
-
-        return spike_raster, num_timesteps
 
     def reset_all(self):
         """ Reset internal state and clock for this layer """

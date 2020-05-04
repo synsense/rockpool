@@ -9,6 +9,7 @@ import pytest
 def test_imports():
     from rockpool.layers.training import JaxTrainer
 
+
 def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     from rockpool.layers import RecRateEulerJax_IO
     from rockpool import TSContinuous
@@ -30,7 +31,7 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     )
 
     # - Define simple input and target
-    ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1])
+    ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1], t_stop=4)
     ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.1, 0.1, 0.1])
 
     # - Initialise training
@@ -87,7 +88,7 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     assert np.all(np.abs(fl0.w_recurrent - w_recurrent_target) < target_eps)
 
     # - Test known output values
-    ts_output = fl0.evolve(ts_input)
+    ts_output = fl0.evolve(ts_input, duration=3)
 
     ts_output_target = [[0.0], [9.99895], [29.49645996], [67.51574707]]
 
