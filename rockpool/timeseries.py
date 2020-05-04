@@ -1346,12 +1346,22 @@ class TSContinuous(TimeSeries):
                     + "beyond the first and last time points of this series and cannot "
                     + "be sampled.\n"
                     + "If you think that this is due to rounding errors, try setting "
-                    + "the `approx_limit_times` attribute to `True`."
+                    + "the `approx_limit_times` attribute to `True`.\n"
                 )
                 if self.beyond_range_exception:
-                    raise ValueError(error_msg)
+                    raise ValueError(
+                        error_msg
+                        + "If you want to sample at these time points anyway, you can "
+                        + "set the `beyond_range_exception` attribute of this time series "
+                        + "to `False` and will receive `NaN` as values."
+                    )
                 else:
-                    warn(error_msg + "\nWill return `NaN` for these time points.")
+                    warn(
+                        error_msg
+                        + "Will return `NaN` for these time points."
+                        + "To raise a ValueError in situations like this, set the "
+                        + "`beyond_range_exception` attribute of this time series to `True`."
+                    )
 
         samples = self.interp(times)
 
