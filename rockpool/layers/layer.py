@@ -198,36 +198,43 @@ class Layer(ABC):
         time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
-            # - Make sure time_base matches ts_input
-            if not isinstance(ts_input, TSEvent):
-                t_start_expected = time_base[0]
-                t_stop_expected = time_base[-1]
-                if not ts_input.periodic:
-                    # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                    if (
-                        ts_input.t_start - 1e-3 * self.dt
-                        <= t_start_expected
-                        <= ts_input.t_start
-                    ):
-                        t_start_expected = ts_input.t_start
-                    if (
-                        ts_input.t_stop
-                        <= t_stop_expected
-                        <= ts_input.t_stop + 1e-3 * self.dt
-                    ):
-                        t_stop_expected = ts_input.t_stop
 
-                # - Warn if evolution period is not fully contained in ts_input
-                if not (ts_input.contains(time_base) or ts_input.periodic):
-                    warn(
-                        "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.name, t_start_expected, t_stop_expected
-                        )
-                        + "is not fully contained in input signal (t = {} to {}).".format(
-                            ts_input.t_start, ts_input.t_stop
-                        )
-                        + " You may need to use a `periodic` time series."
+            # - Make sure time series is of correct type
+            if not isinstance(ts_input, TSContinuous):
+                raise TypeError(
+                    self.start_print
+                    + "`ts_input` must be of type `TSContinuous` or `None`."
+                )
+
+            # - Make sure time_base matches ts_input
+            t_start_expected = time_base[0]
+            t_stop_expected = time_base[-1]
+            if not ts_input.periodic:
+                # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
+                if (
+                    ts_input.t_start - 1e-3 * self.dt
+                    <= t_start_expected
+                    <= ts_input.t_start
+                ):
+                    t_start_expected = ts_input.t_start
+                if (
+                    ts_input.t_stop
+                    <= t_stop_expected
+                    <= ts_input.t_stop + 1e-3 * self.dt
+                ):
+                    t_stop_expected = ts_input.t_stop
+
+            # - Warn if evolution period is not fully contained in ts_input
+            if not (ts_input.contains(time_base) or ts_input.periodic):
+                warn(
+                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
+                        self.name, t_start_expected, t_stop_expected
                     )
+                    + "is not fully contained in input signal (t = {} to {}).".format(
+                        ts_input.t_start, ts_input.t_stop
+                    )
+                    + " You may need to use a `periodic` time series."
+                )
 
             # - Sample input trace and check for correct dimensions
             input_steps = self._check_input_dims(ts_input(time_base))
@@ -270,6 +277,13 @@ class Layer(ABC):
 
         # - Extract spike timings and channels
         if ts_input is not None:
+
+            # - Make sure time series is of correct type
+            if not isinstance(ts_input, TSEvent):
+                raise TypeError(
+                    self.start_print + "`ts_input` must be of type `TSEvent` or `None`."
+                )
+
             # Extract spike data from the input variable
             spike_raster = ts_input.raster(
                 dt=self.dt,
@@ -278,9 +292,6 @@ class Layer(ABC):
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
             )
-
-            # # - Make sure duration of raster is correct
-            # spike_raster = spike_raster[: num_timesteps + 1, :]
 
         else:
             spike_raster = np.zeros((np.size(time_base), self.size_in))
