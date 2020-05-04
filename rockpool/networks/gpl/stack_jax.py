@@ -165,7 +165,7 @@ class JaxStack(Network, Layer, JaxTrainer):
         Return a functional form of the evolution function for this stack, with no side-effects
 
         :return Callable: evol_func
-             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray) -> Tuple[np.ndarray, State]:
+             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray, final_out: bool) -> Tuple[np.ndarray, State]:
         """
 
         def evol_func(

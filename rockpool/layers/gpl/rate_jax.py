@@ -391,9 +391,9 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, inputs) -> (outputs, new_state):
+            def evol_func(params, state, inputs, final_out) -> (outputs, new_state):
 
-        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, np.ndarray, bool], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
@@ -891,9 +891,9 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, (inputs, forces)) -> (outputs, new_state):
+            def evol_func(params, state, (inputs, forces), final_out) -> (outputs, new_state):
 
-        :return Callable[[Params, State, np.ndarray, np.ndarray], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, Tuple[np.ndarray], bool], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
