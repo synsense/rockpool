@@ -688,7 +688,7 @@ class TSContinuous(TimeSeries):
         self.units = units
 
         # - Default: Throw exceptions when sampled output contains `NaN`s
-        self.nan_exception = True
+        self.beyond_range_exception = True
         # - Default: Do not change sample times that are slightly out of range
         self.approx_limit_times = False
 
@@ -1348,7 +1348,7 @@ class TSContinuous(TimeSeries):
                     + "If you think that this is due to rounding errors, try setting "
                     + "the `approx_limit_times` attribute to `True`."
                 )
-                if self.nan_exception:
+                if self.beyond_range_exception:
                     raise ValueError(error_msg)
                 else:
                     warn(error_msg + "\nWill return `NaN` for these time points.")
@@ -1783,16 +1783,16 @@ class TSContinuous(TimeSeries):
         return np.nanmin(self.samples)
 
     @property
-    def nan_exception(self):
+    def beyond_range_exception(self):
         return self._nan_exception
 
-    @nan_exception.setter
-    def nan_exception(self, raise_exception: bool):
+    @beyond_range_exception.setter
+    def beyond_range_exception(self, raise_exception: bool):
         try:
             self._nan_exception = bool(raise_exception)
         except (TypeError, ValueError):
             raise TypeError(
-                f"TSContinuous `{self.name}`: `nan_exception` must be of boolean type."
+                f"TSContinuous `{self.name}`: `beyond_range_exception` must be of boolean type."
             )
 
     @property
