@@ -126,6 +126,7 @@ def test_FFNestLayer():
     vStateBefore = np.copy(fl0.state)
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
+    tsInCont.beyond_range_exception = False
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
     assert fl0.t == 0.2
