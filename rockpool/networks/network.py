@@ -13,13 +13,15 @@ This module encapsulates networks -- combinations of multiple `.Layer` objects, 
 import json
 from decimal import Decimal
 from copy import deepcopy
-from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any
+from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any, Set, NoReturn
 from warnings import warn
 
 import numpy as np
 
 from ..timeseries import TimeSeries, TSDictOnDisk
-from .. import layers
+import rockpool.layers as layer_module
+
+from ..layers.layer import Layer
 
 # - Try to import tqdm
 try:
@@ -43,7 +45,7 @@ tol_abs = 1e-10
 ### --- Helper functions
 
 
-def digits_after_point(value):
+def digits_after_point(value) -> float:
     strval = str(value)
     # - Make sure that value is actually a number
     try:
@@ -165,10 +167,7 @@ class Network:
     """
 
     def __init__(
-        self,
-        *layers: List[layers.Layer],
-        dt: Optional[float] = None,
-        evolve_on_disk: bool = False,
+        self, layers: List[Layer] = None, dt: Optional[float] = None, evolve_on_disk: bool = False, *args, **kwargs
     ):
         """
         Base class to encapsulate several `.Layer` objects and manage signal routing
@@ -178,11 +177,20 @@ class Network:
         :param bool evolve_on_disk:      If `True`, the data produced by `self.evolve` is stored in `TSDictOnDisk` to save memory.
         """
 
-        # - Network time
-        self._timestep = 0
+        # - Initialise layers lists
+        self.evol_order: List[Layer] = []
+        self.input_layer: Union[Layer, None] = None
+        self.output_layer: Union[Layer, None] = None
 
-        # Maintain set of all layers
-        self.layerset = set()
+        # - Maintain set of all layers
+        self.layerset: Set[Layer] = set()
+
+        # - Network time
+        self._timestep: float = 0.0
+        self._dt: Optional[float] = None
+
+        # - Call super-class init
+        super().__init__(*args, **kwargs)
 
         if dt is not None:
             assert dt > 0, "Network: dt must be positive."
@@ -192,12 +200,12 @@ class Network:
         else:
             self._force_dt = False
 
-        if layers:
+        if layers is not None:
             # - First layer receives external input
             self.input_layer = self.add_layer(layers[0], external_input=True)
 
             # - Keep track of most recently added layer
-            recent_layer: layers.Layer = layers[0]
+            recent_layer: Layer = layers[0]
 
             # - Add and connect subsequent layers
             for lyr in layers[1:]:
@@ -207,23 +215,17 @@ class Network:
             # - Handle to last layer
             self.output_layer = recent_layer
 
-        # - Set evolution order and time step if no layers have been connected
-        if not hasattr(self, "evol_order"):
-            self.evol_order: List[layers.Layer] = self._set_evolution_order()
-        if not hasattr(self, "_dt"):
-            self._dt = None
-
         # - Should evolution store its output on disk?
         self._evolve_on_disk = evolve_on_disk
 
     def add_layer(
         self,
-        lyr: layers.Layer,
-        input_layer: layers.Layer = None,
-        output_layer: layers.Layer = None,
+        lyr: Layer,
+        input_layer: Layer = None,
+        output_layer: Layer = None,
         external_input: bool = False,
         verbose: bool = False,
-    ) -> layers.Layer:
+    ) -> Layer:
         """
         Add a new layer to the network
 
@@ -319,7 +321,7 @@ class Network:
 
         return newname
 
-    def remove_layer(self, del_layer: layers.Layer):
+    def remove_layer(self, del_layer: Layer) -> NoReturn:
         """
         Remove a layer from the network by removing it from the layer inventory and make sure that no other layer receives input from it
 
@@ -346,11 +348,9 @@ class Network:
         self._dt = self._set_dt()
 
         # - Reevaluate the layer evolution order
-        self.evol_order: List[layers.Layer] = self._set_evolution_order()
+        self.evol_order = self._set_evolution_order()
 
-    def connect(
-        self, pre_layer: layers.Layer, post_layer: layers.Layer, verbose: bool = False
-    ):
+    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False) -> NoReturn:
         """
         Connect two layers by defining one as the input layer of the other
 
@@ -398,9 +398,7 @@ class Network:
             post_layer.pre_layer = None
             raise e
 
-    def disconnect(
-        self, pre_layer: layers.Layer, post_layer: layers.Layer, verbose: bool = False
-    ):
+    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False) -> NoReturn:
         """
         Remove the connection between two layers by setting the input of the target layer to `None`
 
@@ -435,13 +433,13 @@ class Network:
                     )
                 )
 
-    def _set_evolution_order(self) -> list:
+    def _set_evolution_order(self) -> List:
         """
         Determine the order in which layers are evolved. Requires Network to be a directed acyclic graph, otherwise evolution has to happen timestep-wise instead of layer-wise
         """
 
         # - Function to find next evolution layer
-        def find_next_layer(candidates: set) -> layers.Layer:
+        def find_next_layer(candidates: set) -> Layer:
             while True:
                 try:
                     candidate_lyr = candidates.pop()
@@ -471,7 +469,7 @@ class Network:
         # - Return a list with the layers in their evolution order
         return order
 
-    def _set_dt(self, max_factor: float = 100):
+    def _set_dt(self, max_factor: float = 100) -> NoReturn:
         """
         Set a time step size for the network which is the lcm of all layers' dt's.
 
@@ -550,7 +548,7 @@ class Network:
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         verbose: bool = True,
-    ) -> dict:
+    ) -> Dict:
         """
         Evolve the network by evolving each layer in turn
 
@@ -595,7 +593,7 @@ class Network:
                 ts_input.name = "External input"
             # - Check if input contains information about trial timings
             try:
-                trial_start_times: np.ndarray = ts_input.trial_start_times
+                trial_start_times: Optional[np.ndarray] = ts_input.trial_start_times
             except AttributeError:
                 try:
                     # Old variable name
@@ -675,7 +673,7 @@ class Network:
         nums_ts_batch: Union[np.ndarray, int, None] = None,
         verbose: bool = True,
         high_verbosity: bool = False,
-    ):
+    ) -> NoReturn:
         """
         Train the network batch-wise by evolving the layers and calling the training function
 
@@ -810,7 +808,7 @@ class Network:
         num_timesteps: Optional[int] = None,
         verbose: bool = False,
         step_callback: Optional[Callable] = None,
-    ) -> dict:
+    ) -> Dict:
         """
         Stream data through layers, evolving by single time steps
 
@@ -989,7 +987,7 @@ class Network:
             raise NetworkError("Network: Not all layers are in sync with the network.")
         return in_sync
 
-    def reset_time(self):
+    def reset_time(self) -> NoReturn:
         """
         Reset the time of the network to zero by resetting each layer and the global network timestamp. Does not reset state.
         """
@@ -1000,7 +998,7 @@ class Network:
         # - Reset global network time
         self._timestep = 0
 
-    def reset_state(self):
+    def reset_state(self) -> NoReturn:
         """
         Reset the state of the network by resetting each layer. Does not reset time.
         """
@@ -1008,7 +1006,7 @@ class Network:
         for lyr in self.layerset:
             lyr.reset_state()
 
-    def reset_all(self):
+    def reset_all(self) -> NoReturn:
         """
         Reset all state and time of the network and layers
         """
@@ -1018,7 +1016,12 @@ class Network:
         # - Reset global network time
         self._timestep = 0
 
-    def __repr__(self):
+    def __str__(self) -> str:
+        """
+        Construct a string representation of this `.Network`
+
+        :return str: String representation
+        """
         return (
             "{} object with {} layers\n".format(
                 self.__class__.__name__, len(self.layerset)
@@ -1027,12 +1030,33 @@ class Network:
             + "\n    ".join([str(lyr) for lyr in self.evol_order])
         )
 
+    def __repr__(self) -> str:
+        """
+        Construct a string representation of this `.Network`
+
+        :return str: String representation
+        """
+        return self.__str__()
+
+    @property
+    def t(self) -> float:
+        """(float) Global network time"""
+        return (
+            0
+            if not hasattr(self, "_dt") or self._dt is None
+            else self._dt * self._timestep
+        )
+
+    @property
+    def dt(self) -> float:
+        """(float) Time step to use in layer simulations"""
+        return self._dt
+
     def shallow_copy(self) -> "Network":
         """
-        shallow_copy - Generate and return a `Network` of the same structure with
-                       the *same* layer objects.
-        :return:
-            The new `Network` object.
+        Generate and return a `.Network` of the same structure with the *same* layer objects.
+
+        :return `.Network`: The new `.Network` object
         """
         newnet = Network(dt=self.dt)
         for lyr in self.evol_order:
@@ -1074,7 +1098,7 @@ class Network:
 
         return params
 
-    def save(self, filename: str):
+    def save(self, filename: str) -> NoReturn:
         """
         Save this network to a JSON file
 
@@ -1112,7 +1136,7 @@ class Network:
         evol_order = []
         # - Generate layers, extract information about input sources
         for lyr in list_layers:
-            cls_layer = getattr(layers, lyr["class_name"])
+            cls_layer = getattr(layer_module, lyr["class_name"])
             pre_layers.append(lyr.pop("pre_layer_name", None))
             external.append(lyr.pop("external_input", None))
             evol_order.append(cls_layer.load_from_dict(lyr))
@@ -1129,7 +1153,7 @@ class Network:
             return Network(*evol_order, dt=dt)
         else:
             newnet = Network(dt=dt)
-            # - Add layers accordign to evolution order. Maintain network structure by specifying input sources
+            # - Add layers according to evolution order. Maintain network structure by specifying input sources
             for lyr, ext, pre in zip(evol_order, external, pre_layers):
                 pre_layer = getattr(newnet, pre) if pre is not None else None
                 newnet.add_layer(
@@ -1144,7 +1168,7 @@ class Network:
             return newnet
 
     @staticmethod
-    def add_layer_class(cls_lyr: Type[layers.Layer], name: str):
+    def add_layer_class(cls_lyr: Type[Layer], name: str):
         """
         Add external layer class to the namespace
 
@@ -1153,27 +1177,12 @@ class Network:
         :param Layer cls:   The class that is to be added
         :param str name:    Name of the class as a string
         """
-        setattr(layers, name, cls_lyr)
-
-    @property
-    def t(self):
-        """(float) Global network time"""
-        return (
-            0
-            if not hasattr(self, "_dt") or self._dt is None
-            else self._dt * self._timestep
-        )
-
-    @property
-    def dt(self):
-        """(float) Time step to use in layer simulations"""
-        return self._dt
+        setattr(layer_module, name, cls_lyr)
 
     @property
     def evolve_on_disk(self):
         """(bool) Whether to store evolution outputs in 'TSDictOnDisk'"""
         return self._evolve_on_disk
-
 
 ### --- NetworkError exception class
 class NetworkError(Exception):

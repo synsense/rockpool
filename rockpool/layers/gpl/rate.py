@@ -391,8 +391,8 @@ class PassThrough(FFRateLayer):
         Evolve the state of this layer given an input
 
         :param Optional[TSContinuous] ts_input: Input time series
-        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` will be used for the evolution duration
-        :param Optional[int] num_timesteps      Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` will be used for the evolution duration
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then ``num_timesteps`` or the duration of ``ts_input`` will be used for the evolution duration
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then ``duration`` or the duration of ``ts_input`` will be used for the evolution duration
         :param bool verbose:                    Currently has no effect
 
         :return TSContinuous:                   Output time series
@@ -847,11 +847,11 @@ class RecRateEuler(Layer):
         super().__init__(weights=np.asarray(weights, float), name=name, dt=dt)
 
         # - Check size and shape of `weights`
-        if weights.ndim != 2:
+        if self.weights.ndim != 2:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a matrix with 2 dimensions"
             )
-        if weights.shape[0] != weights.shape[1]:
+        if self.weights.shape[0] != self.weights.shape[1]:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a square matrix"
             )
