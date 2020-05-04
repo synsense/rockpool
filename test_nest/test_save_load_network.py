@@ -12,7 +12,7 @@ def test_load_save_net():
     lffnest = FFIAFNest([[1]], name="nestff")
     lrecnest = RecIAFSpkInNest([[1]], [[1]], name="nestrec")
 
-    net = nw.Network(lffnest, lrecnest)
+    net = nw.Network([lffnest, lrecnest])
 
     net.save("test_net_torch_config")
 
