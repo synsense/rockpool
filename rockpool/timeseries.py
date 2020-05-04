@@ -68,6 +68,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
 _TOLERANCE_ABSOLUTE = 1e-9
+_TOLERANCE_RELATIVE = 1e-6
 
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
@@ -1320,10 +1321,12 @@ class TSContinuous(TimeSeries):
 
             # - Correct time points that are slightly out of range
             if self.approx_limit_times:
+
+                tol = min(_TOLERANCE_ABSOLUTE, _TOLERANCE_RELATIVE * self.duration)
                 # Find values in `times` that are slightly before first or slightly after
                 # last sample
-                t_first_approx = t_first - _TOLERANCE_ABSOLUTE
-                t_last_approx = t_last + _TOLERANCE_ABSOLUTE
+                t_first_approx = t_first - tol
+                t_last_approx = t_last + tol
                 set_t_first = np.logical_and(is_early, times >= t_first_approx)
                 set_t_last = np.logical_and(is_late, times <= t_last_approx)
                 times[set_t_first] = t_first
@@ -1332,7 +1335,7 @@ class TSContinuous(TimeSeries):
                     warn(
                         f"TSContinuous `{self.name}`: Some of the requested time points "
                         + "were slightly outside the time range of this series (by at "
-                        + f"most {_TOLERANCE_ABSOLUTE} s) and were approximated by "
+                        + f"most {tol} s) and were approximated by "
                         + f"the first or last time point of this series. To prevent this "
                         + f"behavior, set the `approx_limit_times` attribute to `False`."
                     )
