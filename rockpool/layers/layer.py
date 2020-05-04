@@ -1,7 +1,7 @@
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Optional, Any
+from typing import Optional, Any, Tuple, Dict
 import json
 
 import numpy as np
@@ -35,15 +35,19 @@ class Layer(ABC):
         dt: float = 1.0,
         noise_std: float = 0.0,
         name: str = "unnamed",
+        *args,
+        **kwargs,
     ):
         """
-        Implement an abstract layer of neurons (no implementation, must be subclasses)
+        Implement an abstract layer of neurons (no implementation, must be subclassed)
 
         :param ArrayLike[float] weights:    Weight matrix for this layer. Indexed as [pre, post]
         :param float dt:                    Time-step used for evolving this layer. Default: 1
         :param float noise_std:             Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected std. dev. after 1s of integration time
-        :param name:       str Name of this layer. Default: 'unnamed'
+        :param str name:                    Name of this layer. Default: 'unnamed'
         """
+        # - Call super-class init
+        super().__init__(*args, **kwargs)
 
         # - Assign properties
         if name is None:
@@ -137,22 +141,54 @@ class Layer(ABC):
         ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, np.ndarray, float):
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input, set up time base
 
         This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
 
-        :param Optional[TimeSeries] ts_input:   :py:class:`TimeSeries` of TxM or Tx1 Input signals for this layer
+        :param Optional[TimeSeries] ts_input:   :py:class:`.TimeSeries` of TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
         :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
 
-        :return (ndarray, ndarray, float): (time_base, input_steps, duration)
+        :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
+            time_base:      T1 Discretised time base for evolution
+            input_raster    (T1xN) Discretised input signal for layer
+            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
+        """
+        if self.input_type is TSContinuous:
+            return self._prepare_input_continuous(ts_input, duration, num_timesteps)
+
+        elif self.input_type is TSEvent:
+            return self._prepare_input_events(ts_input, duration, num_timesteps)
+
+        else:
+            TypeError(
+                "Layer._prepare_input can only handle `TSContinuous` and `TSEvent` classes"
+            )
+
+    def _prepare_input_continuous(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
+        """
+        Sample input, set up time base
+
+        This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
+
+        :param Optional[TSContinuous] ts_input: :py:class:`.TSContinuous` of TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
+        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
+
+        :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
             time_base:      T1 Discretised time base for evolution
             input_steps:    (T1xN) Discretised input signal for layer
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
 
+        # - Work out how many time steps to take
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
@@ -205,7 +241,7 @@ class Layer(ABC):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input from a :py:class:`TSEvent` time series, set up evolution time base
 
@@ -215,10 +251,13 @@ class Layer(ABC):
         :param Optional[float] duration:    Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will determine evolution itme
         :param Optional[int] num_timesteps: Number of evolution time steps, in units of ``.dt``. If not provided, then either ``duration`` or the duration of ``ts_input`` will determine evolution time
 
-        :return (ndarray, int):
+        :return (ndarray, ndarray, int):
+            time_base:      T1X1 vector of time points -- time base for the rasterisation
             spike_raster:   Boolean or integer raster containing spike information. T1xM array
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
+
+        # - Work out how many time steps to take
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
@@ -455,7 +494,7 @@ class Layer(ABC):
         self.reset_state()
 
     @abstractmethod
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         """
         Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
 
@@ -471,7 +510,7 @@ class Layer(ABC):
 
         return config
 
-    def save(self, config: dict, filename: str):
+    def save(self, config: Dict, filename: str):
         """
         Save a set of parameters to a ``json`` file
 
@@ -504,7 +543,7 @@ class Layer(ABC):
         :param str filename:    Path to the file where parameters are stored
         :param kwargs:          Any keyword arguments of the class `.__init__` method where the parameter stored in the file should be overridden
 
-        :return Layer: Instance of ``cls`` with parameters loaded from ``filename``
+        :return `.Layer`: Instance of `.Layer` subclass with parameters loaded from ``filename``
         """
         # - Load dict from file
         with open(filename, "r") as f:
@@ -514,15 +553,15 @@ class Layer(ABC):
         return cls.load_from_dict(config, **kwargs)
 
     @classmethod
-    def load_from_dict(cls: Any, config: dict, **kwargs) -> "cls":
+    def load_from_dict(cls: Any, config: Dict, **kwargs) -> "cls":
         """
         Generate instance of a :py:class:`.Layer` subclass with parameters loaded from a dictionary
 
         :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
         :param Dict config: Dictionary containing parameters of a :py:class:`.Layer` subclass
-        :param kwargs:      Any keyword arguments of the class `.__init__` method where the parameters from ``config`` should be overridden
+        :param kwargs:      Any keyword arguments of the class :py:meth:`.__init__` method where the parameters from ``config`` should be overridden
 
-        :return Layer: Instance of ``cls`` with parameters from ``config``
+        :return `.Layer`: Instance of `.Layer` subclass with parameters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)

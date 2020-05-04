@@ -25,6 +25,16 @@ Layer and Network alternative base classes
 
     networks.NetworkDeneve
     layers.training.RRTrainedLayer
+    networks.JaxStack
+
+Mixin classes for training
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    layers.training.JaxTrainer
 
 
 Time series classes
@@ -99,4 +109,4 @@ Utility modules
     layers.RecRateEulerJax
     layers.RecRateEulerJax_IO
     layers.FFRateEulerJax
-    layers.ForceRateEulerJax
+    layers.ForceRateEulerJax_IO

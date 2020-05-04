@@ -14,6 +14,7 @@ dModules = {
         "in_res_digital",
         "in_res_dynapse",
         "in_res_dynapse_flex",
+        "inp_to_rec",
         "one_dim_exc_res",
         "partitioned_2d_reservoir",
         "ring_reservoir",
