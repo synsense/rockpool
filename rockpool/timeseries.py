@@ -723,9 +723,10 @@ class TSContinuous(TimeSeries):
         )
 
         # - Assign attributes
+        self.interp = None
         self.fill_value = fill_value
         self._interp_kind = interp_kind
-        self.samples = samples.astype("float")
+        self.samples = samples.astype("float")  # Also creates an interpolator
         self.units = units
 
     ## -- Alternative constructor for clocked time series
@@ -1822,12 +1823,10 @@ class TSContinuous(TimeSeries):
         """(int) Number of channels (dimension of sample vectors) in this TimeSeries object"""
         return self.samples.shape[1]
 
-    @property
     def max(self):
         """(float) Maximum value of time series"""
         return np.nanmax(self.samples)
 
-    @property
     def min(self):
         """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
@@ -1844,6 +1843,8 @@ class TSContinuous(TimeSeries):
             ), '`.fill_value` must be either "extrapolate" or a fill value to pass to `scipy.interpolate`.'
 
         self._fill_value = value
+        if self.interp is not None:
+            self._create_interpolator()
 
 
 ### --- Event time series
