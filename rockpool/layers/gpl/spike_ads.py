@@ -222,8 +222,6 @@ class RecFSSpikeADS(Layer):
         I_s_O_Last = self.I_s_O.copy()
         rate_Last = self.rate.copy()
 
-        sum_w_slow = 0
-
         zeros = np.zeros(self.size)
         zeros_out = np.zeros(self.out_size)
 
@@ -233,12 +231,7 @@ class RecFSSpikeADS(Layer):
         dt_syn_slow = self.dt / self.tau_syn_r_slow
         dt_syn_fast = self.dt / self.tau_syn_r_fast
         dt_syn_out = self.dt / self.tau_syn_r_out
-        if(len(np.unique(self.tau_syn_r_out)) > 1):
-            print("Warning: Non-uniform slow TC's. Using %.3f for the rate TC" % self.tau_syn_r_out[0])
-        if(self.tau_syn_r_out.ndim > 1):
-           dt_syn_rate = self.dt / self.tau_syn_r_out[0]
-        else:
-           dt_syn_rate = self.dt / self.tau_syn_r_out 
+        dt_syn_rate = self.dt / np.mean(self.tau_syn_r_out)
 
         # - For getting spike-vectors
         eye = np.eye(self.size)
@@ -581,8 +574,7 @@ class RecFSSpikeADS(Layer):
             dot_W_slow_batched *= self.eta
             # - Perform the update
             self.weights_slow += dot_W_slow_batched
-            print("Delta W slow is %.6f" % (np.sum(np.abs(dot_W_slow_batched)) / self.size**2))
-
+            
         if(verbose):
             ## - Construct return time series
             resp = {
