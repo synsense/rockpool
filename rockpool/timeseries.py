@@ -918,11 +918,11 @@ class TSContinuous(TimeSeries):
         dtype_samples: Union[None, str, type, np.dtype] = None,
     ) -> Dict:
         """
-        Store data and attributes of this :py:`TSContinuous` in a :py:`Dict`.
+        Store data and attributes of this :py:class:`.TSContinuous` in a :py:class:`dict`.
 
         :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
         :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be returned, for example to save space.
-        :return:    Dict with data and attributes of this :py:`TSContinuous`.
+        :return:    Dict with data and attributes of this :py:class:`.TSContinuous`.
         """
 
         if dtype_times is not None:
