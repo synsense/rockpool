@@ -1396,14 +1396,19 @@ class TSContinuous(TimeSeries):
 
         # - Handle empty series
         if self.isempty():
-            samples = np.nan((np.size(times), 0))
-        else:
-            samples = np.reshape(self.interp(times), (-1, self.num_channels))
+            return np.zeros((np.size(times), 0))
+
+        # - Perform the interpolation
+        samples = np.reshape(self.interp(times), (-1, self.num_channels))
 
         # - Catch invalid times, replace with NaN
-        invalid_times = np.logical_or(times < self.t_start, times > self.t_stop)
-        samples[invalid_times] = np.nan
+        if not self.periodic:
+            invalid_times = np.logical_or(
+                np.array(times) < self.t_start, np.array(times) > self.t_stop
+            )
+            samples[invalid_times, :] = np.nan
 
+        # - Return the sampled data
         return samples
 
     def _compatible_shape(self, other_samples) -> np.ndarray:

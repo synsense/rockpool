@@ -88,9 +88,22 @@ def test_continuous_operators():
 def test_continuous_methods():
     from rockpool import TSContinuous
 
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    # - Sample-and-hold interpolation
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2], t_stop=2.1)
+    assert ts1(0) == 0
+    assert ts1(2) == 2
+    assert ts1(1.5) == 1
+    assert ts1(2.1) == 2
+    assert np.isnan(ts1(2.5))
 
-    # - Interpolation
+    assert ts1._interpolate(0) == 0
+    assert ts1._interpolate(2) == 2
+    assert ts1._interpolate(1.5) == 1
+    assert ts1._interpolate(2.1) == 2
+    assert np.isnan(ts1._interpolate(2.5))
+
+    # - Linear interpolation
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2], interp_kind="linear")
     assert ts1(0) == 0
     assert ts1(2) == 2
     assert ts1(1.5) == 1.5
@@ -213,7 +226,7 @@ def test_continuous_call():
     # - Generate series
     times = np.arange(1, 5) * 0.1
     samples = np.arange(4).reshape(-1, 1) + np.arange(2) * 2
-    ts = TSContinuous(times, samples)
+    ts = TSContinuous(times, samples, interp_kind="linear")
     ts_empty = TSContinuous()
     ts_single = TSContinuous(2, [3, 2])
 
@@ -249,7 +262,7 @@ def test_continuous_clip():
     # - Generate series
     times = np.arange(1, 6) * 0.1
     samples = np.arange(5).reshape(-1, 1) + np.arange(2) * 2
-    ts = TSContinuous(times, samples)
+    ts = TSContinuous(times, samples, interp_kind="linear")
     ts_empty = TSContinuous()
 
     # - Clip ts in time
@@ -333,7 +346,7 @@ def test_continuous_append_c():
 
     # - Generate a few TSContinuous objects
     samples = np.random.randint(10, size=(2, 4))
-    empty_series = TSContinuous()
+    empty_series = TSContinuous(interp_kind="linear")
     series_list = []
     series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=2))
     series_list.append(TSContinuous([1], samples[0, -2:], t_start=0, t_stop=2))
