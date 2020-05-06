@@ -1823,10 +1823,12 @@ class TSContinuous(TimeSeries):
         """(int) Number of channels (dimension of sample vectors) in this TimeSeries object"""
         return self.samples.shape[1]
 
+    @property
     def max(self):
         """(float) Maximum value of time series"""
         return np.nanmax(self.samples)
 
+    @property
     def min(self):
         """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
