@@ -79,6 +79,7 @@ class _BaseNestProcess(multiprocessing.Process):
         self.record = record
         self.num_cores = num_cores
         self.model = model
+        self.v_init = V2mV(v_rest)
 
     ######### DEFINE IPC COMMANDS ######
 
@@ -120,6 +121,7 @@ class _BaseNestProcess(multiprocessing.Process):
         times = events["times"][use_event]
         vms = events["V_m"][use_event]
 
+
         recorded_states = []
         u_senders = np.unique(senders)
         for i, nid in enumerate(u_senders):
@@ -127,7 +129,13 @@ class _BaseNestProcess(multiprocessing.Process):
             _times = times[ind]
             order = np.argsort(_times)
             _vms = vms[ind][order]
-            recorded_states.append(_vms)
+
+            if t_start == 0:
+                # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
+                # the recording has one entry less in the first batch
+                recorded_states.append(np.insert(_vms, 0, self.v_init[i]))
+            else:
+                recorded_states.append(_vms)
 
         return np.array(recorded_states)
 
@@ -146,12 +154,7 @@ class _BaseNestProcess(multiprocessing.Process):
         """
         t_start = self.nest_module.GetKernelStatus("time")
 
-        if t_start == 0:
-            # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
-            # the recording has one entry less in the first batch
-            self.nest_module.Simulate((num_timesteps + 1) * self.dt)
-        else:
-            self.nest_module.Simulate(num_timesteps * self.dt)
+        self.nest_module.Simulate(num_timesteps * self.dt)
 
         # - Fetch events from spike detector
         events = self.nest_module.GetStatus(self._sd, "events")[0]
@@ -669,6 +672,7 @@ class FFIAFNest(Layer):
                 pop_post=self._pop,
                 weights=self.weights,
                 connection_exists=self.connection_exists,
+                delays=np.ones((len(self._scg), len(self._pop))) * self.dt,
             )
 
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
@@ -724,7 +728,7 @@ class FFIAFNest(Layer):
             """
 
             # NEST time starts with 1 (not with 0)
-            time_base = s2ms(time_base) + 1
+            time_base = s2ms(time_base) + self.dt 
 
             self.nest_module.SetStatus(
                 self._scg,
@@ -842,6 +846,7 @@ class FFIAFNest(Layer):
         """
         v_range = abs(self._v_thresh - self._v_reset)
         randV = np.random.rand(self._size) * v_range + self._v_reset
+        self.v_init = randV
 
         self.request_q.put([COMMAND_SET, "V_m", V2mV(randV)])
 
@@ -877,6 +882,7 @@ class FFIAFNest(Layer):
                 event_channel_out,
                 recorded_states_array,
             ) = self.result_q.get()
+
             self.recorded_states = TSContinuous(
                 (np.arange(recorded_states_array.shape[1]) + self._timestep) * self.dt,
                 recorded_states_array.T,
