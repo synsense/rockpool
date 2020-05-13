@@ -4,31 +4,35 @@
 
 # - Imports
 from ..layer import Layer
+from ..training import JaxTrainer
 from ...timeseries import TSContinuous, TSEvent
 
 from jax import numpy as np
 import numpy as onp
 
+import jax
 from jax import jit, custom_gradient
 from jax.lax import scan
 import jax.random as rand
 
-from typing import Optional, Tuple, Union, Dict, Callable
+from typing import Optional, Tuple, Union, Dict, Callable, Any
 
 # - Define a float / array type
 FloatVector = Union[float, np.ndarray]
 
 # - Define a layer state type
-LayerState = Dict[
+State = Dict[
     str, np.ndarray
 ]  # TypedDict("LayerState", {"spikes": np.ndarray, "Isyn": np.ndarray, "Vmem": np.ndarray})
+
+Params = Dict
 
 # - Define module exports
 __all__ = ["RecLIFJax", "RecLIFCurrentInJax", "RecLIFJax_IO"]
 
 
 def _evolve_lif_jax(
-    state0: LayerState,
+    state0: State,
     w_in: np.ndarray,
     w_rec: np.ndarray,
     w_out_surrogate: np.ndarray,
@@ -41,13 +45,14 @@ def _evolve_lif_jax(
     key: int,
     dt: float,
 ) -> (
-    LayerState,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
+        State,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        Any,
 ):
     """
     Raw JAX evolution function for an LIF spiking layer
@@ -138,15 +143,15 @@ def _evolve_lif_jax(
 
     # - Single-step LIF dynamics
     def forward(
-        state: LayerState, inputs_t: Tuple[np.ndarray, np.ndarray]
+        state: State, inputs_t: Tuple[np.ndarray, np.ndarray]
     ) -> (
-        LayerState,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
+            State,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
     ):
         """
         Single-step LIF dynamics for a recurrent LIF layer
@@ -190,7 +195,7 @@ def _evolve_lif_jax(
     # - Build noise trace
     # - Compute random numbers for reservoir noise
     num_timesteps = sp_input_ts.shape[0]
-    _, subkey = rand.split(key)
+    key1, subkey = rand.split(key)
     noise_ts = noise_std * rand.normal(
         subkey, shape=(num_timesteps, np.size(state0["Vmem"]))
     )
@@ -209,10 +214,10 @@ def _evolve_lif_jax(
     output_ts = np.dot(surrogate_ts, w_out_surrogate)
 
     # - Return outputs
-    return state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts
+    return state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts, key1
 
 
-class RecLIFJax(Layer):
+class RecLIFJax(Layer, JaxTrainer):
     """
     Recurrent spiking neuron layer (LIF), spiking input and spiking output. No input / output weights.
 
@@ -326,6 +331,35 @@ class RecLIFJax(Layer):
         self._i_syn_last_evolution = []
         self._i_rec_last_evolution = []
 
+    def _pack(self) -> Params:
+        """
+        Return a packed form of the tunable parameters for this layer
+
+        :return Params: params: All parameters as a Dict
+        """
+        return {
+            "w_in": self._w_in,
+            "w_recurrent": self._weights,
+            "w_out": self._w_out,
+            "bias": self._bias,
+            "tau_mem": self._tau_mem,
+            "tau_syn": self._tau_syn,
+        }
+
+    def _unpack(self, params: Params):
+        """
+        Set the parameters for this layer, given a parameter dictionary
+
+        :param Params params:  Set of parameters for this layer
+        """
+        (self._w_in, self._weights, self._w_out, self._bias, self._tau,) = (
+            params["w_in"],
+            params["w_recurrent"],
+            params["w_out"],
+            params["bias"],
+            params["tau"],
+        )
+
     # - Define stored state properties
     @property
     def v_mem_last_evolution(self):
@@ -368,7 +402,7 @@ class RecLIFJax(Layer):
         }
 
     @property
-    def state(self) -> LayerState:
+    def state(self) -> State:
         """
         Internal state of the neurons in this layer
         :return: dict{"Vmem", "Isyn", "spikes"}
@@ -376,7 +410,7 @@ class RecLIFJax(Layer):
         return {k: np.array(v) for k, v in self._state.items()}
 
     @state.setter
-    def state(self, new_state: LayerState):
+    def state(self, new_state: State):
         """
         Setter for state values. Verifies that new state dict contains correct keys and sizes.
         `new_state` must be a dict{"Vmem", "Isyn", "spikes"}
@@ -399,6 +433,48 @@ class RecLIFJax(Layer):
 
         # - Update state dictionary
         self._state.update(new_state)
+
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, sp_input_ts: np.ndarray,
+        ):
+            # - Call the jitted evolution function for this layer
+            (
+                new_state, _, _, _, spikes_ts, _, _, key1,) = self._evolve_jit(
+                self._state,
+                self._w_in,
+                self._weights,
+                self._w_out,
+                self._tau_mem,
+                self._tau_syn,
+                self._bias,
+                self._noise_std,
+                sp_input_ts,
+                0.,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            return spikes_ts, new_state
+
+        # - Return the evolution function
+        return evol_func
 
     def evolve(
         self,
@@ -494,6 +570,7 @@ class RecLIFJax(Layer):
             spike_raster_ts,
             Vmem_ts,
             Isyn_ts,
+            self._rng_key,
         ) = self._evolve_jit(
             self._state,
             self._w_in,
@@ -708,6 +785,48 @@ class RecLIFCurrentInJax(RecLIFJax):
     As output, this layer returns the spiking activity of the :math:`N` neurons from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` and `.surrogate_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
     """
 
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, I_input_ts: np.ndarray,
+        ):
+            # - Call the jitted evolution function for this layer
+            (
+                new_state, _, _, _, spikes_ts, _, _, key1,) = self._evolve_jit(
+                self._state,
+                self._w_in,
+                self._weights,
+                self._w_out,
+                self._tau_mem,
+                self._tau_syn,
+                self._bias,
+                self._noise_std,
+                0.,
+                I_input_ts,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            return spikes_ts, new_state
+
+        # - Return the evolution function
+        return evol_func
+
     def evolve(
         self,
         ts_input: Optional[TSContinuous] = None,
@@ -892,6 +1011,48 @@ class RecLIFJax_IO(RecLIFJax):
         self.w_in = w_in
         self.w_out = w_out
 
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, sp_input_ts: np.ndarray,
+        ):
+            # - Call the jitted evolution function for this layer
+            (
+                new_state, _, output_ts, _, _, _, _, key1,) = self._evolve_jit(
+                self._state,
+                self._w_in,
+                self._weights,
+                self._w_out,
+                self._tau_mem,
+                self._tau_syn,
+                self._bias,
+                self._noise_std,
+                sp_input_ts,
+                0.,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            return output_ts, new_state
+
+        # - Return the evolution function
+        return evol_func
+
     def evolve(
         self,
         ts_input: Optional[TSEvent] = None,
@@ -907,7 +1068,7 @@ class RecLIFJax_IO(RecLIFJax):
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
         :param bool verbose:                    Currently no effect, just for conformity
 
-        :return TSContinuous:                   Output time series; the synaptic currents of each neuron
+        :return TSContinuous:                   Output time series; the weighted surrogates of each neuron
         """
 
         # - Prepare time base and inputs
@@ -1050,6 +1211,48 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
 
     As output, this layer returns the weighted surrogate activity of the :math:`N` neurons from the `.evolve` method. After each evolution, the attributes `.spikes_last_evolution`, `.i_rec_last_evolution` and `.v_mem_last_evolution` and `.surrogate_last_evolution` will be `.TimeSeries` objects containing the appropriate time series.
     """
+
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, I_input_ts: np.ndarray,
+        ):
+            # - Call the jitted evolution function for this layer
+            (
+                new_state, _, output_ts, _, _, _, _, key1,) = self._evolve_jit(
+                self._state,
+                self._w_in,
+                self._weights,
+                self._w_out,
+                self._tau_mem,
+                self._tau_syn,
+                self._bias,
+                self._noise_std,
+                0.,
+                I_input_ts,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            return output_ts, new_state
+
+        # - Return the evolution function
+        return evol_func
 
     def evolve(
         self,
