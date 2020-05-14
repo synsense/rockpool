@@ -684,7 +684,8 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         name: str = "unnamed",
         units: Optional[str] = None,
-        interp_kind: str = "linear",
+        interp_kind: str = "previous",
+        fill_value: str = "extrapolate",
     ):
         """
         TSContinuous - Represents a continuously-sample time series, supporting interpolation and periodicity.
@@ -692,14 +693,15 @@ class TSContinuous(TimeSeries):
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
         :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
-        :param bool periodic:     Treat the time series as periodic around the end points. Default: ``False``
+        :param bool periodic:               Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
-        :param str name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
+        :param str name:                    Name of the `.TSContinuous` object. Default: ``"unnamed"``
         :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
-        :param Optional[str] interp_kind:   Specify the interpolation type. Default: ``"linear"``
+        :param str interp_kind:             Specify the interpolation type. Default: ``"previous"``
+        :param str fill_value:              Specify the method to fill values outside sample times. Default: ``"extrapolate"``. **Sampling beyond `.t_stop` is still not permitted**
 
-        If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
+        If the time series is not periodic (the default), then NaNs will be returned for any values outside `t_start` and `t_stop`.
         """
 
         if times is None:
@@ -725,9 +727,30 @@ class TSContinuous(TimeSeries):
         )
 
         # - Assign attributes
-        self.interp_kind = interp_kind
-        self.samples = samples.astype("float")
+        self.interp = None
+        self.fill_value = fill_value
+        self._interp_kind = interp_kind
+        self.samples = samples.astype("float")  # Also creates an interpolator
         self.units = units
+
+    ## -- Alternative constructor for clocked time series
+    @staticmethod
+    def from_clocked(
+        samples: np.ndarray, dt: float, t_start: float = 0.0
+    ) -> "TSContinuous":
+        """
+        Convenience method to create a new continuous time series from a clocked sample.
+
+        ``samples`` is an array of clocked samples, sampled at a regular interval ``dt``. Each sample is assumed to occur at the **start** of a time bin, such that the first sample occurs at ``t = 0`` (or ``t = t_start``). A continuous time series will be returned, constructed using ``samples``, and filling the time ``t = 0`` to ``t = N*dt``, with ``t_start`` and ``t_stop`` set appropriately.
+
+        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``
+        :param float dt:            The sample interval for ``samples``
+        :param float t_start:       The time of the first sample.
+
+        :return `.TSContinuous` :   A continuous time series containing ``samples``.
+        """
+        time_base = np.arange(0, len(samples)) * dt + t_start
+        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt)
 
     ## -- Methods for plotting and printing
 
@@ -899,11 +922,11 @@ class TSContinuous(TimeSeries):
         dtype_samples: Union[None, str, type, np.dtype] = None,
     ) -> Dict:
         """
-        Store data and attributes of this :py:`TSContinuous` in a :py:`Dict`.
+        Store data and attributes of this :py:class:`.TSContinuous` in a :py:class:`dict`.
 
         :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
         :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be returned, for example to save space.
-        :return:    Dict with data and attributes of this :py:`TSContinuous`.
+        :return:    Dict with data and attributes of this :py:class:`.TSContinuous`.
         """
 
         if dtype_times is not None:
@@ -927,7 +950,7 @@ class TSContinuous(TimeSeries):
             "samples": samples,
             "t_start": np.array(t_start),
             "t_stop": np.array(t_stop),
-            f"interp_kind_{self.interp_kind}": np.array([]),
+            f"interp_kind_{self._interp_kind}": np.array([]),
             "periodic": np.array(self.periodic),
             f"name_{self.name}": np.array([]),
             f"type_TSContinuous": np.array(
@@ -1356,11 +1379,12 @@ class TSContinuous(TimeSeries):
             self.interp = spint.interp1d(
                 self._times,
                 self._samples,
-                kind=self.interp_kind,
+                kind=self._interp_kind,
                 axis=0,
                 assume_sorted=True,
                 bounds_error=False,
                 copy=False,
+                fill_value=self._fill_value,
             )
 
     def _interpolate(self, times: Union[int, float, ArrayLike]) -> np.ndarray:
@@ -1375,13 +1399,22 @@ class TSContinuous(TimeSeries):
         if self.periodic and self.duration > 0:
             times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
 
-        samples = self.interp(times)
-
         # - Handle empty series
-        if samples is None:
+        if self.isempty():
             return np.zeros((np.size(times), 0))
-        else:
-            return np.reshape(self.interp(times), (-1, self.num_channels))
+
+        # - Perform the interpolation
+        samples = np.reshape(self.interp(times), (-1, self.num_channels))
+
+        # - Catch invalid times, replace with NaN
+        if not self.periodic:
+            invalid_times = np.logical_or(
+                np.array(times) < self.t_start, np.array(times) > self.t_stop
+            )
+            samples[invalid_times, :] = np.nan
+
+        # - Return the sampled data
+        return samples
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
         """
@@ -1803,6 +1836,21 @@ class TSContinuous(TimeSeries):
     def min(self):
         """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
+
+    @property
+    def fill_value(self):
+        return self._fill_value
+
+    @fill_value.setter
+    def fill_value(self, value):
+        if isinstance(value, str):
+            assert (
+                value is "extrapolate"
+            ), '`.fill_value` must be either "extrapolate" or a fill value to pass to `scipy.interpolate`.'
+
+        self._fill_value = value
+        if self.interp is not None:
+            self._create_interpolator()
 
 
 ### --- Event time series
