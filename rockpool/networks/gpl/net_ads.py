@@ -89,6 +89,7 @@ class NetworkADS(Network):
                         tau_syn_r_out: float = 0.1,
                         refractory: float = -np.finfo(float).eps,
                         record: bool = False,
+                        adam: bool = False,
                         **kwargs,
                         ):
 
@@ -122,7 +123,7 @@ class NetworkADS(Network):
                                     eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,
                                     dt=dt,v_thresh=np.asarray(v_thresh).astype("float"),v_reset=np.asarray(v_reset).astype("float"),v_rest=np.asarray(v_rest).astype("float"),
                                     tau_mem=tau_mem,tau_syn_r_fast=tau_syn_r_fast,tau_syn_r_slow=tau_syn_r_slow, tau_syn_r_out=tau_syn_r_out,
-                                    refractory=refractory,record=record,name="lyrRes")
+                                    refractory=refractory,record=record,name="lyrRes",adam=adam)
 
         input_layer = PassThrough(np.asarray(weights_in).astype("float"), dt=dt, noise_std=noise_std, name="input_layer")
 
@@ -138,6 +139,9 @@ class NetworkADS(Network):
         net_ads.input_layer = net_ads.add_layer(input_layer, external_input=True) # - External -> Input
         net_ads.lyrRes = net_ads.add_layer(ads_layer, input_layer) # - Input -> ADS
         net_ads.output_layer = net_ads.add_layer(output_layer, ads_layer) # - ADS -> Output
+
+        if(adam):
+            print("Using adam optimizer")
 
         return net_ads
 

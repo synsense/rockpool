@@ -101,7 +101,8 @@ class RecFSSpikeADS(Layer):
                 tau_syn_r_out : float,
                 refractory : float,
                 record : bool,
-                name : str):
+                name : str,
+                adam: bool):
         
         super().__init__(weights=np.zeros((np.asarray(weights_fast).shape[0],np.asarray(weights_fast).shape[1])), noise_std=noise_std, name=name)
 
@@ -129,6 +130,19 @@ class RecFSSpikeADS(Layer):
         self.k_initial = k
         self.eta_initial = eta
         self.out_size = self.weights_out.shape[1]
+        self.t_start_suppress = None
+        self.t_stop_suppress = None
+        self.percentage_suppress = None
+
+        # - Adam optimizer
+        self.use_adam = adam
+        self.num_training_iterations = 0
+        self.first_moment = np.zeros(weights_slow.shape)
+        self.second_moment = np.zeros(weights_slow.shape)
+        self.alpha = 0.0001
+        self.epsilon = 0.00001
+        self.beta1 = 0.9
+        self.beta2 = 0.999
 
         # - Set a reasonable dt
         if dt is None:
@@ -148,6 +162,10 @@ class RecFSSpikeADS(Layer):
         self.I_s_F = np.zeros(self.size)
         self.I_s_O = np.zeros(self.out_size)
         self.rate = np.zeros(self.size)
+        self.num_training_iterations = 0
+        self.t_start_suppress = None
+        self.t_stop_suppress = None
+        self.percentage_suppress = None
 
 
     def evolve(self,
@@ -281,6 +299,11 @@ class RecFSSpikeADS(Layer):
             # - Enforce refractory period by clamping membrane potential to reset
             b = vec_refractory > 0
             state[b] = v_reset[b]
+
+            if(self.percentage_suppress is not None and t_time > self.t_start_suppress and t_time < self.t_stop_suppress):
+                # - Suppress neurons
+                state[:int(self.size*self.percentage_suppress)] = v_reset[:int(self.size*self.percentage_suppress)]
+
 
             # - Back-tick spike detector
 
@@ -570,10 +593,25 @@ class RecFSSpikeADS(Layer):
             np.fill_diagonal(dot_W_slow_batched, 0)
             # - Normalize the update to have frobenius norm 1.0
             dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)
-            # - Apply the learning rate
-            dot_W_slow_batched *= self.eta
-            # - Perform the update
-            self.weights_slow += dot_W_slow_batched
+            if(self.use_adam):
+                # - Increase variable keeping track of training iterations used by adam
+                self.num_training_iterations += 1
+                # - Update first moment estimate
+                self.first_moment = self.beta1*self.first_moment + (1-self.beta1)*dot_W_slow_batched
+                # - Update second raw moment estimate
+                self.second_moment = self.beta2*self.second_moment + (1-self.beta2)*dot_W_slow_batched**2
+                # - Apply bias correction
+                first_moment_bias_corrected = self.first_moment / (1-self.beta1**self.num_training_iterations)
+                second_moment_bias_corrected = self.second_moment / (1-self.beta2**self.num_training_iterations)
+                # - Perform update
+                update = self.alpha*first_moment_bias_corrected / (np.sqrt(second_moment_bias_corrected) + self.epsilon)
+                self.weights_slow += update
+                print("Performed update of size",((np.sum(np.abs(update)) / self.size**2)))
+            else:
+                # - Apply the learning rate
+                dot_W_slow_batched *= self.eta
+                # - Perform the update
+                self.weights_slow += dot_W_slow_batched
             
         if(verbose):
             ## - Construct return time series
@@ -725,6 +763,7 @@ class RecFSSpikeADS(Layer):
         config["refractory"] = self.refractory
         config["record"] = int(self.record)
         config["name"] = self.name
+        config["adam"] = self.use_adam
         
         return config
 
