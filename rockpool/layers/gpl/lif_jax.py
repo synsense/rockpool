@@ -319,7 +319,7 @@ class RecLIFJax(Layer):
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
             _, self._rng_key = rand.split(rng_key)
         else:
-            rng_key = np.array(onp.array(rng_key).astype(onp.uint32)) 
+            rng_key = np.array(onp.array(rng_key).astype(onp.uint32))
             self._rng_key = rng_key
 
         # - Define stored internal state properties
@@ -538,17 +538,14 @@ class RecLIFJax(Layer):
 
         :return: dict
         """
-        config = {}
+        config = super().to_dict()
+        config.pop("weights")
         config["w_recurrent"] = onp.array(self.w_recurrent).tolist()
         config["tau_mem"] = onp.array(self.tau_mem).tolist()
         config["tau_syn"] = onp.array(self.tau_syn).tolist()
         config["bias"] = onp.array(self.bias).tolist()
-        config["noise_std"] = self.noise_std
-        config["dt"] = self.dt
-        config["name"] = self.name
         config["rng_key"] = onp.array(self._rng_key).tolist()
 
-        config["class_name"] = self.class_name
         return config
 
     @property
@@ -1006,26 +1003,15 @@ class RecLIFJax_IO(RecLIFJax):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous
 
-
     def to_dict(self) -> dict:
         """
         Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
 
         :return Dict:   A dictionary that can be used to reconstruct the layer
         """
-        config = {}
+        config = super().to_dict()
         config["w_in"] = onp.array(self.w_in).tolist()
-        config["w_recurrent"] = onp.array(self.w_recurrent).tolist()
         config["w_out"] = onp.array(self.w_out).tolist()
-        config["tau_mem"] = onp.array(self.tau_mem).tolist()
-        config["tau_syn"] = onp.array(self.tau_syn).tolist()
-        config["bias"] = onp.array(self.bias).tolist()
-        config["dt"] = self.dt
-        config["noise_std"] = self.noise_std
-        config["name"] = self.name
-        config["rng_key"] = onp.array(self._rng_key).tolist()
-
-        config["class_name"] = self.class_name
 
         return config
 
@@ -1266,17 +1252,7 @@ class FFLIFJax_IO(RecLIFJax_IO):
 
         :return Dict:   A dictionary that can be used to reconstruct the layer
         """
-        config = {}
-        config["w_in"] = onp.array(self.w_in).tolist()
-        config["w_out"] = onp.array(self.w_out).tolist()
-        config["tau_mem"] = onp.array(self.tau_mem).tolist()
-        config["tau_syn"] = onp.array(self.tau_syn).tolist()
-        config["bias"] = onp.array(self.bias).tolist()
-        config["dt"] = self.dt
-        config["noise_std"] = self.noise_std
-        config["name"] = self.name
-        config["rng_key"] = onp.array(self._rng_key).tolist()
-
-        config["class_name"] = self.class_name
+        config = super().to_dict()
+        config.pop("w_recurrent")
 
         return config

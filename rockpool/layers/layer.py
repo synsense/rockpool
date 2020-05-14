@@ -498,10 +498,16 @@ class Layer(ABC):
         """
         Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
 
+        The base class :py:class`.Layer` configures the dictionary, by storing attributes :py:attr:`~.Layer.weights`; :py:attr:`~.Layer.dt`; :py:attr:`~.Layer.noise_std`; :py:attr:`~.Layer.name`; and :py:attr:`~.Layer.class_name`. To enable correct saving / loading of your derived :py:class`.Layer` subclass, you should first call :py:meth`self.super().to_dict` and then store all additional arguments to :py:meth:`__init__` required by your class to instantiate an identical object.
+
         :return Dict:   A dictionary that can be used to reconstruct the layer
         """
         config = {}
-        config["weights"] = self.weights.tolist()
+        if isinstance(self.weights, np.ndarray):
+            config["weights"] = self.weights.tolist()
+        else:
+            config["weights"] = self.weights
+
         config["dt"] = self.dt
         config["noise_std"] = self.noise_std
         config["name"] = self.name
