@@ -410,7 +410,7 @@ def test_FFToRecLayer():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -592,7 +592,7 @@ def test_FFToRecLayerRepeat():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -673,7 +673,7 @@ def test_DefaultParams():
         name="Rec",
     )
 
-    net0 = nw.Network(fl0, fl1)
+    net0 = nw.Network([fl0, fl1])
 
     fl2 = FFIAFNest(weights=weights, record=True, name="FF")
 
@@ -681,7 +681,7 @@ def test_DefaultParams():
         weights_in=weights_in, weights_rec=weights_rec, record=True, name="Rec"
     )
 
-    net1 = nw.Network(fl2, fl3)
+    net1 = nw.Network([fl2, fl3])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -761,7 +761,7 @@ def test_timeconstants():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -858,7 +858,7 @@ def test_delays():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -991,7 +991,7 @@ def test_SaveLoad():
         name="lyrNest",
     )
 
-    net0 = nw.Network(fl0)
+    net0 = nw.Network([fl0])
     net0.save("tmp.model")
 
     net1 = nw.Network.load("tmp.model")

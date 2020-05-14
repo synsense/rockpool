@@ -58,7 +58,7 @@ def test_save_load():
         name="Rec",
     )
 
-    net0 = nw.Network(fl0, fl1)
+    net0 = nw.Network([fl0, fl1])
 
     net0.save("test_nw.json")
     net1 = nws.load("test_nw.json")
