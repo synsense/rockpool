@@ -732,7 +732,7 @@ class TSContinuous(TimeSeries):
     ## -- Alternative constructor for clocked time series
     @staticmethod
     def from_clocked(
-        samples: np.ndarray, dt: float, t_start: float = 0.0
+        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None,
     ) -> "TSContinuous":
         """
         Convenience method to create a new continuous time series from a clocked sample.
@@ -746,7 +746,8 @@ class TSContinuous(TimeSeries):
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
         time_base = np.arange(0, len(samples)) * dt + t_start
-        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt)
+        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt,
+                            periodic = periodic, name = name,)
 
     ## -- Methods for plotting and printing
 

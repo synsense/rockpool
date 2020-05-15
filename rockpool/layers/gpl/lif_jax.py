@@ -352,12 +352,13 @@ class RecLIFJax(Layer, JaxTrainer):
 
         :param Params params:  Set of parameters for this layer
         """
-        (self._w_in, self._weights, self._w_out, self._bias, self._tau,) = (
+        (self._w_in, self._weights, self._w_out, self._bias, self._tau_mem, self._tau_syn) = (
             params["w_in"],
             params["w_recurrent"],
             params["w_out"],
             params["bias"],
-            params["tau"],
+            params["tau_mem"],
+            params["tau_syn"],
         )
 
     # - Define stored state properties
@@ -452,16 +453,16 @@ class RecLIFJax(Layer, JaxTrainer):
             # - Call the jitted evolution function for this layer
             (
                 new_state, _, _, _, spikes_ts, _, _, key1,) = self._evolve_jit(
-                self._state,
-                self._w_in,
-                self._weights,
-                self._w_out,
-                self._tau_mem,
-                self._tau_syn,
-                self._bias,
+                state,
+                params["w_in"],
+                params["w_recurrent"],
+                params["w_out"],
+                params["tau_mem"],
+                params["tau_syn"],
+                params["bias"],
                 self._noise_std,
                 sp_input_ts,
-                0.,
+                sp_input_ts * 0.,
                 self._rng_key,
                 self._dt,
             )
@@ -803,15 +804,15 @@ class RecLIFCurrentInJax(RecLIFJax):
             # - Call the jitted evolution function for this layer
             (
                 new_state, _, _, _, spikes_ts, _, _, key1,) = self._evolve_jit(
-                self._state,
-                self._w_in,
-                self._weights,
-                self._w_out,
-                self._tau_mem,
-                self._tau_syn,
-                self._bias,
-                self._noise_std,
-                0.,
+                state,
+                params["w_in"],
+                params["w_recurrent"],
+                params["w_out"],
+                params["tau_mem"],
+                params["tau_syn"],
+                params["bias"],
+                params["noise_std"],
+                I_input_ts * 0.,
                 I_input_ts,
                 self._rng_key,
                 self._dt,
@@ -1029,16 +1030,16 @@ class RecLIFJax_IO(RecLIFJax):
             # - Call the jitted evolution function for this layer
             (
                 new_state, _, output_ts, _, _, _, _, key1,) = self._evolve_jit(
-                self._state,
-                self._w_in,
-                self._weights,
-                self._w_out,
-                self._tau_mem,
-                self._tau_syn,
-                self._bias,
+                state,
+                params["w_in"],
+                params["w_recurrent"],
+                params["w_out"],
+                params["tau_mem"],
+                params["tau_syn"],
+                params["bias"],
                 self._noise_std,
                 sp_input_ts,
-                0.,
+                sp_input_ts * 0.,
                 self._rng_key,
                 self._dt,
             )
@@ -1230,15 +1231,15 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
             # - Call the jitted evolution function for this layer
             (
                 new_state, _, output_ts, _, _, _, _, key1,) = self._evolve_jit(
-                self._state,
-                self._w_in,
-                self._weights,
-                self._w_out,
-                self._tau_mem,
-                self._tau_syn,
-                self._bias,
+                state,
+                params["w_in"],
+                params["w_recurrent"],
+                params["w_out"],
+                params["tau_mem"],
+                params["tau_syn"],
+                params["bias"],
                 self._noise_std,
-                0.,
+                I_input_ts * 0.,
                 I_input_ts,
                 self._rng_key,
                 self._dt,
