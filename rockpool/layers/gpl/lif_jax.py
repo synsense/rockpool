@@ -42,7 +42,7 @@ def _evolve_lif_jax(
     noise_std: float,
     sp_input_ts: np.ndarray,
     I_input_ts: np.ndarray,
-    key: int,
+    key: rand.PRNGKey,
     dt: float,
 ) -> (
         State,
@@ -101,7 +101,7 @@ def _evolve_lif_jax(
     :param float noise_std:             Noise injected onto the membrane of each neuron. Standard deviation at each time step.
     :param np.ndarray sp_input_ts:      Logical spike raster of input events on input channels [T, I]
     :param np.ndarray I_input_ts:       Time trace of currents injected on input channels (direct current injection) [T, I]
-    :param int key:                     pRNG key for JAX
+    :param jax.random.PRNGKey key:      pRNG key for JAX
     :param float dt:                    Time step in seconds
 
     :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
@@ -277,7 +277,7 @@ class RecLIFJax(Layer, JaxTrainer):
         noise_std: float = 0.0,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key: Optional[int] = None,
+        rng_key: Optional[list] = None,
     ):
         """
         A basic recurrent spiking neuron layer, with a JAX-implemented forward Euler solver.
@@ -289,7 +289,7 @@ class RecLIFJax(Layer, JaxTrainer):
         :param float noise_std:                         Std. dev. of white noise injected independently onto the membrane of each neuron (Default: 0)
         :param Optional[float] dt:                      Forward Euler solver time step. Default: min(tau_mem, tau_syn) / 10
         :param Optional[str] name:                      Name of this layer. Default: `None`
-        :param Optional[int] rng_key:                   JAX pRNG key. Default: generate a new key
+        :param Optional[list] rng_key:                  List of two integers representing the state of the Jax PRNG. Default: generate a new key
         """
         # - Ensure that weights are 2D
         w_recurrent = np.atleast_2d(w_recurrent)
@@ -319,10 +319,13 @@ class RecLIFJax(Layer, JaxTrainer):
         # - Reset layer state
         self.reset_all()
 
-        # - Seed RNG
+        # - Create RNG
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-        _, self._rng_key = rand.split(rng_key)
+            _, self._rng_key = rand.split(rng_key)
+        else:
+            rng_key = np.array(onp.array(rng_key).astype(onp.uint32))
+            self._rng_key = rng_key
 
         # - Define stored internal state properties
         self._v_mem_last_evolution = []
@@ -614,10 +617,13 @@ class RecLIFJax(Layer, JaxTrainer):
         :return: dict
         """
         config = super().to_dict()
-        config["tau_mem"] = self.tau_mem.tolist()
-        config["tau_syn"] = self.tau_syn.tolist()
-        config["bias"] = self.bias.tolist()
-        config["rng_key"] = self._rng_key.tolist()
+        config.pop("weights")
+        config["w_recurrent"] = onp.array(self.w_recurrent).tolist()
+        config["tau_mem"] = onp.array(self.tau_mem).tolist()
+        config["tau_syn"] = onp.array(self.tau_syn).tolist()
+        config["bias"] = onp.array(self.bias).tolist()
+        config["rng_key"] = onp.array(self._rng_key).tolist()
+
         return config
 
     @property
@@ -971,21 +977,21 @@ class RecLIFJax_IO(RecLIFJax):
         noise_std: float = 0.0,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key: Optional[int] = None,
+        rng_key: Optional[list] = None,
     ):
         """
         Build a spiking recurrent layer with weighted spiking inputs and weighted surrogate outputs, and a JAX backend.
 
-        :param np.ndarray w_in:         Input weights [M, N]
-        :param np.ndarray w_recurrent:  Recurrent weights [N, N]
-        :param np.ndarray w_out:        Output weights [N, O]
-        :param FloatVector tau_mem:     Membrane time constants [N,]
-        :param FloatVector tau_syn:     Synaptic time constants [N,]
-        :param FloatVector bias:        Neuron biases [N,]
-        :param float noise_std:         Std. dev. of noise injected onto neuron membranes. Default: ``0.``, no noise
-        :param Optional[float] dt:      Time step for simulation, in s. Default: ``None``, will be determined automatically from ``tau_...``
-        :param Optional[str] name:      Name of this layer. Default: ``None``
-        :param Optional[int] rng_key:   JAX pRNG key. Default: Generate a new key
+        :param np.ndarray w_in:              Input weights [M, N]
+        :param np.ndarray w_recurrent:       Recurrent weights [N, N]
+        :param np.ndarray w_out:             Output weights [N, O]
+        :param FloatVector tau_mem:          Membrane time constants [N,]
+        :param FloatVector tau_syn:          Synaptic time constants [N,]
+        :param FloatVector bias:             Neuron biases [N,]
+        :param float noise_std:              Std. dev. of noise injected onto neuron membranes. Default: ``0.``, no noise
+        :param Optional[float] dt:           Time step for simulation, in s. Default: ``None``, will be determined automatically from ``tau_...``
+        :param Optional[str] name:           Name of this layer. Default: ``None``
+        :param Optional[list] rng_key:       List of two integers representing the state of the Jax PRNG. Default: generate a new key
         """
         # - Convert arguments to arrays
         w_in = np.array(w_in)
@@ -1158,6 +1164,18 @@ class RecLIFJax_IO(RecLIFJax):
     def output_type(self):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous
+
+    def to_dict(self) -> dict:
+        """
+        Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
+
+        :return Dict:   A dictionary that can be used to reconstruct the layer
+        """
+        config = super().to_dict()
+        config["w_in"] = onp.array(self.w_in).tolist()
+        config["w_out"] = onp.array(self.w_out).tolist()
+
+        return config
 
 
 class RecLIFCurrentInJax_IO(RecLIFJax_IO):
@@ -1390,20 +1408,20 @@ class FFLIFJax_IO(RecLIFJax_IO):
         noise_std: float = 0.0,
         dt: Optional[float] = None,
         name: Optional[str] = None,
-        rng_key: Optional[int] = None,
+        rng_key: Optional[list] = None,
     ):
         """
         Create a feedforward spiking LIF layer, with a JAX-accelerated backend.
 
-        :param FloatVector w_in:        Input weight matrix for this layer [M, N]
-        :param FloatVector w_out:       Output weight matrix for this layer [N, O]
-        :param FloatVector tau_mem:     Membrane time constants for each neuron in this layer. Can be provided as a scalar, which is then used for all neurons
-        :param FloatVector tau_syn:     Synaptic time constants for each neuron in this layer. Can be provided as a scalar, which is then used for all neurons
-        :param FloatVector bias:        Bias currents for each neuron in this layer. Can be provided as a scalar, which is then used for all neurons
-        :param float noise_std:         Standard deviation of a noise current which is injected onto the membrane of each neuron
-        :param float dt:                Euler solver time-step. Must be at least 10 times smaller than the smallest time constant, for numerical stability
-        :param Optional[str] name:      A string to use as the name of this layer
-        :param Optional[int] rng_key:   A JAX RNG key, used internally when generating noise and randomness. If not provided, a new RNG key will be generated.
+        :param FloatVector w_in:             Input weight matrix for this layer [M, N]
+        :param FloatVector w_out:            Output weight matrix for this layer [N, O]
+        :param FloatVector tau_mem:          Membrane time constants for each neuron in this layer. Can be provided as a scalar, which is then used for all neurons
+        :param FloatVector tau_syn:          Synaptic time constants for each neuron in this layer. Can be provided as a scalar, which is then used for all neurons
+        :param FloatVector bias:             Bias currents for each neuron in this layer. Can be provided as a scalar, which is then used for all neurons
+        :param float noise_std:              Standard deviation of a noise current which is injected onto the membrane of each neuron
+        :param float dt:                     Euler solver time-step. Must be at least 10 times smaller than the smallest time constant, for numerical stability
+        :param Optional[str] name:           A string to use as the name of this layer
+        :param Optional[list] rng_key:       List of two integers representing the state of the Jax PRNG. Default: generate a new key
         """
         # - Determine network shape
         w_in = np.atleast_2d(w_in)
@@ -1431,3 +1449,14 @@ class FFLIFJax_IO(RecLIFJax_IO):
     def i_rec_last_evolution(self):
         """Not defined for `.FFLIFJax_IO`"""
         raise ValueError("Recurrent currents do not exist for a feedforward layer")
+
+    def to_dict(self) -> dict:
+        """
+        Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
+
+        :return Dict:   A dictionary that can be used to reconstruct the layer
+        """
+        config = super().to_dict()
+        config.pop("w_recurrent")
+
+        return config

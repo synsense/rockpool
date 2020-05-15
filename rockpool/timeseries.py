@@ -546,8 +546,10 @@ class TimeSeries:
         try:
             # - Largest allowed value for new_start
             max_start = self._times[0] if self._times.size > 0 else self._t_stop
-            if new_start <= max_start:
-                self._t_start = float(new_start)
+            if new_start < max_start:
+                self._t_start = new_start
+            elif new_start - max_start < _TOLERANCE_ABSOLUTE:
+                self._t_start = max_start
             else:
                 raise ValueError(
                     "TimeSeries `{}`: t_start must be less or equal to {}. It was {}.".format(
@@ -569,6 +571,8 @@ class TimeSeries:
         min_stop = self._times[-1] if self._times.size > 0 else self._t_start
         if new_stop >= min_stop:
             self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
         else:
             raise ValueError(
                 "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
