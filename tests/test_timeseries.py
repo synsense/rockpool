@@ -1271,3 +1271,17 @@ def test_event_delay():
     assert ts5.t_start == 5
     ts5.start_at(4, inplace=True)
     assert ts5.t_start == 4
+
+
+def test_rounding():
+    from rockpool import TSContinuous
+
+    t = np.arange(0, 1, 0.001)
+    v = np.sin(t)
+
+    ts = TSContinuous(t, v)
+
+    ts.t_stop = t[-1] - 1e-10 
+    ts.t_start = t[0] + 1e-10 
+
+
