@@ -16,8 +16,6 @@ unit_tests:
 
 nest_tests:
   stage: test
-  allow_failure: true
-  when: manual
   image: aictx/ci-python-arch:latest
 
   before_script:
@@ -25,7 +23,8 @@ nest_tests:
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v test_nest
+      - source /usr/bin/nest_vars.sh
+      - pytest -v test_nest
 
 documentation_linting:
   stage: test
