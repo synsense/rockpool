@@ -9,9 +9,9 @@ from ...layers import PassThrough, FFExpSyn, RecFSSpikeADS
 from ...timeseries import TSContinuous
 import json
 
-from tqdm import tqdm
-
 from typing import Union, Callable, Tuple, List
+
+from tqdm import tqdm
 
 import matplotlib
 matplotlib.rc('font', family='Times New Roman')
