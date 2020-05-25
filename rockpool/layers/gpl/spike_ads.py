@@ -82,7 +82,7 @@ def discretize(W, base_weight):
 def bin_weights_slow(weights_slow, max_syn_per_connection, debug=False):
 
     assert((np.diagonal(weights_slow) == 0).all()), "Please set the diagonal weights of the recurrent matrix to 0"
-    base_weight = (np.max(weights_slow)-np.min(weights_slow)) / max_syn_per_connection
+    base_weight = (np.max(weights_slow)-np.min(weights_slow)) / (max_syn_per_connection-1)
     # - If the base weight is zero, return zero matrix
     if(base_weight == 0):
         return np.zeros(weights_slow.shape),np.zeros(weights_slow.shape)
@@ -320,7 +320,7 @@ class RecFSSpikeADS(Layer):
             self.weights_slow_discretized, _ = bin_weights_slow(self.weights_slow, self.num_synapse_states, debug=True)
         else:
             # - Meaning we should discretize normally
-            base_weight = (np.max(self.weights_slow)-np.min(self.weights_slow))/self.num_synapse_states
+            base_weight = (np.max(self.weights_slow)-np.min(self.weights_slow))/(self.num_synapse_states-1)
             if(base_weight != 0):
                 self.weights_slow_discretized, _ = discretize(self.weights_slow, base_weight)
 
@@ -720,7 +720,7 @@ class RecFSSpikeADS(Layer):
         if(verbose):
             
             fig = plt.figure(figsize=(20,20),constrained_layout=True)
-            gs = fig.add_gridspec(6, 1)
+            gs = fig.add_gridspec(7, 1)
 
             ax1 = fig.add_subplot(gs[0,0])
             ax1.plot(times, s[0:5,:].T)
@@ -747,6 +747,10 @@ class RecFSSpikeADS(Layer):
             ax6 = fig.add_subplot(gs[5,0])
             ax6.plot(times, out[0:5,:].T)
             ax6.set_title(r"$I_{out}$")
+
+            ax7 = fig.add_subplot(gs[6,0])
+            ax7.plot(times, f[0:5,:].T)
+            ax7.set_title(r"$I_{fast}$")
 
             plt.tight_layout()
             plt.draw()
