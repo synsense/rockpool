@@ -2053,8 +2053,15 @@ class TSEvent(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
+                # - Set the extent of the channels axis
+                ax.set_ylim(-1, self.num_channels+1)
+
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
+
 
             else:
                 raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
@@ -2366,7 +2373,7 @@ class TSEvent(TimeSeries):
         periodic: bool = False,
         num_channels: Optional[int] = None,
         spikes_at_bin_start: bool = False,
-    ):
+    ) -> "TSEvent":
         """
         Create a `.TSEvent` object from a raster array
 

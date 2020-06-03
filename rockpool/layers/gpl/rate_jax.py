@@ -470,12 +470,12 @@ class RecRateEulerJax(JaxTrainer, Layer):
         self._timestep += inps.shape[0] - 1
 
         # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs)
-        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
-        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
+        self.res_inputs_last_evolution = TSContinuous(time_base, res_inputs, name = "Reservoir inputs")
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs, name = "Recurrent inputs")
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts, name = "Layer activations")
 
         # - Wrap outputs as time series
-        return TSContinuous(time_base, onp.array(outputs))
+        return TSContinuous(time_base, onp.array(outputs), name = "Surrogate outputs")
 
     def _prepare_input(
         self,
