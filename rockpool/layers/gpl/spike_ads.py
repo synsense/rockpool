@@ -75,6 +75,50 @@ def learning_callback(r : np.ndarray , weights_in : np.ndarray, e : np.ndarray ,
     """
     return outer_numba(r, (weights_in.T @ (eta*e)).T)
 
+def discretize(W, base_weight):
+    tmp = np.round(W / base_weight)
+    return base_weight*tmp, tmp
+
+def bin_weights_slow(weights_slow, max_syn_per_connection, debug=False):
+
+    assert((np.diagonal(weights_slow) == 0).all()), "Please set the diagonal weights of the recurrent matrix to 0"
+    base_weight = (np.max(weights_slow)-np.min(weights_slow)) / (max_syn_per_connection-1)
+    # - If the base weight is zero, return zero matrix
+    if(base_weight == 0):
+        return np.zeros(weights_slow.shape),np.zeros(weights_slow.shape)
+
+    weights_slow_discrete, synapses_per_conn_matrix = discretize(weights_slow, base_weight)
+
+    # assert(F_disc.shape[1] == weights_slow.shape[0]), "Please specify F_disc to have shape Nc x N (e.g. 128 x 1024)"
+    # number_available_per_neuron = 64 - np.sum(np.abs(F_disc), axis=0)
+    number_available_per_neuron = np.ones(weights_slow.shape[0])*64
+
+    if(not (((number_available_per_neuron - np.sum(np.abs(synapses_per_conn_matrix), axis=1)) >= 0).all())):
+        # - Reduce the number of weights here, if necessary
+
+        for idx in range(synapses_per_conn_matrix.shape[0]):
+            num_available = number_available_per_neuron[idx]
+            # - Use sorting + cutoff to keep the most dominant weights
+            sorted_indices = np.flip(np.argsort(np.abs(synapses_per_conn_matrix[idx,:])))
+            sub_sum = 0; i = 0
+            while(sub_sum < num_available):
+                if(i == len(sorted_indices)):
+                    break
+                sub_sum += np.abs(synapses_per_conn_matrix[idx,:])[sorted_indices[i]]
+                i += 1
+            tmp = np.zeros(len(sorted_indices))
+            tmp[sorted_indices[0:i-1]] = synapses_per_conn_matrix[idx,sorted_indices[0:i-1]]
+            synapses_per_conn_matrix[idx,:] = tmp
+
+        # - Re-calculate the final weights_slow_discrete
+        weights_slow_discrete = base_weight*synapses_per_conn_matrix
+
+    assert ((number_available_per_neuron - np.sum(np.abs(synapses_per_conn_matrix), axis=1)) >= 0).all(), "More synapses used than available"
+    if(debug):
+        print("Number of synapses used: %d / %d" % (np.sum(np.abs(synapses_per_conn_matrix)), np.sum(number_available_per_neuron)))
+
+    return weights_slow_discrete, synapses_per_conn_matrix
+
 
 class RecFSSpikeADS(Layer):
     """
@@ -102,13 +146,16 @@ class RecFSSpikeADS(Layer):
                 refractory : float,
                 record : bool,
                 name : str,
-                adam: bool):
+                adam: bool,
+                discretize: int,
+                discretize_dynapse: bool):
         
         super().__init__(weights=np.zeros((np.asarray(weights_fast).shape[0],np.asarray(weights_fast).shape[1])), noise_std=noise_std, name=name)
 
         # - Fast weights, noise_std and name are access. via self.XX or self._XX
         self.noise_std = noise_std
         self.weights_slow = np.asarray(weights_slow).astype("float")
+        self.weights_slow_discretized = np.zeros(self.weights_slow.shape)
         self.weights_out = np.asarray(weights_out).astype("float")
         self.weights_in = np.asarray(weights_in).astype("float")
         self.weights_fast = np.asarray(weights_fast).astype("float")
@@ -143,6 +190,10 @@ class RecFSSpikeADS(Layer):
         self.epsilon = 0.00001
         self.beta1 = 0.9
         self.beta2 = 0.999
+
+        # - Discretization
+        self.num_synapse_states = discretize # How many distinct synapse weights to we allow? For example, 2**3 = 8 would be 3-bit precision
+        self.discretize_dynapse = discretize_dynapse # Do we want to respect the constraint of the DYNAP-SE neuromorphic hardware?
 
         # - Set a reasonable dt
         if dt is None:
@@ -261,6 +312,19 @@ class RecFSSpikeADS(Layer):
         R = full_nan((self.size, record_length))
         step_counter = 0
         record_length_batched = num_timesteps
+
+        # - Discretization
+        if(self.num_synapse_states == -1):
+            # - Should not discretize
+            self.weights_slow_discretized = self.weights_slow
+        elif(self.discretize_dynapse):
+            # - Meaning we should discretize using the DYNAP-SE constraints
+            self.weights_slow_discretized, _ = bin_weights_slow(self.weights_slow, self.num_synapse_states, debug=True)
+        else:
+            # - Meaning we should discretize normally
+            base_weight = (np.max(self.weights_slow)-np.min(self.weights_slow))/(self.num_synapse_states-1)
+            if(base_weight != 0):
+                self.weights_slow_discretized, _ = discretize(self.weights_slow, base_weight)
 
         # @njit # - njit compiled is actually slower
         def _evolve_backstep(
@@ -464,7 +528,7 @@ class RecFSSpikeADS(Layer):
                 t_last=t_last,
                 t_time=t_time,
                 weights= self.weights_fast,
-                weights_slow=self.weights_slow,
+                weights_slow=self.weights_slow_discretized, # This does not have to be discretized. If --discretize is set to -1, this is simply the continuous version
                 weights_in=self.weights_in,
                 weights_out = self.weights_out,
                 k = self.k,
@@ -658,7 +722,7 @@ class RecFSSpikeADS(Layer):
         if(verbose):
             
             fig = plt.figure(figsize=(20,20),constrained_layout=True)
-            gs = fig.add_gridspec(6, 1)
+            gs = fig.add_gridspec(7, 1)
 
             ax1 = fig.add_subplot(gs[0,0])
             ax1.plot(times, s[0:5,:].T)
@@ -686,6 +750,10 @@ class RecFSSpikeADS(Layer):
             ax6.plot(times, out[0:5,:].T)
             ax6.set_title(r"$I_{out}$")
 
+            ax7 = fig.add_subplot(gs[6,0])
+            ax7.plot(times, f[0:5,:].T)
+            ax7.set_title(r"$I_{fast}$")
+
             plt.tight_layout()
             plt.draw()
             plt.waitforbuttonpress(0) # this will wait for indefinite time
@@ -693,7 +761,7 @@ class RecFSSpikeADS(Layer):
 
             # - Plot reconstruction
             fig = plt.figure(figsize=(20,20))
-            plot_num = 128
+            plot_num = self.weights_out.shape[1]
             stagger_out = np.ones((plot_num, out.shape[1]))
             stagger_target = np.ones((plot_num, self.static_target.shape[0]))
             for i in range(plot_num):
@@ -766,6 +834,8 @@ class RecFSSpikeADS(Layer):
         config["record"] = int(self.record)
         config["name"] = self.name
         config["adam"] = self.use_adam
+        config["discretize"] = self.num_synapse_states
+        config["discretize_dynapse"] = self.discretize_dynapse
         
         return config
 
