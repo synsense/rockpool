@@ -255,6 +255,21 @@ def test_continuous_call():
     assert (samples_single[1] == np.array([3, 2])).all()
     assert (samples_single[4] == np.array([3, 2])).all()
 
+    # - Clocked series
+    ts = TSContinuous.from_clocked([6], dt=10)
+    assert (ts(1) == 6).all()
+    assert (ts([1]) == 6).all()
+    assert (ts(10) == 6).all()
+    assert np.isnan(ts(-1))
+    assert np.isnan(ts(11))
+
+    ts = TSContinuous.from_clocked(6, dt=10)
+    assert (ts(1) == 6).all()
+    assert (ts([1]) == 6).all()
+    assert (ts(10) == 6).all()
+    assert np.isnan(ts(-1))
+    assert np.isnan(ts(11))
+
 
 def test_continuous_clip():
     from rockpool import TSContinuous
@@ -361,7 +376,7 @@ def test_continuous_append_c():
     assert (
         (appended_fromtwo.samples[:, :2] == samples[:2, :2]).all()
         and (appended_fromtwo.samples[0, -2:] == samples[0, -2:]).all()
-        and (np.isnan(appended_fromtwo.samples[1, -2:])).all()
+        and (appended_fromtwo.samples[1, -2:] == samples[0, -2:]).all()
     ), "Wrong samples for appended series."
 
     # Appending with empty series
@@ -1308,7 +1323,5 @@ def test_rounding():
 
     ts = TSContinuous(t, v)
 
-    ts.t_stop = t[-1] - 1e-10 
-    ts.t_start = t[0] + 1e-10 
-
-
+    ts.t_stop = t[-1] - 1e-10
+    ts.t_start = t[0] + 1e-10

@@ -751,7 +751,11 @@ class TSContinuous(TimeSeries):
 
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
-        time_base = np.arange(len(samples)) * dt + t_start
+        if samples is None or np.size(samples) == 0:
+            raise TypeError(
+                "TSContinuous.from_clocked: `samples` must not be empty or `None`."
+            )
+        time_base = np.arange(0, np.size(samples)) * dt + t_start
         return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name)
 
     ## -- Methods for plotting and printing
@@ -1366,12 +1370,19 @@ class TSContinuous(TimeSeries):
             self.interp = lambda t: None
 
         elif np.size(self.times) == 1:
+
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
                 times = np.array(t).flatten()
                 samples = np.empty((times.size, self.num_channels))
                 samples.fill(np.nan)
-                samples[times == self.times[0]] = self.samples[0]
+                if self._fill_value == "extrapolate":
+                    assign_val = np.logical_and(
+                        self.t_start <= times, times <= self.t_stop
+                    )
+                else:
+                    assign_val = times == self.times[0]
+                samples[assign_val] = self.samples[0]
                 return samples
 
             self.interp = single_sample
