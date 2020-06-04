@@ -1,6 +1,6 @@
 # ----
 # params.py - Constant hardware parameters
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 # ----
 
 CORE_DIMENSIONS = (16, 16)  # Numbers of neurons in core (rows, columns)

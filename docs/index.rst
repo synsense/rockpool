@@ -10,7 +10,7 @@ Welcome to |project|
 networks for Neuromorphic computing hardware. |project| provides a convenient interface for designing, training
 and evaluating recurrent networks, which can operate both with continuous-time dynamics and event-driven dynamics.
 
-|project| is an open-source project managed by aiCTX AG.
+|project| is an open-source project managed by SynSense.
 
 .. toctree::
    :maxdepth: 1
