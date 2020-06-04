@@ -565,6 +565,33 @@ def test_continuous_merge():
         == np.vstack((samples[0, :2], samples[0, 2:4], samples[1, :2], samples[1, 4:6]))
     ).all(), "Wrong samples when merging with list."
 
+def test_continuous_from_clocked():
+    from rockpool import TSContinuous
+    import numpy as np
+
+    # - Generate some data
+    T = 100
+    dt = .1
+    data = np.random.rand(T, 1)
+
+    # - Basic usage
+    ts = TSContinuous.from_clocked(data, dt = dt)
+    assert ts.t_start == 0.
+    assert ts.t_stop == T * dt
+    assert np.all(ts.samples == data)
+    assert np.all(ts.times == np.arange(T) * dt)
+
+    # - Specify t_start
+    ts = TSContinuous.from_clocked(data, dt = .1, t_start = 1.)
+    assert ts.t_start == 1.
+    assert ts.t_stop == 11.
+
+    # - Generate a periodic series
+    ts = TSContinuous.from_clocked(data, dt = .1, periodic= True)
+    assert ts.periodic
+
+    # - Set a name
+    ts = TSContinuous.from_clocked(data, dt = .1, name = 'test')
 
 def test_event_call():
     from rockpool import TSEvent
