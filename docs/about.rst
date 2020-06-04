@@ -8,18 +8,22 @@ About |project|
 
 |project| is an open source project released by aiCTX AG.
 
-.. image:: https://img.shields.io/pypi/v/rockpool.svg
+.. image:: https://img.shields.io/pypi/v/rockpool
+   :target: https://pypi.org/project/rockpool/
 
 .. image:: https://img.shields.io/conda/v/conda-forge/rockpool
+   :target: https://anaconda.org/conda-forge/rockpool
 
 .. image:: https://img.shields.io/pypi/pyversions/rockpool?logo=python
+   :target: https://pypi.org/project/rockpool/
 
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+.. image:: https://img.shields.io/badge/code_style-black-000000
 
 .. image:: https://img.shields.io/pypi/dd/rockpool
+   :target: https://pypi.org/project/rockpool/
 
-.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3773846.svg
-   :target: https://doi.org/10.5281/zenodo.3773846
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3773845.svg
+   :target: https://doi.org/10.5281/zenodo.3773845
 
 About aiCTX
 -----------

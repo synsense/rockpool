@@ -746,12 +746,13 @@ class TSContinuous(TimeSeries):
         :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``
         :param float dt:            The sample interval for ``samples``
         :param float t_start:       The time of the first sample.
+        :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
+        :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
 
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
-        time_base = np.arange(0, len(samples)) * dt + t_start
-        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt,
-                            periodic = periodic, name = name,)
+        time_base = np.arange(len(samples)) * dt + t_start
+        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name)
 
     ## -- Methods for plotting and printing
 
@@ -2056,8 +2057,15 @@ class TSEvent(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
+                # - Set the extent of the channels axis
+                ax.set_ylim(-1, self.num_channels+1)
+
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
+
 
             else:
                 raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
@@ -2187,7 +2195,7 @@ class TSEvent(TimeSeries):
 
         Events are represented in a boolean matrix, where the first axis corresponds to time, the second axis to the channel. Events that happen between time steps are projected to the preceding step. If two events happen during one time step within a single channel, they are counted as one, unless ``add_events`` is ``True``.
 
-        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at ``t+dt``**. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
+        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at** ``t+dt``. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
 
         To generate a time trace that corresponds to the raster, you can use :py:func:`numpy.arange` as follows::
 
@@ -2369,7 +2377,7 @@ class TSEvent(TimeSeries):
         periodic: bool = False,
         num_channels: Optional[int] = None,
         spikes_at_bin_start: bool = False,
-    ):
+    ) -> "TSEvent":
         """
         Create a `.TSEvent` object from a raster array
 
