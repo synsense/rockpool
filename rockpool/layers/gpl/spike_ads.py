@@ -194,6 +194,8 @@ class RecFSSpikeADS(Layer):
         input_time_trace, static_input, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
         final_time = input_time_trace[-1]
 
+        # print(f"Final time is {final_time} and self._t is {self._t}")
+
         # - Assertions about training and the targets that were set
         if(self.is_training):
             assert (self.ts_target is not None), "Evolve called with learning flag set, but no target input provided"
@@ -233,7 +235,7 @@ class RecFSSpikeADS(Layer):
         t_time = self._t
         t_start = self._t
         step = 0
-        t_last = 0.0
+        t_last = self._t
         v_last = self._state.copy()
         I_s_S_Last = self.I_s_S.copy()
         I_s_F_Last = self.I_s_F.copy()
