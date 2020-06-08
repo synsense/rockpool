@@ -385,10 +385,6 @@ class JaxTrainer(ABC):
             # - Assign "in training" flag
             self.__in_training_sgd_adam = True
 
-        # print("loss function: ", self.__loss_fcn)
-        # print("grad function: ", self.__grad_fcn)
-        # print("update function: ", self.__update_fcn)
-
         # - Prepare time base and inputs
         if isinstance(ts_input, TimeSeries):
             # - Check that `ts_target` is also a time series
@@ -421,22 +417,32 @@ class JaxTrainer(ABC):
         if debug_nans:
             str_error = ''
 
+            # - Check current network state
+            for k, v in self._state.items():
+                if np.any(np.isnan(v)):
+                    str_error += 'Pre-evolve network state {} contains NaNs\n'.format(k)
+
+            # - Check network parameters
+            for k, v in self._pack().items():
+                if np.any(np.isnan(v)):
+                    str_error += 'Pre-optimisation step network parameter {} contains NaNs\n'.format(k)
+
             # - Check loss function
             if np.isnan(l_fcn()):
                 str_error += 'Loss function returned NaN\n'
 
             # - Check outputs
-            output_ts, state = o_fcn()
+            output_ts, new_state = o_fcn()
             if np.any(np.isnan(output_ts)):
                 str_error += 'Network output contained NaNs\n'
 
             # - Check network states
-            if not isinstance(state, dict):
-                state = {'_': state}
+            if not isinstance(new_state, dict):
+                new_state = {'_': new_state}
 
-            for k, v in state.items():
+            for k, v in new_state.items():
                 if np.any(np.isnan(v)):
-                    str_error += 'Network state {} contains NaNs\n'.format(k)
+                    str_error += 'Post-evolve network state {} contains NaNs\n'.format(k)
 
             # - Check gradients
             gradients = g_fcn()

@@ -414,6 +414,80 @@ def test_FFLIFJax_IO():
         )
 
 
+def test_FFLIFCurrentInJax_SO():
+    """ Test test_FFLIFCurrentInJax_SO """
+    from rockpool import TSContinuous, TSEvent
+    from rockpool.layers import FFLIFCurrentInJax_SO
+
+    # - Generic parameters
+    in_size = 3
+    net_size = 2
+    dt = 1e-3
+
+    w_in = 2 * np.random.rand(in_size, net_size) - 1
+    bias = 2 * np.random.rand(net_size) - 1
+    tau_m = 20e-3 * np.ones(net_size)
+    tau_s = 20e-3 * np.ones(net_size)
+
+    # - Layer generation
+    fl0 = FFLIFCurrentInJax_SO(
+        w_in=w_in,
+        bias=bias,
+        noise_std=0.1,
+        tau_mem=tau_m,
+        tau_syn=tau_s,
+        dt=dt,
+    )
+
+    # - Input signal
+    tsInCont = TSContinuous(
+        times=np.arange(15) * dt,
+        samples=np.ones((15, in_size)),
+        t_start=0.0,
+        t_stop=16 * dt,
+    )
+
+    # - Compare states and time before and after
+    vStateBefore = np.copy(fl0.state["Vmem"])
+    ts_output = fl0.evolve(tsInCont, duration=0.1)
+    assert fl0.t == 0.1
+    assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInCont)
+    assert fl0.t == 16 * dt
+
+    fl0.reset_all()
+    assert fl0.t == 0
+    assert (vStateBefore == fl0.state["Vmem"]).all()
+
+    # - Test that some errors are caught
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFCurrentInJax_SO(
+            w_in=np.zeros((2, 4)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFCurrentInJax_SO(
+            w_in=np.zeros((2, 3)),
+            tau_mem=np.zeros(4),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFCurrentInJax_SO(
+            w_in=np.zeros((2, 3)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(4),
+            bias=np.zeros(3),
+        )
+
+
 def test_largescale():
     from rockpool import TSEvent, TSContinuous
     from rockpool.layers import RecLIFCurrentInJax, RecLIFJax, RecLIFJax_IO
@@ -781,6 +855,65 @@ def test_training_RecLIFJax_IO():
         lyrIO.randomize_state()
         l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
             tsInSpikes, target_ts, is_first=(t == 0),
+            debug_nans = True,
+        )
+
+        l_fcn()
+        g_fcn()
+        o_fcn()
+
+def test_training_FFLIFCurrentInJax_SO():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFLIFCurrentInJax_SO
+    import numpy as np
+
+    Nin = 10
+    N = 200
+    Nout = 3
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, Nin, tau_mem, tau_syn, bias):
+        return {
+            "w_in": (np.random.rand(Nin, N) - 0.5) / N,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, Nin, tau_mem, tau_syn, bias)
+    lyrIO = FFLIFCurrentInJax_SO(**params0, dt=dt)
+
+    # - Define input and target
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.arange(0, T) * dt
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    tsInCont = TSContinuous.from_clocked(
+        np.random.rand(T, Nin),
+        dt=dt,
+        periodic=True,
+    )
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(tsInCont)
+
+    # - Train
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+            tsInCont, target_ts, is_first=(t == 0),
             debug_nans = True,
         )
 

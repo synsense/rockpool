@@ -51,6 +51,7 @@ dModules = {
         "RecLIFJax_IO",
         "RecLIFCurrentInJax_IO",
         "FFLIFJax_IO",
+        "FFLIFCurrentInJax_SO",
     ),
 }
 
