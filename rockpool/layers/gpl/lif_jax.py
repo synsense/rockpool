@@ -253,7 +253,8 @@ def loss_mse_reg(
     # - Get loss for tau parameter constraints
     tau_loss = reg_tau * np.nanmean(
         np.where(params["tau_syn"] < min_tau_syn, np.exp(-(params["tau_syn"] - min_tau_syn)), 0)
-    ) * np.nanmean(
+    )
+    tau_loss += reg_tau * np.nanmean(
         np.where(params["tau_mem"] < min_tau_mem, np.exp(-(params["tau_mem"] - min_tau_mem)), 0)
     )
 
