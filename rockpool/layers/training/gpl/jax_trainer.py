@@ -29,6 +29,48 @@ Params = Union[Dict, Tuple, List]
 __all__ = ["JaxTrainer"]
 
 
+# - Define a useful default loss function
+@jit
+def loss_mse_reg(
+        params: Params,
+        output_batch_t: np.ndarray,
+        target_batch_t: np.ndarray,
+        min_tau: float,
+        lambda_mse: float = 1.0,
+        reg_tau: float = 10000.0,
+        reg_l2_rec: float = 1.0,
+) -> float:
+    """
+    Loss function for target versus output
+
+    :param Params params:               Set of packed parameters
+    :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
+    :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
+    :param float min_tau:               Minimum time constant
+    :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
+    :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
+    :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
+
+    :return float: Current loss value
+    """
+    # - Measure output-target loss
+    mse = lambda_mse * np.nanmean((output_batch_t - target_batch_t) ** 2)
+
+    # - Get loss for tau parameter constraints
+    tau_loss = reg_tau * np.nanmean(
+        np.where(params["tau"] < min_tau, np.exp(-(params["tau"] - min_tau)), 0)
+    )
+
+    # - Measure recurrent L2 norm
+    w_res_norm = reg_l2_rec * np.nanmean(params["w_recurrent"] ** 2)
+
+    # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
+    fLoss = mse + w_res_norm + tau_loss
+
+    # - Return loss
+    return fLoss
+
+
 class JaxTrainer(ABC):
     """
     Mixin class for a trainable layer, with evolution functions based on Jax
@@ -147,17 +189,32 @@ class JaxTrainer(ABC):
 
         return evol_func
 
+    # - Define a default loss function
+    @property
+    def _default_loss(self) -> Callable[[Any], float]:
+        return loss_mse_reg
+    
+    @property
+    def _default_loss_params(self) -> Dict:
+        return {
+            "lambda_mse": 1.0,
+            "reg_tau": 10000.0,
+            "reg_l2_rec": 1.0,
+            "min_tau": self._dt * 11.0,
+        }
+
     def train_output_target(
         self,
         ts_input: Union[TimeSeries, np.ndarray],
         ts_target: Union[TimeSeries, np.ndarray],
         is_first: bool = False,
         is_last: bool = False,
+        debug_nans: bool = False,
         loss_fcn: Callable[[Dict, Tuple], float] = None,
         loss_params: Dict = {},
         optimizer: Callable = adam,
         opt_params: Dict = {"step_size": 1e-4},
-    ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], np.ndarray]]:
+    ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], Tuple[np.ndarray, State]]]:
         """
         Perform one trial of Adam stochastic gradient descent to train the layer
 
@@ -166,6 +223,7 @@ class JaxTrainer(ABC):
         :param Optional[float] min_tau: Minimum time constant to permit
         :param bool is_first:           Flag to indicate this is the first trial. Resets learning and causes initialisation.
         :param bool is_last:            Flag to indicate this is the last trial. Performs clean-up (not essential)
+        :param bool debug_nans:         If ``True``, ``nan`` s will raise an AssertionError. Default: ``False``, do not check for ``nan`` s.
         :param Callable loss_fcn:       Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
         :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
         :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: :py:func:`jax.experimental.optimizers.adam`
@@ -234,47 +292,6 @@ class JaxTrainer(ABC):
                                 ``output_fcn``: Callable[[], np.ndarray] Function that returns the layer output for the current batch
         """
 
-        # - Define default loss function
-        @jit
-        def loss_mse_reg(
-            params: Params,
-            output_batch_t: np.ndarray,
-            target_batch_t: np.ndarray,
-            min_tau: float,
-            lambda_mse: float = 1.0,
-            reg_tau: float = 10000.0,
-            reg_l2_rec: float = 1.0,
-        ) -> float:
-            """
-            Loss function for target versus output
-
-            :param Params params:               Set of packed parameters
-            :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
-            :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
-            :param float min_tau:               Minimum time constant
-            :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
-            :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
-            :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
-
-            :return float: Current loss value
-            """
-            # - Measure output-target loss
-            mse = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
-
-            # - Get loss for tau parameter constraints
-            tau_loss = reg_tau * np.mean(
-                np.where(params["tau"] < min_tau, np.exp(-(params["tau"] - min_tau)), 0)
-            )
-
-            # - Measure recurrent L2 norm
-            w_res_norm = reg_l2_rec * np.mean(params["w_recurrent"] ** 2)
-
-            # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
-            fLoss = mse + tau_loss + w_res_norm
-
-            # - Return loss
-            return fLoss
-
         # - Initialise training
         initialise = is_first or not hasattr(
             self, "_JaxTrainer__in_training_sgd_adam"
@@ -319,13 +336,8 @@ class JaxTrainer(ABC):
             # - If using default loss, set up parameters
             if loss_fcn is None:
                 # print("default loss function")
-                loss_fcn = loss_mse_reg
-                default_loss_params = {
-                    "lambda_mse": 1.0,
-                    "reg_tau": 10000.0,
-                    "reg_l2_rec": 1.0,
-                    "min_tau": self._dt * 11.0,
-                }
+                loss_fcn = self._default_loss
+                default_loss_params = self._default_loss_params
                 default_loss_params.update(loss_params)
                 loss_params = default_loss_params
 
@@ -392,20 +404,8 @@ class JaxTrainer(ABC):
             inps = ts_input
             target = ts_target
 
-        # - Perform one step of optimisation
-        self.__opt_state = self.__update_fcn(
-            next(self.__itercount), self.__opt_state, inps, target
-        )
-
-        # - Apply the parameter updates
-        self._unpack(self.__get_params(self.__opt_state))
-
-        # - Reset status, on "is_last" flag
-        if is_last:
-            del self.__in_training_sgd_adam
-
-        # - Return lambdas that evaluate the loss and the gradient
-        return (
+        # - Create lambdas that evaluate the loss and the gradient on this trial
+        l_fcn, g_fcn, o_fcn = (
             lambda: self.__loss_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
             ),
@@ -416,3 +416,50 @@ class JaxTrainer(ABC):
                 self.__get_params(self.__opt_state), self._state, inps
             ),
         )
+
+        # - NaNs raise errors
+        if debug_nans:
+            str_error = ''
+
+            # - Check loss function
+            if np.isnan(l_fcn()):
+                str_error += 'Loss function returned NaN\n'
+
+            # - Check outputs
+            output_ts, state = o_fcn()
+            if np.any(np.isnan(output_ts)):
+                str_error += 'Network output contained NaNs\n'
+
+            # - Check network states
+            if not isinstance(state, dict):
+                state = {'_': state}
+
+            for k, v in state.items():
+                if np.any(np.isnan(v)):
+                    str_error += 'Network state {} contains NaNs\n'.format(k)
+
+            # - Check gradients
+            gradients = g_fcn()
+            for k, v in gradients.items():
+                if np.any(np.isnan(v)):
+                    str_error += 'Gradient item {} contains NaNs\n'.format(k)
+
+            # - Raise the error
+            if str_error:
+                raise ValueError(str_error)
+
+        # - Perform one step of optimisation
+        self.__opt_state = self.__update_fcn(
+            next(self.__itercount), self.__opt_state, inps, target
+        )
+
+        # - Apply the parameter updates
+        new_params = self.__get_params(self.__opt_state)
+        self._unpack(new_params)
+
+        # - Reset status, on "is_last" flag
+        if is_last:
+            del self.__in_training_sgd_adam
+
+        return l_fcn, g_fcn, o_fcn
+

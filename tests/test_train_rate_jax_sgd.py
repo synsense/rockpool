@@ -35,7 +35,7 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
 
     # - Initialise training
     loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
-        ts_input, ts_target, is_first=True
+        ts_input, ts_target, is_first=True, debug_nans = True,
     )
 
     # - Test loss and gradient functions
@@ -112,7 +112,7 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
 
     # - Initialise training
     loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
-        ts_input, ts_target, is_first=True
+        ts_input, ts_target, is_first=True, debug_nans = True,
     )
 
     # - Test loss and gradient functions

@@ -673,6 +673,8 @@ class TSContinuous(TimeSeries):
     >>> ts[0:.1:1, :3]
 
     """
+    
+    _samples = []
 
     def __init__(
         self,
@@ -743,7 +745,7 @@ class TSContinuous(TimeSeries):
 
         ``samples`` is an array of clocked samples, sampled at a regular interval ``dt``. Each sample is assumed to occur at the **start** of a time bin, such that the first sample occurs at ``t = 0`` (or ``t = t_start``). A continuous time series will be returned, constructed using ``samples``, and filling the time ``t = 0`` to ``t = N*dt``, with ``t_start`` and ``t_stop`` set appropriately.
 
-        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``
+        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``. ``samples`` must be of shape ``[T, C]``, where ``T`` is the number of time bins, and ``C`` is the number of channels.
         :param float dt:            The sample interval for ``samples``
         :param float t_start:       The time of the first sample.
         :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
@@ -755,7 +757,7 @@ class TSContinuous(TimeSeries):
             raise TypeError(
                 "TSContinuous.from_clocked: `samples` must not be empty or `None`."
             )
-        time_base = np.arange(0, np.size(samples)) * dt + t_start
+        time_base = np.arange(0, np.shape(samples)[0]) * dt + t_start
         return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name)
 
     ## -- Methods for plotting and printing

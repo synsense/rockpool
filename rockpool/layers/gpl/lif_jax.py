@@ -217,6 +217,58 @@ def _evolve_lif_jax(
     return state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts, key1
 
 
+# - Define a useful default loss function
+@jit
+def loss_mse_reg(
+        params: Params,
+        output_batch_t: np.ndarray,
+        target_batch_t: np.ndarray,
+        min_tau_syn: float,
+        min_tau_mem: float,
+        lambda_mse: float = 1.0,
+        reg_tau: float = 10000.0,
+        reg_l2_rec: float = 1.0,
+        reg_l2_in: float = 1.0,
+        reg_l2_out: float = 1.0,
+) -> float:
+    """
+    Loss function for target versus output
+
+    :param Params params:               Set of packed parameters
+    :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
+    :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
+    :param float min_tau_syn:           Minimum synaptic time constant
+    :param float min_tau_mem:           Minimum membrane time constant
+    :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
+    :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
+    :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
+    :param float reg_l2_in:             Factor when combining loss, on L2-norm term of input weights. Default: 1.
+    :param float reg_l2_out:            Factor when combining loss, on L2-norm term of output weights. Default: 1.
+
+    :return float: Current loss value
+    """
+    # - Measure output-target loss
+    mse = lambda_mse * np.nanmean((output_batch_t - target_batch_t) ** 2)
+
+    # - Get loss for tau parameter constraints
+    tau_loss = reg_tau * np.nanmean(
+        np.where(params["tau_syn"] < min_tau_syn, np.exp(-(params["tau_syn"] - min_tau_syn)), 0)
+    ) * np.nanmean(
+        np.where(params["tau_mem"] < min_tau_mem, np.exp(-(params["tau_mem"] - min_tau_mem)), 0)
+    )
+
+    # - Measure recurrent L2 norm
+    w_res_norm = reg_l2_rec * np.nanmean(params["w_recurrent"] ** 2)
+    w_res_norm += reg_l2_in * np.nanmean(params["w_in"] ** 2)
+    w_res_norm += reg_l2_out * np.nanmean(params["w_out"] ** 2)
+
+    # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
+    fLoss = mse + w_res_norm + tau_loss
+
+    # - Return loss
+    return fLoss
+
+
 class RecLIFJax(Layer, JaxTrainer):
     """
     Recurrent spiking neuron layer (LIF), spiking input and spiking output. No input / output weights.
@@ -310,8 +362,8 @@ class RecLIFJax(Layer, JaxTrainer):
         self.tau_syn = tau_syn
         self.bias = bias
 
-        self._w_in = 1
-        self._w_out = 1
+        self._w_in = 1.
+        self._w_out = 1.
 
         # - Get compiled evolution function
         self._evolve_jit = jit(_evolve_lif_jax)
@@ -334,6 +386,21 @@ class RecLIFJax(Layer, JaxTrainer):
         self._i_syn_last_evolution = []
         self._i_rec_last_evolution = []
 
+    # - Replace the default loss function
+    @property
+    def _default_loss(self) -> Callable[[Any], float]:
+        return loss_mse_reg
+    
+    @property
+    def _default_loss_params(self) -> Dict:
+        return {
+            "lambda_mse": 1.0,
+            "reg_tau": 10000.0,
+            "reg_l2_rec": 1.0,
+            "min_tau_syn": self._dt * 11.0,
+            "min_tau_mem": self._dt * 11.0,
+        }
+
     def _pack(self) -> Params:
         """
         Return a packed form of the tunable parameters for this layer
@@ -347,6 +414,7 @@ class RecLIFJax(Layer, JaxTrainer):
             "bias": self._bias,
             "tau_mem": self._tau_mem,
             "tau_syn": self._tau_syn,
+            "noise_std": self._noise_std,
         }
 
     def _unpack(self, params: Params):
@@ -1361,11 +1429,11 @@ class FFLIFJax_IO(RecLIFJax_IO):
 
     .. math::
 
-        \\tau_{syn} \dot{I}_{syn} + I_{syn} = 0
+        \\tau_{syn} \\dot{I}_{syn} + I_{syn} = 0
 
-        I_{syn} += S_{in}(t) \cdot w_{in}
+        I_{syn} += S_{in}(t) \\cdot w_{in}
 
-        \\tau_{syn} \dot{V}_{mem} + V_{mem} = I_{syn} + I_{in}(t) \cdot w_{in} + b + \sigma\zeta(t)
+        \\tau_{syn} \\dot{V}_{mem} + V_{mem} = I_{syn} + I_{in}(t) \\cdot w_{in} + b + \\sigma\\zeta(t)
 
     where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`w_{in}` is a :math:`[N_{in} \\times N]` matrix of input weights; :math:`I_{in}(t)` is a vector of input currents injected directly onto the neuron membranes; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
 
@@ -1389,7 +1457,7 @@ class FFLIFJax_IO(RecLIFJax_IO):
 
         U_j = \\textrm{sig}(V_j)
 
-        O(t) = U(t) \cdot w_{out}
+        O(t) = U(t) \\cdot w_{out}
 
     Where :math:`w_{out}` is a :math:`[N \\times N_{out}]` matrix of output weights, and :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
 
