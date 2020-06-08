@@ -258,7 +258,7 @@ def train_output_target(
         )
         target = ts_target(time_base)
     elif ts_input.__class__ is TSContinuous:
-        time_base, inps_sp, num_timesteps = self._prepare_input_events(
+        time_base, inps_sp, num_timesteps = self._prepare_input(
             ts_input, None, None
         )
         target = ts_target(time_base)

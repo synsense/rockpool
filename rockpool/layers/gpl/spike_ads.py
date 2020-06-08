@@ -717,7 +717,7 @@ class RecFSSpikeADS(Layer):
         self._timestep += num_timesteps
 
         # - Return output TimeSeries
-        ts_event_return = TSEvent(spike_times, spike_indices)
+        ts_event_return = TSEvent(spike_times, spike_indices, num_channels=self.size)
 
         if(verbose):
             
