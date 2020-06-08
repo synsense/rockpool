@@ -391,14 +391,12 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, inputs, final_out) -> (outputs, new_state):
+            def evol_func(params, state, inputs) -> (outputs, new_state):
 
         :return Callable[[Params, State, np.ndarray, bool], Tuple[np.ndarray, State]]:
         """
 
-        def evol_func(
-            params: Params, state: State, inputs: np.ndarray, final_out: bool = False
-        ):
+        def evol_func(params: Params, state: State, inputs: np.ndarray):
             # - Call the jitted evolution function for this layer
             new_state, _, _, _, outputs, key1 = self._evolve_jit(
                 state,
@@ -414,9 +412,8 @@ class RecRateEulerJax(JaxTrainer, Layer):
             )
 
             # - Include output of final state
-            if final_out:
-                out_final = self.get_output_from_state(state)[0]
-                outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+            out_final = self.get_output_from_state(state)[0]
+            outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
@@ -891,16 +888,13 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, (inputs, forces), final_out) -> (outputs, new_state):
+            def evol_func(params, state, (inputs, forces)) -> (outputs, new_state):
 
         :return Callable[[Params, State, Tuple[np.ndarray], bool], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
-            params: Params,
-            state: State,
-            inputs_forces: Tuple[np.ndarray, np.ndarray],
-            final_out: bool = False,
+            params: Params, state: State, inputs_forces: Tuple[np.ndarray, np.ndarray],
         ):
             # - Unpack inputs
             inputs, forces = inputs_forces
@@ -920,9 +914,8 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
             )
 
             # - Include output of final state
-            if final_out:
-                out_final = self.get_output_from_state(state)[0]
-                outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+            out_final = self.get_output_from_state(state)[0]
+            outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):

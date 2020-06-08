@@ -351,7 +351,7 @@ class JaxTrainer(ABC):
 
                 # - Call loss function and return loss
                 return loss_fcn(
-                    opt_params, output_batch_t, target_batch_t, **loss_params
+                    opt_params, output_batch_t[1:], target_batch_t, **loss_params
                 )
 
             # print("using loss function: ", loss_fcn)
