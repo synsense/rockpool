@@ -686,7 +686,7 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         name: str = "unnamed",
         units: Optional[str] = None,
-        interp_kind: str = "previous",
+        interp_kind: str = "linear",
         fill_value: str = "extrapolate",
     ):
         """
@@ -700,7 +700,7 @@ class TSContinuous(TimeSeries):
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param str name:                    Name of the `.TSContinuous` object. Default: ``"unnamed"``
         :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
-        :param str interp_kind:             Specify the interpolation type. Default: ``"previous"``
+        :param str interp_kind:             Specify the interpolation type. Default: ``"linear"``
         :param str fill_value:              Specify the method to fill values outside sample times. Default: ``"extrapolate"``. **Sampling beyond `.t_stop` is still not permitted**
 
         If the time series is not periodic (the default), then NaNs will be returned for any values outside `t_start` and `t_stop`.
@@ -738,7 +738,7 @@ class TSContinuous(TimeSeries):
     ## -- Alternative constructor for clocked time series
     @staticmethod
     def from_clocked(
-        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None,
+        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None, interp_kind: str = 'previous', 
     ) -> "TSContinuous":
         """
         Convenience method to create a new continuous time series from a clocked sample.
@@ -750,6 +750,7 @@ class TSContinuous(TimeSeries):
         :param float t_start:       The time of the first sample.
         :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
         :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
+        :param str interp_kind:     String specifying the interpolation method to be used for the returned time series. Any string accepted by `scipy.interp1d` is accepted. Default: `"previous"`, sample-and-hold interpolation. 
 
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
@@ -757,8 +758,15 @@ class TSContinuous(TimeSeries):
             raise TypeError(
                 "TSContinuous.from_clocked: `samples` must not be empty or `None`."
             )
+
+        # - Ensure that `samples` is an ndarray
+        samples = np.atleast_1d(samples)
+
+        # - Build a time base
         time_base = np.arange(0, np.shape(samples)[0]) * dt + t_start
-        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name)
+        
+        # - Return a continuous time series
+        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name, interp_kind = interp_kind,)
 
     ## -- Methods for plotting and printing
 

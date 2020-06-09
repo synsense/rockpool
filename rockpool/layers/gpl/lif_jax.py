@@ -1271,7 +1271,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
 
         V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
 
-        I_{syn} = I_{syn} + S_{rec} \cdot w_{rec}
+        I_{syn} = I_{syn} + S_{rec} \\cdot w_{rec}
 
         V_{mem, j} = V_{mem, j} - 1
 
