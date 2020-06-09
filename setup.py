@@ -6,8 +6,8 @@ exec(open("rockpool/version.py").read())
 
 setup(
     name="rockpool",
-    author="aiCTX AG",
-    author_email="dylan.muir@aictx.ai",
+    author="SynSense",
+    author_email="dylan.muir@synsense.ai",
     version=__version__,
     packages=setuptools.find_packages(),
     install_requires=["numba", "numpy", "scipy"],
