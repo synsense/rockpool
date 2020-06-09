@@ -24,7 +24,7 @@ class RecDynapSE(Layer):
     """
     Recurrent spiking layer implemented with a DynapSE backend.
 
-    This class represents a recurrent layer of spiking neurons, implemented with a HW backend on DynapSE hardware from aiCTX.
+    This class represents a recurrent layer of spiking neurons, implemented with a HW backend on DynapSE hardware from SynSense.
 
     """
 
