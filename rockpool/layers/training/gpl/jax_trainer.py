@@ -5,9 +5,6 @@
 # - Import base classes
 from rockpool.timeseries import TimeSeries
 
-# from rich.console import Console
-# console = Console()
-
 from jax import jit, grad
 from jax.experimental.optimizers import adam
 
