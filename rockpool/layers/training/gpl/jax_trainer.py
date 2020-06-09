@@ -3,8 +3,10 @@
 #
 
 # - Import base classes
-from rockpool.layers.layer import Layer
 from rockpool.timeseries import TimeSeries
+
+# from rich.console import Console
+# console = Console()
 
 from jax import jit, grad
 from jax.experimental.optimizers import adam
@@ -69,6 +71,23 @@ def loss_mse_reg(
 
     # - Return loss
     return fLoss
+
+def flatten(d, sep="_"):
+    import collections
+    obj = collections.OrderedDict()
+    
+    def recurse(t, parent_key=""):
+        if isinstance(t, list):
+            for i in range(len(t)):
+                recurse(t[i], parent_key + sep + str(i) if parent_key else str(i))
+        elif isinstance(t, dict):
+            for k, v in t.items():
+                recurse(v, parent_key + sep + k if parent_key else k)
+        else:
+            obj[parent_key] = t
+
+    recurse(d)
+    return obj
 
 
 class JaxTrainer(ABC):
@@ -298,8 +317,6 @@ class JaxTrainer(ABC):
         )
 
         if initialise:
-            # print("initialise")
-
             # - Get optimiser
             (opt_init, opt_update, get_params) = optimizer(**deepcopy(opt_params))
             self.__get_params = get_params
@@ -370,9 +387,6 @@ class JaxTrainer(ABC):
                     opt_params, output_batch_t, target_batch_t, **loss_params
                 )
 
-            # print("using loss function: ", loss_fcn)
-            # print("curried loss function: ", loss_curried)
-
             # - Assign update, loss and gradient functions
             self.__update_fcn = update_fcn
             self.__loss_fcn = loss_curried
@@ -418,12 +432,12 @@ class JaxTrainer(ABC):
             str_error = ''
 
             # - Check current network state
-            for k, v in self._state.items():
+            for k, v in flatten(self._state).items():
                 if np.any(np.isnan(v)):
                     str_error += 'Pre-evolve network state {} contains NaNs\n'.format(k)
 
             # - Check network parameters
-            for k, v in self._pack().items():
+            for k, v in flatten(self._pack()).items():
                 if np.any(np.isnan(v)):
                     str_error += 'Pre-optimisation step network parameter {} contains NaNs\n'.format(k)
 
@@ -437,16 +451,13 @@ class JaxTrainer(ABC):
                 str_error += 'Network output contained NaNs\n'
 
             # - Check network states
-            if not isinstance(new_state, dict):
-                new_state = {'_': new_state}
-
-            for k, v in new_state.items():
+            for k, v in flatten(new_state).items():
                 if np.any(np.isnan(v)):
                     str_error += 'Post-evolve network state {} contains NaNs\n'.format(k)
 
             # - Check gradients
             gradients = g_fcn()
-            for k, v in gradients.items():
+            for k, v in flatten(gradients).items():
                 if np.any(np.isnan(v)):
                     str_error += 'Gradient item {} contains NaNs\n'.format(k)
 
