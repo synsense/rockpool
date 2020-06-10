@@ -32,6 +32,7 @@ __all__ = ["JaxTrainer"]
 @jit
 def loss_mse_reg(
         params: Params,
+        states_t: Dict[str, np.ndarray],
         output_batch_t: np.ndarray,
         target_batch_t: np.ndarray,
         min_tau: float,
@@ -43,6 +44,7 @@ def loss_mse_reg(
     Loss function for target versus output
 
     :param Params params:               Set of packed parameters
+    :param State state:                 Set of packed state values
     :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
     :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
     :param float min_tau:               Minimum time constant
@@ -136,22 +138,23 @@ class JaxTrainer(ABC):
     The property :py:attr:`~.JaxTrainer._evolve_functional` must return a *function* ``evol_func()`` with the following calling signature. This function must evolve the state of the layer, given an initial state, set of parameters and raw inputs, with *no side effects*. That means the function must not update the internal state of the layer, or update the `._t` attribute, etc. The function ``evol_func()`` must be compilable with `jax.jit`. An example property and function are shown here::
 
         @property
-        def _evolve_functional(self) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
-            def evol_func(params: Params, state: State, input: np.ndarray) -> Tuple[np.ndarray, State]:
+        def _evolve_functional(self) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
+            def evol_func(params: Params, state: State, input: np.ndarray) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             '''
             :param Params params:       `params` contains the set of parameters needed to define this layer
             :param State state:         `state` contains the initial state of this layer
             :param np.ndarray input:    `input` is [TxI], T time steps by I input channels
 
-            :return Tuple[np.ndarray, State]: (output, new_state)
+            :return Tuple[np.ndarray, State, Dict[str, np.ndarray]]: (output, new_state, states_t)
                 output:     A raw time series [TxO], T time steps by O output channels
                 new_state:  The new state of the layer, after the evolution
+                states_t:   A dictionary of internal state time series during this evolution
             '''
                 # - Perform evolution inner loop
-                output, new_state = f(input, state)
+                output, new_state, states_t = f(input, state)
 
                 # - Return output and state
-                return output, new_state
+                return output, new_state, states_t
 
             return evol_func
     """
@@ -305,7 +308,7 @@ class JaxTrainer(ABC):
         :return (loss_fcn, grad_fcn, output_fcn):
                                 ``loss_fcn``:   Callable[[], float] Function that returns the current loss
                                 ``grad_fcn``:   Callable[[], float] Function that returns the gradient for the current batch
-                                ``output_fcn``: Callable[[], np.ndarray] Function that returns the layer output for the current batch
+                                ``output_fcn``: Callable[[], Tuple[np.ndarray, State, Dict]] Function that returns the layer output for the current batch, the new internal states, and a dictionary of internal state time series for the evolution
         """
 
         # - Initialise training
@@ -377,11 +380,11 @@ class JaxTrainer(ABC):
                 :return float:                      Loss value for the parameters in `opt_params`, for the current batch
                 """
                 # - Call the layer evolution function
-                output_batch_t, _ = evol_func(opt_params, state, input_batch_t)
+                output_batch_t, new_state, states_t = evol_func(opt_params, state, input_batch_t)
 
                 # - Call loss function and return loss
                 return loss_fcn(
-                    opt_params, output_batch_t, target_batch_t, **loss_params
+                    opt_params, states_t, output_batch_t, target_batch_t, **loss_params
                 )
 
             # - Assign update, loss and gradient functions
@@ -443,7 +446,7 @@ class JaxTrainer(ABC):
                 str_error += 'Loss function returned NaN\n'
 
             # - Check outputs
-            output_ts, new_state = o_fcn()
+            output_ts, new_state, states_t = o_fcn()
             if np.any(np.isnan(output_ts)):
                 str_error += 'Network output contained NaNs\n'
 
@@ -454,9 +457,27 @@ class JaxTrainer(ABC):
 
             # - Check gradients
             gradients = g_fcn()
+            debug_gradient = False
             for k, v in flatten(gradients).items():
                 if np.any(np.isnan(v)):
                     str_error += 'Gradient item {} contains NaNs\n'.format(k)
+                    debug_gradient = True 
+
+            # - Check gradients in detail
+            if debug_gradient:
+                # - Loop over time steps and compute gradients
+                found_nan = False
+                for step in range(inps.shape[0]):
+                    gradients_limited = self.__grad_fcn(self.__get_params(self.__opt_state), inps[:step, :], target[:step, :], self._state)
+
+                    for k, v in flatten(gradients_limited).items():
+                        if np.any(np.isnan(v)):
+                            str_error += 'Gradient NaNs begin in step {}\n'.format(step)
+                            found_nan = True
+                            break
+                    
+                    if found_nan:
+                        break
 
             # - Raise the error
             if str_error:

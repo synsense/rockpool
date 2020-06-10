@@ -109,7 +109,7 @@ def test_stack_functional_evolve():
     ts_input1 = TSContinuous(time_base, np.sin(time_base * 2 * np.pi))
 
     # - Test functional evolution
-    output_t, new_state = stack_ffwd._evolve_functional(
+    output_t, new_state, states_t = stack_ffwd._evolve_functional(
         stack_ffwd._pack(), stack_ffwd._state, ts_input1.samples,
     )
 

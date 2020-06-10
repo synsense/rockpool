@@ -401,7 +401,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
             params: Params, state: State, inputs: np.ndarray,
         ):
             # - Call the jitted evolution function for this layer
-            new_state, _, _, _, outputs, key1 = self._evolve_jit(
+            new_state, res_inputs, rec_inputs, res_acts, outputs, key1 = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_recurrent"],
@@ -419,7 +419,12 @@ class RecRateEulerJax(JaxTrainer, Layer):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return outputs, new_state
+            states_t = {
+                'res_inputs': res_inputs,
+                'rec_inputs': rec_inputs,
+                'res_acts': res_acts,
+            }
+            return outputs, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -910,12 +915,12 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         def evol_func(
             params: Params, state: State, inputs_forces: Tuple[np.ndarray, np.ndarray],
-        ):
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Unpack inputs
             inputs, forces = inputs_forces
 
             # - Call the jitted evolution function for this layer
-            new_state, _, _, outputs, key1 = self._evolve_jit(
+            new_state, res_inputs, res_acts, outputs, key1 = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_out"],
@@ -933,7 +938,11 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return outputs, new_state
+            states_t = {
+                'res_inputs': res_inputs,
+                'res_acts': res_acts,
+            }
+            return outputs, new_state, states_t
 
         # - Return the evolution function
         return evol_func

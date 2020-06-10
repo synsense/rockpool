@@ -45,14 +45,14 @@ def _evolve_lif_jax(
     key: rand.PRNGKey,
     dt: float,
 ) -> (
-        State,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        np.ndarray,
-        Any,
+    State,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    Any,
 ):
     """
     Raw JAX evolution function for an LIF spiking layer
@@ -127,7 +127,7 @@ def _evolve_lif_jax(
 
         :return FloatVector: Output value
         """
-        return 1 / (1 + np.exp(-x))
+        return np.tanh(x + 1) / 2 + 0.5
 
     @custom_gradient
     def step_pwl(x: FloatVector) -> (FloatVector, Callable[[FloatVector], FloatVector]):
@@ -145,13 +145,13 @@ def _evolve_lif_jax(
     def forward(
         state: State, inputs_t: Tuple[np.ndarray, np.ndarray]
     ) -> (
-            State,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
+        State,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
     ):
         """
         Single-step LIF dynamics for a recurrent LIF layer
@@ -208,7 +208,7 @@ def _evolve_lif_jax(
     )
 
     # - Generate output surrogate
-    surrogate_ts = sigmoid(Vmem_ts * 10)
+    surrogate_ts = sigmoid(Vmem_ts * 20.0)
 
     # - Weighted output
     output_ts = np.dot(surrogate_ts, w_out_surrogate)
@@ -219,16 +219,17 @@ def _evolve_lif_jax(
 
 # - Define a useful default loss function
 def loss_mse_reg(
-        params: Params,
-        output_batch_t: np.ndarray,
-        target_batch_t: np.ndarray,
-        min_tau_syn: float,
-        min_tau_mem: float,
-        lambda_mse: float = 1.0,
-        reg_tau: float = 10000.0,
-        reg_l2_rec: float = 1.0,
-        reg_l2_in: float = 1.0,
-        reg_l2_out: float = 1.0,
+    params: Params,
+    state: State,
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau_syn: float,
+    min_tau_mem: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_rec: float = 1.0,
+    reg_l2_in: float = 1.0,
+    reg_l2_out: float = 1.0,
 ) -> float:
     """
     Loss function for target versus output
@@ -251,10 +252,18 @@ def loss_mse_reg(
 
     # - Get loss for tau parameter constraints
     tau_loss = reg_tau * np.nanmean(
-        np.where(params["tau_syn"] < min_tau_syn, np.exp(-(params["tau_syn"] - min_tau_syn)), 0)
+        np.where(
+            params["tau_syn"] < min_tau_syn,
+            np.exp(-(params["tau_syn"] - min_tau_syn)),
+            0,
+        )
     )
     tau_loss += reg_tau * np.nanmean(
-        np.where(params["tau_mem"] < min_tau_mem, np.exp(-(params["tau_mem"] - min_tau_mem)), 0)
+        np.where(
+            params["tau_mem"] < min_tau_mem,
+            np.exp(-(params["tau_mem"] - min_tau_mem)),
+            0,
+        )
     )
 
     # - Measure recurrent L2 norm
@@ -267,6 +276,57 @@ def loss_mse_reg(
 
     # - Return loss
     return fLoss
+
+
+# - Define default loss function
+def loss_mse_reg_lif(
+    params: Params,
+    states_t: State,
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau_mem: float,
+    min_tau_syn: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_in: float = 1.0,
+    reg_l2_rec: float = 1.0,
+    reg_l2_out: float = 1.0,
+    reg_act1: float = 1.0,
+    reg_act2: float = 1.0,
+):
+    # - MSE between output and target
+    dLoss = dict()
+    dLoss["loss_mse"] = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
+
+    # - Get loss for tau parameter constraints
+    dLoss["loss_tau_syn"] = reg_tau * np.nanmean(
+        np.where(
+            params["tau_syn"] < min_tau_syn,
+            np.exp(-(params["tau_syn"] - min_tau_syn)),
+            0,
+        )
+    )
+    dLoss["loss_tau_mem"] = reg_tau * np.nanmean(
+        np.where(
+            params["tau_mem"] < min_tau_mem,
+            np.exp(-(params["tau_mem"] - min_tau_mem)),
+            0,
+        )
+    )
+
+    # - Regularisation for weights
+    dLoss["loss_weights_l2"] = (
+        reg_l2_in * np.mean(params["w_in"] ** 2)
+        + reg_l2_rec * np.mean(params["w_recurrent"] ** 2)
+        + reg_l2_out * np.mean(params["w_out"] ** 2)
+    )
+
+    # - Regularisation for activity
+    dLoss["loss_activity1"] = reg_act1 * np.mean(states_t["surrogate"])
+    dLoss["loss_activity2"] = reg_act2 * np.mean(states_t["Vmem"] ** 2)
+
+    # - Return loss, as well as components
+    return sum(dLoss.values())
 
 
 class RecLIFJax(Layer, JaxTrainer):
@@ -360,8 +420,8 @@ class RecLIFJax(Layer, JaxTrainer):
         self.tau_syn = tau_syn
         self.bias = bias
 
-        self._w_in = 1.
-        self._w_out = 1.
+        self._w_in = 1.0
+        self._w_out = 1.0
 
         # - Get compiled evolution function
         self._evolve_jit = jit(_evolve_lif_jax)
@@ -387,8 +447,8 @@ class RecLIFJax(Layer, JaxTrainer):
     # - Replace the default loss function
     @property
     def _default_loss(self) -> Callable[[Any], float]:
-        return loss_mse_reg
-    
+        return loss_mse_reg_lif
+
     @property
     def _default_loss_params(self) -> Dict:
         return {
@@ -420,7 +480,14 @@ class RecLIFJax(Layer, JaxTrainer):
 
         :param Params params:  Set of parameters for this layer
         """
-        (self._w_in, self._weights, self._w_out, self._bias, self._tau_mem, self._tau_syn) = (
+        (
+            self._w_in,
+            self._weights,
+            self._w_out,
+            self._bias,
+            self._tau_mem,
+            self._tau_syn,
+        ) = (
             params["w_in"],
             params["w_recurrent"],
             params["w_out"],
@@ -520,7 +587,15 @@ class RecLIFJax(Layer, JaxTrainer):
         ):
             # - Call the jitted evolution function for this layer
             (
-                new_state, _, _, _, spikes_ts, _, _, key1,) = self._evolve_jit(
+                new_state,
+                Irec_ts,
+                output_ts,
+                surrogate_ts,
+                spikes_ts,
+                Vmem_ts,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_recurrent"],
@@ -530,7 +605,7 @@ class RecLIFJax(Layer, JaxTrainer):
                 params["bias"],
                 self._noise_std,
                 sp_input_ts,
-                sp_input_ts * 0.,
+                sp_input_ts * 0.0,
                 self._rng_key,
                 self._dt,
             )
@@ -540,7 +615,13 @@ class RecLIFJax(Layer, JaxTrainer):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return spikes_ts, new_state
+            states_t = {
+                "Vmem": Vmem_ts,
+                "Isyn": Isyn_ts,
+                "Irec": Irec_ts,
+                "surrogate": surrogate_ts,
+            }
+            return spikes_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -872,7 +953,15 @@ class RecLIFCurrentInJax(RecLIFJax):
         ):
             # - Call the jitted evolution function for this layer
             (
-                new_state, _, _, _, spikes_ts, _, _, key1,) = self._evolve_jit(
+                new_state,
+                Irec_ts,
+                output_ts,
+                surrogate_ts,
+                spikes_ts,
+                Vmem_ts,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_recurrent"],
@@ -881,7 +970,7 @@ class RecLIFCurrentInJax(RecLIFJax):
                 params["tau_syn"],
                 params["bias"],
                 self._noise_std,
-                I_input_ts * 0.,
+                I_input_ts * 0.0,
                 I_input_ts,
                 self._rng_key,
                 self._dt,
@@ -892,7 +981,13 @@ class RecLIFCurrentInJax(RecLIFJax):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return spikes_ts, new_state
+            states_t = {
+                "Vmem": Vmem_ts,
+                "Isyn": Isyn_ts,
+                "Irec": Irec_ts,
+                "surrogate": surrogate_ts,
+            }
+            return spikes_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -1098,7 +1193,15 @@ class RecLIFJax_IO(RecLIFJax):
         ):
             # - Call the jitted evolution function for this layer
             (
-                new_state, _, output_ts, _, _, _, _, key1,) = self._evolve_jit(
+                new_state,
+                Irec_ts,
+                output_ts,
+                surrogate_ts,
+                spikes_ts,
+                Vmem_ts,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_recurrent"],
@@ -1108,7 +1211,7 @@ class RecLIFJax_IO(RecLIFJax):
                 params["bias"],
                 self._noise_std,
                 sp_input_ts,
-                sp_input_ts * 0.,
+                sp_input_ts * 0.0,
                 self._rng_key,
                 self._dt,
             )
@@ -1118,7 +1221,13 @@ class RecLIFJax_IO(RecLIFJax):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return output_ts, new_state
+            states_t = {
+                "Vmem": Vmem_ts,
+                "Isyn": Isyn_ts,
+                "Irec": Irec_ts,
+                "surrogate": surrogate_ts,
+            }
+            return output_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -1311,7 +1420,15 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
         ):
             # - Call the jitted evolution function for this layer
             (
-                new_state, _, output_ts, _, _, _, _, key1,) = self._evolve_jit(
+                new_state,
+                Irec_ts,
+                output_ts,
+                surrogate_ts,
+                spikes_ts,
+                Vmem_ts,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_recurrent"],
@@ -1320,7 +1437,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
                 params["tau_syn"],
                 params["bias"],
                 self._noise_std,
-                I_input_ts * 0.,
+                I_input_ts * 0.0,
                 I_input_ts,
                 self._rng_key,
                 self._dt,
@@ -1331,7 +1448,13 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return output_ts, new_state
+            states_t = {
+                "Vmem": Vmem_ts,
+                "Isyn": Isyn_ts,
+                "Irec": Irec_ts,
+                "surrogate": surrogate_ts,
+            }
+            return output_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -1524,6 +1647,7 @@ class FFLIFJax_IO(RecLIFJax_IO):
 
         return config
 
+
 class FFLIFCurrentInJax_SO(FFLIFJax_IO):
     """
     Feed-forward spiking neuron layer (LIF), current input and surrogate output. Input and output weights.
@@ -1615,9 +1739,9 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
 
         # - Set recurrent weights to zero
         self._weights = 0.0
-        
+
         # - Set output weights to unity
-        self._w_out = 1.
+        self._w_out = 1.0
 
     @property
     def i_rec_last_evolution(self):

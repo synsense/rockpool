@@ -21,6 +21,7 @@ __all__ = ["JaxStack"]
 
 def loss_mse_reg_stack(
         params: List,
+        states_t: Dict[str, np.ndarray],
         output_batch_t: np.ndarray,
         target_batch_t: np.ndarray,
         min_tau: float,
@@ -133,12 +134,12 @@ class JaxStack(Network, Layer, JaxTrainer):
         )
 
         # - Evolve over layers
-        new_states = []
         outputs = []
+        new_states = []
         inps = ext_inps
         for p, s, evol_func in zip(self._pack(), self.state, self._all_evolve_funcs):
             # - Evolve layer
-            out, new_state = evol_func(p, s, inps)
+            out, new_state, _ = evol_func(p, s, inps)
 
             # - Record outputs and states
             outputs.append(out)
@@ -220,20 +221,22 @@ class JaxStack(Network, Layer, JaxTrainer):
         ) -> Tuple[np.ndarray, State]:
             # - Call the functional form of the evolution functions for each sublayer
             new_states = []
+            layer_states_t = []
             inputs = ext_inputs
             out = np.array([])
             for p, s, evol_func in zip(params, all_states, self._all_evolve_funcs):
                 # - Evolve layer
-                out, new_state = evol_func(p, s, inputs)
+                out, new_state, states_t = evol_func(p, s, inputs)
 
                 # - Record states
                 new_states.append(new_state)
+                layer_states_t.append(states_t)
 
                 # - Set up inputs for next layer
                 inputs = out
 
             # - Return outputs and state
-            return out, new_states
+            return out, new_states, layer_states_t
 
         return evol_func
     # 
