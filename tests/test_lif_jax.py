@@ -551,9 +551,6 @@ def test_training_FFLIFJax_IO():
     from rockpool.layers import RecLIFCurrentInJax, RecLIFJax, RecLIFJax_IO, FFLIFJax_IO
     import numpy as np
 
-    from rich.traceback import install
-    install()
-
     Nin = 10
     N = 200
     Nout = 3
