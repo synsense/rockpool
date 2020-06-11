@@ -686,7 +686,7 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         name: str = "unnamed",
         units: Optional[str] = None,
-        interp_kind: str = "linear",
+        interp_kind: str = "previous",
         fill_value: str = "extrapolate",
     ):
         """
@@ -700,7 +700,7 @@ class TSContinuous(TimeSeries):
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param str name:                    Name of the `.TSContinuous` object. Default: ``"unnamed"``
         :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
-        :param str interp_kind:             Specify the interpolation type. Default: ``"linear"``
+        :param str interp_kind:             Specify the interpolation type. Default: ``"previous"``
         :param str fill_value:              Specify the method to fill values outside sample times. Default: ``"extrapolate"``. **Sampling beyond `.t_stop` is still not permitted**
 
         If the time series is not periodic (the default), then NaNs will be returned for any values outside `t_start` and `t_stop`.
