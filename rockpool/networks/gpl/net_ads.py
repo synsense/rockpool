@@ -120,7 +120,6 @@ class NetworkADS(Network):
         assert (np.asarray(weights_out).shape == (N,Nc)), ("Output matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_out).shape),Nc,N))
         assert (np.asarray(weights_fast).shape == (N,N)), ("Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_fast).shape),N,N))
         assert (np.asarray(weights_slow).shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_slow).shape),Nb,N))
-        assert((not discretize_dynapse) or (discretize_dynapse and (discretize > 0))), "If --discretize-dynapse is specified, please choose a max. number of synapses per connection using the --discretize [int] field."
 
         ads_layer = RecFSSpikeADS(weights_fast=np.asarray(weights_fast).astype("float"), weights_slow=np.asarray(weights_slow).astype("float"), weights_out = np.asarray(weights_out).astype("float"), weights_in=np.asarray(weights_in).astype("float"),
                                     eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,

@@ -79,45 +79,113 @@ def discretize(W, base_weight):
     tmp = np.round(W / base_weight)
     return base_weight*tmp, tmp
 
-def bin_weights_slow(weights_slow, max_syn_per_connection, debug=False):
+def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense = True, plot = False):
+    """
+    @brief Function that discretizes a given continuous weight matrix
+    respecting the constraints of the DYNAP-SE II.
+    The constraints:
+        - The development board has 1 chip with 4 cores and 256 neurons per core.
+        - Each neuron on the core has 64 synapses with 2^4 distinctive weights and a sign bit.
+        - A core can be configured to sacrifice 3 out of 4 neurons to allocate the
+        synapses of the 192 freed neurons to the remaining 64 neurons, effectively giving
+        each of the 64 neurons 256 synapses. This enables the implementation of more dense
+        connection matrices
+    The function first determines the number of cores in "dense mode" that can be used to
+    satisfy the number of neurons needed in the matrix. Let this be denoted by X.
+    After that, the weight matrix is discretized to 4 bits (plus sign bit). Following that,
+    the X*64 neurons with the highest number of non-zero incoming connections are selected
+    and the needed number of weights with lowest absolute value are set to 0.
+    Following that, the rest of the neurons having only 64 synapses are considered. For these
+    neurons, the lowest weights are set to zero so that the constraint is satisfied.
+    @params N : int : Number of neurons
+            M : np.ndarray : Matrix to be quantized
+            num_synapses_available : [None, np.ndarray] Useful if a more complex architecture is used
+                                        and specifying the FFwd matrix is not enough. This vector
+                                        must hold N entries that each specify the number of synapses
+                                        available per neuron.
+            plot : bool : Indicates if the matrices should be plotted. 
+    """
+    num_chips = 1
+    num_cores_per_chip = 4
+    num_neurons_per_core = 256
+    num_cores_total = int(num_chips*num_cores_per_chip) # 4
+    num_neurons_total = num_neurons_per_core*num_cores_total # 1024
+    num_dense_core_neurons_sacrificed = int(3/4 * num_neurons_per_core) # 192
+    num_dense_core_neurons = num_neurons_per_core - num_dense_core_neurons_sacrificed
 
-    assert((np.diagonal(weights_slow) == 0).all()), "Please set the diagonal weights of the recurrent matrix to 0"
-    base_weight = (np.max(weights_slow)-np.min(weights_slow)) / (max_syn_per_connection-1)
-    # - If the base weight is zero, return zero matrix
-    if(base_weight == 0):
-        return np.zeros(weights_slow.shape),np.zeros(weights_slow.shape)
+    # assert num_synapses_available is of type None, or np.ndarray(dtype=int)
+    assert ((num_synapses_available is None) or (np.array(list(num_synapses_available)).dtype == np.dtype('int'))), "Elements of num_synapses_available must be of type int"
+    assert (N <= num_neurons_total), "Number of neurons exceeds number of neurons on DYNAP-SE II"
+    assert (M.shape[1] == N), "Second matrix dimension does not fit number of neurons. Dimension must be [? x N]"
 
-    weights_slow_discrete, synapses_per_conn_matrix = discretize(weights_slow, base_weight)
+    if(num_synapses_available is None):
+        num_synapses_available = 64*np.ones((N,), dtype=int)
 
-    # assert(F_disc.shape[1] == weights_slow.shape[0]), "Please specify F_disc to have shape Nc x N (e.g. 128 x 1024)"
-    # number_available_per_neuron = 64 - np.sum(np.abs(F_disc), axis=0)
-    number_available_per_neuron = np.ones(weights_slow.shape[0])*64
+    # - Matrix that gets returned
+    M_disc = np.zeros(M.shape)
 
-    if(not (((number_available_per_neuron - np.sum(np.abs(synapses_per_conn_matrix), axis=1)) >= 0).all())):
-        # - Reduce the number of weights here, if necessary
+    # - Needs to be clipped because if N < 256 a value bigger than num_cores_total can be returned
+    number_dense_cores = int(np.clip(int(num_cores_total - ((N - num_neurons_per_core) / (num_dense_core_neurons_sacrificed)) ),0,num_cores_total))
+    if(not use_dense):
+        number_dense_cores = 0
+    number_sparse_cores = num_cores_total - number_dense_cores
+    
+    # - Quantize
+    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2**5 - 1)
+    num_base_weights_needed = np.round(M / base_weight)
 
-        for idx in range(synapses_per_conn_matrix.shape[0]):
-            num_available = number_available_per_neuron[idx]
-            # - Use sorting + cutoff to keep the most dominant weights
-            sorted_indices = np.flip(np.argsort(np.abs(synapses_per_conn_matrix[idx,:])))
-            sub_sum = 0; i = 0
-            while(sub_sum < num_available):
-                if(i == len(sorted_indices)):
-                    break
-                sub_sum += np.abs(synapses_per_conn_matrix[idx,:])[sorted_indices[i]]
-                i += 1
-            tmp = np.zeros(len(sorted_indices))
-            tmp[sorted_indices[0:i-1]] = synapses_per_conn_matrix[idx,sorted_indices[0:i-1]]
-            synapses_per_conn_matrix[idx,:] = tmp
+    num_dense_neurons = 0
 
-        # - Re-calculate the final weights_slow_discrete
-        weights_slow_discrete = base_weight*synapses_per_conn_matrix
+    # - The following only matter if we have one dense core available
+    if(number_dense_cores > 0):
+        # - Which neurons would loose the most incoming connections if we have to threshold?
+        # - We also need to consider that some neurons had to sacrifice some synapses for other connections
+        # - so they could benefit even greater from the additional 192 synapses if placed on a dense core.
+        num_base_weights_lost = np.empty(shape=(N,), dtype=int)
+        for i in range(N):
+            incoming_weights = np.abs(num_base_weights_needed[i,:])
+            incoming_weights[::-1].sort() # - Sort in descending order
+            # - Take the biggest weights first. Cutoff at the index that indicates the num. synapses we have left for this neuron
+            num_base_weights_lost[i] = np.sum(incoming_weights[num_synapses_available[i]:])
 
-    assert ((number_available_per_neuron - np.sum(np.abs(synapses_per_conn_matrix), axis=1)) >= 0).all(), "More synapses used than available"
-    if(debug):
-        print("Number of synapses used: %d / %d" % (np.sum(np.abs(synapses_per_conn_matrix)), np.sum(number_available_per_neuron)))
+        # - Argsort the num_base_weights_lost vector in descending order and take the indices, maybe index oor but that is ok
+        dense_neuron_indices = num_base_weights_lost[::-1].argsort()[:number_dense_cores*num_dense_core_neurons]
+        dense_neuron_indices.sort()
+        num_dense_neurons = len(dense_neuron_indices)
+        # - The number of synapses available increments by 192 for the dense indices
+        num_synapses_available[dense_neuron_indices] += 192
 
-    return weights_slow_discrete, synapses_per_conn_matrix
+    if(num_dense_neurons > 0):
+        # - The index array with the neurons that have 256 synapses will be filled by now
+        # - First discretize the incoming weights of the dense neurons and keep track of the indices that have only 64 synapses
+        sparse_neuron_indices = np.empty((N-num_dense_neurons,), dtype=int)
+        c = 0
+        for idx,i in enumerate(dense_neuron_indices):
+            if(idx == 0):
+                for j in range(i):
+                    sparse_neuron_indices[c] = j; c += 1
+            elif(idx == len(dense_neuron_indices)-1):
+                for j in range(dense_neuron_indices[idx-1]+1,N-1):
+                    sparse_neuron_indices[c] = j; c += 1
+            else:
+                for j in range(dense_neuron_indices[idx-1]+1,i):
+                    sparse_neuron_indices[c] = j; c += 1
+
+            # - Discretize incoming weights of i-th dense neuron
+            indices = np.argsort(np.abs(num_base_weights_needed[i,:]))[::-1][:num_synapses_available[i]]
+            M_disc[i,indices] = base_weight*num_base_weights_needed[i,indices]
+    else:
+        sparse_neuron_indices = np.arange(0,N,1)
+
+    # - Discretize the rest
+    for j in sparse_neuron_indices:
+        indices = np.argsort(np.abs(num_base_weights_needed[j,:]))[::-1][:num_synapses_available[j]]
+        M_disc[j,indices] = base_weight*num_base_weights_needed[j,indices]
+
+    if(plot):
+        plot_matrices(M, M_disc, title_A='Original', title_B='Quantized')
+
+    return M_disc
 
 
 class RecFSSpikeADS(Layer):
@@ -318,8 +386,8 @@ class RecFSSpikeADS(Layer):
             # - Should not discretize
             self.weights_slow_discretized = self.weights_slow
         elif(self.discretize_dynapse):
-            # - Meaning we should discretize using the DYNAP-SE constraints
-            self.weights_slow_discretized, _ = bin_weights_slow(self.weights_slow, self.num_synapse_states, debug=True)
+            # - Meaning we should discretize using the DYNAP-SE II constraints
+            self.weights_slow_discretized = quantize_weights_dynapse_II(self.size, self.weights_slow)
         else:
             # - Meaning we should discretize normally
             base_weight = (np.max(self.weights_slow)-np.min(self.weights_slow))/(self.num_synapse_states-1)
