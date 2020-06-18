@@ -41,6 +41,6 @@ setup(
     project_urls={
         "Source Code": "https://gitlab.com/aiCTX/rockpool",
         "Documentation": "https://rockpool.ai",
-        "Bug Tracker": https://gitlab.com/aiCTX/rockpool/-/issues,
+        "Bug Tracker": "https://gitlab.com/aiCTX/rockpool/-/issues",
         },
 )
