@@ -38,5 +38,9 @@ setup(
     ],
     keywords="spiking neural network SNN neuromorphic",
     python_requires=">=3.6",
-    project_urls={"Source": "https://gitlab.com/aiCTX/rockpool"},
+    project_urls={
+        "Source Code": "https://gitlab.com/aiCTX/rockpool",
+        "Documentation": "https://rockpool.ai",
+        "Bug Tracker": https://gitlab.com/aiCTX/rockpool/-/issues,
+        },
 )
