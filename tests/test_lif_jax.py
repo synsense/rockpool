@@ -12,6 +12,8 @@ def test_imports():
     from rockpool.layers import RecLIFJax_IO
     from rockpool.layers import RecLIFCurrentInJax_IO
     from rockpool.layers import FFLIFJax_IO
+    from rockpool.layers import FFExpSynCurrentInJax
+    from rockpool.layers import FFExpSynJax
 
 
 def test_RecLIFJax():
@@ -486,6 +488,77 @@ def test_FFLIFCurrentInJax_SO():
             tau_syn=np.zeros(4),
             bias=np.zeros(3),
         )
+
+def test_FFExpSynCurrentInJax():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFExpSynCurrentInJax
+    
+    # Numpy
+    import numpy as np
+
+    # - Define network
+    Nin = 200
+    Nout = 5
+    tau = 100e-3
+    
+    dt = 1e-3
+    
+    def rand_params(Nin, Nout, tau,):
+        return {
+            "weights": 2 * np.random.rand(Nin, Nout) - 1,
+            "tau": tau,
+        }
+
+    params0 = rand_params(Nin, Nout, tau)
+    lyrExpSyn = FFExpSynCurrentInJax(**params0, dt = dt)
+    
+    # - Define input
+    numRepeats = 1
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.linspace(0, T * dt, T)
+    # chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    # target_ts = TSContinuous.from_clocked(chirp, dt = dt, periodic=True, name="Target")
+
+    I_in_ts = np.random.rand(T * numRepeats, Nin)
+    input_ts = TSContinuous.from_clocked(I_in_ts, dt = dt, periodic = True, name = "Input")
+    lyrExpSyn.evolve(input_ts)
+
+
+def test_FFExpSynJax():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFExpSynJax
+
+    # Numpy
+    import numpy as np
+
+    # - Define network
+    Nin = 200
+    Nout = 5
+    tau = 100e-3
+
+    dt = 1e-3
+
+    def rand_params(Nin, Nout, tau, ):
+        return {
+            "weights": 2 * np.random.rand(Nin, Nout) - 1,
+            "tau": tau,
+        }
+
+    params0 = rand_params(Nin, Nout, tau)
+    lyrExpSyn = FFExpSynJax(**params0, dt=dt)
+
+    # - Define input
+    numRepeats = 1
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    spike_prob = 0.1
+    input_ts = TSEvent.from_raster(np.random.rand(T * numRepeats, Nin) < spike_prob, dt=dt, periodic=True, name="Input")
+    lyrExpSyn.evolve(input_ts)
 
 
 def test_largescale():

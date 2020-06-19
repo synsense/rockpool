@@ -5,10 +5,12 @@
 # - Import base classes
 from rockpool.timeseries import TimeSeries
 
-from jax import jit, grad
+from jax import jit, grad, vmap
 from jax.experimental.optimizers import adam
 
 import itertools
+
+import collections.abc
 
 from copy import deepcopy
 
@@ -18,9 +20,10 @@ from warnings import warn
 
 # - Import jax elements
 from jax import numpy as np
+from jax.tree_util import tree_flatten, tree_unflatten
 
 # - Import and define types
-from typing import Dict, Tuple, Any, Callable, Union, List, Optional
+from typing import Dict, Tuple, Any, Callable, Union, List, Optional, Collection, Iterable
 
 State = Any
 Params = Union[Dict, Tuple, List]
@@ -71,21 +74,31 @@ def loss_mse_reg(
     # - Return loss
     return fLoss
 
-def flatten(d, sep="_"):
+def flatten(generic_collection: Union[Iterable, Collection], sep: str = "_") -> Collection:
+    """
+    Flattens a generic collection of collections into an ordered dictionary.
+    
+    ``generic_collection`` is a nested tree of inhomogeneous collections, such as `list`, `set`, `dict`, etc. This function iterates through this generic collection, and flattens all the leaf nodes into a single collection. The keys in the returned collection will be named after the orginal keys in ``generic_collection``, if any, and after the nesting level.
+    
+    :param Union[Iterable, Collection] generic_collection:  A nested tree of iterable types or collections, that will be flattened
+    :param str sep:                                         The separator character to use when building keys in the flattened collection. Default: "_"
+    
+    :return Collection flattened_collection: A collection of all the items in ``generic_collection``, flattened into a single coellction.
+    """
     import collections
     obj = collections.OrderedDict()
     
-    def recurse(t, parent_key=""):
-        if isinstance(t, list):
-            for i in range(len(t)):
-                recurse(t[i], parent_key + sep + str(i) if parent_key else str(i))
-        elif isinstance(t, dict):
-            for k, v in t.items():
+    def recurse(this, parent_key=""):
+        if isinstance(this, dict):
+            for k, v in this.items():
                 recurse(v, parent_key + sep + k if parent_key else k)
+        elif isinstance(this, collections.abc.Iterable):
+            for ind, item in enumerate(this):
+                recurse(item, parent_key + sep + str(ind) if parent_key else str(ind))
         else:
-            obj[parent_key] = t
+            obj[parent_key] = this
 
-    recurse(d)
+    recurse(generic_collection)
     return obj
 
 
@@ -187,7 +200,7 @@ class JaxTrainer(ABC):
     @abstractmethod
     def _evolve_functional(
         self,
-    ) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+    ) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]]:
         """
         Functional form of evolution for this layer
 
@@ -203,7 +216,7 @@ class JaxTrainer(ABC):
 
         def evol_func(
             params: Params, state: State, input: np.ndarray
-        ) -> Tuple[np.ndarray, State]:
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             raise NotImplementedError(params, state, input)
 
         return evol_func
@@ -233,20 +246,22 @@ class JaxTrainer(ABC):
         loss_params: Dict = {},
         optimizer: Callable = adam,
         opt_params: Dict = {"step_size": 1e-4},
+        batch_axis = None,
     ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], Tuple[np.ndarray, State]]]:
         """
         Perform one trial of Adam stochastic gradient descent to train the layer
 
-        :param TimeSeries ts_input:     TimeSeries (or raw sampled signal) to use as input for this trial [TxI]
-        :param TimeSeries ts_target:    TimeSeries (or raw sampled signal) to use as target for this trial [TxO]
+        :param TimeSeries ts_input:     `.TimeSeries` (or raw sampled signal) to use as input for this trial ``[TxI]``
+        :param TimeSeries ts_target:    `.TimeSeries` (or raw sampled signal) to use as target for this trial ``[TxO]``
         :param Optional[float] min_tau: Minimum time constant to permit
         :param bool is_first:           Flag to indicate this is the first trial. Resets learning and causes initialisation.
         :param bool is_last:            Flag to indicate this is the last trial. Performs clean-up (not essential)
-        :param bool debug_nans:         If ``True``, ``nan`` s will raise an AssertionError. Default: ``False``, do not check for ``nan`` s.
+        :param bool debug_nans:         If ``True``, ``nan`` s will raise an ``AssertionError``, and display some feedback about where and when the ``nan`` s occur. Default: ``False``, do not check for ``nan`` s. Note: Checking for ``nan`` s slows down training considerably.
         :param Callable loss_fcn:       Function that computes the loss for the currently configured layer. Default: :py:func:`loss_mse_reg`
         :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
         :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: :py:func:`jax.experimental.optimizers.adam`
         :param Dict opt_params:         A dictionary of parameters passed to :py:func:`optimizer`. Default: ``{"step_size": 1e-4}``
+        :param Optional[int] batch_axis: Axis over which to extract batch samples and map through the gradient and loss measurements. To use batches, you must pre-rasterise ``ts_input`` and ``ts_target``. If ``None`` (default), no batching is performed. If not ``None``, `batch_axis` defines the axis of ``ts_input`` and ``ts_target`` to pass to `jax.vmap` as the batch axis.
 
         Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
         be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
@@ -347,6 +362,11 @@ class JaxTrainer(ABC):
                     opt_params, input_batch_t, target_batch_t, self._state
                 )
 
+                # - Average gradients over batch dimension
+                g, tree_def = tree_flatten(g)
+                g = [np.mean(g_item, axis = batch_axis) for g_item in g]
+                g = tree_unflatten(tree_def, g)
+
                 # - Call optimiser update function
                 return opt_update(i, g, opt_state)
 
@@ -373,8 +393,8 @@ class JaxTrainer(ABC):
                 Curried loss function; absorbs loss parameters
 
                 :param Params opt_params:           Current values of the layer parameters, modified by optimization
-                :param np.ndarray input_batch_t:    Input rasterized time series for this batch [TxO]
-                :param np.ndarray target_batch_t:   Target rasterized time series for this batch [TxO]
+                :param np.ndarray input_batch_t:    Input rasterized time series for this batch [TxOxB]
+                :param np.ndarray target_batch_t:   Target rasterized time series for this batch [TxOxB]
                 :param State state:                 Initial state for the layer
 
                 :return float:                      Loss value for the parameters in `opt_params`, for the current batch
@@ -389,8 +409,15 @@ class JaxTrainer(ABC):
 
             # - Assign update, loss and gradient functions
             self.__update_fcn = update_fcn
-            self.__loss_fcn = loss_curried
-            self.__grad_fcn = jit(grad(loss_curried))
+
+            if batch_axis is not None:
+                # - Use `vmap` to map over batches
+                self.__loss_fcn = jit(vmap(loss_curried, in_axes=(None, batch_axis, batch_axis, None)))
+                self.__grad_fcn = jit(vmap(grad(loss_curried), in_axes = (None, batch_axis, batch_axis, None)))
+            else:
+                # - Use `vmap` to map over batches
+                self.__loss_fcn = jit(loss_curried)
+                self.__grad_fcn = jit(grad(loss_curried))
 
             # - Initialise optimizer
             self.__opt_state = opt_init(self._pack())
@@ -413,6 +440,24 @@ class JaxTrainer(ABC):
             # - Use pre-rasterized time series
             inps = ts_input
             target = ts_target
+
+        # - Check for batch dimension, and augment if necessary
+        if batch_axis is not None:
+            inp_batch_shape = list(inps.shape)
+            if len(inp_batch_shape) < batch_axis:
+                inp_batch_shape[batch_axis] = 1
+                
+            target_batch_shape = list(target.shape)
+            if len(target_batch_shape) < batch_axis:
+                target_batch_shape[batch_axis] = 1
+    
+            # - Check that batch sizes are equal
+            assert inp_batch_shape[batch_axis] == target_batch_shape[batch_axis],\
+                'Input and Target do not have a matching batch size.'
+    
+            # - Reshape inputs and targets to batch shape
+            inps = np.reshape(inps, inp_batch_shape)
+            target = np.reshape(target, target_batch_shape)
 
         # - Create lambdas that evaluate the loss and the gradient on this trial
         l_fcn, g_fcn, o_fcn = (

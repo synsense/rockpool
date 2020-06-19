@@ -6,6 +6,7 @@ from warnings import warn
 dModules = {
     ".gpl.rr_trained_layer": "RRTrainedLayer",
     ".gpl.jax_trainer": "JaxTrainer",
+    ".gpl.utilities": "gradient_evolution",
 }
 
 

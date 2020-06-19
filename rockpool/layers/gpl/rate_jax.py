@@ -480,7 +480,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         self.res_acts_last_evolution = TSContinuous(time_base, res_acts, name = "Layer activations")
 
         # - Wrap outputs as time series
-        return TSContinuous(time_base, onp.array(outputs), name = "Surrogate outputs")
+        return TSContinuous(time_base, onp.array(outputs), name = "Output")
 
     def _prepare_input(
         self,

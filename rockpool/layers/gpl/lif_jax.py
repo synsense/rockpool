@@ -28,7 +28,7 @@ State = Dict[
 Params = Dict
 
 # - Define module exports
-__all__ = ["RecLIFJax", "RecLIFCurrentInJax", "RecLIFJax_IO"]
+__all__ = ["RecLIFJax", "RecLIFCurrentInJax", "RecLIFJax_IO", "FFExpSynJax", "FFExpSynCurrentInJax"]
 
 
 def _evolve_lif_jax(
@@ -44,7 +44,7 @@ def _evolve_lif_jax(
     I_input_ts: np.ndarray,
     key: rand.PRNGKey,
     dt: float,
-) -> (
+) -> Tuple[
     State,
     np.ndarray,
     np.ndarray,
@@ -52,8 +52,8 @@ def _evolve_lif_jax(
     np.ndarray,
     np.ndarray,
     np.ndarray,
-    Any,
-):
+    rand.PRNGKey,
+]:
     """
     Raw JAX evolution function for an LIF spiking layer
 
@@ -89,7 +89,7 @@ def _evolve_lif_jax(
 
     .. math ::
 
-        U_j = \\textrm{sig}(V_j)
+        U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
 
     :param LayerState state0:           Layer state at start of evolution
     :param np.ndarray w_in:             Input weights [I, N]
@@ -217,67 +217,6 @@ def _evolve_lif_jax(
     return state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts, key1
 
 
-# - Define a useful default loss function
-def loss_mse_reg(
-    params: Params,
-    state: State,
-    output_batch_t: np.ndarray,
-    target_batch_t: np.ndarray,
-    min_tau_syn: float,
-    min_tau_mem: float,
-    lambda_mse: float = 1.0,
-    reg_tau: float = 10000.0,
-    reg_l2_rec: float = 1.0,
-    reg_l2_in: float = 1.0,
-    reg_l2_out: float = 1.0,
-) -> float:
-    """
-    Loss function for target versus output
-
-    :param Params params:               Set of packed parameters
-    :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
-    :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
-    :param float min_tau_syn:           Minimum synaptic time constant
-    :param float min_tau_mem:           Minimum membrane time constant
-    :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
-    :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
-    :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
-    :param float reg_l2_in:             Factor when combining loss, on L2-norm term of input weights. Default: 1.
-    :param float reg_l2_out:            Factor when combining loss, on L2-norm term of output weights. Default: 1.
-
-    :return float: Current loss value
-    """
-    # - Measure output-target loss
-    mse = lambda_mse * np.nanmean((output_batch_t - target_batch_t) ** 2)
-
-    # - Get loss for tau parameter constraints
-    tau_loss = reg_tau * np.nanmean(
-        np.where(
-            params["tau_syn"] < min_tau_syn,
-            np.exp(-(params["tau_syn"] - min_tau_syn)),
-            0,
-        )
-    )
-    tau_loss += reg_tau * np.nanmean(
-        np.where(
-            params["tau_mem"] < min_tau_mem,
-            np.exp(-(params["tau_mem"] - min_tau_mem)),
-            0,
-        )
-    )
-
-    # - Measure recurrent L2 norm
-    w_res_norm = reg_l2_rec * np.nanmean(params["w_recurrent"] ** 2)
-    w_res_norm += reg_l2_in * np.nanmean(params["w_in"] ** 2)
-    w_res_norm += reg_l2_out * np.nanmean(params["w_out"] ** 2)
-
-    # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
-    fLoss = mse + w_res_norm + tau_loss
-
-    # - Return loss
-    return fLoss
-
-
 # - Define default loss function
 def loss_mse_reg_lif(
     params: Params,
@@ -288,25 +227,63 @@ def loss_mse_reg_lif(
     min_tau_syn: float,
     lambda_mse: float = 1.0,
     reg_tau: float = 10000.0,
-    reg_l2_in: float = 1.0,
+    reg_l2_in: float = 0.1,
     reg_l2_rec: float = 1.0,
-    reg_l2_out: float = 1.0,
-    reg_act1: float = 1.0,
-    reg_act2: float = 1.0,
-):
+    reg_l2_out: float = 0.1,
+    reg_act1: float = 2.0,
+    reg_act2: float = 2.0,
+) -> float:
+    """
+    Regularised MSE target-output loss function for Jax LIF layers
+    
+    This loss function computes the mean-squared error of the target signal versus the layer surrogate output. This loss is regularised by several terms to limit time constants, to control the weight spectra, and to control reservoir activity.
+    
+    .. math::
+        L = \lambda_{mse}\\cdot L_{mse} + \\lambda_{\\tau}\\cdot L_{\\tau} + \\lambda_{L2}\\cdot L_{L2} + \\lambda_{act}\\cdot L_{act}
+        
+        L_{mse} = E|\\left(\\textbf{o}(t) - \\textbf{y}(t)\\right)^2| \\textrm{ : output versus target MSE}
+        
+        L_{\\tau} = l_{\\tau}(\\tau_{mem}, \\tau_{min}) + l_{\\tau}(\\tau_{syn}, \\tau_{min})   
+        
+        l_{\\tau}(\\tau, \\tau_{min}) = \\sum \\exp(-(\\tau - \\tau_{min})) | \\tau < \\tau_{min}   
+        
+        L_{L2} = l_{l2}(W_{in}) + l_{l2}(W_{rec}) + l_{l2}(W_{out})
+        
+        l_{l2}(W) = E|W^2|
+        
+        L_{act} = E|U(t)| + E|V_{mem}(t)^2|
+        
+        \textrm{where } E|\textbf{x}| = \\frac{1}{#\textbf{x}}\\sum{x} 
+    
+    :param Params params:               Parameters of the LIF layer
+    :param State states_t:              State time-series of the LIF layer
+    :param np.ndarray output_batch_t:   Output time series of the layer
+    :param np.ndarray target_batch_t:   Target time series of the layer
+    :param float min_tau_mem:           Minimum permitted membrane time constant
+    :param float min_tau_syn:           Minimum permitted synaptic time constant
+    :param float lambda_mse:            Loss factor for MSE error. Default: 1.0
+    :param float reg_tau:               Regularisation loss factor for time constant violations. Default: 10000.0
+    :param float reg_l2_in:             Regularisation loss factor for input weight L2 norm. Default: 0.1
+    :param float reg_l2_rec:            Regularisation loss factor for recurrent weight L2 norm. Default: 1.0
+    :param float reg_l2_out:            Regularisation loss factor for output weight L2 norm. Default: 0.1
+    :param float reg_act1:              Regularisation loss factor for activity (keeps activity low). Default: 2.0
+    :param float reg_act2:              Regularisation loss factor for activity (keeps membranes near threshold). Default: 2.0
+     
+    :return float loss:                 Loss value
+    """
     # - MSE between output and target
     dLoss = dict()
     dLoss["loss_mse"] = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
 
     # - Get loss for tau parameter constraints
-    dLoss["loss_tau_syn"] = reg_tau * np.nanmean(
+    dLoss["loss_tau_syn"] = reg_tau * np.nansum(
         np.where(
             params["tau_syn"] < min_tau_syn,
             np.exp(-(params["tau_syn"] - min_tau_syn)),
             0,
         )
     )
-    dLoss["loss_tau_mem"] = reg_tau * np.nanmean(
+    dLoss["loss_tau_mem"] = reg_tau * np.nansum(
         np.where(
             params["tau_mem"] < min_tau_mem,
             np.exp(-(params["tau_mem"] - min_tau_mem)),
@@ -325,7 +302,7 @@ def loss_mse_reg_lif(
     dLoss["loss_activity1"] = reg_act1 * np.mean(states_t["surrogate"])
     dLoss["loss_activity2"] = reg_act2 * np.mean(states_t["Vmem"] ** 2)
 
-    # - Return loss, as well as components
+    # - Return loss
     return sum(dLoss.values())
 
 
@@ -452,9 +429,6 @@ class RecLIFJax(Layer, JaxTrainer):
     @property
     def _default_loss_params(self) -> Dict:
         return {
-            "lambda_mse": 1.0,
-            "reg_tau": 10000.0,
-            "reg_l2_rec": 1.0,
             "min_tau_syn": self._dt * 11.0,
             "min_tau_mem": self._dt * 11.0,
         }
@@ -532,7 +506,7 @@ class RecLIFJax(Layer, JaxTrainer):
         Reset the membrane potentials, synaptic currents and refractory state for this layer
         """
         self._state = {
-            "Vmem": np.zeros((self._size,)),
+            "Vmem": np.ones((self._size,)) * self._bias,
             "Isyn": np.zeros((self._size,)),
             "spikes": np.zeros((self._size,)),
         }
@@ -579,12 +553,12 @@ class RecLIFJax(Layer, JaxTrainer):
 
             def evol_func(params, state, inputs) -> (outputs, new_state):
 
-        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]]:
         """
 
         def evol_func(
             params: Params, state: State, sp_input_ts: np.ndarray,
-        ):
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Call the jitted evolution function for this layer
             (
                 new_state,
@@ -1650,9 +1624,9 @@ class FFLIFJax_IO(RecLIFJax_IO):
 
 class FFLIFCurrentInJax_SO(FFLIFJax_IO):
     """
-    Feed-forward spiking neuron layer (LIF), current input and surrogate output. Input and output weights.
+    Feed-forward spiking neuron layer (LIF), current input and surrogate output. Input weighting, no output weights.
 
-    `.FFLIFCurrentInJax_SO` is a basic feed-forward spiking neuron layer, implemented with a JAX-backed Euler solver backend. Outputs are surrogates generated by each layer neuron, weighted by a set of output weights. Inputs are provided by spiking through a synapse onto each layer neuron via a set of input weights. The layer is therefore M inputs -> N neurons -> O outputs.
+    `.FFLIFCurrentInJax_SO` is a basic feed-forward spiking neuron layer, implemented with a JAX-backed Euler solver backend. Outputs are surrogates generated by each layer neuron. Inputs are provided by spiking through a synapse onto each layer neuron via a set of input weights. The layer is therefore M inputs -> N neurons -> N outputs.
 
     This layer can be used to implement gradient-based learning systems, using the JAX-provided automatic differentiation functionality of `jax.grad`. See :py:meth:`.train_output_target` for information on training.
 
@@ -1682,15 +1656,13 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
 
     :Surrogate signals:
 
-    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron. This is used to provide a weighted output :math:`O(t)`.
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
 
     .. math ::
 
         U_j = \\textrm{sig}(V_j)
 
-        O(t) = U(t) \\cdot w_{out}
-
-    Where :math:`w_{out}` is a :math:`[N \\times N_{out}]` matrix of output weights, and :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
+    Where :math:`\\textrm{sig}(x) = \\left(1 + \\exp(-x)\\right)^{-1}`.
 
     :Outputs from evolution:
 
@@ -1763,3 +1735,373 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
     def input_type(self):
         """ (TSContinuous) Output `.TimeSeries` class: `.TSContinuous` """
         return TSContinuous
+
+
+StateExpSyn = Dict[str, np.ndarray]
+
+
+def _evolve_expsyn_jax(
+    state0: StateExpSyn,
+    weights: np.ndarray,
+    tau: np.ndarray,
+    noise_std: float,
+    sp_input_ts: np.ndarray,
+    I_input_ts: np.ndarray,
+    key: rand.PRNGKey,
+    dt: float,
+) -> Tuple[StateExpSyn, np.ndarray, rand.PRNGKey]:
+    # - Get evolution constants
+    beta = np.exp(-dt / tau)
+
+    # - Single-step dynamics
+    def forward(
+        state: State, inputs_t: Tuple[np.ndarray, np.ndarray]
+    ) -> Tuple[
+        State, np.ndarray,
+    ]:
+        # - Unpack inputs
+        (sp_in_t, I_in_t) = inputs_t
+        sp_in_t = sp_in_t.reshape(-1)
+        I_in_t = I_in_t.reshape(-1)
+
+        # - Synaptic input
+        dIsyn = sp_in_t + I_in_t
+        state["Isyn"] = beta * state["Isyn"] + dIsyn
+
+        # - Return state and outputs
+        return state, state["Isyn"]
+
+    # - Generate synapse current noise trace
+    num_timesteps = sp_input_ts.shape[0]
+    key1, subkey = rand.split(key)
+    noise_ts = noise_std * rand.normal(
+        subkey, shape=(num_timesteps, np.size(state0["Isyn"]))
+    )
+
+    # - Evolve over spiking inputs
+    state, Isyn_ts = scan(
+        forward,
+        state0,
+        (np.dot(sp_input_ts, weights), np.dot(I_input_ts, weights) + noise_ts),
+    )
+
+    # - Return outputs
+    return state, Isyn_ts, key1
+
+
+def loss_mse_reg_expsyn(
+    params: Params,
+    states_t: StateExpSyn,
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_weights: float = 1.0,
+) -> float:
+    # - MSE between output and target
+    dLoss = dict()
+    dLoss["loss_mse"] = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
+
+    # - Get loss for tau parameter constraints
+    dLoss["loss_tau"] = reg_tau * np.nansum(
+        np.where(params["tau"] < min_tau, np.exp(-(params["tau"] - min_tau)), 0,)
+    )
+
+    # - Regularisation for weights
+    dLoss["loss_weights_l2"] = reg_l2_weights * np.mean(params["weights"] ** 2)
+
+    # - Return loss
+    return sum(dLoss.values())
+
+
+class FFExpSynCurrentInJax(Layer, JaxTrainer):
+    def __init__(
+        self,
+        weights: np.ndarray,
+        tau: np.ndarray,
+        dt: float,
+        noise_std: float = 0.0,
+        name: str = None,
+        rng_key: rand.PRNGKey = None,
+    ) -> "FFExpSynJax":
+        # - Ensure that weights are 2D
+        weights = np.atleast_2d(weights)
+
+        # - Transform arguments to JAX np.array
+        tau = np.array(tau)
+
+        if dt is None:
+            dt = np.min(np.array((np.min(tau)))) / 10.0
+
+        # - Call super-class initialisation
+        super().__init__(weights=weights, dt=dt, noise_std=noise_std, name=name)
+
+        # - Set properties
+        self.tau = tau
+        
+        # - Create RNG
+        if rng_key is None:
+            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+            _, self._rng_key = rand.split(rng_key)
+        else:
+            rng_key = np.array(onp.array(rng_key).astype(onp.uint32))
+            self._rng_key = rng_key
+        
+        # - Get evolution function
+        self._evolve_jit = jit(_evolve_expsyn_jax)
+        
+        # - Initialise state
+        self.reset_all()
+
+    # - Replace the default loss function
+    @property
+    def _default_loss(self) -> Callable[[Any], float]:
+        return loss_mse_reg_expsyn
+
+    @property
+    def _default_loss_params(self) -> Dict:
+        return {
+            "min_tau": self._dt * 11.0,
+        }
+
+    def reset_state(self):
+        """
+        Reset the membrane potentials, synaptic currents and refractory state for this layer
+        """
+        self._state = {
+            "Isyn": np.zeros((self._size,)),
+        }
+        
+    def _pack(self) -> Params:
+        """
+        Return a packed form of the tunable parameters for this layer
+
+        :return Params: params: All parameters as a Dict
+        """
+        return {
+            "weights": self._weights,
+            "tau_syn": self._tau,
+            "tau_mem": np.inf,
+        }
+
+    def _unpack(self, params: Params):
+        """
+        Set the parameters for this layer, given a parameter dictionary
+
+        :param Params params:  Set of parameters for this layer
+        """
+        (
+            self._weights,
+            self._tau,
+        ) = (
+            params["weights"],
+            params["tau_syn"],
+        )
+
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, I_input_ts: np.ndarray,
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
+            # - Call the jitted evolution function for this layer
+            (
+                new_state,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
+                state,
+                params["weights"],
+                params["tau_syn"],
+                self._noise_std,
+                I_input_ts * 0.0,
+                I_input_ts,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            states_t = {
+                "Isyn": Isyn_ts,
+            }
+            return Isyn_ts, new_state, states_t
+
+        # - Return the evolution function
+        return evol_func
+
+    def evolve(
+        self,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
+    ) -> TSEvent:
+        """
+        Evolve the state of this layer given an input
+
+        :param Optional[TSContinuous] ts_input:      Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param bool verbose:           Currently no effect, just for conformity
+
+        :return TSContinuous:                   Output time series; the synaptic currents of each neuron
+        """
+
+        # - Prepare time base and inputs
+        time_base, inps, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
+        )
+
+        # - Call raw evolution function
+        (
+            self._state,
+            Isyn_ts,
+            state_ts,
+        ) = self._evolve_jit(self._state,
+                self._weights,
+                self._tau,
+                self._noise_std,
+                inps * 0.0,
+                inps,
+                self._rng_key,
+                self._dt,
+        )
+
+        # - Record synaptic currents
+        self._i_syn_last_evolution = TSContinuous(
+            time_base, onp.array(Isyn_ts), name="$I_{syn}$ " + self.name
+        )
+
+        # - Advance time
+        self._timestep += num_timesteps
+
+        # - Return output currents
+        return self._i_syn_last_evolution
+
+    def to_dict(self) -> Dict:
+        return super().to_dict()
+
+    @property
+    def tau(self):
+        return onp.array(self._tau)
+    
+    @tau.setter
+    def tau(self, value):
+        self._tau = np.array(self._expand_to_net_size(value, 'tau', False))
+        
+    @property
+    def noise_std(self):
+        return onp.array(self._noise_std).item()
+    
+    @noise_std.setter
+    def noise_std(self, value):
+        self._noise_std = np.array(value).item()
+    
+class FFExpSynJax(FFExpSynCurrentInJax):
+    @property
+    def input_type(self):
+        return TSEvent
+
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, sp_input_ts: np.ndarray,
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
+            # - Call the jitted evolution function for this layer
+            (
+                new_state,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
+                state,
+                params["weights"],
+                params["tau"],
+                self._noise_std,
+                sp_input_ts,
+                sp_input_ts * 0.0,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            states_t = {
+                "Isyn": Isyn_ts,
+            }
+            return Isyn_ts, new_state, states_t
+
+        # - Return the evolution function
+        return evol_func
+
+    def evolve(
+        self,
+        ts_input: Optional[TSEvent] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
+    ) -> TSEvent:
+        """
+        Evolve the state of this layer given an input
+
+        :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param bool verbose:           Currently no effect, just for conformity
+
+        :return TSContinuous:                   Output time series; the synaptic currents of each neuron
+        """
+
+        # - Prepare time base and inputs
+        time_base, inps, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
+        )
+
+        # - Call raw evolution function
+        (
+            self._state,
+            Isyn_ts,
+            state_ts,
+        ) = self._evolve_jit(self._state,
+                self._weights,
+                self._tau,
+                self._noise_std,
+                inps,
+                inps * 0.0,
+                self._rng_key,
+                self._dt,
+)
+
+        # - Record synaptic currents
+        self._i_syn_last_evolution = TSContinuous(
+            time_base, onp.array(Isyn_ts), name="$I_{syn}$ " + self.name
+        )
+
+        # - Return output currents
+        return self._i_syn_last_evolution
