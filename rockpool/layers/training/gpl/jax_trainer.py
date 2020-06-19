@@ -92,6 +92,8 @@ def flatten(generic_collection: Union[Iterable, Collection], sep: str = "_") -> 
         if isinstance(this, dict):
             for k, v in this.items():
                 recurse(v, parent_key + sep + k if parent_key else k)
+        elif np.size(this) == 1:
+            obj[parent_key + sep + '0'] = this
         elif isinstance(this, collections.abc.Iterable):
             for ind, item in enumerate(this):
                 recurse(item, parent_key + sep + str(ind) if parent_key else str(ind))

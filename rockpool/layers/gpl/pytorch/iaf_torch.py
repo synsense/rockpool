@@ -826,11 +826,11 @@ class FFIAFSpkInTorch(FFIAFTorch):
         """
         Prepare the weighted, noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param inp:         np.ndarray    Input data
-        :param num_timesteps    int      Number of evolution time steps
-        :return:
-                neural_input   np.ndarray  Input to neurons
-                num_timesteps   int         Number of evolution time steps
+        :param np.ndarray inp:              Input data
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :return (neural_input, num_timesteps):
+                neural_input:   np.ndarray  Input to neurons
+                num_timesteps:   int        Number of evolution time steps
 
         """
         # - Prepare inp
@@ -887,13 +887,13 @@ class FFIAFSpkInTorch(FFIAFTorch):
         """
         Sample input, set up time base
 
-        :param TSEvent ts_input:      TxM or Tx1 spiking input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
+        :param Optional[TSEvent] ts_input:  TxM or Tx1 spiking input signals for this layer
+        :param Optional[float] duration:    Duration of the desired evolution, in seconds
+        :param Optional[int] num_timesteps: Number of evolution time steps
 
-        :return:
-            spike_raster:    ndarray Boolean raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
+        :return np.ndarray, int: spike_raster, num_timesteps
+            spike_raster:     np.ndarray: Boolean raster containing spike info
+            num_timesteps:    int: Number of evolution time steps
         """
         if num_timesteps is None:
             # - Determine num_timesteps
@@ -1104,12 +1104,12 @@ class RecIAFTorch(FFIAFTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
-
+        :param np.ndarray inp:     Input to layer as matrix
+        :param int evolution_timestep:     Time step within current evolution at beginning of current batch
+        :param int num_timesteps:         Number of evolution time steps
+        :param bool verbose:             Currently no effect, just for conformity
+        
+        :return TSEvent:              output spike series
         """
 
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)

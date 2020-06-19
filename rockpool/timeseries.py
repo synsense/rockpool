@@ -1917,7 +1917,7 @@ class TSEvent(TimeSeries):
 
         :param Optional[str] name:                    Name of the time series (Default: None)
 
-        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, max(channels) is taken to be the total channel number
+        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, the total channel number is taken to be ``max(channels)``  
         """
 
         # - Default time trace: empty
@@ -2405,7 +2405,7 @@ class TSEvent(TimeSeries):
         Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
         time series as a `.TSEvent` object.
 
-        .. rubic:: Example
+        .. rubric:: Example
 
         The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
 
@@ -2462,11 +2462,11 @@ class TSEvent(TimeSeries):
         dtype_channels: Union[None, str, type, np.dtype] = None,
     ) -> Dict:
         """
-        Store data and attributes of this :py:`TSEvent` in a :py:`Dict`.
+        Store data and attributes of this :py:class:`.TSEvent` in a ``Dict``.
 
-        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
-        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which `channels` are to be returned, for example to save space.
-        :return:    Dict with data and attributes of this :py:`TSEvent`.
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which ``times`` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which ``channels`` are to be returned, for example to save space.
+        :return:    Dict with data and attributes of this :py:class:`.TSEvent`.
         """
 
         if dtype_times is not None:
@@ -2515,7 +2515,7 @@ class TSEvent(TimeSeries):
         dtype_channels: Union[None, str, type, np.dtype] = None,
     ):
         """
-        Save this :py:`.TSEvent` as an ``npz`` file using ``np.savez``
+        Save this :py:class:`.TSEvent` as an ``npz`` file using :py:meth:`np.savez`
 
         :param str path:        Path to save file
         :param bool verbose:    Print path information after successfully saving.
