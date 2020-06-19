@@ -132,6 +132,8 @@ def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense =
     
     # - Quantize
     base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2**5 - 1)
+    if(base_weight == 0.0):
+        return np.zeros(M.shape)
     num_base_weights_needed = np.round(M / base_weight)
 
     num_dense_neurons = 0
@@ -382,7 +384,7 @@ class RecFSSpikeADS(Layer):
         record_length_batched = num_timesteps
 
         # - Discretization
-        if(self.num_synapse_states == -1):
+        if(self.num_synapse_states == -1 and not self.discretize_dynapse):
             # - Should not discretize
             self.weights_slow_discretized = self.weights_slow
         elif(self.discretize_dynapse):
