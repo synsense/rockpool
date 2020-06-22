@@ -1878,7 +1878,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
 
     .. math::
 
-        \\tau \\dot\\I_{syn} = -I_{syn} + W_{in} \\cdot I_{in}(t) + \\zeta \\sigma(t)
+        \\tau \\dot{I}_{syn} = -I_{syn} + W_{in} \\cdot I_{in}(t) + \\zeta \\sigma(t)
 
     where :math:`\\tau` is the time constant for each node; :math:`I_{syn}(t)` is the synaptic current at time :math:`t`; :math:`I_{in}(t)` is the input current; :math:`W_{in}` is the input weight matrix with shape ``[MxN]`` for ``M`` input channels and ``N`` nodes; and :math:`\\zeta \\sigma(t)` is a white noise process with std. dev :math:`\\sigma`.
 
@@ -2099,7 +2099,7 @@ class FFExpSynJax(FFExpSynCurrentInJax):
 
     .. math::
     
-        \\tau \\dot\\I_{syn} = -I_{syn} + W_{in} \\cdot s(t) + \\zeta \\sigma(t)
+        \\tau \\dot{I}_{syn} = -I_{syn} + W_{in} \\cdot s(t) + \\zeta \\sigma(t)
 
     where :math:`\\tau` is the time constant for each node; :math:`I_{syn}(t)` is the synaptic current at time :math:`t`; :math:`s(t)` is the input spike train; :math:`W_{in}` is the input weight matrix with shape ``[MxN]`` for ``M`` input channels and ``N`` nodes; and :math:`\\zeta \\sigma(t)` is a white noise process with std. dev :math:`\\sigma`.
 
