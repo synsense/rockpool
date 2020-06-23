@@ -23,7 +23,17 @@ from jax import numpy as np
 from jax.tree_util import tree_flatten, tree_unflatten
 
 # - Import and define types
-from typing import Dict, Tuple, Any, Callable, Union, List, Optional, Collection, Iterable
+from typing import (
+    Dict,
+    Tuple,
+    Any,
+    Callable,
+    Union,
+    List,
+    Optional,
+    Collection,
+    Iterable,
+)
 
 State = Any
 Params = Union[Dict, Tuple, List]
@@ -34,14 +44,14 @@ __all__ = ["JaxTrainer"]
 # - Define a useful default loss function
 @jit
 def loss_mse_reg(
-        params: Params,
-        states_t: Dict[str, np.ndarray],
-        output_batch_t: np.ndarray,
-        target_batch_t: np.ndarray,
-        min_tau: float,
-        lambda_mse: float = 1.0,
-        reg_tau: float = 10000.0,
-        reg_l2_rec: float = 1.0,
+    params: Params,
+    states_t: Dict[str, np.ndarray],
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_rec: float = 1.0,
 ) -> float:
     """
     Loss function for target versus output
@@ -74,7 +84,10 @@ def loss_mse_reg(
     # - Return loss
     return fLoss
 
-def flatten(generic_collection: Union[Iterable, Collection], sep: str = "_") -> Collection:
+
+def flatten(
+    generic_collection: Union[Iterable, Collection], sep: str = "_"
+) -> Collection:
     """
     Flattens a generic collection of collections into an ordered dictionary.
     
@@ -86,14 +99,15 @@ def flatten(generic_collection: Union[Iterable, Collection], sep: str = "_") -> 
     :return Collection flattened_collection: A collection of all the items in ``generic_collection``, flattened into a single coellction.
     """
     import collections
+
     obj = collections.OrderedDict()
-    
+
     def recurse(this, parent_key=""):
         if isinstance(this, dict):
             for k, v in this.items():
                 recurse(v, parent_key + sep + k if parent_key else k)
         elif np.size(this) == 1:
-            obj[parent_key + sep + '0'] = this
+            obj[parent_key + sep + "0"] = this
         elif isinstance(this, collections.abc.Iterable):
             for ind, item in enumerate(this):
                 recurse(item, parent_key + sep + str(ind) if parent_key else str(ind))
@@ -202,7 +216,9 @@ class JaxTrainer(ABC):
     @abstractmethod
     def _evolve_functional(
         self,
-    ) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]]:
+    ) -> Callable[
+        [Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]
+    ]:
         """
         Functional form of evolution for this layer
 
@@ -227,7 +243,7 @@ class JaxTrainer(ABC):
     @property
     def _default_loss(self) -> Callable[[Any], float]:
         return loss_mse_reg
-    
+
     @property
     def _default_loss_params(self) -> Dict:
         return {
@@ -248,8 +264,10 @@ class JaxTrainer(ABC):
         loss_params: Dict = {},
         optimizer: Callable = adam,
         opt_params: Dict = {"step_size": 1e-4},
-        batch_axis = None,
-    ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], Tuple[np.ndarray, State]]]:
+        batch_axis=None,
+    ) -> Tuple[
+        Callable[[], float], Callable[[], float], Callable[[], Tuple[np.ndarray, State]]
+    ]:
         """
         Perform one trial of Adam stochastic gradient descent to train the layer
 
@@ -275,6 +293,7 @@ class JaxTrainer(ABC):
 
             def loss_mse_reg(
                 params: Params,
+                states_t: States,
                 output_batch_t: np.ndarray,
                 target_batch_t: np.ndarray,
                 min_tau: float,
@@ -286,6 +305,7 @@ class JaxTrainer(ABC):
                 Loss function for target versus output
 
                 :param Params params:               Set of packed parameters
+                :param States states_t:             Dict of layer internal state tme series
                 :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
                 :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
                 :param float min_tau:               Minimum time constant
@@ -329,9 +349,7 @@ class JaxTrainer(ABC):
         """
 
         # - Initialise training
-        initialise = is_first or not hasattr(
-            self, "_JaxTrainer__in_training_sgd_adam"
-        )
+        initialise = is_first or not hasattr(self, "_JaxTrainer__in_training_sgd_adam")
 
         if initialise:
             # - Get optimiser
@@ -351,8 +369,8 @@ class JaxTrainer(ABC):
 
                 :param int i:                       Current optimization iteration
                 :param Any opt_state:               Current optimizer state
-                :param np.ndarray input_batch_t:    Input signal for this batch. Rasterized time series [TxI]
-                :param np.ndarray target_batch_t:   Target signal for this batch. Rasterized time series [TxO]
+                :param np.ndarray input_batch_t:    Input signal for this batch. Rasterized time series [BxTxI]
+                :param np.ndarray target_batch_t:   Target signal for this batch. Rasterized time series [BxTxO]
 
                 :return Any: new_opt_state
                 """
@@ -363,11 +381,6 @@ class JaxTrainer(ABC):
                 g = self.__grad_fcn(
                     opt_params, input_batch_t, target_batch_t, self._state
                 )
-
-                # - Average gradients over batch dimension
-                g, tree_def = tree_flatten(g)
-                g = [np.mean(g_item, axis = batch_axis) for g_item in g]
-                g = tree_unflatten(tree_def, g)
 
                 # - Call optimiser update function
                 return opt_update(i, g, opt_state)
@@ -395,14 +408,16 @@ class JaxTrainer(ABC):
                 Curried loss function; absorbs loss parameters
 
                 :param Params opt_params:           Current values of the layer parameters, modified by optimization
-                :param np.ndarray input_batch_t:    Input rasterized time series for this batch [TxOxB]
-                :param np.ndarray target_batch_t:   Target rasterized time series for this batch [TxOxB]
+                :param np.ndarray input_batch_t:    Input rasterized time series for this batch [BxTxO]
+                :param np.ndarray target_batch_t:   Target rasterized time series for this batch [BxTxO]
                 :param State state:                 Initial state for the layer
 
                 :return float:                      Loss value for the parameters in `opt_params`, for the current batch
                 """
                 # - Call the layer evolution function
-                output_batch_t, new_state, states_t = evol_func(opt_params, state, input_batch_t)
+                output_batch_t, new_state, states_t = evol_func(
+                    opt_params, state, input_batch_t
+                )
 
                 # - Call loss function and return loss
                 return loss_fcn(
@@ -414,10 +429,31 @@ class JaxTrainer(ABC):
 
             if batch_axis is not None:
                 # - Use `vmap` to map over batches
-                self.__loss_fcn = jit(vmap(loss_curried, in_axes=(None, batch_axis, batch_axis, None)))
-                self.__grad_fcn = jit(vmap(grad(loss_curried), in_axes = (None, batch_axis, batch_axis, None)))
+                self.__loss_fcn = jit(
+                    np.mean(
+                        vmap(
+                            loss_curried, in_axes=(None, batch_axis, batch_axis, None)
+                        ),
+                        axis=batch_axis,
+                    )
+                )
+
+                def batch_mean(pytree):
+                    g, tree_def = tree_flatten(pytree)
+                    g = [np.mean(g_item, axis=batch_axis) for g_item in g]
+                    g = tree_unflatten(tree_def, g)
+                    return g
+
+                self.__grad_fcn = jit(
+                    batch_mean(
+                        vmap(
+                            grad(loss_curried),
+                            in_axes=(None, batch_axis, batch_axis, None),
+                        )
+                    )
+                )
             else:
-                # - Use `vmap` to map over batches
+                # - No batching
                 self.__loss_fcn = jit(loss_curried)
                 self.__grad_fcn = jit(grad(loss_curried))
 
@@ -448,15 +484,16 @@ class JaxTrainer(ABC):
             inp_batch_shape = list(inps.shape)
             if len(inp_batch_shape) < batch_axis:
                 inp_batch_shape[batch_axis] = 1
-                
+
             target_batch_shape = list(target.shape)
             if len(target_batch_shape) < batch_axis:
                 target_batch_shape[batch_axis] = 1
-    
+
             # - Check that batch sizes are equal
-            assert inp_batch_shape[batch_axis] == target_batch_shape[batch_axis],\
-                'Input and Target do not have a matching batch size.'
-    
+            assert (
+                inp_batch_shape[batch_axis] == target_batch_shape[batch_axis]
+            ), "Input and Target do not have a matching batch size."
+
             # - Reshape inputs and targets to batch shape
             inps = np.reshape(inps, inp_batch_shape)
             target = np.reshape(target, target_batch_shape)
@@ -476,53 +513,62 @@ class JaxTrainer(ABC):
 
         # - NaNs raise errors
         if debug_nans:
-            str_error = ''
+            str_error = ""
 
             # - Check current network state
             for k, v in flatten(self._state).items():
                 if np.any(np.isnan(v)):
-                    str_error += 'Pre-evolve network state {} contains NaNs\n'.format(k)
+                    str_error += "Pre-evolve network state {} contains NaNs\n".format(k)
 
             # - Check network parameters
             for k, v in flatten(self._pack()).items():
                 if np.any(np.isnan(v)):
-                    str_error += 'Pre-optimisation step network parameter {} contains NaNs\n'.format(k)
+                    str_error += "Pre-optimisation step network parameter {} contains NaNs\n".format(
+                        k
+                    )
 
             # - Check loss function
             if np.isnan(l_fcn()):
-                str_error += 'Loss function returned NaN\n'
+                str_error += "Loss function returned NaN\n"
 
             # - Check outputs
             output_ts, new_state, states_t = o_fcn()
             if np.any(np.isnan(output_ts)):
-                str_error += 'Network output contained NaNs\n'
+                str_error += "Network output contained NaNs\n"
 
             # - Check network states
             for k, v in flatten(new_state).items():
                 if np.any(np.isnan(v)):
-                    str_error += 'Post-evolve network state {} contains NaNs\n'.format(k)
+                    str_error += "Post-evolve network state {} contains NaNs\n".format(
+                        k
+                    )
 
             # - Check gradients
             gradients = g_fcn()
             debug_gradient = False
             for k, v in flatten(gradients).items():
                 if np.any(np.isnan(v)):
-                    str_error += 'Gradient item {} contains NaNs\n'.format(k)
-                    debug_gradient = True 
+                    str_error += "Gradient item {} contains NaNs\n".format(k)
+                    debug_gradient = True
 
             # - Check gradients in detail
             if debug_gradient:
                 # - Loop over time steps and compute gradients
                 found_nan = False
                 for step in range(inps.shape[0]):
-                    gradients_limited = self.__grad_fcn(self.__get_params(self.__opt_state), inps[:step, :], target[:step, :], self._state)
+                    gradients_limited = self.__grad_fcn(
+                        self.__get_params(self.__opt_state),
+                        inps[:step, :],
+                        target[:step, :],
+                        self._state,
+                    )
 
                     for k, v in flatten(gradients_limited).items():
                         if np.any(np.isnan(v)):
-                            str_error += 'Gradient NaNs begin in step {}\n'.format(step)
+                            str_error += "Gradient NaNs begin in step {}\n".format(step)
                             found_nan = True
                             break
-                    
+
                     if found_nan:
                         break
 
@@ -544,4 +590,3 @@ class JaxTrainer(ABC):
             del self.__in_training_sgd_adam
 
         return l_fcn, g_fcn, o_fcn
-
