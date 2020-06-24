@@ -9,6 +9,7 @@ import pytest
 def test_imports():
     from rockpool.layers.training import JaxTrainer
 
+
 def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     from rockpool.layers import RecRateEulerJax_IO
     from rockpool import TSContinuous
@@ -35,7 +36,7 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
 
     # - Initialise training
     loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
-        ts_input, ts_target, is_first=True, debug_nans = True,
+        ts_input, ts_target, is_first=True, debug_nans=True,
     )
 
     # - Test loss and gradient functions
@@ -93,6 +94,13 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
 
     assert np.all(np.abs(ts_output.samples - ts_output_target) < target_eps)
 
+    # - test batched training
+    inp_batch = np.repeat(np.expand_dims(ts_input.samples, 0), 2, axis=0)
+    tgt_batch = np.repeat(np.expand_dims(ts_target.samples, 0), 2, axis=0)
+    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+        inp_batch, tgt_batch, is_first=True, debug_nans=True, batch_axis=0,
+    )
+
 
 def test_train_rate_jax_sgd_FFRateEulerJax():
     from rockpool.layers import FFRateEulerJax
@@ -112,7 +120,7 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
 
     # - Initialise training
     loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
-        ts_input, ts_target, is_first=True, debug_nans = True,
+        ts_input, ts_target, is_first=True, debug_nans=True,
     )
 
     # - Test loss and gradient functions
@@ -125,3 +133,10 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
 
     # - Perform final training step
     fl0.train_output_target(ts_input, ts_target, is_last=True)
+
+    # - test batched training
+    inp_batch = np.repeat(np.expand_dims(ts_input.samples, 0), 2, axis=0)
+    tgt_batch = np.repeat(np.expand_dims(ts_target.samples, 0), 2, axis=0)
+    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+        inp_batch, tgt_batch, is_first=True, debug_nans=True, batch_axis=0,
+    )

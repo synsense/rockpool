@@ -429,33 +429,34 @@ class JaxTrainer(ABC):
 
             if batch_axis is not None:
                 # - Use `vmap` to map over batches
-                self.__loss_fcn = jit(
-                    np.mean(
-                        vmap(
-                            loss_curried, in_axes=(None, batch_axis, batch_axis, None)
-                        ),
-                        axis=batch_axis,
-                    )
-                )
+                def loss_batch(*args, **kwargs):
+                    """ Batch mean loss function """
+                    loss_b = vmap(
+                        loss_curried, in_axes=(None, batch_axis, batch_axis, None)
+                    )(*args, **kwargs)
+                    return np.mean(loss_b, axis=batch_axis)
 
-                def batch_mean(pytree):
-                    g, tree_def = tree_flatten(pytree)
+                def grad_batch(*args, **kwargs):
+                    """ Batch mean gradient function """
+                    g = vmap(
+                        grad(loss_curried),
+                        in_axes=(None, batch_axis, batch_axis, None),
+                    )(*args, **kwargs)
+                    g, tree_def = tree_flatten(g)
                     g = [np.mean(g_item, axis=batch_axis) for g_item in g]
                     g = tree_unflatten(tree_def, g)
                     return g
 
-                self.__grad_fcn = jit(
-                    batch_mean(
-                        vmap(
-                            grad(loss_curried),
-                            in_axes=(None, batch_axis, batch_axis, None),
-                        )
-                    )
+                self.__loss_fcn = jit(loss_batch)
+                self.__grad_fcn = jit(grad_batch)
+                self.__evolve_functional = jit(
+                    vmap(self._evolve_functional, in_axes=(None, None, batch_axis))
                 )
             else:
                 # - No batching
                 self.__loss_fcn = jit(loss_curried)
                 self.__grad_fcn = jit(grad(loss_curried))
+                self.__evolve_functional = jit(self._evolve_functional)
 
             # - Initialise optimizer
             self.__opt_state = opt_init(self._pack())
@@ -482,21 +483,21 @@ class JaxTrainer(ABC):
         # - Check for batch dimension, and augment if necessary
         if batch_axis is not None:
             inp_batch_shape = list(inps.shape)
-            if len(inp_batch_shape) < batch_axis:
-                inp_batch_shape[batch_axis] = 1
-
+            # if len(inp_batch_shape) < batch_axis:
+            #     inp_batch_shape[batch_axis] = 1
+            #
             target_batch_shape = list(target.shape)
-            if len(target_batch_shape) < batch_axis:
-                target_batch_shape[batch_axis] = 1
+            # if len(target_batch_shape) < batch_axis:
+            #     target_batch_shape[batch_axis] = 1
 
             # - Check that batch sizes are equal
             assert (
                 inp_batch_shape[batch_axis] == target_batch_shape[batch_axis]
             ), "Input and Target do not have a matching batch size."
 
-            # - Reshape inputs and targets to batch shape
-            inps = np.reshape(inps, inp_batch_shape)
-            target = np.reshape(target, target_batch_shape)
+            # # - Reshape inputs and targets to batch shape
+            # inps = np.reshape(inps, inp_batch_shape)
+            # target = np.reshape(target, target_batch_shape)
 
         # - Create lambdas that evaluate the loss and the gradient on this trial
         l_fcn, g_fcn, o_fcn = (
@@ -506,7 +507,7 @@ class JaxTrainer(ABC):
             lambda: self.__grad_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
             ),
-            lambda: self._evolve_functional(
+            lambda: self.__evolve_functional(
                 self.__get_params(self.__opt_state), self._state, inps
             ),
         )
