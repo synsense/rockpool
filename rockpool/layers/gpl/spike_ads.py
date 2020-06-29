@@ -38,8 +38,8 @@ def neuron_dot_v(
     t,
     V,
     dt,
-    I_s_F : np.ndarray,
-    I_s_S : np.ndarray,
+    I_s_F,
+    I_s_S,
     I_kDte,
     I_ext,
     V_rest,
@@ -48,38 +48,16 @@ def neuron_dot_v(
 ):
     return (V_rest - V + I_s_F + I_s_S + I_kDte + I_ext + bias) / tau_V
 
-# - Not used
-@njit
-def syn_dot_I(I, dt, I_spike, tau_Syn):
-    return -I / tau_Syn + I_spike / dt
-
 @njit
 def syn_dot_I_pre(I, dt_syn, I_spike):
     return -dt_syn*I + I_spike
 
 
-@njit
-def outer_numba(a, b):
-    m = a.shape[0]
-    n = b.shape[0]
-    result = np.empty((m, n), dtype=np.float64)
-    for i in range(m):
-        for j in range(n):
-            result[i, j] = a[i]*b[j]
-    return result
-
-@njit
-def learning_callback(r : np.ndarray , weights_in : np.ndarray, e : np.ndarray , eta : float) -> np.ndarray:
-    """
-    :brief : Learning callback implementing learning rule W_slow_dot = eta*phi(r)(D.T @ e).T
-    """
-    return outer_numba(r, (weights_in.T @ (eta*e)).T)
-
 def discretize(W, base_weight):
     tmp = np.round(W / base_weight)
     return base_weight*tmp, tmp
 
-def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense = True, plot = False):
+def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense = True):
     """
     @brief Function that discretizes a given continuous weight matrix
     respecting the constraints of the DYNAP-SE II.
@@ -184,9 +162,6 @@ def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense =
         indices = np.argsort(np.abs(num_base_weights_needed[j,:]))[::-1][:num_synapses_available[j]]
         M_disc[j,indices] = base_weight*num_base_weights_needed[j,indices]
 
-    if(plot):
-        plot_matrices(M, M_disc, title_A='Original', title_B='Quantized')
-
     return M_disc
 
 
@@ -216,7 +191,6 @@ class RecFSSpikeADS(Layer):
                 refractory : float,
                 record : bool,
                 name : str,
-                adam: bool,
                 discretize: int,
                 discretize_dynapse: bool):
         
@@ -250,16 +224,6 @@ class RecFSSpikeADS(Layer):
         self.t_start_suppress = None
         self.t_stop_suppress = None
         self.percentage_suppress = None
-
-        # - Adam optimizer
-        self.use_adam = adam
-        self.num_training_iterations = 0
-        self.first_moment = np.zeros(weights_slow.shape)
-        self.second_moment = np.zeros(weights_slow.shape)
-        self.alpha = 0.0001
-        self.epsilon = 0.00001
-        self.beta1 = 0.9
-        self.beta2 = 0.999
 
         # - Discretization
         self.num_synapse_states = discretize # How many distinct synapse weights to we allow? For example, 2**3 = 8 would be 3-bit precision
@@ -314,8 +278,6 @@ class RecFSSpikeADS(Layer):
         # - Get discretised input and nominal time trace
         input_time_trace, static_input, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
         final_time = input_time_trace[-1]
-
-        # print(f"Final time is {final_time} and self._t is {self._t}")
 
         # - Assertions about training and the targets that were set
         if(self.is_training):
@@ -396,7 +358,6 @@ class RecFSSpikeADS(Layer):
             if(base_weight != 0):
                 self.weights_slow_discretized, _ = discretize(self.weights_slow, base_weight)
 
-        # @njit # - njit compiled is actually slower
         def _evolve_backstep(
             t_last,
             t_time,
@@ -440,8 +401,6 @@ class RecFSSpikeADS(Layer):
                 # - Suppress neurons
                 state[:int(self.size*self.percentage_suppress)] = v_reset[:int(self.size*self.percentage_suppress)]
 
-
-            # - Back-tick spike detector
 
             # - Locate spiking neurons
             spike_ids = state > v_thresh
@@ -527,7 +486,7 @@ class RecFSSpikeADS(Layer):
                 x = np.copy(target[int_time, :])    
                 x_hat = I_s_O
                 e = x - x_hat
-                I_kDte = k*(weights_in.T @ e)
+                I_kDte = k*(weights_out @ e)
                 
             else:
                 I_kDte = zeros
@@ -728,26 +687,11 @@ class RecFSSpikeADS(Layer):
             # - No learning along the diagonal
             np.fill_diagonal(dot_W_slow_batched, 0)
             # - Normalize the update to have frobenius norm 1.0
-            dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)
-            if(self.use_adam):
-                # - Increase variable keeping track of training iterations used by adam
-                self.num_training_iterations += 1
-                # - Update first moment estimate
-                self.first_moment = self.beta1*self.first_moment + (1-self.beta1)*dot_W_slow_batched
-                # - Update second raw moment estimate
-                self.second_moment = self.beta2*self.second_moment + (1-self.beta2)*dot_W_slow_batched**2
-                # - Apply bias correction
-                first_moment_bias_corrected = self.first_moment / (1-self.beta1**self.num_training_iterations)
-                second_moment_bias_corrected = self.second_moment / (1-self.beta2**self.num_training_iterations)
-                # - Perform update
-                update = self.alpha*first_moment_bias_corrected / (np.sqrt(second_moment_bias_corrected) + self.epsilon)
-                self.weights_slow += update
-                print("Performed update of size",((np.sum(np.abs(update)) / self.size**2)))
-            else:
-                # - Apply the learning rate
-                dot_W_slow_batched *= self.eta
-                # - Perform the update
-                self.weights_slow += dot_W_slow_batched
+            dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)    
+            # - Apply the learning rate
+            dot_W_slow_batched *= self.eta
+            # - Perform the update
+            self.weights_slow += dot_W_slow_batched
             
         if(verbose):
             ## - Construct return time series
@@ -903,7 +847,6 @@ class RecFSSpikeADS(Layer):
         config["refractory"] = self.refractory
         config["record"] = int(self.record)
         config["name"] = self.name
-        config["adam"] = self.use_adam
         config["discretize"] = self.num_synapse_states
         config["discretize_dynapse"] = self.discretize_dynapse
         
