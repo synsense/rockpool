@@ -391,8 +391,8 @@ class PassThrough(FFRateLayer):
         Evolve the state of this layer given an input
 
         :param Optional[TSContinuous] ts_input: Input time series
-        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` will be used for the evolution duration
-        :param Optional[int] num_timesteps      Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` will be used for the evolution duration
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then ``num_timesteps`` or the duration of ``ts_input`` will be used for the evolution duration
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then ``duration`` or the duration of ``ts_input`` will be used for the evolution duration
         :param bool verbose:                    Currently has no effect
 
         :return TSContinuous:                   Output time series
@@ -437,7 +437,7 @@ class PassThrough(FFRateLayer):
         self._timestep += num_timesteps
 
         # - Return time series with output data and bias
-        return TSContinuous(time_base, samples_out + self.bias)
+        return TSContinuous(time_base, samples_out + self.bias, name = "Outputs")
 
     def __repr__(self):
         return "PassThrough layer object `{}`.\nnSize: {}, size_in: {}, delay: {}".format(
@@ -642,7 +642,7 @@ class FFRateEuler(FFRateLayer):
         # - Increment internal time representation
         self._timestep += num_timesteps
 
-        return TSContinuous(time_base, sample_act)
+        return TSContinuous(time_base, sample_act, name = "Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False
@@ -847,11 +847,11 @@ class RecRateEuler(Layer):
         super().__init__(weights=np.asarray(weights, float), name=name, dt=dt)
 
         # - Check size and shape of `weights`
-        if weights.ndim != 2:
+        if self.weights.ndim != 2:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a matrix with 2 dimensions"
             )
-        if weights.shape[0] != weights.shape[1]:
+        if self.weights.shape[0] != self.weights.shape[1]:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a square matrix"
             )
@@ -923,7 +923,7 @@ class RecRateEuler(Layer):
         self._timestep += num_timesteps
 
         # - Construct a return TimeSeries
-        return TSContinuous(time_base, activity)
+        return TSContinuous(time_base, activity, name = "Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False

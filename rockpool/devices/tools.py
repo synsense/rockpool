@@ -1,6 +1,6 @@
 # ----
 # tools.py - A few useful funcitons that can be run in cortexcontrol.
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 # ----
 
 import copy

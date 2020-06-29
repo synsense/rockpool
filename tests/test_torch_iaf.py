@@ -343,9 +343,7 @@ def test_reciaf_refr_torch():
             np.diff(tsOutR2.times[tsOutR2.channels == iChannel]) >= 0.01 - fTol
         ).all()
 
-    rlr2 = RecIAFRefrTorch(
-        weights, dt=dt, bias=0.0101, record=False, refractory=0.01
-    )
+    rlr2 = RecIAFRefrTorch(weights, dt=dt, bias=0.0101, record=False, refractory=0.01)
     tsOutR3 = rlr2.evolve(tsIn, duration=0.4)
 
     assert (tsOutR2.times == tsOutR3.times).all()

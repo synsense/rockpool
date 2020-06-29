@@ -15,11 +15,13 @@ __all__ = ["NetworkDeneve"]
 class NetworkDeneve(Network):
     """
     `.Network` base class that defines and builds networks of Deneve reservoirs to solve linear problems.
+
+    Use :py:meth:`~.NetworkDeneve.SolveLinearProblem` or :py:meth:`~.NetworkDeneve.SpecifyNetwork` to build a Deneve tight balance recurrent spiking network.
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         # - Call super-class constructor
-        super().__init__()
+        super().__init__(**kwargs)
 
     @staticmethod
     def SolveLinearProblem(
@@ -35,32 +37,32 @@ class NetworkDeneve(Network):
         tau_syn_slow: float = 100e-3,
         v_thresh: np.ndarray = -55e-3,
         v_rest: np.ndarray = -65e-3,
-        refractory=-np.finfo(float).eps,
+        refractory: float = -np.finfo(float).eps,
     ) -> "NetworkDeneve":
         """
-        SolveLinearProblem - Static method Direct implementation of a linear dynamical system
+        Direct implementation of a linear dynamical system
 
-        :param a:             np.ndarray [PxP] Matrix defining linear dynamical system
-        :param net_size:        int Desired size of recurrent reservoir layer (Default: 100)
+        :param np.ndarray a:        [PxP] Matrix defining linear dynamical system
+        :param int net_size:        Desired size of recurrent reservoir layer (Default: 100)
 
-        :param gamma:         np.ndarray [PxN] Input kernel (Default: 50 * Normal / net_size)
+        :param np.ndarray gamma:    [PxN] Input kernel (Default: 50 * Normal / net_size)
 
-        :param dt:             float Nominal time step (Default: 0.1 ms)
+        :param float dt:            Nominal time step (Default: 0.1 ms)
 
-        :param mu:             float Linear cost parameter (Default: 1e-4)
-        :param nu:             float Quadratic cost parameter (Default: 1e-3)
+        :param float mu:            Linear cost parameter (Default: 1e-4)
+        :param float nu:            Quadratic cost parameter (Default: 1e-3)
 
-        :param noise_std:       float Noise std. dev. (Default: 0)
+        :param float noise_std:     Noise std. dev. (Default: 0.)
 
-        :param tau_mem:           float Neuron membrane time constant (Default: 20 ms)
-        :param tau_syn_fast:     float Fast synaptic time constant (Default: 1 ms)
-        :param tau_syn_slow:     float Slow synaptic time constant (Default: 100 ms)
+        :param float tau_mem:       Neuron membrane time constant (Default: 20 ms)
+        :param float tau_syn_fast:  Fast synaptic time constant (Default: 1 ms)
+        :param float tau_syn_slow:  Slow synaptic time constant (Default: 100 ms)
 
-        :param v_thresh:       float Threshold membrane potential (Default: -55 mV)
-        :param v_rest:         float Rest potential (Default: -65 mV)
-        :param refractory: float Refractory time for neuron spiking (Default: 0 ms)
+        :param float v_thresh:      Threshold membrane potential (Default: -55 mV)
+        :param float v_rest:        Rest potential (Default: -65 mV)
+        :param float refractory:    Refractory time for neuron spiking (Default: 0 ms)
 
-        :return: A configured NetworkDeneve object, containing input, reservoir and output layers
+        :return `.NetworkDeneve`:   A configured `.NetworkDeneve` object, containing input, reservoir and output layers
         """
         # - Get input parameters
         nJ = a.shape[0]
@@ -153,28 +155,28 @@ class NetworkDeneve(Network):
         refractory: float = -np.finfo(float).eps,
     ):
         """
-        SpecifyNetwork - Directly configure all layers of a reservoir
+        Directly configure all layers of a reservoir
 
-        :param weights_fast:       np.ndarray [NxN] Matrix of fast synaptic weights
-        :param weights_slow:       np.ndarray [NxN] Matrix of slow synaptic weights
-        :param weights_in:   np.ndarray [LxN] Matrix of input kernels
-        :param weights_out:  np.ndarray [NxM] Matrix of output kernels
+        :param np.ndarray weights_fast: [NxN] Matrix of fast synaptic weights
+        :param np.ndarray weights_slow: [NxN] Matrix of slow synaptic weights
+        :param np.ndarray weights_in:   [LxN] Matrix of input kernels
+        :param np.ndarray weights_out:  [NxM] Matrix of output kernels
 
-        :param dt:         float Nominal time step
-        :param noise_std:   float Noise Std. Dev.
+        :param float dt:                Nominal time step
+        :param float noise_std:         Noise Std. Dev.
 
-        :param v_rest:     np.ndarray [Nx1] Vector of rest potentials (spiking layer)
-        :param v_reset:    np.ndarray [Nx1] Vector of reset potentials (spiking layer)
-        :param v_thresh:   np.ndarray [Nx1] Vector of threshold potentials (spiking layer)
+        :param np.ndarray v_rest:       [Nx1] Vector of rest potentials (spiking layer)
+        :param np.ndarray v_reset:      [Nx1] Vector of reset potentials (spiking layer)
+        :param np.ndarray v_thresh:     [Nx1] Vector of threshold potentials (spiking layer)
 
-        :param tau_mem:      float Neuron membrane time constant (spiking layer)
-        :param tau_syn_r_fast: float Fast recurrent synaptic time constant
-        :param tau_syn_r_slow: float Slow recurrent synaptic time constant
-        :param tau_syn_out:    float Synaptic time constant for output layer
+        :param float tau_mem:           Neuron membrane time constant (spiking layer)
+        :param float tau_syn_r_fast:    Fast recurrent synaptic time constant
+        :param float tau_syn_r_slow:    Slow recurrent synaptic time constant
+        :param float tau_syn_out:       Synaptic time constant for output layer
 
-        :param refractory: float Refractory time for spiking layer
+        :param float refractory:        Refractory time for spiking layer
 
-        :return:
+        :return `.NetworkDeneve`:       Configured `.NetworkDeneve` spiking network
         """
         # - Construct reservoir
         reservoir_layer = RecFSSpikeEulerBT(

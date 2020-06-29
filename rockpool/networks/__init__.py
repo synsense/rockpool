@@ -8,6 +8,7 @@ dModules = {
     ".gpl.net_deneve": "NetworkDeneve",
     ".gpl.net_ads": "NetworkADS",
     ".gpl.net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
+    ".gpl.stack_jax": "JaxStack",
 }
 
 # - Define current package

@@ -37,7 +37,14 @@ dModules = {
     ".gpl.aeif_nest": "RecAEIFSpkInNest",
     ".gpl.devices.dynap_hw": ("RecDynapSE", "RecDynapSEDemo"),
     ".gpl.devices.virtual_dynapse": "VirtualDynapse",
-    ".gpl.rate_jax": ("RecRateEulerJax", "RecRateEulerJax_IO", "ForceRateEulerJax_IO", "FFRateEulerJax", "H_ReLU", "H_tanh"),
+    ".gpl.rate_jax": (
+        "RecRateEulerJax",
+        "RecRateEulerJax_IO",
+        "ForceRateEulerJax_IO",
+        "FFRateEulerJax",
+        "H_ReLU",
+        "H_tanh",
+    ),
     ".gpl.filter_bank": ("ButterMelFilter", "ButterFilter"),
     ".gpl.lif_jax": (
         "RecLIFJax",

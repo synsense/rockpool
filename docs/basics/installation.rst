@@ -45,6 +45,26 @@ To automatically install all the extra dependencies required by |project|, use t
 
     $ pip install rockpool[all]
 
+Building the documentation
+--------------------------
+
+The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with `pip install rockpool[all]`.
+
+To build a live, locally-hosted HTML version of the docs, use the command
+
+.. code-block:: Bash
+
+    $ cd docs
+    $ make clean livehtml
+
+To build a PDF version of the docs, you need to install `imagemagick` on your system, as well as a working version of `latex` and `pdflatex`. You will need to install these dependencies manually.
+
+Once all dependencies are installed, you can build the PDF docs with
+
+.. code-block:: Bash
+
+    $ cd docs
+    $ make clean latexpdf
 
 Contributing
 ============

@@ -7,7 +7,11 @@ import pytest
 
 
 def test_imports():
-    from rockpool.layers import RecRateEulerJax, RecRateEulerJax_IO, ForceRateEulerJax_IO
+    from rockpool.layers import (
+        RecRateEulerJax,
+        RecRateEulerJax_IO,
+        ForceRateEulerJax_IO,
+    )
 
 
 def test_RecRateEulerJax():
@@ -22,11 +26,7 @@ def test_RecRateEulerJax():
 
     # - Layer generation
     fl0 = RecRateEulerJax(
-        weights=w_recurrent,
-        bias=bias,
-        noise_std=0.1,
-        tau=tau,
-        dt=0.01,
+        weights=w_recurrent, bias=bias, noise_std=0.1, tau=tau, dt=0.01,
     )
 
     # - Input signal
@@ -47,6 +47,7 @@ def test_RecRateEulerJax():
 
     # - Test save and load
     import tempfile
+
     with tempfile.NamedTemporaryFile() as path_to_save:
         # - Save the layer
         fl0.save_layer(path_to_save.name)
@@ -55,41 +56,45 @@ def test_RecRateEulerJax():
         lyr_loaded = RecRateEulerJax.load_from_file(path_to_save.name)
 
         # - Compare properties
-        props_to_test = ['weights', 'tau', 'bias', 'dt', '_H', ]
-        assert all([
-            np.array([getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]).all()
-            for prop_name in props_to_test
-        ])
+        props_to_test = [
+            "weights",
+            "tau",
+            "bias",
+            "dt",
+            "_H",
+        ]
+        assert all(
+            [
+                np.array(
+                    [getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]
+                ).all()
+                for prop_name in props_to_test
+            ]
+        )
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
         fl1 = RecRateEulerJax(
-            weights=np.zeros((3, 2)),
-            tau=np.zeros(3),
-            bias=np.zeros(3),
+            weights=np.zeros((3, 2)), tau=np.zeros(3), bias=np.zeros(3),
         )
 
     with pytest.raises(AssertionError):
         fl1 = RecRateEulerJax(
-            weights=np.zeros((2, 2)),
-            tau=np.zeros(3),
-            bias=np.zeros(3),
+            weights=np.zeros((2, 2)), tau=np.zeros(3), bias=np.zeros(3),
         )
 
     with pytest.raises(AssertionError):
         fl1 = RecRateEulerJax(
-            weights=np.zeros((2, 2)),
-            tau=np.zeros(2),
-            bias=np.zeros(3),
+            weights=np.zeros((2, 2)), tau=np.zeros(2), bias=np.zeros(3),
         )
 
     with pytest.raises(ValueError):
         fl1 = RecRateEulerJax(
-                weights = np.zeros((2, 2)),
-                tau = np.zeros(2),
-                bias = np.zeros(2),
-                activation_func = "blah",
-                )
+            weights=np.zeros((2, 2)),
+            tau=np.zeros(2),
+            bias=np.zeros(2),
+            activation_func="blah",
+        )
 
 
 def test_RecRateEulerJax_IO():
@@ -133,6 +138,7 @@ def test_RecRateEulerJax_IO():
 
     # - Test save and load
     import tempfile
+
     with tempfile.NamedTemporaryFile() as path_to_save:
         # - Save the layer
         fl0.save_layer(path_to_save.name)
@@ -141,11 +147,23 @@ def test_RecRateEulerJax_IO():
         lyr_loaded = RecRateEulerJax_IO.load_from_file(path_to_save.name)
 
         # - Compare properties
-        props_to_test = ['w_in', 'w_recurrent', 'w_out', 'tau', 'bias', 'dt', '_H', ]
-        assert all([
-            np.array([getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]).all()
-            for prop_name in props_to_test
-        ])
+        props_to_test = [
+            "w_in",
+            "w_recurrent",
+            "w_out",
+            "tau",
+            "bias",
+            "dt",
+            "_H",
+        ]
+        assert all(
+            [
+                np.array(
+                    [getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]
+                ).all()
+                for prop_name in props_to_test
+            ]
+        )
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
@@ -186,13 +204,13 @@ def test_RecRateEulerJax_IO():
 
     with pytest.raises(ValueError):
         fl1 = RecRateEulerJax_IO(
-                w_in = np.zeros((1, 2)),
-                w_recurrent = np.zeros((2, 2)),
-                w_out = np.zeros((2, 1)),
-                tau = np.zeros(2),
-                bias = np.zeros(2),
-                activation_func = "blah",
-                )
+            w_in=np.zeros((1, 2)),
+            w_recurrent=np.zeros((2, 2)),
+            w_out=np.zeros((2, 1)),
+            tau=np.zeros(2),
+            bias=np.zeros(2),
+            activation_func="blah",
+        )
 
 
 def test_ForceRateEulerJax_IO():
@@ -231,6 +249,7 @@ def test_ForceRateEulerJax_IO():
 
     # - Test save and load
     import tempfile
+
     with tempfile.NamedTemporaryFile() as path_to_save:
         # - Save the layer
         fl0.save_layer(path_to_save.name)
@@ -239,11 +258,22 @@ def test_ForceRateEulerJax_IO():
         lyr_loaded = ForceRateEulerJax_IO.load_from_file(path_to_save.name)
 
         # - Compare properties
-        props_to_test = ['w_in', 'w_out', 'tau', 'bias', 'dt', '_H', ]
-        assert all([
-            np.array([getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]).all()
-            for prop_name in props_to_test
-        ])
+        props_to_test = [
+            "w_in",
+            "w_out",
+            "tau",
+            "bias",
+            "dt",
+            "_H",
+        ]
+        assert all(
+            [
+                np.array(
+                    [getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]
+                ).all()
+                for prop_name in props_to_test
+            ]
+        )
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
@@ -272,12 +302,12 @@ def test_ForceRateEulerJax_IO():
 
     with pytest.raises(ValueError):
         fl1 = ForceRateEulerJax_IO(
-                w_in = np.zeros((1, 2)),
-                w_out = np.zeros((2, 1)),
-                tau = np.zeros(2),
-                bias = np.zeros(2),
-                activation_func = "blah",
-                )
+            w_in=np.zeros((1, 2)),
+            w_out=np.zeros((2, 1)),
+            tau=np.zeros(2),
+            bias=np.zeros(2),
+            activation_func="blah",
+        )
 
 
 def test_FFRateEulerJax():
@@ -291,9 +321,7 @@ def test_FFRateEulerJax():
     tau = 20e-3 * np.ones(2)
 
     # - Layer generation
-    fl0 = FFRateEulerJax(
-        w_in=weights, bias=bias, noise_std=0.1, tau=tau, dt=0.01
-    )
+    fl0 = FFRateEulerJax(w_in=weights, bias=bias, noise_std=0.1, tau=tau, dt=0.01)
 
     # - Input signal
     tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 1)))
@@ -313,6 +341,7 @@ def test_FFRateEulerJax():
 
     # - Test save and load
     import tempfile
+
     with tempfile.NamedTemporaryFile() as path_to_save:
         # - Save the layer
         fl0.save_layer(path_to_save.name)
@@ -321,31 +350,33 @@ def test_FFRateEulerJax():
         lyr_loaded = FFRateEulerJax.load_from_file(path_to_save.name)
 
         # - Compare properties
-        props_to_test = ['w_in', 'tau', 'bias', 'dt', '_H', ]
-        assert all([
-            np.array([getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]).all()
-            for prop_name in props_to_test
-        ])
+        props_to_test = [
+            "w_in",
+            "tau",
+            "bias",
+            "dt",
+            "_H",
+        ]
+        assert all(
+            [
+                np.array(
+                    [getattr(fl0, prop_name) == getattr(lyr_loaded, prop_name)]
+                ).all()
+                for prop_name in props_to_test
+            ]
+        )
 
     # - Test that some errors are caught
     with pytest.raises(AssertionError):
-        fl1 = FFRateEulerJax(
-            w_in=np.zeros((1, 2)),
-            tau=np.zeros(3),
-            bias=np.zeros(3),
-        )
+        fl1 = FFRateEulerJax(w_in=np.zeros((1, 2)), tau=np.zeros(3), bias=np.zeros(3),)
 
     with pytest.raises(AssertionError):
-        fl1 = FFRateEulerJax(
-            w_in=np.zeros((1, 2)),
-            tau=np.zeros(2),
-            bias=np.zeros(3),
-        )
+        fl1 = FFRateEulerJax(w_in=np.zeros((1, 2)), tau=np.zeros(2), bias=np.zeros(3),)
 
     with pytest.raises(ValueError):
         fl1 = FFRateEulerJax(
-                w_in = np.zeros((1, 2)),
-                tau = np.zeros(2),
-                bias = np.zeros(2),
-                activation_func = "blah",
-                )
+            w_in=np.zeros((1, 2)),
+            tau=np.zeros(2),
+            bias=np.zeros(2),
+            activation_func="blah",
+        )

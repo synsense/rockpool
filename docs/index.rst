@@ -10,7 +10,7 @@ Welcome to |project|
 networks for Neuromorphic computing hardware. |project| provides a convenient interface for designing, training
 and evaluating recurrent networks, which can operate both with continuous-time dynamics and event-driven dynamics.
 
-|project| is an open-source project managed by aiCTX AG.
+|project| is an open-source project managed by SynSense.
 
 .. toctree::
    :maxdepth: 1
@@ -25,6 +25,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    basics/getting_started.ipynb
    basics/time_series.ipynb
    basics/introduction_to_snns.ipynb
+   basics/sharp_points.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -32,10 +33,12 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    tutorials/building_reservoir.ipynb
    tutorials/jax_sgd.ipynb
-   tutorials/RecDynapSE.ipynb
+   tutorials/train_jax_stack.ipynb
    tutorials/jax_lif_tutorial.ipynb
    tutorials/jax_lif_sgd.ipynb
    tutorials/deneve_reservoirs.ipynb
+   tutorials/DynapseControl.ipynb
+   tutorials/RecDynapSE.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -45,6 +48,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    reference/layer_types
    reference/api
    advanced/developers_notes
-   advanced/changelog_link
+   advanced/CHANGELOG
 
 * :ref:`genindex`

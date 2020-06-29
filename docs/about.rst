@@ -6,30 +6,34 @@ About |project|
 .. image:: _static/logo_Color_trimmed.png
     :width: 80%
 
-|project| is an open source project released by aiCTX AG.
+|project| is an open source project released by SynSense.
 
-.. image:: https://gitlab.com/aiCTX/rockpool/badges/develop/pipeline.svg
-
-.. image:: https://img.shields.io/pypi/v/rockpool.svg
+.. image:: https://img.shields.io/pypi/v/rockpool
+   :target: https://pypi.org/project/rockpool/
 
 .. image:: https://img.shields.io/conda/v/conda-forge/rockpool
+   :target: https://anaconda.org/conda-forge/rockpool
 
 .. image:: https://img.shields.io/pypi/pyversions/rockpool?logo=python
+   :target: https://pypi.org/project/rockpool/
 
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+.. image:: https://img.shields.io/badge/code_style-black-000000
 
 .. image:: https://img.shields.io/pypi/dd/rockpool
+   :target: https://pypi.org/project/rockpool/
 
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.3773845.svg
+   :target: https://doi.org/10.5281/zenodo.3773845
 
-About aiCTX
------------
+About SynSense
+--------------
 
-.. image:: _static/aictx_logo.png
+.. image:: _static/synsense_logo.png
     :width: 40%
 
-aiCTX_ is a Neuromorphic computing hardware and solutions startup, based in Zurich Switzerland. The company specializes in developing mixed-signal neuromorphic silicon hardware for neural simulation and signal processing; it develops software for interfacing with and configuring neuromorphic hardware; and develops solutions to analyse and process bio-signals. aiCTX_ is a commercial spin-off from the Institute of Neuroinformatics (INI_), University of Zurich (UZH_) and ETH Zurich (ETHZ_).
+SynSense_ is a Neuromorphic computing hardware and solutions startup, based in Zurich Switzerland. The company specializes in developing mixed-signal neuromorphic silicon hardware for neural simulation and signal processing; it develops software for interfacing with and configuring neuromorphic hardware; and develops solutions to analyse and process bio-signals. SynSense_ is a commercial spin-off from the Institute of Neuroinformatics (INI_), University of Zurich (UZH_) and ETH Zurich (ETHZ_).
 
-.. _aiCTX: https://aictx.ai
+.. _SynSense: https://synsense.ai
 .. _INI: https://ini.uzh.ch
 .. _UZH: https://uzh.ch
 .. _ETHZ: https://ethz.ch

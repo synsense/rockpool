@@ -1,6 +1,6 @@
 ##########
 # virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 ##########
 
 ### --- Imports
@@ -397,8 +397,8 @@ class VirtualDynapse(Layer):
         :param ArrayLike[int] connections_rec:              2D quantal synaptic recurrent connectivity matrix to be validated. Positive values correspond to excitatory connections; negative values correspond to inhibitory connections.
         :param Optional[ArrayLike[int]] connections_ext:    If not ``None``, a 2D quantal synaptic connectivitiy matrix that is considered as external input connections to the recurrent population that ``connections_rec`` refers to. This matrix is considered for validaiton of the fan-in of ``connections_rec``. Positive (negative) values correspond to excitatory (inhibitory) synapses. Default: ``None``, do not check external fan-in.
         :param Optional[ArrayLike[int]] neurons_pre:        Array of IDs of presynaptic neurons. If ``None`` (default), IDs are assumed to be 0,..,``connections_rec.shape[0]``. If not ``None``, connections from neurons that are not included in ``neurons_pre`` are assumed to be 0.
-        :param Optional[ArrayLike[int]] neurons_post:       Array of IDs of postsynaptic neurons. If ``None`` (default), IDs` are assumed to be 0,..,``connections_rec.shape[1]``. If not ``None``, connections to neurons that are not` included in ``neurons_post`` are assumed to be 0.
-        :param Optional[ArrayLike[int]] channels_ext:       Array of IDs of external input channels. If `None` (default), IDs are assumed to be 0,..,``connections_ext.shape[0]``. If not ``None``, connections from channels that are not included in ``channels_ext`` are assumed to be 0.
+        :param Optional[ArrayLike[int]] neurons_post:       Array of IDs of postsynaptic neurons. If ``None`` (default), IDs are assumed to be 0,..,``connections_rec.shape[1]``. If not ``None``, connections to neurons that are not included in ``neurons_post`` are assumed to be 0.
+        :param Optional[ArrayLike[int]] channels_ext:       Array of IDs of external input channels. If ``None`` (default), IDs are assumed to be 0,..,``connections_ext.shape[0]``. If not ``None``, connections from channels that are not included in ``channels_ext`` are assumed to be 0.
         :param Optional[bool] verbose:                      If ``True``, print out detailed information about validity of connections. Default: ``True``
         :param Optional[bool] validate_fanin:               If ``True``, test if connections have valid fan-in. Default: ``True``
         :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True
@@ -829,10 +829,10 @@ class VirtualDynapse(Layer):
         """
         Evolve the state of this layer given an input
 
-        :param Optional[TSEvent] ts_input:          Input spike trian
+        :param Optional[TSEvent] ts_input:          Input spike train
         :param Optional[float] duration:            Simulation/Evolution duration in seconds
-        :param Optional[int] num_timesteps          Number of evolution time steps
-        :param Optional[ArrayLike[int]] ids_in:     Array with IDs of input channels corresponding to the channels in ``ts_input``. If ``None`` (default), will use channel IDs from ``ts_input`.
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param Optional[ArrayLike[int]] ids_in:     Array with IDs of input channels corresponding to the channels in ``ts_input``. If ``None`` (default), will use channel IDs from ``ts_input``.
         :param Optional[ArrayLike[int]] ids_out:    Array with IDs of neurons whose spiking activity should be recorded and returned. If ``None`` (default), return activity of all neurons.
         :param Optional[bool] remap_out_channels:   If ``True``, IDs of recorded spikes in the returned timeseries will be mapped to a continuous sequence of integers starting from 0 (e.g. [1,6,3] -> [0,2,1]). If ``False`` (default), channels will correspond to actual neuron IDs.
         :param Optional[bool] verbose:              Currently no effect, just for conformity
