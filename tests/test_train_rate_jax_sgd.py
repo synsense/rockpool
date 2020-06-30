@@ -35,13 +35,11 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.1, 0.1, 0.1])
 
     # - Initialise training
-    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+    l, g, output_fcn = fl0.train_output_target(
         ts_input, ts_target, is_first=True, debug_nans=True,
     )
 
-    # - Test loss and gradient functions
-    l = loss_fcn()
-    g = grad_fcn()
+    # - Test output function
     o = output_fcn()
 
     # - Test known loss and gradient values
@@ -97,7 +95,7 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     # - test batched training
     inp_batch = np.repeat(np.expand_dims(ts_input.samples, 0), 2, axis=0)
     tgt_batch = np.repeat(np.expand_dims(ts_target.samples, 0), 2, axis=0)
-    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+    fl0.train_output_target(
         inp_batch, tgt_batch, is_first=True, debug_nans=True, batch_axis=0,
     )
 
@@ -119,13 +117,11 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
     )
 
     # - Initialise training
-    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+    l, g, output_fcn = fl0.train_output_target(
         ts_input, ts_target, is_first=True, debug_nans=True,
     )
 
-    # - Test loss and gradient functions
-    loss_fcn()
-    grad_fcn()
+    # - Test output function
     output_fcn()
 
     # - Perform intermediate training step
@@ -137,6 +133,6 @@ def test_train_rate_jax_sgd_FFRateEulerJax():
     # - test batched training
     inp_batch = np.repeat(np.expand_dims(ts_input.samples, 0), 2, axis=0)
     tgt_batch = np.repeat(np.expand_dims(ts_target.samples, 0), 2, axis=0)
-    loss_fcn, grad_fcn, output_fcn = fl0.train_output_target(
+    fl0.train_output_target(
         inp_batch, tgt_batch, is_first=True, debug_nans=True, batch_axis=0,
     )

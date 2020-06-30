@@ -680,12 +680,10 @@ def test_training_FFLIFJax_IO():
     steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             input_sp_ts, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
     # - Train with batches
@@ -694,12 +692,10 @@ def test_training_FFLIFJax_IO():
         lyrIO.randomize_state()
         inp_batch = np.repeat(np.expand_dims(sp_in_ts, 0), 2, axis=0)
         tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
 
@@ -750,12 +746,10 @@ def test_training_RecLIFJax():
     steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             tsInSpikes, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
     # - Train with batches
@@ -764,12 +758,10 @@ def test_training_RecLIFJax():
         lyrIO.randomize_state()
         inp_batch = np.repeat(np.expand_dims(sp_in_ts, 0), 2, axis=0)
         tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
 
@@ -819,12 +811,10 @@ def test_training_RecLIFCurrentInJax():
     steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             tsInCont, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
     # - Train with batches
@@ -833,12 +823,10 @@ def test_training_RecLIFCurrentInJax():
         lyrIO.randomize_state()
         inp_batch = np.repeat(np.expand_dims(tsInCont.samples, 0), 2, axis=0)
         tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
 
@@ -890,12 +878,10 @@ def test_training_RecLIFCurrentInJax_IO():
     steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             tsInCont, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
     # - Train with batches
@@ -904,12 +890,10 @@ def test_training_RecLIFCurrentInJax_IO():
         lyrIO.randomize_state()
         inp_batch = np.repeat(np.expand_dims(tsInCont.samples, 0), 2, axis=0)
         tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
 
@@ -962,12 +946,10 @@ def test_training_RecLIFJax_IO():
     steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             tsInSpikes, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
     # - Train with batches
@@ -976,12 +958,10 @@ def test_training_RecLIFJax_IO():
         lyrIO.randomize_state()
         inp_batch = np.repeat(np.expand_dims(ts_inp_sp, 0), 2, axis=0)
         tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
 
@@ -1031,12 +1011,10 @@ def test_training_FFLIFCurrentInJax_SO():
     steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             tsInCont, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
     # - Train with batches
@@ -1045,12 +1023,10 @@ def test_training_FFLIFCurrentInJax_SO():
         lyrIO.randomize_state()
         inp_batch = np.repeat(np.expand_dims(tsInCont.samples, 0), 2, axis=0)
         tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
-        l_fcn, g_fcn, o_fcn = lyrIO.train_output_target(
+        loss, grads, o_fcn = lyrIO.train_output_target(
             inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
         )
 
-        l_fcn()
-        g_fcn()
         o_fcn()
 
 

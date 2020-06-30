@@ -5,7 +5,7 @@
 # - Import base classes
 from rockpool.timeseries import TimeSeries
 
-from jax import jit, grad, vmap
+from jax import jit, grad, vmap, value_and_grad
 from jax.experimental.optimizers import adam
 
 import itertools
@@ -265,14 +265,12 @@ class JaxTrainer(ABC):
         optimizer: Callable = adam,
         opt_params: Dict = {"step_size": 1e-4},
         batch_axis=None,
-    ) -> Tuple[
-        Callable[[], float], Callable[[], float], Callable[[], Tuple[np.ndarray, State]]
-    ]:
+    ) -> Tuple[float, Dict[str, Any], Callable[[], Tuple[np.ndarray, State]]]:
         """
         Perform one trial of Adam stochastic gradient descent to train the layer
 
-        :param TimeSeries ts_input:     `.TimeSeries` (or raw sampled signal) to use as input for this trial ``[TxI]``
-        :param TimeSeries ts_target:    `.TimeSeries` (or raw sampled signal) to use as target for this trial ``[TxO]``
+        :param Union[TimeSeries,np.ndarray] ts_input:     `.TimeSeries` (or raw sampled signal) to use as input for this trial ``[TxI]`` (or ``[BxTxI]`` with batching)
+        :param Union[TimeSeries,np.ndarray] ts_target:    `.TimeSeries` (or raw sampled signal) to use as target for this trial ``[TxO]`` (or ``[BxTxO]`` with batching)
         :param Optional[float] min_tau: Minimum time constant to permit
         :param bool is_first:           Flag to indicate this is the first trial. Resets learning and causes initialisation.
         :param bool is_last:            Flag to indicate this is the last trial. Performs clean-up (not essential)
@@ -281,11 +279,19 @@ class JaxTrainer(ABC):
         :param Dict loss_params:        A dictionary of loss function parameters to pass to the loss function. Must be configured on the very first call to `.train_output_target`; subsequent changes will be ignored. Default: Appropriate parameters for :py:func:`loss_mse_reg`.
         :param Callable optimizer:      A JAX-style optimizer function. See the JAX docs for details. Default: :py:func:`jax.experimental.optimizers.adam`
         :param Dict opt_params:         A dictionary of parameters passed to :py:func:`optimizer`. Default: ``{"step_size": 1e-4}``
-        :param Optional[int] batch_axis: Axis over which to extract batch samples and map through the gradient and loss measurements. To use batches, you must pre-rasterise ``ts_input`` and ``ts_target``. If ``None`` (default), no batching is performed. If not ``None``, `batch_axis` defines the axis of ``ts_input`` and ``ts_target`` to pass to `jax.vmap` as the batch axis.
+        :param Optional[int] batch_axis: Axis over which to extract batch samples and map through the gradient and loss measurements. To use batches, you must pre-rasterise ``ts_input`` and ``ts_target``. If ``None`` (default), no batching is performed. If not ``None``, `batch_axis` defines the axis of ``ts_input`` and ``ts_target`` to pass to :py:func:`jax.vmap` as the batch axis.
 
-        Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can
-        be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated
-        on each call of `~.JaxTrainer.train_output_target`, but the layer time and state are *not* updated.
+        Use this function to train the output of the reservoir to match a target, given an input stimulus. This function can be called in a loop, passing in randomly-chosen training examples on each call. Parameters of the layer are updated on each call of `~.JaxTrainer.train_output_target`, but the layer time and state are *not* updated.
+
+        .. rubric:: Batching
+
+        A batch of samples can be provided for ``ts_input`` and ``ts_target``, where losses and gradients are averaged over the several samples in a batch. In this case, ``ts_input`` and ``ts_target`` must be provided as `ndarray` s, such that they are rasterised with the layer :py:attr:`~.Layer.dt`. You can use :py:meth:`~.Layer._prepare_input` to obtain a time base for the rasterisation / sampling.
+
+        To perform batching, you must provide the ``batch_axis`` argument to :py:meth:`.train_output_target`. This specifies which axis of ``ts_input`` and ``ts_target`` is the batch axis::
+
+            ts_input = np.random.rand(samples_per_batch, num_time_steps, num_inputs)
+            ts_target = np.random.rand(samples_per_batch, num_time_steps, num_outputs)
+            lyr.train_output_target(ts_input, ts_target, batch_axis = 0)
 
         .. rubric:: Writing your own loss function
 
@@ -342,9 +348,9 @@ class JaxTrainer(ABC):
 
         :py:func:`.loss` must return a scalar float of the calculated loss value for the current batch. You can use the values in ``params`` to compute regularisation terms. You may not modify anything in ``params``. You *must* implement :py:func:`.loss` using `jax.numpy`, and :py:func:`.loss` *must* be compilable by `jax.jit`.
 
-        :return (loss_fcn, grad_fcn, output_fcn):
-                                ``loss_fcn``:   Callable[[], float] Function that returns the current loss
-                                ``grad_fcn``:   Callable[[], float] Function that returns the gradient for the current batch
+        :return (loss, grads, output_fcn):
+                                ``loss``:   float The current loss for this batch/sample
+                                ``grad_fcn``:   Dict[str,Any] PyTree of gradients for the this batch/sample
                                 ``output_fcn``: Callable[[], Tuple[np.ndarray, State, Dict]] Function that returns the layer output for the current batch, the new internal states, and a dictionary of internal state time series for the evolution
         """
 
@@ -378,12 +384,12 @@ class JaxTrainer(ABC):
                 opt_params = get_params(opt_state)
 
                 # - Get the loss function gradients
-                g = self.__grad_fcn(
+                l, g = self.__grad_fcn(
                     opt_params, input_batch_t, target_batch_t, self._state
                 )
 
                 # - Call optimiser update function
-                return opt_update(i, g, opt_state)
+                return opt_update(i, g, opt_state), l, g
 
             # - If using default loss, set up parameters
             if loss_fcn is None:
@@ -438,14 +444,17 @@ class JaxTrainer(ABC):
 
                 def grad_batch(*args, **kwargs):
                     """ Batch mean gradient function """
-                    g = vmap(
-                        grad(loss_curried),
+                    l, g = vmap(
+                        value_and_grad(loss_curried),
                         in_axes=(None, batch_axis, batch_axis, None),
                     )(*args, **kwargs)
                     g, tree_def = tree_flatten(g)
                     g = [np.mean(g_item, axis=batch_axis) for g_item in g]
                     g = tree_unflatten(tree_def, g)
-                    return g
+
+                    l = np.mean(l, axis=batch_axis)
+
+                    return l, g
 
                 self.__loss_fcn = jit(loss_batch)
                 self.__grad_fcn = jit(grad_batch)
@@ -455,7 +464,7 @@ class JaxTrainer(ABC):
             else:
                 # - No batching
                 self.__loss_fcn = jit(loss_curried)
-                self.__grad_fcn = jit(grad(loss_curried))
+                self.__grad_fcn = jit(value_and_grad(loss_curried))
                 self.__evolve_functional = jit(self._evolve_functional)
 
             # - Initialise optimizer
@@ -578,7 +587,7 @@ class JaxTrainer(ABC):
                 raise ValueError(str_error)
 
         # - Perform one step of optimisation
-        self.__opt_state = self.__update_fcn(
+        self.__opt_state, loss, grads = self.__update_fcn(
             next(self.__itercount), self.__opt_state, inps, target
         )
 
@@ -590,4 +599,4 @@ class JaxTrainer(ABC):
         if is_last:
             del self.__in_training_sgd_adam
 
-        return l_fcn, g_fcn, o_fcn
+        return loss, grads, o_fcn

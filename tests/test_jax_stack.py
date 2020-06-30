@@ -39,11 +39,13 @@ def test_stacking():
     stack_ffwd = JaxStack(layers)
 
     # - Test packing parameters and state
-    assert len(stack_ffwd._pack()) == len(layers), \
-        'Number of parameter sets should match the number of layers'
+    assert len(stack_ffwd._pack()) == len(
+        layers
+    ), "Number of parameter sets should match the number of layers"
 
-    assert len(stack_ffwd.state) == len(layers), \
-        'Number of state sets should match the number of layers'
+    assert len(stack_ffwd.state) == len(
+        layers
+    ), "Number of state sets should match the number of layers"
 
     # - Set up input signals
     time_base = np.arange(0, 5, dt)
@@ -113,6 +115,7 @@ def test_stack_functional_evolve():
         stack_ffwd._pack(), stack_ffwd._state, ts_input1.samples,
     )
 
+
 def test_training_jax_stack():
     from rockpool.networks import JaxStack
     from rockpool.layers import FFRateEulerJax, RecRateEulerJax
@@ -145,8 +148,6 @@ def test_training_jax_stack():
     stack_ffwd.train_output_target(ts_input1, ts_target1, is_first=True)
 
     # - Test return functions
-    loss_fcn, grad_fcn, out_fcn = stack_ffwd.train_output_target(ts_input1, ts_target1)
+    l, g, out_fcn = stack_ffwd.train_output_target(ts_input1, ts_target1)
 
-    loss_fcn()
-    grad_fcn()
     out_fcn()
