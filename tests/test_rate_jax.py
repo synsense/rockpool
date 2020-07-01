@@ -23,10 +23,11 @@ def test_RecRateEulerJax():
     w_recurrent = 2 * np.random.rand(2, 2) - 1
     bias = 2 * np.random.rand(2) - 1
     tau = 20e-3 * np.ones(2)
+    dt = 0.01
 
     # - Layer generation
     fl0 = RecRateEulerJax(
-        weights=w_recurrent, bias=bias, noise_std=0.1, tau=tau, dt=0.01,
+        weights=w_recurrent, bias=bias, noise_std=0.0, tau=tau, dt=dt,
     )
 
     # - Input signal
@@ -37,6 +38,14 @@ def test_RecRateEulerJax():
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state).any()
+
+    # - Test functional evolve
+    fl0.state = vStateBefore
+    ts_out_n, _, _ = fl0._evolve_functional(
+        fl0._pack(), vStateBefore, tsInCont(np.arange(int(0.1 // dt)) * dt),
+    )
+
+    assert (ts_output.samples[:10, :] == ts_out_n[:10, :]).all()
 
     fl0.reset_all()
     assert fl0.t == 0
@@ -108,6 +117,7 @@ def test_RecRateEulerJax_IO():
     w_out = 2 * np.random.rand(2, 1) - 1
     bias = 2 * np.random.rand(2) - 1
     tau = 20e-3 * np.ones(2)
+    dt = 0.01
 
     # - Layer generation
     fl0 = RecRateEulerJax_IO(
@@ -115,13 +125,13 @@ def test_RecRateEulerJax_IO():
         w_recurrent=w_recurrent,
         w_out=w_out,
         bias=bias,
-        noise_std=0.1,
+        noise_std=0.0,
         tau=tau,
-        dt=0.01,
+        dt=dt,
     )
 
     # - Input signal
-    tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 1)))
+    tsInCont = TSContinuous(times=np.arange(15) * dt, samples=np.ones((15, 1)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state)
@@ -132,6 +142,14 @@ def test_RecRateEulerJax_IO():
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.state).all()
+
+    # - Test functional evolve
+    fl0.state = vStateBefore
+    ts_out_n, _, _ = fl0._evolve_functional(
+        fl0._pack(), vStateBefore, tsInCont(np.arange(int(0.1 // dt)) * dt),
+    )
+
+    assert (ts_output.samples[:10, :] == ts_out_n[:10, :]).all()
 
     # - Test storage
     fl0.to_dict()
@@ -319,12 +337,13 @@ def test_FFRateEulerJax():
     weights = 2 * np.random.rand(1, 2) - 1
     bias = 2 * np.random.rand(2) - 1
     tau = 20e-3 * np.ones(2)
+    dt = 0.01
 
     # - Layer generation
-    fl0 = FFRateEulerJax(w_in=weights, bias=bias, noise_std=0.1, tau=tau, dt=0.01)
+    fl0 = FFRateEulerJax(w_in=weights, bias=bias, noise_std=0.0, tau=tau, dt=dt)
 
     # - Input signal
-    tsInCont = TSContinuous(times=np.arange(15) * 0.01, samples=np.ones((15, 1)))
+    tsInCont = TSContinuous(times=np.arange(15) * dt, samples=np.ones((15, 1)))
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl0.state)
@@ -335,6 +354,14 @@ def test_FFRateEulerJax():
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.state).all()
+
+    # - Test functional evolve
+    fl0.state = vStateBefore
+    ts_out_n, _, _ = fl0._evolve_functional(
+        fl0._pack(), vStateBefore, tsInCont(np.arange(int(0.1 // dt)) * dt),
+    )
+
+    assert (ts_output.samples[:10, :] == ts_out_n[:10, :]).all()
 
     # - Test storage
     fl0.to_dict()

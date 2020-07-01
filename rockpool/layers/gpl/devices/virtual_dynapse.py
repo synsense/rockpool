@@ -401,7 +401,7 @@ class VirtualDynapse(Layer):
         :param Optional[ArrayLike[int]] channels_ext:       Array of IDs of external input channels. If ``None`` (default), IDs are assumed to be 0,..,``connections_ext.shape[0]``. If not ``None``, connections from channels that are not included in ``channels_ext`` are assumed to be 0.
         :param Optional[bool] verbose:                      If ``True``, print out detailed information about validity of connections. Default: ``True``
         :param Optional[bool] validate_fanin:               If ``True``, test if connections have valid fan-in. Default: ``True``
-        :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True
+        :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True``
         :param Optional[bool] validate_aliasing:            If ``True``, test for connection aliasing. Default: ``True``
 
         :return int:                                        Integer indicating the result of the validation. If displayed as a binary number, each digit corresponds to the result of one test (order from small to high base: fan-in, fan-out, aliasing), with 0 meaning passed. E.g. 6 (110) means that the fan-in is valid but not the fan-out and there is connection aliasing.

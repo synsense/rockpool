@@ -156,6 +156,8 @@ class Layer(ABC):
             input_raster    (T1xN) Discretised input signal for layer
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
+        assert (ts_input is None) or isinstance(ts_input, self.input_type), 'The layer {} can only receive inputs of class {}'.format(self.name, str(self.input_type))
+        
         if self.input_type is TSContinuous:
             return self._prepare_input_continuous(ts_input, duration, num_timesteps)
 

@@ -40,6 +40,9 @@ JAX-based backend
     layers.RecLIFJax_IO
     layers.RecLIFCurrentInJax_IO
     layers.FFLIFJax_IO
+    layers.FFLIFCurrentInJax_SO
+    layers.FFExpSynCurrentInJax
+    layers.FFExpSynJax
 
 Layers with constant leak
 ~~~~~~~~~~~~~~~~~~~~~~~~~

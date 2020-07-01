@@ -5,8 +5,8 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".gpl.rr_trained_layer": "RRTrainedLayer",
-    ".gpl.train_jax_lif_sgd": "add_shim_lif_jax_sgd",
     ".gpl.jax_trainer": "JaxTrainer",
+    ".gpl.utilities": "gradient_evolution",
 }
 
 
