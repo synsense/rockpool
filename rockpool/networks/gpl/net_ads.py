@@ -143,6 +143,32 @@ class NetworkADS(Network):
 
         return net_ads
 
+    def train_step(self, ts_input, ts_target, k : float, eta : float, verbose : bool):
+        """
+        :brief Do a training evolution on the passed input. This will update the weights and reset the network afterwards.
+        :param ts_input : TSContinuous input that the network is evolved over
+        :param ts_target : TSContinuous data used to compute the error over time
+        :param k : float : Scaling factor of the current which is fed back into the system during learning
+        :param eta : float : Learning rate
+        :param verbose : bool : Whether to evolve in verbose mode or not. If set to true, will plot various data after each evolution 
+        """
+        # - Do a training step
+        self.lyrRes.is_training = True
+        # - Adapt learning rate and k if it's time
+        self.lyrRes.k = k
+        self.lyrRes.eta = eta
+
+        # - Set the target
+        self.lyrRes.ts_target = ts_target
+        
+        train_sim = self.evolve(ts_input=ts_input, verbose=verbose)
+        self.reset_all()
+        self.lyrRes.is_training = False
+        self.lyrRes.ts_target = None
+        
+        return train_sim
+
+
 
 def _expand_to_size(inp, size: int, var_name: str = "input") -> np.ndarray:
     """

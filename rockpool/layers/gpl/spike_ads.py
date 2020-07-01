@@ -216,6 +216,7 @@ class RecFSSpikeADS(Layer):
         self.refractory = float(refractory)
         self.is_training = False
         self._ts_target = None
+        self.static_target = None
         self.recorded_states = None
         self.record = bool(record)
         self.k_initial = k
