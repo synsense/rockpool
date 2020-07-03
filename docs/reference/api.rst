@@ -24,6 +24,7 @@ Layer and Network alternative base classes
     :template: class.rst
 
     networks.NetworkDeneve
+    networks.NetworkADS
     layers.training.RRTrainedLayer
     networks.JaxStack
 
@@ -103,6 +104,7 @@ Utility modules
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
+    layers.RecFSSpikeADS
 
     layers.FFIAFNest
     layers.RecIAFSpkInNest

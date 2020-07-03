@@ -29,6 +29,7 @@ Event-driven spiking layers
     layers.FFExpSyn
     layers.RecDIAF
     layers.RecFSSpikeEulerBT
+    layers.RecFSSpikeADS
     layers.FFUpDown
 
 JAX-based backend
