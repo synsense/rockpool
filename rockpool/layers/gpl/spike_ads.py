@@ -487,7 +487,7 @@ class RecFSSpikeADS(Layer):
                 x = np.copy(target[int_time, :])    
                 x_hat = I_s_O
                 e = x - x_hat
-                I_kDte = k*(weights_out @ e)
+                I_kDte = k*(weights_in.T @ e)
                 
             else:
                 I_kDte = zeros
