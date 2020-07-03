@@ -62,6 +62,11 @@ class NetworkADS(Network):
 
     @staticmethod
     def load_from_dict(config: dict, **kwargs):
+        """
+        Load NetworkADS from dictionary
+
+        :param dict config: Dictionary containing parameters obtained from JSON file
+        """
         config = dict(config, **kwargs)
         conf = config["layers"][1]
         conf["tau_syn_r_out"] = config["layers"][2]["tau_syn"]
@@ -80,38 +85,48 @@ class NetworkADS(Network):
                         noise_std : float,
                         dt : float,
                         bias : np.ndarray = 0.0,
-                        v_thresh: Union[np.ndarray, float] = -0.055,
-                        v_reset: Union[np.ndarray, float] = -0.065,
-                        v_rest: Union[np.ndarray, float] = -0.065,
-                        tau_mem: float = 0.02,
-                        tau_syn_r_fast: float = 0.001,
-                        tau_syn_r_slow: float = 0.1,
-                        tau_syn_r_out: float = 0.1,
+                        v_thresh: Union[np.ndarray, float] = 1.0,
+                        v_reset: Union[np.ndarray, float] = 0.0,
+                        v_rest: Union[np.ndarray, float] = 0.5,
+                        tau_mem: float = 0.05,
+                        tau_syn_r_fast: float = 0.07,
+                        tau_syn_r_slow: float = 0.07,
+                        tau_syn_r_out: float = 0.07,
                         refractory: float = -np.finfo(float).eps,
                         discretize=-1,
                         discretize_dynapse=False,
-                        record: bool = False,
+                        record: bool = True,
                         **kwargs,
                         ):
 
 
         """
-        :brief Creates a network for learning 
+        Create NetworkADS instance that can be trained to learn the dynamics of a rate based network 
 
-        :param Nc : Dimension of input signal
-        :param N : Number of neurons in the recurrent layer
-        :param Nb : Number of basis functions used
-        :param weights_in : [Nc,N] Weights that connect the input to the recurrent population
-        :param weights_out : [N,Nc] Weights that reconstruct desired output x from r of the netwok (x_hat = Dr), typically set to weights_in.T
-        :param weights_fast : [N,N] Recurrent weights for tight E/I-balance
-        :param weights_slow : [Nb,N] Weight matrix relating psi(r) to the neurons
-        :param theta : [Nb,1] Bias in the non-linear activation function
-        :param eta : Learning rate for adjusting weights_slow
-        :param k : Gain of error feedback during learning. Typically decreased while learning for generalization
-        :param noise_std : Standard deviation of noise added to the neurons membrane potentials
-        :param phi : Non-linear function of type ndarray -> ndarray. Implements tanh per default
+        :param int Nc: Dimension of input signal
+        :param int N: Number of neurons in the recurrent layer
+        :param int Nb: Number of basis functions used (=N)
+        :param ndarray weights_in: [NcxN] matrix that projects current input into the network [not trained]
+        :param ndarray weights_out: [NxNc] matrix for reading out the target [not trained]
+        :param ndarray weights_fast: [NxN] matrix implementing the balanced network. Predefined given ffwd matrix (see tutorial)
+        :param ndarray weights_slow: [NxN] learnable recurrent matrix implementing dynamics for the task
+        :param float eta: Learning rate
+        :param float k: Scaling factor determining the magnitude of error-current that is fed back into the system
+        :param float noise_std: Standard deviation of Gaussian (zero mean) noise applied
+        :param float dt: Euler integration timestep
+        :param [ndarray,float] bias: Bias applied to the neurons membrane potential
+        :param [ndarray,float] v_thresh: Spiking threshold typically at 1. Caution: Potentials are clipped at zero, meaning there can not be negative potentials
+        :param [ndarray,float] v_reset: Reset potential typically at 0
+        :param [ndarray,float] v_rest: Resting potential typically at v_thresh/2
+        :param float tau_mem: Membrane time constant
+        :param float tau_syn_r_fast: Synaptic time constant of fast connections 0.07s
+        :param float tau_syn_r_slow: Synaptic time constant of slow connections typically 0.07s
+        :param float tau_syn_r_out: Synaptic time constant of output filter typically 0.07s
+        :param float refractory: Refractory period in seconds. Typically set to 0
+        :param int discretize: Number of distinctive weights used at all times. E.g. 8 would mean a 3 bit resolution. discretize_dynapse must be set False
+        :param bool discretize_dynapse: If set to True, the constraints of the DYNAP-SE II are imposed on the slow recurrent weight matrix
 
-        :return : NetworkADS
+        :return NetworkADS: Trainable network of size N
         """
 
         # Assertions for checking the dimensions
@@ -145,12 +160,15 @@ class NetworkADS(Network):
 
     def train_step(self, ts_input, ts_target, k : float, eta : float, verbose : bool):
         """
-        :brief Do a training evolution on the passed input. This will update the weights and reset the network afterwards.
-        :param ts_input : TSContinuous input that the network is evolved over
-        :param ts_target : TSContinuous data used to compute the error over time
-        :param k : float : Scaling factor of the current which is fed back into the system during learning
-        :param eta : float : Learning rate
-        :param verbose : bool : Whether to evolve in verbose mode or not. If set to true, will plot various data after each evolution 
+        Do a training evolution on the passed input. This will update the weights and reset the network afterwards
+        
+        :param TSContinuous ts_input: TSContinuous input that the network is evolved over
+        :param TSContinuous ts_target: data used to compute the error over time
+        :param float k: Scaling factor of the current which is fed back into the system during learning
+        :param float eta: Learning rate
+        :param bool verbose: Whether to evolve in verbose mode or not. If set to true, will plot various data after each evolution
+
+        :return dict: Dictionary containing recorded states and outputs per layer
         """
         # - Do a training step
         self.lyrRes.is_training = True

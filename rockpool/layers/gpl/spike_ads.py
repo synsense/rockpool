@@ -167,9 +167,31 @@ def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense =
 
 class RecFSSpikeADS(Layer):
     """
-    :brief : Implement the layer for the NetworkADS (Arbitrary Dynamical System), which is capable of learning
-        an arbitrary dynamical system.
-        See rockpool/networks/gpl/net_as.py for the parameters passed here.
+    Implement the layer for the NetworkADS (Arbitrary Dynamical System), which is capable of learning
+    an arbitrary dynamical system.
+    See rockpool/docs/tutorials/network_ads_tutorial.ipynb for an example initialization of the Network.
+
+    :param ndarray weights_fast: [NxN] matrix implementing the balanced network. Predefined given ffwd matrix (see tutorial)
+    :param ndarray weights_slow: [NxN] learnable recurrent matrix implementing dynamics for the task
+    :param ndarray weights_in: [NcxN] matrix that projects current input into the network [not trained]
+    :param ndarray weights_out: [NxNc] matrix for reading out the target [not trained]
+    :param float eta: Learning rate
+    :param float k: Scaling factor determining the magnitude of error-current that is fed back into the system
+    :param [ndarray,float] bias: Bias applied to the neurons membrane potential
+    :param float noise_std: Standard deviation of Gaussian (zero mean) noise applied
+    :param float dt: Euler integration timestep
+    :param [ndarray,float] v_thresh: Spiking threshold typically at 1. Caution: Potentials are clipped at zero, meaning there can not be negative potentials
+    :param [ndarray,float] v_reset: Reset potential typically at 0
+    :param [ndarray,float] v_rest: Resting potential typically at v_thresh/2
+    :param float tau_mem: Membrane time constant
+    :param float tau_syn_r_fast: Synaptic time constant of fast connections 0.07s
+    :param float tau_syn_r_slow: Synaptic time constant of slow connections typically 0.07s
+    :param float tau_syn_r_out: Synaptic time constant of output filter typically 0.07s
+    :param float refractory: Refractory period in seconds. Typically set to 0
+    :param bool record: If set to true, records various states such as slow/fast currents, membrane potentials
+    :param str name: Name of the layer
+    :param int discretize: Number of distinctive weights used at all times. E.g. 8 would mean a 3 bit resolution. discretize_dynapse must be set False
+    :param bool discretize_dynapse: If set to True, the constraints of the DYNAP-SE II are imposed on the slow recurrent weight matrix
     """
     def __init__(self,
                 weights_fast : np.ndarray,
@@ -241,7 +263,7 @@ class RecFSSpikeADS(Layer):
 
     def reset_state(self):
         """
-        :brief Reset the internal state of the network
+        Reset the internal state of the network
         """
         self.state = self.v_rest.copy()
         self.I_s_S = np.zeros(self.size)
@@ -261,12 +283,13 @@ class RecFSSpikeADS(Layer):
                 verbose: bool = False,
                 min_delta: Optional[float] = None,) -> TSEvent:
         """
-        :brief Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
-        :param : ts_input : [TSContinuous] Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
-        :param : duration : [float] Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
-        :param : num_timesteps : [int] Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
-        :param : verbose : [bool] Print verbose output
-        :param : min_delta : [float] Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
+        Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
+        
+        :param TSContinuous ts_input: Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
+        :param float duration: Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
+        :param int num_timesteps: Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
+        :param bool verbose: Print verbose output
+        :param bool min_delta: Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
         """
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
@@ -927,6 +950,7 @@ class RecFSSpikeADS(Layer):
 
     @property
     def ts_target(self):
+        """TSContinuous Target dynamics used during training to compute the error"""
         return self._ts_target
 
     @ts_target.setter
