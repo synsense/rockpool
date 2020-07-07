@@ -2251,7 +2251,12 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         return self._i_syn_last_evolution
 
     def to_dict(self) -> Dict:
-        return super().to_dict()
+        config =  super().to_dict()
+        config.pop("weights")
+        config["weights"] = onp.array(self.weights).tolist()
+        config["rng_key"] = onp.array(self._rng_key).tolist()
+        config["tau"] = onp.array(self.tau).tolist()
+        return config
 
     @property
     def tau(self):
