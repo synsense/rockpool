@@ -36,7 +36,6 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 __all__ = ["RecDynapseBrian"]
 
 
-## - RecIAFBrian - Class: define a spiking recurrent layer based on Dynap equations
 class RecDynapseBrian(Layer):
     """ Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend
     """
