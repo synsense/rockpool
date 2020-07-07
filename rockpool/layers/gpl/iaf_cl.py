@@ -33,7 +33,7 @@ __all__ = ["FFCLIAF", "RecCLIAF"]
 
 class CLIAF(Layer):
     """
-    Abstract layer class of integrate and fire neurons with constant leak
+    *DEPRECATED* Abstract layer class of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -235,7 +235,7 @@ class CLIAF(Layer):
 
 class FFCLIAF(CLIAF):
     """
-    Feedforward layer of integrate and fire neurons with constant leak
+    *DEPRECATED* Feedforward layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -431,7 +431,7 @@ class FFCLIAF(CLIAF):
 
 class RecCLIAF(CLIAF):
     """
-    Recurrent layer of integrate and fire neurons with constant leak
+    *DEPRECATED* Recurrent layer of integrate and fire neurons with constant leak
     """
 
     def __init__(

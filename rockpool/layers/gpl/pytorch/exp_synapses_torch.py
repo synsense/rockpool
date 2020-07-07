@@ -30,9 +30,8 @@ def sigmoid(z):
     return 1.0 / (1.0 + torch.exp(-z))
 
 
-## - FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
 class FFExpSynTorch(FFExpSyn):
-    """ Define an exponential synapse layer (spiking input, pytorch as backend)
+    """ *DEPRECATED* Define an exponential synapse layer (spiking input, pytorch as backend)
     """
 
     ## - Constructor
