@@ -255,6 +255,21 @@ def test_continuous_call():
     assert (samples_single[1] == np.array([3, 2])).all()
     assert (samples_single[4] == np.array([3, 2])).all()
 
+    # - Clocked series
+    ts = TSContinuous.from_clocked([6], dt=10)
+    assert (ts(1) == 6).all()
+    assert (ts([1]) == 6).all()
+    assert (ts(10) == 6).all()
+    assert np.isnan(ts(-1))
+    assert np.isnan(ts(11))
+
+    ts = TSContinuous.from_clocked(6, dt=10)
+    assert (ts(1) == 6).all()
+    assert (ts([1]) == 6).all()
+    assert (ts(10) == 6).all()
+    assert np.isnan(ts(-1))
+    assert np.isnan(ts(11))
+
 
 def test_continuous_clip():
     from rockpool import TSContinuous
@@ -361,7 +376,7 @@ def test_continuous_append_c():
     assert (
         (appended_fromtwo.samples[:, :2] == samples[:2, :2]).all()
         and (appended_fromtwo.samples[0, -2:] == samples[0, -2:]).all()
-        and (np.isnan(appended_fromtwo.samples[1, -2:])).all()
+        and (appended_fromtwo.samples[1, -2:] == samples[0, -2:]).all()
     ), "Wrong samples for appended series."
 
     # Appending with empty series
@@ -550,6 +565,33 @@ def test_continuous_merge():
         == np.vstack((samples[0, :2], samples[0, 2:4], samples[1, :2], samples[1, 4:6]))
     ).all(), "Wrong samples when merging with list."
 
+def test_continuous_from_clocked():
+    from rockpool import TSContinuous
+    import numpy as np
+
+    # - Generate some data
+    T = 100
+    dt = .1
+    data = np.random.rand(T, 1)
+
+    # - Basic usage
+    ts = TSContinuous.from_clocked(data, dt = dt)
+    assert ts.t_start == 0.
+    assert ts.t_stop == T * dt
+    assert np.all(ts.samples == data)
+    assert np.all(ts.times == np.arange(T) * dt)
+
+    # - Specify t_start
+    ts = TSContinuous.from_clocked(data, dt = .1, t_start = 1.)
+    assert ts.t_start == 1.
+    assert ts.t_stop == 11.
+
+    # - Generate a periodic series
+    ts = TSContinuous.from_clocked(data, dt = .1, periodic= True)
+    assert ts.periodic
+
+    # - Set a name
+    ts = TSContinuous.from_clocked(data, dt = .1, name = 'test')
 
 def test_event_call():
     from rockpool import TSEvent
@@ -1271,3 +1313,15 @@ def test_event_delay():
     assert ts5.t_start == 5
     ts5.start_at(4, inplace=True)
     assert ts5.t_start == 4
+
+
+def test_rounding():
+    from rockpool import TSContinuous
+
+    t = np.arange(0, 1, 0.001)
+    v = np.sin(t)
+
+    ts = TSContinuous(t, v)
+
+    ts.t_stop = t[-1] - 1e-10
+    ts.t_start = t[0] + 1e-10

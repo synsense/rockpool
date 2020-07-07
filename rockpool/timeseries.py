@@ -546,8 +546,10 @@ class TimeSeries:
         try:
             # - Largest allowed value for new_start
             max_start = self._times[0] if self._times.size > 0 else self._t_stop
-            if new_start <= max_start:
-                self._t_start = float(new_start)
+            if new_start < max_start:
+                self._t_start = new_start
+            elif new_start - max_start < _TOLERANCE_ABSOLUTE:
+                self._t_start = max_start
             else:
                 raise ValueError(
                     "TimeSeries `{}`: t_start must be less or equal to {}. It was {}.".format(
@@ -569,6 +571,8 @@ class TimeSeries:
         min_stop = self._times[-1] if self._times.size > 0 else self._t_start
         if new_stop >= min_stop:
             self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
         else:
             raise ValueError(
                 "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
@@ -732,7 +736,7 @@ class TSContinuous(TimeSeries):
     ## -- Alternative constructor for clocked time series
     @staticmethod
     def from_clocked(
-        samples: np.ndarray, dt: float, t_start: float = 0.0
+        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None,
     ) -> "TSContinuous":
         """
         Convenience method to create a new continuous time series from a clocked sample.
@@ -742,11 +746,17 @@ class TSContinuous(TimeSeries):
         :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``
         :param float dt:            The sample interval for ``samples``
         :param float t_start:       The time of the first sample.
+        :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
+        :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
 
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
-        time_base = np.arange(0, len(samples)) * dt + t_start
-        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt)
+        if samples is None or np.size(samples) == 0:
+            raise TypeError(
+                "TSContinuous.from_clocked: `samples` must not be empty or `None`."
+            )
+        time_base = np.arange(0, np.size(samples)) * dt + t_start
+        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name)
 
     ## -- Methods for plotting and printing
 
@@ -1360,12 +1370,19 @@ class TSContinuous(TimeSeries):
             self.interp = lambda t: None
 
         elif np.size(self.times) == 1:
+
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
                 times = np.array(t).flatten()
                 samples = np.empty((times.size, self.num_channels))
                 samples.fill(np.nan)
-                samples[times == self.times[0]] = self.samples[0]
+                if self._fill_value == "extrapolate":
+                    assign_val = np.logical_and(
+                        self.t_start <= times, times <= self.t_stop
+                    )
+                else:
+                    assign_val = times == self.times[0]
+                samples[assign_val] = self.samples[0]
                 return samples
 
             self.interp = single_sample
@@ -2051,8 +2068,15 @@ class TSEvent(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
+                # - Set the extent of the channels axis
+                ax.set_ylim(-1, self.num_channels+1)
+
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
+
 
             else:
                 raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
@@ -2182,7 +2206,7 @@ class TSEvent(TimeSeries):
 
         Events are represented in a boolean matrix, where the first axis corresponds to time, the second axis to the channel. Events that happen between time steps are projected to the preceding step. If two events happen during one time step within a single channel, they are counted as one, unless ``add_events`` is ``True``.
 
-        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at ``t+dt``**. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
+        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at** ``t+dt``. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
 
         To generate a time trace that corresponds to the raster, you can use :py:func:`numpy.arange` as follows::
 
@@ -2364,7 +2388,7 @@ class TSEvent(TimeSeries):
         periodic: bool = False,
         num_channels: Optional[int] = None,
         spikes_at_bin_start: bool = False,
-    ):
+    ) -> "TSEvent":
         """
         Create a `.TSEvent` object from a raster array
 
