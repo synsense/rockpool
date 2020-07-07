@@ -209,17 +209,17 @@ class JaxStack(Network, Layer, JaxTrainer):
     @property
     def _evolve_functional(
         self,
-    ) -> Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
+    ) -> Callable[[Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]]:
         """
         Return a functional form of the evolution function for this stack, with no side-effects
 
         :return Callable: evol_func
-             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray) -> Tuple[np.ndarray, State]:
+             evol_func(params: Params, all_states: State, ext_inputs: np.ndarray) -> Tuple[List[np.ndarray], State, List[np.ndarray]]:
         """
 
         def evol_func(
             params: Params, all_states: State, ext_inputs: np.ndarray,
-        ) -> Tuple[np.ndarray, State]:
+        ) -> Tuple[List[np.ndarray], State, List[np.ndarray]]:
             # - Call the functional form of the evolution functions for each sublayer
             new_states = []
             layer_states_t = []
@@ -240,105 +240,9 @@ class JaxStack(Network, Layer, JaxTrainer):
             return out, new_states, layer_states_t
 
         return evol_func
-    # 
-    # def train_output_target(
-    #     self,
-    #     ts_input: Union[TimeSeries, np.ndarray],
-    #     ts_target: Union[TimeSeries, np.ndarray],
-    #     is_first: bool = False,
-    #     is_last: bool = False,
-    #     loss_fcn: Callable[[Dict, np.ndarray, np.ndarray, Dict], float] = None,
-    #     loss_params: Dict = {},
-    #     optimizer: Callable = adam,
-    #     opt_params: Dict = {"step_size": 1e-4},
-    # ) -> Tuple[Callable[[], float], Callable[[], float], Callable[[], np.ndarray]]:
-    #     """
-    #     Train this Jax stack, using a Jax optimiser
-    # 
-    #     See the documentation for :py:meth:`.TrainedJaxLayer.train_output_target` for details of how to train networks. This method provides a regularised MSE loss function that can cope with a Jax stack.
-    # 
-    #     :param Union[TimeSeries, np.ndarray] ts_input:  Input signal for this batch
-    #     :param Union[TimeSeries, np.ndarray] ts_target: Target signal for this batch
-    #     :param bool is_first:                           If ``True``, this is the first batch in the optimisation. Default: ``False``
-    #     :param bool is_last:                            If ``True``, this is the last batch in the optimisation. Default: ``False``
-    #     :param Callable loss_fcn:                       Loss function to optimise. Default: :py:func:`loss_mse_reg_stack`
-    #     :param Dict loss_params:                        Dictionary of parameters to pass to :py:func:`loss_fcn`
-    #     :param Callable optimizer:                      A Jax optimiser. See `jax.experimental.optimisers`. Default: :py:func:`jax.experimental.optimisers.adam`.
-    #     :param Dict opt_params:                         Dictionary of parameters to pass to the optmiser. Default: {"step_size": 1e-4}
-    # 
-    #     :return Callable[[], float], Callable[[], float], Callable[[], np.ndarray]:
-    #         loss_fcn:   A function that returns the loss for the current optimisation step
-    #         grad_fcn:   A function that returns the gradients for the current optimisation step
-    #         out_fcn:    A function that returns the output for the current optimisation step
-    #     """
-    #     # - Define a loss function that can deal with nested parameters
-    #     @jit
-    #     def loss_mse_reg_stack(
-    #         params: List,
-    #         output_batch_t: np.ndarray,
-    #         target_batch_t: np.ndarray,
-    #         min_tau: float,
-    #         lambda_mse: float = 1.0,
-    #         reg_tau: float = 10000.0,
-    #         reg_l2_rec: float = 1.0,
-    #     ) -> float:
-    #         """
-    #         Loss function for target versus output
-    # 
-    #         :param List params:                 List of packed parameters from each layer
-    #         :param np.ndarray output_batch_t:   Output rasterised time series [TxO]
-    #         :param np.ndarray target_batch_t:   Target rasterised time series [TxO]
-    #         :param float min_tau:               Minimum time constant
-    #         :param float lambda_mse:            Factor when combining loss, on mean-squared error term. Default: 1.0
-    #         :param float reg_tau:               Factor when combining loss, on minimum time constant limit. Default: 1e5
-    #         :param float reg_l2_rec:            Factor when combining loss, on L2-norm term of recurrent weights. Default: 1.
-    # 
-    #         :return float: Current loss value
-    #         """
-    #         # - Measure output-target loss
-    #         mse = lambda_mse * np.mean((output_batch_t - target_batch_t) ** 2)
-    # 
-    #         # - Get loss for tau parameter constraints
-    #         # - Measure recurrent L2 norms
-    #         tau_loss = 0.0
-    #         w_res_norm = 0.0
-    #         for layer_params in params:
-    #             tau_loss += reg_tau * np.mean(
-    #                 np.where(
-    #                     layer_params["tau"] < min_tau,
-    #                     np.exp(-(layer_params["tau"] - min_tau)),
-    #                     0,
-    #                 )
-    #             )
-    #             w_res_norm += reg_l2_rec * np.mean(layer_params["w_recurrent"] ** 2)
-    # 
-    #         # - Loss: target/output squared error, time constant constraint, recurrent weights norm, activation penalty
-    #         fLoss = mse + tau_loss + w_res_norm
-    # 
-    #         # - Return loss
-    #         return fLoss
-    # 
-    #     # - Use provided loss function, if not overridden
-    #     if loss_fcn is None:
-    #         loss_fcn = loss_mse_reg_stack
-    #         loss_params = {
-    #             "min_tau": 11.0 * np.min([lyr._dt for lyr in self.evol_order])
-    #         }
-    # 
-    #     # - Call super-class trainer
-    #     return super().train_output_target(
-    #         ts_input,
-    #         ts_target,
-    #         is_first,
-    #         is_last,
-    #         loss_fcn,
-    #         loss_params,
-    #         optimizer,
-    #         opt_params,
-    #     )
 
     @property
-    def state(self) -> List:
+    def state(self) -> List[State]:
         return [lyr.state for lyr in self.evol_order]
 
     @state.setter
@@ -347,7 +251,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             lyr.state = ns
 
     @property
-    def _state(self) -> List:
+    def _state(self) -> List[State]:
         # - Get states from all sublayers
         return [lyr._state for lyr in self.evol_order]
 
@@ -357,7 +261,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             lyr._state = ns
 
     def to_dict(self):
-        return super().to_dict()
+        return Network.to_dict(self)
 
     @staticmethod
     def load(filename: str) -> "JaxStack":
