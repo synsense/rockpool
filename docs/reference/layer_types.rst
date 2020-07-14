@@ -45,16 +45,6 @@ JAX-based backend
     layers.FFExpSynCurrentInJax
     layers.FFExpSynJax
 
-Layers with constant leak
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autosummary::
-    layers.CLIAF
-    layers.FFCLIAF
-    layers.RecCLIAF
-    layers.SoftMaxLayer
-    layers.FFCLIAFCNNTorch
-
 Brian-based backend
 ~~~~~~~~~~~~~~~~~~~
 
@@ -65,9 +55,42 @@ Brian-based backend
     layers.RecIAFSpkInBrian
     layers.FFExpSynBrian
 
+Nest-based backend
+~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+
+    layers.FFIAFNest
+    layers.RecIAFSpkInNest
+    layers.RecAEIFSpkInNest
+
+Hardware-backed and hardware simulation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For more information on using these layers, see :ref:`/tutorials/RecDynapSE.ipynb`
+
+.. autosummary::
+
+    layers.RecDynapSE
+    layers.VirtualDynapse
+
+
+Deprecated layer classes
+-------------------------
+
+These classes are deprecated — please use other layers in preference, unless you are willing to take over supporting their implementation.
+
+Layers with constant leak
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.CLIAF
+    layers.FFCLIAF
+    layers.RecCLIAF
+    layers.SoftMaxLayer
 
 Torch-based backend
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
     layers.FFExpSynTorch
@@ -80,24 +103,3 @@ Torch-based backend
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
-    layers.FFCLIAFCNNTorch
-
-Nest-based backend
-~~~~~~~~~~~~~~~~~~
-
-.. autosummary::
-
-    layers.FFIAFNest
-    layers.RecIAFSpkInNest
-    layers.RecAEIFSpkInNest
-
-
-Hardware-backed and hardware simulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For more information on using these layers, see :ref:`/tutorials/RecDynapSE.ipynb`
-
-.. autosummary::
-
-    layers.RecDynapSE
-    layers.VirtualDynapse

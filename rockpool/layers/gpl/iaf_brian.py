@@ -129,7 +129,7 @@ eqSynapseExpSpkInRec = b2.Equations(
 
 
 class FFIAFBrian(Layer):
-    """ *DEPRECATED* A spiking feedforward layer with current inputs and spiking outputs
+    """ A spiking feedforward layer with current inputs and spiking outputs
     """
 
     ## - Constructor
@@ -507,7 +507,7 @@ class FFIAFBrian(Layer):
 
 
 class FFIAFSpkInBrian(FFIAFBrian):
-    """ *DEPRECATED* Spiking feedforward layer with spiking inputs and outputs
+    """ Spiking feedforward layer with spiking inputs and outputs
     """
 
     ## - Constructor
@@ -984,7 +984,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
 ## - RecIAFBrian - Class: define a spiking recurrent layer with exponential synaptic outputs
 class RecIAFBrian(Layer):
-    """ *DEPRECATED* A spiking recurrent layer with current inputs and spiking outputs, using a Brian2 backend
+    """ A spiking recurrent layer with current inputs and spiking outputs, using a Brian2 backend
     """
 
     ## - Constructor
@@ -1381,7 +1381,7 @@ class RecIAFBrian(Layer):
 
 # - Spiking recurrent layer with spiking in- and outputs
 class RecIAFSpkInBrian(RecIAFBrian):
-    """ *DEPRECATED* Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend
+    """ Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend
     """
 
     ## - Constructor
