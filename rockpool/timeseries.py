@@ -673,6 +673,8 @@ class TSContinuous(TimeSeries):
     >>> ts[0:.1:1, :3]
 
     """
+    
+    _samples = []
 
     def __init__(
         self,
@@ -736,18 +738,19 @@ class TSContinuous(TimeSeries):
     ## -- Alternative constructor for clocked time series
     @staticmethod
     def from_clocked(
-        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None,
+        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None, interp_kind: str = 'previous', 
     ) -> "TSContinuous":
         """
         Convenience method to create a new continuous time series from a clocked sample.
 
         ``samples`` is an array of clocked samples, sampled at a regular interval ``dt``. Each sample is assumed to occur at the **start** of a time bin, such that the first sample occurs at ``t = 0`` (or ``t = t_start``). A continuous time series will be returned, constructed using ``samples``, and filling the time ``t = 0`` to ``t = N*dt``, with ``t_start`` and ``t_stop`` set appropriately.
 
-        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``
+        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``. ``samples`` must be of shape ``[T, C]``, where ``T`` is the number of time bins, and ``C`` is the number of channels.
         :param float dt:            The sample interval for ``samples``
         :param float t_start:       The time of the first sample.
         :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
         :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
+        :param str interp_kind:     String specifying the interpolation method to be used for the returned time series. Any string accepted by `scipy.interp1d` is accepted. Default: `"previous"`, sample-and-hold interpolation. 
 
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
@@ -755,8 +758,15 @@ class TSContinuous(TimeSeries):
             raise TypeError(
                 "TSContinuous.from_clocked: `samples` must not be empty or `None`."
             )
-        time_base = np.arange(0, np.size(samples)) * dt + t_start
-        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name)
+
+        # - Ensure that `samples` is an ndarray
+        samples = np.atleast_1d(samples)
+
+        # - Build a time base
+        time_base = np.arange(0, np.shape(samples)[0]) * dt + t_start
+        
+        # - Return a continuous time series
+        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name, interp_kind = interp_kind,)
 
     ## -- Methods for plotting and printing
 
@@ -1907,7 +1917,7 @@ class TSEvent(TimeSeries):
 
         :param Optional[str] name:                    Name of the time series (Default: None)
 
-        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, max(channels) is taken to be the total channel number
+        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, the total channel number is taken to be ``max(channels)``  
         """
 
         # - Default time trace: empty
@@ -2395,7 +2405,7 @@ class TSEvent(TimeSeries):
         Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
         time series as a `.TSEvent` object.
 
-        .. rubic:: Example
+        .. rubric:: Example
 
         The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
 
@@ -2452,11 +2462,11 @@ class TSEvent(TimeSeries):
         dtype_channels: Union[None, str, type, np.dtype] = None,
     ) -> Dict:
         """
-        Store data and attributes of this :py:`TSEvent` in a :py:`Dict`.
+        Store data and attributes of this :py:class:`.TSEvent` in a ``Dict``.
 
-        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
-        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which `channels` are to be returned, for example to save space.
-        :return:    Dict with data and attributes of this :py:`TSEvent`.
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which ``times`` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which ``channels`` are to be returned, for example to save space.
+        :return:    Dict with data and attributes of this :py:class:`.TSEvent`.
         """
 
         if dtype_times is not None:
@@ -2505,7 +2515,7 @@ class TSEvent(TimeSeries):
         dtype_channels: Union[None, str, type, np.dtype] = None,
     ):
         """
-        Save this :py:`.TSEvent` as an ``npz`` file using ``np.savez``
+        Save this :py:class:`.TSEvent` as an ``npz`` file using :py:meth:`np.savez`
 
         :param str path:        Path to save file
         :param bool verbose:    Print path information after successfully saving.

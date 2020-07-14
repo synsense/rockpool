@@ -179,8 +179,8 @@ def wilson_cowan_net(
     ) * -np.abs(self_inh)
 
     # - Normalise matrix components
-    fENorm = exc_sigma * stats.norm.pdf(0, 0, exc_sigma) * num_nodes + self_exc
-    fINorm = inh_sigma * stats.norm.pdf(0, 0, inh_sigma) * num_nodes + np.abs(self_inh)
+    fENorm = exc_sigma * stats.norm.pdf(0, 0, exc_sigma) + self_exc
+    fINorm = inh_sigma * stats.norm.pdf(0, 0, inh_sigma) + np.abs(self_inh)
     mfEE = mfEE / np.sum(mfEE, 0) * fENorm
     mfIE = mfIE / np.sum(mfIE, 0) * fENorm
     mfEI = mfEI / np.sum(mfEI, 0) * -fINorm
@@ -191,7 +191,7 @@ def wilson_cowan_net(
         (np.concatenate((mfEE, mfIE)), np.concatenate((mfEI, mfII))), axis=1
     )
 
-    return weights
+    return weights.T    
 
 
 def wipe_non_switiching_eigs(
