@@ -1109,22 +1109,22 @@ class Network:
         with open(filename, "w") as f:
             json.dump(savedict, f)
 
-    @staticmethod
-    def load(filename: str) -> "Network":
+    @classmethod
+    def load(cls, filename: str) -> "Network":
         """
         Load a network from a JSON file
 
-        :param str filename:    filename of a JSON filr that contains a saved network
+        :param str filename:    filename of a JSON file that contains a saved network
         :return Network:        A network object with all the layers loaded from `filename`
         """
         # - Load dict holding the parameters
         with open(filename, "r") as f:
             loaddict: dict = json.load(f)
 
-        return Network.load_from_dict(loaddict)
+        return cls.load_from_dict(loaddict)
 
-    @staticmethod
-    def load_from_dict(config: dict, **kwargs):
+    @classmethod
+    def load_from_dict(cls: Any, config: dict, **kwargs):
 
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
@@ -1150,9 +1150,9 @@ class Network:
                 + "structure from evolution order. In future implementations this will "
                 + "no longer be supported"
             )
-            return Network(*evol_order, dt=dt)
+            return cls(*evol_order, dt=dt)
         else:
-            newnet = Network(dt=dt)
+            newnet = cls(dt=dt)
             # - Add layers according to evolution order. Maintain network structure by specifying input sources
             for lyr, ext, pre in zip(evol_order, external, pre_layers):
                 pre_layer = getattr(newnet, pre) if pre is not None else None
