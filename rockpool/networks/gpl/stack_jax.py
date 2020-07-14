@@ -7,7 +7,7 @@ from ..network import Network
 from ...layers.training import JaxTrainer
 from ...layers.layer import Layer
 
-from typing import Tuple, List, Callable, Union, Dict, Sequence, Optional
+from typing import Tuple, List, Callable, Union, Dict, Sequence, Optional, Any
 
 from jax import jit
 from jax.experimental.optimizers import adam
