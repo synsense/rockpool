@@ -239,10 +239,10 @@ class JaxStack(Network, Layer, JaxTrainer):
                 layer_states_t.append(states_t)
 
                 # - Set up inputs for next layer
-                inputs = out if i_lyr == len(all_states) - 1 else out[:-1]
+                inputs = out[:-1]
 
             # - Return outputs and state
-            return out, new_states, layer_states_t
+            return out[:-1], new_states, layer_states_t
 
         return evol_func
 
