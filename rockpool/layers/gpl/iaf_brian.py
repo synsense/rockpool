@@ -800,16 +800,16 @@ class FFIAFSpkInBrian(FFIAFBrian):
         is_last: bool,
         method: str = "mst",
         **kwargs,
-    ):
+    ) -> None:
         """
         Wrapper to standardize training syntax across layers. Use specified training method to train layer for current batch.
 
-        :param Any ts_target:           Target time series for current batch. Can be skipped for `mst` method.
+        :param Any ts_target:           Target time series for current batch. Can be skipped for ``"mst"`` method.
         :param TSContinuous ts_input:   Input to the layer during the current batch.
-        :param bool is_first:           Set `True` to indicate that this batch is the first in training procedure.
-        :param bool is_last:            Set `True` to indicate that this batch is the last in training procedure.
+        :param bool is_first:           Set ``True`` to indicate that this batch is the first in training procedure.
+        :param bool is_last:            Set ``True`` to indicate that this batch is the last in training procedure.
         :param str method:              String indicating which training method to choose. Currently only multi-spike tempotron ("mst") is supported.
-        :param **kwargs:                kwargs will be passed on to corresponding training method. For `"mst"` method, arguments ``duration`` and ``t_start`` must be provided.
+        :param kwargs:                  ``kwargs`` will be passed on to corresponding training method. For `"mst"` method, arguments ``duration`` and ``t_start`` must be provided.
         """
         # - Choose training method
         if method in {"mst", "multi-spike tempotron"}:

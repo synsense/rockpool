@@ -30,6 +30,7 @@ livehtml:
 		-i "*.xml" \
 		-i "Makefile" \
 		-i "_build" \
+		-i "reference/_autosummary" \
 		--delay 5 \
 		--watch ../rockpool
 

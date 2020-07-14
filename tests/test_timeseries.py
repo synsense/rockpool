@@ -89,7 +89,7 @@ def test_continuous_methods():
     from rockpool import TSContinuous
 
     # - Sample-and-hold interpolation
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2], t_stop=2.1)
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2], t_stop=2.1, interp_kind="previous")
     assert ts1(0) == 0
     assert ts1(2) == 2
     assert ts1(1.5) == 1

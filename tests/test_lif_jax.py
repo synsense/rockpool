@@ -11,6 +11,9 @@ def test_imports():
     from rockpool.layers import RecLIFCurrentInJax
     from rockpool.layers import RecLIFJax_IO
     from rockpool.layers import RecLIFCurrentInJax_IO
+    from rockpool.layers import FFLIFJax_IO
+    from rockpool.layers import FFExpSynCurrentInJax
+    from rockpool.layers import FFExpSynJax
 
 
 def test_RecLIFJax():
@@ -190,7 +193,7 @@ def test_RecLIFJax_IO():
     # - Input signal
     tsInSp = TSEvent(
         times=np.arange(15) * dt,
-        channels=np.ones(15) * in_size,
+        channels=np.ones(15) * (in_size - 1),
         t_start=0.0,
         t_stop=16 * dt,
     )
@@ -327,6 +330,244 @@ def test_RecLIFCurrentInJax_IO():
         )
 
 
+def test_FFLIFJax_IO():
+    """ Test test_FFLIFJax_IO """
+    from rockpool import TSContinuous, TSEvent
+    from rockpool.layers import FFLIFJax_IO
+
+    # - Generic parameters
+    in_size = 5
+    net_size = 2
+    out_size = 4
+    dt = 1e-3
+
+    w_in = 2 * np.random.rand(in_size, net_size) - 1
+    w_out = 2 * np.random.rand(net_size, out_size) - 1
+    bias = 2 * np.random.rand(net_size) - 1
+    tau_m = 20e-3 * np.ones(net_size)
+    tau_s = 20e-3 * np.ones(net_size)
+
+    # - Layer generation
+    fl0 = FFLIFJax_IO(
+        w_in=w_in,
+        w_out=w_out,
+        bias=bias,
+        noise_std=0.1,
+        tau_mem=tau_m,
+        tau_syn=tau_s,
+        dt=dt,
+    )
+
+    # - Input signal
+    tsInSp = TSEvent(
+        times=np.arange(15) * dt,
+        channels=np.ones(15) * (in_size - 1),
+        t_start=0.0,
+        t_stop=16 * dt,
+    )
+
+    # - Compare states and time before and after
+    vStateBefore = np.copy(fl0.state["Vmem"])
+    ts_output = fl0.evolve(tsInSp, duration=0.1)
+    assert fl0.t == 0.1
+    assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInSp)
+    assert fl0.t == 16 * dt
+
+    print(tsInSp)
+    print(tsInSp.raster(dt=dt).shape)
+
+    fl0.reset_all()
+    fl0._evolve_functional(
+        fl0._pack(), fl0.state, tsInSp.raster(dt=dt),
+    )
+
+    fl0.reset_all()
+    assert fl0.t == 0
+    assert (vStateBefore == fl0.state["Vmem"]).all()
+
+    # - Test that some errors are caught
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFJax_IO(
+            w_in=np.zeros((2, 3)),
+            w_out=np.zeros((3, 2)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFJax_IO(
+            w_in=np.zeros((2, 3)),
+            w_out=np.zeros((3, 2)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFJax_IO(
+            w_in=np.zeros((2, 3)),
+            w_out=np.zeros((3, 2)),
+            tau_mem=np.zeros(2),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+
+def test_FFLIFCurrentInJax_SO():
+    """ Test test_FFLIFCurrentInJax_SO """
+    from rockpool import TSContinuous, TSEvent
+    from rockpool.layers import FFLIFCurrentInJax_SO
+
+    # - Generic parameters
+    in_size = 3
+    net_size = 2
+    dt = 1e-3
+
+    w_in = 2 * np.random.rand(in_size, net_size) - 1
+    bias = 2 * np.random.rand(net_size) - 1
+    tau_m = 20e-3 * np.ones(net_size)
+    tau_s = 20e-3 * np.ones(net_size)
+
+    # - Layer generation
+    fl0 = FFLIFCurrentInJax_SO(
+        w_in=w_in, bias=bias, noise_std=0.1, tau_mem=tau_m, tau_syn=tau_s, dt=dt,
+    )
+
+    # - Input signal
+    tsInCont = TSContinuous(
+        times=np.arange(15) * dt,
+        samples=np.ones((15, in_size)),
+        t_start=0.0,
+        t_stop=16 * dt,
+    )
+
+    # - Compare states and time before and after
+    vStateBefore = np.copy(fl0.state["Vmem"])
+    ts_output = fl0.evolve(tsInCont, duration=0.1)
+    assert fl0.t == 0.1
+    assert (vStateBefore != fl0.state["Vmem"]).any()
+
+    # - Test TS only evolution
+    fl0.reset_all()
+    ts_output = fl0.evolve(tsInCont)
+    assert fl0.t == 16 * dt
+
+    fl0.reset_all()
+    assert fl0.t == 0
+    assert (vStateBefore == fl0.state["Vmem"]).all()
+
+    # - Test that some errors are caught
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFCurrentInJax_SO(
+            w_in=np.zeros((2, 4)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFCurrentInJax_SO(
+            w_in=np.zeros((2, 3)),
+            tau_mem=np.zeros(4),
+            tau_syn=np.zeros(3),
+            bias=np.zeros(3),
+        )
+
+    with pytest.raises(AssertionError):
+        fl1 = FFLIFCurrentInJax_SO(
+            w_in=np.zeros((2, 3)),
+            tau_mem=np.zeros(3),
+            tau_syn=np.zeros(4),
+            bias=np.zeros(3),
+        )
+
+
+def test_FFExpSynCurrentInJax():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFExpSynCurrentInJax
+
+    # Numpy
+    import numpy as np
+
+    # - Define network
+    Nin = 200
+    Nout = 5
+    tau = 100e-3
+
+    dt = 1e-3
+
+    def rand_params(
+        Nin, Nout, tau,
+    ):
+        return {
+            "weights": 2 * np.random.rand(Nin, Nout) - 1,
+            "tau": tau,
+        }
+
+    params0 = rand_params(Nin, Nout, tau)
+    lyrExpSyn = FFExpSynCurrentInJax(**params0, dt=dt)
+
+    # - Define input
+    numRepeats = 1
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.linspace(0, T * dt, T)
+    # chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    # target_ts = TSContinuous.from_clocked(chirp, dt = dt, periodic=True, name="Target")
+
+    I_in_ts = np.random.rand(T * numRepeats, Nin)
+    input_ts = TSContinuous.from_clocked(I_in_ts, dt=dt, periodic=True, name="Input")
+    lyrExpSyn.evolve(input_ts)
+
+
+def test_FFExpSynJax():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFExpSynJax
+
+    # Numpy
+    import numpy as np
+
+    # - Define network
+    Nin = 200
+    Nout = 5
+    tau = 100e-3
+
+    dt = 1e-3
+
+    def rand_params(
+        Nin, Nout, tau,
+    ):
+        return {
+            "weights": 2 * np.random.rand(Nin, Nout) - 1,
+            "tau": tau,
+        }
+
+    params0 = rand_params(Nin, Nout, tau)
+    lyrExpSyn = FFExpSynJax(**params0, dt=dt)
+
+    # - Define input
+    numRepeats = 1
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    spike_prob = 0.1
+    input_ts = TSEvent.from_raster(
+        np.random.rand(T * numRepeats, Nin) < spike_prob,
+        dt=dt,
+        periodic=True,
+        name="Input",
+    )
+    lyrExpSyn.evolve(input_ts)
+
+
 def test_largescale():
     from rockpool import TSEvent, TSContinuous
     from rockpool.layers import RecLIFCurrentInJax, RecLIFJax, RecLIFJax_IO
@@ -385,14 +626,14 @@ def test_largescale():
     lyrIO.evolve(input_sp_ts)
 
 
-def test_training_FFwd():
+def test_training_FFLIFJax_IO():
     from rockpool import TSEvent, TSContinuous
     from rockpool.layers import RecLIFCurrentInJax, RecLIFJax, RecLIFJax_IO, FFLIFJax_IO
     import numpy as np
 
-    N = 100
-    Nin = 100
-    Nout = 1
+    Nin = 10
+    N = 200
+    Nout = 3
 
     tau_mem = 50e-3
     tau_syn = 100e-3
@@ -427,35 +668,366 @@ def test_training_FFwd():
 
     spiking_prob = 0.01
     sp_in_ts = np.random.rand(T * numRepeats, Nin) < spiking_prob * trigger
-    spikes = np.argwhere(sp_in_ts)
-    input_sp_ts = TSEvent(
-        timebase[spikes[:, 0]],
-        spikes[:, 1],
-        name="Input",
-        periodic=True,
-        t_start=0,
-        t_stop=dur_input,
+    input_sp_ts = TSEvent.from_raster(
+        sp_in_ts, dt=dt, name="Input", periodic=True, t_start=0, t_stop=dur_input,
     )
 
     # - Simulate initial network state
     lyrIO.randomize_state()
     lyrIO.evolve(input_sp_ts)
 
-    # - Add training shim
-    from rockpool.layers.training import add_shim_lif_jax_sgd
-
-    lyrIO = add_shim_lif_jax_sgd(lyrIO)
-
     # - Train
-    steps = 100
+    steps = 3
     for t in range(steps):
         lyrIO.randomize_state()
-        l_fcn, g_fcn = lyrIO.train_output_target(
-            input_sp_ts, target_ts, is_first=(t == 0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            input_sp_ts, target_ts, is_first=(t == 0), debug_nans=True,
         )
 
-        l_fcn()
-        g_fcn()
+        o_fcn()
+
+    # - Train with batches
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        inp_batch = np.repeat(np.expand_dims(sp_in_ts, 0), 2, axis=0)
+        tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
+        )
+
+        o_fcn()
+
+
+def test_training_RecLIFJax():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import RecLIFJax
+    import numpy as np
+
+    Nin = 10
+    N = 200
+    Nout = 3
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, tau_mem, tau_syn, bias):
+        return {
+            "w_recurrent": np.random.randn(N, N) / N,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, tau_mem, tau_syn, bias)
+    lyrIO = RecLIFJax(**params0, dt=dt)
+
+    # - Define input and target
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.arange(0, T) * dt
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    sp_in_ts = np.random.rand(T, N) < 0.1
+    tsInSpikes = TSEvent.from_raster(sp_in_ts, dt=dt, periodic=True,)
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(tsInSpikes)
+
+    # - Train
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            tsInSpikes, target_ts, is_first=(t == 0), debug_nans=True,
+        )
+
+        o_fcn()
+
+    # - Train with batches
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        inp_batch = np.repeat(np.expand_dims(sp_in_ts, 0), 2, axis=0)
+        tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
+        )
+
+        o_fcn()
+
+
+def test_training_RecLIFCurrentInJax():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import RecLIFCurrentInJax
+    import numpy as np
+
+    Nin = 10
+    N = 200
+    Nout = 3
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, tau_mem, tau_syn, bias):
+        return {
+            "w_recurrent": np.random.randn(N, N) / N,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, tau_mem, tau_syn, bias)
+    lyrIO = RecLIFCurrentInJax(**params0, dt=dt)
+
+    # - Define input and target
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.arange(0, T) * dt
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    tsInCont = TSContinuous.from_clocked(np.random.rand(T, N), dt=dt, periodic=True,)
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(tsInCont)
+
+    # - Train
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            tsInCont, target_ts, is_first=(t == 0), debug_nans=True,
+        )
+
+        o_fcn()
+
+    # - Train with batches
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        inp_batch = np.repeat(np.expand_dims(tsInCont.samples, 0), 2, axis=0)
+        tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
+        )
+
+        o_fcn()
+
+
+def test_training_RecLIFCurrentInJax_IO():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import RecLIFCurrentInJax_IO
+    import numpy as np
+
+    Nin = 10
+    N = 200
+    Nout = 3
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, Nin, Nout, tau_mem, tau_syn, bias):
+        return {
+            "w_in": (np.random.rand(Nin, N) - 0.5) / Nin,
+            "w_recurrent": np.random.randn(N, N) / N,
+            "w_out": 2 * np.random.rand(N, Nout) - 1,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, Nin, Nout, tau_mem, tau_syn, bias)
+    lyrIO = RecLIFCurrentInJax_IO(**params0, dt=dt)
+
+    # - Define input and target
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.arange(0, T) * dt
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    tsInCont = TSContinuous.from_clocked(np.random.rand(T, Nin), dt=dt, periodic=True,)
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(tsInCont)
+
+    # - Train
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            tsInCont, target_ts, is_first=(t == 0), debug_nans=True,
+        )
+
+        o_fcn()
+
+    # - Train with batches
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        inp_batch = np.repeat(np.expand_dims(tsInCont.samples, 0), 2, axis=0)
+        tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
+        )
+
+        o_fcn()
+
+
+def test_training_RecLIFJax_IO():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import RecLIFJax_IO
+    import numpy as np
+
+    Nin = 10
+    N = 200
+    Nout = 3
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, Nin, Nout, tau_mem, tau_syn, bias):
+        return {
+            "w_in": (np.random.rand(Nin, N) - 0.5) / Nin,
+            "w_recurrent": np.random.randn(N, N) / N,
+            "w_out": 2 * np.random.rand(N, Nout) - 1,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, Nin, Nout, tau_mem, tau_syn, bias)
+    lyrIO = RecLIFJax_IO(**params0, dt=dt)
+
+    # - Define input and target
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.arange(0, T) * dt
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    ts_inp_sp = np.random.rand(T, Nin) < 0.1
+    tsInSpikes = TSEvent.from_raster(ts_inp_sp, dt=dt, periodic=True,)
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(tsInSpikes)
+
+    # - Train
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            tsInSpikes, target_ts, is_first=(t == 0), debug_nans=True,
+        )
+
+        o_fcn()
+
+    # - Train with batches
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        inp_batch = np.repeat(np.expand_dims(ts_inp_sp, 0), 2, axis=0)
+        tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
+        )
+
+        o_fcn()
+
+
+def test_training_FFLIFCurrentInJax_SO():
+    from rockpool import TSEvent, TSContinuous
+    from rockpool.layers import FFLIFCurrentInJax_SO
+    import numpy as np
+
+    Nin = 10
+    N = 200
+    Nout = 3
+
+    tau_mem = 50e-3
+    tau_syn = 100e-3
+    bias = 0.0
+    dt = 1e-3
+
+    def rand_params(N, Nin, tau_mem, tau_syn, bias):
+        return {
+            "w_in": (np.random.rand(Nin, N) - 0.5) / N,
+            "tau_mem": tau_mem,
+            "tau_syn": tau_syn,
+            "bias": (np.ones(N) * bias).reshape(N),
+        }
+
+    # - Generate a network
+    params0 = rand_params(N, Nin, tau_mem, tau_syn, bias)
+    lyrIO = FFLIFCurrentInJax_SO(**params0, dt=dt)
+
+    # - Define input and target
+    dur_input = 1000e-3
+    dt = 1e-3
+    T = int(np.round(dur_input / dt))
+
+    timebase = np.arange(0, T) * dt
+
+    chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
+    target_ts = TSContinuous(timebase, chirp, periodic=True, name="Target")
+
+    tsInCont = TSContinuous.from_clocked(np.random.rand(T, Nin), dt=dt, periodic=True,)
+
+    # - Simulate initial network state
+    lyrIO.randomize_state()
+    lyrIO.evolve(tsInCont)
+
+    # - Train
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            tsInCont, target_ts, is_first=(t == 0), debug_nans=True,
+        )
+
+        o_fcn()
+
+    # - Train with batches
+    steps = 3
+    for t in range(steps):
+        lyrIO.randomize_state()
+        inp_batch = np.repeat(np.expand_dims(tsInCont.samples, 0), 2, axis=0)
+        tgt_batch = np.repeat(np.expand_dims(target_ts.samples, 0), 2, axis=0)
+        loss, grads, o_fcn = lyrIO.train_output_target(
+            inp_batch, tgt_batch, is_first=(t == 0), debug_nans=True, batch_axis=0,
+        )
+
+        o_fcn()
 
 
 def test_save_load_FFLIFJax_IO():
@@ -474,41 +1046,39 @@ def test_save_load_FFLIFJax_IO():
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
 
+    lyr = FFLIFJax_IO(
+        w_in=w_in,
+        w_out=w_out,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=bias,
+        noise_std=std_noise,
+        dt=dt,
+        name="test layer",
+    )
 
-    lyr = FFLIFJax_IO(w_in=w_in,
-                      w_out=w_out,
-                      tau_mem=tau_mem,
-                      tau_syn=tau_syn,
-                      bias=bias,
-                      noise_std=std_noise,
-                      dt=dt,
-                      name="test layer")
-
-    
     lyr.save_layer("test.json")
 
     lyr_loaded = FFLIFJax_IO.load_from_file("test.json")
 
-    assert(np.all(lyr.w_in == lyr_loaded.w_in))
-    assert(np.all(lyr.w_out == lyr_loaded.w_out))
-    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
-    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
-    assert(np.all(lyr.bias == lyr_loaded.bias))
-    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
-    assert(np.all(lyr.dt == lyr_loaded.dt))
-    assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
-
+    assert np.all(lyr.w_in == lyr_loaded.w_in)
+    assert np.all(lyr.w_out == lyr_loaded.w_out)
+    assert np.all(lyr.tau_mem == lyr_loaded.tau_mem)
+    assert np.all(lyr.tau_syn == lyr_loaded.tau_syn)
+    assert np.all(lyr.bias == lyr_loaded.bias)
+    assert np.all(lyr.noise_std == lyr_loaded.noise_std)
+    assert np.all(lyr.dt == lyr_loaded.dt)
+    assert np.all(lyr.name == lyr_loaded.name)
+    assert np.all(lyr._rng_key == lyr_loaded._rng_key)
 
     t_spikes = np.arange(0, 0.01, dt)
-    channels = np.random.randint(n_inp, size=len(t_spikes)) 
+    channels = np.random.randint(n_inp, size=len(t_spikes))
     ts_inp = TSEvent(t_spikes, channels)
 
     ts_out = lyr.evolve(ts_inp, duration=0.1)
     ts_out_loaded = lyr_loaded.evolve(ts_inp, duration=0.1)
 
-    assert(np.all(ts_out.samples == ts_out_loaded.samples))
-
+    assert np.all(ts_out.samples == ts_out_loaded.samples)
 
 
 def test_save_load_RecLIFCurrentInJax_IO():
@@ -527,33 +1097,32 @@ def test_save_load_RecLIFCurrentInJax_IO():
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
 
+    lyr = RecLIFCurrentInJax_IO(
+        w_in=w_in,
+        w_recurrent=w_rec,
+        w_out=w_out,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=bias,
+        noise_std=std_noise,
+        dt=dt,
+        name="test layer",
+    )
 
-    lyr = RecLIFCurrentInJax_IO(w_in=w_in,
-                                w_recurrent=w_rec,
-                                w_out=w_out,
-                                tau_mem=tau_mem,
-                                tau_syn=tau_syn,
-                                bias=bias,
-                                noise_std=std_noise,
-                                dt=dt,
-                                name="test layer")
-
-    
     lyr.save_layer("test.json")
 
     lyr_loaded = RecLIFCurrentInJax_IO.load_from_file("test.json")
 
-    assert(np.all(lyr.w_in == lyr_loaded.w_in))
-    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
-    assert(np.all(lyr.w_out == lyr_loaded.w_out))
-    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
-    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
-    assert(np.all(lyr.bias == lyr_loaded.bias))
-    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
-    assert(np.all(lyr.dt == lyr_loaded.dt))
-    assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
-
+    assert np.all(lyr.w_in == lyr_loaded.w_in)
+    assert np.all(lyr.w_recurrent == lyr_loaded.w_recurrent)
+    assert np.all(lyr.w_out == lyr_loaded.w_out)
+    assert np.all(lyr.tau_mem == lyr_loaded.tau_mem)
+    assert np.all(lyr.tau_syn == lyr_loaded.tau_syn)
+    assert np.all(lyr.bias == lyr_loaded.bias)
+    assert np.all(lyr.noise_std == lyr_loaded.noise_std)
+    assert np.all(lyr.dt == lyr_loaded.dt)
+    assert np.all(lyr.name == lyr_loaded.name)
+    assert np.all(lyr._rng_key == lyr_loaded._rng_key)
 
 
 def test_save_load_RecLIFJax_IO():
@@ -572,35 +1141,34 @@ def test_save_load_RecLIFJax_IO():
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
 
+    lyr = RecLIFJax_IO(
+        w_in=w_in,
+        w_recurrent=w_rec,
+        w_out=w_out,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=bias,
+        noise_std=std_noise,
+        dt=dt,
+        name="test layer",
+    )
 
-    lyr = RecLIFJax_IO(w_in=w_in,
-                                w_recurrent=w_rec,
-                                w_out=w_out,
-                                tau_mem=tau_mem,
-                                tau_syn=tau_syn,
-                                bias=bias,
-                                noise_std=std_noise,
-                                dt=dt,
-                                name="test layer")
-
-    
     lyr.save_layer("test.json")
 
     lyr_loaded = RecLIFJax_IO.load_from_file("test.json")
 
-    assert(np.all(lyr.w_in == lyr_loaded.w_in))
-    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
-    assert(np.all(lyr.w_out == lyr_loaded.w_out))
-    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
-    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
-    assert(np.all(lyr.bias == lyr_loaded.bias))
-    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
-    assert(np.all(lyr.dt == lyr_loaded.dt))
-    assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
+    assert np.all(lyr.w_in == lyr_loaded.w_in)
+    assert np.all(lyr.w_recurrent == lyr_loaded.w_recurrent)
+    assert np.all(lyr.w_out == lyr_loaded.w_out)
+    assert np.all(lyr.tau_mem == lyr_loaded.tau_mem)
+    assert np.all(lyr.tau_syn == lyr_loaded.tau_syn)
+    assert np.all(lyr.bias == lyr_loaded.bias)
+    assert np.all(lyr.noise_std == lyr_loaded.noise_std)
+    assert np.all(lyr.dt == lyr_loaded.dt)
+    assert np.all(lyr.name == lyr_loaded.name)
+    assert np.all(lyr._rng_key == lyr_loaded._rng_key)
 
 
-       
 def test_save_load_RecLIFCurrentInJax():
     from rockpool.layers import RecLIFCurrentInJax
 
@@ -613,29 +1181,28 @@ def test_save_load_RecLIFCurrentInJax():
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
 
+    lyr = RecLIFCurrentInJax(
+        w_recurrent=w_rec,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=bias,
+        noise_std=std_noise,
+        dt=dt,
+        name="test layer",
+    )
 
-    lyr = RecLIFCurrentInJax(w_recurrent=w_rec,
-                    tau_mem=tau_mem,
-                    tau_syn=tau_syn,
-                    bias=bias,
-                    noise_std=std_noise,
-                    dt=dt,
-                    name="test layer")
-
-    
     lyr.save_layer("test.json")
 
     lyr_loaded = RecLIFCurrentInJax.load_from_file("test.json")
 
-    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
-    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
-    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
-    assert(np.all(lyr.bias == lyr_loaded.bias))
-    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
-    assert(np.all(lyr.dt == lyr_loaded.dt))
-    assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
-
+    assert np.all(lyr.w_recurrent == lyr_loaded.w_recurrent)
+    assert np.all(lyr.tau_mem == lyr_loaded.tau_mem)
+    assert np.all(lyr.tau_syn == lyr_loaded.tau_syn)
+    assert np.all(lyr.bias == lyr_loaded.bias)
+    assert np.all(lyr.noise_std == lyr_loaded.noise_std)
+    assert np.all(lyr.dt == lyr_loaded.dt)
+    assert np.all(lyr.name == lyr_loaded.name)
+    assert np.all(lyr._rng_key == lyr_loaded._rng_key)
 
 
 def test_save_load_RecLIFJax():
@@ -651,27 +1218,25 @@ def test_save_load_RecLIFJax():
     bias = np.random.rand(n_neurons)
     std_noise = np.random.rand()
 
+    lyr = RecLIFJax(
+        w_recurrent=w_rec,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=bias,
+        noise_std=std_noise,
+        dt=dt,
+        name="test layer",
+    )
 
-    lyr = RecLIFJax(w_recurrent=w_rec,
-                    tau_mem=tau_mem,
-                    tau_syn=tau_syn,
-                    bias=bias,
-                    noise_std=std_noise,
-                    dt=dt,
-                    name="test layer")
-
-    
     lyr.save_layer("test.json")
 
     lyr_loaded = RecLIFJax.load_from_file("test.json")
 
-    assert(np.all(lyr.w_recurrent == lyr_loaded.w_recurrent))
-    assert(np.all(lyr.tau_mem == lyr_loaded.tau_mem))
-    assert(np.all(lyr.tau_syn == lyr_loaded.tau_syn))
-    assert(np.all(lyr.bias == lyr_loaded.bias))
-    assert(np.all(lyr.noise_std == lyr_loaded.noise_std))
-    assert(np.all(lyr.dt == lyr_loaded.dt))
-    assert(np.all(lyr.name == lyr_loaded.name))
-    assert(np.all(lyr._rng_key == lyr_loaded._rng_key))
-
-
+    assert np.all(lyr.w_recurrent == lyr_loaded.w_recurrent)
+    assert np.all(lyr.tau_mem == lyr_loaded.tau_mem)
+    assert np.all(lyr.tau_syn == lyr_loaded.tau_syn)
+    assert np.all(lyr.bias == lyr_loaded.bias)
+    assert np.all(lyr.noise_std == lyr_loaded.noise_std)
+    assert np.all(lyr.dt == lyr_loaded.dt)
+    assert np.all(lyr.name == lyr_loaded.name)
+    assert np.all(lyr._rng_key == lyr_loaded._rng_key)

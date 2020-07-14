@@ -48,9 +48,13 @@ dModules = {
     ".gpl.lif_jax": (
         "RecLIFJax",
         "RecLIFCurrentInJax",
+        "RecLIFCurrentInJax_SO",
         "RecLIFJax_IO",
         "RecLIFCurrentInJax_IO",
         "FFLIFJax_IO",
+        "FFLIFCurrentInJax_SO",
+        "FFExpSynCurrentInJax",
+        "FFExpSynJax",
     ),
 }
 
