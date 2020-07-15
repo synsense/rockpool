@@ -16,7 +16,7 @@ unit_tests:
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v tests
+    - pytest -v tests -n 4
 
 nest_tests:
   stage: test
@@ -32,7 +32,7 @@ nest_tests:
 
   script:
       - source /usr/bin/nest_vars.sh
-      - pytest -v test_nest
+      - pytest -v test_nest -n 4
 
 documentation_linting:
   stage: test
