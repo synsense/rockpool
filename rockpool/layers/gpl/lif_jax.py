@@ -52,6 +52,7 @@ def sigmoid(x: FloatVector) -> FloatVector:
     """
     return np.tanh(x + 1) / 2 + 0.5
 
+
 @custom_gradient
 def step_pwl(x: FloatVector) -> (FloatVector, Callable[[FloatVector], FloatVector]):
     """
@@ -63,6 +64,7 @@ def step_pwl(x: FloatVector) -> (FloatVector, Callable[[FloatVector], FloatVecto
     """
     s = np.clip(np.floor(x + 1.0), 0.0)
     return s, lambda g: (g * (x > -0.5),)
+
 
 def _evolve_lif_jax(
     state0: State,
@@ -595,12 +597,19 @@ class RecLIFJax(Layer, JaxTrainer):
             )
 
             # - Include outputs from final state
-            output_final, surrogate_final, Irec_final, spikes_final = self._get_outputs_from_state(state)
+            (
+                output_final,
+                surrogate_final,
+                Irec_final,
+                spikes_final,
+            ) = self._get_outputs_from_state(state)
             output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
-            surrogate_ts = np.append(surrogate_ts, surrogate_final.reshape(1, -1), axis=0)
+            surrogate_ts = np.append(
+                surrogate_ts, surrogate_final.reshape(1, -1), axis=0
+            )
             spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state['Vmem'].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state['Isyn'].reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
             Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
@@ -613,8 +622,8 @@ class RecLIFJax(Layer, JaxTrainer):
                 "Isyn": Isyn_ts,
                 "Irec": Irec_ts,
                 "surrogate": surrogate_ts,
-                'spikes': spikes_ts,
-                'output': output_ts,
+                "spikes": spikes_ts,
+                "output": output_ts,
             }
             return spikes_ts, new_state, states_t
 
@@ -622,10 +631,10 @@ class RecLIFJax(Layer, JaxTrainer):
         return evol_func
 
     def _get_outputs_from_state(self, state):
-        output = np.dot(state['Vmem'], self._w_out)
-        surrogate = sigmoid(state['Vmem'] * 20.)
-        Irec = np.dot(state['Isyn'], self.w_recurrent)
-        spikes = state['spikes']
+        output = np.dot(state["Vmem"], self._w_out)
+        surrogate = sigmoid(state["Vmem"] * 20.0)
+        Irec = np.dot(state["Isyn"], self.w_recurrent)
+        spikes = state["spikes"]
 
         return output, surrogate, Irec, spikes
 
@@ -654,26 +663,26 @@ class RecLIFJax(Layer, JaxTrainer):
 
         # - Call raw evolution function
         time_start = self.t
-        (
-            spikes_ts, new_state, states_t,
-        ) = self._evolve_functional(self._pack(), self._state, inps)
+        (spikes_ts, new_state, states_t,) = self._evolve_functional(
+            self._pack(), self._state, inps
+        )
 
         # - Update time
         self._timestep += num_timesteps
-        
+
         # - Update state
         self._state = new_state
-        
+
         # - Augment time base
         time_base = onp.append(time_base_inp, self.t)
 
         # - Record membrane traces
         self._v_mem_last_evolution = TSContinuous(
-            time_base, onp.array(states_t['Vmem']), name="V_mem " + self.name
+            time_base, onp.array(states_t["Vmem"]), name="V_mem " + self.name
         )
 
         # - Record spike raster
-        spikes_ids = onp.argwhere(onp.array(states_t['spikes']))
+        spikes_ids = onp.argwhere(onp.array(states_t["spikes"]))
         self._spikes_last_evolution = TSEvent(
             spikes_ids[:, 0] * self.dt + time_start,
             spikes_ids[:, 1],
@@ -685,21 +694,21 @@ class RecLIFJax(Layer, JaxTrainer):
 
         # - Record neuron surrogates
         self._surrogate_last_evolution = TSContinuous(
-            time_base, onp.array(states_t['surrogate']), name="$U$ " + self.name
+            time_base, onp.array(states_t["surrogate"]), name="$U$ " + self.name
         )
 
         # - Record recurrent inputs
         self._i_rec_last_evolution = TSContinuous(
-            time_base, onp.array(states_t['Irec']), name="$I_{rec}$ " + self.name
+            time_base, onp.array(states_t["Irec"]), name="$I_{rec}$ " + self.name
         )
 
         # - Record synaptic currents
         self._i_syn_last_evolution = TSContinuous(
-            time_base, onp.array(states_t['Isyn']), name="$I_{syn}$ " + self.name
+            time_base, onp.array(states_t["Isyn"]), name="$I_{syn}$ " + self.name
         )
 
         self._output_last_evolution = TSContinuous(
-            time_base, onp.array(states_t['output']), name ="$O$ " + self.name,
+            time_base, onp.array(states_t["output"]), name="$O$ " + self.name,
         )
 
         # - Wrap spiking outputs as time series
@@ -710,10 +719,10 @@ class RecLIFJax(Layer, JaxTrainer):
     # ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     #     """
     #     Raw evolution over an input array
-    # 
+    #
     #     :param ndarray sp_input_ts:     Input matrix [T, I]
     #     :param ndarray I_input_ts:      Input matrix [T, N]
-    # 
+    #
     #     :return:  (Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts)
     #             Irec_ts:         (np.ndarray) Time trace of recurrent current inputs per neuron [T, N]
     #             output_ts:       (np.ndarray) Time trace of surrogate weighted output [T, O]
@@ -746,10 +755,10 @@ class RecLIFJax(Layer, JaxTrainer):
     #         self._rng_key,
     #         self._dt,
     #     )
-    # 
+    #
     #     # - Increment timesteps attribute
     #     self._timestep += sp_input_ts.shape[0]
-    # 
+    #
     #     # - Return layer activity
     #     return Irec_ts, output_ts, surrogate_ts, spike_raster_ts, Vmem_ts, Isyn_ts
 
@@ -991,18 +1000,36 @@ class RecLIFCurrentInJax(RecLIFJax):
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
+            # - Include outputs from final state
+            (
+                output_final,
+                surrogate_final,
+                Irec_final,
+                spikes_final,
+            ) = self._get_outputs_from_state(state)
+            output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
+            surrogate_ts = np.append(
+                surrogate_ts, surrogate_final.reshape(1, -1), axis=0
+            )
+            spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
+
             # - Return the outputs from this layer, and the final layer state
             states_t = {
                 "Vmem": Vmem_ts,
                 "Isyn": Isyn_ts,
                 "Irec": Irec_ts,
                 "surrogate": surrogate_ts,
+                "spikes": spikes_ts,
+                "output": output_ts,
             }
             return spikes_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
-    
+
     @property
     def output_type(self):
         """ (TSEvent) Output `.TimeSeries` class: `.TSEvent` """
@@ -1214,8 +1241,8 @@ class RecLIFJax_IO(RecLIFJax):
         :return TSContinuous:                   Output time series; the weighted surrogates of each neuron
         """
 
-        super().evolve()
- 
+        super().evolve(ts_input, duration, num_timesteps)
+
         # - Return weighted output
         return self._output_last_evolution
 
@@ -1366,12 +1393,30 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
+            # - Include outputs from final state
+            (
+                output_final,
+                surrogate_final,
+                Irec_final,
+                spikes_final,
+            ) = self._get_outputs_from_state(state)
+            output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
+            surrogate_ts = np.append(
+                surrogate_ts, surrogate_final.reshape(1, -1), axis=0
+            )
+            spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
+
             # - Return the outputs from this layer, and the final layer state
             states_t = {
                 "Vmem": Vmem_ts,
                 "Isyn": Isyn_ts,
                 "Irec": Irec_ts,
                 "surrogate": surrogate_ts,
+                "spikes": spikes_ts,
+                "output": output_ts,
             }
             return output_ts, new_state, states_t
 
@@ -1904,6 +1949,9 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
                 self._dt,
             )
 
+            # - Include outputs from final state
+            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
@@ -1966,8 +2014,8 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
     def to_dict(self) -> Dict:
         """ Convert this layer to a dictionary representation """
         dLayer = super().to_dict()
-        dLayer['weights'] = onp.array(dLayer['weights']).tolist()
-        dLayer['tau'] = self.tau.item()
+        dLayer["weights"] = onp.array(dLayer["weights"]).tolist()
+        dLayer["tau"] = self.tau.item()
         return dLayer
 
     @property
@@ -2034,6 +2082,9 @@ class FFExpSynJax(FFExpSynCurrentInJax):
                 self._rng_key,
                 self._dt,
             )
+
+            # - Include outputs from final state
+            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
