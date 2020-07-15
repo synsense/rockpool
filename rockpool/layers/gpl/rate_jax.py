@@ -494,7 +494,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0]
+        self._timestep += num_timesteps
 
         # - Activity, recurrent input and output for final timestep
         out_final, res_act_final, rec_inp_final = self.get_output_from_state(

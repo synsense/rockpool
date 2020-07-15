@@ -426,7 +426,7 @@ class JaxTrainer(ABC):
 
                 # - Call loss function and return loss
                 return loss_fcn(
-                    opt_params, states_t, output_batch_t, target_batch_t, **loss_params
+                    opt_params, states_t, output_batch_t[1:], target_batch_t, **loss_params
                 )
 
             # - Assign update, loss and gradient functions
