@@ -135,7 +135,11 @@ def test_butter_filter():
     # save_layer() and load_from_file()
     lyr.save_layer(base_path + "/files/lyr.json")
     lyr = ButterFilter.load_from_file(base_path + "/files/lyr.json")
-    os.remove(base_path + "/files/lyr.json")
+
+    try:
+        os.remove(base_path + "/files/lyr.json")
+    finally:
+        pass
 
     # reset_all() and terminate()
     lyr.reset_all()
