@@ -35,6 +35,7 @@ __all__ = [
     "RecLIFJax_IO",
     "RecLIFCurrentInJax_IO",
     "FFLIFJax_IO",
+    "FFLIFJax_SO",
     "FFLIFCurrentInJax_SO",
     "FFExpSynCurrentInJax",
     "FFExpSynJax",
@@ -377,6 +378,7 @@ class RecLIFJax(Layer, JaxTrainer):
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[list] = None,
+        **kwargs,
     ):
         """
         A basic recurrent spiking neuron layer, with a JAX-implemented forward Euler solver.
@@ -402,7 +404,9 @@ class RecLIFJax(Layer, JaxTrainer):
             dt = np.min(np.array((np.min(tau_mem), np.min(tau_syn)))) / 10.0
 
         # - Call super-class initialisation
-        super().__init__(weights=w_recurrent, dt=dt, noise_std=noise_std, name=name)
+        super().__init__(
+            weights=w_recurrent, dt=dt, noise_std=noise_std, name=name, **kwargs
+        )
 
         # - Set properties
         self.tau_mem = tau_mem
@@ -432,6 +436,7 @@ class RecLIFJax(Layer, JaxTrainer):
         self._spikes_last_evolution = []
         self._i_syn_last_evolution = []
         self._i_rec_last_evolution = []
+        self._output_last_evolution = []
 
     # - Replace the default loss function
     @property
@@ -512,6 +517,11 @@ class RecLIFJax(Layer, JaxTrainer):
     def i_rec_last_evolution(self):
         """(TSContinuous) Recurrent synaptic input current traces saved during the most recent evolution"""
         return self._i_rec_last_evolution
+
+    @property
+    def output_last_evolution(self):
+        """(TSContinuous) Weighted surrogate output saved during the most recent evolution"""
+        return self._output_last_evolution
 
     def reset_state(self):
         """
@@ -1183,6 +1193,7 @@ class RecLIFJax_IO(RecLIFJax):
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[list] = None,
+        **kwargs,
     ):
         """
         Build a spiking recurrent layer with weighted spiking inputs and weighted surrogate outputs, and a JAX backend.
@@ -1212,6 +1223,7 @@ class RecLIFJax_IO(RecLIFJax):
             dt=dt,
             name=name,
             rng_key=rng_key,
+            **kwargs,
         )
 
         # - Set correct information about network size
@@ -1515,6 +1527,7 @@ class FFLIFJax_IO(RecLIFJax_IO):
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[list] = None,
+        **kwargs,
     ):
         """
         Create a feedforward spiking LIF layer, with a JAX-accelerated backend.
@@ -1546,6 +1559,7 @@ class FFLIFJax_IO(RecLIFJax_IO):
             dt=dt,
             name=name,
             rng_key=rng_key,
+            **kwargs,
         )
 
         # - Set recurrent weights to zero
@@ -1566,6 +1580,46 @@ class FFLIFJax_IO(RecLIFJax_IO):
         config.pop("w_recurrent")
 
         return config
+
+
+class FFLIFJax_SO(FFLIFJax_IO):
+    def __init__(
+        self,
+        w_in,
+        tau_mem,
+        tau_syn,
+        bias=-1.0,
+        noise_std=0.0,
+        dt=None,
+        rng_key=None,
+        name=None,
+        **kwargs,
+    ):
+        super().__init__(
+            w_in=w_in,
+            w_out=onp.array(w_in).T,
+            tau_mem=tau_mem,
+            tau_syn=tau_syn,
+            bias=bias,
+            noise_std=noise_std,
+            dt=dt,
+            rng_key=rng_key,
+            name=name,
+            **kwargs,
+        )
+
+        self._size_out = self._w_in.shape[1]
+
+    def evolve(
+        self,
+        ts_input: Optional[TimeSeries] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
+    ) -> TSContinuous:
+        super().evolve(ts_input, duration, num_timesteps, verbose)
+
+        return self._surrogate_last_evolution
 
 
 class FFLIFCurrentInJax_SO(FFLIFJax_IO):
@@ -1625,6 +1679,7 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
         dt: Optional[float] = None,
         name: Optional[str] = None,
         rng_key: Optional[list] = None,
+        **kwargs,
     ):
         """
         Create a feedforward spiking LIF layer, with a JAX-accelerated backend.
@@ -1653,6 +1708,7 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
             dt=dt,
             name=name,
             rng_key=rng_key,
+            **kwargs,
         )
 
         # - Set recurrent weights to zero
@@ -1660,6 +1716,29 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
 
         # - Set output weights to unity
         self._w_out = 1.0
+
+    def evolve(
+        self,
+        ts_input: Optional[TimeSeries] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
+    ) -> TSContinuous:
+        """
+        Evolve the state of this layer given an input
+
+        :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
+        :param bool verbose:                    Currently no effect, just for conformity
+
+        :return TSContinuous:                   Output time series; the weighted surrogates of each neuron
+        """
+
+        super().evolve(ts_input, duration, num_timesteps)
+
+        # - Return weighted output
+        return self._surrogate_last_evolution
 
     @property
     def i_rec_last_evolution(self):
@@ -1684,7 +1763,7 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
 
 
 # - Define a State type for the exponential synapses
-StateExpSyn = Dict[str, np.ndarray]
+StateExpSyn = np.ndarray
 ParamsExpSyn = Dict[str, np.ndarray]
 
 
@@ -1840,6 +1919,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         noise_std: float = 0.0,
         name: str = None,
         rng_key: rand.PRNGKey = None,
+        **kwargs,
     ) -> None:
         """
         Initialise a Jax-backed exponential synapse layer
@@ -1899,6 +1979,10 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             "Isyn": np.zeros((self._size,)),
         }
 
+    def randomize_state(self):
+        self._rng_key, subkey = rand.split(self._rng_key)
+        self._state = {"Isyn": rand.normal(subkey, shape=(self.size,))}
+
     def _pack(self) -> Params:
         """
         Return a packed form of the tunable parameters for this layer
@@ -1935,8 +2019,8 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         """
 
         def evol_func(
-            params: Params, state: State, I_input_ts: np.ndarray,
-        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
+            params: ParamsExpSyn, state: StateExpSyn, I_input_ts: np.ndarray,
+        ) -> Tuple[np.ndarray, StateExpSyn, Dict[str, np.ndarray]]:
             # - Call the jitted evolution function for this layer
             (new_state, Isyn_ts, key1,) = self._evolve_jit(
                 state,
@@ -1971,7 +2055,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
         verbose: bool = False,
-    ) -> TSEvent:
+    ) -> TSContinuous:
         """
         Evolve the state of this layer given an input
 
@@ -1989,15 +2073,8 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         )
 
         # - Call raw evolution function
-        (self._state, Isyn_ts, state_ts,) = self._evolve_jit(
-            self._state,
-            self._weights,
-            self._tau,
-            self._noise_std,
-            inps * 0.0,
-            inps,
-            self._rng_key,
-            self._dt,
+        (self._state, Isyn_ts, state_ts,) = self._evolve_functional(
+            self._pack(), self._state, inps,
         )
 
         # - Record synaptic currents
@@ -2098,46 +2175,3 @@ class FFExpSynJax(FFExpSynCurrentInJax):
 
         # - Return the evolution function
         return evol_func
-
-    def evolve(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-        verbose: bool = False,
-    ) -> TSEvent:
-        """
-        Evolve the state of this layer given an input
-
-        :param Optional[TSEvent] ts_input:      Input time series. Default: `None`, no stimulus is provided
-        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` is used to determine evolution time
-        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` is used to determine evolution time
-        :param bool verbose:           Currently no effect, just for conformity
-
-        :return TSContinuous:                   Output time series; the synaptic currents of each neuron
-        """
-
-        # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
-            ts_input, duration, num_timesteps
-        )
-
-        # - Call raw evolution function
-        (self._state, Isyn_ts, state_ts,) = self._evolve_jit(
-            self._state,
-            self._weights,
-            self._tau,
-            self._noise_std,
-            inps,
-            inps * 0.0,
-            self._rng_key,
-            self._dt,
-        )
-
-        # - Record synaptic currents
-        self._i_syn_last_evolution = TSContinuous(
-            time_base, onp.array(Isyn_ts), name="$I_{syn}$ " + self.name
-        )
-
-        # - Return output currents
-        return self._i_syn_last_evolution

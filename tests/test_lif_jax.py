@@ -628,7 +628,7 @@ def test_largescale():
 
 def test_training_FFLIFJax_IO():
     from rockpool import TSEvent, TSContinuous
-    from rockpool.layers import RecLIFCurrentInJax, RecLIFJax, RecLIFJax_IO, FFLIFJax_IO
+    from rockpool.layers import FFLIFJax_IO
     import numpy as np
 
     Nin = 10

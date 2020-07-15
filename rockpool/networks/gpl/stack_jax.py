@@ -22,14 +22,14 @@ __all__ = ["JaxStack"]
 
 
 def loss_mse_reg_stack(
-        params: List,
-        states_t: Dict[str, np.ndarray],
-        output_batch_t: np.ndarray,
-        target_batch_t: np.ndarray,
-        min_tau: float,
-        lambda_mse: float = 1.0,
-        reg_tau: float = 10000.0,
-        reg_l2_rec: float = 1.0,
+    params: List,
+    states_t: Dict[str, np.ndarray],
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_rec: float = 1.0,
 ) -> float:
     """
     Loss function for target versus output
@@ -75,7 +75,7 @@ class JaxStack(Network, Layer, JaxTrainer):
 
 
     """
-    
+
     def __init__(self, layers: Sequence = None, dt=None, *args, **kwargs):
         """
         Encapsulate a stack of Jax layers in a single layer / network
@@ -212,7 +212,9 @@ class JaxStack(Network, Layer, JaxTrainer):
     @property
     def _evolve_functional(
         self,
-    ) -> Callable[[Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]]:
+    ) -> Callable[
+        [Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]
+    ]:
         """
         Return a functional form of the evolution function for this stack, with no side-effects
 
@@ -267,3 +269,7 @@ class JaxStack(Network, Layer, JaxTrainer):
 
     def to_dict(self):
         return Network.to_dict(self)
+
+    @property
+    def input_type(self):
+        return self.evol_order[0].input_type
