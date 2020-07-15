@@ -65,7 +65,7 @@ def test_butter_mel_filter():
 
     try:
         os.remove(base_path + "/files/lyr.json")
-    finally:
+    except:
         pass
 
     # reset_all() and terminate()
@@ -138,7 +138,7 @@ def test_butter_filter():
 
     try:
         os.remove(base_path + "/files/lyr.json")
-    finally:
+    except:
         pass
 
     # reset_all() and terminate()
