@@ -60,12 +60,12 @@ def test_butter_mel_filter():
     lyr = ButterMelFilter.load_from_dict(config)
 
     # save_layer() and load_from_layer()
-    lyr.save_layer(base_path + "/files/lyr.json")
-    lyr = ButterMelFilter.load_from_file(base_path + "/files/lyr.json")
+    lyr.save_layer(base_path + "/files/lyr_tbmf.json")
+    lyr = ButterMelFilter.load_from_file(base_path + "/files/lyr_tbmf.json")
 
     try:
-        os.remove(base_path + "/files/lyr.json")
-    finally:
+        os.remove(base_path + "/files/lyr_tbmf.json")
+    except:
         pass
 
     # reset_all() and terminate()
@@ -133,9 +133,13 @@ def test_butter_filter():
     lyr = ButterFilter.load_from_dict(config)
 
     # save_layer() and load_from_file()
-    lyr.save_layer(base_path + "/files/lyr.json")
-    lyr = ButterFilter.load_from_file(base_path + "/files/lyr.json")
-    os.remove(base_path + "/files/lyr.json")
+    lyr.save_layer(base_path + "/files/lyr_tbf.json")
+    lyr = ButterFilter.load_from_file(base_path + "/files/lyr_tbf.json")
+
+    try:
+        os.remove(base_path + "/files/lyr_tbf.json")
+    except:
+        pass
 
     # reset_all() and terminate()
     lyr.reset_all()
