@@ -248,26 +248,26 @@ def loss_mse_reg_lif(
 ) -> float:
     """
     Regularised MSE target-output loss function for Jax LIF layers
-    
+
     This loss function computes the mean-squared error of the target signal versus the layer surrogate output. This loss is regularised by several terms to limit time constants, to control the weight spectra, and to control reservoir activity.
-    
+
     .. math::
         L = \lambda_{mse}\\cdot L_{mse} + \\lambda_{\\tau}\\cdot L_{\\tau} + \\lambda_{L2}\\cdot L_{L2} + \\lambda_{act}\\cdot L_{act}
-        
+
         L_{mse} = E|\\left(\\textbf{o}(t) - \\textbf{y}(t)\\right)^2| \\textrm{ : output versus target MSE}
-        
-        L_{\\tau} = l_{\\tau}(\\tau_{mem}, \\tau_{min}) + l_{\\tau}(\\tau_{syn}, \\tau_{min})   
-        
-        l_{\\tau}(\\tau, \\tau_{min}) = \\sum \\exp(-(\\tau - \\tau_{min})) | \\tau < \\tau_{min}   
-        
+
+        L_{\\tau} = l_{\\tau}(\\tau_{mem}, \\tau_{min}) + l_{\\tau}(\\tau_{syn}, \\tau_{min})
+
+        l_{\\tau}(\\tau, \\tau_{min}) = \\sum \\exp(-(\\tau - \\tau_{min})) | \\tau < \\tau_{min}
+
         L_{L2} = l_{l2}(W_{in}) + l_{l2}(W_{rec}) + l_{l2}(W_{out})
-        
+
         l_{l2}(W) = E|W^2|
-        
+
         L_{act} = E|U(t)| + E|V_{mem}(t)^2|
-        
-        \textrm{where } E|\textbf{x}| = \\frac{1}{#\textbf{x}}\\sum{x} 
-    
+
+        \textrm{where } E|\textbf{x}| = \\frac{1}{#\textbf{x}}\\sum{x}
+
     :param Params params:               Parameters of the LIF layer
     :param State states_t:              State time-series of the LIF layer
     :param np.ndarray output_batch_t:   Output time series of the layer
@@ -281,7 +281,7 @@ def loss_mse_reg_lif(
     :param float reg_l2_out:            Regularisation loss factor for output weight L2 norm. Default: 0.1
     :param float reg_act1:              Regularisation loss factor for activity (keeps activity low). Default: 2.0
     :param float reg_act2:              Regularisation loss factor for activity (keeps membranes near threshold). Default: 2.0
-     
+
     :return float loss:                 Loss value
     """
     # - MSE between output and target
@@ -606,21 +606,21 @@ class RecLIFJax(Layer, JaxTrainer):
                 self._dt,
             )
 
-            # - Include outputs from final state
+            # - Include outputs from initial state
             (
-                output_final,
-                surrogate_final,
-                Irec_final,
-                spikes_final,
+                output_initial,
+                surrogate_initial,
+                Irec_initial,
+                spikes_initial,
             ) = self._get_outputs_from_state(state)
-            output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
+            output_ts = np.append(output_initial.reshape(1, -1), output_ts, axis=0)
             surrogate_ts = np.append(
-                surrogate_ts, surrogate_final.reshape(1, -1), axis=0
+                surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
             )
-            spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
-            Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
+            spikes_ts = np.append(spikes_initial.reshape(1, -1), spikes_ts, axis=0)
+            Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
+            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
+            Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
@@ -641,8 +641,8 @@ class RecLIFJax(Layer, JaxTrainer):
         return evol_func
 
     def _get_outputs_from_state(self, state):
-        output = np.dot(state["Vmem"], self._w_out)
         surrogate = sigmoid(state["Vmem"] * 20.0)
+        output = np.dot(surrogate, self._w_out)
         Irec = np.dot(state["Isyn"], self.w_recurrent)
         spikes = state["spikes"]
 
@@ -1016,14 +1016,14 @@ class RecLIFCurrentInJax(RecLIFJax):
                 surrogate_final,
                 Irec_final,
                 spikes_final,
-            ) = self._get_outputs_from_state(state)
+            ) = self._get_outputs_from_state(new_state)
             output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
             surrogate_ts = np.append(
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
             )
             spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, new_state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
             Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
 
             # - Return the outputs from this layer, and the final layer state
@@ -1405,21 +1405,21 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
-            # - Include outputs from final state
+            # - Include outputs from initial state
             (
-                output_final,
-                surrogate_final,
-                Irec_final,
-                spikes_final,
+                output_initial,
+                surrogate_initial,
+                Irec_initial,
+                spikes_initial,
             ) = self._get_outputs_from_state(state)
-            output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
+            output_ts = np.append(output_initial.reshape(1, -1), output_ts, axis=0)
             surrogate_ts = np.append(
-                surrogate_ts, surrogate_final.reshape(1, -1), axis=0
+                surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
             )
-            spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
-            Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
+            spikes_ts = np.append(spikes_ts, spikes_initial.reshape(1, -1), axis=0)
+            Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
+            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
+            Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
 
             # - Return the outputs from this layer, and the final layer state
             states_t = {
@@ -1778,14 +1778,14 @@ def _evolve_expsyn_jax(
 ) -> Tuple[StateExpSyn, np.ndarray, rand.PRNGKey]:
     """
     Jax-backed evolution function for exponential synapses
-    
+
     This function implements the simple dynamics
-    
+
     .. math::
         \\tau \\dot\\I_{syn} = -I_{syn} + W_{in} \\cdot s(t) + W_{in} \\cdot I_{in}(t) + \\zeta \\sigma(t)
-        
+
     where :math:`\\tau` is the time constant for each node; :math:`I_{syn}(t)` is the synaptic current at time :math:`t`; :math:`s(t)` is the input spike train; :math:`I_{in}(t)` is the input current; :math:`W_{in}` is the input weight matrix with shape ``[MxN]`` for ``M`` input channels and ``N`` nodes; and :math:`\\zeta \\sigma(t)` is a white noise process with std. dev :math:`\\sigma`.
-    
+
     :param StateExpSyn state0:      Initial state for the layer
     :param np.ndarray w_out:        Output weights for the layer :math:`W_{out}` with shape ``[N, O]``
     :param np.ndarray tau:          Time constants for the layer nodes :math:`\\tau` with shape ``[N,]``
@@ -1793,9 +1793,9 @@ def _evolve_expsyn_jax(
     :param np.ndarray sp_input_ts:  Rasterised time series ``[T, M]`` of input spikes on each input channel
     :param np.ndarray I_input_ts:   Rasterised time series ``[T, M]`` of input currents on each input channel
     :param rand.PRNGKey key:        Jax RNG key to use when generating randomness
-    :param float dt:                Time step 
-    
-    :return (new_state, Isyn_ts, new_key): ``new_state`` is the layer state after evolution. ``Isyn_ts`` is the rasterised time series ``[T, N]`` of synaptic currents associated with each node. ``new_key`` is the new Jax RNG key after splitting to generate randomness. 
+    :param float dt:                Time step
+
+    :return (new_state, Isyn_ts, new_key): ``new_state`` is the layer state after evolution. ``Isyn_ts`` is the rasterised time series ``[T, N]`` of synaptic currents associated with each node. ``new_key`` is the new Jax RNG key after splitting to generate randomness.
     """
     # - Get evolution constants
     beta = np.exp(-dt / tau)
@@ -1844,24 +1844,24 @@ def loss_mse_reg_expsyn(
 ) -> float:
     """
     Regularised loss function for Jax Exponential Synapse layers
-    
+
     This loss function computes the mean-squared error of the target signal versus the layer synaptic currents. This loss is regularised by several terms to limit time constants and to control the weight spectra.
-    
+
     .. math::
         L = \lambda_{mse}\\cdot L_{mse} + \\lambda_{\\tau}\\cdot L_{\\tau} + \\lambda_{L2}\\cdot L_{L2}
-        
+
         L_{mse} = E|\\left(\\textbf{o}(t) - \\textbf{y}(t)\\right)^2| \\textrm{ : output versus target MSE}
-        
-        L_{\\tau} = l_{\\tau}(\\tau_{syn}, \\tau_{min})   
-        
-        l_{\\tau}(\\tau, \\tau_{min}) = \\sum \\exp(-(\\tau - \\tau_{min})) | \\tau < \\tau_{min}   
-        
+
+        L_{\\tau} = l_{\\tau}(\\tau_{syn}, \\tau_{min})
+
+        l_{\\tau}(\\tau, \\tau_{min}) = \\sum \\exp(-(\\tau - \\tau_{min})) | \\tau < \\tau_{min}
+
         L_{L2} = l_{l2}(W_{in})
-        
+
         l_{l2}(W) = E|W^2|
-        
-        \textrm{where } E|\textbf{x}| = \\frac{1}{#\textbf{x}}\\sum{x} 
-    
+
+        \textrm{where } E|\textbf{x}| = \\frac{1}{#\textbf{x}}\\sum{x}
+
     :param ParamsExpSyn params:         Parameters of the ExpSyn layer
     :param StateExpSyn states_t:        State time-series of the ExpSyn layer
     :param np.ndarray output_batch_t:   Output time series of the layer
@@ -1870,8 +1870,8 @@ def loss_mse_reg_expsyn(
     :param float lambda_mse:            Loss factor for MSE error. Default: 1.0
     :param float reg_tau:               Regularisation loss factor for time constant violations. Default: 10000.0
     :param float reg_l2_weights:        Regularisation loss factor for input weight L2 norm. Default: 1.0
-    
-    :return: 
+
+    :return:
     """
     # - MSE between output and target
     dLoss = dict()
@@ -1918,12 +1918,12 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
     ) -> None:
         """
         Initialise a Jax-backed exponential synapse layer
-        
+
         :param np.ndarray w_out:                The input weights ``[N, O]`` of this layer
         :param np.ndarray tau:                  The time constants ``[N,]`` of the ``N`` nodes in this layer
         :param float dt:                        Simulation time-step to use for this layer
         :param float noise_std:                 Std. dev. of the noise to inject into each node during evolution. Default: ``0.0``, no noise.
-        :param Optional[str] name:              Optional name to use when describing this layer. Default: ``None`` 
+        :param Optional[str] name:              Optional name to use when describing this layer. Default: ``None``
         :param Optional[rand.PRNGKey] rng_key:  pRNG key to use when generating randomness. Default: ``None``, generate a new key
         """
         # - Ensure that weights are 2D
@@ -2032,8 +2032,8 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
                 self._dt,
             )
 
-            # - Include outputs from final state
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            # - Include outputs from initial state
+            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
@@ -2122,12 +2122,12 @@ class FFExpSynJax(FFExpSynCurrentInJax):
     """
     Feed-forward layer of exponential current synapses, receiving spiking inputs. Input weighting provided
 
-    This layer implements an array of exponential synaptic filters, driven by spiking inputs, passing through a weight matrix :math:`W_{in}`. 
+    This layer implements an array of exponential synaptic filters, driven by spiking inputs, passing through a weight matrix :math:`W_{in}`.
 
     The dynamics of each node are given by
 
     .. math::
-    
+
         \\tau \\dot{I}_{syn} = -I_{syn} + W_{in} \\cdot s(t) + \\zeta \\sigma(t)
 
     where :math:`\\tau` is the time constant for each node; :math:`I_{syn}(t)` is the synaptic current at time :math:`t`; :math:`s(t)` is the input spike train; :math:`W_{in}` is the input weight matrix with shape ``[MxN]`` for ``M`` input channels and ``N`` nodes; and :math:`\\zeta \\sigma(t)` is a white noise process with std. dev :math:`\\sigma`.
@@ -2165,8 +2165,8 @@ class FFExpSynJax(FFExpSynCurrentInJax):
                 self._dt,
             )
 
-            # - Include outputs from final state
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            # - Include outputs from initial state
+            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
