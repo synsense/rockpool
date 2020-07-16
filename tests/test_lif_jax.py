@@ -49,12 +49,10 @@ def test_RecLIFJax():
     )
 
     # - Compare states and time before and after
-    output_at_t0 = fl0._get_outputs_from_state(fl0.state)
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state["Vmem"]).any()
-    assert (ts_output(0) == output_at_t0).all()
 
     # - Test TS only evolution
     fl0.reset_all()
@@ -122,12 +120,10 @@ def test_RecLIFCurrentInJax():
     tsInCont = TSContinuous(times=np.arange(100), samples=np.ones((100, net_size)))
 
     # - Compare states and time before and after
-    output_at_t0 = fl0._get_outputs_from_state(fl0.state)
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state["Vmem"]).any()
-    assert (ts_output(0) == output_at_t0).all()
 
     # - Test TS only evolution
     fl0.reset_all()
@@ -203,7 +199,7 @@ def test_RecLIFJax_IO():
     )
 
     # - Compare states and time before and after
-    output_at_t0 = fl0._get_outputs_from_state(fl0.state)
+    output_at_t0 = fl0._get_outputs_from_state(fl0.state)[0]
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
@@ -290,7 +286,7 @@ def test_RecLIFCurrentInJax_IO():
     )
 
     # - Compare states and time before and after
-    output_at_t0 = fl0._get_outputs_from_state(fl0.state)
+    output_at_t0 = fl0._get_outputs_from_state(fl0.state)[0]
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
@@ -375,7 +371,7 @@ def test_FFLIFJax_IO():
     )
 
     # - Compare states and time before and after
-    output_at_t0 = fl0._get_outputs_from_state(fl0.state)
+    output_at_t0 = fl0._get_outputs_from_state(fl0.state)[0]
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInSp, duration=0.1)
     assert fl0.t == 0.1
@@ -457,7 +453,7 @@ def test_FFLIFCurrentInJax_SO():
     )
 
     # - Compare states and time before and after
-    output_at_t0 = fl0._get_outputs_from_state(fl0.state)
+    output_at_t0 = fl0._get_outputs_from_state(fl0.state)[0]
     vStateBefore = np.copy(fl0.state["Vmem"])
     ts_output = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
@@ -534,7 +530,7 @@ def test_FFExpSynCurrentInJax():
     # chirp = np.atleast_2d(np.sin(timebase * 2 * np.pi * (timebase * 10))).T
     # target_ts = TSContinuous.from_clocked(chirp, dt = dt, periodic=True, name="Target")
 
-    output_at_t0 = lyrExpSyn._get_outputs_from_state(lyrExpSyn.state)
+    output_at_t0 = np.dot(lyrExpSyn.state["Isyn"], lyrExpSyn._w_out)
     I_in_ts = np.random.rand(T * numRepeats, Nin)
     input_ts = TSContinuous.from_clocked(I_in_ts, dt=dt, periodic=True, name="Input")
     ts_output = lyrExpSyn.evolve(input_ts)
@@ -579,7 +575,7 @@ def test_FFExpSynJax():
         periodic=True,
         name="Input",
     )
-    output_at_t0 = lyrExpSyn._get_outputs_from_state(lyrExpSyn.state)
+    output_at_t0 = np.dot(lyrExpSyn.state["Isyn"], lyrExpSyn._w_out)
     ts_output = lyrExpSyn.evolve(input_ts)
     assert (ts_output(0) == output_at_t0).all()
 
