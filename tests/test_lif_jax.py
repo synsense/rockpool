@@ -1252,3 +1252,47 @@ def test_save_load_RecLIFJax():
     assert np.all(lyr.dt == lyr_loaded.dt)
     assert np.all(lyr.name == lyr_loaded.name)
     assert np.all(lyr._rng_key == lyr_loaded._rng_key)
+
+def test_grads_FFLIFJax_IO():
+    from rockpool.layers import FFLIFJax_IO
+    from rockpool.timeseries import TSEvent, TSContinuous
+
+    lyr = FFLIFJax_IO(
+        w_in=np.array([[3, 4, 5], [7, 8, 9]]),
+        w_out=np.array([[1, 2, 3], [4, 5, 6]]).T,
+        tau_mem=100e-3,
+        tau_syn=200e-3,
+    )
+
+    input_sp_ts = TSEvent.from_raster(
+        np.array([[1, 0, 0, 1], [1, 1, 0, 0]]),
+        dt=1e-3,
+    )
+
+    lyr.evolve(input_sp_ts)
+
+    # - Known-value test
+    assert np.allclose(lyr.i_syn_last_evolution.samples, [[10., 12., 14.]]) 
+    assert np.allclose(lyr.spikes_last_evolution.channels, [1, 2])
+    assert np.allclose(lyr.spikes_last_evolution.times, [0, 0])
+    assert np.allclose(lyr.surrogate_last_evolution.samples, [[0.88079691, 0.99995458, 1.]])
+    assert np.allclose(lyr.v_mem_last_evolution.samples, [[-5.96046448e-08,  1.99999928e-01,  3.99999976e-01]])
+    
+    target_ts = TSContinuous.from_clocked(
+        np.array([[1, 2, 3], [2, 3, 1]]).T,
+        dt = 10e-3,
+    )
+    
+    # - Perform one sample of SGD training
+    loss, grads, o_fcn = lyr.train_output_target(
+        input_sp_ts, target_ts,
+    )
+    
+    # - Known-value test
+    assert np.allclose(loss, 30412.832)
+    assert np.allclose(grads['bias'], [0.24683057, 0.20286332, 0.27889615])
+    assert np.allclose(grads['tau_mem'], [-10146.195, -10147.596, -10175.573])
+    assert np.allclose(grads['tau_syn'], [0.5869812 , 0.5789086 , 0.92852974])
+    assert np.allclose(grads['w_in'], [[0.34683058, 0.33619666, 0.44556284], [0.4801639 , 0.46953   , 0.57889616]])
+    assert np.allclose(grads['w_out'], [[ 5.0333333, 13.133333 ], [ 5.0666666, 13.166667 ], [ 5.1      , 13.2      ]])
+    assert np.allclose(grads['w_recurrent'], 0.4817595)
