@@ -618,8 +618,8 @@ class RecLIFJax(Layer, JaxTrainer):
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
             )
             spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, new_state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
             Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
@@ -1022,8 +1022,8 @@ class RecLIFCurrentInJax(RecLIFJax):
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
             )
             spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, new_state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
             Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
 
             # - Return the outputs from this layer, and the final layer state
@@ -1417,8 +1417,8 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
             )
             spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
-            Vmem_ts = np.append(Vmem_ts, state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Vmem_ts = np.append(Vmem_ts, new_state["Vmem"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
             Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
 
             # - Return the outputs from this layer, and the final layer state
