@@ -1250,6 +1250,7 @@ def test_grads_FFLIFJax_IO():
         w_out=np.array([[1, 2, 3], [4, 5, 6]]).T,
         tau_mem=100e-3,
         tau_syn=200e-3,
+        dt = 1e-3,
     )
 
     input_sp_ts = TSEvent.from_raster(
