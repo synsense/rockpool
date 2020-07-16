@@ -1769,7 +1769,6 @@ ParamsExpSyn = Dict[str, np.ndarray]
 
 def _evolve_expsyn_jax(
     state0: StateExpSyn,
-    weights: np.ndarray,
     tau: np.ndarray,
     noise_std: float,
     sp_input_ts: np.ndarray,
@@ -1788,7 +1787,7 @@ def _evolve_expsyn_jax(
     where :math:`\\tau` is the time constant for each node; :math:`I_{syn}(t)` is the synaptic current at time :math:`t`; :math:`s(t)` is the input spike train; :math:`I_{in}(t)` is the input current; :math:`W_{in}` is the input weight matrix with shape ``[MxN]`` for ``M`` input channels and ``N`` nodes; and :math:`\\zeta \\sigma(t)` is a white noise process with std. dev :math:`\\sigma`.
     
     :param StateExpSyn state0:      Initial state for the layer
-    :param np.ndarray weights:      Input weights for the layer :math:`W_{in}` with shape ``[M, N]``
+    :param np.ndarray w_out:        Output weights for the layer :math:`W_{out}` with shape ``[N, O]``
     :param np.ndarray tau:          Time constants for the layer nodes :math:`\\tau` with shape ``[N,]``
     :param float noise_std:         Std. dev. of noise to inject into node currents
     :param np.ndarray sp_input_ts:  Rasterised time series ``[T, M]`` of input spikes on each input channel
@@ -1827,11 +1826,7 @@ def _evolve_expsyn_jax(
     )
 
     # - Evolve over spiking inputs
-    state, Isyn_ts = scan(
-        forward,
-        state0,
-        (np.dot(sp_input_ts, weights), np.dot(I_input_ts, weights) + noise_ts),
-    )
+    state, Isyn_ts = scan(forward, state0, (sp_input_ts, I_input_ts + noise_ts,))
 
     # - Return outputs
     return state, Isyn_ts, key1
@@ -1913,7 +1908,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
 
     def __init__(
         self,
-        weights: np.ndarray,
+        w_out: np.ndarray,
         tau: np.ndarray,
         dt: float,
         noise_std: float = 0.0,
@@ -1924,7 +1919,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         """
         Initialise a Jax-backed exponential synapse layer
         
-        :param np.ndarray weights:              The input weights ``[M, N]`` of this layer
+        :param np.ndarray w_out:                The input weights ``[N, O]`` of this layer
         :param np.ndarray tau:                  The time constants ``[N,]`` of the ``N`` nodes in this layer
         :param float dt:                        Simulation time-step to use for this layer
         :param float noise_std:                 Std. dev. of the noise to inject into each node during evolution. Default: ``0.0``, no noise.
@@ -1932,7 +1927,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         :param Optional[rand.PRNGKey] rng_key:  pRNG key to use when generating randomness. Default: ``None``, generate a new key
         """
         # - Ensure that weights are 2D
-        weights = np.atleast_2d(weights)
+        w_out = np.atleast_2d(w_out)
 
         # - Transform arguments to JAX np.array
         tau = np.array(tau)
@@ -1941,10 +1936,15 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             dt = np.min(np.array((np.min(tau)))) / 10.0
 
         # - Call super-class initialisation
-        super().__init__(weights=weights, dt=dt, noise_std=noise_std, name=name)
+        super().__init__(
+            weights=np.identity(w_out.shape[0]), dt=dt, noise_std=noise_std, name=name
+        )
 
         # - Set properties
+        self._size_out = w_out.shape[1]
+        self._w_out = w_out
         self.tau = tau
+        self._weights = 0.0
 
         # - Create RNG
         if rng_key is None:
@@ -1990,7 +1990,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         :return Params: params: All parameters as a Dict
         """
         return {
-            "weights": self._weights,
+            "w_out": self._w_out,
             "tau_syn": self._tau,
             "tau_mem": np.inf,
         }
@@ -2001,8 +2001,8 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
 
         :param Params params:  Set of parameters for this layer
         """
-        (self._weights, self._tau,) = (
-            params["weights"],
+        (self._w_out, self._tau,) = (
+            params["w_out"],
             params["tau_syn"],
         )
 
@@ -2024,7 +2024,6 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             # - Call the jitted evolution function for this layer
             (new_state, Isyn_ts, key1,) = self._evolve_jit(
                 state,
-                params["weights"],
                 params["tau_syn"],
                 self._noise_std,
                 I_input_ts * 0.0,
@@ -2044,7 +2043,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             states_t = {
                 "Isyn": Isyn_ts,
             }
-            return Isyn_ts, new_state, states_t
+            return np.dot(Isyn_ts, params["w_out"]), new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -2073,9 +2072,15 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         )
 
         # - Call raw evolution function
-        (self._state, Isyn_ts, state_ts,) = self._evolve_functional(
+        (Isyn_ts, self._state, state_ts,) = self._evolve_functional(
             self._pack(), self._state, inps,
         )
+
+        # - Increment layer time
+        self._timestep += num_timesteps
+
+        # - Augment time base
+        time_base = onp.append(time_base, self.t)
 
         # - Record synaptic currents
         self._i_syn_last_evolution = TSContinuous(
@@ -2091,7 +2096,8 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
     def to_dict(self) -> Dict:
         """ Convert this layer to a dictionary representation """
         dLayer = super().to_dict()
-        dLayer["weights"] = onp.array(dLayer["weights"]).tolist()
+        dLayer.pop("weights")
+        dLayer["w_out"] = onp.array(dLayer["w_out"]).tolist()
         dLayer["tau"] = self.tau.item()
         return dLayer
 
@@ -2151,8 +2157,7 @@ class FFExpSynJax(FFExpSynCurrentInJax):
             # - Call the jitted evolution function for this layer
             (new_state, Isyn_ts, key1,) = self._evolve_jit(
                 state,
-                params["weights"],
-                params["tau"],
+                params["tau_syn"],
                 self._noise_std,
                 sp_input_ts,
                 sp_input_ts * 0.0,
@@ -2171,7 +2176,7 @@ class FFExpSynJax(FFExpSynCurrentInJax):
             states_t = {
                 "Isyn": Isyn_ts,
             }
-            return Isyn_ts, new_state, states_t
+            return np.dot(Isyn_ts, params["w_out"]), new_state, states_t
 
         # - Return the evolution function
         return evol_func

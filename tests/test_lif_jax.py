@@ -505,7 +505,7 @@ def test_FFExpSynCurrentInJax():
         Nin, Nout, tau,
     ):
         return {
-            "weights": 2 * np.random.rand(Nin, Nout) - 1,
+            "w_out": 2 * np.random.rand(Nin, Nout) - 1,
             "tau": tau,
         }
 
@@ -545,7 +545,7 @@ def test_FFExpSynJax():
         Nin, Nout, tau,
     ):
         return {
-            "weights": 2 * np.random.rand(Nin, Nout) - 1,
+            "w_out": 2 * np.random.rand(Nin, Nout) - 1,
             "tau": tau,
         }
 
