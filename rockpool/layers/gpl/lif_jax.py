@@ -612,7 +612,7 @@ class RecLIFJax(Layer, JaxTrainer):
                 surrogate_final,
                 Irec_final,
                 spikes_final,
-            ) = self._get_outputs_from_state(state)
+            ) = self._get_outputs_from_state(new_state)
             output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
             surrogate_ts = np.append(
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
@@ -1016,7 +1016,7 @@ class RecLIFCurrentInJax(RecLIFJax):
                 surrogate_final,
                 Irec_final,
                 spikes_final,
-            ) = self._get_outputs_from_state(state)
+            ) = self._get_outputs_from_state(new_state)
             output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
             surrogate_ts = np.append(
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
@@ -1411,7 +1411,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
                 surrogate_final,
                 Irec_final,
                 spikes_final,
-            ) = self._get_outputs_from_state(state)
+            ) = self._get_outputs_from_state(new_state)
             output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
             surrogate_ts = np.append(
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
@@ -2033,7 +2033,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             )
 
             # - Include outputs from final state
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
@@ -2166,7 +2166,7 @@ class FFExpSynJax(FFExpSynCurrentInJax):
             )
 
             # - Include outputs from final state
-            Isyn_ts = np.append(Isyn_ts, state["Isyn"].reshape(1, -1), axis=0)
+            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
