@@ -894,16 +894,22 @@ def test_grads_FFLIFJax_IO():
     loss, grads, o_fcn = lyr.train_output_target(inps, target)
 
     # - Known-value test
-    assert np.allclose(loss, 10.624139)
-    assert np.allclose(grads["bias"], [-0.00681818, -0.00573616, -0.15497251])
-    assert np.allclose(grads["tau_mem"], [1.2602061, 1.3096639, 47.103264])
-    assert np.allclose(grads["tau_syn"], [-0.00295216, -0.00303672, -0.11853314])
+    assert np.allclose(loss, 10.624139, rtol=1e-4)
+    assert np.allclose(
+        grads["bias"], [-0.00681818, -0.00573616, -0.15497251], rtol=1e-4
+    )
+    assert np.allclose(grads["tau_mem"], [1.2602061, 1.3096639, 47.103264], rtol=1e-4)
+    assert np.allclose(
+        grads["tau_syn"], [-0.00295216, -0.00303672, -0.11853314], rtol=1e-4
+    )
     assert np.allclose(
         grads["w_in"],
         [[0.09129014, 0.1260704, -0.06462787], [0.23143218, 0.26513225, 0.22329542]],
+        rtol=1e-4,
     )
     assert np.allclose(
         grads["w_out"],
         [[0.03333307, 0.13333295], [0.06659944, 0.16656671], [0.08346391, 0.17541301]],
+        rtol=1e-4,
     )
-    assert np.allclose(grads["w_recurrent"], 0.0)
+    assert np.allclose(grads["w_recurrent"], 0.0, rtol=1e-4)
