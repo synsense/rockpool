@@ -1235,6 +1235,80 @@ class RecLIFJax_IO(RecLIFJax):
         self.w_in = w_in
         self.w_out = w_out
 
+    @property
+    def _evolve_functional(self):
+        """
+        Return a functional form of the evolution function for this layer
+
+        Returns a function ``evol_func`` with the signature::
+
+            def evol_func(params, state, inputs) -> (outputs, new_state):
+
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State, Dict[str, np.ndarray]]]:
+        """
+
+        def evol_func(
+            params: Params, state: State, sp_input_ts: np.ndarray,
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
+            # - Call the jitted evolution function for this layer
+            (
+                new_state,
+                Irec_ts,
+                output_ts,
+                surrogate_ts,
+                spikes_ts,
+                Vmem_ts,
+                Isyn_ts,
+                key1,
+            ) = self._evolve_jit(
+                state,
+                params["w_in"],
+                params["w_recurrent"],
+                params["w_out"],
+                params["tau_mem"],
+                params["tau_syn"],
+                params["bias"],
+                self._noise_std,
+                sp_input_ts,
+                sp_input_ts * 0.0,
+                self._rng_key,
+                self._dt,
+            )
+
+            # - Include outputs from initial state
+            (
+                output_initial,
+                surrogate_initial,
+                Irec_initial,
+                spikes_initial,
+            ) = self._get_outputs_from_state(state)
+            output_ts = np.append(output_initial.reshape(1, -1), output_ts, axis=0)
+            surrogate_ts = np.append(
+                surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
+            )
+            spikes_ts = np.append(spikes_initial.reshape(1, -1), spikes_ts, axis=0)
+            Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
+            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
+            Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
+
+            # - Maintain RNG key, if not under compilation
+            if not isinstance(key1, jax.core.Tracer):
+                self._rng_key = key1
+
+            # - Return the outputs from this layer, and the final layer state
+            states_t = {
+                "Vmem": Vmem_ts,
+                "Isyn": Isyn_ts,
+                "Irec": Irec_ts,
+                "surrogate": surrogate_ts,
+                "spikes": spikes_ts,
+                "output": output_ts,
+            }
+            return output_ts, new_state, states_t
+
+        # - Return the evolution function
+        return evol_func
+
     def evolve(
         self,
         ts_input: Optional[TimeSeries] = None,

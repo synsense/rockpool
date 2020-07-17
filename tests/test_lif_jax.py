@@ -1268,7 +1268,7 @@ def test_grads_FFLIFJax_IO():
 
     input_sp_ts = TSEvent.from_raster(np.array([[1, 0, 0, 1], [1, 1, 0, 0]]), dt=1e-3,)
 
-    lyr.evolve(input_sp_ts, num_timesteps=1)
+    lyr.evolve(input_sp_ts, num_timesteps=2)
 
     # - Known-value test
     assert np.allclose(
