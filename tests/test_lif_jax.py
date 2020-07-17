@@ -1256,29 +1256,24 @@ def test_grads_FFLIFJax_IO():
 
     input_sp_ts = TSEvent.from_raster(np.array([[1, 0, 0, 1], [1, 1, 0, 0]]), dt=1e-3,)
 
-    lyr.evolve(input_sp_ts)
+    lyr.evolve(input_sp_ts, num_timesteps=1)
 
     # - Known-value test
     assert np.allclose(
-        lyr.i_syn_last_evolution.samples,
-        [
-            [3.0, 4.0, 5.0],
-            [12.9850378, 15.98005009, 18.97506142],
-            [12.92027473, 15.90034866, 18.88042259],
-        ],
+        lyr.i_syn_last_evolution.samples[-2:, :],
+        [[3.0, 4.0, 5.0], [12.9850378, 15.98005009, 18.97506142],],
     )
     assert np.allclose(lyr.spikes_last_evolution.channels, [])
     assert np.allclose(lyr.spikes_last_evolution.times, [])
     assert np.allclose(
-        lyr.surrogate_last_evolution.samples,
-        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+        lyr.surrogate_last_evolution.samples[:-2:, :],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
     )
     assert np.allclose(
-        lyr.v_mem_last_evolution.samples,
+        lyr.v_mem_last_evolution.samples[-2:, :],
         [
             [-0.96999997, -0.95999998, -0.94999999],
             [-0.84044957, -0.80059946, -0.76074934],
-            [-0.71284235, -0.64358997, -0.5743376],
         ],
     )
 
