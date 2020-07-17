@@ -1240,3 +1240,68 @@ def test_save_load_RecLIFJax():
     assert np.all(lyr.dt == lyr_loaded.dt)
     assert np.all(lyr.name == lyr_loaded.name)
     assert np.all(lyr._rng_key == lyr_loaded._rng_key)
+
+
+def test_grads_FFLIFJax_IO():
+    from rockpool.layers import FFLIFJax_IO
+    from rockpool.timeseries import TSEvent, TSContinuous
+
+    lyr = FFLIFJax_IO(
+        w_in=np.array([[3, 4, 5], [7, 8, 9]]),
+        w_out=np.array([[1, 2, 3], [4, 5, 6]]).T,
+        tau_mem=100e-3,
+        tau_syn=200e-3,
+        dt=1e-3,
+    )
+
+    input_sp_ts = TSEvent.from_raster(np.array([[1, 0, 0, 1], [1, 1, 0, 0]]), dt=1e-3,)
+
+    lyr.evolve(input_sp_ts, num_timesteps=1)
+
+    # - Known-value test
+    assert np.allclose(
+        lyr.i_syn_last_evolution.samples[-2:, :],
+        [[3.0, 4.0, 5.0], [12.9850378, 15.98005009, 18.97506142],],
+    )
+    assert np.allclose(lyr.spikes_last_evolution.channels, [])
+    assert np.allclose(lyr.spikes_last_evolution.times, [])
+    assert np.allclose(
+        lyr.surrogate_last_evolution.samples[-2:, :],
+        [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+    )
+    assert np.allclose(
+        lyr.v_mem_last_evolution.samples[-2:, :],
+        [
+            [-0.96999997, -0.95999998, -0.94999999],
+            [-0.84044957, -0.80059946, -0.76074934],
+        ],
+    )
+
+    # - Rasterise input and target for control over training
+    inps = input_sp_ts.raster(dt=1e-3, channels=np.array([0, 1]))
+    target_ts = TSContinuous.from_clocked(np.array([[1, 2, 3], [2, 3, 1]]).T, dt=1e-3,)
+    target = target_ts([0, 1e-3])
+
+    # - Perform one sample of SGD training
+    loss, grads, o_fcn = lyr.train_output_target(inps, target)
+
+    # - Known-value test
+    assert np.allclose(loss, 10.353037, rtol=1e-4)
+    assert np.allclose(
+        grads["bias"], [-0.01022655, -0.00835179, -0.15533224], rtol=1e-4
+    )
+    assert np.allclose(grads["tau_mem"], [1.8901598, 1.8999149, 47.13307], rtol=1e-4)
+    assert np.allclose(
+        grads["tau_syn"], [-0.00442787, -0.00439218, -0.11846346], rtol=1e-4
+    )
+    assert np.allclose(
+        grads["w_in"],
+        [[0.08693628, 0.12281759, -0.06458484], [0.23048195, 0.2644919, 0.2237002]],
+        rtol=1e-4,
+    )
+    assert np.allclose(
+        grads["w_out"],
+        [[0.03333307, 0.13333295], [0.06659944, 0.16656671], [0.08346391, 0.17541301]],
+        rtol=1e-4,
+    )
+    assert np.allclose(grads["w_recurrent"], 0.0, rtol=1e-4)
