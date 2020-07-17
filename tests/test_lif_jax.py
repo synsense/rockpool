@@ -1266,7 +1266,7 @@ def test_grads_FFLIFJax_IO():
     assert np.allclose(lyr.spikes_last_evolution.channels, [])
     assert np.allclose(lyr.spikes_last_evolution.times, [])
     assert np.allclose(
-        lyr.surrogate_last_evolution.samples[:-2:, :],
+        lyr.surrogate_last_evolution.samples[-2:, :],
         [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
     )
     assert np.allclose(
@@ -1277,21 +1277,25 @@ def test_grads_FFLIFJax_IO():
         ],
     )
 
-    target_ts = TSContinuous.from_clocked(np.array([[1, 2, 3], [2, 3, 1]]).T, dt=10e-3,)
+    # - Rasterise input and target for control over training
+    inps = input_sp_ts.raster(dt=1e-3, channels=np.array([0, 1]))
+    target_ts = TSContinuous.from_clocked(np.array([[1, 2, 3], [2, 3, 1]]).T, dt=1e-3,)
+    target = target_ts([0, 1e-3])
 
     # - Perform one sample of SGD training
-    loss, grads, o_fcn = lyr.train_output_target(input_sp_ts, target_ts,)
+    loss, grads, o_fcn = lyr.train_output_target(inps, target)
 
     # - Known-value test
-    assert np.allclose(loss, 30412.832)
-    assert np.allclose(grads["bias"], [0.24683057, 0.20286332, 0.27889615])
-    assert np.allclose(grads["tau_mem"], [-10146.195, -10147.596, -10175.573])
-    assert np.allclose(grads["tau_syn"], [0.5869812, 0.5789086, 0.92852974])
+    assert np.allclose(loss, 10.353037)
+    assert np.allclose(grads["bias"], [-0.01022655, -0.00835179, -0.15533224])
+    assert np.allclose(grads["tau_mem"], [1.8901598, 1.8999149, 47.13307])
+    assert np.allclose(grads["tau_syn"], [-0.00442787, -0.00439218, -0.11846346])
     assert np.allclose(
         grads["w_in"],
-        [[0.34683058, 0.33619666, 0.44556284], [0.4801639, 0.46953, 0.57889616]],
+        [[0.08693628, 0.12281759, -0.06458484], [0.23048195, 0.2644919, 0.2237002]],
     )
     assert np.allclose(
-        grads["w_out"], [[5.0333333, 13.133333], [5.0666666, 13.166667], [5.1, 13.2]]
+        grads["w_out"],
+        [[0.03333307, 0.13333295], [0.06659944, 0.16656671], [0.08346391, 0.17541301]],
     )
-    assert np.allclose(grads["w_recurrent"], 0.4817595)
+    assert np.allclose(grads["w_recurrent"], 0.
