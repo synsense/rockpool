@@ -34,6 +34,23 @@ nest_tests:
       - source /usr/bin/nest_vars.sh
       - pytest -v test_nest -n 4
 
+optional_tests:
+  stage: test
+  allow_failure: true
+  image: aictx/ci-python-arch:latest
+  when: manual
+
+  tags:
+    - aiCTX
+    - python
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install .[all] --no-cache-dir
+
+  script:
+      - pytest -v test_optional -n 4
+
 documentation_linting:
   stage: test
   allow_failure: true
