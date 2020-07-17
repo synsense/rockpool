@@ -1298,4 +1298,4 @@ def test_grads_FFLIFJax_IO():
         grads["w_out"],
         [[0.03333307, 0.13333295], [0.06659944, 0.16656671], [0.08346391, 0.17541301]],
     )
-    assert np.allclose(grads["w_recurrent"], 0.
+    assert np.allclose(grads["w_recurrent"], 0.0)
