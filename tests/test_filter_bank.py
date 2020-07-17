@@ -8,6 +8,8 @@ def test_butter_mel_filter():
 
     ## IMPORT ##
     from rockpool.layers import ButterMelFilter
+    from tempfile import mkstemp
+    import os
 
     base_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
     signal = np.load(base_path + "/files/increasing_frequency_signal.npy")
@@ -59,14 +61,14 @@ def test_butter_mel_filter():
     config = lyr.to_dict()
     lyr = ButterMelFilter.load_from_dict(config)
 
-    # save_layer() and load_from_layer()
-    lyr.save_layer(base_path + "/files/lyr_tbmf.json")
-    lyr = ButterMelFilter.load_from_file(base_path + "/files/lyr_tbmf.json")
+    # - Get a temporary file
+    (fh, filename) = mkstemp(dir=base_path + "/files/")
+    os.close(fh)
 
-    try:
-        os.remove(base_path + "/files/lyr_tbmf.json")
-    except:
-        pass
+    # save_layer() and load_from_layer()
+    lyr.save_layer(filename)
+    lyr = ButterMelFilter.load_from_file(filename)
+    os.remove(filename)
 
     # reset_all() and terminate()
     lyr.reset_all()
@@ -77,6 +79,8 @@ def test_butter_filter():
 
     ## IMPORT ##
     from rockpool.layers import ButterFilter
+    import os
+    from tempfile import mkstemp
 
     base_path = "/".join(os.path.realpath(__file__).split("/")[:-1])
     signal = np.load(base_path + "/files/increasing_frequency_signal.npy")
@@ -132,14 +136,14 @@ def test_butter_filter():
     config = lyr.to_dict()
     lyr = ButterFilter.load_from_dict(config)
 
-    # save_layer() and load_from_file()
-    lyr.save_layer(base_path + "/files/lyr_tbf.json")
-    lyr = ButterFilter.load_from_file(base_path + "/files/lyr_tbf.json")
+    # - Get a temporary file
+    (fh, filename) = mkstemp(dir=base_path + "/files/")
+    os.close(fh)
 
-    try:
-        os.remove(base_path + "/files/lyr_tbf.json")
-    except:
-        pass
+    # save_layer() and load_from_file()
+    lyr.save_layer(filename)
+    lyr = ButterFilter.load_from_file(filename)
+    os.remove(filename)
 
     # reset_all() and terminate()
     lyr.reset_all()

@@ -207,12 +207,9 @@ class RRTrainedLayer(Layer, ABC):
             # ... perform input extraction from ``ts_input`` here in child class
         """
         # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        #   If `is_last`, include final sample
+        num_timesteps = int(np.round(ts_target.duration / self.dt)) + int(is_last)
         time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
 
         # - Make sure time_base does not exceed ts_target
         time_base = time_base[time_base <= ts_target.t_stop]
