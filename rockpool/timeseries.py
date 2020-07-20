@@ -673,7 +673,7 @@ class TSContinuous(TimeSeries):
     >>> ts[0:.1:1, :3]
 
     """
-    
+
     _samples = []
 
     def __init__(
@@ -738,7 +738,12 @@ class TSContinuous(TimeSeries):
     ## -- Alternative constructor for clocked time series
     @staticmethod
     def from_clocked(
-        samples: np.ndarray, dt: float, t_start: float = 0.0, periodic: bool = False, name: str = None, interp_kind: str = 'previous', 
+        samples: np.ndarray,
+        dt: float,
+        t_start: float = 0.0,
+        periodic: bool = False,
+        name: str = None,
+        interp_kind: str = "previous",
     ) -> "TSContinuous":
         """
         Convenience method to create a new continuous time series from a clocked sample.
@@ -750,7 +755,7 @@ class TSContinuous(TimeSeries):
         :param float t_start:       The time of the first sample.
         :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
         :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
-        :param str interp_kind:     String specifying the interpolation method to be used for the returned time series. Any string accepted by `scipy.interp1d` is accepted. Default: `"previous"`, sample-and-hold interpolation. 
+        :param str interp_kind:     String specifying the interpolation method to be used for the returned time series. Any string accepted by `scipy.interp1d` is accepted. Default: `"previous"`, sample-and-hold interpolation.
 
         :return `.TSContinuous` :   A continuous time series containing ``samples``.
         """
@@ -764,9 +769,16 @@ class TSContinuous(TimeSeries):
 
         # - Build a time base
         time_base = np.arange(0, np.shape(samples)[0]) * dt + t_start
-        
+
         # - Return a continuous time series
-        return TSContinuous(time_base, samples, t_stop=time_base[-1] + dt, periodic=periodic, name = name, interp_kind = interp_kind,)
+        return TSContinuous(
+            time_base,
+            samples,
+            t_stop=time_base[-1] + dt,
+            periodic=periodic,
+            name=name,
+            interp_kind=interp_kind,
+        )
 
     ## -- Methods for plotting and printing
 
@@ -1917,7 +1929,7 @@ class TSEvent(TimeSeries):
 
         :param Optional[str] name:                    Name of the time series (Default: None)
 
-        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, the total channel number is taken to be ``max(channels)``  
+        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, the total channel number is taken to be ``max(channels)``
         """
 
         # - Default time trace: empty
@@ -1925,6 +1937,19 @@ class TSEvent(TimeSeries):
             times = np.array([])
         else:
             times = np.atleast_1d(times).flatten().astype(float)
+
+        # - Make sure `t_stop` is larger than any provided time point.
+        if times.size > 0:
+            if t_stop is None:
+                raise TypeError(
+                    "If `times` is not `None`, `t_stop` must be a float strictly "
+                    + "greater than the largest entry in `times`."
+                )
+            if np.max(times) >= t_stop:
+                raise ValueError(
+                    f"`t_stop` (here {t_stop}) must be strictly greater than the "
+                    + f"largest entry in `times` (here {np.max(times)})."
+                )
 
         # - Default name: 'unnamed'
         name = "unnamed" if name is None else name
@@ -2082,11 +2107,10 @@ class TSEvent(TimeSeries):
                 ax.set_xlim(self.t_start, self.t_stop)
 
                 # - Set the extent of the channels axis
-                ax.set_ylim(-1, self.num_channels+1)
+                ax.set_ylim(-1, self.num_channels + 1)
 
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
-
 
             else:
                 raise RuntimeError(f"TSEvent: `{self.name}`: No plotting back-end set.")
@@ -2119,7 +2143,6 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
-        include_stop: bool = False,
         remap_channels: bool = False,
         inplace: bool = False,
     ) -> "TSEvent":
@@ -2131,7 +2154,6 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_start:             Time from which on events are returned. Default: `.t_start`
         :param Optional[float] t_stop:              Time until which events are returned. Default: `.t_stop`
         :param Optional[ArrayLike[int]] channels:   Channels of which events are returned. Default: All channels
-        :param bool include_stop:                   If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
         :param bool remap_channels:                 Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
         :param bool inplace:                        Iff ``True``, the operation is performed in place (Default: False)
 
@@ -2144,7 +2166,7 @@ class TSEvent(TimeSeries):
             new_series = self
 
         # - Extract matching events
-        time_data, channel_data = new_series(t_start, t_stop, channels, include_stop)
+        time_data, channel_data = new_series(t_start, t_stop, channels)
 
         # - Update new timeseries
         new_series._times = time_data
@@ -2209,18 +2231,17 @@ class TSEvent(TimeSeries):
         num_timesteps: int = None,
         channels: np.ndarray = None,
         add_events: bool = False,
-        include_t_stop: bool = False,
     ) -> np.ndarray:
         """
         Return a rasterized version of the time series data, where each data point represents a time step
 
         Events are represented in a boolean matrix, where the first axis corresponds to time, the second axis to the channel. Events that happen between time steps are projected to the preceding step. If two events happen during one time step within a single channel, they are counted as one, unless ``add_events`` is ``True``.
 
-        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at** ``t+dt``. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
+        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at** ``t+dt``. Such events would be included in the following time bin.
 
         To generate a time trace that corresponds to the raster, you can use :py:func:`numpy.arange` as follows::
 
-            num_timesteps = np.ceil((t_stop - t_start) / dt) + ((t_stop - t_start) % dt == 0) and include_t_stop
+            num_timesteps = np.ceil((t_stop - t_start) / dt)
             bin_starts = np.arange(num_timesteps) * dt + t_start
             bin_stops = bin_starts + dt
             bin_mid = bin_starts + dt/2
@@ -2230,8 +2251,7 @@ class TSEvent(TimeSeries):
             def mod(num, div):
                 return (num - div * np.floor(num/div))
 
-            num_timesteps = int(np.ceil((t_stop - t_start) / dt) +
-                int((np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE) and include_t_stop))
+            num_timesteps = int(np.ceil((t_stop - t_start) / dt)
 
         :param float dt:                            Duration of single time step in raster
         :param Optional[float] t_start:             Time where to start raster. Default: None (use ``self.t_start``)
@@ -2278,27 +2298,12 @@ class TSEvent(TimeSeries):
             # - Use `num_timesteps` to determine `t_stop`
             t_stop = t_start + num_timesteps * dt
 
-            # - `include_t_stop` is ignored in this case
-            if include_t_stop:
-                warn("`include_t_stop` is ignored if `num_timesteps` is provided.")
-                include_t_stop = False
-
         elif t_stop is None:
             # - Use own `t_stop`
             t_stop = self.t_stop
 
-        # - Compute number of raster timesteps, taking into account `include_t_stop` argument
-        num_timesteps = int(
-            np.ceil((t_stop - t_start) / dt)
-            + int(
-                (np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE)
-                and include_t_stop
-            )
-        )
-
-        # - If the final time bin spans over `t_stop`, then we should include spikes at `t_stop`
-        if t_start + num_timesteps * dt > t_stop:
-            include_t_stop = True
+        # - Compute number of raster timesteps
+        num_timesteps = int(np.ceil((t_stop - t_start) / dt))
 
         # - Clip the time series to include only the events of interest
         series = self.clip(
@@ -2306,7 +2311,6 @@ class TSEvent(TimeSeries):
             t_stop=t_stop,
             channels=channels_clip,
             remap_channels=False,
-            include_stop=include_t_stop,
         )
 
         # - Create raster for storing event data
@@ -2474,7 +2478,8 @@ class TSEvent(TimeSeries):
             times = self.times.astype(dtype_times)
             # Cannot simply clip `times` because of rounding issues.
             t_start = np.clip(self.t_start, None, np.min(times))
-            t_stop = np.clip(self.t_stop, np.max(times), None)
+            res = np.finfo(dtype_times).resolution
+            t_stop = np.clip(self.t_stop, np.max(times) + res, None)
         else:
             times = self.times
             t_start = self.t_start
@@ -2804,15 +2809,14 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Optional[Union[int, ArrayLike]] = None,
-        include_stop: bool = False,
     ) -> (np.ndarray, np.ndarray):
         """
-        ts(...) - Return events in interval between indicated times
+        ts(...) - Return events in interval between indicated times, ignoring
+                  events at `t_stop`.
 
         :param Optional[float] t_start:     Time from which on events are returned
         :param Optional[float] t_stop:      Time until which events are returned
         :param Optional[Union[int, ArrayLike]] channels:  Channels of which events are returned
-        :param bool include_stop:  If there are events with time t_stop include them or not. Default: ``False``, do not include events at time ``t_stop``
 
         :return:
             np.ndarray  Times of events
@@ -2824,7 +2828,6 @@ class TSEvent(TimeSeries):
 
         if t_stop is None:
             t_stop: float = self.t_stop
-            include_stop = True
 
         # - Permit unsorted bounds
         if t_stop < t_start:
@@ -2843,11 +2846,8 @@ class TSEvent(TimeSeries):
         # - Events with matching channels
         channel_matches = self._matching_channels(channels, all_channels)
 
-        # - Handle events at stop time
-        if include_stop:
-            choose_events_stop: np.ndarray = all_times <= t_stop
-        else:
-            choose_events_stop: np.ndarray = all_times < t_stop
+        # - Ignore events from stop time onwards
+        choose_events_stop: np.ndarray = all_times < t_stop
 
         # - Extract matching events and return
         choose_events: np.ndarray = (
@@ -2956,6 +2956,57 @@ class TSEvent(TimeSeries):
             )
         else:
             self._num_channels = new_num_ch
+
+    @property
+    def times(self):
+        """ (ArrayLike[float]) Array of sample times """
+        return self._times
+
+    @times.setter
+    def times(self, new_times: ArrayLike):
+        # - Check time trace for correct size
+        if np.size(new_times) != np.size(self._times):
+            raise ValueError(
+                f"TSContinuous `{self.name}`: "
+                + "New time trace must have the same number of elements as the original trace."
+            )
+
+        # - Make sure time trace is sorted
+        if (np.diff(new_times) < 0).any():
+            raise ValueError(
+                f"TSContinuous `{self.name}`: "
+                + "The time trace must be sorted and not decreasing"
+            )
+
+        # - Store new time trace
+        self._times = np.atleast_1d(new_times).flatten().astype(float)
+
+        if np.size(self._times) > 0:
+            # - Fix t_start and t_stop
+            self._t_start = min(self._t_start, new_times[0])
+            res = np.finfo(self._times.dtype).resolution
+            self._t_stop = max(self._t_stop, new_times[-1] + res)
+
+    @property
+    def t_stop(self) -> float:
+        """ (float) Stop time of time series (final sample) """
+        return self._t_stop
+
+    @t_stop.setter
+    def t_stop(self, new_stop):
+        # - Smallest allowed value for new_stop
+        res = np.finfo(self._times.dtype).resolution
+        min_stop = self._times[-1] + res if self._times.size > 0 else self._t_start
+        if new_stop >= min_stop:
+            self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
+        else:
+            raise ValueError(
+                "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
+                    self.name, min_stop, new_stop
+                )
+            )
 
 
 ### --- Dict-like object to store TimeSeries on disk
