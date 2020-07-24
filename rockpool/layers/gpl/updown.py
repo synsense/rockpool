@@ -49,6 +49,7 @@ class FFUpDown(Layer):
         This layer is exceptional in that :py:attr:`.state` has the same size as :py:attr:`.size_in`, not :py:attr:`.size`. It corresponds to the input, inferred from the output spikes by inverting the up-/down-algorithm.
 
         :param np.array weights:        MxN weight matrix. Unlike other `.Layer` classes, the only important thing about weights its shape. The first dimension determines the number of input channels (self.size_in). The second dimension corresponds to size and has to be n*2*size_in, n up and n down channels for each input). If n>1 the up-/and down-spikes are distributed over multiple channels. The values of the weight matrix do not have any effect. It is also possible to pass only an integer, which will correspond to size_in. size is then set to 2*size_in, i.e. n=1. Alternatively a tuple of two values, corresponding to size_in and n can be passed.
+        :param int repeat_output:       Repeat each output spike x times.
         :param float dt:      Time-step. Default: 0.1 ms
         :param Optional[ArrayLike] tau_decay:     The states that track the input signal for threshold comparison decay with this time constant, unless it is ``None``. Default: ``None``, do not decay tracking states.
         :param float noise_std:         Noise std. dev. per second. Default: ``0.``, no noise
@@ -61,7 +62,7 @@ class FFUpDown(Layer):
 
         if np.size(weights) == 1:
             size_in = weights
-            size = 2 * size_in * repeat_output
+            size = 2 * size_in
 
             # - Over how many output channels are the up-/down-spikes from each input distributed
             self._multi_channels = 1
@@ -69,7 +70,7 @@ class FFUpDown(Layer):
         elif np.size(weights) == 2:
             # - Tuple determining shape
             (size_in, self._multi_channels) = weights
-            size = 2 * self._multi_channels * size_in * repeat_output
+            size = 2 * self._multi_channels * size_in
         else:
             (size_in, size) = np.shape(weights)
             assert (
@@ -79,7 +80,6 @@ class FFUpDown(Layer):
             )
             # - On how many output channels is the are the up-/down-spikes from each input distributed
             self._multi_channels = size / (2 * size_in)
-            size *= repeat_output
 
         # - Make sure self._multi_channels is an integer
         self._multi_channels = int(self._multi_channels)
