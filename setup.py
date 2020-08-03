@@ -6,8 +6,8 @@ exec(open("rockpool/version.py").read())
 
 setup(
     name="rockpool",
-    author="aiCTX AG",
-    author_email="dylan.muir@aictx.ai",
+    author="SynSense",
+    author_email="dylan.muir@synsense.ai",
     version=__version__,
     packages=setuptools.find_packages(),
     install_requires=["numba", "numpy", "scipy"],
@@ -16,6 +16,7 @@ setup(
             "tqdm",
             "brian2",
             "pytest",
+            "pytest-xdist",
             "torch",
             "torchvision",
             "rpyc",
@@ -38,5 +39,9 @@ setup(
     ],
     keywords="spiking neural network SNN neuromorphic",
     python_requires=">=3.6",
-    project_urls={"Source": "https://gitlab.com/aiCTX/rockpool"},
+    project_urls={
+        "Source Code": "https://gitlab.com/aiCTX/rockpool",
+        "Documentation": "https://rockpool.ai",
+        "Bug Tracker": "https://gitlab.com/aiCTX/rockpool/-/issues",
+    },
 )

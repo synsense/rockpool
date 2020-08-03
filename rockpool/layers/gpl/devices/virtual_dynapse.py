@@ -1,6 +1,6 @@
 ##########
 # virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 ##########
 
 ### --- Imports
@@ -401,7 +401,7 @@ class VirtualDynapse(Layer):
         :param Optional[ArrayLike[int]] channels_ext:       Array of IDs of external input channels. If ``None`` (default), IDs are assumed to be 0,..,``connections_ext.shape[0]``. If not ``None``, connections from channels that are not included in ``channels_ext`` are assumed to be 0.
         :param Optional[bool] verbose:                      If ``True``, print out detailed information about validity of connections. Default: ``True``
         :param Optional[bool] validate_fanin:               If ``True``, test if connections have valid fan-in. Default: ``True``
-        :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True
+        :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True``
         :param Optional[bool] validate_aliasing:            If ``True``, test for connection aliasing. Default: ``True``
 
         :return int:                                        Integer indicating the result of the validation. If displayed as a binary number, each digit corresponds to the result of one test (order from small to high base: fan-in, fan-out, aliasing), with 0 meaning passed. E.g. 6 (110) means that the fan-in is valid but not the fan-out and there is connection aliasing.

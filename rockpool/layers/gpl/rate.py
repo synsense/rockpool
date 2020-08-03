@@ -437,7 +437,7 @@ class PassThrough(FFRateLayer):
         self._timestep += num_timesteps
 
         # - Return time series with output data and bias
-        return TSContinuous(time_base, samples_out + self.bias)
+        return TSContinuous(time_base, samples_out + self.bias, name = "Outputs")
 
     def __repr__(self):
         return "PassThrough layer object `{}`.\nnSize: {}, size_in: {}, delay: {}".format(
@@ -644,7 +644,7 @@ class FFRateEuler(FFRateLayer):
 
         time_base = np.r_[time_base_inp, self.t]
 
-        return TSContinuous(time_base, sample_act)
+        return TSContinuous(time_base, sample_act, name = "Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False
@@ -927,7 +927,7 @@ class RecRateEuler(Layer):
         time_base = np.r_[time_base_inp, self.t]
 
         # - Construct a return TimeSeries
-        return TSContinuous(time_base, activity)
+        return TSContinuous(time_base, activity, name = "Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False

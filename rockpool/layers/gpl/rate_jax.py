@@ -35,6 +35,7 @@ __all__ = [
     "FFRateEulerJax",
     "H_ReLU",
     "H_tanh",
+    "H_sigmoid",
 ]
 
 FloatVector = Union[float, np.ndarray]
@@ -48,6 +49,10 @@ def H_ReLU(x: FloatVector) -> FloatVector:
 
 def H_tanh(x: FloatVector) -> FloatVector:
     return np.tanh(x)
+
+
+def H_sigmoid(x: FloatVector) -> FloatVector:
+    return (np.tanh(x) + 1) / 2
 
 
 # -- Generators for compiled evolution functions
@@ -285,7 +290,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         :param np.ndarray tau:                      Time constants [N]
         :param np.ndarray bias:                     Bias values [N]
         :param float noise_std:                     White noise standard deviation applied to reservoir neurons. Default: ``0.0``
-        :param Union[str, Callable[[FloatVector], float]] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU. Can be specified as a string: ['relu', 'tanh']
+        :param Union[str, Callable[[FloatVector], float]] activation_func:   Neuron transfer function f(x: float) -> float. Must be vectorised. Default: H_ReLU. Can be specified as a string: ['relu', 'tanh', 'sigmoid']
         :param Optional[float] dt:                  Reservoir time step. Default: ``np.min(tau) / 10.0``
         :param Optional[str] name:                  Name of the layer. Default: ``None``
         :param Optional[Jax RNG key] rng_key:       Jax RNG key to use for noise. Default: Internally generated
@@ -391,16 +396,23 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, inputs, final_out) -> (outputs, new_state):
+            def evol_func(params, state, inputs) -> (outputs, new_state):
 
-        :return Callable[[Params, State, np.ndarray, bool], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, np.ndarray], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
-            params: Params, state: State, inputs: np.ndarray, final_out: bool = False
+            params: Params, state: State, inputs: np.ndarray,
         ):
             # - Call the jitted evolution function for this layer
-            new_state, _, _, _, outputs, key1 = self._evolve_jit(
+            (
+                new_state,
+                res_inputs,
+                rec_inputs,
+                res_acts,
+                outputs,
+                key1,
+            ) = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_recurrent"],
@@ -414,16 +426,20 @@ class RecRateEulerJax(JaxTrainer, Layer):
             )
 
             # - Include output of final state
-            if final_out:
-                out_final = self.get_output_from_state(state)[0]
-                outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+            out_final = self.get_output_from_state(state)[0]
+            outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return outputs, new_state
+            states_t = {
+                "res_inputs": res_inputs,
+                "rec_inputs": rec_inputs,
+                "res_acts": res_acts,
+            }
+            return outputs, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -478,7 +494,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         )
 
         # - Increment timesteps
-        self._timestep += inps.shape[0]
+        self._timestep += num_timesteps
 
         # - Activity, recurrent input and output for final timestep
         out_final, res_act_final, rec_inp_final = self.get_output_from_state(
@@ -492,37 +508,12 @@ class RecRateEulerJax(JaxTrainer, Layer):
         time_base = onp.append(time_base_inp, self.t)
 
         # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(time_base_inp, res_inputs)
-        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs)
-        self.res_acts_last_evolution = TSContinuous(time_base, res_acts)
+        self.res_inputs_last_evolution = TSContinuous(time_base_inp, res_inputs, name = "Reservoir inputs")
+        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs, name = "Recurrent inputs")
+        self.res_acts_last_evolution = TSContinuous(time_base, res_acts, name = "Layer activations")
 
         # - Wrap outputs as time series
-        return TSContinuous(time_base, onp.array(outputs))
-
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSContinuous] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, np.ndarray, float):
-        """
-        _prepare_input - Sample input, set up time base
-
-        :param Optional[TSContinuous] ts_input: TxM or Tx1 Input signals for this layer
-        :param Optional[float] duration:        Duration of the desired evolution, in seconds
-        :param Optional[int] num_timesteps:     Number of evolution time steps
-
-        :return: (time_base, input_steps, duration)
-            time_base:          ndarray T1 Discretised time base for evolution
-            input_steps:        ndarray (T1xN) Discretised input signal for layer
-            num_timesteps:      int Actual number of evolution time steps
-        """
-
-        time_base, input_steps, num_timesteps = super()._prepare_input_continuous(
-            ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
-        )
-
-        return time_base, np.array(input_steps), num_timesteps
+        return TSContinuous(time_base, onp.array(outputs), name = "Surrogate outputs")
 
     def to_dict(self) -> dict:
         """
@@ -544,14 +535,16 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         # - Check for a supported activation function
         assert (
-            self._H == H_ReLU or self._H == H_tanh
-        ), "Only models using ReLU or tanh activation functions are saveable."
+            self._H is H_ReLU or self._H is H_tanh or self._H is H_sigmoid
+        ), "Only models using ReLU, tanh or sigmoid activation functions are saveable."
 
         # - Encode the activation function as a string
-        if self._H == H_ReLU:
+        if self._H is H_ReLU:
             config["activation_func"] = "relu"
-        elif self._H == H_tanh:
+        elif self._H is H_tanh:
             config["activation_func"] = "tanh"
+        elif self._H is H_sigmoid:
+            config["activation_func"] = "sigmoid"
         else:
             raise (Exception)
         return config
@@ -568,9 +561,20 @@ class RecRateEulerJax(JaxTrainer, Layer):
                 self._H = H_ReLU
             elif value in ["tanh", "TANH", "H_tanh"]:
                 self._H = H_tanh
+            elif value in [
+                "sigmoid",
+                "sig",
+                "H_sigmoid",
+                "H_sig",
+                "SIGMOID",
+                "SIG",
+                "H_SIGMOID",
+                "H_SIG",
+            ]:
+                self._H = H_sigmoid
             else:
                 raise ValueError(
-                    'The activation function must be one of ["relu", "tanh"]'
+                    'The activation function must be one of ["relu", "tanh", "sigmoid"]'
                 )
         else:
             # - Test the activation function
@@ -891,22 +895,19 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
 
         Returns a function ``evol_func`` with the signature::
 
-            def evol_func(params, state, (inputs, forces), final_out) -> (outputs, new_state):
+            def evol_func(params, state, (inputs, forces)) -> (outputs, new_state):
 
-        :return Callable[[Params, State, Tuple[np.ndarray], bool], Tuple[np.ndarray, State]]:
+        :return Callable[[Params, State, np.ndarray, np.ndarray], Tuple[np.ndarray, State]]:
         """
 
         def evol_func(
-            params: Params,
-            state: State,
-            inputs_forces: Tuple[np.ndarray, np.ndarray],
-            final_out: bool = False,
-        ):
+            params: Params, state: State, inputs_forces: Tuple[np.ndarray, np.ndarray],
+        ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Unpack inputs
             inputs, forces = inputs_forces
 
             # - Call the jitted evolution function for this layer
-            new_state, _, _, outputs, key1 = self._evolve_jit(
+            new_state, res_inputs, res_acts, outputs, key1 = self._evolve_jit(
                 state,
                 params["w_in"],
                 params["w_out"],
@@ -920,16 +921,19 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
             )
 
             # - Include output of final state
-            if final_out:
-                out_final = self.get_output_from_state(state)[0]
-                outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
+            out_final = self.get_output_from_state(state)[0]
+            outputs = np.append(outputs, out_final.reshape(1, -1), axis=0)
 
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            return outputs, new_state
+            states_t = {
+                "res_inputs": res_inputs,
+                "res_acts": res_acts,
+            }
+            return outputs, new_state, states_t
 
         # - Return the evolution function
         return evol_func
