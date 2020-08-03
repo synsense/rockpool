@@ -452,6 +452,7 @@ def test_FFLIFCurrentInJax_SO():
         t_start=0.0,
         t_stop=16 * dt,
     )
+    tsInCont.beyond_range_exception = False
 
     # - Compare states and time before and after
     output_at_t0 = fl0._get_outputs_from_state(fl0.state)[0]
