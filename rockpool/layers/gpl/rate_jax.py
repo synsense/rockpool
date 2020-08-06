@@ -46,6 +46,7 @@ State = np.ndarray
 def H_ReLU(x: FloatVector) -> FloatVector:
     return np.clip(x, 0, None)
 
+
 def H_tanh(x: FloatVector) -> FloatVector:
     return np.tanh(x)
 
@@ -153,6 +154,7 @@ def _get_rec_evolve_jit(
         return x, res_inputs, rec_inputs, res_acts, outputs, key1
 
     return rec_evolve_jit
+
 
 def _get_rec_evolve_directly_jit(H: Callable[[float], float]):
     @jit
@@ -547,28 +549,41 @@ class RecRateEulerJax(JaxTrainer, Layer):
         time_base = onp.append(time_base_inp, self.t)
 
         # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(time_base_inp, res_inputs, name = "Reservoir inputs")
-        self.rec_inputs_last_evolution = TSContinuous(time_base, rec_inputs, name = "Recurrent inputs")
-        self.res_acts_last_evolution = TSContinuous(time_base, res_acts, name = "Layer activations")
+        self.res_inputs_last_evolution = TSContinuous(
+            time_base_inp, res_inputs, name="Reservoir inputs"
+        )
+        self.rec_inputs_last_evolution = TSContinuous(
+            time_base, rec_inputs, name="Recurrent inputs"
+        )
+        self.res_acts_last_evolution = TSContinuous(
+            time_base, res_acts, name="Layer activations"
+        )
 
         # - Wrap outputs as time series
-        return TSContinuous(time_base, onp.array(outputs), name = "Surrogate outputs")
+        return TSContinuous(time_base, onp.array(outputs), name="Surrogate outputs")
 
-def _evolve_directly_raw(self, inps: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_directly_jit(
-                                                                                       self._state,
-                                                                                       self._w_recurrent,
-                                                                                       self._w_out,
-                                                                                       self._bias,
-                                                                                       self._tau,
-                                                                                       inps,
-                                                                                       self._noise_std,
-                                                                                       self._rng_key,
-                                                                                       self._dt,
-                                                                                       )
-        
+    def _evolve_directly_raw(
+        self, inps: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        (
+            self._state,
+            res_inputs,
+            rec_inputs,
+            res_acts,
+            outputs,
+        ) = self._evolve_directly_jit(
+            self._state,
+            self._weights,
+            self._w_out,
+            self._bias,
+            self._tau,
+            inps,
+            self._noise_std,
+            self._rng_key,
+            self._dt,
+        )
         self._timestep += inps.shape[0] - 1
-        
+
         return res_inputs, rec_inputs, res_acts, outputs
 
     def to_dict(self) -> dict:
