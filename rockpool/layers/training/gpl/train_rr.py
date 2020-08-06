@@ -25,6 +25,10 @@ class RidgeRegrTrainer:
         :param int num_outputs:         Number of output units to be trained.
         :param float regularize:        Regularization parameter.
         :param bool fisher_relabelling: Relabel target data such that algorithm is equivalent to Fisher discriminant analysis.
+                                        Warning: When training over multiple batches, fisher_relabelling should only be True if the
+                                                 distribution of targets is approximately the same across all batches. Otherwise
+                                                 some data points of the same class can have a stronger effect on the output
+                                                 than others.                                            
         :param bool standardize:        Perform z-score standardization based on mean and variance of first input batch.
         :param bool train_biases:       Train constant biases along with weights.
         """
@@ -108,8 +112,9 @@ class RidgeRegrTrainer:
         int_tgt = np.round(target).astype(int)
         nums_true = np.sum(int_tgt == 1, axis=0)
         nums_false = np.sum(int_tgt == 0, axis=0)
-        weights_true = 1.0 / nums_true
-        weights_false = 1.0 / nums_false
+        nums_total = np.shape(int_tgt)[0]
+        weights_true = nums_total / nums_true
+        weights_false = nums_total / nums_false
 
         # - New target vector
         target = target.astype(float)
