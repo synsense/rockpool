@@ -16,7 +16,6 @@ from copy import deepcopy
 
 from abc import abstractmethod, ABC
 
-from warnings import warn
 
 # - Import jax elements
 from jax import numpy as np
@@ -427,7 +426,7 @@ class JaxTrainer(ABC):
 
                 # - Call loss function and return loss
                 return loss_fcn(
-                    opt_params, states_t, output_batch_t, target_batch_t, **loss_params
+                    opt_params, states_t, output_batch_t[1:], target_batch_t, **loss_params
                 )
 
             # - Assign update, loss and gradient functions
@@ -492,21 +491,12 @@ class JaxTrainer(ABC):
         # - Check for batch dimension, and augment if necessary
         if batch_axis is not None:
             inp_batch_shape = list(inps.shape)
-            # if len(inp_batch_shape) < batch_axis:
-            #     inp_batch_shape[batch_axis] = 1
-            #
             target_batch_shape = list(target.shape)
-            # if len(target_batch_shape) < batch_axis:
-            #     target_batch_shape[batch_axis] = 1
 
             # - Check that batch sizes are equal
             assert (
                 inp_batch_shape[batch_axis] == target_batch_shape[batch_axis]
             ), "Input and Target do not have a matching batch size."
-
-            # # - Reshape inputs and targets to batch shape
-            # inps = np.reshape(inps, inp_batch_shape)
-            # target = np.reshape(target, target_batch_shape)
 
         # - Create lambdas that evaluate the loss and the gradient on this trial
         l_fcn, g_fcn, o_fcn = (

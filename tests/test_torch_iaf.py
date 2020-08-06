@@ -31,6 +31,7 @@ def test_ffiaf_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.beyond_range_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl.state)
@@ -112,6 +113,7 @@ def test_reciaf_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.beyond_range_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rl.state)
@@ -196,6 +198,7 @@ def test_ffiaf_refr_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.beyond_range_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(flr.state)
@@ -320,6 +323,7 @@ def test_reciaf_refr_torch():
     )
     vtIn = np.arange(mfIn.shape[0]) * dt
     tsIn = TSContinuous(vtIn, mfIn)
+    tsIn.beyond_range_exception = False
 
     # - Compare states and time before and after
     vStateBefore = np.copy(rlr.state)

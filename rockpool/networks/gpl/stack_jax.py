@@ -7,12 +7,14 @@ from ..network import Network
 from ...layers.training import JaxTrainer
 from ...layers.layer import Layer
 
-from typing import Tuple, List, Callable, Union, Dict, Sequence, Any, Optional
+from typing import Tuple, List, Callable, Union, Dict, Sequence, Optional, Any
 
 from jax import jit
 from jax.experimental.optimizers import adam
 import jax.numpy as np
 import json
+
+import numpy as onp
 
 Params = List
 State = List
@@ -21,14 +23,14 @@ __all__ = ["JaxStack"]
 
 
 def loss_mse_reg_stack(
-        params: List,
-        states_t: Dict[str, np.ndarray],
-        output_batch_t: np.ndarray,
-        target_batch_t: np.ndarray,
-        min_tau: float,
-        lambda_mse: float = 1.0,
-        reg_tau: float = 10000.0,
-        reg_l2_rec: float = 1.0,
+    params: List,
+    states_t: Dict[str, np.ndarray],
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_rec: float = 1.0,
 ) -> float:
     """
     Loss function for target versus output
@@ -74,7 +76,7 @@ class JaxStack(Network, Layer, JaxTrainer):
 
 
     """
-    
+
     def __init__(self, layers: Sequence = None, dt=None, *args, **kwargs):
         """
         Encapsulate a stack of Jax layers in a single layer / network
@@ -130,7 +132,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             return {}
 
         # - Prepare time base and inputs, using first layer
-        time_base, ext_inps, num_timesteps = self.input_layer._prepare_input(
+        time_base_inp, ext_inps, num_timesteps = self.input_layer._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -147,7 +149,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             new_states.append(new_state)
 
             # - Set up inputs for next layer
-            inps = out
+            inps = out[:-1]
 
         # - Assign updated states
         self._states = new_states
@@ -155,8 +157,10 @@ class JaxStack(Network, Layer, JaxTrainer):
         # - Update time stamps
         self._timestep += inps.shape[0]
 
+        time_base = onp.append(time_base_inp, self.t)
+
         # - Wrap outputs as time series
-        outputs_dict = {"external_input": TSContinuous(time_base, ext_inps)}
+        outputs_dict = {"external_input": ts_input}
         for lyr, out in zip(self.evol_order, outputs):
             outputs_dict.update({lyr.name: TSContinuous(time_base, np.array(out))})
 
@@ -209,7 +213,9 @@ class JaxStack(Network, Layer, JaxTrainer):
     @property
     def _evolve_functional(
         self,
-    ) -> Callable[[Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]]:
+    ) -> Callable[
+        [Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]
+    ]:
         """
         Return a functional form of the evolution function for this stack, with no side-effects
 
@@ -225,7 +231,9 @@ class JaxStack(Network, Layer, JaxTrainer):
             layer_states_t = []
             inputs = ext_inputs
             out = np.array([])
-            for p, s, evol_func in zip(params, all_states, self._all_evolve_funcs):
+            for i_lyr, (p, s, evol_func) in enumerate(
+                zip(params, all_states, self._all_evolve_funcs)
+            ):
                 # - Evolve layer
                 out, new_state, states_t = evol_func(p, s, inputs)
 
@@ -234,7 +242,7 @@ class JaxStack(Network, Layer, JaxTrainer):
                 layer_states_t.append(states_t)
 
                 # - Set up inputs for next layer
-                inputs = out
+                inputs = out if i_lyr == len(all_states) - 1 else out[:-1]
 
             # - Return outputs and state
             return out, new_states, layer_states_t
@@ -263,16 +271,6 @@ class JaxStack(Network, Layer, JaxTrainer):
     def to_dict(self):
         return Network.to_dict(self)
 
-    @staticmethod
-    def load(filename: str) -> "JaxStack":
-        """
-        Load a network from a JSON file
-
-        :param str filename:    filename of a JSON file that contains a saved network
-        :return JaxStack:        A JaxStack object with all the layers loaded from `filename`
-        """
-        # - Load dict holding the parameters
-        with open(filename, "r") as f:
-            loaddict: dict = json.load(f)
-        net = Network.load_from_dict(loaddict)
-        return JaxStack([l for l in net.evol_order])
+    @property
+    def input_type(self):
+        return self.evol_order[0].input_type

@@ -57,6 +57,8 @@ def test_continuous_operators():
     # - Addition
     ts = ts + 1
     ts += 5
+    # Suppress exception from nan values (because times don't match)
+    ts2.beyond_range_exception = False
     ts = ts + ts2
     ts += ts2
 
@@ -94,6 +96,7 @@ def test_continuous_methods():
     assert ts1(2) == 2
     assert ts1(1.5) == 1
     assert ts1(2.1) == 2
+    ts1.beyond_range_exception = False
     assert np.isnan(ts1(2.5))
 
     assert ts1._interpolate(0) == 0
@@ -230,6 +233,10 @@ def test_continuous_call():
     ts_empty = TSContinuous()
     ts_single = TSContinuous(2, [3, 2])
 
+    # Suppress exception from nan-values
+    ts.beyond_range_exception = False
+    ts_single.beyond_range_exception = False
+
     # - Call ts
     assert np.allclose(ts(0.1), np.array([[0, 2]]))
     assert np.allclose(ts(0.25), np.array([[1.5, 3.5]]))
@@ -260,6 +267,7 @@ def test_continuous_call():
     assert (ts(1) == 6).all()
     assert (ts([1]) == 6).all()
     assert (ts(10) == 6).all()
+    ts.beyond_range_exception = False
     assert np.isnan(ts(-1))
     assert np.isnan(ts(11))
 
@@ -267,6 +275,7 @@ def test_continuous_call():
     assert (ts(1) == 6).all()
     assert (ts([1]) == 6).all()
     assert (ts(10) == 6).all()
+    ts.beyond_range_exception = False
     assert np.isnan(ts(-1))
     assert np.isnan(ts(11))
 
@@ -321,6 +330,8 @@ def test_continuous_inplace_mutation():
     assert ts1.t_start == 1
 
     # - Resample
+    # Suppress exception from NaN value at t=0.125
+    ts1.beyond_range_exception = False
     ts1.resample([0.125, 1.1, 1.9], inplace=True)
     assert ts1.t_start == 0.125
 
@@ -365,6 +376,10 @@ def test_continuous_append_c():
     series_list = []
     series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=2))
     series_list.append(TSContinuous([1], samples[0, -2:], t_start=0, t_stop=2))
+
+    # - Suppress exception from nans (because channels don't match)
+    for ts in series_list:
+        ts.beyond_range_exception = False
 
     # Appending two series
     appended_fromtwo = series_list[0].append_c(series_list[1])
@@ -565,33 +580,73 @@ def test_continuous_merge():
         == np.vstack((samples[0, :2], samples[0, 2:4], samples[1, :2], samples[1, 4:6]))
     ).all(), "Wrong samples when merging with list."
 
+
 def test_continuous_from_clocked():
     from rockpool import TSContinuous
     import numpy as np
 
     # - Generate some data
     T = 100
-    dt = .1
+    dt = 0.1
     data = np.random.rand(T, 1)
 
     # - Basic usage
-    ts = TSContinuous.from_clocked(data, dt = dt)
-    assert ts.t_start == 0.
+    ts = TSContinuous.from_clocked(data, dt=dt)
+    assert ts.t_start == 0.0
     assert ts.t_stop == T * dt
     assert np.all(ts.samples == data)
     assert np.all(ts.times == np.arange(T) * dt)
 
     # - Specify t_start
-    ts = TSContinuous.from_clocked(data, dt = .1, t_start = 1.)
-    assert ts.t_start == 1.
-    assert ts.t_stop == 11.
+    ts = TSContinuous.from_clocked(data, dt=0.1, t_start=1.0)
+    assert ts.t_start == 1.0
+    assert ts.t_stop == 11.0
 
     # - Generate a periodic series
-    ts = TSContinuous.from_clocked(data, dt = .1, periodic= True)
+    ts = TSContinuous.from_clocked(data, dt=0.1, periodic=True)
     assert ts.periodic
 
     # - Set a name
-    ts = TSContinuous.from_clocked(data, dt = .1, name = 'test')
+    ts = TSContinuous.from_clocked(data, dt=0.1, name="test")
+
+
+def test_continuous_nan():
+    from rockpool import TSContinuous
+
+    times = np.arange(10) * 0.1 + 0.5
+    samples = np.random.rand(10, 3)
+    ts = TSContinuous(times, samples)
+
+    # - Make sure exception is thrown if trying to sample outside range
+    with pytest.raises(ValueError):
+        ts(0)
+    with pytest.raises(ValueError):
+        ts([0.1, 0.7, 1.9])
+    with pytest.raises(ValueError):
+        ts(1.6)
+
+    # - Same, with warnings insead
+    ts.beyond_range_exception = False
+    with pytest.warns(UserWarning):
+        ts(0)
+    with pytest.warns(UserWarning):
+        ts([0.1, 0.7, 1.9])
+    with pytest.warns(UserWarning):
+        ts(1.6)
+
+    # - Correct values that are slightly out of range
+    t_small = times[0] - 8e-10
+    t_large = times[-1] + 8e-10
+    ts.approx_limit_times = True
+    assert (ts(t_small) == ts(times[0])).all()
+    assert (ts(t_large) == ts(times[-1])).all()
+    sample_times = np.random.rand(10) * 0.9 + 0.5
+    sample_times[[2, 5, 8]] = t_small
+    sample_times[[1, 4, 9]] = t_large
+    sampled_data = ts(sample_times)
+    assert (sampled_data[[2, 5, 8]] == ts(times[0])).all()
+    assert (sampled_data[[1, 4, 9]] == ts(times[-1])).all()
+
 
 def test_event_call():
     from rockpool import TSEvent

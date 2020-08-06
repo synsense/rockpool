@@ -105,73 +105,6 @@ class CLIAF(Layer):
             if debug:
                 print([t_now, id_out_iter, state[id_out_iter, 0]])
 
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input, set up time base
-
-        :param Optional[TSEvent] ts_input:  TxM or Tx1 Input signals for this layer
-        :param Optional[float] duration:    Duration of the desired evolution, in seconds
-        :param Optional[int] num_timesteps: Number of evolution time steps
-
-        :return (spike_raster, num_timesteps):
-            spike_raster:   (np.ndarray) Boolean raster containing spike info
-            num_timesteps:  (int) Number of evolution time steps
-        """
-        print("Preparing input for processing")
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int((duration + tol_abs) // self.dt)
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Extract spike timings and channels
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                t_stop=(self._timestep + num_timesteps) * self._dt,
-                channels=np.arange(self.size_in),
-            )
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in), bool)
-
-        print("Done preparing input!")
-        return spike_raster, num_timesteps
-
     def reset_time(self):
         """ Reset the internal clock of this layer """
         # - Set internal clock to 0
@@ -362,7 +295,7 @@ class FFCLIAF(CLIAF):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        inp_spike_raster, num_timesteps = self._prepare_input(
+        __, inp_spike_raster, num_timesteps = self._prepare_input_events(
             ts_input, duration, num_timesteps
         )
 
@@ -573,7 +506,7 @@ class RecCLIAF(CLIAF):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        inp_spike_raster, num_timesteps = self._prepare_input(
+        __, inp_spike_raster, num_timesteps = self._prepare_input_events(
             ts_input, duration, num_timesteps
         )
 

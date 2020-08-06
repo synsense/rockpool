@@ -368,36 +368,8 @@ class RecDIAF(Layer):
             t_final:            (float) End time of evolution
         """
 
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = (duration + tol_abs) // self.dt
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
+        # - Number of time steps
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - End time of evolution
         t_final = self.t + num_timesteps * self.dt
@@ -407,12 +379,11 @@ class RecDIAF(Layer):
             event_times, event_channels = ts_input(
                 t_start=self.t, t_stop=(self._timestep + num_timesteps) * self.dt
             )
-            if np.size(event_channels) > 0:
-                # - Make sure channels are within range
-                assert (
-                    np.amax(event_channels) < self.size_in
-                ), "Layer {}: Only channels between 0 and {} are allowed".format(
-                    self.name, self.size_in - 1
+            # - Make sure channels are within range
+            if np.size(event_channels) > 0 and np.amax(event_channels) >= self.size_in:
+                raise ValueError(
+                    self.start_print
+                    + f"Only channels between 0 and {self.size_in - 1} are allowed."
                 )
         else:
             event_times, event_channels = [], []
