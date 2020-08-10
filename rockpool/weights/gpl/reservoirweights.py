@@ -191,7 +191,7 @@ def wilson_cowan_net(
         (np.concatenate((mfEE, mfIE)), np.concatenate((mfEI, mfII))), axis=1
     )
 
-    return weights.T    
+    return weights.T
 
 
 def wipe_non_switiching_eigs(
@@ -515,7 +515,27 @@ def inp_to_rec(
     num_inp_to_rec: int = 16,
     input_sparsity: float = 1.0,
     input_sparsity_type: Optional[str] = None,
+    allow_multiples: bool = True,
 ):
+    """
+    inp_to_rec - Create an integer weight matrix that serves as input weights to the
+                 recurrent population of a reservoir
+    :param size_in:     int Size of presynaptic layer
+    :param size_rec:    int Size of postsynaptic (recurrent) layer
+    :param num_inp_to_rec:   int  Number of non-zero input connections of those postsynaptic
+                             neurons that have. Total number of connections is
+                             size_rec * input_sparsity * num_inp_to_rec .
+    :input_sparsity:    float Ratio of postsynaptic neurons that have non-zero connections
+    :input_sparsity_type:  str or None:  If None, all postsynaptic neurons will have
+                           non-zero input connections. `input_sparsity` will be ignored.
+                           If "random", a random subset of postsynaptic neurons will have
+                           non-zero input connections. If "first" it is the neurons with
+                           lowest IDs.
+    :allow_multiples: If True, multiple connections can be set between the same pair
+                      of neurons. Corresponding to entries > 1 in weight matrix.
+    return
+        np.ndarray  Weight matrix (integer entries)
+    """
     mnWInToRec = np.zeros((size_in, size_rec))
     if input_sparsity_type is None:
         num_receive_input = size_rec
@@ -532,11 +552,19 @@ def inp_to_rec(
             raise ValueError(
                 f"Input sparsity type ({input_sparsity_type}) not recognized."
             )
-    viPreSynConnect = np.random.choice(size_in, size=num_inp_to_rec * num_receive_input)
-    for iPreIndex, iPostIndex in zip(
-        viPreSynConnect, np.repeat(input_receivers, num_inp_to_rec)
-    ):
-        mnWInToRec[iPreIndex, iPostIndex] += 1
+    if allow_multiples:
+        viPreSynConnect = np.random.choice(
+            size_in, size=num_inp_to_rec * num_receive_input
+        )
+        for iPreIndex, iPostIndex in zip(
+            viPreSynConnect, np.repeat(input_receivers, num_inp_to_rec)
+        ):
+            mnWInToRec[iPreIndex, iPostIndex] += 1
+    else:
+        for i_post in input_receivers:
+            presyn_ids = np.random.choice(size_in, size=num_inp_to_rec, replace=False)
+            for i_pre in presyn_ids:
+                mnWInToRec[i_pre, i_post] = 1
 
     return mnWInToRec
 
