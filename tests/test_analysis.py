@@ -14,8 +14,8 @@ def test_lv_FF():
     numNeurons = 100
     numSpikes = 1000
 
-    isis = -np.log(np.random.rand(numNeurons, numSpikes))
-    spikeTimes = np.array([np.cumsum(isi) for isi in isis])
+    inter_spk_intvls = -np.log(np.random.rand(numNeurons, numSpikes))
+    spikeTimes = np.array([np.cumsum(isi) for isi in inter_spk_intvls])
     nids = np.array([[i] * numSpikes for i in range(numNeurons)])
 
     # cut to min time
@@ -30,7 +30,7 @@ def test_lv_FF():
     spikeTimes = spikeTimes[order]
     nids = nids[order]
 
-    tse = TSEvent(spikeTimes, nids)
+    tse = TSEvent(spikeTimes, nids, t_stop=spikeTimes[-1] + 0.001)
 
     assert np.abs(lv(tse).all() - 1) < 0.001
     assert np.abs(fano_factor(tse).all() - 1) < 0.001
@@ -46,8 +46,8 @@ def test_entropy():
     numNeurons = 10
     numSpikes = 100
 
-    isis = -np.log(np.random.rand(numNeurons, numSpikes))
-    spikeTimes = np.array([np.cumsum(isi) for isi in isis])
+    inter_spk_intvls = -np.log(np.random.rand(numNeurons, numSpikes))
+    spikeTimes = np.array([np.cumsum(isi) for isi in inter_spk_intvls])
     nids = np.array([[i] * numSpikes for i in range(numNeurons)])
 
     # cut to min time

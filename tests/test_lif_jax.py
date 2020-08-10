@@ -681,7 +681,7 @@ def test_save_load_FFLIFJax_IO():
 
     t_spikes = np.arange(0, 0.01, dt)
     channels = np.random.randint(n_inp, size=len(t_spikes))
-    ts_inp = TSEvent(t_spikes, channels)
+    ts_inp = TSEvent(t_spikes, channels, t_stop=0.01)
 
     ts_out = lyr.evolve(ts_inp, duration=0.1)
     ts_out_loaded = lyr_loaded.evolve(ts_inp, duration=0.1)

@@ -22,7 +22,7 @@ def test_pt_events():
     # - Input signal
     time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
     channels = [1, 2, 0, 1, 1]
-    ts_input = TSEvent(time_trace, channels)
+    ts_input = TSEvent(time_trace, channels, t_stop=1)
 
     # - Layer
     lpt = PassThroughEvents(np.array([[0, 2], [1, 1], [0, 0]]), dt=0.4)
@@ -85,7 +85,7 @@ def test_ffcliaf_evolve_subtracting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
+    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1], t_stop=1)
 
     # - Evolution
     tsOutput = lyrFF.evolve(ts_input, duration=0.75)
@@ -132,7 +132,7 @@ def test_cliaf_evolve_resetting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
+    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1], t_stop=1)
 
     # - Evolution
     tsOutput = lyrFF.evolve(ts_input, duration=0.8)

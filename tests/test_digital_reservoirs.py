@@ -31,7 +31,7 @@ def test_cliaf_evolve_subtracting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.75)
@@ -78,7 +78,7 @@ def test_cliaf_evolve_resetting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.7)
@@ -129,7 +129,7 @@ def test_diaf_evolve_subtracting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.7)
@@ -182,7 +182,7 @@ def test_diaf_evolve_resetting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.7)
@@ -234,7 +234,7 @@ def test_diaf_evolve_vfvrest():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55], channels=[0])
+    ts_input = TSEvent(times=[0.55], channels=[0], t_stop=0.6)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.9)
