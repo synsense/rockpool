@@ -186,7 +186,7 @@ class FFUpDown(Layer):
         t_stop = (self._timestep + num_timesteps) * self.dt
 
         # - Output time series
-        spike_times = (vnTSSpike + 1 + self._timestep) * self.dt
+        spike_times = (vnTSSpike + self._timestep) * self.dt
         event_out = TSEvent(
             times=np.clip(
                 spike_times, t_start, t_stop
