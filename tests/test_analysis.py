@@ -62,7 +62,7 @@ def test_entropy():
     spikeTimes = spikeTimes[order]
     nids = nids[order]
 
-    tse = TSEvent(spikeTimes, nids)
+    tse = TSEvent(spikeTimes, nids, t_stop=spikeTimes[-1] + 0.001)
 
     assert np.abs(lv(tse).all() - 1) < 0.001
     assert np.abs(fano_factor(tse).all() - 1) < 0.001
