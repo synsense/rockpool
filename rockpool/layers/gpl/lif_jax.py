@@ -793,9 +793,9 @@ class RecLIFJax(Layer, JaxTrainer):
         if hasattr(self, "dt"):
             tau_min = self.dt * 10.0
             numeric_eps = 1e-8
-            assert np.all(
-                value - tau_min + numeric_eps >= 0
-            ), "`tau_mem` must be larger than {:4f}".format(tau_min)
+            # assert np.all(
+            #     value - tau_min + numeric_eps >= 0
+            # ), "`tau_mem` must be larger than {:4f}".format(tau_min)
 
         self._tau_mem = np.reshape(value, self._size).astype("float32")
 
@@ -820,9 +820,9 @@ class RecLIFJax(Layer, JaxTrainer):
         if hasattr(self, "dt"):
             tau_min = self.dt * 10.0
             numeric_eps = 1e-8
-            assert np.all(
-                value - tau_min + numeric_eps >= 0
-            ), "`tau_syn` must be larger than {:4f}".format(tau_min)
+            # assert np.all(
+            #     value - tau_min + numeric_eps >= 0
+            # ), "`tau_syn` must be larger than {:4f}".format(tau_min)
 
         self._tau_syn = np.reshape(value, self._size).astype("float32")
 
