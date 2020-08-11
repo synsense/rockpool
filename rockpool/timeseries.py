@@ -69,6 +69,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
 _TOLERANCE_ABSOLUTE = 1e-9
+_TOLERANCE_RELATIVE = 1e-6
 
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
@@ -734,6 +735,11 @@ class TSContinuous(TimeSeries):
         self._interp_kind = interp_kind
         self.samples = samples.astype("float")  # Also creates an interpolator
         self.units = units
+
+        # - Default: Throw exceptions when sampled output contains `NaN`s
+        self.beyond_range_exception = True
+        # - Default: Change sample times that are slightly out of range
+        self.approx_limit_times = True
 
     ## -- Alternative constructor for clocked time series
     @staticmethod
@@ -1430,23 +1436,80 @@ class TSContinuous(TimeSeries):
 
         :return np.ndarray:     Array of interpolated values. Will have the shape ``TxN``, where ``N`` is the number of channels in ``self``
         """
-        # - Enforce periodicity
-        if self.periodic and self.duration > 0:
-            times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
+
+        # Make sure `times` is an array
+        times = np.asarray(times)
 
         # - Handle empty series
         if self.isempty():
             return np.zeros((np.size(times), 0))
 
-        # - Perform the interpolation
+        # - Enforce periodicity
+        if self.periodic and self.duration > 0:
+            times = (times - self._t_start) % self.duration + self._t_start
+
+        # Time points that define the range of the interpolator
+        t_first = self.times[0]
+        t_last = self.t_stop if self._interp_kind == "previous" else self.times[-1]
+
+        # Time points outside of this range
+        is_early = np.asarray(times < t_first)
+        is_late = np.asarray(times > t_last)
+
+        # - Correct time points that are slightly out of range
+        if self.approx_limit_times:
+
+            tol = min(_TOLERANCE_ABSOLUTE, _TOLERANCE_RELATIVE * self.duration)
+            # Find values in `times` that are slightly before first or slightly after
+            # last sample
+            t_first_approx = t_first - tol
+            t_last_approx = t_last + tol
+            set_t_first = np.logical_and(is_early, times >= t_first_approx)
+            set_t_last = np.logical_and(is_late, times <= t_last_approx)
+            times[set_t_first] = t_first
+            times[set_t_last] = t_last
+            if np.logical_or(set_t_first, set_t_last).any():
+                warn(
+                    f"TSContinuous `{self.name}`: Some of the requested time points "
+                    + "were slightly outside the time range of this series (by at "
+                    + f"most {tol} s) and were approximated by "
+                    + f"the first or last time point of this series. To prevent this "
+                    + f"behavior, set the `approx_limit_times` attribute to `False`."
+                )
+                is_early[set_t_first] = False
+                is_late[set_t_last] = False
+
+        # - Warn or throw exception if output contains `NaN`s
+        if is_early.any() or is_late.any():
+            error_msg = (
+                f"TSContinuous `{self.name}`: Some of the requested time points are "
+                + "beyond the first and last time points of this series and cannot "
+                + "be sampled.\n"
+                + "If you think that this is due to rounding errors, try setting "
+                + "the `approx_limit_times` attribute to `True`.\n"
+            )
+            if self.beyond_range_exception:
+                raise ValueError(
+                    error_msg
+                    + "If you want to sample at these time points anyway, you can "
+                    + "set the `beyond_range_exception` attribute of this time series "
+                    + "to `False` and will receive `NaN` as values."
+                )
+            else:
+                warn(
+                    error_msg
+                    + "Will return `NaN` for these time points."
+                    + "To raise a ValueError in situations like this, set the "
+                    + "`beyond_range_exception` attribute of this time series to `True`."
+                )
+
         samples = np.reshape(self.interp(times), (-1, self.num_channels))
 
         # - Catch invalid times, replace with NaN
-        if not self.periodic:
-            invalid_times = np.logical_or(
-                np.array(times) < self.t_start, np.array(times) > self.t_stop
-            )
-            samples[invalid_times, :] = np.nan
+        invalid_times = np.logical_or(
+            np.array(times) < self.t_start, np.array(times) > self.t_stop
+        )
+        samples[invalid_times, :] = np.nan
 
         # - Return the sampled data
         return samples
@@ -1873,6 +1936,32 @@ class TSContinuous(TimeSeries):
         return np.nanmin(self.samples)
 
     @property
+    def beyond_range_exception(self):
+        return self._nan_exception
+
+    @beyond_range_exception.setter
+    def beyond_range_exception(self, raise_exception: bool):
+        try:
+            self._nan_exception = bool(raise_exception)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `beyond_range_exception` must be of boolean type."
+            )
+
+    @property
+    def approx_limit_times(self):
+        return self._approx_limit_times
+
+    @approx_limit_times.setter
+    def approx_limit_times(self, approx: bool):
+        try:
+            self._approx_limit_times = bool(approx)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `approx_limit_times` must be of boolean type."
+            )
+
+    @property
     def fill_value(self):
         return self._fill_value
 
@@ -1881,7 +1970,7 @@ class TSContinuous(TimeSeries):
         if isinstance(value, str):
             assert (
                 value is "extrapolate"
-            ), '`.fill_value` must be either "extrapolate" or a fill value to pass to `scipy.interpolate`.'
+            ), '`.fill_value` must be either "extrapolate" or a fill value to pass to `scipy.interpoZzlate`.'
 
         self._fill_value = value
         if self.interp is not None:

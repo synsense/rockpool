@@ -36,13 +36,27 @@ def test_updown():
 
     # - Compare states and time before and after evolution
     vStateBefore = np.copy(fl0.state)
-    fl0.evolve(tsInCont, duration=0.1)
+    ts0 = fl0.evolve(tsInCont, duration=0.1)
     assert fl0.t == 0.1
     assert (vStateBefore != fl0.state).any()
 
     fl0.reset_all()
     assert fl0.t == 0
     assert (vStateBefore == fl0.state).all()
+
+    # - Test repeat output
+    fl1 = FFUpDown(
+        weights=weights,
+        repeat_output=3,
+        dt=0.01,
+        thr_down=0.02,
+        thr_up=0.01,
+        tau_decay=0.1,
+    )
+    assert fl1.size == fl0.size
+    ts1 = fl1.evolve(tsInCont, duration=0.1)
+    assert (ts1.times == np.repeat(ts0.times, 3)).all()
+    assert (ts1.channels == np.repeat(ts0.channels, 3)).all()
 
 
 def test_updown_in_net():
