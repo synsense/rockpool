@@ -7,10 +7,6 @@ unit_tests:
   stage: test
   image: aictx/ci-python-arch:latest
 
-  tags:
-    - aiCTX
-    - python
-
   before_script:
     - pip install --upgrade pip
     - pip install .[all] --no-cache-dir
@@ -21,10 +17,6 @@ unit_tests:
 nest_tests:
   stage: test
   image: aictx/ci-python-arch:latest
-
-  tags:
-    - aiCTX
-    - python
 
   before_script:
     - pip install --upgrade pip
@@ -40,10 +32,6 @@ optional_tests:
   image: aictx/ci-python-arch:latest
   when: manual
 
-  tags:
-    - aiCTX
-    - python
-
   before_script:
     - pip install --upgrade pip
     - pip install .[all] --no-cache-dir
@@ -56,10 +44,6 @@ documentation_linting:
   allow_failure: true
   image: aictx/ci-python-arch:latest
 
-  tags:
-    - aiCTX
-    - python
-
   before_script:
     - pip install --upgrade pip
     - pip install .[all] --no-cache-dir
@@ -70,11 +54,7 @@ documentation_linting:
 docs_build:
   stage: build
   allow_failure: true
-  image: aictx/ci-python-arch:latest
-
-  tags:
-    - aiCTX
-    - python
+  image: aictx/ci-python-arch:l0a0test
 
   before_script:
     - pip install --upgrade pip
@@ -91,10 +71,6 @@ docs_build:
 dist_build:
   stage: build
   image: aictx/ci-python-arch:latest
-
-  tags:
-    - aiCTX
-    - python
 
   dependencies:
     - unit_tests
@@ -117,10 +93,6 @@ pages:
   only:
     - master
 
-  tags:
-    - aiCTX
-    - python
-
   allow_failure: true
   image: aictx/ci-python-arch:latest
 
@@ -138,10 +110,6 @@ pypi_deploy:
   stage: deploy
   when: manual
   image: aictx/ci-python-arch:latest
-
-  tags:
-    - aiCTX
-    - python
 
   only:
     - master
