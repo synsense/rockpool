@@ -220,6 +220,10 @@ def _evolve_lif_jax(
         (np.dot(sp_input_ts, w_in), np.dot(I_input_ts, w_in) + noise_ts),
     )
 
+    print(sp_input_ts.shape)
+    print(np.dot(sp_input_ts, w_in).shape)
+    print(spikes_ts.shape)
+
     # - Generate output surrogate
     surrogate_ts = sigmoid(Vmem_ts * 20.0)
 
@@ -617,7 +621,6 @@ class RecLIFJax(Layer, JaxTrainer):
             surrogate_ts = np.append(
                 surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
             )
-            spikes_ts = np.append(spikes_initial.reshape(1, -1), spikes_ts, axis=0)
             Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
             Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
             Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
@@ -693,8 +696,9 @@ class RecLIFJax(Layer, JaxTrainer):
 
         # - Record spike raster
         spikes_ids = onp.argwhere(onp.array(states_t["spikes"]))
+        print(states_t["spikes"].shape)
         self._spikes_last_evolution = TSEvent(
-            spikes_ids[:, 0] * self.dt + time_start,
+            spikes_ids[:, 0] * self.dt + time_start + 0.5 * self.dt,
             spikes_ids[:, 1],
             t_start=time_start,
             t_stop=self.t,
@@ -1021,7 +1025,6 @@ class RecLIFCurrentInJax(RecLIFJax):
             surrogate_ts = np.append(
                 surrogate_ts, surrogate_final.reshape(1, -1), axis=0
             )
-            spikes_ts = np.append(spikes_ts, spikes_final.reshape(1, -1), axis=0)
             Vmem_ts = np.append(Vmem_ts, new_state["Vmem"].reshape(1, -1), axis=0)
             Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
             Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
@@ -1286,7 +1289,6 @@ class RecLIFJax_IO(RecLIFJax):
             surrogate_ts = np.append(
                 surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
             )
-            spikes_ts = np.append(spikes_initial.reshape(1, -1), spikes_ts, axis=0)
             Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
             Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
             Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
@@ -1490,7 +1492,6 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
             surrogate_ts = np.append(
                 surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
             )
-            spikes_ts = np.append(spikes_ts, spikes_initial.reshape(1, -1), axis=0)
             Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
             Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
             Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)

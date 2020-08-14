@@ -895,10 +895,8 @@ class FFIAFNest(Layer):
         t_start = self.t
         t_stop = (self._timestep + num_timesteps) * self.dt
 
-        # - Include events from previous simulation and store events that occur at `t_stop` or later
-        event_time_out, event_channel_out = self._keep_events_for_next(
-            event_time_out, event_channel_out, t_stop
-        )
+        # - Shift event times to middle of time bins
+        event_time_out -= 0.5 * self.dt
 
         # - Update layer time step
         self._timestep += num_timesteps

@@ -193,8 +193,6 @@ class RecDIAF(Layer):
         t_time = self.t
         i = 0
 
-        # - Iterate over spike times. Stop when t_final is exceeded.
-
         # - Copy instance variables to local variables
         state = self.state
         weights_total = self._weights_total
@@ -218,7 +216,8 @@ class RecDIAF(Layer):
             times = [t_time]
             channels = [np.nan]
 
-        while t_time <= t_final:
+        # - Iterate over spike times. Stop when t_final is reached.
+        while t_time < t_final:
             try:
                 # - Iterate over spikes in temporal order
                 t_time, channel = heapq.heappop(heap_spikes)
@@ -330,11 +329,6 @@ class RecDIAF(Layer):
         # - Start and stop times for output time series
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
-
-        # - Include events from previous simulation and store events that occur at `t_stop` or later
-        spike_times, spike_ids = self._keep_events_for_next(
-            spike_times, spike_ids, t_stop
-        )
 
         # - Update time
         self._timestep += num_timesteps

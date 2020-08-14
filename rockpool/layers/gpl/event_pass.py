@@ -88,9 +88,7 @@ class PassThroughEvents(Layer):
         time_trace_out = np.repeat(ts_input.times, num_out_events_per_input_event)
 
         t_stop = self.t + self.dt * num_timesteps
-        # - Ignore events at t_stop or later. Calling `_keep_events_for_next` will
-        #   not be necessary because any events that would be used in next evolution
-        #   would then be presented as input again
+        # - Ignore events at t_stop or later.
         use_events = np.logical_and(self.t < time_trace_out, time_trace_out < t_stop)
 
         # - Output time series
