@@ -89,12 +89,12 @@ def flatten(
 ) -> Collection:
     """
     Flattens a generic collection of collections into an ordered dictionary.
-    
+
     ``generic_collection`` is a nested tree of inhomogeneous collections, such as `list`, `set`, `dict`, etc. This function iterates through this generic collection, and flattens all the leaf nodes into a single collection. The keys in the returned collection will be named after the orginal keys in ``generic_collection``, if any, and after the nesting level.
-    
+
     :param Union[Iterable, Collection] generic_collection:  A nested tree of iterable types or collections, that will be flattened
     :param str sep:                                         The separator character to use when building keys in the flattened collection. Default: "_"
-    
+
     :return Collection flattened_collection: A collection of all the items in ``generic_collection``, flattened into a single coellction.
     """
     import collections
@@ -426,7 +426,7 @@ class JaxTrainer(ABC):
 
                 # - Call loss function and return loss
                 return loss_fcn(
-                    opt_params, states_t, output_batch_t[1:], target_batch_t, **loss_params
+                    opt_params, states_t, output_batch_t, target_batch_t, **loss_params
                 )
 
             # - Assign update, loss and gradient functions
@@ -498,18 +498,21 @@ class JaxTrainer(ABC):
                 inp_batch_shape[batch_axis] == target_batch_shape[batch_axis]
             ), "Input and Target do not have a matching batch size."
 
-        # - Create lambdas that evaluate the loss and the gradient on this trial
-        l_fcn, g_fcn, o_fcn = (
-            lambda: self.__loss_fcn(
+        # - Define functions that evaluate the loss and the gradient on this trial
+        def l_fcn():
+            return self.__loss_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
-            ),
-            lambda: self.__grad_fcn(
+            )
+
+        def g_fcn():
+            return self.__grad_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
-            ),
-            lambda: self.__evolve_functional(
+            )
+
+        def o_fcn():
+            return self.__evolve_functional(
                 self.__get_params(self.__opt_state), self._state, inps
-            ),
-        )
+            )
 
         # - NaNs raise errors
         if debug_nans:

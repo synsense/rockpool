@@ -220,10 +220,6 @@ def _evolve_lif_jax(
         (np.dot(sp_input_ts, w_in), np.dot(I_input_ts, w_in) + noise_ts),
     )
 
-    print(sp_input_ts.shape)
-    print(np.dot(sp_input_ts, w_in).shape)
-    print(spikes_ts.shape)
-
     # - Generate output surrogate
     surrogate_ts = sigmoid(Vmem_ts * 20.0)
 
@@ -676,7 +672,7 @@ class RecLIFJax(Layer, JaxTrainer):
 
         # - Call raw evolution function
         time_start = self.t
-        (spikes_ts, new_state, states_t,) = self._evolve_functional(
+        (__, new_state, states_t,) = self._evolve_functional(
             self._pack(), self._state, inps
         )
 
@@ -696,7 +692,6 @@ class RecLIFJax(Layer, JaxTrainer):
 
         # - Record spike raster
         spikes_ids = onp.argwhere(onp.array(states_t["spikes"]))
-        print(states_t["spikes"].shape)
         self._spikes_last_evolution = TSEvent(
             spikes_ids[:, 0] * self.dt + time_start + 0.5 * self.dt,
             spikes_ids[:, 1],
@@ -1306,7 +1301,7 @@ class RecLIFJax_IO(RecLIFJax):
                 "spikes": spikes_ts,
                 "output": output_ts,
             }
-            return output_ts, new_state, states_t
+            return output_ts[1:], new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -1505,7 +1500,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
                 "spikes": spikes_ts,
                 "output": output_ts,
             }
-            return output_ts, new_state, states_t
+            return output_ts[1:], new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -2118,7 +2113,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             states_t = {
                 "Isyn": Isyn_ts,
             }
-            return np.dot(Isyn_ts, params["w_out"]), new_state, states_t
+            return np.dot(Isyn_ts[1:], params["w_out"]), new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -2251,7 +2246,7 @@ class FFExpSynJax(FFExpSynCurrentInJax):
             states_t = {
                 "Isyn": Isyn_ts,
             }
-            return np.dot(Isyn_ts, params["w_out"]), new_state, states_t
+            return np.dot(Isyn_ts[1:], params["w_out"]), new_state, states_t
 
         # - Return the evolution function
         return evol_func

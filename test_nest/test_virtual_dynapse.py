@@ -75,7 +75,9 @@ def test_change_baseweight():
     vd0.baseweight_i[:] = 0.25
 
     # - Input signal
-    ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
+    ts_input = TSEvent(
+        times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0], t_stop=0.15
+    )
 
     # - Compare states and time before and after
     vd.evolve(ts_input, duration=0.1)
@@ -180,7 +182,9 @@ def test_evolve():
     )
 
     # - Input signal
-    ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
+    ts_input = TSEvent(
+        times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0], t_stop=0.15
+    )
 
     # - Evolve with `wrong` input channels
     state_before = np.copy(vd.state)
@@ -264,7 +268,9 @@ def test_multiprocessing():
     )
 
     # - Input signal
-    ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
+    ts_input = TSEvent(
+        times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0], t_stop=0.15
+    )
 
     # - Evolve
     state_before = np.copy(vd_multi.state)
@@ -343,7 +349,9 @@ def test_adaptation():
     )
 
     # - Input signal
-    ts_input = TSEvent(times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0])
+    ts_input = TSEvent(
+        times=[0.02, 0.04, 0.04, 0.06, 0.12], channels=[1, 0, 2, 1, 0], t_stop=0.15
+    )
 
     # - Evolve
     vd.evolve(ts_input, duration=0.1, ids_in=input_ids)
