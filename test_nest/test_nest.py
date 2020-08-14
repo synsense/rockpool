@@ -198,7 +198,7 @@ def test_setWeightsIn():
 
     # - Input time series
     tsInpCont = TSContinuous(np.arange(15) * 0.01, np.ones(15) * 0.1)
-    tsInp = TSEvent([0.1], [0])
+    tsInp = TSEvent([0.1], [0], t_stop=0.15)
 
     ## -- FFIAFNEst
     # - Layer generation
@@ -346,7 +346,7 @@ def test_setWeightsRec():
     fl1.weights_rec = fl0.weights_rec
     assert np.isclose(fl1.weights_rec_, weights_rec, rtol=1e-3, atol=1e-6).all()
 
-    tsInp = TSEvent([0.1], [0])
+    tsInp = TSEvent([0.1], [0], t_stop=0.15)
 
     # - Compare states before and after
     fl0.evolve(tsInp, duration=0.12)
@@ -938,7 +938,7 @@ def test_IAF2AEIFNest():
     spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
     channels = np.random.choice([0, 1], 20, replace=True).astype(int)
 
-    tsInEvent = ts.TSEvent(spikeTrain0, channels)
+    tsInEvent = ts.TSEvent(spikeTrain0, channels, t_stop=1)
 
     # - Compare states before and after
 
@@ -1002,7 +1002,7 @@ def test_SaveLoad():
     spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
     channels = np.random.choice([0, 1], 20, replace=True).astype(int)
 
-    tsInEvent = ts.TSEvent(spikeTrain0, channels)
+    tsInEvent = ts.TSEvent(spikeTrain0, channels, t_stop=1)
 
     # - Compare states before and after
 
