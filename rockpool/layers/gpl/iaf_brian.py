@@ -321,7 +321,9 @@ class FFIAFBrian(Layer):
         self._timestep += num_timesteps
 
         # - Build response TimeSeries
-        use_event = self._layer.t_ >= time_base[0]
+        use_event = np.logical_and(
+            time_base[0] <= self._layer.t, self._layer.t < self.t
+        )
         event_time_out = self._layer.t_[use_event]
         event_channel_out = self._layer.i[use_event]
 

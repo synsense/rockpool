@@ -251,7 +251,9 @@ class RecDynapseBrian(Layer):
         self._timestep += num_timesteps
 
         # - Build response TimeSeries
-        use_event = self._spike_monitor.t_ >= time_base[0]
+        use_event = np.logical_and(
+            self._spike_monitor.t_ >= time_base[0], self._spike_monitor.t_ < self.t,
+        )
         event_time_out = self._spike_monitor.t[use_event]
         event_channel_out = self._spike_monitor.i[use_event]
 

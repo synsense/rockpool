@@ -385,6 +385,11 @@ class FFCLIAF(CLIAF):
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
+        # - Include events from previous simulation and store events that occur at `t_stop` or later
+        spike_times, spike_ids = self._keep_events_for_next(
+            spike_times, spike_ids, t_stop
+        )
+
         # Convert arrays to TimeSeries objects
         event_out = TSEvent(
             times=np.clip(
@@ -648,6 +653,12 @@ class RecCLIAF(CLIAF):
 
         # Generate output sime series
         spike_times = (np.array(ts_spikes) + 1 + self._timestep) * self.dt
+
+        # - Include events from previous simulation and store events that occur at `t_stop` or later
+        spike_times, spike_ids = self._keep_events_for_next(
+            spike_times, spike_ids, t_stop
+        )
+
         event_out = TSEvent(
             # Clip due to possible numerical errors,
             times=np.clip(spike_times, t_start, t_stop),

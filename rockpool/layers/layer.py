@@ -491,6 +491,56 @@ class Layer(ABC):
     #     """
     #     pass
 
+    def _keep_events_for_next(
+        self, event_time_out: np.ndarray, event_channel_out: np.ndarray, t_stop: float
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Find output events that are at `t_stop` or later. Remove them from current events
+        and store them for next call of `self.evolve`. Add events stored in previous calls.
+        Only to be called for layers with spiking output.
+
+        :param event_time_out:  np.ndarray  Current output event times
+        :param event_channel_out:  np.ndarray  Current output event channels
+        ;param t_stop:  float  Stop time of current evolution.
+
+        :reuturn:
+            np.ndarray - Modified output event times
+            np.ndarray - Modified output event channels
+        """
+        if self.output_type == TSContinuous:
+            raise RuntimeError(
+                "Method `_keep_events_for_next` is only available for layers with spike output."
+            )
+
+        event_time_out = np.asarray(event_time_out)
+        event_channel_out = np.asarray(event_channel_out)
+
+        # - Include events from previous simulation
+        if hasattr(self, "_event_time_next"):
+            event_time_out = np.hstack((self._event_time_next, event_time_out))
+            event_channel_out = np.hstack((self._event_channel_next, event_channel_out))
+            # Make sure that times are sorted
+            time_idcs = np.argsort(event_time_out)
+            event_time_out = event_time_out[time_idcs]
+            event_channel_out = event_channel_out[time_idcs]
+
+        # - Keep events at or after `t_stop` for next evolution
+        keep_for_next = event_time_out >= t_stop
+        self._event_time_next = event_time_out[keep_for_next]
+        self._event_channel_next = event_channel_out[keep_for_next]
+
+        # For debugging
+        print(f"t_stop: {t_stop}")
+        print(
+            f"Events stored for later: {self._event_time_next}, {self._event_channel_next}"
+        )
+
+        # - Return only those events that are not kept for next evolution
+        event_time_out = event_time_out[keep_for_next == False]
+        event_channel_out = event_channel_out[keep_for_next == False]
+
+        return event_time_out, event_channel_out
+
     def reset_time(self):
         """
         Reset the internal clock of this layer to 0

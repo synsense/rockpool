@@ -331,6 +331,11 @@ class RecDIAF(Layer):
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
+        # - Include events from previous simulation and store events that occur at `t_stop` or later
+        spike_times, spike_ids = self._keep_events_for_next(
+            spike_times, spike_ids, t_stop
+        )
+
         # - Update time
         self._timestep += num_timesteps
 

@@ -22,7 +22,7 @@ def test_pt_events():
     # - Input signal
     time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
     channels = [1, 2, 0, 1, 1]
-    ts_input = TSEvent(time_trace, channels, t_stop=1)
+    ts_input = TSEvent(time_trace, channels, t_stop=1.5)
 
     # - Layer
     lpt = PassThroughEvents(np.array([[0, 2], [1, 1], [0, 0]]), dt=0.4)

@@ -895,19 +895,10 @@ class FFIAFNest(Layer):
         t_start = self.t
         t_stop = (self._timestep + num_timesteps) * self.dt
 
-        # - Include events from previous simulation
-        if hasattr(self, "_event_time_next"):
-            event_time_out = np.hstack((self._event_time_next, event_time_out))
-            event_channel_out = np.hstack((self._event_channel_next, event_channel_out))
-            # Make sure that times are sorted
-            time_idcs = np.argsort(event_time_out)
-            event_time_out = event_time_out[time_idcs]
-            event_channel_out = event_channel_out[time_idcs]
-
-        # - Keep events at or after `t_stop` for next evolution
-        keep_for_next = event_time_out >= t_stop
-        self._event_time_next = event_time_out[keep_for_next]
-        self._event_channel_next = event_channel_out[keep_for_next]
+        # - Include events from previous simulation and store events that occur at `t_stop` or later
+        event_time_out, event_channel_out = self._keep_events_for_next(
+            event_time_out, event_channel_out, t_stop
+        )
 
         # - Update layer time step
         self._timestep += num_timesteps

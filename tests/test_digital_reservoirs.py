@@ -34,7 +34,7 @@ def test_cliaf_evolve_subtracting():
     ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.75)
+    tsOutput = rl.evolve(ts_input, duration=0.8)
 
     # - Expectation: Input spike will cause neuron 0 to spike 2 times at t=0.6
     #                These spikes will cause neuron 1 to spike once at t=0.7
