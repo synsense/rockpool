@@ -389,7 +389,7 @@ class RecLIFJax(Layer, JaxTrainer):
         :param Optional[list] rng_key:                  List of two integers representing the state of the Jax PRNG. Default: ``None``; generate a new key
         """
         # - Ensure that weights are 2D
-        w_recurrent = np.atleast_2d(w_recurrent)
+        w_recurrent = onp.atleast_2d(w_recurrent)
 
         # - Transform arguments to JAX np.array
         tau_mem = np.array(tau_mem)
@@ -1772,8 +1772,8 @@ class FFLIFJax_IO(RecLIFJax_IO):
         :param Optional[list] rng_key:       List of two integers representing the state of the Jax PRNG. Default: generate a new key
         """
         # - Determine network shape
-        w_in = np.atleast_2d(w_in)
-        w_out = np.atleast_2d(w_out)
+        w_in = onp.atleast_2d(w_in)
+        w_out = onp.atleast_2d(w_out)
         net_size = w_in.shape[1]
 
         # - Initialise layer object
@@ -1881,7 +1881,7 @@ class FFLIFCurrentInJax_SO(FFLIFJax_IO):
         :param Optional[list] rng_key:       List of two integers representing the state of the Jax PRNG. Default: generate a new key
         """
         # - Determine network shape
-        w_in = np.atleast_2d(w_in)
+        w_in = onp.atleast_2d(w_in)
         net_size = w_in.shape[1]
 
         # - Initialise layer
@@ -2094,7 +2094,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         :param Optional[rand.PRNGKey] rng_key:  pRNG key to use when generating randomness. Default: ``None``, generate a new key
         """
         # - Ensure that weights are 2D
-        weights = np.atleast_2d(weights)
+        weights = onp.atleast_2d(weights)
 
         # - Transform arguments to JAX np.array
         tau = np.array(tau)
