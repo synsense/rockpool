@@ -108,15 +108,19 @@ class RecFSSpikeEulerBT(Layer):
         super().__init__(weights=weights_fast, noise_std=noise_std, name=name)
 
         # - Check weight shape
-        assert (
-            weights_slow.shape[0] == weights_slow.shape[1]
-        ), "`weights_slow` must be a square matrix"
-        assert (
-            weights_fast.shape[0] == weights_fast.shape[1]
-        ), "`weights_fast` must be a square matrix"
-        assert (
-            weights_slow.shape[0] == weights_fast.shape[0]
-        ), "`weights_fast` and `weights_slow` must be the same size"
+        if weights_slow.shape[0] != weights_slow.shape[1]:
+            raise ValueError(
+                self.start_print + "`weights_slow` must be a square matrix"
+            )
+        if weights_fast.shape[0] != weights_fast.shape[1]:
+            raise ValueError(
+                self.start_print + "`weights_fast` must be a square matrix"
+            )
+        if weights_slow.shape[0] != weights_fast.shape[0]:
+            raise ValueError(
+                self.start_print
+                + "`weights_fast` and `weights_slow` must be the same size"
+            )
 
         self.weights_slow = weights_slow
         self.bias = np.asarray(bias).astype("float")
@@ -180,13 +184,14 @@ class RecFSSpikeEulerBT(Layer):
             min_delta = self.dt / 10
 
         # - Check time step values
-        assert min_delta < self.dt, "`min_delta` must be shorter than `dt`"
+        if min_delta >= self.dt:
+            raise ValueError(self.start_print + "`min_delta` must be shorter than `dt`")
 
         # - Get discretised input and nominal time trace
         input_time_trace, static_input, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
-        final_time = input_time_trace[-1]
+        final_time = (self._timestep + num_timesteps) * self.dt
 
         # - Generate a noise trace
         noise_step = (
@@ -257,9 +262,8 @@ class RecFSSpikeEulerBT(Layer):
                 ## - Back-tick spike detector
 
                 # - Locate spiking neurons
-                spike_ids = state > v_thresh
-                spike_ids = argwhere(spike_ids)
-                num_spikes = np.sum(spike_ids)
+                spike_ids = argwhere(state > v_thresh)
+                num_spikes = len(spike_ids)
 
                 # - Were there any spikes?
                 if num_spikes > 0:
@@ -412,6 +416,7 @@ class RecFSSpikeEulerBT(Layer):
 
             # - Extend state storage variables, if needed
             if step >= record_length:
+                print("extending record length")
                 extend = num_timesteps
                 times = np.append(times, full_nan(extend))
                 v = np.append(v, full_nan((self.size, extend)), axis=1)
@@ -484,7 +489,7 @@ class RecFSSpikeEulerBT(Layer):
         self._timestep += num_timesteps
 
         # - Return output TimeSeries
-        return TSEvent(spike_times, spike_indices)
+        return TSEvent(spike_times, spike_indices, t_stop=self.t)
 
     def to_dict(self) -> dict:
         """
@@ -545,9 +550,11 @@ class RecFSSpikeEulerBT(Layer):
 
     @Layer.dt.setter
     def dt(self, new_dt):
-        assert (
-            new_dt <= self._min_tau / 10
-        ), "`new_dt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
+        if new_dt > self._min_tau / 10:
+            raise ValueError(
+                self.start_print
+                + "`new_dt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
+            )
 
         # - Call super-class setter
         super(RecFSSpikeEulerBT, RecFSSpikeEulerBT).dt.__set__(self, new_dt)
