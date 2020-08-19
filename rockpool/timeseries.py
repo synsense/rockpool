@@ -1968,9 +1968,11 @@ class TSContinuous(TimeSeries):
     @fill_value.setter
     def fill_value(self, value):
         if isinstance(value, str):
-            assert (
-                value is "extrapolate"
-            ), '`.fill_value` must be either "extrapolate" or a fill value to pass to `scipy.interpoZzlate`.'
+            if value != "extrapolate":
+                raise ValueError(
+                    f"TSContinuous `{self.name}`: "
+                    + "Fill_value` must be either `extrapolate` or a fill value to pass to `scipy.interpolate`."
+                )
 
         self._fill_value = value
         if self.interp is not None:
@@ -2522,8 +2524,8 @@ class TSEvent(TimeSeries):
         :return TSEvent: A new `.TSEvent` containing the events in ``raster``
         """
 
-        # - Make sure ``raster`` is a numpy array
-        raster = np.array(raster)
+        # - Make sure ``raster`` is a numpy array of integer type
+        raster = np.asarray(raster, int)
 
         # - Reshape if the array is 1d
         if len(raster.shape) == 1 or raster.shape[1] == 1:
@@ -3006,9 +3008,10 @@ class TSEvent(TimeSeries):
         new_channels = np.asarray(new_channels)
 
         # - Check size of new data
-        assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
-            self.times
-        ), "`new_channels` must be the same size as `times`."
+        if np.size(new_channels) != 1 and np.size(new_channels) != np.size(self.times):
+            raise ValueError(
+                f"TSEvent `{self.name}`: `new_channels` must be the same size as `times`."
+            )
 
         # - Handle scalar channel
         if np.size(new_channels) == 1:

@@ -2,18 +2,16 @@
 # stack_jax.py — Implement trainable stacks of jax layers
 #
 
-from ...timeseries import TimeSeries, TSContinuous
+from ...timeseries import TSContinuous, TSEvent
 from ..network import Network
 from ...layers.training import JaxTrainer
 from ...layers.layer import Layer
 
-from typing import Tuple, List, Callable, Union, Dict, Sequence, Optional, Any
+from typing import Tuple, List, Callable, Dict, Sequence, Optional, Any
 
 from jax import jit
 from jax.experimental.optimizers import adam
 import jax.numpy as np
-
-import numpy as onp
 
 Params = List
 State = List
@@ -86,12 +84,18 @@ class JaxStack(Network, Layer, JaxTrainer):
         # - Check that the layers are subclasses of `JaxTrainer`
         if layers is not None:
             for layer in layers:
-                assert isinstance(
-                    layer, JaxTrainer
-                ), "Each layer must inherit from the `JaxTrainer` mixin class"
+                if not isinstance(layer, JaxTrainer):
+                    raise TypeError(
+                        "JaxStack: Each layer must inherit from the `JaxTrainer` mixin class"
+                    )
 
         # - Initialise super classes
         super().__init__(layers=layers, dt=dt, weights=[], *args, **kwargs)
+
+        # - Make sure every layer has same `dt`
+        for lyr in self.evol_order:
+            if lyr.dt != self.dt:
+                raise ValueError("JacStack: All layers must have same `dt`.")
 
         # - Initialise timestep
         self.__timestep: int = 0
@@ -148,20 +152,32 @@ class JaxStack(Network, Layer, JaxTrainer):
             new_states.append(new_state)
 
             # - Set up inputs for next layer
-            inps = out[:-1]
+            inps = out
+
+        # - Wrap outputs as time series
+        outputs_dict = {"external_input": ts_input}
+        for lyr, out in zip(self.evol_order, outputs):
+            if lyr.output_type == TSContinuous:
+                ts_out = TSContinuous.from_clocked(
+                    np.array(out), t_start=self.t, dt=self.dt, name=f"Output {lyr.name}"
+                )
+            else:
+                ts_out = TSEvent.from_raster(
+                    out,
+                    t_start=self.t,
+                    dt=self.dt,
+                    periodic=False,
+                    num_channels=lyr.size,
+                    spikes_at_bin_start=False,
+                    name=f"Spikes {lyr.name}",
+                )
+            outputs_dict.update({lyr.name: ts_out})
 
         # - Assign updated states
         self._states = new_states
 
         # - Update time stamps
-        self._timestep += inps.shape[0]
-
-        time_base = onp.append(time_base_inp, self.t)
-
-        # - Wrap outputs as time series
-        outputs_dict = {"external_input": ts_input}
-        for lyr, out in zip(self.evol_order, outputs):
-            outputs_dict.update({lyr.name: TSContinuous(time_base, np.array(out))})
+        self._timestep += num_timesteps
 
         # - Return a dictionary of outputs for all of the sublayers in this stack
         return outputs_dict
@@ -241,7 +257,7 @@ class JaxStack(Network, Layer, JaxTrainer):
                 layer_states_t.append(states_t)
 
                 # - Set up inputs for next layer
-                inputs = out if i_lyr == len(all_states) - 1 else out[:-1]
+                inputs = out
 
             # - Return outputs and state
             return out, new_states, layer_states_t

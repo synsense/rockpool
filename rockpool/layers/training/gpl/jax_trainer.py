@@ -392,7 +392,6 @@ class JaxTrainer(ABC):
 
             # - If using default loss, set up parameters
             if loss_fcn is None:
-                # print("default loss function")
                 loss_fcn = self._default_loss
                 default_loss_params = self._default_loss_params
                 default_loss_params.update(loss_params)
@@ -476,9 +475,10 @@ class JaxTrainer(ABC):
         # - Prepare time base and inputs
         if isinstance(ts_input, TimeSeries):
             # - Check that `ts_target` is also a time series
-            assert isinstance(
-                ts_target, TimeSeries
-            ), "If `ts_input` is provided as a `TimeSeries` object, then `ts_target` must also be a `TimeSeries`."
+            if not isinstance(ts_target, TimeSeries):
+                raise TypeError(
+                    "If `ts_input` is provided as a `TimeSeries` object, then `ts_target` must also be a `TimeSeries`."
+                )
 
             # - Rasterize input and target time series
             time_base, inps, num_timesteps = self._prepare_input(ts_input, None, None)
@@ -494,9 +494,8 @@ class JaxTrainer(ABC):
             target_batch_shape = list(target.shape)
 
             # - Check that batch sizes are equal
-            assert (
-                inp_batch_shape[batch_axis] == target_batch_shape[batch_axis]
-            ), "Input and Target do not have a matching batch size."
+            if inp_batch_shape[batch_axis] != target_batch_shape[batch_axis]:
+                raise ValueError("Input and Target do not have a matching batch size.")
 
         # - Define functions that evaluate the loss and the gradient on this trial
         def l_fcn():

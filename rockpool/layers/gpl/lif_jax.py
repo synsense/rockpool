@@ -549,9 +549,11 @@ class RecLIFJax(Layer, JaxTrainer):
         """
         # - Verify that `new_state` has the correct sizes
         for k, v in new_state.items():
-            assert (
-                np.size(v) == self.size
-            ), "New state values must have {} elements".format(self.size)
+            if np.size(v) != self.size:
+                raise ValueError(
+                    self.start_print
+                    + "New state values must have {} elements".format(self.size)
+                )
 
         # - Verify that `new_state` contains the correct keys
         if (
@@ -606,21 +608,6 @@ class RecLIFJax(Layer, JaxTrainer):
                 self._dt,
             )
 
-            # - Include outputs from initial state
-            (
-                output_initial,
-                surrogate_initial,
-                Irec_initial,
-                spikes_initial,
-            ) = self._get_outputs_from_state(state)
-            output_ts = np.append(output_initial.reshape(1, -1), output_ts, axis=0)
-            surrogate_ts = np.append(
-                surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
-            )
-            Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
-            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
-            Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
-
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
@@ -670,55 +657,63 @@ class RecLIFJax(Layer, JaxTrainer):
             ts_input, duration, num_timesteps
         )
 
-        # - Call raw evolution function
-        time_start = self.t
-        (__, new_state, states_t,) = self._evolve_functional(
+        # - Call raw evolution function and update state
+        (__, self._state, states_t,) = self._evolve_functional(
             self._pack(), self._state, inps
+        )
+
+        # - Record spike raster
+        self._spikes_last_evolution = TSEvent.from_raster(
+            raster=onp.array(states_t["spikes"]),
+            dt=self.dt,
+            t_start=self.t,
+            periodic=False,
+            num_channels=self.size,
+            spikes_at_bin_start=False,
+            name="Spikes " + self.name,
+        )
+
+        # - Record membrane traces
+        self._v_mem_last_evolution = TSContinuous.from_clocked(
+            onp.array(states_t["Vmem"]),
+            t_start=self.t,
+            dt=self.dt,
+            name="V_mem " + self.name,
+        )
+
+        # - Record neuron surrogates
+        self._surrogate_last_evolution = TSContinuous.from_clocked(
+            onp.array(states_t["surrogate"]),
+            t_start=self.t,
+            dt=self.dt,
+            name="$U$ " + self.name,
+        )
+
+        # - Record recurrent inputs
+        self._i_rec_last_evolution = TSContinuous.from_clocked(
+            onp.array(states_t["Irec"]),
+            t_start=self.t,
+            dt=self.dt,
+            name="$I_{rec}$ " + self.name,
+        )
+
+        # - Record synaptic currents
+        self._i_syn_last_evolution = TSContinuous.from_clocked(
+            onp.array(states_t["Isyn"]),
+            t_start=self.t,
+            dt=self.dt,
+            name="$I_{syn}$ " + self.name,
+        )
+
+        self._output_last_evolution = TSContinuous.from_clocked(
+            onp.array(states_t["output"]),
+            t_start=self.t,
+            dt=self.dt,
+            name="$O$ " + self.name,
         )
 
         # - Update time
         self._timestep += num_timesteps
-
-        # - Update state
-        self._state = new_state
-
-        # - Augment time base
-        time_base = onp.append(time_base_inp, self.t)
-
-        # - Record membrane traces
-        self._v_mem_last_evolution = TSContinuous(
-            time_base, onp.array(states_t["Vmem"]), name="V_mem " + self.name
-        )
-
-        # - Record spike raster
-        spikes_ids = onp.argwhere(onp.array(states_t["spikes"]))
-        self._spikes_last_evolution = TSEvent(
-            spikes_ids[:, 0] * self.dt + time_start + 0.5 * self.dt,
-            spikes_ids[:, 1],
-            t_start=time_start,
-            t_stop=self.t,
-            name="Spikes " + self.name,
-            num_channels=self.size,
-        )
-
-        # - Record neuron surrogates
-        self._surrogate_last_evolution = TSContinuous(
-            time_base, onp.array(states_t["surrogate"]), name="$U$ " + self.name
-        )
-
-        # - Record recurrent inputs
-        self._i_rec_last_evolution = TSContinuous(
-            time_base, onp.array(states_t["Irec"]), name="$I_{rec}$ " + self.name
-        )
-
-        # - Record synaptic currents
-        self._i_syn_last_evolution = TSContinuous(
-            time_base, onp.array(states_t["Isyn"]), name="$I_{syn}$ " + self.name
-        )
-
-        self._output_last_evolution = TSContinuous(
-            time_base, onp.array(states_t["output"]), name="$O$ " + self.name,
-        )
 
         # - Wrap spiking outputs as time series
         return self._spikes_last_evolution
@@ -808,12 +803,14 @@ class RecLIFJax(Layer, JaxTrainer):
 
     @w_recurrent.setter
     def w_recurrent(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_recurrent` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print + "`w_recurrent` must be 2D")
 
-        assert value.shape == (
-            self._size,
-            self._size,
-        ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
+        if value.shape != (self._size, self._size):
+            raise ValueError(
+                self.start_print
+                + "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
+            )
 
         self._weights = np.array(value).astype("float32")
 
@@ -828,19 +825,24 @@ class RecLIFJax(Layer, JaxTrainer):
         if np.size(value) == 1:
             value = np.repeat(value, self._size)
 
-        assert (
-            np.size(value) == self._size
-        ), "`tau_mem` must have {:d} elements or be a scalar".format(self._size)
+        if np.size(value) != self._size:
+            raise ValueError(
+                self.start_print
+                + "`tau_mem` must have {:d} elements or be a scalar".format(self._size)
+            )
 
         # - Check for valid time constant
-        assert np.all(value > 0.0), "`tau_mem` must be larger than zero"
+        if np.any(value <= 0.0):
+            raise ValueError(self.start_print + "`tau_mem` must be larger than zero")
 
         if hasattr(self, "dt"):
             tau_min = self.dt * 10.0
             numeric_eps = 1e-8
-            assert np.all(
-                value - tau_min + numeric_eps >= 0
-            ), "`tau_mem` must be larger than {:4f}".format(tau_min)
+            if np.any(value - tau_min + numeric_eps < 0):
+                raise ValueError(
+                    self.start_print
+                    + "`tau_mem` must be larger than {:4f}".format(tau_min)
+                )
 
         self._tau_mem = np.reshape(value, self._size).astype("float32")
 
@@ -855,19 +857,24 @@ class RecLIFJax(Layer, JaxTrainer):
         if np.size(value) == 1:
             value = np.repeat(value, self._size)
 
-        assert (
-            np.size(value) == self._size
-        ), "`tau_syn` must have {:d} elements or be a scalar".format(self._size)
+        if np.size(value) != self._size:
+            raise ValueError(
+                self.start_print
+                + "`tau_syn` must have {:d} elements or be a scalar".format(self._size)
+            )
 
         # - Check for valid time constant
-        assert np.all(value > 0.0), "`tau_syn` must be larger than zero"
+        if np.any(value <= 0.0):
+            raise ValueError(self.start_print + "`tau_syn` must be larger than zero")
 
         if hasattr(self, "dt"):
             tau_min = self.dt * 10.0
             numeric_eps = 1e-8
-            assert np.all(
-                value - tau_min + numeric_eps >= 0
-            ), "`tau_syn` must be larger than {:4f}".format(tau_min)
+            if np.any(value - tau_min + numeric_eps < 0):
+                raise ValueError(
+                    self.start_print
+                    + "`tau_syn` must be larger than {:4f}".format(tau_min)
+                )
 
         self._tau_syn = np.reshape(value, self._size).astype("float32")
 
@@ -882,9 +889,11 @@ class RecLIFJax(Layer, JaxTrainer):
         if np.size(value) == 1:
             value = np.repeat(value, self._size)
 
-        assert (
-            np.size(value) == self._size
-        ), "`bias` must have {:d} elements or be a scalar".format(self._size)
+        if np.size(value) != self._size:
+            raise ValueError(
+                self.start_print
+                + "`bias` must have {:d} elements or be a scalar".format(self._size)
+            )
 
         self._bias = np.reshape(value, self._size).astype("float32")
 
@@ -902,8 +911,12 @@ class RecLIFJax(Layer, JaxTrainer):
             value = tau_min
 
         # - Check for valid time constant
-        assert np.all(value > 0.0), "`dt` must be larger than zero"
-        assert value >= tau_min, "`dt` must be at least {:.2e}".format(tau_min)
+        if np.any(value <= 0.0):
+            raise ValueError(self.start_print + "`dt` must be larger than zero")
+        if value < tau_min:
+            raise ValueError(
+                self.start_print + "`dt` must be at least {:.2e}".format(tau_min)
+            )
 
         self._dt = np.array(value).astype("float32")
 
@@ -1008,21 +1021,6 @@ class RecLIFCurrentInJax(RecLIFJax):
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
-
-            # - Include outputs from final state
-            (
-                output_final,
-                surrogate_final,
-                Irec_final,
-                spikes_final,
-            ) = self._get_outputs_from_state(new_state)
-            output_ts = np.append(output_ts, output_final.reshape(1, -1), axis=0)
-            surrogate_ts = np.append(
-                surrogate_ts, surrogate_final.reshape(1, -1), axis=0
-            )
-            Vmem_ts = np.append(Vmem_ts, new_state["Vmem"].reshape(1, -1), axis=0)
-            Isyn_ts = np.append(Isyn_ts, new_state["Isyn"].reshape(1, -1), axis=0)
-            Irec_ts = np.append(Irec_ts, Irec_final.reshape(1, -1), axis=0)
 
             # - Return the outputs from this layer, and the final layer state
             states_t = {
@@ -1273,21 +1271,6 @@ class RecLIFJax_IO(RecLIFJax):
                 self._dt,
             )
 
-            # - Include outputs from initial state
-            (
-                output_initial,
-                surrogate_initial,
-                Irec_initial,
-                spikes_initial,
-            ) = self._get_outputs_from_state(state)
-            output_ts = np.append(output_initial.reshape(1, -1), output_ts, axis=0)
-            surrogate_ts = np.append(
-                surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
-            )
-            Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
-            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
-            Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
-
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
@@ -1301,7 +1284,7 @@ class RecLIFJax_IO(RecLIFJax):
                 "spikes": spikes_ts,
                 "output": output_ts,
             }
-            return output_ts[1:], new_state, states_t
+            return output_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -1336,12 +1319,14 @@ class RecLIFJax_IO(RecLIFJax):
 
     @w_in.setter
     def w_in(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_in` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print + "`w_in` must be 2D")
 
-        assert value.shape == (
-            self._size_in,
-            self._size,
-        ), "`win` must be [{:d}, {:d}]".format(self._size_in, self._size)
+        if value.shape != (self._size_in, self._size):
+            raise ValueError(
+                self.start_print
+                + "`win` must be [{:d}, {:d}]".format(self._size_in, self._size)
+            )
 
         self._w_in = np.array(value).astype("float32")
 
@@ -1352,12 +1337,14 @@ class RecLIFJax_IO(RecLIFJax):
 
     @w_out.setter
     def w_out(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_out` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print + "`w_out` must be 2D")
 
-        assert value.shape == (
-            self._size,
-            self._size_out,
-        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
+        if value.shape != (self._size, self._size_out,):
+            raise ValueError(
+                self.start_print
+                + "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
+            )
 
         self._w_out = np.array(value).astype("float32")
 
@@ -1476,21 +1463,6 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
-            # - Include outputs from initial state
-            (
-                output_initial,
-                surrogate_initial,
-                Irec_initial,
-                spikes_initial,
-            ) = self._get_outputs_from_state(state)
-            output_ts = np.append(output_initial.reshape(1, -1), output_ts, axis=0)
-            surrogate_ts = np.append(
-                surrogate_initial.reshape(1, -1), surrogate_ts, axis=0
-            )
-            Vmem_ts = np.append(state["Vmem"].reshape(1, -1), Vmem_ts, axis=0)
-            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
-            Irec_ts = np.append(Irec_initial.reshape(1, -1), Irec_ts, axis=0)
-
             # - Return the outputs from this layer, and the final layer state
             states_t = {
                 "Vmem": Vmem_ts,
@@ -1500,7 +1472,7 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
                 "spikes": spikes_ts,
                 "output": output_ts,
             }
-            return output_ts[1:], new_state, states_t
+            return output_ts, new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -2102,18 +2074,14 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
                 self._dt,
             )
 
-            # - Include outputs from initial state
-            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
-
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
 
             # - Return the outputs from this layer, and the final layer state
-            states_t = {
-                "Isyn": Isyn_ts,
-            }
-            return np.dot(Isyn_ts[1:], params["w_out"]), new_state, states_t
+            states_t = {"Isyn": Isyn_ts}
+
+            return np.dot(Isyn_ts, params["w_out"]), new_state, states_t
 
         # - Return the evolution function
         return evol_func
@@ -2146,16 +2114,19 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
             self._pack(), self._state, inps,
         )
 
+        # - Record synaptic currents
+        self._i_syn_last_evolution = TSContinuous.from_clocked(
+            onp.array(Isyn_ts),
+            t_start=self.t,
+            dt=self.dt,
+            name="$I_{syn}$ " + self.name,
+        )
+
         # - Increment layer time
         self._timestep += num_timesteps
 
         # - Augment time base
         time_base = onp.append(time_base, self.t)
-
-        # - Record synaptic currents
-        self._i_syn_last_evolution = TSContinuous(
-            time_base, onp.array(Isyn_ts), name="$I_{syn}$ " + self.name
-        )
 
         # - Advance time
         self._timestep += num_timesteps
@@ -2235,9 +2206,6 @@ class FFExpSynJax(FFExpSynCurrentInJax):
                 self._dt,
             )
 
-            # - Include outputs from initial state
-            Isyn_ts = np.append(state["Isyn"].reshape(1, -1), Isyn_ts, axis=0)
-
             # - Maintain RNG key, if not under compilation
             if not isinstance(key1, jax.core.Tracer):
                 self._rng_key = key1
@@ -2246,7 +2214,7 @@ class FFExpSynJax(FFExpSynCurrentInJax):
             states_t = {
                 "Isyn": Isyn_ts,
             }
-            return np.dot(Isyn_ts[1:], params["w_out"]), new_state, states_t
+            return np.dot(Isyn_ts, params["w_out"]), new_state, states_t
 
         # - Return the evolution function
         return evol_func
