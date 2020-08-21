@@ -13,7 +13,6 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
-    - pip install pytest>=6
     - pip install .[all] --no-cache-dir
 
   script:
@@ -29,7 +28,6 @@ nest_tests:
 
   before_script:
     - pip install --upgrade pip
-    - pip install pytest>=6
     - pip install .[all] --no-cache-dir
 
   script:
@@ -48,7 +46,6 @@ optional_tests:
 
   before_script:
     - pip install --upgrade pip
-    - pip install pytest>=6
     - pip install .[all] --no-cache-dir
 
   script:
