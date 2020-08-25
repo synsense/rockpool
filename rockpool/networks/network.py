@@ -13,7 +13,18 @@ This module encapsulates networks -- combinations of multiple `.Layer` objects, 
 import json
 from decimal import Decimal
 from copy import deepcopy
-from typing import Callable, Union, Tuple, List, Dict, Type, Optional, Any, Set, NoReturn
+from typing import (
+    Callable,
+    Union,
+    Tuple,
+    List,
+    Dict,
+    Type,
+    Optional,
+    Any,
+    Set,
+    NoReturn,
+)
 from warnings import warn
 
 import numpy as np
@@ -114,8 +125,8 @@ def lcm(a: RealValue, b: RealValue) -> Decimal:
     """
     # - Make sure that values used are sufficiently large
     # Transform to integer-values
-    a_rnd = np.round(float(a) / decimal_base)
-    b_rnd = np.round(float(b) / decimal_base)
+    a_rnd = round(float(a) / decimal_base)
+    b_rnd = round(float(b) / decimal_base)
     # - Make sure that a and b are not too small
     if (
         np.abs(a_rnd - float(a) / decimal_base) > tol_rel
@@ -167,7 +178,12 @@ class Network:
     """
 
     def __init__(
-        self, layers: List[Layer] = None, dt: Optional[float] = None, evolve_on_disk: bool = False, *args, **kwargs
+        self,
+        layers: List[Layer] = None,
+        dt: Optional[float] = None,
+        evolve_on_disk: bool = False,
+        *args,
+        **kwargs,
     ):
         """
         Base class to encapsulate several `.Layer` objects and manage signal routing
@@ -350,7 +366,9 @@ class Network:
         # - Reevaluate the layer evolution order
         self.evol_order = self._set_evolution_order()
 
-    def connect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False) -> NoReturn:
+    def connect(
+        self, pre_layer: Layer, post_layer: Layer, verbose: bool = False
+    ) -> NoReturn:
         """
         Connect two layers by defining one as the input layer of the other
 
@@ -398,7 +416,9 @@ class Network:
             post_layer.pre_layer = None
             raise e
 
-    def disconnect(self, pre_layer: Layer, post_layer: Layer, verbose: bool = False) -> NoReturn:
+    def disconnect(
+        self, pre_layer: Layer, post_layer: Layer, verbose: bool = False
+    ) -> NoReturn:
         """
         Remove the connection between two layers by setting the input of the target layer to `None`
 
@@ -521,7 +541,7 @@ class Network:
 
         # - Store number of layer time steps per global time step for each layer
         for lyr in self.layerset:
-            lyr._timesteps_per_network_dt = int(np.round(self._dt / lyr.dt))
+            lyr._timesteps_per_network_dt = int(round(self._dt / lyr.dt))
 
     def _fix_duration(self, t: float) -> float:
         """
@@ -585,7 +605,7 @@ class Network:
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`ts_input` finishes before the current evolution time."
                     )
-            num_timesteps = int(np.floor(duration / self.dt))
+            num_timesteps = int(round(duration / self.dt))
 
         if ts_input is not None:
             # - Set external input name if not set already
@@ -713,7 +733,7 @@ class Network:
                         "Network: Cannot determine an appropriate evolution duration. "
                         + "`ts_input` finishes before the current evolution time."
                     )
-            num_timesteps = int(np.floor(duration / self.dt))
+            num_timesteps = int(round(duration / self.dt))
 
         # - Number of time steps per batch
         if nums_ts_batch is None:
@@ -845,7 +865,7 @@ class Network:
             assert (
                 duration is not None
             ), "Network: Either `num_timesteps` or `duration` must be provided."
-            num_timesteps = int(np.floor(duration / self.dt))
+            num_timesteps = int(round(duration / self.dt))
 
         # - Prepare time base
         timebase = np.arange(num_timesteps + 1) * self._dt + self.t
@@ -1183,6 +1203,7 @@ class Network:
     def evolve_on_disk(self):
         """(bool) Whether to store evolution outputs in 'TSDictOnDisk'"""
         return self._evolve_on_disk
+
 
 ### --- NetworkError exception class
 class NetworkError(Exception):
