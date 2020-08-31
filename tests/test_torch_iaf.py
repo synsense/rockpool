@@ -68,7 +68,7 @@ def test_ffiaf_spkin_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in, t_stop=tDur)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(fl.state)
@@ -147,7 +147,7 @@ def test_reciaf_spkin_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in, t_stop=tDur)
 
     weights_in = 0.1 * np.random.randn(size_in, size)
     weights_rec = 0.001 * np.random.randn(size, size)
@@ -256,7 +256,7 @@ def test_ffiaf_spkin_refr_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in, t_stop=tDur)
 
     # - Compare states and time before and after
     vStateBefore = np.copy(flr.state)
@@ -378,7 +378,7 @@ def test_reciaf_spkin_refr_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in, t_stop=tDur)
 
     weights_in = 0.1 * np.random.randn(size_in, size)
     weights_rec = 0.001 * np.random.randn(size, size)
@@ -439,7 +439,7 @@ def test_reciaf_spkin_refr_cl_torch():
 
     vtIn = np.sort(np.random.rand(nSpikesIn)) * tDur
     vnChIn = np.random.randint(size_in, size=nSpikesIn)
-    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in)
+    tsIn = TSEvent(vtIn, vnChIn, num_channels=size_in, t_stop=tDur)
 
     weights_in = 0.1 * np.random.randn(size_in, size)
     weights_rec = 0.001 * np.random.randn(size, size)

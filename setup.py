@@ -15,7 +15,7 @@ setup(
         "all": [
             "tqdm",
             "brian2",
-            "pytest",
+            "pytest>=6.0",
             "pytest-xdist",
             "torch",
             "torchvision",
