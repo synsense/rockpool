@@ -15,7 +15,8 @@ setup(
         "all": [
             "tqdm",
             "brian2",
-            "pytest",
+            "pytest>=6.0",
+            "pytest-xdist",
             "torch",
             "torchvision",
             "rpyc",
@@ -42,5 +43,5 @@ setup(
         "Source Code": "https://gitlab.com/aiCTX/rockpool",
         "Documentation": "https://rockpool.ai",
         "Bug Tracker": "https://gitlab.com/aiCTX/rockpool/-/issues",
-        },
+    },
 )

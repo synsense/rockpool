@@ -82,17 +82,17 @@ def test_RecRateEulerJax():
         )
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax(
             weights=np.zeros((3, 2)), tau=np.zeros(3), bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax(
             weights=np.zeros((2, 2)), tau=np.zeros(3), bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax(
             weights=np.zeros((2, 2)), tau=np.zeros(2), bias=np.zeros(3),
         )
@@ -184,7 +184,7 @@ def test_RecRateEulerJax_IO():
         )
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_recurrent=np.zeros((3, 2)),
@@ -193,7 +193,7 @@ def test_RecRateEulerJax_IO():
             bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_recurrent=np.zeros((2, 2)),
@@ -202,7 +202,7 @@ def test_RecRateEulerJax_IO():
             bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_recurrent=np.zeros((2, 2)),
@@ -211,7 +211,7 @@ def test_RecRateEulerJax_IO():
             bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = RecRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_recurrent=np.zeros((2, 2)),
@@ -294,7 +294,7 @@ def test_ForceRateEulerJax_IO():
         )
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = ForceRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_out=np.zeros((3, 1)),
@@ -302,7 +302,7 @@ def test_ForceRateEulerJax_IO():
             bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = ForceRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_out=np.zeros((2, 1)),
@@ -310,7 +310,7 @@ def test_ForceRateEulerJax_IO():
             bias=np.zeros(3),
         )
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = ForceRateEulerJax_IO(
             w_in=np.zeros((1, 2)),
             w_out=np.zeros((2, 1)),
@@ -394,10 +394,10 @@ def test_FFRateEulerJax():
         )
 
     # - Test that some errors are caught
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = FFRateEulerJax(w_in=np.zeros((1, 2)), tau=np.zeros(3), bias=np.zeros(3),)
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         fl1 = FFRateEulerJax(w_in=np.zeros((1, 2)), tau=np.zeros(2), bias=np.zeros(3),)
 
     with pytest.raises(ValueError):

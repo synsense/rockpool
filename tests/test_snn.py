@@ -22,7 +22,7 @@ def test_pt_events():
     # - Input signal
     time_trace = [0.1, 0.2, 0.7, 0.8, 0.9]
     channels = [1, 2, 0, 1, 1]
-    ts_input = TSEvent(time_trace, channels)
+    ts_input = TSEvent(time_trace, channels, t_stop=1.5)
 
     # - Layer
     lpt = PassThroughEvents(np.array([[0, 2], [1, 1], [0, 0]]), dt=0.4)
@@ -85,7 +85,7 @@ def test_ffcliaf_evolve_subtracting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
+    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1], t_stop=1)
 
     # - Evolution
     tsOutput = lyrFF.evolve(ts_input, duration=0.75)
@@ -93,13 +93,13 @@ def test_ffcliaf_evolve_subtracting():
     print(lyrFF._ts_state)
 
     # - Expectation: First input spike will cause neuron 0 to spike 2 times at
-    #                t=0.6 but not neuron 2 because of negative bias.
-    #                Second input spike will cause neuron 2 to spike at t=0.7
+    #                t=0.55 but not neuron 2 because of negative bias.
+    #                Second input spike will cause neuron 2 to spike at t=0.65
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     print(tsOutput.times)
     assert np.allclose(
-        tsOutput.times, np.array([0.6, 0.6, 0.7])
+        tsOutput.times, np.array([0.55, 0.55, 0.65])
     ), "Output spike times not as expected"
     assert (
         tsOutput.channels == np.array([0, 0, 2])
@@ -113,7 +113,7 @@ def test_ffcliaf_evolve_subtracting():
 
 def test_cliaf_evolve_resetting():
     """
-    Test initialization and evolution of RecCLIAF layer using reset after spikes.
+    Test initialization and evolution of FFCLIAF layer using reset after spikes.
     """
     from rockpool.layers import FFCLIAF
     from rockpool.timeseries import TSEvent
@@ -132,7 +132,7 @@ def test_cliaf_evolve_resetting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1])
+    ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1], t_stop=1)
 
     # - Evolution
     tsOutput = lyrFF.evolve(ts_input, duration=0.8)
@@ -140,12 +140,12 @@ def test_cliaf_evolve_resetting():
     print(lyrFF._ts_state)
 
     # - Expectation: First input spike will cause neuron 0 to spike once at
-    #                t=0.6 but not neuron 2 because of negative bias.
-    #                Second input spike will cause neuron 2 to spike at t=0.7
+    #                t=0.55 but not neuron 2 because of negative bias.
+    #                Second input spike will cause neuron 2 to spike at t=0.65
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     assert np.allclose(
-        tsOutput.times, np.array([0.6, 0.7])
+        tsOutput.times, np.array([0.55, 0.65])
     ), "Output spike times not as expected"
     assert (
         tsOutput.channels == np.array([0, 2])

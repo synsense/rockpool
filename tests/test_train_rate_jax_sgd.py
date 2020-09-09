@@ -31,7 +31,7 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     )
 
     # - Define simple input and target
-    ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1])
+    ts_input = TSContinuous([0, 1, 2, 3], [1, 1, 1, 1], t_stop=4)
     ts_target = TSContinuous([0, 1, 2, 3], [0.1, 0.1, 0.1, 0.1])
 
     # - Initialise training
@@ -43,13 +43,13 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     o = output_fcn()
 
     # - Test known loss and gradient values
-    l_target = 1477
+    l_target = 6488
     g_target = {
-        "bias": np.array([138, 138]),
-        "tau": np.array([-112, -112]),
-        "w_in": np.array([[138, 138]]),
-        "w_out": np.array([[138], [138]]),
-        "w_recurrent": np.array([[50, 50], [50, 50]]),
+        "bias": np.array([639, 639]),
+        "tau": np.array([-637, -637]),
+        "w_in": np.array([[639, 639]]),
+        "w_out": np.array([[639], [639]]),
+        "w_recurrent": np.array([[339, 339], [339, 339]]),
     }
 
     # - Check loss
@@ -86,9 +86,9 @@ def test_train_rate_jax_sgd_RecRateEulerJax_IO():
     assert np.all(np.abs(fl0.w_recurrent - w_recurrent_target) < target_eps)
 
     # - Test known output values
-    ts_output = fl0.evolve(ts_input)
+    ts_output = fl0.evolve(ts_input, duration=3)
 
-    ts_output_target = [[0.0], [9.99895], [29.49645996], [67.51574707]]
+    ts_output_target = [[9.99895], [29.49645996], [67.51574707]]
 
     assert np.all(np.abs(ts_output.samples - ts_output_target) < target_eps)
 

@@ -2,12 +2,12 @@
 # stack_jax.py — Implement trainable stacks of jax layers
 #
 
-from ...timeseries import TimeSeries, TSContinuous
+from ...timeseries import TSContinuous, TSEvent
 from ..network import Network
 from ...layers.training import JaxTrainer
 from ...layers.layer import Layer
 
-from typing import Tuple, List, Callable, Union, Dict, Sequence, Any, Optional
+from typing import Tuple, List, Callable, Dict, Sequence, Optional, Any
 
 from jax import jit
 from jax.experimental.optimizers import adam
@@ -21,14 +21,14 @@ __all__ = ["JaxStack"]
 
 
 def loss_mse_reg_stack(
-        params: List,
-        states_t: Dict[str, np.ndarray],
-        output_batch_t: np.ndarray,
-        target_batch_t: np.ndarray,
-        min_tau: float,
-        lambda_mse: float = 1.0,
-        reg_tau: float = 10000.0,
-        reg_l2_rec: float = 1.0,
+    params: List,
+    states_t: Dict[str, np.ndarray],
+    output_batch_t: np.ndarray,
+    target_batch_t: np.ndarray,
+    min_tau: float,
+    lambda_mse: float = 1.0,
+    reg_tau: float = 10000.0,
+    reg_l2_rec: float = 1.0,
 ) -> float:
     """
     Loss function for target versus output
@@ -74,7 +74,7 @@ class JaxStack(Network, Layer, JaxTrainer):
 
 
     """
-    
+
     def __init__(self, layers: Sequence = None, dt=None, *args, **kwargs):
         """
         Encapsulate a stack of Jax layers in a single layer / network
@@ -85,12 +85,18 @@ class JaxStack(Network, Layer, JaxTrainer):
         # - Check that the layers are subclasses of `JaxTrainer`
         if layers is not None:
             for layer in layers:
-                assert isinstance(
-                    layer, JaxTrainer
-                ), "Each layer must inherit from the `JaxTrainer` mixin class"
+                if not isinstance(layer, JaxTrainer):
+                    raise TypeError(
+                        "JaxStack: Each layer must inherit from the `JaxTrainer` mixin class"
+                    )
 
         # - Initialise super classes
         super().__init__(layers=layers, dt=dt, weights=[], *args, **kwargs)
+
+        # - Make sure every layer has same `dt`
+        for lyr in self.evol_order:
+            if lyr.dt != self.dt:
+                raise ValueError("JacStack: All layers must have same `dt`.")
 
         # - Initialise timestep
         self.__timestep: int = 0
@@ -130,7 +136,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             return {}
 
         # - Prepare time base and inputs, using first layer
-        time_base, ext_inps, num_timesteps = self.input_layer._prepare_input(
+        time_base_inp, ext_inps, num_timesteps = self.input_layer._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -149,16 +155,30 @@ class JaxStack(Network, Layer, JaxTrainer):
             # - Set up inputs for next layer
             inps = out
 
+        # - Wrap outputs as time series
+        outputs_dict = {"external_input": ts_input}
+        for lyr, out in zip(self.evol_order, outputs):
+            if lyr.output_type == TSContinuous:
+                ts_out = TSContinuous.from_clocked(
+                    np.array(out), t_start=self.t, dt=self.dt, name=f"Output {lyr.name}"
+                )
+            else:
+                ts_out = TSEvent.from_raster(
+                    out,
+                    t_start=self.t,
+                    dt=self.dt,
+                    periodic=False,
+                    num_channels=lyr.size,
+                    spikes_at_bin_start=False,
+                    name=f"Spikes {lyr.name}",
+                )
+            outputs_dict.update({lyr.name: ts_out})
+
         # - Assign updated states
         self._states = new_states
 
         # - Update time stamps
-        self._timestep += inps.shape[0]
-
-        # - Wrap outputs as time series
-        outputs_dict = {"external_input": TSContinuous(time_base, ext_inps)}
-        for lyr, out in zip(self.evol_order, outputs):
-            outputs_dict.update({lyr.name: TSContinuous(time_base, np.array(out))})
+        self._timestep += num_timesteps
 
         # - Return a dictionary of outputs for all of the sublayers in this stack
         return outputs_dict
@@ -209,7 +229,9 @@ class JaxStack(Network, Layer, JaxTrainer):
     @property
     def _evolve_functional(
         self,
-    ) -> Callable[[Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]]:
+    ) -> Callable[
+        [Params, State, np.ndarray], Tuple[List[np.ndarray], State, List[np.ndarray]]
+    ]:
         """
         Return a functional form of the evolution function for this stack, with no side-effects
 
@@ -225,7 +247,9 @@ class JaxStack(Network, Layer, JaxTrainer):
             layer_states_t = []
             inputs = ext_inputs
             out = np.array([])
-            for p, s, evol_func in zip(params, all_states, self._all_evolve_funcs):
+            for i_lyr, (p, s, evol_func) in enumerate(
+                zip(params, all_states, self._all_evolve_funcs)
+            ):
                 # - Evolve layer
                 out, new_state, states_t = evol_func(p, s, inputs)
 
@@ -276,3 +300,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             loaddict: dict = json.load(f)
         net = Network.load_from_dict(loaddict)
         return JaxStack([l for l in net.evol_order])
+        
+    @property
+    def input_type(self):
+        return self.evol_order[0].input_type

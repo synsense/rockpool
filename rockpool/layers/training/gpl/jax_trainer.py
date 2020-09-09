@@ -16,7 +16,6 @@ from copy import deepcopy
 
 from abc import abstractmethod, ABC
 
-from warnings import warn
 
 # - Import jax elements
 from jax import numpy as np
@@ -90,12 +89,12 @@ def flatten(
 ) -> Collection:
     """
     Flattens a generic collection of collections into an ordered dictionary.
-    
+
     ``generic_collection`` is a nested tree of inhomogeneous collections, such as `list`, `set`, `dict`, etc. This function iterates through this generic collection, and flattens all the leaf nodes into a single collection. The keys in the returned collection will be named after the orginal keys in ``generic_collection``, if any, and after the nesting level.
-    
+
     :param Union[Iterable, Collection] generic_collection:  A nested tree of iterable types or collections, that will be flattened
     :param str sep:                                         The separator character to use when building keys in the flattened collection. Default: "_"
-    
+
     :return Collection flattened_collection: A collection of all the items in ``generic_collection``, flattened into a single coellction.
     """
     import collections
@@ -393,7 +392,6 @@ class JaxTrainer(ABC):
 
             # - If using default loss, set up parameters
             if loss_fcn is None:
-                # print("default loss function")
                 loss_fcn = self._default_loss
                 default_loss_params = self._default_loss_params
                 default_loss_params.update(loss_params)
@@ -477,9 +475,10 @@ class JaxTrainer(ABC):
         # - Prepare time base and inputs
         if isinstance(ts_input, TimeSeries):
             # - Check that `ts_target` is also a time series
-            assert isinstance(
-                ts_target, TimeSeries
-            ), "If `ts_input` is provided as a `TimeSeries` object, then `ts_target` must also be a `TimeSeries`."
+            if not isinstance(ts_target, TimeSeries):
+                raise TypeError(
+                    "If `ts_input` is provided as a `TimeSeries` object, then `ts_target` must also be a `TimeSeries`."
+                )
 
             # - Rasterize input and target time series
             time_base, inps, num_timesteps = self._prepare_input(ts_input, None, None)
@@ -492,34 +491,27 @@ class JaxTrainer(ABC):
         # - Check for batch dimension, and augment if necessary
         if batch_axis is not None:
             inp_batch_shape = list(inps.shape)
-            # if len(inp_batch_shape) < batch_axis:
-            #     inp_batch_shape[batch_axis] = 1
-            #
             target_batch_shape = list(target.shape)
-            # if len(target_batch_shape) < batch_axis:
-            #     target_batch_shape[batch_axis] = 1
 
             # - Check that batch sizes are equal
-            assert (
-                inp_batch_shape[batch_axis] == target_batch_shape[batch_axis]
-            ), "Input and Target do not have a matching batch size."
+            if inp_batch_shape[batch_axis] != target_batch_shape[batch_axis]:
+                raise ValueError("Input and Target do not have a matching batch size.")
 
-            # # - Reshape inputs and targets to batch shape
-            # inps = np.reshape(inps, inp_batch_shape)
-            # target = np.reshape(target, target_batch_shape)
+        # - Define functions that evaluate the loss and the gradient on this trial
+        def l_fcn():
+            return self.__loss_fcn(
+                self.__get_params(self.__opt_state), inps, target, self._state
+            )
 
-        # - Create lambdas that evaluate the loss and the gradient on this trial
-        l_fcn, g_fcn, o_fcn = (
-            lambda: self.__loss_fcn(
+        def g_fcn():
+            return self.__grad_fcn(
                 self.__get_params(self.__opt_state), inps, target, self._state
-            ),
-            lambda: self.__grad_fcn(
-                self.__get_params(self.__opt_state), inps, target, self._state
-            ),
-            lambda: self.__evolve_functional(
+            )
+
+        def o_fcn():
+            return self.__evolve_functional(
                 self.__get_params(self.__opt_state), self._state, inps
-            ),
-        )
+            )
 
         # - NaNs raise errors
         if debug_nans:

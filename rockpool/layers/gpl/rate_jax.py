@@ -21,7 +21,6 @@ import jax.random as rand
 import numpy as onp
 
 from typing import Optional, Tuple, Callable, Union, Dict, List, Any
-from warnings import warn
 
 from rockpool.layers.layer import Layer
 from rockpool.layers.training.gpl.jax_trainer import JaxTrainer
@@ -98,7 +97,7 @@ def _get_rec_evolve_jit(
         """
         Compiled recurrent evolution function
 
-        :param np.ndarray x0:       Initial state of forced layer [N]
+        :param np.ndarray x0:       Initial state of reservoir layer [N]
         :param np.ndarray w_in:     Input weights [IxN]
         :param np.ndarray w_recurrent:     Recurrent weights [NxN]
         :param np.ndarray w_out:    Output weights [NxO]
@@ -122,36 +121,38 @@ def _get_rec_evolve_jit(
         dt_tau = dt / tau
 
         # - Reservoir state step function (forward Euler solver)
-        def reservoir_step(x, inps):
+        def reservoir_step(x, inp):
             """
             reservoir_step() - Single step of recurrent reservoir
 
-            :param x:       np.ndarray Current state of reservoir units
-            :param inps:    np.ndarray Inputs to each reservoir unit for the current step
+            :param x:       np.ndarray Current state and activation of reservoir units
+            :param inp:    np.ndarray Inputs to each reservoir unit for the current step
 
-            :return:    xnext, (rec_input, activation)
+            :return:    (new_state, new_activation), (rec_input, activation)
             """
-            inp, rand = inps
-            activation = H(x)
+            state, activation = x
             rec_input = np.dot(activation, w_recurrent)
-            dx = dt_tau * (-x + inp + bias + rand + rec_input)
+            state += dt_tau * (-state + inp + bias + rec_input)
+            activation = H(state)
 
-            return x + dx, (rec_input, activation)
+            return (state, activation), (rec_input, activation)
 
         # - Evaluate passthrough input layer
         res_inputs = np.dot(inputs, w_in)
 
         # - Compute random numbers for reservoir noise
         key1, subkey = rand.split(key)
-        noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
+        noise = noise_std * rand.normal(subkey, shape=res_inputs.shape)
+
+        inputs = res_inputs + noise
 
         # - Use `scan` to evaluate reservoir
-        x, (rec_inputs, res_acts) = scan(reservoir_step, x0, (res_inputs, noise))
+        (state, __), (rec_inputs, res_acts) = scan(reservoir_step, (x0, H(x0)), inputs)
 
         # - Evaluate passthrough output layer
         outputs = np.dot(res_acts, w_out)
 
-        return x, res_inputs, rec_inputs, res_acts, outputs, key1
+        return state, res_inputs, rec_inputs, res_acts, outputs, key1
 
     return rec_evolve_jit
 
@@ -256,22 +257,23 @@ def _get_force_evolve_jit(
         dt_tau = dt / tau
 
         # - Reservoir state step function (forward Euler solver)
-        def reservoir_step(x, inps):
-            inp, rand, force = inps
+        def reservoir_step(x, inp):
+            x += dt_tau * (-x + inp + bias)
             activation = H(x)
-            dx = dt_tau * (-x + inp + bias + rand + force)
 
-            return x + dx, activation
+            return x, activation
 
         # - Evaluate passthrough input layer
         res_inputs = np.dot(inputs, w_in)
 
         # - Compute random numbers for reservoir noise
         key1, subkey = rand.split(key)
-        noise = noise_std * rand.normal(subkey, shape=(inputs.shape[0], np.size(x0)))
+        noise = noise_std * rand.normal(subkey, shape=res_inputs.shape)
+
+        inputs = res_inputs + noise + force
 
         # - Use `scan` to evaluate reservoir
-        x, res_acts = scan(reservoir_step, x0, (res_inputs, noise, force))
+        x, res_acts = scan(reservoir_step, x0, inputs)
 
         # - Evaluate passthrough output layer
         outputs = np.dot(res_acts, w_out)
@@ -341,6 +343,12 @@ class RecRateEulerJax(JaxTrainer, Layer):
         # transform to np.array if necessary
         tau = np.array(tau)
         bias = np.array(bias)
+
+        # - Assign name such that Exceptions in setters work correctly
+        if name is None:
+            self.name = "unnamed"
+        else:
+            self.name = name
 
         # - Get information about network size
         self._size_in = weights.shape[0]
@@ -474,11 +482,19 @@ class RecRateEulerJax(JaxTrainer, Layer):
                 "res_inputs": res_inputs,
                 "rec_inputs": rec_inputs,
                 "res_acts": res_acts,
+                "outputs": outputs,
             }
             return outputs, new_state, states_t
 
         # - Return the evolution function
         return evol_func
+
+    def get_output_from_state(self, state):
+        activity = self._H(state)
+        output = np.dot(activity, self._w_out)
+        rec_input = np.dot(activity, self._weights)
+
+        return output, activity, rec_input
 
     def evolve(
         self,
@@ -497,7 +513,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
+        time_base_inp, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -522,98 +538,26 @@ class RecRateEulerJax(JaxTrainer, Layer):
             self._dt,
         )
 
-        # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
-
         # - Store evolution time series
-        self.res_inputs_last_evolution = TSContinuous(
-            time_base, res_inputs, name="Reservoir inputs"
+        self.res_inputs_last_evolution = TSContinuous.from_clocked(
+            onp.array(res_inputs), t_start=self.t, dt=self.dt, name="Reservoir inputs"
         )
-        self.rec_inputs_last_evolution = TSContinuous(
-            time_base, rec_inputs, name="Recurrent inputs"
+        self.rec_inputs_last_evolution = TSContinuous.from_clocked(
+            onp.array(rec_inputs), t_start=self.t, dt=self.dt, name="Recurrent inputs"
         )
-        self.res_acts_last_evolution = TSContinuous(
-            time_base, res_acts, name="Layer activations"
+        self.res_acts_last_evolution = TSContinuous.from_clocked(
+            onp.array(res_acts), t_start=self.t, dt=self.dt, name="Layer activations"
         )
 
         # - Wrap outputs as time series
-        return TSContinuous(time_base, onp.array(outputs), name="Output")
-
-    def _evolve_directly_raw(self, inps: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        self._state, res_inputs, rec_inputs, res_acts, outputs = self._evolve_directly_jit(
-            self._state,
-            self._w_recurrent,
-            self._w_out,
-            self._bias,
-            self._tau,
-            inps,
-            self._noise_std,
-            self._rng_key,
-            self._dt,
+        ts_output = TSContinuous.from_clocked(
+            onp.array(outputs), t_start=self.t, dt=self.dt, name="Surrogate outputs"
         )
 
-        self._timestep += inps.shape[0] - 1
+        # - Increment timesteps
+        self._timestep += num_timesteps
 
-        return res_inputs, rec_inputs, res_acts, outputs
-
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSContinuous] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, np.ndarray, float):
-        """
-        _prepare_input - Sample input, set up time base
-
-        :param Optional[TSContinuous] ts_input: TxM or Tx1 Input signals for this layer
-        :param Optional[float] duration:        Duration of the desired evolution, in seconds
-        :param Optional[int] num_timesteps:     Number of evolution time steps
-
-        :return: (time_base, input_steps, duration)
-            time_base:          ndarray T1 Discretised time base for evolution
-            input_steps:        ndarray (T1xN) Discretised input signal for layer
-            num_timesteps:      int Actual number of evolution time steps
-        """
-
-        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
-
-        # - Generate discrete time base
-        time_base = onp.array(self._gen_time_trace(self.t, num_timesteps))
-
-        if ts_input is not None:
-            if not ts_input.periodic:
-                # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                if (
-                    ts_input.t_start - 1e-3 * self.dt
-                    <= time_base[0]
-                    <= ts_input.t_start
-                ):
-                    time_base[0] = ts_input.t_start
-                if ts_input.t_stop <= time_base[-1] <= ts_input.t_stop + 1e-3 * self.dt:
-                    time_base[-1] = ts_input.t_stop
-
-            # - Warn if evolution period is not fully contained in ts_input
-            if not (ts_input.contains(time_base) or ts_input.periodic):
-                warn(
-                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                        self.name, time_base[0], time_base[-1]
-                    )
-                    + "not fully contained in input signal (t = {} to {})".format(
-                        ts_input.t_start, ts_input.t_stop
-                    )
-                )
-
-            # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base))
-
-            # - Treat "NaN" as zero inputs
-            input_steps[onp.where(np.isnan(input_steps))] = 0
-
-        else:
-            # - Assume zero inputs
-            input_steps = np.zeros((np.size(time_base), self.size_in))
-
-        return time_base, np.array(input_steps), num_timesteps
+        return ts_output
 
     def to_dict(self) -> dict:
         """
@@ -634,9 +578,11 @@ class RecRateEulerJax(JaxTrainer, Layer):
         config["name"] = self.name
 
         # - Check for a supported activation function
-        assert (
-            self._H is H_ReLU or self._H is H_tanh or self._H is H_sigmoid
-        ), "Only models using ReLU, tanh or sigmoid activation functions are saveable."
+        if not (self._H is H_ReLU or self._H is H_tanh or self._H is H_sigmoid):
+            raise RuntimeError(
+                self.start_print
+                + "Only models using ReLU, tanh or sigmoid activation functions are saveable."
+            )
 
         # - Encode the activation function as a string
         if self._H is H_ReLU:
@@ -685,13 +631,17 @@ class RecRateEulerJax(JaxTrainer, Layer):
                     "The activation function must be a Callable[[FloatVector], FloatVector]"
                 )
 
-            assert (
-                np.size(ret) == 2
-            ), "The activation function must return an array the same size as the input"
+            if np.size(ret) != 2:
+                raise ValueError(
+                    self.start_print
+                    + "The activation function must return an array the same size as the input"
+                )
 
-            assert (
-                type(ret) is not tuple
-            ), "The activation function must not return multiple arguments"
+            if isinstance(ret, tuple):
+                raise TypeError(
+                    self.start_print,
+                    "The activation function must not return multiple arguments",
+                )
 
             # - Assign the activation function
             self._H = value
@@ -703,12 +653,14 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
     @w_recurrent.setter
     def w_recurrent(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_recurrent` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print + "`w_recurrent` must be 2D")
 
-        assert value.shape == (
-            self._size,
-            self._size,
-        ), "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
+        if value.shape != (self._size, self._size,):
+            raise ValueError(
+                self.start_print
+                + "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
+            )
 
         self._weights = np.array(value).astype("float")
 
@@ -722,9 +674,11 @@ class RecRateEulerJax(JaxTrainer, Layer):
         if np.size(value) == 1:
             value = np.repeat(value, self._size)
 
-        assert (
-            np.size(value) == self._size
-        ), "`tau` must have {:d} elements or be a scalar".format(self._size)
+        if np.size(value) != self._size:
+            raise ValueError(
+                self.start_print
+                + "`tau` must have {:d} elements or be a scalar".format(self._size)
+            )
 
         self._tau = np.reshape(value, self._size).astype("float")
 
@@ -738,9 +692,11 @@ class RecRateEulerJax(JaxTrainer, Layer):
         if np.size(value) == 1:
             value = np.repeat(value, self._size)
 
-        assert (
-            np.size(value) == self._size
-        ), "`bias` must have {:d} elements or be a scalar".format(self._size)
+        if np.size(value) != self._size:
+            raise ValueError(
+                self.start_print
+                + "`bias` must have {:d} elements or be a scalar".format(self._size)
+            )
 
         self._bias = np.reshape(value, self._size).astype("float")
 
@@ -755,7 +711,10 @@ class RecRateEulerJax(JaxTrainer, Layer):
         if value is None:
             value = tau_min
 
-        assert value >= tau_min, "`tau` must be at least {:.2e}".format(tau_min)
+        if value < tau_min:
+            raise ValueError(
+                self.start_print + "`tau` must be at least {:.2e}".format(tau_min)
+            )
 
         self._dt = np.array(value).astype("float")
 
@@ -824,6 +783,12 @@ class RecRateEulerJax_IO(RecRateEulerJax):
         tau = np.array(tau)
         bias = np.array(bias)
 
+        # - Assign name such that Exceptions in setters work correctly
+        if name is None:
+            self.name = "unnamed"
+        else:
+            self.name = name
+
         # - Get information about network size
         self._size_in = w_in.shape[0]
         self._size = w_in.shape[1]
@@ -888,12 +853,14 @@ class RecRateEulerJax_IO(RecRateEulerJax):
 
     @w_in.setter
     def w_in(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_in` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print, "`w_in` must be 2D")
 
-        assert value.shape == (
-            self._size_in,
-            self._size,
-        ), "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
+        if value.shape != (self._size_in, self._size,):
+            raise ValueError(
+                self.start_print
+                + "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
+            )
 
         self._w_in = np.array(value).astype("float")
 
@@ -904,12 +871,14 @@ class RecRateEulerJax_IO(RecRateEulerJax):
 
     @w_out.setter
     def w_out(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_out` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print + "`w_out` must be 2D")
 
-        assert value.shape == (
-            self._size,
-            self._size_out,
-        ), "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
+        if value.shape != (self._size, self._size_out,):
+            raise ValueError(
+                self.start_print
+                + "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
+            )
 
         self._w_out = np.array(value).astype("float")
 
@@ -1028,11 +997,18 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
             states_t = {
                 "res_inputs": res_inputs,
                 "res_acts": res_acts,
+                "outputs": outputs,
             }
             return outputs, new_state, states_t
 
         # - Return the evolution function
         return evol_func
+
+    def get_output_from_state(self, state):
+        activity = self._H(state)
+        output = np.dot(activity, self._w_out)
+
+        return output, activity
 
     def evolve(
         self,
@@ -1053,7 +1029,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         """
 
         # - Prepare time base and inputs
-        time_base, inps, num_timesteps = self._prepare_input(
+        time_base_inp, inps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -1061,7 +1037,7 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         if ts_force is None:
             forces = np.zeros((num_timesteps, self._size))
         else:
-            forces = ts_force(time_base)
+            forces = ts_force(time_base_inp)
 
         # - Call raw evolution function
         self._state, _, _, outputs, self._rng_key = self._evolve_jit(
@@ -1077,11 +1053,15 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
             self._dt,
         )
 
-        # - Increment timesteps
-        self._timestep += inps.shape[0] - 1
-
         # - Wrap outputs as time series
-        return TSContinuous(time_base, outputs)
+        ts_output = TSContinuous.from_clocked(
+            onp.array(outputs), t_start=self.t, dt=self.dt
+        )
+
+        # - Increment timesteps
+        self._timestep += num_timesteps
+
+        return ts_output
 
     def to_dict(self) -> dict:
         """
@@ -1203,12 +1183,14 @@ class FFRateEulerJax(RecRateEulerJax):
 
     @w_in.setter
     def w_in(self, value: np.ndarray):
-        assert np.ndim(value) == 2, "`w_in` must be 2D"
+        if np.ndim(value) != 2:
+            raise ValueError(self.start_print + "`w_in` must be 2D")
 
-        assert value.shape == (
-            self._size_in,
-            self._size,
-        ), "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
+        if value.shape != (self._size_in, self._size,):
+            raise ValueError(
+                self.start_print
+                + "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
+            )
 
         self._w_in = np.array(value).astype("float")
 

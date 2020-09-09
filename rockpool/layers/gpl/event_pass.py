@@ -60,7 +60,6 @@ class PassThroughEvents(Layer):
         """
 
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
-        t_end = self.t + self.dt * num_timesteps
 
         # - Handle empty inputs
         if ts_input is None or ts_input.times.size == 0:
@@ -88,13 +87,17 @@ class PassThroughEvents(Layer):
         num_out_events_per_input_event = np.sum(out_channel_raster, axis=1)
         time_trace_out = np.repeat(ts_input.times, num_out_events_per_input_event)
 
+        t_stop = self.t + self.dt * num_timesteps
+        # - Ignore events at t_stop or later.
+        use_events = np.logical_and(self.t < time_trace_out, time_trace_out < t_stop)
+
         # - Output time series
         event_out = TSEvent(
-            times=time_trace_out,
-            channels=out_channels,
+            times=time_trace_out[use_events],
+            channels=out_channels[use_events],
             num_channels=self.size,
-            # t_start=self.t,
-            # t_stop=t_end,
+            t_start=self.t,
+            t_stop=t_stop,
             name="transformed event raster",
         )
 
