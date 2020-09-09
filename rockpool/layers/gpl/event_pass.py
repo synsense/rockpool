@@ -112,12 +112,12 @@ class PassThroughEvents(Layer):
 
     @property
     def input_type(self):
-        """ Returns input type class"""
+        """ Returns input type class """
         return TSEvent
 
     @property
     def output_type(self):
-        """ Returns output type class"""
+        """ Returns output type class """
         return TSEvent
 
     @property

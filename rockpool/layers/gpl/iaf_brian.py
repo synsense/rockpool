@@ -223,16 +223,14 @@ class FFIAFBrian(Layer):
         self._neuron_group.v = self.v_rest * volt
 
     def randomize_state(self):
-        """Randomize the internal state of the layer"""
+        """ Randomize the internal state of the layer """
         v_range = abs(self.v_thresh - self.v_reset)
         self._neuron_group.v = (
             np.random.rand(self.size) * v_range + self.v_reset
         ) * volt
 
     def reset_time(self):
-        """
-        Reset the internal clock of this layer
-        """
+        """ Reset the internal clock of this layer """
 
         # - Sotre state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -434,10 +432,12 @@ class FFIAFBrian(Layer):
 
     @property
     def refractory(self):
+        """ Returns the refractory period """
         return self._neuron_group._refractory
 
     @property
     def state(self):
+        """ Returns the membrane potentials """
         return self._neuron_group.v_
 
     @state.setter
@@ -448,6 +448,7 @@ class FFIAFBrian(Layer):
 
     @property
     def tau_mem(self):
+        """ Return the membrane time constants """
         return self._neuron_group.tau_m_
 
     @tau_mem.setter
@@ -458,6 +459,7 @@ class FFIAFBrian(Layer):
 
     @property
     def bias(self):
+        """ Retruns the biases """
         return self._neuron_group.I_bias_
 
     @bias.setter
@@ -468,6 +470,7 @@ class FFIAFBrian(Layer):
 
     @property
     def v_thresh(self):
+        """ Returns the spiking threshold """
         return self._neuron_group.v_thresh_
 
     @v_thresh.setter
@@ -478,6 +481,7 @@ class FFIAFBrian(Layer):
 
     @property
     def v_rest(self):
+        """ Returns the resting potential """
         return self._neuron_group.v_rest_
 
     @v_rest.setter
@@ -488,6 +492,7 @@ class FFIAFBrian(Layer):
 
     @property
     def v_reset(self):
+        """ Returns the reset potential """
         return self._neuron_group.v_reset_
 
     @v_reset.setter
@@ -498,6 +503,7 @@ class FFIAFBrian(Layer):
 
     @property
     def t(self):
+        """ Returns the current time of the simulation """
         return self._net.t_
 
     @Layer.dt.setter
@@ -699,6 +705,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
     def reset_time(self):
+        """ Resets the time of the simulation """
 
         # - Store state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -737,6 +744,12 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._neuron_group.I_syn = 0 * amp
 
     def reset_all(self, keep_params=True):
+        """ Resets the network completely
+
+        :param bool keep_params: Keep the current state of the network if ``True``
+        """
+
+        
         if keep_params:
             # - Store parameters
             v_thresh = np.copy(self.v_thresh)
@@ -940,14 +953,17 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     @property
     def input_type(self):
+        """ Returns input type class """
         return TSEvent
 
     @property
     def refractory(self):
+        """ Returns the refractory period """
         return self._neuron_group._refractory
 
     @property
     def weights(self):
+        """ Returns the weights of the connections """
         return np.array(self._inp_synapses.w).reshape(self.size_in, self.size)
 
     @weights.setter
@@ -963,6 +979,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     @property
     def tau_syn(self):
+        """ Returns the synaptic time constants """
         return self._neuron_group.tau_s_
 
     @tau_syn.setter
