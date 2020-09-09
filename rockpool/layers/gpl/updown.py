@@ -288,15 +288,18 @@ class FFUpDown(Layer):
         return spike_raster  # , record
 
     def reset_state(self):
+        """ Resets the state """
         # - Store None as state to indicate that future evolutions do not continue from previous input
         self.state = None
 
     @property
     def output_type(self):
+        """ Returns the output type class """
         return TSEvent
 
     @property
     def state(self):
+        """ Returns the state """
         return self._state
 
     @state.setter
@@ -309,6 +312,7 @@ class FFUpDown(Layer):
 
     @property
     def thr_up(self):
+        """ Returns the spiking threshold of the ``up`` channel """
         return self._vfThrUp
 
     @thr_up.setter
@@ -321,6 +325,7 @@ class FFUpDown(Layer):
 
     @property
     def thr_down(self):
+        """ Returns the spiking threshold of the ``down`` channel """
         return self._vfThrDown
 
     @thr_down.setter
@@ -332,6 +337,7 @@ class FFUpDown(Layer):
 
     @property
     def tau_decay(self):
+        """ Returns the decay time constant """
         tau = np.repeat(None, self.size_in)
         # - Treat decay factors of 1 as not decaying (i.e. set them None)
         vbDecay = self._vfDecayFactor != 1
@@ -357,6 +363,9 @@ class FFUpDown(Layer):
         self._vfDecayFactor[vbDecay] = 1 - self.dt / new_tau[vbDecay]
 
     def to_dict(self):
+        """
+        Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer.
+        """
 
         config = {}
         config["name"] = self.name
@@ -379,12 +388,20 @@ class FFUpDown(Layer):
 
         return config
 
-    def save(self, config, filename):
+    def save(self, config: dict, filename: str):
+        """ Saves the model configuration under a given filename 
+        :param dict config:     Configuration to save 
+        :param str filename:    Path the configuration should be saved to """
+
         with open(filename, "w") as f:
             json.dump(config, f)
 
     @staticmethod
-    def load_from_dict(config):
+    def load_from_dict(config: dict):
+        """ Returns new object of FFUpDown using the passed configuration
+
+        :param dict config:     Configuration to use
+        """
 
         return FFUpDown(
             weights=config["weights"],
@@ -401,6 +418,9 @@ class FFUpDown(Layer):
 
     @staticmethod
     def load_from_file(filename):
+        """ Loads and returns a new object of FFUpDown from filename
+        :param str filename:    Path to the saved configuration
+        """
         with open(filename, "r") as f:
             config = json.load(f)
 
