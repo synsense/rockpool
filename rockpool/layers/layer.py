@@ -314,6 +314,7 @@ class Layer(ABC):
         If input dimension == 1, scale it up to self._size_in by repeating signal.
 
         :param ndarray inp: ArrayLike containing input data
+
         :return ndarray: ``inp``, possibly with dimensions repeated
         """
         # - Replicate input data if necessary
@@ -586,10 +587,10 @@ class Layer(ABC):
         Generate instance of a :py:class:`.Layer` subclass with parameters loaded from a dictionary
 
         :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
-        :param Dict config: Dictionary containing parameters of a :py:class:`.Layer` subclass
-        :param kwargs:      Any keyword arguments of the class :py:meth:`.__init__` method where the parameters from ``config`` should be overridden
+        :param Dict config:     Dictionary containing parameters of a :py:class:`.Layer` subclass
+        :param kwargs:          Any keyword arguments of the class :py:meth:`.__init__` method where the parameters from ``config`` should be overridden
 
-        :return `.Layer`: Instance of `.Layer` subclass with parameters from ``config``
+        :return `.Layer`:       Instance of `.Layer` subclass with parameters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)

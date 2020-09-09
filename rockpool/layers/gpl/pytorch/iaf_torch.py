@@ -125,6 +125,7 @@ class _RefractoryBase:
 
     @property
     def refractory(self):
+        """ Return the refractory period """
         return self._num_refractory_steps * self.dt
 
     @refractory.setter
@@ -426,6 +427,9 @@ class FFIAFTorch(Layer):
         self.synapse_state = 0
 
     def to_dict(self):
+        """
+        Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer.
+        """
 
         essential_dict = {}
         essential_dict["name"] = self.name
@@ -496,10 +500,12 @@ class FFIAFTorch(Layer):
 
     @property
     def output_type(self):
+        """ Returns the outout type class """
         return TSEvent
 
     @RefProperty
     def state(self):
+        """ Returns the state """
         return self._state
 
     @state.setter
@@ -509,6 +515,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def tau_mem(self):
+        """ Returns the membrane time constants """
         return self._tau_mem
 
     @tau_mem.setter
@@ -524,6 +531,7 @@ class FFIAFTorch(Layer):
 
     @property
     def alpha(self):
+        """ Returns the alpha value """
         warn(
             "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's alpha".format(
                 self.name
@@ -537,6 +545,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def bias(self):
+        """ Returns the biases """
         return self._bias
 
     @bias.setter
@@ -546,6 +555,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def v_thresh(self):
+        """ Returns the spiking threshold """
         return self._v_thresh
 
     @v_thresh.setter
@@ -555,6 +565,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def v_rest(self):
+        """ Returns the resting potential """
         return self._v_rest
 
     @v_rest.setter
@@ -564,6 +575,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def v_reset(self):
+        """ Returns the reset potential """
         return self._v_reset
 
     @v_reset.setter
@@ -573,6 +585,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def synapse_state(self):
+        """ Returns the synaptic states """
         return self._synapse_state
 
     @synapse_state.setter
@@ -582,10 +595,12 @@ class FFIAFTorch(Layer):
 
     @property
     def t(self):
+        """ Returns the current simulation time """
         return self._timestep * self.dt
 
     @RefProperty
     def weights(self):
+        """ Returns the weights of the connections """
         return self._weights
 
     @weights.setter
