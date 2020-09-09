@@ -322,7 +322,8 @@ class FFIAFBrian(Layer):
 
         # - Build response TimeSeries
         use_event = self._layer.t_ >= time_base[0]
-        event_time_out = self._layer.t_[use_event]
+        # Shift event times to middle of time bins
+        event_time_out = self._layer.t_[use_event] - 0.5 * self.dt
         event_channel_out = self._layer.i[use_event]
 
         return TSEvent(

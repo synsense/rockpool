@@ -385,6 +385,9 @@ class FFCLIAF(CLIAF):
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
+        # Shift event times to middle of time bins
+        spike_times = np.asarray(spike_times) - 0.5 * self.dt
+
         # Convert arrays to TimeSeries objects
         event_out = TSEvent(
             times=np.clip(
@@ -646,8 +649,9 @@ class RecCLIAF(CLIAF):
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
-        # Generate output sime series
-        spike_times = (np.array(ts_spikes) + 1 + self._timestep) * self.dt
+        # Generate output sime series with event times at middle of time bins
+        spike_times = (np.array(ts_spikes) + 0.5 + self._timestep) * self.dt
+
         event_out = TSEvent(
             # Clip due to possible numerical errors,
             times=np.clip(spike_times, t_start, t_stop),

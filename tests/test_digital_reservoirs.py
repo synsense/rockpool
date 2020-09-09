@@ -31,18 +31,18 @@ def test_cliaf_evolve_subtracting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.75)
+    tsOutput = rl.evolve(ts_input, duration=0.8)
 
-    # - Expectation: Input spike will cause neuron 0 to spike 2 times at t=0.6
-    #                These spikes will cause neuron 1 to spike once at t=0.7
+    # - Expectation: Input spike will cause neuron 0 to spike 2 times at t=0.55
+    #                These spikes will cause neuron 1 to spike once at t=0.65
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     print(tsOutput.times)
     assert np.allclose(
-        tsOutput.times, np.array([0.6, 0.6, 0.7])
+        tsOutput.times, np.array([0.55, 0.55, 0.65])
     ), "Output spike times not as expected"
     assert (
         tsOutput.channels == np.array([0, 0, 1])
@@ -78,17 +78,17 @@ def test_cliaf_evolve_resetting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.7)
 
-    # - Expectation: Input spike will cause neuron 0 to spike once at t=0.6
+    # - Expectation: Input spike will cause neuron 0 to spike once at t=0.55
     #                This spike will not be enough to make other neuron spike.
     #                Last input spike will not have any effect do anything
     #                either because evolution stops beforehand
     assert np.allclose(
-        tsOutput.times, np.array([0.6])
+        tsOutput.times, np.array([0.55])
     ), "Output spike times not as expected"
     assert (
         tsOutput.channels == np.array([0])
@@ -129,7 +129,7 @@ def test_diaf_evolve_subtracting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.7)
@@ -182,7 +182,7 @@ def test_diaf_evolve_resetting():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1])
+    ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.7)
@@ -234,7 +234,7 @@ def test_diaf_evolve_vfvrest():
     )
 
     # - Input spike
-    ts_input = TSEvent(times=[0.55], channels=[0])
+    ts_input = TSEvent(times=[0.55], channels=[0], t_stop=0.6)
 
     # - Evolution
     tsOutput = rl.evolve(ts_input, duration=0.9)

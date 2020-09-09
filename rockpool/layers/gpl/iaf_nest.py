@@ -121,7 +121,6 @@ class _BaseNestProcess(multiprocessing.Process):
         times = events["times"][use_event]
         vms = events["V_m"][use_event]
 
-
         recorded_states = []
         u_senders = np.unique(senders)
         for i, nid in enumerate(u_senders):
@@ -728,7 +727,7 @@ class FFIAFNest(Layer):
             """
 
             # NEST time starts with 1 (not with 0)
-            time_base = s2ms(time_base) + self.dt 
+            time_base = s2ms(time_base) + self.dt
 
             self.nest_module.SetStatus(
                 self._scg,
@@ -895,6 +894,9 @@ class FFIAFNest(Layer):
         # - Start and stop times for output time series
         t_start = self.t
         t_stop = (self._timestep + num_timesteps) * self.dt
+
+        # - Shift event times to middle of time bins
+        event_time_out -= 0.5 * self.dt
 
         # - Update layer time step
         self._timestep += num_timesteps

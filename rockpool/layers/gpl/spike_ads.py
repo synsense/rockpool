@@ -271,9 +271,6 @@ class RecFSSpikeADS(Layer):
         self.I_s_O = np.zeros(self.out_size)
         self.rate = np.zeros(self.size)
         self.num_training_iterations = 0
-        self.t_start_suppress = None
-        self.t_stop_suppress = None
-        self.percentage_suppress = None
 
 
     def evolve(self,
