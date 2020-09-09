@@ -744,12 +744,11 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._neuron_group.I_syn = 0 * amp
 
     def reset_all(self, keep_params=True):
-        """ Resets the network completely
+        """Resets the network completely
 
         :param bool keep_params: Keep the current state of the network if ``True``
         """
 
-        
         if keep_params:
             # - Store parameters
             v_thresh = np.copy(self.v_thresh)
