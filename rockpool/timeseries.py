@@ -1438,7 +1438,7 @@ class TSContinuous(TimeSeries):
         """
 
         # Make sure `times` is an array
-        times = np.asarray(times)
+        times = np.array(times)
 
         # - Handle empty series
         if self.isempty():
@@ -1453,8 +1453,8 @@ class TSContinuous(TimeSeries):
         t_last = self.t_stop if self._interp_kind == "previous" else self.times[-1]
 
         # Time points outside of this range
-        is_early = np.asarray(times < t_first)
-        is_late = np.asarray(times > t_last)
+        is_early = np.array(times < t_first)
+        is_late = np.array(times > t_last)
 
         # - Correct time points that are slightly out of range
         if self.approx_limit_times:
@@ -1466,8 +1466,8 @@ class TSContinuous(TimeSeries):
             t_last_approx = t_last + tol
             set_t_first = np.logical_and(is_early, times >= t_first_approx)
             set_t_last = np.logical_and(is_late, times <= t_last_approx)
-            times[set_t_first] = t_first
-            times[set_t_last] = t_last
+            times = np.where(set_t_first, times, t_first)
+            times = np.where(set_t_last, times, t_last)
             if np.logical_or(set_t_first, set_t_last).any():
                 warn(
                     f"TSContinuous `{self.name}`: Some of the requested time points "
