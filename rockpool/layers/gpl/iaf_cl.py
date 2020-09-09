@@ -51,11 +51,11 @@ class CLIAF(Layer):
         Feedforward layer of integrate and fire neurons with constant leak
 
         :param FloatVector weights_in:              Input weight matrix
-        :param FloatVector bias:          Constant bias to be added to state at each time step. Default: ``0.0``
-        :param FloatVector v_thresh:      Spiking threshold. Default: ``8.0``
-        :param FloatVector v_reset:       Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
+        :param FloatVector bias:                    Constant bias to be added to state at each time step. Default: ``0.0``
+        :param FloatVector v_thresh:                Spiking threshold. Default: ``8.0``
+        :param FloatVector v_reset:                 Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise neurons will reset on each spike
-        :param float dt:                    Time step for simulation of this layer, in s. Default: ``1.0``
+        :param float dt:                            Time step for simulation of this layer, in s. Default: ``1.0``
         :param Optional[ArrayLike[int]] monitor_id: IDs of neurons to be recorded. Default: ``[]``, do not monitor any neurons
         :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
@@ -253,11 +253,11 @@ class FFCLIAF(CLIAF):
         Feedforward layer of integrate and fire neurons with constant leak
 
         :param np.ndarray weights:                  Input weight matrix [N_in, N]
-        :param FloatVector bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
-        :param FloatVector v_thresh:      Spiking threshold [N,]. Default: ``8.``
-        :param FloatVector v_reset:       Reset potential after spike [N,]. Default: ``0.``
+        :param FloatVector bias:                    Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param FloatVector v_thresh:                Spiking threshold [N,]. Default: ``8.``
+        :param FloatVector v_reset:                 Reset potential after spike [N,]. Default: ``0.``
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
-        :param float dt:                    Time step for simulation of this layer, in s. Default: ``1.0``
+        :param float dt:                            Time step for simulation of this layer, in s. Default: ``1.0``
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not record neuron state
         :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
@@ -456,17 +456,17 @@ class RecCLIAF(CLIAF):
         :param np.ndarray weights_in:               Input weight matrix [N_in, N]
         :param np.ndarray weights_rec:              Recurrent weight matrix [N, N]
 
-        :param FloatVector bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
-        :param FloatVector v_thresh:      Spiking threshold [N,]. Default: ``8.``
-        :param FloatVector v_reset:       Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
+        :param FloatVector bias:                    Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param FloatVector v_thresh:                Spiking threshold [N,]. Default: ``8.``
+        :param FloatVector v_reset:                 Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
         :param Optional[FloatVector] v_subtract:    [N,] If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
-        :param FloatVector refractory:    Vector of refractory times  [N,]
-        :param float dt:                  Time step size in s. Default: ``0.1 ms``
+        :param FloatVector refractory:              Vector of refractory times  [N,]
+        :param float dt:                            Time step size in s. Default: ``0.1 ms``
         :param Optional[float] delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Rounded down to multiple of `.dt`. Must be at least `.dt`. Default: ``None``, use `.dt`
         :param Optional[float] tTauBias:            Period for applying bias. Must be at least `.dt`. Is rounded down to multiple of `.dt`. If ``None``, will be set to `.dt`. Default: ``None``, use `.dt`
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not monitor neurons. If ``True``, monitor all neurons
-        :param type state_type:           Data type for the membrane potential. Default: ``float``
-        :param str name:                  Name of this layer. Default: ``'unnamed'``
+        :param type state_type:                     Data type for the membrane potential. Default: ``float``
+        :param str name:                            Name of this layer. Default: ``'unnamed'``
         """
 
         # Call parent constructor

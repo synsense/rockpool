@@ -153,7 +153,7 @@ class DynapseConnector:
 
         dx = abs(d)
 
-        d = ((post_chip_id & 2)>>1) - ((pre_chip_id & 2)>>1)
+        d = ((post_chip_id & 2) >> 1) - ((pre_chip_id & 2) >> 1)
 
         if d < 0:
             sy = False
@@ -175,17 +175,17 @@ class DynapseConnector:
         post_cams[post_cam].set_pre_neuron_core_id(pre_core_id)
         post_cams[post_cam].set_type(synapse_type)
 
-        #CtxDynapse.dynapse.set_config_chip_id(pre_chip_id)
-        #CtxDynapse.dynapse.write_sram(
+        # CtxDynapse.dynapse.set_config_chip_id(pre_chip_id)
+        # CtxDynapse.dynapse.write_sram(
         #    pre_neuron_address, pre_sram, virtual_core_id, sx, dx, sy, dy, core_mask
-        #)
+        # )
         #
-        #if pre_chip_id != post_chip_id:
+        # if pre_chip_id != post_chip_id:
         #    CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
 
-        #CtxDynapse.dynapse.write_cam(
+        # CtxDynapse.dynapse.write_cam(
         #    pre_neuron_address, post_neuron_address, post_cam, synapse_type
-        #)
+        # )
 
         self._save_connection(pre, post)
 
@@ -297,10 +297,10 @@ class DynapseConnector:
         post_cams[post_cam].set_pre_neuron_core_id(pre_core_id)
         post_cams[post_cam].set_type(synapse_type)
 
-        #CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
-        #CtxDynapse.dynapse.write_cam(
+        # CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
+        # CtxDynapse.dynapse.write_cam(
         #    pre_neuron_address, post_neuron_address, post_cam, synapse_type
-        #)
+        # )
 
         self._save_virtual_connection(pre, post)
 
@@ -361,23 +361,23 @@ class DynapseConnector:
                 post_cam = i
                 break
 
-        #CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
+        # CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
 
         ## information of post-synaptic neuron, setting the address of pre-synaptic neuron to zero
-        #CtxDynapse.dynapse.write_cam(0, post_neuron_address, post_cam, 0)
+        # CtxDynapse.dynapse.write_cam(0, post_neuron_address, post_cam, 0)
         post_cams[post_cam].set_pre_neuron_id(0)
         post_cams[post_cam].set_pre_neuron_core_id(0)
 
         ## updating pre-synaptic neuron
-        #if pre_chip_id != post_chip_id:
+        # if pre_chip_id != post_chip_id:
         #    CtxDynapse.dynapse.set_config_chip_id(pre_chip_id)
 
         # if there is no other connections from pre neuron, set it to zero and mark it as unused
         if pre_neuron not in self.sending_connections_to:
             # information of pre-synaptic neuron, setting the address of post-synaptic neuron to zero
-            #CtxDynapse.dynapse.write_sram(
+            # CtxDynapse.dynapse.write_sram(
             #    pre_neuron_address, pre_sram, 0, 0, 0, 0, 0, 0
-            #)
+            # )
             pre_srams[pre_sram].set_used(False)
             pre_srams[pre_sram].set_virtual_core_id(0)
             pre_srams[pre_sram].set_target_chip_id(0)
@@ -398,9 +398,9 @@ class DynapseConnector:
             # if none of the connection go to the same core as the post_neuron, we set the corresponding bit of the core mask to 0
             if not found_post_same_core:
                 core_mask = pre_srams[pre_sram].get_core_mask() & ~(0 << post_core_id)
-                #CtxDynapse.dynapse.write_sram(
+                # CtxDynapse.dynapse.write_sram(
                 #    pre_neuron_address, pre_sram, 0, 0, 0, 0, 0, core_mask
-                #)
+                # )
                 pre_srams[pre_sram].set_core_mask(core_mask)
 
     def remove_connection_from_list(self, pre_neurons_list, post_neuron_list):
@@ -486,9 +486,9 @@ class DynapseConnector:
                 post_cam = i
                 break
 
-        #CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
+        # CtxDynapse.dynapse.set_config_chip_id(post_chip_id)
         # information of post-synaptic neuron, setting the address of pre-synaptic neuron to zero
-        #CtxDynapse.dynapse.write_cam(0, post_neuron_address, post_cam, 0)
+        # CtxDynapse.dynapse.write_cam(0, post_neuron_address, post_cam, 0)
         post_cams[post_cam].set_pre_neuron_id(0)
         post_cams[post_cam].set_pre_neuron_core_id(0)
 

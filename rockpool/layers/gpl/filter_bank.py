@@ -137,11 +137,7 @@ class FilterBank(Layer, ABC):
             ts_input=ts_input, duration=duration, num_timesteps=num_timesteps
         )
 
-        args = list(
-            product(
-                self.chunks, [(input_step.T[0], self.filter_lowpass)]
-            )
-        )
+        args = list(product(self.chunks, [(input_step.T[0], self.filter_lowpass)]))
 
         if self.pool is None:
             self.pool = Pool(self.num_workers)
@@ -149,9 +145,7 @@ class FilterBank(Layer, ABC):
         res = self.pool.map(ButterMelFilter.process_filters, args)
         filtOutput = np.concatenate(res).T
 
-        vtTimeBase = (
-            time_base[0] + np.arange(len(filtOutput)) / self.fs
-        )
+        vtTimeBase = time_base[0] + np.arange(len(filtOutput)) / self.fs
         self._timestep += input_step.shape[0] - 1
 
         if self.normalize:
@@ -265,7 +259,7 @@ class ButterMelFilter(FilterBank):
         :param bool normalize:          divide output signals by their maximum value (i.e. filter
                                         responses in the range [-1, 1]). Default: ``False``
         :param int num_workers:         Number of CPU cores to use in simulation. Default: ``1``
-        :param bool plot:               Plots the filter response 
+        :param bool plot:               Plots the filter response
         """
 
         # - Call super constructor (`asarray` is used to strip units)
@@ -312,16 +306,15 @@ class ButterMelFilter(FilterBank):
             plt.figure(figsize=(16, 10))
             for i, filt in enumerate(self.filters):
                 sos_freqz = sosfreqz(filt, worN=1024)
-                db = 20*np.log10(np.maximum(np.abs(sos_freqz[1]), 1e-5))
-                plt.plot(self.nyquist * sos_freqz[0]/np.pi, db, color=colors[i])
+                db = 20 * np.log10(np.maximum(np.abs(sos_freqz[1]), 1e-5))
+                plt.plot(self.nyquist * sos_freqz[0] / np.pi, db, color=colors[i])
 
-            plt.xlabel('Frequency (Hz)')
-            plt.ylabel('Gain (db)')
+            plt.xlabel("Frequency (Hz)")
+            plt.ylabel("Gain (db)")
             plt.ylim([-10, 2])
             plt.xlim([0, self.nyquist])
             plt.tight_layout()
             plt.show(block=True)
-
 
     @staticmethod
     def hz2mel(x: Union[float, np.array]) -> Union[float, np.array]:

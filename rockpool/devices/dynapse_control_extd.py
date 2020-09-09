@@ -97,7 +97,7 @@ class DynapseControlExtd(DynapseControl):
             elif return_ts:    TSEvent object of recorded data
             else:              (times_out, channels_out)  np.ndarrays that contain recorded data
         """
-        
+
         if inputneur_id is not None:
             warn(
                 "DynapseControlExtd: The argument `inputneur_id` has been "
@@ -194,7 +194,9 @@ class DynapseControlExtd(DynapseControl):
             if virtual_neur_ids is None
             else np.array(virtual_neur_ids)
         )
-        record_neur_ids = virtual_neur_ids if record_neur_ids is None else record_neur_ids
+        record_neur_ids = (
+            virtual_neur_ids if record_neur_ids is None else record_neur_ids
+        )
         t_record = series.duration if t_record is None else t_record
 
         # - Prepare event list
@@ -205,7 +207,9 @@ class DynapseControlExtd(DynapseControl):
             targetchip_id=targetchip_id,
         )
         print(
-            "DynapseControlExtd: Stimulus prepared from TSEvent `{}`.".format(series.name)
+            "DynapseControlExtd: Stimulus prepared from TSEvent `{}`.".format(
+                series.name
+            )
         )
 
         # - Stimulate and obtain recorded data if any
@@ -252,7 +256,7 @@ class DynapseControlExtd(DynapseControl):
         record=False,
         return_ts=False,
         fastmode: bool = False,
-        neuron_ids = None,
+        neuron_ids=None,
     ) -> Union[None, Tuple[np.ndarray, np.ndarray], TSEvent]:
         """
         send_arrays - Send events defined in timetrace and channel arrays to FPGA.

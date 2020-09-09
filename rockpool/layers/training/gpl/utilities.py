@@ -78,25 +78,25 @@ def gradient_evolution(
     steps = inps.shape[0]
     inps_tensor = onp.zeros((steps, inps.shape[1], steps))
     target_tensor = onp.zeros((steps, target.shape[1], steps))
-    
+
     for step in range(inps.shape[0]):
         # - Get inputs and targets
-        inps_tensor[-step-1:, :, step] = inps[:step+1, :]
-        target_tensor[-step-1:, :, step] = target[:step+1, :]
-    
+        inps_tensor[-step - 1 :, :, step] = inps[: step + 1, :]
+        target_tensor[-step - 1 :, :, step] = target[: step + 1, :]
+
     # - Get state and parameters
     params = lyr._pack()
     state0 = lyr._state
 
     # - Compute gradients by mapping over inputs
     grad_partial = lambda i, t: grad_fcn(params, i, t, state0)
-    gradients_t = vmap(grad_partial, in_axes = 2)(inps_tensor, target_tensor)
+    gradients_t = vmap(grad_partial, in_axes=2)(inps_tensor, target_tensor)
 
     # - Flatten gradients tree
     gradients_t, tree_def = tree_flatten(gradients_t)
 
     gradients = [
-        TSContinuous.from_clocked(np.reshape(grad_t, (steps, -1)), dt = lyr.dt)
+        TSContinuous.from_clocked(np.reshape(grad_t, (steps, -1)), dt=lyr.dt)
         for grad_t in gradients_t
     ]
 

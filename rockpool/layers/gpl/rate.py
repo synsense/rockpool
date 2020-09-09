@@ -128,11 +128,11 @@ def get_ff_evolution_function(activation_func: Callable[[np.ndarray], np.ndarray
 
 def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarray]):
     """
-   get_rec_evolution_function: Construct a compiled Euler solver for a given activation function
+    get_rec_evolution_function: Construct a compiled Euler solver for a given activation function
 
-   :param activation_func: Callable (x) -> f(x)
-   :return: Compiled function evolve_Euler_complete(state, size, weights, input_steps, dt, num_steps, bias, tau)
-   """
+    :param activation_func: Callable (x) -> f(x)
+    :return: Compiled function evolve_Euler_complete(state, size, weights, input_steps, dt, num_steps, bias, tau)
+    """
 
     # - Compile an Euler solver for the desired activation function
     @njit
@@ -437,11 +437,13 @@ class PassThrough(FFRateLayer):
         self._timestep += num_timesteps
 
         # - Return time series with output data and bias
-        return TSContinuous(time_base, samples_out + self.bias, name = "Outputs")
+        return TSContinuous(time_base, samples_out + self.bias, name="Outputs")
 
     def __repr__(self):
-        return "PassThrough layer object `{}`.\nnSize: {}, size_in: {}, delay: {}".format(
-            self.name, self.size, self.size_in, self.delay
+        return (
+            "PassThrough layer object `{}`.\nnSize: {}, size_in: {}, delay: {}".format(
+                self.name, self.size, self.size_in, self.delay
+            )
         )
 
     def print_buffer(self, **kwargs):
@@ -644,7 +646,7 @@ class FFRateEuler(FFRateLayer):
 
         time_base = np.r_[time_base_inp, self.t]
 
-        return TSContinuous(time_base, sample_act, name = "Outputs")
+        return TSContinuous(time_base, sample_act, name="Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False
@@ -927,7 +929,7 @@ class RecRateEuler(Layer):
         time_base = np.r_[time_base_inp, self.t]
 
         # - Construct a return TimeSeries
-        return TSContinuous(time_base, activity, name = "Outputs")
+        return TSContinuous(time_base, activity, name="Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False

@@ -1,5 +1,5 @@
 ##########
-# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
+# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieve large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
 # Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 ##########
 
@@ -33,7 +33,7 @@ class VirtualDynapse(Layer):
     """
     A :py:class:`.Layer` subclass that simulates a DynapSE processor
 
-    The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
+    The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieve large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
     """
 
     _num_chips = params.NUM_CHIPS
@@ -148,17 +148,15 @@ class VirtualDynapse(Layer):
             connections=connections_ext, external=True
         )
         if (
-            (connections_rec is not None or connections_ext is not None)
-            and self.validate_connections(
-                self._connections_rec,
-                self._connections_ext,
-                verbose=True,
-                validate_fanin=self.validate_fanin,
-                validate_fanout=self.validate_fanout,
-                validate_aliasing=self.validate_aliasing,
-            )
-            != CONNECTIONS_VALID
-        ):
+            connections_rec is not None or connections_ext is not None
+        ) and self.validate_connections(
+            self._connections_rec,
+            self._connections_ext,
+            verbose=True,
+            validate_fanin=self.validate_fanin,
+            validate_fanout=self.validate_fanout,
+            validate_aliasing=self.validate_aliasing,
+        ) != CONNECTIONS_VALID:
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
             )
@@ -217,7 +215,7 @@ class VirtualDynapse(Layer):
         """
         Initialise the parameters for simulating mismatch
 
-        :param Union[bool, ArrayLike[float]] mismatch:  If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib``
+        :param Union[bool, ArrayLike[float]] mismatch:  If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for each core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib``
         """
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
@@ -256,7 +254,7 @@ class VirtualDynapse(Layer):
 
     def _draw_mismatch(self, consider_mismatch: bool = True):
         """
-        Generate a mismatch value for each neuron and parameter in the layer
+        Generate mismatch values for each neuron and parameter in the layer
 
         For each neuron and parameter draw a mismatch factor that individual neuron parameters will be multiplied with. Store factors in dict. Parameters are drawn from a Gaussian around 1 with standard deviation = ``.stddev_mismatch`` and truncated at 0.1 to avoid too small values.
         :param Optional[bool] consider_mismatch:  If ``False``, mismatch factors are all 1, corresponding to not having any mismatch. Default: ``True``, simulate mismatch.
