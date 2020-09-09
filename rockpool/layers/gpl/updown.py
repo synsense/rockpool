@@ -48,10 +48,10 @@ class FFUpDown(Layer):
 
         This layer is exceptional in that :py:attr:`.state` has the same size as :py:attr:`.size_in`, not :py:attr:`.size`. It corresponds to the input, inferred from the output spikes by inverting the up-/down-algorithm.
 
-        :param np.array weights:                MxN weight matrix. Unlike other `.Layer` classes, the only important thing about weights its shape. 
-                                                The first dimension determines the number of input channels (self.size_in). The second dimension corresponds to size and has to be n*2*size_in, n up and n down channels for each input). 
-                                                If n>1 the up-/and down-spikes are distributed over multiple channels. The values of the weight matrix do not have any effect. 
-                                                It is also possible to pass only an integer, which will correspond to size_in. 
+        :param np.array weights:                MxN weight matrix. Unlike other `.Layer` classes, the only important thing about weights its shape.
+                                                The first dimension determines the number of input channels (self.size_in). The second dimension corresponds to size and has to be n*2*size_in, n up and n down channels for each input).
+                                                If n>1 the up-/and down-spikes are distributed over multiple channels. The values of the weight matrix do not have any effect.
+                                                It is also possible to pass only an integer, which will correspond to size_in.
                                                 Size is then set to 2*size_in, i.e. n=1. Alternatively a tuple of two values, corresponding to size_in and n can be passed.
         :param int repeat_output:               Repeat each output spike x times.
         :param float dt:                        Time-step. Default: 0.1 ms
@@ -389,16 +389,16 @@ class FFUpDown(Layer):
         return config
 
     def save(self, config: dict, filename: str):
-        """ Saves the model configuration under a given filename 
-        :param dict config:     Configuration to save 
-        :param str filename:    Path the configuration should be saved to """
+        """Saves the model configuration under a given filename
+        :param dict config:     Configuration to save
+        :param str filename:    Path the configuration should be saved to"""
 
         with open(filename, "w") as f:
             json.dump(config, f)
 
     @staticmethod
     def load_from_dict(config: dict):
-        """ Returns new object of FFUpDown using the passed configuration
+        """Returns new object of FFUpDown using the passed configuration
 
         :param dict config:     Configuration to use
         """
@@ -418,7 +418,7 @@ class FFUpDown(Layer):
 
     @staticmethod
     def load_from_file(filename):
-        """ Loads and returns a new object of FFUpDown from filename
+        """Loads and returns a new object of FFUpDown from filename
         :param str filename:    Path to the saved configuration
         """
         with open(filename, "r") as f:
