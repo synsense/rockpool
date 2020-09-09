@@ -87,13 +87,23 @@ Utility modules
     layers.FFLIFCurrentInJax_SO
     layers.FFExpSynCurrentInJax
     layers.FFExpSynJax
-    layers.FFCLIAF
-    layers.RecCLIAF
-    layers.CLIAF
-    layers.SoftMaxLayer
     layers.RecDIAF
     layers.RecFSSpikeEulerBT
     layers.FFUpDown
+    layers.RecFSSpikeADS
+
+    layers.FFIAFNest
+    layers.RecIAFSpkInNest
+    layers.RecAEIFSpkInNest
+
+    layers.RecDynapSE
+    layers.VirtualDynapse
+
+    layers.RecRateEulerJax
+    layers.RecRateEulerJax_IO
+    layers.FFRateEulerJax
+    layers.ForceRateEulerJax_IO
+
     layers.FFExpSynTorch
     layers.FFIAFTorch
     layers.FFIAFRefrTorch
@@ -104,14 +114,7 @@ Utility modules
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
-    layers.RecFSSpikeADS
-
-    layers.FFIAFNest
-    layers.RecIAFSpkInNest
-    layers.RecAEIFSpkInNest
-    layers.RecDynapSE
-    layers.VirtualDynapse
-    layers.RecRateEulerJax
-    layers.RecRateEulerJax_IO
-    layers.FFRateEulerJax
-    layers.ForceRateEulerJax_IO
+    layers.FFCLIAF
+    layers.RecCLIAF
+    layers.CLIAF
+    layers.SoftMaxLayer

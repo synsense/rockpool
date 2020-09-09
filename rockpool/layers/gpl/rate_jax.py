@@ -46,6 +46,7 @@ State = np.ndarray
 def H_ReLU(x: FloatVector) -> FloatVector:
     return np.clip(x, 0, None)
 
+
 def H_tanh(x: FloatVector) -> FloatVector:
     return np.tanh(x)
 
@@ -155,6 +156,7 @@ def _get_rec_evolve_jit(
         return state, res_inputs, rec_inputs, res_acts, outputs, key1
 
     return rec_evolve_jit
+
 
 def _get_rec_evolve_directly_jit(H: Callable[[float], float]):
     @jit
