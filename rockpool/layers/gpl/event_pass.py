@@ -107,18 +107,22 @@ class PassThroughEvents(Layer):
         return event_out
 
     def to_dict(self):
+        """ Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer """
         return super().to_dict()
 
     @property
     def input_type(self):
+        """ Returns input type class"""
         return TSEvent
 
     @property
     def output_type(self):
+        """ Returns output type class"""
         return TSEvent
 
     @property
     def weights(self):
+        """ Returns weights """
         return self._weights
 
     @weights.setter
