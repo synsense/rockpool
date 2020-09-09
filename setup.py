@@ -27,6 +27,7 @@ setup(
             "sphinx-autobuild",
             "sphinx-rtd-theme",
             "recommonmark",
+            "pandoc",
         ]
     },
     description="A Python package for developing, simulating and training spiking neural networks, and deploying on neuromorphic hardware",

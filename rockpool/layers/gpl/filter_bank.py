@@ -89,11 +89,15 @@ class FilterBank(Layer, ABC):
         self.pool = None
 
     def terminate(self):
+        """ Terminates all processes in the worker pool """
+
         if self.pool is not None:
             self.pool.close()
 
     @staticmethod
     def generate_chunks(l, n) -> list:
+        """ Generates chunks of data"""
+
         chunks = []
         for i in range(0, len(l), n):
             if i + n > len(l):
@@ -104,6 +108,8 @@ class FilterBank(Layer, ABC):
 
     @staticmethod
     def process_filters(args) -> list:
+        """ Method for processing the filters each worker executes """
+
         filters, params = args
         signal, filter_lowpass = params
         filters_output = []
@@ -157,7 +163,7 @@ class FilterBank(Layer, ABC):
         return TSContinuous(vtTimeBase, filtOutput, name="filteredInput")
 
     def reset_all(self):
-        """ override `reset_all` method """
+        """ Override `reset_all` method """
         self.reset_time()
 
     @abstractmethod
