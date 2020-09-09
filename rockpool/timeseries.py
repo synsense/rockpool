@@ -1466,8 +1466,8 @@ class TSContinuous(TimeSeries):
             t_last_approx = t_last + tol
             set_t_first = np.logical_and(is_early, times >= t_first_approx)
             set_t_last = np.logical_and(is_late, times <= t_last_approx)
-            times = np.where(set_t_first, times, t_first)
-            times = np.where(set_t_last, times, t_last)
+            times = np.where(set_t_first, t_first, times)
+            times = np.where(set_t_last, t_last, times)
             if np.logical_or(set_t_first, set_t_last).any():
                 warn(
                     f"TSContinuous `{self.name}`: Some of the requested time points "
