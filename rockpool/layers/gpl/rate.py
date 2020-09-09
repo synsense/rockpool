@@ -443,8 +443,8 @@ class PassThrough(FFRateLayer):
 
         # - Return time series with output data and bias
         ts_out = TSContinuous.from_clocked(
-                samples = samples_out + self.bias, dt = self.dt, t_start = self.t, name = "Outputs"
-                )
+            samples=samples_out + self.bias, dt=self.dt, t_start=self.t, name="Outputs"
+        )
 
         # - Update state and time
         self.state = samples_out[-1]
