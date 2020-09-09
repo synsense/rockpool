@@ -516,7 +516,7 @@ class RecRateEulerJax(JaxTrainer, Layer):
 
         # - Wrap outputs as time series
         ts_output = TSContinuous.from_clocked(
-            onp.array(outputs), t_start=self.t, dt=self.dt, name="Surrogate outputs"
+            onp.array(outputs), t_start=self.t, dt=self.dt, name="Outputs"
         )
 
         # - Increment timesteps
