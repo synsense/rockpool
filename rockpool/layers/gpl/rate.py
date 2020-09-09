@@ -441,12 +441,16 @@ class PassThrough(FFRateLayer):
             # - Undelayed processed input
             samples_out = in_processed
 
+        # - Return time series with output data and bias
+        ts_out = TSContinuous.from_clocked(
+            samples=samples_out + self.bias, dt=self.dt, t_start=self.t, name="Outputs"
+        )
+
         # - Update state and time
         self.state = samples_out[-1]
         self._timestep += num_timesteps
 
-        # - Return time series with output data and bias
-        return TSContinuous(time_base, samples_out + self.bias, name="Outputs")
+        return ts_out
 
     def __repr__(self):
         return (
