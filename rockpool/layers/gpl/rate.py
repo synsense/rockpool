@@ -29,10 +29,12 @@ __all__ = ["FFRateEuler", "PassThrough", "RecRateEuler"]
 def is_multiple(a: float, b: float, tolerance: float = tolerance) -> bool:
     """
     is_multiple - Check whether a%b is 0 within some tolerance.
-    :param a: float The number that may be multiple of b
-    :param b: float The number a may be a multiple of
-    :param tolerance: float Relative tolerance
-    :return bool: True if a is a multiple of b within some tolerance
+
+    :param float a:             The number that may be multiple of b
+    :param float b:             The number a may be a multiple of
+    :param float tolerance:     Relative tolerance
+
+    :return bool:               True if a is a multiple of b within some tolerance
     """
     min_remainder = min(a % b, b - a % b)
     return min_remainder < tolerance * b
@@ -58,9 +60,11 @@ def re_lu(x: np.ndarray) -> np.ndarray:
 def noisy(x: np.ndarray, std_dev: float) -> np.ndarray:
     """
     noisy - Add randomly distributed noise to each element of x
-    :param x:  Array-like with values that noise is added to
-    :param std_dev: Float, the standard deviation of the noise to be added
-    :return:        Array-like, x with noise added
+
+    :param np.ndarray x:      values that noise is added to
+    :param float std_dev:   the standard deviation of the noise to be added
+
+    :return: np.ndarray:      x with noise added
     """
     return std_dev * np.random.randn(*x.shape) + x
 
@@ -72,8 +76,10 @@ def noisy(x: np.ndarray, std_dev: float) -> np.ndarray:
 def re_lu(x: np.ndarray) -> np.ndarray:
     """
     Activation function for rectified linear units.
-    :param x:             ndarray with current neuron potentials
-    :return:                np.clip(x, 0, None)
+
+    :param np.ndarray x:    with current neuron potentials
+
+    :return: np.ndarray               np.clip(x, 0, None)
     """
     cop = np.copy(x)
     cop[np.where(x < 0)] = 0
@@ -563,14 +569,14 @@ class FFRateEuler(FFRateLayer):
         """
         Implement a feed-forward non-spiking neuron layer, with an Euler method solver
 
-        :param ndarray weights:                                     [MxN] Weight matrix
-        :param Optional[float] dt:                                  Time step for Euler solver, in seconds. Default: `None`, which will use `min(tau) / 10` as the time step, for numerical stability
-        :param Optional[str] name:                                  Name of this layer. Default: `None`
-        :param float noise_std:                           Noise std. dev. per second. Default: 0.0, no noise
-        :param Callable[[float], float] activation_func:   Callable a = f(x) Neuron activation function. Default: ReLU
-        :param ArrayLike[float] tau:                      [Nx1] Vector of neuron time constants in seconds. Default: 10.0
-        :param ArrayLike[float] gain:                     [Nx1] Vector of gain factors. Default: 1.0, unitary gain
-        :param ArrayLike[float] bias:                     [Nx1] Vector of bias currents. Default: 0.0
+        :param ndarray weights:                             [MxN] Weight matrix
+        :param Optional[float] dt:                          Time step for Euler solver, in seconds. Default: `None`, which will use `min(tau) / 10` as the time step, for numerical stability
+        :param Optional[str] name:                          Name of this layer. Default: `None`
+        :param float noise_std:                             Noise std. dev. per second. Default: 0.0, no noise
+        :param Callable[[float], float] activation_func:    Callable a = f(x) Neuron activation function. Default: ReLU
+        :param ArrayLike[float] tau:                        [Nx1] Vector of neuron time constants in seconds. Default: 10.0
+        :param ArrayLike[float] gain:                       [Nx1] Vector of gain factors. Default: 1.0, unitary gain
+        :param ArrayLike[float] bias:                       [Nx1] Vector of bias currents. Default: 0.0
 
         """
 
