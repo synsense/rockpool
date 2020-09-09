@@ -581,7 +581,9 @@ class RecLIFJax(Layer, JaxTrainer):
         """
 
         def evol_func(
-            params: Params, state: State, sp_input_ts: np.ndarray,
+            params: Params,
+            state: State,
+            sp_input_ts: np.ndarray,
         ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Call the jitted evolution function for this layer
             (
@@ -658,9 +660,11 @@ class RecLIFJax(Layer, JaxTrainer):
         )
 
         # - Call raw evolution function and update state
-        (__, self._state, states_t,) = self._evolve_functional(
-            self._pack(), self._state, inps
-        )
+        (
+            __,
+            self._state,
+            states_t,
+        ) = self._evolve_functional(self._pack(), self._state, inps)
 
         # - Record spike raster
         self._spikes_last_evolution = TSEvent.from_raster(
@@ -991,7 +995,9 @@ class RecLIFCurrentInJax(RecLIFJax):
         """
 
         def evol_func(
-            params: Params, state: State, I_input_ts: np.ndarray,
+            params: Params,
+            state: State,
+            I_input_ts: np.ndarray,
         ):
             # - Call the jitted evolution function for this layer
             (
@@ -1244,7 +1250,9 @@ class RecLIFJax_IO(RecLIFJax):
         """
 
         def evol_func(
-            params: Params, state: State, sp_input_ts: np.ndarray,
+            params: Params,
+            state: State,
+            sp_input_ts: np.ndarray,
         ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Call the jitted evolution function for this layer
             (
@@ -1340,7 +1348,10 @@ class RecLIFJax_IO(RecLIFJax):
         if np.ndim(value) != 2:
             raise ValueError(self.start_print + "`w_out` must be 2D")
 
-        if value.shape != (self._size, self._size_out,):
+        if value.shape != (
+            self._size,
+            self._size_out,
+        ):
             raise ValueError(
                 self.start_print
                 + "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
@@ -1432,7 +1443,9 @@ class RecLIFCurrentInJax_IO(RecLIFJax_IO):
         """
 
         def evol_func(
-            params: Params, state: State, I_input_ts: np.ndarray,
+            params: Params,
+            state: State,
+            I_input_ts: np.ndarray,
         ):
             # - Call the jitted evolution function for this layer
             (
@@ -1845,9 +1858,7 @@ def _evolve_expsyn_jax(
     # - Single-step dynamics
     def forward(
         state: State, inputs_t: Tuple[np.ndarray, np.ndarray]
-    ) -> Tuple[
-        State, np.ndarray,
-    ]:
+    ) -> Tuple[State, np.ndarray,]:
         # - Unpack inputs
         (sp_in_t, I_in_t) = inputs_t
         sp_in_t = sp_in_t.reshape(-1)
@@ -1868,7 +1879,14 @@ def _evolve_expsyn_jax(
     )
 
     # - Evolve over spiking inputs
-    state, Isyn_ts = scan(forward, state0, (sp_input_ts, I_input_ts + noise_ts,))
+    state, Isyn_ts = scan(
+        forward,
+        state0,
+        (
+            sp_input_ts,
+            I_input_ts + noise_ts,
+        ),
+    )
 
     # - Return outputs
     return state, Isyn_ts, key1
@@ -1921,7 +1939,11 @@ def loss_mse_reg_expsyn(
 
     # - Get loss for tau parameter constraints
     dLoss["loss_tau"] = reg_tau * np.nansum(
-        np.where(params["tau"] < min_tau, np.exp(-(params["tau"] - min_tau)), 0,)
+        np.where(
+            params["tau"] < min_tau,
+            np.exp(-(params["tau"] - min_tau)),
+            0,
+        )
     )
 
     # - Regularisation for weights
@@ -2061,7 +2083,9 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         """
 
         def evol_func(
-            params: ParamsExpSyn, state: StateExpSyn, I_input_ts: np.ndarray,
+            params: ParamsExpSyn,
+            state: StateExpSyn,
+            I_input_ts: np.ndarray,
         ) -> Tuple[np.ndarray, StateExpSyn, Dict[str, np.ndarray]]:
             # - Call the jitted evolution function for this layer
             (new_state, Isyn_ts, key1,) = self._evolve_jit(
@@ -2111,7 +2135,9 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
 
         # - Call raw evolution function
         (Isyn_ts, self._state, state_ts,) = self._evolve_functional(
-            self._pack(), self._state, inps,
+            self._pack(),
+            self._state,
+            inps,
         )
 
         # - Record synaptic currents
@@ -2193,7 +2219,9 @@ class FFExpSynJax(FFExpSynCurrentInJax):
         """
 
         def evol_func(
-            params: Params, state: State, sp_input_ts: np.ndarray,
+            params: Params,
+            state: State,
+            sp_input_ts: np.ndarray,
         ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Call the jitted evolution function for this layer
             (new_state, Isyn_ts, key1,) = self._evolve_jit(

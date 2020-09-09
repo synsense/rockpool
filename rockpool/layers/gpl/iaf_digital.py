@@ -1,7 +1,7 @@
 ###
 # iaf_digital.py - Class implementing a recurrent layer consisting of
-#                    digital neurons with constant leak and fixed-size
-#                    integer as state. Event based.
+#                  digital neurons with constant leak and fixed-size
+#                  integer as state. Event based.
 ###
 
 # - Imports
@@ -63,18 +63,18 @@ class RecDIAF(Layer):
 
         :param np.array weights_in:                 nSizeInxN input weight matrix.
         :param np.array weights_rec:                NxN weight matrix
-        :param float dt:                  Length of single time step in s. Default: ``0.1 ms``
-        :param float delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
-        :param float tau_leak:            Period for applying leak in s. Default: ``1 ms``
-        :param FloatVector refractory:    Nx1 vector of refractory times. Default: ``1 ns``
-        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds. Default: ``100.``
-        :param FloatVector v_reset:       Nx1 vector of neuron reset potentials. Default: ``0.``
+        :param float dt:                            Length of single time step in s. Default: ``0.1 ms``
+        :param float delay:                         Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
+        :param float tau_leak:                      Period for applying leak in s. Default: ``1 ms``
+        :param FloatVector refractory:              Nx1 vector of refractory times. Default: ``1 ns``
+        :param FloatVector v_thresh:                Nx1 vector of neuron thresholds. Default: ``100.``
+        :param FloatVector v_reset:                 Nx1 vector of neuron reset potentials. Default: ``0.``
         :param Optional[FloatVector] v_rest:        Nx1 vector of neuron resting potentials. Leak will change sign for neurons with state below this. If ``None``, leak will not change sign. Default: ``None``
-        :param FloatVector leak:          Nx1 vector of leak values. Default: ``None``, no leak
+        :param FloatVector leak:                    Nx1 vector of leak values. Default: ``None``, no leak
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset to `.v_reset`.
-        :param Union[type, str] state_type:                 Data type for the membrane potential. Default: ``"int8"``
+        :param Union[type, str] state_type:         Data type for the membrane potential. Default: ``"int8"``
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``
-        :param str name:                  Name for the layer. Default: ``'unnamed'``
+        :param str name:                            Name for the layer. Default: ``'unnamed'``
         """
 
         # - Call super constructor

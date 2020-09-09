@@ -337,8 +337,8 @@ def DiscretiseWeightMatrix(
 
 def one_dim_exc_res(size, n_neighbour, zero_diagnoal=True):
     """one_dim_exc_res - Recurrent weight matrix where each neuron is connected
-                         to its n_neighbour nearest neighbours on a 1D grid.
-                         Only excitatory connections.
+    to its n_neighbour nearest neighbours on a 1D grid.
+    Only excitatory connections.
     """
     weights_res = np.zeros((size, size))
     nBound = int(np.floor(n_neighbour / 2))

@@ -24,8 +24,7 @@ if importlib.util.find_spec("nest") is None:
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecAEIFSpkInNest(RecIAFSpkInNest):
-    """ Spiking recurrent layer with spiking in- and outputs, with a NEST backend
-    """
+    """Spiking recurrent layer with spiking in- and outputs, with a NEST backend"""
 
     class NestProcess(_BaseNestProcessSpkInRec):
         """ Class for running NEST in its own process """

@@ -396,7 +396,9 @@ class RecRateEulerJax(JaxTrainer, Layer):
         # self._rng_key, self._state = ss(
         #     self._rng_key, (self._size,)
         # )
-        self._state = onp.random.randn(self._size,)
+        self._state = onp.random.randn(
+            self._size,
+        )
 
     @property
     def _evolve_functional(self):
@@ -411,7 +413,9 @@ class RecRateEulerJax(JaxTrainer, Layer):
         """
 
         def evol_func(
-            params: Params, state: State, inputs: np.ndarray,
+            params: Params,
+            state: State,
+            inputs: np.ndarray,
         ):
             # - Call the jitted evolution function for this layer
             (
@@ -617,7 +621,10 @@ class RecRateEulerJax(JaxTrainer, Layer):
         if np.ndim(value) != 2:
             raise ValueError(self.start_print + "`w_recurrent` must be 2D")
 
-        if value.shape != (self._size, self._size,):
+        if value.shape != (
+            self._size,
+            self._size,
+        ):
             raise ValueError(
                 self.start_print
                 + "`w_recurrent` must be [{:d}, {:d}]".format(self._size, self._size)
@@ -817,7 +824,10 @@ class RecRateEulerJax_IO(RecRateEulerJax):
         if np.ndim(value) != 2:
             raise ValueError(self.start_print, "`w_in` must be 2D")
 
-        if value.shape != (self._size_in, self._size,):
+        if value.shape != (
+            self._size_in,
+            self._size,
+        ):
             raise ValueError(
                 self.start_print
                 + "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
@@ -835,7 +845,10 @@ class RecRateEulerJax_IO(RecRateEulerJax):
         if np.ndim(value) != 2:
             raise ValueError(self.start_print + "`w_out` must be 2D")
 
-        if value.shape != (self._size, self._size_out,):
+        if value.shape != (
+            self._size,
+            self._size_out,
+        ):
             raise ValueError(
                 self.start_print
                 + "`w_out` must be [{:d}, {:d}]".format(self._size, self._size_out)
@@ -931,7 +944,9 @@ class ForceRateEulerJax_IO(RecRateEulerJax_IO):
         """
 
         def evol_func(
-            params: Params, state: State, inputs_forces: Tuple[np.ndarray, np.ndarray],
+            params: Params,
+            state: State,
+            inputs_forces: Tuple[np.ndarray, np.ndarray],
         ) -> Tuple[np.ndarray, State, Dict[str, np.ndarray]]:
             # - Unpack inputs
             inputs, forces = inputs_forces
@@ -1147,7 +1162,10 @@ class FFRateEulerJax(RecRateEulerJax):
         if np.ndim(value) != 2:
             raise ValueError(self.start_print + "`w_in` must be 2D")
 
-        if value.shape != (self._size_in, self._size,):
+        if value.shape != (
+            self._size_in,
+            self._size,
+        ):
             raise ValueError(
                 self.start_print
                 + "`w_in` must be [{:d}, {:d}]".format(self._size_in, self._size)
@@ -1167,7 +1185,10 @@ class FFRateEulerJax(RecRateEulerJax):
 
         # - Include class-specific aspects
         config.update(
-            {"class_name": "FFRateEulerJax", "w_in": onp.array(self.w_in).tolist(),}
+            {
+                "class_name": "FFRateEulerJax",
+                "w_in": onp.array(self.w_in).tolist(),
+            }
         )
 
         # - Return configuration

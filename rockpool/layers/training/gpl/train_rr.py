@@ -28,7 +28,7 @@ class RidgeRegrTrainer:
                                         Warning: When training over multiple batches, fisher_relabelling should only be True if the
                                                  distribution of targets is approximately the same across all batches. Otherwise
                                                  some data points of the same class can have a stronger effect on the output
-                                                 than others.                                            
+                                                 than others.
         :param bool standardize:        Perform z-score standardization based on mean and variance of first input batch.
         :param bool train_biases:       Train constant biases along with weights.
         """

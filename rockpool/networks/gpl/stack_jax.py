@@ -239,7 +239,9 @@ class JaxStack(Network, Layer, JaxTrainer):
         """
 
         def evol_func(
-            params: Params, all_states: State, ext_inputs: np.ndarray,
+            params: Params,
+            all_states: State,
+            ext_inputs: np.ndarray,
         ) -> Tuple[List[np.ndarray], State, List[np.ndarray]]:
             # - Call the functional form of the evolution functions for each sublayer
             new_states = []
