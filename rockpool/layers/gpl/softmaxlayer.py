@@ -23,7 +23,7 @@ def softmax(x: np.ndarray) -> float:
 
 class SoftMaxLayer(FFCLIAF):
     """
-    A spiking SoftMax layer with spiking inputs and outputs, and constant leak
+    *DEPRECATED* A spiking SoftMax layer with spiking inputs and outputs, and constant leak
 
     This layer implements an approximation of the "soft-max" function used often in deep classification networks.
     """

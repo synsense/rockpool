@@ -116,8 +116,7 @@ class _RefractoryBase:
         return matr_is_spiking.cpu()
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self.state = self.v_reset
         self.synapse_state = 0
         self._nums_refr_ctdwn_steps = torch.zeros(self.size).to(self.device)
@@ -139,8 +138,7 @@ class _RefractoryBase:
 
 ## - FFIAFTorch - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFTorch(Layer):
-    """ *DEPRECATED* Define a spiking feedforward layer with spiking outputs, with a PyTorch backend
-    """
+    """*DEPRECATED* Define a spiking feedforward layer with spiking outputs, with a PyTorch backend"""
 
     ## - Constructor
     def __init__(
@@ -429,8 +427,7 @@ class FFIAFTorch(Layer):
         return neural_input, num_timesteps
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self.state = self.v_reset
         self.synapse_state = 0
 
@@ -606,8 +603,7 @@ class FFIAFTorch(Layer):
 
 
 class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
-    """ *DEPRECATED* A spiking feedforward layer with spiking outputs and refractoriness
-    """
+    """*DEPRECATED* A spiking feedforward layer with spiking outputs and refractoriness"""
 
     ## - Constructor
     def __init__(
@@ -669,8 +665,7 @@ class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
 
 
 class FFIAFSpkInTorch(FFIAFTorch):
-    """ *DEPRECATED* Spiking feedforward layer with spiking in- and outputs
-    """
+    """*DEPRECATED* Spiking feedforward layer with spiking in- and outputs"""
 
     ## - Constructor
     def __init__(
@@ -805,8 +800,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
 
 class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
-    """ *DEPRECATED* Spiking feedforward layer with spiking in- and outputs and refractoriness, using a PyTorch backend
-    """
+    """*DEPRECATED* Spiking feedforward layer with spiking in- and outputs and refractoriness, using a PyTorch backend"""
 
     ## - Constructor
     def __init__(
@@ -872,8 +866,7 @@ class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
 
 ## - RecIAFTorch - Class: define a spiking recurrent layer with spiking outputs
 class RecIAFTorch(FFIAFTorch):
-    """ *DEPRECATED* A spiking recurrent layer with input currents and spiking outputs
-    """
+    """*DEPRECATED* A spiking recurrent layer with input currents and spiking outputs"""
 
     ## - Constructor
     def __init__(
@@ -951,7 +944,7 @@ class RecIAFTorch(FFIAFTorch):
         :param int evolution_timestep:     Time step within current evolution at beginning of current batch
         :param int num_timesteps:         Number of evolution time steps
         :param bool verbose:             Currently no effect, just for conformity
-        
+
         :return TSEvent:              output spike series
         """
 
@@ -1107,8 +1100,7 @@ class RecIAFTorch(FFIAFTorch):
 
 
 class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
-    """ _DEPRECATED_ A spiking recurrent layer with current inputs, spiking outputs and refractoriness. PyTorch backend.
-    """
+    """_DEPRECATED_ A spiking recurrent layer with current inputs, spiking outputs and refractoriness. PyTorch backend."""
 
     ## - Constructor
     def __init__(
@@ -1271,8 +1263,7 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
 
 
 class RecIAFSpkInTorch(RecIAFTorch):
-    """ *DEPRECATED* A spiking recurrent layer with spiking in- and outputs
-    """
+    """*DEPRECATED* A spiking recurrent layer with spiking in- and outputs"""
 
     ## - Constructor
     def __init__(
@@ -1517,8 +1508,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
 
     def _update_rec_kernel(self):
-        """ Update the kernel for this layer
-        """
+        """Update the kernel for this layer"""
         # - Kernel for filtering recurrent spikes
         kernel_size = min(
             50
@@ -1653,8 +1643,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
 
 
 class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
-    """ *DEPRECATED* A spiking recurrent layer with spiking in- and outputs and refractoriness, and a PyTorch backend
-    """
+    """*DEPRECATED* A spiking recurrent layer with spiking in- and outputs and refractoriness, and a PyTorch backend"""
 
     ## - Constructor
     def __init__(
@@ -1828,8 +1817,7 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
 
 
 class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
-    """ *DEPRECATED* A recurrent spiking layer with constant leak. Spiking inputs and outputs, PyTorch backend.
-    """
+    """*DEPRECATED* A recurrent spiking layer with constant leak. Spiking inputs and outputs, PyTorch backend."""
 
     ## - Constructor
     def __init__(

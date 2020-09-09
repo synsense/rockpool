@@ -59,7 +59,6 @@ Nest-based backend
 ~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
-
     layers.FFIAFNest
     layers.RecIAFSpkInNest
     layers.RecAEIFSpkInNest
@@ -74,12 +73,6 @@ For more information on using these layers, see :ref:`/tutorials/RecDynapSE.ipyn
     layers.RecDynapSE
     layers.VirtualDynapse
 
-
-Deprecated layer classes
--------------------------
-
-These classes are deprecated — please use other layers in preference, unless you are willing to take over supporting their implementation.
-
 Layers with constant leak
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -88,6 +81,7 @@ Layers with constant leak
     layers.FFCLIAF
     layers.RecCLIAF
     layers.SoftMaxLayer
+
 
 Torch-based backend
 ~~~~~~~~~~~~~~~~~~~~
@@ -103,3 +97,22 @@ Torch-based backend
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
+
+
+Deprecated layer classes
+-------------------------
+
+These classes are deprecated — please use other layers in preference, unless you are willing to take over supporting their implementation.
+
+Torch-based backend
+~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.FFExpSynTorch
+
+Layers with constant leak
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.SoftMaxLayer
+

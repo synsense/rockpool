@@ -28,8 +28,7 @@ def sigmoid(z):
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
 class FFExpSyn(RRTrainedLayer):
-    """ Define an exponential synapse layer with spiking inputs and current outputs
-    """
+    """Define an exponential synapse layer with spiking inputs and current outputs"""
 
     ## - Constructor
     def __init__(

@@ -34,8 +34,7 @@ eqSynapseExp = b2.Equations(
 
 ## - FFExpSynBrian - Class: define an exponential synapse layer (spiking input)
 class FFExpSynBrian(Layer):
-    """ Define an exponential synapse layer (spiking input), with a Brian2 backend
-    """
+    """Define an exponential synapse layer (spiking input), with a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -126,13 +125,11 @@ class FFExpSynBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self._neuron_group.I_syn = 0 * amp
 
     def randomize_state(self):
-        """ Randomize the internal state of the layer
-        """
+        """Randomize the internal state of the layer"""
         self.reset_state()
 
     def reset_time(self):

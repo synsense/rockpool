@@ -23,10 +23,10 @@ class PassThroughEvents(Layer):
         """
         Pass through events by routing to different channels
 
-        :param weights:         np.ndarray Positive integer weight matrix for this layer
-        :param dt:         float Time step duration. Only used for determining evolution period and internal clock.
+        :param np.ndarray weights:          Positive integer weight matrix for this layer
+        :param float dt:                    Time step duration. Only used for determining evolution period and internal clock.
         :param Optional[float] noise_std:   Not actually used
-        :param name:     str Name of this layer. Default: 'unnamed'
+        :param str name:                    Name of this layer. Default: 'unnamed'
         """
 
         # - Weights should be of integer type
@@ -51,11 +51,11 @@ class PassThroughEvents(Layer):
         Function to evolve the states of this layer given an input
 
         :param Optional[TSEvent] ts_input:        Input spike trian
-        :param Optional[float] duration:           Simulation/Evolution time
-        :param Optional[int] num_timesteps:          Number of evolution time steps
-        :param bool verbose:            Currently no effect, just for conformity
+        :param Optional[float] duration:          Simulation/Evolution time
+        :param Optional[int] num_timesteps:       Number of evolution time steps
+        :param bool verbose:                      Currently no effect, just for conformity
 
-        :return `.TSEvent`:                output spike series
+        :return `.TSEvent`:                       Output spike series
 
         """
 

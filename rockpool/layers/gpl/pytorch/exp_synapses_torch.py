@@ -31,8 +31,7 @@ def sigmoid(z):
 
 
 class FFExpSynTorch(FFExpSyn):
-    """ *DEPRECATED* Define an exponential synapse layer (spiking input, pytorch as backend)
-    """
+    """*DEPRECATED* Define an exponential synapse layer (spiking input, pytorch as backend)"""
 
     ## - Constructor
     def __init__(

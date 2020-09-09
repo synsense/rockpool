@@ -37,8 +37,7 @@ __all__ = ["RecDynapseBrian"]
 
 
 class RecDynapseBrian(Layer):
-    """ Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend
-    """
+    """Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -166,8 +165,7 @@ class RecDynapseBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self._neuron_group.i_mem = 0 * amp
         self._neuron_group.i_ahp = 0.5 * pamp
         self._rec_synapses.Ie_syn = 0.5 * pamp

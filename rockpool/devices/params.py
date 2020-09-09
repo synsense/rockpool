@@ -24,5 +24,5 @@ CAMTYPES = [
     "SLOW_INH",
 ]  # Names of available synapse types
 DEF_CAM_STR = (
-    "SLOW_INH"
-)  # Probably. In ctxctl it is `SLOW_EXC` but that seems to be wrong
+    "SLOW_INH"  # Probably. In ctxctl it is `SLOW_EXC` but that seems to be wrong
+)

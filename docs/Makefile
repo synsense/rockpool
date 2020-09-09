@@ -21,16 +21,16 @@ clean:
 
 livehtml:
 	sphinx-autobuild \
-		-B $(SOURCEDIR) $(BUILDDIR)/html \
-		-i "*.tmp*" \
-		-i "*.ai" \
-		-i "*.tmp" \
-		-i "*.ipynb_checkpoints/*" \
-		-i "*.~*" \
-		-i "*.xml" \
-		-i "Makefile" \
-		-i "_build" \
-		-i "reference/_autosummary" \
+		--open-browser $(SOURCEDIR) $(BUILDDIR)/html \
+		--ignore "*.tmp*" \
+		--ignore "*.ai" \
+		--ignore "*.tmp" \
+		--ignore "*.ipynb_checkpoints/*" \
+		--ignore "*.~*" \
+		--ignore "*.xml" \
+		--ignore "Makefile" \
+		--ignore "_build" \
+		--ignore "reference/_autosummary" \
 		--delay 5 \
 		--watch ../rockpool
 
