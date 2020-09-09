@@ -308,7 +308,10 @@ class FFRateLayer(RRTrainedLayer):
             print(self.start_print + "No `ts_input` defined, assuming input to be 0.")
         else:
             # - Sample input trace and check for correct dimensions
+            exception_flag = ts_input.beyond_range_exception
+            ts_input.beyond_range_exception = False
             inp = self._check_input_dims(ts_input(time_base))
+            ts_input.beyond_range_exception = exception_flag
 
             # - Treat "NaN" as zero inputs
             inp[np.where(np.isnan(inp))] = 0
