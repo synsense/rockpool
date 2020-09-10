@@ -166,10 +166,6 @@ class FFIAFBrian(Layer):
         :param bool record:                             Record membrane potential during evolutions
         """
 
-        warn(
-            "FFIAFBrian: This layer is deprecated. You can use FFIAFTorch or FFIAFNest instead."
-        )
-
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
             weights=np.asarray(weights),
@@ -550,10 +546,6 @@ class FFIAFSpkInBrian(FFIAFBrian):
         :param str name:                    Name for the layer. Default: 'unnamed'
         :param bool record:                 Record membrane potential during evolutions
         """
-
-        warn(
-            "FFIAFSpkInBrian: This layer is deprecated. You can use FFIAFSpkInTorch instad."
-        )
 
         # - Call Layer constructor
         Layer.__init__(
@@ -1029,7 +1021,6 @@ class RecIAFBrian(Layer):
         :param bool record:                 Record membrane potential during evolutions
         """
 
-        warn("RecIAFBrian: This layer is deprecated. You can use RecIAFTorch instad.")
         assert (
             np.atleast_2d(weights).shape[0] == np.atleast_2d(weights).shape[1]
         ), "Layer `{}`: weights must be a square matrix.".format(name)
@@ -1422,9 +1413,6 @@ class RecIAFSpkInBrian(RecIAFBrian):
         :param bool record:                 Record membrane potential during evolutions
         """
 
-        warn(
-            "RecIAFSpkInBrian: This layer is deprecated. You can use RecIAFSpkInTorch or RecIAFSpkInNest instead."
-        )
         # - Call Layer constructor
         Layer.__init__(
             self,
