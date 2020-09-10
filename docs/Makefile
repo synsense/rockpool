@@ -17,6 +17,7 @@ help:
 clean:
 	cp -f $(SOURCEDIR)/../CHANGELOG.md advanced/
 	rm -rf $(SOURCEDIR)/reference/_autosummary/*
+	find . -name .ipynb_checkpoints -d -print0 | xargs -0 rm -r --
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 livehtml:
