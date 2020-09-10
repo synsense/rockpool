@@ -1,14 +1,12 @@
-import warnings
-warnings.filterwarnings('ignore')
+import pytest
 import numpy as np
 import numpy.random as npr
-from rockpool.networks import NetworkADS
 import os
 import tempfile
-import traceback
-import sys
+
 
 def test_it():
+    from rockpool.networks import NetworkADS
 
     def test_network_ads(nInSize, nResSize, nOutSize):
 
@@ -78,6 +76,3 @@ def test_it():
             assert(np.array_equal(net.output_layer.tau_syn, network_loaded.output_layer.tau_syn)), "tau_syn_out of output does not match"
 
     test_network_ads(2,100,2)
-    
-
-test_it()

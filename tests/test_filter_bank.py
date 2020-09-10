@@ -148,7 +148,3 @@ def test_butter_filter():
     # reset_all() and terminate()
     lyr.reset_all()
     lyr.terminate()
-
-
-test_butter_filter()
-test_butter_mel_filter()
