@@ -14,10 +14,6 @@ from typing import Union, Callable, Tuple, List
 from tqdm import tqdm
 
 import matplotlib
-matplotlib.rc('font', family='Times New Roman')
-matplotlib.rc('text')
-matplotlib.rcParams['lines.linewidth'] = 0.5
-matplotlib.rcParams['lines.markersize'] = 0.5
 import matplotlib.pyplot as plt
 
 import time

@@ -21,10 +21,6 @@ except Exception:
     pass
 
 import matplotlib
-matplotlib.rc('font', family='Times New Roman')
-matplotlib.rc('text')
-matplotlib.rcParams['lines.linewidth'] = 0.5
-matplotlib.rcParams['lines.markersize'] = 0.5
 import matplotlib.pyplot as plt # For quick plottings
 
 __all__ = ["RecFSSpikeADS"]
@@ -316,7 +312,7 @@ class RecFSSpikeADS(Layer):
         record_length = num_timesteps
         spike_pointer = 0
 
-        if(verbose):
+        if verbose or self.record:
             times = full_nan(record_length)
             v = full_nan((self.size, record_length))
             s = full_nan((self.size, record_length))
@@ -413,7 +409,6 @@ class RecFSSpikeADS(Layer):
             zeros,
             target,
         ):
-
             # - Enforce refractory period by clamping membrane potential to reset
             b = vec_refractory > 0
             state[b] = v_reset[b]
@@ -632,7 +627,7 @@ class RecFSSpikeADS(Layer):
             spike_indices[spike_pointer] = first_spike_id
             spike_pointer += 1
 
-            if(verbose):
+            if verbose or self.record:
                 # - Extend state storage variables, if needed
                 if step >= record_length:
                     extend = num_timesteps
@@ -673,28 +668,27 @@ class RecFSSpikeADS(Layer):
         self.I_s_O = _backstep(self.I_s_O, I_s_O_Last, self._dt, t_time - final_time)
         self.rate = _backstep(self.rate, rate_Last, self._dt, t_time - final_time)
 
-        if(verbose):
-            ## - Store the network states for final time step
-            times[step - 1] = final_time
-            v[:, step - 1] = self.state
-            s[:, step - 1] = self.I_s_S
-            f[:, step - 1] = self.I_s_F
-            out[:, step - 1] = self.I_s_O
-            r[:, step - 1] = self.rate
-            err[:, step - 1] = e
-            I_kDte_track[:, step - 1] = I_kDte
+        ## - Store the network states for final time step
+        times[step - 1] = final_time
+        v[:, step - 1] = self.state
+        s[:, step - 1] = self.I_s_S
+        f[:, step - 1] = self.I_s_F
+        out[:, step - 1] = self.I_s_O
+        r[:, step - 1] = self.rate
+        err[:, step - 1] = e
+        I_kDte_track[:, step - 1] = I_kDte
 
-            ## - Trim state storage variables
-            times = times[:step]
-            v = v[:, :step]
-            s = s[:, :step]
-            f = f[:, :step]
-            r = r[:, :step]
-            err = err[:, :step]
-            out = out[:, :step]
-            I_kDte_track = I_kDte_track[:, :step]
+        ## - Trim state storage variables
+        times = times[:step]
+        v = v[:, :step]
+        s = s[:, :step]
+        f = f[:, :step]
+        r = r[:, :step]
+        err = err[:, :step]
+        out = out[:, :step]
+        I_kDte_track = I_kDte_track[:, :step]
 
-            dot_v_ts = dot_v_ts[:, :step]
+        dot_v_ts = dot_v_ts[:, :step]
 
         spike_times = spike_times[:spike_pointer]
         spike_indices = spike_indices[:spike_pointer]
@@ -702,33 +696,43 @@ class RecFSSpikeADS(Layer):
         R = R[:, :step_counter]
         E = E[:, :step_counter]
 
-        if(self.is_training):
+        if self.is_training:
             # - Compute the weight update here
             dot_W_slow_batched = (R @ (self.weights_in.T @ E).T)
+            
             # - No learning along the diagonal
             np.fill_diagonal(dot_W_slow_batched, 0)
+            
             # - Normalize the update to have frobenius norm 1.0
-            dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)    
+            dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)
+            
             # - Apply the learning rate
             dot_W_slow_batched *= self.eta
+            
             # - Perform the update
             self.weights_slow += dot_W_slow_batched
             
-        if(verbose):
-            ## - Construct return time series
-            resp = {
-                "vt": times,
-                "mfX": v,
-                "s": s,
-                "f": f,
-                "r": r,
-                "out" : out,
-                "mfFast": f,
-                "v":v,
-                "dot_v": dot_v_ts,
-                "static_input": static_input,
-            }
+        ## - Construct return time series
+        valid_spikes = spike_indices > -1
+        spike_times = spike_times[valid_spikes]
+        spike_indices = spike_indices[valid_spikes]
+        
+        resp = {
+            "vt": times,
+            "mfX": v,
+            "s": s,
+            "f": f,
+            "r": r,
+            "out" : out,
+            "mfFast": f,
+            "v":v,
+            "dot_v": dot_v_ts,
+            "static_input": static_input,
+            "spike_times": spike_times,
+            "spike_indices": spike_indices,
+        }
 
+        if verbose:
             backend = get_global_ts_plotting_backend()
             if backend is "holoviews":
                 spikes = {"times": spike_times, "vnNeuron": spike_indices}
@@ -746,8 +750,8 @@ class RecFSSpikeADS(Layer):
             # - Store "last evolution" state
             self._last_evolve = resp
             
-            if(self.record):
-                self.recorded_states = resp
+        if self.record:
+            self.recorded_states = resp
 
         self._timestep += num_timesteps
 
