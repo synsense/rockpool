@@ -4,7 +4,12 @@ an arbitrary dynamical system.
 """
 
 from ..layer import Layer
-from rockpool.timeseries import TSEvent, TSContinuous, TimeSeries, get_global_ts_plotting_backend
+from rockpool.timeseries import (
+    TSEvent,
+    TSContinuous,
+    TimeSeries,
+    get_global_ts_plotting_backend,
+)
 import numpy as np
 from typing import Union, Callable, Any, Tuple, Optional
 import copy
@@ -12,7 +17,9 @@ import copy
 from importlib import util
 
 if util.find_spec("numba") is None:
-    raise ModuleNotFoundError("'numba'backend not found. Layers that rely on numba will not be available.")
+    raise ModuleNotFoundError(
+        "'numba'backend not found. Layers that rely on numba will not be available."
+    )
 
 from numba import njit
 from warnings import warn
@@ -27,35 +34,28 @@ except Exception:
 
 __all__ = ["RecFSSpikeADS"]
 
+
 @njit
 def _backstep(vCurrent, vLast, tStep, tDesiredStep):
     return (vCurrent - vLast) / tStep * tDesiredStep + vLast
 
+
 @njit
-def neuron_dot_v(
-    t,
-    V,
-    dt,
-    I_s_F,
-    I_s_S,
-    I_kDte,
-    I_ext,
-    V_rest,
-    tau_V,
-    bias
-):
+def neuron_dot_v(t, V, dt, I_s_F, I_s_S, I_kDte, I_ext, V_rest, tau_V, bias):
     return (V_rest - V + I_s_F + I_s_S + I_kDte + I_ext + bias) / tau_V
+
 
 @njit
 def syn_dot_I_pre(I, dt_syn, I_spike):
-    return -dt_syn*I + I_spike
+    return -dt_syn * I + I_spike
 
 
 def discretize(W, base_weight):
     tmp = np.round(W / base_weight)
-    return base_weight*tmp, tmp
+    return base_weight * tmp, tmp
 
-def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense = True):
+
+def quantize_weights_dynapse_II(N, M, num_synapses_available=None, use_dense=True):
     """
     @brief Function that discretizes a given continuous weight matrix
     respecting the constraints of the DYNAP-SE II.
@@ -79,86 +79,112 @@ def quantize_weights_dynapse_II(N, M, num_synapses_available = None, use_dense =
                                         and specifying the FFwd matrix is not enough. This vector
                                         must hold N entries that each specify the number of synapses
                                         available per neuron.
-            plot : bool : Indicates if the matrices should be plotted. 
+            plot : bool : Indicates if the matrices should be plotted.
     """
     num_chips = 1
     num_cores_per_chip = 4
     num_neurons_per_core = 256
-    num_cores_total = int(num_chips*num_cores_per_chip) # 4
-    num_neurons_total = num_neurons_per_core*num_cores_total # 1024
-    num_dense_core_neurons_sacrificed = int(3/4 * num_neurons_per_core) # 192
+    num_cores_total = int(num_chips * num_cores_per_chip)  # 4
+    num_neurons_total = num_neurons_per_core * num_cores_total  # 1024
+    num_dense_core_neurons_sacrificed = int(3 / 4 * num_neurons_per_core)  # 192
     num_dense_core_neurons = num_neurons_per_core - num_dense_core_neurons_sacrificed
 
     # assert num_synapses_available is of type None, or np.ndarray(dtype=int)
-    assert ((num_synapses_available is None) or (np.array(list(num_synapses_available)).dtype == np.dtype('int'))), "Elements of num_synapses_available must be of type int"
-    assert (N <= num_neurons_total), "Number of neurons exceeds number of neurons on DYNAP-SE II"
-    assert (M.shape[1] == N), "Second matrix dimension does not fit number of neurons. Dimension must be [? x N]"
+    assert (num_synapses_available is None) or (
+        np.array(list(num_synapses_available)).dtype == np.dtype("int")
+    ), "Elements of num_synapses_available must be of type int"
+    assert (
+        N <= num_neurons_total
+    ), "Number of neurons exceeds number of neurons on DYNAP-SE II"
+    assert (
+        M.shape[1] == N
+    ), "Second matrix dimension does not fit number of neurons. Dimension must be [? x N]"
 
-    if(num_synapses_available is None):
-        num_synapses_available = 64*np.ones((N,), dtype=int)
+    if num_synapses_available is None:
+        num_synapses_available = 64 * np.ones((N,), dtype=int)
 
     # - Matrix that gets returned
     M_disc = np.zeros(M.shape)
 
     # - Needs to be clipped because if N < 256 a value bigger than num_cores_total can be returned
-    number_dense_cores = int(np.clip(int(num_cores_total - ((N - num_neurons_per_core) / (num_dense_core_neurons_sacrificed)) ),0,num_cores_total))
-    if(not use_dense):
+    number_dense_cores = int(
+        np.clip(
+            int(
+                num_cores_total
+                - ((N - num_neurons_per_core) / (num_dense_core_neurons_sacrificed))
+            ),
+            0,
+            num_cores_total,
+        )
+    )
+    if not use_dense:
         number_dense_cores = 0
     number_sparse_cores = num_cores_total - number_dense_cores
-    
+
     # - Quantize
-    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2**5 - 1)
-    if(base_weight == 0.0):
+    base_weight = (np.max(np.abs(M)) - np.min(np.abs(M))) / (2 ** 5 - 1)
+    if base_weight == 0.0:
         return np.zeros(M.shape)
     num_base_weights_needed = np.round(M / base_weight)
 
     num_dense_neurons = 0
 
     # - The following only matter if we have one dense core available
-    if(number_dense_cores > 0):
+    if number_dense_cores > 0:
         # - Which neurons would loose the most incoming connections if we have to threshold?
         # - We also need to consider that some neurons had to sacrifice some synapses for other connections
         # - so they could benefit even greater from the additional 192 synapses if placed on a dense core.
         num_base_weights_lost = np.empty(shape=(N,), dtype=int)
         for i in range(N):
-            incoming_weights = np.abs(num_base_weights_needed[i,:])
-            incoming_weights[::-1].sort() # - Sort in descending order
+            incoming_weights = np.abs(num_base_weights_needed[i, :])
+            incoming_weights[::-1].sort()  # - Sort in descending order
             # - Take the biggest weights first. Cutoff at the index that indicates the num. synapses we have left for this neuron
-            num_base_weights_lost[i] = np.sum(incoming_weights[num_synapses_available[i]:])
+            num_base_weights_lost[i] = np.sum(
+                incoming_weights[num_synapses_available[i] :]
+            )
 
         # - Argsort the num_base_weights_lost vector in descending order and take the indices, maybe index oor but that is ok
-        dense_neuron_indices = num_base_weights_lost[::-1].argsort()[:number_dense_cores*num_dense_core_neurons]
+        dense_neuron_indices = num_base_weights_lost[::-1].argsort()[
+            : number_dense_cores * num_dense_core_neurons
+        ]
         dense_neuron_indices.sort()
         num_dense_neurons = len(dense_neuron_indices)
         # - The number of synapses available increments by 192 for the dense indices
         num_synapses_available[dense_neuron_indices] += 192
 
-    if(num_dense_neurons > 0):
+    if num_dense_neurons > 0:
         # - The index array with the neurons that have 256 synapses will be filled by now
         # - First discretize the incoming weights of the dense neurons and keep track of the indices that have only 64 synapses
-        sparse_neuron_indices = np.empty((N-num_dense_neurons,), dtype=int)
+        sparse_neuron_indices = np.empty((N - num_dense_neurons,), dtype=int)
         c = 0
-        for idx,i in enumerate(dense_neuron_indices):
-            if(idx == 0):
+        for idx, i in enumerate(dense_neuron_indices):
+            if idx == 0:
                 for j in range(i):
-                    sparse_neuron_indices[c] = j; c += 1
-            elif(idx == len(dense_neuron_indices)-1):
-                for j in range(dense_neuron_indices[idx-1]+1,N-1):
-                    sparse_neuron_indices[c] = j; c += 1
+                    sparse_neuron_indices[c] = j
+                    c += 1
+            elif idx == len(dense_neuron_indices) - 1:
+                for j in range(dense_neuron_indices[idx - 1] + 1, N - 1):
+                    sparse_neuron_indices[c] = j
+                    c += 1
             else:
-                for j in range(dense_neuron_indices[idx-1]+1,i):
-                    sparse_neuron_indices[c] = j; c += 1
+                for j in range(dense_neuron_indices[idx - 1] + 1, i):
+                    sparse_neuron_indices[c] = j
+                    c += 1
 
             # - Discretize incoming weights of i-th dense neuron
-            indices = np.argsort(np.abs(num_base_weights_needed[i,:]))[::-1][:num_synapses_available[i]]
-            M_disc[i,indices] = base_weight*num_base_weights_needed[i,indices]
+            indices = np.argsort(np.abs(num_base_weights_needed[i, :]))[::-1][
+                : num_synapses_available[i]
+            ]
+            M_disc[i, indices] = base_weight * num_base_weights_needed[i, indices]
     else:
-        sparse_neuron_indices = np.arange(0,N,1)
+        sparse_neuron_indices = np.arange(0, N, 1)
 
     # - Discretize the rest
     for j in sparse_neuron_indices:
-        indices = np.argsort(np.abs(num_base_weights_needed[j,:]))[::-1][:num_synapses_available[j]]
-        M_disc[j,indices] = base_weight*num_base_weights_needed[j,indices]
+        indices = np.argsort(np.abs(num_base_weights_needed[j, :]))[::-1][
+            : num_synapses_available[j]
+        ]
+        M_disc[j, indices] = base_weight * num_base_weights_needed[j, indices]
 
     return M_disc
 
@@ -191,30 +217,39 @@ class RecFSSpikeADS(Layer):
     :param int discretize: Number of distinctive weights used at all times. E.g. 8 would mean a 3 bit resolution. discretize_dynapse must be set False
     :param bool discretize_dynapse: If set to True, the constraints of the DYNAP-SE II are imposed on the slow recurrent weight matrix
     """
-    def __init__(self,
-                weights_fast : np.ndarray,
-                weights_slow : np.ndarray,
-                weights_in : np.ndarray,
-                weights_out : np.ndarray,
-                eta : float,
-                k : float,
-                bias: np.ndarray,
-                noise_std : float,
-                dt : float,
-                v_thresh : Union[np.ndarray,float],
-                v_reset : Union[np.ndarray,float],
-                v_rest : Union[np.ndarray,float],
-                tau_mem : float,
-                tau_syn_r_fast : float,
-                tau_syn_r_slow : float,
-                tau_syn_r_out : float,
-                refractory : float,
-                record : bool,
-                name : str,
-                discretize: int,
-                discretize_dynapse: bool):
-        
-        super().__init__(weights=np.zeros((np.asarray(weights_fast).shape[0],np.asarray(weights_fast).shape[1])), noise_std=noise_std, name=name)
+
+    def __init__(
+        self,
+        weights_fast: np.ndarray,
+        weights_slow: np.ndarray,
+        weights_in: np.ndarray,
+        weights_out: np.ndarray,
+        eta: float,
+        k: float,
+        bias: np.ndarray,
+        noise_std: float,
+        dt: float,
+        v_thresh: Union[np.ndarray, float],
+        v_reset: Union[np.ndarray, float],
+        v_rest: Union[np.ndarray, float],
+        tau_mem: float,
+        tau_syn_r_fast: float,
+        tau_syn_r_slow: float,
+        tau_syn_r_out: float,
+        refractory: float,
+        record: bool,
+        name: str,
+        discretize: int,
+        discretize_dynapse: bool,
+    ):
+
+        super().__init__(
+            weights=np.zeros(
+                (np.asarray(weights_fast).shape[0], np.asarray(weights_fast).shape[1])
+            ),
+            noise_std=noise_std,
+            name=name,
+        )
 
         # - Fast weights, noise_std and name are access. via self.XX or self._XX
         self.noise_std = noise_std
@@ -247,8 +282,8 @@ class RecFSSpikeADS(Layer):
         self.percentage_suppress = None
 
         # - Discretization
-        self.num_synapse_states = discretize # How many distinct synapse weights to we allow? For example, 2**3 = 8 would be 3-bit precision
-        self.discretize_dynapse = discretize_dynapse # Do we want to respect the constraint of the DYNAP-SE neuromorphic hardware?
+        self.num_synapse_states = discretize  # How many distinct synapse weights to we allow? For example, 2**3 = 8 would be 3-bit precision
+        self.discretize_dynapse = discretize_dynapse  # Do we want to respect the constraint of the DYNAP-SE neuromorphic hardware?
 
         # - Set a reasonable dt
         if dt is None:
@@ -270,21 +305,22 @@ class RecFSSpikeADS(Layer):
         self.rate = np.zeros(self.size)
         self.num_training_iterations = 0
 
-
-    def evolve(self,
-                ts_input: Optional[TSContinuous] = None,
-                duration: Optional[float] = None,
-                num_timesteps: Optional[int] = None,
-                verbose: bool = False,
-                min_delta: Optional[float] = None,) -> TSEvent:
+    def evolve(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+        verbose: bool = False,
+        min_delta: Optional[float] = None,
+    ) -> TSEvent:
         """
         Evolve the function on the input c(t). This function simply feeds the input through the network and does not perform any learning
-        
+
         :param TSContinuous ts_input: Corresponds to the input c in the simulations, shape: [int(duration/dt), N], eg [30001,100]
         :param float duration: Duration in seconds for the layer to be evolved, net_ads calls evolve with duration set to None, but passes num_timesteps
         :param int num_timesteps: Number of timesteps to be performed. Typically int(duration / dt) where duration is passed to net.evolve (not the layer evolve)
         :param bool verbose: Print verbose output
-        :param bool min_delta: Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing  
+        :param bool min_delta: Minimal time set taken. Typically 1/10*dt . Must be strictly smaller than dt. This is used to determine the precise spike timing
         """
 
         # - Work out reasonable default for nominal time step (1/10 fastest time constant)
@@ -295,15 +331,25 @@ class RecFSSpikeADS(Layer):
         assert min_delta < self.dt, "`min_delta` must be shorter than `dt`"
 
         # - Get discretised input and nominal time trace
-        input_time_trace, static_input, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
+        input_time_trace, static_input, num_timesteps = self._prepare_input(
+            ts_input, duration, num_timesteps
+        )
         final_time = input_time_trace[-1]
 
         # - Assertions about training and the targets that were set
-        if(self.is_training):
-            assert (self.ts_target is not None), "Evolve called with learning flag set, but no target input provided"
-            assert (input_time_trace.shape == self.target_time_trace.shape), "Input and target time_trace shapes don't match"
-            assert (static_input.shape[0] == self.static_target.shape[0]), "Input and target lengths don't match"
-            assert (num_timesteps == self.target_num_timesteps), "Input and output num_timesteps don't match"
+        if self.is_training:
+            assert (
+                self.ts_target is not None
+            ), "Evolve called with learning flag set, but no target input provided"
+            assert (
+                input_time_trace.shape == self.target_time_trace.shape
+            ), "Input and target time_trace shapes don't match"
+            assert (
+                static_input.shape[0] == self.static_target.shape[0]
+            ), "Input and target lengths don't match"
+            assert (
+                num_timesteps == self.target_num_timesteps
+            ), "Input and output num_timesteps don't match"
 
         # - Generate a noise trace
         noise_step = (
@@ -365,17 +411,23 @@ class RecFSSpikeADS(Layer):
         record_length_batched = num_timesteps
 
         # - Discretization
-        if(self.num_synapse_states == -1 and not self.discretize_dynapse):
+        if self.num_synapse_states == -1 and not self.discretize_dynapse:
             # - Should not discretize
             self.weights_slow_discretized = self.weights_slow
-        elif(self.discretize_dynapse):
+        elif self.discretize_dynapse:
             # - Meaning we should discretize using the DYNAP-SE II constraints
-            self.weights_slow_discretized = quantize_weights_dynapse_II(self.size, self.weights_slow)
+            self.weights_slow_discretized = quantize_weights_dynapse_II(
+                self.size, self.weights_slow
+            )
         else:
             # - Meaning we should discretize normally
-            base_weight = (np.max(self.weights_slow)-np.min(self.weights_slow))/(self.num_synapse_states-1)
-            if(base_weight != 0):
-                self.weights_slow_discretized, _ = discretize(self.weights_slow, base_weight)
+            base_weight = (np.max(self.weights_slow) - np.min(self.weights_slow)) / (
+                self.num_synapse_states - 1
+            )
+            if base_weight != 0:
+                self.weights_slow_discretized, _ = discretize(
+                    self.weights_slow, base_weight
+                )
 
         def _evolve_backstep(
             t_last,
@@ -415,10 +467,15 @@ class RecFSSpikeADS(Layer):
             b = vec_refractory > 0
             state[b] = v_reset[b]
 
-            if(self.percentage_suppress is not None and t_time > self.t_start_suppress and t_time < self.t_stop_suppress):
+            if (
+                self.percentage_suppress is not None
+                and t_time > self.t_start_suppress
+                and t_time < self.t_stop_suppress
+            ):
                 # - Suppress neurons
-                state[:int(self.size*self.percentage_suppress)] = v_reset[:int(self.size*self.percentage_suppress)]
-
+                state[: int(self.size * self.percentage_suppress)] = v_reset[
+                    : int(self.size * self.percentage_suppress)
+                ]
 
             # - Locate spiking neurons
             spike_ids = state > v_thresh
@@ -429,7 +486,11 @@ class RecFSSpikeADS(Layer):
             if num_spikes > 0:
                 # - Predict the precise spike times using linear interpolation, returns a value between 0 and dt depending on whether V(t) or V(t-1) is closer to the threshold.
                 # - We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
-                spike_deltas = ((v_thresh[spike_ids] - v_last[spike_ids]) * dt / (state[spike_ids] - v_last[spike_ids]))
+                spike_deltas = (
+                    (v_thresh[spike_ids] - v_last[spike_ids])
+                    * dt
+                    / (state[spike_ids] - v_last[spike_ids])
+                )
 
                 # - Was there more than one neuron above threshold?
                 if num_spikes > 1:
@@ -500,29 +561,28 @@ class RecFSSpikeADS(Layer):
             int_time = int((t_time - t_start) // dt)
             I_ext = static_input[int_time, :]
 
-            if(is_training):
-                x = np.copy(target[int_time, :])    
+            if is_training:
+                x = np.copy(target[int_time, :])
                 x_hat = I_s_O
                 e = x - x_hat
-                I_kDte = k*(weights_in.T @ e)
-                
+                I_kDte = k * (weights_in.T @ e)
+
             else:
                 I_kDte = zeros
                 assert (I_kDte == 0).all(), "I_kDte is not zero"
                 e = zeros_out
 
-
             dot_v = neuron_dot_v(
-                t = t_time,
-                V = state,
-                dt = dt,
-                I_s_F = I_s_F,
-                I_s_S = I_s_S,
-                I_kDte = I_kDte,
-                I_ext = I_ext,
-                V_rest = v_rest,
-                tau_V = tau_mem,
-                bias = bias
+                t=t_time,
+                V=state,
+                dt=dt,
+                I_s_F=I_s_F,
+                I_s_S=I_s_S,
+                I_kDte=I_kDte,
+                I_ext=I_ext,
+                V_rest=v_rest,
+                tau_V=tau_mem,
+                bias=bias,
             )
 
             state += dot_v * dt
@@ -547,7 +607,6 @@ class RecFSSpikeADS(Layer):
                 vec_refractory,
                 e,
             )
-
 
         # - Euler integrator loop
         while t_time < final_time:
@@ -574,41 +633,41 @@ class RecFSSpikeADS(Layer):
             ) = _evolve_backstep(
                 t_last=t_last,
                 t_time=t_time,
-                weights= self.weights_fast,
-                weights_slow=self.weights_slow_discretized, # This does not have to be discretized. If --discretize is set to -1, this is simply the continuous version
+                weights=self.weights_fast,
+                weights_slow=self.weights_slow_discretized,  # This does not have to be discretized. If --discretize is set to -1, this is simply the continuous version
                 weights_in=self.weights_in,
-                weights_out = self.weights_out,
-                k = self.k,
-                e_Last = e,
-                is_training = self.is_training,
-                state = self._state,
-                I_s_S = self.I_s_S,
-                I_s_F = self.I_s_F,
-                I_s_O = self.I_s_O,
-                rate = self.rate,
-                dt = self._dt,
-                v_last = v_last,
-                I_s_S_Last = I_s_S_Last,
-                I_s_F_Last = I_s_F_Last,
-                I_s_O_Last = I_s_O_Last,
-                rate_Last = rate_Last,
-                v_reset = self.v_reset,
-                v_rest = self.v_rest,
-                v_thresh = self.v_thresh,
-                bias = self.bias,
-                tau_mem = self.tau_mem,
-                tau_syn_r_slow = self.tau_syn_r_slow,
-                tau_syn_r_fast = self.tau_syn_r_fast,
-                tau_syn_r_out = self.tau_syn_r_out,
-                refractory = self.refractory,
-                vec_refractory = vec_refractory,
-                zeros = zeros,
-                target = self.static_target,
+                weights_out=self.weights_out,
+                k=self.k,
+                e_Last=e,
+                is_training=self.is_training,
+                state=self._state,
+                I_s_S=self.I_s_S,
+                I_s_F=self.I_s_F,
+                I_s_O=self.I_s_O,
+                rate=self.rate,
+                dt=self._dt,
+                v_last=v_last,
+                I_s_S_Last=I_s_S_Last,
+                I_s_F_Last=I_s_F_Last,
+                I_s_O_Last=I_s_O_Last,
+                rate_Last=rate_Last,
+                v_reset=self.v_reset,
+                v_rest=self.v_rest,
+                v_thresh=self.v_thresh,
+                bias=self.bias,
+                tau_mem=self.tau_mem,
+                tau_syn_r_slow=self.tau_syn_r_slow,
+                tau_syn_r_fast=self.tau_syn_r_fast,
+                tau_syn_r_out=self.tau_syn_r_out,
+                refractory=self.refractory,
+                vec_refractory=vec_refractory,
+                zeros=zeros,
+                target=self.static_target,
             )
 
-            if(self.is_training and (np.abs(e)>0).any()):
+            if self.is_training and (np.abs(e) > 0).any():
                 # - Check if tracking variables need extending
-                if(step_counter >= record_length_batched):
+                if step_counter >= record_length_batched:
                     E = np.append(E, full_nan((self.out_size, num_timesteps)), axis=1)
                     R = np.append(R, full_nan((self.size, num_timesteps)), axis=1)
                     record_length_batched += num_timesteps
@@ -640,8 +699,12 @@ class RecFSSpikeADS(Layer):
                     r = np.append(r, full_nan((self.size, extend)), axis=1)
                     err = np.append(err, full_nan((self.out_size, extend)), axis=1)
                     out = np.append(out, full_nan((self.out_size, extend)), axis=1)
-                    I_kDte_track = np.append(I_kDte_track, full_nan((self.size, extend)), axis=1)
-                    dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
+                    I_kDte_track = np.append(
+                        I_kDte_track, full_nan((self.size, extend)), axis=1
+                    )
+                    dot_v_ts = np.append(
+                        dot_v_ts, full_nan((self.size, extend)), axis=1
+                    )
                     record_length += extend
 
                 # - Store the network states for this time step
@@ -700,34 +763,34 @@ class RecFSSpikeADS(Layer):
 
         if self.is_training:
             # - Compute the weight update here
-            dot_W_slow_batched = (R @ (self.weights_in.T @ E).T)
-            
+            dot_W_slow_batched = R @ (self.weights_in.T @ E).T
+
             # - No learning along the diagonal
             np.fill_diagonal(dot_W_slow_batched, 0)
-            
+
             # - Normalize the update to have frobenius norm 1.0
-            dot_W_slow_batched /= (np.sum(np.abs(dot_W_slow_batched)) / self.size**2)
-            
+            dot_W_slow_batched /= np.sum(np.abs(dot_W_slow_batched)) / self.size ** 2
+
             # - Apply the learning rate
             dot_W_slow_batched *= self.eta
-            
+
             # - Perform the update
             self.weights_slow += dot_W_slow_batched
-            
+
         ## - Construct return time series
         valid_spikes = spike_indices > -1
         spike_times = spike_times[valid_spikes]
         spike_indices = spike_indices[valid_spikes]
-        
+
         resp = {
             "vt": times,
             "mfX": v,
             "s": s,
             "f": f,
             "r": r,
-            "out" : out,
+            "out": out,
             "mfFast": f,
-            "v":v,
+            "v": v,
             "dot_v": dot_v_ts,
             "static_input": static_input,
             "spike_times": spike_times,
@@ -741,91 +804,112 @@ class RecFSSpikeADS(Layer):
 
                 resp["spReservoir"] = hv.Points(
                     spikes, kdims=["times", "vnNeuron"], label="Reservoir spikes"
-                ).redim.range(times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size))
+                ).redim.range(
+                    times=(0, num_timesteps * self.dt), vnNeuron=(0, self.size)
+                )
             else:
                 resp["spReservoir"] = dict(times=spike_times, vnNeuron=spike_indices)
 
             # - Convert some elements to time series
-            resp["tsX"] = TSContinuous(resp["vt"], resp["mfX"].T, name="Membrane potential")
-            resp["tsA"] = TSContinuous(resp["vt"], resp["s"].T, name="Slow synaptic state")
+            resp["tsX"] = TSContinuous(
+                resp["vt"], resp["mfX"].T, name="Membrane potential"
+            )
+            resp["tsA"] = TSContinuous(
+                resp["vt"], resp["s"].T, name="Slow synaptic state"
+            )
 
             # - Store "last evolution" state
             self._last_evolve = resp
-            
+
         if self.record:
             self.recorded_states = resp
 
         self._timestep += num_timesteps
 
         # - Return output TimeSeries
-        ts_event_return = TSEvent(spike_times, spike_indices,
-                                  num_channels=self.size,
-                                  t_start = t_start,
-                                  t_stop = final_time,
-                                  )
+        ts_event_return = TSEvent(
+            spike_times,
+            spike_indices,
+            num_channels=self.size,
+            t_start=t_start,
+            t_stop=final_time,
+        )
 
         if verbose:
             import matplotlib.pyplot as plt
 
-            fig = plt.figure(figsize=(20,20),constrained_layout=True)
+            fig = plt.figure(figsize=(20, 20), constrained_layout=True)
             gs = fig.add_gridspec(7, 1)
 
-            ax1 = fig.add_subplot(gs[0,0])
-            ax1.plot(times, s[0:5,:].T)
+            ax1 = fig.add_subplot(gs[0, 0])
+            ax1.plot(times, s[0:5, :].T)
             ax1.set_title(r"$I_{slow}$")
 
-            ax2 = fig.add_subplot(gs[1,0])
-            ax2.plot(times, v[0:5,:].T)
+            ax2 = fig.add_subplot(gs[1, 0])
+            ax2.plot(times, v[0:5, :].T)
             ax2.set_title(r"$V(t)$")
 
-            ax3 = fig.add_subplot(gs[2,0])
-            ax3.plot(np.linspace(0,len(static_input[:,0])/self.dt,len(static_input[:,0])), static_input[:,:])
+            ax3 = fig.add_subplot(gs[2, 0])
+            ax3.plot(
+                np.linspace(
+                    0, len(static_input[:, 0]) / self.dt, len(static_input[:, 0])
+                ),
+                static_input[:, :],
+            )
             ax3.set_title(r"$I_{ext}$")
 
-            ax4 = fig.add_subplot(gs[3,0])
+            ax4 = fig.add_subplot(gs[3, 0])
             channels = ts_event_return.channels[ts_event_return.channels >= 0]
             times_tmp = ts_event_return.times[ts_event_return.channels >= 0]
             ax4.scatter(times_tmp, channels, color="k")
-            ax4.set_xlim([0,final_time])
-            
-            ax5 = fig.add_subplot(gs[4,0])
-            ax5.plot(times, I_kDte_track[0:5,:].T)
+            ax4.set_xlim([0, final_time])
+
+            ax5 = fig.add_subplot(gs[4, 0])
+            ax5.plot(times, I_kDte_track[0:5, :].T)
             ax5.set_title(r"$I_{kD^Te}$")
-        
-            ax6 = fig.add_subplot(gs[5,0])
-            ax6.plot(times, out[0:5,:].T)
+
+            ax6 = fig.add_subplot(gs[5, 0])
+            ax6.plot(times, out[0:5, :].T)
             ax6.set_title(r"$I_{out}$")
 
-            ax7 = fig.add_subplot(gs[6,0])
-            ax7.plot(times, f[0:5,:].T)
+            ax7 = fig.add_subplot(gs[6, 0])
+            ax7.plot(times, f[0:5, :].T)
             ax7.set_title(r"$I_{fast}$")
 
             plt.tight_layout()
             plt.draw()
-            plt.waitforbuttonpress(0) # this will wait for indefinite time
+            plt.waitforbuttonpress(0)  # this will wait for indefinite time
             plt.close(fig)
 
             # - Plot reconstruction
-            fig = plt.figure(figsize=(20,20))
+            fig = plt.figure(figsize=(20, 20))
             plot_num = self.weights_out.shape[1]
             stagger_out = np.ones((plot_num, out.shape[1]))
             stagger_target = np.ones((plot_num, self.static_target.shape[0]))
             for i in range(plot_num):
-                stagger_out[i,:] *= i
-                stagger_target[i,:] *= i
+                stagger_out[i, :] *= i
+                stagger_target[i, :] *= i
 
-            colors = [("C%d"%i) for i in range(2,plot_num+2)]
-            l1 = plt.plot(times, (stagger_out+out[:plot_num,:]).T)
-            for line, color in zip(l1,colors):
+            colors = [("C%d" % i) for i in range(2, plot_num + 2)]
+            l1 = plt.plot(times, (stagger_out + out[:plot_num, :]).T)
+            for line, color in zip(l1, colors):
                 line.set_color(color)
-            l2 = plt.plot(np.linspace(0,self.static_target.shape[0]*self.dt,self.static_target.shape[0]), (stagger_target.T+self.static_target[:,:plot_num]), linestyle="--")
-            for line, color in zip(l2,colors):
+            l2 = plt.plot(
+                np.linspace(
+                    0,
+                    self.static_target.shape[0] * self.dt,
+                    self.static_target.shape[0],
+                ),
+                (stagger_target.T + self.static_target[:, :plot_num]),
+                linestyle="--",
+            )
+            for line, color in zip(l2, colors):
                 line.set_color(color)
             plt.title(r"Target vs reconstruction")
-            lines = [l1[0],l2[0]]
+            lines = [l1[0], l2[0]]
             plt.legend(lines, ["Reconstruction", "Target"])
             plt.draw()
-            plt.waitforbuttonpress(0) # this will wait for indefinite time
+            plt.waitforbuttonpress(0)  # this will wait for indefinite time
             plt.close(fig)
 
             if self.is_training:
@@ -833,16 +917,16 @@ class RecFSSpikeADS(Layer):
                 plt.subplot(121)
                 im = plt.matshow(self.weights_slow, fignum=False)
                 plt.xticks([], [])
-                plt.colorbar(im,fraction=0.046, pad=0.04)
+                plt.colorbar(im, fraction=0.046, pad=0.04)
                 plt.title(r"$W_{slow}$")
                 plt.subplot(122)
                 im = plt.matshow(dot_W_slow_batched, fignum=False)
                 plt.xticks([], [])
-                plt.colorbar(im,fraction=0.046, pad=0.04)
+                plt.colorbar(im, fraction=0.046, pad=0.04)
                 plt.title(r"$\Delta W_{slow}$")
                 plt.tight_layout()
                 plt.draw()
-                plt.waitforbuttonpress(0) # this will wait for indefinite time
+                plt.waitforbuttonpress(0)  # this will wait for indefinite time
                 plt.close(fig)
 
         return ts_event_return
@@ -871,7 +955,7 @@ class RecFSSpikeADS(Layer):
         config["dt"] = self.dt
         config["v_thresh"] = self.v_thresh.tolist()
         config["v_reset"] = self.v_reset.tolist()
-        config["v_rest"] = self.v_rest.tolist() 
+        config["v_rest"] = self.v_rest.tolist()
         config["tau_mem"] = self.tau_mem.tolist()
         config["tau_syn_r_fast"] = self.tau_syn_r_fast.tolist()
         config["tau_syn_r_slow"] = self.tau_syn_r_slow.tolist()
@@ -881,7 +965,7 @@ class RecFSSpikeADS(Layer):
         config["name"] = self.name
         config["discretize"] = self.num_synapse_states
         config["discretize_dynapse"] = self.discretize_dynapse
-        
+
         return config
 
     @property
@@ -895,7 +979,6 @@ class RecFSSpikeADS(Layer):
     def output_type(self):
         """ (`TSEvent`) Output `TimeSeries` class (`TSEvent`) """
         return TSEvent
-
 
     @property
     def tau_syn_r_f(self):
@@ -963,13 +1046,15 @@ class RecFSSpikeADS(Layer):
 
     @ts_target.setter
     def ts_target(self, t):
-        if(t is not None):
-            self.target_time_trace, self.static_target, self.target_num_timesteps = self._prepare_input(t, is_target=True)
+        if t is not None:
+            (
+                self.target_time_trace,
+                self.static_target,
+                self.target_num_timesteps,
+            ) = self._prepare_input(t, is_target=True)
             self._ts_target = t
         else:
             self._ts_target = None
-
-        
 
     def _prepare_input(
         self,
@@ -1028,12 +1113,15 @@ class RecFSSpikeADS(Layer):
                         + " You may need to use a `periodic` time series."
                     )
 
-            if(not is_target):
+            if not is_target:
                 # - Sample input trace and check for correct dimensions
                 input_steps = self._check_input_dims(ts_input(time_base))
             else:
                 input_steps = ts_input(time_base)
-                if input_steps.ndim == 1 or (input_steps.ndim > 1 and input_steps.shape[1]) == 1:
+                if (
+                    input_steps.ndim == 1
+                    or (input_steps.ndim > 1 and input_steps.shape[1]) == 1
+                ):
                     if self.size_in > 1:
                         warn(
                             f"Layer `{self.name}`: Only one channel provided in input - will "

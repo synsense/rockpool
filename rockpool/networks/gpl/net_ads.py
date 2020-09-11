@@ -13,9 +13,11 @@ from typing import Union, Callable, Tuple, List
 
 __all__ = ["NetworkADS"]
 
+
 def running_mean(x, N):
-    cumsum = np.cumsum(np.insert(x, 0, 0, axis=0), axis=0) 
-    return (cumsum[N:,:] - cumsum[:-N,:]) / float(N)
+    cumsum = np.cumsum(np.insert(x, 0, 0, axis=0), axis=0)
+    return (cumsum[N:, :] - cumsum[:-N, :]) / float(N)
+
 
 def pISI_variance(sim_result):
     """
@@ -25,13 +27,13 @@ def pISI_variance(sim_result):
     Returns:
         variance of difference array (variance of pISI) in milliseconds
     """
-    times_c = sim_result['lyrRes'].times[sim_result['lyrRes'].channels > -1]
-    np.sort(times_c) # Sorts in ascending order
+    times_c = sim_result["lyrRes"].times[sim_result["lyrRes"].channels > -1]
+    np.sort(times_c)  # Sorts in ascending order
     diff = np.diff(times_c)
     return np.sqrt(np.var(diff * 1000))
 
-class NetworkADS(Network):
 
+class NetworkADS(Network):
     def __init__(self):
         super().__init__()
 
@@ -62,35 +64,35 @@ class NetworkADS(Network):
         return NetworkADS.SpecifyNetwork(**conf)
 
     @staticmethod
-    def SpecifyNetwork(N : int,
-                        Nc : int,
-                        Nb : int,
-                        weights_in : np.ndarray,
-                        weights_out : np.ndarray,
-                        weights_fast : np.ndarray,
-                        weights_slow : np.ndarray,
-                        eta : float,
-                        k : float,
-                        noise_std : float,
-                        dt : float,
-                        bias : np.ndarray = 0.0,
-                        v_thresh: Union[np.ndarray, float] = 1.0,
-                        v_reset: Union[np.ndarray, float] = 0.0,
-                        v_rest: Union[np.ndarray, float] = 0.5,
-                        tau_mem: float = 0.05,
-                        tau_syn_r_fast: float = 0.07,
-                        tau_syn_r_slow: float = 0.07,
-                        tau_syn_r_out: float = 0.07,
-                        refractory: float = -np.finfo(float).eps,
-                        discretize=-1,
-                        discretize_dynapse=False,
-                        record: bool = True,
-                        **kwargs,
-                        ):
-
+    def SpecifyNetwork(
+        N: int,
+        Nc: int,
+        Nb: int,
+        weights_in: np.ndarray,
+        weights_out: np.ndarray,
+        weights_fast: np.ndarray,
+        weights_slow: np.ndarray,
+        eta: float,
+        k: float,
+        noise_std: float,
+        dt: float,
+        bias: np.ndarray = 0.0,
+        v_thresh: Union[np.ndarray, float] = 1.0,
+        v_reset: Union[np.ndarray, float] = 0.0,
+        v_rest: Union[np.ndarray, float] = 0.5,
+        tau_mem: float = 0.05,
+        tau_syn_r_fast: float = 0.07,
+        tau_syn_r_slow: float = 0.07,
+        tau_syn_r_out: float = 0.07,
+        refractory: float = -np.finfo(float).eps,
+        discretize=-1,
+        discretize_dynapse=False,
+        record: bool = True,
+        **kwargs,
+    ):
 
         """
-        Create NetworkADS instance that can be trained to learn the dynamics of a rate based network 
+        Create NetworkADS instance that can be trained to learn the dynamics of a rate based network
 
         :param int Nc: Dimension of input signal
         :param int N: Number of neurons in the recurrent layer
@@ -119,38 +121,93 @@ class NetworkADS(Network):
         """
 
         # Assertions for checking the dimensions
-        assert (np.asarray(weights_in).shape == (Nc,N)), ("Input matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_in).shape),N,Nc))
-        assert (np.asarray(weights_out).shape == (N,Nc)), ("Output matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_out).shape),Nc,N))
-        assert (np.asarray(weights_fast).shape == (N,N)), ("Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_fast).shape),N,N))
-        assert (np.asarray(weights_slow).shape == (Nb,N)), ("Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (str(np.asarray(weights_slow).shape),Nb,N))
+        assert np.asarray(weights_in).shape == (
+            Nc,
+            N,
+        ), "Input matrix has shape %s but should have shape (%d,%d)" % (
+            str(np.asarray(weights_in).shape),
+            N,
+            Nc,
+        )
+        assert np.asarray(weights_out).shape == (
+            N,
+            Nc,
+        ), "Output matrix has shape %s but should have shape (%d,%d)" % (
+            str(np.asarray(weights_out).shape),
+            Nc,
+            N,
+        )
+        assert np.asarray(weights_fast).shape == (
+            N,
+            N,
+        ), "Fast recurrent matrix has shape %s but should have shape (%d,%d)" % (
+            str(np.asarray(weights_fast).shape),
+            N,
+            N,
+        )
+        assert np.asarray(weights_slow).shape == (
+            Nb,
+            N,
+        ), "Slow recurrent matrix has shape %s but should have shape (%d,%d)" % (
+            str(np.asarray(weights_slow).shape),
+            Nb,
+            N,
+        )
 
-        ads_layer = RecFSSpikeADS(weights_fast=np.asarray(weights_fast).astype("float"), weights_slow=np.asarray(weights_slow).astype("float"), weights_out = np.asarray(weights_out).astype("float"), weights_in=np.asarray(weights_in).astype("float"),
-                                    eta=eta,k=k,bias=np.asarray(bias).astype("float"),noise_std=noise_std,
-                                    dt=dt,v_thresh=np.asarray(v_thresh).astype("float"),v_reset=np.asarray(v_reset).astype("float"),v_rest=np.asarray(v_rest).astype("float"),
-                                    tau_mem=tau_mem,tau_syn_r_fast=tau_syn_r_fast,tau_syn_r_slow=tau_syn_r_slow, tau_syn_r_out=tau_syn_r_out,
-                                    refractory=refractory,record=record,name="lyrRes",discretize=discretize,discretize_dynapse=discretize_dynapse)
+        ads_layer = RecFSSpikeADS(
+            weights_fast=np.asarray(weights_fast).astype("float"),
+            weights_slow=np.asarray(weights_slow).astype("float"),
+            weights_out=np.asarray(weights_out).astype("float"),
+            weights_in=np.asarray(weights_in).astype("float"),
+            eta=eta,
+            k=k,
+            bias=np.asarray(bias).astype("float"),
+            noise_std=noise_std,
+            dt=dt,
+            v_thresh=np.asarray(v_thresh).astype("float"),
+            v_reset=np.asarray(v_reset).astype("float"),
+            v_rest=np.asarray(v_rest).astype("float"),
+            tau_mem=tau_mem,
+            tau_syn_r_fast=tau_syn_r_fast,
+            tau_syn_r_slow=tau_syn_r_slow,
+            tau_syn_r_out=tau_syn_r_out,
+            refractory=refractory,
+            record=record,
+            name="lyrRes",
+            discretize=discretize,
+            discretize_dynapse=discretize_dynapse,
+        )
 
-        input_layer = PassThrough(np.asarray(weights_in).astype("float"), dt=dt, noise_std=noise_std, name="input_layer")
+        input_layer = PassThrough(
+            np.asarray(weights_in).astype("float"),
+            dt=dt,
+            noise_std=noise_std,
+            name="input_layer",
+        )
 
         output_layer = FFExpSyn(
             np.asarray(weights_out).astype("float"),
             dt=dt,
             noise_std=noise_std,
             tau_syn=tau_syn_r_out,
-            name="output_layer"
+            name="output_layer",
         )
 
         net_ads = NetworkADS()
-        net_ads.input_layer = net_ads.add_layer(input_layer, external_input=True) # - External -> Input
-        net_ads.lyrRes = net_ads.add_layer(ads_layer, input_layer) # - Input -> ADS
-        net_ads.output_layer = net_ads.add_layer(output_layer, ads_layer) # - ADS -> Output
+        net_ads.input_layer = net_ads.add_layer(
+            input_layer, external_input=True
+        )  # - External -> Input
+        net_ads.lyrRes = net_ads.add_layer(ads_layer, input_layer)  # - Input -> ADS
+        net_ads.output_layer = net_ads.add_layer(
+            output_layer, ads_layer
+        )  # - ADS -> Output
 
         return net_ads
 
-    def train_step(self, ts_input, ts_target, k : float, eta : float, verbose : bool):
+    def train_step(self, ts_input, ts_target, k: float, eta: float, verbose: bool):
         """
         Do a training evolution on the passed input. This will update the weights and reset the network afterwards
-        
+
         :param TSContinuous ts_input: TSContinuous input that the network is evolved over
         :param TSContinuous ts_target: data used to compute the error over time
         :param float k: Scaling factor of the current which is fed back into the system during learning
@@ -167,14 +224,13 @@ class NetworkADS(Network):
 
         # - Set the target
         self.lyrRes.ts_target = ts_target
-        
+
         train_sim = self.evolve(ts_input=ts_input, verbose=verbose)
         self.reset_all()
         self.lyrRes.is_training = False
         self.lyrRes.ts_target = None
-        
-        return train_sim
 
+        return train_sim
 
 
 def _expand_to_size(inp, size: int, var_name: str = "input") -> np.ndarray:

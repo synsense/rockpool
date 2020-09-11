@@ -17,8 +17,11 @@ from .iaf_nest import (
 from ...utilities import SetterArray, ImmutableArray
 
 import importlib
+
 if importlib.util.find_spec("nest") is None:
-    raise ModuleNotFoundError("'NEST' backend not found. Layers that rely on NEST will not be available.")
+    raise ModuleNotFoundError(
+        "'NEST' backend not found. Layers that rely on NEST will not be available."
+    )
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecAEIFSpkInNest(RecIAFSpkInNest):

@@ -10,7 +10,9 @@ from ...timeseries import TSContinuous, TSEvent, TimeSeries
 from importlib import util
 
 if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
-    raise ModuleNotFoundError("'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available.")
+    raise ModuleNotFoundError(
+        "'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available."
+    )
 
 from jax import numpy as np
 import numpy as onp
@@ -2119,7 +2121,7 @@ class FFExpSynCurrentInJax(Layer, JaxTrainer):
         return self._i_syn_last_evolution
 
     def to_dict(self) -> Dict:
-        config =  super().to_dict()
+        config = super().to_dict()
         config.pop("weights")
         config["w_out"] = onp.array(self._w_out).tolist()
         config["rng_key"] = onp.array(self._rng_key).tolist()

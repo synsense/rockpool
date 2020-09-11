@@ -8,7 +8,9 @@ from ....timeseries import TimeSeries, TSContinuous
 from importlib import util
 
 if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
-    raise ModuleNotFoundError("'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available.")
+    raise ModuleNotFoundError(
+        "'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available."
+    )
 
 from jax import numpy as np
 from jax import jit, grad, vmap

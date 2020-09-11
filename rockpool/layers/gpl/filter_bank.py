@@ -9,6 +9,7 @@ from scipy.signal import butter, sosfilt, sosfreqz
 from rockpool.timeseries import TSContinuous
 from rockpool.layers import Layer
 
+
 class FilterBank(Layer, ABC):
     """
     Super-class to create a filter bank layer.

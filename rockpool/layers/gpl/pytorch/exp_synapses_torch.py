@@ -11,8 +11,11 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 import importlib
+
 if importlib.util.find_spec("torch") is None:
-    raise ModuleNotFoundError("'torch' backend not found. Layers that rely on PyTorch will not be available.")
+    raise ModuleNotFoundError(
+        "'torch' backend not found. Layers that rely on PyTorch will not be available."
+    )
 
 import torch
 

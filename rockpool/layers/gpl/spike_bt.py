@@ -13,7 +13,9 @@ import copy
 from importlib import util
 
 if util.find_spec("numba") is None:
-    raise ModuleNotFoundError("'numba' backend not found. Layers that rely on numba will not be available.")
+    raise ModuleNotFoundError(
+        "'numba' backend not found. Layers that rely on numba will not be available."
+    )
 
 from numba import njit
 
@@ -139,7 +141,6 @@ class RecFSSpikeEulerBT(Layer):
         self.refractory = float(refractory)
         self.spike_callback = spike_callback
         self.weights_out = weights_out
-
 
         # - Set a reasonable dt
         if dt is None:

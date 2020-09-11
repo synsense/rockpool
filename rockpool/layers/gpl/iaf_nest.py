@@ -15,7 +15,9 @@ from ...utilities import SetterArray, ImmutableArray
 from ..layer import Layer
 
 if util.find_spec("nest") is None:
-    raise ModuleNotFoundError("'NEST' backend not found. Layers that rely on NEST will not be available.")
+    raise ModuleNotFoundError(
+        "'NEST' backend not found. Layers that rely on NEST will not be available."
+    )
 
 # - Unit conversion functions
 U2mU = lambda x: x * 1e3

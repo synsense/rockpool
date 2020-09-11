@@ -12,7 +12,9 @@ from typing import Tuple, List, Callable, Dict, Sequence, Optional, Any
 from importlib import util
 
 if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
-    raise ModuleNotFoundError("'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available.")
+    raise ModuleNotFoundError(
+        "'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available."
+    )
 
 import jax.numpy as np
 import json
@@ -305,7 +307,7 @@ class JaxStack(Network, Layer, JaxTrainer):
             loaddict: dict = json.load(f)
         net = Network.load_from_dict(loaddict)
         return JaxStack([l for l in net.evol_order])
-        
+
     @property
     def input_type(self):
         return self.evol_order[0].input_type

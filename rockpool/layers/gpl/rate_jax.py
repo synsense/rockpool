@@ -15,7 +15,9 @@
 from importlib import util
 
 if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
-    raise ModuleNotFoundError("'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available.")
+    raise ModuleNotFoundError(
+        "'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available."
+    )
 
 import jax.numpy as np
 import jax
