@@ -5,6 +5,13 @@
 from typing import Callable, Optional, Union, Tuple, List
 from warnings import warn
 
+from importlib import util
+
+if util.find_spec("numba") is None:
+    raise ModuleNotFoundError(
+        "'numba' backend not found. Layers that rely on numba will not be available."
+    )
+
 import numpy as np
 from numba import njit
 
@@ -29,10 +36,12 @@ __all__ = ["FFRateEuler", "PassThrough", "RecRateEuler"]
 def is_multiple(a: float, b: float, tolerance: float = tolerance) -> bool:
     """
     is_multiple - Check whether a%b is 0 within some tolerance.
-    :param a: float The number that may be multiple of b
-    :param b: float The number a may be a multiple of
-    :param tolerance: float Relative tolerance
-    :return bool: True if a is a multiple of b within some tolerance
+
+    :param float a:             The number that may be multiple of b
+    :param float b:             The number a may be a multiple of
+    :param float tolerance:     Relative tolerance
+
+    :return bool:               True if a is a multiple of b within some tolerance
     """
     min_remainder = min(a % b, b - a % b)
     return min_remainder < tolerance * b
@@ -58,9 +67,11 @@ def re_lu(x: np.ndarray) -> np.ndarray:
 def noisy(x: np.ndarray, std_dev: float) -> np.ndarray:
     """
     noisy - Add randomly distributed noise to each element of x
-    :param x:  Array-like with values that noise is added to
-    :param std_dev: Float, the standard deviation of the noise to be added
-    :return:        Array-like, x with noise added
+
+    :param np.ndarray x:      values that noise is added to
+    :param float std_dev:   the standard deviation of the noise to be added
+
+    :return: np.ndarray:      x with noise added
     """
     return std_dev * np.random.randn(*x.shape) + x
 
@@ -72,8 +83,10 @@ def noisy(x: np.ndarray, std_dev: float) -> np.ndarray:
 def re_lu(x: np.ndarray) -> np.ndarray:
     """
     Activation function for rectified linear units.
-    :param x:             ndarray with current neuron potentials
-    :return:                np.clip(x, 0, None)
+
+    :param np.ndarray x:    with current neuron potentials
+
+    :return: np.ndarray               np.clip(x, 0, None)
     """
     cop = np.copy(x)
     cop[np.where(x < 0)] = 0
@@ -128,11 +141,11 @@ def get_ff_evolution_function(activation_func: Callable[[np.ndarray], np.ndarray
 
 def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarray]):
     """
-   get_rec_evolution_function: Construct a compiled Euler solver for a given activation function
+    get_rec_evolution_function: Construct a compiled Euler solver for a given activation function
 
-   :param activation_func: Callable (x) -> f(x)
-   :return: Compiled function evolve_Euler_complete(state, size, weights, input_steps, dt, num_steps, bias, tau)
-   """
+    :param activation_func: Callable (x) -> f(x)
+    :return: Compiled function evolve_Euler_complete(state, size, weights, input_steps, dt, num_steps, bias, tau)
+    """
 
     # - Compile an Euler solver for the desired activation function
     @njit
@@ -302,7 +315,10 @@ class FFRateLayer(RRTrainedLayer):
             print(self.start_print + "No `ts_input` defined, assuming input to be 0.")
         else:
             # - Sample input trace and check for correct dimensions
+            exception_flag = ts_input.beyond_range_exception
+            ts_input.beyond_range_exception = False
             inp = self._check_input_dims(ts_input(time_base))
+            ts_input.beyond_range_exception = exception_flag
 
             # - Treat "NaN" as zero inputs
             inp[np.where(np.isnan(inp))] = 0
@@ -391,8 +407,8 @@ class PassThrough(FFRateLayer):
         Evolve the state of this layer given an input
 
         :param Optional[TSContinuous] ts_input: Input time series
-        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then `num_timesteps` or the duration of `ts_input` will be used for the evolution duration
-        :param Optional[int] num_timesteps      Number of evolution time steps, in units of `.dt`. If not provided, then `duration` or the duration of `ts_input` will be used for the evolution duration
+        :param Optional[float] duration:        Simulation/Evolution time, in seconds. If not provided, then ``num_timesteps`` or the duration of ``ts_input`` will be used for the evolution duration
+        :param Optional[int] num_timesteps:     Number of evolution time steps, in units of `.dt`. If not provided, then ``duration`` or the duration of ``ts_input`` will be used for the evolution duration
         :param bool verbose:                    Currently has no effect
 
         :return TSContinuous:                   Output time series
@@ -432,16 +448,22 @@ class PassThrough(FFRateLayer):
             # - Undelayed processed input
             samples_out = in_processed
 
+        # - Return time series with output data and bias
+        ts_out = TSContinuous.from_clocked(
+            samples=samples_out + self.bias, dt=self.dt, t_start=self.t, name="Outputs"
+        )
+
         # - Update state and time
         self.state = samples_out[-1]
         self._timestep += num_timesteps
 
-        # - Return time series with output data and bias
-        return TSContinuous(time_base, samples_out + self.bias)
+        return ts_out
 
     def __repr__(self):
-        return "PassThrough layer object `{}`.\nnSize: {}, size_in: {}, delay: {}".format(
-            self.name, self.size, self.size_in, self.delay
+        return (
+            "PassThrough layer object `{}`.\nnSize: {}, size_in: {}, delay: {}".format(
+                self.name, self.size, self.size_in, self.delay
+            )
         )
 
     def print_buffer(self, **kwargs):
@@ -561,14 +583,14 @@ class FFRateEuler(FFRateLayer):
         """
         Implement a feed-forward non-spiking neuron layer, with an Euler method solver
 
-        :param ndarray weights:                                     [MxN] Weight matrix
-        :param Optional[float] dt:                                  Time step for Euler solver, in seconds. Default: `None`, which will use `min(tau) / 10` as the time step, for numerical stability
-        :param Optional[str] name:                                  Name of this layer. Default: `None`
-        :param float noise_std:                           Noise std. dev. per second. Default: 0.0, no noise
-        :param Callable[[float], float] activation_func:   Callable a = f(x) Neuron activation function. Default: ReLU
-        :param ArrayLike[float] tau:                      [Nx1] Vector of neuron time constants in seconds. Default: 10.0
-        :param ArrayLike[float] gain:                     [Nx1] Vector of gain factors. Default: 1.0, unitary gain
-        :param ArrayLike[float] bias:                     [Nx1] Vector of bias currents. Default: 0.0
+        :param ndarray weights:                             [MxN] Weight matrix
+        :param Optional[float] dt:                          Time step for Euler solver, in seconds. Default: `None`, which will use `min(tau) / 10` as the time step, for numerical stability
+        :param Optional[str] name:                          Name of this layer. Default: `None`
+        :param float noise_std:                             Noise std. dev. per second. Default: 0.0, no noise
+        :param Callable[[float], float] activation_func:    Callable a = f(x) Neuron activation function. Default: ReLU
+        :param ArrayLike[float] tau:                        [Nx1] Vector of neuron time constants in seconds. Default: 10.0
+        :param ArrayLike[float] gain:                       [Nx1] Vector of gain factors. Default: 1.0, unitary gain
+        :param ArrayLike[float] bias:                       [Nx1] Vector of bias currents. Default: 0.0
 
         """
 
@@ -621,7 +643,7 @@ class FFRateEuler(FFRateLayer):
         """
 
         # - Prepare time base
-        time_base, inp, num_timesteps = self._prepare_input(
+        time_base_inp, inp, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
@@ -642,7 +664,9 @@ class FFRateEuler(FFRateLayer):
         # - Increment internal time representation
         self._timestep += num_timesteps
 
-        return TSContinuous(time_base, sample_act)
+        time_base = np.r_[time_base_inp, self.t]
+
+        return TSContinuous(time_base, sample_act, name="Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False
@@ -847,11 +871,11 @@ class RecRateEuler(Layer):
         super().__init__(weights=np.asarray(weights, float), name=name, dt=dt)
 
         # - Check size and shape of `weights`
-        if weights.ndim != 2:
+        if self.weights.ndim != 2:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a matrix with 2 dimensions"
             )
-        if weights.shape[0] != weights.shape[1]:
+        if self.weights.shape[0] != self.weights.shape[1]:
             raise ValueError(
                 f"{self.class_name} `{name}`: `weights` must be a square matrix"
             )
@@ -894,14 +918,14 @@ class RecRateEuler(Layer):
         """
 
         # - Prepare time base
-        time_base, input_steps, num_timesteps = self._prepare_input(
+        time_base_inp, input_steps, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
 
         # - Generate a noise trace
         # Noise correction: Standard deviation after some time would be noise_std * sqrt(0.5*dt/tau)
         noise_step = (
-            np.random.randn(np.size(time_base), self.size)
+            np.random.randn(num_timesteps, self.size)
             * self.noise_std
             * np.sqrt(2.0 * self._tau / self._dt)
         )
@@ -922,8 +946,10 @@ class RecRateEuler(Layer):
         # - Increment internal time representation
         self._timestep += num_timesteps
 
+        time_base = np.r_[time_base_inp, self.t]
+
         # - Construct a return TimeSeries
-        return TSContinuous(time_base, activity)
+        return TSContinuous(time_base, activity, name="Outputs")
 
     def stream(
         self, duration: float, dt: float, verbose: bool = False

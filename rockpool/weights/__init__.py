@@ -14,6 +14,7 @@ dModules = {
         "in_res_digital",
         "in_res_dynapse",
         "in_res_dynapse_flex",
+        "inp_to_rec",
         "one_dim_exc_res",
         "partitioned_2d_reservoir",
         "ring_reservoir",
@@ -35,6 +36,18 @@ __doc__ = """Defines functions for generating recurrent weight matrices"""
 
 # - Initialise list of available modules
 __all__ = []
+
+
+class bcolors:
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
 
 # - Loop over submodules to attempt import
 for strModule, classnames in dModules.items():
@@ -69,17 +82,10 @@ for strModule, classnames in dModules.items():
     except ModuleNotFoundError as err:
         # - Ignore ModuleNotFoundError
         warn("Could not load package " + strModule)
-        print(err)
+        print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)
         pass
 
     except ImportError as err:
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
-        print(err)
-
-
-# from .internal import *
-
-# from .internal import __all__ as suball
-
-# __all__ += suball
+        print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)

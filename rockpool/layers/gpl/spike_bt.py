@@ -10,6 +10,13 @@ import numpy as np
 from typing import Union, Callable, Optional, Tuple, Any
 import copy
 
+from importlib import util
+
+if util.find_spec("numba") is None:
+    raise ModuleNotFoundError(
+        "'numba' backend not found. Layers that rely on numba will not be available."
+    )
+
 from numba import njit
 
 # - Try to import holoviews
@@ -68,6 +75,7 @@ class RecFSSpikeEulerBT(Layer):
         self,
         weights_fast: np.ndarray = None,
         weights_slow: np.ndarray = None,
+        weights_out: np.ndarray = None,
         bias: np.ndarray = 0.0,
         noise_std: float = 0.0,
         tau_mem: Union[np.ndarray, float] = 20e-3,
@@ -108,15 +116,19 @@ class RecFSSpikeEulerBT(Layer):
         super().__init__(weights=weights_fast, noise_std=noise_std, name=name)
 
         # - Check weight shape
-        assert (
-            weights_slow.shape[0] == weights_slow.shape[1]
-        ), "`weights_slow` must be a square matrix"
-        assert (
-            weights_fast.shape[0] == weights_fast.shape[1]
-        ), "`weights_fast` must be a square matrix"
-        assert (
-            weights_slow.shape[0] == weights_fast.shape[0]
-        ), "`weights_fast` and `weights_slow` must be the same size"
+        if weights_slow.shape[0] != weights_slow.shape[1]:
+            raise ValueError(
+                self.start_print + "`weights_slow` must be a square matrix"
+            )
+        if weights_fast.shape[0] != weights_fast.shape[1]:
+            raise ValueError(
+                self.start_print + "`weights_fast` must be a square matrix"
+            )
+        if weights_slow.shape[0] != weights_fast.shape[0]:
+            raise ValueError(
+                self.start_print
+                + "`weights_fast` and `weights_slow` must be the same size"
+            )
 
         self.weights_slow = weights_slow
         self.bias = np.asarray(bias).astype("float")
@@ -128,6 +140,7 @@ class RecFSSpikeEulerBT(Layer):
         self.v_rest = np.asarray(v_rest).astype("float")
         self.refractory = float(refractory)
         self.spike_callback = spike_callback
+        self.weights_out = weights_out
 
         # - Set a reasonable dt
         if dt is None:
@@ -180,13 +193,14 @@ class RecFSSpikeEulerBT(Layer):
             min_delta = self.dt / 10
 
         # - Check time step values
-        assert min_delta < self.dt, "`min_delta` must be shorter than `dt`"
+        if min_delta >= self.dt:
+            raise ValueError(self.start_print + "`min_delta` must be shorter than `dt`")
 
         # - Get discretised input and nominal time trace
         input_time_trace, static_input, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
-        final_time = input_time_trace[-1]
+        final_time = (self._timestep + num_timesteps) * self.dt
 
         # - Generate a noise trace
         noise_step = (
@@ -195,15 +209,16 @@ class RecFSSpikeEulerBT(Layer):
         static_input += noise_step
 
         # - Allocate state storage variables
+        record_length = num_timesteps
         spike_pointer = 0
-        times = full_nan(num_timesteps)
-        v = full_nan((self.size, num_timesteps))
-        s = full_nan((self.size, num_timesteps))
-        f = full_nan((self.size, num_timesteps))
-        dot_v = full_nan((self.size, num_timesteps))
+        times = full_nan(record_length)
+        v = full_nan((self.size, record_length))
+        s = full_nan((self.size, record_length))
+        f = full_nan((self.size, record_length))
+        dot_v_ts = full_nan((self.size, record_length))
 
         # - Allocate storage for spike times
-        max_spike_pointer = num_timesteps * self.size
+        max_spike_pointer = record_length * self.size
         spike_times = full_nan(max_spike_pointer)
         spike_indices = full_nan(max_spike_pointer)
 
@@ -258,11 +273,12 @@ class RecFSSpikeEulerBT(Layer):
                 # - Locate spiking neurons
                 spike_ids = state > v_thresh
                 spike_ids = argwhere(spike_ids)
-                num_spikes = np.sum(spike_ids)
+                num_spikes = len(spike_ids)
 
                 # - Were there any spikes?
                 if num_spikes > 0:
-                    # - Predict the precise spike times using linear interpolation
+                    # - Predict the precise spike times using linear interpolation, returns a value between 0 and dt depending on whether V(t) or V(t-1) is closer to the threshold.
+                    # We then have the precise spike time by adding spike_delta to the last time instance. If it is for example 0, we add the minimal time step, namely min_delta
                     spike_deltas = (
                         (v_thresh[spike_ids] - v_last[spike_ids])
                         * dt
@@ -410,21 +426,22 @@ class RecFSSpikeEulerBT(Layer):
             spike_pointer += 1
 
             # - Extend state storage variables, if needed
-            if step >= num_timesteps:
+            if step >= record_length:
+                print("extending record length")
                 extend = num_timesteps
                 times = np.append(times, full_nan(extend))
                 v = np.append(v, full_nan((self.size, extend)), axis=1)
                 s = np.append(s, full_nan((self.size, extend)), axis=1)
                 f = np.append(f, full_nan((self.size, extend)), axis=1)
-                dot_v = np.append(dot_v, full_nan((self.size, extend)), axis=1)
-                num_timesteps += extend
+                dot_v_ts = np.append(dot_v_ts, full_nan((self.size, extend)), axis=1)
+                record_length += extend
 
             # - Store the network states for this time step
             times[step] = t_time
             v[:, step] = self._state
             s[:, step] = self.I_s_S
             f[:, step] = self.I_s_F
-            dot_v[:, step] = dot_v
+            dot_v_ts[:, step] = dot_v
 
             # - Next nominal time step
             t_last = copy.copy(t_time)
@@ -449,7 +466,7 @@ class RecFSSpikeEulerBT(Layer):
         v = v[:, :step]
         s = s[:, :step]
         f = f[:, :step]
-        dot_v = dot_v[:, :step]
+        dot_v_ts = dot_v_ts[:, :step]
         spike_times = spike_times[:spike_pointer]
         spike_indices = spike_indices[:spike_pointer]
 
@@ -457,15 +474,15 @@ class RecFSSpikeEulerBT(Layer):
         resp = {
             "vt": times,
             "mfX": v,
-            "a": s,
+            "s": s,
             "f": f,
             "mfFast": f,
-            "dot_v": dot_v,
+            "dot_v": dot_v_ts,
             "static_input": static_input,
         }
 
-        use_hv, _ = get_global_ts_plotting_backend()
-        if use_hv:
+        backend = get_global_ts_plotting_backend()
+        if backend is "holoviews":
             spikes = {"times": spike_times, "vnNeuron": spike_indices}
 
             resp["spReservoir"] = hv.Points(
@@ -476,14 +493,14 @@ class RecFSSpikeEulerBT(Layer):
 
         # - Convert some elements to time series
         resp["tsX"] = TSContinuous(resp["vt"], resp["mfX"].T, name="Membrane potential")
-        resp["tsA"] = TSContinuous(resp["vt"], resp["a"].T, name="Slow synaptic state")
+        resp["tsA"] = TSContinuous(resp["vt"], resp["s"].T, name="Slow synaptic state")
 
         # - Store "last evolution" state
         self._last_evolve = resp
         self._timestep += num_timesteps
 
         # - Return output TimeSeries
-        return TSEvent(spike_times, spike_indices)
+        return TSEvent(spike_times, spike_indices, t_stop=self.t)
 
     def to_dict(self) -> dict:
         """
@@ -544,9 +561,11 @@ class RecFSSpikeEulerBT(Layer):
 
     @Layer.dt.setter
     def dt(self, new_dt):
-        assert (
-            new_dt <= self._min_tau / 10
-        ), "`new_dt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
+        if new_dt > self._min_tau / 10:
+            raise ValueError(
+                self.start_print
+                + "`new_dt` must be shorter than 1/10 of the shortest time constant, for numerical stability."
+            )
 
         # - Call super-class setter
         super(RecFSSpikeEulerBT, RecFSSpikeEulerBT).dt.__set__(self, new_dt)

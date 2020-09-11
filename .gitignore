@@ -11,3 +11,6 @@ docs/_build
 docs/reference/_autosummary
 build/
 dist/
+/docs/advanced/CHANGELOG.md
+/docs/tutorials/.vscode
+/docs/tutorials/.ipynb_checkpoints

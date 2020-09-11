@@ -1,13 +1,14 @@
 # ----
 # params.py - Constant hardware parameters
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense
 # ----
 
 SRAM_EVENT_LIMIT = int(2 ** 19 - 1)  # Max. number of events that can be loaded to SRAM
 FPGA_EVENT_LIMIT = int(2 ** 16 - 1)  # Max. number of events that can be sent to FPGA
 FPGA_ISI_LIMIT = int(
     2 ** 16 - 1
-)  # Max. number of timesteps for single inter-spike interval between FPGA events
+)  # Max. number of timesteps for single inter-spike interval between FPGA events, as well
+# as max. value for the isi_multiplier
 FPGA_TIMESTEP = 1.0 / 9.0 * 1e-7  # Internal clock of FPGA, 11.111...ns
 CORE_DIMENSIONS = (16, 16)  # Numbers of neurons in core (rows, columns)
 NUM_NEURONS_CORE = (
@@ -23,5 +24,5 @@ CAMTYPES = [
     "SLOW_INH",
 ]  # Names of available synapse types
 DEF_CAM_STR = (
-    "SLOW_INH"
-)  # Probably. In ctxctl it is `SLOW_EXC` but that seems to be wrong
+    "SLOW_INH"  # Probably. In ctxctl it is `SLOW_EXC` but that seems to be wrong
+)

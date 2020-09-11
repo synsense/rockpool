@@ -1,7 +1,6 @@
 """
 Test TimeSeries methods
 """
-import sys
 import pytest
 import numpy as np
 
@@ -13,11 +12,13 @@ def test_imports():
     from rockpool import TimeSeries
     from rockpool import TSContinuous
     from rockpool import TSEvent
+    from rockpool import load_ts_from_file
+    from rockpool import set_global_ts_plotting_backend
+    from rockpool import TSDictOnDisk
     from rockpool.timeseries import TimeSeries
     from rockpool.timeseries import TSContinuous
     from rockpool.timeseries import TSEvent
     from rockpool.timeseries import set_global_ts_plotting_backend
-    from rockpool.timeseries import get_global_ts_plotting_backend
     import rockpool.timeseries as ts
 
 
@@ -56,6 +57,8 @@ def test_continuous_operators():
     # - Addition
     ts = ts + 1
     ts += 5
+    # Suppress exception from nan values (because times don't match)
+    ts2.beyond_range_exception = False
     ts = ts + ts2
     ts += ts2
 
@@ -87,9 +90,23 @@ def test_continuous_operators():
 def test_continuous_methods():
     from rockpool import TSContinuous
 
-    ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
+    # - Sample-and-hold interpolation
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2], t_stop=2.1, interp_kind="previous")
+    assert ts1(0) == 0
+    assert ts1(2) == 2
+    assert ts1(1.5) == 1
+    assert ts1(2.1) == 2
+    ts1.beyond_range_exception = False
+    assert np.isnan(ts1(2.5))
 
-    # - Interpolation
+    assert ts1._interpolate(0) == 0
+    assert ts1._interpolate(2) == 2
+    assert ts1._interpolate(1.5) == 1
+    assert ts1._interpolate(2.1) == 2
+    assert np.isnan(ts1._interpolate(2.5))
+
+    # - Linear interpolation
+    ts1 = TSContinuous([0, 1, 2], [0, 1, 2], interp_kind="linear")
     assert ts1(0) == 0
     assert ts1(2) == 2
     assert ts1(1.5) == 1.5
@@ -105,6 +122,9 @@ def test_continuous_methods():
 
     ts20 = ts1.start_at_zero()
     assert ts20.t_start == 0
+
+    ts25 = ts1.start_at(5)
+    assert ts25.t_start == 5
 
     # - Contains
     assert ts1.contains(0)
@@ -209,9 +229,13 @@ def test_continuous_call():
     # - Generate series
     times = np.arange(1, 5) * 0.1
     samples = np.arange(4).reshape(-1, 1) + np.arange(2) * 2
-    ts = TSContinuous(times, samples)
+    ts = TSContinuous(times, samples, interp_kind="linear")
     ts_empty = TSContinuous()
     ts_single = TSContinuous(2, [3, 2])
+
+    # Suppress exception from nan-values
+    ts.beyond_range_exception = False
+    ts_single.beyond_range_exception = False
 
     # - Call ts
     assert np.allclose(ts(0.1), np.array([[0, 2]]))
@@ -238,6 +262,23 @@ def test_continuous_call():
     assert (samples_single[1] == np.array([3, 2])).all()
     assert (samples_single[4] == np.array([3, 2])).all()
 
+    # - Clocked series
+    ts = TSContinuous.from_clocked([6], dt=10)
+    assert (ts(1) == 6).all()
+    assert (ts([1]) == 6).all()
+    assert (ts(10) == 6).all()
+    ts.beyond_range_exception = False
+    assert np.isnan(ts(-1))
+    assert np.isnan(ts(11))
+
+    ts = TSContinuous.from_clocked(6, dt=10)
+    assert (ts(1) == 6).all()
+    assert (ts([1]) == 6).all()
+    assert (ts(10) == 6).all()
+    ts.beyond_range_exception = False
+    assert np.isnan(ts(-1))
+    assert np.isnan(ts(11))
+
 
 def test_continuous_clip():
     from rockpool import TSContinuous
@@ -245,7 +286,7 @@ def test_continuous_clip():
     # - Generate series
     times = np.arange(1, 6) * 0.1
     samples = np.arange(5).reshape(-1, 1) + np.arange(2) * 2
-    ts = TSContinuous(times, samples)
+    ts = TSContinuous(times, samples, interp_kind="linear")
     ts_empty = TSContinuous()
 
     # - Clip ts in time
@@ -289,6 +330,8 @@ def test_continuous_inplace_mutation():
     assert ts1.t_start == 1
 
     # - Resample
+    # Suppress exception from NaN value at t=0.125
+    ts1.beyond_range_exception = False
     ts1.resample([0.125, 1.1, 1.9], inplace=True)
     assert ts1.t_start == 0.125
 
@@ -329,10 +372,14 @@ def test_continuous_append_c():
 
     # - Generate a few TSContinuous objects
     samples = np.random.randint(10, size=(2, 4))
-    empty_series = TSContinuous()
+    empty_series = TSContinuous(interp_kind="linear")
     series_list = []
     series_list.append(TSContinuous([1, 2], samples[:2, :2], t_start=-1, t_stop=2))
     series_list.append(TSContinuous([1], samples[0, -2:], t_start=0, t_stop=2))
+
+    # - Suppress exception from nans (because channels don't match)
+    for ts in series_list:
+        ts.beyond_range_exception = False
 
     # Appending two series
     appended_fromtwo = series_list[0].append_c(series_list[1])
@@ -344,7 +391,7 @@ def test_continuous_append_c():
     assert (
         (appended_fromtwo.samples[:, :2] == samples[:2, :2]).all()
         and (appended_fromtwo.samples[0, -2:] == samples[0, -2:]).all()
-        and (np.isnan(appended_fromtwo.samples[1, -2:])).all()
+        and (appended_fromtwo.samples[1, -2:] == samples[0, -2:]).all()
     ), "Wrong samples for appended series."
 
     # Appending with empty series
@@ -534,13 +581,98 @@ def test_continuous_merge():
     ).all(), "Wrong samples when merging with list."
 
 
+def test_continuous_from_clocked():
+    from rockpool import TSContinuous
+    import numpy as np
+
+    # - Generate some data
+    T = 100
+    dt = 0.1
+    data = np.random.rand(T, 1)
+
+    # - Basic usage
+    ts = TSContinuous.from_clocked(data, dt=dt)
+    assert ts.t_start == 0.0
+    assert ts.t_stop == T * dt
+    assert np.all(ts.samples == data)
+    assert np.all(ts.times == np.arange(T) * dt)
+
+    # - Specify t_start
+    ts = TSContinuous.from_clocked(data, dt=0.1, t_start=1.0)
+    assert ts.t_start == 1.0
+    assert ts.t_stop == 11.0
+
+    # - Generate a periodic series
+    ts = TSContinuous.from_clocked(data, dt=0.1, periodic=True)
+    assert ts.periodic
+
+    # - Set a name
+    ts = TSContinuous.from_clocked(data, dt=0.1, name="test")
+
+
+def test_event_tstop():
+    from rockpool import TSEvent
+
+    # - Generate series
+    times = [1, 3, 4, 5, 7]
+    channels = [0, 0, 1, 2, 1]
+    with pytest.raises(TypeError):
+        # TypeError if t_stop not provided
+        ts = TSEvent(times, channels)
+    with pytest.raises(ValueError):
+        # ValueError if t_stop too small
+        ts = TSEvent(times, channels, t_stop=times[-1])
+    with pytest.raises(ValueError):
+        # ValueError if t_stop too small
+        ts = TSEvent(times, channels, t_stop=times[-1] - 0.01)
+    ts = TSEvent(times, channels, t_stop=times[-1] + 1)
+
+
+def test_continuous_nan():
+    from rockpool import TSContinuous
+
+    times = np.arange(10) * 0.1 + 0.5
+    samples = np.random.rand(10, 3)
+    ts = TSContinuous(times, samples)
+
+    # - Make sure exception is thrown if trying to sample outside range
+    with pytest.raises(ValueError):
+        ts(0)
+    with pytest.raises(ValueError):
+        ts([0.1, 0.7, 1.9])
+    with pytest.raises(ValueError):
+        ts(1.6)
+
+    # - Same, with warnings insead
+    ts.beyond_range_exception = False
+    with pytest.warns(UserWarning):
+        ts(0)
+    with pytest.warns(UserWarning):
+        ts([0.1, 0.7, 1.9])
+    with pytest.warns(UserWarning):
+        ts(1.6)
+
+    # - Correct values that are slightly out of range
+    t_small = times[0] - 8e-10
+    t_large = times[-1] + 8e-10
+    ts.approx_limit_times = True
+    assert (ts(t_small) == ts(times[0])).all()
+    assert (ts(t_large) == ts(times[-1])).all()
+    sample_times = np.random.rand(10) * 0.9 + 0.5
+    sample_times[[2, 5, 8]] = t_small
+    sample_times[[1, 4, 9]] = t_large
+    sampled_data = ts(sample_times)
+    assert (sampled_data[[2, 5, 8]] == ts(times[0])).all()
+    assert (sampled_data[[1, 4, 9]] == ts(times[-1])).all()
+
+
 def test_event_call():
     from rockpool import TSEvent
 
     # - Generate series
     times = [1, 3, 4, 5, 7]
     channels = [0, 0, 1, 2, 1]
-    ts = TSEvent(times, channels)
+    ts = TSEvent(times, channels, t_stop=8)
     ts_empty = TSEvent()
 
     # - Call ts with times
@@ -552,8 +684,6 @@ def test_event_call():
     assert (ts(None, 5)[1] == channels[:-2]).all()
     assert (ts(2, 5)[0] == times[1:3]).all()
     assert (ts(2, 5)[1] == channels[1:3]).all()
-    assert (ts(2, 5, include_stop=True)[0] == times[1:4]).all()
-    assert (ts(2, 5, include_stop=True)[1] == channels[1:4]).all()
     assert (ts(8, 9)[0] == []).all()
     assert (ts(8, 9)[1] == []).all()
     # - Call ts with channels
@@ -581,7 +711,7 @@ def test_event_indexing():
     # - Generate series
     times = [1, 3, 4, 5, 7]
     channels = [0, 0, 1, 2, 1]
-    ts = TSEvent(times, channels)
+    ts = TSEvent(times, channels, t_stop=8)
     ts_empty = TSEvent()
 
     # - Indexing ts
@@ -606,25 +736,74 @@ def test_event_raster():
     from rockpool import TSEvent
 
     # - Build a test event time series
-    testTSEvent = TSEvent([0, 30], 0, num_channels=4)
+    testTSEvent = TSEvent([0, 30], 0, num_channels=4, t_stop=31)
 
     # - Default operation, ignoring end time step
     raster = testTSEvent.raster(dt=1)
-    assert raster.shape == (30, 4)
-
-    # - Include end time step
-    raster = testTSEvent.raster(dt=1, include_t_stop=True)
     assert raster.shape == (31, 4)
 
     # - Use a dt that is a non-modulo of duration
-    raster = TSEvent([0, 1], 0).raster(dt=0.9)
+    raster = TSEvent([0, 1], 0, t_stop=2).raster(dt=0.9)
+    assert raster.shape == (3, 1)
+
+    raster = TSEvent([0, 1], 0, t_stop=2).raster(dt=1.1)
     assert raster.shape == (2, 1)
 
-    raster = TSEvent([0, 1], 0).raster(dt=0.9, include_t_stop=True)
-    assert raster.shape == (2, 1)
+    # - Raster of empty series
+    raster = TSEvent().raster(dt=0.1)
+    assert raster.shape == (0, 0)
 
-    raster = TSEvent([0, 1], 0).raster(dt=1.1, include_t_stop=True)
-    assert raster.shape == (1, 1)
+
+def test_event_from_raster():
+    """
+    Test TSEvent from_raster method
+    """
+    from rockpool import TSEvent
+
+    # - Build some test rasters
+    raster_bool = [False, False, True, False, True]
+    raster_int = [0, 0, 1, 1, 0, 0, 1]
+    raster_multi = [0, 1, 2, 1, 0]
+    raster_2d = [[0, 1], [0, 0], [1, 0], [1, 1]]
+    dt = 1.0
+
+    # - Test construction (boolean)
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt)
+    assert len(test_ts.channels) == sum(raster_bool)
+    assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
+
+    # - Test construction (int)
+    test_ts = TSEvent.from_raster(raster_int, dt=dt)
+    assert len(test_ts.channels) == sum(raster_int)
+    assert test_ts.num_channels == 1
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_int))
+
+    # - Test construction (multi)
+    test_ts = TSEvent.from_raster(raster_multi, dt=dt)
+    assert len(test_ts.channels) == sum(raster_multi)
+    assert test_ts.num_channels == 1
+    assert np.all(
+        test_ts.raster(dt, add_events=True).flatten() == np.array(raster_multi)
+    )
+
+    # - Test construction (2d)
+    test_ts = TSEvent.from_raster(raster_2d, dt=dt)
+    assert len(test_ts.channels) == np.sum(np.array(raster_2d).flatten())
+    assert test_ts.num_channels == 2
+    assert np.all(test_ts.raster(dt) == np.array(raster_2d))
+
+    # - Test specifiying start time
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt, t_start=2.0)
+    assert test_ts.t_stop == 2.0 + 1.0 * len(raster_bool)
+    assert np.all(test_ts.raster(dt).flatten() == np.array(raster_bool))
+
+    # - Test specifying stop time and number of channels
+    test_ts = TSEvent.from_raster(raster_bool, dt=dt, t_stop=20.0, num_channels=5)
+    assert test_ts.t_stop == 20.0
+    assert test_ts.num_channels == 5
+    test_raster = test_ts.raster(dt)
+    assert test_raster.shape == (20, 5)
 
 
 def test_event_raster_explicit_num_channels():
@@ -633,10 +812,10 @@ def test_event_raster_explicit_num_channels():
     """
     from rockpool import TSEvent
 
-    testTSEvent = TSEvent([0, 30], 0, num_channels=5)
+    testTSEvent = TSEvent([0, 30], 0, num_channels=5, t_stop=31)
 
     raster = testTSEvent.raster(dt=1)
-    assert raster.shape == (30, 5)
+    assert raster.shape == (31, 5)
 
 
 def test_event_empty():
@@ -661,15 +840,13 @@ def test_event_clip():
     # - Generate series
     times = [1, 3, 4, 5, 7]
     channels = [0, 0, 1, 2, 1]
-    ts = TSEvent(times, channels)
+    ts = TSEvent(times, channels, t_stop=8)
     ts_empty = TSEvent(num_channels=2)
 
     # - Clip ts in time
-    assert (ts.clip(2, 4, include_stop=True).times == times[1:3]).all()
-    assert (ts.clip(2, 4, include_stop=True).channels == channels[1:3]).all()
-    assert (ts.clip(2, 4, include_stop=False).times == times[1:2]).all()
-    assert (ts.clip(2, 4, include_stop=False).channels == channels[1:2]).all()
-    assert ts.clip(2, 4, include_stop=False).num_channels == 3
+    assert (ts.clip(2, 4).times == times[1:2]).all()
+    assert (ts.clip(2, 4).channels == channels[1:2]).all()
+    assert ts.clip(2, 4).num_channels == 3
     assert (ts.clip(4, 6, remap_channels=True).times == times[2:4]).all()
     assert (ts.clip(4, 6, remap_channels=True).channels == [0, 1]).all()
     assert ts.clip(8, 9).isempty()
@@ -705,7 +882,7 @@ def test_event_append_c():
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
     series_list = []
-    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=2))
+    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=3))
     series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
     series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
@@ -715,7 +892,7 @@ def test_event_append_c():
         appended_fromtwo.num_channels == 8
     ), "Wrong channel count for appended series."
     assert appended_fromtwo.t_start == -1, "Wrong t_start for appended series."
-    assert appended_fromtwo.t_stop == 2, "Wrong t_stop for appended series."
+    assert appended_fromtwo.t_stop == 3, "Wrong t_stop for appended series."
     assert (
         appended_fromtwo.times == np.array([1, 1, 2])
     ).all(), "Wrong time trace for appended series."
@@ -784,7 +961,7 @@ def test_event_append_t():
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
     series_list = []
-    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=2))
+    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=3))
     series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
     series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
@@ -794,9 +971,9 @@ def test_event_append_t():
         appended_fromtwo.num_channels == 5
     ), "Wrong channel count for appended series."
     assert appended_fromtwo.t_start == -1, "Wrong t_start for appended series."
-    assert appended_fromtwo.t_stop == 4, "Wrong t_stop for appended series."
+    assert appended_fromtwo.t_stop == 5, "Wrong t_stop for appended series."
     assert (
-        appended_fromtwo.times == np.array([1, 2, 3])
+        appended_fromtwo.times == np.array([1, 2, 4])
     ).all(), "Wrong time trace for appended series."
     assert (
         appended_fromtwo.channels == np.array([2, 0, 0])
@@ -842,15 +1019,15 @@ def test_event_append_t():
         appended_with_list.num_channels == 5
     ), "Wrong channel count when appending with list."
     assert appended_with_list.t_start == 0, "Wrong t_start when appending with list."
-    assert appended_with_list.t_stop == 17, "Wrong t_stop when appending with list."
+    assert appended_with_list.t_stop == 18, "Wrong t_stop when appending with list."
     assert (
-        appended_with_list.times == np.array([5, 6, 8, 9, 12, 16])
+        appended_with_list.times == np.array([5, 6, 9, 10, 13, 17])
     ).all(), "Wrong time trace when appending with list."
     assert (
         appended_with_list.channels == np.array([2, 0, 1, 1, 0, 0])
     ).all(), "Wrong channels when appending with list."
 
-    # - Generating from list of TSContinuous
+    # - Generating from list of TSEvent
     # First offset changed to match `appended_with_list`
     # (where empty series has t_stop=0, causing first series to be shifted as it has t_start = -1)
     appended_fromlist = TSEvent.concatenate_t(series_list, offset=[4, 2, 1])
@@ -872,7 +1049,7 @@ def test_event_merge():
     # - Generate a few TSEvent objects
     empty_series = TSEvent()
     series_list = []
-    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=2))
+    series_list.append(TSEvent([1, 2], [2, 0], t_start=-1, t_stop=3))
     series_list.append(TSEvent([0, 1, 4], [1, 1, 0], t_start=0, t_stop=6))
     series_list.append(TSEvent([1], [0], t_start=0, t_stop=2, num_channels=5))
 
@@ -880,7 +1057,7 @@ def test_event_merge():
     merged_fromtwo = series_list[0].merge(series_list[2])
     assert merged_fromtwo.num_channels == 5, "Wrong channel count for merged series."
     assert merged_fromtwo.t_start == -1, "Wrong t_start for merged series."
-    assert merged_fromtwo.t_stop == 2, "Wrong t_stop for merged series."
+    assert merged_fromtwo.t_stop == 3, "Wrong t_stop for merged series."
     assert (
         merged_fromtwo.times == np.array([1, 1, 2])
     ).all(), "Wrong time trace for merged series."
@@ -941,8 +1118,10 @@ def test_save_load():
     """
     Test saving and loading function for timeseries
     """
-    from rockpool import TSEvent, TSContinuous, load_ts_from_file
+    from tempfile import TemporaryFile
+    from rockpool import TimeSeries, TSEvent, TSContinuous, load_ts_from_file
     from os import remove
+    from os.path import getsize
 
     # - Generate time series objects
     times = [1, 3, 6]
@@ -960,38 +1139,179 @@ def test_save_load():
         periodic=True,
         name="events",
     )
-    # - Store objects
+
+    def assert_equality(tsc, tse, tscl, tsel, isclose: bool = False):
+        # - Verify that attributes are still correct
+        if isclose:
+            np.isclose(tsc.times, tscl.times, atol=1e-8, rtol=1e-5)
+            np.isclose(tse.times, tsel.times, atol=1e-8, rtol=1e-5)
+            np.isclose(tsc.samples, tscl.samples, atol=1e-8, rtol=1e-5)
+        else:
+            assert (tscl.times == times).all(), "TSContinuous: times changed."
+            assert (
+                tscl.samples == samples.reshape(-1, 1)
+            ).all(), "TSContinuous: samples changed."
+            assert (tsel.times == times).all(), "TSEvent: times changed."
+
+        assert (tsel.channels == channels).all(), "TSEvent: channels changed."
+        assert tscl.name == "continuous", "TSContinuous: name changed."
+        assert tscl.t_start == -1, "TSContinuous: t_start changed."
+        assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
+        assert tscl.periodic, "TSContinuous: periodic changed."
+        assert tsel.name == "events", "TSEvent: name changed."
+        assert tsel.t_start == -1, "TSEvent: t_start changed."
+        assert tsel.t_stop == 8, "TSEvent: t_stop changed."
+        assert tsel.periodic, "TSEvent: periodic changed."
+        assert tsel.num_channels == 3, "TSEvent: num_channels changed."
+
+    # - Store objects in files
     tsc.save("test_tsc")
     tse.save("test_tse")
+    tsc.save("test_tsc_lp", dtype_times="float16", dtype_samples="float16")
+    tse.save("test_tse_lp", dtype_times="float16", dtype_channels="uint16")
+
+    # - Raise exception for incompatible dtype
+    tse_big = tse.copy()
+    tse_big.channels = [0, 6, 300]
+    with pytest.raises(ValueError):
+        tse_big.save("test_tse_big", dtype_channels="uint8")
+
     # - Load objects
     tscl = load_ts_from_file("test_tsc.npz")
     tsel = load_ts_from_file("test_tse.npz")
-    # - Verify that attributes are still correct
-    assert (tscl.times == times).all(), "TSContinuous: times changed."
-    assert (
-        tscl.samples == samples.reshape(-1, 1)
-    ).all(), "TSContinuous: samples changed."
-    assert tscl.name == "continuous", "TSContinuous: name changed."
-    assert tscl.t_start == -1, "TSContinuous: t_start changed."
-    assert tscl.t_stop == 8, "TSContinuous: t_stop changed."
-    assert tscl.periodic, "TSContinuous: periodic changed."
-    assert (tsel.times == times).all(), "TSEvent: times changed."
-    assert (tsel.channels == channels).all(), "TSEvent: channels changed."
-    assert tsel.name == "events", "TSEvent: name changed."
-    assert tsel.t_start == -1, "TSEvent: t_start changed."
-    assert tsel.t_stop == 8, "TSEvent: t_stop changed."
-    assert tsel.periodic, "TSEvent: periodic changed."
-    assert tsel.num_channels == 3, "TSEvent: num_channels changed."
+
+    assert_equality(tsc, tse, tscl, tsel)
+
+    tscl_lp = load_ts_from_file("test_tsc_lp.npz")
+    tsel_lp = load_ts_from_file("test_tse_lp.npz")
+
+    assert_equality(tsc, tse, tscl_lp, tsel_lp, isclose=True)
+
+    assert getsize("test_tsc_lp.npz") < getsize("test_tsc.npz")
+    assert getsize("test_tse_lp.npz") < getsize("test_tse.npz")
+
+    # - Store objects in temporary files
+    tfc = TemporaryFile()
+    tfe = TemporaryFile()
+    tsc.save(tfc)
+    tse.save(tfe)
+
+    # - Load objects
+    tscl = load_ts_from_file(tfc)
+    tsel = load_ts_from_file(tfe)
+
+    assert_equality(tsc, tse, tscl, tsel)
+
+    # - Load via classmethod
+    tscl = TimeSeries.load("test_tsc.npz")
+    tsel = TimeSeries.load("test_tse.npz")
+    assert_equality(tsc, tse, tscl, tsel)
+    tscl = TSContinuous.load("test_tsc.npz")
+    tsel = TSEvent.load("test_tse.npz")
+    assert_equality(tsc, tse, tscl, tsel)
+    tscl = TimeSeries.load("test_tsc.npz", expected_type="TSContinuous")
+    tsel = TimeSeries.load("test_tse.npz", expected_type="TSEvent")
+    assert_equality(tsc, tse, tscl, tsel)
+    # Detect not matching types
+    with pytest.raises(TypeError):
+        TSEvent.load("test_tsc.npz")
+    with pytest.raises(TypeError):
+        TSContinuous.load("test_tse.npz")
+    with pytest.raises(TypeError):
+        TimeSeries.load("test_tsc.npz", expected_type="TSEvent")
+    with pytest.raises(TypeError):
+        TimeSeries.load("test_tse.npz", expected_type="TSContinuous")
+    # Detect wron use of `expected_type` argument
+    with pytest.raises(TypeError):
+        TSContinuous.load("test_tsc.npz", expected_type="TSContinuous")
+        TSEvent.load("test_tse.npz", expected_type="TSEvent")
+
     # - Remove saved files
     remove("test_tsc.npz")
     remove("test_tse.npz")
+    remove("test_tsc_lp.npz")
+    remove("test_tse_lp.npz")
+
+
+def test_tsdictondisk():
+    from rockpool import TimeSeries, TSEvent, TSContinuous, TSDictOnDisk
+
+    def assert_equality(ts0, ts1):
+        # - Verify that attributes are still correct
+        assert (ts0.times == ts1.times).all(), "Times changed."
+        assert ts0.name == ts1.name, "Name changed."
+        assert ts0.t_start == ts1.t_start, "t_start changed."
+        assert ts0.t_stop == ts1.t_stop, "t_stop changed."
+        assert ts0.periodic == ts1.periodic, "periodic changed."
+        # TSContinuous
+        if isinstance(ts0, TSContinuous):
+            assert (ts0.samples == ts1.samples).all(), "Samples changed."
+        # TSEvent
+        elif isinstance(ts1, TSEvent):
+            assert (ts0.channels == ts1.channels).all(), "Channels changed."
+            assert ts0.num_channels == ts1.num_channels, "num_channels changed."
+
+    # - Dicts with timeseries
+    ts_dict = {
+        f"tsc{i}": TSContinuous(np.arange(3), np.random.rand(3, 2)) for i in range(2)
+    }
+    ts_dict.update(
+        {
+            f"tse{i}": TSEvent(
+                np.sort(np.random.rand(4)), np.random.randint(3, size=4), t_stop=1
+            )
+            for i in range(3)
+        }
+    )
+
+    # - Instantiation
+    dod = TSDictOnDisk(ts_dict)
+    for k, ts in ts_dict.items():
+        assert_equality(ts, dod[k])
+    # - Instantiation empty
+    dod_0 = TSDictOnDisk()
+    # - Add non-ts element
+    dod_0["foo"] = 3
+    assert dod_0["foo"] == 3
+    # - Add ts
+    ts_foo = TSEvent([1, 4], [0, 1], name="foo", periodic=True, t_stop=5)
+    dod_0["ts_foo"] = ts_foo
+    assert_equality(ts_foo, dod_0["ts_foo"])
+    # - Overwrite ts with ts
+    ts_foo_0 = TSEvent([1, 3], [1, 0], name="foo0", periodic=True, t_stop=4)
+    dod_0["ts_foo"] = ts_foo_0
+    assert_equality(ts_foo_0, dod_0["ts_foo"])
+    # - Overwrite non-ts element with non-ts element
+    dod_0["foo"] = "bar"
+    assert dod_0["foo"] == "bar"
+    # - Overwrite non-ts element with ts
+    dod_0["foo"] = ts_foo
+    assert_equality(dod_0["foo"], ts_foo)
+    # - Overwrite ts with non-ts object
+    dod_0["foo"] = 1
+    assert dod_0["foo"] == 1
+    # - Include other `TSDictOnDisk` object, make sure some objects are overwritten
+    dod["x"] = 2
+    dod_0["foo"] = 5
+    dod_0["tse0"] = ts_foo_0
+    dod_0.insert(dod)
+    for k, v in dod.items():
+        if isinstance(v, TimeSeries):
+            assert_equality(dod_0[k], v)
+        else:
+            assert dod_0[k] == v
+    # - Include a dict
+    d = {"a": 1, "b": 2, "foo": 3, "ts_foo": 4}
+    dod_0.insert(d)
+    for k, v in d.items():
+        assert dod_0[k] == v
 
 
 def test_event_raster_periodic_iss5():
     from rockpool import TSEvent
 
     # - Build a periodic event time series
-    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=True)
+    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=True, t_stop=7)
 
     # - Test rasterisation
     raster = ts.raster(t_start=0, t_stop=10, dt=1)
@@ -1005,14 +1325,14 @@ def test_event_raster_periodic_iss5():
             [True, False],
             [False, True],
             [True, False],
-            [False, True],
             [True, False],
             [False, True],
+            [True, False],
         ]
     )
 
     # - Build a non-periodic event time series
-    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=False)
+    ts = TSEvent([0, 1, 2, 3, 4, 5, 6], [0, 1, 0, 1, 0, 1, 0], periodic=False, t_stop=7)
 
     # - Test rasterisation
     raster = ts.raster(t_start=0, t_stop=10, dt=1)
@@ -1036,7 +1356,7 @@ def test_event_raster_periodic_iss5():
 def test_event_delay():
     from rockpool import TSEvent
 
-    ts = TSEvent([2, 4, 6], [0, 1, 0])
+    ts = TSEvent([2, 4, 6], [0, 1, 0], t_stop=7)
     assert ts.t_start == 2
 
     ts0 = ts.delay(1)
@@ -1052,3 +1372,20 @@ def test_event_delay():
     ts0 = ts.start_at_zero(inplace=True)
     assert ts.t_start == 0
     assert ts0.t_start == 0
+
+    ts5 = ts.start_at(5)
+    assert ts5.t_start == 5
+    ts5.start_at(4, inplace=True)
+    assert ts5.t_start == 4
+
+
+def test_rounding():
+    from rockpool import TSContinuous
+
+    t = np.arange(0, 1, 0.001)
+    v = np.sin(t)
+
+    ts = TSContinuous(t, v)
+
+    ts.t_stop = t[-1] - 1e-10
+    ts.t_start = t[0] + 1e-10

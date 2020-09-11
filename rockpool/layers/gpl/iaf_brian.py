@@ -6,6 +6,13 @@
 # - Imports
 from warnings import warn
 
+from importlib import util
+
+if util.find_spec("brian2") is None:
+    raise ModuleNotFoundError(
+        "'Brian2'backend not found. Layers that rely on Brian will not be available."
+    )
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
@@ -16,7 +23,7 @@ from ...timeseries import TSContinuous, TSEvent
 from ..layer import Layer
 from rockpool.utilities import TimedArray as TAShift
 
-from typing import Optional, Union, Tuple, List
+from typing import Optional, Union, Tuple, List, Any
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -129,8 +136,7 @@ eqSynapseExpSpkInRec = b2.Equations(
 
 
 class FFIAFBrian(Layer):
-    """ *DEPRECATED* A spiking feedforward layer with current inputs and spiking outputs
-    """
+    """A spiking feedforward layer with current inputs and spiking outputs"""
 
     ## - Constructor
     def __init__(
@@ -152,24 +158,20 @@ class FFIAFBrian(Layer):
         """
         Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end. Inputs are continuous currents; outputs are spiking events
 
-        :param np.array weights:                            Layer weight matrix [N_in, N]
-        :param nparray bias:                     Nx1 bias vector. Default: ``10mA``
-        :param float dt:                          Time-step. Default: ``0.1 ms``
-        :param float noise_std:                   Noise std. dev. per second. Default:`` 0.``
-        :param FloatVector tau_mem:               Nx1 vector of neuron time constants. Default: ``20ms``
-        :param FloatVector v_thresh:              Nx1 vector of neuron thresholds. Default: ``-55mV``
-        :param FloatVector v_reset:               Nx1 vector of neuron thresholds. Default: ``-65mV``
-        :param FloatVector v_rest:                Nx1 vector of neuron thresholds. Default: ``-65mV``
-        :param float refractory:                  Refractory period after each spike. Default: ``0ms``
-        :param Union[Brian2.Equations, str] neuron_eq:   Set of neuron equations. Default: IAF equation set
-        :param str integrator_name:               Integrator to use for simulation. Default: ``'rk4'``
-        :param str name:                          Name for the layer. Default: ``'unnamed'``
-        :param bool record:                       Record membrane potential during evolutions
+        :param np.array weights:                        Layer weight matrix [N_in, N]
+        :param nparray bias:                            Nx1 bias vector. Default: ``10mA``
+        :param float dt:                                Time-step. Default: ``0.1 ms``
+        :param float noise_std:                         Noise std. dev. per second. Default:`` 0.``
+        :param FloatVector tau_mem:                     Nx1 vector of neuron time constants. Default: ``20ms``
+        :param FloatVector v_thresh:                    Nx1 vector of neuron thresholds. Default: ``-55mV``
+        :param FloatVector v_reset:                     Nx1 vector of neuron thresholds. Default: ``-65mV``
+        :param FloatVector v_rest:                      Nx1 vector of neuron thresholds. Default: ``-65mV``
+        :param float refractory:                        Refractory period after each spike. Default: ``0ms``
+        :param Union[Brian2.Equations, str] neuron_eq:  Set of neuron equations. Default: IAF equation set
+        :param str integrator_name:                     Integrator to use for simulation. Default: ``'rk4'``
+        :param str name:                                Name for the layer. Default: ``'unnamed'``
+        :param bool record:                             Record membrane potential during evolutions
         """
-
-        warn(
-            "FFIAFBrian: This layer is deprecated. You can use FFIAFTorch or FFIAFNest instead."
-        )
 
         # - Call super constructor (`asarray` is used to strip units)
         super().__init__(
@@ -224,17 +226,14 @@ class FFIAFBrian(Layer):
         self._neuron_group.v = self.v_rest * volt
 
     def randomize_state(self):
-        """ Randomize the internal state of the layer
-        """
+        """ Randomize the internal state of the layer """
         v_range = abs(self.v_thresh - self.v_reset)
         self._neuron_group.v = (
             np.random.rand(self.size) * v_range + self.v_reset
         ) * volt
 
     def reset_time(self):
-        """
-        Reset the internal clock of this layer
-        """
+        """ Reset the internal clock of this layer """
 
         # - Sotre state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -274,12 +273,12 @@ class FFIAFBrian(Layer):
         """
         Function to evolve the states of this layer given an input
 
-        :param Optional[TSContinuous] ts_input: Input time series
-        :param Optional[float] duration:        Simulation/Evolution time
-        :param Optional[int] num_timesteps:     Number of evolution time steps
-        :param bool verbose:           Currently no effect, just for conformity
+        :param Optional[`.TSContinuous`] ts_input:  Input time series
+        :param Optional[float] duration:            Simulation/Evolution time
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
-        :return TSEvent:                    Output spike series
+        :return `.TSEvent`:                         Output spike series
         """
 
         # - Prepare time base
@@ -322,7 +321,8 @@ class FFIAFBrian(Layer):
 
         # - Build response TimeSeries
         use_event = self._layer.t_ >= time_base[0]
-        event_time_out = self._layer.t_[use_event]
+        # Shift event times to middle of time bins
+        event_time_out = self._layer.t_[use_event] - 0.5 * self.dt
         event_channel_out = self._layer.i[use_event]
 
         return TSEvent(
@@ -435,10 +435,12 @@ class FFIAFBrian(Layer):
 
     @property
     def refractory(self):
+        """ Returns the refractory period """
         return self._neuron_group._refractory
 
     @property
     def state(self):
+        """ Returns the membrane potentials """
         return self._neuron_group.v_
 
     @state.setter
@@ -449,6 +451,7 @@ class FFIAFBrian(Layer):
 
     @property
     def tau_mem(self):
+        """ Return the membrane time constants """
         return self._neuron_group.tau_m_
 
     @tau_mem.setter
@@ -459,6 +462,7 @@ class FFIAFBrian(Layer):
 
     @property
     def bias(self):
+        """ Retruns the biases """
         return self._neuron_group.I_bias_
 
     @bias.setter
@@ -469,6 +473,7 @@ class FFIAFBrian(Layer):
 
     @property
     def v_thresh(self):
+        """ Returns the spiking threshold """
         return self._neuron_group.v_thresh_
 
     @v_thresh.setter
@@ -479,6 +484,7 @@ class FFIAFBrian(Layer):
 
     @property
     def v_rest(self):
+        """ Returns the resting potential """
         return self._neuron_group.v_rest_
 
     @v_rest.setter
@@ -489,6 +495,7 @@ class FFIAFBrian(Layer):
 
     @property
     def v_reset(self):
+        """ Returns the reset potential """
         return self._neuron_group.v_reset_
 
     @v_reset.setter
@@ -499,6 +506,7 @@ class FFIAFBrian(Layer):
 
     @property
     def t(self):
+        """ Returns the current time of the simulation """
         return self._net.t_
 
     @Layer.dt.setter
@@ -507,8 +515,7 @@ class FFIAFBrian(Layer):
 
 
 class FFIAFSpkInBrian(FFIAFBrian):
-    """ *DEPRECATED* Spiking feedforward layer with spiking inputs and outputs
-    """
+    """Spiking feedforward layer with spiking inputs and outputs"""
 
     ## - Constructor
     def __init__(
@@ -531,33 +538,21 @@ class FFIAFSpkInBrian(FFIAFBrian):
         """
         Construct a spiking feedforward layer with IAF neurons, with a Brian2 back-end. In- and outputs are spiking events
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10mA
-
-        :param dt:             float Time-step. Default: 0.1 ms
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param refractory: float Refractory period after each spike. Default: 0ms
-
-        :param neuron_eq:       Brian2.Equations set of neuron equations. Default: IAF equation set
-
-        :param integrator_name:   str Integrator to use for simulation. Default: 'rk4'
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
+        :param np.array weights:            MxN weight matrix.
+        :param np.array bias:               Nx1 bias vector. Default: 10mA
+        :param float dt:                    Time-step. Default: 0.1 ms
+        :param float noise_std:             Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:            Nx1 vector of neuron time constants. Default: 20ms
+        :param np.array tau_syn:            Nx1 vector of synapse time constants. Default: 20ms
+        :param np.array v_thresh:           Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:            Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:             Nx1 vector of neuron thresholds. Default: -65mV
+        :param float refractory:            Refractory period after each spike. Default: 0ms
+        :param Brian2.Equations neuron_eq:  set of neuron equations. Default: IAF equation set
+        :param str integrator_name:         Integrator to use for simulation. Default: 'rk4'
+        :param str name:                    Name for the layer. Default: 'unnamed'
+        :param bool record:                 Record membrane potential during evolutions
         """
-
-        warn(
-            "FFIAFSpkInBrian: This layer is deprecated. You can use FFIAFSpkInTorch instad."
-        )
 
         # - Call Layer constructor
         Layer.__init__(
@@ -639,14 +634,14 @@ class FFIAFSpkInBrian(FFIAFBrian):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param tsSpkInput:      TSEvent  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param Optional[`.TSEvent`] ts_input:       Input spike train
+        :param Optional[float] duration:            Simulation/Evolution time
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
+        :return `.TSEvent`:                         Output spike series
         """
 
         # - Prepare time base
@@ -709,6 +704,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
         )
 
     def reset_time(self):
+        """ Resets the time of the simulation """
 
         # - Store state variables
         v_state = np.copy(self._neuron_group.v) * volt
@@ -740,13 +736,18 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._neuron_group.I_syn = syn_inp
 
     def reset_state(self):
-        """ .reset_state() - arguments:: reset the internal state of the layer
-            Usage: .reset_state()
+        """.reset_state() - arguments:: reset the internal state of the layer
+        Usage: .reset_state()
         """
         self._neuron_group.v = self.v_rest * volt
         self._neuron_group.I_syn = 0 * amp
 
     def reset_all(self, keep_params=True):
+        """Resets the network completely
+
+        :param bool keep_params: Keep the current state of the network if ``True``
+        """
+
         if keep_params:
             # - Store parameters
             v_thresh = np.copy(self.v_thresh)
@@ -772,8 +773,8 @@ class FFIAFSpkInBrian(FFIAFBrian):
             self.weights = weights
 
     def randomize_state(self):
-        """ .randomize_state() - arguments:: randomize the internal state of the layer
-            Usage: .randomize_state()
+        """.randomize_state() - arguments:: randomize the internal state of the layer
+        Usage: .randomize_state()
         """
         v_range = abs(self.v_thresh - self.v_reset)
         self._neuron_group.v = (
@@ -782,9 +783,9 @@ class FFIAFSpkInBrian(FFIAFBrian):
         self._neuron_group.I_syn = np.random.rand(self.size) * amp
 
     def pot_kernel(self, t):
-        """ pot_kernel - response of the membrane potential to an
-                         incoming spike at a single synapse with
-                         weight 1*amp (not considering v_rest)
+        """pot_kernel - response of the membrane potential to an
+        incoming spike at a single synapse with
+        weight 1*amp (not considering v_rest)
         """
         t = t.reshape(-1, 1)
         fConst = (
@@ -794,24 +795,22 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     def train(
         self,
-        ts_target: None,
+        ts_target: Any,
         ts_input: TSContinuous,
         is_first: bool,
         is_last: bool,
         method: str = "mst",
         **kwargs,
-    ):
+    ) -> None:
         """
-        train - Wrapper to standardize training syntax across layers. Use
-                specified training method to train layer for current batch.
-        :param ts_target: Target time series for current batch. Can be skipped for `mst` method.
-        :param ts_input:  Input to the layer during the current batch.
-        :param is_first:  Set `True` to indicate that this batch is the first in training procedure.
-        :param is_last:   Set `True` to indicate that this batch is the last in training procedure.
-        :param method:    String indicating which training method to choose.
-                          Currently only multi-spike tempotron ("mst") is supported.
-        kwargs will be passed on to corresponding training method.
-        For 'mst' method, kwargs `duration` and `t_start` must be provided.
+        Wrapper to standardize training syntax across layers. Use specified training method to train layer for current batch.
+
+        :param Any ts_target:           Target time series for current batch. Can be skipped for ``"mst"`` method.
+        :param TSContinuous ts_input:   Input to the layer during the current batch.
+        :param bool is_first:           Set ``True`` to indicate that this batch is the first in training procedure.
+        :param bool is_last:            Set ``True`` to indicate that this batch is the last in training procedure.
+        :param str method:              String indicating which training method to choose. Currently only multi-spike tempotron ("mst") is supported.
+        :param kwargs:                  ``kwargs`` will be passed on to corresponding training method. For `"mst"` method, arguments ``duration`` and ``t_start`` must be provided.
         """
         # - Choose training method
         if method in {"mst", "multi-spike tempotron"}:
@@ -952,14 +951,17 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     @property
     def input_type(self):
+        """ Returns input type class """
         return TSEvent
 
     @property
     def refractory(self):
+        """ Returns the refractory period """
         return self._neuron_group._refractory
 
     @property
     def weights(self):
+        """ Returns the weights of the connections """
         return np.array(self._inp_synapses.w).reshape(self.size_in, self.size)
 
     @weights.setter
@@ -975,6 +977,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
     @property
     def tau_syn(self):
+        """ Returns the synaptic time constants """
         return self._neuron_group.tau_s_
 
     @tau_syn.setter
@@ -986,8 +989,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
 ## - RecIAFBrian - Class: define a spiking recurrent layer with exponential synaptic outputs
 class RecIAFBrian(Layer):
-    """ *DEPRECATED* A spiking recurrent layer with current inputs and spiking outputs, using a Brian2 backend
-    """
+    """A spiking recurrent layer with current inputs and spiking outputs, using a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -1011,29 +1013,21 @@ class RecIAFBrian(Layer):
         """
         Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end. Current input, spiking output
 
-        :param weights:             np.array NxN weight matrix. Default: [100x100] unit-lambda matrix
-        :param bias:          np.array Nx1 bias vector. Default: 10.5mA
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20 ms
-        :param tau_syn_r:       np.array NxN vector of recurrent synaptic time constants. Default: 50 ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param refractory: float Refractory period after each spike. Default: 0ms
-
-        :param neuron_eq:       Brian2.Equations set of neuron equations. Default: IAF equation set
-        :param rec_syn_eq:  Brian2.Equations set of synapse equations for recurrent connects. Default: exponential
-
-        :param integrator_name:   str Integrator to use for simulation. Default: 'exact'
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
+        :param np.array weights:            NxN weight matrix. Default: [100x100] unit-lambda matrix
+        :param np.array bias:               Nx1 bias vector. Default: 10.5mA
+        :param np.array tau_mem:            Nx1 vector of neuron time constants. Default: 20 ms
+        :param np.array tau_syn_r:          NxN vector of recurrent synaptic time constants. Default: 50 ms
+        :param np.array v_thresh:           Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:            Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:             Nx1 vector of neuron thresholds. Default: -65mV
+        :param float refractory:            Refractory period after each spike. Default: 0ms
+        :param Brian2.Equations neuron_eq:  set of neuron equations. Default: IAF equation set
+        :param Brian2.Equations rec_syn_eq: set of synapse equations for recurrent connects. Default: exponential
+        :param str integrator_name:         Integrator to use for simulation. Default: 'exact'
+        :param str name:                    Name for the layer. Default: 'unnamed'
+        :param bool record:                 Record membrane potential during evolutions
         """
 
-        warn("RecIAFBrian: This layer is deprecated. You can use RecIAFTorch instad.")
         assert (
             np.atleast_2d(weights).shape[0] == np.atleast_2d(weights).shape[1]
         ), "Layer `{}`: weights must be a square matrix.".format(name)
@@ -1110,14 +1104,12 @@ class RecIAFBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self._neuron_group.v = self.v_rest * volt
         self._neuron_group.I_syn = 0 * amp
 
     def randomize_state(self):
-        """ Randomize the internal state of the layer
-        """
+        """Randomize the internal state of the layer"""
         v_range = abs(self.v_thresh - self.v_reset)
         self._neuron_group.v = (
             np.random.rand(self.size) * v_range + self.v_reset
@@ -1187,14 +1179,14 @@ class RecIAFBrian(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param TSContinuous ts_input:        Input currents
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return TSEvent:              output spike series
+        :param Optional[`.TSContinuous`] ts_input:  Input spike train
+        :param Optional[float] duration:            Simulation/Evolution time
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
+        :return `.TSEvent`:                         Output spike series
         """
 
         # - Prepare time base
@@ -1383,8 +1375,7 @@ class RecIAFBrian(Layer):
 
 # - Spiking recurrent layer with spiking in- and outputs
 class RecIAFSpkInBrian(RecIAFBrian):
-    """ *DEPRECATED* Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend
-    """
+    """Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -1410,36 +1401,25 @@ class RecIAFSpkInBrian(RecIAFBrian):
         """
         Construct a spiking recurrent layer with IAF neurons, with a Brian2 back-end. In- and outputs are spiking events
 
-        :param weights_in:           np.array MxN input weight matrix.
-        :param weights_rec:          np.array NxN recurrent weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10.5mA
-
-        :param dt:             float Time-step. Default: 0.1 ms
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn_inp:       np.array Nx1 vector of synapse time constants. Default: 20ms
-        :param tau_syn_rec:       np.array Nx1 vector of synapse time constants. Default: 20ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param refractory: float Refractory period after each spike. Default: 0ms
-
-        :param neuron_eq:       Brian2.Equations set of neuron equations. Default: IAF equation set
-        :param synapse_eq:      Brian2.Equations set of synapse equations for recurrent connects. Default: exponential
-
-        :param integrator_name:   str Integrator to use for simulation. Default: 'rk4'
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
+        :param np.array weights_in:         MxN input weight matrix.
+        :param np.array weights_rec:        NxN recurrent weight matrix.
+        :param np.array bias:               Nx1 bias vector. Default: 10.5mA
+        :param float dt:                    Time-step. Default: 0.1 ms
+        :param float noise_std:             Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:            Nx1 vector of neuron time constants. Default: 20ms
+        :param np.array tau_syn_inp:        Nx1 vector of synapse time constants. Default: 20ms
+        :param np.array tau_syn_rec:        Nx1 vector of synapse time constants. Default: 20ms
+        :param np.array v_thresh:           Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:            Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:             Nx1 vector of neuron thresholds. Default: -65mV
+        :param float refractory:            Refractory period after each spike. Default: 0ms
+        :param Brian2.Equations neuron_eq:  set of neuron equations. Default: IAF equation set
+        :param Brian2.Equations synapse_eq: set of synapse equations for recurrent connects. Default: exponential
+        :param str integrator_name:         Integrator to use for simulation. Default: 'rk4'
+        :param str name:                    Name for the layer. Default: 'unnamed'
+        :param bool record:                 Record membrane potential during evolutions
         """
 
-        warn(
-            "RecIAFSpkInBrian: This layer is deprecated. You can use RecIAFSpkInTorch or RecIAFSpkInNest instead."
-        )
         # - Call Layer constructor
         Layer.__init__(
             self,
@@ -1541,14 +1521,14 @@ class RecIAFSpkInBrian(RecIAFBrian):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        Function to evolve the states of this layer given an input
+        Evolve the states of this layer given an input
 
-        :param TSEvent ts_input:        Input spike train
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return TSEvent:              output spike series
+        :param Optional[`.TSEvent`] ts_input:       Input spike train
+        :param Optional[float] duration:            Simulation/Evolution time
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param bool verbose:                        Currently no effect, just for conformity
 
+        :return `.TSEvent`:                         Output spike series
         """
 
         # - Prepare time base
@@ -1649,8 +1629,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
         self._neuron_group.I_syn_rec = v_syn_rec
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self._neuron_group.v = self.v_rest * volt
         self._neuron_group.I_syn_inp = 0 * amp
         self._neuron_group.I_syn_rec = 0 * amp
@@ -1686,8 +1665,7 @@ class RecIAFSpkInBrian(RecIAFBrian):
             self.weights_rec = weights_rec
 
     def randomize_state(self):
-        """ Randomize the internal state of the layer
-        """
+        """Randomize the internal state of the layer"""
         v_range = abs(self.v_thresh - self.v_reset)
         self._neuron_group.v = (
             np.random.rand(self.size) * v_range + self.v_reset

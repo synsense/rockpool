@@ -1,6 +1,6 @@
 ##########
-# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# virtual_dynapse.py - This module defines a Layer class that simulates a DynapSE processor. Its purpose is to provide an understanding of which operations are possible with the hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or baseweights give an idea on the parameters that can be set but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieve large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 ##########
 
 ### --- Imports
@@ -33,7 +33,7 @@ class VirtualDynapse(Layer):
     """
     A :py:class:`.Layer` subclass that simulates a DynapSE processor
 
-    The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieveby large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
+    The purpose of this class is to provide an understanding of which operations are possible with the DynapSE hardware. The implemented neuron model is a simplification of the actual circuits and therefore only serves as a rough approximation. Accordingly, hyperparameters such as time constants or base weights give an idea of the parameters that can be set, but there is no direct correspondence to the hardware biases. Furthermore, when connecting neurons it is possible to achieve large fan-ins by exploiting connection aliasing. This elaborate approach has not been accounted for in this module.
     """
 
     _num_chips = params.NUM_CHIPS
@@ -68,8 +68,8 @@ class VirtualDynapse(Layer):
         has_tau_mem_2: Optional[Union[bool, np.ndarray]] = False,
         tau_syn_exc: Optional[Union[float, np.ndarray]] = 0.05,
         tau_syn_inh: Optional[Union[float, np.ndarray]] = 0.05,
-        baseweight_e: Optional[Union[float, np.ndarray]] = 0.01,
-        baseweight_i: Optional[Union[float, np.ndarray]] = 0.01,
+        baseweight_e: Optional[Union[float, np.ndarray]] = 0.0001,
+        baseweight_i: Optional[Union[float, np.ndarray]] = 0.0001,
         bias: Optional[Union[float, np.ndarray]] = 0,
         refractory: Optional[Union[float, np.ndarray]] = 0.001,
         v_thresh: Optional[Union[float, np.ndarray]] = 0.01,
@@ -148,17 +148,15 @@ class VirtualDynapse(Layer):
             connections=connections_ext, external=True
         )
         if (
-            (connections_rec is not None or connections_ext is not None)
-            and self.validate_connections(
-                self._connections_rec,
-                self._connections_ext,
-                verbose=True,
-                validate_fanin=self.validate_fanin,
-                validate_fanout=self.validate_fanout,
-                validate_aliasing=self.validate_aliasing,
-            )
-            != CONNECTIONS_VALID
-        ):
+            connections_rec is not None or connections_ext is not None
+        ) and self.validate_connections(
+            self._connections_rec,
+            self._connections_ext,
+            verbose=True,
+            validate_fanin=self.validate_fanin,
+            validate_fanout=self.validate_fanout,
+            validate_aliasing=self.validate_aliasing,
+        ) != CONNECTIONS_VALID:
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
             )
@@ -217,7 +215,7 @@ class VirtualDynapse(Layer):
         """
         Initialise the parameters for simulating mismatch
 
-        :param Union[bool, ArrayLike[float]] mismatch:  If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib``
+        :param Union[bool, ArrayLike[float]] mismatch:  If ``True``, parameters for each neuron are drawn from a Gaussian distribution around provided values for each core. If a float array is passed, it must be of shape ``len(_param_names) + 2*num_neurons`` x ``num_neurons`` and provide individual mismatch factors for each parameter and neuron as well as excitatory and inhibitory weights. Order of rows: ``baseweight_e``, ``baseweight_i``, ``bias``, ``refractory``, ``tau_mem_1``, ``tau_mem_2``, ``tau_syn_exc``, ``tau_syn_inh``, ``v_thresh``, ``weights_excit``, ``weights_inhib``
         """
         if isinstance(mismatch, bool):
             # - Draw values for mismatch
@@ -256,7 +254,7 @@ class VirtualDynapse(Layer):
 
     def _draw_mismatch(self, consider_mismatch: bool = True):
         """
-        Generate a mismatch value for each neuron and parameter in the layer
+        Generate mismatch values for each neuron and parameter in the layer
 
         For each neuron and parameter draw a mismatch factor that individual neuron parameters will be multiplied with. Store factors in dict. Parameters are drawn from a Gaussian around 1 with standard deviation = ``.stddev_mismatch`` and truncated at 0.1 to avoid too small values.
         :param Optional[bool] consider_mismatch:  If ``False``, mismatch factors are all 1, corresponding to not having any mismatch. Default: ``True``, simulate mismatch.
@@ -397,11 +395,11 @@ class VirtualDynapse(Layer):
         :param ArrayLike[int] connections_rec:              2D quantal synaptic recurrent connectivity matrix to be validated. Positive values correspond to excitatory connections; negative values correspond to inhibitory connections.
         :param Optional[ArrayLike[int]] connections_ext:    If not ``None``, a 2D quantal synaptic connectivitiy matrix that is considered as external input connections to the recurrent population that ``connections_rec`` refers to. This matrix is considered for validaiton of the fan-in of ``connections_rec``. Positive (negative) values correspond to excitatory (inhibitory) synapses. Default: ``None``, do not check external fan-in.
         :param Optional[ArrayLike[int]] neurons_pre:        Array of IDs of presynaptic neurons. If ``None`` (default), IDs are assumed to be 0,..,``connections_rec.shape[0]``. If not ``None``, connections from neurons that are not included in ``neurons_pre`` are assumed to be 0.
-        :param Optional[ArrayLike[int]] neurons_post:       Array of IDs of postsynaptic neurons. If ``None`` (default), IDs` are assumed to be 0,..,``connections_rec.shape[1]``. If not ``None``, connections to neurons that are not` included in ``neurons_post`` are assumed to be 0.
-        :param Optional[ArrayLike[int]] channels_ext:       Array of IDs of external input channels. If `None` (default), IDs are assumed to be 0,..,``connections_ext.shape[0]``. If not ``None``, connections from channels that are not included in ``channels_ext`` are assumed to be 0.
+        :param Optional[ArrayLike[int]] neurons_post:       Array of IDs of postsynaptic neurons. If ``None`` (default), IDs are assumed to be 0,..,``connections_rec.shape[1]``. If not ``None``, connections to neurons that are not included in ``neurons_post`` are assumed to be 0.
+        :param Optional[ArrayLike[int]] channels_ext:       Array of IDs of external input channels. If ``None`` (default), IDs are assumed to be 0,..,``connections_ext.shape[0]``. If not ``None``, connections from channels that are not included in ``channels_ext`` are assumed to be 0.
         :param Optional[bool] verbose:                      If ``True``, print out detailed information about validity of connections. Default: ``True``
         :param Optional[bool] validate_fanin:               If ``True``, test if connections have valid fan-in. Default: ``True``
-        :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True
+        :param Optional[bool] validate_fanout:              If ``True``, test if connections have valid fan-out. Default: ``True``
         :param Optional[bool] validate_aliasing:            If ``True``, test for connection aliasing. Default: ``True``
 
         :return int:                                        Integer indicating the result of the validation. If displayed as a binary number, each digit corresponds to the result of one test (order from small to high base: fan-in, fan-out, aliasing), with 0 meaning passed. E.g. 6 (110) means that the fan-in is valid but not the fan-out and there is connection aliasing.
@@ -829,10 +827,10 @@ class VirtualDynapse(Layer):
         """
         Evolve the state of this layer given an input
 
-        :param Optional[TSEvent] ts_input:          Input spike trian
+        :param Optional[TSEvent] ts_input:          Input spike train
         :param Optional[float] duration:            Simulation/Evolution duration in seconds
-        :param Optional[int] num_timesteps          Number of evolution time steps
-        :param Optional[ArrayLike[int]] ids_in:     Array with IDs of input channels corresponding to the channels in ``ts_input``. If ``None`` (default), will use channel IDs from ``ts_input`.
+        :param Optional[int] num_timesteps:         Number of evolution time steps
+        :param Optional[ArrayLike[int]] ids_in:     Array with IDs of input channels corresponding to the channels in ``ts_input``. If ``None`` (default), will use channel IDs from ``ts_input``.
         :param Optional[ArrayLike[int]] ids_out:    Array with IDs of neurons whose spiking activity should be recorded and returned. If ``None`` (default), return activity of all neurons.
         :param Optional[bool] remap_out_channels:   If ``True``, IDs of recorded spikes in the returned timeseries will be mapped to a continuous sequence of integers starting from 0 (e.g. [1,6,3] -> [0,2,1]). If ``False`` (default), channels will correspond to actual neuron IDs.
         :param Optional[bool] verbose:              Currently no effect, just for conformity

@@ -74,9 +74,9 @@ class SetterArray(np.ndarray):
 
     def __array_finalize(self, obj: np.ndarray):
         """
-        __array_finalize - Used for np.ndarray subclasses to include additional
-                           elements in instance.
-        :param obj:  np.ndarray upon which self is based
+        Used for `np.ndarray` subclasses to include additional elements in instance
+
+        :param np.ndarray obj:  np.ndarray upon which self is based
         """
         # - Store reference to third object as attribute of self
         self._reference = getattr(obj, "_reference")
@@ -260,11 +260,11 @@ class RefProperty(property):
         fget = self.fct_refarray(fget)
         super().__init__(fget=fget, fset=fset, fdel=fdel, doc=doc)
 
-    def fct_refarray(self, fct):
+    def fct_refarray(self, fct: Callable):
         """
-        fct_refarray - Return a function that does the same as fct but convert its return
-                       value to a RefArray
-        :param fct:  Callable  Function whose return value should be converted
+        Return a function that does the same as fct but convert its return value to a RefArray
+        :param Callable fct:  Function whose return value should be converted
+
         """
 
         def inner(owner):

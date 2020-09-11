@@ -33,7 +33,7 @@ __all__ = ["FFCLIAF", "RecCLIAF"]
 
 class CLIAF(Layer):
     """
-    Abstract layer class of integrate and fire neurons with constant leak
+    *DEPRECATED* Abstract layer class of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -51,11 +51,11 @@ class CLIAF(Layer):
         Feedforward layer of integrate and fire neurons with constant leak
 
         :param FloatVector weights_in:              Input weight matrix
-        :param FloatVector bias:          Constant bias to be added to state at each time step. Default: ``0.0``
-        :param FloatVector v_thresh:      Spiking threshold. Default: ``8.0``
-        :param FloatVector v_reset:       Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
+        :param FloatVector bias:                    Constant bias to be added to state at each time step. Default: ``0.0``
+        :param FloatVector v_thresh:                Spiking threshold. Default: ``8.0``
+        :param FloatVector v_reset:                 Reset potential after spike (also see param ``v_subtract``). Default: ``8.0``
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise neurons will reset on each spike
-        :param float dt:                    Time step for simulation of this layer, in s. Default: ``1.0``
+        :param float dt:                            Time step for simulation of this layer, in s. Default: ``1.0``
         :param Optional[ArrayLike[int]] monitor_id: IDs of neurons to be recorded. Default: ``[]``, do not monitor any neurons
         :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
@@ -104,73 +104,6 @@ class CLIAF(Layer):
             state_time_series.append([t_now, id_out_iter, state[id_out_iter]])
             if debug:
                 print([t_now, id_out_iter, state[id_out_iter, 0]])
-
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input, set up time base
-
-        :param Optional[TSEvent] ts_input:  TxM or Tx1 Input signals for this layer
-        :param Optional[float] duration:    Duration of the desired evolution, in seconds
-        :param Optional[int] num_timesteps: Number of evolution time steps
-
-        :return (spike_raster, num_timesteps):
-            spike_raster:   (np.ndarray) Boolean raster containing spike info
-            num_timesteps:  (int) Number of evolution time steps
-        """
-        print("Preparing input for processing")
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int((duration + tol_abs) // self.dt)
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Extract spike timings and channels
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                t_stop=(self._timestep + num_timesteps) * self._dt,
-                channels=np.arange(self.size_in),
-            )
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in), bool)
-
-        print("Done preparing input!")
-        return spike_raster, num_timesteps
 
     def reset_time(self):
         """ Reset the internal clock of this layer """
@@ -302,7 +235,7 @@ class CLIAF(Layer):
 
 class FFCLIAF(CLIAF):
     """
-    Feedforward layer of integrate and fire neurons with constant leak
+    *DEPRECATED* Feedforward layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -320,11 +253,11 @@ class FFCLIAF(CLIAF):
         Feedforward layer of integrate and fire neurons with constant leak
 
         :param np.ndarray weights:                  Input weight matrix [N_in, N]
-        :param FloatVector bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
-        :param FloatVector v_thresh:      Spiking threshold [N,]. Default: ``8.``
-        :param FloatVector v_reset:       Reset potential after spike [N,]. Default: ``0.``
+        :param FloatVector bias:                    Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param FloatVector v_thresh:                Spiking threshold [N,]. Default: ``8.``
+        :param FloatVector v_reset:                 Reset potential after spike [N,]. Default: ``0.``
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
-        :param float dt:                    Time step for simulation of this layer, in s. Default: ``1.0``
+        :param float dt:                            Time step for simulation of this layer, in s. Default: ``1.0``
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not record neuron state
         :param Optional[str] name:                  Name of this layer. Default: ``'unnamed'``
         """
@@ -362,7 +295,7 @@ class FFCLIAF(CLIAF):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        inp_spike_raster, num_timesteps = self._prepare_input(
+        __, inp_spike_raster, num_timesteps = self._prepare_input_events(
             ts_input, duration, num_timesteps
         )
 
@@ -452,6 +385,9 @@ class FFCLIAF(CLIAF):
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
+        # Shift event times to middle of time bins
+        spike_times = np.asarray(spike_times) - 0.5 * self.dt
+
         # Convert arrays to TimeSeries objects
         event_out = TSEvent(
             times=np.clip(
@@ -495,7 +431,7 @@ class FFCLIAF(CLIAF):
 
 class RecCLIAF(CLIAF):
     """
-    Recurrent layer of integrate and fire neurons with constant leak
+    *DEPRECATED* Recurrent layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -520,17 +456,17 @@ class RecCLIAF(CLIAF):
         :param np.ndarray weights_in:               Input weight matrix [N_in, N]
         :param np.ndarray weights_rec:              Recurrent weight matrix [N, N]
 
-        :param FloatVector bias:          Constant bias to be added to state at each time step [N,]. Default: ``0.``
-        :param FloatVector v_thresh:      Spiking threshold [N,]. Default: ``8.``
-        :param FloatVector v_reset:       Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
+        :param FloatVector bias:                    Constant bias to be added to state at each time step [N,]. Default: ``0.``
+        :param FloatVector v_thresh:                Spiking threshold [N,]. Default: ``8.``
+        :param FloatVector v_reset:                 Reset potential after spike (also see param ``v_subtract``) [N,]. Default: ``0.``
         :param Optional[FloatVector] v_subtract:    [N,] If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset. Default: ``8.``
-        :param FloatVector refractory:    Vector of refractory times  [N,]
-        :param float dt:                  Time step size in s. Default: ``0.1 ms``
+        :param FloatVector refractory:              Vector of refractory times  [N,]
+        :param float dt:                            Time step size in s. Default: ``0.1 ms``
         :param Optional[float] delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Rounded down to multiple of `.dt`. Must be at least `.dt`. Default: ``None``, use `.dt`
         :param Optional[float] tTauBias:            Period for applying bias. Must be at least `.dt`. Is rounded down to multiple of `.dt`. If ``None``, will be set to `.dt`. Default: ``None``, use `.dt`
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``, do not monitor neurons. If ``True``, monitor all neurons
-        :param type state_type:           Data type for the membrane potential. Default: ``float``
-        :param str name:                  Name of this layer. Default: ``'unnamed'``
+        :param type state_type:                     Data type for the membrane potential. Default: ``float``
+        :param str name:                            Name of this layer. Default: ``'unnamed'``
         """
 
         # Call parent constructor
@@ -573,7 +509,7 @@ class RecCLIAF(CLIAF):
         """
 
         # - Generate input in rasterized form, get actual evolution duration
-        inp_spike_raster, num_timesteps = self._prepare_input(
+        __, inp_spike_raster, num_timesteps = self._prepare_input_events(
             ts_input, duration, num_timesteps
         )
 
@@ -713,8 +649,9 @@ class RecCLIAF(CLIAF):
         t_start = self._timestep * self.dt
         t_stop = (self._timestep + num_timesteps) * self.dt
 
-        # Generate output sime series
-        spike_times = (np.array(ts_spikes) + 1 + self._timestep) * self.dt
+        # Generate output sime series with event times at middle of time bins
+        spike_times = (np.array(ts_spikes) + 0.5 + self._timestep) * self.dt
+
         event_out = TSEvent(
             # Clip due to possible numerical errors,
             times=np.clip(spike_times, t_start, t_stop),

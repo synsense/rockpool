@@ -126,6 +126,7 @@ def test_FFNestLayer():
     vStateBefore = np.copy(fl0.state)
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
+    tsInCont.beyond_range_exception = False
     dFl0 = fl0.evolve(tsInCont, duration=0.1)
 
     assert fl0.t == 0.2
@@ -197,7 +198,7 @@ def test_setWeightsIn():
 
     # - Input time series
     tsInpCont = TSContinuous(np.arange(15) * 0.01, np.ones(15) * 0.1)
-    tsInp = TSEvent([0.1], [0])
+    tsInp = TSEvent([0.1], [0], t_stop=0.15)
 
     ## -- FFIAFNEst
     # - Layer generation
@@ -345,7 +346,7 @@ def test_setWeightsRec():
     fl1.weights_rec = fl0.weights_rec
     assert np.isclose(fl1.weights_rec_, weights_rec, rtol=1e-3, atol=1e-6).all()
 
-    tsInp = TSEvent([0.1], [0])
+    tsInp = TSEvent([0.1], [0], t_stop=0.15)
 
     # - Compare states before and after
     fl0.evolve(tsInp, duration=0.12)
@@ -410,7 +411,7 @@ def test_FFToRecLayer():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -592,7 +593,7 @@ def test_FFToRecLayerRepeat():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -673,7 +674,7 @@ def test_DefaultParams():
         name="Rec",
     )
 
-    net0 = nw.Network(fl0, fl1)
+    net0 = nw.Network([fl0, fl1])
 
     fl2 = FFIAFNest(weights=weights, record=True, name="FF")
 
@@ -681,7 +682,7 @@ def test_DefaultParams():
         weights_in=weights_in, weights_rec=weights_rec, record=True, name="Rec"
     )
 
-    net1 = nw.Network(fl2, fl3)
+    net1 = nw.Network([fl2, fl3])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -761,7 +762,7 @@ def test_timeconstants():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -858,7 +859,7 @@ def test_delays():
         name="Rec",
     )
 
-    net = nw.Network(fl0, fl1)
+    net = nw.Network([fl0, fl1])
 
     # - Input signal
     vTime = np.arange(0, 1, dt)
@@ -937,7 +938,7 @@ def test_IAF2AEIFNest():
     spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
     channels = np.random.choice([0, 1], 20, replace=True).astype(int)
 
-    tsInEvent = ts.TSEvent(spikeTrain0, channels)
+    tsInEvent = ts.TSEvent(spikeTrain0, channels, t_stop=1)
 
     # - Compare states before and after
 
@@ -991,7 +992,7 @@ def test_SaveLoad():
         name="lyrNest",
     )
 
-    net0 = nw.Network(fl0)
+    net0 = nw.Network([fl0])
     net0.save("tmp.model")
 
     net1 = nw.Network.load("tmp.model")
@@ -1001,7 +1002,7 @@ def test_SaveLoad():
     spikeTrain0 = np.sort(np.random.choice(spikeTimes, size=20, replace=False))
     channels = np.random.choice([0, 1], 20, replace=True).astype(int)
 
-    tsInEvent = ts.TSEvent(spikeTrain0, channels)
+    tsInEvent = ts.TSEvent(spikeTrain0, channels, t_stop=1)
 
     # - Compare states before and after
 

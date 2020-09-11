@@ -1,16 +1,16 @@
 # Rockpool
 
-![PyPI - Package](https://img.shields.io/pypi/v/rockpool.svg) ![Conda](https://img.shields.io/conda/v/conda-forge/rockpool) [![Documentation Status](https://img.shields.io/badge/docs-ok-green)](https://aictx.gitlab.io/rockpool) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rockpool?logo=python) ![Black - formatter](https://img.shields.io/badge/code%20style-black-black)
+![PyPI - Package](https://img.shields.io/pypi/v/rockpool) ![Conda](https://img.shields.io/conda/v/conda-forge/rockpool) [![Documentation Status](https://img.shields.io/badge/docs-ok-green)](https://rockpool.ai) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rockpool?logo=python) ![Black - formatter](https://img.shields.io/badge/code_style-black-black)[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3773845.svg)](https://doi.org/10.5281/zenodo.3773845)
 
-![Noodle](https://aictx.gitlab.io/rockpool/_static/noodle-small.png)
+![Noodle](https://rockpool.ai/_static/noodle-small.png)
 
 Rockpool is a Python package for developing signal processing applications with spiking neural networks. Rockpool allows you to build networks, simulate, train and test them, deploy them either in simulation or on event-driven neuromorphic compute hardware. Rockpool provides layers with a number of simulation backends, including Brian2, NEST, Torch, JAX, Numba and raw numpy. Rockpool is designed to make machine learning based on SNNs easier. It is not designed for detailed simulation of biological networks.
 
 # Documentation and getting started
 
-The best place to start with Rockpool is the [documentation](https://aictx.gitlab.io/rockpool), which contains several tutorials and getting started guides.
+The best place to start with Rockpool is the [documentation](https://rockpool.ai), which contains several tutorials and getting started guides.
 
-The documentation is hosted on GitLab: [https://aictx.gitlab.io/rockpool/](https://aictx.gitlab.io/rockpool/)
+The documentation is hosted on GitLab: [https://rockpool.ai/](https://rockpool.ai/)
 
 # Installation instructions
 
@@ -38,7 +38,7 @@ Rockpool is released under a AGPL license. Commercial licenses are available on 
 
 # Contributing
 
-Fork the public repository at https://gitlab.com/ai-ctx/rockpool, then clone your fork.
+Fork the public repository at https://gitlab.com/aiCTX/rockpool, then clone your fork.
 
 ```bash
 $ git clone https://gitlab.com/your-fork-location/rockpool.git rockpool
@@ -71,4 +71,4 @@ Then push your new branch to your repository
 $ git push -u origin feature/my-feature
 ```
 
-When you're finished with your modifications, make a merge request on gitlab.com, from your branch in your fork to https://gitlab.com/ai-ctx/rockpool.
+When you're finished with your modifications, make a merge request on gitlab.com, from your branch in your fork to https://gitlab.com/aiCTX/rockpool.

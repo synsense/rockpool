@@ -179,8 +179,8 @@ def wilson_cowan_net(
     ) * -np.abs(self_inh)
 
     # - Normalise matrix components
-    fENorm = exc_sigma * stats.norm.pdf(0, 0, exc_sigma) * num_nodes + self_exc
-    fINorm = inh_sigma * stats.norm.pdf(0, 0, inh_sigma) * num_nodes + np.abs(self_inh)
+    fENorm = exc_sigma * stats.norm.pdf(0, 0, exc_sigma) + self_exc
+    fINorm = inh_sigma * stats.norm.pdf(0, 0, inh_sigma) + np.abs(self_inh)
     mfEE = mfEE / np.sum(mfEE, 0) * fENorm
     mfIE = mfIE / np.sum(mfIE, 0) * fENorm
     mfEI = mfEI / np.sum(mfEI, 0) * -fINorm
@@ -191,7 +191,7 @@ def wilson_cowan_net(
         (np.concatenate((mfEE, mfIE)), np.concatenate((mfEI, mfII))), axis=1
     )
 
-    return weights
+    return weights.T
 
 
 def wipe_non_switiching_eigs(
@@ -337,8 +337,8 @@ def DiscretiseWeightMatrix(
 
 def one_dim_exc_res(size, n_neighbour, zero_diagnoal=True):
     """one_dim_exc_res - Recurrent weight matrix where each neuron is connected
-                         to its n_neighbour nearest neighbours on a 1D grid.
-                         Only excitatory connections.
+    to its n_neighbour nearest neighbours on a 1D grid.
+    Only excitatory connections.
     """
     weights_res = np.zeros((size, size))
     nBound = int(np.floor(n_neighbour / 2))
@@ -465,27 +465,14 @@ def partitioned_2d_reservoir(
         )
 
     # - Input-To-Recurrent part
-    mnWInToRec = np.zeros((size_in, size_rec))
-    if input_sparsity_type is None:
-        num_receive_input = size_rec
-        input_receivers = np.arange(size_rec)
-    else:
-        num_receive_input = int(np.round(input_sparsity * size_rec))
-        if input_sparsity_type == "random":
-            input_receivers = np.random.choice(
-                size_rec, size=num_receive_input, replace=False
-            )
-        elif input_sparsity_type == "first":
-            input_receivers = np.arange(num_receive_input)
-        else:
-            raise ValueError(
-                f"Input sparsity type ({input_sparsity_type}) not recognized."
-            )
-    viPreSynConnect = np.random.choice(size_in, size=num_inp_to_rec * num_receive_input)
-    for iPreIndex, iPostIndex in zip(
-        viPreSynConnect, np.repeat(input_receivers, num_inp_to_rec)
-    ):
-        mnWInToRec[iPreIndex, iPostIndex] += 1
+    mnWInToRec = inp_to_rec(
+        size_in=size_in,
+        size_rec=size_rec,
+        num_inp_to_rec=num_inp_to_rec,
+        input_sparsity=input_sparsity,
+        input_sparsity_type=input_sparsity_type,
+    )
+
     # - Recurrent-To-Inhibitory part
     mnWRecToInhib = np.zeros((size_rec, size_inhib))
     viPreSynConnect = np.random.choice(size_rec, size=num_rec_to_inhib * size_inhib)
@@ -493,6 +480,7 @@ def partitioned_2d_reservoir(
         viPreSynConnect, np.repeat(np.arange(size_inhib), num_rec_to_inhib)
     ):
         mnWRecToInhib[iPreIndex, iPostIndex] += 1
+
     # - Inhibitory-To-Recurrent part
     mnWInhibToRec = np.zeros((size_inhib, size_rec))
     viPreSynConnect = np.random.choice(size_inhib, size=num_inhib_to_rec * size_rec)
@@ -500,6 +488,7 @@ def partitioned_2d_reservoir(
         viPreSynConnect, np.repeat(np.arange(size_rec), num_inhib_to_rec)
     ):
         mnWInhibToRec[iPreIndex, iPostIndex] -= 1
+
     # - Recurrent short range connecitons
     mnWRec = two_dim_exc_res(
         size_rec, n_neighbour=num_rec_short, width_neighbour=width_neighbour
@@ -518,6 +507,66 @@ def partitioned_2d_reservoir(
     mnW[-size_inhib:, size_in : size_in + size_rec] = mnWInhibToRec
 
     return mnW
+
+
+def inp_to_rec(
+    size_in: int = 64,
+    size_rec: int = 256,
+    num_inp_to_rec: int = 16,
+    input_sparsity: float = 1.0,
+    input_sparsity_type: Optional[str] = None,
+    allow_multiples: bool = True,
+):
+    """
+    inp_to_rec - Create an integer weight matrix that serves as input weights to the
+                 recurrent population of a reservoir
+    :param size_in:     int Size of presynaptic layer
+    :param size_rec:    int Size of postsynaptic (recurrent) layer
+    :param num_inp_to_rec:   int  Number of non-zero input connections of those postsynaptic
+                             neurons that have. Total number of connections is
+                             size_rec * input_sparsity * num_inp_to_rec .
+    :input_sparsity:    float Ratio of postsynaptic neurons that have non-zero connections
+    :input_sparsity_type:  str or None:  If None, all postsynaptic neurons will have
+                           non-zero input connections. `input_sparsity` will be ignored.
+                           If "random", a random subset of postsynaptic neurons will have
+                           non-zero input connections. If "first" it is the neurons with
+                           lowest IDs.
+    :allow_multiples: If True, multiple connections can be set between the same pair
+                      of neurons. Corresponding to entries > 1 in weight matrix.
+    return
+        np.ndarray  Weight matrix (integer entries)
+    """
+    mnWInToRec = np.zeros((size_in, size_rec))
+    if input_sparsity_type is None:
+        num_receive_input = size_rec
+        input_receivers = np.arange(size_rec)
+    else:
+        num_receive_input = int(np.round(input_sparsity * size_rec))
+        if input_sparsity_type == "random":
+            input_receivers = np.random.choice(
+                size_rec, size=num_receive_input, replace=False
+            )
+        elif input_sparsity_type == "first":
+            input_receivers = np.arange(num_receive_input)
+        else:
+            raise ValueError(
+                f"Input sparsity type ({input_sparsity_type}) not recognized."
+            )
+    if allow_multiples:
+        viPreSynConnect = np.random.choice(
+            size_in, size=num_inp_to_rec * num_receive_input
+        )
+        for iPreIndex, iPostIndex in zip(
+            viPreSynConnect, np.repeat(input_receivers, num_inp_to_rec)
+        ):
+            mnWInToRec[iPreIndex, iPostIndex] += 1
+    else:
+        for i_post in input_receivers:
+            presyn_ids = np.random.choice(size_in, size=num_inp_to_rec, replace=False)
+            for i_pre in presyn_ids:
+                mnWInToRec[i_pre, i_post] = 1
+
+    return mnWInToRec
 
 
 def ring_reservoir(size_in: int = 64, size_rec: int = 256, num_inp_to_rec: int = 16):
@@ -974,7 +1023,7 @@ def digital(
     nNumInhIn = nNumInputs - nNumExcIn
 
     # - Determine value range of weights
-    nMinWeight = int(-2 ** (bit_resolution / 2) * use_range)
+    nMinWeight = int(-(2 ** (bit_resolution / 2)) * use_range)
     nMaxWeight = int(
         2 ** (bit_resolution / 2) * use_range
     )  ## Due to how np.random.randin works, max weight will be nMaxWeight-1
@@ -1109,7 +1158,7 @@ def in_res_digital(
     vnWeights = np.zeros(nNumInputs)
 
     # - Determine value range of unnormalized weights
-    nMinWeight = int(-2 ** bit_resolution / 2)
+    nMinWeight = int(-(2 ** bit_resolution) / 2)
     nMaxWeight = int(2 ** bit_resolution / 2)
     # - Generate excitatory weights
     vnWeights[:nNumExcIn] = fScale * np.random.randint(1, nMaxWeight, size=nNumExcIn)

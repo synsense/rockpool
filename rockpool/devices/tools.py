@@ -1,6 +1,6 @@
 # ----
 # tools.py - A few useful funcitons that can be run in cortexcontrol.
-# Author: Felix Bauer, aiCTX AG, felix.bauer@ai-ctx.com
+# Author: Felix Bauer, SynSense AG, felix.bauer@synsense.ai
 # ----
 
 import copy
@@ -609,7 +609,9 @@ def set_connections(
     postneuron_ids = copy.copy(postneuron_ids)
     syntypes = copy.copy(syntypes)
     presyn_isvirtual = virtual_neurons is not None
-    presyn_neuron_population: List = virtual_neurons if presyn_isvirtual else shadow_neurons
+    presyn_neuron_population: List = (
+        virtual_neurons if presyn_isvirtual else shadow_neurons
+    )
 
     # - Neurons to be connected
     presyn_neurons = [presyn_neuron_population[i] for i in preneuron_ids]
@@ -648,7 +650,7 @@ def set_connections(
 
 
 def get_connection_info(
-    consider_chips: Optional[List[int]] = None
+    consider_chips: Optional[List[int]] = None,
 ) -> Tuple[List[int], List[List[int]], List[List[int]], List[List[int]]]:
     consider_chips = (
         list(range(NUM_CHIPS)) if consider_chips is None else consider_chips

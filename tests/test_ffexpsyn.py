@@ -25,7 +25,7 @@ def test_ffexpsyn():
 
     vnC = np.tile(np.arange(size_in), int(np.ceil(1.0 / nSpikes * size)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, num_channels=size_in)
+    tsIn = TSEvent(vtT, vnC, num_channels=size_in, t_stop=tDur)
 
     # - Evolve
     # tsT = flT.evolve(tsIn)
@@ -101,7 +101,7 @@ def test_ffexpsyntorch():
 
     vnC = np.tile(np.arange(size_in), int(np.ceil(1.0 / nSpikes * size)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, num_channels=size_in)
+    tsIn = TSEvent(vtT, vnC, num_channels=size_in, t_stop=tDur)
 
     # - Evolve
     try:

@@ -5,6 +5,13 @@
 # - Imports
 from warnings import warn
 
+from importlib import util
+
+if (util.find_spec("brian2") is None) or (util.find_spec("teili") is None):
+    raise ModuleNotFoundError(
+        "'Brian2' and 'teili' backends not found. Layers that rely on Brian and Teili will not be available."
+    )
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
@@ -36,10 +43,8 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 __all__ = ["RecDynapseBrian"]
 
 
-## - RecIAFBrian - Class: define a spiking recurrent layer based on Dynap equations
 class RecDynapseBrian(Layer):
-    """ Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend
-    """
+    """Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -167,8 +172,7 @@ class RecDynapseBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self._neuron_group.i_mem = 0 * amp
         self._neuron_group.i_ahp = 0.5 * pamp
         self._rec_synapses.Ie_syn = 0.5 * pamp
@@ -252,7 +256,8 @@ class RecDynapseBrian(Layer):
 
         # - Build response TimeSeries
         use_event = self._spike_monitor.t_ >= time_base[0]
-        event_time_out = self._spike_monitor.t[use_event]
+        # Shift event times to middle of time bins
+        event_time_out = self._spike_monitor.t[use_event] - 0.5 * self.dt
         event_channel_out = self._spike_monitor.i[use_event]
 
         return TSEvent(event_time_out, event_channel_out, name="Layer spikes")

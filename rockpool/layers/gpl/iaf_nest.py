@@ -15,7 +15,9 @@ from ...utilities import SetterArray, ImmutableArray
 from ..layer import Layer
 
 if util.find_spec("nest") is None:
-    raise ModuleNotFoundError("No module named 'nest'.")
+    raise ModuleNotFoundError(
+        "'NEST' backend not found. Layers that rely on NEST will not be available."
+    )
 
 # - Unit conversion functions
 U2mU = lambda x: x * 1e3
@@ -79,6 +81,7 @@ class _BaseNestProcess(multiprocessing.Process):
         self.record = record
         self.num_cores = num_cores
         self.model = model
+        self.v_init = V2mV(v_rest)
 
     ######### DEFINE IPC COMMANDS ######
 
@@ -100,17 +103,18 @@ class _BaseNestProcess(multiprocessing.Process):
 
     def reset(self):
         """
-        reset_all - IPC command which resets time and state
+        IPC command which resets time and state
         """
         self.nest_module.ResetNetwork()
         self.nest_module.SetKernelStatus({"time": 0.0})
 
     def record_states(self, t_start: float) -> np.ndarray:
         """
-        record_states - Record neuron states over time.
-        :param t_start:  Time from which on events should be recorded.
-        :return:
-            2D-Array of recorded neuron states
+        Record neuron states over time
+
+        :param float t_start:  Time from which on events should be recorded.
+
+        :return: 2D-Array of recorded neuron states
         """
         events = self.nest_module.GetStatus(self._mm, "events")[0]
         use_event = events["times"] >= t_start
@@ -126,7 +130,13 @@ class _BaseNestProcess(multiprocessing.Process):
             _times = times[ind]
             order = np.argsort(_times)
             _vms = vms[ind][order]
-            recorded_states.append(_vms)
+
+            if t_start == 0:
+                # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
+                # the recording has one entry less in the first batch
+                recorded_states.append(np.insert(_vms, 0, self.v_init[i]))
+            else:
+                recorded_states.append(_vms)
 
         return np.array(recorded_states)
 
@@ -134,30 +144,30 @@ class _BaseNestProcess(multiprocessing.Process):
         self, num_timesteps: int
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
         """
-        evolve_nest - Evolve state of nest simulation by defined number of timesteps.
-        :param num_timesteps:  Number of timesteps over which to evolve.
-        :return:
+        Evolve state of nest simulation by defined number of timesteps
+
+        :param int num_timesteps:  Number of timesteps over which to evolve
+
+        :return (np.ndarray, np.ndarray, Union[np.ndarray, None]): event_time_out, event_channel_out, recorded_states
             1D-array of recorded event times
             1D-array of recorded event channels
-            If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+            If ``self.record``: 2D-array of recorded neuron states, otherwise ``None``
         """
         t_start = self.nest_module.GetKernelStatus("time")
 
-        if t_start == 0:
-            # weird behavior of NEST; the recording stops a timestep before the simulation stops. Therefore
-            # the recording has one entry less in the first batch
-            self.nest_module.Simulate((num_timesteps + 1) * self.dt)
-        else:
-            self.nest_module.Simulate(num_timesteps * self.dt)
+        self.nest_module.Simulate(num_timesteps * self.dt)
 
         # - Fetch events from spike detector
         events = self.nest_module.GetStatus(self._sd, "events")[0]
+
         # - Clear memory of spike detector to avoid accumulating past events
         self.nest_module.SetStatus(self._sd, {"n_events": 0})
+
         # - Process fetched events
         use_event = events["times"] >= t_start
         event_time_out = ms2s(events["times"][use_event])
         event_channel_out = events["senders"][use_event]
+
         # sort spiking response
         order = np.argsort(event_time_out)
         event_time_out = event_time_out[order]
@@ -177,14 +187,16 @@ class _BaseNestProcess(multiprocessing.Process):
         self, event_times, event_channels, num_timesteps: int
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
         """
-        evolve - Evolve state of nest simulation by defined number of timesteps.
-        :param event_times:  Only used in child classes
-        :param event_channels:  Only used in child classes
-        :param num_timesteps:  Number of timesteps over which to evolve.
-        :return:
+        Evolve state of nest simulation by defined number of timesteps
+
+        :param event_times:         Only used in child classes
+        :param event_channels:      Only used in child classes
+        :param int num_timesteps:   Number of timesteps over which to evolve.
+
+        :return (np.ndarray, np.ndarray, Union[np.ndarray, None]): event_time_out, event_channel_out, mV2V(recorded_states)
             1D-array of recorded event times
             1D-array of recorded event channels
-            If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+            If ``self.record``: 2D-array of recorded neuron states, otherwise ``None``
         """
         return self.evolve_nest(num_timesteps)
 
@@ -215,12 +227,12 @@ class _BaseNestProcess(multiprocessing.Process):
     ):
         """
         update_weights - Update nest connections and their weights
-        :param pop_pre:     Presynaptic population
-        :param pop_post:    Postsynaptic population
-        :param weights_new: New weights
-        :param weights_old: Old weights
-        :param delays:      Delays corresponding to the connections
-        :param connection_exists:  2D boolean array indicating which connections already exist
+        :param pop_pre:             Presynaptic population
+        :param pop_post:            Postsynaptic population
+        :param weights_new:         New weights
+        :param weights_old:         Old weights
+        :param delays:              Delays corresponding to the connections
+        :param connection_exists:   2D boolean array indicating which connections already exist
         """
         if connection_exists is None:
             connection_exists = False
@@ -373,13 +385,11 @@ class _BaseNestProcess(multiprocessing.Process):
     ):
         """
         set_connections - Set connections between two neuron groups.
-        :param pop_pre:  Presynaptic (nest) population
-        :param pop_post:  Postsynaptic (nest) population
-        :param weights: 2D-array of weights to be set.
-        :param delays:  If not `None`: 2D-array of delays to be set.
-        :param connections:  If not `None`, 2D boolean array to indicate which
-                             connections exist. Will be set to `True` for
-                             non-zero connections that are set here.
+        :param tuple pop_pre:                           Presynaptic (nest) population
+        :param tuple pop_post:                          Postsynaptic (nest) population
+        :param np.ndarray weights:                      2D-array of weights to be set.
+        :param Optional[np.ndarray] delays:             If not ``None``: 2D-array of delays to be set.
+        :param Optional[np.ndarray] connection_exists:  If not ``None``, 2D boolean array to indicate which connections exist. Will be set to ``True`` for non-zero connections that are set here.
         """
         # - Indices of pre- and postsynaptic nonzero weights
         idcs_pre, idcs_post = np.nonzero(weights)
@@ -532,14 +542,16 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         self, event_times: np.ndarray, event_channels: np.ndarray, num_timesteps: int
     ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
         """
-        evolve - Evolve state of nest simulation by defined number of timesteps.
-        :param event_times:  Input spike times
-        :param event_channels:  Input spike channels
-        :param num_timesteps:  Number of timesteps over which to evolve.
-        :return:
+        Evolve state of nest simulation by defined number of timesteps
+
+        :param np.ndarray event_times:      Input spike times
+        :param np.ndarray event_channels:   Input spike channels
+        :param int num_timesteps:           Number of timesteps over which to evolve.
+
+        :return (np.ndarray, np.ndarray, Union[np.ndarray, None]: event_time_out, event_channel_out, mV2V(recorded_states)
             1D-array of recorded event times
             1D-array of recorded event channels
-            If `self.record`: 2D-array of recorded neuron states, otherwise `None`
+            If ``self.record``: 2D-array of recorded neuron states, otherwise ``None``
         """
         if len(event_channels > 0):
             # convert input index to NEST id
@@ -557,10 +569,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
     def setup_nest_network(self):
         """
-        setup_nest_objects - Generate nest objects (neurons, input generators,
-                             monitors,...) and connect them. In addition to
-                             parent class generate spike generator object for
-                             input events.
+        Generate nest objects (neurons, input generators, monitors,...) and connect them. In addition to parent class generate spike generator object for input events.
         """
         # - Add stimulation device
         self._sg = self.nest_module.Create("spike_generator", self.weights_in.shape[0])
@@ -568,7 +577,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
         super().setup_nest_network()
 
     def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
-        """init_nest_params - Initialize nest neuron parameters and return as list"""
+        """Initialize nest neuron parameters and return as list"""
 
         params = super().generate_nest_params_list()
         for n in range(self.size):
@@ -648,10 +657,7 @@ class FFIAFNest(Layer):
 
         def setup_nest_network(self):
             """
-            setup_nest_objects - Generate nest objects (neurons, input generators,
-                                 monitors,...) and connect them. In addition to
-                                 parent class generate step current generator for
-                                 inputs.
+            Generate nest objects (neurons, input generators, monitors,...) and connect them. In addition to parent class generate step current generator for inputs.
             """
             # - Add stimulation device
             self._scg = self.nest_module.Create(
@@ -661,16 +667,17 @@ class FFIAFNest(Layer):
             super().setup_nest_network()
 
         def set_all_connections(self):
-            # - Set connections from step current generator to neuron population
+            """ Set connections from step current generator to neuron population """
             self.set_connections(
                 pop_pre=self._scg,
                 pop_post=self._pop,
                 weights=self.weights,
                 connection_exists=self.connection_exists,
+                delays=np.ones((len(self._scg), len(self._pop))) * self.dt,
             )
 
         def generate_nest_params_list(self) -> List[Dict[str, np.ndarray]]:
-            """init_nest_params - Initialize nest neuron parameters and return as list"""
+            """ Initialize nest neuron parameters and return as list """
 
             params = super().generate_nest_params_list()
             for n in range(self.size):
@@ -709,18 +716,20 @@ class FFIAFNest(Layer):
             self, time_base: np.ndarray, input_steps: np.ndarray, num_timesteps: int
         ) -> (np.ndarray, np.ndarray, Union[np.ndarray, None]):
             """
-            evolve - Evolve state of nest simulation by defined number of timesteps.
-            :param time_base:  Input time base
-            :param input_steps:  Input current steps
-            :param num_timesteps:  Number of timesteps over which to evolve.
-            :return:
+            Evolve state of nest simulation by defined number of timesteps
+
+            :param np.ndarray time_base:    Input time base
+            :param np.ndarray input_steps:  Input current steps
+            :param int num_timesteps:       Number of timesteps over which to evolve.
+
+            :return (np.ndarray, np.ndarray, Union[np.ndarray, None]):
                 1D-array of recorded event times
                 1D-array of recorded event channels
                 If `self.record`: 2D-array of recorded neuron states, otherwise `None`
             """
 
             # NEST time starts with 1 (not with 0)
-            time_base = s2ms(time_base) + 1
+            time_base = s2ms(time_base) + self.dt
 
             self.nest_module.SetStatus(
                 self._scg,
@@ -755,17 +764,17 @@ class FFIAFNest(Layer):
         Construct a spiking feedforward layer with IAF neurons, with a NEST back-end. Inputs are continuous currents; outputs are spiking events
 
         :param np.ndarray weights:                  MxN FFwd weight matrix in nA
-        :param FloatVector bias:          Nx1 bias current vector in nA. Default: ``0.0``
-        :param float dt:                  Time-step in seconds. Default: ``0.1 ms``
-        :param FloatVector tau_mem:       Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
+        :param FloatVector bias:                    Nx1 bias current vector in nA. Default: ``0.0``
+        :param float dt:                            Time-step in seconds. Default: ``0.1 ms``
+        :param FloatVector tau_mem:                 Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
         :param Optional[FloatVector] capacity:      Nx1 vector of neuron membrance capacity in nF. Will be set to tau_mem (* 1 nS) if ``None``. Default: ``None``.
-        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds in Volt. Default: ``-55 mV``
-        :param FloatVector v_reset:       Nx1 vector of neuron reset potential in Volt. Default: ``-65 mV``
-        :param FloatVector v_rest:        Nx1 vector of neuron resting potential in Volt. Default: ``-65 mV``
-        :param FloatVector refractory:    Refractory period after each spike in seconds. Default: ``1 ms``
-        :param str name:                  Name for the layer. Default: ``'unnamed'``
-        :param bool record:               Record membrane potential during evolutions
-        :param int num_cores:             Number of CPU cores to use in simulation. Default: ``1``
+        :param FloatVector v_thresh:                Nx1 vector of neuron thresholds in Volt. Default: ``-55 mV``
+        :param FloatVector v_reset:                 Nx1 vector of neuron reset potential in Volt. Default: ``-65 mV``
+        :param FloatVector v_rest:                  Nx1 vector of neuron resting potential in Volt. Default: ``-65 mV``
+        :param FloatVector refractory:              Refractory period after each spike in seconds. Default: ``1 ms``
+        :param str name:                            Name for the layer. Default: ``'unnamed'``
+        :param bool record:                         Record membrane potential during evolutions
+        :param int num_cores:                       Number of CPU cores to use in simulation. Default: ``1``
         """
 
         # - Call super constructor
@@ -838,6 +847,7 @@ class FFIAFNest(Layer):
         """
         v_range = abs(self._v_thresh - self._v_reset)
         randV = np.random.rand(self._size) * v_range + self._v_reset
+        self.v_init = randV
 
         self.request_q.put([COMMAND_SET, "V_m", V2mV(randV)])
 
@@ -868,9 +878,12 @@ class FFIAFNest(Layer):
         :return `.TSEvent`: `.TSEvent` with the recorded events
         """
         if self.record:
-            event_time_out, event_channel_out, recorded_states_array = (
-                self.result_q.get()
-            )
+            (
+                event_time_out,
+                event_channel_out,
+                recorded_states_array,
+            ) = self.result_q.get()
+
             self.recorded_states = TSContinuous(
                 (np.arange(recorded_states_array.shape[1]) + self._timestep) * self.dt,
                 recorded_states_array.T,
@@ -883,6 +896,9 @@ class FFIAFNest(Layer):
         # - Start and stop times for output time series
         t_start = self.t
         t_stop = (self._timestep + num_timesteps) * self.dt
+
+        # - Shift event times to middle of time bins
+        event_time_out -= 0.5 * self.dt
 
         # - Update layer time step
         self._timestep += num_timesteps
@@ -909,10 +925,9 @@ class FFIAFNest(Layer):
         :param Optional[TSContinuous] ts_input: Input spike trian
         :param Optional[float] duration:        Simulation/Evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps
-        :param bool verbose:          Currently no effect, just for conformity
+        :param bool verbose:                    Currently no effect, just for conformity
 
-        :return TSEvent:                        Output spike series
-
+        :return `TSEvent`:                      Output spike series
         """
         if ts_input is not None:
             # - Make sure timeseries is of correct type
@@ -1138,24 +1153,24 @@ class RecIAFSpkInNest(FFIAFNest):
             """
             Initialise the Nest process
 
-            :param request_q:
-            :param result_q:
-            :param weights_in:
-            :param weights_rec:
-            :param delay_in:
-            :param delay_rec:
-            :param bias:
-            :param dt:
-            :param tau_mem:
-            :param tau_syn_exc:
-            :param tau_syn_inh:
-            :param capacity:
-            :param v_thresh:
-            :param v_reset:
-            :param v_rest:
-            :param refractory:
-            :param record:
-            :param num_cores:
+            :param multiprocessing.Queue request_q:     Queue for receiving RPC commands
+            :param multiprocessing.Queue result_q:      Queue for sending results
+            :param np.ndarray weights_in:               Weights of the input connections
+            :param np.ndarray weights_rec:              Weights of the recurrent connections
+            :param FloatVector delay_in:                Delays of the input connections
+            :param FloatVector delay_rec:               Delays of the recurrent connections
+            :param FloatVector bias:                    Biases (static input current)  of the neurons
+            :param float dt:                            Time-step (resolution) of the simulation
+            :param FloatVector tau_mem:                 Membrane time constant
+            :param FloatVector tau_syn_exc:             Synaptic time constant of excitatory connections
+            :param FloatVector tau_syn_inh:             Synaptic time constant of inhibitory connections
+            :param FloatVector capacity:                Membrane capacity
+            :param FloatVector v_thresh:                Threshold potential
+            :param FloatVector v_reset:                 Reset potential
+            :param FloatVector v_rest:                  Resting potential
+            :param FloatVector refractory:              Refractory period
+            :param bool record:                         If ``true`` neurons states are recorded
+            :param int num_cores:                       Number of local threads to be used for this simulation
             """
             super().__init__(
                 request_q=request_q,
@@ -1218,20 +1233,20 @@ class RecIAFSpkInNest(FFIAFNest):
 
         :param FloatVector weights_in:              MxN input weight matrix in nA
         :param FloatVector weights_rec:             NxN recurrent weight matrix in nA
-        :param FloatVector delay_in:      Input delay in s. Default: ``0.1 ms``
-        :param FloatVector bias:          Nx1 bias current vector in nA. Default 0.
-        :param float dt:                  Time-step in seconds. Default: ``0.1 ms``
-        :param FloatVector tau_mem:       Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
-        :param FloatVector tau_syn:       Nx1 vector of synapse time constants in seconds. Used instead of `tau_syn_exc` or `tau_syn_inh` if they are ``None``. Default: ``50 ms``
+        :param FloatVector delay_in:                Input delay in s. Default: ``0.1 ms``
+        :param FloatVector bias:                    Nx1 bias current vector in nA. Default 0.
+        :param float dt:                            Time-step in seconds. Default: ``0.1 ms``
+        :param FloatVector tau_mem:                 Nx1 vector of neuron time constants in seconds. Default: ``20 ms``
+        :param FloatVector tau_syn:                 Nx1 vector of synapse time constants in seconds. Used instead of `tau_syn_exc` or `tau_syn_inh` if they are ``None``. Default: ``50 ms``
         :param Optional[FloatVector] tau_syn_exc:   Nx1 vector of excitatory synapse time constants in seconds. If ``None``, use ``tau_syn``. Default: ``None``
         :param Optional[FloatVector] tau_syn_inh:   Nx1 vector of inhibitory synapse time constants in seconds. If ``None``, use ``tau_syn``. Default: ``None``
-        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds in Volt. Default: -55 mV
-        :param FloatVector v_reset:       Nx1 vector of neuron reset potential in Volt. Default: -65 mV
-        :param FloatVector v_rest:        Nx1 vector of neuron resting potential in Volt. Default: -65 mV
+        :param FloatVector v_thresh:                Nx1 vector of neuron thresholds in Volt. Default: -55 mV
+        :param FloatVector v_reset:                 Nx1 vector of neuron reset potential in Volt. Default: -65 mV
+        :param FloatVector v_rest:                  Nx1 vector of neuron resting potential in Volt. Default: -65 mV
         :param Optional[FloatVector] capacity:      Nx1 vector of neuron membrance capacity in nF. Will be set to ``tau_mem`` (* 1 nS) if ``None``. Default: ``None``.
-        :param float refractory:          Refractory period after each spike in seconds. Default: ``1 ms``
-        :param str name:                  Name for the layer. Default: ``'unnamed'``
-        :param bool record:               Record membrane potential during evolutions
+        :param float refractory:                    Refractory period after each spike in seconds. Default: ``1 ms``
+        :param str name:                            Name for the layer. Default: ``'unnamed'``
+        :param bool record:                         Record membrane potential during evolutions
         """
 
         # - Determine layer size and name to run `_expand_to_net_size` method and store input weights
@@ -1319,7 +1334,7 @@ class RecIAFSpkInNest(FFIAFNest):
         :param Optional[TSEvent]ts_input:   Input spike trian
         :param Optional[float] duration:    Simulation/Evolution time
         :param Optional[int] num_timesteps: Number of evolution time steps
-        :param bool verbose:      Currently no effect, just for conformity
+        :param bool verbose:                Currently no effect, just for conformity
         :return TSEvent:                    Output spike series
 
         """

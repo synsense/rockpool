@@ -2,13 +2,32 @@
 timeseries.py - Classes to manage time series
 """
 
+## -- Import statements
+
+# - Built-ins
+import copy
+import collections.abc
+from pathlib import Path
+from tempfile import TemporaryFile
+from typing import (
+    Union,
+    List,
+    Tuple,
+    Optional,
+    Iterable,
+    TypeVar,
+    Type,
+    Dict,
+    Hashable,
+    Any,
+)
+from warnings import warn
+
+# - Third party libraries
 import numpy as np
 import scipy.interpolate as spint
-from warnings import warn
-import copy
-from typing import Union, List, Tuple, Optional, Iterable, TypeVar, Type
-import collections
 
+# - Plotting backends
 _global_plotting_backend = None
 try:
     import matplotlib as mpl
@@ -30,17 +49,19 @@ except ModuleNotFoundError:
     if not _MPL_AVAILABLE:
         _global_plotting_backend = None
 
+
 # - Define exports
 __all__ = [
     "TimeSeries",
     "TSEvent",
     "TSContinuous",
+    "TSDictOnDisk",
     "set_global_ts_plotting_backend",
     "get_global_ts_plotting_backend",
     "load_ts_from_file",
 ]
 
-TS = TypeVar("TimeSeries")
+TS = TypeVar("TS", bound="TimeSeries")
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
 
@@ -48,6 +69,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
 _TOLERANCE_ABSOLUTE = 1e-9
+_TOLERANCE_RELATIVE = 1e-6
 
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
@@ -91,6 +113,106 @@ def get_global_ts_plotting_backend() -> str:
     """
     global _global_plotting_backend
     return _global_plotting_backend
+
+
+def load_ts_from_file(
+    path: Union[str, Path], expected_type: Optional[str] = None
+) -> "TimeSeries":
+    """
+    Load a timeseries object from an ``npz`` file
+
+    :param Union[str, Path] path:       Filepath to load file
+    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
+
+    :return TimeSeries: Loaded time series object
+    :raises TypeError:  Unsupported or unexpected type
+    """
+    # - Load npz file from specified path
+    try:
+        # Loading from temporary files may require "rewinding".
+        path.seek(0)
+    except AttributeError:
+        pass
+    loaded_data = np.load(path)
+
+    # - Check for expected type
+    try:
+        loaded_type = loaded_data["str_type"].item()
+    except KeyError:
+        try:
+            loaded_type = loaded_data["strType"].item()
+        except KeyError:
+            type_key = [k for k in loaded_data if k.startswith("type")]
+            if type_key:
+                loaded_type = type_key[0][5:]
+            else:
+                if expected_type is not None:
+                    loaded_type = expected_type
+                    warn(
+                        f"Cannot determine type of Timeseries at {path}. "
+                        + f"Will assume expected type ('{expected_type}')."
+                    )
+                else:
+                    raise KeyError(f"Cannot determine type of Timeseries at {path}.")
+
+    if expected_type is not None:
+        if not loaded_type == expected_type:
+            raise TypeError(
+                "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
+                    path, loaded_type, expected_type
+                )
+            )
+
+    if "name" in loaded_data:
+        name = loaded_data["name"].item()
+    else:
+        name_keys = [k for k in loaded_data if k.startswith("name")]
+        if name_keys:
+            name = name_keys[0][5:]
+        else:
+            name = "unnamed"
+
+    if loaded_type == "TSContinuous":
+        if "interp_kind" in loaded_data:
+            interp_kind = loaded_data["interp_kind"].item()
+        else:
+            interp_kind_keys = [k for k in loaded_data if k.startswith("interp_kind")]
+            if interp_kind_keys:
+                interp_kind = interp_kind_keys[0][12:]
+            else:
+                interp_kind = "linear"
+
+        ts = TSContinuous(
+            times=loaded_data["times"],
+            samples=loaded_data["samples"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            interp_kind=interp_kind,
+            periodic=loaded_data["periodic"].item(),
+            name=name,
+        )
+
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
+    elif loaded_type == "TSEvent":
+        ts = TSEvent(
+            times=loaded_data["times"],
+            channels=loaded_data["channels"],
+            t_start=loaded_data["t_start"].item(),
+            t_stop=loaded_data["t_stop"].item(),
+            periodic=loaded_data["periodic"].item(),
+            num_channels=loaded_data["num_channels"].item(),
+            name=name,
+        )
+
+        if "trial_start_times" in loaded_data:
+            ts.trial_start_times = loaded_data["trial_start_times"]
+
+    else:
+        raise TypeError("Type `{}` not supported.".format(loaded_type))
+
+    return ts
 
 
 def _extend_periodic_times(
@@ -146,7 +268,8 @@ def full_nan(shape: Union[tuple, int]) -> np.array:
 
 class TimeSeries:
     """
-    Super-class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
+    Base class to represent a continuous or event-based time series. You should use the subclasses `.TSContinuous` and
+    `.TSEvent` to represent continuous-time and event-based time series, respectively. See :ref:`/basics/time_series.ipynb` for futher explanation and examples.
     """
 
     def __init__(
@@ -159,14 +282,14 @@ class TimeSeries:
         name: str = "unnamed",
     ):
         """
-        TimeSeries - Represent a continuous or event-based time series
+        Represent a continuous or event-based time series
 
         :param ArrayLike times:                 [Tx1] vector of time samples
         :param bool periodic:                   Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:         If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:          If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
         :param Optional[str] plotting_backend:  Determines plotting backend. If ``None``, backend will be chosen automatically based on what is available.
-        :param str name:                        Name of the TimeSeries object. Default: "unnamed"
+        :param str name:                        Name of the `.TimeSeries` object. Default: "unnamed"
         """
 
         # - Convert time trace to numpy arrays
@@ -195,15 +318,15 @@ class TimeSeries:
             plotting_backend if plotting_backend is not None else None, verbose=False
         )
 
-    def delay(self, offset: Union[int, float], inplace: bool = False) -> "TimeSeries":
+    def delay(self: TS, offset: Union[int, float], inplace: bool = False) -> TS:
         """
         Return a copy of ``self`` that is delayed by an offset
 
-        For delaying self, use the `inplace` argument, or ``.times += ...`` instead.
+        For delaying self, use the ``inplace`` argument, or ``.times += ...`` instead.
 
         :param float Offset:    Time by which to offset this time series
         :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
-        :return TimeSeries:     New TimeSeries, delayed
+        :return TimeSeries:     New `.TimeSeries`, delayed
         """
         if not inplace:
             series = self.copy()
@@ -223,30 +346,39 @@ class TimeSeries:
 
         return series
 
-    def start_at_zero(self, inplace: bool = False) -> "TimeSeries":
+    def start_at_zero(self: TS, inplace: bool = False) -> TS:
         """
-        Convenience function that calls the 'delay' method such that 't_start'
-        falls at 0.
+        Convenience function that calls the `~.TimeSeries.delay` method such that ``self.t_start`` falls at ``0``.
 
         :return TimeSeries:     New TimeSeries, with t_start at 0
         """
         return self.delay(offset=-self.t_start, inplace=inplace)
 
+    def start_at(self: TS, t_start: float, inplace: bool = False) -> TS:
+        """
+        Convenience function that calls the `~.TimeSeries.delay` method such that ``self.t_start`` falls at ``t_start``.
+
+        :param float t_start:   Time to which ``self.t_start`` should be shifted;
+        :param bool inplace:    If ``True``, conduct operation in-place (Default: ``False``; create a copy)
+        :return TimeSeries:     New `.TimeSeries`, delayed
+        """
+        return self.delay(offset=t_start - self.t_start, inplace=inplace)
+
     def isempty(self) -> bool:
         """
-        Test if this TimeSeries object is empty
+        Test if this `.TimeSeries` object is empty
 
-        :return bool: ``True`` iff the TimeSeries object contains no samples
+        :return bool: ``True`` iff the `.TimeSeries` object contains no samples
         """
         return np.size(self.times) == 0
 
     def print(self):
-        """print() - Print an overview of the time series."""
+        """ Print an overview of the time series"""
         print(self.__repr__())
 
     def set_plotting_backend(self, backend: Union[str, None], verbose: bool = True):
         """
-        Set which plotting backend to use with the .plot() method
+        Set which plotting backend to use with the `~.TimeSeries.plot` method
 
         :param str backend:     Specify a backend to use. Supported: {"holoviews", "matplotlib"}
         :param bool verbose:    If True, print feedback about which backend has been set
@@ -287,7 +419,7 @@ class TimeSeries:
         else:
             raise ValueError("Plotting backend not recognized.")
 
-    def copy(self) -> "TimeSeries":
+    def copy(self: TS) -> TS:
         """
         Return a deep copy of this time series
 
@@ -326,9 +458,9 @@ class TimeSeries:
         """
         Append multiple TimeSeries objects in time to a new series
 
-        :param Iterable series:    Time series to be tacked at the end of each other. These series must have the same number of channels.
-        :param Union[None, float, Iterable]     Offset to be introduced between time traces. First value corresponds to delay of first time series.
-        :return TimeSeries:        Time series with data from series in ``series``
+        :param Iterable series:                     Time series to be tacked at the end of each other. These series must have the same number of channels.
+        :param Union[None, float, Iterable] offset: Offset to be introduced between time traces. First value corresponds to delay of first time series.
+        :return TimeSeries:                         Time series with data from series in ``series``
         """
         # - Convert `series` to list, to be able to extract information about objects
         if isinstance(series, cls):
@@ -349,6 +481,32 @@ class TimeSeries:
 
         new_series = subclass(t_start=t_start)
         return new_series.append_t(series, offset=offset, inplace=False)
+
+    @classmethod
+    def load(
+        cls: Type[TS], path: Union[str, Path], expected_type: Optional[str] = None
+    ) -> TS:
+        """
+        Load TimeSeries object from file. If called from a subclass of :py:class'TimeSeries`,
+        the type of the stored object must match that of the method class.
+
+        :param Union[str, Path] path:           Path to load from.
+        :param Optional[str] expected_type:     Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Can only be set if method is called from py:class:`TimeSeries` class. Default: ``None``, use whichever type is loaded.
+
+        :return TimeSeries: Loaded time series object
+        :raises TypeError:  Unsupported or unexpected type
+        :raises TypeError: Argument `expected_type` is defined if class is not `TimeSeries`.
+        """
+        if cls != TimeSeries:
+            if expected_type is not None:
+                raise TypeError(
+                    "Argument `expected_type` can only be provided when calling this "
+                    + "method from `TimeSeries` class."
+                )
+            # - Extract class name as string
+            expected_type = str(cls).strip("'<>").split(".")[-1]
+
+        return load_ts_from_file(path, expected_type)
 
     @property
     def times(self):
@@ -389,8 +547,10 @@ class TimeSeries:
         try:
             # - Largest allowed value for new_start
             max_start = self._times[0] if self._times.size > 0 else self._t_stop
-            if new_start <= max_start:
-                self._t_start = float(new_start)
+            if new_start < max_start:
+                self._t_start = new_start
+            elif new_start - max_start < _TOLERANCE_ABSOLUTE:
+                self._t_start = max_start
             else:
                 raise ValueError(
                     "TimeSeries `{}`: t_start must be less or equal to {}. It was {}.".format(
@@ -412,6 +572,8 @@ class TimeSeries:
         min_stop = self._times[-1] if self._times.size > 0 else self._t_start
         if new_stop >= min_stop:
             self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
         else:
             raise ValueError(
                 "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
@@ -432,6 +594,15 @@ class TimeSeries:
             if self._plotting_backend is not None
             else _global_plotting_backend
         )
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, new_name: Optional[str] = None):
+        # - Default name: 'unnamed'
+        self._name = "unnamed" if new_name is None else new_name
 
 
 ### --- Continuous-valued time series
@@ -504,6 +675,8 @@ class TSContinuous(TimeSeries):
 
     """
 
+    _samples = []
+
     def __init__(
         self,
         times: Optional[ArrayLike] = None,
@@ -514,7 +687,8 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         name: str = "unnamed",
         units: Optional[str] = None,
-        interp_kind: str = "linear",
+        interp_kind: str = "previous",
+        fill_value: str = "extrapolate",
     ):
         """
         TSContinuous - Represents a continuously-sample time series, supporting interpolation and periodicity.
@@ -522,14 +696,15 @@ class TSContinuous(TimeSeries):
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
         :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
-        :param bool periodic:     Treat the time series as periodic around the end points. Default: ``False``
+        :param bool periodic:               Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
-        :param str name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
+        :param str name:                    Name of the `.TSContinuous` object. Default: ``"unnamed"``
         :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
-        :param Optional[str] interp_kind:   Specify the interpolation type. Default: ``"linear"``
+        :param str interp_kind:             Specify the interpolation type. Default: ``"previous"``
+        :param str fill_value:              Specify the method to fill values outside sample times. Default: ``"extrapolate"``. **Sampling beyond `.t_stop` is still not permitted**
 
-        If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
+        If the time series is not periodic (the default), then NaNs will be returned for any values outside `t_start` and `t_stop`.
         """
 
         if times is None:
@@ -555,9 +730,61 @@ class TSContinuous(TimeSeries):
         )
 
         # - Assign attributes
-        self.interp_kind = interp_kind
-        self.samples = samples.astype("float")
+        self.interp = None
+        self.fill_value = fill_value
+        self._interp_kind = interp_kind
+        self.samples = samples.astype("float")  # Also creates an interpolator
         self.units = units
+
+        # - Default: Throw exceptions when sampled output contains `NaN`s
+        self.beyond_range_exception = True
+        # - Default: Change sample times that are slightly out of range
+        self.approx_limit_times = True
+
+    ## -- Alternative constructor for clocked time series
+    @staticmethod
+    def from_clocked(
+        samples: np.ndarray,
+        dt: float,
+        t_start: float = 0.0,
+        periodic: bool = False,
+        name: str = None,
+        interp_kind: str = "previous",
+    ) -> "TSContinuous":
+        """
+        Convenience method to create a new continuous time series from a clocked sample.
+
+        ``samples`` is an array of clocked samples, sampled at a regular interval ``dt``. Each sample is assumed to occur at the **start** of a time bin, such that the first sample occurs at ``t = 0`` (or ``t = t_start``). A continuous time series will be returned, constructed using ``samples``, and filling the time ``t = 0`` to ``t = N*dt``, with ``t_start`` and ``t_stop`` set appropriately.
+
+        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``. ``samples`` must be of shape ``[T, C]``, where ``T`` is the number of time bins, and ``C`` is the number of channels.
+        :param float dt:            The sample interval for ``samples``
+        :param float t_start:       The time of the first sample.
+        :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
+        :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
+        :param str interp_kind:     String specifying the interpolation method to be used for the returned time series. Any string accepted by `scipy.interp1d` is accepted. Default: `"previous"`, sample-and-hold interpolation.
+
+        :return `.TSContinuous` :   A continuous time series containing ``samples``.
+        """
+        if samples is None or np.size(samples) == 0:
+            raise TypeError(
+                "TSContinuous.from_clocked: `samples` must not be empty or `None`."
+            )
+
+        # - Ensure that `samples` is an ndarray
+        samples = np.atleast_1d(samples)
+
+        # - Build a time base
+        time_base = np.arange(0, np.shape(samples)[0]) * dt + t_start
+
+        # - Return a continuous time series
+        return TSContinuous(
+            time_base,
+            samples,
+            t_stop=time_base[-1] + dt,
+            periodic=periodic,
+            name=name,
+            interp_kind=interp_kind,
+        )
 
     ## -- Methods for plotting and printing
 
@@ -723,36 +950,77 @@ class TSContinuous(TimeSeries):
             summary = summary0 + "\n\t...\n" + summary1
         print(self.__repr__() + "\n" + summary)
 
-    def save(self, path: str, verbose: bool = False):
+    def to_dict(
+        self,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_samples: Union[None, str, type, np.dtype] = None,
+    ) -> Dict:
+        """
+        Store data and attributes of this :py:class:`.TSContinuous` in a :py:class:`dict`.
+
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be returned, for example to save space.
+        :return:    Dict with data and attributes of this :py:class:`.TSContinuous`.
+        """
+
+        if dtype_times is not None:
+            # Make sure that broadcast values in `times` are not beyond `t_stop` and `t_start`
+            times = self.times.astype(dtype_times)
+            # Cannot simply clip `times` because of rounding issues.
+            t_start = np.clip(self.t_start, None, np.min(times))
+            t_stop = np.clip(self.t_stop, np.max(times), None)
+        else:
+            times = self.times
+            t_start = self.t_start
+            t_stop = self.t_stop
+        if dtype_samples is not None:
+            samples = self.samples.astype(dtype_samples)
+        else:
+            samples = self.samples
+
+        # - Collect attributes in dict
+        attributes = {
+            "times": times,
+            "samples": samples,
+            "t_start": np.array(t_start),
+            "t_stop": np.array(t_stop),
+            f"interp_kind_{self._interp_kind}": np.array([]),
+            "periodic": np.array(self.periodic),
+            f"name_{self.name}": np.array([]),
+            f"type_TSContinuous": np.array(
+                []
+            ),  # Indicate that this object is TSContinuous
+        }
+
+        # - Some modules add a `trial_start_times` attribute to the object.
+        if hasattr(self, "trial_start_times"):
+            attributes["trial_start_times"] = np.asarray(self.trial_start_times)
+
+        return attributes
+
+    def save(
+        self,
+        path: Union[str, Path],
+        verbose: bool = False,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_samples: Union[None, str, type, np.dtype] = None,
+    ):
         """
         Save this time series as an ``npz`` file using np.savez
 
-        :param str path:    Path to save file
+        :param str path:        Path to save file
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be stored, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be stored, for example to save space.
         """
 
-        # - Make sure path is a string (and not a Path object)
-        path = str(path)
-
-        # - Some modules add a `trial_start_times` attribute to the object.
-        trial_start_times = (
-            self.trial_start_times if hasattr(self, "trial_start_times") else None
-        )
+        # - Collect attributes in dict
+        attributes = self.to_dict(dtype_times=dtype_times, dtype_samples=dtype_samples)
 
         # - Write the file
-        np.savez(
-            path,
-            times=self.times,
-            samples=self.samples,
-            t_start=self.t_start,
-            t_stop=self.t_stop,
-            interp_kind=self.interp_kind,
-            periodic=self.periodic,
-            name=self.name,
-            str_type="TSContinuous",  # Indicate that this object is TSContinuous
-            trial_start_times=trial_start_times,
-        )
-        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
+        np.savez(path, **attributes)
+
         if verbose:
+            missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
                 "TSContinuous `{}` has been stored in `{}`.".format(
                     self.name, path + missing_ending * ".npz"
@@ -1130,12 +1398,19 @@ class TSContinuous(TimeSeries):
             self.interp = lambda t: None
 
         elif np.size(self.times) == 1:
+
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
                 times = np.array(t).flatten()
                 samples = np.empty((times.size, self.num_channels))
                 samples.fill(np.nan)
-                samples[times == self.times[0]] = self.samples[0]
+                if self._fill_value == "extrapolate":
+                    assign_val = np.logical_and(
+                        self.t_start <= times, times <= self.t_stop
+                    )
+                else:
+                    assign_val = times == self.times[0]
+                samples[assign_val] = self.samples[0]
                 return samples
 
             self.interp = single_sample
@@ -1145,11 +1420,12 @@ class TSContinuous(TimeSeries):
             self.interp = spint.interp1d(
                 self._times,
                 self._samples,
-                kind=self.interp_kind,
+                kind=self._interp_kind,
                 axis=0,
                 assume_sorted=True,
                 bounds_error=False,
                 copy=False,
+                fill_value=self._fill_value,
             )
 
     def _interpolate(self, times: Union[int, float, ArrayLike]) -> np.ndarray:
@@ -1160,17 +1436,83 @@ class TSContinuous(TimeSeries):
 
         :return np.ndarray:     Array of interpolated values. Will have the shape ``TxN``, where ``N`` is the number of channels in ``self``
         """
-        # - Enforce periodicity
-        if self.periodic and self.duration > 0:
-            times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
 
-        samples = self.interp(times)
+        # Make sure `times` is an array
+        times = np.array(times)
 
         # - Handle empty series
-        if samples is None:
+        if self.isempty():
             return np.zeros((np.size(times), 0))
-        else:
-            return np.reshape(self.interp(times), (-1, self.num_channels))
+
+        # - Enforce periodicity
+        if self.periodic and self.duration > 0:
+            times = (times - self._t_start) % self.duration + self._t_start
+
+        # Time points that define the range of the interpolator
+        t_first = self.times[0]
+        t_last = self.t_stop if self._interp_kind == "previous" else self.times[-1]
+
+        # Time points outside of this range
+        is_early = np.array(times < t_first)
+        is_late = np.array(times > t_last)
+
+        # - Correct time points that are slightly out of range
+        if self.approx_limit_times:
+
+            tol = min(_TOLERANCE_ABSOLUTE, _TOLERANCE_RELATIVE * self.duration)
+            # Find values in `times` that are slightly before first or slightly after
+            # last sample
+            t_first_approx = t_first - tol
+            t_last_approx = t_last + tol
+            set_t_first = np.logical_and(is_early, times >= t_first_approx)
+            set_t_last = np.logical_and(is_late, times <= t_last_approx)
+            times = np.where(set_t_first, t_first, times)
+            times = np.where(set_t_last, t_last, times)
+            if np.logical_or(set_t_first, set_t_last).any():
+                warn(
+                    f"TSContinuous `{self.name}`: Some of the requested time points "
+                    + "were slightly outside the time range of this series (by at "
+                    + f"most {tol} s) and were approximated by "
+                    + f"the first or last time point of this series. To prevent this "
+                    + f"behavior, set the `approx_limit_times` attribute to `False`."
+                )
+                is_early[set_t_first] = False
+                is_late[set_t_last] = False
+
+        # - Warn or throw exception if output contains `NaN`s
+        if is_early.any() or is_late.any():
+            error_msg = (
+                f"TSContinuous `{self.name}`: Some of the requested time points are "
+                + "beyond the first and last time points of this series and cannot "
+                + "be sampled.\n"
+                + "If you think that this is due to rounding errors, try setting "
+                + "the `approx_limit_times` attribute to `True`.\n"
+            )
+            if self.beyond_range_exception:
+                raise ValueError(
+                    error_msg
+                    + "If you want to sample at these time points anyway, you can "
+                    + "set the `beyond_range_exception` attribute of this time series "
+                    + "to `False` and will receive `NaN` as values."
+                )
+            else:
+                warn(
+                    error_msg
+                    + "Will return `NaN` for these time points."
+                    + "To raise a ValueError in situations like this, set the "
+                    + "`beyond_range_exception` attribute of this time series to `True`."
+                )
+
+        samples = np.reshape(self.interp(times), (-1, self.num_channels))
+
+        # - Catch invalid times, replace with NaN
+        invalid_times = np.logical_or(
+            np.array(times) < self.t_start, np.array(times) > self.t_stop
+        )
+        samples[invalid_times, :] = np.nan
+
+        # - Return the sampled data
+        return samples
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
         """
@@ -1300,7 +1642,7 @@ class TSContinuous(TimeSeries):
 
         return self.resample(time_points, channels, inplace=False)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return a string representation of this object
 
@@ -1593,6 +1935,49 @@ class TSContinuous(TimeSeries):
         """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
 
+    @property
+    def beyond_range_exception(self):
+        return self._nan_exception
+
+    @beyond_range_exception.setter
+    def beyond_range_exception(self, raise_exception: bool):
+        try:
+            self._nan_exception = bool(raise_exception)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `beyond_range_exception` must be of boolean type."
+            )
+
+    @property
+    def approx_limit_times(self):
+        return self._approx_limit_times
+
+    @approx_limit_times.setter
+    def approx_limit_times(self, approx: bool):
+        try:
+            self._approx_limit_times = bool(approx)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `approx_limit_times` must be of boolean type."
+            )
+
+    @property
+    def fill_value(self):
+        return self._fill_value
+
+    @fill_value.setter
+    def fill_value(self, value):
+        if isinstance(value, str):
+            if value != "extrapolate":
+                raise ValueError(
+                    f"TSContinuous `{self.name}`: "
+                    + "Fill_value` must be either `extrapolate` or a fill value to pass to `scipy.interpolate`."
+                )
+
+        self._fill_value = value
+        if self.interp is not None:
+            self._create_interpolator()
+
 
 ### --- Event time series
 
@@ -1635,7 +2020,7 @@ class TSEvent(TimeSeries):
 
         :param Optional[str] name:                    Name of the time series (Default: None)
 
-        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, max(channels) is taken to be the total channel number
+        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, the total channel number is taken to be ``max(channels)``
         """
 
         # - Default time trace: empty
@@ -1643,6 +2028,22 @@ class TSEvent(TimeSeries):
             times = np.array([])
         else:
             times = np.atleast_1d(times).flatten().astype(float)
+
+        # - Make sure `t_stop` is larger than any provided time point.
+        if times.size > 0:
+            if t_stop is None:
+                raise TypeError(
+                    "If `times` is not `None`, `t_stop` must be a float strictly "
+                    + "greater than the largest entry in `times`."
+                )
+            if np.max(times) >= t_stop:
+                raise ValueError(
+                    f"`t_stop` (here {t_stop}) must be strictly greater than the "
+                    + f"largest entry in `times` (here {np.max(times)})."
+                )
+
+        # - Default name: 'unnamed'
+        name = "unnamed" if name is None else name
 
         # - Default channel: zero
         if channels is None or np.size(channels) == 0:
@@ -1793,6 +2194,12 @@ class TSEvent(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
+                # - Set the extent of the channels axis
+                ax.set_ylim(-1, self.num_channels + 1)
+
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
 
@@ -1827,7 +2234,6 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
-        include_stop: bool = False,
         remap_channels: bool = False,
         inplace: bool = False,
     ) -> "TSEvent":
@@ -1839,7 +2245,6 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_start:             Time from which on events are returned. Default: `.t_start`
         :param Optional[float] t_stop:              Time until which events are returned. Default: `.t_stop`
         :param Optional[ArrayLike[int]] channels:   Channels of which events are returned. Default: All channels
-        :param bool include_stop:                   If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
         :param bool remap_channels:                 Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
         :param bool inplace:                        Iff ``True``, the operation is performed in place (Default: False)
 
@@ -1852,7 +2257,7 @@ class TSEvent(TimeSeries):
             new_series = self
 
         # - Extract matching events
-        time_data, channel_data = new_series(t_start, t_stop, channels, include_stop)
+        time_data, channel_data = new_series(t_start, t_stop, channels)
 
         # - Update new timeseries
         new_series._times = time_data
@@ -1884,11 +2289,11 @@ class TSEvent(TimeSeries):
         self, channel_map: ArrayLike, inplace: bool = False
     ) -> "TSEvent":
         """
-        Renumber channels in the :py:class:`TSEvent`
+        Renumber channels in the :py:class:`.TSEvent`
 
         Maps channels 0..``self.num_channels-1`` to the channels in ``channel_map``.
 
-        :param ArrayLike[int] channel_map:  List of channels that existing channels should be mapped to, in order.. Must be of size ``self.num_channels``.
+        :param ArrayLike[int] channel_map:  List of channels that existing channels should be mapped to, in order. Must be of size ``self.num_channels``.
         :param bool inplace:                Specify whether operation should be performed in place (Default: ``False``, a copy is returned)
         """
 
@@ -1917,18 +2322,17 @@ class TSEvent(TimeSeries):
         num_timesteps: int = None,
         channels: np.ndarray = None,
         add_events: bool = False,
-        include_t_stop: bool = False,
     ) -> np.ndarray:
         """
         Return a rasterized version of the time series data, where each data point represents a time step
 
         Events are represented in a boolean matrix, where the first axis corresponds to time, the second axis to the channel. Events that happen between time steps are projected to the preceding step. If two events happen during one time step within a single channel, they are counted as one, unless ``add_events`` is ``True``.
 
-        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at ``t+dt``**. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
+        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at** ``t+dt``. Such events would be included in the following time bin.
 
         To generate a time trace that corresponds to the raster, you can use :py:func:`numpy.arange` as follows::
 
-            num_timesteps = np.ceil((t_stop - t_start) / dt) + ((t_stop - t_start) % dt == 0) and include_t_stop
+            num_timesteps = np.ceil((t_stop - t_start) / dt)
             bin_starts = np.arange(num_timesteps) * dt + t_start
             bin_stops = bin_starts + dt
             bin_mid = bin_starts + dt/2
@@ -1938,8 +2342,7 @@ class TSEvent(TimeSeries):
             def mod(num, div):
                 return (num - div * np.floor(num/div))
 
-            num_timesteps = int(np.ceil((t_stop - t_start) / dt) +
-                int((np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE) and include_t_stop))
+            num_timesteps = int(np.ceil((t_stop - t_start) / dt)
 
         :param float dt:                            Duration of single time step in raster
         :param Optional[float] t_start:             Time where to start raster. Default: None (use ``self.t_start``)
@@ -1986,27 +2389,12 @@ class TSEvent(TimeSeries):
             # - Use `num_timesteps` to determine `t_stop`
             t_stop = t_start + num_timesteps * dt
 
-            # - `include_t_stop` is ignored in this case
-            if include_t_stop:
-                warn("`include_t_stop` is ignored if `num_timesteps` is provided.")
-                include_t_stop = False
-
         elif t_stop is None:
             # - Use own `t_stop`
             t_stop = self.t_stop
 
-        # - Compute number of raster timesteps, taking into account `include_t_stop` argument
-        num_timesteps = int(
-            np.ceil((t_stop - t_start) / dt)
-            + int(
-                (np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE)
-                and include_t_stop
-            )
-        )
-
-        # - If the final time bin spans over `t_stop`, then we should include spikes at `t_stop`
-        if t_start + num_timesteps * dt > t_stop:
-            include_t_stop = True
+        # - Compute number of raster timesteps
+        num_timesteps = int(np.ceil((t_stop - t_start) / dt))
 
         # - Clip the time series to include only the events of interest
         series = self.clip(
@@ -2014,7 +2402,6 @@ class TSEvent(TimeSeries):
             t_stop=t_stop,
             channels=channels_clip,
             remap_channels=False,
-            include_stop=include_t_stop,
         )
 
         # - Create raster for storing event data
@@ -2096,34 +2483,152 @@ class TSEvent(TimeSeries):
         )
         yield from event_raster  # Yield one row at a time
 
-    def save(self, path: str, verbose: bool = False):
+    @staticmethod
+    def from_raster(
+        raster: np.ndarray,
+        dt: float = 1.0,
+        t_start: float = 0.0,
+        t_stop: Optional[float] = None,
+        name: Optional[str] = None,
+        periodic: bool = False,
+        num_channels: Optional[int] = None,
+        spikes_at_bin_start: bool = False,
+    ) -> "TSEvent":
         """
-        Save this :py:`TSEvent` as an ``npz`` file using ``np.savez``
+        Create a `.TSEvent` object from a raster array
 
-        :param str path: File path to save data
+        Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
+        time series as a `.TSEvent` object.
+
+        .. rubric:: Example
+
+        The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
+
+            T = 200
+            C = 20
+            dt = 1e-3
+            spike_prob = 0.1
+
+            raster = np.random.rand((T, C)) > spike_prob
+            spikes_ts = TSEvent.from_raster(raster, dt)
+
+        :param np.ndarray raster:           A TxC array of events. Each row corresponds to a clocked time step of  `dt` duration. Each bin contains the number of spikes present in that bin
+        :param float dt:                    Duration of each time bin in seconds
+        :param float t_start:               The start time of the first bin in ``raster``. Default: ``0.``
+        :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
+        :param Optional[str] name:          The name of the returned time series. Default: ``None``
+        :param bool periodic:               The ``periodic`` flag passed to the new time series
+        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series
+        :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
+
+        :return TSEvent: A new `.TSEvent` containing the events in ``raster``
         """
 
-        # - Make sure path is string (and not Path object)
-        path = str(path)
+        # - Make sure ``raster`` is a numpy array of integer type
+        raster = np.asarray(raster, int)
+
+        # - Reshape if the array is 1d
+        if len(raster.shape) == 1 or raster.shape[1] == 1:
+            raster = np.atleast_2d(raster).T
+
+        # - Compute `t_stop` if not provided
+        if t_stop is None:
+            t_stop = raster.shape[0] * dt + t_start
+
+        # - Find spike events
+        spike_present = raster > 0
+        spikes_per_bin = raster[spike_present]
+        spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis=0)
+
+        # - Convert to a new TSEvent object and return
+        return TSEvent(
+            spikes[:, 0] * dt + t_start + dt / 2 * int(not spikes_at_bin_start),
+            spikes[:, 1],
+            name=name,
+            periodic=periodic,
+            num_channels=num_channels,
+            t_start=t_start,
+            t_stop=t_stop,
+        )
+
+    def to_dict(
+        self,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_channels: Union[None, str, type, np.dtype] = None,
+    ) -> Dict:
+        """
+        Store data and attributes of this :py:class:`.TSEvent` in a ``Dict``.
+
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which ``times`` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which ``channels`` are to be returned, for example to save space.
+        :return:    Dict with data and attributes of this :py:class:`.TSEvent`.
+        """
+
+        if dtype_times is not None:
+            # Make sure that broadcast values in `times` are not beyond `t_stop` and `t_start`
+            times = self.times.astype(dtype_times)
+            # Cannot simply clip `times` because of rounding issues.
+            t_start = np.clip(self.t_start, None, np.min(times))
+            res = np.finfo(dtype_times).resolution
+            t_stop = np.clip(self.t_stop, np.max(times) + res, None)
+        else:
+            times = self.times
+            t_start = self.t_start
+            t_stop = self.t_stop
+        if dtype_channels is not None:
+            if np.iinfo(dtype_channels).max < self.num_channels:
+                raise ValueError(
+                    f"TSEvent `{self.name}`: type `{dtype_channels}` not sufficient "
+                    + f"for number of channels in this series ({self.num_channels})."
+                )
+            channels = self.channels.astype(dtype_channels)
+        else:
+            channels = self.channels
+
+        # - Collect attributes in dict
+        attributes = {
+            "times": times,
+            "channels": channels,
+            "t_start": np.array(t_start),
+            "t_stop": np.array(t_stop),
+            "periodic": np.array(self.periodic),
+            "num_channels": np.array(self.num_channels),
+            f"name_{self.name}": np.array([]),
+            f"type_TSEvent": np.array([]),  # Indicate that the object is TSEvent
+        }
 
         # - Some modules add a `trial_start_times` attribute to the object.
-        trial_start_times = (
-            self.trial_start_times if hasattr(self, "trial_start_times") else None
+        if hasattr(self, "trial_start_times"):
+            attributes["trial_start_times"] = self.trial_start_times
+
+        return attributes
+
+    def save(
+        self,
+        path: Union[str, Path],
+        verbose: bool = False,
+        dtype_times: Union[None, str, type, np.dtype] = None,
+        dtype_channels: Union[None, str, type, np.dtype] = None,
+    ):
+        """
+        Save this :py:class:`.TSEvent` as an ``npz`` file using :py:meth:`np.savez`
+
+        :param str path:        Path to save file
+        :param bool verbose:    Print path information after successfully saving.
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be stored, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which `channels` are to be stored, for example to save space.
+        """
+
+        # - Collect attributes in dict
+        attributes = self.to_dict(
+            dtype_times=dtype_times, dtype_channels=dtype_channels
         )
-        np.savez(
-            path,
-            times=self.times,
-            channels=self.channels,
-            t_start=self.t_start,
-            t_stop=self.t_stop,
-            periodic=self.periodic,
-            num_channels=self.num_channels,
-            name=self.name,
-            str_type="TSEvent",  # Indicate that the object is TSEvent
-            trial_start_times=trial_start_times,
-        )
-        missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
+
+        # - Write the file
+        np.savez(path, **attributes)
+
         if verbose:
+            missing_ending = path.split(".")[-1] != "npz"  # np.savez will add ending
             print(
                 "TSEvent `{}` has been stored in `{}`.".format(
                     self.name, path + missing_ending * ".npz"
@@ -2370,7 +2875,9 @@ class TSEvent(TimeSeries):
             channels = np.arange(self.num_channels)
         else:
             # - Check `channels` for validity
-            if not (np.min(channels) >= 0 and np.max(channels) < self.num_channels):
+            if np.asarray(channels).size > 0 and not (
+                np.min(channels) >= 0 and np.max(channels) < self.num_channels
+            ):
                 raise IndexError(
                     f"TSEvent `{self.name}`: `channels` must be between 0 and {self.num_channels}."
                 )
@@ -2393,15 +2900,14 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Optional[Union[int, ArrayLike]] = None,
-        include_stop: bool = False,
     ) -> (np.ndarray, np.ndarray):
         """
-        ts(...) - Return events in interval between indicated times
+        ts(...) - Return events in interval between indicated times, ignoring
+                  events at `t_stop`.
 
         :param Optional[float] t_start:     Time from which on events are returned
         :param Optional[float] t_stop:      Time until which events are returned
         :param Optional[Union[int, ArrayLike]] channels:  Channels of which events are returned
-        :param bool include_stop:  If there are events with time t_stop include them or not. Default: ``False``, do not include events at time ``t_stop``
 
         :return:
             np.ndarray  Times of events
@@ -2413,7 +2919,6 @@ class TSEvent(TimeSeries):
 
         if t_stop is None:
             t_stop: float = self.t_stop
-            include_stop = True
 
         # - Permit unsorted bounds
         if t_stop < t_start:
@@ -2432,11 +2937,8 @@ class TSEvent(TimeSeries):
         # - Events with matching channels
         channel_matches = self._matching_channels(channels, all_channels)
 
-        # - Handle events at stop time
-        if include_stop:
-            choose_events_stop: np.ndarray = all_times <= t_stop
-        else:
-            choose_events_stop: np.ndarray = all_times < t_stop
+        # - Ignore events from stop time onwards
+        choose_events_stop: np.ndarray = all_times < t_stop
 
         # - Extract matching events and return
         choose_events: np.ndarray = (
@@ -2502,10 +3004,14 @@ class TSEvent(TimeSeries):
 
     @channels.setter
     def channels(self, new_channels: np.ndarray):
+
+        new_channels = np.asarray(new_channels)
+
         # - Check size of new data
-        assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
-            self.times
-        ), "`new_channels` must be the same size as `times`."
+        if np.size(new_channels) != 1 and np.size(new_channels) != np.size(self.times):
+            raise ValueError(
+                f"TSEvent `{self.name}`: `new_channels` must be the same size as `times`."
+            )
 
         # - Handle scalar channel
         if np.size(new_channels) == 1:
@@ -2543,55 +3049,160 @@ class TSEvent(TimeSeries):
         else:
             self._num_channels = new_num_ch
 
+    @property
+    def times(self):
+        """ (ArrayLike[float]) Array of sample times """
+        return self._times
 
-def load_ts_from_file(path: str, expected_type: Optional[str] = None) -> TimeSeries:
-    """
-    Load a timeseries object from an ``npz`` file
+    @times.setter
+    def times(self, new_times: ArrayLike):
+        # - Check time trace for correct size
+        if np.size(new_times) != np.size(self._times):
+            raise ValueError(
+                f"TSContinuous `{self.name}`: "
+                + "New time trace must have the same number of elements as the original trace."
+            )
 
-    :param str path:                    Filepath to load file
-    :param Optional[str] expected_type: Specify expected type of timeseires (:py:class:`TSContinuous` or py:class:`TSEvent`). Default: ``None``, use whichever type is loaded.
+        # - Make sure time trace is sorted
+        if (np.diff(new_times) < 0).any():
+            raise ValueError(
+                f"TSContinuous `{self.name}`: "
+                + "The time trace must be sorted and not decreasing"
+            )
 
-    :return TimeSeries: Loaded time series object
-    :raises TypeError:  Unsupported or unexpected type
-    """
-    # - Make sure path is string (and not Path object)
-    path = str(path)
+        # - Store new time trace
+        self._times = np.atleast_1d(new_times).flatten().astype(float)
 
-    # - Load npz file from specified path
-    dLoaded = np.load(path)
+        if np.size(self._times) > 0:
+            # - Fix t_start and t_stop
+            self._t_start = min(self._t_start, new_times[0])
+            res = np.finfo(self._times.dtype).resolution
+            self._t_stop = max(self._t_stop, new_times[-1] + res)
 
-    # - Check for expected type
-    try:
-        loaded_type = dLoaded["str_type"].item()
-    except KeyError:
-        loaded_type = dLoaded["strType"].item()
+    @property
+    def t_stop(self) -> float:
+        """ (float) Stop time of time series (final sample) """
+        return self._t_stop
 
-    if expected_type is not None:
-        if not loaded_type == expected_type:
-            raise TypeError(
-                "Timeseries at `{}` is of type `{}`, which does not match expected type `{}`.".format(
-                    path, loaded_type, expected_type
+    @t_stop.setter
+    def t_stop(self, new_stop):
+        # - Smallest allowed value for new_stop
+        res = np.finfo(self._times.dtype).resolution
+        min_stop = self._times[-1] + res if self._times.size > 0 else self._t_start
+        if new_stop >= min_stop:
+            self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
+        else:
+            raise ValueError(
+                "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
+                    self.name, min_stop, new_stop
                 )
             )
-    if loaded_type == "TSContinuous":
-        return TSContinuous(
-            times=dLoaded["times"],
-            samples=dLoaded["samples"],
-            t_start=dLoaded["t_start"].item(),
-            t_stop=dLoaded["t_stop"].item(),
-            interp_kind=dLoaded["interp_kind"].item(),
-            periodic=dLoaded["periodic"].item(),
-            name=dLoaded["name"].item(),
+
+
+### --- Dict-like object to store TimeSeries on disk
+class TSDictOnDisk(collections.abc.MutableMapping):
+    """
+    Behaves like a dict. However, if a `TimeSeries` is added, it will be stored in a temporary file to reduce main memory usage.
+    """
+
+    def __init__(self, data: Union[Dict, "TSDictOnDisk"] = {}):
+        """
+        TSDictOnDisk - dict-like container that stores TimeSeries in temporary files to save memory.
+
+        :param Union[Dict, TSDictOnDisk] data:   Data with which the object should be instantiatied.
+        """
+
+        # - Dict to hold non-`TimeSeries` objects, to emulate behavior of a normal dict
+        self._mapping = {}
+        # - Dict for handles to temporary files that store `TimeSeries`
+        self._mapping_ts = {}
+        # - Add provided data to `self`.
+        self.update(data)
+
+    def insert(self, data: Union[Dict, "TSDictOnDisk"]):
+        """
+        insert - Similar to 'self.update'. The difference is that `update` would store any TimeSeries in `data` in a temporary file, whereas `insert` keeps TimeSeries from `data` in the memory if they are not already in a temporary file (e.g. when including a dict).
+        :data:  Dict or TSDictOnDisk that is to be inserted.
+        """
+
+        # - Make sure existing keys are overwritten
+        include_keys = set(data.keys())
+        remove_keys = include_keys.intersection(self.keys())
+        for k in remove_keys:
+            del self[k]
+
+        # - Insert `TSDictOnDisk`
+        if isinstance(data, TSDictOnDisk):
+            self._mapping.update(data._mapping)
+            self._mapping_ts.update(data._mapping_ts)
+        # - Insert dict
+        else:
+            self._mapping.update(data)
+
+    def __getitem__(self, key: Hashable) -> Any:
+        """
+        dod[key] - Access an object of `self` by its key.
+        :return:
+            The object to which the `key` corresponds.
+        """
+        if key in self._mapping_ts:
+            # - Load `TimeSeries` from temporary file
+            return load_ts_from_file(self._mapping_ts[key])
+        else:
+            # - Return value stored under `key`.
+            return self._mapping[key]
+
+    def __setitem__(self, key: Hashable, value: Any):
+        """
+        dod[key] = value - Add an object to self together with a (hashable) key.
+        """
+        if isinstance(value, TimeSeries):
+            # - Store `TimeSeries` in a temporary file, whose handle is added as value to `self._mapping_ts`.
+            self._mapping_ts[key] = TemporaryFile()
+            value.save(self._mapping_ts[key])
+            # - Make sure existing keys are overwritten, also in `self._mapping`.
+            if key in self._mapping:
+                del self._mapping[key]
+        else:
+            # - Store `value` in `self._mapping`.
+            self._mapping[key] = value
+            # - Make sure existing keys are overwritten, also in `self._mapping_ts`.
+            if key in self._mapping_ts:
+                del self._mapping_ts[key]
+
+    def __delitem__(self, key: Hashable):
+        """del dod[key] - Delete an object from self by its key."""
+        # - Delete the object corresponding to `key` from the correct dict.
+        if key in self._mapping_ts:
+            del self._mapping_ts[key]
+        else:
+            del self._mapping[key]
+
+    def __len__(self):
+        """len(dod) - Return the total number of objects stored in `self`."""
+        return len(self._mapping) + len(self._mapping_ts)
+
+    def __iter__(self):
+        """
+        for x in dod:... - First iterate over non-`TimeSeries` objects then over
+                           `TimeSeries` that are stored in temporary files.
+        :yield Any:     The objects stored in `self`.
+        """
+        for obj in iter(self._mapping):
+            yield obj
+        for obj in iter(self._mapping_ts):
+            yield obj
+
+    def __repr__(self):
+        """
+        Return a string representation of this object
+
+        :return str: String description
+        """
+        return (
+            f"{type(self).__name__}.\nKeys of stored TimeSeries objects:\n"
+            + f"{list(self._mapping_ts)}\nOther keys:\n"
+            + f"{list(self._mapping)}"
         )
-    elif loaded_type == "TSEvent":
-        return TSEvent(
-            times=dLoaded["times"],
-            channels=dLoaded["channels"],
-            t_start=dLoaded["t_start"].item(),
-            t_stop=dLoaded["t_stop"].item(),
-            periodic=dLoaded["periodic"].item(),
-            num_channels=dLoaded["num_channels"].item(),
-            name=dLoaded["name"].item(),
-        )
-    else:
-        raise TypeError("Type `{}` not supported.".format(loaded_type))

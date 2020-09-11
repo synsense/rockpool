@@ -24,7 +24,18 @@ Layer and Network alternative base classes
     :template: class.rst
 
     networks.NetworkDeneve
+    networks.NetworkADS
     layers.training.RRTrainedLayer
+    networks.JaxStack
+
+Mixin classes for training
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    layers.training.JaxTrainer
 
 
 Time series classes
@@ -73,13 +84,26 @@ Utility modules
     layers.RecLIFJax_IO
     layers.RecLIFCurrentInJax_IO
     layers.FFLIFJax_IO
-    layers.FFCLIAF
-    layers.RecCLIAF
-    layers.CLIAF
-    layers.SoftMaxLayer
+    layers.FFLIFCurrentInJax_SO
+    layers.FFExpSynCurrentInJax
+    layers.FFExpSynJax
     layers.RecDIAF
     layers.RecFSSpikeEulerBT
     layers.FFUpDown
+    layers.RecFSSpikeADS
+
+    layers.FFIAFNest
+    layers.RecIAFSpkInNest
+    layers.RecAEIFSpkInNest
+
+    layers.RecDynapSE
+    layers.VirtualDynapse
+
+    layers.RecRateEulerJax
+    layers.RecRateEulerJax_IO
+    layers.FFRateEulerJax
+    layers.ForceRateEulerJax_IO
+
     layers.FFExpSynTorch
     layers.FFIAFTorch
     layers.FFIAFRefrTorch
@@ -90,11 +114,7 @@ Utility modules
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
-
-    layers.FFIAFNest
-    layers.RecIAFSpkInNest
-    layers.RecAEIFSpkInNest
-    layers.RecDynapSE
-    layers.VirtualDynapse
-    layers.RecRateEulerJax
-    layers.ForceRateEulerJax
+    layers.FFCLIAF
+    layers.RecCLIAF
+    layers.CLIAF
+    layers.SoftMaxLayer

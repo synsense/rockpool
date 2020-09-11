@@ -6,6 +6,13 @@
 # - Imports
 from warnings import warn
 
+from importlib import util
+
+if util.find_spec("brian2") is None:
+    raise ModuleNotFoundError(
+        "'Brian2' backend not found. Layers that rely on Brian will not be available."
+    )
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *
@@ -34,8 +41,7 @@ eqSynapseExp = b2.Equations(
 
 ## - FFExpSynBrian - Class: define an exponential synapse layer (spiking input)
 class FFExpSynBrian(Layer):
-    """ *DEPRECATED* Define an exponential synapse layer (spiking input), with a Brian2 backend
-    """
+    """Define an exponential synapse layer (spiking input), with a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -126,13 +132,11 @@ class FFExpSynBrian(Layer):
         self._net.store("reset")
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self._neuron_group.I_syn = 0 * amp
 
     def randomize_state(self):
-        """ Randomize the internal state of the layer
-        """
+        """Randomize the internal state of the layer"""
         self.reset_state()
 
     def reset_time(self):

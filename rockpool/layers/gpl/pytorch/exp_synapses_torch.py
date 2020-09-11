@@ -9,6 +9,14 @@ from warnings import warn
 from typing import Union, Optional, Dict
 import numpy as np
 from scipy.signal import fftconvolve
+
+import importlib
+
+if importlib.util.find_spec("torch") is None:
+    raise ModuleNotFoundError(
+        "'torch' backend not found. Layers that rely on PyTorch will not be available."
+    )
+
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
@@ -30,10 +38,8 @@ def sigmoid(z):
     return 1.0 / (1.0 + torch.exp(-z))
 
 
-## - FFExpSynTorch - Class: define an exponential synapse layer (spiking input, pytorch as backend)
 class FFExpSynTorch(FFExpSyn):
-    """ Define an exponential synapse layer (spiking input, pytorch as backend)
-    """
+    """*DEPRECATED* Define an exponential synapse layer (spiking input, pytorch as backend)"""
 
     ## - Constructor
     def __init__(
@@ -110,16 +116,16 @@ class FFExpSynTorch(FFExpSyn):
         """
         Function to evolve the states of this layer given an input
 
-        :param Optional[TSEvent] ts_input:       Input spike trian
-        :param Optional[float] duration:          Simulation/Evolution time
-        :param Optional[int] num_timesteps         Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
+        :param Optional[TSEvent] ts_input:  Input spike trian
+        :param Optional[float] duration:    Simulation/Evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param bool verbose:                Currently no effect, just for conformity
 
-        :return:            TSContinuous  output time series
+        :return `TSContinuous`:             Output time series
         """
 
         # - Prepare input signal
-        inp_raster, num_timesteps = self._prepare_input(
+        __, inp_raster, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
         weighted_input = inp_raster @ self.weights
@@ -245,19 +251,19 @@ class FFExpSynTorch(FFExpSyn):
             "linear regression",
             "linreg",
         }:
-            training_method = self.train_rr
+            return self.train_rr(
+                ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
+            )
         elif method in {"logreg", "logistic", "logistic regression"}:
-            training_method = self.train_logreg
+            return self.train_logreg(
+                ts_target, ts_input, **kwargs
+            )  # is_first and is_last not required by logreg
         else:
             raise ValueError(
                 f"FFExpSynTorch `{self.name}`: Training method `{method}` is currently "
                 + "not supported. Use `rr` for ridge regression or `logreg` for logistic "
                 + "regression."
             )
-        # - Call training method
-        return training_method(
-            ts_target, ts_input, is_first=is_first, is_last=is_last, **kwargs
-        )
 
     def train_rr(
         self,
@@ -295,12 +301,8 @@ class FFExpSynTorch(FFExpSyn):
         """
 
         # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        num_timesteps = int(np.round(ts_target.duration / self.dt)) + int(is_last)
         time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
 
         # - Make sure time_base does not exceed ts_target
         time_base = time_base[time_base <= ts_target.t_stop]
@@ -452,9 +454,9 @@ class FFExpSynTorch(FFExpSyn):
                         ] = self._training_state.cpu().numpy()
 
                 if calc_intermediate_results:
-                    a = self._xtx + regularize * torch.eye(self.size_in + 1).to(
-                        self.device
-                    )
+                    a = self._xtx + regularize * torch.eye(
+                        self.size_in + int(train_biases)
+                    ).to(self.device)
                     solution = torch.mm(a.inverse(), self._xty).cpu().numpy()
                     if train_biases:
                         self.weights = solution[:-1, :]
@@ -499,8 +501,8 @@ class FFExpSynTorch(FFExpSyn):
                 self._kahan_comp_xtx = None
                 self._training_state = None
 
-                if return_training_progress:
-                    return current_trainig_progress
+            if return_training_progress:
+                return current_trainig_progress
 
     def train_logreg(
         self,
@@ -680,6 +682,9 @@ class FFExpSynTorch(FFExpSyn):
         if store_states:
             # - Store last state for next batch
             self._training_state = ct_input[-1, :-1].cpu().numpy()
+
+        self.weights = ct_weights.cpu().numpy()
+        self.bias = ct_biases.cpu().numpy()
 
     def _gradients(self, ct_weights, ct_biases, ct_input, ct_target, regularize):
         """

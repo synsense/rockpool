@@ -9,6 +9,14 @@ import json
 from typing import Optional, Union
 from warnings import warn
 import numpy as np
+
+import importlib
+
+if importlib.util.find_spec("torch") is None:
+    raise ModuleNotFoundError(
+        "'torch' backend not found. Layers that rely on PyTorch will not be available."
+    )
+
 import torch
 
 from ....timeseries import TSContinuous, TSEvent
@@ -37,12 +45,12 @@ class _RefractoryBase:
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param np.ndarray inp:      Input to layer as matrix
-        :param int evolution_timestep:     Time step within current evolution at beginning of current batch
-        :param Optional[int] num_timesteps:         Number of evolution time steps
-        :param bool verbose:             Currently no effect, just for conformity
+        :param np.ndarray inp:                  Input to layer as matrix
+        :param int evolution_timestep:          Time step within current evolution at beginning of current batch
+        :param Optional[int] num_timesteps:     Number of evolution time steps
+        :param bool verbose:                    Currently no effect, just for conformity
 
-        :return:            TSEvent  output spike series
+        :return TSEvent:                       output spike series
         """
         # - Get synapse input to neurons
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)
@@ -116,8 +124,7 @@ class _RefractoryBase:
         return matr_is_spiking.cpu()
 
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """Reset the internal state of the layer"""
         self.state = self.v_reset
         self.synapse_state = 0
         self._nums_refr_ctdwn_steps = torch.zeros(self.size).to(self.device)
@@ -126,6 +133,7 @@ class _RefractoryBase:
 
     @property
     def refractory(self):
+        """ Return the refractory period """
         return self._num_refractory_steps * self.dt
 
     @refractory.setter
@@ -139,8 +147,7 @@ class _RefractoryBase:
 
 ## - FFIAFTorch - Class: define a spiking feedforward layer with spiking outputs
 class FFIAFTorch(Layer):
-    """ Define a spiking feedforward layer with spiking outputs, with a PyTorch backend
-    """
+    """ Define a spiking feedforward layer with spiking outputs, with a PyTorch backend """
 
     ## - Constructor
     def __init__(
@@ -160,24 +167,18 @@ class FFIAFTorch(Layer):
         """
         Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10mA
-
-        :param dt:             float Time-step. Default: 0.1 ms
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
-
-        :param max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights:        MxN weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 10mA
+        :param float dt:                Time-step. Default: 0.1 ms
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 20ms
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -65mV
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -217,19 +218,19 @@ class FFIAFTorch(Layer):
         """
         Function to evolve the states of this layer given an input. Automatically splits evolution in batches
 
-        :param Optional[TSContinuous] ts_input:       Input time series
-        :param Optional[float] duration:          Simulation/Evolution time
+        :param Optional[TSContinuous] ts_input:     Input time series
+        :param Optional[float] duration:            Simulation/Evolution time
         :param Optional[int] num_timesteps:         Number of evolution time steps
-        :param bool verbose:            Currently no effect, just for conformity
+        :param bool verbose:                        Currently no effect, just for conformity
 
-        :return:            TSEvent  output spike series
+        :return TSEvent:                            output spike series
         """
 
         # - Layer time step before evolution
         timestep_start = self._timestep
 
         # - Prepare input signal
-        inp, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
+        __, inp, num_timesteps = self._prepare_input(ts_input, duration, num_timesteps)
 
         # - Tensor for collecting output spike raster
         matr_is_spiking = torch.ByteTensor(num_timesteps, self.size).fill_(0)
@@ -326,13 +327,14 @@ class FFIAFTorch(Layer):
         verbose: bool = False,
     ) -> TSEvent:
         """
-        evolve : Function to evolve the states of this layer given an input for a single batch
+        Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return TSEvent:              output spike series
+        :param np.ndarrayinp:               Input to layer as matrix
+        :param int evolution_timestep:      Time step within current evolution at beginning of current batch
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :param bool verbose:                Currently no effect, just for conformity
+
+        :return TSEvent:                    output spike series
         """
 
         # - Get synapse input to neurons
@@ -402,12 +404,12 @@ class FFIAFTorch(Layer):
         """
         Prepare the weighted, noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param num_timesteps    int      Number of evolution time steps
-        :return:
-                neural_input   np.ndarray  Input to neurons
-                num_timesteps   int         Number of evolution time steps
+        :param np.ndarray inp:              Input to layer as matrix
+        :param int num_timesteps:           Number of evolution time steps
 
+        :return:
+                np.ndarray neural_input:    Input to neurons
+                int num_timesteps:          Number of evolution time steps
         """
         # - Prepare inp
         inp = torch.from_numpy(inp).float().to(self.device)
@@ -427,103 +429,15 @@ class FFIAFTorch(Layer):
 
         return neural_input, num_timesteps
 
-    def _prepare_input(
-        self,
-        ts_input: TSContinuous = None,
-        duration: float = None,
-        num_timesteps: int = None,
-    ) -> (torch.Tensor, int):
-        """
-        Sample input, set up time base
-
-        :param TSContinuous ts_input:       TxM or Tx1 Input signals for this layer
-        :param duration:     float Duration of the desired evolution, in seconds
-        :param num_timesteps: int Number of evolution time steps
-
-        :return: (time_base, input_steps, duration)
-            input_steps:    ndarray (T1xN) Discretised input signal for layer
-            num_timesteps:  int Actual number of evolution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer `{}`: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + " `ts_input` finishes before the current evolution time."
-                    )
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Generate discrete time base
-        time_base = self._gen_time_trace(self.t, num_timesteps)
-
-        if ts_input is not None:
-            # - Make sure time_base matches ts_input
-            if not isinstance(ts_input, TSEvent):
-                if not ts_input.periodic:
-                    # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                    if (
-                        ts_input.t_start - 1e-3 * self.dt
-                        <= time_base[0]
-                        <= ts_input.t_start
-                    ):
-                        time_base[0] = ts_input.t_start
-                    if (
-                        ts_input.t_stop
-                        <= time_base[-1]
-                        <= ts_input.t_stop + 1e-3 * self.dt
-                    ):
-                        time_base[-1] = ts_input.t_stop
-
-                # - Warn if evolution period is not fully contained in ts_input
-                if not (ts_input.contains(time_base) or ts_input.periodic):
-                    print(
-                        "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.name, time_base[0], time_base[-1]
-                        )
-                        + "not fully contained in input signal (t = {} to {})".format(
-                            ts_input.t_start, ts_input.t_stop
-                        )
-                    )
-
-            # - Sample input trace and check for correct dimensions
-            input_steps = self._check_input_dims(ts_input(time_base))
-
-            # - Treat "NaN" as zero inputs
-            input_steps[np.isnan(input_steps)] = 0
-
-        else:
-            # - Assume zero inputs
-            input_steps = np.zeros((num_timesteps, self.size_in))
-
-        return (input_steps, num_timesteps)
-
     def reset_state(self):
-        """ Reset the internal state of the layer
-        """
+        """ Reset the internal state of the layer """
         self.state = self.v_reset
         self.synapse_state = 0
 
     def to_dict(self):
+        """
+        Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer.
+        """
 
         essential_dict = {}
         essential_dict["name"] = self.name
@@ -550,7 +464,7 @@ class FFIAFTorch(Layer):
     def load_from_file(filename):
         """
         load the layer from a file
-        :param filename: str with the filename that includes the dict that initializes the layer
+        :param str filename: filename that includes the dict that initializes the layer
         :return: FFIAFTorch layer
         """
         with open(filename, "r") as f:
@@ -573,7 +487,7 @@ class FFIAFTorch(Layer):
     def load_from_dict(config):
         """
         load the layer from a dict
-        :param config: dict information for the initialization
+        :param dict config: information for the initialization
         :return: FFIAFTorch layer
         """
         return FFIAFTorch(
@@ -594,10 +508,12 @@ class FFIAFTorch(Layer):
 
     @property
     def output_type(self):
+        """ Returns the outout type class """
         return TSEvent
 
     @RefProperty
     def state(self):
+        """ Returns the state """
         return self._state
 
     @state.setter
@@ -607,6 +523,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def tau_mem(self):
+        """ Returns the membrane time constants """
         return self._tau_mem
 
     @tau_mem.setter
@@ -622,6 +539,7 @@ class FFIAFTorch(Layer):
 
     @property
     def alpha(self):
+        """ Returns the alpha value """
         warn(
             "Layer `{}`: Changing values of returned object by item assignment will not have effect on layer's alpha".format(
                 self.name
@@ -635,6 +553,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def bias(self):
+        """ Returns the biases """
         return self._bias
 
     @bias.setter
@@ -644,6 +563,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def v_thresh(self):
+        """ Returns the spiking threshold """
         return self._v_thresh
 
     @v_thresh.setter
@@ -653,6 +573,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def v_rest(self):
+        """ Returns the resting potential """
         return self._v_rest
 
     @v_rest.setter
@@ -662,6 +583,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def v_reset(self):
+        """ Returns the reset potential """
         return self._v_reset
 
     @v_reset.setter
@@ -671,6 +593,7 @@ class FFIAFTorch(Layer):
 
     @RefProperty
     def synapse_state(self):
+        """ Returns the synaptic states """
         return self._synapse_state
 
     @synapse_state.setter
@@ -680,10 +603,12 @@ class FFIAFTorch(Layer):
 
     @property
     def t(self):
+        """ Returns the current simulation time """
         return self._timestep * self.dt
 
     @RefProperty
     def weights(self):
+        """ Returns the weights of the connections """
         return self._weights
 
     @weights.setter
@@ -695,8 +620,7 @@ class FFIAFTorch(Layer):
 
 
 class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
-    """ A spiking feedforward layer with spiking outputs and refractoriness
-    """
+    """ A spiking feedforward layer with spiking outputs and refractoriness"""
 
     ## - Constructor
     def __init__(
@@ -717,26 +641,19 @@ class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
         """
         Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events. Supports Refractoriness.
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10mA
-
-        :param dt:             float Time-step. Default: 0.1 ms
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param refractory: float Refractory period after each spike. Default: 0ms
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights:        MxN weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 10mA
+        :param float dt:                Time-step. Default: 0.1 ms
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 20ms
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -65mV
+        :param float refractory:        Refractory period after each spike. Default: 0ms
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -758,8 +675,7 @@ class FFIAFRefrTorch(_RefractoryBase, FFIAFTorch):
 
 
 class FFIAFSpkInTorch(FFIAFTorch):
-    """ Spiking feedforward layer with spiking in- and outputs
-    """
+    """ Spiking feedforward layer with spiking in- and outputs"""
 
     ## - Constructor
     def __init__(
@@ -780,25 +696,19 @@ class FFIAFSpkInTorch(FFIAFTorch):
         """
         Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. In- and outputs are spiking events
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10mA
-
-        :param dt:             float Time-step. Default: 0.1 ms
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights:        MxN weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 10mA
+        :param float dt:                Time-step. Default: 0.1 ms
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 20ms
+        :param np.array tau_syn:        Nx1 vector of synapse time constants. Default: 20ms
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -65mV
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -825,11 +735,11 @@ class FFIAFSpkInTorch(FFIAFTorch):
         """
         Prepare the weighted, noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param inp:         np.ndarray    Input data
-        :param num_timesteps    int      Number of evolution time steps
-        :return:
-                neural_input   np.ndarray  Input to neurons
-                num_timesteps   int         Number of evolution time steps
+        :param np.ndarray inp:              Input data
+        :param Optional[int] num_timesteps: Number of evolution time steps
+        :return (neural_input, num_timesteps):
+                neural_input:   np.ndarray  Input to neurons
+                num_timesteps:   int        Number of evolution time steps
 
         """
         # - Prepare inp
@@ -877,73 +787,6 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
         return neural_input, num_timesteps
 
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input, set up time base
-
-        :param TSEvent ts_input:      TxM or Tx1 spiking input signals for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
-
-        :return:
-            spike_raster:    ndarray Boolean raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Extract spike timings and channels
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                t_stop=(self._timestep + num_timesteps) * self._dt,
-                channels=np.arange(self.size_in),
-            )
-            # - Convert to supported format
-            spike_raster = spike_raster.astype(int)
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
-
-        return spike_raster, num_timesteps
-
     @property
     def input_type(self):
         """ (`.TSEvent`) Time series class accepted by this layer (`.TSEvent`) """
@@ -961,8 +804,7 @@ class FFIAFSpkInTorch(FFIAFTorch):
 
 
 class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
-    """ Spiking feedforward layer with spiking in- and outputs and refractoriness, using a PyTorch backend
-    """
+    """ Spiking feedforward layer with spiking in- and outputs and refractoriness, using a PyTorch backend"""
 
     ## - Constructor
     def __init__(
@@ -984,27 +826,20 @@ class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
         """
         Construct a spiking feedforward layer with IAF neurons, running on GPU, using torch. In- and outputs are spiking events. Supports refractoriness.
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 10mA
-
-        :param dt:             float Time-step. Default: 0.1 ms
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 20ms
-        :param tau_syn:          np.array Nx1 vector of synapse time constants. Default: 20ms
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -55mV
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -65mV
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -65mV
-
-        :param refractory: float Refractory period after each spike. Default: 0ms
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights:        MxN weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 10mA
+        :param float dt:                Time-step. Default: 0.1 ms
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 20ms
+        :param np.array tau_syn:        Nx1 vector of synapse time constants. Default: 20ms
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -55mV
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -65mV
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -65mV
+        :param float refractory:        Refractory period after each spike. Default: 0ms
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -1028,8 +863,7 @@ class FFIAFSpkInRefrTorch(_RefractoryBase, FFIAFSpkInTorch):
 
 ## - RecIAFTorch - Class: define a spiking recurrent layer with spiking outputs
 class RecIAFTorch(FFIAFTorch):
-    """ A spiking recurrent layer with input currents and spiking outputs
-    """
+    """ A spiking recurrent layer with input currents and spiking outputs"""
 
     ## - Constructor
     def __init__(
@@ -1050,25 +884,19 @@ class RecIAFTorch(FFIAFTorch):
         """
         Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 0.015
-
-        :param dt:             float Time-step. Default: 0.0001
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 0.02
-        :param tau_syn_r:       np.array NxN vector of recurrent synaptic time constants. Default: 0.005
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions. Default: False
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights:        MxN weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 0.015
+        :param float dt:                Time-step. Default: 0.0001
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 0.02
+        :param np.array tau_syn_r:      NxN vector of recurrent synaptic time constants. Default: 0.005
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -0.055
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -0.065
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -0.065
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions. Default: False
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         assert (
@@ -1103,12 +931,12 @@ class RecIAFTorch(FFIAFTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param np.ndarray inp:          Input to layer as matrix
+        :param int evolution_timestep:  Time step within current evolution at beginning of current batch
+        :param int num_timesteps:       Number of evolution time steps
+        :param bool verbose:            Currently no effect, just for conformity
 
+        :return TSEvent:                output spike series
         """
 
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)
@@ -1188,12 +1016,13 @@ class RecIAFTorch(FFIAFTorch):
         """
         Prepare the noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param tsSpkInput:      TSContinuous  Input spike trian
-        :param duration:       float    Simulation/Evolution time
-        :param num_timesteps    int      Number of evolution time steps
+        :param `.TSContinuous` tsSpkInput:  Input spike train
+        :param float duration:              Simulation/Evolution time
+        :param int num_timesteps:           Number of evolution time steps
+
         :return:
-                neural_input   np.ndarray  Input to neurons
-                num_timesteps   int         Number of evolution time steps
+                np.ndarray neural_input     Input to neurons
+                int num_timesteps           Number of evolution time steps
 
         """
 
@@ -1262,8 +1091,7 @@ class RecIAFTorch(FFIAFTorch):
 
 
 class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
-    """ A spiking recurrent layer with current inputs, spiking outputs and refractoriness. PyTorch backend.
-    """
+    """_DEPRECATED_ A spiking recurrent layer with current inputs, spiking outputs and refractoriness. PyTorch backend."""
 
     ## - Constructor
     def __init__(
@@ -1285,27 +1113,20 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         """
         Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs are continuous currents; outputs are spiking events. Supports refractoriness
 
-        :param weights:             np.array MxN weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 0.015
-
-        :param dt:             float Time-step. Default: 0.0001
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 0.02
-        :param tau_syn_r:       np.array NxN vector of recurrent synaptic time constants. Default: 0.005
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
-
-        :param refractory: float Refractory period after each spike. Default: 0
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions. Default: False
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights:        MxN weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 0.015
+        :param float dt:                Time-step. Default: 0.0001
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 0.02
+        :param np.array tau_syn_r:      NxN vector of recurrent synaptic time constants. Default: 0.005
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -0.055
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -0.065
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -0.065
+        :param float refractory:        Refractory period after each spike. Default: 0
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions. Default: False
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -1336,11 +1157,12 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param np.ndarray inp:          Input to layer as matrix
+        :param int evolution_timestep:  Time step within current evolution at beginning of current batch
+        :param int num_timesteps:       Number of evolution time steps
+        :param bool verbose:            Currently no effect, just for conformity
+
+        :return `.TSEvent`:             Output spike series
 
         """
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)
@@ -1425,8 +1247,7 @@ class RecIAFRefrTorch(_RefractoryBase, RecIAFTorch):
 
 
 class RecIAFSpkInTorch(RecIAFTorch):
-    """ A spiking recurrent layer with spiking in- and outputs
-    """
+    """ A spiking recurrent layer with spiking in- and outputs"""
 
     ## - Constructor
     def __init__(
@@ -1450,32 +1271,25 @@ class RecIAFSpkInTorch(RecIAFTorch):
         """
         Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs and outputs are spiking events
 
-        :param weights_in:           np.array MxN input weight matrix.
-        :param weights_rec:          np.array NxN recurrent weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 0.0105
-
-        :param dt:             float Time-step. Default: 0.0001
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 0.02
-        :param tau_syn_inp:       np.array Nx1 vector of synapse time constants. Default: 0.05
-        :param tau_syn_rec:       np.array Nx1 vector of synapse time constants. Default: 0.05
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions. Default: False
-
-        :add_events:            bool     If during evolution multiple input events arrive during one
-                                         time step for a channel, count their actual number instead of
-                                         just counting them as one (This might make less sense for
-                                         refractory neurons).
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights_in:     MxN input weight matrix.
+        :param np.array weights_rec:    NxN recurrent weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 0.0105
+        :param float dt:                Time-step. Default: 0.0001
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 0.02
+        :param np.array tau_syn_inp:    Nx1 vector of synapse time constants. Default: 0.05
+        :param np.array tau_syn_rec:    Nx1 vector of synapse time constants. Default: 0.05
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -0.055
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -0.065
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -0.065
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions. Default: False
+        :param bool add_events:         If during evolution multiple input events arrive during one
+                                        time step for a channel, count their actual number instead of
+                                        just counting them as one (This might make less sense for
+                                        refractory neurons).
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -1520,12 +1334,12 @@ class RecIAFSpkInTorch(RecIAFTorch):
         """
         Prepare the noisy synaptic input to the neurons and return it together with number of evolution time steps
 
-        :param inp          np.ndarray  External input spike raster
-        :param num_timesteps    int         Number of evolution time steps
-        :return:
-                neural_input   np.ndarray  Input to neurons
-                num_timesteps   int         Number of evolution time steps
+        :param np.ndarray inp:              External input spike raster
+        :param int num_timesteps:           Number of evolution time steps
 
+        :return:
+                np.ndarray neural_input:    Input to neurons
+                int num_timesteps:          Number of evolution time steps
         """
 
         num_timesteps = inp.shape[0] if num_timesteps is None else num_timesteps
@@ -1588,76 +1402,6 @@ class RecIAFSpkInTorch(RecIAFTorch):
             )
 
         return neural_input, num_timesteps
-
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input, set up time base
-
-        :param TSEvent ts_input:      TxM or Tx1 Input spikes for this layer
-        :param duration:    float Duration of the desired evolution, in seconds
-        :param num_timesteps int Number of evolution time steps
-
-        :return:
-            spike_raster:    Tensor Boolean raster containing spike info
-            num_timesteps:    ndarray Number of evlution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        # - Extract spike timings and channels
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                t_stop=(self._timestep + num_timesteps) * self._dt,
-                channels=np.arange(
-                    self.size_in
-                ),  # This causes problems when ts_input has no events in some channels
-                add_events=self.add_events,  # Allow for multiple input spikes per time step
-            )
-            # - Convert to supportedformat
-            spike_raster = spike_raster.astype(int)
-            # - Make sure size is correct
-            spike_raster = spike_raster[:num_timesteps, :]
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
-
-        return spike_raster, num_timesteps
 
     def reset_all(self):
         """ Reset internal state and clock for this layer """
@@ -1740,8 +1484,7 @@ class RecIAFSpkInTorch(RecIAFTorch):
         )
 
     def _update_rec_kernel(self):
-        """ Update the kernel for this layer
-        """
+        """Update the kernel for this layer"""
         # - Kernel for filtering recurrent spikes
         kernel_size = min(
             50
@@ -1875,10 +1618,8 @@ class RecIAFSpkInTorch(RecIAFTorch):
         self._update_rec_kernel()
 
 
-## - RecIAFSpkInRefrTorch - Class: define a spiking recurrent layer with spiking in- and outputs and refractoriness
 class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
-    """ A spiking recurrent layer with spiking in- and outputs and refractoriness, and a PyTorch backend
-    """
+    """ A spiking recurrent layer with spiking in- and outputs and refractoriness, and a PyTorch backend"""
 
     ## - Constructor
     def __init__(
@@ -1903,34 +1644,26 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         """
         Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs and outputs are spiking events. Supports refractoriness
 
-        :param weights_in:           np.array MxN input weight matrix.
-        :param weights_rec:          np.array NxN recurrent weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 0.0105
-
-        :param dt:             float Time-step. Default: 0.0001
-        :param noise_std:       float Noise std. dev. per second. Default: 0
-
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 0.02
-        :param tau_syn_inp:       np.array Nx1 vector of synapse time constants. Default: 0.05
-        :param tau_syn_rec:       np.array Nx1 vector of synapse time constants. Default: 0.05
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
-        :param v_reset:        np.array Nx1 vector of neuron thresholds. Default: -0.065
-        :param v_rest:         np.array Nx1 vector of neuron thresholds. Default: -0.065
-
-        :param refractory: float Refractory period after each spike. Default: 0
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions. Default: False
-
-        :add_events:            bool     If during evolution multiple input events arrive during one
-                                         time step for a channel, count their actual number instead of
-                                         just counting them as one (This might make less sense for
-                                         refractory neurons).
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights_in:     MxN input weight matrix.
+        :param np.array weights_rec:    NxN recurrent weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 0.0105
+        :param float dt:                Time-step. Default: 0.0001
+        :param float noise_std:         Noise std. dev. per second. Default: 0
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 0.02
+        :param np.array tau_syn_inp:    Nx1 vector of synapse time constants. Default: 0.05
+        :param np.array tau_syn_rec:    Nx1 vector of synapse time constants. Default: 0.05
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -0.055
+        :param np.array v_reset:        Nx1 vector of neuron thresholds. Default: -0.065
+        :param np.array v_rest:         Nx1 vector of neuron thresholds. Default: -0.065
+        :param float refractory:        Refractory period after each spike. Default: 0
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions. Default: False
+        :param bool add_events:         If during evolution multiple input events arrive during one
+                                        time step for a channel, count their actual number instead of
+                                        just counting them as one (This might make less sense for
+                                        refractory neurons).
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -1963,11 +1696,11 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:            Input to layer as matrix
-        :param evolution_timestep  Time step within current evolution at beginning of current batch
-        :param num_timesteps:      Number of evolution time steps
-        :param verbose:           Currently no effect, just for conformity
-        :return:                   output spike series
+        :param np.ndarray inp:          Input to layer as matrix
+        :param int evolution_timestep:  Time step within current evolution at beginning of current batch
+        :param int num_timesteps:       Number of evolution time steps
+        :param bool verbose:            Currently no effect, just for conformity
+        :return:                        Output spike series
 
         """
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)
@@ -2051,10 +1784,8 @@ class RecIAFSpkInRefrTorch(_RefractoryBase, RecIAFSpkInTorch):
         return matr_is_spiking.cpu()
 
 
-## - RecIAFSpkInRefrCLTorch - Class: like RecIAFSpkInTorch but with leak that is constant over time.
 class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
-    """ A recurrent spiking layer with constant leak. Spiking inputs and outputs, PyTorch backend.
-    """
+    """ A recurrent spiking layer with constant leak. Spiking inputs and outputs, PyTorch backend."""
 
     ## - Constructor
     def __init__(
@@ -2080,37 +1811,29 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         """
         Construct a spiking recurrent layer with IAF neurons, running on GPU, using torch. Inputs and outputs are spiking events. Support refractoriness. Constant leak.
 
-        :param weights_in:           np.array MxN input weight matrix.
-        :param weights_rec:          np.array NxN recurrent weight matrix.
-        :param bias:          np.array Nx1 bias vector. Default: 0.0105
-
-        :param dt:             float Time-step. Default: 0.0001
-        :param tau_mem:          np.array Nx1 vector of neuron time constants. Default: 0.02
-
-        :param leak_rate:      np.array Nx1 vector of constant neuron leakage in V/s. Default: 0.02
-        :param tau_syn_inp:       np.array Nx1 vector of synapse time constants. Default: 0.05
-        :param tau_syn_rec:       np.array Nx1 vector of synapse time constants. Default: 0.05
-
-        :param v_thresh:       np.array Nx1 vector of neuron thresholds. Default: -0.055
-        :param v_reset:        np.array Nx1 vector of neuron reset potential. Default: -0.065
-        :param v_rest:         np.array Nx1 vector of neuron resting potential. Default: -0.065
-                                If None, leak will always be negative (for positive entries of leak_rate)
-        :param state_min:      np.array Nx1 vector of lower limits for neuron states. Default: -0.85
-                                If None, there are no lower limits
-
-        :param refractory: float Refractory period after each spike. Default: 0
-
-        :param name:         str Name for the layer. Default: 'unnamed'
-
-        :param record:         bool Record membrane potential during evolutions. Default: False
-
-        :add_events:            bool     If during evolution multiple input events arrive during one
-                                         time step for a channel, count their actual number instead of
-                                         just counting them as one (This might make less sense for
-                                         refractory neurons).
-
-        :max_num_timesteps:      int   Maximum number of timesteps during single evolution batch. Longer
-                                      evolution periods will automatically split in smaller batches.
+        :param np.array weights_in:     MxN input weight matrix.
+        :param np.array weights_rec:    NxN recurrent weight matrix.
+        :param np.array bias:           Nx1 bias vector. Default: 0.0105
+        :param float dt:                Time-step. Default: 0.0001
+        :param np.array tau_mem:        Nx1 vector of neuron time constants. Default: 0.02
+        :param np.array leak_rate:      Nx1 vector of constant neuron leakage in V/s. Default: 0.02
+        :param np.array tau_syn_inp:    Nx1 vector of synapse time constants. Default: 0.05
+        :param np.array tau_syn_rec:    Nx1 vector of synapse time constants. Default: 0.05
+        :param np.array v_thresh:       Nx1 vector of neuron thresholds. Default: -0.055
+        :param np.array v_reset:        Nx1 vector of neuron reset potential. Default: -0.065
+        :param np.array v_rest:         Nx1 vector of neuron resting potential. Default: -0.065
+                                        If None, leak will always be negative (for positive entries of leak_rate)
+        :param np.array state_min:      Nx1 vector of lower limits for neuron states. Default: -0.85
+                                        If None, there are no lower limits
+        :param float refractory:        Refractory period after each spike. Default: 0
+        :param str name:                Name for the layer. Default: 'unnamed'
+        :param bool record:             Record membrane potential during evolutions. Default: False
+        :param bool add_events:         If during evolution multiple input events arrive during one
+                                        time step for a channel, count their actual number instead of
+                                        just counting them as one (This might make less sense for
+                                        refractory neurons).
+        :param int max_num_timesteps:   Maximum number of timesteps during single evolution batch. Longer
+                                        evolution periods will automatically split in smaller batches.
         """
 
         # - Call super constructor
@@ -2144,11 +1867,11 @@ class RecIAFSpkInRefrCLTorch(RecIAFSpkInRefrTorch):
         """
         Function to evolve the states of this layer given an input for a single batch
 
-        :param inp:     np.ndarray   Input to layer as matrix
-        :param evolution_timestep int    Time step within current evolution at beginning of current batch
-        :param num_timesteps:   int      Number of evolution time steps
-        :param verbose:        bool     Currently no effect, just for conformity
-        :return:            TSEvent  output spike series
+        :param np.ndarray inp:          Input to layer as matrix
+        :param int evolution_timestep:  Time step within current evolution at beginning of current batch
+        :param int num_timesteps:       Number of evolution time steps
+        :param bool verbose:            Currently no effect, just for conformity
+        :return `.TSEvent`:             Output spike series
 
         """
         neural_input, num_timesteps = self._prepare_neural_input(inp, num_timesteps)

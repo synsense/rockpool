@@ -28,8 +28,7 @@ def sigmoid(z):
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
 class FFExpSyn(RRTrainedLayer):
-    """ Define an exponential synapse layer with spiking inputs and current outputs
-    """
+    """Define an exponential synapse layer with spiking inputs and current outputs"""
 
     ## - Constructor
     def __init__(
@@ -86,69 +85,6 @@ class FFExpSyn(RRTrainedLayer):
         self._xtx = None
         self._xty = None
 
-    def _prepare_input(
-        self,
-        ts_input: Optional[TSEvent] = None,
-        duration: Optional[float] = None,
-        num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
-        """
-        Sample input and return as raster
-
-        :param Optional[TSEvent] ts_input:  Spiking input signals for this layer
-        :param Optional[float] duration:    Duration of the desired evolution, in seconds
-        :param Optional[int] num_timesteps: Number of evolution time steps
-
-        :return (spike_raster, num_timesteps):
-            spike_raster:   (np.ndarray) Raster containing spike info
-            num_timesteps:  (np.ndarray) Number of evolution time steps
-        """
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t + self.dt
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
-
-        if ts_input is not None:
-            # Extract spike data from the input variable
-            spike_raster = ts_input.raster(
-                dt=self.dt,
-                t_start=self.t,
-                num_timesteps=num_timesteps,
-                channels=np.arange(self.size_in),
-                add_events=self.add_events,
-            ).astype(float)
-
-        else:
-            spike_raster = np.zeros((num_timesteps, self.size_in))
-
-        return spike_raster, num_timesteps
-
     ### --- State evolution
 
     def evolve(
@@ -170,7 +106,7 @@ class FFExpSyn(RRTrainedLayer):
         """
 
         # - Prepare weighted input signal
-        inp_raster, num_timesteps = self._prepare_input(
+        __, inp_raster, num_timesteps = self._prepare_input(
             ts_input, duration, num_timesteps
         )
         weighted_input = inp_raster @ self.weights

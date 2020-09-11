@@ -1,7 +1,7 @@
 ###
 # iaf_digital.py - Class implementing a recurrent layer consisting of
-#                    digital neurons with constant leak and fixed-size
-#                    integer as state. Event based.
+#                  digital neurons with constant leak and fixed-size
+#                  integer as state. Event based.
 ###
 
 # - Imports
@@ -52,7 +52,7 @@ class RecDIAF(Layer):
         v_thresh: FloatVector = 100.0,
         v_reset: FloatVector = 0.0,
         v_rest: Optional[FloatVector] = None,
-        leak: FloatVector = 1.,
+        leak: FloatVector = 1.0,
         v_subtract: Optional[FloatVector] = None,
         state_type: Union[type, str] = "int8",
         monitor_id: Optional[Union[bool, int, ArrayLike]] = [],
@@ -63,18 +63,18 @@ class RecDIAF(Layer):
 
         :param np.array weights_in:                 nSizeInxN input weight matrix.
         :param np.array weights_rec:                NxN weight matrix
-        :param float dt:                  Length of single time step in s. Default: ``0.1 ms``
-        :param float delay:               Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
-        :param float tau_leak:            Period for applying leak in s. Default: ``1 ms``
-        :param FloatVector refractory:    Nx1 vector of refractory times. Default: ``1 ns``
-        :param FloatVector v_thresh:      Nx1 vector of neuron thresholds. Default: ``100.``
-        :param FloatVector v_reset:       Nx1 vector of neuron reset potentials. Default: ``0.``
+        :param float dt:                            Length of single time step in s. Default: ``0.1 ms``
+        :param float delay:                         Time after which a spike within the layer arrives at the recurrent synapses of the receiving neurons within the network. Default: ``1e-8``
+        :param float tau_leak:                      Period for applying leak in s. Default: ``1 ms``
+        :param FloatVector refractory:              Nx1 vector of refractory times. Default: ``1 ns``
+        :param FloatVector v_thresh:                Nx1 vector of neuron thresholds. Default: ``100.``
+        :param FloatVector v_reset:                 Nx1 vector of neuron reset potentials. Default: ``0.``
         :param Optional[FloatVector] v_rest:        Nx1 vector of neuron resting potentials. Leak will change sign for neurons with state below this. If ``None``, leak will not change sign. Default: ``None``
-        :param FloatVector leak:          Nx1 vector of leak values. Default: ``None``, no leak
+        :param FloatVector leak:                    Nx1 vector of leak values. Default: ``None``, no leak
         :param Optional[FloatVector] v_subtract:    If not ``None``, subtract provided values from neuron state after spike. Otherwise will reset to `.v_reset`.
-        :param Union[type, str] state_type:                 Data type for the membrane potential. Default: ``"int8"``
+        :param Union[type, str] state_type:         Data type for the membrane potential. Default: ``"int8"``
         :param Optional[ArrayLike] monitor_id:      IDs of neurons to be recorded. Default: ``[]``
-        :param str name:                  Name for the layer. Default: ``'unnamed'``
+        :param str name:                            Name for the layer. Default: ``'unnamed'``
         """
 
         # - Call super constructor
@@ -193,8 +193,6 @@ class RecDIAF(Layer):
         t_time = self.t
         i = 0
 
-        # - Iterate over spike times. Stop when t_final is exceeded.
-
         # - Copy instance variables to local variables
         state = self.state
         weights_total = self._weights_total
@@ -218,7 +216,8 @@ class RecDIAF(Layer):
             times = [t_time]
             channels = [np.nan]
 
-        while t_time <= t_final:
+        # - Iterate over spike times. Stop when t_final is reached.
+        while t_time < t_final:
             try:
                 # - Iterate over spikes in temporal order
                 t_time, channel = heapq.heappop(heap_spikes)
@@ -368,36 +367,8 @@ class RecDIAF(Layer):
             t_final:            (float) End time of evolution
         """
 
-        if num_timesteps is None:
-            # - Determine num_timesteps
-            if duration is None:
-                # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer {}: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
-
-                if ts_input.periodic:
-                    # - Use duration of periodic TimeSeries, if possible
-                    duration = ts_input.duration
-
-                else:
-                    # - Evolve until the end of the input TImeSeries
-                    duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer {}: Cannot determine an appropriate evolution duration.".format(
-                            self.name
-                        )
-                        + "`ts_input` finishes before the current "
-                        "evolution time."
-                    )
-            # - Discretize duration wrt self.dt
-            num_timesteps = (duration + tol_abs) // self.dt
-        else:
-            assert isinstance(
-                num_timesteps, int
-            ), "Layer `{}`: num_timesteps must be of type int.".format(self.name)
+        # - Number of time steps
+        num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - End time of evolution
         t_final = self.t + num_timesteps * self.dt
@@ -407,12 +378,11 @@ class RecDIAF(Layer):
             event_times, event_channels = ts_input(
                 t_start=self.t, t_stop=(self._timestep + num_timesteps) * self.dt
             )
-            if np.size(event_channels) > 0:
-                # - Make sure channels are within range
-                assert (
-                    np.amax(event_channels) < self.size_in
-                ), "Layer {}: Only channels between 0 and {} are allowed".format(
-                    self.name, self.size_in - 1
+            # - Make sure channels are within range
+            if np.size(event_channels) > 0 and np.amax(event_channels) >= self.size_in:
+                raise ValueError(
+                    self.start_print
+                    + f"Only channels between 0 and {self.size_in - 1} are allowed."
                 )
         else:
             event_times, event_channels = [], []
@@ -461,7 +431,7 @@ class RecDIAF(Layer):
 
     @property
     def input_type(self):
-        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent) """
+        """ (`.TSEvent`) Input time series class for this layer (`.TSEvent`) """
         return TSEvent
 
     @property

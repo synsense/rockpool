@@ -1,7 +1,7 @@
 from warnings import warn
 from abc import ABC, abstractmethod
 from functools import reduce
-from typing import Optional, Any
+from typing import Optional, Any, Tuple, Dict
 import json
 
 import numpy as np
@@ -35,15 +35,19 @@ class Layer(ABC):
         dt: float = 1.0,
         noise_std: float = 0.0,
         name: str = "unnamed",
+        *args,
+        **kwargs,
     ):
         """
-        Implement an abstract layer of neurons (no implementation, must be subclasses)
+        Implement an abstract layer of neurons (no implementation, must be subclassed)
 
         :param ArrayLike[float] weights:    Weight matrix for this layer. Indexed as [pre, post]
         :param float dt:                    Time-step used for evolving this layer. Default: 1
         :param float noise_std:             Std. Dev. of state noise when evolving this layer. Default: 0. Defined as the expected std. dev. after 1s of integration time
-        :param name:       str Name of this layer. Default: 'unnamed'
+        :param str name:                    Name of this layer. Default: 'unnamed'
         """
+        # - Call super-class init
+        super().__init__(*args, **kwargs)
 
         # - Assign properties
         if name is None:
@@ -103,11 +107,11 @@ class Layer(ABC):
             # - Determine ``num_timesteps``
             if duration is None:
                 # - Determine duration
-                assert (
-                    ts_input is not None
-                ), "Layer `{}`: One of `num_timesteps`, `ts_input` or `duration` must be supplied".format(
-                    self.name
-                )
+                if ts_input is None:
+                    raise TypeError(
+                        self.start_print
+                        + "One of `num_timesteps`, `ts_input` or `duration` must be supplied."
+                    )
 
                 if ts_input.periodic:
                     # - Use duration of periodic TimeSeries, if possible
@@ -116,19 +120,22 @@ class Layer(ABC):
                 else:
                     # - Evolve until the end of the input TimeSeries
                     duration = ts_input.t_stop - self.t
-                    assert duration > 0, (
-                        "Layer `{}`: Cannot determine an appropriate evolution duration.".format(
-                            self.name
+                    if duration <= 0:
+                        raise ValueError(
+                            self.start_print
+                            + "Cannot determine an appropriate evolution duration."
+                            + " `ts_input` finishes before the current evolution time.",
                         )
-                        + " `ts_input` finishes before the current evolution time."
-                    )
             num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
         else:
-            assert (
-                isinstance(num_timesteps, int) and num_timesteps >= 0
-            ), "Layer `{}`: num_timesteps must be a non-negative integer.".format(
-                self.name
-            )
+            if not isinstance(num_timesteps, int):
+                raise TypeError(
+                    self.start_print + "`num_timesteps` must be a non-negative integer."
+                )
+            elif num_timesteps < 0:
+                raise ValueError(
+                    self.start_print + "`num_timesteps` must be a non-negative integer."
+                )
 
         return num_timesteps
 
@@ -137,56 +144,103 @@ class Layer(ABC):
         ts_input: Optional[TimeSeries] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, np.ndarray, float):
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input, set up time base
 
         This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
 
-        :param Optional[TimeSeries] ts_input:   :py:class:`TimeSeries` of TxM or Tx1 Input signals for this layer
+        :param Optional[TimeSeries] ts_input:   :py:class:`.TimeSeries` of TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
         :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
 
-        :return (ndarray, ndarray, float): (time_base, input_steps, duration)
+        :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
+            time_base:      T1 Discretised time base for evolution
+            input_raster    (T1xN) Discretised input signal for layer
+            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
+        """
+        assert (ts_input is None) or isinstance(
+            ts_input, self.input_type
+        ), "The layer {} can only receive inputs of class {}".format(
+            self.name, str(self.input_type)
+        )
+
+        if self.input_type is TSContinuous:
+            return self._prepare_input_continuous(ts_input, duration, num_timesteps)
+
+        elif self.input_type is TSEvent:
+            return self._prepare_input_events(ts_input, duration, num_timesteps)
+
+        else:
+            TypeError(
+                "Layer._prepare_input can only handle `TSContinuous` and `TSEvent` classes"
+            )
+
+    def _prepare_input_continuous(
+        self,
+        ts_input: Optional[TSContinuous] = None,
+        duration: Optional[float] = None,
+        num_timesteps: Optional[int] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
+        """
+        Sample input, set up time base
+
+        This function checks an input signal, and prepares a discretised time base according to the time step of the current layer
+
+        :param Optional[TSContinuous] ts_input: :py:class:`.TSContinuous` of TxM or Tx1 Input signals for this layer
+        :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
+        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
+
+        :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
             time_base:      T1 Discretised time base for evolution
             input_steps:    (T1xN) Discretised input signal for layer
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
 
+        # - Work out how many time steps to take
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
         time_base = self._gen_time_trace(self.t, num_timesteps)
 
         if ts_input is not None:
-            # - Make sure time_base matches ts_input
-            if not isinstance(ts_input, TSEvent):
-                if not ts_input.periodic:
-                    # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
-                    if (
-                        ts_input.t_start - 1e-3 * self.dt
-                        <= time_base[0]
-                        <= ts_input.t_start
-                    ):
-                        time_base[0] = ts_input.t_start
-                    if (
-                        ts_input.t_stop
-                        <= time_base[-1]
-                        <= ts_input.t_stop + 1e-3 * self.dt
-                    ):
-                        time_base[-1] = ts_input.t_stop
 
-                # - Warn if evolution period is not fully contained in ts_input
-                if not (ts_input.contains(time_base) or ts_input.periodic):
-                    warn(
-                        "Layer `{}`: Evolution period (t = {} to {}) ".format(
-                            self.name, time_base[0], time_base[-1]
-                        )
-                        + "is not fully contained in input signal (t = {} to {}).".format(
-                            ts_input.t_start, ts_input.t_stop
-                        )
-                        + " You may need to use a `periodic` time series."
+            # - Make sure time series is of correct type
+            if not isinstance(ts_input, TSContinuous):
+                raise TypeError(
+                    self.start_print
+                    + "`ts_input` must be of type `TSContinuous` or `None`."
+                )
+
+            # - Make sure time_base matches ts_input
+            t_start_expected = time_base[0]
+            t_stop_expected = time_base[-1]
+            if not ts_input.periodic:
+                # - If time base limits are very slightly beyond ts_input.t_start and ts_input.t_stop, match them
+                if (
+                    ts_input.t_start - 1e-3 * self.dt
+                    <= t_start_expected
+                    <= ts_input.t_start
+                ):
+                    t_start_expected = ts_input.t_start
+                if (
+                    ts_input.t_stop
+                    <= t_stop_expected
+                    <= ts_input.t_stop + 1e-3 * self.dt
+                ):
+                    t_stop_expected = ts_input.t_stop
+
+            # - Warn if evolution period is not fully contained in ts_input
+            if not (ts_input.contains(time_base) or ts_input.periodic):
+                warn(
+                    "Layer `{}`: Evolution period (t = {} to {}) ".format(
+                        self.name, t_start_expected, t_stop_expected
                     )
+                    + "is not fully contained in input signal (t = {} to {}).".format(
+                        ts_input.t_start, ts_input.t_stop
+                    )
+                    + " You may need to use a `periodic` time series."
+                )
 
             # - Sample input trace and check for correct dimensions
             input_steps = self._check_input_dims(ts_input(time_base))
@@ -196,7 +250,7 @@ class Layer(ABC):
 
         else:
             # - Assume zero inputs
-            input_steps = np.zeros((np.size(time_base), self.size_in))
+            input_steps = np.zeros((num_timesteps, self.size_in))
 
         return time_base, input_steps, num_timesteps
 
@@ -205,7 +259,7 @@ class Layer(ABC):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
-    ) -> (np.ndarray, int):
+    ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input from a :py:class:`TSEvent` time series, set up evolution time base
 
@@ -215,10 +269,13 @@ class Layer(ABC):
         :param Optional[float] duration:    Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will determine evolution itme
         :param Optional[int] num_timesteps: Number of evolution time steps, in units of ``.dt``. If not provided, then either ``duration`` or the duration of ``ts_input`` will determine evolution time
 
-        :return (ndarray, int):
+        :return (ndarray, ndarray, int):
+            time_base:      T1X1 vector of time points -- time base for the rasterisation
             spike_raster:   Boolean or integer raster containing spike information. T1xM array
             num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
         """
+
+        # - Work out how many time steps to take
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
 
         # - Generate discrete time base
@@ -226,20 +283,24 @@ class Layer(ABC):
 
         # - Extract spike timings and channels
         if ts_input is not None:
+
+            # - Make sure time series is of correct type
+            if not isinstance(ts_input, TSEvent):
+                raise TypeError(
+                    self.start_print + "`ts_input` must be of type `TSEvent` or `None`."
+                )
+
             # Extract spike data from the input variable
             spike_raster = ts_input.raster(
                 dt=self.dt,
                 t_start=self.t,
-                num_timesteps=num_timesteps + 1,
+                num_timesteps=np.size(time_base),
                 channels=np.arange(self.size_in),
                 add_events=(self.add_events if hasattr(self, "add_events") else False),
             )
 
-            # - Make sure duration of raster is correct
-            spike_raster = spike_raster[: num_timesteps + 1, :]
-
         else:
-            spike_raster = np.zeros((num_timesteps + 1, self.size_in))
+            spike_raster = np.zeros((np.size(time_base), self.size_in))
 
         # - Check for correct input dimensions
         spike_raster = self._check_input_dims(spike_raster)
@@ -253,6 +314,7 @@ class Layer(ABC):
         If input dimension == 1, scale it up to self._size_in by repeating signal.
 
         :param ndarray inp: ArrayLike containing input data
+
         :return ndarray: ``inp``, possibly with dimensions repeated
         """
         # - Replicate input data if necessary
@@ -284,7 +346,7 @@ class Layer(ABC):
         :return (ndarray): Generated time trace
         """
         # - Generate a trace
-        time_trace = np.arange(num_timesteps + 1) * self.dt + t_start
+        time_trace = np.arange(num_timesteps) * self.dt + t_start
 
         return time_trace
 
@@ -455,14 +517,20 @@ class Layer(ABC):
         self.reset_state()
 
     @abstractmethod
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict:
         """
         Convert parameters of this layer to a dict if they are relevant for reconstructing an identical layer
+
+        The base class :py:class:`.Layer` configures the dictionary, by storing attributes :py:attr:`~.Layer.weights`; :py:attr:`~.Layer.dt`; :py:attr:`~.Layer.noise_std`; :py:attr:`~.Layer.name`; and :py:attr:`~.Layer.class_name`. To enable correct saving / loading of your derived :py:class:`.Layer` subclass, you should first call :py:meth:`self.super().to_dict` and then store all additional arguments to :py:meth:`__init__` required by your class to instantiate an identical object.
 
         :return Dict:   A dictionary that can be used to reconstruct the layer
         """
         config = {}
-        config["weights"] = self.weights.tolist()
+        if isinstance(self.weights, np.ndarray):
+            config["weights"] = self.weights.tolist()
+        else:
+            config["weights"] = self.weights
+
         config["dt"] = self.dt
         config["noise_std"] = self.noise_std
         config["name"] = self.name
@@ -471,7 +539,7 @@ class Layer(ABC):
 
         return config
 
-    def save(self, config: dict, filename: str):
+    def save(self, config: Dict, filename: str):
         """
         Save a set of parameters to a ``json`` file
 
@@ -504,7 +572,7 @@ class Layer(ABC):
         :param str filename:    Path to the file where parameters are stored
         :param kwargs:          Any keyword arguments of the class `.__init__` method where the parameter stored in the file should be overridden
 
-        :return Layer: Instance of ``cls`` with parameters loaded from ``filename``
+        :return `.Layer`: Instance of `.Layer` subclass with parameters loaded from ``filename``
         """
         # - Load dict from file
         with open(filename, "r") as f:
@@ -514,15 +582,15 @@ class Layer(ABC):
         return cls.load_from_dict(config, **kwargs)
 
     @classmethod
-    def load_from_dict(cls: Any, config: dict, **kwargs) -> "cls":
+    def load_from_dict(cls: Any, config: Dict, **kwargs) -> "cls":
         """
         Generate instance of a :py:class:`.Layer` subclass with parameters loaded from a dictionary
 
         :param Any cls:         A :py:class:`.Layer` subclass. This class will be used to reconstruct a layer based on the parameters stored in ``filename``
-        :param Dict config: Dictionary containing parameters of a :py:class:`.Layer` subclass
-        :param kwargs:      Any keyword arguments of the class `.__init__` method where the parameters from ``config`` should be overridden
+        :param Dict config:     Dictionary containing parameters of a :py:class:`.Layer` subclass
+        :param kwargs:          Any keyword arguments of the class :py:meth:`.__init__` method where the parameters from ``config`` should be overridden
 
-        :return Layer: Instance of ``cls`` with parameters from ``config``
+        :return `.Layer`:       Instance of `.Layer` subclass with parameters from ``config``
         """
         # - Overwrite parameters with kwargs
         config = dict(config, **kwargs)
@@ -623,11 +691,11 @@ class Layer(ABC):
             new_w = np.atleast_2d(new_w)
 
         # - Check dimensionality of new weights
-        assert (
-            new_w.size == self.size_in * self.size
-        ), "Layer `{}`: `new_w` must be of shape {}".format(
-            (self.name, self.size_in, self.size)
-        )
+        if new_w.size != self.size_in * self.size:
+            raise ValueError(
+                self.start_print
+                + f"new_w` must be of shape {(self.size_in, self.size)}"
+            )
 
         # - Save weights with appropriate size
         self._weights = np.reshape(new_w, (self.size_in, self.size))

@@ -19,6 +19,7 @@ dModules = {
     ".gpl.softmaxlayer": "SoftMaxLayer",
     ".gpl.iaf_digital": "RecDIAF",
     ".gpl.spike_bt": "RecFSSpikeEulerBT",
+    ".gpl.spike_ads": "RecFSSpikeADS",
     ".gpl.updown": "FFUpDown",
     ".gpl.pytorch.exp_synapses_torch": "FFExpSynTorch",
     ".gpl.pytorch.iaf_torch": (
@@ -36,14 +37,26 @@ dModules = {
     ".gpl.aeif_nest": "RecAEIFSpkInNest",
     ".gpl.devices.dynap_hw": ("RecDynapSE", "RecDynapSEDemo"),
     ".gpl.devices.virtual_dynapse": "VirtualDynapse",
-    ".gpl.rate_jax": ("RecRateEulerJax", "ForceRateEulerJax", "H_ReLU", "H_tanh"),
+    ".gpl.rate_jax": (
+        "RecRateEulerJax",
+        "RecRateEulerJax_IO",
+        "ForceRateEulerJax_IO",
+        "FFRateEulerJax",
+        "H_ReLU",
+        "H_tanh",
+    ),
     ".gpl.filter_bank": ("ButterMelFilter", "ButterFilter"),
     ".gpl.lif_jax": (
         "RecLIFJax",
         "RecLIFCurrentInJax",
+        "RecLIFCurrentInJax_SO",
         "RecLIFJax_IO",
         "RecLIFCurrentInJax_IO",
         "FFLIFJax_IO",
+        "FFLIFJax_SO",
+        "FFLIFCurrentInJax_SO",
+        "FFExpSynCurrentInJax",
+        "FFExpSynJax",
     ),
 }
 
@@ -56,6 +69,18 @@ __doc__ = """Defines classes for simulating layers of neurons"""
 
 # - Initialise list of available modules
 __all__ = []
+
+
+class bcolors:
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
 
 # - Loop over submodules to attempt import
 for strModule, classnames in dModules.items():
@@ -90,10 +115,10 @@ for strModule, classnames in dModules.items():
     except ModuleNotFoundError as err:
         # - Ignore ModuleNotFoundError
         warn("Could not load package " + strModule)
-        print(err)
+        print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)
         pass
 
     except ImportError as err:
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
-        print(err)
+        print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)

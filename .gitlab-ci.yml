@@ -9,27 +9,35 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade --force-reinstall torch
-    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v tests
+    - pytest -v tests -n 4
 
 nest_tests:
   stage: test
-  allow_failure: true
-  when: manual
   image: aictx/ci-python-arch:latest
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade --force-reinstall torch
-    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v test_nest
+      - source /usr/bin/nest_vars.sh
+      - pytest -v test_nest -n 4
+
+optional_tests:
+  stage: test
+  allow_failure: true
+  image: aictx/ci-python-arch:latest
+  when: manual
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install .[all] --no-cache-dir
+
+  script:
+      - pytest -v test_optional -n 4
 
 documentation_linting:
   stage: test
@@ -38,8 +46,6 @@ documentation_linting:
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade --force-reinstall torch
-    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
@@ -52,8 +58,6 @@ docs_build:
 
   before_script:
     - pip install --upgrade pip
-    - pip install --upgrade --force-reinstall torch
-    - pip install --upgrade --force-reinstall torchvision
     - pip install .[all] --no-cache-dir
 
   script:
@@ -119,17 +123,3 @@ pypi_deploy:
 
   script:
     - python -m twine upload dist/*
-
-conda_deploy:
-  stage: deploy
-  when: manual
-  image: aictx/ci-python-arch:latest
-
-  only:
-    - master
-
-  dependencies:
-    - dist_build
-
-  script:
-    - ./conda_merge_request.sh

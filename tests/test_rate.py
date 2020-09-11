@@ -36,6 +36,9 @@ def test_FFRateEuler():
     assert (vStateBefore == fl0.state).all()
 
     # - Test that some errors are caught
+    with pytest.raises(ValueError):
+        fl0.weights = weights[:-1]
+
     with pytest.raises(TypeError):
         fl1 = FFRateEuler(weights=None)
 
@@ -70,7 +73,7 @@ def test_ff_rate_euler_train():
 
     vnC = np.tile(np.arange(size_in), int(np.ceil(1.0 / nSpikes * size)))[:nSpikes]
     vtT = np.linspace(0, tDur, nSpikes, endpoint=False)
-    tsIn = TSEvent(vtT, vnC, num_channels=size_in)
+    tsIn = TSEvent(vtT, vnC, num_channels=size_in, t_stop=tDur)
 
     # - Filter signal
     ts_filtered = fl_exp_prepare.evolve(tsIn)
@@ -94,12 +97,50 @@ def test_ff_rate_euler_train():
     fl_rate.train_rr(ts_tgt, ts_filtered, regularize=0.1, is_first=True, is_last=True)
     fl_pt.train_rr(ts_tgt, ts_filtered, regularize=0.1, is_first=True, is_last=True)
 
-    assert (
-        np.isclose(fl_exp_train.weights, fl_rate.weights, rtol=1e-4, atol=1e-2).all()
-        and np.isclose(fl_exp_train.bias, fl_rate.bias, rtol=1e-4, atol=1e-2).all()
-        and np.isclose(fl_exp_train.weights, fl_pt.weights, rtol=1e-4, atol=1e-2).all()
-        and np.isclose(fl_exp_train.bias, fl_pt.bias, rtol=1e-4, atol=1e-2).all()
-    ), "Training led to different results"
+    expected_weights = np.array(
+        [
+            [0.01538593, 0.08080652, -0.00395387],
+            [0.02217629, 0.00562184, -0.02138095],
+            [0.02273271, 0.00175698, -0.02248414],
+            [0.02270259, 0.00110985, -0.02254557],
+            [0.01615033, 0.00050189, -0.01607933],
+            [0.0, 0.0, 0.0],
+        ]
+    )
+    expected_bias = np.array([0.00163805, 0.91420448, 0.12769848])
+
+    for lyr in (fl_exp_train, fl_rate, fl_pt):
+        assert (np.isclose(lyr.weights, expected_weights, rtol=1e-4, atol=1e-2)).all()
+        assert (np.isclose(lyr.bias, expected_bias, rtol=1e-4, atol=1e-2)).all()
+
+    # - Train with z-score standardization
+    fl_exp_train.train_rr(
+        ts_tgt, tsIn, regularize=0.1, is_first=True, is_last=True, standardize=True
+    )
+
+    # - Train with Fisher relabeling
+    fl_exp_train.train_rr(
+        ts_tgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        fisher_relabelling=True,
+    )
+
+    # - Train with Fisher relabeling, z-score standardization but without biases
+    biases_before = fl_exp_train.bias.copy()
+    fl_exp_train.train_rr(
+        ts_tgt,
+        tsIn,
+        regularize=0.1,
+        is_first=True,
+        is_last=True,
+        fisher_relabelling=True,
+        standardize=True,
+        train_biases=False,
+    )
+    assert (biases_before == fl_exp_train.bias).all(), "Biases should not have changed."
 
 
 def test_RecRateEuler():

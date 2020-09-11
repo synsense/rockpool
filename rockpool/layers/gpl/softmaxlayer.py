@@ -23,7 +23,7 @@ def softmax(x: np.ndarray) -> float:
 
 class SoftMaxLayer(FFCLIAF):
     """
-    A spiking SoftMax layer with spiking inputs and outputs, and constant leak
+    *DEPRECATED* A spiking SoftMax layer with spiking inputs and outputs, and constant leak
 
     This layer implements an approximation of the "soft-max" function used often in deep classification networks.
     """
@@ -61,8 +61,9 @@ class SoftMaxLayer(FFCLIAF):
 
         :param Optional[TSEvent] ts_input:      Input spike trian
         :param Optional[float] duration:        Simulation/Evolution time
-        :param Optional[int] num_timesteps      Number of evolution time steps
-        :param bool verbose:          Currently no effect, just for conformity
+        :param Optional[int] num_timesteps:     Number of evolution time steps
+        :param bool verbose:                    Currently no effect, just for conformity
+
         :return TSEvent:                        Output spike series
         """
 

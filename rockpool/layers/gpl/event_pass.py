@@ -23,10 +23,10 @@ class PassThroughEvents(Layer):
         """
         Pass through events by routing to different channels
 
-        :param weights:         np.ndarray Positive integer weight matrix for this layer
-        :param dt:         float Time step duration. Only used for determining evolution period and internal clock.
+        :param np.ndarray weights:          Positive integer weight matrix for this layer
+        :param float dt:                    Time step duration. Only used for determining evolution period and internal clock.
         :param Optional[float] noise_std:   Not actually used
-        :param name:     str Name of this layer. Default: 'unnamed'
+        :param str name:                    Name of this layer. Default: 'unnamed'
         """
 
         # - Weights should be of integer type
@@ -51,15 +51,15 @@ class PassThroughEvents(Layer):
         Function to evolve the states of this layer given an input
 
         :param Optional[TSEvent] ts_input:        Input spike trian
-        :param Optional[float] duration:           Simulation/Evolution time
-        :param Optional[int] num_timesteps          Number of evolution time steps
-        :param bool verbose:            Currently no effect, just for conformity
-        :return:                TSEvent  output spike series
+        :param Optional[float] duration:          Simulation/Evolution time
+        :param Optional[int] num_timesteps:       Number of evolution time steps
+        :param bool verbose:                      Currently no effect, just for conformity
+
+        :return `.TSEvent`:                       Output spike series
 
         """
 
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
-        t_end = self.t + self.dt * num_timesteps
 
         # - Handle empty inputs
         if ts_input is None or ts_input.times.size == 0:
@@ -87,13 +87,17 @@ class PassThroughEvents(Layer):
         num_out_events_per_input_event = np.sum(out_channel_raster, axis=1)
         time_trace_out = np.repeat(ts_input.times, num_out_events_per_input_event)
 
+        t_stop = self.t + self.dt * num_timesteps
+        # - Ignore events at t_stop or later.
+        use_events = np.logical_and(self.t < time_trace_out, time_trace_out < t_stop)
+
         # - Output time series
         event_out = TSEvent(
-            times=time_trace_out,
-            channels=out_channels,
+            times=time_trace_out[use_events],
+            channels=out_channels[use_events],
             num_channels=self.size,
-            # t_start=self.t,
-            # t_stop=t_end,
+            t_start=self.t,
+            t_stop=t_stop,
             name="transformed event raster",
         )
 
@@ -103,18 +107,22 @@ class PassThroughEvents(Layer):
         return event_out
 
     def to_dict(self):
+        """ Convert parameters of `self` to a dict if they are relevant for reconstructing an identical layer """
         return super().to_dict()
 
     @property
     def input_type(self):
+        """ Returns input type class """
         return TSEvent
 
     @property
     def output_type(self):
+        """ Returns output type class """
         return TSEvent
 
     @property
     def weights(self):
+        """ Returns weights """
         return self._weights
 
     @weights.setter

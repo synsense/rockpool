@@ -14,16 +14,24 @@ help:
 
 .PHONY: help Makefile
 
+clean:
+	cp -f $(SOURCEDIR)/../CHANGELOG.md advanced/
+	rm -rf $(SOURCEDIR)/reference/_autosummary/*
+	find . -name .ipynb_checkpoints -d -print0 | xargs -0 rm -r --
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
 livehtml:
 	sphinx-autobuild \
-		-B $(SOURCEDIR) $(BUILDDIR)/html \
-		-i "*.tmp*" \
-		-i "*.ai" \
-		-i "*.tmp" \
-		-i "*.ipynb_checkpoints/*" \
-		-i "*.~*" \
-		-i "*.xml" \
-		-i "Makefile" \
+		--open-browser $(SOURCEDIR) $(BUILDDIR)/html \
+		--ignore "*.tmp*" \
+		--ignore "*.ai" \
+		--ignore "*.tmp" \
+		--ignore "*.ipynb_checkpoints/*" \
+		--ignore "*.~*" \
+		--ignore "*.xml" \
+		--ignore "Makefile" \
+		--ignore "_build" \
+		--ignore "reference/_autosummary" \
 		--delay 5 \
 		--watch ../rockpool
 

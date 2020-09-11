@@ -16,7 +16,9 @@ JAX-based backend
 
 .. autosummary::
     layers.RecRateEulerJax
-    layers.ForceRateEulerJax
+    layers.RecRateEulerJax_IO
+    layers.FFRateEulerJax
+    layers.ForceRateEulerJax_IO
 
 
 Event-driven spiking layers
@@ -27,6 +29,7 @@ Event-driven spiking layers
     layers.FFExpSyn
     layers.RecDIAF
     layers.RecFSSpikeEulerBT
+    layers.RecFSSpikeADS
     layers.FFUpDown
 
 JAX-based backend
@@ -38,16 +41,9 @@ JAX-based backend
     layers.RecLIFJax_IO
     layers.RecLIFCurrentInJax_IO
     layers.FFLIFJax_IO
-
-Layers with constant leak
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autosummary::
-    layers.CLIAF
-    layers.FFCLIAF
-    layers.RecCLIAF
-    layers.SoftMaxLayer
-    layers.FFCLIAFCNNTorch
+    layers.FFLIFCurrentInJax_SO
+    layers.FFExpSynCurrentInJax
+    layers.FFExpSynJax
 
 Brian-based backend
 ~~~~~~~~~~~~~~~~~~~
@@ -59,9 +55,36 @@ Brian-based backend
     layers.RecIAFSpkInBrian
     layers.FFExpSynBrian
 
+Nest-based backend
+~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.FFIAFNest
+    layers.RecIAFSpkInNest
+    layers.RecAEIFSpkInNest
+
+Hardware-backed and hardware simulation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For more information on using these layers, see :ref:`/tutorials/RecDynapSE.ipynb`
+
+.. autosummary::
+
+    layers.RecDynapSE
+    layers.VirtualDynapse
+
+Layers with constant leak
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.CLIAF
+    layers.FFCLIAF
+    layers.RecCLIAF
+    layers.SoftMaxLayer
+
 
 Torch-based backend
-~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
     layers.FFExpSynTorch
@@ -74,24 +97,22 @@ Torch-based backend
     layers.RecIAFSpkInTorch
     layers.RecIAFSpkInRefrTorch
     layers.RecIAFSpkInRefrCLTorch
-    layers.FFCLIAFCNNTorch
-
-Nest-based backend
-~~~~~~~~~~~~~~~~~~
-
-.. autosummary::
-
-    layers.FFIAFNest
-    layers.RecIAFSpkInNest
-    layers.RecAEIFSpkInNest
 
 
-Hardware-backed and hardware simulation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Deprecated layer classes
+-------------------------
 
-For more information on using these layers, see :ref:`/tutorials/RecDynapSE.ipynb`
+These classes are deprecated — please use other layers in preference, unless you are willing to take over supporting their implementation.
+
+Torch-based backend
+~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
+    layers.FFExpSynTorch
 
-    layers.RecDynapSE
-    layers.VirtualDynapse
+Layers with constant leak
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    layers.SoftMaxLayer
+

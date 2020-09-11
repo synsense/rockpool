@@ -1,5 +1,4 @@
 import multiprocessing
-import importlib
 from warnings import warn
 from typing import Union, List, Dict
 
@@ -17,15 +16,16 @@ from .iaf_nest import (
 )
 from ...utilities import SetterArray, ImmutableArray
 
+import importlib
 
 if importlib.util.find_spec("nest") is None:
-    raise ModuleNotFoundError("No module named 'nest'.")
-
+    raise ModuleNotFoundError(
+        "'NEST' backend not found. Layers that rely on NEST will not be available."
+    )
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
 class RecAEIFSpkInNest(RecIAFSpkInNest):
-    """ Spiking recurrent layer with spiking in- and outputs, with a NEST backend
-    """
+    """Spiking recurrent layer with spiking in- and outputs, with a NEST backend"""
 
     class NestProcess(_BaseNestProcessSpkInRec):
         """ Class for running NEST in its own process """

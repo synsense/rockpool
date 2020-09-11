@@ -134,13 +134,13 @@ class RRTrainedLayer(Layer, ABC):
         """
         Train with the already processed input and target data of the current batch. Update layer weights and biases if requested. Provide information on training state if requested.
 
-        :param np.ndarray inp:                  2D-array (num_samples x num_features) of input data.
-        :param np.ndarray target:               2D-array (num_samples x 'self.size') of target data.
-        :param bool reset:                      If `True', internal variables will be reset at the end.
+        :param np.ndarray inp:                  2D-array (``num_samples`` x ``num_features``) of input data.
+        :param np.ndarray target:               2D-array (``num_samples`` x ``self.size``) of target data.
+        :param bool reset:                      If ``True``, internal variables will be reset at the end.
         :param bool train_bises:                Should biases be trained or only weights?
         :param bool standardize:                Has input data been z-score standardized?
-        :param bool update_weights:             Set 'True' to update layer weights and biases.
-        :param bool return_training_progress:   Return intermediate training data (e.g. xtx, xty,...)
+        :param bool update_weights:             Set ``True`` to update layer weights and biases.
+        :param bool return_training_progress:   Return intermediate training data (e.g. ``xtx``, ``xty``,...)
 
         :return dict:                           Dict with information on training progress, depending on values of other function arguments.
         """
@@ -207,12 +207,9 @@ class RRTrainedLayer(Layer, ABC):
             # ... perform input extraction from ``ts_input`` here in child class
         """
         # - Discrete time steps for evaluating input and target time series
-        num_timesteps = int(np.round(ts_target.duration / self.dt))
+        #   If `is_last`, include final sample
+        num_timesteps = int(np.round(ts_target.duration / self.dt)) + int(is_last)
         time_base = self._gen_time_trace(ts_target.t_start, num_timesteps)
-
-        if not is_last:
-            # - Discard last sample to avoid counting time points twice
-            time_base = time_base[:-1]
 
         # - Make sure time_base does not exceed ts_target
         time_base = time_base[time_base <= ts_target.t_stop]
