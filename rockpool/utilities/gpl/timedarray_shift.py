@@ -4,6 +4,11 @@ Implementation of `TimedArray`.
 
 import numpy as np
 
+from importlib import util
+
+if util.find_spec("brian2") is None:
+    raise ModuleNotFoundError("'Brian2' backend not found. Layers that rely on Brian will not be available.")
+
 from brian2.core.clocks import defaultclock
 from brian2.core.functions import Function
 from brian2.units.allunits import second

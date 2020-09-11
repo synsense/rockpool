@@ -8,9 +8,14 @@ from rockpool.timeseries import TSEvent, TSContinuous, TimeSeries, get_global_ts
 import numpy as np
 from typing import Union, Callable, Any, Tuple, Optional
 import copy
-from numba import njit, jit
+
+from importlib import util
+
+if util.find_spec("numba") is None:
+    raise ModuleNotFoundError("'numba'backend not found. Layers that rely on numba will not be available.")
+
+from numba import njit
 from warnings import warn
-import time
 
 FloatVector = Union[float, np.ndarray]
 
@@ -19,9 +24,6 @@ try:
     import holoviews as hv
 except Exception:
     pass
-
-import matplotlib
-import matplotlib.pyplot as plt # For quick plottings
 
 __all__ = ["RecFSSpikeADS"]
 
@@ -762,8 +764,9 @@ class RecFSSpikeADS(Layer):
                                   t_stop = final_time,
                                   )
 
-        if(verbose):
-            
+        if verbose:
+            import matplotlib.pyplot as plt
+
             fig = plt.figure(figsize=(20,20),constrained_layout=True)
             gs = fig.add_gridspec(7, 1)
 
@@ -825,7 +828,7 @@ class RecFSSpikeADS(Layer):
             plt.waitforbuttonpress(0) # this will wait for indefinite time
             plt.close(fig)
 
-            if(self.is_training):
+            if self.is_training:
                 fig = plt.figure()
                 plt.subplot(121)
                 im = plt.matshow(self.weights_slow, fignum=False)

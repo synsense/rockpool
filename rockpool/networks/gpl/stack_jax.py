@@ -9,8 +9,11 @@ from ...layers.layer import Layer
 
 from typing import Tuple, List, Callable, Dict, Sequence, Optional, Any
 
-from jax import jit
-from jax.experimental.optimizers import adam
+from importlib import util
+
+if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
+    raise ModuleNotFoundError("'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available.")
+
 import jax.numpy as np
 import json
 

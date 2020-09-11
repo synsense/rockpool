@@ -1,9 +1,14 @@
 #
-# rockpool.layers.training.utilities – Module contianing training utilities
+# rockpool.layers.training.utilities – Module containing training utilities
 #
 
 from .jax_trainer import JaxTrainer
 from ....timeseries import TimeSeries, TSContinuous
+
+from importlib import util
+
+if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
+    raise ModuleNotFoundError("'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available.")
 
 from jax import numpy as np
 from jax import jit, grad, vmap

@@ -4,6 +4,11 @@
 
 from .iaf_conv2d import TorchSpikingConv2dLayer
 import numpy as np
+
+import importlib
+if importlib.util.find_spec("torch") is None:
+    raise ModuleNotFoundError("'torch' backend not found. Layers that rely on PyTorch will not be available.")
+
 import torch
 
 # Internal class dependencies

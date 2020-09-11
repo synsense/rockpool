@@ -5,6 +5,11 @@
 # - Import base classes
 from rockpool.timeseries import TimeSeries
 
+from importlib import util
+
+if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
+    raise ModuleNotFoundError("'jax' and 'jaxlib' backends not found. Layers that rely on Jax will not be available.")
+
 from jax import jit, grad, vmap, value_and_grad
 from jax.experimental.optimizers import adam
 

@@ -5,6 +5,11 @@
 # - Imports
 from warnings import warn
 
+from importlib import util
+
+if (util.find_spec("brian2") is None) or (util.find_spec("teili") is None):
+    raise ModuleNotFoundError("'Brian2' and 'teili' backends not found. Layers that rely on Brian and Teili will not be available.")
+
 import brian2 as b2
 import brian2.numpy_ as np
 from brian2.units.stdunits import *

@@ -11,13 +11,6 @@ import json
 
 from typing import Union, Callable, Tuple, List
 
-from tqdm import tqdm
-
-import matplotlib
-import matplotlib.pyplot as plt
-
-import time
-
 __all__ = ["NetworkADS"]
 
 def running_mean(x, N):

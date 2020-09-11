@@ -8,9 +8,6 @@ from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.timeseries import TSContinuous
 from rockpool.layers import Layer
-import matplotlib.pyplot as plt
-from matplotlib import cm
-
 
 class FilterBank(Layer, ABC):
     """
@@ -308,6 +305,9 @@ class ButterMelFilter(FilterBank):
         self.chunks = ButterMelFilter.generate_chunks(self.filters, chunk_size)
 
         if plot:
+            import matplotlib.pyplot as plt
+            from matplotlib import cm
+
             colors = cm.Blues(np.linspace(0.5, 1, len(self.filters)))
             plt.figure(figsize=(16, 10))
             for i, filt in enumerate(self.filters):

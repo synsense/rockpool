@@ -7,6 +7,11 @@ from ..layer import Layer
 from ..training import JaxTrainer
 from ...timeseries import TSContinuous, TSEvent, TimeSeries
 
+from importlib import util
+
+if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
+    raise ModuleNotFoundError("'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available.")
+
 from jax import numpy as np
 import numpy as onp
 

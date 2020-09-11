@@ -10,6 +10,11 @@ import numpy as np
 from typing import Union, Callable, Optional, Tuple, Any
 import copy
 
+from importlib import util
+
+if util.find_spec("numba") is None:
+    raise ModuleNotFoundError("'numba' backend not found. Layers that rely on numba will not be available.")
+
 from numba import njit
 
 # - Try to import holoviews
