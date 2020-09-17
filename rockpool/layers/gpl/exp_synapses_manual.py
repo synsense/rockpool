@@ -306,6 +306,7 @@ class FFExpSyn(RRTrainedLayer):
         return_trained_output: bool = False,
         fisher_relabelling: bool = False,
         standardize: bool = False,
+        n_prune: int = 0,
     ) -> Union[Dict, None]:
         """
         Train self with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
@@ -320,6 +321,7 @@ class FFExpSyn(RRTrainedLayer):
         :param bool calc_intermediate_results:          If ``True``, calculates the intermediate weights not in the final batch
         :param bool return_training_progress:           If ``True``, return dict of current training variables for each batch.
         :param bool standardize:                        If ``True``, train with z-score standardized data, based on means and standard deviations from first batch
+        :param n_prune: int                       Number of coefficients to prune. Pruning is only applied if is_last == True.
 
         :return Union[None, dict]:
             If `return_training_progress`, return dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
@@ -340,6 +342,7 @@ class FFExpSyn(RRTrainedLayer):
             return_trained_output=return_trained_output,
             fisher_relabelling=fisher_relabelling,
             standardize=standardize,
+            n_prune=n_prune,
         )
 
         if store_states and return_training_progress:

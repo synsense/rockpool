@@ -62,6 +62,9 @@ class RidgeRegrTrainer:
         self.kahan_comp_xty = np.zeros_like(self.xty)
         self.kahan_comp_xtx = np.zeros_like(self.xtx)
 
+        # - Mask which is applied to the input data to zero out previously pruned coefficients
+        self.prune_mask = np.ones((self.num_features, self.num_outputs))
+
     def determine_z_score_params(self, inp: np.ndarray):
         """
         determine_z_score_params - For each feature, find its mean and standard
@@ -161,6 +164,10 @@ class RidgeRegrTrainer:
                 "RidgeRegrTrainer: `inp` and `target` must have same number of data points"
                 + f" (`inp` has {inp.shape[0]}, `target` has {target.shape[0]})."
             )
+        
+        # apply pruning mask to input
+        # prune away only those neurons which have zero weight to all target neurons
+        inp = inp * self.prune_mask.max(axis=1)
 
         if self.standardize:
             inp = self.z_score_standardization(inp)
@@ -210,28 +217,58 @@ class RidgeRegrTrainer:
         self.train_batch(inp, target, update_model=True)
         self.reset()
 
-    def update_model(self):
+    def solve(self, xtx, xty, prune=False):
+        """
+        solve - Choses approximate solver among np.linalg.solve and np.linalg.inv for finding coefficients.
+        """
+        if not prune:
+            # use np.linalg.solve as first choice solution
+            return np.linalg.solve(xtx, xty)
+        else:
+            # use np.linalg.inv to explicitly calculate the inverse of XTX
+            self.xtx_inv = np.linalg.inv(xtx) # TODO does this really work in case of fisher relabeling?
+            return np.matmul(self.xtx_inv, xty)
+
+
+    def update_model(self, n_prune: int = 0):
         """
         update_model - Update model weights and biases based on current collected training data.
         """
+    
+        if self.fisher_relabelling and n_prune > 0:
+            raise NotImplementedError("Pruning is not implemented if fisher relabelling is enabled")
+
         # - Matrix for regularization
         reg = self.regularize * np.eye(self.num_features + int(self.train_biases))
 
         if self.fisher_relabelling:
             solution = np.array(
                 [
-                    np.linalg.solve(xtx_this, xty_this)
+                    self.solve(xtx_this, xty_this, n_prune>0)
                     for xtx_this, xty_this in zip(self.xtx + reg, self.xty.T)
                 ]
             ).T
         else:
-            solution = np.linalg.solve(self.xtx + reg, self.xty)
+            solution = self.solve(self.xtx + reg, self.xty, n_prune>0)
+
+        if n_prune > 0:
+            std_err_approx = np.sqrt(np.diagonal(self.xtx_inv)) # should be actually sqrt(diag(XTX_inv) * residual)
+            t_stat = (solution.T / std_err_approx).T
+            if self.train_biases:
+                t_stat = t_stat[:-1]
+
+            tol = np.sort(np.abs(t_stat), axis=0)[n_prune] 
+
+            coefs_to_prune = np.where(t_stat < tol)
+            self.prune_mask[coefs_to_prune] = 0
 
         if self.train_biases:
-            self.weights = solution[:-1]
+            # apply prune mask to weights
+            self.weights = solution[:-1] * self.prune_mask
             self.bias = solution[-1]
         else:
-            self.weights = solution
+            # apply prune mask to weights
+            self.weights = solution * self.prune_mask
 
         if self.standardize:
             self.weights /= self.inp_std.T
