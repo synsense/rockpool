@@ -47,6 +47,7 @@ class RRTrainedLayer(Layer, ABC):
         return_trained_output: bool = False,
         fisher_relabelling: bool = False,
         standardize: bool = False,
+        n_prune: int = 0,
     ) -> Union[Dict, None]:
         """
         Train this layer with ridge regression over one of possibly many batches. Use Kahan summation to reduce rounding errors when adding data to existing matrices from previous batches.
@@ -62,6 +63,7 @@ class RRTrainedLayer(Layer, ABC):
         :param bool return_trained_output:        If ``True``, return the result of evolving the layer with the trained weights in the output dict. Default: ``False``, do not return the trained output
         :param bool fisher_relabelling:           If ``True``, relabel target data such that the training algorithm is equivalent to Fisher discriminant analysis. Default: ``False``, use standard ridge / linear regression
         :param bool standardize:                  Train with z-score standardized data, based on means and standard deviations from first batch. Default: ``False``, do not standardize data
+        :param n_prune: int                       Number of coefficients to prune.
 
         :return:
             If ``return_training_progress`` is ``True``, return a dict with current training variables (xtx, xty, kahan_comp_xtx, kahan_comp_xty).
@@ -109,6 +111,7 @@ class RRTrainedLayer(Layer, ABC):
             standardize=standardize,
             update_weights=update_weights,
             return_training_progress=return_training_progress,
+            n_prune=n_prune,
         )
 
         if return_trained_output:
@@ -130,6 +133,7 @@ class RRTrainedLayer(Layer, ABC):
         standardize: bool,
         update_weights: bool,
         return_training_progress: bool,
+        n_prune: int = 0,
     ) -> Dict:
         """
         Train with the already processed input and target data of the current batch. Update layer weights and biases if requested. Provide information on training state if requested.
@@ -141,6 +145,7 @@ class RRTrainedLayer(Layer, ABC):
         :param bool standardize:                Has input data been z-score standardized?
         :param bool update_weights:             Set ``True`` to update layer weights and biases.
         :param bool return_training_progress:   Return intermediate training data (e.g. ``xtx``, ``xty``,...)
+        :param n_prune: int                     Number of coefficients to prune in this step.
 
         :return dict:                           Dict with information on training progress, depending on values of other function arguments.
         """
@@ -160,7 +165,7 @@ class RRTrainedLayer(Layer, ABC):
                 training_data["training_progress"]["inp_std"] = self.trainer.inp_std
 
         if update_weights:
-            self.trainer.update_model()
+            self.trainer.update_model(n_prune=n_prune)
             self.weights = self.trainer.weights
 
             if train_biases:
