@@ -15,12 +15,12 @@ help:
 .PHONY: help Makefile
 
 clean:
-	cp -f $(SOURCEDIR)/../CHANGELOG.md advanced/
 	rm -rf $(SOURCEDIR)/reference/_autosummary/*
 	find . -name .ipynb_checkpoints -d -print0 | xargs -0 rm -r --
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 livehtml:
+	cp -f $(SOURCEDIR)/../CHANGELOG.md advanced/
 	sphinx-autobuild \
 		--open-browser $(SOURCEDIR) $(BUILDDIR)/html \
 		--ignore "*.tmp*" \
@@ -38,6 +38,7 @@ livehtml:
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
+	cp -f $(SOURCEDIR)/../CHANGELOG.md advanced/
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 
