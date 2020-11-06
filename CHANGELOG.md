@@ -2,10 +2,11 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
-## [v1.1.0.3] -- 2020-11-06
+## [v1.1.0.4] -- 2020-11-06
 
  - Hotfix to remove references to ctxctl and aiCTX
  - Hotfix to include NEST documentation in CI-built docs
+ - Hotfix to include change log in build docs
 
 ## [v1.1] -- 2020-09-12
 
