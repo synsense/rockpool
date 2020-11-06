@@ -38,7 +38,7 @@ Rockpool is released under a AGPL license. Commercial licenses are available on 
 
 # Contributing
 
-Fork the public repository at https://gitlab.com/aiCTX/rockpool, then clone your fork.
+Fork the public repository at https://gitlab.com/SynSense/rockpool, then clone your fork.
 
 ```bash
 $ git clone https://gitlab.com/your-fork-location/rockpool.git rockpool
@@ -71,4 +71,4 @@ Then push your new branch to your repository
 $ git push -u origin feature/my-feature
 ```
 
-When you're finished with your modifications, make a merge request on gitlab.com, from your branch in your fork to https://gitlab.com/aiCTX/rockpool.
+When you're finished with your modifications, make a merge request on gitlab.com, from your branch in your fork to https://gitlab.com/SynSense/rockpool.

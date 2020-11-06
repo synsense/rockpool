@@ -28,7 +28,7 @@ cd ./recipes/rockpool
 
 cp ../../LICENSE .
 
-git config user.email "info@aictx.ai"
+git config user.email "info@synsense.ai"
 git config user.name ${GITHUB_USER}
 
 echo "{% set name = \"rockpool\" %}" > meta.yaml
@@ -72,7 +72,7 @@ echo "  description: |" >> meta.yaml
 echo "    Rockpool is a Python package for working with dynamical neural network architectures, particularly for designing event-driven networks for Neuromorphic computing hardware. Rockpool provides a convenient interface for designing, training and evaluating recurrent networks, which can operate both with continuous-time dynamics and event-driven dynamics." >> meta.yaml
 echo "    Rockpool is an open-source project managed by SynSense" >> meta.yaml
 echo "  doc_url: https://rockpool.ai" >> meta.yaml
-echo "  dev_url: https://gitlab.com/aiCTX/rockpool" >> meta.yaml
+echo "  dev_url: https://gitlab.com/SynSense/rockpool" >> meta.yaml
 echo "" >> meta.yaml
 echo "extra:" >> meta.yaml
 echo "  recipe-maintainers:" >> meta.yaml
