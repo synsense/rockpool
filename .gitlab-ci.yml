@@ -61,6 +61,8 @@ docs_build:
     - pip install .[all] --no-cache-dir
 
   script:
+    - source /usr/bin/nest_vars.sh
+    - cp CHANGELOG.md docs/advanced
     - sphinx-build -b html docs docs/_build/html
 
   artifacts:
