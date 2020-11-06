@@ -2,6 +2,10 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v1.1.0.1] -- 2020-11-06
+
+ - Hotfix to remove reference to ctxctl
+
 ## [v1.1] -- 2020-09-12
 
 ### Added
