@@ -170,8 +170,8 @@ class ModuleBase(ABC):
             ]
             matching_attributes = dict(ChainMap(*list_attributes))
 
-        # - Just take values
-        matching_attributes = {k: v[0] for (k, v) in matching_attributes.items()}
+        # - Just take values using getattr
+        matching_attributes = {k: getattr(self, k) for k in matching_attributes.keys()}
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
