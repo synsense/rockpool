@@ -1,14 +1,6 @@
-import multiprocessing
-from importlib import util
-
-import numpy as np
-
-from typing import Optional, Union, List, Dict, Tuple
-from warnings import warn
-
-from rockpool.nn.modules.timed_module import astimedmodule
-from rockpool.nn.layers.iaf_nest import FFIAFNest as FFIAFNestV1
-from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest as RecIAFSpkInNestV1
+from rockpool.nn.modules.timed_module import astimedmodule 
+from rockpool.nn.layers.iaf_nest import FFIAFNest as FFIAFNestV1 
+from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest as RecIAFSpkInNestV1 
 from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest as RecAEIFSpkInNestV1
 
 FFIAFNest = astimedmodule(
@@ -28,7 +20,7 @@ FFIAFNest = astimedmodule(
 )(FFIAFNestV1)
 
 RecIAFSpkInNest = astimedmodule(
-    parameters=[
+parameters=[
         "weights_in",
         "weights_rec",
         "delay_in",
@@ -48,7 +40,7 @@ RecIAFSpkInNest = astimedmodule(
 )(RecIAFSpkInNestV1)
 
 RecAEIFSpkInNest = astimedmodule(
-    parameters=[
+parameters=[
         "weights_in",
         "weights_rec",
         "delay_in",
@@ -71,3 +63,4 @@ RecAEIFSpkInNest = astimedmodule(
     simulation_parameters=["dt", "record", "num_cores"],
     states=["state"],
 )(RecAEIFSpkInNestV1)
+

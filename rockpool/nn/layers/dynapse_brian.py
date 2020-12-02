@@ -22,12 +22,12 @@ import sys
 strNetworkPath = sys.path[0] + "../../.."
 sys.path.insert(1, strNetworkPath)
 
-from timeseries import TSContinuous, TSEvent
+from rockpool.timeseries import TSContinuous, TSEvent
 
 from rockpool.nn.layers.layer import Layer
 
 # - Teili
-from teili import Neurons as teiliNG, Connections as teiliSyn, teiliNetwork
+from teili import Neurons as teiliNG, Connections as teiliSyn
 from teili.models.neuron_models import DPI as teiliDPIEqts
 from teili.models.synapse_models import DPISyn as teiliDPISynEqts
 from teili.models.parameters.dpi_neuron_param import parameters as dTeiliNeuronParam
@@ -42,7 +42,8 @@ __all__ = ["RecDynapseBrian"]
 
 
 class RecDynapseBrian(Layer):
-    """Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend"""
+    """ *DEPRECATED*
+    Define a spiking recurrent layer based on Dynap equations, with a Brian2 backend"""
 
     ## - Constructor
     def __init__(
@@ -115,6 +116,7 @@ class RecDynapseBrian(Layer):
             self._neuron_group.set_params(dict(dTeiliNeuronParam, **neuron_params))
         else:
             self._neuron_group.set_params(dTeiliNeuronParam)
+        self.syn_params = syn_params
 
         ### --- Synapses
 
@@ -145,6 +147,7 @@ class RecDynapseBrian(Layer):
         if syn_params is not None:
             self._rec_synapses.set_params(neuron_params)
             self._inp_synapses.set_params(neuron_params)
+        self.syn_params = syn_params
 
         # - Add spike monitor to record layer outputs
         self._spike_monitor = b2.SpikeMonitor(
@@ -168,6 +171,8 @@ class RecDynapseBrian(Layer):
 
         # - Store "reset" state
         self._net.store("reset")
+
+        self.integrator_name = integrator_name
 
     def reset_state(self):
         """Reset the internal state of the layer"""
@@ -259,6 +264,16 @@ class RecDynapseBrian(Layer):
         event_channel_out = self._spike_monitor.i[use_event]
 
         return TSEvent(event_time_out, event_channel_out, name="Layer spikes")
+
+    def to_dict(self):
+        params = super().to_dict()
+        params["weights_in"] = self.weights_in.to_dict()
+        params["refractory"] = float(self.refractory)
+        params["neuron_params"] = self.neuron_params
+        params["syn_params"] = self.syn_params
+        params["integrator_name"] = self.integrator_name
+
+        return to_dict
 
     ### --- Properties
 
