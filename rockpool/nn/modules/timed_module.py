@@ -265,7 +265,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
                         raise ValueError(
                             self.full_name
                             + "Cannot determine an appropriate evolution duration."
-                            + " 'ts_input' finishes before the current evolution time.",
+                            + " 'ts_input' finishes before the current evolution time."
                         )
             num_timesteps = int(np.floor((duration + tol_abs) / self.dt))
         else:
@@ -502,11 +502,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
             record_dict,
         )
 
-    def __call__(
-        self,
-        *args,
-        **kwargs,
-    ) -> Tuple[TimeSeries, Dict, Dict]:
+    def __call__(self, *args, **kwargs) -> Tuple[TimeSeries, Dict, Dict]:
         return self.evolve(*args, **kwargs)
 
     @property
@@ -549,12 +545,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
 class TimedModuleWrapper(TimedModule):
     def __init__(
-        self,
-        module: Module,
-        output_num: int = 0,
-        dt: float = None,
-        *args,
-        **kwargs,
+        self, module: Module, output_num: int = 0, dt: float = None, *args, **kwargs
     ):
         # - Check that we are wrapping a Module object
         if not isinstance(module, Module):
@@ -645,6 +636,9 @@ class LayerToTimedModule(TimedModule):
         spiking_input = layer.input_type is TSEvent
         spiking_output = layer.output_type is TSEvent
 
+        # - Record layer as submodule
+        self._module = layer
+
         super().__init__(
             shape=(layer.size_in, layer.size),
             dt=layer.dt,
@@ -652,8 +646,6 @@ class LayerToTimedModule(TimedModule):
             spiking_output=spiking_output,
         )
 
-        # - Record layer as submodule
-        self._module = layer
         self._name = layer.name
 
         # - Record parameters
@@ -670,9 +662,16 @@ class LayerToTimedModule(TimedModule):
         if simulation_parameters is not None:
             for sim_param in simulation_parameters:
                 self._register_attribute(
-                    sim_param,
-                    SimulationParameter(getattr(self._module, sim_param)),
+                    sim_param, SimulationParameter(getattr(self._module, sim_param))
                 )
+
+    def reset_time(self):
+        super().reset_time()
+        self._module.reset_time()
+
+    def reset_state(self):
+        super().reset_state()
+        self._module.reset_state()
 
     def evolve(
         self,
@@ -688,7 +687,7 @@ class LayerToTimedModule(TimedModule):
         ts_output = self._module.evolve(ts_input, duration, num_timesteps)
 
         # - Return output, state and record dict
-        return ts_output, self.attributes_named('state'), {}
+        return ts_output, self.attributes_named("state"), {}
 
     def __setattr__(self, key, value):
         # - Set value using superclass
