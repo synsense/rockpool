@@ -41,7 +41,11 @@ def test_Sequential_nojax():
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    output, _, _, = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -84,7 +88,11 @@ def test_FFwdStack_jax():
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    output, _, _, = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -93,4 +101,8 @@ def test_FFwdStack_jax():
 
     # - Test compilation
     je = jit(seq)
-    output, _, _, = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)

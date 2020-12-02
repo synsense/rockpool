@@ -1,7 +1,7 @@
 def test_quantise():
-    from rockpool.quantize import StochasticQuantize
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.ffwd_stack import FFwdStack
+    from rockpool.transform.quantize import StochasticQuantize
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
 
     import numpy as np
 
@@ -20,9 +20,9 @@ def test_quantise():
 
 
 def test_dropout():
-    from rockpool.dropout import Dropout
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.ffwd_stack import FFwdStack
+    from rockpool.transform.dropout import Dropout
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
 
     import numpy as np
 

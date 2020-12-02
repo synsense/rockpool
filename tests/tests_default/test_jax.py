@@ -6,20 +6,28 @@ config.update("jax_log_compiles", True)
 
 
 def test_imports():
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.module import Module
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules.module import Module
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import Parameter, SimulationParameter, State
 
 
 def test_euler_jax():
-    from rockpool.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
 
     from jax import jit
 
     import numpy as np
 
-    lyr = RateEulerJax(tau=np.random.rand(2,) * 10, bias=np.random.rand(2,),)
+    lyr = RateEulerJax(
+        tau=np.random.rand(
+            2,
+        )
+        * 10,
+        bias=np.random.rand(
+            2,
+        ),
+    )
     lyr = lyr.reset_state()
 
     print(lyr.parameters())
@@ -71,8 +79,8 @@ def test_euler_jax():
 
 
 def test_ffwd_net():
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import Parameter
 
     import numpy as np
@@ -93,8 +101,15 @@ def test_ffwd_net():
                     ),
                 )
 
-                tau = np.random.rand(N_out,) * 10
-                bias = np.random.rand(N_out,)
+                tau = (
+                    np.random.rand(
+                        N_out,
+                    )
+                    * 10
+                )
+                bias = np.random.rand(
+                    N_out,
+                )
                 setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -152,8 +167,8 @@ def test_ffwd_net():
 
 
 def test_sgd():
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import Parameter
 
     import jax
@@ -173,8 +188,15 @@ def test_sgd():
                     Parameter(np.random.rand(N_in, N_out), "weights"),
                 )
 
-                tau = np.random.rand(N_out,) * 10
-                bias = np.random.rand(N_out,)
+                tau = (
+                    np.random.rand(
+                        N_out,
+                    )
+                    * 10
+                )
+                bias = np.random.rand(
+                    N_out,
+                )
                 setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -254,8 +276,8 @@ def test_sgd():
 
 
 def test_nonjax_submodule():
-    from rockpool.module import Module
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.modules.module import Module
+    from rockpool.nn.modules.jax.jax_module import JaxModule
 
     class nonjax_mod(Module):
         def evolve(self, input, record: bool = False):

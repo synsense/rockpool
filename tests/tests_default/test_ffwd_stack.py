@@ -2,12 +2,12 @@ import pytest
 
 
 def test_imports():
-    from rockpool.ffwd_stack import FFwdStackMixin, FFwdStack
+    from rockpool.nn.combinators.ffwd_stack import FFwdStackMixin, FFwdStack
 
 
 def test_FFwdStack_nojax():
-    from rockpool.ffwd_stack import FFwdStack
-    from rockpool.module import Module
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules.module import Module
     from rockpool.parameters import State, Parameter
 
     import numpy as np
@@ -24,13 +24,22 @@ def test_FFwdStack_nojax():
         def evolve(self, input_data, weights_recurrent=None, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    output, _, _, = seq(input_data)
+    (
+        output,
+        _,
+        _,
+    ) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -39,8 +48,8 @@ def test_FFwdStack_nojax():
 
 
 def test_FFwdStack_jax():
-    from rockpool.ffwd_stack import FFwdStack
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import State, Parameter
 
     import numpy as np
@@ -59,13 +68,22 @@ def test_FFwdStack_jax():
         def evolve(self, input_data, weights_recurrent=None, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    seq = FFwdStack(
+        Mod(10),
+        Mod(20),
+        Mod(30),
+        Mod(1),
+    )
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    output, new_state, _, = seq(input_data)
+    (
+        output,
+        new_state,
+        _,
+    ) = seq(input_data)
     seq = seq.set_attributes(new_state)
     print(output.shape)
 
@@ -75,7 +93,11 @@ def test_FFwdStack_jax():
 
     # - Test jit evolve
     je = jit(seq)
-    output, new_state, _, = je(input_data)
+    (
+        output,
+        new_state,
+        _,
+    ) = je(input_data)
     seq = seq.set_attributes(new_state)
     print(output.shape)
 
@@ -86,5 +108,8 @@ def test_FFwdStack_jax():
         return jnp.sum(output)
 
     vg = value_and_grad(loss)
-    loss, grads, = vg(seq.parameters(), seq, input_data)
+    (
+        loss,
+        grads,
+    ) = vg(seq.parameters(), seq, input_data)
     print(loss, grads)

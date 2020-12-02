@@ -4,11 +4,11 @@ config.update("jax_log_compiles", True)
 
 
 def test_imports():
-    from rockpool.lif_jax import LIFJax
+    from rockpool.nn.modules.jax.lif_jax import LIFJax
 
 
 def test_lif_jax():
-    from rockpool.lif_jax import LIFJax
+    from rockpool.nn.modules.jax.lif_jax import LIFJax
 
     from jax import jit
 
@@ -63,8 +63,8 @@ def test_lif_jax():
 
 
 def test_ffwd_net():
-    from rockpool.lif_jax import LIFJax
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.modules.jax.lif_jax import LIFJax
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import Parameter
 
     import numpy as np
@@ -138,10 +138,10 @@ def test_ffwd_net():
 
 
 def test_sgd():
-    from rockpool.lif_jax import LIFJax
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.modules.jax.lif_jax import LIFJax
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import Parameter
-    from rockpool.jax_loss import mse, l0_norm_approx
+    from rockpool.training.jax_loss import mse, l0_norm_approx
 
     import jax
     from jax import jit

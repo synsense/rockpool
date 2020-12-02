@@ -1,16 +1,16 @@
 def test_imports():
-    from rockpool.jax_loss import mse, bounds_cost
+    from rockpool.training.jax_loss import mse, bounds_cost
 
 
 def test_mse():
-    from rockpool.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from jax.experimental.optimizers import adam
 
     import jax
     from jax import jit, numpy as jnp
     import numpy as np
 
-    from rockpool.jax_loss import mse
+    from rockpool.training.jax_loss import mse
 
     mod = RateEulerJax(2)
     params0 = mod.parameters()
@@ -45,7 +45,9 @@ def test_mse():
 
 
 def test_bounds_cost():
-    from rockpool.rate_jax import RateEulerJax
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.training.jax_loss import bounds_cost, make_bounds
+
     from jax.experimental.optimizers import adam
 
     from copy import deepcopy
@@ -53,8 +55,6 @@ def test_bounds_cost():
     import jax
     from jax import jit, numpy as jnp
     import numpy as np
-
-    from rockpool.jax_loss import bounds_cost, make_bounds
 
     mod = RateEulerJax((2, 2))
     params0 = mod.parameters()
@@ -71,8 +71,8 @@ def test_bounds_cost():
 
 
 def test_l2norm():
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.jax_loss import l2_norm
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.training.jax_loss import l2_norm
 
     mod = RateEulerJax((2, 2))
 
@@ -80,9 +80,9 @@ def test_l2norm():
 
 
 def test_l0norm():
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.jax_loss import l0_norm_approx
-    from rockpool.ffwd_stack import FFwdStack
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.training.jax_loss import l0_norm_approx
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
 
     mod = RateEulerJax((2, 2))
 

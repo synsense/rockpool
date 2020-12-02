@@ -2,11 +2,11 @@ import pytest
 
 
 def test_imports():
-    from rockpool.module import Module
+    from rockpool.nn.modules.module import Module
 
 
 def test_module():
-    from rockpool.module import Module
+    from rockpool.nn.modules.module import Module
     from rockpool.parameters import Parameter, State, SimulationParameter
     import numpy as np
 
@@ -65,8 +65,8 @@ def test_module():
 
 
 def test_submodules():
-    from rockpool.rate_jax import RateEulerJax
-    from rockpool.module import Module
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    from rockpool.nn.modules.module import Module
     from rockpool.parameters import Parameter, SimulationParameter, State
     import numpy as np
 

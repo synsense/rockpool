@@ -2,7 +2,7 @@ from pytest import raises
 
 
 def test_linear():
-    from rockpool.linear import Linear
+    from rockpool.nn.modules.native.linear import Linear
 
     import numpy as np
 
@@ -26,7 +26,7 @@ def test_linear():
 
 
 def test_jaxlinear():
-    from rockpool.linear import JaxLinear
+    from rockpool.nn.modules.native.linear import JaxLinear
     from jax import jit
 
     import numpy as np
