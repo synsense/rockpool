@@ -16,6 +16,7 @@ import heapq
 from rockpool.timeseries import TSEvent, TSContinuous
 
 from rockpool.nn.layers.layer import Layer
+from rockpool.nn.modules.timed_module import astimedmodule
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -35,6 +36,18 @@ tMinRefractory = 1e-9
 # - RecDIAF - Class: define a spiking recurrent layer based on digital IAF neurons
 
 
+@astimedmodule(
+    parameters=[
+        "weights_in",
+        "weights_rec",
+        "tau_leak",
+        "refractory",
+        "v_thresh",
+        "leak",
+    ],
+    simulation_parameters=["dt", "delay", "state_type", "monitor_id"],
+    states=["state"],
+)
 class RecDIAF(Layer):
     """
     Define a spiking recurrent layer based on quantized digital IAF neurons
@@ -553,10 +566,10 @@ class RecDIAF(Layer):
                 + " set by changing _min_refractory."
             )
 
-    @Layer.dt.setter
-    def dt(self, _):
-        """ (float) Time step for this layer """
-        raise ValueError("The `dt` property cannot be set for this layer")
+    # @Layer.dt.setter
+    # def dt(self, _):
+    #     """ (float) Time step for this layer """
+    #     raise ValueError("The `dt` property cannot be set for this layer")
 
     @property
     def tau_leak(self):
