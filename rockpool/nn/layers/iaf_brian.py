@@ -18,10 +18,10 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from ..timeseries import TSContinuous, TSEvent
+from rockpool.timeseries import TSContinuous, TSEvent
 
-from .layer import Layer
-from ..utilities.timedarray_shift import TimedArray as TAShift
+from rockpool.nn.layers.layer import Layer
+from rockpool.utilities.timedarray_shift import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List, Any
 
@@ -29,7 +29,7 @@ from typing import Optional, Union, Tuple, List, Any
 ArrayLike = Union[np.ndarray, List, Tuple]
 FloatVector = Union[float, np.ndarray]
 
-from ..timed_module import astimedmodule
+from rockpool.nn.modules.timed_module import astimedmodule
 
 # - Configure exports
 __all__ = [
@@ -521,7 +521,6 @@ class FFIAFBrianBase(Layer):
         "weights",
         "bias",
         "tau_mem",
-        "tau_syn",
         "v_thresh",
         "v_reset",
         "v_rest",
@@ -1416,7 +1415,7 @@ class RecIAFBrianBase(Layer):
         "weights",
         "bias",
         "tau_mem",
-        "tau_syn",
+        "tau_syn_r",
         "v_thresh",
         "v_reset",
         "v_rest",

@@ -15,8 +15,10 @@ if util.find_spec("numba") is None:
 import numpy as np
 from numba import njit
 
-from ..timeseries import TSContinuous
-from .layer import Layer
+from rockpool.timeseries import TSContinuous
+from rockpool.nn.layers.layer import Layer
+
+from rockpool.nn.modules.timed_module import astimedmodule
 
 # from ..training.gpl.rr_trained_layer import RRTrainedLayer
 
@@ -186,8 +188,6 @@ def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarra
 
 
 ### --- FFRateLayer base class
-
-from ..timed_module import astimedmodule
 
 
 class FFRateLayerBase(Layer):

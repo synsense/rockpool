@@ -7,13 +7,13 @@ import pytest
 
 
 def test_imports():
-    pass
+    from rockpool.nn.layers.rate import FFRateEuler, FFRateLayerBase, PassThrough
 
 
 def test_FFRateEuler():
     """ Test FFRateEuler """
-    from rockpool import TSContinuous
-    from nn.layers import FFRateEuler
+    from rockpool.timeseries import TSContinuous
+    from rockpool.nn.layers.rate import FFRateEuler
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 3) - 1
@@ -54,8 +54,9 @@ def test_FFRateEuler():
 
 def test_ff_rate_euler_train():
     """Test ridge regression for FFRateEuler"""
-    from rockpool import TSContinuous, TSEvent
-    from nn.layers import FFRateEuler, FFExpSyn, PassThrough
+    from rockpool.timeseries import TSContinuous, TSEvent
+    from rockpool.nn.layers.rate import FFRateEuler, PassThrough
+    from rockpool.nn.layers.exp_synapses_manual import FFExpSyn
 
     # - Layers
     size_in = 6
@@ -145,8 +146,8 @@ def test_ff_rate_euler_train():
 
 def test_RecRateEuler():
     """ Test RecRateEuler """
-    from rockpool import TSContinuous
-    from nn.layers import RecRateEuler
+    from rockpool.timeseries import TSContinuous
+    from rockpool.nn.layers.rate import RecRateEuler
 
     # - Generic parameters
     weights = 2 * np.random.rand(2, 2) - 1
