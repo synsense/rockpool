@@ -4,19 +4,68 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".property_arrays": (
-        "SetterArray",
-        "ImmutableArray",
-        "RefArray",
-        "RefProperty",
+    ".layer": "Layer",
+    ".iaf_brian": (
+        "FFIAFBrian",
+        "FFIAFSpkInBrian",
+        "RecIAFBrian",
+        "RecIAFSpkInBrian",
     ),
-    ".type_handling": ("ArrayLike", "to_scalar"),
-    ".timedarray_shift": "TimedArray",
+    ".rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
+    ".event_pass": "PassThroughEvents",
+    ".exp_synapses_brian": "FFExpSynBrian",
+    ".exp_synapses_manual": "FFExpSyn",
+    ".iaf_cl": ("FFCLIAF", "RecCLIAF", "CLIAF"),
+    ".softmaxlayer": "SoftMaxLayer",
+    ".iaf_digital": "RecDIAF",
+    ".spike_bt": "RecFSSpikeEulerBT",
+    ".spike_ads": "RecFSSpikeADS",
+    ".updown": "FFUpDown",
+    ".pytorch.exp_synapses_torch": "FFExpSynTorch",
+    ".pytorch.iaf_torch": (
+        "FFIAFTorch",
+        "FFIAFRefrTorch",
+        "FFIAFSpkInTorch",
+        "FFIAFSpkInRefrTorch",
+        "RecIAFTorch",
+        "RecIAFRefrTorch",
+        "RecIAFSpkInTorch",
+        "RecIAFSpkInRefrTorch",
+        "RecIAFSpkInRefrCLTorch",
+    ),
+    ".iaf_nest": ("FFIAFNest", "RecIAFSpkInNest"),
+    ".aeif_nest": "RecAEIFSpkInNest",
+    ".devices.dynap_hw": ("RecDynapSE", "RecDynapSEDemo"),
+    ".devices.virtual_dynapse": "VirtualDynapse",
+    ".rate_jax": (
+        "RecRateEulerJax",
+        "RecRateEulerJax_IO",
+        "ForceRateEulerJax_IO",
+        "FFRateEulerJax",
+        "H_ReLU",
+        "H_tanh",
+    ),
+    ".filter_bank": ("ButterMelFilter", "ButterFilter"),
+    ".lif_jax": (
+        "RecLIFJax",
+        "RecLIFCurrentInJax",
+        "RecLIFCurrentInJax_SO",
+        "RecLIFJax_IO",
+        "RecLIFCurrentInJax_IO",
+        "FFLIFJax_IO",
+        "FFLIFJax_SO",
+        "FFLIFCurrentInJax_SO",
+        "FFExpSynCurrentInJax",
+        "FFExpSynJax",
+    ),
 }
 
 
 # - Define current package
-strBasePackage = "rockpool.utilities"
+strBasePackage = "rockpool.layers"
+
+# - Define docstring for module
+__doc__ = """Defines classes for simulating layers of neurons"""
 
 # - Initialise list of available modules
 __all__ = []

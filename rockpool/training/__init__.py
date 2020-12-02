@@ -4,19 +4,14 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".property_arrays": (
-        "SetterArray",
-        "ImmutableArray",
-        "RefArray",
-        "RefProperty",
-    ),
-    ".type_handling": ("ArrayLike", "to_scalar"),
-    ".timedarray_shift": "TimedArray",
+    ".rr_trained_layer": "RRTrainedLayer",
+    ".jax_trainer": "JaxTrainer",
+    ".utilities": "gradient_evolution",
 }
 
 
 # - Define current package
-strBasePackage = "rockpool.utilities"
+strBasePackage = "rockpool.layers.training"
 
 # - Initialise list of available modules
 __all__ = []

@@ -4,19 +4,18 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".property_arrays": (
-        "SetterArray",
-        "ImmutableArray",
-        "RefArray",
-        "RefProperty",
-    ),
-    ".type_handling": ("ArrayLike", "to_scalar"),
-    ".timedarray_shift": "TimedArray",
+    ".network": "Network",
+    ".net_deneve": "NetworkDeneve",
+    ".net_ads": "NetworkADS",
+    # ".net_rate_reservoir": ("build_rate_reservoir", "build_random_reservoir"),
+    # ".stack_jax": "JaxStack",
 }
 
-
 # - Define current package
-strBasePackage = "rockpool.utilities"
+strBasePackage = "rockpool.networks"
+
+# - Define docstring for module
+__doc__ = """Defines classes for encapsulating and generating networks of layers"""
 
 # - Initialise list of available modules
 __all__ = []
