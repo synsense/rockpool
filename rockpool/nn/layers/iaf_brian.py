@@ -4,6 +4,7 @@
 
 
 # - Imports
+from warnings import warn
 
 from importlib import util
 
@@ -17,10 +18,10 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from timeseries import TSContinuous, TSEvent
+from ..timeseries import TSContinuous, TSEvent
 
-from rockpool.nn.layers.layer import Layer
-from rockpool.utilities.timedarray_shift import TimedArray as TAShift
+from .layer import Layer
+from ..utilities.timedarray_shift import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List, Any
 
@@ -28,11 +29,13 @@ from typing import Optional, Union, Tuple, List, Any
 ArrayLike = Union[np.ndarray, List, Tuple]
 FloatVector = Union[float, np.ndarray]
 
+from ..timed_module import astimedmodule
+
 # - Configure exports
 __all__ = [
-    "FFIAFBrian",
+    "FFIAFBrianBase",
     "FFIAFSpkInBrian",
-    "RecIAFBrian",
+    "RecIAFBrianBase",
     "RecIAFSpkInBrian",
     "eqNeuronIAFFF",
     "eqNeuronIAFSpkInFF",
@@ -134,7 +137,7 @@ eqSynapseExpSpkInRec = b2.Equations(
 )
 
 
-class FFIAFBrian(Layer):
+class FFIAFBrianBase(Layer):
     """A spiking feedforward layer with current inputs and spiking outputs"""
 
     ## - Constructor
@@ -513,7 +516,43 @@ class FFIAFBrian(Layer):
         raise ValueError("The `dt` property cannot be set for this layer")
 
 
-class FFIAFSpkInBrian(FFIAFBrian):
+@astimedmodule(
+    parameters=[
+        "weights",
+        "bias",
+        "tau_mem",
+        "tau_syn",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+    ],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
+)
+class FFIAFBrian(FFIAFBrianBase):
+    pass
+
+
+@astimedmodule(
+    parameters=[
+        "weights",
+        "bias",
+        "tau_mem",
+        "tau_syn",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+    ],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
+)
+class FFIAFSpkInBrian(FFIAFBrianBase):
     """Spiking feedforward layer with spiking inputs and outputs"""
 
     ## - Constructor
@@ -987,7 +1026,7 @@ class FFIAFSpkInBrian(FFIAFBrian):
 
 
 ## - RecIAFBrian - Class: define a spiking recurrent layer with exponential synaptic outputs
-class RecIAFBrian(Layer):
+class RecIAFBrianBase(Layer):
     """A spiking recurrent layer with current inputs and spiking outputs, using a Brian2 backend"""
 
     ## - Constructor
@@ -1372,8 +1411,45 @@ class RecIAFBrian(Layer):
         )
 
 
+@astimedmodule(
+    parameters=[
+        "weights",
+        "bias",
+        "tau_mem",
+        "tau_syn",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+    ],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
+)
+class RecIAFBrian(RecIAFBrianBase):
+    pass
+
+
 # - Spiking recurrent layer with spiking in- and outputs
-class RecIAFSpkInBrian(RecIAFBrian):
+@astimedmodule(
+    parameters=[
+        "weights",
+        "bias",
+        "tau_mem",
+        "tau_syn_inp",
+        "tau_syn_rec",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+    ],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
+)
+class RecIAFSpkInBrian(RecIAFBrianBase):
     """Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend"""
 
     ## - Constructor

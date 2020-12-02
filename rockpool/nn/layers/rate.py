@@ -15,9 +15,10 @@ if util.find_spec("numba") is None:
 import numpy as np
 from numba import njit
 
-from rockpool.timeseries import TSContinuous
-from rockpool.nn.layers.layer import Layer
-from rockpool.training.rr_trained_layer import RRTrainedLayer
+from ..timeseries import TSContinuous
+from .layer import Layer
+
+# from ..training.gpl.rr_trained_layer import RRTrainedLayer
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
@@ -186,8 +187,10 @@ def get_rec_evolution_function(activation_func: Callable[[np.ndarray], np.ndarra
 
 ### --- FFRateLayer base class
 
+from ..timed_module import astimedmodule
 
-class FFRateLayer(RRTrainedLayer):
+
+class FFRateLayerBase(Layer):
     """ Base class for feed-forward layers of rate based neurons """
 
     def __init__(
@@ -350,7 +353,12 @@ class FFRateLayer(RRTrainedLayer):
 ### --- PassThrough class
 
 
-class PassThrough(FFRateLayer):
+@astimedmodule(
+    parameters=["weights", "bias", "delay"],
+    states=["ts_buffer"],
+    simulation_parameters=["noise_std"],
+)
+class PassThrough(FFRateLayerBase):
     """ Feed-forward layer with neuron states directly corresponding to input with an optional delay """
 
     def __init__(
@@ -529,7 +537,12 @@ class PassThrough(FFRateLayer):
 ### --- FFRateEuler class
 
 
-class FFRateEuler(FFRateLayer):
+@astimedmodule(
+    parameters=["weights", "bias", "gain", "tau"],
+    states=["_state"],
+    simulation_parameters=["noise_std"],
+)
+class FFRateEuler(FFRateLayerBase):
     """
     Feedforward layer consisting of rate-based neurons
 
@@ -824,6 +837,11 @@ class FFRateEuler(FFRateLayer):
         self._alpha = new_dt / self._tau
 
 
+@astimedmodule(
+    parameters=["weights", "bias", "tau"],
+    states=["_state"],
+    simulation_parameters=["noise_std"],
+)
 class RecRateEuler(Layer):
     """
     A standard recurrent non-spiking layer of dynamical neurons
@@ -1050,7 +1068,7 @@ class RecRateEuler(Layer):
         assert new_dt <= min_tau / 10, "`new_dt` must be <= {}".format(min_tau / 10)
 
         # - Call super-class setter
-        super(RecRateEuler, RecRateEuler).dt.__set__(self, new_dt)
+        self._dt = new_dt
 
     @property
     def activation_func(self):
