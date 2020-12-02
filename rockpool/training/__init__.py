@@ -11,7 +11,7 @@ dModules = {
 
 
 # - Define current package
-strBasePackage = "rockpool.layers.training"
+strBasePackage = "rockpool.training"
 
 # - Initialise list of available modules
 __all__ = []

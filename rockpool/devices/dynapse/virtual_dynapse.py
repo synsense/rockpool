@@ -17,7 +17,7 @@ from timeseries import TSEvent
 from rockpool.utilities.property_arrays import ArrayLike, ImmutableArray, SetterArray
 from rockpool.nn.layers.layer import Layer
 from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest
-from . import params
+from nn.layers.devices import params
 
 ### --- Constants
 CONNECTIONS_VALID = 0

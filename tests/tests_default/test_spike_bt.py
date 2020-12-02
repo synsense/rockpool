@@ -53,7 +53,7 @@ def test_RecFSSpikeEulerBT():
 
 def test_SolveLinearSystem():
     """ Test NetworkDeneve.SolveLinearSystem """
-    from nn.networks import NetworkDeneve
+    from rockpool.nn.networks import NetworkDeneve
     import numpy as np
     from rockpool import TSContinuous
 

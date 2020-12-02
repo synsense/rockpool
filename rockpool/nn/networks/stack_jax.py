@@ -2,6 +2,8 @@
 # stack_jax.py — Implement trainable stacks of jax layers
 #
 
+raise ImportError("This module is to be removed.")
+
 from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.nn.networks.network import Network
 from rockpool.training.jax_trainer import JaxTrainer

@@ -9,6 +9,9 @@ This module encapsulates networks -- combinations of multiple `.Layer` objects, 
 ###
 
 
+raise ImportError("This module is to be removed.")
+
+
 ### --- Imports
 import json
 from decimal import Decimal

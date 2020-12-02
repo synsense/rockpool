@@ -4,7 +4,7 @@
 
 from rockpool.nn.layers.layer import Layer
 from rockpool.timeseries import TSEvent
-from devices.dynapse.dynapse_control_extd import DynapseControlExtd
+from devices import DynapseControlExtd
 
 import numpy as np
 from warnings import warn
