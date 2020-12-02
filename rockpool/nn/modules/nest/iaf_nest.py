@@ -1,11 +1,3 @@
-import multiprocessing
-from importlib import util
-
-import numpy as np
-
-from typing import Optional, Union, List, Dict, Tuple
-from warnings import warn
-
 from rockpool.nn.modules.timed_module import astimedmodule 
 from rockpool.nn.layers.iaf_nest import FFIAFNest as FFIAFNestV1 
 from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest as RecIAFSpkInNestV1 
