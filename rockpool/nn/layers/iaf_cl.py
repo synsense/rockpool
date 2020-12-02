@@ -9,6 +9,8 @@ from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.utilities.property_arrays import ArrayLike
 from rockpool.nn.layers.layer import Layer
 
+from rockpool.nn.modules.timed_module import astimedmodule
+
 FloatVector = Union[ArrayLike, float]
 
 # - Try to import tqdm
@@ -31,9 +33,9 @@ tol_abs = 1e-9
 __all__ = ["FFCLIAF", "RecCLIAF"]
 
 
-class CLIAF(Layer):
+class CLIAF_Base(Layer):
     """
-    *DEPRECATED* Abstract layer class of integrate and fire neurons with constant leak
+    Abstract layer class of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -233,9 +235,9 @@ class CLIAF(Layer):
             self._id_monitor = np.array(new_ids)
 
 
-class FFCLIAF(CLIAF):
+class FFCLIAF_Base(CLIAF_Base):
     """
-    *DEPRECATED* Feedforward layer of integrate and fire neurons with constant leak
+    Feedforward layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -429,9 +431,33 @@ class FFCLIAF(CLIAF):
         self.weights_in = new_w
 
 
-class RecCLIAF(CLIAF):
+@astimedmodule(
+    parameters=["weights_in", "bias"],
+    states=["state", "_timestep"],
+    simulation_parameters=["dt", "name", "v_thresh", "v_reset"],
+)
+class FFCLIAF(FFCLIAF_Base):
+    pass
+
+
+@astimedmodule(
+    parameters=[
+        "weights_in",
+        "weights_rec",
+        "bias",
+    ],
+    states=["state", "_num_rec_spikes_q", "_ts_until_refr_ends", "_timestep"],
+    simulation_parameters=[
+        "dt",
+        "name",
+        "v_thresh",
+        "v_reset",
+        "refractory",
+    ],
+)
+class RecCLIAF(CLIAF_Base):
     """
-    *DEPRECATED* Recurrent layer of integrate and fire neurons with constant leak
+    Recurrent layer of integrate and fire neurons with constant leak
     """
 
     def __init__(
@@ -682,8 +708,10 @@ class RecCLIAF(CLIAF):
         #   by filling up deque with zeros
         num_ts_per_delay = self._num_rec_spikes_q.maxlen
         self._num_rec_spikes_q += [np.zeros(self.size) for _ in range(num_ts_per_delay)]
+
         # - Reset refractoriness
         self._ts_until_refr_ends = np.zeros(self.size, int)
+
         # - Reset neuron state to self.v_reset
         self.state = np.clip(self.v_reset, self._min_state, self._max_state).astype(
             self.state_type

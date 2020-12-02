@@ -4,7 +4,7 @@
 
 import numpy as np
 from rockpool.timeseries import TSEvent, TSContinuous
-from rockpool.nn.layers.iaf_cl import FFCLIAF
+from rockpool.nn.layers.iaf_cl import FFCLIAF_Base
 from typing import Optional, Union, Tuple, List
 
 # - Type alias for array-like objects
@@ -21,9 +21,9 @@ def softmax(x: np.ndarray) -> float:
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
 
-class SoftMaxLayer(FFCLIAF):
+class SoftMaxLayer(FFCLIAF_Base):
     """
-    *DEPRECATED* A spiking SoftMax layer with spiking inputs and outputs, and constant leak
+    A spiking SoftMax layer with spiking inputs and outputs, and constant leak
 
     This layer implements an approximation of the "soft-max" function used often in deep classification networks.
     """
