@@ -2,8 +2,8 @@
 # net_rate_reservoir.py - Classes and functions for encapsulating simple rate-based reservoirs
 ###
 
-from nn.networks.network import Network
-from nn.layers import FFRateEuler, RecRateEuler, PassThrough
+from rockpool.nn.networks.network import Network
+from rockpool.nn.layers import FFRateEuler, RecRateEuler, PassThrough
 
 from typing import Union, List, Optional
 import numpy as np

@@ -29,10 +29,10 @@ from warnings import warn
 
 import numpy as np
 
-from timeseries import TimeSeries, TSDictOnDisk
-import nn.layers as layer_module
+from rockpool.timeseries import TimeSeries, TSDictOnDisk
+import rockpool.nn.layers as layer_module
 
-from nn.layers import Layer
+from rockpool.nn.layers.layer import Layer
 
 # - Try to import tqdm
 try:

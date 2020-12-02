@@ -8,7 +8,8 @@ from copy import deepcopy
 import random
 import numpy as np
 import scipy.stats as stats
-from utilities import ArrayLike
+
+from rockpool.utilities.property_arrays import ArrayLike
 
 
 def combine_ff_rec_stack(weights_ff: np.ndarray, weights_rec: np.ndarray) -> np.ndarray:

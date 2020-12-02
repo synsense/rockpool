@@ -14,7 +14,7 @@ from .iaf_nest import (
     COMMAND_GET,
     COMMAND_SET,
 )
-from utilities import SetterArray, ImmutableArray
+from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 
 import importlib
 

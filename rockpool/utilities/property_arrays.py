@@ -5,7 +5,8 @@ property_arrays.py - Collection of array classes to be used as properties to con
 
 from typing import Optional, Any, Union, Callable
 import numpy as np
-from utilities.type_handling import ArrayLike
+
+from rockpool.utilities.type_handling import ArrayLike
 
 # - Try to import PyTorch functions
 try:

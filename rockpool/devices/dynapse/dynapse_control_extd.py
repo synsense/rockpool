@@ -8,8 +8,8 @@ from typing import List, Union, Optional, Tuple
 
 import numpy as np
 
-from .dynapse_control import DynapseControl
-from ..timeseries import TSEvent
+from rockpool.devices.dynapse.dynapse_control import DynapseControl
+from rockpool.timeseries import TSEvent
 
 __all__ = ["DynapseControlExtd"]
 

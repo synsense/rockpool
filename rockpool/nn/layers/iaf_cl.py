@@ -5,9 +5,9 @@
 import numpy as np
 from typing import Optional, Union
 from collections import deque
-from timeseries import TSEvent, TSContinuous
-from utilities import ArrayLike
-from nn.layers import Layer
+from rockpool.timeseries import TSEvent, TSContinuous
+from rockpool.utilities.property_arrays import ArrayLike
+from rockpool.nn.layers.layer import Layer
 
 FloatVector = Union[ArrayLike, float]
 

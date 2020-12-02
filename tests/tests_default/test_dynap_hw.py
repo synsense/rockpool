@@ -8,7 +8,7 @@ RUN_TEST = False
 
 try:
     from rockpool.devices import DynapseControlExtd
-    from rockpool.devices import dynapse_control as dc
+    from devices.dynapse import dynapse_control as dc
 except ImportError:
     warn("DynapseControl could not be imported. Maybe RPyC is not available.")
 else:

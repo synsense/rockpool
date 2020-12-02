@@ -2,9 +2,9 @@
 # dynap_hw.py - Implementation of HW FF and Rec layers for DynapSE, via ctxCTL
 # ----
 
-from nn.layers import Layer
-from timeseries import TSEvent
-from devices.dynapse_control_extd import DynapseControlExtd
+from rockpool.nn.layers.layer import Layer
+from rockpool.timeseries import TSEvent
+from devices.dynapse.dynapse_control_extd import DynapseControlExtd
 
 import numpy as np
 from warnings import warn

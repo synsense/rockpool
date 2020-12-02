@@ -4,7 +4,6 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".networks.network": "Network",
     ".timeseries": (
         "TimeSeries",
         "TSContinuous",

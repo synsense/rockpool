@@ -3,7 +3,7 @@ Implement the layer for the NetworkADS (Arbitrary Dynamical System), which is ca
 an arbitrary dynamical system.
 """
 
-from nn.layers import Layer
+from rockpool.nn.layers.layer import Layer
 from rockpool.timeseries import (
     TSEvent,
     TSContinuous,

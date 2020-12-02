@@ -3,8 +3,8 @@
 ##
 
 import numpy as np
-from timeseries import TSEvent, TSContinuous
-from .iaf_cl import FFCLIAF
+from rockpool.timeseries import TSEvent, TSContinuous
+from rockpool.nn.layers.iaf_cl import FFCLIAF
 from typing import Optional, Union, Tuple, List
 
 # - Type alias for array-like objects

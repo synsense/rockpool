@@ -10,9 +10,9 @@ from warnings import warn
 FloatVector = Union[float, np.ndarray]
 
 
-from timeseries import TSContinuous, TSEvent
-from utilities import SetterArray, ImmutableArray
-from nn.layers import Layer
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
+from rockpool.nn.layers.layer import Layer
 
 if util.find_spec("nest") is None:
     raise ModuleNotFoundError(

@@ -7,7 +7,7 @@ import numpy as np
 from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.timeseries import TSContinuous
-from nn.layers import Layer
+from rockpool.nn.layers.layer import Layer
 
 
 class FilterBank(Layer, ABC):

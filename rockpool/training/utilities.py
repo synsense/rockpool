@@ -2,8 +2,8 @@
 # rockpool.layers.training.utilities – Module containing training utilities
 #
 
-from .jax_trainer import JaxTrainer
-from timeseries import TimeSeries, TSContinuous
+from rockpool.training.jax_trainer import JaxTrainer
+from rockpool.timeseries import TimeSeries, TSContinuous
 
 from importlib import util
 

@@ -14,9 +14,9 @@ import numpy as np
 
 # rockpool modules
 from timeseries import TSEvent
-from utilities import ArrayLike, ImmutableArray, SetterArray
-from nn.layers import Layer
-from nn.layers import RecAEIFSpkInNest
+from rockpool.utilities.property_arrays import ArrayLike, ImmutableArray, SetterArray
+from rockpool.nn.layers.layer import Layer
+from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest
 from . import params
 
 ### --- Constants

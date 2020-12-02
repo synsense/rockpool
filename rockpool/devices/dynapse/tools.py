@@ -9,8 +9,8 @@ from typing import Optional, Union, List, Tuple
 
 from rpyc.core.netref import BaseNetref
 import CtxDynapse
-from NeuronNeuronConnector import DynapseConnector
-from params import (
+from rockpool.devices.dynapse.NeuronNeuronConnector import DynapseConnector
+from rockpool.devices.dynapse.params import (
     FPGA_ISI_LIMIT,
     NUM_NEURONS_CORE,
     NUM_CORES_CHIP,

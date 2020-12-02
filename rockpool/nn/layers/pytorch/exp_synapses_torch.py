@@ -19,9 +19,9 @@ if importlib.util.find_spec("torch") is None:
 
 import torch
 
-from timeseries import TSContinuous, TSEvent
-from ..exp_synapses_manual import FFExpSyn
-from utilities import RefProperty
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.nn.layers.exp_synapses_manual import FFExpSyn
+from rockpool.utilities.property_arrays import RefProperty
 
 
 # - Configure exports

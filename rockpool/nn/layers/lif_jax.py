@@ -3,9 +3,9 @@
 #
 
 # - Imports
-from nn.layers import Layer
-from training import JaxTrainer
-from timeseries import TSContinuous, TSEvent, TimeSeries
+from rockpool.nn.layers.layer import Layer
+from rockpool.training.jax_trainer import JaxTrainer
+from rockpool.timeseries import TSContinuous, TSEvent, TimeSeries
 
 from importlib import util
 

@@ -10,9 +10,9 @@ import json
 import numpy as np
 
 # - Local imports
-from timeseries import TSContinuous, TSEvent
-from utilities import ArrayLike
-from nn.layers import Layer
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.utilities.property_arrays import ArrayLike
+from rockpool.nn.layers.layer import Layer
 
 # - Default maximum numbers of time steps for a single evolution batch
 MAX_NUM_TIMESTEPS_DEFAULT = 5000

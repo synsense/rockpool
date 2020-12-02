@@ -14,9 +14,9 @@ from warnings import warn
 import numpy as np
 
 # - Local imports
-from timeseries import TSEvent, TSContinuous, TimeSeries
-from nn.layers import Layer
-from .train_rr import RidgeRegrTrainer
+from rockpool.timeseries import TSEvent, TSContinuous, TimeSeries
+from rockpool.nn.layers.layer import Layer
+from rockpool.training.train_rr import RidgeRegrTrainer
 
 
 class RRTrainedLayer(Layer, ABC):

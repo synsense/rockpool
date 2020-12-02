@@ -24,9 +24,7 @@ sys.path.insert(1, strNetworkPath)
 
 from timeseries import TSContinuous, TSEvent
 
-from nn.layers import Layer
-
-from nn.layers import TimedArray as TAShift
+from rockpool.nn.layers.layer import Layer
 
 # - Teili
 from teili import Neurons as teiliNG, Connections as teiliSyn, teiliNetwork

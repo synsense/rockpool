@@ -14,7 +14,7 @@ from warnings import warn
 import numpy as np
 
 from rockpool import TSContinuous, TSEvent
-from rockpool.devices import dynapse_control_extd as dce
+from devices.dynapse import dynapse_control_extd as dce
 from nn.layers import FFUpDown
 from nn.layers import RecDynapSEDemo, RecDynapSE
 import ECG.recordings as rec

@@ -14,8 +14,6 @@ import threading
 
 import numpy as np
 
-from . import params
-
 # - Global settings
 _USE_DEEPCOPY = False
 RPYC_TIMEOUT = 300

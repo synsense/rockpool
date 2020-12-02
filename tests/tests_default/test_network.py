@@ -2,8 +2,11 @@
 Test the methods of the `Network` class
 """
 
-from rockpool import Network
 import numpy as np
+
+
+def test_imports():
+    from rockpool import Network
 
 
 def test_load_save_net():

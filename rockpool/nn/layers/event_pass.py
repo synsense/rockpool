@@ -1,6 +1,7 @@
 import numpy as np
-from timeseries import TSEvent
-from nn.layers import Layer
+from rockpool.timeseries import TSEvent
+from rockpool.nn.layers.layer import Layer
+
 from typing import Optional, Union, Tuple, List, Callable
 from warnings import warn
 

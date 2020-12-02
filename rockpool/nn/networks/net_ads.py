@@ -4,9 +4,10 @@ Author: Julian Buechel
 Note that ADS stands for Arbitrary Dynamical System
 """
 import numpy as np
-from nn.networks.network import Network
-from nn.layers import PassThrough, FFExpSyn, RecFSSpikeADS
-from timeseries import TSContinuous
+from rockpool.nn.networks.network import Network
+from rockpool.nn.layers import PassThrough, FFExpSyn, RecFSSpikeADS
+from rockpool.timeseries import TSContinuous
+
 import json
 
 from typing import Union

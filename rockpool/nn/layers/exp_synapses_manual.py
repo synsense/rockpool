@@ -8,8 +8,8 @@ from typing import Optional, Union, Tuple, List, Dict
 import numpy as np
 from scipy.signal import fftconvolve
 
-from timeseries import TSContinuous, TSEvent
-from training import RRTrainedLayer
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.training.rr_trained_layer import RRTrainedLayer
 
 
 # - Type alias for array-like objects

@@ -4,8 +4,9 @@
 
 ### --- Imports
 
-from nn.layers import Layer
-from timeseries import *
+from rockpool.nn.layers.layer import Layer
+from rockpool.timeseries import *
+
 import numpy as np
 from typing import Union, Callable, Optional, Tuple, Any
 import copy

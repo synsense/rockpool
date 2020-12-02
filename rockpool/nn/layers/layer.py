@@ -6,8 +6,8 @@ import json
 
 import numpy as np
 
-from timeseries import TimeSeries, TSContinuous, TSEvent
-from utilities import to_scalar
+from rockpool.timeseries import TimeSeries, TSContinuous, TSEvent
+from rockpool.utilities.type_handling import to_scalar
 
 # - Configure exports
 __all__ = ["Layer"]

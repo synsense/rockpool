@@ -2,10 +2,10 @@
 # stack_jax.py — Implement trainable stacks of jax layers
 #
 
-from timeseries import TSContinuous, TSEvent
-from nn.networks.network import Network
-from training import JaxTrainer
-from nn.layers import Layer
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.nn.networks.network import Network
+from rockpool.training.jax_trainer import JaxTrainer
+from rockpool.nn.layers.layer import Layer
 
 from typing import Tuple, List, Callable, Dict, Sequence, Optional, Any
 

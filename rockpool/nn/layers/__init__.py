@@ -62,7 +62,7 @@ dModules = {
 
 
 # - Define current package
-strBasePackage = "rockpool.layers"
+strBasePackage = "rockpool.nn.layers"
 
 # - Define docstring for module
 __doc__ = """Defines classes for simulating layers of neurons"""

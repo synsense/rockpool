@@ -18,9 +18,9 @@ import brian2.numpy_ as np
 from brian2.units.stdunits import *
 from brian2.units.allunits import *
 
-from timeseries import TSContinuous, TSEvent
-from nn.layers import Layer
-from rockpool.utilities import TimedArray as TAShift
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.nn.layers.layer import Layer
+from rockpool.utilities.timedarray_shift import TimedArray as TAShift
 
 from typing import Optional, Union, Tuple, List
 

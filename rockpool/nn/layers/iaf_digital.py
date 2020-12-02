@@ -13,9 +13,9 @@ from typing import Union, Optional, List, Tuple
 import numpy as np
 import heapq
 
-from timeseries import TSEvent, TSContinuous
+from rockpool.timeseries import TSEvent, TSContinuous
 
-from nn.layers import Layer
+from rockpool.nn.layers.layer import Layer
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]

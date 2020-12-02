@@ -19,9 +19,9 @@ if importlib.util.find_spec("torch") is None:
 
 import torch
 
-from timeseries import TSContinuous, TSEvent
-from utilities import RefProperty
-from nn.layers import Layer
+from rockpool.timeseries import TSContinuous, TSEvent
+from rockpool.utilities.property_arrays import RefProperty
+from rockpool.nn.layers.layer import Layer
 
 # - Configure exports
 __all__ = ["FFIAFTorch", "FFIAFSpkInTorch", "RecIAFTorch", "RecIAFSpkInTorch"]

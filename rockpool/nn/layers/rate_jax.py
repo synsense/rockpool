@@ -29,9 +29,9 @@ import numpy as onp
 
 from typing import Optional, Tuple, Callable, Union, Dict, List, Any
 
-from nn.layers import Layer
-from training.jax_trainer import JaxTrainer
-from timeseries import TimeSeries, TSContinuous
+from rockpool.nn.layers.layer import Layer
+from rockpool.training.jax_trainer import JaxTrainer
+from rockpool.timeseries import TimeSeries, TSContinuous
 
 
 # -- Define module exports

@@ -15,9 +15,9 @@ if util.find_spec("numba") is None:
 import numpy as np
 from numba import njit
 
-from timeseries import TSContinuous
-from nn.layers import Layer
-from training import RRTrainedLayer
+from rockpool.timeseries import TSContinuous
+from rockpool.nn.layers.layer import Layer
+from rockpool.training.rr_trained_layer import RRTrainedLayer
 
 # - Type alias for array-like objects
 ArrayLike = Union[np.ndarray, List, Tuple]
