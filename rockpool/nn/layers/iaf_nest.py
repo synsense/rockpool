@@ -1106,7 +1106,7 @@ class FFIAFNestV1(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        raise ValueError(
+        warn(
             self.start_print + "The `dt` property cannot be set for this layer"
         )
 

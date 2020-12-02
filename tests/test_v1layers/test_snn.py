@@ -12,7 +12,7 @@ def test_import():
 
 def test_pt_events():
     """ Test PassThroughEvents layer"""
-    from nn.layers import PassThroughEvents
+    from rockpool.nn.layers import PassThroughEvents
     from rockpool import TSEvent
 
     # - Input signal
@@ -24,11 +24,19 @@ def test_pt_events():
     lpt = PassThroughEvents(np.array([[0, 2], [1, 1], [0, 0]]), dt=0.4)
 
     # - Evolution
-    ts_out = lpt.evolve(ts_input)
+    ts_out, state, rec = lpt.evolve(ts_input)
 
     assert (
         ts_out.channels == np.array([0, 1, 1, 1, 0, 1, 0, 1])
     ).all(), "Output channels incorrect"
+
+    assert lpt._timestep == 3
+    assert lpt._module._timestep == 3
+
+    lpt.reset_all()
+
+    assert lpt._timestep == 0
+    assert lpt._module._timestep == 0
 
 
 def test_ffcliaf_none_attributes():

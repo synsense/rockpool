@@ -1,6 +1,7 @@
 import numpy as np
 from rockpool.timeseries import TSEvent
 from rockpool.nn.layers.layer import Layer
+from rockpool.nn.modules.timed_module import astimedmodule
 
 from typing import Optional, Union, Tuple, List, Callable
 from warnings import warn
@@ -11,6 +12,11 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 __all__ = ["PassThroughEvents"]
 
 
+@astimedmodule(
+    parameters=["weights"],
+    simulation_parameters=["noise_std", "dt"],
+    # states=["_timestep"],
+)
 class PassThroughEvents(Layer):
     """ Pass through events by routing to different channels """
 

@@ -7,11 +7,16 @@ import numpy as np
 ### --- Test iaf_cl.RecCLIAF
 
 
+def test_imports():
+    from rockpool.nn.layers.iaf_cl import FFCLIAF, RecCLIAF, CLIAF_Base
+    from rockpool.nn.layers.softmaxlayer import SoftMaxLayer
+
+
 def test_cliaf_evolve_subtracting():
     """
     Test initialization and evolution of RecCLIAF layer using subtraction after spikes.
     """
-    from nn.layers import RecCLIAF
+    from rockpool.nn.layers.iaf_cl import RecCLIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
@@ -34,7 +39,7 @@ def test_cliaf_evolve_subtracting():
     ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.8)
+    tsOutput, new_state, _ = rl.evolve(ts_input, duration=0.8)
 
     # - Expectation: Input spike will cause neuron 0 to spike 2 times at t=0.55
     #                These spikes will cause neuron 1 to spike once at t=0.65
@@ -58,11 +63,12 @@ def test_cliaf_evolve_resetting():
     """
     Test initialization and evolution of RecCLIAF layer using reset after spikes.
     """
-    from nn.layers import RecCLIAF
+    from rockpool.nn.layers.iaf_cl import RecCLIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 0], [0, 0, 10]])
+
     # - Recurrent weight matrix
     weights_rec = np.array([[0, 3, 0], [0, 0, 0], [0, 0, 0]])
 
@@ -81,7 +87,7 @@ def test_cliaf_evolve_resetting():
     ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.7)
+    tsOutput, new_state, _ = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike once at t=0.55
     #                This spike will not be enough to make other neuron spike.
@@ -107,7 +113,7 @@ def test_diaf_evolve_subtracting():
     """
     Test initialization and evolution of RecDIAF layer using subtraction after spikes.
     """
-    from nn.layers import RecDIAF
+    from rockpool.nn.layers.iaf_digital import RecDIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
@@ -132,7 +138,7 @@ def test_diaf_evolve_subtracting():
     ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.7)
+    tsOutput, new_state, _ = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike 2 times
     #                (not three times because of the leak that reduced state before),
@@ -149,6 +155,8 @@ def test_diaf_evolve_subtracting():
         tsOutput.channels == np.array([0, 0, 1])
     ).all(), "Output spike channels not as expected"
 
+    assert (new_state["state"] == rl._module.state).all()
+
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
@@ -160,7 +168,7 @@ def test_diaf_evolve_resetting():
     Test initialization and evolution of RecDIAF layer using reset after spikes.
     """
 
-    from nn.layers import RecDIAF
+    from rockpool.nn.layers.iaf_digital import RecDIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
@@ -185,7 +193,7 @@ def test_diaf_evolve_resetting():
     ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.7)
+    tsOutput, new_state, __ = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike once at t=0.55
     #                This spikes will not be enough to make other neuron spike.
@@ -198,6 +206,8 @@ def test_diaf_evolve_resetting():
         tsOutput.channels == np.array([0])
     ).all(), "Output spike channels not as expected"
 
+    assert (new_state["state"] == rl._module.state).all()
+
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
@@ -209,7 +219,7 @@ def test_diaf_evolve_vfvrest():
     Test initialization and evolution of RecDIAF layer with resting potential and monitor.
     """
 
-    from nn.layers import RecDIAF
+    from rockpool.nn.layers.iaf_digital import RecDIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
@@ -237,7 +247,7 @@ def test_diaf_evolve_vfvrest():
     ts_input = TSEvent(times=[0.55], channels=[0], t_stop=0.6)
 
     # - Evolution
-    tsOutput = rl.evolve(ts_input, duration=0.9)
+    tsOutput, new_state, _ = rl.evolve(ts_input, duration=0.9)
 
     # - Expectation: Input spike will cause the potential of neuron 0 to increase
     #                and of neuron 2 to decrease. Due to the leak, both potentials

@@ -1,4 +1,5 @@
 from typing import Callable, Iterable, Any
+from copy import deepcopy
 
 from collections import abc
 
@@ -55,7 +56,8 @@ class ParameterBase:
             self.data = self.init_func(self.shape)
         else:
             # - If concrete initialisation data is provided, then override the `init_func`
-            self.init_func = lambda _: data
+            data_copy = deepcopy(data)
+            self.init_func = lambda _: data_copy
 
     def __repr__(self):
         return f"{type(self).__name__}(data={self.data}, family={self.family}, init_func={self.init_func}, shape={self.shape})"
