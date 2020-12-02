@@ -79,7 +79,7 @@ def test_ffiaf_spkin():
 
     fl1.reset_all()
     assert fl1.t == 0
-    assert np.allclose(state_before, new_state)
+    assert (state_before == fl1.state).all()
 
 
 def test_reciaf():

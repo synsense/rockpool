@@ -542,6 +542,10 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         for m in self.modules():
             m.reset_time()
 
+    def reset_all(self):
+        self.reset_state()
+        self.reset_time()
+
 
 class TimedModuleWrapper(TimedModule):
     def __init__(
@@ -707,7 +711,9 @@ class LayerToTimedModule(TimedModule):
             except:
                 return val
         else:
-            raise AttributeError
+            raise AttributeError(
+                f"Attribute {key} not found in TimedModule class {self.class_name} named {self.name}"
+            )
 
     def _get_attribute_family(self, type_name: str, family: str = None):
         # - Get matching attributes
