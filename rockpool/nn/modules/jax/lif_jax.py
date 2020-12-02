@@ -1,6 +1,5 @@
-from .jax_module import JaxModule
-
-from .parameters import Parameter, State, SimulationParameter
+from rockpool.nn.modules.jax.jax_module import JaxModule
+from rockpool.parameters import Parameter, State, SimulationParameter
 
 import numpy as onp
 

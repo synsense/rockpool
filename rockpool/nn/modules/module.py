@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 from warnings import warn
 
-from .parameters import ParameterBase
+from rockpool.parameters import ParameterBase
 
 from collections import ChainMap
 

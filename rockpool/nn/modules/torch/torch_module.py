@@ -1,4 +1,4 @@
-from .module import Module
+from rockpool.nn.modules.module import Module
 
 # from .parameters import Parameter, State, SimulationParameter
 

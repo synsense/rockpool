@@ -3,7 +3,7 @@ import torch
 from typing import Union, List, Tuple
 import numpy as np
 
-from .torch_module import TorchModule
+from rockpool.nn.modules.torch.torch_module import TorchModule
 
 import torch
 import torch.onnx.symbolic_helper as sym_help

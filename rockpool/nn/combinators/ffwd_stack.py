@@ -1,6 +1,6 @@
-from .jax_module import JaxModule
-from .module import Module
-from .parameters import Parameter
+from rockpool.nn.modules.jax.jax_module import JaxModule
+from rockpool.nn.modules.module import Module
+from rockpool.parameters import Parameter
 
 from typing import Tuple, Any
 

@@ -1,4 +1,4 @@
-from rockpool.module import Module
+from rockpool.nn.modules.module import Module
 
 from importlib import util
 

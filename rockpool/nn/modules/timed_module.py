@@ -502,7 +502,11 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
             record_dict,
         )
 
-    def __call__(self, *args, **kwargs,) -> Tuple[TimeSeries, Dict, Dict]:
+    def __call__(
+        self,
+        *args,
+        **kwargs,
+    ) -> Tuple[TimeSeries, Dict, Dict]:
         return self.evolve(*args, **kwargs)
 
     @property
@@ -541,7 +545,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
 class TimedModuleWrapper(TimedModule):
     def __init__(
-        self, module: Module, output_num: int = 0, dt: float = None, *args, **kwargs,
+        self,
+        module: Module,
+        output_num: int = 0,
+        dt: float = None,
+        *args,
+        **kwargs,
     ):
         # - Check that we are wrapping a Module object
         if not isinstance(module, Module):
@@ -657,7 +666,8 @@ class LayerToTimedModule(TimedModule):
         if simulation_parameters is not None:
             for sim_param in simulation_parameters:
                 self._register_attribute(
-                    sim_param, SimulationParameter(getattr(self._module, sim_param)),
+                    sim_param,
+                    SimulationParameter(getattr(self._module, sim_param)),
                 )
 
     def evolve(

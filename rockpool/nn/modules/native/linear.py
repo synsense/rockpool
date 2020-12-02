@@ -1,6 +1,6 @@
-from .module import Module
-from .jax_module import JaxModule
-from .parameters import Parameter
+from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.jax.jax_module import JaxModule
+from rockpool.parameters import Parameter
 
 import numpy as onp
 import jax.numpy as jnp
