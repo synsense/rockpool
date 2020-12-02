@@ -1,5 +1,5 @@
 def NOtest_imports():
-    from rockpool.torch_module import TorchModule
+    from rockpool.nn.modules.torch.torch_module import TorchModule
 
 
 def test_torch_to_rockpool():
@@ -7,7 +7,7 @@ def test_torch_to_rockpool():
     import torch.nn as nn
     import torch.nn.functional as F
 
-    from rockpool.torch_module import TorchModule
+    from rockpool.nn.modules.torch.torch_module import TorchModule
 
     class Net(nn.Module):
         def __init__(self):
@@ -80,7 +80,7 @@ def test_torch_to_rockpool():
 
 
 def test_TorchModule():
-    from rockpool.torch_module import TorchModule
+    from rockpool.nn.modules.torch.torch_module import TorchModule
 
     import torch
     import torch.nn as nn
@@ -152,7 +152,7 @@ def test_TorchModule():
 
 
 def test_TorchLIF():
-    from rockpool.lif_torch import LIFLayer
+    from rockpool.nn.modules.torch.lif_torch import LIFLayer
     import numpy as np
     import torch
 
@@ -171,7 +171,7 @@ def test_TorchLIF():
         tau_syn=tau_syn,
         threshold=1.0,
         learning_window=0.5,
-        device="cuda",
+        device="cpu",
     )
 
     # - Generate some data
@@ -189,7 +189,7 @@ def test_TorchLIF():
 
 
 def test_single_neuron():
-    from rockpool.lif_torch import LIFLayer
+    from rockpool.nn.modules.torch.lif_torch import LIFLayer
     import numpy as np
     import torch
 
@@ -209,6 +209,7 @@ def test_single_neuron():
         learning_window=learning_window,
         batch_size=1,
         dt=0.01,
+        device="cpu",
     )
 
     inp = torch.zeros((10, 1, 2, 1)).cuda()

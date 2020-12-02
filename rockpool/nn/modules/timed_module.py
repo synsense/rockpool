@@ -6,10 +6,10 @@ import numpy as np
 
 from rockpool.timeseries import TimeSeries, TSContinuous, TSEvent
 
-from .module import Module, ModuleBase, PostInitMetaMixin
-from .parameters import SimulationParameter, Parameter, State
+from rockpool.nn.modules.module import Module, ModuleBase, PostInitMetaMixin
+from rockpool.parameters import SimulationParameter, Parameter, State
 
-from .layers.layer import Layer
+from rockpool.nn.layers.layer import Layer
 
 import functools
 

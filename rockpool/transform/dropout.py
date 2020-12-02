@@ -1,7 +1,10 @@
-from .module import Module
-from .jax_module import JaxModule
+from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.jax.jax_module import JaxModule
 
-from .param_transformer import ParameterTransformerMixin, JaxParameterTransformerMixin
+from rockpool.transform.param_transformer import (
+    ParameterTransformerMixin,
+    JaxParameterTransformerMixin,
+)
 
 import jax.random as rand
 import jax.numpy as jnp

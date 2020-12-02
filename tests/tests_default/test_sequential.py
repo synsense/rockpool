@@ -1,5 +1,5 @@
 def test_imports():
-    from rockpool.sequential import (
+    from rockpool.nn.combinators.sequential import (
         SequentialMixin,
         Sequential,
         JaxSequential,
@@ -8,9 +8,9 @@ def test_imports():
 
 
 def test_Sequential_nojax():
-    from rockpool.ffwd_stack import FFwdStack
-    from rockpool.linear import Linear
-    from rockpool.module import Module
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules.native.linear import Linear
+    from rockpool.nn.modules.module import Module
     from rockpool.parameters import State, Parameter
 
     import numpy as np
@@ -54,9 +54,9 @@ def test_Sequential_nojax():
 
 
 def test_FFwdStack_jax():
-    from rockpool.ffwd_stack import FFwdStack
-    from rockpool.linear import JaxLinear
-    from rockpool.jax_module import JaxModule
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules.native.linear import JaxLinear
+    from rockpool.nn.modules.jax.jax_module import JaxModule
     from rockpool.parameters import State, Parameter
 
     import numpy as np

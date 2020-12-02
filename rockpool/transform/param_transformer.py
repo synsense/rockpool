@@ -1,6 +1,6 @@
-from .module import Module
-from .jax_module import JaxModule
-from .parameters import SimulationParameter, State
+from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.jax.jax_module import JaxModule
+from rockpool.parameters import SimulationParameter, State
 
 from typing import Union, List, Tuple, Iterable, Any, Callable, Optional
 

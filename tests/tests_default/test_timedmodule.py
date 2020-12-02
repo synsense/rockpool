@@ -1,9 +1,9 @@
 def test_imports():
-    from rockpool.timed_module import TimedModule, TimedModuleWrapper
+    from rockpool.nn.modules.timed_module import TimedModule, TimedModuleWrapper
 
 
 def test_TimedModule():
-    from rockpool.timed_module import TimedModule
+    from rockpool.nn.modules.timed_module import TimedModule
     from rockpool.timeseries import TimeSeries, TSContinuous, TSEvent
     from rockpool.parameters import State, Parameter, SimulationParameter
 
@@ -68,7 +68,7 @@ def test_TimedModule():
 
 
 def test_submodules():
-    from rockpool.timed_module import TimedModule
+    from rockpool.nn.modules.timed_module import TimedModule
     from rockpool.timeseries import TimeSeries, TSContinuous, TSEvent
     from rockpool.parameters import State, Parameter, SimulationParameter
 
@@ -173,9 +173,9 @@ def test_submodules():
 
 
 def test_wrapper():
-    from rockpool.timed_module import TimedModuleWrapper
-    from rockpool.jax_module import JaxModule
-    from rockpool.rate_jax import RateEulerJax
+    from rockpool.nn.modules.timed_module import TimedModuleWrapper
+    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.parameters import Parameter, SimulationParameter, State
     from rockpool.timeseries import TSContinuous
 
