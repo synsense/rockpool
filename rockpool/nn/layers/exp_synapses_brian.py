@@ -21,6 +21,7 @@ from brian2.units.allunits import *
 from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.nn.layers.layer import Layer
 from rockpool.utilities.timedarray_shift import TimedArray as TAShift
+from rockpool.nn.modules.timed_module import astimedmodule
 
 from typing import Optional, Union, Tuple, List
 
@@ -40,6 +41,11 @@ eqSynapseExp = b2.Equations(
 
 
 ## - FFExpSynBrian - Class: define an exponential synapse layer (spiking input)
+@astimedmodule(
+    parameters=["weights", "tau_syn"],
+    states=["state"],
+    simulation_parameters=["dt", "noise_std"],
+)
 class FFExpSynBrian(Layer):
     """Define an exponential synapse layer (spiking input), with a Brian2 backend"""
 
@@ -189,7 +195,7 @@ class FFExpSynBrian(Layer):
 
         # - Set spikes for spike generator
         if ts_input is not None:
-            event_times, event_channels, _ = ts_input(
+            event_times, event_channels = ts_input(
                 t_start=time_base[0], t_stop=time_base[-1] + self.dt
             )
             self._input_generator.set_spikes(
@@ -285,4 +291,10 @@ class FFExpSynBrian(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        raise ValueError("The `dt` property cannot be set for this layer")
+        warn("The `dt` property cannot be set for this layer")
+
+    def to_dict(self):
+        d = super().to_dict()
+        d["tau_syn"] = self.tau_syn
+
+        return d

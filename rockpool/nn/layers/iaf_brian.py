@@ -513,7 +513,7 @@ class FFIAFBrianBase(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        raise ValueError("The `dt` property cannot be set for this layer")
+        warn("The `dt` property cannot be set for this layer")
 
 
 @astimedmodule(
@@ -1403,7 +1403,7 @@ class RecIAFBrianBase(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        raise ValueError(
+        warn(
             "Layer `{}`: The `dt` property cannot be set for this layer".format(
                 self.name
             )
