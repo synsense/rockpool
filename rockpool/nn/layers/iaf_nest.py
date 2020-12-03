@@ -13,6 +13,7 @@ FloatVector = Union[float, np.ndarray]
 from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 from rockpool.nn.layers.layer import Layer
+from rockpool.nn.modules.timed_module import astimedmodule 
 
 if util.find_spec("nest") is None:
     raise ModuleNotFoundError(
@@ -607,7 +608,7 @@ class _BaseNestProcessSpkInRec(_BaseNestProcess):
 
 
 # - FFIAFNest- Class: define a spiking feedforward layer with spiking outputs
-class FFIAFNest(Layer):
+class FFIAFNestV1(Layer):
     """
     Define a spiking feedforward layer with spiking outputs. NEST backend
     """
@@ -1030,14 +1031,14 @@ class FFIAFNest(Layer):
         self.request_q.put([COMMAND_SET, "C_m", F2mF(new_capacity)])
 
     @property
-    def state(self):
+    def Vmem(self):
         """ (np.ndarray) Membrane potential $V_m$ of the neurons in this layer """
         self.request_q.put([COMMAND_GET, "V_m"])
         vms = np.array(self.result_q.get())
         return SetterArray(mV2V(vms), owner=self, name="state")
 
-    @state.setter
-    def state(self, new_state):
+    @Vmem.setter
+    def Vmem(self, new_state):
         new_state = self._expand_to_net_size(new_state, "state", allow_none=False)
         self.request_q.put([COMMAND_SET, "V_m", V2mV(new_state)])
 
@@ -1105,7 +1106,7 @@ class FFIAFNest(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        raise ValueError(
+        warn(
             self.start_print + "The `dt` property cannot be set for this layer"
         )
 
@@ -1121,7 +1122,7 @@ class FFIAFNest(Layer):
 
 
 # - RecIAFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
-class RecIAFSpkInNest(FFIAFNest):
+class RecIAFSpkInNestV1(FFIAFNestV1):
     """
     Spiking recurrent layer with spiking in- and outputs. NEST backend.
     """
@@ -1499,3 +1500,40 @@ class RecIAFSpkInNest(FFIAFNest):
         self._tau_syn_inh = new_tau_syn_inh
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
+
+FFIAFNest = astimedmodule(
+    parameters=[
+        "weights",
+        "bias",
+        "tau_mem",
+        "capacity",
+        "v_thresh",
+        "v_rest",
+        "v_rest",
+        "refractory",
+        "capacity",
+    ],
+    simulation_parameters=["dt", "num_cores", "record"],
+    states=["Vmem"],
+)(FFIAFNestV1)
+
+RecIAFSpkInNest = astimedmodule(
+parameters=[
+        "weights_in",
+        "weights_rec",
+        "delay_in",
+        "delay_rec",
+        "bias",
+        "tau_mem",
+        "tau_syn_exc",
+        "tau_syn_inh",
+        "capacity",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+        "refractory",
+    ],
+    simulation_parameters=["dt", "record", "num_cores"],
+    states=["Vmem"],
+)(RecIAFSpkInNestV1)
+

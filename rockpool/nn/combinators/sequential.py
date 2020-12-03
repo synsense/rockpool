@@ -1,5 +1,5 @@
 from rockpool.nn.modules.jax.jax_module import JaxModule
-from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.module import Module, ModuleBase
 from rockpool.parameters import Parameter
 
 from typing import Tuple, Any
@@ -40,7 +40,7 @@ class SequentialMixin(ABC):
         other_args = []
         mod_index = 0
         for item in args:
-            if isinstance(item, Module):
+            if isinstance(item, ModuleBase):
                 # - Collect the module and define a name
                 submods.append(item)
                 submod_names.append(f"{mod_index}_{item.class_name}")

@@ -5,7 +5,7 @@ from typing import Union, List, Dict
 import numpy as np
 
 from .iaf_nest import (
-    RecIAFSpkInNest,
+    RecIAFSpkInNestV1,
     _BaseNestProcessSpkInRec,
     s2ms,
     V2mV,
@@ -17,6 +17,7 @@ from .iaf_nest import (
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 
 import importlib
+from rockpool.nn.modules.timed_module import astimedmodule 
 
 if importlib.util.find_spec("nest") is None:
     raise ModuleNotFoundError(
@@ -24,7 +25,7 @@ if importlib.util.find_spec("nest") is None:
     )
 
 # - RecAEIFSpkInNest- Class: Spiking recurrent layer with spiking in- and outputs
-class RecAEIFSpkInNest(RecIAFSpkInNest):
+class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
     """Spiking recurrent layer with spiking in- and outputs, with a NEST backend"""
 
     class NestProcess(_BaseNestProcessSpkInRec):
@@ -393,7 +394,7 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         self._delta_t = new_delta_t
         self.request_q.put([COMMAND_SET, "Delta_T", V2mV(new_delta_t)])
 
-    @RecIAFSpkInNest.v_thresh.setter
+    @RecIAFSpkInNestV1.v_thresh.setter
     def v_thresh(self, new_v_thresh):
         new_v_thresh = self._expand_to_net_size(
             new_v_thresh, "v_thresh", allow_none=False
@@ -420,3 +421,30 @@ class RecAEIFSpkInNest(RecIAFSpkInNest):
         new_tau = new_tau.astype(float)
         self._tau_adapt = new_tau
         self.request_q.put([COMMAND_SET, "tau_w", s2ms(new_tau)])
+
+
+RecAEIFSpkInNest = astimedmodule(
+parameters=[
+        "weights_in",
+        "weights_rec",
+        "delay_in",
+        "delay_rec",
+        "bias",
+        "tau_mem",
+        "tau_syn_exc",
+        "tau_syn_inh",
+        "capacity",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+        "refractory",
+        "conductance",
+        "subthresh_adapt",
+        "spike_adapt",
+        "delta_t",
+        "tau_adapt",
+    ],
+    simulation_parameters=["dt", "record", "num_cores"],
+    states=["Vmem"],
+)(RecAEIFSpkInNestV1)
+

@@ -155,6 +155,8 @@ def test_diaf_evolve_subtracting():
         tsOutput.channels == np.array([0, 0, 1])
     ).all(), "Output spike channels not as expected"
 
+    assert (new_state["state"] == rl._module.state).all()
+
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
@@ -191,7 +193,7 @@ def test_diaf_evolve_resetting():
     ts_input = TSEvent(times=[0.55, 0.8], channels=[0, 1], t_stop=1)
 
     # - Evolution
-    tsOutput, new_state, _ = rl.evolve(ts_input, duration=0.7)
+    tsOutput, new_state, __ = rl.evolve(ts_input, duration=0.7)
 
     # - Expectation: Input spike will cause neuron 0 to spike once at t=0.55
     #                This spikes will not be enough to make other neuron spike.
@@ -203,6 +205,8 @@ def test_diaf_evolve_resetting():
     assert (
         tsOutput.channels == np.array([0])
     ).all(), "Output spike channels not as expected"
+
+    assert (new_state["state"] == rl._module.state).all()
 
     # - Reset
     rl.reset_all()

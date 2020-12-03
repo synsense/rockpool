@@ -687,7 +687,7 @@ class LayerToTimedModule(TimedModule):
         ts_output = self._module.evolve(ts_input, duration, num_timesteps)
 
         # - Return output, state and record dict
-        return ts_output, self.attributes_named("state"), {}
+        return ts_output, self.state(), {}
 
     def __setattr__(self, key, value):
         # - Set value using superclass
