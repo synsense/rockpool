@@ -13,6 +13,8 @@ import numpy as np
 from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.utilities.property_arrays import ArrayLike
 from rockpool.nn.layers.layer import Layer
+from rockpool.nn.modules.timed_module import astimedmodule 
+
 
 # - Default maximum numbers of time steps for a single evolution batch
 MAX_NUM_TIMESTEPS_DEFAULT = 5000
@@ -20,7 +22,7 @@ MAX_NUM_TIMESTEPS_DEFAULT = 5000
 __all__ = ["FFUpDown"]
 
 ## - FFUpDown - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
-class FFUpDown(Layer):
+class FFUpDownV1(Layer):
     """
     Define a spiking feedforward layer to convert analogue inputs to up and down channels
 
@@ -100,6 +102,8 @@ class FFUpDown(Layer):
         self.max_num_timesteps = max_num_timesteps
         self.repeat_output = repeat_output
         self.multiplex_spikes = multiplex_spikes
+        self.analog_value = np.zeros(size_in) 
+        self.initialized = False
 
         self.reset_all()
 
@@ -253,7 +257,11 @@ class FFUpDown(Layer):
 
         # - Initialize state for comparing values: If self.state exists, assume input continues from
         #   previous evolution. Otherwise start with initial input data
-        state = inp[0] if self._state is None else self._state.copy()
+        if not self.initialized:
+            state = inp[0]
+            self.initialized = True
+        else:
+            state = self.analog_value.copy()
 
         for iCurrentTS in range(num_timesteps):
             # - Decay mechanism
@@ -283,32 +291,32 @@ class FFUpDown(Layer):
             spike_raster[iCurrentTS, 1::2] = vnDown
 
         # - Store state for future evolutions
-        self._state = state.copy()
+        self.analog_value = state.copy()
 
         return spike_raster  # , record
 
-    def reset_state(self):
-        """ Resets the state """
-        # - Store None as state to indicate that future evolutions do not continue from previous input
-        self.state = None
+    #def reset_state(self):
+    #    """ Resets the state """
+    #    # - Store None as state to indicate that future evolutions do not continue from previous input
+    #    self.state = None
 
     @property
     def output_type(self):
         """ Returns the output type class """
         return TSEvent
 
-    @property
-    def state(self):
-        """ Returns the state """
-        return self._state
+    #@property
+    #def state(self):
+    #    """ Returns the state """
+    #    return self._state
 
-    @state.setter
-    # Note that state here is of size self.size_in and not self.size
-    def state(self, new_state):
-        if new_state is None:
-            self._state = None
-        else:
-            self._state = self._expand_to_size(new_state, self.size_in, "state")
+    #@state.setter
+    ## Note that state here is of size self.size_in and not self.size
+    #def state(self, new_state):
+    #    if new_state is None:
+    #        self._state = None
+    #    else:
+    #        self._state = self._expand_to_size(new_state, self.size_in, "state")
 
     @property
     def thr_up(self):
@@ -436,3 +444,24 @@ class FFUpDown(Layer):
             thr_down=config["thr_down"],
             name=config["name"],
         )
+
+
+FFUpDown = astimedmodule(
+    parameters=[],
+    simulation_parameters=[
+        "weights",
+        "repeat_output",
+        "dt",
+        "tau_decay",
+        "noise_std",
+        "thr_up",
+        "thr_down",
+        "name",
+        "max_num_timesteps",
+        "multiplex_spikes",
+        ],
+    states=["analog_value"],
+    )(FFUpDownV1)
+
+
+
