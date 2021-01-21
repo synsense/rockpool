@@ -2,6 +2,7 @@
 # exp_synapses_manual.py - Class implementing a spike-to-current layer with exponential synapses
 ###
 
+raise ImportError("This module needs to be ported to the v2 API")
 
 # - Imports
 from typing import Optional, Union, Tuple, List, Dict
