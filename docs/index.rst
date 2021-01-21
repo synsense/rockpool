@@ -22,22 +22,22 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: The basics
 
    basics/installation
-   basics/getting_started.ipynb
+   ..  basics/getting_started.ipynb
    basics/time_series.ipynb
    basics/introduction_to_snns.ipynb
-   basics/sharp_points.ipynb
+   .. basics/sharp_points.ipynb
 
 .. toctree::
    :maxdepth: 1
    :caption: Tutorials
 
-   tutorials/building_reservoir.ipynb
-   tutorials/jax_sgd.ipynb
-   tutorials/train_jax_stack.ipynb
-   tutorials/jax_lif_tutorial.ipynb
-   tutorials/jax_lif_sgd.ipynb
-   tutorials/deneve_reservoirs.ipynb
-   tutorials/network_ads_tutorial.ipynb
+   .. tutorials/building_reservoir.ipynb
+   .. tutorials/jax_sgd.ipynb
+   .. tutorials/train_jax_stack.ipynb
+   .. tutorials/jax_lif_tutorial.ipynb
+   .. tutorials/jax_lif_sgd.ipynb
+   .. tutorials/deneve_reservoirs.ipynb
+   .. tutorials/network_ads_tutorial.ipynb
 
    .. tutorials/DynapseControl.ipynb
    .. tutorials/RecDynapSE.ipynb
@@ -48,10 +48,10 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Advanced topics
 
-   advanced/extending_layers.ipynb
-   reference/layer_types
-   reference/api
+   .. advanced/extending_layers.ipynb
+   .. reference/layer_types
+   .. reference/api
    advanced/developers_notes
-   advanced/CHANGELOG
+   .. advanced/CHANGELOG
 
 * :ref:`genindex`
