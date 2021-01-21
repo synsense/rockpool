@@ -7,7 +7,7 @@ from rockpool.timeseries import TSContinuous
 def test_butter_mel_filter():
 
     ## IMPORT ##
-    from nn.layers import ButterMelFilter
+    from rockpool.nn.layers import ButterMelFilter
     from tempfile import mkstemp
     import os
 
@@ -52,33 +52,33 @@ def test_butter_mel_filter():
 
     # evolve()
     ts_input = TSContinuous(times=times, samples=signal)
-    ts_output = lyr.evolve(ts_input)
+    ts_output, state, rec = lyr.evolve(ts_input)
 
     # get_analytical_filter_response
-    freq, output = lyr.get_analytical_filter_response(int(duration * fs))
+    freq, output = lyr._module.get_analytical_filter_response(int(duration * fs))
 
     # to_dict() and load_from_dict()
-    config = lyr.to_dict()
-    lyr = ButterMelFilter.load_from_dict(config)
+    config = lyr._module.to_dict()
+    #lyr = Layer.load_from_dict(config)
 
     # - Get a temporary file
-    (fh, filename) = mkstemp(dir=base_path + "/files/")
-    os.close(fh)
+    #(fh, filename) = mkstemp(dir=base_path + "/files/")
+    #os.close(fh)
 
     # save_layer() and load_from_layer()
-    lyr.save_layer(filename)
-    lyr = ButterMelFilter.load_from_file(filename)
-    os.remove(filename)
+    #lyr.save_layer(filename)
+    #lyr = Layer.load_from_file(ButterMelFilter, filename)
+    #os.remove(filename)
 
     # reset_all() and terminate()
     lyr.reset_all()
-    lyr.terminate()
+    lyr._module.terminate()
 
 
 def test_butter_filter():
 
     ## IMPORT ##
-    from nn.layers import ButterFilter
+    from rockpool.nn.layers import ButterFilter
     import os
     from tempfile import mkstemp
 
@@ -130,21 +130,21 @@ def test_butter_filter():
     ts_output = lyr.evolve(ts_input)
 
     # get_analytical_filter_response()
-    freq, output = lyr.get_analytical_filter_response(int(duration * fs))
+    freq, output = lyr._module.get_analytical_filter_response(int(duration * fs))
 
     # to_dict() and load_from_dict()
-    config = lyr.to_dict()
-    lyr = ButterFilter.load_from_dict(config)
+    config = lyr._module.to_dict()
+    #lyr = ButterFilter.load_from_dict(config)
 
     # - Get a temporary file
-    (fh, filename) = mkstemp(dir=base_path + "/files/")
-    os.close(fh)
+    #(fh, filename) = mkstemp(dir=base_path + "/files/")
+    #os.close(fh)
 
     # save_layer() and load_from_file()
-    lyr.save_layer(filename)
-    lyr = ButterFilter.load_from_file(filename)
-    os.remove(filename)
+    #lyr.save_layer(filename)
+    #lyr = Layer.load_from_file(ButterMelFilter, filename)
+    #os.remove(filename)
 
     # reset_all() and terminate()
     lyr.reset_all()
-    lyr.terminate()
+    lyr._module.terminate()

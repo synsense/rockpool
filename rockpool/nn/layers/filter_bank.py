@@ -8,6 +8,7 @@ from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.timeseries import TSContinuous
 from rockpool.nn.layers.layer import Layer
+from rockpool.nn.modules.timed_module import astimedmodule 
 
 
 class FilterBank(Layer, ABC):
@@ -146,7 +147,7 @@ class FilterBank(Layer, ABC):
         if self.pool is None:
             self.pool = Pool(self.num_workers)
 
-        res = self.pool.map(ButterMelFilter.process_filters, args)
+        res = self.pool.map(ButterMelFilterV1.process_filters, args)
         filtOutput = np.concatenate(res).T
 
         vtTimeBase = time_base[0] + np.arange(len(filtOutput)) / self.fs
@@ -226,7 +227,7 @@ class FilterBank(Layer, ABC):
         return self._num_workers
 
 
-class ButterMelFilter(FilterBank):
+class ButterMelFilterV1(FilterBank):
     """
     Define a Butterworth filter bank (mel spacing) filtering layer with continuous time series output
     """
@@ -279,9 +280,9 @@ class ButterMelFilter(FilterBank):
         )
 
         filter_bandwidth = filter_width / self.num_filters
-        low_freq = ButterMelFilter.hz2mel(self.cutoff_fs)
-        high_freq = ButterMelFilter.hz2mel(self.nyquist / (1 + filter_bandwidth) - 1)
-        freqs = ButterMelFilter.mel2hz(
+        low_freq = ButterMelFilterV1.hz2mel(self.cutoff_fs)
+        high_freq = ButterMelFilterV1.hz2mel(self.nyquist / (1 + filter_bandwidth) - 1)
+        freqs = ButterMelFilterV1.mel2hz(
             np.linspace(low_freq, high_freq, self.num_filters)
         )
 
@@ -303,7 +304,7 @@ class ButterMelFilter(FilterBank):
         )
 
         chunk_size = int(np.ceil(self.num_filters / num_workers))
-        self.chunks = ButterMelFilter.generate_chunks(self.filters, chunk_size)
+        self.chunks = ButterMelFilterV1.generate_chunks(self.filters, chunk_size)
 
         if plot:
             import matplotlib.pyplot as plt
@@ -323,12 +324,10 @@ class ButterMelFilter(FilterBank):
             plt.tight_layout()
             plt.show(block=True)
 
-    @staticmethod
     def hz2mel(x: Union[float, np.array]) -> Union[float, np.array]:
         """Takes value from hz and returns mel"""
         return 2595 * np.log10(1 + x / 700)
 
-    @staticmethod
     def mel2hz(x: Union[float, np.array]) -> Union[float, np.array]:
         """
         Takes value from mel and returns hz
@@ -342,7 +341,7 @@ class ButterMelFilter(FilterBank):
         return config
 
 
-class ButterFilter(FilterBank):
+class ButterFilterV1(FilterBank):
     """
     Define a Butterworth filter bank filtering layer with continuous time series output
     """
@@ -435,7 +434,7 @@ class ButterFilter(FilterBank):
         )
 
         chunk_size = int(np.ceil(self.num_filters / num_workers))
-        self.chunks = ButterFilter.generate_chunks(self.filters, chunk_size)
+        self.chunks = ButterFilterV1.generate_chunks(self.filters, chunk_size)
         self.pool = None
 
     def to_dict(self) -> dict:
@@ -457,3 +456,35 @@ class ButterFilter(FilterBank):
     def bandwidth(self) -> Union[float, np.array]:
         """ return filters bandwidth """
         return self._bandwidth
+
+
+ButterMelFilter = astimedmodule(
+    parameters=[],
+    simulation_parameters=[
+        "fs",
+        "cutoff_fs",
+        "num_filters",
+        "mean_subtraction",
+        "normalize",
+        "order",
+        "num_workers",
+        "name"],
+    states=[],
+    )(ButterMelFilterV1)
+
+ButterFilter = astimedmodule(
+    parameters=[],
+    simulation_parameters=[
+        "fs",
+        "frequency",
+        "bandwidth",
+        "mean_subtraction",
+        "normalize",
+        "order",
+        "num_workers",
+        "name"],
+    states=[],
+    )(ButterFilterV1)
+
+
+
