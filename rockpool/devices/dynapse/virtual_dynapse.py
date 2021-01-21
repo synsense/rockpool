@@ -13,11 +13,11 @@ from typing import List, Union, Optional
 import numpy as np
 
 # rockpool modules
-from timeseries import TSEvent
+from rockpool.timeseries import TSEvent
 from rockpool.utilities.property_arrays import ArrayLike, ImmutableArray, SetterArray
 from rockpool.nn.layers.layer import Layer
-from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest
-from nn.layers.devices import params
+from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNestV1
+from rockpool.devices.dynapse import params
 
 ### --- Constants
 CONNECTIONS_VALID = 0
@@ -148,15 +148,17 @@ class VirtualDynapse(Layer):
             connections=connections_ext, external=True
         )
         if (
-            connections_rec is not None or connections_ext is not None
-        ) and self.validate_connections(
-            self._connections_rec,
-            self._connections_ext,
-            verbose=True,
-            validate_fanin=self.validate_fanin,
-            validate_fanout=self.validate_fanout,
-            validate_aliasing=self.validate_aliasing,
-        ) != CONNECTIONS_VALID:
+            (connections_rec is not None or connections_ext is not None)
+            and self.validate_connections(
+                self._connections_rec,
+                self._connections_ext,
+                verbose=True,
+                validate_fanin=self.validate_fanin,
+                validate_fanout=self.validate_fanout,
+                validate_aliasing=self.validate_aliasing,
+            )
+            != CONNECTIONS_VALID
+        ):
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
             )
@@ -184,7 +186,7 @@ class VirtualDynapse(Layer):
         self._delta_t, delta_t = self._process_parameter(delta_t, "delta_t", True)
 
         # - Nest-layer for approximate simulation of neuron dynamics
-        self._simulator = RecAEIFSpkInNest(
+        self._simulator = RecAEIFSpkInNestV1(
             weights_in=weights_ext.copy(),
             weights_rec=weights_rec.copy(),
             delay_in=dt,
@@ -1379,11 +1381,11 @@ class VirtualDynapse(Layer):
         return self._simulator._timestep
 
     @property
-    def state(self):
+    def Vmem(self):
         """
         (ArrayLike[float]) Current internal state of simulator
         """
-        return self._simulator.state
+        return self._simulator.Vmem
 
     @property
     def recorded_states(self):
