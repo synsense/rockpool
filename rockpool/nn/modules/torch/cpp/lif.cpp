@@ -20,7 +20,7 @@ tensor_list lif_forward(torch::Tensor data,
     int n_synapses = data.size(2);
     int n_neurons = data.size(3);
 
-    auto options =  torch::TensorOptions().device(torch::kCUDA, 0);
+    auto options = data.options();
     torch::Tensor out_spikes = torch::ones({time_steps, n_batches, n_neurons}, options);
 
     torch::Tensor vmem_rec;
