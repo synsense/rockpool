@@ -5,6 +5,8 @@
 
 ### --- Imports
 
+raise ImportError("This module needs to be ported to the v2 API")
+
 import copy
 from warnings import warn
 from typing import Tuple, List, Optional, Union, Iterable, Set

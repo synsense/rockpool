@@ -3,6 +3,8 @@
 #                           provides handling of and functionality for `TSEvent` objects.
 # ----
 
+raise ImportError("This module needs to be ported to the v2 API")
+
 from warnings import warn
 from typing import List, Union, Optional, Tuple
 
