@@ -2,6 +2,8 @@
 # dynap_hw.py - Implementation of HW FF and Rec layers for DynapSE, via ctxCTL
 # ----
 
+raise ImportError("This module needs to be ported to the v2 API")
+
 from rockpool.nn.layers.layer import Layer
 from rockpool.timeseries import TSEvent
 from devices import DynapseControlExtd
