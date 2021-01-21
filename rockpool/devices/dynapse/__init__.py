@@ -4,28 +4,29 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".dynapse_control_extd": "DynapseControlExtd",
-    ".dynapse_control": (
-        "connectivity_matrix_to_prepost_lists",
-        "connect_rpyc",
-        "correct_argument_types",
-        "correct_argument_types_and_teleport",
-        "correct_type",
-        "DynapseControl",
-        "evaluate_firing_rates",
-        "event_data_to_channels",
-        "generate_event_raster",
-        "initialize_hardware",
-        "rectangular_neuron_arrangement",
-        "remote_function",
-        "setup_rpyc",
-        "setup_rpyc_namespace",
-        "teleport_function",
-    ),
+    # ".dynapse_control_extd": "DynapseControlExtd",
+    # ".dynapse_control": (
+    #     "connectivity_matrix_to_prepost_lists",
+    #     "connect_rpyc",
+    #     "correct_argument_types",
+    #     "correct_argument_types_and_teleport",
+    #     "correct_type",
+    #     "DynapseControl",
+    #     "evaluate_firing_rates",
+    #     "event_data_to_channels",
+    #     "generate_event_raster",
+    #     "initialize_hardware",
+    #     "rectangular_neuron_arrangement",
+    #     "remote_function",
+    #     "setup_rpyc",
+    #     "setup_rpyc_namespace",
+    #     "teleport_function",
+    # ),
+    ".virtual_dynapse": "VirtualDynapse",
 }
 
 # - Define current package
-strBasePackage = "rockpool.devices"
+strBasePackage = "rockpool.devices.dynapse"
 
 # - Define docstring for module
 __doc__ = """Defines classes for interacting with hardware"""

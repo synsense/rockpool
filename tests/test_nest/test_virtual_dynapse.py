@@ -2,7 +2,7 @@ import numpy as np
 
 
 def test_change_baseweight():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     np.random.seed(1)
@@ -82,11 +82,11 @@ def test_change_baseweight():
     # - Compare states and time before and after
     vd.evolve(ts_input, duration=0.1)
     vd0.evolve(ts_input, duration=0.1)
-    assert (vd0.state == vd.state).all()
+    assert (vd0.Vmem == vd.Vmem).all()
 
 
 def test_item_assignment():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     vd = VirtualDynapse(mismatch=False)
@@ -143,7 +143,7 @@ def test_item_assignment():
 
 
 def test_evolve():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     np.random.seed(1)
@@ -193,23 +193,23 @@ def test_evolve():
     )
 
     # - Evolve with `wrong` input channels
-    state_before = np.copy(vd.state)
+    state_before = np.copy(vd.Vmem)
     vd.evolve(ts_input, duration=0.1)
     assert vd.t == 0.1
-    assert (state_before == vd.state).all()
+    assert (state_before == vd.Vmem).all()
     vd.reset_all()
 
     # - Evolve with correctly mapped input channels
     vd.evolve(ts_input, duration=0.1, ids_in=input_ids)
     assert vd.t == 0.1
-    assert (state_before != vd.state).any()
+    assert (state_before != vd.Vmem).any()
     vd.reset_all()
     assert vd.t == 0
-    assert (state_before == vd.state).all()
+    assert (state_before == vd.Vmem).all()
 
 
 def test_multiprocessing():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     np.random.seed(1)
@@ -282,18 +282,18 @@ def test_multiprocessing():
     )
 
     # - Evolve
-    state_before = np.copy(vd_multi.state)
+    state_before = np.copy(vd_multi.Vmem)
     vd.evolve(ts_input, duration=0.1, ids_in=input_ids)
     vd_multi.evolve(ts_input, duration=0.1, ids_in=input_ids)
     assert vd_multi.t == 0.1
-    assert (vd_multi.state == vd.state).all()
+    assert (vd_multi.Vmem == vd.Vmem).all()
     vd_multi.reset_all()
     assert vd_multi.t == 0
-    assert (state_before == vd_multi.state).all()
+    assert (state_before == vd_multi.Vmem).all()
 
 
 def test_adaptation():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     np.random.seed(1)
@@ -368,11 +368,11 @@ def test_adaptation():
     # - Evolve
     vd.evolve(ts_input, duration=0.1, ids_in=input_ids)
     vd_adapt.evolve(ts_input, duration=0.1, ids_in=input_ids)
-    assert (vd_adapt.state != vd.state).any()
+    assert (vd_adapt.Vmem != vd.Vmem).any()
 
 
 def test_conn_validation():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     # - Instantiation
@@ -560,7 +560,7 @@ def test_conn_validation():
 
 
 def test_saveload():
-    from nn.layers import VirtualDynapse
+    from rockpool.devices.dynapse import VirtualDynapse
     from rockpool import TSEvent
 
     np.random.seed(1)

@@ -9,14 +9,14 @@ import numpy as onp
 
 from abc import ABC
 
+__all__ = ["FFwdStack"]
+
 
 class FFwdStackMixin(ABC):
     _dot = None
 
     def __init__(
-        self,
-        *args,
-        **kwargs,
+        self, *args, **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -81,19 +81,13 @@ class FFwdStackMixin(ABC):
             setattr(
                 self,
                 w_name,
-                Parameter(
-                    shape=w_shape,
-                    family="weights",
-                    init_func=weight_init_func,
-                ),
+                Parameter(shape=w_shape, family="weights", init_func=weight_init_func,),
             )
 
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self,
-                mod_name,
-                submod,
+                self, mod_name, submod,
             )
 
         # - Record module and weight lists
@@ -117,10 +111,7 @@ class FFwdStackMixin(ABC):
             input_data, substate, subrec = mod(input_data, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {
-                    submod_name: subrec,
-                    f"{submod_name}_output": input_data,
-                }
+                {submod_name: subrec, f"{submod_name}_output": input_data,}
             )
 
             # - Push data through weight
