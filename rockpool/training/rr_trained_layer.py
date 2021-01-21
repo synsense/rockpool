@@ -5,6 +5,8 @@ rr_trained_layer.py - Define a super class that layers can inherit from if they
 
 ### --- Import statements
 
+raise ImportError("This module needs to be ported to the v2 API")
+
 # - Built-ins
 from abc import ABC, abstractmethod
 from typing import Union, Dict, Optional

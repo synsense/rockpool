@@ -13,7 +13,7 @@ FloatVector = Union[float, np.ndarray]
 from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 from rockpool.nn.layers.layer import Layer
-from rockpool.nn.modules.timed_module import astimedmodule 
+from rockpool.nn.modules.timed_module import astimedmodule
 
 if util.find_spec("nest") is None:
     raise ModuleNotFoundError(
@@ -1106,9 +1106,7 @@ class FFIAFNestV1(Layer):
 
     @Layer.dt.setter
     def dt(self, _):
-        warn(
-            self.start_print + "The `dt` property cannot be set for this layer"
-        )
+        warn(self.start_print + "The `dt` property cannot be set for this layer")
 
     @property
     def record(self):
@@ -1501,6 +1499,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
         self._tau_syn = None
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
 
+
 FFIAFNest = astimedmodule(
     parameters=[
         "weights",
@@ -1518,7 +1517,7 @@ FFIAFNest = astimedmodule(
 )(FFIAFNestV1)
 
 RecIAFSpkInNest = astimedmodule(
-parameters=[
+    parameters=[
         "weights_in",
         "weights_rec",
         "delay_in",
@@ -1536,4 +1535,3 @@ parameters=[
     simulation_parameters=["dt", "record", "num_cores"],
     states=["Vmem"],
 )(RecIAFSpkInNestV1)
-

@@ -1,6 +1,9 @@
 """
 train_rr.py - Define class for training ridge regression. Can be used by various layers.
 """
+
+raise ImportError("This module needs to be ported to the v2 API")
+
 from typing import Tuple
 import numpy as np
 
@@ -164,7 +167,7 @@ class RidgeRegrTrainer:
                 "RidgeRegrTrainer: `inp` and `target` must have same number of data points"
                 + f" (`inp` has {inp.shape[0]}, `target` has {target.shape[0]})."
             )
-        
+
         # apply pruning mask to input
         # prune away only those neurons which have zero weight to all target neurons
         inp = inp * self.prune_mask.max(axis=1)
@@ -226,17 +229,20 @@ class RidgeRegrTrainer:
             return np.linalg.solve(xtx, xty)
         else:
             # use np.linalg.inv to explicitly calculate the inverse of XTX
-            self.xtx_inv = np.linalg.inv(xtx) # TODO does this really work in case of fisher relabeling?
+            self.xtx_inv = np.linalg.inv(
+                xtx
+            )  # TODO does this really work in case of fisher relabeling?
             return np.matmul(self.xtx_inv, xty)
-
 
     def update_model(self, n_prune: int = 0):
         """
         update_model - Update model weights and biases based on current collected training data.
         """
-    
+
         if self.fisher_relabelling and n_prune > 0:
-            raise NotImplementedError("Pruning is not implemented if fisher relabelling is enabled")
+            raise NotImplementedError(
+                "Pruning is not implemented if fisher relabelling is enabled"
+            )
 
         # - Matrix for regularization
         reg = self.regularize * np.eye(self.num_features + int(self.train_biases))
@@ -244,20 +250,22 @@ class RidgeRegrTrainer:
         if self.fisher_relabelling:
             solution = np.array(
                 [
-                    self.solve(xtx_this, xty_this, n_prune>0)
+                    self.solve(xtx_this, xty_this, n_prune > 0)
                     for xtx_this, xty_this in zip(self.xtx + reg, self.xty.T)
                 ]
             ).T
         else:
-            solution = self.solve(self.xtx + reg, self.xty, n_prune>0)
+            solution = self.solve(self.xtx + reg, self.xty, n_prune > 0)
 
         if n_prune > 0:
-            std_err_approx = np.sqrt(np.diagonal(self.xtx_inv)) # should be actually sqrt(diag(XTX_inv) * residual)
+            std_err_approx = np.sqrt(
+                np.diagonal(self.xtx_inv)
+            )  # should be actually sqrt(diag(XTX_inv) * residual)
             t_stat = (solution.T / std_err_approx).T
             if self.train_biases:
                 t_stat = t_stat[:-1]
 
-            tol = np.sort(np.abs(t_stat), axis=0)[n_prune] 
+            tol = np.sort(np.abs(t_stat), axis=0)[n_prune]
 
             coefs_to_prune = np.where(t_stat < tol)
             self.prune_mask[coefs_to_prune] = 0

@@ -17,7 +17,7 @@ from .iaf_nest import (
 from rockpool.utilities.property_arrays import SetterArray, ImmutableArray
 
 import importlib
-from rockpool.nn.modules.timed_module import astimedmodule 
+from rockpool.nn.modules.timed_module import astimedmodule
 
 if importlib.util.find_spec("nest") is None:
     raise ModuleNotFoundError(
@@ -424,7 +424,7 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
 
 
 RecAEIFSpkInNest = astimedmodule(
-parameters=[
+    parameters=[
         "weights_in",
         "weights_rec",
         "delay_in",
@@ -447,4 +447,3 @@ parameters=[
     simulation_parameters=["dt", "record", "num_cores"],
     states=["Vmem"],
 )(RecAEIFSpkInNestV1)
-
