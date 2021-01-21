@@ -5,8 +5,6 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".rr_trained_layer": "RRTrainedLayer",
-    ".jax_trainer": "JaxTrainer",
-    ".utilities": "gradient_evolution",
 }
 
 

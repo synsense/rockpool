@@ -1,10 +1,10 @@
 import numpy as np
 
-from nn.layers import VirtualDynapse
-from rockpool import TSEvent
-
 
 def test_change_baseweight():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
     input_ids = np.arange(3) + 5
@@ -86,6 +86,9 @@ def test_change_baseweight():
 
 
 def test_item_assignment():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     vd = VirtualDynapse(mismatch=False)
     v_thresh_orig = vd.v_thresh.copy()
     v_thresh_orig_ = vd.v_thresh_.copy()
@@ -140,6 +143,9 @@ def test_item_assignment():
 
 
 def test_evolve():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
     input_ids = np.arange(3) + 5
@@ -203,6 +209,9 @@ def test_evolve():
 
 
 def test_multiprocessing():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
     input_ids = np.arange(3) + 5
@@ -284,6 +293,9 @@ def test_multiprocessing():
 
 
 def test_adaptation():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
     input_ids = np.arange(3) + 5
@@ -360,6 +372,9 @@ def test_adaptation():
 
 
 def test_conn_validation():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     # - Instantiation
     # TODO
     vd = VirtualDynapse()
@@ -545,6 +560,9 @@ def test_conn_validation():
 
 
 def test_saveload():
+    from nn.layers import VirtualDynapse
+    from rockpool import TSEvent
+
     np.random.seed(1)
     neuron_ids = [3, 14, 130, 2050, 2222, 2223, 2800, 3200]
     input_ids = np.arange(3) + 5

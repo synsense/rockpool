@@ -158,9 +158,7 @@ def test_TorchLIF():
 
     N = 10
     Nsyn = 2
-    tau_mem = 2 * np.ones(
-        N,
-    )
+    tau_mem = 2 * np.ones(N,)
     tau_syn = torch.Tensor([2, 8])
     tau_syn = tau_syn.view(1, Nsyn).T.repeat(1, N)
     mod = LIFLayer(
@@ -177,7 +175,7 @@ def test_TorchLIF():
     # - Generate some data
     T = 100
     num_batches = 1
-    input_data = torch.from_numpy(np.random.rand(T, num_batches, Nsyn, N)).cuda()
+    input_data = torch.from_numpy(np.random.rand(T, num_batches, Nsyn, N)).cpu()
 
     # - Test torch interface
     out = mod.forward(input_data)
@@ -212,7 +210,7 @@ def test_single_neuron():
         device="cpu",
     )
 
-    inp = torch.zeros((10, 1, 2, 1)).cuda()
+    inp = torch.zeros((10, 1, 2, 1)).cpu()
     inp[1, :, :, :] = 1
     out, states, recs = lyr(inp, record=True)
 

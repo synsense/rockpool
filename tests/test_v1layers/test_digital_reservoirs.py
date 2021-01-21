@@ -9,7 +9,6 @@ import numpy as np
 
 def test_imports():
     from rockpool.nn.layers.iaf_cl import FFCLIAF, RecCLIAF, CLIAF_Base
-    from rockpool.nn.layers.softmaxlayer import SoftMaxLayer
 
 
 def test_cliaf_evolve_subtracting():
