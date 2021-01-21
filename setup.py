@@ -1,5 +1,7 @@
 from distutils.core import setup
 import setuptools
+from setuptools import Extension
+from torch.utils import cpp_extension
 
 # - Read version
 exec(open("rockpool/version.py").read())
@@ -46,4 +48,18 @@ setup(
         "Documentation": "https://rockpool.ai",
         "Bug Tracker": "https://gitlab.com/SynSense/rockpool/-/issues",
     },
+    # cpp extensions
+    ext_modules=[
+        cpp_extension.CppExtension(
+            name="torch_lif_cpp",
+            sources=[
+                "rockpool/nn/modules/torch/cpp/lif.cpp",
+                "rockpool/nn/modules/torch/cpp/threshold.cpp",
+                "rockpool/nn/modules/torch/cpp/bitshift.cpp",
+            ],
+            extra_compile_args=['-O3'],
+            optional=True,
+        )
+    ],
+    cmdclass={"build_ext": cpp_extension.BuildExtension},
 )
