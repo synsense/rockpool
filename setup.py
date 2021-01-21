@@ -69,6 +69,6 @@ try:
 
     setup(ext_modules=ext_modules, cmdclass=cmdclass, **setup_args)
 except:
-    log.warn("The Torch C++ extension could not be compiled")
+    logging.warning("The Torch C++ extension could not be compiled")
     setup(**setup_args)
 
