@@ -243,7 +243,8 @@ class ModuleBase(ABC):
             setattr(self, name, init_func(shape))
 
     def _has_registered_attribute(self, name: str):
-        return name in self.__registered_attributes
+        __registered_attributes, _ = self._get_attribute_registry()
+        return name in __registered_attributes
 
     def reset_state(self):
         # - Get a list of states

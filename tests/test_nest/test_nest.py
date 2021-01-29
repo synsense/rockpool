@@ -43,20 +43,6 @@ def test_evolve_FFIAFNest():
 
 def test_evolve_RecIAFSpkInNest():
     from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
-
-    N_in = 2
-    N_rec = 3
-    w_in = np.random.rand(N_in, N_rec)
-    w_rec = np.random.rand(N_rec, N_rec)
-
-    lyr = RecIAFSpkInNest(
-        weights_in=w_in,
-        weights_rec=w_rec,
-    )
-
-
-def test_evolve_RecIAFSpkInNest():
-    from rockpool.nn.layers.iaf_nest import RecIAFSpkInNest
     from rockpool.timeseries import TSEvent
 
     T = 100
@@ -75,20 +61,6 @@ def test_evolve_RecIAFSpkInNest():
 
     ts_inp = TSEvent(times, channels, t_stop=(T + 1) * lyr.dt)
     out, states, rec = lyr(ts_inp)
-
-
-def test_evolve_RecAEIFSpkInNest():
-    from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNest
-
-    N_in = 2
-    N_rec = 3
-    w_in = np.random.rand(N_in, N_rec)
-    w_rec = np.random.rand(N_rec, N_rec)
-
-    lyr = RecAEIFSpkInNest(
-        weights_in=w_in,
-        weights_rec=w_rec,
-    )
 
 
 def test_evolve_RecAEIFSpkInNest():

@@ -690,13 +690,16 @@ class LayerToTimedModule(TimedModule):
         return ts_output, self.state(), {}
 
     def __setattr__(self, key, value):
-        # - Set value using superclass
-        super().__setattr__(key, value)
-
         # - Set attribute in module, if registered
         if self._has_registered_attribute(key):
             if hasattr(self, "_module"):
                 setattr(self._module, key, getattr(self, key))
+
+                # - Ensure we get validated value from submodule
+                value = getattr(self._module, key)
+
+        # - Set value using superclass
+        super().__setattr__(key, value)
 
     def __getattr__(self, key):
         if key is "_ModuleBase__registered_attributes" or key is "_ModuleBase__modules":
@@ -704,11 +707,7 @@ class LayerToTimedModule(TimedModule):
 
         # - Get attribute from module if registered
         if self._has_registered_attribute(key):
-            val = getattr(self._module, key)
-            try:
-                return np.array(val)
-            except:
-                return val
+            return getattr(self._module, key)
         else:
             raise AttributeError(
                 f"Attribute {key} not found in TimedModule class {self.class_name} named {self.name}"
@@ -716,16 +715,7 @@ class LayerToTimedModule(TimedModule):
 
     def _get_attribute_family(self, type_name: str, family: str = None):
         # - Get matching attributes
-        attributes = super()._get_attribute_family(type_name, family)
-
-        # - Convert types if possible
-        def try_array(item):
-            try:
-                return np.array(item)
-            except:
-                return item
-
-        return tree_map(try_array, attributes)
+        return super()._get_attribute_family(type_name, family)
 
 
 def astimedmodule(

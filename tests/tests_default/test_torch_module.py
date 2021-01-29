@@ -1,4 +1,4 @@
-def NOtest_imports():
+def test_imports():
     from rockpool.nn.modules.torch.torch_module import TorchModule
 
 
