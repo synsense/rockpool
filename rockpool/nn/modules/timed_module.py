@@ -218,7 +218,13 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Call wrapped evolve
         ts_output, state_dict, record_dict = self.__evolve(
-            ts_input, duration, num_timesteps, kwargs_timeseries, record, *args, *kwargs
+            ts_input,
+            duration,
+            num_timesteps,
+            kwargs_timeseries,
+            record,
+            *args,
+            **kwargs,
         )
 
         # - We could re-wrap outputs as TimeSeries here, if desired
@@ -684,7 +690,9 @@ class LayerToTimedModule(TimedModule):
         **kwargs,
     ):
         # - Call submodule layer to evolve
-        ts_output = self._module.evolve(ts_input, duration, num_timesteps)
+        ts_output = self._module.evolve(
+            ts_input, duration, num_timesteps, *args, **kwargs
+        )
 
         # - Return output, state and record dict
         return ts_output, self.state(), {}
