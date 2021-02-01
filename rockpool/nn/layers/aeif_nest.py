@@ -402,8 +402,8 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
         self._v_thresh = new_v_thresh.astype(float)
         self._v_peak = self._v_thresh.copy()
         self._v_peak[self._delta_t != 0] += self._v_peak_offset
-        print("Vth:", self._v_thresh)
-        print("Vpeak:", self._v_peak)
+        # print("Vth:", self._v_thresh)
+        # print("Vpeak:", self._v_peak)
         self.request_q.put([COMMAND_SET, "V_peak", V2mV(self._v_peak)])
         self.request_q.put([COMMAND_SET, "V_th", V2mV(self._v_thresh)])
 
