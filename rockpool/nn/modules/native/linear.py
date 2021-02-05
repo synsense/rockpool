@@ -34,7 +34,7 @@ class LinearMixin(ABC):
             raise ValueError("`shape` must specify input and output sizes for Linear.")
 
         # - Specify weight parameter
-        self.weight = Parameter(weight, shape=self.shape, init_func=weight_init_func)
+        self.weight = Parameter(weight, shape=self.shape, init_func=weight_init_func, family='weights')
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         return self._dot(input_data, self.weight), {}, {}

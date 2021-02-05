@@ -9,8 +9,6 @@ from rockpool.timeseries import TimeSeries, TSContinuous, TSEvent
 from rockpool.nn.modules.module import Module, ModuleBase, PostInitMetaMixin
 from rockpool.parameters import SimulationParameter, Parameter, State
 
-from rockpool.nn.layers.layer import Layer
-
 import functools
 
 from decimal import Decimal
@@ -123,20 +121,19 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     def __init__(
         self,
-        dt: float,
+        dt: Union[float, SimulationParameter],
         spiking_input: bool = False,
         spiking_output: bool = False,
         *args,
         **kwargs,
     ):
-        print("TimedModule.__init__ start")
         # - Initialise superclass
         super().__init__(
             spiking_input=spiking_input, spiking_output=spiking_output, *args, **kwargs
         )
 
         # - Assign dt
-        self.dt: float = SimulationParameter(dt, "dt")
+        self.dt: Union[float, SimulationParameter] = SimulationParameter(dt, "dt")
 
         # - Initialise internal timestep
         self._timestep: int = 0
@@ -455,11 +452,19 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         num_channels=None,
         spikes_at_bin_start=False,
     ) -> TSEvent:
+        # - Build a name for the time series
+        if name is None:
+            if self.name:
+                name = f"Output events '{self.name}'"
+            else:
+                name = f"Output events"
+
+        # - Create and return a new event time series
         return TSEvent.from_raster(
             raster=output,
             dt=self.dt if dt is None else dt,
             t_start=self.t if t_start is None else t_start,
-            name=f"Output events '{self.name}'" if name is None else name,
+            name=name,
             periodic=periodic,
             num_channels=self.size_out if num_channels is None else num_channels,
             spikes_at_bin_start=spikes_at_bin_start,
@@ -474,12 +479,20 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         name: Optional[str] = None,
         interp_kind: str = "previous",
     ) -> TSContinuous:
+        # - Build a name for the time series
+        if name is None:
+            if self.name:
+                name = f"Output samples '{self.name}'"
+            else:
+                name = f"Output samples"
+
+        # - Create and return a new continuous time series
         return TSContinuous.from_clocked(
             samples=output,
             dt=self.dt if dt is None else dt,
             t_start=self.t if t_start is None else t_start,
             periodic=periodic,
-            name=f"Output samples '{self.name}'" if name is None else name,
+            name=name,
             interp_kind=interp_kind,
         )
 
@@ -593,7 +606,7 @@ class TimedModuleWrapper(TimedModule):
     def module(self):
         return self._module
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{super().__repr__()} with {self.module.full_name} as module"
 
     def evolve(
@@ -631,11 +644,13 @@ class TimedModuleWrapper(TimedModule):
 class LayerToTimedModule(TimedModule):
     def __init__(
         self,
-        layer: Layer,
+        layer: "Layer",
         parameters: Iterable = None,
         states: Iterable = None,
         simulation_parameters: Iterable = None,
     ):
+        from rockpool.nn.layers.layer import Layer
+
         if not isinstance(layer, Layer):
             raise TypeError("LayerToTimedModule can only wrap a Rockpool v1 Layer.")
 

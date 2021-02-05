@@ -67,7 +67,7 @@ Once all dependencies are installed, you can build the PDF docs with
     $ make clean latexpdf
 
 Contributing
-============
+------------
 
 If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/ai-ctx/rockpool to your own account. Then clone your fork to your development machine
 
@@ -114,7 +114,7 @@ Then when you're ready, make a merge request on gitlab.com, from the feature bra
 .. _`Black code formatter`: https://black.readthedocs.io/en/stable/
 
 Running tests
--------------
+~~~~~~~~~~~~~
 
 As part of the merge review process, we'll check that all the unit tests pass. You can check this yourself (and probably should before making your merge request), by running the unit tests locally.
 
@@ -123,20 +123,6 @@ To run all the unit tests for |project|, use `pytest`:
 .. code-block:: Bash
 
     $ pytest tests
-
-
-Building documentation
-----------------------
-
-The |project| documentation requires Sphinx_, NBSphinx_ and Sphinx-autobuild_. The commands
-
-.. code-block:: Bash
-
-    $ cd docs
-    $ make livehtml
-
-
-Will compile the documentation and open a web browser to the local copy of the docs.
 
 .. _Python 3.6: https://python.org
 .. _numpy: https://www.numpy.org

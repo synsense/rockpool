@@ -1,13 +1,13 @@
+"""
+Contains an implementation of a non-spiking rate module, with a Jax backend
+"""
+
+# - Rockpool imports
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 # -- Imports
 from importlib import util
-
-if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
-    raise ModuleNotFoundError(
-        "'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available."
-    )
 
 import jax.numpy as np
 import jax
@@ -16,14 +16,14 @@ import jax.random as rand
 
 import numpy as onp
 
-from typing import Optional, Union
+from typing import Optional, Union, Any, Callable, Tuple
 
 FloatVector = Union[float, np.ndarray]
 
 
 # -- Define useful neuron transfer functions
 def H_ReLU(x: FloatVector) -> FloatVector:
-    return x
+    return x * (x > 0.0)
 
 
 def H_tanh(x: FloatVector) -> FloatVector:
@@ -34,26 +34,70 @@ def H_sigmoid(x: FloatVector) -> FloatVector:
     return (np.tanh(x) + 1) / 2
 
 
-# @jax.tree_util.register_pytree_node_class
 class RateEulerJax(JaxModule):
+    """
+    Encapsulates a population of rate neurons, supporting feed-forward and recurrent modules.
+
+    Examples:
+        Instantiate a feed-forward module with 8 neurons:
+
+        >>> mod = RateEulerJax((8,))
+        RateEulerJax 'None' with shape (8,)
+
+        Instantiate a recurrent module with 12 neurons:
+
+        >>> mod_rec = RateEulerJax((12, 12))
+        RateEulerJax 'None' with shape (12, 12)
+
+        Instantiate a feed-forward module with defined time constants:
+
+        >>> mod = RateEulerJax(tau = np.arange(7,) * 10e-3)
+        RateEulerJax 'None' with shape (7,)
+
+        ``mod`` will contain 7 neurons, taking the dimensionlity of `tau`.
+
+    Notes:
+        Each neuron follows the dynamics
+
+        .. math::
+            \\tau \\cdot \\dot{x} + x = b + i(t) + \\sigma\\eta(t)
+
+        where :math:`x` is the neuron state; :math:`\\tau` is the neuron time constant; :math:`b` is the neuron bias; :math:`i(t)`$` is the input current at time :math:`t`$`; and :math:`\\sigma\\eta(t)`$` is a white noise process with std. dev. :math:`\\eta`.
+    """
+
     def __init__(
         self,
-        shape=None,
-        tau: FloatVector = None,
-        bias: FloatVector = None,
-        w_rec: np.ndarray = None,
-        activation_func: str = H_ReLU,
+        shape: Optional[Union[int, Tuple[np.ndarray]]] = None,
+        tau: Optional[FloatVector] = None,
+        bias: Optional[FloatVector] = None,
+        w_rec: Optional[np.ndarray] = None,
+        activation_func: Union[str, Callable] = H_ReLU,
         dt: float = 1e-3,
         noise_std: float = 1e-3,
         rng_key: Optional[int] = None,
-        *args,
-        **kwargs,
+        *args: list,
+        **kwargs: dict,
     ):
+        """
+        Instantiate a non-spiking rate module, either feed-forward or recurrent.
+
+        Args:
+            shape (Tuple[np.ndarray]): A tuple containing the shape of this module. If one dimension is provided ``(N,)``, it will define the number of neurons in a feed-forward layer. If two dimensions are provided, a recurrent layer will be defined. In that case the two dimensions must be identical ``(N, N)``. If not provided, `shape` will be inferred from other provided arguments.
+            tau (float): A scalar or vector defining the initialisation time constants for the module. If a vector is provided, it must match the output size of the module. Default: ``1.``
+            bias (float): A scalar or vector defining the initialisation bias values for the module. If a vector is provided, it must match the output size of the module. Default: ``0.``
+            w_rec (np.ndarray): An optional matrix defining the initialisation recurrent weights for the module. Default: ``Normal / sqrt(N)``
+            activation_func (Callable): The activation function of the neurons. This can be provided as a string ``['ReLU', 'sigmoid', 'tanh']``, or as a function that accepts a vector of neural states and returns the vector of output activations. This function must use `jax.numpy` math functions, and *not* `numpy` math functions. Default: ``'ReLU'``.
+            dt (float): The Euler solver time-step. Default: ``1e-3``
+            noise_std (float): The std. dev. of normally-distributed noise added to the neural state at each time step. Default: ``0.``
+            rng_key (Any): A Jax PRNG key to initialise the module with. Default: not provided, the module PRNG will be initialised with a random number.
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+        """
         # - Work out the shape of this module
         if shape is None:
             assert (
                 tau is not None
-            ), "You must provide either `shape` or else specify parameters."
+            ), "You must provide either `shape` or else specify concrete parameters."
             shape = np.array(tau).shape
 
         # - Call the superclass initialiser
@@ -66,9 +110,21 @@ class RateEulerJax(JaxModule):
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
+        self.rng_key: Union[np.ndarray, State] = State(
+            rng_key, init_func=lambda _: rng_key
+        )
+        """The Jax PRNG key for this module"""
+
         # - Initialise state
-        self.activation: np.ndarray = State(shape=self.size_out, init_func=np.zeros)
-        self.rng_key: np.ndarray = State(rng_key, init_func=lambda _: rng_key)
+        self.neur_state: Union[np.ndarray, State] = State(
+            shape=self.size_out, init_func=np.zeros
+        )
+        """A vector ``(N,)`` of the internal state of each neuron"""
+
+        # """    Attributes:
+        #         tau (np.ndarray): A vector ``(N,)`` of time constants :math:`\\tau` for each neuron
+        #         bias (np.ndarray): A vector ``(N,)`` of neuron bias currents for each neuron
+        # """
 
         # - Should we be recurrent or FFwd?
         if len(self.shape) == 1:
@@ -79,6 +135,7 @@ class RateEulerJax(JaxModule):
                 )
 
             self.w_rec: float = 0.0
+            """The recurrent weight matrix ``(N, N)`` for this module, if in recurrent mode"""
 
         else:
             # - Recurrent mode
@@ -91,37 +148,66 @@ class RateEulerJax(JaxModule):
                     "`shape[0]` and `shape[1]` must be equal for a recurrent module."
                 )
 
-            self.w_rec: np.ndarray = Parameter(
+            self.w_rec: Union[np.ndarray, Parameter] = Parameter(
                 w_rec,
                 family="weights",
                 init_func=lambda s: jax.random.normal(
                     rand.split(self.rng_key)[0], shape=self.shape
-                ),
+                )
+                / np.sqrt(self.shape[0]),
                 shape=self.shape,
             )
+            """The recurrent weight matrix ``(N, N)`` for this module, if in recurrent mode"""
 
         # - Set parameters
-        self.tau: np.ndarray = Parameter(
+        self.tau: Union[np.ndarray, Parameter] = Parameter(
             tau,
-            "taus",
+            family="taus",
             init_func=lambda s: np.ones(s) * 100e-3,
             shape=(self.size_out,),
         )
-        self.bias: np.ndarray = Parameter(
-            bias,
-            "bias",
-            init_func=lambda s: np.zeros(s),
-            shape=(self.size_out,),
+        """ The vector ``(N,)`` of time constants :math:`\\tau` for each neuron"""
+
+        self.bias: Union[np.ndarray, Parameter] = Parameter(
+            bias, "bias", init_func=lambda s: np.zeros(s), shape=(self.size_out,),
         )
-        self.dt: float = SimulationParameter(dt)
-        self.noise_std: float = SimulationParameter(noise_std)
+        """The vector ``(N,)`` of bias currents for each neuron"""
+
+        self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
+        """The Euler solver time step for this module"""
+
+        self.noise_std: Union[float, SimulationParameter] = SimulationParameter(
+            noise_std
+        )
+        """The std. dev. :math:`\\sigma` of noise added to internal neuron states at each time step"""
+
+        # - Check and assign the activation function
+        if isinstance(activation_func, str):
+            # - Handle a string argument
+            if activation_func.lower() in ["relu", "r"]:
+                self.act_fn = H_ReLU
+            elif activation_func.lower() in ["sigmoid", "sig", "s"]:
+                self.act_fn = H_sigmoid
+            elif activation_func.lower() in ["tanh", "t"]:
+                self.act_fn = H_tanh
+            else:
+                raise ValueError(
+                    'If `activation_func` is provided as a string argument, it must be one of ["ReLU", "sigmoid", "tanh"].'
+                )
+
+        elif callable(activation_func):
+            # - Handle a callable function
+            self.act_fn = activation_func
+            """The activation function of the neurons in the module"""
+
+        else:
+            raise ValueError(
+                "Argument `activation_func` must be a string or a function."
+            )
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
+        self, input_data: np.ndarray, record: bool = False,
     ):
-
         dt_tau = self.dt / self.tau
         w_rec = self.w_rec
 
@@ -138,7 +224,7 @@ class RateEulerJax(JaxModule):
             state, activation = x
             rec_input = np.dot(activation, w_rec)
             state += dt_tau * (-state + inp + self.bias + rec_input)
-            activation = H_tanh(state)
+            activation = self.act_fn(state)
 
             return (state, activation), (rec_input, state, activation)
 
@@ -152,15 +238,15 @@ class RateEulerJax(JaxModule):
         inputs = res_inputs + noise
 
         # - Use `scan` to evaluate reservoir
-        (activation1, _), (rec_inputs, res_state, res_acts) = scan(
-            reservoir_step, (self.activation, H_tanh(self.activation)), inputs
+        (neur_state1, activation1), (rec_inputs, res_state, res_acts) = scan(
+            reservoir_step, (self.neur_state, H_tanh(self.neur_state)), inputs
         )
 
         # - Evaluate passthrough output layer
         outputs = res_acts
 
         new_state = {
-            "activation": activation1,
+            "neur_state": neur_state1,
             "rng_key": key1,
         }
 

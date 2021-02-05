@@ -1,42 +1,74 @@
-from copy import deepcopy
-from abc import ABC, abstractmethod
-
-from warnings import warn
-
+"""
+Contains the module base classes for Rockpool
+"""
+# - Rockpool imports
 from rockpool.parameters import ParameterBase
 
+# - Other imports
+from abc import ABC, abstractmethod
+from warnings import warn
 from collections import ChainMap
-
 from typing import Tuple, Any, Iterable, Dict, Optional, List, Union
-
 import numpy as np
 
 
 class ModuleBase(ABC):
+    """
+    Base class for all `Module` subclasses in Rockpool
+    """
+
     def __init__(
         self,
-        shape=None,
+        shape: Optional[Tuple] = None,
         spiking_input: bool = False,
         spiking_output: bool = False,
         *args,
         **kwargs,
     ):
+        """
+        Initialise this module
+
+        Args:
+            shape (Optional[Tuple]): The shape of the defined module
+            spiking_input (bool): Whether this module receives spiking input. Default: False
+            spiking_output (bool): Whether this module produces spiking output. Default: False
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+        """
         # - Initialise co-classes etc.
         super().__init__(*args, **kwargs)
 
         # - Initialise Module attributes
         self._submodulenames: List[str] = []
+        """Registry of sub-module names"""
+
         self._name: Optional[str] = None
+        """Name of this module, if assigned"""
+
         self._spiking_input: bool = spiking_input
+        """Whether this module receives spiking input"""
+
         self._spiking_output: bool = spiking_output
+        """Whether this module produces spiking output"""
 
         # - Be generous if a scalar was provided instead of a tuple
         if isinstance(shape, Iterable):
             self._shape = tuple(shape)
+            """The shape of this module"""
         else:
             self._shape = (shape,)
+            """The shape of this module"""
 
-    def __repr__(self, indent="") -> str:
+    def __repr__(self, indent: str = "") -> str:
+        """
+        Produce a string representation of this module
+
+        Args:
+            indent (str): The indent to prepend to each line of output
+
+        Returns:
+            str: A string representation of this module
+        """
         # - String representation
         repr = f"{indent}{self.full_name} with shape {self._shape}"
 
@@ -44,13 +76,19 @@ class ModuleBase(ABC):
         if self.modules():
             repr += " {"
             for mod in self.modules().values():
-                repr += "\n" + mod.__repr__(indent + "   ")
+                repr += "\n" + mod.__repr__()
 
             repr += f"\n{indent}" + "}"
 
         return repr
 
-    def _get_attribute_registry(self):
+    def _get_attribute_registry(self) -> Tuple[Dict, Dict]:
+        """
+        Return or initialise the attribute registry for this module
+
+        Returns:
+            (tuple): registered_attributes, registered_modules
+        """
         if not hasattr(self, "_ModuleBase__registered_attributes") or not hasattr(
             self, "_ModuleBase__modules"
         ):
@@ -66,6 +104,13 @@ class ModuleBase(ABC):
         return __registered_attributes, __modules
 
     def __setattr__(self, name: str, val: Any):
+        """
+        Set an attribute for this module
+
+        Args:
+            name (str): The name of the attribute to set
+            val (Any): The value to assign to the attribute
+        """
         # - Get attribute registry
         __registered_attributes, __modules = self._get_attribute_registry()
 
@@ -106,7 +151,13 @@ class ModuleBase(ABC):
         # - Assign attribute to self
         super().__setattr__(name, val)
 
-    def __delattr__(self, name):
+    def __delattr__(self, name: str):
+        """
+        Delete an attribute from this module, and remove from the attribute registry if present
+
+        Args:
+            name (str): The name of the attribute to delete
+        """
         # - Remove attribute from registered attributes
         if name in self.__registered_attributes:
             del self.__registered_attributes[name]
@@ -120,18 +171,35 @@ class ModuleBase(ABC):
         super().__delattr__(name)
 
     def _register_attribute(self, name: str, val: ParameterBase):
+        """
+        Record an attribute in the attribute registry
+
+        Args:
+            name (str): The name of the attribute to register
+            val (ParameterBase): The `ParameterBase` subclass object to register. e.g. `Parameter`, `SimulationParameter` or `State`.
+        """
         # - Record attribute in attribute registry
-        self.__registered_attributes[name] = [
+        self.__registered_attributes[name]: dict = [
             val.data,
             type(val).__name__,
             val.family,
             val.init_func,
             val.shape,
         ]
+        """The attribute registry for this module"""
 
-    def _register_module(self, name: str, mod):
+    def _register_module(self, name: str, mod: "ModuleBase"):
+        """
+        Register a sub-module in the module registry
+
+        Args:
+            name (str): The name of the module to register
+            mod (ModuleBase): The `ModuleBase` object to register
+        """
         if not isinstance(mod, ModuleBase):
-            raise ValueError(f"You may only assign a Module subclass as a sub-module.")
+            raise ValueError(
+                f"You may only assign a `Module` subclass as a sub-module."
+            )
 
         # - Assign module name to module
         mod._name = name
@@ -140,7 +208,27 @@ class ModuleBase(ABC):
         self.__modules[name] = [mod, type(mod).__name__]
         self._submodulenames.append(name)
 
-    def set_attributes(self, new_attributes: dict):
+    def set_attributes(self, new_attributes: dict) -> "ModuleBase":
+        """
+        Set the attributes and sub-module attributes from a dictionary
+
+        This method can be used with the dictionary returned from module evolution to set the new state of the module. It can also be used to set multiple parameters of a module and submodules.
+
+        Examples:
+            Use the functional API to evolve, obtain new states, and set those states:
+
+            >>> _, new_state, _ = mod(input)
+            >>> mod = mod.set_attributes(new_state)
+
+            Obtain a parameter dictionary, modify it, then set the parameters back:
+
+            >>> params = mod.parameters()
+            >>> params['w_input'] *= 0.
+            >>> mod.set_attributes(params)
+
+        Args:
+            new_attributes (dict): A nested dictionary containing parameters of this module and sub-modules.
+        """
         # - Set self attributes
         for (k, v) in self.__registered_attributes.items():
             if k in new_attributes:
@@ -149,11 +237,26 @@ class ModuleBase(ABC):
         # - Set submodule attributes
         for (k, m) in self.__modules.items():
             if k in new_attributes:
-                m[0].set_attributes(new_attributes[k])
+                m[0] = m[0].set_attributes(new_attributes[k])
+
+        # - Return the module, for compatibility with the functional interface
+        return self
 
     def _get_attribute_family(
         self, type_name: str, family: Union[str, Tuple, List] = None
     ) -> dict:
+        """
+        Search for attributes of this module and submodules that match a given family
+
+        This method can be used to conveniently get all weights for a network; or all time constants; or any other family of parameters. Parameter families are defined simply by a string: ``"weights"`` for weights; ``"taus"`` for time constants, etc. These strings are arbitrary, but if you follow the conventions then future developers will thank you (that includes you in six month's time).
+
+        Args:
+            type_name (str): The class of parameters to search for. Must be one of ``["Parameter", "SimulationParameter", "State"]`` or another future subclass of :py:class:`.ParameterBase`
+            family (Union[str, Tuple[str]]): A string or list or tuple of strings, that define one or more attribute families to search for
+
+        Returns:
+            dict: A nested dictionary of attributes that match the provided `type_name` and `family`
+        """
         # - Filter own attribute dictionary by type key
         matching_attributes = {
             k: v for (k, v) in self.__registered_attributes.items() if v[1] == type_name
@@ -189,6 +292,15 @@ class ModuleBase(ABC):
         return matching_attributes
 
     def attributes_named(self, name: Union[Tuple[str], List[str], str]) -> dict:
+        """
+        Search for attributes of this or submodules by time
+
+        Args:
+            name (Union[str, Tuple[str]): The name of the attribute to search for
+
+        Returns:
+            dict: A nested dictionary of attributes that match `name`
+        """
         # - Check if we were given a tuple or not
         if not isinstance(name, (tuple, list)):
             name = (name,)
@@ -219,6 +331,30 @@ class ModuleBase(ABC):
         return matching_attributes
 
     def parameters(self, family: Union[str, Tuple, List] = None):
+        """
+        Return a nested dictionary of module and submodule parameters
+
+        Use this method to inspect the parameters from this and all submodules. The optional argument `family` allows you to search for parameters in a particular family — for example ``"weights"`` for all weights of this module and nested submodules.
+
+        Although the `family` argument is an arbitrary string, reasonable choises are ``"weights"``, ``"taus"`` for time constants, ``"biases"`` for biases...
+
+        Examples:
+            Obtain a dictionary of all parameters for this module (including submodules):
+
+            >>> mod.parameters()
+            dict{ ... }
+
+            Obtain a dictionary of parameters from a particular family:
+            >>> mod.parameters("weights")
+            dict{ ... }
+
+        Args:
+            family (str): The family of parameters to search for. Default: ``None``; return all parameters.
+
+        Returns:
+            dict: A nested dictionary of parameters of this
+
+        """
         return self._get_attribute_family("Parameter", family)
 
     def simulation_parameters(self, family: Union[str, Tuple, List] = None):
@@ -282,7 +418,7 @@ class ModuleBase(ABC):
 
     @property
     def name(self) -> str:
-        return f"'{self._name}'" if hasattr(self, "_name") else "[Unnamed]"
+        return f"'{self._name}'" if self._name else ""
 
     @property
     def full_name(self) -> str:

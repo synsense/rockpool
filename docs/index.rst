@@ -22,9 +22,10 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: The basics
 
    basics/installation
-   ..  basics/getting_started.ipynb
-   basics/time_series.ipynb
    basics/introduction_to_snns.ipynb
+   basics/getting_started.ipynb
+   basics/time_series.ipynb
+
    .. basics/sharp_points.ipynb
 
 .. toctree::
@@ -49,9 +50,10 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :caption: Advanced topics
 
    .. advanced/extending_layers.ipynb
-   .. reference/layer_types
-   .. reference/api
+
+   reference/layer_types
+   reference/api
    advanced/developers_notes
-   .. advanced/CHANGELOG
+   advanced/CHANGELOG
 
 * :ref:`genindex`
