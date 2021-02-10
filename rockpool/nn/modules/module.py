@@ -330,43 +330,90 @@ class ModuleBase(ABC):
         # - Return nested attributes
         return matching_attributes
 
-    def parameters(self, family: Union[str, Tuple, List] = None):
+    def parameters(self, family: Union[str, Tuple, List] = None) -> Dict:
         """
-        Return a nested dictionary of module and submodule parameters
+        Return a nested dictionary of module and submodule Parameters
 
-        Use this method to inspect the parameters from this and all submodules. The optional argument `family` allows you to search for parameters in a particular family — for example ``"weights"`` for all weights of this module and nested submodules.
+        Use this method to inspect the Parameters from this and all submodules. The optional argument `family` allows you to search for Parameters in a particular family — for example ``"weights"`` for all weights of this module and nested submodules.
 
         Although the `family` argument is an arbitrary string, reasonable choises are ``"weights"``, ``"taus"`` for time constants, ``"biases"`` for biases...
 
         Examples:
-            Obtain a dictionary of all parameters for this module (including submodules):
+            Obtain a dictionary of all Parameters for this module (including submodules):
 
             >>> mod.parameters()
             dict{ ... }
 
-            Obtain a dictionary of parameters from a particular family:
+            Obtain a dictionary of Parameters from a particular family:
+
             >>> mod.parameters("weights")
             dict{ ... }
 
         Args:
-            family (str): The family of parameters to search for. Default: ``None``; return all parameters.
+            family (str): The family of Parameters to search for. Default: ``None``; return all parameters.
 
         Returns:
-            dict: A nested dictionary of parameters of this
-
+            dict: A nested dictionary of Parameters of this module and all submodules
         """
         return self._get_attribute_family("Parameter", family)
 
-    def simulation_parameters(self, family: Union[str, Tuple, List] = None):
+    def simulation_parameters(self, family: Union[str, Tuple, List] = None) -> Dict:
+        """
+        Return a nested dictionary of module and submodule SimulationParameters
+
+        Use this method to inspect the SimulationParameters from this and all submodules. The optional argument `family` allows you to search for SimulationParameters in a particular family.
+
+        Examples:
+            Obtain a dictionary of all SimulationParameters for this module (including submodules):
+
+            >>> mod.simulation_parameters()
+            dict{ ... }
+
+        Args:
+            family (str): The family of SimulationParameters to search for. Default: ``None``; return all SimulationParameter attributes.
+
+        Returns:
+            dict: A nested dictionary of SimulationParameters of this module and all submodules
+
+        """
         return self._get_attribute_family("SimulationParameter", family)
 
-    def state(self, family: Union[str, Tuple, List] = None):
+    def state(self, family: Union[str, Tuple, List] = None) -> Dict:
+        """
+        Return a nested dictionary of module and submodule States
+
+        Use this method to inspect the States from this and all submodules. The optional argument `family` allows you to search for States in a particular family.
+
+        Examples:
+            Obtain a dictionary of all States for this module (including submodules):
+
+            >>> mod.state()
+            dict{ ... }
+
+        Args:
+            family (str): The family of States to search for. Default: ``None``; return all State attributes.
+
+        Returns:
+            dict: A nested dictionary of States of this module and all submodules
+        """
         return self._get_attribute_family("State", family)
 
-    def modules(self):
+    def modules(self) -> Dict:
+        """
+        Return a dictionary of all sub-modules of this module
+
+        Returns:
+            dict: A dictionary containing all sub-modules. Each item will be named with the sub-module name.
+        """
         return {k: m[0] for (k, m) in self.__modules.items()}
 
     def _reset_attribute(self, name: str):
+        """
+        Reset an attribute to its initialisation value
+
+        Args:
+            name (str): The name of the attribute to reset
+        """
         # - Check that the attribute is registered
         if name not in self.__registered_attributes:
             raise KeyError(f"{name} is not a registered attribute.")
@@ -378,11 +425,27 @@ class ModuleBase(ABC):
         if init_func is not None:
             setattr(self, name, init_func(shape))
 
-    def _has_registered_attribute(self, name: str):
+    def _has_registered_attribute(self, name: str) -> bool:
+        """
+        Check if the module has a registered attribute
+
+        Args:
+            name (str): The name of the attribute to check
+
+        Returns:
+            bool: ``True`` if the attribute `name` is in the attribute registry, ``False`` otherwise.
+        """
         __registered_attributes, _ = self._get_attribute_registry()
         return name in __registered_attributes
 
-    def reset_state(self):
+    def reset_state(self) -> "ModuleBase":
+        """
+        Reset the state of this module
+
+        Returns:
+            Module: The updated module is returned for compatibility with the functional API
+
+        """
         # - Get a list of states
         states = self.state()
 
@@ -393,9 +456,17 @@ class ModuleBase(ABC):
 
         # - Reset submodule states
         for (k, m) in self.__modules.items():
-            m[0].reset_state()
+            m[0] = m[0].reset_state()
+
+        return self
 
     def reset_parameters(self):
+        """
+        Reset all parameters in this module
+
+        Returns:
+            Module: The updated module is returned for compatibility with the funcitonal API
+        """
         # - Get a list of parameters
         parameters = self.parameters()
 
@@ -406,38 +477,47 @@ class ModuleBase(ABC):
 
         # - Reset submodule states
         for (k, m) in self.__modules.items():
-            m[0].reset_parameters()
+            m[0] = m[0].reset_parameters()
+
+        return self
 
     @property
     def class_name(self) -> str:
-        """
-        (str) Class name of ``self``
+        """ str: Class name of ``self``
         """
         # - Determine class name by removing "<class '" and "'>" and the package information
         return type(self).__name__
 
     @property
     def name(self) -> str:
+        """ str: The name of this module, or an empty string if ``None``
+        """
         return f"'{self._name}'" if self._name else ""
 
     @property
     def full_name(self) -> str:
+        """ str: The full name of this module (class plus module name)
+        """
         return f"{self.class_name} {self.name}"
 
     @property
-    def spiking_input(self):
+    def spiking_input(self) -> bool:
+        """ bool: If ``True``, this module receives spiking input. If ``False``, this module expects continuous input. """
         return self._spiking_input
 
     @property
     def spiking_output(self):
+        """ bool: If ``True``, this module sends spiking output. If ``False``, this module sends continuous output. """
         return self._spiking_output
 
     @property
-    def shape(self):
+    def shape(self) -> tuple:
+        """ tuple: The shape of this module """
         return self._shape
 
     @property
-    def size(self):
+    def size(self) -> int:
+        """ int: (DEPRECATED) The output size of this module """
         warn(
             "The `size` property is deprecated. Please use `size_out` instead.",
             DeprecationWarning,
@@ -445,18 +525,46 @@ class ModuleBase(ABC):
         return self._shape[-1]
 
     @property
-    def size_out(self):
+    def size_out(self) -> int:
+        """ int: The output size of this module """
         return self._shape[-1]
 
     @property
-    def size_in(self):
+    def size_in(self) -> int:
+        """ int: The input size of this module """
         return self._shape[0]
 
     @abstractmethod
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
+        """
+        Evolve the state of this module over input data
+
+        NOTE: THIS MODULE CLASS DOES NOT PROVIDE DOCUMENTATION FOR ITS EVOLVE METHOD. PLEASE UPDATE THE DOCUMENTATION FOR THIS MODULE.
+
+        Args:
+            input_data: The input data with shape ``(T, size_in)`` to evolve with
+            record (bool): If ``True``, the module should record internal state during evolution and return the record. If ``False``, no recording is required. Default: ``False``.
+
+        Returns:
+            tuple: (output, new_state, record)
+                output (np.ndarray): The output response of this module with shape ``(T, size_out)``
+                new_state (dict): A dictionary containing the updated state of this and all submodules after evolution
+                record (dict): A dictionary containing recorded state of this and all submodules, if requested using the `record` argument
+        """
         return None, None, None
 
     def __call__(self, input_data, *args, **kwargs):
+        """
+        Evolve the state of this module over input data
+
+        Args:
+            input_data: The input data with shape ``(T, size_in)`` to evolve this module with
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+
+        Returns:
+
+        """
         # - Catch the case where we have been called with the raw output of a previous call
         if isinstance(input_data, tuple) and len(input_data) == 3:
             input_data, new_state, recorded_state = input_data
@@ -474,7 +582,18 @@ class ModuleBase(ABC):
 
 
 class Module(ModuleBase, ABC):
-    def _register_module(self, name: str, mod):
+    """
+    The native Python / numpy ``Module`` base class for Rockpool
+    """
+
+    def _register_module(self, name: str, mod: ModuleBase):
+        """
+        Register a submodule in the module registry
+
+        Args:
+            name (str): The name to assign to the submodule
+            mod (Module): The submodule to register. Must inherit from ``Module``
+        """
         # - Register the module
         super()._register_module(name, mod)
 
@@ -497,6 +616,10 @@ class Module(ModuleBase, ABC):
 
 
 class PostInitMetaMixin(type(ModuleBase)):
+    """
+    A mixin base class that adds a ``__post_init__()`` method to a class. ``__post_init__()`` is called after the ``__init__()`` method, on instantiation of an object.
+    """
+
     def __call__(cls, *args, **kwargs):
         obj = super().__call__(*args, **kwargs)
         if hasattr(cls, "__post_init__"):

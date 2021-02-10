@@ -424,6 +424,7 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
 
 
 RecAEIFSpkInNest = astimedmodule(
+    RecAEIFSpkInNestV1,
     parameters=[
         "weights_in",
         "weights_rec",
@@ -446,4 +447,4 @@ RecAEIFSpkInNest = astimedmodule(
     ],
     simulation_parameters=["dt", "record", "num_cores"],
     states=["Vmem"],
-)(RecAEIFSpkInNestV1)
+)

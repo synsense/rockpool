@@ -111,3 +111,12 @@ Time series classes
     nn.layers.RecCLIAF
     nn.layers.CLIAF
     nn.layers.SoftMaxLayer
+
+Conversion utilities
+--------------------
+
+.. autosummary::
+
+    nn.modules.timed_module.TimedModuleWrapper
+    nn.modules.timed_module.LayerToTimedModule
+    nn.modules.timed_module.astimedmodule

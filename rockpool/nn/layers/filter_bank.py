@@ -8,7 +8,7 @@ from scipy.signal import butter, sosfilt, sosfreqz
 
 from rockpool.timeseries import TSContinuous
 from rockpool.nn.layers.layer import Layer
-from rockpool.nn.modules.timed_module import astimedmodule 
+from rockpool.nn.modules.timed_module import astimedmodule
 
 
 class FilterBank(Layer, ABC):
@@ -459,6 +459,7 @@ class ButterFilterV1(FilterBank):
 
 
 ButterMelFilter = astimedmodule(
+    ButterMelFilterV1,
     parameters=[],
     simulation_parameters=[
         "fs",
@@ -468,11 +469,13 @@ ButterMelFilter = astimedmodule(
         "normalize",
         "order",
         "num_workers",
-        "name"],
+        "name",
+    ],
     states=[],
-    )(ButterMelFilterV1)
+)
 
 ButterFilter = astimedmodule(
+    ButterFilterV1,
     parameters=[],
     simulation_parameters=[
         "fs",
@@ -482,9 +485,7 @@ ButterFilter = astimedmodule(
         "normalize",
         "order",
         "num_workers",
-        "name"],
+        "name",
+    ],
     states=[],
-    )(ButterFilterV1)
-
-
-
+)

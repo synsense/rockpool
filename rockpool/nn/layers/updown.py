@@ -13,7 +13,7 @@ import numpy as np
 from rockpool.timeseries import TSContinuous, TSEvent
 from rockpool.utilities.property_arrays import ArrayLike
 from rockpool.nn.layers.layer import Layer
-from rockpool.nn.modules.timed_module import astimedmodule 
+from rockpool.nn.modules.timed_module import astimedmodule
 
 
 # - Default maximum numbers of time steps for a single evolution batch
@@ -102,7 +102,7 @@ class FFUpDownV1(Layer):
         self.max_num_timesteps = max_num_timesteps
         self.repeat_output = repeat_output
         self.multiplex_spikes = multiplex_spikes
-        self.analog_value = np.zeros(size_in) 
+        self.analog_value = np.zeros(size_in)
         self.initialized = False
 
         self.reset_all()
@@ -295,7 +295,7 @@ class FFUpDownV1(Layer):
 
         return spike_raster  # , record
 
-    #def reset_state(self):
+    # def reset_state(self):
     #    """ Resets the state """
     #    # - Store None as state to indicate that future evolutions do not continue from previous input
     #    self.state = None
@@ -305,14 +305,14 @@ class FFUpDownV1(Layer):
         """ Returns the output type class """
         return TSEvent
 
-    #@property
-    #def state(self):
+    # @property
+    # def state(self):
     #    """ Returns the state """
     #    return self._state
 
-    #@state.setter
+    # @state.setter
     ## Note that state here is of size self.size_in and not self.size
-    #def state(self, new_state):
+    # def state(self, new_state):
     #    if new_state is None:
     #        self._state = None
     #    else:
@@ -447,6 +447,7 @@ class FFUpDownV1(Layer):
 
 
 FFUpDown = astimedmodule(
+    FFUpDownV1,
     parameters=[],
     simulation_parameters=[
         "weights",
@@ -459,9 +460,6 @@ FFUpDown = astimedmodule(
         "name",
         "max_num_timesteps",
         "multiplex_spikes",
-        ],
+    ],
     states=["analog_value"],
-    )(FFUpDownV1)
-
-
-
+)
