@@ -446,8 +446,7 @@ class FFUpDownV1(Layer):
         )
 
 
-FFUpDown = astimedmodule(
-    FFUpDownV1,
+@astimedmodule(
     parameters=[],
     simulation_parameters=[
         "weights",
@@ -463,3 +462,5 @@ FFUpDown = astimedmodule(
     ],
     states=["analog_value"],
 )
+class FFUpDown(FFUpDownV1):
+    pass

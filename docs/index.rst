@@ -25,8 +25,17 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    basics/introduction_to_snns.ipynb
    basics/getting_started.ipynb
    basics/time_series.ipynb
+   basics/sharp_points.ipynb
 
-   .. basics/sharp_points.ipynb
+.. toctree::
+   :maxdepth: 1
+   :caption: In depth
+
+   in-depth/api-low-level.ipynb
+   in-depth/api-high-level.ipynb
+   in-depth/api-functional.ipynb
+   in-depth/jax-training.ipynb
+   in-depth/torch-training.ipynb
 
 .. toctree::
    :maxdepth: 1

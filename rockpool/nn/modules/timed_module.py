@@ -1056,7 +1056,7 @@ def astimedmodule(
     parameters: Optional[Iterable[str]] = None,
     states: Optional[Iterable[str]] = None,
     simulation_parameters: Optional[Iterable[str]] = None,
-):
+) -> Union[type, Callable]:
     """
     Convert a Rockpool v1 class to a v2 class
 
@@ -1108,7 +1108,14 @@ def astimedmodule(
     ):
         simulation_parameters = [simulation_parameters]
 
+    from rockpool.nn.layers import Layer
+
     def wrapper_function(v1_cls):
+        if not issubclass(v1_cls, Layer):
+            raise ValueError(
+                "`@astimedmodule` may only be applied to Rockpool v1 `Layer` subclasses."
+            )
+
         # - Define a wrapping class
         @functools.wraps(v1_cls, updated=())
         class wrapper(LayerToTimedModule):
@@ -1120,7 +1127,12 @@ def astimedmodule(
                 super().__init__(layer, parameters, states, simulation_parameters)
 
         # - Update docstrings for wrapped class
-        wrapper.__doc__ = v1_cls.__doc__
+        if v1_cls.__doc__ is None:
+            # - Inherit docs from parent class
+            wrapper.__doc__ = v1_cls.__base__.__doc__
+        else:
+            wrapper.__doc__ = v1_cls.__doc__
+
         wrapper.__init__.__doc__ = v1_cls.__init__.__doc__
         wrapper.evolve.__doc__ = v1_cls.evolve.__doc__
 

@@ -1500,7 +1500,7 @@ class RecIAFSpkInNestV1(FFIAFNestV1):
         self.request_q.put([COMMAND_SET, "tau_syn_in", s2ms(new_tau_syn_inh)])
 
 
-FFIAFNest = astimedmodule(FFIAFNestV1,
+@astimedmodule(
     parameters=[
         "weights",
         "bias",
@@ -1515,8 +1515,11 @@ FFIAFNest = astimedmodule(FFIAFNestV1,
     simulation_parameters=["dt", "num_cores", "record"],
     states=["Vmem"],
 )
+class FFIAFNest(FFIAFNestV1):
+    pass
 
-RecIAFSpkInNest = astimedmodule(RecIAFSpkInNestV1,
+
+@astimedmodule(
     parameters=[
         "weights_in",
         "weights_rec",
@@ -1535,3 +1538,5 @@ RecIAFSpkInNest = astimedmodule(RecIAFSpkInNestV1,
     simulation_parameters=["dt", "record", "num_cores"],
     states=["Vmem"],
 )
+class RecIAFSpkInNest(RecIAFSpkInNestV1):
+    pass

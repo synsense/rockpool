@@ -423,8 +423,7 @@ class RecAEIFSpkInNestV1(RecIAFSpkInNestV1):
         self.request_q.put([COMMAND_SET, "tau_w", s2ms(new_tau)])
 
 
-RecAEIFSpkInNest = astimedmodule(
-    RecAEIFSpkInNestV1,
+@astimedmodule(
     parameters=[
         "weights_in",
         "weights_rec",
@@ -448,3 +447,5 @@ RecAEIFSpkInNest = astimedmodule(
     simulation_parameters=["dt", "record", "num_cores"],
     states=["Vmem"],
 )
+class RecAEIFSpkInNest(RecAEIFSpkInNestV1):
+    pass
