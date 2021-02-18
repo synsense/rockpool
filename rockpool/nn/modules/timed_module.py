@@ -297,6 +297,19 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         return ts_output, state_dict, record_dict
 
+    @abstractmethod
+    def evolve(
+        self,
+        ts_input=None,
+        duration=None,
+        num_timesteps=None,
+        kwargs_timeseries=None,
+        record: bool = False,
+        *args,
+        **kwargs,
+    ) -> Tuple[TimeSeries, Dict, Dict]:
+        pass
+
     def _determine_timesteps(
         self,
         ts_input: Optional[TimeSeries] = None,
@@ -1119,7 +1132,7 @@ def astimedmodule(
         # - Define a wrapping class
         @functools.wraps(v1_cls, updated=())
         class wrapper(LayerToTimedModule):
-            def __init__(*args, **kwargs):
+            def __init__(self, *args, **kwargs):
                 # - Instantiate layer
                 layer = v1_cls(*args, **kwargs)
 

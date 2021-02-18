@@ -1673,13 +1673,13 @@ class TSContinuous(TimeSeries):
 
     # - Addition
 
-    def __add__(self, other_samples):
+    def __add__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__iadd__(other_samples)
 
-    def __radd__(self, other_samples):
+    def __radd__(self, other_samples: TimeSeries) -> TimeSeries:
         return self + other_samples
 
-    def __iadd__(self, other_samples):
+    def __iadd__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1702,13 +1702,13 @@ class TSContinuous(TimeSeries):
 
     # - Subtraction
 
-    def __sub__(self, other_samples):
+    def __sub__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__isub__(other_samples)
 
-    def __rsub__(self, other_samples):
+    def __rsub__(self, other_samples: TimeSeries) -> TimeSeries:
         return -(self - other_samples)
 
-    def __isub__(self, other_samples):
+    def __isub__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1730,13 +1730,13 @@ class TSContinuous(TimeSeries):
 
     # - Multiplication
 
-    def __mul__(self, other_samples):
+    def __mul__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__imul__(other_samples)
 
-    def __rmul__(self, other_samples):
+    def __rmul__(self, other_samples: TimeSeries) -> TimeSeries:
         return self * other_samples
 
-    def __imul__(self, other_samples):
+    def __imul__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1756,15 +1756,15 @@ class TSContinuous(TimeSeries):
 
     # - Division
 
-    def __truediv__(self, other_samples):
+    def __truediv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__itruediv__(other_samples)
 
-    def __rtruediv__(self, other_samples):
+    def __rtruediv__(self, other_samples: TimeSeries) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = 1 / self_copy.samples
         return self_copy * other_samples
 
-    def __itruediv__(self, other_samples):
+    def __itruediv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(
                 np.reshape(other_samples(self.times), (np.size(self.times), -1))
@@ -1788,15 +1788,15 @@ class TSContinuous(TimeSeries):
 
     # - Floor division
 
-    def __floordiv__(self, other_samples):
+    def __floordiv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__ifloordiv__(other_samples)
 
-    def __rfloordiv__(self, other_samples):
+    def __rfloordiv__(self, other_samples: TimeSeries) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = 1 / self_copy.samples
         return self_copy // (1 / other_samples)
 
-    def __ifloordiv__(self, other_samples):
+    def __ifloordiv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1814,12 +1814,24 @@ class TSContinuous(TimeSeries):
 
         return self
 
+    # - Matrix multiplication
+
+    def __matmul__(self, matrix) -> TimeSeries:
+        return self.copy().__imatmul__(matrix)
+
+    def __rmatmul__(self, matrix) -> TimeSeries:
+        raise NotImplementedError
+
+    def __imatmul__(self, matrix) -> TimeSeries:
+        self.samples = self.samples @ matrix
+        return self
+
     # - Exponentiation
 
-    def __pow__(self, exponent):
+    def __pow__(self, exponent: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__ipow__(exponent)
 
-    def __rpow__(self, base):
+    def __rpow__(self, base: Union[np.ndarray, Any]) -> TimeSeries:
         new_series = self.copy()
 
         base = new_series._compatible_shape(base)
@@ -1836,7 +1848,7 @@ class TSContinuous(TimeSeries):
 
         return new_series
 
-    def __ipow__(self, exponent):
+    def __ipow__(self, exponent: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(exponent, TSContinuous):
             exponent = self._compatible_shape(exponent(self.times))
         else:
@@ -1856,14 +1868,14 @@ class TSContinuous(TimeSeries):
 
     # - Absolute
 
-    def __abs__(self):
+    def __abs__(self) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = np.abs(self_copy.samples)
         return self_copy
 
     # - Negative
 
-    def __neg__(self):
+    def __neg__(self) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = -self_copy.samples
         return self_copy

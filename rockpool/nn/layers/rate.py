@@ -222,7 +222,7 @@ class FFRateLayerBase(Layer):
 
         # - Call super-class initialiser
         super().__init__(
-            weights=np.asarray(weights, float), dt=dt, noise_std=noise_std, name=name
+            weights=np.asarray(weights, 'float'), dt=dt, noise_std=noise_std, name=name
         )
         self.bias = self._correct_param_shape(bias)
 
@@ -347,7 +347,7 @@ class FFRateLayerBase(Layer):
 
     @bias.setter
     def bias(self, new_bias):
-        self._bias = self._correct_param_shape(new_bias)
+        self._bias = self._expand_to_net_size(new_bias)
 
 
 ### --- PassThrough class
@@ -785,7 +785,7 @@ class FFRateEuler(FFRateLayerBase):
 
     @tau.setter
     def tau(self, new_tau):
-        new_tau = self._correct_param_shape(new_tau)
+        new_tau = self._expand_to_net_size(new_tau)
         if not (new_tau >= self._dt).all():
             raise ValueError("All tau must be at least dt.")
         self._tau = new_tau
@@ -800,7 +800,7 @@ class FFRateEuler(FFRateLayerBase):
 
     @alpha.setter
     def alpha(self, new_alpha):
-        new_alpha = self._correct_param_shape(new_alpha)
+        new_alpha = self._expand_to_net_size(new_alpha)
         if not (new_alpha <= 1).all():
             raise ValueError("All alpha must be at most 1.")
         self._alpha = new_alpha
@@ -815,7 +815,7 @@ class FFRateEuler(FFRateLayerBase):
 
     @gain.setter
     def gain(self, new_gain):
-        self._gain = self._correct_param_shape(new_gain)
+        self._gain = self._expand_to_net_size(new_gain)
 
     @property
     def activation_func(self):
