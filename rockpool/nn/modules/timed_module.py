@@ -1029,7 +1029,7 @@ class LayerToTimedModule(TimedModule):
         # - Set attribute in module, if registered
         if self._has_registered_attribute(key):
             if hasattr(self, "_module"):
-                setattr(self._module, key, getattr(self, key))
+                setattr(self._module, key, value)
 
                 # - Ensure we get validated value from submodule
                 value = getattr(self._module, key)

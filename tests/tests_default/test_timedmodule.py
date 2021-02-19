@@ -184,9 +184,7 @@ def test_wrapper():
 
     class net_mod(JaxModule):
         def __init__(
-            self,
-            shape,
-            dt: float = 1e-3,
+            self, shape, dt: float = 1e-3,
         ):
             super().__init__(shape=shape)
 
@@ -197,9 +195,7 @@ def test_wrapper():
             self.relu = RateEulerJax(self.size_out)
 
         def evolve(
-            self,
-            input_data,
-            record: bool = False,
+            self, input_data, record: bool = False,
         ):
             return self.relu(jnp.dot(input_data, self.weight), record=record)
 
@@ -218,3 +214,45 @@ def test_wrapper():
         TSContinuous.from_clocked(input_data, dt=tnm.dt)
     )
     tnm.set_attributes(new_state)
+
+
+def test_v1_conversion():
+    from rockpool.nn.layers import Layer
+    from rockpool.nn.modules.timed_module import astimedmodule
+    import numpy as np
+
+    # - Define a minimal wrapped layer
+    @astimedmodule(parameters=["weights"])
+    class TestLayer(Layer):
+        def __init__(self, weights, *args, **kwargs):
+            super().__init__(weights, *args, **kwargs)
+
+        def evolve(self, *args, **kwargs):
+            super().evolve(*args, **kwargs)
+
+        def to_dict(self):
+            return super().to_dict()
+
+    # - Test constructing a layer
+    Nin = 2
+    Nout = 2
+    tmod = TestLayer(np.zeros((Nin, Nout)))
+
+    # - Test that we got the correct attributes
+    assert hasattr(tmod, "dt")
+    assert hasattr(tmod, "t")
+    assert hasattr(tmod, "weights")
+
+    # - Test assigning weights directly
+    w = np.array([[1, 2], [3, 4]])
+    tmod.weights = w
+    assert np.all(tmod.weights == w)
+    assert np.all(tmod._module.weights == w)
+
+    # - Test assigning weights through .set_attributes()
+    w2 = np.array([[0, 1], [1, 0]])
+    p = tmod.parameters()
+    p["weights"] = w2
+    tmod.set_attributes(p)
+    assert np.all(tmod.weights == w2)
+    assert np.all(tmod._module.weights == w2)
