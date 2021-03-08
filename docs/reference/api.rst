@@ -15,6 +15,17 @@ Base classes
     nn.modules.Module
     nn.modules.TimedModule
 
+Attribute types
+~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    parameters.Parameter
+    parameters.State
+    parameters.SimulationParameter
+
 
 Layer and Network alternative base classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -60,6 +71,7 @@ Time series classes
     :template: class.rst
 
     nn.modules.RateEulerJax
+    nn.modules.Linear
 
     nn.layers.RecRateEuler
     nn.layers.FFRateEuler
@@ -116,6 +128,8 @@ Conversion utilities
 --------------------
 
 .. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
 
     nn.modules.timed_module.TimedModuleWrapper
     nn.modules.timed_module.LayerToTimedModule

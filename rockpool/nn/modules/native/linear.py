@@ -11,6 +11,10 @@ from abc import ABC
 
 
 class LinearMixin(ABC):
+    """
+    Encapsulate a linear weight matrix
+    """
+
     _dot = None
 
     def __init__(
@@ -21,6 +25,35 @@ class LinearMixin(ABC):
         *args,
         **kwargs
     ):
+        """
+        Encapsulate a linear weight matrix
+
+        `.Linear` essentially wraps a single weight matrix, and passes data through by using the matrix as a set of weights. The shape of the matrix must be specified as a tuple ``(Nin, Nout)``.
+
+        A weight initialisation function may be specified. By default the weights will be Normally distributed around zero, and normalised by N_in.
+
+        Examples:
+
+            Build a linear weight matrix with shape ``(3, 4)``:
+
+            >>> Linear((3, 4))
+            Linear  with shape (3, 4)
+
+            Build a linear weight matrix with shape ``(2, 5)``, which will be initialised with zeros:
+
+            >>> Linear((2, 5), weight_init_func = lambda s: np.zeros(s))
+            Linear  with shape (2, 5)
+
+            Provide a concrete initialisation for the linear weights:
+
+            >>> Linear((2, 2), weight = np.array([[1, 2], [3, 4]]))
+            Linear  with shape (2, 2)
+
+        Args:
+            shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
+            weight_init_func (Callable): The initialisation function to use for the weights. Default: normal divided by N_in
+            weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the `shape` argument
+        """
         # - Base class must be `Module`
         if not isinstance(self, Module):
             raise TypeError(
@@ -34,7 +67,9 @@ class LinearMixin(ABC):
             raise ValueError("`shape` must specify input and output sizes for Linear.")
 
         # - Specify weight parameter
-        self.weight = Parameter(weight, shape=self.shape, init_func=weight_init_func, family='weights')
+        self.weight = Parameter(
+            weight, shape=self.shape, init_func=weight_init_func, family="weights"
+        )
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         return self._dot(input_data, self.weight), {}, {}
@@ -45,6 +80,6 @@ class Linear(LinearMixin, Module):
     pass
 
 
-class JaxLinear(LinearMixin, JaxModule):
+class LinearJax(LinearMixin, JaxModule):
     _dot = staticmethod(jnp.dot)
     pass

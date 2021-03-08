@@ -12,21 +12,39 @@ def test_imports():
     from rockpool.parameters import Parameter, SimulationParameter, State
 
 
+def test_assignment_jax():
+    from rockpool.nn.modules.jax.rate_jax import RateEulerJax
+    import numpy as np
+
+    # - Construct a module
+    mod = RateEulerJax(5)
+
+    # - Modify attributes and test assignment
+    p = mod.parameters()
+    p["tau"] = np.array(p["tau"])
+    p["tau"][:] = 3.0
+
+    mod = mod.set_attributes(p)
+    assert np.all(mod.tau == 3.0)
+
+    # - Test direct assignment from top level
+    tau = np.array(mod.tau)
+    tau[:] = 4.0
+    mod.tau = tau
+    assert np.all(mod.tau == 4.0)
+
+
 def test_euler_jax():
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
 
+    import jax
     from jax import jit
+    import jax.numpy as jnp
 
     import numpy as np
 
     lyr = RateEulerJax(
-        tau=np.random.rand(
-            2,
-        )
-        * 10,
-        bias=np.random.rand(
-            2,
-        ),
+        tau=np.random.rand(2,) * 10, bias=np.random.rand(2,), activation_func="tanh"
     )
     lyr = lyr.reset_state()
 
@@ -43,10 +61,12 @@ def test_euler_jax():
     print(lyr.state())
 
     print("evolving with call")
-    _, new_state, _ = lyr(np.random.rand(10, 2))
+    input_rand = np.random.rand(10, 2)
+    lyr = lyr.reset_state()
+    output, new_state, _ = lyr(input_rand)
     lyr = lyr.set_attributes(new_state)
 
-    _, new_state, _ = lyr(np.random.rand(10, 2))
+    _, new_state, _ = lyr(input_rand)
     lyr = lyr.set_attributes(new_state)
 
     # print(lyr.parameters())
@@ -56,12 +76,29 @@ def test_euler_jax():
     lyr.activation = np.array([100.0, 100.0])
 
     print("evolving with jit")
+    lyr = lyr.reset_state()
     je = jit(lyr)
-    _, new_state, _ = je(np.random.rand(10, 2))
+    output_jit, new_state, _ = je(input_rand)
     lyr = lyr.set_attributes(new_state)
 
-    _, new_state, _ = je(np.random.rand(10, 2))
+    _, new_state, _ = je(input_rand)
     lyr = lyr.set_attributes(new_state)
+
+    # - Compare non-jit and jitted output
+    assert np.all(output == output_jit)
+
+    def loss_fn(grad_params, net, input, target):
+        net = net.set_attributes(grad_params)
+        output, _, _ = net(input)
+        return jnp.sum((output - target) ** 2)
+
+    loss_vgf = jit(jax.value_and_grad(loss_fn))
+    params = lyr.parameters()
+    loss, grad = loss_vgf(params, lyr, np.random.rand(10, 2), 0.0)
+    loss, grad = loss_vgf(params, lyr, np.random.rand(10, 2), 0.0)
+
+    print("loss: ", loss)
+    print("grad: ", grad)
 
     # print(lyr.parameters())
     # print(lyr.simulation_parameters())
@@ -101,15 +138,8 @@ def test_ffwd_net():
                     ),
                 )
 
-                tau = (
-                    np.random.rand(
-                        N_out,
-                    )
-                    * 10
-                )
-                bias = np.random.rand(
-                    N_out,
-                )
+                tau = np.random.rand(N_out,) * 10
+                bias = np.random.rand(N_out,)
                 setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -188,15 +218,8 @@ def test_sgd():
                     Parameter(np.random.rand(N_in, N_out), "weights"),
                 )
 
-                tau = (
-                    np.random.rand(
-                        N_out,
-                    )
-                    * 10
-                )
-                bias = np.random.rand(
-                    N_out,
-                )
+                tau = np.random.rand(N_out,) * 10
+                bias = np.random.rand(N_out,)
                 setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -215,20 +238,20 @@ def test_sgd():
 
             return input, new_state, record_dict
 
-        @classmethod
-        def tree_unflatten(cls, aux_data, children):
-            params, sim_params, state, modules = children
-            _name, _shape, _submodulenames = aux_data
-
-            obj = my_ffwd_net(_shape)
-            obj._name = _name
-
-            # - Restore parameters and configuration
-            obj.set_attributes(params)
-            obj.set_attributes(sim_params)
-            obj.set_attributes(state)
-
-            return obj
+        # @classmethod
+        # def tree_unflatten(cls, aux_data, children):
+        #     params, sim_params, state, modules = children
+        #     _name, _shape, _submodulenames = aux_data
+        #
+        #     obj = my_ffwd_net(_shape)
+        #     obj._name = _name
+        #
+        #     # - Restore parameters and configuration
+        #     obj.set_attributes(params)
+        #     obj.set_attributes(sim_params)
+        #     obj.set_attributes(state)
+        #
+        #     return obj
 
     def mse_loss(grad_params, net, input, target):
         net = net.reset_state()

@@ -78,14 +78,18 @@ class JaxModule(Module, ABC):
         """Unflatten a tree of modules from Jax to Rockpool"""
         params, sim_params, state, modules = children
         _name, _shape, _submodulenames = aux_data
-        obj = cls(**params, **sim_params)
+        obj = cls(shape=_shape)
         obj._name = _name
 
+        # - Assign modules if necessary
         for (name, mod) in modules.items():
             if not hasattr(obj, name):
                 setattr(obj, name, mod)
 
-        obj.set_attributes(state)
+        # - Restore configuration
+        obj = obj.set_attributes(params)
+        obj = obj.set_attributes(state)
+        obj = obj.set_attributes(sim_params)
 
         return obj
 
@@ -106,16 +110,34 @@ class JaxModule(Module, ABC):
         # - Register the module
         super()._register_module(name, mod)
 
-    def set_attributes(self, new_attributes: dict):
+    def set_attributes(self, new_attributes: dict) -> "JaxModule":
         """
         Assign new attributes to this module and submodules
 
         Args:
             new_attributes (dict): The dictionary of new attributes to assign to this module tree
+
+        Returns:
+            `.JaxModule`:
         """
         mod = deepcopy(self)
-        Module.set_attributes(self, new_attributes)
-        Module.set_attributes(mod, new_attributes)
+
+        # Module.set_attributes(self, new_attributes)
+        # mod = Module.set_attributes(mod, new_attributes)
+
+        __registered_attributes, __modules = mod._get_attribute_registry()
+
+        # - Set self attributes
+        for (k, v) in __registered_attributes.items():
+            if k in new_attributes:
+                mod.__setattr__(k, new_attributes[k])
+
+        # - Set submodule attributes
+        for (k, m) in __modules.items():
+            if k in new_attributes:
+                sub_mod = m[0].set_attributes(new_attributes[k])
+                mod.__setattr__(k, sub_mod)
+
         return mod
 
     def __setattr__(self, name, value):
@@ -130,10 +152,31 @@ class JaxModule(Module, ABC):
         Module.__delattr__(self, item)
         return mod
 
-    def reset_state(self):
+    def reset_state(self) -> "JaxModule":
+        """
+        Reset the state of this module
+
+        Returns:
+            Module: The updated module is returned for compatibility with the functional API
+
+        """
+        # - Copy module and get registry
         mod = deepcopy(self)
-        Module.reset_state(self)
-        Module.reset_state(mod)
+        __registered_attributes, __modules = mod._get_attribute_registry()
+
+        # - Get a list of states
+        states = mod.state()
+
+        # - Set self attributes
+        for (k, v) in __registered_attributes.items():
+            if k in states:
+                mod = mod._reset_attribute(k)
+
+        # - Reset submodule states
+        for (k, m) in __modules.items():
+            sub_mod = m[0].reset_state()
+            mod.__setattr__(k, sub_mod)
+
         return mod
 
     def reset_parameters(self):

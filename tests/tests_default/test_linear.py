@@ -26,12 +26,13 @@ def test_linear():
 
 
 def test_jaxlinear():
-    from rockpool.nn.modules.native.linear import JaxLinear
-    from jax import jit
+    from rockpool.nn.modules.native.linear import LinearJax
+    import jax
+    import jax.numpy as jnp
 
     import numpy as np
 
-    mod = JaxLinear((2, 10))
+    mod = LinearJax((2, 10))
 
     input = np.random.rand(10, 2)
 
@@ -41,15 +42,28 @@ def test_jaxlinear():
     assert output.shape == (10, 10)
 
     with raises(ValueError):
-        mod = JaxLinear(10)
+        mod = LinearJax(10)
 
     with raises(ValueError):
-        mod = JaxLinear((10,))
+        mod = LinearJax((10,))
 
     with raises(ValueError):
-        mod = JaxLinear((10, 10, 10))
+        mod = LinearJax((10, 10, 10))
 
     # - Test compiled
-    je = jit(mod)
+    je = jax.jit(mod)
     output, ns, r_d = je(input)
     mod.set_attributes(ns)
+
+    # - Test gradient
+    def loss_mse(params, net, input, target):
+        net = net.set_attributes(params)
+        output, _, _ = net(input)
+        return jnp.sum((target - output) ** 2)
+
+    loss_vgf = jax.jit(jax.value_and_grad(loss_mse))
+    loss, grad = loss_vgf(mod.parameters(), mod, input, 0.0)
+    loss, grad = loss_vgf(mod.parameters(), mod, input, 0.0)
+
+    print("loss: ", loss)
+    print("grad: ", grad)

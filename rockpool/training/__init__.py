@@ -3,9 +3,7 @@ import importlib
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
-dModules = {
-    ".rr_trained_layer": "RRTrainedLayer",
-}
+dModules = {}
 
 
 # - Define current package

@@ -13,6 +13,10 @@ __all__ = ["FFwdStack"]
 
 
 class FFwdStackMixin(ABC):
+    """
+    Assemble modules into a feed-forward linear stack, with linear weights in between
+    """
+
     _dot = None
 
     def __init__(
@@ -140,6 +144,23 @@ class JaxFFwdStack(FFwdStackMixin, JaxModule):
 
 
 def FFwdStack(*args, **kwargs):
+    """
+    Assemble modules into a feed-forward stack, with linear weights in between
+
+    `.FFwdStack` accepts any number of modules as positional arguments, along with the required keyword argument `weight_init_func`.
+
+    The weights placed in between each module will map the :py:attr:`~.Module.size_out` of one module with the :py:attr:`~.Module.size_in` of the following module. Weights are not placed on the input or output of the stack.
+
+    Examples:
+
+        >>> FFwdStack(mod0, mod1, weight_init_func = lambda s: np.random.normal(size = s))
+
+        A stack with two modules and one set of linear weights is generated. The weights will have shape ``(mod0.size_out, mod1.size_in)``.
+
+    Args:
+        *mods (Module): Any number of modules
+        weight_init_func (Callable): A function that accepts a tuple defining the shape of a matrix, and returns a matrix of that shape to be used as a set of weights
+    """
     # - Check for Jax submodules
     use_jax = False
     for item in args:

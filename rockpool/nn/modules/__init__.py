@@ -5,12 +5,13 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".module": "Module",
-    ".timed_module": ["TimedModule", "TimedModuleWrapper"],
+    ".timed_module": ("TimedModule", "TimedModuleWrapper"),
     ".jax.jax_module": "JaxModule",
     ".jax.lif_jax": "LIFJax",
     ".jax.rate_jax": "RateEulerJax",
-    ".native.linear": ["Linear", "JaxLinear"],
-    ".nest.iaf_nest": ["FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"],
+    ".native.linear": ("Linear", "LinearJax"),
+    ".native.instant": ("Instant", "InstantJax"),
+    ".nest.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"),
     ".torch.torch_module": "TorchModule",
     ".torch.lif_torch": "LIFLayer",
 }

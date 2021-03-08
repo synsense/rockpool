@@ -76,7 +76,7 @@ class ModuleBase(ABC):
         if self.modules():
             repr += " {"
             for mod in self.modules().values():
-                repr += "\n" + mod.__repr__()
+                repr += "\n" + mod.__repr__(indent=indent + "    ")
 
             repr += f"\n{indent}" + "}"
 
@@ -113,12 +113,6 @@ class ModuleBase(ABC):
         """
         # - Get attribute registry
         __registered_attributes, __modules = self._get_attribute_registry()
-
-        # - Check if a module has already been assigned
-        if name in __modules:
-            raise ValueError(
-                f'Cannot reassign a new sub-module "{name}" to an already initialised object.'
-            )
 
         # - Check if this is a new rockpool Parameter
         if isinstance(val, ParameterBase):
@@ -237,7 +231,7 @@ class ModuleBase(ABC):
         # - Set submodule attributes
         for (k, m) in self.__modules.items():
             if k in new_attributes:
-                m[0] = m[0].set_attributes(new_attributes[k])
+                m[0].set_attributes(new_attributes[k])
 
         # - Return the module, for compatibility with the functional interface
         return self
@@ -407,12 +401,15 @@ class ModuleBase(ABC):
         """
         return {k: m[0] for (k, m) in self.__modules.items()}
 
-    def _reset_attribute(self, name: str):
+    def _reset_attribute(self, name: str) -> "ModuleBase":
         """
         Reset an attribute to its initialisation value
 
         Args:
             name (str): The name of the attribute to reset
+
+        Returns:
+            self (`Module`): For compatibility with the functional API
         """
         # - Check that the attribute is registered
         if name not in self.__registered_attributes:
@@ -424,6 +421,8 @@ class ModuleBase(ABC):
         # - Use the registered initialisation function, if present
         if init_func is not None:
             setattr(self, name, init_func(shape))
+
+        return self
 
     def _has_registered_attribute(self, name: str) -> bool:
         """
@@ -586,33 +585,34 @@ class Module(ModuleBase, ABC):
     The native Python / numpy ``Module`` base class for Rockpool
     """
 
-    def _register_module(self, name: str, mod: ModuleBase):
-        """
-        Register a submodule in the module registry
-
-        Args:
-            name (str): The name to assign to the submodule
-            mod (Module): The submodule to register. Must inherit from ``Module``
-        """
-        # - Register the module
-        super()._register_module(name, mod)
-
-        # - Do we even have a `dt` attribute?
-        if hasattr(self, "dt"):
-            # - Check that the submodule `dt` is the same as mine
-            if hasattr(mod, "dt"):
-                if mod.dt != getattr(self, "dt"):
-                    raise ValueError(
-                        f"The submodule {mod.name} must have the same `dt` as the parent module {self.name}"
-                    )
-            else:
-                # - Add `dt` as an attribute to the module (not a registered attribute)
-                mod.dt = getattr(self, "dt")
-
-        else:
-            # - We should inherit the first `dt` of a submodule
-            if hasattr(mod, "dt"):
-                setattr(self, "dt", mod.dt)
+    pass
+    # def _register_module(self, name: str, mod: ModuleBase):
+    #     """
+    #     Register a submodule in the module registry
+    #
+    #     Args:
+    #         name (str): The name to assign to the submodule
+    #         mod (Module): The submodule to register. Must inherit from ``Module``
+    #     """
+    #     # - Register the module
+    #     super()._register_module(name, mod)
+    #
+    #     # - Do we even have a `dt` attribute?
+    #     if hasattr(self, "dt"):
+    #         # - Check that the submodule `dt` is the same as mine
+    #         if hasattr(mod, "dt"):
+    #             if mod.dt != getattr(self, "dt"):
+    #                 raise ValueError(
+    #                     f"The submodule {mod.name} must have the same `dt` as the parent module {self.name}"
+    #                 )
+    #         else:
+    #             # - Add `dt` as an attribute to the module (not a registered attribute)
+    #             mod.dt = getattr(self, "dt")
+    #
+    #     else:
+    #         # - We should inherit the first `dt` of a submodule
+    #         if hasattr(mod, "dt"):
+    #             setattr(self, "dt", mod.dt)
 
 
 class PostInitMetaMixin(type(ModuleBase)):

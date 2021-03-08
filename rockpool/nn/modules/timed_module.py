@@ -148,20 +148,20 @@ def leaves(d: dict):
 
 class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
     """
-    The Rockpool base class for all `TimedModule` modules
+    The Rockpool base class for all :py:class:`.TimedModule` modules
 
-    `TimedModule` provides functionality for `Module`s to understand time series data, and to conveniently evolve, handle and return time series data from modules.
+    :py:class:`.TimedModule` provides functionality for :py:class:`.Module` s to understand time series data, and to conveniently evolve, handle and return time series data from modules.
 
-    The `evolve` method provided by `TimedModule` can accept `TimeSeries` objects natively as input, or can accept clocked / rasterised input data.
+    The :py:meth:`.evolve` method provided by :py:class:`.TimedModule` can accept :py:class:`.TimeSeries` objects natively as input, or can accept clocked / rasterised input data.
 
     See Also:
-        `TimedModule` provides the useful methods :py:meth:`_prepare_input` and :py:meth:`_gen_timesries` to help you in rasterising data for your own `TimedModule` subclasses.
+        :py:class:`.TimedModule` provides the useful methods :py:meth:`~.TimedModule._prepare_input` and :py:meth:`~.TimedModule._gen_timeseries` to help you in rasterising data for your own :py:class:`.TimedModule` subclasses.
 
-        For more information on how to used the `TimedModule` API for Rockpool, see :ref:`tutorials/timed_modules.ipynb`.
+        For more information on how to used the :py:class:`.TimedModule` API for Rockpool, see :ref:`/in-depth/api-high-level.ipynb`.
     """
 
     __in_TimedModule_init: bool = False
-    """ bool: A flag indicating that this ``TimedModule`` is currently being initialised """
+    """ A flag indicating that this ``TimedModule`` is currently being initialised """
 
     def __init__(
         self,
@@ -172,14 +172,14 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         **kwargs,
     ):
         """
-        Initialise this :py:class:`TimedModule` object
+        Initialise this :py:class:`.TimedModule` object
 
-        When initialised, the :py:class:`TimedModule` will have a :py:attr:`dt` attribute assigned, as well as initialising the internal module :py:attr:`_timestep`, :py:attr:`_parent_dt_factor` and :py:attr:`_is_child`. The subclass :py:meth:`evolve` method will be wrapped to update the internal timestamp clock.
+        When initialised, the :py:class:`.TimedModule` will have a :py:attr:`~.TimedModule.dt` attribute assigned, as well as initialising the internal module :py:attr:`~.TimedModule._timestep`, :py:attr:`~.TimedModule._parent_dt_factor` and :py:attr:`~.TimedModule._is_child`. The subclass :py:meth:`~.TimedModule.evolve` method will be wrapped to update the internal timestamp clock.
 
         Args:
             dt (float): The duration of a single time step for this module, in seconds
-            spiking_input (bool): If ``True``, this module accepts :py:class:`TSEvent` event time series objects as input. If ``False`` (default), this module accepts :py:class:`TSContinuous` continuous time series objects as input.
-            spiking_output (bool): If ``True``, this module sends :py:class:`TSEvent` event time series objects as output. If ``False`` (default), this module sends :py:class:`TSContinuous` continuous time series objects as output.
+            spiking_input (bool): If ``True``, this module accepts :py:class:`.TSEvent` event time series objects as input. If ``False`` (default), this module accepts :py:class:`TSContinuous` continuous time series objects as input.
+            spiking_output (bool): If ``True``, this module sends :py:class:`.TSEvent` event time series objects as output. If ``False`` (default), this module sends :py:class:`TSContinuous` continuous time series objects as output.
             *args: Additional positional arguments
             **kwargs: Additional keyword arguments
         """
@@ -190,15 +190,21 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         # - Assign dt
         self.dt: Union[float, SimulationParameter] = SimulationParameter(dt, "dt")
+        """ float: The simulation and input rasterisation timestep for this `.TimedModule` """
 
         # - Initialise internal timestep
         self._timestep: int = 0
+        """ The current time-step count in units of :py:attr:`.dt` """
 
         # - Initialise dt factor (1.0 by default)
         self._parent_dt_factor: float = 1.0
+        """ The factor between the parent's :py:attr:`.dt` and this module's :py:attr:`.dt`. Given by ``self.dt / parent.dt`` """
 
         # - Initialise a flag indicating that this is a child module
-        self._is_child = TimedModule.__in_TimedModule_init
+        self._is_child: bool = TimedModule.__in_TimedModule_init
+        """ Flag indicating that this is a child module """
+
+        # - Record that we are currently initialising the module tree
         TimedModule.__in_TimedModule_init = True
 
         # - Wrap `evolve()` method to perform timestep updates
@@ -207,9 +213,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     def __post_init__(self) -> None:
         """
-        Perform post-initialisation work for `TimedModule`
+        Perform post-initialisation work for :py:class:`.TimedModule`
 
-        Handles setting the :py:attr:`dt` attribute for a `TimedModule` tree with all sub-modules. Manages the :py:attr:`_is_child` attribute.
+        Handles setting the :py:attr:`.dt` attribute for a :py:class:`.TimedModule` tree with all sub-modules. Manages the :py:attr:`._is_child` attribute.
         """
         # - Find least-common-multiple `dt` for base module
         if not self._is_child:
@@ -220,11 +226,11 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     def _set_dt(self, max_factor: float = 100) -> None:
         """
-        Set a time step size for the network which is the lowest common multiple of all sub-modules' `dt`s.
+        Set a time step size for the network which is the lowest common multiple of all sub-module's :py:attr:`.dt` s.
 
-        :param float max_factor:    Factor by which the module :py:attr:`dt` may exceed the largest sub-module :py:attr:`dt` before an error is raised. Default: 100.
+        :param float max_factor:    Factor by which the module :py:attr:`.dt` may exceed the largest sub-module :py:attr:`.dt` before an error is raised. Default: 100.
 
-        :raises ValueError: If a sensible :py:attr:`dt` cannot be found
+        :raises ValueError: If a sensible :py:attr:`.dt` cannot be found
         """
         if self.modules():
             ## -- Try to determine self.dt from layer time steps
@@ -272,9 +278,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         **kwargs,
     ) -> Tuple[TimeSeries, Dict, Dict]:
         """
-        Wrap a call to :py:meth:`evolve` to update the internal time-steps count
+        Wrap a call to :py:meth:`.evolve` to update the internal time-steps count
 
-        See :py:meth:`evolve` for calling syntax.
+        See :py:meth:`.evolve` for calling syntax.
         """
         # - Determine number of timesteps
         num_timesteps = self._determine_timesteps(ts_input, duration, num_timesteps)
@@ -297,19 +303,6 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         return ts_output, state_dict, record_dict
 
-    @abstractmethod
-    def evolve(
-        self,
-        ts_input=None,
-        duration=None,
-        num_timesteps=None,
-        kwargs_timeseries=None,
-        record: bool = False,
-        *args,
-        **kwargs,
-    ) -> Tuple[TimeSeries, Dict, Dict]:
-        pass
-
     def _determine_timesteps(
         self,
         ts_input: Optional[TimeSeries] = None,
@@ -323,11 +316,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, ``num_timesteps`` or the duration of ``ts_input`` will be used to determine evolution time
         :param Optional[int] num_timesteps:     Number of evolution time steps, in units of :py:attr:`.dt`. If not provided, ``duration`` or the duration of ``ts_input`` will be used to determine evolution time
 
-        :return int:                            num_timesteps: Number of evolution time steps
+        :return int:
+            num_timesteps: Number of evolution time steps
         """
 
         if num_timesteps is None:
-            # - Determine ``num_timesteps``
+            # - Determine `num_timesteps`
             if duration is None:
                 # - Determine duration
                 if ts_input is None:
@@ -367,12 +361,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     def _gen_time_trace(self, t_start: float, num_timesteps: int) -> np.ndarray:
         """
-        Generate a time trace starting at ``t_start``, of length ``num_timesteps`` with time step length :py:attr:`.dt`
+        Generate a time trace starting at ``t_start``, of length ``num_timesteps`` with time step :py:attr:`.dt`
 
         :param float t_start:       Start time, in seconds
-        :param int num_timesteps:   Number of time steps to generate, in units of ``.dt``
+        :param int num_timesteps:   Number of time steps to generate, in units of :py:attr:`.dt`
 
-        :return (ndarray): Generated time trace
+        :return ndarray: Generated time trace
         """
         # - Generate a trace
         time_trace = np.arange(num_timesteps) * self.dt + t_start
@@ -392,12 +386,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         :param Optional[TimeSeries] ts_input:   :py:class:`.TimeSeries` of TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
-        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
+        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of :py:attr:`.dt`. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
 
         :return (ndarray, ndarray, int): (time_base, input_steps, num_timesteps)
             time_base:      T1 Discretised time base for evolution
             input_raster    (T1xN) Discretised input signal for layer
-            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
+            num_timesteps:  Actual number of evolution time steps, in units of :py:attr:`.dt`
         """
         if (ts_input is not None) and not isinstance(ts_input, self.input_type):
             raise TypeError(
@@ -423,12 +417,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         :param Optional[TSContinuous] ts_input: :py:class:`.TSContinuous` of TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:        Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will define the evolution time
-        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of ``.dt``. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
+        :param Optional[int] num_timesteps:     Integer number of evolution time steps, in units of :py:attr:`.dt`. If not provided, then ``duration`` or the duration of ``ts_input`` will define the evolution time
 
         :return (ndarray, ndarray, int): (time_base, input_raster, num_timesteps)
             time_base:      T1 Discretised time base for evolution
             input_raster:    (T1xN) Discretised input signal for layer
-            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
+            num_timesteps:  Actual number of evolution time steps, in units of :py:attr:`.dt`
         """
 
         # - Work out how many time steps to take
@@ -478,12 +472,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         :param Optional[TSEvent] ts_input:  TimeSeries of TxM or Tx1 Input signals for this layer
         :param Optional[float] duration:    Duration of the desired evolution, in seconds. If not provided, then either ``num_timesteps`` or the duration of ``ts_input`` will determine evolution itme
-        :param Optional[int] num_timesteps: Number of evolution time steps, in units of ``.dt``. If not provided, then either ``duration`` or the duration of ``ts_input`` will determine evolution time
+        :param Optional[int] num_timesteps: Number of evolution time steps, in units of :py:attr:`.dt`. If not provided, then either ``duration`` or the duration of ``ts_input`` will determine evolution time
 
         :return (ndarray, ndarray, int):
             time_base:      T1X1 vector of time points -- time base for the rasterisation
             spike_raster:   Boolean or integer raster containing spike information. T1xM array
-            num_timesteps:  Actual number of evolution time steps, in units of ``.dt``
+            num_timesteps:  Actual number of evolution time steps, in units of :py:attr:`.dt`
         """
 
         # - Work out how many time steps to take
@@ -517,16 +511,16 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     def _gen_timeseries(self, output: np.ndarray, **kwargs) -> TimeSeries:
         """
-        Wrap a clocked / rasterised output array into a `TimeSeries` object
+        Wrap a clocked / rasterised output array into a :py:class:`.TimeSeries` object
 
-        Output `TimeSeries` will be of the appropriate subclass, and will be named nicely.
+        Output :py:class:`.TimeSeries` will be of the appropriate subclass, and will be named nicely.
 
         Args:
             output (np.ndarray): The clocked or rasterised output data ``(T, N)``
-            **kwargs: Additional keyword arguments to `TimeSeries`
+            **kwargs: Additional keyword arguments to :py:class:`.TimeSeries`
 
         Returns:
-            TimeSeries: The data in `output` wrapped into a `TimeSeries` object
+            TimeSeries: The data in ``output`` wrapped into a :py:class:`.TimeSeries` object
         """
         if self.spiking_output:
             return self._gen_tsevent(output, **kwargs)
@@ -544,21 +538,21 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         spikes_at_bin_start: bool = False,
     ) -> TSEvent:
         """
-        Wrap a rasterised output array as a :py:class:`TSEvent` object to present as output for this module
+        Wrap a rasterised output array as a :py:class:`.TSEvent` object to present as output for this module
 
-        Output `TSEvent` s will be named nicely, with correct start timesm durations, etc. Several attributes of the `TSEvent` object can be set as arguments here.
+        Output :py:class:`.TSEvent` s will be named nicely, with correct start timesm durations, etc. Several attributes of the :py:class:`.TSEvent` object can be set as arguments here.
 
         Args:
             output (np.ndarray): A rasterised event array ``(T, N)``
-            dt (Optional[float]): The time-step of the rasterised array `output`. If not provided, the module :py:attr:`dt` will be used
+            dt (Optional[float]): The time-step of the rasterised array ``output``. If not provided, the module :py:attr:`.dt` will be used
             t_start (Optional[float]): The start time of the output series, in seconds. If not provided, the module time before evolution will be used
-            name (Optional[str]): The desired name of the `TSEvent` object. If not provided, the object will be named nicely according to the module name
-            periodic (bool): Flag to indicate whether the returned `TSEvent` should be periodic. Default: ``False``, the `TSEvent` will not be periodic
-            num_channels (Optional[int]): The desired number of total channels for the output `TSEvent` object. If not provided, the output size :py:attr:`size_out` of the current module will be used
+            name (Optional[str]): The desired name of the :py:class:`.TSEvent` object. If not provided, the object will be named nicely according to the module name
+            periodic (bool): Flag to indicate whether the returned :py:class:`.TSEvent` should be periodic. Default: ``False``, the :py:class:`.TSEvent` will not be periodic
+            num_channels (Optional[int]): The desired number of total channels for the output :py:class:`.TSEvent` object. If not provided, the output size :py:attr:`.size_out` of the current module will be used
             spikes_at_bin_start (bool): If ``False`` (default), spike events will be considered to fall in the middle of the time bin they fall in. If ``True``, all spike events will be considered to occur at the start of the time bin they fall in.
 
         Returns:
-            TSEvent: The wrapped output raster as a `TSEvent` object
+            TSEvent: The wrapped output raster as a :py:class:`.TSEvent` object
         """
         # - Build a name for the time series
         if name is None:
@@ -590,15 +584,15 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         """
         Wrap a rasterised output array as a :py:class:`TSContinuous` object to present as output for this module
 
-        Output `TSContinuous` s will be named nicely, with correct start times, durations, etc. Several attributes of the `TSContinuous` object can be set as arguments here.
+        Output :py:class:`.TSContinuous` s will be named nicely, with correct start times, durations, etc. Several attributes of the :py:class:`.TSContinuous` object can be set as arguments here.
 
         Args:
             output (np.ndarray): A clocked time series data array ``(T, N)``
-            dt (Optional[float]): The time-step of the clocked array `output`. If not provided, the module :py:attr:`dt` will be used
-            t_start (Optional[float]): The start time of the output `TSContinuous` object, in seconds. If not provided, the module time before evolution will be used
-            name (Optional[str]): The desired name of the `TSContinuous` object. If not provided, the object will be named nicely according to the module name
-            periodic (bool): Flag to indicate whether the returned `TSContinuous` should be periodic. Default: ``False``, the `TSContinuous` will not be periodic
-            interp_kind (str): The style of interpolation to apply to the returned :py:class:`TSContinuous` object. Default: ``"previous"``
+            dt (Optional[float]): The time-step of the clocked array ``output``. If not provided, the module :py:attr:`.dt` will be used
+            t_start (Optional[float]): The start time of the output :py:class:`.TSContinuous` object, in seconds. If not provided, the module time before evolution will be used
+            name (Optional[str]): The desired name of the :py:class:`.TSContinuous` object. If not provided, the object will be named nicely according to the module name
+            periodic (bool): Flag to indicate whether the returned :py:class:`.TSContinuous` should be periodic. Default: ``False``, the :py:class:`.TSContinuous` will not be periodic
+            interp_kind (str): The style of interpolation to apply to the returned :py:class:`.TSContinuous` object. Default: ``"previous"``
 
         Returns:
             TSContinuous: The wrapped output data as a `TSContinuous` object
@@ -634,11 +628,12 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         """
         Evolve the state of this module over time
 
-        NOTE: THIS CLASS HAS NOT PROVIDED DOCUMENTATION FOR ITS EVOLVE METHOD. PLEASE UPDATE THE DOCUMENTATION TO INCLUDE SPECIFIC DETAILS FOR THIS CLASS.
+        Warnings:
+            If you are seeing this message in documentation for a :py:class:`.TimedModule` subclass, then THIS CLASS HAS NOT PROVIDED DOCUMENTATION FOR ITS EVOLVE METHOD. PLEASE UPDATE THE DOCUMENTATION TO INCLUDE SPECIFIC DETAILS FOR THIS CLASS.
 
-        You need to implement an `evolve` method for each class which inherits from `TimedModule`.
+        You need to implement an :py:meth:`.evolve` method for each class which inherits from :py:class:`.TimedModule`.
 
-        Here is an example `evolve` method that rasterises a time series and uses the rasterised version for further processing. The output data is re-wrapped as a time series and returned.
+        Here is an example :py:meth:`.evolve` method that rasterises a time series and uses the rasterised version for further processing. The output data is re-wrapped as a time series and returned.
 
         .. code-block:: python
 
@@ -657,7 +652,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
                     record_dict,
                 )
 
-        Here is an example `evolve` method that uses `TimeSeries` objects natively. Any rasterisation would be taken care of by submodules, if and when required.
+        Here is an example :py:meth:`.evolve` method that uses :py:class:`.TimeSeries` objects natively. Any rasterisation would be taken care of by submodules, if and when required.
 
         .. code-block:: python
 
@@ -678,19 +673,19 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         You can of course use a mixture of these approaches.
 
         Args:
-            ts_input (Union[TimeSeries, np.ndarray]):
+            ts_input (Union[TimeSeries, np.ndarray]): The input time series over which to evolve
             duration (float): The duration over which to evolve, in seconds
-            num_timesteps (int): The number of time steps (in terms of the `dt` attribute of this module) to evolve over
+            num_timesteps (int): The number of time steps (in terms of the :py:attr:`.dt` attribute of this module) to evolve over
             kwargs_timeseries (Optional[dict]): Any additional arguments to pass when generating output time series
-            record (bool): If ``True``, this module and sub-modules must record their state during evolution and return it in the `record_state` dict. If ``False`` (default), no recording is requested
+            record (bool): If ``True``, this module and sub-modules must record their state during evolution and return it in the ``record_state`` dict. If ``False`` (default), no recording is requested
             *args: Additional positional arguments
             **kwargs: Additional keyword arguments
 
         Returns:
             tuple: (output_ts, new_state, record_state)
-                output_ts `TimeSeries`: A time series containing the output time series produces by this module.
+                output_ts :py:class:`.TimeSeries`: A time series containing the output time series produces by this module.
                 new_state dict: A dictionary containing the updated state of this module and sub-modules, after evolution
-                record_state dict: If the argument `record` is ``True``, `record_state` must contain a dictionary of the recorded states o this and all sub-modules during evolution. Otherwise it may be an empty dict.
+                record_state dict: If the argument ``record`` is ``True``, ``record_state`` must contain a dictionary of the recorded states o this and all sub-modules during evolution. Otherwise it may be an empty dict.
         """
         raise NotImplementedError
 
@@ -708,7 +703,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     def __call__(self, *args, **kwargs) -> Tuple[TimeSeries, Dict, Dict]:
         """
-        Evolve the state of this `TimedModule` over time
+        Evolve the state of this :py:class:`.TimedModule` over time
 
         Args:
             *args: Additional positional arguments
@@ -716,15 +711,15 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
         Returns:
             tuple: (output_ts, new_state, record_state)
-                output_ts (`TimeSeries`): The output time series produced by this module.
+                output_ts (TimeSeries): The output time series produced by this module.
                 new_state (dict): A dictionary containing the updated state of this and all sub-modules after evolution
-                record_state (dict): If the argument `record` is ``True``, `record_state` must contain a dictionary of the recorded states o this and all sub-modules during evolution. Otherwise it may be an empty dict.
+                record_state (dict): If the argument ``record`` is ``True``, ``record_state`` must contain a dictionary of the recorded states o this and all sub-modules during evolution. Otherwise it may be an empty dict.
         """
         return self.evolve(*args, **kwargs)
 
     @property
     def input_type(self) -> type:
-        """ type: The `TimeSeries` class accepted by this module """
+        """ type: The :py:class:`.TimeSeries` class accepted by this module """
         if self.spiking_input:
             return TSEvent
         else:
@@ -732,7 +727,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
     @property
     def output_type(self) -> type:
-        """ type: The `TimeSeries` class returned by this module """
+        """ type: The :py:class:`.TimeSeries` class returned by this module """
         if self.spiking_output:
             return TSEvent
         else:
@@ -768,38 +763,40 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
 
 class TimedModuleWrapper(TimedModule):
     """
-    Wrap a low-level Rockpool `Module` automatically into a `TimedModule` object
+    Wrap a low-level Rockpool :py:class:`.Module` automatically into a :py:class:`.TimedModule` object
 
-    Use this class to automatically convert a `Module` subclass, implementing the low-level API of Rockpool, into a `TimedModule` object that supports the high-level time series API directly.
+    Use this class to automatically convert a :py:class:`.Module` subclass, implementing the low-level API of Rockpool, into a :py:class:`.TimedModule` object that supports the high-level time series API directly.
 
     Notes:
-        Only a single output argument may be returned from the wrapped `TimedModule`. However, multiple return arguments from the internal module can be handled through the `output_num` argument to :py:meth:`__init__`.
+        Only a single output argument may be returned from the wrapped :py:class:`.TimedModule`. However, multiple return arguments from the internal module can be handled through the ``output_num`` argument to :py:meth:`.__init__`.
 
-        Recorded state from the wrapped module is not currently converted automatically into :py:class:`TimeSeries` objects. Just keep that in mind.
+        Recorded state from the wrapped module is not currently converted automatically into :py:class:`.TimeSeries` objects. Just keep that in mind.
 
     Examples:
-        Constract a low-level module, wrap it into a `TimedModule`:
+        Constract a low-level module, wrap it into a :py:class:`.TimedModule`:
 
          >>> from rockpool.nn.modules import RateEuler, TimedModuleWrapper
          >>> mod = RateEuler(...)
          >>> tmod = TimedModuleWrapper(mod)
 
     See Also:
-        If you want to convert a `Module` object, use this class.
+        If you want to convert a :py:class:`.Module` object, use this class.
 
-        If you need to convert a Rockpool v1 `Layer` subclass, use either the :py:class:`LayerToTimedModule` or the :py:func:`astimedmodule` decorator.
+        If you need to convert a Rockpool v1 :py:class:`~rockpool.nn.layers.Layer` subclass, use either the :py:class:`.LayerToTimedModule` or the `.astimedmodule` decorator.
+
+        For more information, see :ref:`in-depth/api-high-level.ipynb`.
     """
 
     def __init__(
         self, module: Module, output_num: int = 0, dt: float = None, *args, **kwargs
     ):
         """
-        Wrap a low-level module as a high-level `TimedModule`
+        Wrap a low-level module as a high-level :py:class:`.TimedModule`
 
         Args:
-            module (:py:class:`Module`): The module to wrap. Must inherit from :py:class:`Module`.
-            output_num (int): If the output of the evolution function for `module` returns multiple outputs, then here you should specify which of the outputs to wrap into a time series to return. `TimedModuleWrapper` only supports returning one output argument from :py:meth:`evolve`.
-            dt (float): The timestep to set for `module`, if `module.dt` does not exist. Note that `module.dt` will not be overridden by this argument!
+            module (:py:class:`.Module`): The module to wrap. Must inherit from :py:class:`.Module`.
+            output_num (int): If the output of the evolution function for ``module`` returns multiple outputs, then here you should specify which of the outputs to wrap into a time series to return. :py:class:`.TimedModuleWrapper` only supports returning one output argument from :py:meth:`.evolve`.
+            dt (float): The timestep to set for ``module``, if ``module.dt`` does not exist. Note that ``module.dt`` will not be overridden by this argument!
             *args: Additional positional arguments
             **kwargs: Additional keyword arguments
         """
@@ -859,7 +856,7 @@ class TimedModuleWrapper(TimedModule):
         **kwargs,
     ) -> Tuple[TimeSeries, Any, Any]:
         """
-        Evolve the wrapped `Module`, handling `TimeSeries` input and output
+        Evolve the wrapped :py:class:`.Module`, handling :py:class:`.TimeSeries` input and output
 
         Args:
             ts_input (Optional[TimeSeries]): The input data for this evolution. If not provided, zero input will be used
@@ -872,7 +869,7 @@ class TimedModuleWrapper(TimedModule):
 
         Returns:
             tuple: (output_ts, new_state, record_dict)
-                output_ts (`TimeSeries`): The output of this module, wrapped as a `TimeSeries`.
+                output_ts (`.TimeSeries`): The output of this module, wrapped as a `.TimeSeries`.
                 new_state (dict): A dictionary containing teh updated state of this and all sub-modules after evolution
                 record_dict (dict): If ``True``, a dictionary containing a record of state during evolution for this and all submodules will be returned. If ``False`` (default), no record is requested.
         """
@@ -900,12 +897,12 @@ class TimedModuleWrapper(TimedModule):
 
 class LayerToTimedModule(TimedModule):
     """
-    An adapter class to wrap a Rockpool v1 `Layer` object, converting the object to support the `TimedModule` high-level Rockpool v2 API
+    An adapter class to wrap a Rockpool v1 :py:class:`.Layer` object, converting the object to support the :py:class:`.TimedModule` high-level Rockpool v2 API
 
-    Use this class to automagically convert a Rockpool v1 `Layer` object into a Rockpool v2 `TimedModule` object. This class is used internally by the :py:func:`astimedmodule` decorator to convert a v1 class into a v2 class.
+    Use this class to automagically convert a Rockpool v1 :py:class:`.Layer` object into a Rockpool v2 :py:class:`.TimedModule` object. This class is used internally by the :py:func:`~.timed_module.astimedmodule` decorator to convert a v1 class into a v2 class.
 
     Examples:
-        Construct a v1 `RecRateEulerV1` layer, and convert it to a v2 `TimedModule`:
+        Construct a v1 :py:class:`.RecRateEulerV1` layer, and convert it to a v2 :py:class:`.TimedModule`:
 
         >>> from rockpool.nn.layers import RecRateEulerV1
         >>> from rockpool.nn.modules.timed_module import LayerToTimedModule
@@ -914,7 +911,9 @@ class LayerToTimedModule(TimedModule):
         >>> output_ts, new_state, record = tmod(input_ts)
 
     See Also:
-        If you want to convert a `Module` object implementing the low-level v2 API to the high-level `TimedModule` v2 API, use the :py:class:`TimedModuleWrapper` class.
+        If you want to convert a :py:class:`.Module` object implementing the low-level v2 API to the high-level :py:class:`.TimedModule` v2 API, use the :py:class:`.TimedModuleWrapper` class.
+
+        For more information, see :ref:`in-depth/api-high-level.ipynb`.
     """
 
     def __init__(
@@ -925,13 +924,13 @@ class LayerToTimedModule(TimedModule):
         simulation_parameters: Iterable[str] = None,
     ):
         """
-        Wrap a v1 :py:class:`Layer` object as a v2 :py:class:`TimedModule` object
+        Wrap a v1 :py:class:`.Layer` object as a v2 :py:class:`.TimedModule` object
 
         Args:
-            layer (:py:class:`Layer`): The v1 layer object to wrap
-            parameters (Iterable[str]): A list (or tuple) containing the names of all attributes of `layer` that should be registered as Rockpool :py:class:`Parameter` s
-            states (Iterable[str]): A list (or tuple) containing the names of all attributes of `layer` that should be registered as Rockpool :py:class:`State` s
-            simulation_parameters (Iterable[str]): A list (or tuple) containing the names of all attributes of `layer` that should be registered as Rockpool :py:class:`SimulationParameter` s
+            layer (:py:class:`.Layer`): The v1 layer object to wrap
+            parameters (Iterable[str]): A list (or tuple) containing the names of all attributes of `layer` that should be registered as Rockpool :py:class:`.Parameter` s
+            states (Iterable[str]): A list (or tuple) containing the names of all attributes of `layer` that should be registered as Rockpool :py:class:`.State` s
+            simulation_parameters (Iterable[str]): A list (or tuple) containing the names of all attributes of `layer` that should be registered as Rockpool :py:class:`.SimulationParameter` s
         """
         from rockpool.nn.layers.layer import Layer
 
@@ -1073,14 +1072,14 @@ def astimedmodule(
     """
     Convert a Rockpool v1 class to a v2 class
 
-    This decorator transparently converts a Rockpool v1 :py:class:`Layer` subclass to a Rockpool v2 high-level API `TImedModule` subclass.
+    This decorator transparently converts a Rockpool v1 :py:class:`.Layer` subclass to a Rockpool v2 high-level API :py:class:`.TimedModule` subclass.
 
     You can specify the parameter, state and simulation parameter attributes of the v1 layer to expose via the v2 API.
 
     Evolution should just work™, and ideally you won't need to modify anything in the v1 code to use the class within the v2 API. Depending on the complexity of the v1 layer, this may or may not be the case.
 
     Examples:
-        Specify a simple v1 layer, and convert it to a v2 :py:class:`Module`:
+        Specify a simple v1 layer, and convert it to a v2 :py:class:`.Module`:
 
         .. code-block:: python
 
@@ -1099,14 +1098,17 @@ def astimedmodule(
                 def evolve(...):
                     ...
 
+    See Also
+        For more information, see :ref:`in-depth/api-high-level.ipynb`.
+
     Args:
-        v1_cls (type): A v1 `Layer` subclass to wrap
-        parameters (Optional[Iterable[str]]):
-        states (Optional[Iterable[str]]):
-        simulation_parameters (Optional[Iterable[str]]):
+        v1_cls (type): A v1 :py:class:`.Layer` subclass to wrap
+        parameters (Optional[Iterable[str]]): An iterable set of strings, specifying the names of attributes provided by ``v1_cls`` that should be automatically registered as Rockpool :py:class:`.Parameter` s.
+        states (Optional[Iterable[str]]): An iterable set of strings, specifying the names of attributes provided by ``v1_cls`` that should be automatically registered as Rockpool :py:class:`.State` s.
+        simulation_parameters (Optional[Iterable[str]]): An iterable set of strings, specifying the names of attributes provided by ``v1_cls`` that should be automatically registered as Rockpool :py:class:`.SimulationParameter` s.
 
     Returns:
-        `LayerToTimedModule`: A wrapped class instantiator the will create a v2 high-level API object
+        :py:class:`.LayerToTimedModule`: A wrapped class instantiator the will create a v2 high-level API object
     """
     # - Be lenient if any parameters are not lists/tuples
     if not isinstance(parameters, (tuple, list)) and parameters is not None:

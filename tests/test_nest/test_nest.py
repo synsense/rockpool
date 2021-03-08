@@ -26,15 +26,16 @@ def test_init_FFIAFNest():
 
 
 def test_evolve_FFIAFNest():
+    import numpy as np
     from rockpool.nn.layers.iaf_nest import FFIAFNest
     from rockpool.timeseries import TSContinuous
 
     T = 4
     N_in = 2
     N_rec = 3
-    weights = np.random.rand(N_in, N_rec)
+    weights = np.random.rand(N_in, N_rec) * 25e-3
 
-    lyr = FFIAFNest(weights=weights)
+    lyr = FFIAFNest(weights=weights, record=True)
 
     inp = np.random.rand(T, N_in)
     ts_inp = TSContinuous.from_clocked(inp, dt=0.1, t_start=0)
@@ -50,10 +51,10 @@ def test_evolve_RecIAFSpkInNest():
 
     N_in = 2
     N_rec = 3
-    w_in = np.random.rand(N_in, N_rec)
-    w_rec = np.random.rand(N_rec, N_rec)
+    w_in = np.random.rand(N_in, N_rec) * 15e-3
+    w_rec = np.random.rand(N_rec, N_rec) * 15e-3
 
-    lyr = RecIAFSpkInNest(weights_in=w_in, weights_rec=w_rec, dt=0.001)
+    lyr = RecIAFSpkInNest(weights_in=w_in, weights_rec=w_rec, dt=0.001, record=True)
 
     times = np.sort(np.round(np.random.rand(N_spks) * T) * lyr.dt)
     times = np.clip(times, lyr.dt, np.inf)
@@ -72,10 +73,10 @@ def test_evolve_RecAEIFSpkInNest():
 
     N_in = 2
     N_rec = 3
-    w_in = np.random.rand(N_in, N_rec)
-    w_rec = np.random.rand(N_rec, N_rec)
+    w_in = np.random.rand(N_in, N_rec) * 10e-3
+    w_rec = np.random.rand(N_rec, N_rec) * 10e-3
 
-    lyr = RecAEIFSpkInNest(weights_in=w_in, weights_rec=w_rec, dt=0.001)
+    lyr = RecAEIFSpkInNest(weights_in=w_in, weights_rec=w_rec, dt=0.001, record=True)
 
     times = np.sort(np.round(np.random.rand(N_spks) * T) * lyr.dt)
     times = np.clip(times, lyr.dt, np.inf)
@@ -83,6 +84,8 @@ def test_evolve_RecAEIFSpkInNest():
 
     ts_inp = TSEvent(times, channels, t_stop=(T + 1) * lyr.dt)
     out, states, rec = lyr(ts_inp)
+
+    print(states)
 
 
 def test_chargeSingleNeuron():

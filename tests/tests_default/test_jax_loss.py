@@ -1,3 +1,12 @@
+"""
+Unit tests for jax training utilities, loss functions
+"""
+# - Ensure that NaNs in compiled functions are errors
+from jax.config import config
+
+config.update("jax_debug_nans", True)
+
+
 def test_imports():
     from rockpool.training.jax_loss import mse, bounds_cost
 
@@ -47,6 +56,7 @@ def test_mse():
 def test_bounds_cost():
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.training.jax_loss import bounds_cost, make_bounds
+    from rockpool.training.jax_debug import flatten
 
     from jax.experimental.optimizers import adam
 
@@ -62,27 +72,54 @@ def test_bounds_cost():
     # - Get bounds
     min_bounds, max_bounds = make_bounds(params0)
 
-    min_bounds["tau"] = 1e-3
-    max_bounds["tau"] = 100e-3
-    min_bounds["tau"] = 1e-3
-    max_bounds["tau"] = 100e-3
+    min_bounds["tau"] = 1.0
+    min_bounds["tau"] = 1.0
 
     c = bounds_cost(params0, min_bounds, max_bounds)
+    print(c)
+
+    c = jit(bounds_cost)(params0, min_bounds, max_bounds)
+    print(c)
+
+    bounds_vgf = jax.jit(jax.value_and_grad(bounds_cost))
+    c, grads = bounds_vgf(params0, min_bounds, max_bounds)
+    for g in flatten(grads).values():
+        assert ~np.any(np.isnan(g)), "NaN gradients found"
+    print(grads)
+
+    max_bounds["bias"] = -1.0
+    max_bounds["w_rec"] = -1.0
+    c, grads = bounds_vgf(params0, min_bounds, max_bounds)
+    print(c, grads)
+
+    def cost(p):
+        return jnp.nanmean(p["tau"]) + bounds_cost(p, min_bounds, max_bounds)
+
+    g = jax.jit(jax.grad(cost))(params0)
+    print(g)
 
 
-def test_l2norm():
+def test_l2sqr_norm():
+    import jax
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
-    from rockpool.training.jax_loss import l2_norm
+    from rockpool.training.jax_loss import l2sqr_norm
 
     mod = RateEulerJax((2, 2))
 
-    c = l2_norm(mod.parameters("weights"))
+    c = l2sqr_norm(mod.parameters("weights"))
+
+    # - Test compiled version and gradients
+    c = jax.jit(l2sqr_norm)(mod.parameters("weights"))
+    print(c)
+    g = jax.jit(jax.grad(l2sqr_norm))(mod.parameters("weights"))
+    print(g)
 
 
 def test_l0norm():
     from rockpool.nn.modules.jax.rate_jax import RateEulerJax
     from rockpool.training.jax_loss import l0_norm_approx
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    import jax
 
     mod = RateEulerJax((2, 2))
 
@@ -91,3 +128,7 @@ def test_l0norm():
     mod = FFwdStack(RateEulerJax(10), RateEulerJax((5, 5)), RateEulerJax(1))
 
     c = l0_norm_approx(mod.parameters("weights"))
+
+    # - Test compiled version and gradients
+    c = jax.jit(l0_norm_approx)(mod.parameters("weights"))
+    g = jax.jit(jax.grad(l0_norm_approx))(mod.parameters("weights"))

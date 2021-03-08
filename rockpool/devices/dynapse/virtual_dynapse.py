@@ -19,6 +19,8 @@ from rockpool.nn.layers.layer import Layer
 from rockpool.nn.layers.aeif_nest import RecAEIFSpkInNestV1
 from rockpool.devices.dynapse import params
 
+from rockpool.nn.modules.timed_module import astimedmodule
+
 ### --- Constants
 CONNECTIONS_VALID = 0
 FANIN_EXCEEDED = 1
@@ -29,7 +31,7 @@ CONNECTION_ALIASING = 4
 ### --- Class definition
 
 
-class VirtualDynapse(Layer):
+class VirtualDynapseV1(Layer):
     """
     A :py:class:`.Layer` subclass that simulates a DynapSE processor
 
@@ -999,6 +1001,10 @@ class VirtualDynapse(Layer):
             self._simulator.weights_rec, name="VirtualDynapse 'weights_rec'"
         )
 
+    @weights_rec.setter
+    def weights_rec(self, _):
+        warn("`weights_rec` cannot be set for this layer.")
+
     @property
     def weights_ext(self):
         """
@@ -1007,6 +1013,10 @@ class VirtualDynapse(Layer):
         return ImmutableArray(
             self._simulator.weights_in, name="VirtualDynapse 'weights_ext'"
         )
+
+    @weights_ext.setter
+    def weights_ext(self, _):
+        warn("`weights_ext` cannot be set for this layer.")
 
     @property
     def baseweight_e(self):
@@ -1373,6 +1383,10 @@ class VirtualDynapse(Layer):
         """
         return self._simulator.dt
 
+    @dt.setter
+    def dt(self, value):
+        self._simulator.dt = value
+
     @property
     def _timestep(self):
         """
@@ -1386,6 +1400,10 @@ class VirtualDynapse(Layer):
         (ArrayLike[float]) Current internal state of simulator
         """
         return self._simulator.Vmem
+
+    @Vmem.setter
+    def Vmem(self, value):
+        self._simulator.Vmem = value
 
     @property
     def recorded_states(self):
@@ -1442,3 +1460,27 @@ class VirtualDynapse(Layer):
         (bool) Flag indicating whether the simulator should record internal state during evolution
         """
         return self._simulator.record
+
+
+VirtualDynapse = astimedmodule(
+    parameters=[
+        "connections_ext",
+        "connections_rec",
+        "weights_ext",
+        "weights_rec",
+        "tau_mem_1",
+        "tau_mem_2",
+        "has_tau_mem_2",
+        "tau_syn_exc",
+        "tau_syn_inh",
+        "baseweight_e",
+        "baseweight_i",
+        "bias",
+        "refractory",
+        "v_thresh",
+        "tau_adapt",
+        "delta_t",
+    ],
+    simulation_parameters=["dt"],
+    states=["Vmem"],
+)(VirtualDynapseV1)

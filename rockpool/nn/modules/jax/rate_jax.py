@@ -13,6 +13,7 @@ import jax.numpy as np
 import jax
 from jax.lax import scan
 import jax.random as rand
+from jax.tree_util import Partial
 
 import numpy as onp
 
@@ -26,8 +27,9 @@ def H_ReLU(x: FloatVector) -> FloatVector:
     return x * (x > 0.0)
 
 
-def H_tanh(x: FloatVector) -> FloatVector:
-    return np.tanh(x)
+# def H_tanh(x: FloatVector) -> FloatVector:
+#     return np.tanh(x)
+H_tanh = np.tanh
 
 
 def H_sigmoid(x: FloatVector) -> FloatVector:
@@ -185,11 +187,11 @@ class RateEulerJax(JaxModule):
         if isinstance(activation_func, str):
             # - Handle a string argument
             if activation_func.lower() in ["relu", "r"]:
-                self.act_fn = H_ReLU
+                act_fn = H_ReLU
             elif activation_func.lower() in ["sigmoid", "sig", "s"]:
-                self.act_fn = H_sigmoid
+                act_fn = H_sigmoid
             elif activation_func.lower() in ["tanh", "t"]:
-                self.act_fn = H_tanh
+                act_fn = H_tanh
             else:
                 raise ValueError(
                     'If `activation_func` is provided as a string argument, it must be one of ["ReLU", "sigmoid", "tanh"].'
@@ -197,13 +199,18 @@ class RateEulerJax(JaxModule):
 
         elif callable(activation_func):
             # - Handle a callable function
-            self.act_fn = activation_func
+            act_fn = activation_func
             """The activation function of the neurons in the module"""
 
         else:
             raise ValueError(
                 "Argument `activation_func` must be a string or a function."
             )
+
+        # - Assign activation function
+        self.act_fn: Union[Callable, SimulationParameter] = SimulationParameter(
+            Partial(act_fn)
+        )
 
     def evolve(
         self, input_data: np.ndarray, record: bool = False,
@@ -251,6 +258,7 @@ class RateEulerJax(JaxModule):
         }
 
         record_dict = {
+            "res_inputs": res_inputs,
             "rec_inputs": rec_inputs,
             "res_state": res_state,
             "res_acts": res_acts,

@@ -2,6 +2,8 @@ from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.module import Module, ModuleBase
 from rockpool.parameters import Parameter
 
+from copy import copy
+
 from typing import Tuple, Any
 
 from jax import numpy as jnp
@@ -13,7 +15,9 @@ __all__ = ["Sequential"]
 
 
 class SequentialMixin(ABC):
-    _dot = None
+    """
+    Base class for `Sequential` modules
+    """
 
     def __init__(
         self, *args, **kwargs,
@@ -47,9 +51,6 @@ class SequentialMixin(ABC):
                 mod_index += 1
             else:
                 other_args.append(item)
-
-        if len(submods) < 2:
-            raise ValueError("Sequential expects at least two modules to combine.")
 
         # - Work out shape of each submodule
         shape_in = [mod.size_in for mod in submods]
@@ -88,33 +89,77 @@ class SequentialMixin(ABC):
         new_state_dict = {}
         record_dict = {}
 
+        x = input_data
+
         # - Loop through submodules
         for submod_name in self._submodule_names:
             # - Get this submodule and weight
             mod = getattr(self, submod_name)
 
             # - Push data through submodule
-            input_data, substate, subrec = mod(input_data, record=record)
+            x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {submod_name: subrec, f"{submod_name}_output": input_data,}
+                {submod_name: subrec, f"{submod_name}_output": copy(input_data),}
             )
 
         # - Return output, state and record
-        return input_data, new_state_dict, record_dict
+        return x, new_state_dict, record_dict
+
+    def __getitem__(self, item: int) -> Module:
+        """
+        Permit indexing into the sequence of modules
+
+        Args:
+            item (int): The index of the module to return
+
+        Returns:
+            Module: The ``item``th module in the sequence
+        """
+        return self.modules()[self._submodule_names[item]]
 
 
 class ModSequential(SequentialMixin, Module):
-    _dot = staticmethod(onp.dot)
     pass
 
 
 class JaxSequential(SequentialMixin, JaxModule):
-    _dot = staticmethod(jnp.dot)
-    pass
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        """Unflatten a tree of modules from Jax to Rockpool"""
+        params, sim_params, state, modules = children
+        _name, _shape, _submodulenames = aux_data
+        modules = tuple(modules.values())
+        obj = cls(*modules)
+        obj._name = _name
+
+        # - Restore configuration
+        obj = obj.set_attributes(params)
+        obj = obj.set_attributes(state)
+        obj = obj.set_attributes(sim_params)
+
+        return obj
 
 
 def Sequential(*args, **kwargs) -> SequentialMixin:
+    """
+    Build a sequential stack of modules by connecting them end-to-end
+
+    `.Sequential` accepts any number of modules. The shapes of the modules must be compatible -- the output size :py:attr:`~.Module.size_out` of each module must match the input size :py:attr:`~.Module.in` of the following module.
+
+    Examples:
+
+        >>> Sequential(mod0, mod1, mod2)
+
+        A `Sequential` stack will be returned as a `Module`, containing ``mod0``, ``mod1`` and ``mod2``. When evolving this stack, signals will be passed through ``mod0``, then ``mod1``, then ``mod2``.
+
+
+    Args:
+        *mods: Any number of modules to connect. The :py:attr:`~.Module.size_out` attribute of one module must match the :py:attr:`~.Module.size_in` attribute of the following module.
+
+    Returns:
+        A :py:class:`.Module` subclass object that encapsulates the provided modules
+    """
     # - Check for Jax submodules
     use_jax = False
     for item in args:
