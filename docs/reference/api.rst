@@ -134,3 +134,15 @@ Conversion utilities
     nn.modules.timed_module.TimedModuleWrapper
     nn.modules.timed_module.LayerToTimedModule
     nn.modules.timed_module.astimedmodule
+
+``Jax`` training utilities
+---------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    training.jax_loss.mse
+    training.jax_loss.l2sqr_norm
+    training.jax_loss.l0_norm_approx
+    training.jax_loss.bounds_cost
+    training.jax_loss.make_bounds

@@ -1,3 +1,7 @@
+"""
+Classes to manage registered Module attributes in Rockpool
+"""
+
 from typing import Callable, Iterable, Any
 from copy import deepcopy
 
@@ -7,6 +11,12 @@ import numpy as np
 
 # -- Parameter classes
 class ParameterBase:
+    """
+    Base class for Rockpool registered attributes
+    
+    See Also:
+        See :py:class:`.Parameter` for representing the configuration of a module, :py:class:`.State` for representing the transient internal state of a neuron or module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.
+    """
     def __init__(
         self,
         data: Any = None,
@@ -14,6 +24,15 @@ class ParameterBase:
         init_func: Callable[[Iterable], Any] = None,
         shape: Any = None,
     ):
+        """
+        Instantiate a Rockpool registered attribute
+        
+        Args:
+            data (Optional[Any]): Concrete initialisation data for this attribute. The shape of ``data`` will specify the allowable shape of the attribute data, unless the ``shape`` argument is provided.
+            family (Optional[str]): An arbitrary string to specify the "family" of this attribute. You should use ``'weights'``, ``'taus'``, ``'biases'`` if you can; otherwise you can use whatever you like. These are used by the :py:meth:`.Module.parameters`, :py:meth:`.Module.state` and :py:meth:`.Module.simulation_parameters` methods to group and select attributes.
+            init_func (Optional[Callable]): A function that initialises this attributed. Called by :py:meth:`.Module.reset_parameters` and :py:meth:`.Module.reset_state`. The signature is ``f(shape: tuple) -> np.ndarray``. 
+            shape (Optional[tuple]): A tuple (or list) specifying the permitted shape of the attribute. If not provided, the shape of the concrete initialisation data will be used as the attribute shape.  
+        """
         # - Assign attributes
         self.family = family
         self.data = data
@@ -64,12 +83,36 @@ class ParameterBase:
 
 
 class Parameter(ParameterBase):
+    """
+    Represent a module parameter
+    
+    A :py:class:`.Parameter` in Rockpool is a configuration value that is important for communicating the configuration of a network. For example, network weights; network time constants; neuron biases; etc. These are likely to be your set of trainable parameters for a module or network.
+    
+    See Also:
+        See :py:class:`.State` for representing the transient internal state of a neuron or module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.  
+    """
     pass
 
 
 class State(ParameterBase):
+    """
+    Represent a module state
+    
+    A :py:class:`.State` in Rockpool is a transient value which is required to maintain the dynamics of a stateful module. For example the membrane potential of a neuron; the synaptic current; the refractory state of a neuron; etc.
+    
+    See Also:
+        See :py:class:`.Parameter` for representing the configuration of a module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.
+    """
     pass
 
 
 class SimulationParameter(ParameterBase):
+    """
+    Represent a module simulation parameter
+    
+    A :py:class:`.SimulationParameter` in Rockpool is a simulation-specific configuration value, which is only needed to control the simulation of a network, but is **not** needed to communicate your network configuration to someone else. For example, the simulation time-step your solver uses to simulate the dynamics of a module. :py:class:`.SimulationParameter` s are basically never trainable parameters.
+    
+    See Also:
+        See :py:class:`.Parameter` for representing the configuration of a module, and :py:class:`.State` for representing the transient internal state of a neuron or module.
+    """
     pass
