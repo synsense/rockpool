@@ -2,6 +2,11 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.0] -- 2021-03-09
+
+ - New Rockpool API
+ - Breaking change from v1.x
+
 ## [v1.1.0.4] -- 2020-11-06
 
  - Hotfix to remove references to ctxctl and aiCTX

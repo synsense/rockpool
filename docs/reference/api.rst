@@ -27,7 +27,7 @@ Attribute types
     parameters.SimulationParameter
 
 
-Layer and Network alternative base classes
+Alternative base classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::

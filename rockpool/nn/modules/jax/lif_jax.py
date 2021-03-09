@@ -1,3 +1,7 @@
+"""
+Implements a leaky integrate-and-fire neuron module with a Jax backend
+"""
+
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
@@ -39,9 +43,47 @@ def step_pwl(x: FloatVector) -> (FloatVector, Callable[[FloatVector], FloatVecto
 
 
 class LIFJax(JaxModule):
+    """
+    A leaky integrate-and-fire spiking neuron model
+
+    This module implements the dynamics:
+
+    .. math ::
+
+        \\tau_{syn} \\dot{I}_{syn} + I_{syn} = 0
+
+        I_{syn} += S_{in}(t)
+
+        \\tau_{syn} \\dot{V}_{mem} + V_{mem} = I_{syn} + b + \\sigma\\zeta(t)
+
+    where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`; :math:`b` is a :math:`N` vector of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` and :math:`\\tau_{syn}` are the membrane and synaptic time constants, respectively.
+
+    :On spiking:
+
+    When the membrane potential for neuron :math:`j`, :math:`V_{mem, j}` exceeds the threshold voltage :math:`V_{thr} = 0`, then the neuron emits a spike.
+
+    .. math ::
+
+        V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
+
+        I_{syn} = I_{syn} + S_{rec} \\cdot w_{rec}
+
+        V_{mem, j} = V_{mem, j} - 1
+
+    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+
+    :Surrogate signals:
+
+    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
+
+    .. math ::
+
+        U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
+    """
+
     def __init__(
         self,
-        shape=None,
+        shape: tuple = None,
         tau_mem: Optional[FloatVector] = None,
         tau_syn: Optional[FloatVector] = None,
         bias: Optional[FloatVector] = None,
@@ -52,6 +94,19 @@ class LIFJax(JaxModule):
         *args,
         **kwargs,
     ):
+        """
+        Instantiate an LIF module
+
+        Args:
+            shape (tuple): Either a single dimension ``N``, which defines a feed-forward layer of LIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of LIF neurons.
+            tau_mem (Optional[np.ndarray]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 100ms will be used by default.
+            tau_syn (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
+            bias (Optional[np.ndarray]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, 0.0 will be used by default.
+            w_rec (Optional[np.ndarray]): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+            dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
+            noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: 0.0
+            rng_key (Optional[Any]): The Jax RNG seed to use on initialisation. By default, a new seed is generated.
+        """
         # - Work out the shape of this module
         if shape is None:
             assert (
@@ -70,7 +125,9 @@ class LIFJax(JaxModule):
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         # - Initialise state
-        self.rng_key: np.ndarray = State(rng_key, init_func=lambda _: rng_key)
+        self.rng_key: Union[np.ndarray, State] = State(
+            rng_key, init_func=lambda _: rng_key
+        )
 
         # - Should we be recurrent or FFwd?
         if len(self.shape) == 1:
@@ -93,7 +150,7 @@ class LIFJax(JaxModule):
                     "`shape[0]` and `shape[1]` must be equal for a recurrent module."
                 )
 
-            self.w_rec: np.ndarray = Parameter(
+            self.w_rec: Union[np.ndarray, Parameter] = Parameter(
                 w_rec,
                 family="weights",
                 init_func=lambda s: rand.normal(
@@ -103,63 +160,41 @@ class LIFJax(JaxModule):
             )
 
         # - Set parameters
-        self.tau_mem: np.ndarray = Parameter(
+        self.tau_mem: Union[np.ndarray, Parameter] = Parameter(
             tau_mem,
             "taus",
             init_func=lambda s: np.ones(s) * 100e-3,
             shape=(self.size_out,),
         )
         # - Set parameters
-        self.tau_syn: np.ndarray = Parameter(
+        self.tau_syn: Union[np.ndarray, Parameter] = Parameter(
             tau_syn,
             "taus",
             init_func=lambda s: np.ones(s) * 50e-3,
             shape=(self.size_out,),
         )
-        self.bias: np.ndarray = Parameter(
-            bias,
-            "bias",
-            init_func=lambda s: np.zeros(s),
-            shape=(self.size_out,),
+        self.bias: Union[np.ndarray, Parameter] = Parameter(
+            bias, "bias", init_func=lambda s: np.zeros(s), shape=(self.size_out,),
         )
-        self.dt: float = SimulationParameter(dt)
-        self.noise_std: float = SimulationParameter(noise_std)
+        self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
+        self.noise_std: Union[float, SimulationParameter] = SimulationParameter(
+            noise_std
+        )
 
         # - Specify state
-        self.spikes: np.ndarray = State(shape=(self.size_out,), init_func=np.zeros)
-        self.Isyn: np.ndarray = State(shape=(self.size_out,), init_func=np.zeros)
-        self.Vmem: np.ndarray = State(shape=(self.size_out,), init_func=np.zeros)
+        self.spikes: Union[np.ndarray, State] = State(
+            shape=(self.size_out,), init_func=np.zeros
+        )
+        self.Isyn: Union[np.ndarray, State] = State(
+            shape=(self.size_out,), init_func=np.zeros
+        )
+        self.Vmem: Union[np.ndarray, State] = State(
+            shape=(self.size_out,), init_func=np.zeros
+        )
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
-    ):
-        #
-        #
-        # def _evolve_lif(
-        #     state0: State,
-        #     w_in: np.ndarray,
-        #     w_rec: np.ndarray,
-        #     w_out_surrogate: np.ndarray,
-        #     tau_mem: np.ndarray,
-        #     tau_syn: np.ndarray,
-        #     bias: np.ndarray,
-        #     noise_std: float,
-        #     sp_input_ts: np.ndarray,
-        #     I_input_ts: np.ndarray,
-        #     key: rand.PRNGKey,
-        #     dt: float,
-        # ) -> Tuple[
-        #     State,
-        #     np.ndarray,
-        #     np.ndarray,
-        #     np.ndarray,
-        #     np.ndarray,
-        #     np.ndarray,
-        #     np.ndarray,
-        #     rand.PRNGKey,
-        # ]:
+        self, input_data: np.ndarray, record: bool = False,
+    ) -> Tuple[np.ndarray, dict, dict]:
         """
         Raw JAX evolution function for an LIF spiking layer
 
@@ -197,27 +232,13 @@ class LIFJax(JaxModule):
 
             U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
 
-        :param LayerState state0:           Layer state at start of evolution
-        :param np.ndarray w_in:             Input weights [I, N]
-        :param np.ndarray w_rec:            Recurrent weights [N, N]
-        :param np.ndarray w_out_surrogate:  Output weights [N, O]
-        :param np.ndarray tau_mem:          Membrane time constants for each neuron [N,]
-        :param np.ndarray tau_syn:          Input synapse time constants for each neuron [N,]
-        :param np.ndarray bias:             Bias values for each neuron [N,]
-        :param float noise_std:             Noise injected onto the membrane of each neuron. Standard deviation at each time step.
-        :param np.ndarray sp_input_ts:      Logical spike raster of input events on input channels [T, I]
-        :param np.ndarray I_input_ts:       Time trace of currents injected on input channels (direct current injection) [T, I]
-        :param jax.random.PRNGKey key:      pRNG key for JAX
-        :param float dt:                    Time step in seconds
+        Args:
+            input_data (np.ndarray): Input array of shape ``(T, Nin)`` to evolve over
+            record (bool): If ``True``,
 
-        :return: (state, Irec_ts, output_ts, surrogate_ts, spikes_ts, Vmem_ts, Isyn_ts)
-            state:          (LayerState) Layer state at end of evolution
-            Irec_ts:        (np.ndarray) Recurrent input received at each neuron over time [T, N]
-            output_ts:      (np.ndarray) Weighted output surrogate over time [T, O]
-            surrogate_ts:   (np.ndarray) Surrogate time trace for each neuron [T, N]
-            spikes_ts:      (np.ndarray) Logical spiking raster for each neuron [T, N]
-            Vmem_ts:        (np.ndarray) Membrane voltage of each neuron over time [T, N]
-            Isyn_ts:        (np.ndarray) Synaptic input current received by each neuron over time [T, N]
+        Returns:
+            (np.ndarray, dict, dict): output, new_state, record_state
+            ``output`` is an array with shape ``(T, Nout)`` containing the output data produced by this module. ``new_state`` is a dictionary containing the updated module state following evolution. ``record_state`` will be a dictionary containing the recorded state variables for this evolution, if the ``record`` argument is ``True``.
         """
 
         # - Get evolution constants
@@ -285,9 +306,7 @@ class LIFJax(JaxModule):
 
         # - Evolve over spiking inputs
         state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
-            forward,
-            (self.spikes, self.Isyn, self.Vmem),
-            (input_data, noise_ts),
+            forward, (self.spikes, self.Isyn, self.Vmem), (input_data, noise_ts),
         )
 
         # - Generate output surrogate

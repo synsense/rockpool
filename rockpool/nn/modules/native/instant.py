@@ -41,10 +41,18 @@ class InstantMixin:
 
 
 class Instant(InstantMixin, Module):
+    """
+    Wrap a callable function as an instantaneous Rockpool module
+    """
+
     pass
 
 
 class InstantJax(InstantMixin, JaxModule):
+    """
+    Wrap a callable function as an instantaneous Rockpool module, with a Jax backend
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.function = Partial(self.function)

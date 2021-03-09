@@ -1,3 +1,8 @@
+"""
+Implements linear weight matrix modules for numpy and Jax
+"""
+
+
 from rockpool.nn.modules.module import Module
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter
@@ -76,10 +81,18 @@ class LinearMixin(ABC):
 
 
 class Linear(LinearMixin, Module):
+    """
+    Encapsulates a linear weight matrix
+    """
+
     _dot = staticmethod(onp.dot)
     pass
 
 
 class LinearJax(LinearMixin, JaxModule):
+    """
+    Encapsulates a linear weight matrix, with a Jax backend
+    """
+
     _dot = staticmethod(jnp.dot)
     pass
