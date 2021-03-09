@@ -145,14 +145,19 @@ def Sequential(*args, **kwargs) -> SequentialMixin:
     """
     Build a sequential stack of modules by connecting them end-to-end
 
-    `.Sequential` accepts any number of modules. The shapes of the modules must be compatible -- the output size :py:attr:`~.Module.size_out` of each module must match the input size :py:attr:`~.Module.in` of the following module.
+    :py:class:`.Sequential` accepts any number of modules. The shapes of the modules must be compatible -- the output size :py:attr:`~.Module.size_out` of each module must match the input size :py:attr:`~.Module.size_in` of the following module.
 
     Examples:
 
+        Build a :py:class:`.Sequential` stack will be returned a :py:class:`.Module`, containing ``mod0``, ``mod1`` and ``mod2``. When evolving this stack, signals will be passed through ``mod0``, then ``mod1``, then ``mod2``:
+
         >>> Sequential(mod0, mod1, mod2)
 
-        A `Sequential` stack will be returned as a `Module`, containing ``mod0``, ``mod1`` and ``mod2``. When evolving this stack, signals will be passed through ``mod0``, then ``mod1``, then ``mod2``.
+        Index into a :py:class:`.Sequential` stack using Python indexing:
 
+        >>> mod = Sequential(mod0, mod1, mod2)
+        >>> mod[0]
+        A module with shape (xx, xx)
 
     Args:
         *mods: Any number of modules to connect. The :py:attr:`~.Module.size_out` attribute of one module must match the :py:attr:`~.Module.size_in` attribute of the following module.

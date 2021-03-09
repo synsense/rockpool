@@ -165,7 +165,3 @@ def test_submodules():
 
     # - Test an operation on collected weights
     np.sum([np.sum(v ** 2) for v in net.parameters("weights").values()])
-
-    print("Inherited dt:", net.dt)
-
-    # - Test

@@ -35,6 +35,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    in-depth/api-high-level.ipynb
    in-depth/api-functional.ipynb
    in-depth/jax-training.ipynb
+   in-depth/torch-api.ipynb
    in-depth/torch-training.ipynb
 
 .. toctree::
@@ -58,9 +59,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Advanced topics
 
-   .. advanced/extending_layers.ipynb
-
-   reference/layer_types
    reference/api
    advanced/developers_notes
    advanced/CHANGELOG

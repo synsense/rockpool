@@ -133,7 +133,7 @@ class ModuleBase(ABC):
         if name in __registered_attributes:
             # - Check that shapes are identical
             if hasattr(self, name):
-                (_, _, _, _, shape) = self.__registered_attributes[name]
+                (_, _, _, _, shape) = __registered_attributes[name]
                 if np.shape(val) != shape and val is not None:
                     raise ValueError(
                         f"The new value assigned to {name} must be of shape {shape}."
@@ -152,13 +152,16 @@ class ModuleBase(ABC):
         Args:
             name (str): The name of the attribute to delete
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Remove attribute from registered attributes
-        if name in self.__registered_attributes:
-            del self.__registered_attributes[name]
+        if name in __registered_attributes:
+            del __registered_attributes[name]
 
         # - Remove name from modules
-        if name in self.__modules:
-            del self.__modules[name]
+        if name in __modules:
+            del __modules[name]
             self._submodulenames.remove(name)
 
         # - Remove attribute
@@ -172,8 +175,11 @@ class ModuleBase(ABC):
             name (str): The name of the attribute to register
             val (ParameterBase): The `ParameterBase` subclass object to register. e.g. `Parameter`, `SimulationParameter` or `State`.
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Record attribute in attribute registry
-        self.__registered_attributes[name]: dict = [
+        __registered_attributes[name]: dict = [
             val.data,
             type(val).__name__,
             val.family,
@@ -190,6 +196,9 @@ class ModuleBase(ABC):
             name (str): The name of the module to register
             mod (ModuleBase): The `ModuleBase` object to register
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         if not isinstance(mod, ModuleBase):
             raise ValueError(
                 f"You may only assign a `Module` subclass as a sub-module."
@@ -199,7 +208,7 @@ class ModuleBase(ABC):
         mod._name = name
 
         # - Assign to appropriate attribute dictionary
-        self.__modules[name] = [mod, type(mod).__name__]
+        __modules[name] = [mod, type(mod).__name__]
         self._submodulenames.append(name)
 
     def set_attributes(self, new_attributes: dict) -> "ModuleBase":
@@ -223,13 +232,16 @@ class ModuleBase(ABC):
         Args:
             new_attributes (dict): A nested dictionary containing parameters of this module and sub-modules.
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Set self attributes
-        for (k, v) in self.__registered_attributes.items():
+        for (k, v) in __registered_attributes.items():
             if k in new_attributes:
                 self.__setattr__(k, new_attributes[k])
 
         # - Set submodule attributes
-        for (k, m) in self.__modules.items():
+        for (k, m) in __modules.items():
             if k in new_attributes:
                 m[0].set_attributes(new_attributes[k])
 
@@ -251,9 +263,12 @@ class ModuleBase(ABC):
         Returns:
             dict: A nested dictionary of attributes that match the provided `type_name` and `family`
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Filter own attribute dictionary by type key
         matching_attributes = {
-            k: v for (k, v) in self.__registered_attributes.items() if v[1] == type_name
+            k: v for (k, v) in __registered_attributes.items() if v[1] == type_name
         }
 
         # - Filter by family
@@ -272,7 +287,7 @@ class ModuleBase(ABC):
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
-        for (k, m) in self.__modules.items():
+        for (k, m) in __modules.items():
             mod_attributes = m[0]._get_attribute_family(type_name, family)
 
             if (family and mod_attributes) or (not family):
@@ -295,14 +310,16 @@ class ModuleBase(ABC):
         Returns:
             dict: A nested dictionary of attributes that match `name`
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Check if we were given a tuple or not
         if not isinstance(name, (tuple, list)):
             name = (name,)
 
         # - Filter own attribute dictionary by name keys
         list_attributes = [
-            {k: v for (k, v) in self.__registered_attributes.items() if k == n}
-            for n in name
+            {k: v for (k, v) in __registered_attributes.items() if k == n} for n in name
         ]
         matching_attributes = dict(ChainMap(*list_attributes))
 
@@ -311,7 +328,7 @@ class ModuleBase(ABC):
 
         # - Append sub-module attributes as nested dictionaries
         submodule_attributes = {}
-        for (k, m) in self.__modules.items():
+        for (k, m) in __modules.items():
             mod_attributes = m[0].attributes_named(name)
 
             if mod_attributes:
@@ -399,7 +416,10 @@ class ModuleBase(ABC):
         Returns:
             dict: A dictionary containing all sub-modules. Each item will be named with the sub-module name.
         """
-        return {k: m[0] for (k, m) in self.__modules.items()}
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
+        return {k: m[0] for (k, m) in __modules.items()}
 
     def _reset_attribute(self, name: str) -> "ModuleBase":
         """
@@ -411,12 +431,15 @@ class ModuleBase(ABC):
         Returns:
             self (`Module`): For compatibility with the functional API
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Check that the attribute is registered
-        if name not in self.__registered_attributes:
+        if name not in __registered_attributes:
             raise KeyError(f"{name} is not a registered attribute.")
 
         # - Get the initialisation function from the registry
-        (_, _, family, init_func, shape) = self.__registered_attributes[name]
+        (_, _, family, init_func, shape) = __registered_attributes[name]
 
         # - Use the registered initialisation function, if present
         if init_func is not None:
@@ -445,16 +468,19 @@ class ModuleBase(ABC):
             Module: The updated module is returned for compatibility with the functional API
 
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Get a list of states
         states = self.state()
 
         # - Set self attributes
-        for (k, v) in self.__registered_attributes.items():
+        for (k, v) in __registered_attributes.items():
             if k in states:
                 self._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in self.__modules.items():
+        for (k, m) in __modules.items():
             m[0] = m[0].reset_state()
 
         return self
@@ -466,16 +492,19 @@ class ModuleBase(ABC):
         Returns:
             Module: The updated module is returned for compatibility with the funcitonal API
         """
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Get a list of parameters
         parameters = self.parameters()
 
         # - Set self attributes
-        for (k, v) in self.__registered_attributes.items():
+        for (k, v) in __registered_attributes.items():
             if k in parameters:
                 self._reset_attribute(k)
 
         # - Reset submodule states
-        for (k, m) in self.__modules.items():
+        for (k, m) in __modules.items():
             m[0] = m[0].reset_parameters()
 
         return self

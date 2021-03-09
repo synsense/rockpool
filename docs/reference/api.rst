@@ -71,7 +71,13 @@ Time series classes
     :template: class.rst
 
     nn.modules.RateEulerJax
+    nn.modules.LIFJax
+
     nn.modules.Linear
+    nn.modules.LinearJax
+
+    nn.modules.Instant
+    nn.modules.InstantJax
 
     nn.layers.RecRateEuler
     nn.layers.FFRateEuler
