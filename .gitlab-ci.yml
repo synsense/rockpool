@@ -9,10 +9,12 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
+    - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v tests -n 4
+    - pytest -v tests_default -n 4
+    - pytest -v test_v1layers -n 4
 
 nest_tests:
   stage: test
@@ -20,6 +22,7 @@ nest_tests:
 
   before_script:
     - pip install --upgrade pip
+    - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 
   script:
@@ -34,6 +37,7 @@ optional_tests:
 
   before_script:
     - pip install --upgrade pip
+    - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 
   script:
@@ -46,6 +50,7 @@ documentation_linting:
 
   before_script:
     - pip install --upgrade pip
+    - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 
   script:
@@ -58,6 +63,7 @@ docs_build:
 
   before_script:
     - pip install --upgrade pip
+    - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 
   script:
