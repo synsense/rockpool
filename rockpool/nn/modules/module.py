@@ -520,7 +520,7 @@ class ModuleBase(ABC):
     def name(self) -> str:
         """ str: The name of this module, or an empty string if ``None``
         """
-        return f"'{self._name}'" if self._name else ""
+        return f"'{self._name}'" if hasattr(self, "_name") and self._name else ""
 
     @property
     def full_name(self) -> str:

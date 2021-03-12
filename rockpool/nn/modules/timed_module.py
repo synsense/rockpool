@@ -805,7 +805,7 @@ class TimedModuleWrapper(TimedModule):
             raise TypeError(self.full_name + ": `module` must be a 'Module' object.")
 
         # - Warn that an extra `dt` is ignored
-        if dt is not None and hasattr(self.module, "dt"):
+        if dt is not None and hasattr(module, "dt"):
             warn(
                 "`dt` argument to `TimedModuleWrapper` is ignored if the module already has a `dt` attribute."
             )

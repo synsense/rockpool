@@ -17,6 +17,7 @@ class ParameterBase:
     See Also:
         See :py:class:`.Parameter` for representing the configuration of a module, :py:class:`.State` for representing the transient internal state of a neuron or module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.
     """
+
     def __init__(
         self,
         data: Any = None,
@@ -51,7 +52,8 @@ class ParameterBase:
         if self.data is not None:
             if self.shape is not None and self.shape != np.shape(self.data):
                 raise ValueError(
-                    f"The shape provided for this {class_name} does not match the provided initialisation data."
+                    f"The shape provided for this {class_name} does not match the provided initialisation data.\n"
+                    + f"    self.shape = {self.shape}; data.shape = {np.shape(self.data)}"
                 )
 
             if self.shape is None:
@@ -91,6 +93,7 @@ class Parameter(ParameterBase):
     See Also:
         See :py:class:`.State` for representing the transient internal state of a neuron or module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.  
     """
+
     pass
 
 
@@ -103,6 +106,7 @@ class State(ParameterBase):
     See Also:
         See :py:class:`.Parameter` for representing the configuration of a module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.
     """
+
     pass
 
 
@@ -115,4 +119,5 @@ class SimulationParameter(ParameterBase):
     See Also:
         See :py:class:`.Parameter` for representing the configuration of a module, and :py:class:`.State` for representing the transient internal state of a neuron or module.
     """
+
     pass

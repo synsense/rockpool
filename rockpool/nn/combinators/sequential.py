@@ -49,6 +49,7 @@ class SequentialMixin(ABC):
                 submods.append(item)
                 submod_names.append(f"{mod_index}_{item.class_name}")
                 mod_index += 1
+
             else:
                 other_args.append(item)
 
