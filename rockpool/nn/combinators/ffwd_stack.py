@@ -1,4 +1,7 @@
-from rockpool.nn.modules.jax.jax_module import JaxModule
+"""
+Implement a combinator that creates feed-forward module stacks, by placing a linear module in between each module
+"""
+
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter
 
@@ -138,10 +141,16 @@ class ModFFwdStack(FFwdStackMixin, Module):
     pass
 
 
-class JaxFFwdStack(FFwdStackMixin, JaxModule):
-    _dot = staticmethod(jnp.dot)
-    pass
+try:
+    from rockpool.nn.modules.jax.jax_module import JaxModule
 
+    class JaxFFwdStack(FFwdStackMixin, JaxModule):
+        _dot = staticmethod(jnp.dot)
+        pass
+except:
+    class JaxFFwdStack():
+        def __init__(self):
+            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available.")
 
 def FFwdStack(*args, **kwargs):
     """

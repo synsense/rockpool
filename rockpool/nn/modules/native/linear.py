@@ -4,11 +4,10 @@ Implements linear weight matrix modules for numpy and Jax
 
 
 from rockpool.nn.modules.module import Module
-from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter
 
 import numpy as onp
-import jax.numpy as jnp
+from warnings import warn
 
 from typing import Tuple, Any
 
@@ -88,11 +87,21 @@ class Linear(LinearMixin, Module):
     _dot = staticmethod(onp.dot)
     pass
 
+# - Graceful failure if Jax is not available
+try:
+    from rockpool.nn.modules.jax.jax_module import JaxModule
+    import jax.numpy as jnp
 
-class LinearJax(LinearMixin, JaxModule):
-    """
-    Encapsulates a linear weight matrix, with a Jax backend
-    """
+    class LinearJax(LinearMixin, JaxModule):
+        """
+        Encapsulates a linear weight matrix, with a Jax backend
+        """
+    
+        _dot = staticmethod(jnp.dot)
+        pass
+except:
+    warn("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")
 
-    _dot = staticmethod(jnp.dot)
-    pass
+    class LinearJax():
+        def __init__(self):
+            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")

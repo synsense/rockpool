@@ -1,4 +1,3 @@
-from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.module import Module, ModuleBase
 from rockpool.parameters import Parameter
 
@@ -6,7 +5,6 @@ from copy import copy
 
 from typing import Tuple, Any
 
-from jax import numpy as jnp
 import numpy as onp
 
 from abc import ABC
@@ -101,7 +99,7 @@ class SequentialMixin(ABC):
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {submod_name: subrec, f"{submod_name}_output": copy(input_data),}
+                {submod_name: subrec, f"{submod_name}_output": copy(x),}
             )
 
         # - Return output, state and record
@@ -124,23 +122,30 @@ class ModSequential(SequentialMixin, Module):
     pass
 
 
-class JaxSequential(SequentialMixin, JaxModule):
-    @classmethod
-    def tree_unflatten(cls, aux_data, children):
-        """Unflatten a tree of modules from Jax to Rockpool"""
-        params, sim_params, state, modules = children
-        _name, _shape, _submodulenames = aux_data
-        modules = tuple(modules.values())
-        obj = cls(*modules)
-        obj._name = _name
-
-        # - Restore configuration
-        obj = obj.set_attributes(params)
-        obj = obj.set_attributes(state)
-        obj = obj.set_attributes(sim_params)
-
-        return obj
-
+try:
+    from rockpool.nn.modules.jax.jax_module import JaxModule
+    from jax import numpy as jnp
+    
+    class JaxSequential(SequentialMixin, JaxModule):
+        @classmethod
+        def tree_unflatten(cls, aux_data, children):
+            """Unflatten a tree of modules from Jax to Rockpool"""
+            params, sim_params, state, modules = children
+            _name, _shape, _submodulenames = aux_data
+            modules = tuple(modules.values())
+            obj = cls(*modules)
+            obj._name = _name
+    
+            # - Restore configuration
+            obj = obj.set_attributes(params)
+            obj = obj.set_attributes(state)
+            obj = obj.set_attributes(sim_params)
+    
+            return obj
+except:
+    class JaxSequential():
+        def __init__(self):
+            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available.")
 
 def Sequential(*args, **kwargs) -> SequentialMixin:
     """

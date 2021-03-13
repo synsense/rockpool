@@ -91,6 +91,8 @@ class LIFJax(JaxModule):
         dt: float = 1e-3,
         noise_std: float = 0.0,
         rng_key: Optional[Any] = None,
+        spiking_input: bool = True,
+        spiking_output: bool = True,
         *args,
         **kwargs,
     ):
@@ -116,7 +118,11 @@ class LIFJax(JaxModule):
 
         # - Call the superclass initialiser
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs
+            shape=shape,
+            spiking_input=spiking_input,
+            spiking_output=spiking_output,
+            *args,
+            **kwargs,
         )
 
         # - Seed RNG
@@ -295,7 +301,7 @@ class LIFJax(JaxModule):
             spikes = step_pwl(Vmem)
 
             # - Return state and outputs
-            return state, (Irec, spikes, Vmem, Isyn)
+            return (spikes, Isyn, Vmem), (Irec, spikes, Vmem, Isyn)
 
         # - Generate membrane noise trace
         num_timesteps = input_data.shape[0]
@@ -313,7 +319,7 @@ class LIFJax(JaxModule):
         surrogate_ts = sigmoid(Vmem_ts * 20.0)
 
         # - Generate return arguments
-        outputs = (spikes_ts, surrogate_ts)
+        outputs = spikes_ts
         states = {
             "spikes": spikes_ts[-1],
             "Isyn": Isyn_ts[-1],
@@ -326,6 +332,7 @@ class LIFJax(JaxModule):
             "spikes": spikes_ts,
             "Isyn": Isyn_ts,
             "Vmem": Vmem_ts,
+            "U": surrogate_ts,
         }
 
         # - Return outputs

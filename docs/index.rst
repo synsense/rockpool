@@ -42,11 +42,12 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Tutorials
 
+   tutorials/jax_lif_sgd.ipynb
+
    .. tutorials/building_reservoir.ipynb
    .. tutorials/jax_sgd.ipynb
    .. tutorials/train_jax_stack.ipynb
    .. tutorials/jax_lif_tutorial.ipynb
-   .. tutorials/jax_lif_sgd.ipynb
    .. tutorials/deneve_reservoirs.ipynb
    .. tutorials/network_ads_tutorial.ipynb
 

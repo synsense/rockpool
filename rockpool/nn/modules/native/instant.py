@@ -2,11 +2,10 @@
 Encapsulate a simple instantaneous function as a jax module
 """
 
-from rockpool.nn.modules import JaxModule
 from rockpool.nn.modules import Module
 from rockpool.parameters import SimulationParameter
 
-from jax.tree_util import Partial
+from warnings import warn
 
 from typing import Callable, Union
 
@@ -48,11 +47,22 @@ class Instant(InstantMixin, Module):
     pass
 
 
-class InstantJax(InstantMixin, JaxModule):
-    """
-    Wrap a callable function as an instantaneous Rockpool module, with a Jax backend
-    """
+try:
+    from rockpool.nn.modules import JaxModule
+    from jax.tree_util import Partial
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.function = Partial(self.function)
+    class InstantJax(InstantMixin, JaxModule):
+        """
+        Wrap a callable function as an instantaneous Rockpool module, with a Jax backend
+        """
+    
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.function = Partial(self.function)
+
+except:
+    warn("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")
+
+    class InstantJax():
+        def __init__(self):
+            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")

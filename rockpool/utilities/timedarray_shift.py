@@ -8,7 +8,7 @@ from importlib import util
 
 if util.find_spec("brian2") is None:
     raise ModuleNotFoundError(
-        "'Brian2' backend not found. Layers that rely on Brian will not be available."
+        "'Brian2' backend not found. Modules that rely on Brian will not be available."
     )
 
 from brian2.core.clocks import defaultclock

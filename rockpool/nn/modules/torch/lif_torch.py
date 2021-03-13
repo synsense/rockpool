@@ -1,7 +1,7 @@
 from importlib import util
 if util.find_spec("torch") is None:
     raise ModuleNotFoundError(
-        "'Torch' backend not found. Layers that rely on Torch will not be available."
+        "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
 import torch
@@ -157,7 +157,7 @@ class LIFLayer(TorchModule):
             import torch_lif_cpp
 
             self.forward = self.lif_cpp_forward
-        except ModuleNotFoundError:
+        except:
             self.threshold_subtract = ThresholdSubtract().apply
             self.bitshift_decay = Bitshift().apply
 

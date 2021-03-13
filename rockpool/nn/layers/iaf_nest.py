@@ -17,7 +17,7 @@ from rockpool.nn.modules.timed_module import astimedmodule
 
 if util.find_spec("nest") is None:
     raise ModuleNotFoundError(
-        "'NEST' backend not found. Layers that rely on NEST will not be available."
+        "'NEST' backend not found. Modules that rely on NEST will not be available."
     )
 
 # - Unit conversion functions

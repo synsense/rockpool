@@ -5,14 +5,12 @@ Defines the `JaxModule` base class, for Jax support in Rockpool.
 # - Import Rockpool Module base class
 from rockpool.nn.modules.module import Module
 
-from importlib import util
-
 # - Check that jax is installed
+from importlib import util
 if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
     raise ModuleNotFoundError(
-        "'Jax' and 'Jaxlib' backend not found. Layers that rely on Jax will not be available."
+        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
     )
-
 
 # - Jax imports
 from jax.tree_util import register_pytree_node
