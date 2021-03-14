@@ -19,6 +19,8 @@ unit_tests:
 
 nest_tests:
   stage: test
+  allow_failure: true
+  when: manual
   image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
 #  image: aictx/ci-python-arch:latest
 
