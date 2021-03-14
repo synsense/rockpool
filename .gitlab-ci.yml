@@ -14,8 +14,8 @@ unit_tests:
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v tests_default -n 4
-    - pytest -v test_v1layers -n 4
+    - pytest -v tests/tests_default -n 4
+    - pytest -v tests/test_v1layers -n 4
 
 nest_tests:
   stage: test
@@ -27,7 +27,7 @@ nest_tests:
     - pip install .[all] --no-cache-dir
 
   script:
-      - pytest -v test_nest -n 4
+      - pytest -v tests/test_nest -n 4
 
 optional_tests:
   stage: test
@@ -41,7 +41,7 @@ optional_tests:
     - pip install .[all] --no-cache-dir
 
   script:
-      - pytest -v test_optional -n 4
+      - pytest -v tests/test_optional -n 4
 
 documentation_linting:
   stage: test
