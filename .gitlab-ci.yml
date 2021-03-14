@@ -27,7 +27,6 @@ nest_tests:
     - pip install .[all] --no-cache-dir
 
   script:
-      - source /usr/bin/nest_vars.sh
       - pytest -v test_nest -n 4
 
 optional_tests:
