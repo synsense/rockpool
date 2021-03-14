@@ -5,7 +5,7 @@ stages:
 
 unit_tests:
   stage: test
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
@@ -19,7 +19,7 @@ nest_tests:
   stage: test
   allow_failure: true
   when: manual
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
@@ -31,7 +31,7 @@ nest_tests:
 optional_tests:
   stage: test
   allow_failure: true
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
   when: manual
 
   before_script:
@@ -44,7 +44,7 @@ optional_tests:
 documentation_linting:
   stage: test
   allow_failure: true
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
@@ -56,7 +56,7 @@ documentation_linting:
 docs_build:
   stage: build
   allow_failure: true
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
@@ -73,7 +73,7 @@ docs_build:
 
 dist_build:
   stage: build
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   dependencies:
     - unit_tests
@@ -97,7 +97,7 @@ pages:
     - master
 
   allow_failure: true
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   dependencies:
     - docs_build
@@ -112,7 +112,7 @@ pages:
 pypi_deploy:
   stage: deploy
   when: manual
-  image: spinystellate.office.synsense.ai:5051/research/rockpool:latest
+  image: spinystellate.office.synsense.ai:5051/research/rockpool/test:latest
 
   only:
     - master

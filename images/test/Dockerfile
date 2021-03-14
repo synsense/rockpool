@@ -2,7 +2,7 @@
 FROM continuumio/miniconda3:latest
 
 # Copy the requirements file for Rockpool
-COPY requirements.yml .
+COPY ../requirements.yml .
 
 # Configure the environment
 RUN [ "conda", "update", "--all" ]
