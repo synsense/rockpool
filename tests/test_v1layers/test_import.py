@@ -16,7 +16,11 @@ def test_submodule_import():
     """
     Test the import of submodules
     """
-    from nn import layers
+    import rockpool.nn.modules
+    import rockpool.training
+    import rockpool.utilities
+    import rockpool.parameters
+    
 
     # from rockpool.layers import recurrent
     # from rockpool.layers import internal
