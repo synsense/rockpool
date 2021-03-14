@@ -17,7 +17,6 @@ setup_args = {
         "all": [
             "tqdm",
             "brian2",
-            "teili",
             "pytest>=6.0",
             "pytest-xdist",
             "torch",
