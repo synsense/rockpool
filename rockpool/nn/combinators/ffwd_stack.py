@@ -7,7 +7,6 @@ from rockpool.parameters import Parameter
 
 from typing import Tuple, Any
 
-from jax import numpy as jnp
 import numpy as onp
 
 from abc import ABC
@@ -142,15 +141,22 @@ class ModFFwdStack(FFwdStackMixin, Module):
 
 
 try:
+    from jax import numpy as jnp
     from rockpool.nn.modules.jax.jax_module import JaxModule
 
     class JaxFFwdStack(FFwdStackMixin, JaxModule):
         _dot = staticmethod(jnp.dot)
         pass
+
+
 except:
-    class JaxFFwdStack():
+
+    class JaxFFwdStack:
         def __init__(self):
-            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available.")
+            raise ImportError(
+                "'Jax' and 'Jaxlib' backend not found. Modules relying on Jax will not be available."
+            )
+
 
 def FFwdStack(*args, **kwargs):
     """
