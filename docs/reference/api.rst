@@ -83,21 +83,15 @@ Time series classes
     nn.layers.FFRateEuler
     nn.layers.PassThrough
 
+    nn.layers.ButterFilter
+    nn.layers.ButterMelFilter
+
     nn.layers.FFIAFBrian
     nn.layers.FFIAFSpkInBrian
     nn.layers.RecIAFBrian
     nn.layers.RecIAFSpkInBrian
     nn.layers.PassThroughEvents
     nn.layers.FFExpSynBrian
-    nn.layers.FFExpSyn
-    nn.layers.RecLIFJax
-    nn.layers.RecLIFCurrentInJax
-    nn.layers.RecLIFJax_IO
-    nn.layers.RecLIFCurrentInJax_IO
-    nn.layers.FFLIFJax_IO
-    nn.layers.FFLIFCurrentInJax_SO
-    nn.layers.FFExpSynCurrentInJax
-    nn.layers.FFExpSynJax
     nn.layers.RecDIAF
     nn.layers.RecFSSpikeEulerBT
     nn.layers.FFUpDown
@@ -107,14 +101,15 @@ Time series classes
     nn.layers.RecIAFSpkInNest
     nn.layers.RecAEIFSpkInNest
 
-    nn.layers.RecDynapSE
-    nn.layers.VirtualDynapse
+    nn.layers.FFCLIAF
+    nn.layers.RecCLIAF
 
+    .. nn.layers.RecDynapSE
+    nn.layers.VirtualDynapse
     nn.layers.RecRateEulerJax
     nn.layers.RecRateEulerJax_IO
     nn.layers.FFRateEulerJax
     nn.layers.ForceRateEulerJax_IO
-
     nn.layers.FFExpSynTorch
     nn.layers.FFIAFTorch
     nn.layers.FFIAFRefrTorch
@@ -125,10 +120,17 @@ Time series classes
     nn.layers.RecIAFSpkInTorch
     nn.layers.RecIAFSpkInRefrTorch
     nn.layers.RecIAFSpkInRefrCLTorch
-    nn.layers.FFCLIAF
-    nn.layers.RecCLIAF
     nn.layers.CLIAF
     nn.layers.SoftMaxLayer
+    nn.layers.FFExpSyn
+    nn.layers.RecLIFJax
+    nn.layers.RecLIFCurrentInJax
+    nn.layers.RecLIFJax_IO
+    nn.layers.RecLIFCurrentInJax_IO
+    nn.layers.FFLIFJax_IO
+    nn.layers.FFLIFCurrentInJax_SO
+    nn.layers.FFExpSynCurrentInJax
+    nn.layers.FFExpSynJax
 
 Conversion utilities
 --------------------
