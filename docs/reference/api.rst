@@ -93,9 +93,7 @@ Time series classes
     nn.layers.PassThroughEvents
     nn.layers.FFExpSynBrian
     nn.layers.RecDIAF
-    nn.layers.RecFSSpikeEulerBT
     nn.layers.FFUpDown
-    nn.layers.RecFSSpikeADS
 
     nn.layers.FFIAFNest
     nn.layers.RecIAFSpkInNest
@@ -106,6 +104,8 @@ Time series classes
 
     .. nn.layers.RecDynapSE
     nn.layers.VirtualDynapse
+    nn.layers.RecFSSpikeEulerBT
+    nn.layers.RecFSSpikeADS
     nn.layers.RecRateEulerJax
     nn.layers.RecRateEulerJax_IO
     nn.layers.FFRateEulerJax

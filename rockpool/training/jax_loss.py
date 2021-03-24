@@ -10,15 +10,15 @@ from copy import deepcopy
 def mse(output: np.array, target: np.array) -> float:
     """
     Compute the mean-squared error between output and target
-    
+
     This function is designed to be used as a component in a loss function. It computes the mean-squared error
-    
+
     .. math::
-    
-        mse(y, \\hat{y}) = \\sqrt { E[{(y - \\hat{y})^2}] }
-    
+
+        mse(y, \\hat{y}) = { E[{(y - \\hat{y})^2}] }
+
     where :math:`E[\\cdot]` is the expectation of the expression within the brackets.
-    
+
     Args:
         output (np.ndarray): The network output to test, with shape ``(T, N)``
         target (np.ndarray): The target output, with shape ``(T, N)``
@@ -26,20 +26,40 @@ def mse(output: np.array, target: np.array) -> float:
     Returns:
         float: The mean-squared-error cost
     """
-    return np.nanmean((output - target) ** 2)
+    return np.mean((output - target) ** 2)
+
+
+def sse(output: np.array, target: np.array) -> float:
+    """
+    Compute the sum-squared error between output and target
+
+    This function is designed to be used as a component in a loss function. It computes the mean-squared error
+
+    .. math::
+
+        sse(y, \\hat{y}) = \\sigma {(y - \\hat{y})^2} }
+
+    Args:
+        output (np.ndarray): The network output to test, with shape ``(T, N)``
+        target (np.ndarray): The target output, with shape ``(T, N)``
+
+    Returns:
+        float: The sum-squared-error cost
+    """
+    return np.sum((output - target) ** 2)
 
 
 def make_bounds(params: dict) -> Tuple[dict, dict]:
     """
     Convenience function to build a bounds template for a problem
-    
+
     This function works hand-in-hand with :py:func:`.bounds_cost`, to enforce minimum and/or maximum parameter bounds. :py:func:`.make_bounds` accepts a set of parameters (e.g. as returned from the :py:meth:`Module.parameters` method), and returns a ready-made dictionary of bounds (with no restrictions by default).
-    
+
     See Also:
         See :ref:`/in-depth/jax-training.ipynb` for examples for using :py:func:`.make_bounds` and :py:func:`.bounds_cost`.
-    
+
     :py:func:`.make_bounds` returns two dictionaries, representing the lower and upper bounds respectively. Initially all entries will be set to ``-np.inf`` and ``np.inf``, indicating that no bounds should be enforced. You must edit these dictionaries to set the bounds.
-    
+
     Args:
         params (dict): Dictionary of parameters defining an optimisation problem. This can be provided as the parameter dictionary returned by :py:meth:`Module.parameters`.
 
@@ -60,14 +80,14 @@ def make_bounds(params: dict) -> Tuple[dict, dict]:
 def bounds_cost(params: dict, lower_bounds: dict, upper_bounds: dict) -> float:
     """
     Impose a cost on parameters that violate bounds constraints
-    
+
     This function works hand-in-hand with :py:func:`.make_bounds` to enforce greater-than and less-than constraints on parameter values. This is designed to be used as a component of a loss function, to ensure parameter values fall in a reasonable range.
-    
+
     :py:func:`.bounds_cost` imposes a value of 1.0 for each parameter element that exceeds a bound infinitesimally, increasing exponentially as the bound is exceeded, or 0.0 for each parameter within the bounds. You will most likely want to scale this by a penalty factor within your cost function.
 
     Warnings:
         :py:func:`.bounds_cost` does **not** clip parameters to the bounds. It is possible for parameters to exceed the bounds during optimisation. If this must be prevented, you should clip the parameters explicitly.
-        
+
     See Also:
         See :ref:`/in-depth/jax-training.ipynb` for examples for using :py:func:`.make_bounds` and :py:func:`.bounds_cost`.
 
@@ -114,7 +134,7 @@ def l2sqr_norm(params: dict) -> float:
     .. math::
 
         L_2^2(x) = E[x^2]
-        
+
     where :math:`E[\\cdot]` is the expecation of the expression within the brackets.
 
     Args:
@@ -131,23 +151,23 @@ def l2sqr_norm(params: dict) -> float:
     return np.nanmean(l22_norms)
 
 
-def l0_norm_approx(params: dict, sigma: float =1e-4) -> float:
+def l0_norm_approx(params: dict, sigma: float = 1e-4) -> float:
     """
     Compute a smooth differentiable approximation to the L0-norm
-    
+
     The :math:`L_0` norm estimates the **sparsity** of a vector -- i.e. the number of non-zero elements. This function computes a smooth approximation to the :math:`L_0` norm, for use as a component in cost functions. Including this cost will encourage parameter sparsity, by penalising non-zero parameters.
-    
+
     The approximation is given by
-    
+
     .. math::
-    
+
         L_0(x) = \\frac{x^4}{x^4 + \\sigma}
-        
-    where :math:`\\sigma`` is a small regularisation value (by default ``1e-4``).  
-     
+
+    where :math:`\\sigma`` is a small regularisation value (by default ``1e-4``).
+
     Args:
-        params (dict): A parameter dictionary over which to compute the L_0 norm 
-        sigma (float): A small value to use as a regularisation parameter. Default: ``1e-4``. 
+        params (dict): A parameter dictionary over which to compute the L_0 norm
+        sigma (float): A small value to use as a regularisation parameter. Default: ``1e-4``.
 
     Returns:
         float: The estimated L_0 norm cost

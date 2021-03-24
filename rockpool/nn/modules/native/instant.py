@@ -16,7 +16,11 @@ class InstantMixin:
     """
 
     def __init__(
-        self, shape: tuple = None, function: Callable = lambda x: x, *args, **kwargs,
+        self,
+        shape: tuple = None,
+        function: Callable = lambda x: x,
+        *args,
+        **kwargs,
     ):
         """
         Wrap a callable function as an instantaneous Rockpool module
@@ -33,9 +37,15 @@ class InstantMixin:
         super().__init__(shape=shape, *args, **kwargs)
 
         # - Store the function
-        self.function: Union[Callable, SimulationParameter] = function
+        self.function: Union[Callable, SimulationParameter] = SimulationParameter(
+            function
+        )
 
-    def evolve(self, input, record: bool = False,) -> (tuple, tuple, tuple):
+    def evolve(
+        self,
+        input,
+        record: bool = False,
+    ) -> (tuple, tuple, tuple):
         return self.function(input), {}, {}
 
 
@@ -55,14 +65,19 @@ try:
         """
         Wrap a callable function as an instantaneous Rockpool module, with a Jax backend
         """
-    
+
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.function = Partial(self.function)
 
-except:
-    warn("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")
 
-    class InstantJax():
+except:
+    warn(
+        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+    )
+
+    class InstantJax:
         def __init__(self):
-            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")
+            raise ImportError(
+                "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+            )

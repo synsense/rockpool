@@ -24,7 +24,9 @@ class LinearMixin(ABC):
     def __init__(
         self,
         shape,
-        weight_init_func=lambda s: onp.random.standard_normal(s) / s[-1],
+        weight_init_func=lambda s: onp.random.uniform(
+            -onp.sqrt(1 / s[0]), onp.sqrt(1 / s[0]), s
+        ),
         weight=None,
         *args,
         **kwargs
@@ -55,8 +57,8 @@ class LinearMixin(ABC):
 
         Args:
             shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
-            weight_init_func (Callable): The initialisation function to use for the weights. Default: normal divided by N_in
-            weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the `shape` argument
+            weight_init_func (Callable): The initialisation function to use for the weights. Default: Uniform on the range :math:`(\\sqrt(1/Nin), \\sqrt(1/Nin))`
+            weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the ``shape`` argument
         """
         # - Base class must be `Module`
         if not isinstance(self, Module):
@@ -87,6 +89,7 @@ class Linear(LinearMixin, Module):
     _dot = staticmethod(onp.dot)
     pass
 
+
 # - Graceful failure if Jax is not available
 try:
     from rockpool.nn.modules.jax.jax_module import JaxModule
@@ -96,12 +99,18 @@ try:
         """
         Encapsulates a linear weight matrix, with a Jax backend
         """
-    
+
         _dot = staticmethod(jnp.dot)
         pass
-except:
-    warn("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")
 
-    class LinearJax():
+
+except:
+    warn(
+        "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+    )
+
+    class LinearJax:
         def __init__(self):
-            raise ImportError("'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available.")
+            raise ImportError(
+                "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
+            )
