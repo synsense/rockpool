@@ -4,7 +4,7 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".gpl.reservoirweights": (
+    ".reservoirweights": (
         "add_random_long_range",
         "combine_ff_rec_stack",
         "digital",

@@ -6,17 +6,20 @@ dependencies:
   - brian2
   - cudatoolkit
   - matplotlib
-  - nest-simulator
+  - openblas
+  - nest-simulator=2
   - numba
   - numpy
   - pandas
-  - pyqt
   - python>=3.6
   - pytorch>=1.0
-  - qt
   - scipy
-  - setuptools
   - torchvision
   - tqdm
-  - jax
-  - jaxlib
+  - sphinx
+  - nbsphinx
+  - recommonmark
+  - pandoc
+  - pytest>=6.0
+  - pytest-xdist
+
