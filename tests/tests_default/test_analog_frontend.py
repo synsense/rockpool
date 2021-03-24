@@ -55,19 +55,4 @@ def test_evolve():
     out, state, rec = afe.evolve(ts_inp)
     
     assert out.raster(dt).shape == (T * fs, num_filters)
-#
-#import matplotlib.pyplot as plt
-##out.plot()
-#
-#for t in range(20):
-#    t_start = int(t * len(inp) / 20)
-#    t_stop = int((t + 1) * len(inp) / 20)
-#    data=inp[t_start:t_stop].T
-#    ps = np.abs(np.fft.fft(data))**2
-#    
-#    freqs = np.fft.fftfreq(data.size, dt)
-#    idx = np.argsort(freqs)
-#    
-#    plt.plot(freqs[idx], ps[idx])
-#    
-#    plt.show()
+
