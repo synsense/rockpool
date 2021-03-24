@@ -26,6 +26,36 @@ class AFE(TimedModule):
                  add_noise: bool = True,
                  seed: int = None,
                  ):
+        """
+        The Analog Frontend simulates the analog hardware for preprocessing audio.
+
+        Parameters
+        ----------
+        Q: int
+           Quality factor 
+        fc1: float 
+            Center frequency of the first band-pass filter 
+        f_factor: float
+            Logarithmic distribution of the center frequencies is based on f_factor
+        thr_up: float 
+            Spiking threshold for spike conversion
+        leakage: float
+            Leakage for spike conversion 
+        digital counter: float
+            Digital counter for spike converison - lets only every nth spike pass 
+        LNA_gain: float
+            Gain of the low-noise amplification
+        fs: int
+            Sampling frequency of the input data
+        num_filters: int
+            Number of filters
+        manual_scaling: float
+            Disables automatical scaling from the LNA and instead scales the input by this factor
+        add_noise: bool
+            Enables / disables the simulated noise generated be the AFE.
+        seed: bool
+            The AFE is subject to mismatch, this can be seeded.      
+        """
 
         super().__init__(dt=1/fs)
 
