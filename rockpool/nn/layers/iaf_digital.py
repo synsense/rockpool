@@ -46,7 +46,7 @@ tMinRefractory = 1e-9
         "leak",
     ],
     simulation_parameters=["dt", "delay", "state_type", "monitor_id"],
-    states=["state"],
+    states=["neur_state"],
 )
 class RecDIAF(Layer):
     """
@@ -121,6 +121,7 @@ class RecDIAF(Layer):
         self.tau_leak = tau_leak
         self.refractory = refractory
         self.state_type = state_type
+
         # - Record states of these neurons
         self.monitor_id = monitor_id
 
@@ -130,9 +131,9 @@ class RecDIAF(Layer):
         """
         Reset the internal state of the layer
         """
-        self.state = np.clip(self.v_reset, self._min_state, self._max_state).astype(
-            self.state_type
-        )
+        self.neur_state = np.clip(
+            self.v_reset, self._min_state, self._max_state
+        ).astype(self.state_type)
         # - Initialize heap and for events that are to be processed in future evolution
         self.heap_remaining_spikes = []
 
@@ -207,7 +208,7 @@ class RecDIAF(Layer):
         i = 0
 
         # - Copy instance variables to local variables
-        state = self.state
+        state = self.neur_state
         weights_total = self._weights_total
         min_state = self._min_state
         max_state = self._max_state
@@ -334,7 +335,7 @@ class RecDIAF(Layer):
             i += 1
 
         # - Update state variable
-        self._state = state
+        self._neur_state = state
 
         # - Store remaining spikes (happening after t_final) for next call of evolution
         self.heap_remaining_spikes = heap_spikes
@@ -407,7 +408,7 @@ class RecDIAF(Layer):
         Set layer states to random values
         """
         # - Set state to random values between reset value and theshold
-        self.state = np.clip(
+        self.neur_state = np.clip(
             (np.amin(self.v_thresh) - np.amin(self.v_reset)) * np.random.rand(self.size)
             - np.amin(self.v_reset),
             self._min_state,
@@ -481,13 +482,13 @@ class RecDIAF(Layer):
         self._weights_total[: self.size_in, :] = np.array(new_w)
 
     @property
-    def state(self):
+    def neur_state(self):
         """ (np.ndarray) Internal state of this layer [N,] """
-        return self._state
+        return self._neur_state
 
-    @state.setter
-    def state(self, new_state):
-        self._state = np.clip(
+    @neur_state.setter
+    def neur_state(self, new_state):
+        self._neur_state = np.clip(
             self._expand_to_net_size(new_state, "state"),
             self._min_state,
             self._max_state,
@@ -618,9 +619,10 @@ class RecDIAF(Layer):
                 )
             )
         self._state_type = new_type
+
         # - Convert state to dtype
-        if hasattr(self, "_state"):
-            self.state = self.state
+        if hasattr(self, "_neur_state"):
+            self.neur_state = self.neur_state
 
     @property
     def monitor_id(self):

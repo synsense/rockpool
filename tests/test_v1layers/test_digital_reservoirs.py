@@ -147,19 +147,25 @@ def test_diaf_evolve_subtracting():
     #                Last input spike will not have effect because evolution
     #                stops beforehand
     print(tsOutput.times)
-    assert np.allclose(
-        tsOutput.times, np.array([0.55, 0.56, 0.6])
-    ), "Output spike times not as expected"
-    assert (
-        tsOutput.channels == np.array([0, 0, 1])
-    ).all(), "Output spike channels not as expected"
+    np.testing.assert_allclose(
+        tsOutput.times,
+        np.array([0.55, 0.56, 0.6]),
+        err_msg="Output spike times not as expected",
+    )
+    np.testing.assert_allclose(
+        tsOutput.channels,
+        np.array([0, 0, 1]),
+        err_msg="Output spike channels not as expected",
+    )
 
-    assert (new_state["state"] == rl._module.state).all()
+    np.testing.assert_allclose(new_state["neur_state"], rl._module.neur_state)
 
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    assert (rl.state == 0).all(), "State has not been reset correctly"
+    np.testing.assert_allclose(
+        rl.neur_state, 0, err_msg="State has not been reset correctly"
+    )
 
 
 def test_diaf_evolve_resetting():
@@ -205,12 +211,12 @@ def test_diaf_evolve_resetting():
         tsOutput.channels == np.array([0])
     ).all(), "Output spike channels not as expected"
 
-    assert (new_state["state"] == rl._module.state).all()
+    np.testing.assert_allclose(new_state["neur_state"], rl._module.neur_state)
 
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    assert (rl.state == 0).all(), "State has not been reset correctly"
+    np.testing.assert_allclose(rl.neur_state, 0, err_msg = "State has not been reset correctly")
 
 
 def test_diaf_evolve_vfvrest():
@@ -251,4 +257,4 @@ def test_diaf_evolve_vfvrest():
     # - Expectation: Input spike will cause the potential of neuron 0 to increase
     #                and of neuron 2 to decrease. Due to the leak, both potentials
     #                should have moved back to 0 after 0.32 s.
-    assert np.allclose(rl.state, np.zeros(3)), "Final state not as expected"
+    assert np.allclose(rl.neur_state, np.zeros(3)), "Final state not as expected"
