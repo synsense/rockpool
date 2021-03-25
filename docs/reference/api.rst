@@ -12,30 +12,40 @@ Base classes
     :toctree: _autosummary
     :template: class.rst
 
-    networks.Network
-    layers.Layer
+    nn.modules.Module
+    nn.modules.TimedModule
+
+Attribute types
+~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    parameters.Parameter
+    parameters.State
+    parameters.SimulationParameter
 
 
-Layer and Network alternative base classes
+Alternative base classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    networks.NetworkDeneve
-    networks.NetworkADS
-    layers.training.RRTrainedLayer
-    networks.JaxStack
+    nn.modules.JaxModule
+    nn.modules.TorchModule
 
-Mixin classes for training
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Combinator modules
+------------------
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    layers.training.JaxTrainer
+    nn.combinators.FFwdStack
+    nn.combinators.Sequential
 
 
 Time series classes
@@ -51,70 +61,96 @@ Time series classes
     timeseries.TSContinuous
     timeseries.TSEvent
 
-Utility modules
----------------
-
-:ref:`/reference/weights.rst` provides several useful functions for generating network weights.
-
-:ref:`/reference/utils.rst` provides several useful utility functions.
-
-
-:py:class:`Layer` subclasses
+:py:class:`Module` subclasses
 -----------------------------
 
-.. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
+.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    layers.RecRateEuler
-    layers.FFRateEuler
-    layers.PassThrough
+    nn.modules.RateEulerJax
+    nn.modules.LIFJax
 
-    layers.FFIAFBrian
-    layers.FFIAFSpkInBrian
-    layers.RecIAFBrian
-    layers.RecIAFSpkInBrian
-    layers.PassThroughEvents
-    layers.FFExpSynBrian
-    layers.FFExpSyn
-    layers.RecLIFJax
-    layers.RecLIFCurrentInJax
-    layers.RecLIFJax_IO
-    layers.RecLIFCurrentInJax_IO
-    layers.FFLIFJax_IO
-    layers.FFLIFCurrentInJax_SO
-    layers.FFExpSynCurrentInJax
-    layers.FFExpSynJax
-    layers.RecDIAF
-    layers.RecFSSpikeEulerBT
-    layers.FFUpDown
-    layers.RecFSSpikeADS
+    nn.modules.Linear
+    nn.modules.LinearJax
 
-    layers.FFIAFNest
-    layers.RecIAFSpkInNest
-    layers.RecAEIFSpkInNest
+    nn.modules.Instant
+    nn.modules.InstantJax
 
-    layers.RecDynapSE
-    layers.VirtualDynapse
+    nn.layers.RecRateEuler
+    nn.layers.FFRateEuler
+    nn.layers.PassThrough
 
-    layers.RecRateEulerJax
-    layers.RecRateEulerJax_IO
-    layers.FFRateEulerJax
-    layers.ForceRateEulerJax_IO
+    nn.layers.ButterFilter
+    nn.layers.ButterMelFilter
 
-    layers.FFExpSynTorch
-    layers.FFIAFTorch
-    layers.FFIAFRefrTorch
-    layers.FFIAFSpkInTorch
-    layers.FFIAFSpkInRefrTorch
-    layers.RecIAFTorch
-    layers.RecIAFRefrTorch
-    layers.RecIAFSpkInTorch
-    layers.RecIAFSpkInRefrTorch
-    layers.RecIAFSpkInRefrCLTorch
-    layers.FFCLIAF
-    layers.RecCLIAF
-    layers.CLIAF
-    layers.SoftMaxLayer
+    nn.layers.FFIAFBrian
+    nn.layers.FFIAFSpkInBrian
+    nn.layers.RecIAFBrian
+    nn.layers.RecIAFSpkInBrian
+    nn.layers.PassThroughEvents
+    nn.layers.FFExpSynBrian
+    nn.layers.RecDIAF
+    nn.layers.FFUpDown
+
+    nn.layers.FFIAFNest
+    nn.layers.RecIAFSpkInNest
+    nn.layers.RecAEIFSpkInNest
+
+    nn.layers.FFCLIAF
+    nn.layers.RecCLIAF
+
+    .. nn.layers.RecDynapSE
+    nn.layers.VirtualDynapse
+    nn.layers.RecFSSpikeEulerBT
+    nn.layers.RecFSSpikeADS
+    nn.layers.RecRateEulerJax
+    nn.layers.RecRateEulerJax_IO
+    nn.layers.FFRateEulerJax
+    nn.layers.ForceRateEulerJax_IO
+    nn.layers.FFExpSynTorch
+    nn.layers.FFIAFTorch
+    nn.layers.FFIAFRefrTorch
+    nn.layers.FFIAFSpkInTorch
+    nn.layers.FFIAFSpkInRefrTorch
+    nn.layers.RecIAFTorch
+    nn.layers.RecIAFRefrTorch
+    nn.layers.RecIAFSpkInTorch
+    nn.layers.RecIAFSpkInRefrTorch
+    nn.layers.RecIAFSpkInRefrCLTorch
+    nn.layers.CLIAF
+    nn.layers.SoftMaxLayer
+    nn.layers.FFExpSyn
+    nn.layers.RecLIFJax
+    nn.layers.RecLIFCurrentInJax
+    nn.layers.RecLIFJax_IO
+    nn.layers.RecLIFCurrentInJax_IO
+    nn.layers.FFLIFJax_IO
+    nn.layers.FFLIFCurrentInJax_SO
+    nn.layers.FFExpSynCurrentInJax
+    nn.layers.FFExpSynJax
+
+Conversion utilities
+--------------------
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    nn.modules.timed_module.TimedModuleWrapper
+    nn.modules.timed_module.LayerToTimedModule
+    nn.modules.timed_module.astimedmodule
+
+``Jax`` training utilities
+---------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    training.jax_loss.mse
+    training.jax_loss.l2sqr_norm
+    training.jax_loss.l0_norm_approx
+    training.jax_loss.bounds_cost
+    training.jax_loss.make_bounds

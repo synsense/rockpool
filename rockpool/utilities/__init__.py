@@ -4,14 +4,14 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".gpl.property_arrays": (
+    ".property_arrays": (
         "SetterArray",
         "ImmutableArray",
         "RefArray",
         "RefProperty",
     ),
-    ".gpl.type_handling": ("ArrayLike", "to_scalar"),
-    ".gpl.timedarray_shift": "TimedArray",
+    ".type_handling": ("ArrayLike", "to_scalar"),
+    ".timedarray_shift": "TimedArray",
 }
 
 

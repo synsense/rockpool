@@ -2,6 +2,13 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.0] -- 2021-03-24
+
+ - **New Rockpool API. Breaking change from v1.x**
+ - Documentation for new API
+ - Native support for Jax and Torch backends
+ - Many v1 Layers transferred
+
 ## [v1.1.0.4] -- 2020-11-06
 
  - Hotfix to remove references to ctxctl and aiCTX

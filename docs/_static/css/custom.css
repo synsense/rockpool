@@ -1,0 +1,47 @@
+.wy-side-nav-search a.icon.icon-home {
+	font-size: 150%;
+}
+
+.wy-side-nav-search .icon-home:before {
+	background-image: url(../../_static/aictx_brain.png);
+	background-size: 1.4ex 1.4ex;
+	display: inline-block;
+	width: 1.4ex;
+	height: 1.4ex;
+	content:"";
+	/*content: ""*/
+}
+
+
+.wy-side-nav-search {
+	display: block;
+	width: 300px;
+	padding: .809em;
+	margin-bottom: .809em;
+	z-index: 200;
+	background-color: #154260;
+	text-align: center;
+	padding: .809em;
+	display: block;
+	color: #fcfcfc;
+	margin-bottom: .809em
+}
+
+.wy-nav-top {
+	display: none;
+	background: #18415e;
+	color: #fff;
+	padding: .4045em .809em;
+	position: relative;
+	line-height: 50px;
+	text-align: center;
+	font-size: 100%;*
+	zoom: 1
+}
+
+.wy-table-responsive table td {
+    white-space: normal !important;
+}
+.wy-table-responsive {
+    overflow: visible !important;
+}
