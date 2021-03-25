@@ -44,7 +44,7 @@ def test_ffcliaf_none_attributes():
     Make sure an exception is thrown if FFCLIAF is to be assigned None
     as weight, bias or state.
     """
-    from nn.layers import FFCLIAF
+    from rockpool.nn.layers import FFCLIAF
 
     # - Input weight matrix
     weights_in = np.array([[12, 0, 5], [0, 0, 0.4]])
@@ -72,7 +72,7 @@ def test_ffcliaf_evolve_subtracting():
     """
     Test initialization and evolution of FFCLIAF layer using subtraction after spikes.
     """
-    from nn.layers import FFCLIAF
+    from rockpool.nn.layers import FFCLIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
@@ -92,9 +92,8 @@ def test_ffcliaf_evolve_subtracting():
     ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = lyrFF.evolve(ts_input, duration=0.75)
-
-    print(lyrFF._ts_state)
+    tsOutput, ns, _ = lyrFF.evolve(ts_input, duration=0.75)
+    print(ns)
 
     # - Expectation: First input spike will cause neuron 0 to spike 2 times at
     #                t=0.55 but not neuron 2 because of negative bias.
@@ -119,7 +118,7 @@ def test_cliaf_evolve_resetting():
     """
     Test initialization and evolution of FFCLIAF layer using reset after spikes.
     """
-    from nn.layers import FFCLIAF
+    from rockpool.nn.layers import FFCLIAF
     from rockpool.timeseries import TSEvent
 
     # - Input weight matrix
@@ -139,9 +138,8 @@ def test_cliaf_evolve_resetting():
     ts_input = TSEvent(times=[0.55, 0.7, 0.8], channels=[0, 1, 1], t_stop=1)
 
     # - Evolution
-    tsOutput = lyrFF.evolve(ts_input, duration=0.8)
-
-    print(lyrFF._ts_state)
+    tsOutput, ns, _ = lyrFF.evolve(ts_input, duration=0.8)
+    print(ns)
 
     # - Expectation: First input spike will cause neuron 0 to spike once at
     #                t=0.55 but not neuron 2 because of negative bias.

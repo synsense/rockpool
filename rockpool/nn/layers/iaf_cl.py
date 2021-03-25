@@ -432,7 +432,7 @@ class FFCLIAF_Base(CLIAF_Base):
 
 
 @astimedmodule(
-    parameters=["weights_in", "bias"],
+    parameters=["weights", "bias"],
     states=["state", "_timestep"],
     simulation_parameters=["dt", "name", "v_thresh", "v_reset"],
 )
@@ -441,19 +441,9 @@ class FFCLIAF(FFCLIAF_Base):
 
 
 @astimedmodule(
-    parameters=[
-        "weights_in",
-        "weights_rec",
-        "bias",
-    ],
+    parameters=["weights_in", "weights_rec", "bias",],
     states=["state", "_num_rec_spikes_q", "_ts_until_refr_ends", "_timestep"],
-    simulation_parameters=[
-        "dt",
-        "name",
-        "v_thresh",
-        "v_reset",
-        "refractory",
-    ],
+    simulation_parameters=["dt", "name", "v_thresh", "v_reset", "refractory",],
 )
 class RecCLIAF(CLIAF_Base):
     """

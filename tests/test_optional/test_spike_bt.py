@@ -12,7 +12,7 @@ def test_imports():
 def test_RecFSSpikeEulerBT():
     """ Test RecFSSpikeEulerBT """
     from rockpool import timeseries as ts
-    from nn.layers import RecFSSpikeEulerBT
+    from rockpool.nn.layers import RecFSSpikeEulerBT
 
     # - Generic parameters
     mfW = 2 * np.random.rand(3, 3) - 1
@@ -100,7 +100,7 @@ def test_SolveLinearSystem():
 
 
 def test_SpecifyNetwork():
-    from nn.networks import NetworkDeneve
+    from rockpool.nn.networks import NetworkDeneve
     from rockpool import TSContinuous
 
     net_size = 10

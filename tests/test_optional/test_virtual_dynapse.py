@@ -67,8 +67,8 @@ def test_change_baseweight():
     # - Test get_weights method
     # weights_lyr_ext = vd0.get_weights(input_ids, neuron_ids, external=True)
     # weights_lyr_rec = vd0.get_weights(neuron_ids, neuron_ids, external=False)
-    assert np.array(vd0.weights_ext == connections_ext * 0.1).all()
-    assert np.array(vd0.weights_rec == connections_rec * 0.1).all()
+    np.testing.assert_allclose(vd0.weights_ext, connections_ext * 0.1)
+    np.testing.assert_allclose(vd0.weights_rec, connections_rec * 0.1)
 
     # - Change baseweight
     vd0.baseweight_e = 0.2
@@ -82,7 +82,7 @@ def test_change_baseweight():
     # - Compare states and time before and after
     output, new_state, rec_state = vd.evolve(ts_input, duration=0.1)
     output0, new_state0, rec_state0 = vd0.evolve(ts_input, duration=0.1)
-    assert (new_state["Vmem"] == new_state0["Vmem"]).all()
+    np.testing.assert_allclose(new_state["Vmem"], new_state0["Vmem"])
 
 
 def test_item_assignment():
@@ -91,21 +91,21 @@ def test_item_assignment():
 
     vd = VirtualDynapse(mismatch=False)
     v_thresh_orig = vd.v_thresh.copy()
-    assert (v_thresh_orig == vd.v_thresh).all()
+    np.testing.assert_allclose(v_thresh_orig, vd.v_thresh)
     # - Correct assignment: Core-wise
     # Single core
     vd.v_thresh[0] = 0.02
     assert vd.v_thresh[0] == 0.02
     # assert vd._v_thresh[0] == 0.02
-    # assert (vd._simulator.v_thresh[:256] == 0.02).all()
+    # np.testing.assert_allclose(vd._simulator.v_thresh[:256], 0.02)
     # All cores
     vd.v_thresh[:] = 0.03
-    assert (vd.v_thresh == 0.03).all()
+    np.testing.assert_allclose(vd.v_thresh, 0.03)
 
     # - Assigning different time constants
     tau_mem_correct = vd.tau_mem_2.copy()
     vd.tau_mem_2[:] = 0.001
-    assert (vd.tau_mem_2 == 0.001).all()
+    np.testing.assert_allclose(vd.tau_mem_2, 0.001)
     vd.tau_mem_2[11:] = 0.0015
 
 
@@ -157,7 +157,7 @@ def test_evolve():
     # - Input signal
     ts_input = TSEvent(
         times=[0.02, 0.04, 0.04, 0.06, 0.12],
-        channels=[input_ids[i] for i in [1, 0, 2, 1, 0]],
+        channels=[i for i in [1, 0, 2, 1, 0]],
         t_stop=0.15,
     )
 
@@ -165,7 +165,7 @@ def test_evolve():
     state_before = np.copy(vd.Vmem)
     vd.evolve(ts_input, duration=0.1)
     assert vd.t == 0.1
-    assert (state_before == vd.Vmem).all()
+    np.testing.assert_allclose(state_before, vd.Vmem)
     vd.reset_all()
 
     # - Evolve with correctly mapped input channels
@@ -175,7 +175,7 @@ def test_evolve():
     assert (state_before != vd.Vmem).any()
     vd.reset_all()
     assert vd.t == 0
-    assert (state_before == vd.Vmem).all()
+    np.testing.assert_allclose(state_before, vd.Vmem)
 
 
 def test_multiprocessing():
@@ -256,10 +256,10 @@ def test_multiprocessing():
     vd.evolve(ts_input, duration=0.1, ids_in=input_ids)
     vd_multi.evolve(ts_input, duration=0.1, ids_in=input_ids)
     assert vd_multi.t == 0.1
-    assert (vd_multi.Vmem == vd.Vmem).all()
+    np.testing.assert_allclose(vd_multi.Vmem, vd.Vmem)
     vd_multi.reset_all()
     assert vd_multi.t == 0
-    assert (state_before == vd_multi.Vmem).all()
+    np.testing.assert_allclose(state_before, vd_multi.Vmem)
 
 
 def test_adaptation():
