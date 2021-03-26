@@ -36,15 +36,16 @@ class ThresholdSubtract(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        (data,) = ctx.saved_tensors
-        grad_input = grad_output * ((data >= (ctx.threshold - ctx.window)).float())
-        return grad_input, None, None
+        (membranePotential,) = ctx.saved_tensors
 
-    def symbolic(g, data, threshold=1, window=0.5):
-        x = relu(g, data)
-        x = div(g, x, torch.tensor(threshold))
-        x = floor(g, x)
-        return x
+        vmem_shifted = membranePotential - ctx.threshold / 2
+        vmem_periodic = vmem_shifted % ctx.threshold
+        vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
+        vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
+        vmem_new = vmem_above + vmem_below
+        spikePdf = torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window) / ctx.threshold
+
+        return grad_output * spikePdf, None, None
 
 
 class Bitshift(torch.autograd.Function):
@@ -67,7 +68,6 @@ class Bitshift(torch.autograd.Function):
     def backward(ctx, grad_output):
         (data, v, tau) = ctx.saved_tensors
         grad_input = grad_output * tau
-        grad_input[torch.isnan(grad_input)] = 0
 
         return grad_input, None, None
 
@@ -152,6 +152,13 @@ class LIFLayer(TorchModule):
             calc_bitshift_decay(self.tau_syn, self.dt).to(device)
         )
 
+        self.propagator_mem = rp.Parameter(
+            torch.exp(-self.dt / self.tau_mem).to(device)
+        )
+        self.propagator_syn = rp.Parameter(
+            torch.exp(-self.dt / self.tau_syn).to(device)
+        )
+
         # determine if cpp lif was compiled
         try:
             import torch_lif_cpp
@@ -192,8 +199,8 @@ class LIFLayer(TorchModule):
             self.isyn.double(),
             self.alpha_mem.double(),
             self.alpha_syn.double(),
-            self.tau_mem.double(),
-            self.tau_syn.double(),
+            self.propagator_mem.double(),
+            self.propagator_syn.double(),
             self.threshold.double().item(),
             self.learning_window.double().item(),
             self.record,
@@ -205,7 +212,7 @@ class LIFLayer(TorchModule):
         # Output spike count
         self.n_spikes_out = out
 
-        return out
+        return out.float()
 
     def detach(self):
         """
@@ -261,19 +268,22 @@ class LIFLayer(TorchModule):
 
             # Membrane reset
             vmem = vmem - out * threshold
-            isyn = isyn + data[t]
-
-            # Leak
-            vmem = self.bitshift_decay(vmem, alpha_mem, self.tau_mem)
-            isyn = self.bitshift_decay(isyn, alpha_syn, self.tau_syn)
-
-            # State propagation
-            vmem = vmem + isyn.sum(1)  # isyn shape (batch, syn, neuron)
 
             if self.record:
                 # recording
                 self.vmem_rec[t] = vmem
                 self.isyn_rec[t] = isyn
+
+            # Integrate input
+            isyn = isyn + data[t]
+
+            # Leak
+            vmem = self.bitshift_decay(vmem, alpha_mem, self.propagator_mem)
+            isyn = self.bitshift_decay(isyn, alpha_syn, self.propagator_syn)
+
+            # State propagation
+            vmem = vmem + isyn.sum(1)  # isyn shape (batch, syn, neuron)
+
 
         self.vmem = vmem
         self.isyn = isyn
