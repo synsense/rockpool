@@ -151,11 +151,12 @@ def test_TorchModule():
     print(o, ns, rd)
 
 
+
 def test_TorchLIF():
     from rockpool.nn.modules.torch.lif_torch import LIFLayer
     import numpy as np
     import torch
-
+    
     N = 10
     Nsyn = 2
     tau_mem = 2 * np.ones(N,)
@@ -171,19 +172,17 @@ def test_TorchLIF():
         learning_window=0.5,
         device="cpu",
     )
-
+    
     # - Generate some data
     T = 100
     num_batches = 1
     input_data = torch.from_numpy(np.random.rand(T, num_batches, Nsyn, N)).cpu()
-
+    
     # - Test torch interface
     out = mod.forward(input_data)
-    print(out.shape)
-
+    
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
-    print(ns)
 
 
 def test_single_neuron():
@@ -214,10 +213,35 @@ def test_single_neuron():
     inp[1, :, :, :] = 1
     out, states, recs = lyr(inp, record=True)
 
-    assert abs(states["Vmem"].item() - 0.5399) < 1e-3
-    assert abs(states["Isyn"][0][0].item() - 0.0021) < 1e-3
-    assert abs(states["Isyn"][0][1].item() - 0.0262) < 1e-3
+def test_backward():
+    from rockpool.nn.modules.torch.lif_torch import LIFLayer
+    import numpy as np
+    import torch
+    
+    N = 1
+    Nsyn = 2
+    tau_mem = [0.04]
+    tau_syn = [[0.02]]
+    threshold = [10.0]
+    learning_window = [0.5]
+    
+    lyr = LIFLayer(
+        n_neurons=N,
+        n_synapses=Nsyn,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        threshold=threshold,
+        learning_window=learning_window,
+        batch_size=1,
+        dt=0.01,
+        device="cpu",
+    )
+    
+    inp = torch.rand(50, 1, Nsyn, N).cpu()
+    
+    inp.requires_grad = True
+    out, states, recs = lyr(inp, record=True)
+    
+    out.sum().backward()
 
-    assert abs(recs["Vmem"][-1].item() - 0.5399) < 1e-3
-    assert abs(recs["Isyn"][-1][0][0].item() - 0.0021) < 1e-3
-    assert abs(recs["Isyn"][-1][0][1].item() - 0.0262) < 1e-3
+
