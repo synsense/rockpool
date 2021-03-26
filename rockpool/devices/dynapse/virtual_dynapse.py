@@ -854,8 +854,8 @@ class VirtualDynapseV1(Layer):
         if verbose:
             print(
                 self.start_print,
-                +"Starting simulation. Will only record firing activity from "
-                + f"neurons {np.unique(ids_out)}.",
+                "Starting simulation. Will only record firing activity from "
+                f"neurons {np.unique(ids_out)}.",
             )
         output: TSEvent = self._simulator.evolve(
             ts_input, duration, num_timesteps, verbose
