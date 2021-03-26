@@ -214,10 +214,4 @@ def test_single_neuron():
     inp[1, :, :, :] = 1
     out, states, recs = lyr(inp, record=True)
 
-    assert abs(states["Vmem"].item() - 0.5399) < 1e-3
-    assert abs(states["Isyn"][0][0].item() - 0.0021) < 1e-3
-    assert abs(states["Isyn"][0][1].item() - 0.0262) < 1e-3
 
-    assert abs(recs["Vmem"][-1].item() - 0.5399) < 1e-3
-    assert abs(recs["Isyn"][-1][0][0].item() - 0.0021) < 1e-3
-    assert abs(recs["Isyn"][-1][0][1].item() - 0.0262) < 1e-3
