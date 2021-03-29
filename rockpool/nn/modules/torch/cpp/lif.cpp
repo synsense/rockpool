@@ -52,13 +52,6 @@ tensor_list lif_forward(torch::Tensor data,
 
         // Membrane reset
         vmem = vmem - out*threshold;
-        isyn = isyn + data[t];
-
-        vmem = BitshiftDecay::apply(vmem, dash_mem, tau_mem);
-        isyn = BitshiftDecay::apply(isyn, dash_syn, tau_syn);
-        
-        // State propagation
-        vmem = vmem + isyn.sum(1);
 
         if (record)
         {
@@ -66,6 +59,15 @@ tensor_list lif_forward(torch::Tensor data,
             vmem_rec[t] = vmem;
             isyn_rec[t] = isyn;
         }
+
+        // Integrate input
+        isyn = isyn + data[t];
+
+        vmem = BitshiftDecay::apply(vmem, dash_mem, tau_mem);
+        isyn = BitshiftDecay::apply(isyn, dash_syn, tau_syn);
+        
+        // State propagation
+        vmem = vmem + isyn.sum(1);
     }                             
  
     if (!record)

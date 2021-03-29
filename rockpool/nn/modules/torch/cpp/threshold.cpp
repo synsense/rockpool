@@ -21,14 +21,18 @@ class ThresholdSubtract: public Function<ThresholdSubtract> {
 
   static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs) {
     auto saved = ctx->get_saved_variables();
-    auto data = saved[0];
+    auto membranePotential = saved[0];
     double threshold = ctx->saved_data["threshold"].toDouble();
     double window = ctx->saved_data["window"].toDouble();
 
-    auto grad_output = grad_outputs[0];
-    auto grad_input = grad_output * (data >= (threshold - window)) / threshold;
+    auto vmem_shifted = membranePotential - threshold / 2;
+    auto vmem_periodic = vmem_shifted % threshold;
+    auto vmem_below = vmem_shifted * (membranePotential < threshold);
+    auto vmem_above = vmem_periodic * (membranePotential >= threshold);
+    auto vmem_new = vmem_above + vmem_below;
+    auto spikePdf = torch::exp(-torch::abs(vmem_new - threshold / 2) / window) / threshold;
 
-    return {grad_input, torch::Tensor(), torch::Tensor()};
+    return {grad_outputs[0] * spikePdf, torch::Tensor(), torch::Tensor()};
   }
 };
 
