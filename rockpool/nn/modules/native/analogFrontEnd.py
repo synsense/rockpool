@@ -6,6 +6,7 @@ Simulation of an analog audio filtering front-end
 from rockpool.nn.modules.timed_module import TimedModule
 from rockpool.timeseries import TSEvent
 from rockpool.parameters import Parameter, State, SimulationParameter, ParameterBase
+from rockpool import TSContinuous
 
 # - Matplotlib
 from matplotlib import mlab
@@ -24,6 +25,15 @@ P_array = Union[np.array, ParameterBase]
 
 
 class AFE(TimedModule):
+    """
+    A :py:class:`.TimedModule` that simulates analog hardware for preprocessing audio
+
+    This module simulates the Pollen audio front-end stage. This is a signal-to-event core that provides a number of band-pass filters, followed by rectifying event production simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
+
+    See Also:
+        For example usage of the :py:class:`.AFE` Module, see :ref:`/tutorials/analog-frontend-example.ipynb`
+    """
+
     def __init__(
         self,
         shape: tuple = (16,),
@@ -37,41 +47,40 @@ class AFE(TimedModule):
         fs: int = 16000,
         manual_scaling: float = None,
         add_noise: bool = True,
-        seed: int = None,
+        seed: int = np.random.randint(2 ** 32 - 1),
     ):
         """
-        The Analog Frontend simulates the analog hardware for preprocessing audio.
 
         Parameters
         ----------
         Q: int
-           Quality factor 
+           Quality factor (sharpness of filters). Default: 5
         fc1: float 
-            Center frequency of the first band-pass filter 
+            Center frequency of the first band-pass filter, in Hz. Default: 100Hz
         f_factor: float
-            Logarithmic distribution of the center frequencies is based on f_factor
+            Logarithmic distribution of the center frequencies is based on ``f_factor``. Default: 1.325
         thr_up: float 
-            Spiking threshold for spike conversion
+            Spiking threshold for spike conversion. Default: 0.5
         leakage: float
-            Leakage for spike conversion 
+            Leakage for spike conversion, in nA. Default: 1.0
         digital counter: int
-            Digital counter for spike conversion - lets only every nth spike pass
+            Digital counter for spike conversion - lets only every nth spike pass. Default: 1 (let every spike pass)
         LNA_gain: float
-            Gain of the low-noise amplification
+            Gain of the first stage low-noise amplifier, in dB. Default: 0.
         fs: int
-            Sampling frequency of the input data
-        num_filters: int
-            Number of filters
+            Sampling frequency of the input data, in Hz. Default: 16kHz
+        shape: int
+            Number of filters / output channels. Default: ``(16,)``
         manual_scaling: float
-            Disables automatic scaling from the LNA and instead scales the input by this factor
+            Disables automatic scaling from the LNA and instead scales the input by this factor. Default: ``None`` (Automatic scaling)
         add_noise: bool
-            Enables / disables the simulated noise generated be the AFE.
-        seed: bool
-            The AFE is subject to mismatch, this can be seeded.      
+            Enables / disables the simulated noise generated be the AFE. Default: ``True``, include noise
+        seed: int
+            The AFE is subject to mismatch, this can be seeded by providing an integer seed. Default: random seed. Provide ``None`` to prevent seeding.
         """
 
         # - Check shape argument
-        if not np.isscalar(shape):
+        if not np.size(shape) == 1:
             raise ValueError(
                 "The `shape` argument to AFE must only specify one dimension."
             )
@@ -80,33 +89,33 @@ class AFE(TimedModule):
         super().__init__(shape=shape, dt=1 / fs)
 
         # - Provide pRNG seed
-        self.seed: P_int = SimulationParameter(seed)
+        self.seed: P_int = SimulationParameter(seed, shape=(), init_func=lambda _: None)
         if self.seed is not None:
-            self._rng_state = np.random.get_state()
             np.random.seed(self.seed)
 
         # - Max input from microphone
         self.INPUT_AMP_MAX: P_float = Parameter(320e-3)  # 100mV
-        """ Maximum input amplitude from the microphone in Volts (Default: 320mV) """
+        """ float: Maximum input amplitude from the microphone in Volts (Default 320mV) """
 
-        #
         self.C_IAF: P_float = Parameter(5e-12)  # 2 pF
-        """ Integrator Capacitance for IAF (Default: 5e-12)"""
+        """ float: Integrator Capacitance for IAF (Default 5e-12)"""
 
         # - Parameters for BPF
-        self.Q: P_int = Parameter(Q)
-        """ Quality parameter for band-pass filters"""
+        self.Q: P_int = Parameter(Q, shape=())
+        """ int: Quality parameter for band-pass filters"""
 
         # - Center frequency for 1st BPF in filter bank
-        self.FC1: P_float = Parameter(fc1)
-        """ Centre frequnecy of first filter, in Hz. """
+        self.FC1: P_float = Parameter(fc1, shape=())
+        """ float: Centre frequnecy of first filter, in Hz. """
 
-        self.Fs: P_float = SimulationParameter(fs)
-        """ Sample frequency of input data """
+        self.Fs: P_float = SimulationParameter(fs, shape=())
+        """ float: Sample frequency of input data """
 
         # Frequency f_bp1 = fc1     f_bp2 = fc1*f_factor   f_bp3 = fc1*f_factor^2...
-        self.f_factor: P_float = Parameter(f_factor)  # 16 channel  100Hz - 8KHz
-        """ Centre-frequency scale-up factor per channel.
+        self.f_factor: P_float = Parameter(
+            f_factor, shape=()
+        )  # 16 channel  100Hz - 8KHz
+        """ float: Centre-frequency scale-up factor per channel.
         
             Centre freq. F1 = FC1
             Centre freq. F2 = FC1 * f_factor
@@ -115,41 +124,41 @@ class AFE(TimedModule):
         """
 
         self.ORDER_BPF: P_int = Parameter(2)
-        """ Band-pass filter order (Default: 2)"""
+        """ int: Band-pass filter order (Default 2)"""
 
         # Non-ideal
         self.MAX_INPUT_OFFSET: P_float = Parameter(0)  # form microphone
-        """ Maxmimum input offset from microphone (Default: 0)"""
+        """ float: Maxmimum input offset from microphone (Default 0)"""
 
         self.MAX_LNA_OFFSET: P_float = Parameter(5)  # +/-5mV random
-        """ Maxmimum low-noise amplifier offset in mV (Default: 5mV) """
+        """ float: Maxmimum low-noise amplifier offset in mV (Default 5mV) """
 
         self.MAX_BPF_OFFSET: P_float = Parameter(5)  # +/-5mV random
-        """ Maxmum band-pass filter offset in mV (Default: 5mV)"""
+        """ float: Maxmum band-pass filter offset in mV (Default 5mV)"""
 
         self.DISTORTION: P_float = Parameter(0.1)  # 0-1
-        """ Distortion parameter (0..1) Default: 0.1"""
+        """ float: Distortion parameter (0..1) Default 0.1"""
 
         self.BPF_FC_SHIFT: P_float = Parameter(
             -5
         )  # 5 for +5%    -5 for -5%  ------- 16 channels center freq shift for same direction
-        """ Centre frequency band-pass filter shift in % (Default: -5%) """
+        """ float: Centre frequency band-pass filter shift in % (Default -5%) """
 
         self.Q_MIS_MATCH: P_float = Parameter(10)  # +/-10% random
-        """ Mismatch in Q in % (Default: 10%) """
+        """ float: Mismatch in Q in % (Default 10%) """
 
         self.FC_MIS_MATCH: P_float = Parameter(5)  # +/-5% random
-        """ Mismatch in centre freq. in % (Default: 5%)"""
+        """ float: Mismatch in centre freq. in % (Default 5%)"""
 
         ## Threshold for delta modulation in up and down direction
-        self.THR_UP: P_float = Parameter(thr_up)  # 0.1-0.8 V
-        """ Threshold for delta modulation in V (0.1--0.8) (Default: 0.5V)"""
+        self.THR_UP: P_float = Parameter(thr_up, shape=())  # 0.1-0.8 V
+        """ float: Threshold for delta modulation in V (0.1--0.8) (Default 0.5V)"""
 
-        self.LEAKAGE: P_float = Parameter(leakage)
-        """ Leakage for LIF neuron in nA. Default: 1nA """
+        self.LEAKAGE: P_float = Parameter(leakage, shape=())
+        """ float: Leakage for LIF neuron in nA. Default: 1nA """
 
-        self.DIGITAL_COUNTER: P_int = Parameter(digital_counter)
-        """ Digital counter factor to reduce output spikes by. Default: 1 (no reduction) """
+        self.DIGITAL_COUNTER: P_int = Parameter(digital_counter, shape=())
+        """ int: Digital counter factor to reduce output spikes by. Default 1 (no reduction) """
 
         ########### Macro defnitions related to noise ###
         self.VRMS_SQHZ_LNA: P_float = Parameter(70e-9)
@@ -165,31 +174,31 @@ class AFE(TimedModule):
         self.F_ALPHA_FWR: P_float = Parameter(1)
 
         self.F_CORNER_HIGHPASS: P_float = Parameter(100)
-        """ High pass corner frequency due to AC Coupling from BPF to FWR in Hz. (Default: 100Hz)"""
+        """ float: High pass corner frequency due to AC Coupling from BPF to FWR in Hz. (Default 100Hz)"""
 
         # LNA
-        self.lna_gain_db: P_float = Parameter(LNA_gain)  # in dB
-        """ Low-noise amplifer gain in dB (Default: 0.) """
+        self.lna_gain_db: P_float = Parameter(LNA_gain, shape=())  # in dB
+        """ float: Low-noise amplifer gain in dB (Default 0.) """
 
         self.lna_offset: P_float = State(
             np.random.randint(-self.MAX_LNA_OFFSET, self.MAX_LNA_OFFSET) * 0.001
         )
-        """ Mismatch offset in low-noise amplifier """
+        """ float: Mismatch offset in low-noise amplifier """
 
         self.bpf_offset: P_array = State(
             np.random.randint(-self.MAX_BPF_OFFSET, self.MAX_BPF_OFFSET, self.size_out)
         )
-        """ Mismatch offset in band-pass filters """
+        """ float: Mismatch offset in band-pass filters """
 
         self.Q_mismatch: P_array = State(
             np.random.randint(-self.Q_MIS_MATCH, self.Q_MIS_MATCH, self.size_out)
         )
-        """ Mismatch in Q over band-pass filters """
+        """ float: Mismatch in Q over band-pass filters """
 
         self.fc_mismatch: P_array = State(
             np.random.randint(-self.FC_MIS_MATCH, self.FC_MIS_MATCH, self.size_out)
         )
-        """ Mismatch in centre frequency for band-pass filters """
+        """ float: Mismatch in centre frequency for band-pass filters """
 
         fc1 = self.FC1 * (1 + self.BPF_FC_SHIFT / 100) * (1 + self.fc_mismatch[0] / 100)
         self.fcs: P_array = State(
@@ -199,7 +208,7 @@ class AFE(TimedModule):
                 for i in np.arange(1, self.size_out)
             ]
         )
-        """ Centre frequency of each band-pass filter in Hz """
+        """ np.ndarray: Centre frequency of each band-pass filter in Hz """
 
         # Add the non-ideality of the filter - shift in the centre frequency of the BPF by mismatch
         self.bws: P_array = State(
@@ -208,13 +217,17 @@ class AFE(TimedModule):
                 for i in range(self.size_out)
             ]
         )
-        """ Shift in centre frequencies due to mismatch """
+        """ np.ndarray: Shift in centre frequencies due to mismatch """
 
-        self.manual_scaling: P_float = SimulationParameter(manual_scaling)
-        """ Manual scaling of low-noise amplifier gain. Default: `None` (use automatic scaling) """
+        self.manual_scaling: P_float = SimulationParameter(
+            manual_scaling, shape=(), init_func=lambda s: -1
+        )
+        """ float: Manual scaling of low-noise amplifier gain. Default `None` (use automatic scaling) """
 
-        self.add_noise: Union[bool, ParameterBase] = SimulationParameter(add_noise)
-        """ Flag indicating that noise should be simulated during operation. Default: `True` """
+        self.add_noise: Union[bool, ParameterBase] = SimulationParameter(
+            add_noise, shape=()
+        )
+        """ bool: Flag indicating that noise should be simulated during operation. Default `True` """
 
     def _butter_bandpass(
         self, lowcut: float, highcut: float, fs: float, order: int = 2
@@ -293,15 +306,31 @@ class AFE(TimedModule):
         y = signal.filtfilt(b, a, data)
         return y
 
-    #################  Function to Generate Noise  ########################
-    def generateNoise(
-        self, x, Fs=16e3, VRMS_SQHZ=1e-6, F_KNEE=1e3, F_ALPHA=1.4, PLOT_SPECTRUM=False
-    ):
+    def _generateNoise(
+        self,
+        x: np.ndarray,
+        Fs: float = 16e3,
+        VRMS_SQHZ: float = 1e-6,
+        F_KNEE: float = 1e3,
+        F_ALPHA: float = 1.4,
+    ) -> np.ndarray:
+        """
+        Generate band-limited noise, for use in simulating the AFE architecture
+
+        Args:
+            x (np.ndarray): Input signal defining desired shape of noise ``(T,)``
+            Fs (float): Sampling frequency in Hz
+            VRMS_SQHZ (float):
+            F_KNEE (float):
+            F_ALPHA (float):
+
+        Returns: np.ndarray: Generated noise with shape ``(T,)``
+        """
 
         if not self.add_noise:
             return np.zeros_like(x)
 
-        def one_over_f(f, knee, alpha):
+        def one_over_f(f: np.ndarray, knee: float, alpha: float) -> np.ndarray:
             d = np.ones_like(f)
             d[f < knee] = np.abs(((knee / f[f < knee]) ** (alpha)))
             d[0] = 1
@@ -311,62 +340,66 @@ class AFE(TimedModule):
 
         N = len(x)
         wn = np.random.normal(0, W_NOISE_SIGMA, N)
-        Ts = 1 / Fs
-        t = np.arange(0, len(x) * Ts, Ts)
         s = fftpack.rfft(wn)
         f = fftpack.rfftfreq(len(s)) * Fs
         ff = s * one_over_f(f, F_KNEE, F_ALPHA)
         x_t = fftpack.irfft(ff)
-        s, f = mlab.psd(x_t, NFFT=N, Fs=Fs, scale_by_freq=True)
-
-        if PLOT_SPECTRUM == True:
-            plt.figure()
-            plt.loglog(f, np.sqrt(s), "b-", label="simulated noise")
-            plt.loglog(
-                f,
-                one_over_f(f, F_KNEE, F_ALPHA) * W_NOISE_SIGMA / np.sqrt(Fs / 2),
-                "r",
-                label="noise asymptote",
-            )
-            plt.vlines(F_KNEE, *plt.ylim())
-            plt.grid()
-            plt.xlabel("Frequency")
-            plt.title("Amplitude spectrum of noise generated")
-            plt.legend()
-
-            plt.figure()
-            plt.plot(t, x_t, "b-")
-            plt.xlabel("Time (s)")
-            plt.ylabel("Volts(V)")
-            plt.grid()
-            plt.title("Noise voltage in time domain")
 
         return x_t
 
-    def encode_spikes(self, t, filter_out, thr_up, c_iaf, leakage):
-        cdc = filter_out[0]
+    def _encode_spikes(
+        self,
+        t: np.ndarray,
+        data: np.ndarray,
+        thr_up: float,
+        c_iaf: float,
+        leakage: float,
+    ) -> list:
+        """
+        Encode a signal as events, using an LIF neuron membrane
+
+        Args:
+            t (np.ndarray): Array ``(T,)`` specifying sample times for each data point
+            data (np.ndarray): Array ``(T,)`` containing data to convert to events
+            thr_up (float): Firing threshold voltage
+            c_iaf (float): Membrane capacitance
+            leakage (float): Leakage factor per time step
+
+        Returns: list: Raster of output events ``(T,)``, where ``1`` indicates a spike
+        """
+        cdc = data[0]
         td = t[0]
         data_up = []
-        data = filter_out * 1e-6  # convert voltage to current for V2I module
+        data *= 1e-6  # convert voltage to current for V2I module
         for i in range(len(data)):
             dt = t[i] - td
             lk = leakage * cdc * 1e-9
             dq_lk = lk * dt
             dv = (dt * data[i] - dq_lk) / c_iaf
-            cdc = cdc + dv if (cdc + dv) >= 0 else 0
-            if cdc < thr_up:
-                data_up.append(0)
-                td = t[i]
-            elif cdc > thr_up:
+
+            # - Accumulate membrane voltage, clip to zero
+            cdc = np.clip(cdc + dv, 0.0, np.inf)
+
+            if cdc > thr_up:
                 data_up.append(1)
                 cdc = 0
-                td = t[i]
             else:
                 data_up.append(0)
-                td = t[i]
+
+            td = t[i]
+
         return data_up
 
-    def sampling_signal(self, ch1, count):
+    def _sampling_signal(self, ch1: list, count: int) -> list:
+        """
+        Down-sample events in a signal, by passing one in every ``N`` events
+
+        Args:
+            ch1 (list): List raster ``(T,)`` of events
+            count (int): Number of events to ignore before passing one event
+
+        Returns: list: List raster ``(T)`` of down-sampled events
+        """
 
         sam_count = 1
         sampled = []
@@ -385,9 +418,9 @@ class AFE(TimedModule):
 
     def evolve(
         self,
-        ts_input=None,
-        duration=None,
-        num_timesteps=None,
+        ts_input: TSContinuous = None,
+        duration: float = None,
+        num_timesteps: int = None,
         kwargs_timeseries=None,
         record: bool = False,
         *args,
@@ -398,7 +431,7 @@ class AFE(TimedModule):
         y = ts_input(t)[:, 0]
 
         input_offset = self.MAX_INPUT_OFFSET
-        if self.manual_scaling:
+        if self.manual_scaling > 0.0:
             y_scaled = self.manual_scaling * y * self.INPUT_AMP_MAX + input_offset
         else:
             y_scaled = (y / max(y)) * self.INPUT_AMP_MAX + input_offset
@@ -410,13 +443,8 @@ class AFE(TimedModule):
         lna_out = y_scaled * (1 + lna_distortion) * lna_gain_v + self.lna_offset
 
         #######  Add Noise ###############
-        lna_out = lna_out + self.generateNoise(
-            lna_out,
-            self.Fs,
-            self.VRMS_SQHZ_LNA,
-            self.F_KNEE_LNA,
-            self.F_ALPHA_LNA,
-            False,
+        lna_out = lna_out + self._generateNoise(
+            lna_out, self.Fs, self.VRMS_SQHZ_LNA, self.F_KNEE_LNA, self.F_ALPHA_LNA,
         )
 
         bpfs = [
@@ -433,13 +461,8 @@ class AFE(TimedModule):
         # add noise
         bpfs = [
             bpfs[i]
-            + self.generateNoise(
-                bpfs[i],
-                self.Fs,
-                self.VRMS_SQHZ_BPF,
-                self.F_KNEE_BPF,
-                self.F_ALPHA_BPF,
-                False,
+            + self._generateNoise(
+                bpfs[i], self.Fs, self.VRMS_SQHZ_BPF, self.F_KNEE_BPF, self.F_ALPHA_BPF,
             )
             for i in range(self.size_out)
         ]
@@ -449,13 +472,12 @@ class AFE(TimedModule):
                 self._butter_highpass_filter(
                     bpfs[i], self.F_CORNER_HIGHPASS, self.Fs, order=1
                 )
-                + self.generateNoise(
+                + self._generateNoise(
                     bpfs[i],
                     self.Fs,
                     self.VRMS_SQHZ_FWR,
                     self.F_KNEE_FWR,
                     self.F_ALPHA_FWR,
-                    False,
                 )
             )
             for i in range(self.size_out)
@@ -463,13 +485,13 @@ class AFE(TimedModule):
 
         # Encoding to spike by integrating the FWR output for positive going(UP)
         spikes = [
-            self.encode_spikes(t, rcs[i], self.THR_UP, self.C_IAF, self.LEAKAGE)
+            self._encode_spikes(t, rcs[i], self.THR_UP, self.C_IAF, self.LEAKAGE)
             for i in range(self.size_out)
         ]
 
         spikes = np.array(
             [
-                self.sampling_signal(spikes[i], self.DIGITAL_COUNTER)
+                self._sampling_signal(spikes[i], self.DIGITAL_COUNTER)
                 for i in range(self.size_out)
             ]
         )

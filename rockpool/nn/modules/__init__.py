@@ -11,6 +11,7 @@ dModules = {
     ".jax.rate_jax": "RateEulerJax",
     ".native.linear": ("Linear", "LinearJax"),
     ".native.instant": ("Instant", "InstantJax"),
+    ".native.analogFrontEnd": ("AFE"),
     ".nest.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"),
     ".torch.torch_module": "TorchModule",
     ".torch.lif_torch": "LIFLayer",
