@@ -79,6 +79,8 @@ Time series classes
     nn.modules.Instant
     nn.modules.InstantJax
 
+    nn.modules.AFE
+
     nn.layers.RecRateEuler
     nn.layers.FFRateEuler
     nn.layers.PassThrough
