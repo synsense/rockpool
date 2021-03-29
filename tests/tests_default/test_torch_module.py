@@ -244,4 +244,27 @@ def test_backward():
     
     out.sum().backward()
 
+def test_lowpass():
+    from rockpool.nn.modules.torch.lowpass import LowPass 
+    import numpy as np
+    import torch
+    
+    N = 3
+    tau_mem = 0.04
+    
+    lyr = LowPass(
+        n_neurons=N,
+        tau_mem=tau_mem,
+        dt=0.01,
+    )
+    
+    inp = torch.rand(50, 1, N).cpu()
+    
+    inp.requires_grad = True
+    out, states, recs = lyr(inp, record=True)
+    
+    out.sum().backward()
+
+    assert(out.shape == inp.shape)
+
 
