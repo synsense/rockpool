@@ -2540,7 +2540,7 @@ class TSEvent(TimeSeries):
         raster = np.asarray(raster, int)
 
         # - Reshape if the array is 1d
-        if len(raster.shape) == 1 or raster.shape[1] == 1:
+        if len(raster.shape) == 1:
             raster = np.atleast_2d(raster).T
 
         # - Compute `t_stop` if not provided
