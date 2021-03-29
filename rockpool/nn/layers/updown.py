@@ -27,8 +27,7 @@ class FFUpDownV1(Layer):
     Define a spiking feedforward layer to convert analogue inputs to up and down channels
 
     Feedforward layer that converts each analogue input channel to one spiking up and one down channel
-            Runs in batch mode like `.FFUpDownTorch` to save memory, but does not use pytorch. `.FFUpDownTorch` seems
-            to be slower...
+            Runs in batch mode like `.FFUpDownTorch` to save memory, but does not use pytorch. `.FFUpDownTorch` seems to be slower...
     """
 
     ## - Constructor
