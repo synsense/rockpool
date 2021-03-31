@@ -464,6 +464,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
+        add_events: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input from a :py:class:`TSEvent` time series, set up evolution time base
@@ -501,7 +502,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
                 t_start=self.t,
                 num_timesteps=np.size(time_base),
                 channels=np.arange(self.size_in),
-                # add_events=getattr(self.module, "add_events", False),
+                add_events=add_events,
             )
 
         else:
