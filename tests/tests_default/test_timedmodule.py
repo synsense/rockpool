@@ -210,6 +210,14 @@ def test_wrapper():
 
     output_data, new_state, record_dict = mod(input_data)
 
+    # - Test timed module
+    output_ts, new_state, record_dict = tnm(
+        TSContinuous.from_clocked(input_data, dt=tnm.dt)
+    )
+    tnm.set_attributes(new_state)
+
+    # - Test using `.timed()` method
+    tnm = mod.timed()
     output_ts, new_state, record_dict = tnm(
         TSContinuous.from_clocked(input_data, dt=tnm.dt)
     )
