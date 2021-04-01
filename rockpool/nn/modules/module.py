@@ -511,21 +511,18 @@ class ModuleBase(ABC):
 
     @property
     def class_name(self) -> str:
-        """ str: Class name of ``self``
-        """
+        """str: Class name of ``self``"""
         # - Determine class name by removing "<class '" and "'>" and the package information
         return type(self).__name__
 
     @property
     def name(self) -> str:
-        """ str: The name of this module, or an empty string if ``None``
-        """
+        """str: The name of this module, or an empty string if ``None``"""
         return f"'{self._name}'" if hasattr(self, "_name") and self._name else ""
 
     @property
     def full_name(self) -> str:
-        """ str: The full name of this module (class plus module name)
-        """
+        """str: The full name of this module (class plus module name)"""
         return f"{self.class_name} {self.name}"
 
     @property
@@ -646,7 +643,7 @@ class Module(ModuleBase, ABC):
     def timed(self, output_num: int = 0, dt: float = None):
         """
         Convert this module to a :py:class:`TimedModule`
-        
+
         Args:
             output_num (int): Specify which output of the module to take, if the module returns multiple output series. Default: ``0``, take the first (or only) output.
             dt (float): Used to provide a time-step for this module, if the module does not already have one. If ``self`` already defines a time-step, then ``self.dt`` will be used. Default: ``None``

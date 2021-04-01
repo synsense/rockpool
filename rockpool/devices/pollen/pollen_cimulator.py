@@ -63,7 +63,6 @@ class PollenCim(Module):
 
         # - Initialise the superclass
         super().__init__(
-            dt=dt,
             shape=shape,
             spiking_input=True,
             spiking_output=True,
@@ -72,8 +71,14 @@ class PollenCim(Module):
         )
 
         # - Store the configuration
-        self.config: Union["PollenConfiguration", Parameter] = Parameter(config)
+        self.config: Union["PollenConfiguration", Parameter] = Parameter(
+            init_func=lambda _: config
+        )
         """ (PollenConfiguration) Configuration of the Pollen module """
+
+        # - Store the dt
+        self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
+        """ (float) Simulation time-step for this module """
 
     @classmethod
     def from_config(cls, config: "PollenConfiguration", dt: float = 1e-3):
@@ -90,7 +95,14 @@ class PollenCim(Module):
         # - Instantiate the class
         mod = cls(create_key=cls.__create_key, config=config, dt=dt)
 
-        synapses_in = []
+        # - Make a storage object for the extracted configuration
+        class _(object):
+            pass
+
+        _cim_params = _()
+
+        # - Convert input weights to Synapse objects
+        _cim_params.synapses_in = []
         for pre, w_pre in enumerate(config.input_expansion.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
@@ -101,9 +113,10 @@ class PollenCim(Module):
                 for post in np.where(w2_pre)[0]:
                     tmp.append(Synapse(post, 1, w2_pre[post]))
 
-            synapses_in.append(tmp)
+            _cim_params.synapses_in.append(tmp)
 
-        synapses_rec = []
+        # - Convert recurrent weights to Synapse objects
+        _cim_params.synapses_rec = []
         for pre, w_pre in enumerate(config.reservoir.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
@@ -114,59 +127,65 @@ class PollenCim(Module):
                 for post in np.where(w2_pre)[0]:
                     tmp.append(Synapse(post, 1, w2_pre[post]))
 
-            synapses_rec.append(tmp)
+            _cim_params.synapses_rec.append(tmp)
 
-        synapses_out = []
+        # - Convert output weights to Synapse objects
+        _cim_params.synapses_out = []
         for pre, w_pre in enumerate(config.readout.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
                 tmp.append(Synapse(post, 0, w_pre[post]))
-            synapses_out.append(tmp)
+            _cim_params.synapses_out.append(tmp)
 
-        threshold = []
-        dash_syn = []
-        dash_mem = []
-        aliases = []
+        # - Configure reservoir neurons
+        _cim_params.threshold = []
+        _cim_params.dash_syn = []
+        _cim_params.dash_mem = []
+        _cim_params.aliases = []
 
         for neuron in config.reservoir.neurons:
             if neuron.alias_target:
-                aliases.append([neuron.alias_target])
+                _cim_params.aliases.append([neuron.alias_target])
             else:
-                aliases.append([])
-            threshold.append(neuron.threshold)
-            dash_mem.append(neuron.v_mem_decay)
-            dash_syn.append([neuron.i_syn_decay, neuron.i_syn2_decay])
+                _cim_params.aliases.append([])
+            _cim_params.threshold.append(neuron.threshold)
+            _cim_params.dash_mem.append(neuron.v_mem_decay)
+            _cim_params.dash_syn.append([neuron.i_syn_decay, neuron.i_syn2_decay])
 
-        threshold_out = []
-        dash_syn_out = []
-        dash_mem_out = []
+        # - Configure readout neurons
+        _cim_params.threshold_out = []
+        _cim_params.dash_syn_out = []
+        _cim_params.dash_mem_out = []
 
         for neuron in config.readout.neurons:
-            threshold_out.append(neuron.threshold)
-            dash_mem_out.append(neuron.v_mem_decay)
-            dash_syn_out.append([neuron.i_syn_decay])
+            _cim_params.threshold_out.append(neuron.threshold)
+            _cim_params.dash_mem_out.append(neuron.v_mem_decay)
+            _cim_params.dash_syn_out.append([neuron.i_syn_decay])
 
-        weight_shift_inp = config.input_expansion.weight_bit_shift
-        weight_shift_rec = config.reservoir.weight_bit_shift
-        weight_shift_out = config.readout.weight_bit_shift
+        _cim_params.weight_shift_inp = config.input_expansion.weight_bit_shift
+        _cim_params.weight_shift_rec = config.reservoir.weight_bit_shift
+        _cim_params.weight_shift_out = config.readout.weight_bit_shift
 
+        # - Instantiate a Pollen Cimulation layer
         mod._pollen_layer = PollenLayer(
-            synapses_in=synapses_in,
-            synapses_rec=synapses_rec,
-            synapses_out=synapses_out,
-            aliases=aliases,
-            threshold=threshold,
-            threshold_out=threshold_out,
-            weight_shift_inp=weight_shift_inp,
-            weight_shift_rec=weight_shift_rec,
-            weight_shift_out=weight_shift_out,
-            dash_mem=dash_mem,
-            dash_mem_out=dash_mem_out,
-            dash_syns=dash_syn,
-            dash_syns_out=dash_syn_out,
+            synapses_in=_cim_params.synapses_in,
+            synapses_rec=_cim_params.synapses_rec,
+            synapses_out=_cim_params.synapses_out,
+            aliases=_cim_params.aliases,
+            threshold=_cim_params.threshold,
+            threshold_out=_cim_params.threshold_out,
+            weight_shift_inp=_cim_params.weight_shift_inp,
+            weight_shift_rec=_cim_params.weight_shift_rec,
+            weight_shift_out=_cim_params.weight_shift_out,
+            dash_mem=_cim_params.dash_mem,
+            dash_mem_out=_cim_params.dash_mem_out,
+            dash_syns=_cim_params.dash_syn,
+            dash_syns_out=_cim_params.dash_syn_out,
             name="PollenCim_PollenLayer",
         )
 
+        # - Store parameters and return
+        mod._cim_params = _cim_params
         return mod
 
     @classmethod
@@ -227,22 +246,26 @@ class PollenCim(Module):
         return cls.from_config(config)
 
     def evolve(
-        self, input_raster: np.ndarray = None, record: bool = False, *args, **kwargs,
+        self,
+        input_raster: np.ndarray = None,
+        record: bool = False,
+        *args,
+        **kwargs,
     ):
         # - Evolve using the pollen layer
-        output = self._pollen_layer.evolve(input_raster)
+        output = np.array(self._pollen_layer.evolve(input_raster))
 
         # - Build the recording dictionary
         if not record:
             recording = {}
         else:
             recording = {
-                "vmem": self._pollen_layer.rec_v_mem,
-                "isyn": self._pollen_layer.rec_i_syn,
-                "isyn2": self._pollen_layer.rec_i_syn2,
-                "spikes": self._pollen_layer.rec_recurrent_spikes,
-                "vmem_out": self._pollen_layer.rec_v_mem_out,
-                "isyn_out": self._pollen_layer.rec_i_syn_out,
+                "vmem": np.array(self._pollen_layer.rec_v_mem).T,
+                "isyn": np.array(self._pollen_layer.rec_i_syn).T,
+                "isyn2": np.array(self._pollen_layer.rec_i_syn2).T,
+                "spikes": np.array(self._pollen_layer.rec_recurrent_spikes),
+                "vmem_out": np.array(self._pollen_layer.rec_v_mem_out).T,
+                "isyn_out": np.array(self._pollen_layer.rec_i_syn_out).T,
             }
 
         # - Return output, state and recording dictionary

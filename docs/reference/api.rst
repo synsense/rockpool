@@ -156,3 +156,13 @@ Conversion utilities
     training.jax_loss.l0_norm_approx
     training.jax_loss.bounds_cost
     training.jax_loss.make_bounds
+
+Hardware support and simulation
+-------------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.pollen.config_from_specification
+    devices.pollen.PollenCim
+    .. devices.pollen.PollenSamna

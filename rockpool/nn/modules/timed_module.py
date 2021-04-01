@@ -750,9 +750,13 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         # - Reset own time
         self._timestep = 0
 
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Reset submodule time
-        for m in self.modules():
-            m.reset_time()
+        for (k, m) in __modules.items():
+            if hasattr(m, "reset_time"):
+                m[0].reset_time()
 
     def reset_all(self) -> None:
         """
