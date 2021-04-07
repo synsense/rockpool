@@ -168,6 +168,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         dt: Union[float, SimulationParameter],
         spiking_input: bool = False,
         spiking_output: bool = False,
+        add_events: bool = True,
         *args,
         **kwargs,
     ):
@@ -210,6 +211,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         # - Wrap `evolve()` method to perform timestep updates
         self.__evolve = self.evolve
         self.evolve = self._evolve_wrapper
+
+        # - Remember "add events" argument
+        self._add_events = add_events
 
     def __post_init__(self) -> None:
         """
@@ -400,7 +404,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
             )
 
         if self.spiking_input:
-            return self._prepare_input_events(ts_input, duration, num_timesteps)
+            return self._prepare_input_events(
+                ts_input, duration, num_timesteps, add_events=self._add_events
+            )
         else:
             return self._prepare_input_continuous(ts_input, duration, num_timesteps)
 
@@ -793,7 +799,13 @@ class TimedModuleWrapper(TimedModule):
     """
 
     def __init__(
-        self, module: Module, output_num: int = 0, dt: float = None, *args, **kwargs
+        self,
+        module: Module,
+        output_num: int = 0,
+        dt: float = None,
+        add_events: bool = True,
+        *args,
+        **kwargs,
     ):
         """
         Wrap a low-level module as a high-level :py:class:`.TimedModule`
@@ -802,8 +814,7 @@ class TimedModuleWrapper(TimedModule):
             module (:py:class:`.Module`): The module to wrap. Must inherit from :py:class:`.Module`.
             output_num (int): If the output of the evolution function for ``module`` returns multiple outputs, then here you should specify which of the outputs to wrap into a time series to return. :py:class:`.TimedModuleWrapper` only supports returning one output argument from :py:meth:`.evolve`.
             dt (float): The timestep to set for ``module``, if ``module.dt`` does not exist. Note that ``module.dt`` will not be overridden by this argument!
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
+            add_events (bool): If ``True``, then multiple events per time bin will be summed when converting to a raster. If ``False``, only a single event will be retained per time bin. Default: ``True``, sum events in each time bin.
         """
         # - Check that we are wrapping a Module object
         if not isinstance(module, Module):
@@ -831,6 +842,7 @@ class TimedModuleWrapper(TimedModule):
             spiking_input=module.spiking_input,
             spiking_output=module.spiking_output,
             dt=module.dt,
+            add_events=add_events,
             *args,
             **kwargs,
         )

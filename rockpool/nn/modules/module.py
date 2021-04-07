@@ -640,19 +640,22 @@ class Module(ModuleBase, ABC):
     #         if hasattr(mod, "dt"):
     #             setattr(self, "dt", mod.dt)
 
-    def timed(self, output_num: int = 0, dt: float = None):
+    def timed(self, output_num: int = 0, dt: float = None, add_events: bool = True):
         """
         Convert this module to a :py:class:`TimedModule`
 
         Args:
             output_num (int): Specify which output of the module to take, if the module returns multiple output series. Default: ``0``, take the first (or only) output.
             dt (float): Used to provide a time-step for this module, if the module does not already have one. If ``self`` already defines a time-step, then ``self.dt`` will be used. Default: ``None``
+            add_events (bool): If ``True``, then conversion from events -> rasters will sum events in each time bin. If ``False``, only a single event will be retained per time bin. Default: ``True``, sum events.
 
         Returns: :py:class:`.TimedModule`: A timed module that wraps this module
         """
         from rockpool.nn.modules import TimedModuleWrapper
 
-        return TimedModuleWrapper(self, output_num=output_num, dt=dt)
+        return TimedModuleWrapper(
+            self, output_num=output_num, dt=dt, sum_events=add_events
+        )
 
 
 class PostInitMetaMixin(type(ModuleBase)):
