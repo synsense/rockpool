@@ -48,7 +48,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
    tutorials/analog-frontend-example.ipynb
 
-
+   tutorials/easter/easter-snn-images.ipynb
 
    .. tutorials/building_reservoir.ipynb
    .. tutorials/deneve_reservoirs.ipynb

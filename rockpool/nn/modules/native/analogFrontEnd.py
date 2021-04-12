@@ -55,11 +55,11 @@ class AFE(TimedModule):
         ----------
         Q: int
            Quality factor (sharpness of filters). Default: 5
-        fc1: float 
+        fc1: float
             Center frequency of the first band-pass filter, in Hz. Default: 100Hz
         f_factor: float
             Logarithmic distribution of the center frequencies is based on ``f_factor``. Default: 1.325
-        thr_up: float 
+        thr_up: float
             Spiking threshold for spike conversion. Default: 0.5
         leakage: float
             Leakage for spike conversion, in nA. Default: 1.0
@@ -293,7 +293,7 @@ class AFE(TimedModule):
     ) -> np.ndarray:
         """
         Filter some data with a Butterworth high-pass filter from specifications
-        
+
         Args:
             data (np.ndarray): Array of input data to filter, with shape ``(T, N)``
             cutoff (float): Cutoff frequency of the high-pass filter, in Hz
@@ -444,7 +444,11 @@ class AFE(TimedModule):
 
         #######  Add Noise ###############
         lna_out = lna_out + self._generateNoise(
-            lna_out, self.Fs, self.VRMS_SQHZ_LNA, self.F_KNEE_LNA, self.F_ALPHA_LNA,
+            lna_out,
+            self.Fs,
+            self.VRMS_SQHZ_LNA,
+            self.F_KNEE_LNA,
+            self.F_ALPHA_LNA,
         )
 
         bpfs = [
@@ -462,7 +466,11 @@ class AFE(TimedModule):
         bpfs = [
             bpfs[i]
             + self._generateNoise(
-                bpfs[i], self.Fs, self.VRMS_SQHZ_BPF, self.F_KNEE_BPF, self.F_ALPHA_BPF,
+                bpfs[i],
+                self.Fs,
+                self.VRMS_SQHZ_BPF,
+                self.F_KNEE_BPF,
+                self.F_ALPHA_BPF,
             )
             for i in range(self.size_out)
         ]

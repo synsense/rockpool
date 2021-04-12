@@ -6,11 +6,9 @@ from rockpool.nn.modules.torch.torch_module import TorchModule
 
 # Data shape convention (time, batch, synapses, neurons)
 
+
 class LowPass(TorchModule):
-    def __init__(self,
-                 n_neurons: int,
-                 dt: float,
-                 tau_mem: Union[float, List]):
+    def __init__(self, n_neurons: int, dt: float, tau_mem: Union[float, List]):
         """
 
         Parameters
@@ -26,13 +24,14 @@ class LowPass(TorchModule):
         # Initialize class variables
         self.n_neurons = n_neurons
         self.tau_mem = np.array(tau_mem)
-        self.dt = dt 
+        self.dt = dt
         # Initialize states
         self.register_buffer("vmem", torch.zeros((1, self.n_neurons)))
 
         # Calculate decay rates
-        self.register_buffer("alpha_mem", torch.Tensor([np.exp(-self.dt/self.tau_mem)]))
-
+        self.register_buffer(
+            "alpha_mem", torch.Tensor([np.exp(-self.dt / self.tau_mem)])
+        )
 
     def init_states(self, batch_size: int = 1):
         """
@@ -47,7 +46,9 @@ class LowPass(TorchModule):
         -------
 
         """
-        self.vmem.data = torch.zeros((batch_size, self.n_neurons), device=self.vmem.device)
+        self.vmem.data = torch.zeros(
+            (batch_size, self.n_neurons), device=self.vmem.device
+        )
 
     def detach(self):
         """
@@ -84,7 +85,7 @@ class LowPass(TorchModule):
             vmem = vmem * alpha_mem
 
             # State propagatoin
-            vmem = vmem + data[t] # shape (batch, neuron)
+            vmem = vmem + data[t]  # shape (batch, neuron)
 
             # Spike generation
             out_states[t] = vmem

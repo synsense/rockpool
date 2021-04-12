@@ -1,4 +1,5 @@
 import CtxDynapse
+
 save_file_model_ = CtxDynapse.model
 save_file_model_.get_bias_groups()[0].set_bias("IF_AHTAU_N", 253, 7)
 save_file_model_.get_bias_groups()[0].set_bias("IF_AHTHR_N", 80, 4)

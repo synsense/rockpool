@@ -1,4 +1,5 @@
 from importlib import util
+
 if util.find_spec("torch") is None:
     raise ModuleNotFoundError(
         "'Torch' backend not found. Modules that rely on Torch will not be available."
@@ -43,7 +44,10 @@ class ThresholdSubtract(torch.autograd.Function):
         vmem_below = vmem_shifted * (membranePotential < ctx.threshold)
         vmem_above = vmem_periodic * (membranePotential >= ctx.threshold)
         vmem_new = vmem_above + vmem_below
-        spikePdf = torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window) / ctx.threshold
+        spikePdf = (
+            torch.exp(-torch.abs(vmem_new - ctx.threshold / 2) / ctx.window)
+            / ctx.threshold
+        )
 
         return grad_output * spikePdf, None, None
 
@@ -283,7 +287,6 @@ class LIFLayer(TorchModule):
 
             # State propagation
             vmem = vmem + isyn.sum(1)  # isyn shape (batch, syn, neuron)
-
 
         self.vmem = vmem
         self.isyn = isyn

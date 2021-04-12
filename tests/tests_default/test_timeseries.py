@@ -1401,12 +1401,13 @@ def test_rounding():
     ts.t_stop = t[-1] - 1e-10
     ts.t_start = t[0] + 1e-10
 
+
 def test_from_raster_1d():
     from rockpool import TSEvent
     import numpy as np
 
     raster = np.random.rand(10, 1) > 0.3
     tse = TSEvent.from_raster(raster, dt=0.001)
-    
-    assert(tse.num_channels == 1)
-    assert(tse.duration == 0.01)
+
+    assert tse.num_channels == 1
+    assert tse.duration == 0.01
