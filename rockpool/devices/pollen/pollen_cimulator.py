@@ -45,15 +45,10 @@ class PollenCim(Module):
         **kwargs,
     ):
         """
+        Private constructor for :py:class:`.PollenCim`
+
         Warnings:
             Use the factory methods :py:meth:`.PollenCim.from_config` and :py:meth:`PollenCim.from_specfication` to construct a :py:class:`.PollenCim` module.
-
-        Args:
-            create_key:
-            shape:
-            dt:
-            *args:
-            **kwargs:
         """
         # - Check that we are creating the object using a factory function
         if create_key is not PollenCim.__create_key:
@@ -83,7 +78,7 @@ class PollenCim(Module):
     @classmethod
     def from_config(cls, config: "PollenConfiguration", dt: float = 1e-3):
         """
-        Cimulator based layer to simulate the Pollen hardware.
+        Creata a Cimulator based layer to simulate the Pollen hardware, from a configuration
 
         Parameters:
         dt: float
@@ -192,34 +187,40 @@ class PollenCim(Module):
     def from_specification(
         cls,
         weights_in: np.ndarray,
-        weights_rec: np.ndarray,
         weights_out: np.ndarray,
-        dash_mem: np.ndarray,
-        dash_mem_out: np.ndarray,
-        dash_syn: np.ndarray,
-        dash_syn_out: np.ndarray,
-        threshold: np.ndarray,
-        threshold_out: np.ndarray,
-        weight_shift: int = 0,
+        weights_rec: Optional[np.ndarray] = None,
+        dash_mem: Optional[np.ndarray] = None,
+        dash_mem_out: Optional[np.ndarray] = None,
+        dash_syn: Optional[np.ndarray] = None,
+        dash_syn_2: Optional[np.ndarray] = None,
+        dash_syn_out: Optional[np.ndarray] = None,
+        threshold: Optional[np.ndarray] = None,
+        threshold_out: Optional[np.ndarray] = None,
+        weight_shift_in: int = 0,
+        weight_shift_rec: int = 0,
         weight_shift_out: int = 0,
         aliases: Optional[list] = None,
+        dt: float = 1e-3,
     ) -> "PollenCim":
         """
         Instantiate a :py:class:`.PollenCim` module from a full set of parameters
 
         Args:
-            weights_in (np.ndarray): An
-            weights_rec (np.ndarray):
-            weights_out (np.ndarray):
-            dash_mem (np.ndarray):
-            dash_mem_out (np.ndarray):
-            dash_syn (np.ndarray):
-            dash_syn_out (np.ndarray):
-            threshold (np.ndarray):
-            threshold_out (np.ndarray):
-            weight_shift (int):
-            weight_shift_out (int):
+            weights_in (np.ndarray): An int8 matrix ``(Nin, Nhidden, 2)``, specifying input to hidden neuron connections. The final dimension specifies the inputs to the two available synapses of the hidden neurons.
+            weights_out (np.ndarray): An int8 matrix ``(Nhidden, Nout)``, specifying hidden to output connections.
+            weights_rec (Optional[np.ndarray]): An int8 matrix ``(Nhidden, Nhidden, 2)``, specifying recurrent connections within the hidden population. The final dimension specifies the input to the two available synapses on each hidden neuron. Default: ``0``, no recurrent connections.
+            dash_mem (Optional[np.ndarray]): An int8 matrix ``(Nhidden)``, specifying the bitshift decay value for each hidden neuron membrane potential. Default: ``1``.
+            dash_mem_out (Optional[np.ndarray]): An int8 matrix ``(Nout)``, specifying the bitshift decay value for each output neuron membrane potential. Default: ``1``.
+            dash_syn (Optional[np.ndarray]): An int8 matrix ``(Nhidden)``, specifying the bitshift decay value for each hidden neuron synaptic current number 1. Default: ``1``.
+            dash_syn_2 (Optional[np.ndarray]): An int8 matrix ``(Nhidden)``, specifying the bitshift decay value for each hidden neuron synaptic current number 2. Default: ``1``.
+            dash_syn_out (Optional[np.ndarray]): An int8 matrix ``(Nout)``, specifying the bitshift decay value for each output neuron synaptic current. Default: ``1``.
+            threshold (Optional[np.ndarray]): An int8 matrix ``(Nhidden)``, specifying the firing threshold for each hidden neuron. Default: ``0``.
+            threshold_out (Optional[np.ndarray]): An int8 matrix ``(Nhidden)``, specifying the firing threshold for each output neuron. Default: ``0``.
+            weight_shift_in (int): An integer number of bits to left-shift the input weight matrix
+            weight_shift_rec (int): An integer number of bits to left-shift the hidden weight matrix
+            weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
+            dt (float): Simulation time step in seconds. Default: 1 ms
 
         Returns: :py:class:`.PollenCim`: A :py:class:`.TimedModule` that
 
@@ -227,23 +228,25 @@ class PollenCim(Module):
         from rockpool.devices.pollen import config_from_specification
 
         # - Convert specification to pollen configuration
-        config, _ = config_from_specification(
-            weights_in,
-            weights_rec,
-            weights_out,
-            dash_mem,
-            dash_mem_out,
-            dash_syn,
-            dash_syn_out,
-            threshold,
-            threshold_out,
-            weight_shift,
-            weight_shift_out,
-            aliases,
+        config, _, _ = config_from_specification(
+            weights_in=weights_in,
+            weights_rec=weights_rec,
+            weights_out=weights_out,
+            dash_mem=dash_mem,
+            dash_mem_out=dash_mem_out,
+            dash_syn=dash_syn,
+            dash_syn_2=dash_syn_2,
+            dash_syn_out=dash_syn_out,
+            threshold=threshold,
+            threshold_out=threshold_out,
+            weight_shift_in=weight_shift_in,
+            weight_shift_rec=weight_shift_rec,
+            weight_shift_out=weight_shift_out,
+            aliases=aliases,
         )
 
         # - Instantiate module from config
-        return cls.from_config(config)
+        return cls.from_config(config, dt=dt)
 
     def evolve(
         self,

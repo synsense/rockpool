@@ -165,4 +165,4 @@ Hardware support and simulation
 
     devices.pollen.config_from_specification
     devices.pollen.PollenCim
-    .. devices.pollen.PollenSamna
+    devices.pollen.PollenSamna

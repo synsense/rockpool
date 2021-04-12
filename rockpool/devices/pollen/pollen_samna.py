@@ -34,21 +34,22 @@ from typing import Optional, Union
 import json
 
 # - Configure exports
-__all__ = ["config_from_specification", "save_config", "load_config"]
+__all__ = ["config_from_specification", "save_config", "load_config", "PollenSamna"]
 
 
 def config_from_specification(
     weights_in: np.ndarray,
-    weights_rec: np.ndarray,
     weights_out: np.ndarray,
-    dash_mem: np.ndarray,
-    dash_mem_out: np.ndarray,
-    dash_syn: np.ndarray,
-    dash_syn_2: np.ndarray,
-    dash_syn_out: np.ndarray,
-    threshold: np.ndarray,
-    threshold_out: np.ndarray,
-    weight_shift: int = 0,
+    weights_rec: np.ndarray = None,
+    dash_mem: np.ndarray = None,
+    dash_mem_out: np.ndarray = None,
+    dash_syn: np.ndarray = None,
+    dash_syn_2: np.ndarray = None,
+    dash_syn_out: np.ndarray = None,
+    threshold: np.ndarray = None,
+    threshold_out: np.ndarray = None,
+    weight_shift_in: int = 0,
+    weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
     aliases: Optional[list] = None,
 ) -> (PollenConfiguration, bool, str):
@@ -60,35 +61,44 @@ def config_from_specification(
 
     Args:
         weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nhidden, 2)``. The third dimension specifies connections onto the second input synapse for each neuron
-        weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron
+        weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
         weights_out (np.ndarray): A quantised 8-bit output weight matrix ``(Nhidden, Nout)``.
-        dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron
-        dash_mem_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for neuron state for each output neuron
-        dash_syn (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for synapse 1 state for each hidden layer neuron
-        dash_syn_2 (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for synapse 2 state for each hidden layer neuron
-        dash_syn_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for synapse state for each output layer neuron
-        threshold (np.ndarray): A vector or list ``(Nhidden,)`` specifing the firing threshold for each hidden layer neuron
-        threshold_out (np.ndarray): A vector or list ``(Nout,)`` specifing the firing threshold for each output layer neuron
-        weight_shift (int): The number of bits to left-shift each recurrent weight. Default: 0
-        weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: 0
+        dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
+        dash_mem_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for neuron state for each output neuron. Default: ``1``
+        dash_syn (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for synapse 1 state for each hidden layer neuron. Default: ``1``
+        dash_syn_2 (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for synapse 2 state for each hidden layer neuron. Default: ``1``
+        dash_syn_out (np.ndarray): A vector or list ``(Nout,)`` specifing decay bitshift for synapse state for each output layer neuron. Default: ``1``
+        threshold (np.ndarray): A vector or list ``(Nhidden,)`` specifing the firing threshold for each hidden layer neuron. Default: ``0``
+        threshold_out (np.ndarray): A vector or list ``(Nout,)`` specifing the firing threshold for each output layer neuron. Default: ``0``
+        weight_shift_in (int): The number of bits to left-shift each input weight. Default: ``0``
+        weight_shift_rec (int): The number of bits to left-shift each recurrent weight. Default: ``0``
+        weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: ``0``
         aliases (Optional[list]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
-    Returns: (`PollenConfiguration`, bool, str):
-
-
+    Returns: (:py:class:`.samna.pollen.PollenConfiguration`, bool, str): config, is_valid, message
+        ``config`` will be a `PollenConfiguration`.
+        ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
+        ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
-    # - Work out shapes
+    # - Check input weights
     if weights_in.ndim != 3:
         raise ValueError("Input weights must be 3 dimensional `(Nin, Nhidden, 2)`")
 
-    if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
-        raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, 2)`")
-
+    # - Check output weights
     if weights_out.ndim != 2:
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
+    # - Get network shape
     Nin, Nhidden, _ = weights_in.shape
     _, Nout = weights_out.shape
+
+    # - Provide default `weights_rec`
+    weights_rec = (
+        np.zeros((Nhidden, Nhidden, 2), "int") if weights_rec is None else weights_rec
+    )
+
+    if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
+        raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, 2)`")
 
     if Nhidden != weights_rec.shape[0]:
         raise ValueError(
@@ -103,15 +113,18 @@ def config_from_specification(
         )
 
     # - Check aliases
-    if aliases is None:
-        aliases = [[] * Nhidden]
+    aliases = [[]] * Nhidden if aliases is None else aliases
 
     if len(aliases) != Nhidden:
         raise ValueError(
             f"Aliases list must have `Nhidden` entries (`Nhidden` = {Nhidden})"
         )
 
-    # - Check bitshift TCs
+    # - Check bitshift TCs, assign defaults
+    dash_mem = np.ones(Nhidden, "int") if dash_mem is None else dash_mem
+    dash_syn = np.ones(Nhidden, "int") if dash_syn is None else dash_syn
+    dash_syn_2 = np.ones(Nhidden, "int") if dash_syn_2 is None else dash_syn_2
+
     if (
         np.size(dash_mem) != Nhidden
         or np.size(dash_syn) != Nhidden
@@ -121,12 +134,18 @@ def config_from_specification(
             f"`dash_mem`, `dash_syn` and `dash_syn_2` need `Nhidden` entries (`Nhidden` = {Nhidden})"
         )
 
+    dash_mem_out = np.ones(Nout, "int") if dash_mem_out is None else dash_mem_out
+    dash_syn_out = np.ones(Nout, "int") if dash_syn_out is None else dash_syn_out
+
     if np.size(dash_mem_out) != Nout or np.size(dash_syn_out) != Nout:
         raise ValueError(
             f"`dash_mem_out` and `dash_syn_out` need `Nout` entries (`Nout` = {Nout})"
         )
 
-    # - Check thresholds
+    # - Check thresholds, assign defaults
+    threshold = np.zeros(Nhidden, "int") if threshold is None else threshold
+    threshold_out = np.zeros(Nout, "int") if threshold_out is None else threshold_out
+
     if threshold.size != Nhidden:
         raise ValueError(
             f"`thresholds` needs `Nhidden` entries (`Nhidden` = {Nhidden})"
@@ -137,10 +156,12 @@ def config_from_specification(
             f"`thresholds_out` needs `Nhidden` entries (`Nhidden` = {Nhidden})"
         )
 
+    # - Build the configuration
     config = PollenConfiguration()
     config.synapse2_enable = True
     config.reservoir.aliasing = True
-    config.reservoir.weight_bit_shift = weight_shift
+    config.input_expansion.weight_bit_shift = weight_shift_in
+    config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
 
     config.input_expansion.weights = weights_in[:, :, 0]
@@ -154,7 +175,8 @@ def config_from_specification(
         neuron = ReservoirNeuron()
         if len(aliases[i]) > 0:
             neuron.alias_target = aliases[i][0]
-        neuron.i_syn_decay = dash_syn[i][0]
+        neuron.i_syn_decay = dash_syn[i]
+        neuron.i_syn2_decay = dash_syn_2[i]
         neuron.v_mem_decay = dash_mem[i]
         neuron.threshold = threshold[i]
         reservoir_neurons.append(neuron)
@@ -210,6 +232,8 @@ def load_config(filename: str) -> PollenConfiguration:
 class PollenSamna(Module):
     """
     A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`
+
+    Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen. See :ref:`/devices/pollen-overview.ipynb` for more information about the Pollen development kit, and supported networks.
     """
 
     def __init__(

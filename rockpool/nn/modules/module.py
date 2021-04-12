@@ -654,7 +654,7 @@ class Module(ModuleBase, ABC):
         from rockpool.nn.modules import TimedModuleWrapper
 
         return TimedModuleWrapper(
-            self, output_num=output_num, dt=dt, sum_events=add_events
+            self, output_num=output_num, dt=dt, add_events=add_events
         )
 
 
