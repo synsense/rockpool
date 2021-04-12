@@ -46,6 +46,10 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    tutorials/jax_lif_sgd.ipynb
    tutorials/torch-training-spiking.ipynb
 
+   tutorials/analog-frontend-example.ipynb
+
+   tutorials/easter/easter-snn-images.ipynb
+
    .. tutorials/building_reservoir.ipynb
    .. tutorials/deneve_reservoirs.ipynb
    .. tutorials/network_ads_tutorial.ipynb
