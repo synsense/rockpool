@@ -9,7 +9,7 @@ dModules = {
     ".rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
     ".event_pass": "PassThroughEvents",
     ".exp_synapses_brian": "FFExpSynBrian",
-    # ".exp_synapses_manual": "FFExpSyn",
+    ".exp_synapses_manual": "FFExpSyn",
     ".iaf_cl": ("FFCLIAF", "RecCLIAF"),
     ".iaf_digital": "RecDIAF",
     ".spike_bt": "RecFSSpikeEulerBT",
