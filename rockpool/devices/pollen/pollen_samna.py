@@ -267,6 +267,12 @@ class PollenSamna(Module):
         # - Check that it's a pollen device
         pass
 
+        # - Register a buffer to read events from Pollen
+        self._event_buffer = samna.BufferSinkNode_dynapcnn_event_output_event()
+        self._device_model.get_source_node().add_destination(
+            self._event_buffer.get_input_channel()
+        )
+
         # - Store the configuration
         if config is None:
             config = self._device_model.get_configuration()
@@ -285,11 +291,16 @@ class PollenSamna(Module):
         # - Write the configuration to the dev kit
         self._device_model.apply_configuration(new_config)
 
-    def evolve(self, input: np.ndarray, record: bool = False, *args, **kwargs):
+    def evolve(
+        self, input: np.ndarray, record: bool = False, *args, **kwargs
+    ) -> (np.ndarray, dict, dict):
         if record:
             pass
             # - Loop over time steps
             # - Send input spikes for this time-step
+            # - Encode input events for this time-step
+            # events = [samna.pollen.event.Spike() for x in range(0, 10)]
+
             # - Evolve one time-step
             # - Record all synapse and neuron states for each time step
             # - Store output events for this time-step
@@ -298,5 +309,20 @@ class PollenSamna(Module):
             pass
             # - Pause pollen execution
             # - Encode input event raster
+            # events = [samna.pollen.event.Spike() for x in range(0, 10)]
+
             # - Send input event raster to pollen
+            # my_dynapcnn_model.write(events)
+
             # - Evolve in automatic mode
+
+            # - No recording
+            record_dict = {}
+
+        # - Read events from the output buffer
+        output_events = self._event_buffer.get_events()
+
+        # - Clip events to the simulated period
+
+        # - Return events
+        return output_events, {}, record_dict
