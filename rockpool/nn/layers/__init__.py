@@ -5,7 +5,12 @@ from warnings import warn
 # - Dictionary {module file} -> {class name to import}
 dModules = {
     ".layer": "Layer",
-    ".iaf_brian": ("FFIAFBrian", "FFIAFSpkInBrian", "RecIAFBrian", "RecIAFSpkInBrian",),
+    ".iaf_brian": (
+        "FFIAFBrian",
+        "FFIAFSpkInBrian",
+        "RecIAFBrian",
+        "RecIAFSpkInBrian",
+    ),
     ".rate": ("FFRateEuler", "PassThrough", "RecRateEuler"),
     ".event_pass": "PassThroughEvents",
     ".exp_synapses_brian": "FFExpSynBrian",
