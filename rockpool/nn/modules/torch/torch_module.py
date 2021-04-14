@@ -10,43 +10,71 @@ from torch import nn
 
 import rockpool.parameters as rp
 
-from copy import deepcopy
+from typing import Tuple, Any, Generator, Union, List
 
-from typing import Iterable, Tuple, Any, Callable
+__all__ = ["TorchModule", "TorchModuleParameters"]
+
+
+class TorchModuleParameters(dict):
+    """
+    A ``dict`` subclass that supports conversion to raw values
+
+    Use the :py:meth:`.astorch` method to extract raw torch parameters. This is equivalent to having called :py:meth:`.Torch.nn.Module.parameters`.
+    """
+
+    def astorch(self) -> Generator[Any, None, None]:
+        """
+        Convert this parameter dictionary into a generator of raw torch parameters
+
+        Yields: `Torch.nn.Parameter`
+        """
+
+        def yield_leaves(d: dict) -> Generator[Any, None, None]:
+            # - Loop over values in the dictionary
+            for val in d.values():
+                if isinstance(val, dict):
+                    # - Recurse over the dictionary
+                    yield from yield_leaves(val)
+                else:
+                    # - Yield this leaf
+                    yield val
+
+        # - Yield leaves over self
+        yield from yield_leaves(self)
 
 
 class TorchModule(Module, nn.Module):
     """
     Base class for modules that are compatible with both Torch and Rockpool
-    
+
     Use this base class to build Rockpool modules that use Torch as a backend. You can also use this class to convert a ``torch.nn.module`` to a Rockpool :py:class:`.Module` in one line.
-    
+
     See Also:
         See :ref:`/in-depth/torch-api.ipynb` for details of using the Torch API.
-        
-    To implement a module from scratch using the Torch low-level API, simply inherit from :py:class:`.TorchModule` instead of ``torch.nn.Module``. You must implement the Torch API in the form of :py:meth:`.forward` etc. :py:class:`.TorchModule` will convert the API for you, and provides its own :py:meth:`.evolve` method. You should not implement the :py:meth:`.evolve` method yourself.  
-    
+
+    To implement a module from scratch using the Torch low-level API, simply inherit from :py:class:`.TorchModule` instead of ``torch.nn.Module``. You must implement the Torch API in the form of :py:meth:`.forward` etc. :py:class:`.TorchModule` will convert the API for you, and provides its own :py:meth:`.evolve` method. You should not implement the :py:meth:`.evolve` method yourself.
+
     In your :py:meth:`.forward` method you should use the Torch API and semantics as usual. Sub-modules of a Rockpool :py:class:`.TorchModule` are expected to be Torch ``nn.Module`` s. Only the top-level module needs to be wrapped as a Rockpool :py:class:`.TorchModule`.
-    
-    :py:class:`.TorchModule` automatically converts Torch parameters to Rockpool :py:class:`.Parameter` s, and Torch named buffers to Rockpool :py:class:`.State` s. In this way calls to :py:meth:`.parameters` and :py:meth:`.state` function as expected. 
-        
+
+    :py:class:`.TorchModule` automatically converts Torch parameters to Rockpool :py:class:`.Parameter` s, and Torch named buffers to Rockpool :py:class:`.State` s. In this way calls to :py:meth:`.parameters` and :py:meth:`.state` function as expected.
+
     Examples:
-        
+
         Convert a ``torch`` module to a Rockpool :py:class:`.TorchModule`:
-        
+
         >>> mod = TorchModule.from_torch(torch_mod)
-    
+
     """
 
     def __init__(self, *args, **kwargs):
         """
         Initialise this module
-        
+
         You must override this method to initialise your module.
-        
+
         Args:
-            *args: 
-            **kwargs: 
+            *args:
+            **kwargs:
         """
         # - Ensure super-class initialisation ocurs
         super().__init__(*args, **kwargs)
@@ -54,12 +82,12 @@ class TorchModule(Module, nn.Module):
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
         """
         Implement the Rockpool low-level evolution API
-        
-        :py:meth:`.evolve` is provided by :py:class:`.TorchModule` to connect the Rockpool low-level API to the Torch API (i.e. :py:meth:`.forward` etc.). You should *not* override :py:meth:`.evolve` if using :py:class:`.TorchModule` directly, but should implement the Torch API to perform evaluation of the module.  
-        
+
+        :py:meth:`.evolve` is provided by :py:class:`.TorchModule` to connect the Rockpool low-level API to the Torch API (i.e. :py:meth:`.forward` etc.). You should *not* override :py:meth:`.evolve` if using :py:class:`.TorchModule` directly, but should implement the Torch API to perform evaluation of the module.
+
         Args:
             input_data: This might be a numpy array or Torch tensor, containing the input data to evolve over
-            record (bool): Iff ``True``, return a dictionary of state variables as ``record_dict``, containing the time series of those state variables over evolution. Default: ``False``, do not record state during evolution 
+            record (bool): Iff ``True``, return a dictionary of state variables as ``record_dict``, containing the time series of those state variables over evolution. Default: ``False``, do not record state during evolution
 
         Returns:
             (array, dict, dict): (output_data, new_states, record_dict)
@@ -110,13 +138,22 @@ class TorchModule(Module, nn.Module):
         self._register_attribute(name, rp.Parameter(param, None, None, param.shape))
         super().register_parameter(name, param)
 
+    def _get_attribute_family(
+        self, type_name: str, family: Union[str, Tuple, List] = None
+    ) -> dict:
+        # - Get the attributes dictionary
+        attr = super()._get_attribute_family(type_name, family)
+
+        # - Cast it to TorchModuleParameters and return
+        return TorchModuleParameters(**attr)
+
     @classmethod
     def from_torch(cls: type, obj: nn.Module, retain_torch_api: bool = False) -> None:
         """
         Convert a torch module into a Rockpool :py:class:`.TorchModule` in-place
-        
+
         Args:
-            obj (torch.nn.Module): Torch module to convert to a Rockpool   
+            obj (torch.nn.Module): Torch module to convert to a Rockpool
             retain_torch_api (bool): If ``True``, calling the resulting module will use the Torch API. Default: ``False``, convert the module to the Rockpool low-level API for :py:meth:`__call__`.
         """
         # - Check that we have a Torch ``nn.Module``

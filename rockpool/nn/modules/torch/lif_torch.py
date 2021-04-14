@@ -1,3 +1,7 @@
+"""
+Implement a LIF Module with bit-shift decay, using a Torch backend 
+"""
+
 from importlib import util
 
 if util.find_spec("torch") is None:
@@ -5,22 +9,18 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-import torch
-
 from typing import Union, List, Tuple
 import numpy as np
 
 from rockpool.nn.modules.torch.torch_module import TorchModule
 
 import torch
-import torch.onnx.symbolic_helper as sym_help
-from torch.onnx.symbolic_opset9 import floor, div, relu
-
-import torch.nn as nn
 
 import rockpool.parameters as rp
 
-from typing import Iterable, Tuple, Any, Callable
+from typing import Tuple, Any
+
+__all__ = ["LIFLayer"]
 
 
 class ThresholdSubtract(torch.autograd.Function):
