@@ -1,3 +1,14 @@
+""""
+Implements an exponential low-pass synapse usinga Torch backend
+"""
+
+from importlib import util
+
+if util.find_spec("torch") is None:
+    raise ModuleNotFoundError(
+        "'Torch' backend not found. Modules that rely on Torch will not be available."
+    )
+
 import torch
 import numpy as np
 from torch import nn
@@ -5,6 +16,8 @@ from typing import Union, List, Tuple
 from rockpool.nn.modules.torch.torch_module import TorchModule
 
 # Data shape convention (time, batch, synapses, neurons)
+
+__all__ = ["LowPass"]
 
 
 class LowPass(TorchModule):

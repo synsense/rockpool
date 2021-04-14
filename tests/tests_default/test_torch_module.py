@@ -188,7 +188,6 @@ def test_TorchLIF():
 
 def test_single_neuron():
     from rockpool.nn.modules.torch.lif_torch import LIFLayer
-    import numpy as np
     import torch
 
     N = 1
@@ -217,7 +216,6 @@ def test_single_neuron():
 
 def test_backward():
     from rockpool.nn.modules.torch.lif_torch import LIFLayer
-    import numpy as np
     import torch
 
     N = 1
@@ -249,7 +247,6 @@ def test_backward():
 
 def test_lowpass():
     from rockpool.nn.modules.torch.lowpass import LowPass
-    import numpy as np
     import torch
 
     N = 3
@@ -269,3 +266,38 @@ def test_lowpass():
     out.sum().backward()
 
     assert out.shape == inp.shape
+
+
+def test_astorch():
+    from rockpool.nn.modules.torch import LIFLayer
+
+    import torch
+
+    N = 1
+    Nsyn = 2
+    tau_mem = [0.04]
+    tau_syn = [[0.02]]
+    threshold = [10.0]
+    learning_window = [0.5]
+
+    lyr = LIFLayer(
+        n_neurons=N,
+        n_synapses=Nsyn,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        threshold=threshold,
+        learning_window=learning_window,
+        batch_size=1,
+        dt=0.01,
+        device="cpu",
+    )
+
+    inp = torch.rand(50, 1, Nsyn, N).cpu()
+
+    params = lyr.parameters()
+    params_astorch = params.astorch()
+
+    torch_params = torch.nn.Module.parameters(lyr)
+
+    for (r_param, t_param) in zip(params_astorch, torch_params):
+        assert r_param is t_param, "Rockpool and torch parameters do not match."
