@@ -9,6 +9,8 @@ unit_tests:
 
   before_script:
     - pip install --upgrade pip
+    - git clone https://spinystellate.office.synsense.ai/research/cimulator.git cimulator_git
+    - pip install cimulator_git
     - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 

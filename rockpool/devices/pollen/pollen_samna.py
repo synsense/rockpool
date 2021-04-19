@@ -132,6 +132,7 @@ def config_from_specification(
     ):
         raise ValueError(
             f"`dash_mem`, `dash_syn` and `dash_syn_2` need `Nhidden` entries (`Nhidden` = {Nhidden})"
+            + f" found {np.size(dash_mem)}, {np.size(dash_syn)}, {np.size(dash_syn_2)}"
         )
 
     dash_mem_out = np.ones(Nout, "int") if dash_mem_out is None else dash_mem_out
@@ -152,9 +153,7 @@ def config_from_specification(
         )
 
     if threshold_out.size != Nout:
-        raise ValueError(
-            f"`thresholds_out` needs `Nhidden` entries (`Nhidden` = {Nhidden})"
-        )
+        raise ValueError(f"`thresholds_out` needs `Nout` entries (`Nout` = {Nout})")
 
     # - Build the configuration
     config = PollenConfiguration()
