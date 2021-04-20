@@ -36,7 +36,7 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    in-depth/api-functional.ipynb
    in-depth/jax-training.ipynb
    in-depth/torch-api.ipynb
-   .. in-depth/torch-training.ipynb
+   in-depth/torch-training.ipynb
 
 .. toctree::
    :maxdepth: 1
@@ -54,10 +54,17 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    .. tutorials/deneve_reservoirs.ipynb
    .. tutorials/network_ads_tutorial.ipynb
 
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Training and deploying to HW
+
+   devices/pollen-overview.ipynb
+   devices/torch-training-spiking-for-pollen.ipynb
+   devices/analog-frontend-example.ipynb
+
    .. tutorials/DynapseControl.ipynb
    .. tutorials/RecDynapSE.ipynb
-
-
 
 .. toctree::
    :maxdepth: 1

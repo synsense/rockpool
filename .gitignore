@@ -16,3 +16,4 @@ dist/
 /docs/tutorials/.ipynb_checkpoints
 test_net_torch_config
 test.json
+requirements.yml

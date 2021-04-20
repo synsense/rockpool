@@ -21,9 +21,9 @@ setup_args = {
             "pytest-xdist",
             "torch",
             "torchvision",
-            "rpyc",
             "jax",
             "jaxlib",
+            "samna",
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
@@ -53,7 +53,7 @@ try:
     from torch.utils import cpp_extension
 
     # cpp extensions
-    ext_modules=[
+    ext_modules = [
         cpp_extension.CppExtension(
             name="torch_lif_cpp",
             sources=[
@@ -61,13 +61,13 @@ try:
                 "rockpool/nn/modules/torch/cpp/threshold.cpp",
                 "rockpool/nn/modules/torch/cpp/bitshift.cpp",
             ],
-            extra_compile_args=['-O3']),
-        ]
-    
+            extra_compile_args=["-O3"],
+        ),
+    ]
+
     cmdclass = {"build_ext": cpp_extension.BuildExtension}
 
     setup(ext_modules=ext_modules, cmdclass=cmdclass, **setup_args)
 except:
     logging.warning("The Torch C++ extension could not be compiled")
     setup(**setup_args)
-
