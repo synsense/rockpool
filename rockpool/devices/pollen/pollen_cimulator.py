@@ -98,13 +98,13 @@ class PollenCim(Module):
 
         # - Convert input weights to Synapse objects
         _cim_params.synapses_in = []
-        for pre, w_pre in enumerate(config.input_expansion.weights):
+        for pre, w_pre in enumerate(config.input.weights):
             tmp = []
             for post in np.where(w_pre)[0]:
                 tmp.append(Synapse(post, 0, w_pre[post]))
 
             if config.synapse2_enable:
-                w2_pre = config.input_expansion.syn2_weights[pre]
+                w2_pre = config.input.syn2_weights[pre]
                 for post in np.where(w2_pre)[0]:
                     tmp.append(Synapse(post, 1, w2_pre[post]))
 
@@ -157,7 +157,7 @@ class PollenCim(Module):
             _cim_params.dash_mem_out.append(neuron.v_mem_decay)
             _cim_params.dash_syn_out.append([neuron.i_syn_decay])
 
-        _cim_params.weight_shift_inp = config.input_expansion.weight_bit_shift
+        _cim_params.weight_shift_inp = config.input.weight_bit_shift
         _cim_params.weight_shift_rec = config.reservoir.weight_bit_shift
         _cim_params.weight_shift_out = config.readout.weight_bit_shift
 

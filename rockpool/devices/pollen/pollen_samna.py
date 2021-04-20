@@ -159,12 +159,12 @@ def config_from_specification(
     config = PollenConfiguration()
     config.synapse2_enable = True
     config.reservoir.aliasing = True
-    config.input_expansion.weight_bit_shift = weight_shift_in
+    config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
 
-    config.input_expansion.weights = weights_in[:, :, 0]
-    config.input_expansion.syn2_weights = weights_in[:, :, 1]
+    config.input.weights = weights_in[:, :, 0]
+    config.input.syn2_weights = weights_in[:, :, 1]
     config.reservoir.weights = weights_rec[:, :, 0]
     config.reservoir.syn2_weights = weights_rec[:, :, 1]
     config.readout.weights = weights_out
