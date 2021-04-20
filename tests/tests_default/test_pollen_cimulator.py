@@ -24,8 +24,8 @@ def test_configure():
 
     w = np.ones((Nin, Nhidden), "int")
     print(w.shape)
-    c.input_expansion.weights = w
-    c.input_expansion.syn2_weights = w
+    c.input.weights = w
+    c.input.syn2_weights = w
     c.synapse2_enable = True
 
     hidden_neurons = []
