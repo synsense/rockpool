@@ -640,19 +640,22 @@ class Module(ModuleBase, ABC):
     #         if hasattr(mod, "dt"):
     #             setattr(self, "dt", mod.dt)
 
-    def timed(self, output_num: int = 0, dt: float = None):
+    def timed(self, output_num: int = 0, dt: float = None, add_events: bool = False):
         """
         Convert this module to a :py:class:`TimedModule`
 
         Args:
             output_num (int): Specify which output of the module to take, if the module returns multiple output series. Default: ``0``, take the first (or only) output.
             dt (float): Used to provide a time-step for this module, if the module does not already have one. If ``self`` already defines a time-step, then ``self.dt`` will be used. Default: ``None``
+            add_events (bool): Iff ``True``, the :py:class:`.TimedModule` will add events occurring on a single timestep on input and output. Default: ``False``, don't add time steps.
 
         Returns: :py:class:`.TimedModule`: A timed module that wraps this module
         """
-        from rockpool.nn.modules import TimedModuleWrapper
+        from rockpool.nn.modules.timed_module import TimedModuleWrapper
 
-        return TimedModuleWrapper(self, output_num=output_num, dt=dt)
+        return TimedModuleWrapper(
+            self, output_num=output_num, dt=dt, add_events=add_events
+        )
 
 
 class PostInitMetaMixin(type(ModuleBase)):

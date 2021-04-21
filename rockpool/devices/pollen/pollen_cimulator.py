@@ -11,7 +11,7 @@ if util.find_spec("cimulator") is None:
     )
 
 # - Rockpool imports
-from rockpool.nn.modules import Module
+from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 # - Import Cimulator
@@ -21,7 +21,9 @@ from cimulator.pollen import Synapse, PollenLayer
 import numpy as np
 
 # - Typing
-from typing import Optional, Union
+from typing import Optional, Union, Any, Dict
+
+PollenConfiguration = Union[Dict, Any]
 
 # - Define exports
 __all__ = ["PollenCim"]
@@ -38,7 +40,7 @@ class PollenCim(Module):
     def __init__(
         self,
         create_key,
-        config: "PollenConfiguration",
+        config: PollenConfiguration,
         shape: tuple = (16, 1000, 8),
         dt: float = 1e-3,
         *args,
@@ -66,7 +68,7 @@ class PollenCim(Module):
         )
 
         # - Store the configuration
-        self.config: Union["PollenConfiguration", Parameter] = Parameter(
+        self.config: Union[PollenConfiguration, Parameter] = Parameter(
             init_func=lambda _: config
         )
         """ (PollenConfiguration) Configuration of the Pollen module """
@@ -76,7 +78,7 @@ class PollenCim(Module):
         """ (float) Simulation time-step for this module """
 
     @classmethod
-    def from_config(cls, config: "PollenConfiguration", dt: float = 1e-3):
+    def from_config(cls, config: PollenConfiguration, dt: float = 1e-3):
         """
         Creata a Cimulator based layer to simulate the Pollen hardware, from a configuration
 
