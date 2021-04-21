@@ -187,6 +187,9 @@ def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
     set_spi_clock(io)
     set_sAer_clock(io)
 
+    # - Always need to advance one time-step to initialise
+    advance_time_step(daughterboard)
+
 
 def write_register(
     daughterboard: PollenDaughterBoard,
@@ -290,6 +293,43 @@ def read_memory(
         for e in events[1:]
         if e.address >= start_address and e.address < start_address + count
     ]
+
+
+def generate_read_memory_events(
+    start_address: int,
+    count: int = 1,
+) -> List[Any]:
+    # - Set up a memory read
+    read_events_list = []
+
+    # - Insert an extra read to avoid zero data
+    rmv_ev = samna.pollen.event.ReadMemoryValue()
+    rmv_ev.address = start_address
+    read_events_list.append(rmv_ev)
+
+    for elem in range(count):
+        rmv_ev = samna.pollen.event.ReadMemoryValue()
+        rmv_ev.address = start_address + elem
+        read_events_list.append(rmv_ev)
+
+    return read_events_list
+
+
+def decode_memory_read_events(
+    events: List[Any],
+    start_address: int,
+    count: int = 1,
+) -> List[int]:
+    # - Initialise returned data list
+    return_data = [[]] * count
+
+    # - Filter returned events for the desired addresses
+    for e in events:
+        if e.address >= start_address and e.address < start_address + count:
+            return_data[e.address - start_address] = e.data
+
+    # - Return read data
+    return return_data
 
 
 def verify_pollen_version(
@@ -454,8 +494,6 @@ def read_neuron_synapse_state(
     Returns: :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``
 
     """
-    # ADD RESERVOIR SPIKE RAM TO THIS READING
-
     # - Define the memory bank addresses
     memory_table = {
         "nscram": 0x7E00,
@@ -487,6 +525,101 @@ def read_neuron_synapse_state(
         np.array(Isyn2, "int16"),
         np.array(Spikes, "bool"),
     )
+
+
+def generate_neuron_synapse_state_read_events(
+    Nhidden: int = 1000,
+    Nout: int = 8,
+) -> List[Any]:
+    # - Define the memory bank addresses
+    memory_table = {
+        "nscram": 0x7E00,
+        "rsc2ram": 0x81F0,
+        "nmpram": 0x85D8,
+        "rspkram": 0xA150,
+    }
+
+    # - Initialise the events list
+    read_events = []
+
+    # - Read synaptic currents
+    read_events.extend(
+        generate_read_memory_events(memory_table["nscram"], Nhidden + Nout)
+    )
+
+    # - Read synaptic currents 2
+    read_events.extend(generate_read_memory_events(memory_table["rsc2ram"], Nhidden))
+
+    # - Read membrane potential
+    read_events.extend(
+        generate_read_memory_events(memory_table["nmpram"], Nhidden + Nout)
+    )
+
+    # - Read reservoir spikes
+    read_events.extend(generate_read_memory_events(memory_table["rspkram"], Nhidden))
+
+    # - Return the state
+    return read_events
+
+
+def decode_fake_auto_mode_data(events: List[Any], Nhidden: int = 1000, Nout: int = 8):
+    # - Define the memory banks
+    memory_table = {
+        "nscram": (0x7E00, 1008),
+        "rsc2ram": (0x81F0, 1000),
+        "nmpram": (0x85D8, 1008),
+        "rspkram": (0xA150, 1000),
+    }
+
+    # - Range checking lamba
+    address_in_range = (
+        lambda address, start, count: address >= start and address < start + count
+    )
+
+    # - Initialise return data lists
+    vmem_ts = [np.zeros(Nhidden + Nout, "int16")]
+    isyn_ts = [np.zeros(Nhidden + Nout, "int16")]
+    isyn2_ts = [np.zeros(Nhidden, "int16")]
+    vmem_out_ts = [np.zeros(Nout, "int16")]
+    isyn_out_ts = [np.zeros(Nout, "int16")]
+    spikes_ts = [np.zeros(Nhidden, "bool")]
+    spikes_out_ts = [np.zeros(Nout, "bool")]
+
+    # - Start from timestep zero
+    timestep = 0
+
+    for e in events:
+        # - Handle the readout event, which signals the *end* of a time step
+        if isinstance(e, samna.pollen.event.Readout):
+            # - Save the output neuron state
+            vmem_out_ts.append(e.neuron_values)
+
+            # - Advance the timestep counter
+            timestep = e.timestamp + 1
+
+            # - Append new empty arrays
+            vmem_ts.append([np.zeros(Nhidden + Nout, "int16")])
+            isyn_ts.append([np.zeros(Nhidden + Nout, "int16")])
+            isyn2_ts.append([np.zeros(Nhidden, "int16")])
+            vmem_out_ts.append([np.zeros(Nout, "int16")])
+            isyn_out_ts.append([np.zeros(Nout, "int16")])
+            spikes_ts.append([np.zeros(Nhidden, "bool")])
+            spikes_out_ts.append([np.zeros(Nout, "bool")])
+
+        if isinstance(e, samna.pollen.event.Spike):
+            # - Save this output event
+            spikes_out_ts[e.timestamp][e.neuron] = True
+
+        if isinstance(e, samna.pollen.event.MemoryValue):
+            # - Find out which memory block this event corresponds to
+            memory_block = [
+                block
+                for (block, (start, count)) in memory_table.items()
+                if address_in_range(e.address, start, count)
+            ]
+
+            # - Store the returned values
+            # if memory_block:
 
 
 def is_pollen_ready(
@@ -523,3 +656,46 @@ def reset_input_spikes(daughterboard: PollenDaughterBoard) -> None:
     """
     for register in range(4):
         write_register(daughterboard, 0x0C + register)
+
+
+def send_immediate_input_spikes(
+    daughterboard: PollenDaughterBoard, spike_counts: Iterable[int]
+) -> None:
+    """
+    Send input events with no timestamp to a Pollen HDK
+
+    Args:
+        daughterboard (PollenDaughterboard):
+        spike_counts (Iterable[int]): An Iterable containing one slot per input channel. Each entry indicates how many events should be sent to the corresponding input channel.
+    """
+    # - Encode input events
+    events_list = []
+    for input_channel, event in enumerate(spike_counts):
+        if event:
+            for _ in range(event):
+                s_event = samna.pollen.event.Spike()
+                s_event.neuron = input_channel
+                events_list.append(s_event)
+
+    # - Send input spikes for this time-step
+    daughterboard.get_io_module().write(events_list)
+
+
+def read_output_events(
+    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+) -> np.ndarray:
+    """
+    Read the spike flags from the output neurons on a Pollen HDK
+
+    Args:
+        daughterboard (PollenDaughterBoard): The Pollen HDK to query
+        buffer (PollenReadBuffer): A read buffer to use
+
+    Returns: np.ndarray: A boolean array of output event flags
+    """
+    # - Read the status register
+    status = read_register(daughterboard, buffer, 0x10)
+
+    # - Convert to neuron events and return
+    string = bin(status[-1])[-8:]
+    return np.array([bool(int(e)) for e in string[::-1]], "bool")

@@ -21,8 +21,11 @@ from samna.pollen.configuration import (
 from samna.pollen import validate_configuration
 
 # - Rockpool imports
-from rockpool.nn.modules import Module
+from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+
+from ..pollen import pollen_devkit_utils as putils
+from ..pollen.pollen_devkit_utils import PollenDaughterBoard
 
 # - Numpy
 import numpy as np
@@ -60,7 +63,7 @@ def config_from_specification(
         For detailed information about the networks supported on Pollen, see :ref:`/devices/pollen-overview.ipynb`
 
     Args:
-        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nhidden, 2)``. The third dimension specifies connections onto the second input synapse for each neuron
+        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidfden-layer neurons that receive input from the input channels.
         weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
         weights_out (np.ndarray): A quantised 8-bit output weight matrix ``(Nhidden, Nout)``.
         dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
@@ -82,15 +85,15 @@ def config_from_specification(
     """
     # - Check input weights
     if weights_in.ndim != 3:
-        raise ValueError("Input weights must be 3 dimensional `(Nin, Nhidden, 2)`")
+        raise ValueError("Input weights must be 3 dimensional `(Nin, Nin_res, 2)`")
 
     # - Check output weights
     if weights_out.ndim != 2:
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
-    Nin, Nhidden, _ = weights_in.shape
-    _, Nout = weights_out.shape
+    Nin, Nin_res, _ = weights_in.shape
+    Nhidden, Nout = weights_out.shape
 
     # - Provide default `weights_rec`
     weights_rec = (
@@ -106,16 +109,8 @@ def config_from_specification(
             f"`weights_in`: {weights_in.shape}; `weights_rec`: {weights_rec.shape}"
         )
 
-    if weights_out.shape[0] != Nhidden:
-        raise ValueError(
-            "Output weights must be consistent with recurrent weights.\n"
-            f"`weights_rec`: {weights_rec.shape}; `weights_out`: {weights_out.shape}"
-        )
-
     # - Check aliases
-    aliases = [[]] * Nhidden if aliases is None else aliases
-
-    if len(aliases) != Nhidden:
+    if aliases is not None and len(aliases) != Nhidden:
         raise ValueError(
             f"Aliases list must have `Nhidden` entries (`Nhidden` = {Nhidden})"
         )
@@ -158,7 +153,7 @@ def config_from_specification(
     # - Build the configuration
     config = PollenConfiguration()
     config.synapse2_enable = True
-    config.reservoir.aliasing = True
+    config.reservoir.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
@@ -172,7 +167,7 @@ def config_from_specification(
     reservoir_neurons = []
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
-        if len(aliases[i]) > 0:
+        if aliases is not None and len(aliases[i]) > 0:
             neuron.alias_target = aliases[i][0]
         neuron.i_syn_decay = dash_syn[i]
         neuron.i_syn2_decay = dash_syn_2[i]
@@ -237,7 +232,7 @@ class PollenSamna(Module):
 
     def __init__(
         self,
-        device: "samna.device",
+        device: PollenDaughterBoard,
         config: PollenConfiguration = None,
         dt: float = 1e-3,
         *args,
@@ -247,81 +242,192 @@ class PollenSamna(Module):
         Instantiate a Module with Pollen dev-kit backend
 
         Args:
-            device (samna.pollen.PollenDevice): An opened `samna` device to a Pollen dev kit
+            device (PollenDaughterBoard): An opened `samna` device to a Pollen dev kit
             config (PollenConfiguraration): A Pollen configuration from `samna`
             dt (float): The simulation time-step to use for this Module
         """
+        # - Get the network shape
+        Nin, Nhidden = np.shape(config.input.weights)
+        _, Nout = np.shape(config.readout.weights)
+
         # - Initialise the superclass
         super().__init__(
-            shape=(16, 1000, 8), dt=dt, spiking_input=True, spiking_output=True
+            shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # - Check that we can access the device node
-        pass
-        self._device = device
-
-        # - Get the device model
-        self._device_model = device.get_device_model()
-
-        # - Check that it's a pollen device
-        pass
+        # - Initialise the pollen HDK
+        putils.initialise_pollen_hdk(device)
 
         # - Register a buffer to read events from Pollen
-        self._event_buffer = samna.BufferSinkNode_dynapcnn_event_output_event()
-        self._device_model.get_source_node().add_destination(
-            self._event_buffer.get_input_channel()
-        )
+        self._event_buffer = putils.new_pollen_output_buffer(device)
 
-        # - Store the configuration
+        # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
+        if not putils.verify_pollen_version(device, self._event_buffer):
+            raise ValueError("`device` must be an opened Pollen HDK daughter board.")
+
+        # - Store the device
+        self._device = device
+
+        # - Get a default configuration
         if config is None:
-            config = self._device_model.get_configuration()
+            config = samna.pollen.configuration.PollenConfiguration()
 
+        # - Store the configuration (and apply it)
         self.config: Union[
             PollenConfiguration, SimulationParameter
-        ] = SimulationParameter(config)
+        ] = SimulationParameter(init_func=lambda _: config)
         """ `.PollenConfiguration`: The configuration of the Pollen module """
+
+        # - Zero neuron state when building a new module
+        self.reset_state()
 
     @property
     def config(self):
-        return self._device_model.get_configuration()
+        # - Return the locally stored config
+        return self._config
+
+        # - Reading the configuration is not yet supported
+        # return self._device_model.get_configuration()
 
     @config.setter
     def config(self, new_config):
-        # - Write the configuration to the dev kit
-        self._device_model.apply_configuration(new_config)
+        # - Write the configuration to the device
+        putils.apply_configuration(self._device, new_config)
+
+        # - Store the configuration locally, since reading is not supported
+        self._config = new_config
+
+    def reset_state(self) -> "PollenSamna":
+        # - Reset neuron and synapse state on Pollen
+        Nhidden, Nout = self.shape[-2:]
+        putils.reset_neuron_synapse_state(self._device, Nhidden, Nout)
+
+    def _evolve_record(self, input: np.ndarray) -> (np.ndarray, dict, dict):
+        """
+        Evolve Pollen HDK over an input step by step, recording all state
+
+        Args:
+            input (np.ndarray): Raster of input events with shape ``(T, Nin)``
+
+        Returns: (np.array, dict, dict): output_raster, {}, recorded_dict
+            ``recorded_dict`` is a dictionary containing the recorded state of the Pollen neurons over time
+        """
+        # - Ensure Pollen HDK is in manual mode, and enable reading memory
+        conf = self._config
+        conf.debug.clock_enable = True
+        conf.debug.ram_power_enable = True
+        conf.manual_mode = True
+
+        # - Apply the configuration
+        putils.apply_configuration(self._device, conf)
+
+        # - Get network shape
+        Nhidden, Nout = self.shape[-2:]
+
+        # - Wait until Pollen is ready
+        putils.is_pollen_ready(self._device, self._event_buffer)
+
+        # - Reset input spike registers
+        putils.reset_input_spikes(self._device)
+
+        vmem_ts = []
+        isyn_ts = []
+        isyn2_ts = []
+        vmem_out_ts = []
+        isyn_out_ts = []
+        spikes_ts = []
+        output_ts = []
+
+        # - Loop over time steps
+        for timestep in range(input.shape[0]):
+            # - Send input events for this time-step
+            putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Evolve one time-step on Pollen
+            putils.advance_time_step(self._device)
+
+            # - Wait until pollen is finished the time-step
+            while not putils.is_pollen_ready(self._device, self._event_buffer):
+                pass
+
+            # - Read all synapse and neuron states for this time step
+            this_state = putils.read_neuron_synapse_state(
+                self._device, self._event_buffer, Nhidden, Nout
+            )
+            vmem_ts.append(this_state.V_mem_hid)
+            isyn_ts.append(this_state.I_syn_hid)
+            isyn2_ts.append(this_state.I_syn2_hid)
+            vmem_out_ts.append(this_state.V_mem_out)
+            isyn_out_ts.append(this_state.I_syn_out)
+            spikes_ts.append(this_state.Spikes_hid)
+
+            # - Read the output event register
+            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_ts.append(output_events)
+
+        # - Build a recorded state dictionary
+        rec_dict = {
+            "Vmem": np.array(vmem_ts),
+            "Isyn": np.array(isyn_ts),
+            "Isyn2": np.array(isyn2_ts),
+            "Spikes": np.array(spikes_ts),
+            "Vmem_out": np.array(vmem_out_ts),
+            "Isyn_out": np.array(isyn_out_ts),
+        }
+
+        # - Return output and recorded state
+        return np.array(output_ts)[:, : self.shape[-1]], {}, rec_dict
+
+    def _evolve_no_record(self, input: np.ndarray):
+        """
+        Evolve Pollen HDK over an input step by step, recording all state
+
+        Args:
+            input (np.ndarray): Raster of input events with shape ``(T, Nin)``
+
+        Returns: (np.array, dict, dict): output_raster, {}, recorded_dict
+            ``recorded_dict`` is a dictionary containing the recorded state of the Pollen neurons over time
+        """
+        # - Ensure Pollen HDK is in manual mode, and enable reading memory
+        conf = self._config
+        conf.debug.clock_enable = True
+        conf.debug.ram_power_enable = True
+        conf.manual_mode = True
+
+        # - Apply the configuration
+        putils.apply_configuration(self._device, conf)
+
+        # - Wait until Pollen is ready
+        putils.is_pollen_ready(self._device, self._event_buffer)
+
+        # - Reset input spike registers
+        putils.reset_input_spikes(self._device)
+
+        output_ts = []
+
+        # - Loop over time steps
+        for timestep in range(input.shape[0]):
+            # - Send input events for this time-step
+            putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Evolve one time-step on Pollen
+            putils.advance_time_step(self._device)
+
+            # - Wait until pollen is finished the time-step
+            while not putils.is_pollen_ready(self._device, self._event_buffer):
+                pass
+
+            # - Read the output event register
+            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_ts.append(output_events)
+
+        # - Return output and recorded state
+        return np.array(output_ts)[:, : self.shape[-1]], {}, {}
 
     def evolve(
         self, input: np.ndarray, record: bool = False, *args, **kwargs
     ) -> (np.ndarray, dict, dict):
         if record:
-            pass
-            # - Loop over time steps
-            # - Send input spikes for this time-step
-            # - Encode input events for this time-step
-            # events = [samna.pollen.event.Spike() for x in range(0, 10)]
-
-            # - Evolve one time-step
-            # - Record all synapse and neuron states for each time step
-            # - Store output events for this time-step
-
+            return self._evolve_record(input)
         else:
-            pass
-            # - Pause pollen execution
-            # - Encode input event raster
-            # events = [samna.pollen.event.Spike() for x in range(0, 10)]
-
-            # - Send input event raster to pollen
-            # my_dynapcnn_model.write(events)
-
-            # - Evolve in automatic mode
-
-            # - No recording
-            record_dict = {}
-
-        # - Read events from the output buffer
-        output_events = self._event_buffer.get_events()
-
-        # - Clip events to the simulated period
-
-        # - Return events
-        return output_events, {}, record_dict
+            return self._evolve_no_record(input)
