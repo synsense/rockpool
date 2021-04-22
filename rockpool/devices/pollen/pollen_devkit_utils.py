@@ -54,6 +54,9 @@ class PollenState(NamedTuple):
     Spikes_hid: np.array
     """ Spikes from hidden layer neurons """
 
+    Spikes_out: np.array
+    """ Spikes from output layer neurons """
+
 
 def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard]:
     """
@@ -473,7 +476,29 @@ def apply_configuration(
         daughterboard (PollenDaughterboard): The Pollen HDK to write the configuration to
         config (PollenConfiguration): A configuration for Pollen
     """
-    daughterboard.get_model().apply_configuration(config)
+    # - Ideal -- just write teh configuration using samna
+    # daughterboard.get_model().apply_configuration(config)
+
+    # - Build a list of configuration events
+    config_events = samna.pollen.pollen_configuration_to_event(config)
+
+    # - Reorder the config events — needed for samna 0.5.17.0
+    config_events_correct = config_events[5:]
+    config_events_correct = config_events[-11:]
+    config_events_correct.extend(config_events[5:-11])
+
+    # - Find the CTRL1 configuration event
+    event = [
+        e
+        for e in config_events_correct
+        if isinstance(e, samna.pollen.event.WriteRegisterValue) and e.address == 0x1
+    ][0]
+
+    # - Manually turn on the RAM clock
+    event.data |= 1 << 16
+
+    # - Apply the configuration manually
+    daughterboard.get_io_module().write(config_events_correct)
 
 
 def read_neuron_synapse_state(
@@ -524,6 +549,7 @@ def read_neuron_synapse_state(
         np.array(Isyn[-Nout:], "int16"),
         np.array(Isyn2, "int16"),
         np.array(Spikes, "bool"),
+        read_output_events(daughterboard, buffer),
     )
 
 
@@ -562,7 +588,24 @@ def generate_neuron_synapse_state_read_events(
     return read_events
 
 
-def decode_fake_auto_mode_data(events: List[Any], Nhidden: int = 1000, Nout: int = 8):
+def decode_fake_auto_mode_data(
+    events: List[Any], Nhidden: int = 1000, Nout: int = 8
+) -> PollenState:
+    """
+    Decode events from accelerated-time operation of the Pollen HDK
+
+    Warnings:
+        ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Pollen HDK, for this function to operate as expected.
+
+        This function must be called with the *full* list of events from a simulation. Otherwise the data returned will be incomplete. This function will not operate as expected if provided with incomplete data.
+
+    Args:
+        events (List[Any]): A list of events produced during an accelerated-mode simulation on a Pollen HDK
+        Nhidden (int): The number of defined hidden-layer neurons. Default: ``1000``, expect to read the state of every neuron.
+        Nout (int): The number of defined output-layer neurons. Default: ``8``, expect to read the state of every neuron.
+
+    Returns: `.PollenState`: A `.NamedTuple` containing the decoded state resulting from the simulation
+    """
     # - Define the memory banks
     memory_table = {
         "nscram": (0x7E00, 1008),
@@ -578,10 +621,9 @@ def decode_fake_auto_mode_data(events: List[Any], Nhidden: int = 1000, Nout: int
 
     # - Initialise return data lists
     vmem_ts = [np.zeros(Nhidden + Nout, "int16")]
+    vmem_out_ts = [np.zeros(Nout, "int16")]
     isyn_ts = [np.zeros(Nhidden + Nout, "int16")]
     isyn2_ts = [np.zeros(Nhidden, "int16")]
-    vmem_out_ts = [np.zeros(Nout, "int16")]
-    isyn_out_ts = [np.zeros(Nout, "int16")]
     spikes_ts = [np.zeros(Nhidden, "bool")]
     spikes_out_ts = [np.zeros(Nout, "bool")]
 
@@ -591,6 +633,7 @@ def decode_fake_auto_mode_data(events: List[Any], Nhidden: int = 1000, Nout: int
     for e in events:
         # - Handle the readout event, which signals the *end* of a time step
         if isinstance(e, samna.pollen.event.Readout):
+            print("Readout")
             # - Save the output neuron state
             vmem_out_ts.append(e.neuron_values)
 
@@ -601,15 +644,15 @@ def decode_fake_auto_mode_data(events: List[Any], Nhidden: int = 1000, Nout: int
             vmem_ts.append([np.zeros(Nhidden + Nout, "int16")])
             isyn_ts.append([np.zeros(Nhidden + Nout, "int16")])
             isyn2_ts.append([np.zeros(Nhidden, "int16")])
-            vmem_out_ts.append([np.zeros(Nout, "int16")])
-            isyn_out_ts.append([np.zeros(Nout, "int16")])
             spikes_ts.append([np.zeros(Nhidden, "bool")])
             spikes_out_ts.append([np.zeros(Nout, "bool")])
 
+        # - Handle an output spike event
         if isinstance(e, samna.pollen.event.Spike):
             # - Save this output event
             spikes_out_ts[e.timestamp][e.neuron] = True
 
+        # - Handle a memory value read event
         if isinstance(e, samna.pollen.event.MemoryValue):
             # - Find out which memory block this event corresponds to
             memory_block = [
@@ -619,7 +662,48 @@ def decode_fake_auto_mode_data(events: List[Any], Nhidden: int = 1000, Nout: int
             ]
 
             # - Store the returned values
-            # if memory_block:
+            if memory_block:
+                if "nmpram" in memory_block:
+                    # - Neuron membrane potentials
+                    vmem_ts[-1][e.address - memory_table["nmpram"][0]] = e.data
+
+                elif "nscram" in memory_block:
+                    # - Neuron synaptic currents
+                    isyn_ts[-1][e.address - memory_table["nscram"][0]] = e.data
+
+                elif "rsc2ram" in memory_block:
+                    # - Neuron synapse 2 currents
+                    isyn2_ts[-1][e.address - memory_table["rsc2ram"][0]] = e.data
+
+                elif "rspkram" in memory_block:
+                    # - Reservoir spike events
+                    spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
+
+        # - Convert data to numpyu arrays
+        vmem_ts = np.array(vmem_ts, "int16")
+        vmem_out_ts = np.array(vmem_out_ts, "int16")
+        isyn_ts = np.array(isyn_ts, "int16")
+        isyn2_ts = np.array(isyn2_ts, "int16")
+        spikes_ts = np.array(spikes_ts, "bool")
+        spikes_out_ts = np.array(spikes_out_ts, "bool")
+
+        # - Extract output state and trim reservoir state
+        isyn_out_ts = isyn_ts[:, -Nout]
+        isyn_ts = isyn_ts[:, :Nhidden]
+        # vmem_out_ts = vmem_ts[:, -Nout] # - Already extracted by readout events
+        vmem_ts = vmem_ts[:, :Nhidden]
+
+        return PollenState(
+            Nhidden,
+            Nout,
+            vmem_ts,
+            isyn_ts,
+            vmem_out_ts,
+            isyn_out_ts,
+            isyn2_ts,
+            spikes_ts,
+            spikes_out_ts,
+        )
 
 
 def is_pollen_ready(
