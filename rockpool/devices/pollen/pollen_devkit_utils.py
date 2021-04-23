@@ -484,7 +484,7 @@ def apply_configuration(
 
     # - Reorder the config events — needed for samna 0.5.17.0
     config_events_correct = config_events[5:]
-    config_events_correct = config_events[-11:]
+    config_events_correct.extend(config_events[-11:])
     config_events_correct.extend(config_events[5:-11])
 
     # - Find the CTRL1 configuration event
@@ -621,7 +621,7 @@ def decode_fake_auto_mode_data(
 
     # - Initialise return data lists
     vmem_ts = [np.zeros(Nhidden + Nout, "int16")]
-    vmem_out_ts = [np.zeros(Nout, "int16")]
+    vmem_out_ts = [np.zeros(8, "int16")]
     isyn_ts = [np.zeros(Nhidden + Nout, "int16")]
     isyn2_ts = [np.zeros(Nhidden, "int16")]
     spikes_ts = [np.zeros(Nhidden, "bool")]
@@ -633,24 +633,24 @@ def decode_fake_auto_mode_data(
     for e in events:
         # - Handle the readout event, which signals the *end* of a time step
         if isinstance(e, samna.pollen.event.Readout):
-            print("Readout")
             # - Save the output neuron state
             vmem_out_ts.append(e.neuron_values)
 
             # - Advance the timestep counter
-            timestep = e.timestamp + 1
+            timestep += 1
 
             # - Append new empty arrays
-            vmem_ts.append([np.zeros(Nhidden + Nout, "int16")])
-            isyn_ts.append([np.zeros(Nhidden + Nout, "int16")])
-            isyn2_ts.append([np.zeros(Nhidden, "int16")])
-            spikes_ts.append([np.zeros(Nhidden, "bool")])
-            spikes_out_ts.append([np.zeros(Nout, "bool")])
+            vmem_ts.append(np.zeros(Nhidden + Nout, "int16"))
+            isyn_ts.append(np.zeros(Nhidden + Nout, "int16"))
+            isyn2_ts.append(np.zeros(Nhidden, "int16"))
+            spikes_ts.append(np.zeros(Nhidden, "bool"))
+            spikes_out_ts.append(np.zeros(Nout, "bool"))
 
         # - Handle an output spike event
         if isinstance(e, samna.pollen.event.Spike):
+            print("Spike:", "t:", e.timestamp, "n:", e.neuron, "time:", timestep)
             # - Save this output event
-            spikes_out_ts[e.timestamp][e.neuron] = True
+            spikes_out_ts[e.timestamp - 1][e.neuron] = True
 
         # - Handle a memory value read event
         if isinstance(e, samna.pollen.event.MemoryValue):
@@ -679,31 +679,31 @@ def decode_fake_auto_mode_data(
                     # - Reservoir spike events
                     spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
 
-        # - Convert data to numpyu arrays
-        vmem_ts = np.array(vmem_ts, "int16")
-        vmem_out_ts = np.array(vmem_out_ts, "int16")
-        isyn_ts = np.array(isyn_ts, "int16")
-        isyn2_ts = np.array(isyn2_ts, "int16")
-        spikes_ts = np.array(spikes_ts, "bool")
-        spikes_out_ts = np.array(spikes_out_ts, "bool")
+    # - Convert data to numpy arrays
+    vmem_ts = np.array(vmem_ts, "int16")
+    vmem_out_ts = np.array(vmem_out_ts, "int16")
+    isyn_ts = np.array(isyn_ts, "int16")
+    isyn2_ts = np.array(isyn2_ts, "int16")
+    spikes_ts = np.array(spikes_ts, "bool")
+    spikes_out_ts = np.array(spikes_out_ts, "bool")
 
-        # - Extract output state and trim reservoir state
-        isyn_out_ts = isyn_ts[:, -Nout]
-        isyn_ts = isyn_ts[:, :Nhidden]
-        # vmem_out_ts = vmem_ts[:, -Nout] # - Already extracted by readout events
-        vmem_ts = vmem_ts[:, :Nhidden]
+    # - Extract output state and trim reservoir state
+    isyn_out_ts = isyn_ts[:, -Nout]
+    isyn_ts = isyn_ts[:, :Nhidden]
+    vmem_out_ts = vmem_out_ts[:, :Nout]
+    vmem_ts = vmem_ts[:, :Nhidden]
 
-        return PollenState(
-            Nhidden,
-            Nout,
-            vmem_ts,
-            isyn_ts,
-            vmem_out_ts,
-            isyn_out_ts,
-            isyn2_ts,
-            spikes_ts,
-            spikes_out_ts,
-        )
+    return PollenState(
+        Nhidden,
+        Nout,
+        vmem_ts,
+        isyn_ts,
+        vmem_out_ts,
+        isyn_out_ts,
+        isyn2_ts,
+        spikes_ts,
+        spikes_out_ts,
+    )
 
 
 def is_pollen_ready(
