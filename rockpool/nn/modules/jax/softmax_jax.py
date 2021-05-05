@@ -1,57 +1,17 @@
 """
-A spiking softmax module.
+Spiking softmax modules, with Jax backends.
 """
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.nn.modules.native.linear import LinearJax
 from rockpool.nn.modules.jax.exp_smooth_jax import ExpSmoothJax
+from rockpool.training.jax_loss import softmax, logsoftmax
 
 import jax.numpy as np
 
 from typing import Tuple, Any, Optional, Callable
 
-__all__ = ["softmax", "logsoftmax", "SoftmaxJax", "LogSoftmaxJax"]
-
-
-def softmax(x: np.ndarray, temperature: float = 1.0) -> np.ndarray:
-    """
-    Implements the softmax function
-
-    .. math::
-
-        S(x, \\tau) = \\exp(l / \\tau) / { \\Sigma { \\exp(l / \\tau)} }
-        l = x - \\max(x)
-
-    Args:
-        x (np.ndarray): Input vector of scores
-        temperature (float): Temperature :math:`\\tau` of the softmax. As :math:`\\tau \\rightarrow 0`, the function becomes a hard :math:``\\max`` operation.
-
-    Returns:
-        np.ndarray: The output of the softmax.
-    """
-    logits = x - np.max(x)
-    eta = np.exp(logits / temperature)
-    return eta / np.sum(eta)
-
-
-def logsoftmax(x: np.ndarray, temperature: float = 1.0) -> np.ndarray:
-    """
-    Efficient implementation of the log softmax function
-
-    .. math ::
-
-        log S(x, \\tau) = (l / \\tau) - \\log \\Sigma { \\exp (l / \\tau) }
-        l = x - \\max (x)
-
-    Args:
-        x (np.ndarray): Input vector of scores
-        temperature (float): Temperature :math:`\\tau` of the softmax. As :math:`\\tau \\rightarrow 0`, the function becomes a hard :math:``\\max`` operation.
-
-    Returns:
-        np.ndarray: The output of the logsoftmax.
-    """
-    logits = x - np.max(x)
-    return (logits / temperature) - np.log(np.sum(np.exp(logits / temperature)))
+__all__ = ["SoftmaxJax", "LogSoftmaxJax"]
 
 
 class WeightedSmoothBase(JaxModule):
@@ -115,13 +75,18 @@ class SoftmaxJax(WeightedSmoothBase):
     """
     A Jax-backed module implementing a smoothed weighted softmax, compatible with spiking inputs
 
-    This module implements synaptic dynamics::
+    This module implements synaptic dynamics:
+
+    .. math::
 
         \\tau \dot{I}_{syn} + I_{syn} = i(t) \\cdot W
 
-    The softmax function is given by::
+    The softmax function is given by:
+
+    .. math ::
 
         S(x, \\tau) = \\exp(l) / { \\Sigma { \\exp(l)} }
+
         l = x - \\max(x)
 
     and is applied to the synaptic currents :math:`I_{syn}`. Input weighting :math:`W` is provided, and the exponential smoothing kernel is paramterised by time constant :math:`\\tau`.
@@ -137,11 +102,11 @@ class SoftmaxJax(WeightedSmoothBase):
         **kwargs,
     ):
         """
-        Initialise a soft-max module.
+        Instantiate a soft-max module.
 
         Args:
             shape (Optional[tuple]): Defines the module shape ``(Nin, Nout)``. If not provided, the shape of ``weight`` will be used.
-            weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised to ``U[-sqrt(1 / Nin), sqrt(1 / Nin)]``.
+            weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised using Kaiming initialization: :math:`W \sim U[\pm\sqrt(2 / N_{in})]`.
             tau (float): Smoothing time constant :math:`\\tau`. Default: 100 ms.
             dt (float): Simulation tme-step in seconds. Default: 1 ms.
         """
@@ -157,17 +122,22 @@ class SoftmaxJax(WeightedSmoothBase):
         )
 
 
-class LogSoftmaxJax(JaxModule):
+class LogSoftmaxJax(WeightedSmoothBase):
     """
     A Jax-backed module implementing a smoothed weighted softmax, compatible with spiking inputs
 
-    This module implements synaptic dynamics::
+    This module implements synaptic dynamics:
+
+    .. math::
 
         \\tau \dot{I}_{syn} + I_{syn} = i(t) \\cdot W
 
-    The log softmax function is given by::
+    The log softmax function is given by:
+
+    .. math::
 
         log S(x, \\tau) = (l) - \\log \\Sigma { \\exp (l) }
+
         l = x - \\max (x)
 
     and is applied to the synaptic currents :math:`I_{syn}`. Input weighting :math:`W` is provided, and the exponential smoothing kernel is paramterised by time constant :math:`\\tau`.
@@ -187,7 +157,7 @@ class LogSoftmaxJax(JaxModule):
 
         Args:
             shape (Optional[tuple]): Defines the module shape ``(Nin, Nout)``. If not provided, the shape of ``weight`` will be used.
-            weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised to ``U[-sqrt(1 / Nin), sqrt(1 / Nin)]``.
+            weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised using Kaiming initialization: :math:`W \sim U[\pm\sqrt(2 / N_{in})]`.
             tau (float): Smoothing time constant :math:`\\tau`. Default: 100 ms.
             dt (float): Simulation tme-step in seconds. Default: 1 ms.
         """

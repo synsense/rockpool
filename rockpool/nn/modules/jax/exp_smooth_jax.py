@@ -7,6 +7,7 @@ from rockpool.parameters import Parameter, SimulationParameter, State
 
 import jax
 import jax.numpy as np
+from jax.tree_util import Partial
 
 from typing import Tuple, Union, Any, Callable, Optional
 
@@ -15,9 +16,12 @@ class ExpSmoothJax(JaxModule):
     """
     Low-pass smoothing module using an exponential filter.
 
-    This module implements a low-pass filter with exponential dynamics::
+    This module implements a low-pass filter with exponential dynamics:
+
+    .. math::
 
         \\tau \\dot{I} + I = i(t)
+
         y = H(I)
 
     where :math:`H(\cdot)` is an activation function for the module.
@@ -46,7 +50,7 @@ class ExpSmoothJax(JaxModule):
             activation_fun (Callable[[np.ndarray], np.ndarray]): Activation function of the state of this module. Default: ``lambda x: x``.
         """
         # - Check the shape input
-        assert len(shape) == 1, "`shape` must have one dimension."
+        assert np.size(shape) == 1, "`shape` must have one dimension."
 
         # - Initialise superclass
         super().__init__(
@@ -66,7 +70,7 @@ class ExpSmoothJax(JaxModule):
 
         self.activation_fun: Union[
             SimulationParameter, Callable[[float], float]
-        ] = SimulationParameter(activation_fun)
+        ] = SimulationParameter(Partial(activation_fun))
         """ (Callable[[np.ndarray], np.ndarray]) Activation function of this module. """
 
     def evolve(

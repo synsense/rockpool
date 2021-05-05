@@ -81,6 +81,21 @@ Time series classes
 
     nn.modules.AFE
 
+    nn.modules.ExpSmoothJax
+
+    nn.modules.SoftmaxJax
+    nn.modules.LogSoftmaxJax
+
+:py:class:`Layer` subclasses from Rockpool v1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+
     nn.layers.RecRateEuler
     nn.layers.FFRateEuler
     nn.layers.PassThrough
@@ -150,12 +165,10 @@ Conversion utilities
 
 .. autosummary::
     :toctree: _autosummary
+    :recursive:
+    :template: module.rst
 
-    training.jax_loss.mse
-    training.jax_loss.l2sqr_norm
-    training.jax_loss.l0_norm_approx
-    training.jax_loss.bounds_cost
-    training.jax_loss.make_bounds
+    training.jax_loss
 
 Hardware support and simulation
 -------------------------------
@@ -164,5 +177,10 @@ Hardware support and simulation
     :toctree: _autosummary
 
     devices.pollen.config_from_specification
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
     devices.pollen.PollenCim
     devices.pollen.PollenSamna
