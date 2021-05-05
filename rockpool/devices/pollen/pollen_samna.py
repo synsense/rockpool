@@ -152,6 +152,7 @@ def config_from_specification(
 
     # - Build the configuration
     config = PollenConfiguration()
+    config.debug.clock_enable = True
     config.synapse2_enable = True
     config.reservoir.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
@@ -314,9 +315,8 @@ class PollenSamna(Module):
         """
         # - Ensure Pollen HDK is in manual mode, and enable reading memory
         conf = self._config
-        conf.debug.clock_enable = True
-        conf.debug.ram_power_enable = True
-        conf.manual_mode = True
+        # conf.debug.clock_enable = True
+        conf.operation_mode = samna.pollen.configuration.OperationMode.AcceleratedTime
 
         # - Apply the configuration
         putils.apply_configuration(self._device, conf)
@@ -390,9 +390,8 @@ class PollenSamna(Module):
         """
         # - Ensure Pollen HDK is in manual mode, and enable reading memory
         conf = self._config
-        conf.debug.clock_enable = True
-        conf.debug.ram_power_enable = True
-        conf.manual_mode = True
+        # conf.debug.clock_enable = True
+        conf.operation_mode = samna.pollen.configuration.OperationMode.AcceleratedTime
 
         # - Apply the configuration
         putils.apply_configuration(self._device, conf)

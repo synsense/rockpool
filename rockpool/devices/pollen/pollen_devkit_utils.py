@@ -17,6 +17,7 @@ from warnings import warn
 import time
 
 import numpy as np
+import copy
 
 from typing import Any, List, Iterable, Optional, NamedTuple
 
@@ -78,7 +79,7 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
     # - Open the devices and start the reader/writer
     for d in unopened_devices:
         device_node.DeviceController.open_device(d, "board")
-        device_node.board.start_reader_writer()
+        # device_node.board.start_reader_writer()
 
     # - Get a list of opened devices
     device_list = device_node.DeviceController.get_opened_devices()
@@ -131,31 +132,39 @@ def new_pollen_output_buffer(
 
 def blocking_read(
     buffer: PollenReadBuffer,
-    count: int = 1,
-    timeout: float = None,
+    count: Optional[int] = None,
+    timeout: Optional[float] = None,
 ) -> List:
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count
 
     Args:
         buffer (PollenReadBuffer): A buffer to read from
-        count (Optional[int]): The count of required events. Default: ``1``, just wait for any data.
+        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
         timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout.
 
     Returns: List: A list of read events
     """
-    all_events = []
+    # all_events = []
 
-    # - Read at least a certain number of events
-    is_timeout = False
-    start_time = time.time()
-    while len(all_events) < count and not is_timeout:
-        events = buffer.get_buf()
-        all_events.extend(events)
-        if timeout is not None:
-            is_timeout = (time.time() - start_time) > timeout
+    if timeout is not None:
+        timeout = int(timeout * 1e3)
 
-    return all_events
+    if count is None:
+        return buffer.get_events_blocking(timeout)
+    else:
+        return buffer.get_n_events(count, timeout)
+
+    # # - Read at least a certain number of events
+    # is_timeout = False
+    # start_time = time.time()
+    # while len(all_events) < count and not is_timeout:
+    #     events = buffer.get_buf()
+    #     all_events.extend(events)
+    #     if timeout is not None:
+    #         is_timeout = (time.time() - start_time) > timeout
+    #
+    # return all_events
 
 
 def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
@@ -165,30 +174,30 @@ def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to initialise
     """
-    # - Power on pollen
-    def set_pollen_power(io, value):
-        io.write_config(0x0052, value)
-
-    def set_spi_clock(io):
-        io.write_config(0x0001, 0x0000)
-        io.write_config(0x0002, 0x0009)
-        io.write_config(0x0003, 0x0001)
-
-    def set_sAer_clock(io):
-        io.write_config(0x0010, 0x0000)
-        io.write_config(0x0011, 0x0009)
-        io.write_config(0x0012, 0x0001)
-
-    # - Configure power for Pollen
-    io = daughterboard.get_io_module()
-    set_pollen_power(io, 3)
-
-    # - Strobe Pollen reset
-    io.deassert_reset()
-    io.assert_reset()
-
-    set_spi_clock(io)
-    set_sAer_clock(io)
+    # # - Power on pollen
+    # def set_pollen_power(io, value):
+    #     io.write_config(0x0052, value)
+    #
+    # def set_spi_clock(io):
+    #     io.write_config(0x0001, 0x0000)
+    #     io.write_config(0x0002, 0x0009)
+    #     io.write_config(0x0003, 0x0001)
+    #
+    # def set_sAer_clock(io):
+    #     io.write_config(0x0010, 0x0000)
+    #     io.write_config(0x0011, 0x0009)
+    #     io.write_config(0x0012, 0x0001)
+    #
+    # # - Configure power for Pollen
+    # io = daughterboard.get_io_module()
+    # set_pollen_power(io, 3)
+    #
+    # # - Strobe Pollen reset
+    # io.deassert_reset()
+    # io.assert_reset()
+    #
+    # set_spi_clock(io)
+    # set_sAer_clock(io)
 
     # - Always need to advance one time-step to initialise
     advance_time_step(daughterboard)
@@ -231,9 +240,6 @@ def read_register(
     # - Set up a register read
     rrv_ev = samna.pollen.event.ReadRegisterValue()
     rrv_ev.address = address
-
-    # - Clear buffer
-    buffer.get_buf()
 
     # - Request read
     daughterboard.get_io_module().write([rrv_ev])
@@ -288,7 +294,7 @@ def read_memory(
     daughterboard.get_io_module().write(read_events_list)
 
     # - Read data
-    events = blocking_read(buffer, count)
+    events = blocking_read(buffer, count + 1)
 
     # - Filter returned events for the desired addresses
     return [
@@ -443,27 +449,31 @@ def zero_memory(
 
 
 def reset_neuron_synapse_state(
-    daughterboard: PollenDaughterBoard, Nhidden: int = 1000, Nout: int = 8
+    daughterboard: PollenDaughterBoard, config: PollenConfiguration, Nhidden, Nout
 ) -> None:
     """
     Reset the neuron and synapse state on a Pollen HDK
 
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK daughterboard to reset
-        Nhidden (int): The number of hidden neurons. Default: 1000 (reset all neurons)
-        Nout (int): THe number of output neurons. Default: 8 (reset all neurons)
     """
     # - Define the state memory banks, along with the required number of elements to zero
-    memory_table = {
-        "nscram": (0x7E00, Nhidden + Nout),
-        "rsc2ram": (0x81F0, Nhidden),
-        "nmpram": (0x85D8, Nhidden + Nout),
-        "rspkram": (0xA150, Nhidden),
-    }
+    # memory_table = {
+    #     "nscram": (0x7E00, Nhidden + Nout),
+    #     "rsc2ram": (0x81F0, Nhidden),
+    #     "nmpram": (0x85D8, Nhidden + Nout),
+    #     "rspkram": (0xA150, Nhidden),
+    # }
+    #
+    # # - Zero each bank in turn
+    # for bank in memory_table.values():
+    #     write_memory(daughterboard, *bank)
 
-    # - Zero each bank in turn
-    for bank in memory_table.values():
-        write_memory(daughterboard, *bank)
+    # # config = daughterboard.get_model().get_configuration()
+    reset_flag = config.clear_neuron_state
+    config.clear_neuron_state = True
+    apply_configuration(daughterboard, config)
+    config.clear_neuron_state = reset_flag
 
 
 def apply_configuration(
@@ -477,28 +487,28 @@ def apply_configuration(
         config (PollenConfiguration): A configuration for Pollen
     """
     # - Ideal -- just write teh configuration using samna
-    # daughterboard.get_model().apply_configuration(config)
+    daughterboard.get_model().apply_configuration(config)
 
-    # - Build a list of configuration events
-    config_events = samna.pollen.pollen_configuration_to_event(config)
-
-    # - Reorder the config events — needed for samna 0.5.17.0
-    config_events_correct = config_events[5:]
-    config_events_correct.extend(config_events[-11:])
-    config_events_correct.extend(config_events[5:-11])
-
-    # - Find the CTRL1 configuration event
-    event = [
-        e
-        for e in config_events_correct
-        if isinstance(e, samna.pollen.event.WriteRegisterValue) and e.address == 0x1
-    ][0]
-
-    # - Manually turn on the RAM clock
-    event.data |= 1 << 16
-
-    # - Apply the configuration manually
-    daughterboard.get_io_module().write(config_events_correct)
+    # # - Build a list of configuration events
+    # config_events = samna.pollen.pollen_configuration_to_event(config)
+    #
+    # # - Reorder the config events — needed for samna 0.5.17.0
+    # config_events_correct = config_events[5:]
+    # config_events_correct.extend(config_events[-11:])
+    # config_events_correct.extend(config_events[5:-11])
+    #
+    # # - Find the CTRL1 configuration event
+    # event = [
+    #     e
+    #     for e in config_events_correct
+    #     if isinstance(e, samna.pollen.event.WriteRegisterValue) and e.address == 0x1
+    # ][0]
+    #
+    # # - Manually turn on the RAM clock
+    # event.data |= 1 << 16
+    #
+    # # - Apply the configuration manually
+    # daughterboard.get_io_module().write(config_events_correct)
 
 
 def read_neuron_synapse_state(
