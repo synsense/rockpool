@@ -9,6 +9,8 @@ dModules = {
     ".jax.jax_module": "JaxModule",
     ".jax.lif_jax": "LIFJax",
     ".jax.rate_jax": "RateEulerJax",
+    ".jax.exp_smooth_jax": "ExpSmoothJax",
+    ".jax.softmax_jax": ("SoftmaxJax", "LogSoftmaxJax"),
     ".native.linear": ("Linear", "LinearJax"),
     ".native.instant": ("Instant", "InstantJax"),
     ".native.analogFrontEnd": ("AFE"),
