@@ -19,7 +19,7 @@ import time
 import numpy as np
 import copy
 
-from typing import Any, List, Iterable, Optional, NamedTuple
+from typing import Any, List, Iterable, Optional, NamedTuple, Union
 
 PollenDaughterBoard = Any
 SamnaDeviceNode = Any
@@ -114,7 +114,7 @@ def new_pollen_output_buffer(
         samna.BufferSinkNode_pollen_event_output_event: Output buffer receiving events from Pollen HDK
     """
     # - Register a buffer to read events from Pollen
-    output_buf = PollenReadBuffer()
+    buffer = PollenReadBuffer()
 
     # - Get the device model
     model = daughterboard.get_model()
@@ -123,11 +123,11 @@ def new_pollen_output_buffer(
     source_node = model.get_source_node()
 
     # - Add the buffer as a destination for the Pollen output events
-    success = source_node.add_destination(output_buf.get_input_channel())
+    success = source_node.add_destination(buffer.get_input_channel())
     assert success, "Error connecting the new buffer."
 
     # - Return the buffer
-    return output_buf
+    return buffer
 
 
 def blocking_read(
@@ -457,19 +457,9 @@ def reset_neuron_synapse_state(
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK daughterboard to reset
     """
-    # - Define the state memory banks, along with the required number of elements to zero
-    # memory_table = {
-    #     "nscram": (0x7E00, Nhidden + Nout),
-    #     "rsc2ram": (0x81F0, Nhidden),
-    #     "nmpram": (0x85D8, Nhidden + Nout),
-    #     "rspkram": (0xA150, Nhidden),
-    # }
-    #
-    # # - Zero each bank in turn
-    # for bank in memory_table.values():
-    #     write_memory(daughterboard, *bank)
-
+    # - `get_configuration()` is not yet compatible with `apply_configuration()`
     # # config = daughterboard.get_model().get_configuration()
+
     reset_flag = config.clear_neuron_state
     config.clear_neuron_state = True
     apply_configuration(daughterboard, config)
@@ -489,26 +479,10 @@ def apply_configuration(
     # - Ideal -- just write teh configuration using samna
     daughterboard.get_model().apply_configuration(config)
 
-    # # - Build a list of configuration events
-    # config_events = samna.pollen.pollen_configuration_to_event(config)
-    #
-    # # - Reorder the config events — needed for samna 0.5.17.0
-    # config_events_correct = config_events[5:]
-    # config_events_correct.extend(config_events[-11:])
-    # config_events_correct.extend(config_events[5:-11])
-    #
-    # # - Find the CTRL1 configuration event
-    # event = [
-    #     e
-    #     for e in config_events_correct
-    #     if isinstance(e, samna.pollen.event.WriteRegisterValue) and e.address == 0x1
-    # ][0]
-    #
-    # # - Manually turn on the RAM clock
-    # event.data |= 1 << 16
-    #
-    # # - Apply the configuration manually
-    # daughterboard.get_io_module().write(config_events_correct)
+    # - Needed because first configuration event is incorrect
+    events_list = samna.pollen.pollen_configuration_to_event(config)
+    events_list[0].data |= int(config.synapse2_enable) << 1
+    daughterboard.get_io_module().write(events_list)
 
 
 def read_neuron_synapse_state(
@@ -598,7 +572,7 @@ def generate_neuron_synapse_state_read_events(
     return read_events
 
 
-def decode_fake_auto_mode_data(
+def decode_accel_mode_data(
     events: List[Any], Nhidden: int = 1000, Nout: int = 8
 ) -> PollenState:
     """
@@ -624,7 +598,7 @@ def decode_fake_auto_mode_data(
         "rspkram": (0xA150, 1000),
     }
 
-    # - Range checking lamba
+    # - Range checking lambda
     address_in_range = (
         lambda address, start, count: address >= start and address < start + count
     )
@@ -674,6 +648,7 @@ def decode_fake_auto_mode_data(
             # - Store the returned values
             if memory_block:
                 if "nmpram" in memory_block:
+                    print(e.address - memory_table["nmpram"][0], e.data)
                     # - Neuron membrane potentials
                     vmem_ts[-1][e.address - memory_table["nmpram"][0]] = e.data
 
@@ -696,6 +671,13 @@ def decode_fake_auto_mode_data(
     isyn2_ts = np.array(isyn2_ts, "int16")
     spikes_ts = np.array(spikes_ts, "bool")
     spikes_out_ts = np.array(spikes_out_ts, "bool")
+
+    print(vmem_ts[:10, :])
+    print(vmem_out_ts[:10, :])
+    print(isyn_ts[:10, :])
+    print(isyn2_ts[:10, :])
+    print(spikes_ts[:10, :])
+    print(spikes_out_ts[:10, :])
 
     # - Extract output state and trim reservoir state
     isyn_out_ts = isyn_ts[:, -Nout]
@@ -793,3 +775,104 @@ def read_output_events(
     # - Convert to neuron events and return
     string = bin(status[-1])[-8:]
     return np.array([bool(int(e)) for e in string[::-1]], "bool")
+
+
+def print_debug_ram(
+    daughterboard: PollenDaughterBoard,
+    buffer: PollenReadBuffer,
+    Nin: int = 10,
+    Nhidden: int = 10,
+) -> None:
+    """
+    Print memory contents for debugging purposes
+
+    Args:
+        daughterboard (PollenDaughterboard): A Pollen daughterboard to debug
+        buffer (PollenReadBuffer): A connected Pollen read buffer to use when reading memory
+        Nin (int): Number of input neurons to display. Default: ``10``.
+        Nhidden (int): Number of hidden neurons to display. Default: ``10``.
+    """
+    print("iwtram", read_memory(daughterboard, buffer, 0x100, Nin * Nhidden))
+    print("iwt2ram", read_memory(daughterboard, buffer, 0x3F80, Nin * Nhidden))
+
+    print("nscram", read_memory(daughterboard, buffer, 0x7E00, Nhidden))
+    print("rsc2ram", read_memory(daughterboard, buffer, 0x81F0, Nhidden))
+    print("nmpram", read_memory(daughterboard, buffer, 0x85D8, Nhidden))
+
+    print("ndsram", read_memory(daughterboard, buffer, 0x89C8, Nhidden))
+    print("rds2ram", read_memory(daughterboard, buffer, 0x8DB8, Nhidden))
+    print("ndmram", read_memory(daughterboard, buffer, 0x91A0, Nhidden))
+
+    print("nthram", read_memory(daughterboard, buffer, 0x9590, Nhidden))
+    print("rcram", read_memory(daughterboard, buffer, 0x9980, Nhidden))
+    print("raram", read_memory(daughterboard, buffer, 0x9D68, Nhidden))
+
+    print("rspkram", read_memory(daughterboard, buffer, 0xA150, Nhidden))
+
+    print("refocram", read_memory(daughterboard, buffer, 0xA538, Nhidden))
+    print("rforam", read_memory(daughterboard, buffer, 0xA920, Nhidden))
+    print("rwtram", read_memory(daughterboard, buffer, 0x12620, Nhidden))
+
+    print("rwt2ram", read_memory(daughterboard, buffer, 0x1A320, Nhidden))
+    print("owtram", read_memory(daughterboard, buffer, 0x22020, Nhidden))
+
+
+def print_debug_registers(
+    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+) -> None:
+    """
+    Print register contents for debugging purposes
+
+    Args:
+        daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
+        buffer (PollenReadBuffer): A connected Pollen read buffer to use in reading registers
+    """
+    print("ctrl1", bin(read_register(daughterboard, buffer, 0x1)[0]))
+    print("ctrl2", hex(read_register(daughterboard, buffer, 0x2)[0]))
+    print("dbg_ctrl1", bin(read_register(daughterboard, buffer, 0x18)[0]))
+    print("pwrctrl1", bin(read_register(daughterboard, buffer, 0x04)[0]))
+    print("pwrctrl2", bin(read_register(daughterboard, buffer, 0x05)[0]))
+    print("pwrctrl3", bin(read_register(daughterboard, buffer, 0x06)[0]))
+    print("pwrctrl4", bin(read_register(daughterboard, buffer, 0x07)[0]))
+    print("ispkreg00", bin(read_register(daughterboard, buffer, 0x0C)[0]))
+    print("ispkreg01", bin(read_register(daughterboard, buffer, 0x0D)[0]))
+    print("ispkreg10", bin(read_register(daughterboard, buffer, 0x0E)[0]))
+    print("ispkreg11", bin(read_register(daughterboard, buffer, 0x0F)[0]))
+
+
+def select_accel_time_mode(
+    daughterboard: PollenDaughterBoard,
+    config: PollenConfiguration,
+    monitor_neurons: Optional[int] = None,
+) -> None:
+    """
+    Switch on accelerated-time mode on a Pollen daughterboard, and reset the timestamp clock
+
+    Args:
+        daughterboard (PollenDaughterBoard): A Pollen daughterboard to configure
+        config (PollenConfiguration): The desired Pollen configuration to use
+        monitor_neurons (Optional[int]): The number of neurons for which to monitor state during evolution
+    """
+    # - Workaround: Switch to manual mode, to ensure that timestamp is reset to zero
+    daughterboard.get_io_module().write_config(0x40, 0)
+
+    # - Select accelerated time mode
+    config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
+
+    # - Configure reading out of neuron state during evolution
+    if monitor_neurons is not None:
+        config.debug.monitor_neuron_i_syn = samna.pollen.configuration.NeuronRange(
+            0, monitor_neurons
+        )
+        config.debug.monitor_neuron_i_syn2 = samna.pollen.configuration.NeuronRange(
+            0, monitor_neurons
+        )
+        config.debug.monitor_neuron_spike = samna.pollen.configuration.NeuronRange(
+            0, monitor_neurons
+        )
+        config.debug.monitor_neuron_v_mem = samna.pollen.configuration.NeuronRange(
+            0, monitor_neurons
+        )
+
+    # - Write the configuration
+    apply_configuration(daughterboard, config)
