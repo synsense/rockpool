@@ -1,3 +1,10 @@
+"""
+Jax functions useful for training networks using Jax Modules.
+
+See Also:
+    See :ref:`/in-depth/jax-training.ipynb` for an introduction to training networks using Jax-backed modules in Rockpool, including the functions in `.jax_loss`.
+"""
+
 import jax.numpy as np
 
 import jax.tree_util as tu
@@ -15,7 +22,7 @@ def mse(output: np.array, target: np.array) -> float:
 
     .. math::
 
-        mse(y, \\hat{y}) = { E[{(y - \\hat{y})^2}] }
+        \\textrm{mse}(y, \\hat{y}) = { E[{(y - \\hat{y})^2}] }
 
     where :math:`E[\\cdot]` is the expectation of the expression within the brackets.
 
@@ -37,7 +44,7 @@ def sse(output: np.array, target: np.array) -> float:
 
     .. math::
 
-        sse(y, \\hat{y}) = \\sigma {(y - \\hat{y})^2} }
+        \\textrm{sse}(y, \\hat{y}) = \\Sigma {(y - \\hat{y})^2}
 
     Args:
         output (np.ndarray): The network output to test, with shape ``(T, N)``
@@ -183,3 +190,46 @@ def l0_norm_approx(params: dict, sigma: float = 1e-4) -> float:
             )
         )
     )
+
+
+def softmax(x: np.ndarray, temperature: float = 1.0) -> np.ndarray:
+    """
+    Implements the softmax function
+
+    .. math::
+
+        S(x, \\tau) = \\exp(l / \\tau) / { \\Sigma { \\exp(l / \\tau)} }
+
+        l = x - \\max(x)
+
+    Args:
+        x (np.ndarray): Input vector of scores
+        temperature (float): Temperature :math:`\\tau` of the softmax. As :math:`\\tau \\rightarrow 0`, the function becomes a hard :math:`\\max` operation. Default: ``1.0``.
+
+    Returns:
+        np.ndarray: The output of the softmax.
+    """
+    logits = x - np.max(x)
+    eta = np.exp(logits / temperature)
+    return eta / np.sum(eta)
+
+
+def logsoftmax(x: np.ndarray, temperature: float = 1.0) -> np.ndarray:
+    """
+    Efficient implementation of the log softmax function
+
+    .. math ::
+
+        log S(x, \\tau) = (l / \\tau) - \\log \\Sigma { \\exp (l / \\tau) }
+
+        l = x - \\max (x)
+
+    Args:
+        x (np.ndarray): Input vector of scores
+        temperature (float): Temperature :math:`\\tau` of the softmax. As :math:`\\tau \\rightarrow 0`, the function becomes a hard :math:`\\max` operation. Default: ``1.0``.
+
+    Returns:
+        np.ndarray: The output of the logsoftmax.
+    """
+    logits = x - np.max(x)
+    return (logits / temperature) - np.log(np.sum(np.exp(logits / temperature)))

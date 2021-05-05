@@ -7,6 +7,7 @@ from rockpool.nn.modules.module import Module
 
 # - Check that jax is installed
 from importlib import util
+
 if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
     raise ModuleNotFoundError(
         "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
@@ -39,7 +40,10 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self, shape: tuple = None, *args, **kwargs,
+        self,
+        shape: tuple = None,
+        *args,
+        **kwargs,
     ):
         """
 

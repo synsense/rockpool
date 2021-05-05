@@ -8,7 +8,16 @@ config.update("jax_debug_nans", True)
 
 
 def test_imports():
-    from rockpool.training.jax_loss import mse, bounds_cost
+    from rockpool.training.jax_loss import (
+        mse,
+        bounds_cost,
+        mse,
+        sse,
+        l0_norm_approx,
+        l2sqr_norm,
+        softmax,
+        logsoftmax,
+    )
 
 
 def test_mse():
@@ -132,3 +141,31 @@ def test_l0norm():
     # - Test compiled version and gradients
     c = jax.jit(l0_norm_approx)(mod.parameters("weights"))
     g = jax.jit(jax.grad(l0_norm_approx))(mod.parameters("weights"))
+
+
+def test_softmax():
+    from rockpool.training.jax_loss import softmax
+    import numpy as np
+    import jax
+
+    N = 3
+    temp = 0.01
+    softmax(np.random.rand(N))
+    jax.jit(softmax)(np.random.rand(N))
+
+    softmax(np.random.rand(N), temp)
+    jax.jit(softmax)(np.random.rand(N), temp)
+
+
+def test_logsoftmax():
+    from rockpool.training.jax_loss import logsoftmax
+    import numpy as np
+    import jax
+
+    N = 3
+    temp = 0.01
+    logsoftmax(np.random.rand(N))
+    jax.jit(logsoftmax)(np.random.rand(N))
+
+    logsoftmax(np.random.rand(N), temp)
+    jax.jit(logsoftmax)(np.random.rand(N), temp)
