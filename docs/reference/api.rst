@@ -177,6 +177,8 @@ Hardware support and simulation
     :toctree: _autosummary
 
     devices.pollen.config_from_specification
+    devices.pollen.load_config
+    devices.pollen.save_config
 
 .. autosummary::
     :toctree: _autosummary

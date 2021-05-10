@@ -208,10 +208,12 @@ def save_config(config: PollenConfiguration, filename: str) -> None:
 def load_config(filename: str) -> PollenConfiguration:
     """
     Read a Pollen configuration from disk in JSON format
+
     Args:
         filename (str): The filename to read from
 
-    Returns: PollenConfiguration: The configuration loaded from disk
+    Returns:
+        `.PollenConfiguration`: The configuration loaded from disk
     """
     # - Create a new config object
     conf = PollenConfiguration()
@@ -226,7 +228,7 @@ def load_config(filename: str) -> PollenConfiguration:
 
 class PollenSamna(Module):
     """
-    A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`
+    A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`.
 
     Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen. See :ref:`/devices/pollen-overview.ipynb` for more information about the Pollen development kit, and supported networks.
     """
@@ -280,6 +282,8 @@ class PollenSamna(Module):
         """ `.PollenConfiguration`: The configuration of the Pollen module """
 
         # - Store the timestep
+        self.dt: Union[float, SimulationParameter] = dt
+        """ float: Simulation time-step of the module """
 
         # - Zero neuron state when building a new module
         self.reset_state()
@@ -304,126 +308,6 @@ class PollenSamna(Module):
         # - Reset neuron and synapse state on Pollen
         Nhidden, Nout = self.shape[-2:]
         putils.reset_neuron_synapse_state(self._device, self._config, Nhidden, Nout)
-
-    def _evolve_record(self, input: np.ndarray) -> (np.ndarray, dict, dict):
-        """
-        Evolve Pollen HDK over an input step by step, recording all state
-
-        Args:
-            input (np.ndarray): Raster of input events with shape ``(T, Nin)``
-
-        Returns: (np.array, dict, dict): output_raster, {}, recorded_dict
-            ``recorded_dict`` is a dictionary containing the recorded state of the Pollen neurons over time
-        """
-        # - Ensure Pollen HDK is in manual mode, and enable reading memory
-        conf = self._config
-        # conf.debug.clock_enable = True
-        conf.operation_mode = samna.pollen.configuration.OperationMode.AcceleratedTime
-
-        # - Apply the configuration
-        putils.apply_configuration(self._device, conf)
-
-        # - Get network shape
-        Nhidden, Nout = self.shape[-2:]
-
-        # - Wait until Pollen is ready
-        putils.is_pollen_ready(self._device, self._event_buffer)
-
-        # - Reset input spike registers
-        putils.reset_input_spikes(self._device)
-
-        vmem_ts = []
-        isyn_ts = []
-        isyn2_ts = []
-        vmem_out_ts = []
-        isyn_out_ts = []
-        spikes_ts = []
-        output_ts = []
-
-        # - Loop over time steps
-        for timestep in range(input.shape[0]):
-            # - Send input events for this time-step
-            putils.send_immediate_input_spikes(self._device, input[timestep])
-
-            # - Evolve one time-step on Pollen
-            putils.advance_time_step(self._device)
-
-            # - Wait until pollen is finished the time-step
-            while not putils.is_pollen_ready(self._device, self._event_buffer):
-                pass
-
-            # - Read all synapse and neuron states for this time step
-            this_state = putils.read_neuron_synapse_state(
-                self._device, self._event_buffer, Nhidden, Nout
-            )
-            vmem_ts.append(this_state.V_mem_hid)
-            isyn_ts.append(this_state.I_syn_hid)
-            isyn2_ts.append(this_state.I_syn2_hid)
-            vmem_out_ts.append(this_state.V_mem_out)
-            isyn_out_ts.append(this_state.I_syn_out)
-            spikes_ts.append(this_state.Spikes_hid)
-
-            # - Read the output event register
-            output_events = putils.read_output_events(self._device, self._event_buffer)
-            output_ts.append(output_events)
-
-        # - Build a recorded state dictionary
-        rec_dict = {
-            "Vmem": np.array(vmem_ts),
-            "Isyn": np.array(isyn_ts),
-            "Isyn2": np.array(isyn2_ts),
-            "Spikes": np.array(spikes_ts),
-            "Vmem_out": np.array(vmem_out_ts),
-            "Isyn_out": np.array(isyn_out_ts),
-        }
-
-        # - Return output and recorded state
-        return np.array(output_ts)[:, : self.shape[-1]], {}, rec_dict
-
-    def _evolve_no_record(self, input: np.ndarray):
-        """
-        Evolve Pollen HDK over an input step by step, recording all state
-
-        Args:
-            input (np.ndarray): Raster of input events with shape ``(T, Nin)``
-
-        Returns: (np.array, dict, dict): output_raster, {}, recorded_dict
-            ``recorded_dict`` is a dictionary containing the recorded state of the Pollen neurons over time
-        """
-        # - Ensure Pollen HDK is in manual mode, and enable reading memory
-        conf = self._config
-        # conf.debug.clock_enable = True
-        conf.operation_mode = samna.pollen.configuration.OperationMode.AcceleratedTime
-
-        # - Apply the configuration
-        putils.apply_configuration(self._device, conf)
-
-        # - Wait until Pollen is ready
-        putils.is_pollen_ready(self._device, self._event_buffer)
-
-        # - Reset input spike registers
-        putils.reset_input_spikes(self._device)
-
-        output_ts = []
-
-        # - Loop over time steps
-        for timestep in range(input.shape[0]):
-            # - Send input events for this time-step
-            putils.send_immediate_input_spikes(self._device, input[timestep])
-
-            # - Evolve one time-step on Pollen
-            putils.advance_time_step(self._device)
-
-            # - Wait until pollen is finished the time-step
-            while not putils.is_pollen_ready(self._device, self._event_buffer):
-                pass
-
-            # - Read the output event register
-            output_events = putils.read_output_events(self._device, self._event_buffer)
-            output_ts.append(output_events)
-
-        # - Return output and recorded state
-        return np.array(output_ts)[:, : self.shape[-1]], {}, {}
 
     def evolve(
         self,
