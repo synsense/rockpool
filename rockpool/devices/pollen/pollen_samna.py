@@ -279,6 +279,8 @@ class PollenSamna(Module):
         ] = SimulationParameter(init_func=lambda _: config)
         """ `.PollenConfiguration`: The configuration of the Pollen module """
 
+        # - Store the timestep
+
         # - Zero neuron state when building a new module
         self.reset_state()
 
@@ -301,7 +303,7 @@ class PollenSamna(Module):
     def reset_state(self) -> "PollenSamna":
         # - Reset neuron and synapse state on Pollen
         Nhidden, Nout = self.shape[-2:]
-        putils.reset_neuron_synapse_state(self._device, Nhidden, Nout)
+        putils.reset_neuron_synapse_state(self._device, self._config, Nhidden, Nout)
 
     def _evolve_record(self, input: np.ndarray) -> (np.ndarray, dict, dict):
         """
@@ -424,9 +426,83 @@ class PollenSamna(Module):
         return np.array(output_ts)[:, : self.shape[-1]], {}, {}
 
     def evolve(
-        self, input: np.ndarray, record: bool = False, *args, **kwargs
+        self,
+        input: np.ndarray,
+        record: bool = False,
+        read_timeout: float = 1.0,
+        *args,
+        **kwargs,
     ) -> (np.ndarray, dict, dict):
+        # - Get the network size
+        Nhidden, Nout = self.shape[-2:]
+
+        # - Configure Pollen for accel-time mode
+        monitor_neurons = Nhidden if record else None
+        putils.select_accel_time_mode(self._device, self._config, monitor_neurons)
+
+        # - Get current timestamp (always starts from zero when enabling "accelerated time" mode,
+        #          but need to manually toggle this flag)
+        start_timestep = 0
+
+        # - Encode input and readout events
+        input_events_list = []
+        for timestep, input_data in enumerate(input):
+            # - Generate input events
+            has_input = False
+            for channel, channel_events in enumerate(input_data):
+                for _ in range(channel_events):
+                    has_input = True
+                    event = samna.pollen.event.Spike()
+                    event.neuron = channel
+                    event.timestamp = start_timestep + timestep
+                    input_events_list.append(event)
+
+        # - Add an extra event to ensure readout for entire input extent
+        event = samna.pollen.event.Spike()
+        event.timestamp = np.shape(input)[0]
+        input_events_list.append(event)
+
+        # - Clear the input event count register to make sure the dummy event is ignored
+        for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
+            event = samna.pollen.event.WriteRegisterValue()
+            event.address = addr
+            input_events_list.append(event)
+
+        # - Wait until Pollen is ready
+        putils.is_pollen_ready(self._device, self._event_buffer)
+
+        # - Clear the read buffer
+        self._event_buffer.get_buf()
+
+        # - Write the events and trigger the simulation
+        self._device.get_io_module().write(input_events_list)
+
+        # - Read the simulation output events
+        read_events = putils.blocking_read(
+            self._event_buffer,
+            target_timestamp=np.shape(input)[0],
+            timeout=read_timeout,
+        )
+
+        # - Decode the simulation output events
+        pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
+
         if record:
-            return self._evolve_record(input)
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "Vmem": np.array(pollen_data.V_mem_hid),
+                "Isyn": np.array(pollen_data.I_syn_hid),
+                "Isyn2": np.array(pollen_data.I_syn2_hid),
+                "Spikes": np.array(pollen_data.Spikes_hid),
+                "Vmem_out": np.array(pollen_data.V_mem_out),
+                "Isyn_out": np.array(pollen_data.I_syn_out),
+                "times": times,
+            }
         else:
-            return self._evolve_no_record(input)
+            rec_dict = {}
+
+        # - This module accepts no state
+        new_state = {}
+
+        # - Return spike output, new state and record dictionary
+        return pollen_data.Spikes_out, new_state, rec_dict

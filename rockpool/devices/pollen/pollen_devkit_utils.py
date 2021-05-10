@@ -1,5 +1,12 @@
 """
-Utilities for working with the Pollen HDK
+Utilities for working with the Pollen HDK.
+
+Ideally you should not need to use these utility functions. You should try using :py:class:`.PollenSamna` and :py:class:`.PollenCim` for high-level interfaces to Pollen.
+
+See Also:
+    
+    The tutorials in :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb`.
+
 """
 
 # - Check that Samna is installed
@@ -19,7 +26,7 @@ import time
 import numpy as np
 import copy
 
-from typing import Any, List, Iterable, Optional, NamedTuple, Union
+from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 PollenDaughterBoard = Any
 SamnaDeviceNode = Any
@@ -133,38 +140,63 @@ def new_pollen_output_buffer(
 def blocking_read(
     buffer: PollenReadBuffer,
     count: Optional[int] = None,
+    target_timestamp: Optional[int] = None,
     timeout: Optional[float] = None,
 ) -> List:
     """
-    Perform a blocking read on a buffer, optionally waiting for a certain count
+    Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
     Args:
         buffer (PollenReadBuffer): A buffer to read from
         count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
-        timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout.
+        target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
+        timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
 
     Returns: List: A list of read events
     """
-    # all_events = []
+    all_events = []
 
-    if timeout is not None:
-        timeout = int(timeout * 1e3)
-
-    if count is None:
-        return buffer.get_events_blocking(timeout)
-    else:
-        return buffer.get_n_events(count, timeout)
-
-    # # - Read at least a certain number of events
-    # is_timeout = False
-    # start_time = time.time()
-    # while len(all_events) < count and not is_timeout:
-    #     events = buffer.get_buf()
-    #     all_events.extend(events)
-    #     if timeout is not None:
-    #         is_timeout = (time.time() - start_time) > timeout
+    # if timeout is not None:
+    #     timeout = int(timeout * 1e3)
     #
-    # return all_events
+    # if count is None:
+    #     return buffer.get_events_blocking(timeout)
+    # else:
+    #     return buffer.get_n_events(count, timeout)
+
+    # - Read at least a certain number of events
+    continue_read = True
+    start_time = time.time()
+    while continue_read:
+        # - Perform a read and save events
+        events = buffer.get_buf()
+        all_events.extend(events)
+
+        # - Check if we reached the desired timestamp
+        if target_timestamp:
+            timestamps = [
+                e.timestamp
+                for e in events
+                if hasattr(e, "timestamp") and e.timestamp is not None
+            ]
+
+            if timestamps:
+                reached_timestamp = timestamps[-1] >= target_timestamp
+                continue_read &= ~reached_timestamp
+
+        # - Check timeout
+        if timeout:
+            continue_read &= (time.time() - start_time) <= timeout
+
+        # - Check number of events read
+        if count:
+            continue_read &= len(all_events) < count
+
+    # - Perform one final read for good measure
+    all_events.extend(buffer.get_buf())
+
+    # - Return read events
+    return all_events
 
 
 def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
@@ -248,7 +280,7 @@ def read_register(
     events = blocking_read(buffer, count=1, timeout=1.0)
 
     # - Filter returned events for the desired address
-    ev_filt = [e for e in events if e.address == address]
+    ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
 
     # - If we didn't get the required register read, try again by recursion
     if ev_filt == []:
@@ -294,7 +326,7 @@ def read_memory(
     daughterboard.get_io_module().write(read_events_list)
 
     # - Read data
-    events = blocking_read(buffer, count + 1)
+    events = blocking_read(buffer, count=count + 1)
 
     # - Filter returned events for the desired addresses
     return [
@@ -308,6 +340,21 @@ def generate_read_memory_events(
     start_address: int,
     count: int = 1,
 ) -> List[Any]:
+    """
+    Build a list of events that cause Pollen memory to be read
+
+    This function is designed to be used with `decode_memory_read_events`.
+
+    See Also:
+        Use the `read_memory` function for a more convenient high-level API.
+
+    Args:
+        start_address (int): The starting address of the memory read
+        count (int): The number of memory elements to read. Default: ``1``, read a single memory address.
+
+    Returns:
+        List: A list of events to send to a Pollen HDK
+    """
     # - Set up a memory read
     read_events_list = []
 
@@ -329,6 +376,22 @@ def decode_memory_read_events(
     start_address: int,
     count: int = 1,
 ) -> List[int]:
+    """
+    Decode a list of events containing memory reads from a Pollen HDK
+
+    This is a low-level function designed to be used in conjuction with `.generate_read_memory_events`.
+
+    See Also:
+        Use the `read_memory` function for a more convenient high-level API.
+
+    Args:
+        events (List): A list of events read from a Pollen HDK
+        start_address (int): The starting address for the memory read
+        count (int): The number of contiguous memory elements that were read
+
+    Returns:
+
+    """
     # - Initialise returned data list
     return_data = [[]] * count
 
@@ -460,10 +523,23 @@ def reset_neuron_synapse_state(
     # - `get_configuration()` is not yet compatible with `apply_configuration()`
     # # config = daughterboard.get_model().get_configuration()
 
-    reset_flag = config.clear_neuron_state
-    config.clear_neuron_state = True
+    # - Resetting via configuration doesn't yet work
+    reset_flag = config.clear_network_state
+    config.clear_network_state = True
     apply_configuration(daughterboard, config)
-    config.clear_neuron_state = reset_flag
+    config.clear_network_state = reset_flag
+
+    # # - Reset by zeroing memory
+    # memory_table = {
+    #     "nmpram": 0x85D8,
+    #     "nscram": 0x7E00,
+    #     "rsc2ram": 0x81F0,
+    #     "rspkram": 0xA150,
+    # }
+    # write_memory(daughterboard, memory_table["nmpram"], Nhidden + Nout)
+    # write_memory(daughterboard, memory_table["nscram"], Nhidden + Nout)
+    # write_memory(daughterboard, memory_table["rsc2ram"], Nhidden)
+    # write_memory(daughterboard, memory_table["rspkram"], Nhidden)
 
 
 def apply_configuration(
@@ -476,7 +552,7 @@ def apply_configuration(
         daughterboard (PollenDaughterboard): The Pollen HDK to write the configuration to
         config (PollenConfiguration): A configuration for Pollen
     """
-    # - Ideal -- just write teh configuration using samna
+    # - Ideal -- just write the configuration using samna
     daughterboard.get_model().apply_configuration(config)
 
     # - Needed because first configuration event is incorrect
@@ -500,7 +576,7 @@ def read_neuron_synapse_state(
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Defualt: ``8`` (all neurons).
 
-    Returns: :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``
+    Returns: :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
 
     """
     # - Define the memory bank addresses
@@ -537,44 +613,9 @@ def read_neuron_synapse_state(
     )
 
 
-def generate_neuron_synapse_state_read_events(
-    Nhidden: int = 1000,
-    Nout: int = 8,
-) -> List[Any]:
-    # - Define the memory bank addresses
-    memory_table = {
-        "nscram": 0x7E00,
-        "rsc2ram": 0x81F0,
-        "nmpram": 0x85D8,
-        "rspkram": 0xA150,
-    }
-
-    # - Initialise the events list
-    read_events = []
-
-    # - Read synaptic currents
-    read_events.extend(
-        generate_read_memory_events(memory_table["nscram"], Nhidden + Nout)
-    )
-
-    # - Read synaptic currents 2
-    read_events.extend(generate_read_memory_events(memory_table["rsc2ram"], Nhidden))
-
-    # - Read membrane potential
-    read_events.extend(
-        generate_read_memory_events(memory_table["nmpram"], Nhidden + Nout)
-    )
-
-    # - Read reservoir spikes
-    read_events.extend(generate_read_memory_events(memory_table["rspkram"], Nhidden))
-
-    # - Return the state
-    return read_events
-
-
 def decode_accel_mode_data(
     events: List[Any], Nhidden: int = 1000, Nout: int = 8
-) -> PollenState:
+) -> Tuple[PollenState, np.ndarray]:
     """
     Decode events from accelerated-time operation of the Pollen HDK
 
@@ -583,12 +624,15 @@ def decode_accel_mode_data(
 
         This function must be called with the *full* list of events from a simulation. Otherwise the data returned will be incomplete. This function will not operate as expected if provided with incomplete data.
 
+        You can use the ``target_timstamp`` argument to `.blocking_read` to ensure that you have read events up to the desired final timestep.
+
     Args:
         events (List[Any]): A list of events produced during an accelerated-mode simulation on a Pollen HDK
         Nhidden (int): The number of defined hidden-layer neurons. Default: ``1000``, expect to read the state of every neuron.
         Nout (int): The number of defined output-layer neurons. Default: ``8``, expect to read the state of every neuron.
 
-    Returns: `.PollenState`: A `.NamedTuple` containing the decoded state resulting from the simulation
+    Returns:
+        (`.PollenState`, np.ndarray): A `.NamedTuple` containing the decoded state resulting from the simulation, and an array of timestamps for each state entry over time
     """
     # - Define the memory banks
     memory_table = {
@@ -604,16 +648,15 @@ def decode_accel_mode_data(
     )
 
     # - Initialise return data lists
-    vmem_ts = [np.zeros(Nhidden + Nout, "int16")]
-    vmem_out_ts = [np.zeros(8, "int16")]
-    isyn_ts = [np.zeros(Nhidden + Nout, "int16")]
-    isyn2_ts = [np.zeros(Nhidden, "int16")]
-    spikes_ts = [np.zeros(Nhidden, "bool")]
-    spikes_out_ts = [np.zeros(Nout, "bool")]
+    vmem_ts = []
+    vmem_out_ts = []
+    isyn_ts = []
+    isyn2_ts = []
+    spikes_ts = []
+    spikes_out_ts = []
+    times = []
 
-    # - Start from timestep zero
-    timestep = 0
-
+    # - Loop over events and decode
     for e in events:
         # - Handle the readout event, which signals the *end* of a time step
         if isinstance(e, samna.pollen.event.Readout):
@@ -621,7 +664,7 @@ def decode_accel_mode_data(
             vmem_out_ts.append(e.neuron_values)
 
             # - Advance the timestep counter
-            timestep += 1
+            timestep = e.timestamp
 
             # - Append new empty arrays
             vmem_ts.append(np.zeros(Nhidden + Nout, "int16"))
@@ -629,12 +672,12 @@ def decode_accel_mode_data(
             isyn2_ts.append(np.zeros(Nhidden, "int16"))
             spikes_ts.append(np.zeros(Nhidden, "bool"))
             spikes_out_ts.append(np.zeros(Nout, "bool"))
+            times.append(timestep)
 
         # - Handle an output spike event
         if isinstance(e, samna.pollen.event.Spike):
-            print("Spike:", "t:", e.timestamp, "n:", e.neuron, "time:", timestep)
             # - Save this output event
-            spikes_out_ts[e.timestamp - 1][e.neuron] = True
+            spikes_out_ts[e.timestamp - 1][e.neuron_id] = True
 
         # - Handle a memory value read event
         if isinstance(e, samna.pollen.event.MemoryValue):
@@ -648,7 +691,6 @@ def decode_accel_mode_data(
             # - Store the returned values
             if memory_block:
                 if "nmpram" in memory_block:
-                    print(e.address - memory_table["nmpram"][0], e.data)
                     # - Neuron membrane potentials
                     vmem_ts[-1][e.address - memory_table["nmpram"][0]] = e.data
 
@@ -671,13 +713,7 @@ def decode_accel_mode_data(
     isyn2_ts = np.array(isyn2_ts, "int16")
     spikes_ts = np.array(spikes_ts, "bool")
     spikes_out_ts = np.array(spikes_out_ts, "bool")
-
-    print(vmem_ts[:10, :])
-    print(vmem_out_ts[:10, :])
-    print(isyn_ts[:10, :])
-    print(isyn2_ts[:10, :])
-    print(spikes_ts[:10, :])
-    print(spikes_out_ts[:10, :])
+    times = np.array(times)
 
     # - Extract output state and trim reservoir state
     isyn_out_ts = isyn_ts[:, -Nout]
@@ -685,16 +721,19 @@ def decode_accel_mode_data(
     vmem_out_ts = vmem_out_ts[:, :Nout]
     vmem_ts = vmem_ts[:, :Nhidden]
 
-    return PollenState(
-        Nhidden,
-        Nout,
-        vmem_ts,
-        isyn_ts,
-        vmem_out_ts,
-        isyn_out_ts,
-        isyn2_ts,
-        spikes_ts,
-        spikes_out_ts,
+    return (
+        PollenState(
+            Nhidden,
+            Nout,
+            vmem_ts,
+            isyn_ts,
+            vmem_out_ts,
+            isyn_out_ts,
+            isyn2_ts,
+            spikes_ts,
+            spikes_out_ts,
+        ),
+        times,
     )
 
 
@@ -875,4 +914,19 @@ def select_accel_time_mode(
         )
 
     # - Write the configuration
+    apply_configuration(daughterboard, config)
+
+
+def select_single_step_time_mode(
+    daughterboard: PollenDaughterBoard, config: PollenConfiguration
+) -> None:
+    """
+    Switch on single-step model on a Pollen daughterboard
+
+    Args:
+        daughterboard (PollenBaughterBoard): The Pollen HDK to configure
+        config (PollenConfiguration): The desired Pollen configuration to use
+    """
+    # - Write the configuration
+    config.operation_mode = samna.pollen.OperationMode.Manual
     apply_configuration(daughterboard, config)
