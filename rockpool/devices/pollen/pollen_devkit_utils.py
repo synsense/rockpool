@@ -523,23 +523,11 @@ def reset_neuron_synapse_state(
     # - `get_configuration()` is not yet compatible with `apply_configuration()`
     # # config = daughterboard.get_model().get_configuration()
 
-    # - Resetting via configuration doesn't yet work
+    # - Reset via configuration
     reset_flag = config.clear_network_state
     config.clear_network_state = True
     apply_configuration(daughterboard, config)
     config.clear_network_state = reset_flag
-
-    # # - Reset by zeroing memory
-    # memory_table = {
-    #     "nmpram": 0x85D8,
-    #     "nscram": 0x7E00,
-    #     "rsc2ram": 0x81F0,
-    #     "rspkram": 0xA150,
-    # }
-    # write_memory(daughterboard, memory_table["nmpram"], Nhidden + Nout)
-    # write_memory(daughterboard, memory_table["nscram"], Nhidden + Nout)
-    # write_memory(daughterboard, memory_table["rsc2ram"], Nhidden)
-    # write_memory(daughterboard, memory_table["rspkram"], Nhidden)
 
 
 def apply_configuration(
