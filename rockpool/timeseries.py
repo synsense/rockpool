@@ -1154,6 +1154,25 @@ class TSContinuous(TimeSeries):
         resampled_series._create_interpolator()
         return resampled_series
 
+    def to_clocked(self, dt: float,) -> np.ndarray:
+        """
+        Resample this time series to a synchronous clock and return the samples
+
+        This method will generate a time base that begins at :py:attr:`.t_start` and extends to at least :py:attr:`.t_stop`, sampled on a clock defined by ``dt``. The time series will be resampled to that time base, using the defined interpolation method, and the clocked samples will be returned as a raster.
+        
+        Args:
+            dt (float): The desired clock time step, in seconds
+
+        Returns:
+            np.ndarray: The samples from the clocked time series
+        """
+        # - Build a time base that spans the extend of the time series
+        num_samples = np.ceil((self.t_stop - self.t_start) / dt)
+        time_base = np.arange(num_samples) * dt + self.t_start
+
+        # - Resample the time series to the supplied time base and return
+        return self.resample(time_base).samples
+
     ## -- Methods for combining time series
 
     def merge(
