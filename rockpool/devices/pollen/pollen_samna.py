@@ -33,6 +33,9 @@ import numpy as np
 # - Typing
 from typing import Optional, Union
 
+from warnings import warn
+
+
 # - JSON
 import json
 
@@ -95,6 +98,10 @@ def config_from_specification(
     Nin, Nin_res, _ = weights_in.shape
     Nhidden, Nout = weights_out.shape
 
+    # - Check input and hidden weight sizes
+    if Nin_res > Nhidden:
+        raise ValueError("Input weight dimension `Nin_res` must be <= `Nhidden`")
+
     # - Provide default `weights_rec`
     weights_rec = (
         np.zeros((Nhidden, Nhidden, 2), "int") if weights_rec is None else weights_rec
@@ -150,6 +157,24 @@ def config_from_specification(
     if threshold_out.size != Nout:
         raise ValueError(f"`thresholds_out` needs `Nout` entries (`Nout` = {Nout})")
 
+    # - Check data types
+    if weights_in.dtype != "int" or weights_rec.dtype != "int" or weights_out != "int":
+        warn(
+            "`weights...` arguments should be provided as `int` data types. I am casting these to `int`."
+        )
+
+    if (
+        threshold.dtype != "int"
+        or dash_syn.dtype != "int"
+        or dash_syn_2 != "int"
+        or dash_syn_out.dtype != "int"
+        or dash_mem.dtype != "int"
+        or dash_mem_out.dtype != "int"
+    ):
+        warn(
+            "Neuron and synapse parameter arguments should be provided as `int` data types. I am casting these to `int`."
+        )
+
     # - Build the configuration
     config = PollenConfiguration()
     config.debug.clock_enable = True
@@ -159,21 +184,21 @@ def config_from_specification(
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
 
-    config.input.weights = weights_in[:, :, 0]
-    config.input.syn2_weights = weights_in[:, :, 1]
-    config.reservoir.weights = weights_rec[:, :, 0]
-    config.reservoir.syn2_weights = weights_rec[:, :, 1]
-    config.readout.weights = weights_out
+    config.input.weights = weights_in[:, :, 0].astype("int")
+    config.input.syn2_weights = weights_in[:, :, 1].astype("int")
+    config.reservoir.weights = weights_rec[:, :, 0].astype("int")
+    config.reservoir.syn2_weights = weights_rec[:, :, 1].astype("int")
+    config.readout.weights = weights_out.astype("int")
 
     reservoir_neurons = []
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
         if aliases is not None and len(aliases[i]) > 0:
-            neuron.alias_target = aliases[i][0]
-        neuron.i_syn_decay = dash_syn[i]
-        neuron.i_syn2_decay = dash_syn_2[i]
-        neuron.v_mem_decay = dash_mem[i]
-        neuron.threshold = threshold[i]
+            neuron.alias_target = aliases[i][0].astype("int")
+        neuron.i_syn_decay = dash_syn[i].astype("int")
+        neuron.i_syn2_decay = dash_syn_2[i].astype("int")
+        neuron.v_mem_decay = dash_mem[i].astype("int")
+        neuron.threshold = threshold[i].astype("int")
         reservoir_neurons.append(neuron)
 
     config.reservoir.neurons = reservoir_neurons
@@ -181,9 +206,9 @@ def config_from_specification(
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
         neuron = OutputNeuron()
-        neuron.i_syn_decay = dash_syn_out[i]
-        neuron.v_mem_decay = dash_mem_out[i]
-        neuron.threshold = threshold_out[i]
+        neuron.i_syn_decay = dash_syn_out[i].astype("int")
+        neuron.v_mem_decay = dash_mem_out[i].astype("int")
+        neuron.threshold = threshold_out[i].astype("int")
         readout_neurons.append(neuron)
 
     config.readout.neurons = readout_neurons
