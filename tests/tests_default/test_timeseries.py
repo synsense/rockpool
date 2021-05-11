@@ -146,6 +146,10 @@ def test_continuous_methods():
     # - Resample
     ts2 = ts1.resample([0.1, 1.1, 1.9])
 
+    # - To clocked
+    ts1.to_clocked(10e-3)
+    ts1.to_clocked(1e-3)
+
     # - Merge
     ts1 = TSContinuous([0, 1, 2], [0, 1, 2])
     ts2 = TSContinuous([0, 1, 2], [1, 2, 3])
