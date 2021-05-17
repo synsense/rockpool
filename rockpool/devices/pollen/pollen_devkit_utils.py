@@ -169,7 +169,7 @@ def blocking_read(
     start_time = time.time()
     while continue_read:
         # - Perform a read and save events
-        events = buffer.get_buf()
+        events = buffer.get_events()
         all_events.extend(events)
 
         # - Check if we reached the desired timestamp
@@ -193,7 +193,7 @@ def blocking_read(
             continue_read &= len(all_events) < count
 
     # - Perform one final read for good measure
-    all_events.extend(buffer.get_buf())
+    all_events.extend(buffer.get_events())
 
     # - Return read events
     return all_events
@@ -320,7 +320,7 @@ def read_memory(
         read_events_list.append(rmv_ev)
 
     # - Clear buffer
-    buffer.get_buf()
+    buffer.get_events()
 
     # - Request read
     daughterboard.get_io_module().write(read_events_list)
