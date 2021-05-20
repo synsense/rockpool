@@ -35,6 +35,7 @@ from typing import Optional, Union
 
 from warnings import warn
 
+import time
 
 # - JSON
 import json
@@ -333,12 +334,13 @@ class PollenSamna(Module):
         # - Reset neuron and synapse state on Pollen
         Nhidden, Nout = self.shape[-2:]
         putils.reset_neuron_synapse_state(self._device, self._config, Nhidden, Nout)
+        return self
 
     def evolve(
         self,
         input: np.ndarray,
         record: bool = False,
-        read_timeout: float = 1.0,
+        read_timeout: float = 10.0,
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
@@ -381,15 +383,16 @@ class PollenSamna(Module):
         putils.is_pollen_ready(self._device, self._event_buffer)
 
         # - Clear the read buffer
-        self._event_buffer.get_buf()
+        self._event_buffer.get_events()
 
         # - Write the events and trigger the simulation
+        time_start = time.time()
         self._device.get_io_module().write(input_events_list)
 
         # - Read the simulation output events
         read_events = putils.blocking_read(
             self._event_buffer,
-            target_timestamp=np.shape(input)[0],
+            target_timestamp=np.shape(input)[0] - 1,
             timeout=read_timeout,
         )
 

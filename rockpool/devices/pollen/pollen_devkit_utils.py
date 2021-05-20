@@ -636,32 +636,16 @@ def decode_accel_mode_data(
     )
 
     # - Initialise return data lists
-    vmem_ts = []
     vmem_out_ts = []
-    isyn_ts = []
-    isyn2_ts = []
-    spikes_ts = []
-    spikes_out_ts = []
     times = []
+    vmem_ts = [np.zeros(Nhidden + Nout, "int16")]
+    isyn_ts = [np.zeros(Nhidden + Nout, "int16")]
+    isyn2_ts = [np.zeros(Nhidden, "int16")]
+    spikes_ts = [np.zeros(Nhidden, "bool")]
+    spikes_out_ts = [np.zeros(Nout, "bool")]
 
     # - Loop over events and decode
     for e in events:
-        # - Handle the readout event, which signals the *end* of a time step
-        if isinstance(e, samna.pollen.event.Readout):
-            # - Save the output neuron state
-            vmem_out_ts.append(e.neuron_values)
-
-            # - Advance the timestep counter
-            timestep = e.timestamp
-
-            # - Append new empty arrays
-            vmem_ts.append(np.zeros(Nhidden + Nout, "int16"))
-            isyn_ts.append(np.zeros(Nhidden + Nout, "int16"))
-            isyn2_ts.append(np.zeros(Nhidden, "int16"))
-            spikes_ts.append(np.zeros(Nhidden, "bool"))
-            spikes_out_ts.append(np.zeros(Nout, "bool"))
-            times.append(timestep)
-
         # - Handle an output spike event
         if isinstance(e, samna.pollen.event.Spike):
             # - Save this output event
@@ -694,14 +678,32 @@ def decode_accel_mode_data(
                     # - Reservoir spike events
                     spikes_ts[-1][e.address - memory_table["rspkram"][0]] = e.data
 
+        # - Handle the readout event, which signals the *end* of a time step
+        if isinstance(e, samna.pollen.event.Readout):
+            # - Save the output neuron state
+            vmem_out_ts.append(e.neuron_values)
+
+            # - Advance the timestep counter
+            timestep = e.timestamp
+            times.append(timestep)
+
+            # - Append new empty arrays to state lists
+            vmem_ts.append(np.zeros(Nhidden + Nout, "int16"))
+            isyn_ts.append(np.zeros(Nhidden + Nout, "int16"))
+            isyn2_ts.append(np.zeros(Nhidden, "int16"))
+            spikes_ts.append(np.zeros(Nhidden, "bool"))
+            spikes_out_ts.append(np.zeros(Nout, "bool"))
+
     # - Convert data to numpy arrays
-    vmem_ts = np.array(vmem_ts, "int16")
     vmem_out_ts = np.array(vmem_out_ts, "int16")
-    isyn_ts = np.array(isyn_ts, "int16")
-    isyn2_ts = np.array(isyn2_ts, "int16")
-    spikes_ts = np.array(spikes_ts, "bool")
-    spikes_out_ts = np.array(spikes_out_ts, "bool")
     times = np.array(times)
+
+    # - Trim arrays that end up with one too many elements
+    vmem_ts = np.array(vmem_ts[:-1], "int16")
+    isyn_ts = np.array(isyn_ts[:-1], "int16")
+    isyn2_ts = np.array(isyn2_ts[:-1], "int16")
+    spikes_ts = np.array(spikes_ts[:-1], "bool")
+    spikes_out_ts = np.array(spikes_out_ts[:-1], "bool")
 
     # - Extract output state and trim reservoir state
     isyn_out_ts = isyn_ts[:, -Nout]
