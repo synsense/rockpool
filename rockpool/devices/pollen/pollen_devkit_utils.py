@@ -924,14 +924,14 @@ def select_single_step_time_mode(
     apply_configuration(daughterboard, config)
 
 
-def export_pollen_rams(
+def export_config_state(
     dirname: Union[str, Path],
     config: PollenConfiguration,
     state: PollenState = None,
     input_sp: np.ndarray = None,
 ) -> None:
     """
-    Dump configuration, input and state as ram dumps for comparison with hardware
+    Dump SW configuration, input and state as ram dumps for comparison with hardware
 
     Args:
         dirname (str): The path to a directory in which to place ram files
