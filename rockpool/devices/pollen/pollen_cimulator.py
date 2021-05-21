@@ -13,6 +13,8 @@ if util.find_spec("cimulator") is None:
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool import TSContinuous, TSEvent
+
 
 # - Import Cimulator
 from cimulator.pollen import Synapse, PollenLayer
@@ -286,3 +288,25 @@ class PollenCim(Module):
         """ Reset the state of this module. """
         self._pollen_layer.reset_all()
         return self
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "Vmem": TSContinuous.from_clocked(
+                state_dict["Vmem"], name="$V_{mem}$", **args
+            ),
+            "Isyn": TSContinuous.from_clocked(
+                state_dict["Isyn"], name="$I_{syn}$", **args
+            ),
+            "Isyn2": TSContinuous.from_clocked(
+                state_dict["Isyn2"], name="$I_{syn,2}$", **args
+            ),
+            "Spikes": TSEvent.from_raster(state_dict["Spikes"], name="Spikes", **args),
+            "Vmem_out": TSContinuous.from_clocked(
+                state_dict["Vmem_out"], name="$V_{mem,out}$", **args
+            ),
+            "Isyn_out": TSContinuous.from_clocked(
+                state_dict["Isyn_out"], name="$I_{syn,out}$", **args
+            ),
+        }

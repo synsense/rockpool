@@ -24,7 +24,9 @@ from warnings import warn
 import time
 
 import numpy as np
-import copy
+from pathlib import Path
+from os import makedirs
+import json
 
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
@@ -920,3 +922,210 @@ def select_single_step_time_mode(
     # - Write the configuration
     config.operation_mode = samna.pollen.OperationMode.Manual
     apply_configuration(daughterboard, config)
+
+
+def export_pollen_rams(
+    dirname: Union[str, Path],
+    config: PollenConfiguration,
+    state: PollenState = None,
+    input_sp: np.ndarray = None,
+) -> None:
+    """
+    Dump configuration, input and state as ram dumps for comparison with hardware
+
+    Args:
+        dirname (str): The path to a directory in which to place ram files
+        config (PollenConfiguration): The network configuration to dump
+        state (PollenState): A recorded state to dump
+        input_sp (np.ndarray): A boolean array ``(T, Nin)`` containing an input raster to dump
+    """
+    # - Convert directory to a Path
+    dirname = Path(dirname)
+    if not dirname.exists():
+        makedirs(dirname)
+
+    # - Get information about the network
+    Nin = np.shape(config.input.weights)[0]
+    Nhidden = len(config.reservoir.neurons)
+    Nout = len(config.readout.neurons)
+    T = np.shape(np.atleast_2d(state.I_syn_hid))[0] if state else None
+
+    # - Define helper functions to write out memories
+    def to_hex(n: int, digits: int) -> str:
+        """ Output a consistent-length hex encoding """
+        return "0x%s" % ("0000%x" % (n & 0xFFFFFFFF))[-digits:]
+
+    def combine_state(
+        hidden: Union[List, np.ndarray], out: Union[List, np.ndarray]
+    ) -> np.ndarray:
+        """ Combine a hidden and output state into one block"""
+        data = np.zeros((T, Nhidden + Nout), dtype=int)
+        data[:, :Nhidden] = hidden
+        data[:, Nhidden:] = out
+        return data
+
+    def write_dense_block(
+        data: Union[List, np.ndarray], ram_name: str, field_width: int
+    ):
+        """ Write a dense weight block """
+        data = np.atleast_2d(data)
+        with open(dirname / f"{ram_name}.ini", "w+") as f:
+            for pre, line in enumerate(data):
+                for post, weight in enumerate(line):
+                    f.write(to_hex(weight, field_width))
+                    f.write("\n")
+
+    def write_sparse_weight(data: np.ndarray, syn_index: int, ram_name: str):
+        """ Write out a sparse weight block """
+        with open(dirname / f"{ram_name}.ini", "w+") as f:
+            for pre, line in enumerate(data):
+                for syns in line:
+                    if np.any(syns != 0):
+                        f.write(to_hex(syns[syn_index], 2))
+                        f.write("\n")
+
+    def write_sparse_targets(data: np.ndarray, ram_name: str):
+        """ Write out the targets for a sparse weight block """
+        with open(dirname / f"{ram_name}.ini", "w+") as f:
+            for pre, line in enumerate(data):
+                for post, syns in enumerate(line):
+                    if np.any(syns != 0):
+                        f.write(to_hex(post, 3))
+                        f.write("\n")
+
+    def write_sparse_fanout(data: np.ndarray, ram_name: str):
+        """ Write out the fanout count for a sparse weight block """
+        with open(dirname / f"{ram_name}.ini", "w+") as f:
+            for pre, line in enumerate(data):
+                count = 0
+                for post, syns in enumerate(line):
+                    if np.any(syns != 0):
+                        count += 1
+                f.write(to_hex(count, 2))
+                f.write("\n")
+
+    def write_time_series(data: np.ndarray, name: str):
+        """ Write a time series of data"""
+        for t, vals in enumerate(data):
+            with open(dirname / f"{name}_{t}.txt", "w+") as f:
+                for i_neur, val in enumerate(vals):
+                    f.write(to_hex(val, 4))
+                    f.write("\n")
+
+    # -- Write out configuration
+
+    # - IWTRAM
+    write_dense_block(config.input.weights, "iwtram", 2)
+
+    # - IWT2RAM
+    write_dense_block(config.input.syn2_weights, "iwt2ram", 2)
+
+    # - RWTRAM and RWT2RAM
+    write_sparse_weight(config.reservoir.weights, 0, "rwtram")
+    write_sparse_weight(config.reservoir.weights, 1, "rwt2ram")
+
+    # - RFORAM
+    write_sparse_targets(config.reservoir.weights, "rforam")
+
+    # - REFOCRAM
+    write_sparse_fanout(config.reservoir.weights, "refocram")
+
+    # - OWTRAM
+    write_dense_block(config.readout.weights, "owtram", 2)
+
+    # - NDMRAM
+    write_dense_block(
+        [n.v_mem_decay for n in config.reservoir.neurons]
+        + [n.v_mem_decay for n in config.readout.neurons],
+        "ndmram",
+        1,
+    )
+
+    # - NDSRAM
+    write_dense_block(
+        [n.i_syn_decay for n in config.reservoir.neurons]
+        + [n.i_syn_decay for n in config.readout.neurons],
+        "ndsram",
+        1,
+    )
+
+    # - NDS2RAM
+    write_dense_block([n.i_syn2_decay for n in config.reservoir.neurons], "nds2ram", 1)
+
+    # - NTHRAM
+    write_dense_block([n.threshold for n in config.reservoir.neurons], "nthram", 4)
+
+    # - RARAM and RCRAM NOT IMPLEMENTED
+
+    # -- Write out input spikes
+    if input_sp:
+        path_spki = dirname / "spk_in"
+        if not path_spki.exists():
+            makedirs(path_spki)
+
+        with open(path_spki / "inp_spks.txt", "w+") as f:
+            idle = -1
+            for t, chans in enumerate(input_sp):
+                idle += 1
+                if not np.all(chans == 0):
+                    f.write(f"// time step {t}\n")
+                    if idle > 0:
+                        f.write(f"idle {idle}\n")
+                    idle = 0
+                    for chan, num_spikes in enumerate(chans):
+                        for _ in range(num_spikes):
+                            f.write(f"wr IN{to_hex(chan, 1)}\n")
+
+    # -- Write out state
+    if state:
+        # - RSPKRAM
+        write_time_series(np.atleast_2d(state.Spikes_hid), "rspkram")
+
+        # - OSPKRAM
+        write_time_series(np.atleast_2d(state.Spikes_out), "ospkram")
+
+        # - NSCRAM
+        write_time_series(
+            combine_state(
+                np.atleast_2d(state.I_syn_hid), np.atleast_2d(state.I_syn_out)
+            ),
+            "nscram",
+        )
+
+        # - NSC2RAM
+        write_time_series(np.atleast_2d(state.I_syn2_hid), "nsc2ram")
+
+        # - NMPRAM
+        write_time_series(
+            combine_state(
+                np.atleast_2d(state.V_mem_hid), np.atleast_2d(state.V_mem_out)
+            ),
+            "nmpram",
+        )
+
+    # -- Write out basic configuration
+    with open(dirname / "basic_config.json", "w+") as f:
+        conf = {}
+
+        # number of neurons
+        conf["IN"] = Nin
+        conf["RSN"] = Nhidden
+
+        # determine output size by getting the largest target neuron id
+        conf["ON"] = Nout
+
+        # bit shift values
+        conf["IWBS"] = config.input.weight_bit_shift
+        conf["RWBS"] = config.reservoir.weight_bit_shift
+        conf["OWBS"] = config.readout.weight_bit_shift
+
+        # dt
+        conf["time_resolution_wrap"] = config.time_resolution_wrap
+
+        # number of synapses
+        conf["N_SYNS"] = 2 if config.synapse2_enable else 1
+
+        # aliasing
+        conf["RA"] = config.reservoir.aliasing
+
+        json.dump(conf, f)
