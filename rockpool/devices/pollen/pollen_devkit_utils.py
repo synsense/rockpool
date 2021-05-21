@@ -969,7 +969,7 @@ def export_config_state(
     ):
         """ Write a dense weight block """
         data = np.atleast_2d(data)
-        with open(dirname / f"{ram_name}.ini", "w+") as f:
+        with open(dirname / f"{ram_name}.ini", "w") as f:
             for pre, line in enumerate(data):
                 for post, weight in enumerate(line):
                     f.write(to_hex(weight, field_width))
@@ -977,7 +977,7 @@ def export_config_state(
 
     def write_sparse_weight(data: np.ndarray, syn_index: int, ram_name: str):
         """ Write out a sparse weight block """
-        with open(dirname / f"{ram_name}.ini", "w+") as f:
+        with open(dirname / f"{ram_name}.ini", "w") as f:
             for pre, line in enumerate(data):
                 for syns in line:
                     if np.any(syns != 0):
@@ -986,7 +986,7 @@ def export_config_state(
 
     def write_sparse_targets(data: np.ndarray, ram_name: str):
         """ Write out the targets for a sparse weight block """
-        with open(dirname / f"{ram_name}.ini", "w+") as f:
+        with open(dirname / f"{ram_name}.ini", "w") as f:
             for pre, line in enumerate(data):
                 for post, syns in enumerate(line):
                     if np.any(syns != 0):
@@ -995,7 +995,7 @@ def export_config_state(
 
     def write_sparse_fanout(data: np.ndarray, ram_name: str):
         """ Write out the fanout count for a sparse weight block """
-        with open(dirname / f"{ram_name}.ini", "w+") as f:
+        with open(dirname / f"{ram_name}.ini", "w") as f:
             for pre, line in enumerate(data):
                 count = 0
                 for post, syns in enumerate(line):
@@ -1007,7 +1007,7 @@ def export_config_state(
     def write_time_series(data: np.ndarray, name: str):
         """ Write a time series of data"""
         for t, vals in enumerate(data):
-            with open(dirname / f"{name}_{t}.txt", "w+") as f:
+            with open(dirname / f"{name}_{t}.txt", "w") as f:
                 for i_neur, val in enumerate(vals):
                     f.write(to_hex(val, 4))
                     f.write("\n")
