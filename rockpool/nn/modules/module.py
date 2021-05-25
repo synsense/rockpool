@@ -76,7 +76,7 @@ class ModuleBase(ABC):
         if self.modules():
             repr += " {"
             for mod in self.modules().values():
-                repr += "\n" + mod.__repr__(indent=indent + "    ")
+                repr += "\n" + ModuleBase.__repr__(mod, indent=indent + "    ")
 
             repr += f"\n{indent}" + "}"
 
