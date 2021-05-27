@@ -1,5 +1,5 @@
 """
-Implement a LIF Module with bit-shift decay, using a Torch backend 
+Implement a LIF Module with bit-shift decay, using a Torch backend
 """
 
 from importlib import util
@@ -20,7 +20,7 @@ import rockpool.parameters as rp
 
 from typing import Tuple, Any
 
-__all__ = ["LIFLayer"]
+__all__ = ["LIFBitshiftTorch"]
 
 
 class ThresholdSubtract(torch.autograd.Function):
@@ -83,7 +83,7 @@ def calc_bitshift_decay(tau, dt):
     return bitsh
 
 
-class LIFLayer(TorchModule):
+class LIFBitshiftTorch(TorchModule):
     def __init__(
         self,
         n_neurons: int,
