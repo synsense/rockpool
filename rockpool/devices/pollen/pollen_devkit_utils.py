@@ -87,7 +87,11 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
 
     # - Open the devices and start the reader/writer
     for d in unopened_devices:
-        device_node.DeviceController.open_device(d, "board")
+        n = 0
+        try:
+            device_node.DeviceController.open_device(d, f"board{n}")
+        except:
+            pass
         # device_node.board.start_reader_writer()
 
     # - Get a list of opened devices
@@ -546,9 +550,9 @@ def apply_configuration(
     daughterboard.get_model().apply_configuration(config)
 
     # - Needed because first configuration event is incorrect
-    events_list = samna.pollen.pollen_configuration_to_event(config)
-    events_list[0].data |= int(config.synapse2_enable) << 1
-    daughterboard.get_io_module().write(events_list)
+    # events_list = samna.pollen.pollen_configuration_to_event(config)
+    # events_list[0].data |= int(config.synapse2_enable) << 1
+    # daughterboard.get_io_module().write(events_list)
 
 
 def read_neuron_synapse_state(
@@ -578,13 +582,23 @@ def read_neuron_synapse_state(
     }
 
     # - Read synaptic currents
-    Isyn = read_memory(daughterboard, buffer, memory_table["nscram"], Nhidden + Nout)
+    Isyn = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["nscram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
 
     # - Read synaptic currents 2
     Isyn2 = read_memory(daughterboard, buffer, memory_table["rsc2ram"], Nhidden)
 
     # - Read membrane potential
-    Vmem = read_memory(daughterboard, buffer, memory_table["nmpram"], Nhidden + Nout)
+    Vmem = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["nmpram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
 
     # - Read reservoir spikes
     Spikes = read_memory(daughterboard, buffer, memory_table["rspkram"], Nhidden)
@@ -640,8 +654,8 @@ def decode_accel_mode_data(
     # - Initialise return data lists
     vmem_out_ts = []
     times = []
-    vmem_ts = [np.zeros(Nhidden + Nout, "int16")]
-    isyn_ts = [np.zeros(Nhidden + Nout, "int16")]
+    vmem_ts = [np.zeros(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")]
+    isyn_ts = [np.ones(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")]
     isyn2_ts = [np.zeros(Nhidden, "int16")]
     spikes_ts = [np.zeros(Nhidden, "bool")]
     spikes_out_ts = [np.zeros(Nout, "bool")]
@@ -682,16 +696,17 @@ def decode_accel_mode_data(
 
         # - Handle the readout event, which signals the *end* of a time step
         if isinstance(e, samna.pollen.event.Readout):
-            # - Save the output neuron state
-            vmem_out_ts.append(e.neuron_values)
-
             # - Advance the timestep counter
             timestep = e.timestamp
             times.append(timestep)
 
             # - Append new empty arrays to state lists
-            vmem_ts.append(np.zeros(Nhidden + Nout, "int16"))
-            isyn_ts.append(np.zeros(Nhidden + Nout, "int16"))
+            vmem_ts.append(
+                np.zeros(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")
+            )
+            isyn_ts.append(
+                np.ones(Nhidden + Nout + num_buffer_neurons(Nhidden), "int16")
+            )
             isyn2_ts.append(np.zeros(Nhidden, "int16"))
             spikes_ts.append(np.zeros(Nhidden, "bool"))
             spikes_out_ts.append(np.zeros(Nout, "bool"))
@@ -708,9 +723,9 @@ def decode_accel_mode_data(
     spikes_out_ts = np.array(spikes_out_ts[:-1], "bool")
 
     # - Extract output state and trim reservoir state
-    isyn_out_ts = isyn_ts[:, -Nout]
+    isyn_out_ts = isyn_ts[:, -Nout:]
     isyn_ts = isyn_ts[:, :Nhidden]
-    vmem_out_ts = vmem_out_ts[:, :Nout]
+    vmem_out_ts = vmem_ts[:, -Nout:]
     vmem_ts = vmem_ts[:, :Nhidden]
 
     return (
@@ -813,6 +828,7 @@ def print_debug_ram(
     buffer: PollenReadBuffer,
     Nin: int = 10,
     Nhidden: int = 10,
+    Nout: int = 2,
 ) -> None:
     """
     Print memory contents for debugging purposes
@@ -826,26 +842,27 @@ def print_debug_ram(
     print("iwtram", read_memory(daughterboard, buffer, 0x100, Nin * Nhidden))
     print("iwt2ram", read_memory(daughterboard, buffer, 0x3F80, Nin * Nhidden))
 
-    print("nscram", read_memory(daughterboard, buffer, 0x7E00, Nhidden))
+    print("nscram", read_memory(daughterboard, buffer, 0x7E00, Nhidden + Nout))
     print("rsc2ram", read_memory(daughterboard, buffer, 0x81F0, Nhidden))
-    print("nmpram", read_memory(daughterboard, buffer, 0x85D8, Nhidden))
+    print("nmpram", read_memory(daughterboard, buffer, 0x85D8, Nhidden + Nout))
 
-    print("ndsram", read_memory(daughterboard, buffer, 0x89C8, Nhidden))
+    print("ndsram", read_memory(daughterboard, buffer, 0x89C8, Nhidden + Nout))
     print("rds2ram", read_memory(daughterboard, buffer, 0x8DB8, Nhidden))
-    print("ndmram", read_memory(daughterboard, buffer, 0x91A0, Nhidden))
+    print("ndmram", read_memory(daughterboard, buffer, 0x91A0, Nhidden + Nout))
 
-    print("nthram", read_memory(daughterboard, buffer, 0x9590, Nhidden))
-    print("rcram", read_memory(daughterboard, buffer, 0x9980, Nhidden))
-    print("raram", read_memory(daughterboard, buffer, 0x9D68, Nhidden))
+    print("nthram", read_memory(daughterboard, buffer, 0x9590, Nhidden + Nout))
+    print("rcram", read_memory(daughterboard, buffer, 0x9980, Nhidden + Nout))
+    print("raram", read_memory(daughterboard, buffer, 0x9D68, Nhidden + Nout))
 
     print("rspkram", read_memory(daughterboard, buffer, 0xA150, Nhidden))
 
     print("refocram", read_memory(daughterboard, buffer, 0xA538, Nhidden))
     print("rforam", read_memory(daughterboard, buffer, 0xA920, Nhidden))
-    print("rwtram", read_memory(daughterboard, buffer, 0x12620, Nhidden))
 
-    print("rwt2ram", read_memory(daughterboard, buffer, 0x1A320, Nhidden))
-    print("owtram", read_memory(daughterboard, buffer, 0x22020, Nhidden))
+    print("rwtram", read_memory(daughterboard, buffer, 0x12620, Nhidden), "...")
+    print("rwt2ram", read_memory(daughterboard, buffer, 0x1A320, Nhidden), "...")
+
+    print("owtram", read_memory(daughterboard, buffer, 0x22020, Nhidden * Nout))
 
 
 def print_debug_registers(
@@ -869,12 +886,24 @@ def print_debug_registers(
     print("ispkreg01", bin(read_register(daughterboard, buffer, 0x0D)[0]))
     print("ispkreg10", bin(read_register(daughterboard, buffer, 0x0E)[0]))
     print("ispkreg11", bin(read_register(daughterboard, buffer, 0x0F)[0]))
+    print("stat", bin(read_register(daughterboard, buffer, 0x10)[0]))
+    print("int", bin(read_register(daughterboard, buffer, 0x11)[0]))
+    print("omp_stat0", bin(read_register(daughterboard, buffer, 0x12)[0]))
+    print("omp_stat1", bin(read_register(daughterboard, buffer, 0x13)[0]))
+    print("omp_stat2", bin(read_register(daughterboard, buffer, 0x14)[0]))
+    print("omp_stat3", bin(read_register(daughterboard, buffer, 0x15)[0]))
+
+
+def num_buffer_neurons(Nhidden: int) -> int:
+    Nbuffer = 1 if Nhidden % 2 == 1 else 2
+    return Nbuffer
 
 
 def select_accel_time_mode(
     daughterboard: PollenDaughterBoard,
     config: PollenConfiguration,
-    monitor_neurons: Optional[int] = None,
+    monitor_Nhidden: Optional[int] = 0,
+    monitor_Noutput: Optional[int] = 0,
 ) -> None:
     """
     Switch on accelerated-time mode on a Pollen daughterboard, and reset the timestamp clock
@@ -891,18 +920,18 @@ def select_accel_time_mode(
     config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
 
     # - Configure reading out of neuron state during evolution
-    if monitor_neurons is not None:
+    if monitor_Nhidden + monitor_Noutput > 0:
         config.debug.monitor_neuron_i_syn = samna.pollen.configuration.NeuronRange(
-            0, monitor_neurons
+            0, monitor_Nhidden + monitor_Noutput + num_buffer_neurons(monitor_Nhidden)
         )
         config.debug.monitor_neuron_i_syn2 = samna.pollen.configuration.NeuronRange(
-            0, monitor_neurons
+            0, monitor_Nhidden
         )
         config.debug.monitor_neuron_spike = samna.pollen.configuration.NeuronRange(
-            0, monitor_neurons
+            0, monitor_Nhidden
         )
         config.debug.monitor_neuron_v_mem = samna.pollen.configuration.NeuronRange(
-            0, monitor_neurons
+            0, monitor_Nhidden + monitor_Noutput + num_buffer_neurons(monitor_Nhidden)
         )
 
     # - Write the configuration
@@ -925,147 +954,327 @@ def select_single_step_time_mode(
 
 
 def export_config_state(
-    dirname: Union[str, Path],
+    path: Union[str, Path],
     config: PollenConfiguration,
     state: PollenState = None,
-    input_sp: np.ndarray = None,
+    inp_spks: np.ndarray = None,
 ) -> None:
     """
-    Dump SW configuration, input and state as ram dumps for comparison with hardware
-
+    Function for saving a simulation, including network specifications and activities to RAM files for hardware tests.
+    
     Args:
-        dirname (str): The path to a directory in which to place ram files
-        config (PollenConfiguration): The network configuration to dump
-        state (PollenState): A recorded state to dump
-        input_sp (np.ndarray): A boolean array ``(T, Nin)`` containing an input raster to dump
+        path (Union[str, path]): Directory to write data 
+        config (PollenConfiguration): A Pollen configuraiton to export
+        state (PollenState): A Pollen state to export 
+        inp_spks (np.ndarray): A ratser of input spikes to export
     """
-    # - Convert directory to a Path
-    dirname = Path(dirname)
-    if not dirname.exists():
-        makedirs(dirname)
 
-    # - Get information about the network
-    Nin = np.shape(config.input.weights)[0]
-    Nhidden = len(config.reservoir.neurons)
-    Nout = len(config.readout.neurons)
-    T = np.shape(np.atleast_2d(state.I_syn_hid))[0] if state else None
-
-    # - Define helper functions to write out memories
     def to_hex(n: int, digits: int) -> str:
         """ Output a consistent-length hex encoding """
-        return "0x%s" % ("0000%x" % (n & 0xFFFFFFFF))[-digits:]
+        return "%s" % ("0000%x" % (n & 0xFFFFFFFF))[-digits:]
 
-    def combine_state(
-        hidden: Union[List, np.ndarray], out: Union[List, np.ndarray]
-    ) -> np.ndarray:
-        """ Combine a hidden and output state into one block"""
-        data = np.zeros((T, Nhidden + Nout), dtype=int)
-        data[:, :Nhidden] = hidden
-        data[:, Nhidden:] = out
-        return data
+    path = Path(path)
+    if not path.exists():
+        makedirs(path)
 
-    def write_dense_block(
-        data: Union[List, np.ndarray], ram_name: str, field_width: int
-    ):
-        """ Write a dense weight block """
-        data = np.atleast_2d(data)
-        with open(dirname / f"{ram_name}.ini", "w") as f:
-            for pre, line in enumerate(data):
+    from rockpool.devices.pollen import PollenCim
+
+    cim = PollenCim.from_config(config)
+    model = cim._pollen_layer
+
+    inp_size = len(model.synapses_in)
+    num_neurons = len(model.synapses_rec)
+
+    # transfer input synapses to matrix
+    num_targets = num_neurons  # if num_expansion is None else num_expansion
+    mat = np.zeros((2, inp_size, num_targets), dtype=int)
+    for pre, syns in enumerate(model.synapses_in):
+        for syn in syns:
+            mat[syn.target_synapse_id, pre, syn.target_neuron_id] = syn.weight
+
+    # iwtram and iwt2ram (input neurons of synapse IDs 0 and 1)
+    for ram, mat_syn in zip(("iwt", "iwt2"), mat):
+        # save to file
+        print(f"Writing {ram}ram.ini", end="\r")
+        with open(path / f"{ram}ram.ini", "w+") as f:
+            for pre, line in enumerate(mat_syn):
+                f.write(f"// {ram} for IN{pre} \n")
                 for post, weight in enumerate(line):
-                    f.write(to_hex(weight, field_width))
+                    f.write(to_hex(weight, 2))
                     f.write("\n")
 
-    def write_sparse_weight(data: np.ndarray, syn_index: int, ram_name: str):
-        """ Write out a sparse weight block """
-        with open(dirname / f"{ram_name}.ini", "w") as f:
-            for pre, line in enumerate(data):
-                for syns in line:
-                    if np.any(syns != 0):
-                        f.write(to_hex(syns[syn_index], 2))
-                        f.write("\n")
+    # create matrix for recurrent weights (slightly different convention than for input)
+    mat = np.zeros((num_neurons, num_neurons, 2), dtype=int)
+    for pre, syns in enumerate(model.synapses_rec):
+        for syn in syns:
+            mat[pre, syn.target_neuron_id, syn.target_synapse_id] = syn.weight
 
-    def write_sparse_targets(data: np.ndarray, ram_name: str):
-        """ Write out the targets for a sparse weight block """
-        with open(dirname / f"{ram_name}.ini", "w") as f:
-            for pre, line in enumerate(data):
-                for post, syns in enumerate(line):
-                    if np.any(syns != 0):
-                        f.write(to_hex(post, 3))
-                        f.write("\n")
+    # rwtram (recurrent neurons of synapse IDs 0)
+    print("Writing rwtram.ini", end="\r")
+    with open(path / "rwtram.ini", "w+") as f:
+        for pre, line in enumerate(mat):
+            f.write(f"// rwt of RSN{pre} \n")
+            for syns in line:
+                if np.any(syns != 0):
+                    weight = syns[0]
+                    f.write(to_hex(weight, 2))
+                    f.write("\n")
 
-    def write_sparse_fanout(data: np.ndarray, ram_name: str):
-        """ Write out the fanout count for a sparse weight block """
-        with open(dirname / f"{ram_name}.ini", "w") as f:
-            for pre, line in enumerate(data):
-                count = 0
-                for post, syns in enumerate(line):
-                    if np.any(syns != 0):
-                        count += 1
-                f.write(to_hex(count, 2))
+    # rwtram2 (recurrent neurons of synapse IDs 1)
+    print("Writing rwt2ram.ini", end="\r")
+    with open(path / "rwt2ram.ini", "w+") as f:
+        for pre, line in enumerate(mat):
+            f.write(f"// rwt2 of RSN{pre} \n")
+            for syns in line:
+                if np.any(syns != 0):
+                    weight = syns[1]
+                    f.write(to_hex(weight, 2))
+                    f.write("\n")
+
+    # rforam (recurrent fanout, or target ids)
+    print("Writing rforam.ini", end="\r")
+    with open(path / "rforam.ini", "w+") as f:
+        for pre, line in enumerate(mat):
+            f.write(f"// rfo of RSN{pre} \n")
+            for post, syns in enumerate(line):
+                if np.any(syns != 0):
+                    f.write(to_hex(post, 3))
+                    f.write("\n")
+
+    # refocram (recurrent effective fanout, or number of targets)
+    print("Writing refocram.ini", end="\r")
+    with open(path / "refocram.ini", "w+") as f:
+        for pre, line in enumerate(mat):
+            count = 0
+            for post, syns in enumerate(line):
+                if np.any(syns != 0):
+                    count += 1
+            f.write(to_hex(count, 2))
+            f.write("\n")
+
+    # owtram (output weights)
+    # transfer output synapses to matrix
+    post_ids_out = [
+        [syn.target_neuron_id for syn in l_syn if syn.target_synapse_id == 0]
+        for l_syn in model.synapses_out
+    ]
+    weights_out = [
+        [syn.weight for syn in l_syn if syn.target_synapse_id == 0]
+        for l_syn in model.synapses_out
+    ]
+    try:
+        readout_size = max(max(post_ids_out)) + 1
+    except:
+        readout_size = 0
+
+    size_total = readout_size + num_neurons
+    mat = np.zeros((num_neurons, readout_size), dtype=int)
+    for pre, (post, weight) in enumerate(zip(post_ids_out, weights_out)):
+        mat[pre, post] = weight
+
+    # save to file
+    print("Writing owtram.ini", end="\r")
+    with open(path / "owtram.ini", "w+") as f:
+        for pre, line in enumerate(mat):
+            f.write(f"// owt for RSN{pre} \n")
+            for post, weight in enumerate(line):
+                f.write(to_hex(weight, 2))
                 f.write("\n")
 
-    def write_time_series(data: np.ndarray, name: str):
-        """ Write a time series of data"""
-        for t, vals in enumerate(data):
-            with open(dirname / f"{name}_{t}.txt", "w") as f:
+    # ndmram (membrane time constants)
+    mat = np.zeros(size_total, dtype=int)
+    mat[:num_neurons] = [n.v_mem_decay for n in config.reservoir.neurons]
+    mat[num_neurons:size_total] = [n.v_mem_decay for n in config.readout.neurons]
+
+    # save to file
+    print("Writing ndmram.ini", end="\r")
+    with open(path / "ndmram.ini", "w+") as f:
+        for pre, dash in enumerate(mat):
+            f.write(to_hex(dash, 1))
+            f.write("\n")
+
+    # ndsram (synaptic time constants, ID=0)
+    mat = np.zeros(size_total, dtype=int)
+    mat[:num_neurons] = [n.i_syn_decay for n in config.reservoir.neurons]
+    mat[num_neurons:size_total] = [n.i_syn_decay for n in config.readout.neurons]
+
+    # save to file
+    print("Writing ndsram.ini", end="\r")
+    with open(path / "ndsram.ini", "w+") as f:
+        for pre, dash in enumerate(mat):
+            f.write(to_hex(dash, 1))
+            f.write("\n")
+
+    # nds2ram (synaptic time constants, ID=1)
+    if config.synapse2_enable:
+        mat = [n.i_syn2_decay for n in config.reservoir.neurons]
+    else:
+        mat = np.zeros(num_neurons, int)
+
+    # save to file
+    print("Writing nds2ram.ini", end="\r")
+    with open(path / "nds2ram.ini", "w+") as f:
+        for pre, dash in enumerate(mat):
+            f.write(to_hex(dash, 1))
+            f.write("\n")
+
+    # nthram (thresholds)
+    thresholds = [n.threshold for n in config.reservoir.neurons] + [
+        n.threshold for n in config.readout.neurons
+    ]
+
+    # save to file
+    print("Writing nthram.ini", end="\r")
+    with open(path / "nthram.ini", "w+") as f:
+        for pre, th in enumerate(thresholds):
+            f.write(to_hex(th, 4))
+            f.write("\n")
+
+    # raram and rcram (aliases)
+    mat = np.zeros(num_neurons, dtype=int) - 1
+    is_source = np.zeros(num_neurons, dtype=int)
+    is_target = np.zeros(num_neurons, dtype=int)
+    for i, aliases in enumerate(model.aliases):
+        if len(aliases) > 0:
+            mat[i] = aliases[0]
+            is_source[i] = 1
+            is_target[aliases[0]] = 1
+
+    # save to file
+    print("Writing raram.ini", end="\r")
+    with open(path / "raram.ini", "w+") as f:
+        for pre, alias in enumerate(mat):
+            f.write(to_hex(alias, 3))
+            f.write("\n")
+
+    # save to file
+    print("Writing rcram.ini", end="\r")
+    with open(path / "rcram.ini", "w+") as f:
+        for pre, issource in enumerate(is_source):
+            f.write(to_hex(issource * 2 + is_target[pre], 1))
+            f.write("\n")
+
+    ## dynamical data (vmem, isyns and spikes)
+    if state is not None:
+
+        # rspkram
+        mat = np.zeros((np.shape(state.Spikes_hid)[0], num_neurons), dtype=int)
+        spks = np.array(state.Spikes_hid).astype(int)
+
+        if len(spks) > 0:
+            # Save timestep where first spike happens for later
+            try:
+                timestep_first_spike = np.min(np.where(spks)[0])
+            except:
+                timestep_first_spike = len(mat)
+
+            mat[:, : spks.shape[1]] = spks
+
+            path_spkr = path / "spk_res"
+            if not path_spkr.exists():
+                makedirs(path_spkr)
+
+            print("Writing rspkram files in spk_res", end="\r")
+            for t, spks in enumerate(mat):
+                with open(path_spkr / f"rspkram_{t}.txt", "w+") as f:
+                    for val in spks:
+                        f.write(to_hex(val, 2))
+                        f.write("\n")
+
+        else:
+            timestep_first_spike = len(mat)
+
+        # ospkram
+        mat = np.zeros((np.shape(state.Spikes_out)[0], readout_size), dtype=int)
+        spks = np.array(state.Spikes_out).astype(int)
+
+        if len(spks) > 0:
+            mat[:, : spks.shape[1]] = spks
+
+            path_spko = path / "spk_out"
+            if not path_spko.exists():
+                makedirs(path_spko)
+
+            print("Writing ospkram files in spk_out", end="\r")
+            for t, spks in enumerate(mat):
+                with open(path_spko / f"ospkram_{t}.txt", "w+") as f:
+                    for val in spks:
+                        f.write(to_hex(val, 2))
+                        f.write("\n")
+
+        # nscram
+        mat = np.zeros((np.shape(state.I_syn_hid)[0], size_total), dtype=int)
+        isyns = np.array(state.I_syn_hid).astype(int)
+        mat[:, : isyns.shape[1]] = isyns
+        isyns_out = np.array(state.I_syn_out).astype(int)
+        mat[:, num_neurons : num_neurons + isyns_out.shape[1]] = isyns_out
+
+        path_isyn = path / "isyn"
+        if not path_isyn.exists():
+            makedirs(path_isyn)
+
+        print("Writing nscram files in isyn", end="\r")
+        for t, vals in enumerate(mat):
+            with open(path_isyn / f"nscram_{t}.txt", "w+") as f:
                 for i_neur, val in enumerate(vals):
+                    if t < timestep_first_spike and i_neur >= num_neurons:
+                        # Output neurons are not initialized before first reservoir spike
+                        f.write("xxxx")
+                    else:
+                        f.write(to_hex(val, 4))
+                    f.write("\n")
+
+        # nsc2ram
+        if not hasattr(state, "I_syn2_hid"):
+            mat = np.zeros((0, num_neurons), int)
+        else:
+            mat = np.zeros((np.shape(state.I_syn2_hid)[0], num_neurons), dtype=int)
+            isyns2 = np.array(state.I_syn2_hid).astype(int)
+            mat[:, : isyns2.shape[1]] = isyns2
+
+        path_isyn2 = path / "isyn2"
+        if not path_isyn2.exists():
+            makedirs(path_isyn2)
+
+        print("Writing nsc2ram files in isyn2", end="\r")
+        for t, vals in enumerate(mat):
+            with open(path_isyn2 / f"nsc2ram_{t}.txt", "w+") as f:
+                for val in vals:
                     f.write(to_hex(val, 4))
                     f.write("\n")
 
-    # -- Write out configuration
+        # nmpram
+        mat = np.zeros((np.shape(state.V_mem_hid)[0], size_total), dtype=int)
+        vmems = np.array(state.V_mem_hid).astype(int)
+        mat[:, : vmems.shape[1]] = vmems
+        vmems_out = np.array(state.V_mem_out).astype(int)
+        mat[:, num_neurons : num_neurons + vmems_out.shape[1]] = vmems_out
 
-    # - IWTRAM
-    write_dense_block(config.input.weights, "iwtram", 2)
+        path_vmem = path / "vmem"
+        if not path_vmem.exists():
+            makedirs(path_vmem)
 
-    # - IWT2RAM
-    write_dense_block(config.input.syn2_weights, "iwt2ram", 2)
+        print("Writing nmpram files in vmem", end="\r")
+        for t, vals in enumerate(mat):
+            with open(path_vmem / f"nmpram_{t}.txt", "w+") as f:
+                for i_neur, val in enumerate(vals):
+                    if t < timestep_first_spike and i_neur >= num_neurons:
+                        # Output neurons are not initialized before first reservoir spike
+                        f.write("xxxx")
+                    else:
+                        f.write(to_hex(val, 4))
+                    f.write("\n")
 
-    # - RWTRAM and RWT2RAM
-    write_sparse_weight(config.reservoir.weights, 0, "rwtram")
-    write_sparse_weight(config.reservoir.weights, 1, "rwt2ram")
-
-    # - RFORAM
-    write_sparse_targets(config.reservoir.weights, "rforam")
-
-    # - REFOCRAM
-    write_sparse_fanout(config.reservoir.weights, "refocram")
-
-    # - OWTRAM
-    write_dense_block(config.readout.weights, "owtram", 2)
-
-    # - NDMRAM
-    write_dense_block(
-        [n.v_mem_decay for n in config.reservoir.neurons]
-        + [n.v_mem_decay for n in config.readout.neurons],
-        "ndmram",
-        1,
-    )
-
-    # - NDSRAM
-    write_dense_block(
-        [n.i_syn_decay for n in config.reservoir.neurons]
-        + [n.i_syn_decay for n in config.readout.neurons],
-        "ndsram",
-        1,
-    )
-
-    # - NDS2RAM
-    write_dense_block([n.i_syn2_decay for n in config.reservoir.neurons], "nds2ram", 1)
-
-    # - NTHRAM
-    write_dense_block([n.threshold for n in config.reservoir.neurons], "nthram", 4)
-
-    # - RARAM and RCRAM NOT IMPLEMENTED
-
-    # -- Write out input spikes
-    if input_sp:
-        path_spki = dirname / "spk_in"
+    if inp_spks is not None:
+        # input spikes
+        path_spki = path / "spk_in"
         if not path_spki.exists():
             makedirs(path_spki)
 
+        print("Writing inp_spks.txt", end="\r")
         with open(path_spki / "inp_spks.txt", "w+") as f:
             idle = -1
-            for t, chans in enumerate(input_sp):
+            for t, chans in enumerate(inp_spks):
                 idle += 1
                 if not np.all(chans == 0):
                     f.write(f"// time step {t}\n")
@@ -1076,56 +1285,46 @@ def export_config_state(
                         for _ in range(num_spikes):
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
 
-    # -- Write out state
-    if state:
-        # - RSPKRAM
-        write_time_series(np.atleast_2d(state.Spikes_hid), "rspkram")
-
-        # - OSPKRAM
-        write_time_series(np.atleast_2d(state.Spikes_out), "ospkram")
-
-        # - NSCRAM
-        write_time_series(
-            combine_state(
-                np.atleast_2d(state.I_syn_hid), np.atleast_2d(state.I_syn_out)
-            ),
-            "nscram",
-        )
-
-        # - NSC2RAM
-        write_time_series(np.atleast_2d(state.I_syn2_hid), "nsc2ram")
-
-        # - NMPRAM
-        write_time_series(
-            combine_state(
-                np.atleast_2d(state.V_mem_hid), np.atleast_2d(state.V_mem_out)
-            ),
-            "nmpram",
-        )
-
-    # -- Write out basic configuration
-    with open(dirname / "basic_config.json", "w+") as f:
+    # basic config
+    print("Writing basic_config.json", end="\r")
+    with open(path / "basic_config.json", "w+") as f:
         conf = {}
 
         # number of neurons
-        conf["IN"] = Nin
-        conf["RSN"] = Nhidden
+        conf["IN"] = len(model.synapses_in)
+        conf["RSN"] = len(model.synapses_rec)
 
         # determine output size by getting the largest target neuron id
-        conf["ON"] = Nout
+        syns = np.hstack(model.synapses_out)
+        conf["ON"] = int(np.max([s.target_neuron_id for s in syns]) + 1)
 
         # bit shift values
-        conf["IWBS"] = config.input.weight_bit_shift
-        conf["RWBS"] = config.reservoir.weight_bit_shift
-        conf["OWBS"] = config.readout.weight_bit_shift
+        conf["IWBS"] = model.weight_shift_out
+        conf["RWBS"] = model.weight_shift_rec
+        conf["OWBS"] = model.weight_shift_out
+
+        # expansion neurons
+        # if num_expansion is not None:
+        #    conf["IEN"] = num_expansion
 
         # dt
         conf["time_resolution_wrap"] = config.time_resolution_wrap
 
         # number of synapses
-        conf["N_SYNS"] = 2 if config.synapse2_enable else 1
+        n_syns = 1
+        syns_in = np.hstack(model.synapses_in)
+        if np.any(np.array([s.target_synapse_id for s in syns_in]) == 1):
+            n_syns = 2
+        syns_rec = np.hstack(model.synapses_rec)
+        if np.any(np.array([s.target_synapse_id for s in syns_rec]) == 1):
+            n_syns = 2
+
+        conf["N_SYNS"] = n_syns
 
         # aliasing
-        conf["RA"] = config.reservoir.aliasing
+        if max([len(a) for a in model.aliases]) > 0:
+            conf["RA"] = True
+        else:
+            conf["RA"] = False
 
         json.dump(conf, f)

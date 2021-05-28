@@ -275,6 +275,14 @@ class PollenSamna(Module):
             config (PollenConfiguraration): A Pollen configuration from `samna`
             dt (float): The simulation time-step to use for this Module
         """
+        # - Check input arguments
+        if device is None:
+            raise ValueError("`device` must be a valid, opened Pollen HDK device.")
+
+        # - Get a default configuration
+        if config is None:
+            config = samna.pollen.configuration.PollenConfiguration()
+
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
         _, Nout = np.shape(config.readout.weights)
@@ -348,8 +356,9 @@ class PollenSamna(Module):
         Nhidden, Nout = self.shape[-2:]
 
         # - Configure Pollen for accel-time mode
-        monitor_neurons = Nhidden if record else None
-        putils.select_accel_time_mode(self._device, self._config, monitor_neurons)
+        m_Nhidden = Nhidden if record else 0
+        m_Nout = Nout if record else 0
+        putils.select_accel_time_mode(self._device, self._config, m_Nhidden, m_Nout)
 
         # - Get current timestamp (always starts from zero when enabling "accelerated time" mode,
         #          but need to manually toggle this flag)
