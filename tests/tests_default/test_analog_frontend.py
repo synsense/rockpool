@@ -31,6 +31,7 @@ def test_evolve():
     seed = 1
 
     afe = AFE(
+        shape=num_filters,
         Q=Q,
         fc1=fc1,
         f_factor=f_factor,
@@ -39,11 +40,10 @@ def test_evolve():
         LNA_gain=LNA_gain,
         fs=fs,
         digital_counter=digital_counter,
-        shape=num_filters,
         manual_scaling=manual_scaling,
         add_noise=add_noise,
         seed=seed,
-    )
+    ).timed()
 
     # create chrip
     T = 1

@@ -177,7 +177,7 @@ class FilterBank(Layer, ABC):
             "mean_subtraction": self.mean_subtraction,
             "normalize": self.normalize,
             "num_workers": self.num_workers,
-            "class_name": "FilterBank",
+            "class_name": "FilterBankBase",
         }
 
     def get_analytical_filter_response(self, n_pts: int) -> (np.array, np.array):
