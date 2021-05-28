@@ -36,7 +36,7 @@ class StepPWL(torch.autograd.Function):
         return grad_input
 
 
-class LIFTorch(torch.nn.Module):
+class LIFTorch(TorchModule):
     """
     A leaky integrate-and-fire spiking neuron model
 
@@ -131,9 +131,9 @@ class LIFTorch(torch.nn.Module):
         self.dt = dt
         self.alpha = self.dt / self.tau_mem
         self.beta = torch.exp(-self.dt / self.tau_syn)
-        self.register_buffer('isyn', torch.zeros(1, n_neurons).to(device))
-        self.register_buffer('vmem', self.v_reset * torch.ones(1, n_neurons).to(device))
 
+        self.isyn = torch.zeros(1, n_neurons)
+        self.vmem = self.v_reset * torch.ones(1, n_neurons)
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
 
