@@ -381,8 +381,10 @@ class AFE(Module):
             dv = (dt * data[i] - dq_lk) / c_iaf
 
             # - Accumulate membrane voltage, clip to zero
-            cdc = np.clip(cdc + dv, 0.0, np.inf)
-
+            # cdc = np.clip(cdc + dv, 0.0, np.inf)
+            cdc += dv
+            cdc *= cdc > 0.
+            
             spikes = cdc > thr_up
             data_up.append(spikes)
             cdc[np.where(spikes)] = 0
