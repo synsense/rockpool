@@ -296,7 +296,8 @@ class PollenSamna(Module):
         putils.initialise_pollen_hdk(device)
 
         # - Register a buffer to read events from Pollen
-        self._event_buffer = putils.new_pollen_output_buffer(device)
+        self._event_buffer = putils.new_pollen_read_buffer(device)
+        self._state_buffer = putils.new_pollen_state_sink_node(device)
 
         # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
         if not putils.verify_pollen_version(device, self._event_buffer):
@@ -340,8 +341,7 @@ class PollenSamna(Module):
 
     def reset_state(self) -> "PollenSamna":
         # - Reset neuron and synapse state on Pollen
-        Nhidden, Nout = self.shape[-2:]
-        putils.reset_neuron_synapse_state(self._device, self._config, Nhidden, Nout)
+        putils.reset_neuron_synapse_state(self._device)
         return self
 
     def evolve(
@@ -358,20 +358,18 @@ class PollenSamna(Module):
         # - Configure Pollen for accel-time mode
         m_Nhidden = Nhidden if record else 0
         m_Nout = Nout if record else 0
-        putils.select_accel_time_mode(self._device, self._config, m_Nhidden, m_Nout)
+        putils.select_accel_time_mode(self._device, self._config, self._state_buffer, m_Nhidden, m_Nout)
 
-        # - Get current timestamp (always starts from zero when enabling "accelerated time" mode,
-        #          but need to manually toggle this flag)
-        start_timestep = 0
-
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input)-1
+        
         # - Encode input and readout events
         input_events_list = []
         for timestep, input_data in enumerate(input):
             # - Generate input events
-            has_input = False
             for channel, channel_events in enumerate(input_data):
                 for _ in range(channel_events):
-                    has_input = True
                     event = samna.pollen.event.Spike()
                     event.neuron = channel
                     event.timestamp = start_timestep + timestep
@@ -391,22 +389,20 @@ class PollenSamna(Module):
         # - Wait until Pollen is ready
         putils.is_pollen_ready(self._device, self._event_buffer)
 
-        # - Clear the read buffer
+        # - Clear the read and state buffers
+        self._state_buffer.reset()
         self._event_buffer.get_events()
 
         # - Write the events and trigger the simulation
-        time_start = time.time()
-        self._device.get_io_module().write(input_events_list)
+        self._device.get_model().write(input_events_list)
 
-        # - Read the simulation output events
-        read_events = putils.blocking_read(
-            self._event_buffer,
-            target_timestamp=np.shape(input)[0] - 1,
-            timeout=read_timeout,
-        )
+        # - Wait until the simulation is finished
+        read_events = putils.blocking_read(self._event_buffer, timeout=10., target_timestamp=final_timestep)
 
-        # - Decode the simulation output events
-        pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
+        # - Read the simulation output data
+        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+        
+        # pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
 
         if record:
             # - Build a recorded state dictionary
@@ -417,7 +413,7 @@ class PollenSamna(Module):
                 "Spikes": np.array(pollen_data.Spikes_hid),
                 "Vmem_out": np.array(pollen_data.V_mem_out),
                 "Isyn_out": np.array(pollen_data.I_syn_out),
-                "times": times,
+                "times": np.arange(start_timestep, final_timestep+1),
             }
         else:
             rec_dict = {}

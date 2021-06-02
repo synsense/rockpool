@@ -33,6 +33,7 @@ from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 PollenDaughterBoard = Any
 SamnaDeviceNode = Any
 PollenReadBuffer = samna.BufferSinkNode_pollen_event_output_event
+PollenNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
 
 
 class PollenState(NamedTuple):
@@ -85,14 +86,13 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
     # - Get a list of unopened devices
     unopened_devices = device_node.DeviceController.get_unopened_devices()
 
-    # - Open the devices and start the reader/writer
+    # - Open the devices
     for d in unopened_devices:
         n = 0
         try:
             device_node.DeviceController.open_device(d, f"board{n}")
         except:
             pass
-        # device_node.board.start_reader_writer()
 
     # - Get a list of opened devices
     device_list = device_node.DeviceController.get_opened_devices()
@@ -114,7 +114,7 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
     return pollen_daughterboard_list
 
 
-def new_pollen_output_buffer(
+def new_pollen_read_buffer(
     daughterboard: PollenDaughterBoard,
 ) -> PollenReadBuffer:
     """
@@ -142,6 +142,22 @@ def new_pollen_output_buffer(
     # - Return the buffer
     return buffer
 
+def new_pollen_state_sink_node(daughterboard: PollenDaughterBoard) -> PollenNeuronStateBuffer:
+    # - Register a new buffer to receive neuron and synapse state
+    buffer = PollenNeuronStateBuffer()
+    
+    # - Get the device model
+    model = daughterboard.get_model()
+
+    # - Get Pollen output event source node
+    source_node = model.get_source_node()
+
+    # - Add the buffer as a destination for the Pollen output events
+    success = source_node.add_destination(buffer.get_input_channel())
+    assert success, "Error connecting the new buffer."
+
+    # - Return the buffer
+    return buffer
 
 def blocking_read(
     buffer: PollenReadBuffer,
@@ -161,14 +177,6 @@ def blocking_read(
     Returns: List: A list of read events
     """
     all_events = []
-
-    # if timeout is not None:
-    #     timeout = int(timeout * 1e3)
-    #
-    # if count is None:
-    #     return buffer.get_events_blocking(timeout)
-    # else:
-    #     return buffer.get_n_events(count, timeout)
 
     # - Read at least a certain number of events
     continue_read = True
@@ -212,31 +220,6 @@ def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to initialise
     """
-    # # - Power on pollen
-    # def set_pollen_power(io, value):
-    #     io.write_config(0x0052, value)
-    #
-    # def set_spi_clock(io):
-    #     io.write_config(0x0001, 0x0000)
-    #     io.write_config(0x0002, 0x0009)
-    #     io.write_config(0x0003, 0x0001)
-    #
-    # def set_sAer_clock(io):
-    #     io.write_config(0x0010, 0x0000)
-    #     io.write_config(0x0011, 0x0009)
-    #     io.write_config(0x0012, 0x0001)
-    #
-    # # - Configure power for Pollen
-    # io = daughterboard.get_io_module()
-    # set_pollen_power(io, 3)
-    #
-    # # - Strobe Pollen reset
-    # io.deassert_reset()
-    # io.assert_reset()
-    #
-    # set_spi_clock(io)
-    # set_sAer_clock(io)
-
     # - Always need to advance one time-step to initialise
     advance_time_step(daughterboard)
 
@@ -257,7 +240,7 @@ def write_register(
     wwv_ev = samna.pollen.event.WriteRegisterValue()
     wwv_ev.address = register
     wwv_ev.data = data
-    daughterboard.get_io_module().write([wwv_ev])
+    daughterboard.get_model().write([wwv_ev])
 
 
 def read_register(
@@ -280,7 +263,7 @@ def read_register(
     rrv_ev.address = address
 
     # - Request read
-    daughterboard.get_io_module().write([rrv_ev])
+    daughterboard.get_model().write([rrv_ev])
 
     # - Wait for data and read it
     events = blocking_read(buffer, count=1, timeout=1.0)
@@ -329,7 +312,7 @@ def read_memory(
     buffer.get_events()
 
     # - Request read
-    daughterboard.get_io_module().write(read_events_list)
+    daughterboard.get_model().write(read_events_list)
 
     # - Read data
     events = blocking_read(buffer, count=count + 1)
@@ -423,11 +406,23 @@ def verify_pollen_version(
 
     Returns: bool: ``True`` iff the version ID is correct for Pollen
     """
-    # - Read from the version register
-    version = read_register(daughterboard, buffer, 0x0)
+    # - Clear the read buffer
+    buffer.get_events()
 
-    # - Search for the correct version value
-    return any([v == 65536 for v in version])
+    # - Read from the version register
+    daughterboard.get_model().write([samna.pollen.event.ReadVersion()])
+
+    warn('DYLAN ADD A TIMEOUT HERE')
+    
+    filtered_events = []
+    while len(filtered_events) == 0:
+        events = buffer.get_events()
+        filtered_events = [
+            e for e in events
+            if isinstance(e, samna.pollen.event.Version)
+        ]
+    
+    return (filtered_events[0].major == 1) and (filtered_events[0].minor == 0)
 
 
 def write_memory(
@@ -473,7 +468,7 @@ def write_memory(
     # - Write the list of data events
     written = 0
     while written < len(write_event_list):
-        daughterboard.get_io_module().write(
+        daughterboard.get_model().write(
             write_event_list[written : (written + chunk_size)]
         )
         written += chunk_size
@@ -518,7 +513,7 @@ def zero_memory(
 
 
 def reset_neuron_synapse_state(
-    daughterboard: PollenDaughterBoard, config: PollenConfiguration, Nhidden, Nout
+    daughterboard: PollenDaughterBoard
 ) -> None:
     """
     Reset the neuron and synapse state on a Pollen HDK
@@ -527,13 +522,11 @@ def reset_neuron_synapse_state(
         daughterboard (PollenDaughterboard): The Pollen HDK daughterboard to reset
     """
     # - `get_configuration()` is not yet compatible with `apply_configuration()`
-    # # config = daughterboard.get_model().get_configuration()
+    config = daughterboard.get_model().get_configuration()
 
     # - Reset via configuration
-    reset_flag = config.clear_network_state
     config.clear_network_state = True
     apply_configuration(daughterboard, config)
-    config.clear_network_state = reset_flag
 
 
 def apply_configuration(
@@ -549,12 +542,6 @@ def apply_configuration(
     # - Ideal -- just write the configuration using samna
     daughterboard.get_model().apply_configuration(config)
 
-    # - Needed because first configuration event is incorrect
-    # events_list = samna.pollen.pollen_configuration_to_event(config)
-    # events_list[0].data |= int(config.synapse2_enable) << 1
-    # daughterboard.get_io_module().write(events_list)
-
-
 def read_neuron_synapse_state(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
@@ -568,7 +555,7 @@ def read_neuron_synapse_state(
         daughterboard (PollenDaughterboard): The Pollen HDK to query
         buffer (PollenReadBuffer):
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
-        Nout (int): Number of output neurons to read. Defualt: ``8`` (all neurons).
+        Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
     Returns: :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
 
@@ -616,6 +603,77 @@ def read_neuron_synapse_state(
         read_output_events(daughterboard, buffer),
     )
 
+def read_neuron_synapse_state_NEW(
+        daughterboard: PollenDaughterBoard,
+        buffer: PollenReadBuffer,
+        Nhidden: int = 1000,
+        Nout: int = 8,
+) -> PollenState:
+    # - Initialise event list
+    events = []
+
+    # - Generate state read events for membrane potential
+    #   sequential addresses -> faster read back of state
+    for n in range(Nhidden + Nout):
+        e = samna.pollen.event.ReadMembranePotential()
+        e.neuron_id = n
+        events.append(e)
+    
+    for n in range(Nhidden + Nout):
+        e = samna.pollen.event.ReadSynapticCurrent()
+        e.neuron_id = n
+        events.append(e)
+        
+    for n in range(Nhidden):
+        e = samna.pollen.event.ReadReservoirSynapticCurrent2()
+        e.neuron_id = n
+        events.append(e)
+
+    for n in range(Nhidden):
+        e = samna.pollen.event.ReadReservoirSpike()
+        e.neuron_id = n
+        events.append(e)
+        
+    # - Send read events to pollen
+    daughterboard.get_model().write(events)
+    
+    # - Read state back
+    blocking_read(buffer, timeout=10.)
+    
+    raise NotImplementedError
+
+    # This approach would take into account any buffer neurons that needed to be inserted
+
+
+def read_accel_mode_data(
+    buffer: PollenNeuronStateBuffer,
+    Nhidden: int, Nout: int,
+) -> PollenState:
+    # - Read data from neuron state buffer
+    vmem_ts = np.array(buffer.get_reservoir_v_mem(), 'int16').T
+    isyn_ts = np.array(buffer.get_reservoir_i_syn(), 'int16').T
+    isyn2_ts = np.array(buffer.get_reservoir_i_syn2(), 'int16').T
+    spikes_ts = np.array(buffer.get_reservoir_spike(), 'int8').T
+    spikes_out_ts = np.array(buffer.get_output_spike(), 'int8').T
+
+    # - Separate hidden and output neurons    
+    isyn_out_ts = isyn_ts[:, -Nout:] if len(isyn_ts) > 0 else None
+    isyn_ts = isyn_ts[:, :Nhidden] if len(isyn_ts) > 0 else None
+    vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
+    vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
+
+    # - Return as a PollenState object
+    return PollenState(
+            Nhidden,
+            Nout,
+            vmem_ts,
+            isyn_ts,
+            vmem_out_ts,
+            isyn_out_ts,
+            isyn2_ts,
+            spikes_ts,
+            spikes_out_ts,
+        )
 
 def decode_accel_mode_data(
     events: List[Any], Nhidden: int = 1000, Nout: int = 8
@@ -638,6 +696,7 @@ def decode_accel_mode_data(
     Returns:
         (`.PollenState`, np.ndarray): A `.NamedTuple` containing the decoded state resulting from the simulation, and an array of timestamps for each state entry over time
     """
+    
     # - Define the memory banks
     memory_table = {
         "nscram": (0x7E00, 1008),
@@ -744,6 +803,8 @@ def decode_accel_mode_data(
     )
 
 
+
+
 def is_pollen_ready(
     daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
 ) -> None:
@@ -766,7 +827,8 @@ def advance_time_step(daughterboard: PollenDaughterBoard) -> None:
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK to access
     """
-    write_register(daughterboard, 0x09, 0x10)
+    e = samna.pollen.event.TriggerProcessing()
+    daughterboard.get_model().write([e])
 
 
 def reset_input_spikes(daughterboard: PollenDaughterBoard) -> None:
@@ -800,7 +862,7 @@ def send_immediate_input_spikes(
                 events_list.append(s_event)
 
     # - Send input spikes for this time-step
-    daughterboard.get_io_module().write(events_list)
+    daughterboard.get_model().write(events_list)
 
 
 def read_output_events(
@@ -898,10 +960,32 @@ def num_buffer_neurons(Nhidden: int) -> int:
     Nbuffer = 1 if Nhidden % 2 == 1 else 2
     return Nbuffer
 
+def get_current_timestamp(daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer) -> int:
+    
+    # - Clear read buffer
+    buffer.get_events()
+    
+    # - Trigger a readout event on Pollen
+    e = samna.pollen.event.TriggerReadout()
+    daughterboard.get_model().write([e])
+    
+    # - Wait for the readout event to be sent back, and extract the timestamp
+    timestamp = None
+    while timestamp is None:
+        readout_events = [
+            e for e in blocking_read(buffer, timeout = 1.)
+            if isinstance(e, samna.pollen.event.Readout)
+        ]
+        if readout_events:
+            timestamp = readout_events[0].timestamp
+
+    # - Return the timestamp
+    return timestamp
 
 def select_accel_time_mode(
     daughterboard: PollenDaughterBoard,
     config: PollenConfiguration,
+    buffer: PollenNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
 ) -> None:
@@ -914,7 +998,7 @@ def select_accel_time_mode(
         monitor_neurons (Optional[int]): The number of neurons for which to monitor state during evolution
     """
     # - Workaround: Switch to manual mode, to ensure that timestamp is reset to zero
-    daughterboard.get_io_module().write_config(0x40, 0)
+    # daughterboard.get_io_module().write_config(0x40, 0)
 
     # - Select accelerated time mode
     config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
@@ -922,7 +1006,7 @@ def select_accel_time_mode(
     # - Configure reading out of neuron state during evolution
     if monitor_Nhidden + monitor_Noutput > 0:
         config.debug.monitor_neuron_i_syn = samna.pollen.configuration.NeuronRange(
-            0, monitor_Nhidden + monitor_Noutput + num_buffer_neurons(monitor_Nhidden)
+            0, monitor_Nhidden + monitor_Noutput
         )
         config.debug.monitor_neuron_i_syn2 = samna.pollen.configuration.NeuronRange(
             0, monitor_Nhidden
@@ -931,12 +1015,12 @@ def select_accel_time_mode(
             0, monitor_Nhidden
         )
         config.debug.monitor_neuron_v_mem = samna.pollen.configuration.NeuronRange(
-            0, monitor_Nhidden + monitor_Noutput + num_buffer_neurons(monitor_Nhidden)
+            0, monitor_Nhidden + monitor_Noutput
         )
 
-    # - Write the configuration
+    # - Write the configuration to the chip and configure the buffer accordingly
+    buffer.set_configuration(config)
     apply_configuration(daughterboard, config)
-
 
 def select_single_step_time_mode(
     daughterboard: PollenDaughterBoard, config: PollenConfiguration
