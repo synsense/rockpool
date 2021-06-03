@@ -88,8 +88,15 @@ def config_from_specification(
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
     # - Check input weights
-    if weights_in.ndim != 3:
-        raise ValueError("Input weights must be 3 dimensional `(Nin, Nin_res, 2)`")
+    if weights_in.ndim < 2:
+        raise ValueError(
+            "Input weights must be at least 2 dimensional `(Nhidden, Nout, [2])`"
+        )
+
+    enable_isyn2 = True
+    if weights_in.ndim == 2:
+        enable_isyn2 = False
+        weights_in = np.reshape(weights_in, [*weights_in.shape, 1])
 
     # - Check output weights
     if weights_out.ndim != 2:
@@ -105,11 +112,21 @@ def config_from_specification(
 
     # - Provide default `weights_rec`
     weights_rec = (
-        np.zeros((Nhidden, Nhidden, 2), "int") if weights_rec is None else weights_rec
+        np.zeros((Nhidden, Nhidden, 1 + enable_isyn2), "int")
+        if weights_rec is None
+        else weights_rec
     )
 
-    if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
-        raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, 2)`")
+    # - Check `weights_rec`
+    if weights_rec.ndim == 2:
+        enable_isyn2 = False
+        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
+
+    if (
+        weights_rec.ndim != 3
+        or weights_rec.shape[0] != weights_rec.shape[1]
+    ):
+        raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, [2])`")
 
     if Nhidden != weights_rec.shape[0]:
         raise ValueError(
@@ -159,18 +176,22 @@ def config_from_specification(
         raise ValueError(f"`thresholds_out` needs `Nout` entries (`Nout` = {Nout})")
 
     # - Check data types
-    if weights_in.dtype != "int" or weights_rec.dtype != "int" or weights_out != "int":
+    if (
+        weights_in.dtype.kind not in "ui"
+        or weights_rec.dtype.kind not in "ui"
+        or weights_out.dtype.kind not in "ui"
+    ):
         warn(
             "`weights...` arguments should be provided as `int` data types. I am casting these to `int`."
         )
 
     if (
-        threshold.dtype != "int"
-        or dash_syn.dtype != "int"
-        or dash_syn_2 != "int"
-        or dash_syn_out.dtype != "int"
-        or dash_mem.dtype != "int"
-        or dash_mem_out.dtype != "int"
+        threshold.dtype.kind not in "ui"
+        or dash_syn.dtype.kind not in "ui"
+        or dash_syn_2.dtype.kind not in "ui"
+        or dash_syn_out.dtype.kind not in "ui"
+        or dash_mem.dtype.kind not in "ui"
+        or dash_mem_out.dtype.kind not in "ui"
     ):
         warn(
             "Neuron and synapse parameter arguments should be provided as `int` data types. I am casting these to `int`."
@@ -179,17 +200,18 @@ def config_from_specification(
     # - Build the configuration
     config = PollenConfiguration()
     config.debug.clock_enable = True
-    config.synapse2_enable = True
+    config.synapse2_enable = enable_isyn2
     config.reservoir.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
-
     config.input.weights = weights_in[:, :, 0].astype("int")
-    config.input.syn2_weights = weights_in[:, :, 1].astype("int")
     config.reservoir.weights = weights_rec[:, :, 0].astype("int")
-    config.reservoir.syn2_weights = weights_rec[:, :, 1].astype("int")
     config.readout.weights = weights_out.astype("int")
+
+    if enable_isyn2:
+        config.input.syn2_weights = weights_in[:, :, 1].astype("int")
+        config.reservoir.syn2_weights = weights_rec[:, :, 1].astype("int")
 
     reservoir_neurons = []
     for i in range(len(weights_rec)):
@@ -275,6 +297,14 @@ class PollenSamna(Module):
             config (PollenConfiguraration): A Pollen configuration from `samna`
             dt (float): The simulation time-step to use for this Module
         """
+        # - Check input arguments
+        if device is None:
+            raise ValueError("`device` must be a valid, opened Pollen HDK device.")
+
+        # - Get a default configuration
+        if config is None:
+            config = samna.pollen.configuration.PollenConfiguration()
+
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
         _, Nout = np.shape(config.readout.weights)
@@ -288,7 +318,8 @@ class PollenSamna(Module):
         putils.initialise_pollen_hdk(device)
 
         # - Register a buffer to read events from Pollen
-        self._event_buffer = putils.new_pollen_output_buffer(device)
+        self._event_buffer = putils.new_pollen_read_buffer(device)
+        self._state_buffer = putils.new_pollen_state_monitor_buffer(device)
 
         # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
         if not putils.verify_pollen_version(device, self._event_buffer):
@@ -332,8 +363,7 @@ class PollenSamna(Module):
 
     def reset_state(self) -> "PollenSamna":
         # - Reset neuron and synapse state on Pollen
-        Nhidden, Nout = self.shape[-2:]
-        putils.reset_neuron_synapse_state(self._device, self._config, Nhidden, Nout)
+        putils.reset_neuron_synapse_state(self._device)
         return self
 
     def evolve(
@@ -348,21 +378,22 @@ class PollenSamna(Module):
         Nhidden, Nout = self.shape[-2:]
 
         # - Configure Pollen for accel-time mode
-        monitor_neurons = Nhidden if record else None
-        putils.select_accel_time_mode(self._device, self._config, monitor_neurons)
+        m_Nhidden = Nhidden if record else 0
+        m_Nout = Nout if record else 0
+        putils.select_accel_time_mode(
+            self._device, self._config, self._state_buffer, m_Nhidden, m_Nout
+        )
 
-        # - Get current timestamp (always starts from zero when enabling "accelerated time" mode,
-        #          but need to manually toggle this flag)
-        start_timestep = 0
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input) - 1
 
         # - Encode input and readout events
         input_events_list = []
         for timestep, input_data in enumerate(input):
             # - Generate input events
-            has_input = False
             for channel, channel_events in enumerate(input_data):
                 for _ in range(channel_events):
-                    has_input = True
                     event = samna.pollen.event.Spike()
                     event.neuron = channel
                     event.timestamp = start_timestep + timestep
@@ -382,22 +413,22 @@ class PollenSamna(Module):
         # - Wait until Pollen is ready
         putils.is_pollen_ready(self._device, self._event_buffer)
 
-        # - Clear the read buffer
+        # - Clear the read and state buffers
+        self._state_buffer.reset()
         self._event_buffer.get_events()
 
         # - Write the events and trigger the simulation
-        time_start = time.time()
-        self._device.get_io_module().write(input_events_list)
+        self._device.get_model().write(input_events_list)
 
-        # - Read the simulation output events
+        # - Wait until the simulation is finished
         read_events = putils.blocking_read(
-            self._event_buffer,
-            target_timestamp=np.shape(input)[0] - 1,
-            timeout=read_timeout,
+            self._event_buffer, timeout=10.0, target_timestamp=final_timestep
         )
 
-        # - Decode the simulation output events
-        pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
+        # - Read the simulation output data
+        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+
+        # pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
 
         if record:
             # - Build a recorded state dictionary
@@ -408,7 +439,7 @@ class PollenSamna(Module):
                 "Spikes": np.array(pollen_data.Spikes_hid),
                 "Vmem_out": np.array(pollen_data.V_mem_out),
                 "Isyn_out": np.array(pollen_data.I_syn_out),
-                "times": times,
+                "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}
