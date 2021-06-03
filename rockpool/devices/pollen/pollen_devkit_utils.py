@@ -4,7 +4,6 @@ Utilities for working with the Pollen HDK.
 Ideally you should not need to use these utility functions. You should try using :py:class:`.PollenSamna` and :py:class:`.PollenCim` for high-level interfaces to Pollen.
 
 See Also:
-    
     The tutorials in :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb`.
 
 """
@@ -17,17 +16,19 @@ if util.find_spec("samna") is None:
         "'samna' not found. Modules that rely on Samna will not be available."
     )
 
+# - `samna` imports
 import samna
 from samna.pollen.configuration import PollenConfiguration
 
+# - Other imports
 from warnings import warn
 import time
-
 import numpy as np
 from pathlib import Path
 from os import makedirs
 import json
 
+# - Typing and useful proxy types
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
 PollenDaughterBoard = Any
@@ -143,9 +144,18 @@ def new_pollen_read_buffer(
     return buffer
 
 
-def new_pollen_state_sink_node(
+def new_pollen_state_monitor_buffer(
     daughterboard: PollenDaughterBoard,
 ) -> PollenNeuronStateBuffer:
+    """
+    Create a new buffer for monitoring neuron and synapse state and connect it
+
+    Args:
+        daughterboard (PollenDaughterBoard): A Pollen HDK to configure
+
+    Returns:
+        PollenNeuronStateBuffer: A connected neuron / synapse state monitor buffer
+    """
     # - Register a new buffer to receive neuron and synapse state
     buffer = PollenNeuronStateBuffer()
 
@@ -960,6 +970,15 @@ def print_debug_registers(
 
 
 def num_buffer_neurons(Nhidden: int) -> int:
+    """
+    Number of buffer neurons required for this network on Pollen 1
+
+    Args:
+        Nhidden (int): Number of hidden layer neurons
+
+    Returns:
+        int: The number of buffer neurons
+    """
     Nbuffer = 1 if Nhidden % 2 == 1 else 2
     return Nbuffer
 
@@ -967,6 +986,16 @@ def num_buffer_neurons(Nhidden: int) -> int:
 def get_current_timestamp(
     daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
 ) -> int:
+    """
+    Retrieve the current timestamp on a Pollen HDK
+
+    Args:
+        daughterboard (PollenDaughterBoard): A Pollen HDK
+        buffer (PollenReadBuffer): A connected read buffer for the pollen HDK
+
+    Returns:
+        int: The current timestamp on the Pollen HDK
+    """
 
     # - Clear read buffer
     buffer.get_events()
@@ -993,21 +1022,23 @@ def get_current_timestamp(
 def select_accel_time_mode(
     daughterboard: PollenDaughterBoard,
     config: PollenConfiguration,
-    buffer: PollenNeuronStateBuffer,
+    state_monitor_buffer: PollenNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
 ) -> None:
     """
-    Switch on accelerated-time mode on a Pollen daughterboard, and reset the timestamp clock
+    Switch on accelerated-time mode on a Pollen daughterboard, and configure network monitoring
+
+    Notes:
+        Use :py:func:`new_pollen_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
 
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to configure
         config (PollenConfiguration): The desired Pollen configuration to use
-        monitor_neurons (Optional[int]): The number of neurons for which to monitor state during evolution
+        state_monitor_buffer (PollenNeuronStateBuffer): A connect neuron state monitor buffer
+        monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
+        monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
     """
-    # - Workaround: Switch to manual mode, to ensure that timestamp is reset to zero
-    # daughterboard.get_io_module().write_config(0x40, 0)
-
     # - Select accelerated time mode
     config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
 
@@ -1027,7 +1058,7 @@ def select_accel_time_mode(
         )
 
     # - Write the configuration to the chip and configure the buffer accordingly
-    buffer.set_configuration(config)
+    state_monitor_buffer.set_configuration(config)
     apply_configuration(daughterboard, config)
 
 
@@ -1047,7 +1078,16 @@ def select_single_step_time_mode(
 
 
 def to_hex(n: int, digits: int) -> str:
-    """ Output a consistent-length hex encoding """
+    """
+    Output a consistent-length hex string encoding a number
+
+    Args:
+        n (int): Number to export
+        digits (int): Number of digits to produce
+
+    Returns:
+        str: HEx-encoded string, with ``digits`` digits
+    """
     return "%s" % ("0000%x" % (n & 0xFFFFFFFF))[-digits:]
 
 
@@ -1057,7 +1097,7 @@ def export_config(
     dt: float = None,
 ) -> None:
     """
-    Function for saving a simulation, including network specifications and activities to RAM files for hardware tests.
+    Export a network configuration to text files
 
     Args:
         path (Union[str, path]): Directory to write data
@@ -1296,6 +1336,16 @@ def export_config(
 def export_frozen_state(
     path: Union[str, Path], config: PollenConfiguration, state: PollenState
 ):
+    """
+    Export a single frozen state of a Pollen network
+
+    This function will produce a series of RAM initialisation files containing a Pollen state
+
+    Args:
+        path (Path): The directory to export the state to
+        config (PollenConfiguration): The configuration of the Pollen network
+        state (PollenState): A single time-step state of a Pollen network to export
+    """
     # - Make `path` a path
     path = Path(path)
     if not path.exists():
@@ -1303,9 +1353,9 @@ def export_frozen_state(
 
     # - Check that we have a single time point
     for k, v in zip(state._fields, state):
-        if k in ['Nhidden', 'Nout']:
+        if k in ["Nhidden", "Nout"]:
             continue
-            
+
         assert (v.shape[0] == 1) or (
             np.ndim(v) == 1
         ), "`state` must define a single time point"
@@ -1394,6 +1444,17 @@ def export_temporal_state(
     inp_spks: np.ndarray,
     state: PollenState,
 ) -> None:
+    """
+    Export the state of a Pollen network over time
+
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
+
+    Args:
+        path (Path): The directory to export the state to
+        config (PollenConfiguration): The configuration of the Pollen network
+        inp_spks (np.ndarray): The input spikes for this simulation
+        state (PollenState): A temporal state of a Pollen network to export
+    """
     # - Make `path` a path
     path = Path(path)
 
