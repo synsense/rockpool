@@ -19,6 +19,85 @@ P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
 P_array = Union[np.array, ParameterBase]
 
+# - Try to use Jax as speedup
+try:
+    import jax
+    import jax.numpy as jnp
+
+    enable_jax = True
+
+    @jax.jit
+    def _encode_spikes(inital_state: np.ndarray,
+        dt: float, data: np.ndarray, thr_up: float, c_iaf: float, leakage: float,
+    ) -> np.ndarray:
+        """
+        Encode a signal as events, using an LIF neuron membrane
+
+        Args:
+            inital_state (np.ndarray): Initial state of the LIF neurons
+            dt (float): Time-step in seconds
+            data (np.ndarray): Array ``(T,N)`` containing data to convert to events
+            thr_up (float): Firing threshold voltage
+            c_iaf (float): Membrane capacitance
+            leakage (float): Leakage factor per time step
+
+        Returns: np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
+        """
+        data *= 1e-6  # convert voltage to current for V2I module
+
+        def forward(cdc, data_t):
+            lk = leakage * cdc * 1e-9
+            dq_lk = lk * dt
+            dv = (dt * data_t - dq_lk) / c_iaf
+
+            # - Accumulate membrane voltage, clip to zero
+            cdc += dv
+            cdc *= cdc > 0.0
+
+            spikes = cdc > thr_up
+            return cdc * (1 - spikes), spikes
+
+        # - Evolve over the data array
+        final_state, data_up = jax.lax.scan(forward, inital_state, data)
+
+        return jnp.array(data_up), final_state
+
+
+except:
+
+    def _encode_spikes(
+        dt: float, data: np.ndarray, thr_up: float, c_iaf: float, leakage: float,
+    ) -> np.ndarray:
+        """
+        Encode a signal as events, using an LIF neuron membrane
+
+        Args:
+            dt (float): Time-step in seconds
+            data (np.ndarray): Array ``(T,N)`` containing data to convert to events
+            thr_up (float): Firing threshold voltage
+            c_iaf (float): Membrane capacitance
+            leakage (float): Leakage factor per time step
+
+        Returns: np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
+        """
+        cdc = data[0]
+        data_up = []
+        data *= 1e-6  # convert voltage to current for V2I module
+        for i in range(len(data)):
+            lk = leakage * cdc * 1e-9
+            dq_lk = lk * dt
+            dv = (dt * data[i] - dq_lk) / c_iaf
+
+            # - Accumulate membrane voltage, clip to zero
+            cdc += dv
+            cdc *= cdc > 0.0
+
+            spikes = cdc > thr_up
+            data_up.append(spikes)
+            cdc = cdc * (1 - spikes)
+
+        return jnp.array(data_up)
+
 
 class AFE(Module):
     """
@@ -237,6 +316,14 @@ class AFE(Module):
 
         # - High-pass filter parameters
         self._HP_filt = self._butter_highpass(self.F_CORNER_HIGHPASS, self.Fs, order=1)
+        """ High-pass filter on input """
+        
+        # - Internal neuron state
+        self.lif_state: Union[np.ndarray, State] = State(np.zeros(self.size_out))
+        """ (np.ndarray) Internal state of the LIF neurons used to generate events """
+
+        self._last_input = None
+        """ (np.ndarray) The last chunk of input, to avoid artefacts at the beginning of an input chunk """
 
     def _butter_bandpass(
         self, lowcut: float, highcut: float, fs: float, order: int = 2
@@ -352,45 +439,6 @@ class AFE(Module):
 
         return x_t
 
-    def _encode_spikes(
-        self,
-        dt: float,
-        data: np.ndarray,
-        thr_up: float,
-        c_iaf: float,
-        leakage: float,
-    ) -> np.ndarray:
-        """
-        Encode a signal as events, using an LIF neuron membrane
-
-        Args:
-            dt (float): Time-step in seconds
-            data (np.ndarray): Array ``(T,N)`` containing data to convert to events
-            thr_up (float): Firing threshold voltage
-            c_iaf (float): Membrane capacitance
-            leakage (float): Leakage factor per time step
-
-        Returns: np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
-        """
-        cdc = data[0]
-        data_up = []
-        data *= 1e-6  # convert voltage to current for V2I module
-        for i in range(len(data)):
-            lk = leakage * cdc * 1e-9
-            dq_lk = lk * dt
-            dv = (dt * data[i] - dq_lk) / c_iaf
-
-            # - Accumulate membrane voltage, clip to zero
-            # cdc = np.clip(cdc + dv, 0.0, np.inf)
-            cdc += dv
-            cdc *= cdc > 0.
-            
-            spikes = cdc > thr_up
-            data_up.append(spikes)
-            cdc[np.where(spikes)] = 0
-
-        return np.array(data_up)
-
     def _sampling_signal(self, spikes: np.ndarray, count: int) -> np.ndarray:
         """
         Down-sample events in a signal, by passing one in every ``N`` events
@@ -420,15 +468,21 @@ class AFE(Module):
         # return sampled
 
     def evolve(
-        self,
-        input: np.ndarray = None,
-        record: bool = False,
-        *args,
-        **kwargs,
+        self, input: np.ndarray = None, record: bool = False, *args, **kwargs,
     ):
         # - Make sure input is 1D
         if np.ndim(input) > 1:
             input = input[:, 0]
+
+        # - Set up the previous input chunk
+        if self._last_input is None:
+            self._last_input = np.zeros_like(input)
+            
+        # - Augment input data to avoid artefacts, and save for next time
+        input_length = input.shape[0]
+        this_input = input
+        input = np.concatenate((self._last_input, input))
+        self._last_input = this_input
 
         input_offset = self.MAX_INPUT_OFFSET
         if self.manual_scaling > 0.0:
@@ -522,9 +576,12 @@ class AFE(Module):
         # ]
 
         # Encoding to spike by integrating the FWR output for positive going(UP)
-        spikes = self._encode_spikes(
-            1 / self.Fs, rectified, self.THR_UP, self.C_IAF, self.LEAKAGE
+        spikes, new_state = _encode_spikes(
+            self.lif_state, 1 / self.Fs, rectified, self.THR_UP, self.C_IAF, self.LEAKAGE
         )
+        
+        # - Keep a record of the LIF neuron states
+        self.lif_state = new_state
 
         # spikes = np.array(
         #     [
@@ -536,7 +593,15 @@ class AFE(Module):
         if self.DIGITAL_COUNTER > 1:
             spikes = self._sampling_signal(spikes, self.DIGITAL_COUNTER)
 
+        # - Trim data to this chunk
+        spikes = spikes[-input_length:, :]
+
         if record:
+            # - Trim data to this chunk
+            lna_out = lna_out[-input_length:, :]
+            filtered = filtered[-input_length:, :]
+            rectified = rectified[-input_length:, :]
+            
             recording = {
                 "LNA_out": lna_out,
                 "BPF": filtered,
