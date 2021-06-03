@@ -98,10 +98,6 @@ def config_from_specification(
         enable_isyn2 = False
         weights_in = np.reshape(weights_in, [*weights_in.shape, 1])
 
-    if weights_rec.ndim == 2:
-        enable_isyn2 = False
-        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
-
     # - Check output weights
     if weights_out.ndim != 2:
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
@@ -120,6 +116,11 @@ def config_from_specification(
         if weights_rec is None
         else weights_rec
     )
+
+    # - Check `weights_rec`
+    if weights_rec.ndim == 2:
+        enable_isyn2 = False
+        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
 
     if (
         weights_rec.ndim != 3
@@ -318,7 +319,7 @@ class PollenSamna(Module):
 
         # - Register a buffer to read events from Pollen
         self._event_buffer = putils.new_pollen_read_buffer(device)
-        self._state_buffer = putils.new_pollen_state_sink_node(device)
+        self._state_buffer = putils.new_pollen_state_monitor_buffer(device)
 
         # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
         if not putils.verify_pollen_version(device, self._event_buffer):
