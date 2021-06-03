@@ -23,7 +23,7 @@ setup_args = {
             "torchvision",
             "jax",
             "jaxlib",
-            "samna",
+            "samna>=0.7.1.0",
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
