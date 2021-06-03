@@ -571,7 +571,7 @@ def read_neuron_synapse_state(
 
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK to query
-        buffer (PollenReadBuffer):
+        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK 
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
