@@ -1,5 +1,5 @@
 """
-Implement a LIF Module with bit-shift decay, using a Torch backend
+Implement a LIF Module, using a Torch backend
 """
 
 from importlib import util
@@ -17,6 +17,9 @@ import rockpool.parameters as rp
 from typing import Tuple, Any
 
 __all__ = ["LIFTorch"]
+
+# - Define a float / array type
+FloatVector = Union[float, np.ndarray, torch.Tensor]
 
 class StepPWL(torch.autograd.Function):
     """
@@ -75,14 +78,14 @@ class LIFTorch(TorchModule):
     """
     def __init__(
         self,
-        n_neurons = None,
-        tau_mem = None,
-        tau_syn = None,
-        bias = None,
-        w_rec = None,
-        dt = 1e-4,
-        device="cpu",
-        record = False,
+        n_neurons: int = None,
+        tau_mem: Optional[FloatVector] = None,
+        tau_syn: Optional[FloatVector] = None,
+        bias: Optional[FloatVector] = None,
+        w_rec: Optional[FloatVector] = None,
+        dt: float = 1e-4,
+        device: str ="cpu",
+        record: bool = False,
         *args,
         **kwargs,
     ):
@@ -137,7 +140,7 @@ class LIFTorch(TorchModule):
         self.isyn = rp.State(torch.zeros(1, n_neurons))
         self.vmem = rp.State(self.v_reset * torch.ones(1, n_neurons))
 
-    def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
+    def evolve(self, input_data: torch.Tensor, record: bool = False) -> Tuple[Any, Any, Any]:
 
         output_data = self.forward(input_data)
 
@@ -155,7 +158,7 @@ class LIFTorch(TorchModule):
 
         return output_data, states, record_dict
 
-    def forward(self, data: torch.Tensor):
+    def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
         Adds synaptic inputs to the synaptic states and mimics dynamics Leaky Integrate and Fire dynamics
