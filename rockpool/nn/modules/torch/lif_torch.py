@@ -13,7 +13,6 @@ from typing import Union, List, Tuple
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
-from torch.nn.parameter import Parameter
 import rockpool.parameters as rp
 from typing import Tuple, Any
 
@@ -102,6 +101,9 @@ class LIFTorch(TorchModule):
         # Initialize class variables
 
         super().__init__(
+            shape=(n_neurons,n_neurons),
+            spiking_input=True,
+            spiking_output=True,
             *args,
             **kwargs,
         )
@@ -109,31 +111,31 @@ class LIFTorch(TorchModule):
         self.n_neurons = n_neurons
 
         if isinstance(tau_mem, list) or isinstance(tau_mem, np.ndarray):
-            self.tau_mem = Parameter(torch.from_numpy(tau_mem).to(device))
+            self.tau_mem = rp.Parameter(torch.from_numpy(tau_mem).to(device))
         else:
-            self.tau_mem = Parameter(torch.ones(1, n_neurons).to(device)  * tau_mem)
+            self.tau_mem = rp.Parameter(torch.ones(1, n_neurons).to(device)  * tau_mem)
 
         if isinstance(tau_syn, list) or isinstance(tau_syn, np.ndarray):
-            self.tau_syn = Parameter(torch.from_numpy(tau_syn).to(device))
+            self.tau_syn = rp.Parameter(torch.from_numpy(tau_syn).to(device))
         else:
-            self.tau_syn = Parameter(torch.ones(1, n_neurons).to(device) * tau_syn)
+            self.tau_syn = rp.Parameter(torch.ones(1, n_neurons).to(device) * tau_syn)
 
         if isinstance(bias, list) or isinstance(bias, np.ndarray):
-            self.bias = Parameter(torch.from_numpy(bias).to(device))
+            self.bias = rp.Parameter(torch.from_numpy(bias).to(device))
         else:
-            self.bias = Parameter(torch.ones(1, n_neurons).to(device) * bias)
+            self.bias = rp.Parameter(torch.ones(1, n_neurons).to(device) * bias)
 
 
         self.record = record
         self.v_thresh = 0
         self.v_reset = -1
         self.w_rec = w_rec
-        self.dt = dt
+        self.dt = rp.SimulationParameter(dt)
         self.alpha = self.dt / self.tau_mem
         self.beta = torch.exp(-self.dt / self.tau_syn)
 
-        self.isyn = torch.zeros(1, n_neurons)
-        self.vmem = self.v_reset * torch.ones(1, n_neurons)
+        self.isyn = rp.State(torch.zeros(1, n_neurons))
+        self.vmem = rp.State(self.v_reset * torch.ones(1, n_neurons))
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
 
@@ -176,21 +178,8 @@ class LIFTorch(TorchModule):
                 "Input has wrong neuron dimension. It is {}, must be {}".format(n_neurons, self.n_neurons)
             )
 
-        state_shape = self.vmem.shape
-
-        if state_shape[0] < n_batches:
-            n_new = n_batches-state_shape[0]
-            vmem_new = self.vmem[0:1,:].repeat(n_new, 1)
-            isyn_new = self.isyn[0:1,:].repeat(n_new, 1)
-            self.vmem = torch.cat((self.vmem, vmem_new), 0)
-            self.isyn = torch.cat((self.isyn, isyn_new),0)
-
-        if state_shape[0] > n_batches:
-            self.vmem = self.vmem[0:n_batches,:]
-            self.isyn = self.isyn[0:n_batches,:]
-
-        vmem = self.vmem
-        isyn = self.isyn
+        vmem = torch.ones(n_batches,1) @ self.vmem
+        isyn = torch.ones(n_batches,1) @ self.isyn
         bias = torch.ones(n_batches,1) @ self.bias
         v_thresh = self.v_thresh
         v_reset = self.v_reset
@@ -232,8 +221,8 @@ class LIFTorch(TorchModule):
             out_spikes[:,t,:] = step_pwl(vmem)
             vmem = vmem - out_spikes[:,t,:]
 
-        self.vmem = vmem.detach()
-        self.isyn = isyn.detach()
+        self.vmem = vmem[0:1,:].detach()
+        self.isyn = isyn[0:1,:].detach()
 
         if self.record:
             self.vmem_rec.detach_()
