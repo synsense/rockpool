@@ -410,6 +410,7 @@ def decode_memory_read_events(
 def verify_pollen_version(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
+    timeout: float = 1.,
 ) -> bool:
     """
     Verify that the provided daughterbaord returns the correct version ID for Pollen
@@ -417,25 +418,26 @@ def verify_pollen_version(
     Args:
         daughterboard (PollenDaughterBoard): A daughter-board object to test
         buffer (samna.BufferSinkNode_pollen_event_output_event): A read buffer
+        timeout (float): Timeout for checking in seconds
 
     Returns: bool: ``True`` iff the version ID is correct for Pollen
     """
     # - Clear the read buffer
     buffer.get_events()
 
-    # - Read from the version register
+    # - Read the version register
     daughterboard.get_model().write([samna.pollen.event.ReadVersion()])
 
-    warn("DYLAN ADD A TIMEOUT HERE")
-
+    # - Read events until timeout
     filtered_events = []
-    while len(filtered_events) == 0:
+    t_end = time.time() + timeout
+    while (len(filtered_events) == 0) and (time.time() < t_end):
         events = buffer.get_events()
         filtered_events = [
             e for e in events if isinstance(e, samna.pollen.event.Version)
         ]
 
-    return (filtered_events[0].major == 1) and (filtered_events[0].minor == 0)
+    return (len(filtered_events) > 0) and (filtered_events[0].major == 1) and (filtered_events[0].minor == 0)
 
 
 def write_memory(
