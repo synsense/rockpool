@@ -410,7 +410,7 @@ def decode_memory_read_events(
 def verify_pollen_version(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
-    timeout: float = 1.,
+    timeout: float = 1.0,
 ) -> bool:
     """
     Verify that the provided daughterbaord returns the correct version ID for Pollen
@@ -437,7 +437,11 @@ def verify_pollen_version(
             e for e in events if isinstance(e, samna.pollen.event.Version)
         ]
 
-    return (len(filtered_events) > 0) and (filtered_events[0].major == 1) and (filtered_events[0].minor == 0)
+    return (
+        (len(filtered_events) > 0)
+        and (filtered_events[0].major == 1)
+        and (filtered_events[0].minor == 0)
+    )
 
 
 def write_memory(
@@ -616,48 +620,6 @@ def read_neuron_synapse_state(
         np.array(Spikes, "bool"),
         read_output_events(daughterboard, buffer),
     )
-
-
-def read_neuron_synapse_state_NEW(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
-    Nhidden: int = 1000,
-    Nout: int = 8,
-) -> PollenState:
-    # - Initialise event list
-    events = []
-
-    # - Generate state read events for membrane potential
-    #   sequential addresses -> faster read back of state
-    for n in range(Nhidden + Nout):
-        e = samna.pollen.event.ReadMembranePotential()
-        e.neuron_id = n
-        events.append(e)
-
-    for n in range(Nhidden + Nout):
-        e = samna.pollen.event.ReadSynapticCurrent()
-        e.neuron_id = n
-        events.append(e)
-
-    for n in range(Nhidden):
-        e = samna.pollen.event.ReadReservoirSynapticCurrent2()
-        e.neuron_id = n
-        events.append(e)
-
-    for n in range(Nhidden):
-        e = samna.pollen.event.ReadReservoirSpike()
-        e.neuron_id = n
-        events.append(e)
-
-    # - Send read events to pollen
-    daughterboard.get_model().write(events)
-
-    # - Read state back
-    blocking_read(buffer, timeout=10.0)
-
-    raise NotImplementedError
-
-    # This approach would take into account any buffer neurons that needed to be inserted
 
 
 def read_accel_mode_data(
