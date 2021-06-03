@@ -188,7 +188,8 @@ def blocking_read(
         target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
         timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
 
-    Returns: List: A list of read events
+    Returns:
+        List: A list of read events
     """
     all_events = []
 
@@ -268,9 +269,10 @@ def read_register(
     Args:
         daughterboard (PollenDaughterBoard):
         buffer (samna.BufferSinkNode_pollen_event_output_event):
-        address (int):
+        address (int): The register address to read
 
-    Returns: List[int]: A list of events returned from the read
+    Returns:
+        List[int]: A list of events returned from the read
     """
     # - Set up a register read
     rrv_ev = samna.pollen.event.ReadRegisterValue()
@@ -307,7 +309,8 @@ def read_memory(
         start_address (int): The base address to start reading from
         count (int): The number of elements to read
 
-    Returns: List[int]: A list of values read from memory
+    Returns:
+        List[int]: A list of values read from memory
     """
     # - Set up a memory read
     read_events_list = []
@@ -378,14 +381,14 @@ def decode_memory_read_events(
     events: List[Any],
     start_address: int,
     count: int = 1,
-) -> List[int]:
+) -> List:
     """
     Decode a list of events containing memory reads from a Pollen HDK
 
-    This is a low-level function designed to be used in conjuction with `.generate_read_memory_events`.
+    This is a low-level function designed to be used in conjuction with :py:func:`.generate_read_memory_events`.
 
     See Also:
-        Use the `read_memory` function for a more convenient high-level API.
+        Use the :py:func:`read_memory` function for a more convenient high-level API.
 
     Args:
         events (List): A list of events read from a Pollen HDK
@@ -393,7 +396,7 @@ def decode_memory_read_events(
         count (int): The number of contiguous memory elements that were read
 
     Returns:
-
+        List: A list of memory entries extracted from the list of events, in address order
     """
     # - Initialise returned data list
     return_data = [[]] * count
@@ -420,7 +423,8 @@ def verify_pollen_version(
         buffer (samna.BufferSinkNode_pollen_event_output_event): A read buffer
         timeout (float): Timeout for checking in seconds
 
-    Returns: bool: ``True`` iff the version ID is correct for Pollen
+    Returns:
+        bool: ``True`` iff the version ID is correct for Pollen
     """
     # - Clear the read buffer
     buffer.get_events()
@@ -503,7 +507,7 @@ def zero_memory(
     This function writes zeros to all memory banks on a Pollen HDK.
 
     Args:
-        daughterboard (PollenDaughterboard): The daughterboard to zero
+        daughterboard (PollenDaughterboard): The Pollen HDK to zero memory on 
     """
     # - Define the memory banks
     memory_table = {
@@ -575,7 +579,8 @@ def read_neuron_synapse_state(
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
-    Returns: :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+    Returns:
+        :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
 
     """
     # - Define the memory bank addresses
@@ -623,16 +628,27 @@ def read_neuron_synapse_state(
 
 
 def read_accel_mode_data(
-    buffer: PollenNeuronStateBuffer,
+    monitor_buffer: PollenNeuronStateBuffer,
     Nhidden: int,
     Nout: int,
 ) -> PollenState:
+    """
+    Read accelerated simulation mode data from a Pollen HDK
+    
+    Args:
+        monitor_buffer (PollenNeuronStateBuffer): A connected `PollenNeuronStateBuffer` to read from
+        Nhidden (int): The number of hidden neurons to monitor
+        Nout (int): The number of output neurons to monitor
+
+    Returns:
+        PollenState: The encapsulated state read from the Pollen device
+    """
     # - Read data from neuron state buffer
-    vmem_ts = np.array(buffer.get_reservoir_v_mem(), "int16").T
-    isyn_ts = np.array(buffer.get_reservoir_i_syn(), "int16").T
-    isyn2_ts = np.array(buffer.get_reservoir_i_syn2(), "int16").T
-    spikes_ts = np.array(buffer.get_reservoir_spike(), "int8").T
-    spikes_out_ts = np.array(buffer.get_output_spike(), "int8").T
+    vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
+    isyn_ts = np.array(monitor_buffer.get_reservoir_i_syn(), "int16").T
+    isyn2_ts = np.array(monitor_buffer.get_reservoir_i_syn2(), "int16").T
+    spikes_ts = np.array(monitor_buffer.get_reservoir_spike(), "int8").T
+    spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
 
     # - Separate hidden and output neurons
     isyn_out_ts = isyn_ts[:, -Nout:] if len(isyn_ts) > 0 else None
@@ -826,7 +842,7 @@ def send_immediate_input_spikes(
     Send input events with no timestamp to a Pollen HDK
 
     Args:
-        daughterboard (PollenDaughterboard):
+        daughterboard (PollenDaughterboard): A Pollen HDK to send events to
         spike_counts (Iterable[int]): An Iterable containing one slot per input channel. Each entry indicates how many events should be sent to the corresponding input channel.
     """
     # - Encode input events
@@ -852,7 +868,8 @@ def read_output_events(
         daughterboard (PollenDaughterBoard): The Pollen HDK to query
         buffer (PollenReadBuffer): A read buffer to use
 
-    Returns: np.ndarray: A boolean array of output event flags
+    Returns:
+        np.ndarray: A boolean array of output event flags
     """
     # - Read the status register
     status = read_register(daughterboard, buffer, 0x10)
@@ -1299,7 +1316,7 @@ def export_config(
 
 def export_frozen_state(
     path: Union[str, Path], config: PollenConfiguration, state: PollenState
-):
+) -> None:
     """
     Export a single frozen state of a Pollen network
 
