@@ -160,6 +160,16 @@ except:
             )
 
 
+try:
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+
+    class TorchSequential(SequentialMixin, TorchModule):
+        pass
+except:
+    class TorchSequential():
+        def __init__(self):
+            raise ImportError("'Torch' backend not found. Modules relying on PyTorch will not be available.")
+
 def Sequential(*args, **kwargs) -> SequentialMixin:
     """
     Build a sequential stack of modules by connecting them end-to-end
