@@ -13,6 +13,7 @@ from typing import Union, List, Tuple
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
+import torch.nn.functional as F
 import rockpool.parameters as rp
 from typing import Optional, Tuple, Any
 
@@ -116,6 +117,16 @@ class LIFTorch(TorchModule):
             **kwargs,
         )
 
+        if w_rec == None:
+            self.w_rec = torch.zeros(n_neurons,n_neurons)
+        else:
+            if w_rec.shape != (n_neurons,n_neurons):
+                self.w_rec = rp.Parameter(w_rec)
+            else:
+                raise ValueError(
+                    "Input has wrong dimension. It is {}, must be {}".format(w_rec.shape, (n_neurons,n_neurons))
+                )
+
         self.n_neurons = n_neurons
         self.record = record
         self.v_thresh = 0
@@ -205,10 +216,6 @@ class LIFTorch(TorchModule):
             # Integrate input
             isyn = beta*isyn + data[:,t,:]
 
-            # Recurrent spikes
-            # TODO: implement recurrent weights
-            # irec = spikes @ w_rec
-
             # - Membrane potentials
             dvmem = isyn + bias - vmem
             vmem = vmem + alpha * dvmem
@@ -220,6 +227,8 @@ class LIFTorch(TorchModule):
 
             out_spikes[:,t,:] = step_pwl(vmem)
             vmem = vmem - out_spikes[:,t,:]
+            # - Apply spikes over the recurrent weights
+            isyn += F.linear(out_spikes[:,t,:], self.w_rec)
 
         self.vmem = vmem[0:1,:].detach()
         self.isyn = isyn[0:1,:].detach()
