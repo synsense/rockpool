@@ -133,7 +133,6 @@ class LIFTorch(TorchModule):
         self.record = record
         self.v_thresh = 0
         self.v_reset = -1
-        self.w_rec = w_rec
         self.noise_std = noise_std
 
         if isinstance(tau_mem, list) or isinstance(tau_mem, np.ndarray):
