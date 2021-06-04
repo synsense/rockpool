@@ -27,8 +27,13 @@ try:
     enable_jax = True
 
     @jax.jit
-    def _encode_spikes(inital_state: np.ndarray,
-        dt: float, data: np.ndarray, thr_up: float, c_iaf: float, leakage: float,
+    def _encode_spikes(
+        inital_state: np.ndarray,
+        dt: float,
+        data: np.ndarray,
+        thr_up: float,
+        c_iaf: float,
+        leakage: float,
     ) -> np.ndarray:
         """
         Encode a signal as events, using an LIF neuron membrane
@@ -66,7 +71,11 @@ try:
 except:
 
     def _encode_spikes(
-        dt: float, data: np.ndarray, thr_up: float, c_iaf: float, leakage: float,
+        dt: float,
+        data: np.ndarray,
+        thr_up: float,
+        c_iaf: float,
+        leakage: float,
     ) -> np.ndarray:
         """
         Encode a signal as events, using an LIF neuron membrane
@@ -312,12 +321,13 @@ class AFE(Module):
             fs=fs,
             order=self.ORDER_BPF,
             num_workers=num_workers,
+            use_lowpass=False,
         )
 
         # - High-pass filter parameters
         self._HP_filt = self._butter_highpass(self.F_CORNER_HIGHPASS, self.Fs, order=1)
         """ High-pass filter on input """
-        
+
         # - Internal neuron state
         self.lif_state: Union[np.ndarray, State] = State(np.zeros(self.size_out))
         """ (np.ndarray) Internal state of the LIF neurons used to generate events """
@@ -468,7 +478,11 @@ class AFE(Module):
         # return sampled
 
     def evolve(
-        self, input: np.ndarray = None, record: bool = False, *args, **kwargs,
+        self,
+        input: np.ndarray = None,
+        record: bool = False,
+        *args,
+        **kwargs,
     ):
         # - Make sure input is 1D
         if np.ndim(input) > 1:
@@ -477,7 +491,7 @@ class AFE(Module):
         # - Set up the previous input chunk
         if self._last_input is None:
             self._last_input = np.zeros_like(input)
-            
+
         # - Augment input data to avoid artefacts, and save for next time
         input_length = input.shape[0]
         this_input = input
@@ -535,7 +549,7 @@ class AFE(Module):
                     self.F_ALPHA_BPF,
                 )
 
-                # bpfs = [
+        # bpfs = [
         #     bpfs[i]
         #     + self._generateNoise(
         #         bpfs[i], self.Fs, self.VRMS_SQHZ_BPF, self.F_KNEE_BPF, self.F_ALPHA_BPF,
@@ -543,11 +557,8 @@ class AFE(Module):
         #     for i in range(self.size_out)
         # ]
 
-        # - Absolute value
-        rectified = np.abs(filtered)
-
         # - High-pass filter
-        rectified = signal.filtfilt(*self._HP_filt, rectified)
+        rectified = signal.filtfilt(*self._HP_filt, filtered)
 
         # - Additional noise
         for i in range(self.size_out):
@@ -558,6 +569,9 @@ class AFE(Module):
                 self.F_KNEE_FWR,
                 self.F_ALPHA_FWR,
             )
+
+        # - Absolute value
+        rectified = np.abs(rectified)
 
         # rcs = [
         #     abs(
@@ -577,9 +591,14 @@ class AFE(Module):
 
         # Encoding to spike by integrating the FWR output for positive going(UP)
         spikes, new_state = _encode_spikes(
-            self.lif_state, 1 / self.Fs, rectified, self.THR_UP, self.C_IAF, self.LEAKAGE
+            self.lif_state,
+            1 / self.Fs,
+            rectified,
+            self.THR_UP,
+            self.C_IAF,
+            self.LEAKAGE,
         )
-        
+
         # - Keep a record of the LIF neuron states
         self.lif_state = new_state
 
@@ -601,7 +620,7 @@ class AFE(Module):
             lna_out = lna_out[-input_length:, :]
             filtered = filtered[-input_length:, :]
             rectified = rectified[-input_length:, :]
-            
+
             recording = {
                 "LNA_out": lna_out,
                 "BPF": filtered,
