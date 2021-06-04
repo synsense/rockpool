@@ -89,6 +89,7 @@ class LIFTorch(TorchModule):
         bias: Optional[FloatVector] = 0,
         w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
+        noise_std: float = 0.0,
         device: str ="cpu",
         record: bool = False,
         *args,
@@ -104,6 +105,7 @@ class LIFTorch(TorchModule):
             bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, 0.0 will be used by default.
             w_rec (Optional[FloatVector]): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
+            noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: 0.0
             device (str): Defines the device on which the model will be processed. Default: 'cpu'
             record (bool): If set to True, the module records the internal states and returns them with the output. Default: False
         """
@@ -132,6 +134,7 @@ class LIFTorch(TorchModule):
         self.v_thresh = 0
         self.v_reset = -1
         self.w_rec = w_rec
+        self.noise_std = noise_std
 
         if isinstance(tau_mem, list) or isinstance(tau_mem, np.ndarray):
             self.tau_mem = rp.Parameter(torch.from_numpy(tau_mem).to(device))
@@ -204,6 +207,7 @@ class LIFTorch(TorchModule):
         alpha = self.alpha
         beta = self.beta
         step_pwl = StepPWL.apply
+        noise_std = self.noise_std
 
         out_spikes = torch.zeros(data.shape, device=data.device)
 
@@ -218,7 +222,7 @@ class LIFTorch(TorchModule):
 
             # - Membrane potentials
             dvmem = isyn + bias - vmem
-            vmem = vmem + alpha * dvmem
+            vmem = vmem + alpha * dvmem + torch.randn(vmem.shape)*noise_std
 
 
             if self.record:
