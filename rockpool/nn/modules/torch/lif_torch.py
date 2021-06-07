@@ -122,7 +122,7 @@ class LIFTorch(TorchModule):
         if w_rec == None:
             self.w_rec = torch.zeros(n_neurons,n_neurons)
         else:
-            if w_rec.shape != (n_neurons,n_neurons):
+            if w_rec.shape == (n_neurons,n_neurons):
                 self.w_rec = rp.Parameter(w_rec)
             else:
                 raise ValueError(
