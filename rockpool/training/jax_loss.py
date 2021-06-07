@@ -13,6 +13,10 @@ from typing import Tuple
 
 from copy import deepcopy
 
+import jax.random as random
+from jax.lax import stop_gradient
+import jax.numpy as jnp
+from jax import grad, value_and_grad
 
 def mse(output: np.array, target: np.array) -> float:
     """
@@ -233,3 +237,115 @@ def logsoftmax(x: np.ndarray, temperature: float = 1.0) -> np.ndarray:
     """
     logits = x - np.max(x)
     return (logits / temperature) - np.log(np.sum(np.exp(logits / temperature)))
+
+def split_and_sample(key, shape):
+        key, subkey = random.split(key)
+        val = random.normal(subkey, shape=shape)
+        return key, val
+
+def robustness_loss(theta_star, inputs, output_theta, net, tree_def_params, boundary_loss):
+    # - Reset the network
+    net = net.reset_state()
+
+    # - Set the network parameters to Theta*
+    net = net.set_attributes(tu.tree_unflatten(tree_def_params, theta_star))
+
+    # - Evolve the network using Theta*
+    output_theta_star, _, _ = net(inputs)
+
+    # - Return boundary loss
+    return boundary_loss(output_theta, output_theta_star)
+
+def pga_attack(params_flattened,
+            net,
+            rand_key,
+            attack_steps,
+            mismatch_level,
+            initial_std,
+            inputs,
+            output_theta,
+            tree_def_params,
+            boundary_loss
+            ):
+    # - Create verbose dict
+    verbose = {
+        "grads":[],
+        "losses":[]
+    }
+    # - Initialize Theta*
+    theta_star = []
+    step_size =  []
+    for p in params_flattened:
+        rand_key, random_normal_var = split_and_sample(rand_key, p.shape)
+        theta_star.append(p + jnp.abs(p) * initial_std*random_normal_var)
+        step_size.append((mismatch_level * jnp.abs(p)) / attack_steps)
+
+    # - Perform the attack on Theta using initialized Theta*
+    for _ in range(attack_steps):
+        loss, grads_theta_star = value_and_grad(robustness_loss)(theta_star, inputs, output_theta, net, tree_def_params, boundary_loss)
+        verbose["losses"].append(loss)
+        verbose["grads"].append(grads_theta_star)
+        for idx in range(len(theta_star)):
+            theta_star[idx] = theta_star[idx] + step_size[idx] * jnp.sign(grads_theta_star[idx])
+
+    return theta_star, verbose
+
+def adversarial_loss(parameters,
+                    net,
+                    inputs,
+                    target,
+                    training_loss,
+                    boundary_loss,
+                    rand_key,
+                    noisy_forward_std,
+                    initial_std,
+                    mismatch_level,
+                    beta_robustness,
+                    attack_steps,
+                    ):
+    # - Handle the network state — randomise or reset
+    net = net.reset_state()
+
+    # - Add Gaussian noise to the parameters before evaluating
+    params_flattened, tree_def_params = tu.tree_flatten(parameters)
+
+    params_gaussian_flattened = []
+    for p in params_flattened:
+        rand_key, random_normal_var = split_and_sample(rand_key, p.shape)
+        params_gaussian_flattened.append(p + stop_gradient(jnp.abs(p) * noisy_forward_std*random_normal_var))
+
+    # - Reshape the new parameters
+    params_gaussian = tu.tree_unflatten(tree_def_params, params_gaussian_flattened)
+    net = net.set_attributes(params_gaussian)
+
+    # - Evolve the network to get the ouput
+    output, _, _ = net(inputs)
+
+    loss_n = training_loss(output, target)
+
+    # - Get output for normal Theta
+    # - Reset network state
+    net = net.reset_state()
+
+    # - Set parameters to the original parameters
+    net = net.set_attributes(parameters)
+
+    # - Get the network output using the original parameters
+    output_theta, _, _ = net(inputs)
+
+    theta_star, _ = pga_attack(params_flattened=params_flattened,
+                            net=net,
+                            rand_key=rand_key,
+                            attack_steps=attack_steps,
+                            mismatch_level=mismatch_level,
+                            initial_std=initial_std,
+                            inputs=inputs,
+                            output_theta=output_theta,
+                            tree_def_params=tree_def_params,
+                            boundary_loss=boundary_loss)
+
+    # - Compute robustness loss using final Theta*
+    loss_r = robustness_loss(theta_star, inputs, output_theta, net, tree_def_params, boundary_loss)
+    
+    # - Add the robustness loss as a regularizer
+    return loss_n + beta_robustness * loss_r
