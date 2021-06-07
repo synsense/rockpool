@@ -151,8 +151,8 @@ def test_TorchModule():
     print(o, ns, rd)
 
 
-def test_TorchLIF():
-    from rockpool.nn.modules.torch.lif_torch import LIFLayer
+def test_LIFBitshiftTorch():
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import numpy as np
     import torch
 
@@ -163,7 +163,7 @@ def test_TorchLIF():
     )
     tau_syn = torch.Tensor([2, 8])
     tau_syn = tau_syn.view(1, Nsyn).T.repeat(1, N)
-    mod = LIFLayer(
+    mod = LIFBitshiftTorch(
         n_neurons=N,
         n_synapses=Nsyn,
         batch_size=1,
@@ -187,7 +187,7 @@ def test_TorchLIF():
 
 
 def test_single_neuron():
-    from rockpool.nn.modules.torch.lif_torch import LIFLayer
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import torch
 
     N = 1
@@ -197,7 +197,7 @@ def test_single_neuron():
     threshold = [10.0]
     learning_window = [0.5]
 
-    lyr = LIFLayer(
+    lyr = LIFBitshiftTorch(
         n_neurons=N,
         n_synapses=Nsyn,
         tau_mem=tau_mem,
@@ -215,7 +215,7 @@ def test_single_neuron():
 
 
 def test_backward():
-    from rockpool.nn.modules.torch.lif_torch import LIFLayer
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import torch
 
     N = 1
@@ -225,7 +225,7 @@ def test_backward():
     threshold = [10.0]
     learning_window = [0.5]
 
-    lyr = LIFLayer(
+    lyr = LIFBitshiftTorch(
         n_neurons=N,
         n_synapses=Nsyn,
         tau_mem=tau_mem,
@@ -269,7 +269,7 @@ def test_lowpass():
 
 
 def test_astorch():
-    from rockpool.nn.modules.torch import LIFLayer
+    from rockpool.nn.modules.torch import LIFBitshiftTorch
 
     import torch
 
@@ -280,7 +280,7 @@ def test_astorch():
     threshold = [10.0]
     learning_window = [0.5]
 
-    lyr = LIFLayer(
+    lyr = LIFBitshiftTorch(
         n_neurons=N,
         n_synapses=Nsyn,
         tau_mem=tau_mem,
