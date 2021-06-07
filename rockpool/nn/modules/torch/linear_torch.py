@@ -10,90 +10,98 @@ if util.find_spec("torch") is None:
     )
 
 import math
-from typing import Union, List, Tuple
+from typing import Union, Optional
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
-from torch.nn.parameter import Parameter
 import torch.nn.init as init
 import torch.nn.functional as F
 import rockpool.parameters as rp
-from typing import Tuple, Any
 
 __all__ = ["LinearTorch"]
 
 # - Define a float / array type
 FloatVector = Union[float, np.ndarray, torch.Tensor]
 
+
 class LinearTorch(TorchModule):
-    r"""Applies a linear transformation to the incoming data: :math:`y = xA^T + b`
+    """
+    Applies a linear transformation to the incoming data: :math:`y = xA + b`
+
     This module supports :ref:`TensorFloat32<tf32_on_ampere>`.
+
     Args:
-        in_features: size of each input sample
-        out_features: size of each output sample
-        bias: If set to ``False``, the layer will not learn an additive bias.
-            Default: ``True``
+        shape (tuple): ``(in_features, out_features)``
+        bias: If set to ``False``, the layer will not learn an additive bias. Default: ``True``
+
     Shape:
-        - Input: :math:`(N, *, H_{in})` where :math:`*` means any number of
-          additional dimensions and :math:`H_{in} = \text{in\_features}`
-        - Output: :math:`(N, *, H_{out})` where all but the last dimension
-          are the same shape as the input and :math:`H_{out} = \text{out\_features}`.
+        - Input: :math:`(N, *, H_{in})` where :math:`*` means any number of additional dimensions and :math:`H_{in} = \\text{in_features}`
+        - Output: :math:`(N, *, H_{out})` where all but the last dimension are the same shape as the input and :math:`H_{out} = \\text{out_features}`.
+
     Attributes:
-        weight: the learnable weights of the module of shape
-            :math:`(\text{out\_features}, \text{in\_features})`. The values are
-            initialized from :math:`\mathcal{U}(-\sqrt{k}, \sqrt{k})`, where
-            :math:`k = \frac{1}{\text{in\_features}}`
-        bias:   the learnable bias of the module of shape :math:`(\text{out\_features})`.
-                If :attr:`bias` is ``True``, the values are initialized from
-                :math:`\mathcal{U}(-\sqrt{k}, \sqrt{k})` where
-                :math:`k = \frac{1}{\text{in\_features}}`
+        weight: the learnable weights of the module of shape :math:`(\\text{out_features}, \\text{in_features})`. The values are initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where :math:`k = \\frac{2}{\\text{in_features}}`
+        bias:   the learnable bias of the module of shape :math:`(\\text{out_features})`. If :attr:`bias` is ``True``, the values are initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})` where :math:`k = \\frac{2}{\\text{in_features}}`
+
     Examples::
-        >>> m = LinearTorch(20, 30)
+        >>> m = LinearTorch((20, 30))
         >>> input = torch.randn(128, 20)
-        >>> output = m(input)
+        >>> output, _, _ = m(input)
         >>> print(output.size())
         torch.Size([128, 30])
     """
-    __constants__ = ['in_features', 'out_features']
-    in_features: int
-    out_features: int
-    weight: torch.Tensor
 
-    def __init__(self, in_features: int, out_features: int, bias: bool = True,
-                 device=None, dtype=None) -> None:
-        factory_kwargs = {'device': device, 'dtype': dtype}
-        super(LinearTorch, self).__init__(shape=(in_features,out_features))
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight = rp.Parameter(torch.empty((out_features, in_features), **factory_kwargs))
+    def __init__(
+        self,
+        shape: tuple,
+        bias: bool = True,
+        device: Optional[str] = None,
+        dtype: Optional[str] = None,
+    ) -> None:
+        """
+        Initialise a LinearTorch layer
+
+        Args:
+            shape (tuple): The shape of this layer ``(Nin, Nout)``
+            bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
+            device (Optional[str]): Initialise the tensors on the supplied device.
+            dtype (Optional[str]): Initialise the tensors with the supplied dtype.
+        """
+        # - Initialise superclass
+        super().__init__(shape=shape)
+
+        # - Check arguments
+        if len(self.shape) != 2:
+            raise ValueError(
+                "`shape` must specify input and output sizes for LinearTorch."
+            )
+
+        # - Set up parameters
+        factory_kwargs = {"device": device, "dtype": dtype}
+        self.weight: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
+            shape=shape,
+            init_func=lambda s: init.uniform_(
+                torch.empty(s, **factory_kwargs), math.sqrt(2 / s[0])
+            ),
+            family="weights",
+        )
+        """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
+
         if bias:
-            self.bias = rp.Parameter(torch.empty(out_features, **factory_kwargs))
+            self.bias: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
+                shape=shape[-1],
+                init_func=lambda s: init.uniform_(
+                    torch.empty(s[-1], **factory_kwargs), math.sqrt(2 / s[0])
+                ),
+                family="biases",
+            )
+            """ (torch.Tensor) Bias vector with shape ``(Nout,)`` """
         else:
-            self.register_parameter('bias', None)
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
-        # uniform(-1/sqrt(in_features), 1/sqrt(in_features)). For details, see
-        # https://github.com/pytorch/pytorch/issues/57109
-        init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-        if self.bias is not None:
-            fan_in, _ = init._calculate_fan_in_and_fan_out(self.weight)
-            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            init.uniform_(self.bias, -bound, bound)
+            self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight, self.bias)
+        return F.linear(input, self.weight.T, self.bias)
 
-    def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
-
-        output_data = self.forward(input_data)
-        states = {}
-        record_dict = {}
-
-        return output_data, states, record_dict
-
-    def extra_repr(self) -> str:
-        return 'in_features={}, out_features={}, bias={}'.format(
+    def _extra_repr(self) -> str:
+        return "in_features={}, out_features={}, bias={}".format(
             self.in_features, self.out_features, self.bias is not None
         )
