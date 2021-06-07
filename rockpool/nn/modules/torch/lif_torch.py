@@ -20,7 +20,7 @@ from typing import Optional, Tuple, Any
 __all__ = ["LIFTorch"]
 
 # - Define a float / array type
-FloatVector = Union[float, np.ndarray, torch.Tensor]
+FloatVector = Union[float, torch.Tensor]
 
 class StepPWL(torch.autograd.Function):
     """
@@ -87,7 +87,7 @@ class LIFTorch(TorchModule):
         tau_mem: Optional[FloatVector] = 0.1,
         tau_syn: Optional[FloatVector] = 0.05,
         bias: Optional[FloatVector] = 0,
-        w_rec: Optional[FloatVector] = None,
+        w_rec: torch.Tensor = None,
         dt: float = 1e-3,
         noise_std: float = 0.0,
         device: str ="cpu",
@@ -135,18 +135,18 @@ class LIFTorch(TorchModule):
         self.v_reset = -1
         self.noise_std = noise_std
 
-        if isinstance(tau_mem, list) or isinstance(tau_mem, np.ndarray):
-            self.tau_mem = rp.Parameter(torch.from_numpy(tau_mem).to(device))
+        if isinstance(tau_mem, torch.Tensor):
+            self.tau_mem = rp.Parameter(tau_mem)
         else:
             self.tau_mem = rp.Parameter(torch.ones(1, n_neurons).to(device)  * tau_mem)
 
-        if isinstance(tau_syn, list) or isinstance(tau_syn, np.ndarray):
-            self.tau_syn = rp.Parameter(torch.from_numpy(tau_syn).to(device))
+        if isinstance(tau_syn, torch.Tensor):
+            self.tau_syn = rp.Parameter(tau_syn)
         else:
             self.tau_syn = rp.Parameter(torch.ones(1, n_neurons).to(device) * tau_syn)
 
-        if isinstance(bias, list) or isinstance(bias, np.ndarray):
-            self.bias = rp.Parameter(torch.from_numpy(bias).to(device))
+        if isinstance(bias, torch.Tensor):
+            self.bias = rp.Parameter(bias)
         else:
             self.bias = rp.Parameter(torch.ones(1, n_neurons).to(device) * bias)
 
