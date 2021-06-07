@@ -194,14 +194,12 @@ def Sequential(*args, **kwargs) -> SequentialMixin:
     Returns:
         A :py:class:`.Module` subclass object that encapsulates the provided modules
     """
-    # - Check for Jax submodules
-    use_jax = False
+    # - Check for Jax and Torch submodules
     for item in args:
         if isinstance(item, JaxModule):
-            use_jax = True
+            return JaxSequential(*args, **kwargs)
+        if isinstance(item, TorchModule):
+            return TorchSequential(*args, **kwargs)
 
-    # - Use either the JaxSequential or ModSequential classes
-    if use_jax:
-        return JaxSequential(*args, **kwargs)
-    else:
-        return ModSequential(*args, **kwargs)
+    # - Use ModSequential if no JaxModule or TorchModule is in the submodules
+    return ModSequential(*args, **kwargs)
