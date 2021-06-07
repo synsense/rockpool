@@ -185,6 +185,47 @@ def test_LIFBitshiftTorch():
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
 
+def test_LIFTorch():
+    from rockpool.nn.modules.torch.lif_torch import LIFTorch
+    import torch
+
+
+    n_neurons = 10
+    n_batches = 3
+    T = 20
+    tau_mem = torch.rand(1, n_neurons)
+    tau_syn = torch.rand(1, n_neurons)
+    bias = torch.rand(1, n_neurons)
+    w_rec = torch.rand(n_neurons, n_neurons)
+
+
+    mod = LIFTorch(
+        n_neurons=n_neurons,
+        tau_mem=tau_mem,
+        tau_syn=tau_syn,
+        bias=bias,
+        w_rec=w_rec,
+        dt=1e-3,
+        noise_std=0.1,
+        device="cpu",
+        record=True
+    )
+
+    # - Generate some data
+    input_data = torch.rand(n_batches, T, n_neurons)
+
+    # - Test torch interface
+    out = mod(input_data)
+
+
+    # - Test Rockpool interface
+    out, ns, rd = mod.evolve(input_data)
+
+    assert out.shape == input_data.shape
+    for _, obj in ns.items():
+        assert obj.shape == (1, n_neurons)
+    for _, obj in rd.items():
+        assert obj.shape == input_data.shape
 
 def test_single_neuron():
     from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
