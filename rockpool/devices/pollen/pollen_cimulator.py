@@ -211,6 +211,7 @@ class PollenCim(Module):
         weight_shift_out: int = 0,
         aliases: Optional[list] = None,
         dt: float = 1e-3,
+        verify_config: bool = True,
     ) -> "PollenCim":
         """
         Instantiate a :py:class:`.PollenCim` module from a full set of parameters
@@ -231,14 +232,18 @@ class PollenCim(Module):
             weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
             dt (float): Simulation time step in seconds. Default: 1 ms
+            verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
 
-        Returns: :py:class:`.PollenCim`: A :py:class:`.TimedModule` that
+        Returns:
+            :py:class:`.PollenCim`: A :py:class:`.Module` that emulates the Pollen hardware.
 
+        Raises:
+            ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         from rockpool.devices.pollen import config_from_specification
 
         # - Convert specification to pollen configuration
-        config, _, _ = config_from_specification(
+        config, is_valid, status = config_from_specification(
             weights_in=weights_in,
             weights_rec=weights_rec,
             weights_out=weights_out,
@@ -254,6 +259,9 @@ class PollenCim(Module):
             weight_shift_out=weight_shift_out,
             aliases=aliases,
         )
+
+        if verify_config and not is_valid:
+            raise ValueError("Pollen configuration is not valid: " + status)
 
         # - Instantiate module from config
         return cls.from_config(config, dt=dt)

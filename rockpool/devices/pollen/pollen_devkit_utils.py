@@ -507,7 +507,7 @@ def zero_memory(
     This function writes zeros to all memory banks on a Pollen HDK.
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to zero memory on 
+        daughterboard (PollenDaughterboard): The Pollen HDK to zero memory on
     """
     # - Define the memory banks
     memory_table = {
@@ -575,7 +575,7 @@ def read_neuron_synapse_state(
 
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK to query
-        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK 
+        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
@@ -634,7 +634,7 @@ def read_accel_mode_data(
 ) -> PollenState:
     """
     Read accelerated simulation mode data from a Pollen HDK
-    
+
     Args:
         monitor_buffer (PollenNeuronStateBuffer): A connected `PollenNeuronStateBuffer` to read from
         Nhidden (int): The number of hidden neurons to monitor
@@ -1248,11 +1248,12 @@ def export_config(
     mat = np.zeros(num_neurons, dtype=int) - 1
     is_source = np.zeros(num_neurons, dtype=int)
     is_target = np.zeros(num_neurons, dtype=int)
+    num_sources = np.zeros(num_neurons, dtype=int)
     for i, aliases in enumerate(model.aliases):
         if len(aliases) > 0:
             mat[i] = aliases[0]
             is_source[i] = 1
-            is_target[aliases[0]] = 1
+            is_target[aliases[0]] += 1
 
     # save to file
     print("Writing raram.ini", end="\r")
@@ -1265,7 +1266,13 @@ def export_config(
     print("Writing rcram.ini", end="\r")
     with open(path / "rcram.ini", "w+") as f:
         for pre, issource in enumerate(is_source):
-            f.write(to_hex(issource * 2 + is_target[pre], 1))
+            f.write(
+                to_hex(
+                    (is_target[mat[pre]] > 1)
+                    << 2 + (issource << 1) + (is_target[pre] > 0),
+                    1,
+                )
+            )
             f.write("\n")
 
     # basic config
