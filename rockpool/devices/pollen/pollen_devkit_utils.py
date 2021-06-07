@@ -1266,10 +1266,23 @@ def export_config(
     print("Writing rcram.ini", end="\r")
     with open(path / "rcram.ini", "w+") as f:
         for pre, issource in enumerate(is_source):
+            # print(
+            #     pre,
+            #     "->",
+            #     mat[pre],
+            #     ":",
+            #     is_target[mat[pre]],
+            #     issource,
+            #     is_target[pre],
+            #     ((is_target[mat[pre]] > 1) << 2)
+            #     + (issource << 1)
+            #     + (is_target[pre] > 0),
+            # )
             f.write(
                 to_hex(
-                    (is_target[mat[pre]] > 1)
-                    << 2 + (issource << 1) + (is_target[pre] > 0),
+                    ((is_target[mat[pre]] > 1) << 2)
+                    + (issource << 1)
+                    + (is_target[pre] > 0),
                     1,
                 )
             )
