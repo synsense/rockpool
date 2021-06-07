@@ -5,7 +5,7 @@ Simulation of an analog audio filtering front-end
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.nn.modules.native.filter_bank import ButterFilter
-from rockpool.timeseries import TSEvent
+from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.parameters import Parameter, State, SimulationParameter, ParameterBase
 
 # - Other imports
@@ -34,7 +34,7 @@ try:
         thr_up: float,
         c_iaf: float,
         leakage: float,
-    ) -> np.ndarray:
+    ) -> (np.ndarray, np.ndarray):
         """
         Encode a signal as events, using an LIF neuron membrane
 
@@ -71,16 +71,18 @@ try:
 except:
 
     def _encode_spikes(
+        inital_state: np.ndarray,
         dt: float,
         data: np.ndarray,
         thr_up: float,
         c_iaf: float,
         leakage: float,
-    ) -> np.ndarray:
+    ) -> (np.ndarray, np.ndarray):
         """
         Encode a signal as events, using an LIF neuron membrane
 
         Args:
+            inital_state (np.ndarray): Initial state of the LIF neurons
             dt (float): Time-step in seconds
             data (np.ndarray): Array ``(T,N)`` containing data to convert to events
             thr_up (float): Firing threshold voltage
@@ -89,7 +91,7 @@ except:
 
         Returns: np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
         """
-        cdc = data[0]
+        cdc = inital_state
         data_up = []
         data *= 1e-6  # convert voltage to current for V2I module
         for i in range(len(data)):
@@ -105,7 +107,7 @@ except:
             data_up.append(spikes)
             cdc = cdc * (1 - spikes)
 
-        return jnp.array(data_up)
+        return jnp.array(data_up), cdc
 
 
 class AFE(Module):
@@ -494,8 +496,10 @@ class AFE(Module):
 
         # - Augment input data to avoid artefacts, and save for next time
         input_length = input.shape[0]
+        print(input_length)
         this_input = input
         input = np.concatenate((self._last_input, input))
+        print(input.shape)
         self._last_input = this_input
 
         input_offset = self.MAX_INPUT_OFFSET
@@ -560,34 +564,20 @@ class AFE(Module):
         # - High-pass filter
         rectified = signal.filtfilt(*self._HP_filt, filtered)
 
-        # - Additional noise
+        # - HP filt, additional noise, rectify
+        # rectified = np.zeros_like(filtered)
         for i in range(self.size_out):
-            rectified[:, i] += self._generateNoise(
-                input.shape[0],
-                self.Fs,
-                self.VRMS_SQHZ_FWR,
-                self.F_KNEE_FWR,
-                self.F_ALPHA_FWR,
+            rectified[:, i] = abs(
+                # signal.filtfilt(*self._HP_filt, filtered[:, i])
+                rectified[:, i]
+                + self._generateNoise(
+                    input.shape[0],
+                    self.Fs,
+                    self.VRMS_SQHZ_FWR,
+                    self.F_KNEE_FWR,
+                    self.F_ALPHA_FWR,
+                )
             )
-
-        # - Absolute value
-        rectified = np.abs(rectified)
-
-        # rcs = [
-        #     abs(
-        #         self._butter_highpass_filter(
-        #             bpfs[i], self.F_CORNER_HIGHPASS, self.Fs, order=1
-        #         )
-        #         + self._generateNoise(
-        #             bpfs[i],
-        #             self.Fs,
-        #             self.VRMS_SQHZ_FWR,
-        #             self.F_KNEE_FWR,
-        #             self.F_ALPHA_FWR,
-        #         )
-        #     )
-        #     for i in range(self.size_out)
-        # ]
 
         # Encoding to spike by integrating the FWR output for positive going(UP)
         spikes, new_state = _encode_spikes(
@@ -613,13 +603,14 @@ class AFE(Module):
             spikes = self._sampling_signal(spikes, self.DIGITAL_COUNTER)
 
         # - Trim data to this chunk
-        spikes = spikes[-input_length:, :]
+        # spikes = spikes[-input_length:, :]
+        print(spikes.shape)
 
         if record:
             # - Trim data to this chunk
-            lna_out = lna_out[-input_length:, :]
-            filtered = filtered[-input_length:, :]
-            rectified = rectified[-input_length:, :]
+            # lna_out = lna_out[-input_length:, :]
+            # filtered = filtered[-input_length:, :]
+            # rectified = rectified[-input_length:, :]
 
             recording = {
                 "LNA_out": lna_out,
@@ -641,3 +632,17 @@ class AFE(Module):
             float: Simulation time-step
         """
         return 1 / self.Fs
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "LNA_out": TSContinuous.from_clocked(
+                state_dict["LNA_out"], name="LNA", **args
+            ),
+            "BPF": TSContinuous.from_clocked(state_dict["BPF"], name="BPF", **args),
+            "rect": TSContinuous.from_clocked(state_dict["rect"], name="Rect", **args),
+            "spks_out": TSEvent.from_raster(
+                state_dict["spks_out"], name="Spikes", **args
+            ),
+        }
