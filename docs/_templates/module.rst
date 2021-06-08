@@ -20,6 +20,30 @@ Module {{ fullname }}
 
 {% endfor %}
 
+{%- endif -%}
+
+{% endblock %}
+
+
+{% block classes %}
+{% if classes %}
+
+.. rubric:: Classes overview
+
+.. autosummary::
+
+{% for item in classes %}
+
+  {{ item }}
+
+{% endfor %}
+
+{%- endif -%}
+{% endblock %}
+
+
+
+{% if functions -%}
 .. rubric:: Functions
 
 {%- for function in functions -%}
@@ -29,7 +53,8 @@ Module {{ fullname }}
 {%- endfor -%}
 
 {% endif %}
-{% endblock %}
+
+
 
 {% if classes -%}
 .. rubric:: Classes

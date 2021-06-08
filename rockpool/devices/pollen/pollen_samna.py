@@ -21,14 +21,21 @@ from samna.pollen.configuration import (
 from samna.pollen import validate_configuration
 
 # - Rockpool imports
-from rockpool.nn.modules import Module
+from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+
+from ..pollen import pollen_devkit_utils as putils
+from ..pollen.pollen_devkit_utils import PollenDaughterBoard
 
 # - Numpy
 import numpy as np
 
 # - Typing
 from typing import Optional, Union
+
+from warnings import warn
+
+import time
 
 # - JSON
 import json
@@ -60,7 +67,7 @@ def config_from_specification(
         For detailed information about the networks supported on Pollen, see :ref:`/devices/pollen-overview.ipynb`
 
     Args:
-        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nhidden, 2)``. The third dimension specifies connections onto the second input synapse for each neuron
+        weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidfden-layer neurons that receive input from the input channels.
         weights_rec (np.ndarray): A quantised 8-bit recurrent weight matrix ``(Nhidden, Nhidden, 2)``. The third dimension specified connections onto the second input synapse for each neuron. Default: ``0``
         weights_out (np.ndarray): A quantised 8-bit output weight matrix ``(Nhidden, Nout)``.
         dash_mem (np.ndarray): A vector or list ``(Nhidden,)`` specifing decay bitshift for neuron state for each hidden layer neuron. Default: ``1``
@@ -81,24 +88,45 @@ def config_from_specification(
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
     # - Check input weights
-    if weights_in.ndim != 3:
-        raise ValueError("Input weights must be 3 dimensional `(Nin, Nhidden, 2)`")
+    if weights_in.ndim < 2:
+        raise ValueError(
+            "Input weights must be at least 2 dimensional `(Nhidden, Nout, [2])`"
+        )
+
+    enable_isyn2 = True
+    if weights_in.ndim == 2:
+        enable_isyn2 = False
+        weights_in = np.reshape(weights_in, [*weights_in.shape, 1])
 
     # - Check output weights
     if weights_out.ndim != 2:
         raise ValueError("Output weights must be 2 dimensional `(Nhidden, Nout)`")
 
     # - Get network shape
-    Nin, Nhidden, _ = weights_in.shape
-    _, Nout = weights_out.shape
+    Nin, Nin_res, _ = weights_in.shape
+    Nhidden, Nout = weights_out.shape
+
+    # - Check input and hidden weight sizes
+    if Nin_res > Nhidden:
+        raise ValueError("Input weight dimension `Nin_res` must be <= `Nhidden`")
 
     # - Provide default `weights_rec`
     weights_rec = (
-        np.zeros((Nhidden, Nhidden, 2), "int") if weights_rec is None else weights_rec
+        np.zeros((Nhidden, Nhidden, 1 + enable_isyn2), "int")
+        if weights_rec is None
+        else weights_rec
     )
 
-    if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
-        raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, 2)`")
+    # - Check `weights_rec`
+    if weights_rec.ndim == 2:
+        enable_isyn2 = False
+        weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
+
+    if (
+        weights_rec.ndim != 3
+        or weights_rec.shape[0] != weights_rec.shape[1]
+    ):
+        raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, [2])`")
 
     if Nhidden != weights_rec.shape[0]:
         raise ValueError(
@@ -106,16 +134,8 @@ def config_from_specification(
             f"`weights_in`: {weights_in.shape}; `weights_rec`: {weights_rec.shape}"
         )
 
-    if weights_out.shape[0] != Nhidden:
-        raise ValueError(
-            "Output weights must be consistent with recurrent weights.\n"
-            f"`weights_rec`: {weights_rec.shape}; `weights_out`: {weights_out.shape}"
-        )
-
     # - Check aliases
-    aliases = [[]] * Nhidden if aliases is None else aliases
-
-    if len(aliases) != Nhidden:
+    if aliases is not None and len(aliases) != Nhidden:
         raise ValueError(
             f"Aliases list must have `Nhidden` entries (`Nhidden` = {Nhidden})"
         )
@@ -155,29 +175,53 @@ def config_from_specification(
     if threshold_out.size != Nout:
         raise ValueError(f"`thresholds_out` needs `Nout` entries (`Nout` = {Nout})")
 
+    # - Check data types
+    if (
+        weights_in.dtype.kind not in "ui"
+        or weights_rec.dtype.kind not in "ui"
+        or weights_out.dtype.kind not in "ui"
+    ):
+        warn(
+            "`weights...` arguments should be provided as `int` data types. I am casting these to `int`."
+        )
+
+    if (
+        threshold.dtype.kind not in "ui"
+        or dash_syn.dtype.kind not in "ui"
+        or dash_syn_2.dtype.kind not in "ui"
+        or dash_syn_out.dtype.kind not in "ui"
+        or dash_mem.dtype.kind not in "ui"
+        or dash_mem_out.dtype.kind not in "ui"
+    ):
+        warn(
+            "Neuron and synapse parameter arguments should be provided as `int` data types. I am casting these to `int`."
+        )
+
     # - Build the configuration
     config = PollenConfiguration()
-    config.synapse2_enable = True
-    config.reservoir.aliasing = True
+    config.debug.clock_enable = True
+    config.synapse2_enable = enable_isyn2
+    config.reservoir.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
     config.reservoir.weight_bit_shift = weight_shift_rec
     config.readout.weight_bit_shift = weight_shift_out
+    config.input.weights = weights_in[:, :, 0].astype("int")
+    config.reservoir.weights = weights_rec[:, :, 0].astype("int")
+    config.readout.weights = weights_out.astype("int")
 
-    config.input.weights = weights_in[:, :, 0]
-    config.input.syn2_weights = weights_in[:, :, 1]
-    config.reservoir.weights = weights_rec[:, :, 0]
-    config.reservoir.syn2_weights = weights_rec[:, :, 1]
-    config.readout.weights = weights_out
+    if enable_isyn2:
+        config.input.syn2_weights = weights_in[:, :, 1].astype("int")
+        config.reservoir.syn2_weights = weights_rec[:, :, 1].astype("int")
 
     reservoir_neurons = []
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
-        if len(aliases[i]) > 0:
-            neuron.alias_target = aliases[i][0]
-        neuron.i_syn_decay = dash_syn[i]
-        neuron.i_syn2_decay = dash_syn_2[i]
-        neuron.v_mem_decay = dash_mem[i]
-        neuron.threshold = threshold[i]
+        if aliases is not None and len(aliases[i]) > 0:
+            neuron.alias_target = aliases[i][0].astype("int")
+        neuron.i_syn_decay = dash_syn[i].astype("int")
+        neuron.i_syn2_decay = dash_syn_2[i].astype("int")
+        neuron.v_mem_decay = dash_mem[i].astype("int")
+        neuron.threshold = threshold[i].astype("int")
         reservoir_neurons.append(neuron)
 
     config.reservoir.neurons = reservoir_neurons
@@ -185,9 +229,9 @@ def config_from_specification(
     readout_neurons = []
     for i in range(np.shape(weights_out)[1]):
         neuron = OutputNeuron()
-        neuron.i_syn_decay = dash_syn_out[i]
-        neuron.v_mem_decay = dash_mem_out[i]
-        neuron.threshold = threshold_out[i]
+        neuron.i_syn_decay = dash_syn_out[i].astype("int")
+        neuron.v_mem_decay = dash_mem_out[i].astype("int")
+        neuron.threshold = threshold_out[i].astype("int")
         readout_neurons.append(neuron)
 
     config.readout.neurons = readout_neurons
@@ -212,10 +256,12 @@ def save_config(config: PollenConfiguration, filename: str) -> None:
 def load_config(filename: str) -> PollenConfiguration:
     """
     Read a Pollen configuration from disk in JSON format
+
     Args:
         filename (str): The filename to read from
 
-    Returns: PollenConfiguration: The configuration loaded from disk
+    Returns:
+        `.PollenConfiguration`: The configuration loaded from disk
     """
     # - Create a new config object
     conf = PollenConfiguration()
@@ -230,14 +276,14 @@ def load_config(filename: str) -> PollenConfiguration:
 
 class PollenSamna(Module):
     """
-    A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`
+    A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`.
 
     Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen. See :ref:`/devices/pollen-overview.ipynb` for more information about the Pollen development kit, and supported networks.
     """
 
     def __init__(
         self,
-        device: "samna.device",
+        device: PollenDaughterBoard,
         config: PollenConfiguration = None,
         dt: float = 1e-3,
         *args,
@@ -247,81 +293,159 @@ class PollenSamna(Module):
         Instantiate a Module with Pollen dev-kit backend
 
         Args:
-            device (samna.pollen.PollenDevice): An opened `samna` device to a Pollen dev kit
+            device (PollenDaughterBoard): An opened `samna` device to a Pollen dev kit
             config (PollenConfiguraration): A Pollen configuration from `samna`
             dt (float): The simulation time-step to use for this Module
         """
+        # - Check input arguments
+        if device is None:
+            raise ValueError("`device` must be a valid, opened Pollen HDK device.")
+
+        # - Get a default configuration
+        if config is None:
+            config = samna.pollen.configuration.PollenConfiguration()
+
+        # - Get the network shape
+        Nin, Nhidden = np.shape(config.input.weights)
+        _, Nout = np.shape(config.readout.weights)
+
         # - Initialise the superclass
         super().__init__(
-            shape=(16, 1000, 8), dt=dt, spiking_input=True, spiking_output=True
+            shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # - Check that we can access the device node
-        pass
-        self._device = device
-
-        # - Get the device model
-        self._device_model = device.get_device_model()
-
-        # - Check that it's a pollen device
-        pass
+        # - Initialise the pollen HDK
+        putils.initialise_pollen_hdk(device)
 
         # - Register a buffer to read events from Pollen
-        self._event_buffer = samna.BufferSinkNode_dynapcnn_event_output_event()
-        self._device_model.get_source_node().add_destination(
-            self._event_buffer.get_input_channel()
-        )
+        self._event_buffer = putils.new_pollen_read_buffer(device)
+        self._state_buffer = putils.new_pollen_state_monitor_buffer(device)
 
-        # - Store the configuration
+        # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
+        if not putils.verify_pollen_version(device, self._event_buffer):
+            raise ValueError("`device` must be an opened Pollen HDK daughter board.")
+
+        # - Store the device
+        self._device = device
+
+        # - Get a default configuration
         if config is None:
-            config = self._device_model.get_configuration()
+            config = samna.pollen.configuration.PollenConfiguration()
 
+        # - Store the configuration (and apply it)
         self.config: Union[
             PollenConfiguration, SimulationParameter
-        ] = SimulationParameter(config)
+        ] = SimulationParameter(init_func=lambda _: config)
         """ `.PollenConfiguration`: The configuration of the Pollen module """
+
+        # - Store the timestep
+        self.dt: Union[float, SimulationParameter] = dt
+        """ float: Simulation time-step of the module """
+
+        # - Zero neuron state when building a new module
+        self.reset_state()
 
     @property
     def config(self):
-        return self._device_model.get_configuration()
+        # - Return the locally stored config
+        return self._config
+
+        # - Reading the configuration is not yet supported
+        # return self._device_model.get_configuration()
 
     @config.setter
     def config(self, new_config):
-        # - Write the configuration to the dev kit
-        self._device_model.apply_configuration(new_config)
+        # - Write the configuration to the device
+        putils.apply_configuration(self._device, new_config)
+
+        # - Store the configuration locally, since reading is not supported
+        self._config = new_config
+
+    def reset_state(self) -> "PollenSamna":
+        # - Reset neuron and synapse state on Pollen
+        putils.reset_neuron_synapse_state(self._device)
+        return self
 
     def evolve(
-        self, input: np.ndarray, record: bool = False, *args, **kwargs
+        self,
+        input: np.ndarray,
+        record: bool = False,
+        read_timeout: float = 10.0,
+        *args,
+        **kwargs,
     ) -> (np.ndarray, dict, dict):
+        # - Get the network size
+        Nhidden, Nout = self.shape[-2:]
+
+        # - Configure Pollen for accel-time mode
+        m_Nhidden = Nhidden if record else 0
+        m_Nout = Nout if record else 0
+        putils.select_accel_time_mode(
+            self._device, self._config, self._state_buffer, m_Nhidden, m_Nout
+        )
+
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input) - 1
+
+        # - Encode input and readout events
+        input_events_list = []
+        for timestep, input_data in enumerate(input):
+            # - Generate input events
+            for channel, channel_events in enumerate(input_data):
+                for _ in range(channel_events):
+                    event = samna.pollen.event.Spike()
+                    event.neuron = channel
+                    event.timestamp = start_timestep + timestep
+                    input_events_list.append(event)
+
+        # - Add an extra event to ensure readout for entire input extent
+        event = samna.pollen.event.Spike()
+        event.timestamp = np.shape(input)[0]
+        input_events_list.append(event)
+
+        # - Clear the input event count register to make sure the dummy event is ignored
+        for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
+            event = samna.pollen.event.WriteRegisterValue()
+            event.address = addr
+            input_events_list.append(event)
+
+        # - Wait until Pollen is ready
+        putils.is_pollen_ready(self._device, self._event_buffer)
+
+        # - Clear the read and state buffers
+        self._state_buffer.reset()
+        self._event_buffer.get_events()
+
+        # - Write the events and trigger the simulation
+        self._device.get_model().write(input_events_list)
+
+        # - Wait until the simulation is finished
+        read_events = putils.blocking_read(
+            self._event_buffer, timeout=10.0, target_timestamp=final_timestep
+        )
+
+        # - Read the simulation output data
+        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+
+        # pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
+
         if record:
-            pass
-            # - Loop over time steps
-            # - Send input spikes for this time-step
-            # - Encode input events for this time-step
-            # events = [samna.pollen.event.Spike() for x in range(0, 10)]
-
-            # - Evolve one time-step
-            # - Record all synapse and neuron states for each time step
-            # - Store output events for this time-step
-
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "Vmem": np.array(pollen_data.V_mem_hid),
+                "Isyn": np.array(pollen_data.I_syn_hid),
+                "Isyn2": np.array(pollen_data.I_syn2_hid),
+                "Spikes": np.array(pollen_data.Spikes_hid),
+                "Vmem_out": np.array(pollen_data.V_mem_out),
+                "Isyn_out": np.array(pollen_data.I_syn_out),
+                "times": np.arange(start_timestep, final_timestep + 1),
+            }
         else:
-            pass
-            # - Pause pollen execution
-            # - Encode input event raster
-            # events = [samna.pollen.event.Spike() for x in range(0, 10)]
+            rec_dict = {}
 
-            # - Send input event raster to pollen
-            # my_dynapcnn_model.write(events)
+        # - This module accepts no state
+        new_state = {}
 
-            # - Evolve in automatic mode
-
-            # - No recording
-            record_dict = {}
-
-        # - Read events from the output buffer
-        output_events = self._event_buffer.get_events()
-
-        # - Clip events to the simulated period
-
-        # - Return events
-        return output_events, {}, record_dict
+        # - Return spike output, new state and record dictionary
+        return pollen_data.Spikes_out, new_state, rec_dict

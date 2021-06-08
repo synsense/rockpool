@@ -911,6 +911,9 @@ class TimedModuleWrapper(TimedModule):
 
         return ts_out, state_dict, record_dict
 
+    def reset_state(self) -> None:
+        self._module = self._module.reset_state()
+
 
 class LayerToTimedModule(TimedModule):
     """

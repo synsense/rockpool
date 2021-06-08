@@ -13,6 +13,8 @@ if util.find_spec("cimulator") is None:
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool import TSContinuous, TSEvent
+
 
 # - Import Cimulator
 from cimulator.pollen import Synapse, PollenLayer
@@ -31,7 +33,13 @@ __all__ = ["PollenCim"]
 
 class PollenCim(Module):
     """
-    A Module simulating a digital SNN on Pollen, using Cimulator as a back-end
+    A :py:class:`.Module` simulating a digital SNN on Pollen, using Cimulator as a back-end.
+
+    You should use the factory methods `.from_config` and `.from_specification` to build a concrete `.PollenCim` module.
+
+    See Also:
+
+        See the tutorials :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb` for a high-level overview of building and deploying networks for Pollen.
     """
 
     __create_key = object()
@@ -265,12 +273,12 @@ class PollenCim(Module):
             recording = {}
         else:
             recording = {
-                "vmem": np.array(self._pollen_layer.rec_v_mem).T,
-                "isyn": np.array(self._pollen_layer.rec_i_syn).T,
-                "isyn2": np.array(self._pollen_layer.rec_i_syn2).T,
-                "spikes": np.array(self._pollen_layer.rec_recurrent_spikes),
-                "vmem_out": np.array(self._pollen_layer.rec_v_mem_out).T,
-                "isyn_out": np.array(self._pollen_layer.rec_i_syn_out).T,
+                "Vmem": np.array(self._pollen_layer.rec_v_mem).T,
+                "Isyn": np.array(self._pollen_layer.rec_i_syn).T,
+                "Isyn2": np.array(self._pollen_layer.rec_i_syn2).T,
+                "Spikes": np.array(self._pollen_layer.rec_recurrent_spikes),
+                "Vmem_out": np.array(self._pollen_layer.rec_v_mem_out).T,
+                "Isyn_out": np.array(self._pollen_layer.rec_i_syn_out).T,
             }
 
         # - Return output, state and recording dictionary
@@ -280,3 +288,25 @@ class PollenCim(Module):
         """ Reset the state of this module. """
         self._pollen_layer.reset_all()
         return self
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "Vmem": TSContinuous.from_clocked(
+                state_dict["Vmem"], name="$V_{mem}$", **args
+            ),
+            "Isyn": TSContinuous.from_clocked(
+                state_dict["Isyn"], name="$I_{syn}$", **args
+            ),
+            "Isyn2": TSContinuous.from_clocked(
+                state_dict["Isyn2"], name="$I_{syn,2}$", **args
+            ),
+            "Spikes": TSEvent.from_raster(state_dict["Spikes"], name="Spikes", **args),
+            "Vmem_out": TSContinuous.from_clocked(
+                state_dict["Vmem_out"], name="$V_{mem,out}$", **args
+            ),
+            "Isyn_out": TSContinuous.from_clocked(
+                state_dict["Isyn_out"], name="$I_{syn,out}$", **args
+            ),
+        }

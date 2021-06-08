@@ -2232,7 +2232,7 @@ class TSEvent(TimeSeries):
                 ax.set_xlim(self.t_start, self.t_stop)
 
                 # - Set the extent of the channels axis
-                ax.set_ylim(-1, self.num_channels + 1)
+                ax.set_ylim(-1, self.num_channels)
 
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
