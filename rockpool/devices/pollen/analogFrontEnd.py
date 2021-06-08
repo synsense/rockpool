@@ -3,18 +3,14 @@ Simulation of an analog audio filtering front-end
 """
 
 # - Rockpool imports
-from rockpool.nn.modules.timed_module import TimedModule
-from rockpool.timeseries import TSEvent
+from rockpool.nn.modules.module import Module
+from rockpool.nn.modules.native.filter_bank import ButterFilter
+from rockpool.timeseries import TSEvent, TSContinuous
 from rockpool.parameters import Parameter, State, SimulationParameter, ParameterBase
-from rockpool import TSContinuous
-
-# - Matplotlib
-from matplotlib import mlab
-from matplotlib import pyplot as plt
 
 # - Other imports
 import numpy as np
-from scipy.signal import butter, lfilter, freqz
+from scipy.signal import butter, lfilter
 from scipy import signal, fftpack
 
 from typing import Union
@@ -23,12 +19,107 @@ P_int = Union[int, ParameterBase]
 P_float = Union[float, ParameterBase]
 P_array = Union[np.array, ParameterBase]
 
+# - Try to use Jax as speedup
+try:
+    import jax
+    import jax.numpy as jnp
 
-class AFE(TimedModule):
+    enable_jax = True
+
+    @jax.jit
+    def _encode_spikes(
+        inital_state: np.ndarray,
+        dt: float,
+        data: np.ndarray,
+        thr_up: float,
+        c_iaf: float,
+        leakage: float,
+    ) -> (np.ndarray, np.ndarray):
+        """
+        Encode a signal as events, using an LIF neuron membrane
+
+        Args:
+            inital_state (np.ndarray): Initial state of the LIF neurons
+            dt (float): Time-step in seconds
+            data (np.ndarray): Array ``(T,N)`` containing data to convert to events
+            thr_up (float): Firing threshold voltage
+            c_iaf (float): Membrane capacitance
+            leakage (float): Leakage factor per time step
+
+        Returns: np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
+        """
+        data *= 1e-6  # convert voltage to current for V2I module
+
+        def forward(cdc, data_t):
+            lk = leakage * cdc * 1e-9
+            dq_lk = lk * dt
+            dv = (dt * data_t - dq_lk) / c_iaf
+
+            # - Accumulate membrane voltage, clip to zero
+            cdc += dv
+            cdc *= cdc > 0.0
+
+            spikes = cdc > thr_up
+            return cdc * (1 - spikes), spikes
+
+        # - Evolve over the data array
+        final_state, data_up = jax.lax.scan(forward, inital_state, data)
+
+        return jnp.array(data_up), final_state
+
+
+except:
+
+    def _encode_spikes(
+        inital_state: np.ndarray,
+        dt: float,
+        data: np.ndarray,
+        thr_up: float,
+        c_iaf: float,
+        leakage: float,
+    ) -> (np.ndarray, np.ndarray):
+        """
+        Encode a signal as events, using an LIF neuron membrane
+
+        Args:
+            inital_state (np.ndarray): Initial state of the LIF neurons
+            dt (float): Time-step in seconds
+            data (np.ndarray): Array ``(T,N)`` containing data to convert to events
+            thr_up (float): Firing threshold voltage
+            c_iaf (float): Membrane capacitance
+            leakage (float): Leakage factor per time step
+
+        Returns: np.ndarray: Raster of output events ``(T,N)``, where ``True`` indicates a spike
+        """
+        cdc = inital_state
+        data_up = []
+        data *= 1e-6  # convert voltage to current for V2I module
+        for i in range(len(data)):
+            lk = leakage * cdc * 1e-9
+            dq_lk = lk * dt
+            dv = (dt * data[i] - dq_lk) / c_iaf
+
+            # - Accumulate membrane voltage, clip to zero
+            cdc += dv
+            cdc *= cdc > 0.0
+
+            spikes = cdc > thr_up
+            data_up.append(spikes)
+            cdc = cdc * (1 - spikes)
+
+        return jnp.array(data_up), cdc
+
+
+class AFE(Module):
     """
-    A :py:class:`.TimedModule` that simulates analog hardware for preprocessing audio
+    A :py:class:`.Module` that simulates analog hardware for preprocessing audio
 
     This module simulates the Pollen audio front-end stage. This is a signal-to-event core that provides a number of band-pass filters, followed by rectifying event production simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
+
+    Notes:
+        The AFE contains frequency tripling internally. For accuracy simulation, the sampling frequency should be at least 6 times higher than the highest frequency component in the signal. It would be a good idea to use a LPF to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.
+
+        Input to the module is in Volts. Input amplitude should be scaled to a maximum of 112mV RMS.
 
     See Also:
         For example usage of the :py:class:`.AFE` Module, see :ref:`/tutorials/analog-frontend-example.ipynb`
@@ -36,7 +127,7 @@ class AFE(TimedModule):
 
     def __init__(
         self,
-        shape: tuple = (16,),
+        shape: Union[tuple, int] = (1, 16),
         Q: int = 5,  # 3-5
         fc1: float = 100.0,
         f_factor: float = 1.325,
@@ -44,10 +135,13 @@ class AFE(TimedModule):
         leakage: float = 1.0,  # 0.5-20 nA
         digital_counter: int = 1,  # keep 1 spike every xxx spikes
         LNA_gain: float = 0.0,  # ~ +6db  6db/steps
-        fs: int = 16000,
+        fs: int = 48000,
         manual_scaling: float = None,
         add_noise: bool = True,
         seed: int = np.random.randint(2 ** 32 - 1),
+        num_workers: int = 1,
+        *args,
+        **kwargs,
     ):
         """
 
@@ -68,7 +162,7 @@ class AFE(TimedModule):
         LNA_gain: float
             Gain of the first stage low-noise amplifier, in dB. Default: 0.
         fs: int
-            Sampling frequency of the input data, in Hz. Default: 16kHz
+            Sampling frequency of the input data, in Hz. Default: 16kHz. **Note that the AFE contains frequency tripling, so the maximum representable frequency is ``fs/6``.**
         shape: int
             Number of filters / output channels. Default: ``(16,)``
         manual_scaling: float
@@ -80,13 +174,11 @@ class AFE(TimedModule):
         """
 
         # - Check shape argument
-        if not np.size(shape) == 1:
-            raise ValueError(
-                "The `shape` argument to AFE must only specify one dimension."
-            )
+        if np.size(shape) == 1:
+            shape = (1, np.array(shape).item())
 
         # - Initialise superclass
-        super().__init__(shape=shape, dt=1 / fs)
+        super().__init__(shape=shape, spiking_output=True, *args, **kwargs)
 
         # - Provide pRNG seed
         self.seed: P_int = SimulationParameter(seed, shape=(), init_func=lambda _: None)
@@ -127,13 +219,13 @@ class AFE(TimedModule):
         """ int: Band-pass filter order (Default 2)"""
 
         # Non-ideal
-        self.MAX_INPUT_OFFSET: P_float = Parameter(0)  # form microphone
-        """ float: Maxmimum input offset from microphone (Default 0)"""
+        self.MAX_INPUT_OFFSET: P_float = Parameter(0.0)  # from microphone
+        """ float: Maxmimum input offset from microphone (Default 0.) """
 
-        self.MAX_LNA_OFFSET: P_float = Parameter(5)  # +/-5mV random
+        self.MAX_LNA_OFFSET: P_float = Parameter(5.0)  # +/-5mV random
         """ float: Maxmimum low-noise amplifier offset in mV (Default 5mV) """
 
-        self.MAX_BPF_OFFSET: P_float = Parameter(5)  # +/-5mV random
+        self.MAX_BPF_OFFSET: P_float = Parameter(5.0)  # +/-5mV random
         """ float: Maxmum band-pass filter offset in mV (Default 5mV)"""
 
         self.DISTORTION: P_float = Parameter(0.1)  # 0-1
@@ -180,28 +272,28 @@ class AFE(TimedModule):
         self.lna_gain_db: P_float = Parameter(LNA_gain, shape=())  # in dB
         """ float: Low-noise amplifer gain in dB (Default 0.) """
 
-        self.lna_offset: P_float = State(
+        self.lna_offset: P_float = Parameter(
             np.random.randint(-self.MAX_LNA_OFFSET, self.MAX_LNA_OFFSET) * 0.001
         )
         """ float: Mismatch offset in low-noise amplifier """
 
-        self.bpf_offset: P_array = State(
+        self.bpf_offset: P_array = Parameter(
             np.random.randint(-self.MAX_BPF_OFFSET, self.MAX_BPF_OFFSET, self.size_out)
         )
         """ float: Mismatch offset in band-pass filters """
 
-        self.Q_mismatch: P_array = State(
+        self.Q_mismatch: P_array = Parameter(
             np.random.randint(-self.Q_MIS_MATCH, self.Q_MIS_MATCH, self.size_out)
         )
         """ float: Mismatch in Q over band-pass filters """
 
-        self.fc_mismatch: P_array = State(
+        self.fc_mismatch: P_array = Parameter(
             np.random.randint(-self.FC_MIS_MATCH, self.FC_MIS_MATCH, self.size_out)
         )
         """ float: Mismatch in centre frequency for band-pass filters """
 
         fc1 = self.FC1 * (1 + self.BPF_FC_SHIFT / 100) * (1 + self.fc_mismatch[0] / 100)
-        self.fcs: P_array = State(
+        self.fcs: P_array = Parameter(
             [fc1]
             + [
                 fc1 * (self.f_factor ** i) * (1 + self.fc_mismatch[i] / 100)
@@ -210,14 +302,20 @@ class AFE(TimedModule):
         )
         """ np.ndarray: Centre frequency of each band-pass filter in Hz """
 
-        # Add the non-ideality of the filter - shift in the centre frequency of the BPF by mismatch
-        self.bws: P_array = State(
+        # - Check the filters w.r.t the sampling frequency
+        if self.Fs < (6 * np.max(self.fcs)):
+            raise ValueError(
+                f"Sampling frequency must be at least 6 times highest BPF centre freq. (>{6 * np.max(self.fcs)} Hz)"
+            )
+
+        # Bandwidths of the filters
+        self.bws: P_array = Parameter(
             [
                 self.fcs[i] / (self.Q * (1 + self.Q_mismatch[i] / 100))
                 for i in range(self.size_out)
             ]
         )
-        """ np.ndarray: Shift in centre frequencies due to mismatch """
+        """ np.ndarray: Bandwidths of each filter in Hz """
 
         self.manual_scaling: P_float = SimulationParameter(
             manual_scaling, shape=(), init_func=lambda s: -1
@@ -228,6 +326,27 @@ class AFE(TimedModule):
             add_noise, shape=()
         )
         """ bool: Flag indicating that noise should be simulated during operation. Default `True` """
+
+        # - Generate the sub-modules
+        self.butter_filterbank = ButterFilter(
+            frequency=self.fcs,
+            bandwidth=self.bws,
+            fs=fs,
+            order=self.ORDER_BPF,
+            num_workers=num_workers,
+            use_lowpass=False,
+        )
+
+        # - High-pass filter parameters
+        self._HP_filt = self._butter_highpass(self.F_CORNER_HIGHPASS, self.Fs, order=1)
+        """ High-pass filter on input """
+
+        # - Internal neuron state
+        self.lif_state: Union[np.ndarray, State] = State(np.zeros(self.size_out))
+        """ (np.ndarray) Internal state of the LIF neurons used to generate events """
+
+        self._last_input = None
+        """ (np.ndarray) The last chunk of input, to avoid artefacts at the beginning of an input chunk """
 
     def _butter_bandpass(
         self, lowcut: float, highcut: float, fs: float, order: int = 2
@@ -247,7 +366,7 @@ class AFE(TimedModule):
         nyq = 0.5 * fs
         low = lowcut / nyq
         high = highcut / nyq
-        b, a = butter(order, [low, high], btype="band")
+        b, a = butter(order, [low, high], btype="band", output="ba")
         return b, a
 
     def _butter_bandpass_filter(
@@ -308,7 +427,7 @@ class AFE(TimedModule):
 
     def _generateNoise(
         self,
-        x: np.ndarray,
+        T,
         Fs: float = 16e3,
         VRMS_SQHZ: float = 1e-6,
         F_KNEE: float = 1e3,
@@ -327,9 +446,6 @@ class AFE(TimedModule):
         Returns: np.ndarray: Generated noise with shape ``(T,)``
         """
 
-        if not self.add_noise:
-            return np.zeros_like(x)
-
         def one_over_f(f: np.ndarray, knee: float, alpha: float) -> np.ndarray:
             d = np.ones_like(f)
             d[f < knee] = np.abs(((knee / f[f < knee]) ** (alpha)))
@@ -338,8 +454,7 @@ class AFE(TimedModule):
 
         W_NOISE_SIGMA = VRMS_SQHZ * np.sqrt(Fs / 2)  # Noise in the bandwidth 0 - Fs/2
 
-        N = len(x)
-        wn = np.random.normal(0, W_NOISE_SIGMA, N)
+        wn = np.random.normal(0, W_NOISE_SIGMA, T)
         s = fftpack.rfft(wn)
         f = fftpack.rfftfreq(len(s)) * Fs
         ff = s * one_over_f(f, F_KNEE, F_ALPHA)
@@ -347,94 +462,60 @@ class AFE(TimedModule):
 
         return x_t
 
-    def _encode_spikes(
-        self,
-        t: np.ndarray,
-        data: np.ndarray,
-        thr_up: float,
-        c_iaf: float,
-        leakage: float,
-    ) -> list:
-        """
-        Encode a signal as events, using an LIF neuron membrane
-
-        Args:
-            t (np.ndarray): Array ``(T,)`` specifying sample times for each data point
-            data (np.ndarray): Array ``(T,)`` containing data to convert to events
-            thr_up (float): Firing threshold voltage
-            c_iaf (float): Membrane capacitance
-            leakage (float): Leakage factor per time step
-
-        Returns: list: Raster of output events ``(T,)``, where ``1`` indicates a spike
-        """
-        cdc = data[0]
-        td = t[0]
-        data_up = []
-        data *= 1e-6  # convert voltage to current for V2I module
-        for i in range(len(data)):
-            dt = t[i] - td
-            lk = leakage * cdc * 1e-9
-            dq_lk = lk * dt
-            dv = (dt * data[i] - dq_lk) / c_iaf
-
-            # - Accumulate membrane voltage, clip to zero
-            cdc = np.clip(cdc + dv, 0.0, np.inf)
-
-            if cdc > thr_up:
-                data_up.append(1)
-                cdc = 0
-            else:
-                data_up.append(0)
-
-            td = t[i]
-
-        return data_up
-
-    def _sampling_signal(self, ch1: list, count: int) -> list:
+    def _sampling_signal(self, spikes: np.ndarray, count: int) -> np.ndarray:
         """
         Down-sample events in a signal, by passing one in every ``N`` events
 
         Args:
-            ch1 (list): List raster ``(T,)`` of events
+            spikes (np.ndarray): Raster ``(T, N)`` of events
             count (int): Number of events to ignore before passing one event
 
-        Returns: list: List raster ``(T)`` of down-sampled events
+        Returns: np.ndarray: Raster ``(T, N)`` of down-sampled events
         """
 
-        sam_count = 1
-        sampled = []
+        return (np.cumsum(spikes, axis=0) % count * spikes) == (count - 1)
 
-        for i in range(len(ch1)):
-            if (ch1[i] == 1) & (sam_count < count):
-                sam_count = sam_count + 1
-                sampled.append(0)
-            elif (ch1[i] == 1) & (sam_count == count):
-                sam_count = 1
-                sampled.append(1)
-            else:
-                sampled.append(0)
-
-        return sampled
+        # sam_count = 1
+        # sampled = []
+        #
+        # for i in range(len(ch1)):
+        #     if (ch1[i] == 1) & (sam_count < count):
+        #         sam_count = sam_count + 1
+        #         sampled.append(0)
+        #     elif (ch1[i] == 1) & (sam_count == count):
+        #         sam_count = 1
+        #         sampled.append(1)
+        #     else:
+        #         sampled.append(0)
+        #
+        # return sampled
 
     def evolve(
         self,
-        ts_input: TSContinuous = None,
-        duration: float = None,
-        num_timesteps: int = None,
-        kwargs_timeseries=None,
+        input: np.ndarray = None,
         record: bool = False,
         *args,
         **kwargs,
     ):
+        # - Make sure input is 1D
+        if np.ndim(input) > 1:
+            input = input[:, 0]
 
-        t = np.arange(0, num_timesteps) * self.dt
-        y = ts_input(t)[:, 0]
+        # - Set up the previous input chunk
+        if self._last_input is None:
+            self._last_input = np.zeros_like(input)
+
+        # - Augment input data to avoid artefacts, and save for next time
+        input_length = input.shape[0]
+        this_input = input
+        input = np.concatenate((self._last_input, input))
+        self._last_input = this_input
 
         input_offset = self.MAX_INPUT_OFFSET
         if self.manual_scaling > 0.0:
-            y_scaled = self.manual_scaling * y * self.INPUT_AMP_MAX + input_offset
+            y_scaled = self.manual_scaling * input * self.INPUT_AMP_MAX + input_offset
         else:
-            y_scaled = (y / max(y)) * self.INPUT_AMP_MAX + input_offset
+            y_scaled = (input / np.max(input)) * self.INPUT_AMP_MAX + input_offset
 
         #######   LNA - Gain  ##########
         lna_nonlinearity = self.DISTORTION / self.INPUT_AMP_MAX
@@ -443,77 +524,133 @@ class AFE(TimedModule):
         lna_out = y_scaled * (1 + lna_distortion) * lna_gain_v + self.lna_offset
 
         #######  Add Noise ###############
-        lna_out = lna_out + self._generateNoise(
-            lna_out,
+        noise = self._generateNoise(
+            input.shape[0],
             self.Fs,
             self.VRMS_SQHZ_LNA,
             self.F_KNEE_LNA,
             self.F_ALPHA_LNA,
         )
 
-        bpfs = [
-            self._butter_bandpass_filter(
-                lna_out + self.bpf_offset[i] * 0.001,
-                self.fcs[i] - self.bws[i] / 2,
-                self.fcs[i] + self.bws[i] / 2,
-                self.Fs,
-                order=self.ORDER_BPF,
-            )
-            for i in range(self.size_out)
-        ]
+        lna_out = lna_out + noise
+
+        # - Expand lna_output dimensions
+        lna_out = np.tile(np.atleast_2d(lna_out).T, (1, self.size_out))
+
+        # - Perform the filtering
+        filtered, _, _ = self.butter_filterbank(lna_out + self.bpf_offset * 0.001)
+
+        # bpfs = [
+        #     self._butter_bandpass_filter(
+        #         lna_out + self.bpf_offset[i] * 0.001,
+        #         self.fcs[i] - self.bws[i] / 2,
+        #         self.fcs[i] + self.bws[i] / 2,
+        #         self.Fs,
+        #         order=self.ORDER_BPF,
+        #     )
+        #     for i in range(self.size_out)
+        # ]
 
         # add noise
-        bpfs = [
-            bpfs[i]
-            + self._generateNoise(
-                bpfs[i],
-                self.Fs,
-                self.VRMS_SQHZ_BPF,
-                self.F_KNEE_BPF,
-                self.F_ALPHA_BPF,
-            )
-            for i in range(self.size_out)
-        ]
-
-        rcs = [
-            abs(
-                self._butter_highpass_filter(
-                    bpfs[i], self.F_CORNER_HIGHPASS, self.Fs, order=1
+        if self.add_noise:
+            for i in range(self.size_out):
+                filtered[:, i] += self._generateNoise(
+                    input.shape[0],
+                    self.Fs,
+                    self.VRMS_SQHZ_BPF,
+                    self.F_KNEE_BPF,
+                    self.F_ALPHA_BPF,
                 )
+
+        # bpfs = [
+        #     bpfs[i]
+        #     + self._generateNoise(
+        #         bpfs[i], self.Fs, self.VRMS_SQHZ_BPF, self.F_KNEE_BPF, self.F_ALPHA_BPF,
+        #     )
+        #     for i in range(self.size_out)
+        # ]
+
+        # - High-pass filter
+        # rectified = signal.filtfilt(*self._HP_filt, filtered)
+
+        # - HP filt, additional noise, rectify
+        rectified = np.zeros_like(filtered)
+        for i in range(self.size_out):
+            rectified[:, i] = abs(
+                signal.filtfilt(*self._HP_filt, filtered[:, i])
+                # rectified[:, i]
                 + self._generateNoise(
-                    bpfs[i],
+                    input.shape[0],
                     self.Fs,
                     self.VRMS_SQHZ_FWR,
                     self.F_KNEE_FWR,
                     self.F_ALPHA_FWR,
                 )
             )
-            for i in range(self.size_out)
-        ]
 
         # Encoding to spike by integrating the FWR output for positive going(UP)
-        spikes = [
-            self._encode_spikes(t, rcs[i], self.THR_UP, self.C_IAF, self.LEAKAGE)
-            for i in range(self.size_out)
-        ]
-
-        spikes = np.array(
-            [
-                self._sampling_signal(spikes[i], self.DIGITAL_COUNTER)
-                for i in range(self.size_out)
-            ]
+        spikes, new_state = _encode_spikes(
+            self.lif_state,
+            1 / self.Fs,
+            rectified,
+            self.THR_UP,
+            self.C_IAF,
+            self.LEAKAGE,
         )
 
+        # - Keep a record of the LIF neuron states
+        self.lif_state = new_state
+
+        # spikes = np.array(
+        #     [
+        #         self._sampling_signal(spikes[i], self.DIGITAL_COUNTER)
+        #         for i in range(self.size_out)
+        #     ]
+        # )
+
+        if self.DIGITAL_COUNTER > 1:
+            spikes = self._sampling_signal(spikes, self.DIGITAL_COUNTER)
+
+        # - Trim data to this chunk
+        spikes = spikes[-input_length:, :]
+
         if record:
+            # - Trim data to this chunk
+            lna_out = lna_out[-input_length:, :]
+            filtered = filtered[-input_length:, :]
+            rectified = rectified[-input_length:, :]
+
             recording = {
                 "LNA_out": lna_out,
-                "BPF": bpfs,
-                "rect": rcs,
+                "BPF": filtered,
+                "rect": rectified,
                 "spks_out": spikes,
             }
         else:
             recording = {}
 
-        spikes = TSEvent.from_raster(spikes.T, dt=self.dt)
-
         return spikes, self.state(), recording
+
+    @property
+    def dt(self) -> float:
+        """
+        Simulation time-step in seconds
+
+        Returns:
+            float: Simulation time-step
+        """
+        return 1 / self.Fs
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "LNA_out": TSContinuous.from_clocked(
+                state_dict["LNA_out"], name="LNA", **args
+            ),
+            "BPF": TSContinuous.from_clocked(state_dict["BPF"], name="BPF", **args),
+            "rect": TSContinuous.from_clocked(state_dict["rect"], name="Rect", **args),
+            "spks_out": TSEvent.from_raster(
+                state_dict["spks_out"], name="Spikes", **args
+            ),
+        }
