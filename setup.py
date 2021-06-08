@@ -12,7 +12,7 @@ setup_args = {
     "author_email": "dylan.muir@synsense.ai",
     "version": __version__,
     "packages": setuptools.find_packages(),
-    "install_requires": ["numpy"],
+    "install_requires": ["numpy", "scipy"],
     "extras_require": {
         "all": [
             "tqdm",

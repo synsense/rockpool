@@ -59,16 +59,16 @@ def test_butter_mel_filter():
 
     # to_dict() and load_from_dict()
     config = lyr._module.to_dict()
-    #lyr = Layer.load_from_dict(config)
+    # lyr = Layer.load_from_dict(config)
 
     # - Get a temporary file
-    #(fh, filename) = mkstemp(dir=base_path + "/files/")
-    #os.close(fh)
+    # (fh, filename) = mkstemp(dir=base_path + "/files/")
+    # os.close(fh)
 
     # save_layer() and load_from_layer()
-    #lyr.save_layer(filename)
-    #lyr = Layer.load_from_file(ButterMelFilter, filename)
-    #os.remove(filename)
+    # lyr.save_layer(filename)
+    # lyr = Layer.load_from_file(ButterMelFilter, filename)
+    # os.remove(filename)
 
     # reset_all() and terminate()
     lyr.reset_all()
@@ -134,16 +134,16 @@ def test_butter_filter():
 
     # to_dict() and load_from_dict()
     config = lyr._module.to_dict()
-    #lyr = ButterFilter.load_from_dict(config)
+    # lyr = ButterFilter.load_from_dict(config)
 
     # - Get a temporary file
-    #(fh, filename) = mkstemp(dir=base_path + "/files/")
-    #os.close(fh)
+    # (fh, filename) = mkstemp(dir=base_path + "/files/")
+    # os.close(fh)
 
     # save_layer() and load_from_file()
-    #lyr.save_layer(filename)
-    #lyr = Layer.load_from_file(ButterMelFilter, filename)
-    #os.remove(filename)
+    # lyr.save_layer(filename)
+    # lyr = Layer.load_from_file(ButterMelFilter, filename)
+    # os.remove(filename)
 
     # reset_all() and terminate()
     lyr.reset_all()
