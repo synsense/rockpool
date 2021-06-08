@@ -498,7 +498,7 @@ class AFE(Module):
         input_length = input.shape[0]
         print(input_length)
         this_input = input
-        input = np.concatenate((self._last_input, input))
+        # input = np.concatenate((np.flip(-input), input))
         print(input.shape)
         self._last_input = this_input
 
@@ -562,14 +562,14 @@ class AFE(Module):
         # ]
 
         # - High-pass filter
-        rectified = signal.filtfilt(*self._HP_filt, filtered)
+        # rectified = signal.filtfilt(*self._HP_filt, filtered)
 
         # - HP filt, additional noise, rectify
-        # rectified = np.zeros_like(filtered)
+        rectified = np.zeros_like(filtered)
         for i in range(self.size_out):
             rectified[:, i] = abs(
-                # signal.filtfilt(*self._HP_filt, filtered[:, i])
-                rectified[:, i]
+                signal.filtfilt(*self._HP_filt, filtered[:, i])
+                # rectified[:, i]
                 + self._generateNoise(
                     input.shape[0],
                     self.Fs,
