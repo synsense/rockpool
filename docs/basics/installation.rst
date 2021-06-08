@@ -70,7 +70,7 @@ Once all dependencies are installed, you can build the PDF docs with
 Contributing
 ------------
 
-If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/ai-ctx/rockpool to your own account. Then clone your fork to your development machine
+If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/synsense/rockpool to your own account. Then clone your fork to your development machine
 
 .. code-block:: Bash
 
