@@ -908,7 +908,8 @@ class TimedModuleWrapper(TimedModule):
         ts_out = self._gen_timeseries(output, **kwargs_timeseries)
 
         # - Use the optional `_wrap_recorded_state` method to convert the recorded state to TimeSeries objects
-        record_dict = self._module._wrap_recorded_state(record_dict, time_base[0])
+        if record:
+            record_dict = self._module._wrap_recorded_state(record_dict, time_base[0])
 
         return ts_out, state_dict, record_dict
 
