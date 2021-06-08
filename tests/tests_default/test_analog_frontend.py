@@ -1,19 +1,15 @@
-import pytest
-
-
 def test_imports():
-    from rockpool.nn.modules.native.analogFrontEnd import AFE
+    pass
 
 
 def test_init():
-    from rockpool.nn.modules.native.analogFrontEnd import AFE
+    from rockpool.devices.pollen.analogFrontEnd import AFE
 
     afe = AFE()
 
 
 def test_evolve():
-
-    from rockpool.nn.modules.native.analogFrontEnd import AFE
+    from rockpool.devices.pollen.analogFrontEnd import AFE
     from rockpool.timeseries import TSContinuous
     import numpy as np
 
@@ -23,7 +19,7 @@ def test_evolve():
     thr_up = 1.0
     leakage = 5.0
     LNA_gain = 0.0
-    fs = 16000
+    fs = 48000
     digital_counter = 8
     num_filters: int = 16
     manual_scaling = None
@@ -31,6 +27,7 @@ def test_evolve():
     seed = 1
 
     afe = AFE(
+        shape=num_filters,
         Q=Q,
         fc1=fc1,
         f_factor=f_factor,
@@ -39,11 +36,10 @@ def test_evolve():
         LNA_gain=LNA_gain,
         fs=fs,
         digital_counter=digital_counter,
-        shape=num_filters,
         manual_scaling=manual_scaling,
         add_noise=add_noise,
         seed=seed,
-    )
+    ).timed()
 
     # create chrip
     T = 1
