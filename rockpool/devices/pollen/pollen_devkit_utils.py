@@ -507,7 +507,7 @@ def zero_memory(
     This function writes zeros to all memory banks on a Pollen HDK.
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to zero memory on 
+        daughterboard (PollenDaughterboard): The Pollen HDK to zero memory on
     """
     # - Define the memory banks
     memory_table = {
@@ -575,7 +575,7 @@ def read_neuron_synapse_state(
 
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK to query
-        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK 
+        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
@@ -634,7 +634,7 @@ def read_accel_mode_data(
 ) -> PollenState:
     """
     Read accelerated simulation mode data from a Pollen HDK
-    
+
     Args:
         monitor_buffer (PollenNeuronStateBuffer): A connected `PollenNeuronStateBuffer` to read from
         Nhidden (int): The number of hidden neurons to monitor

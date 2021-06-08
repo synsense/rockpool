@@ -122,10 +122,7 @@ def config_from_specification(
         enable_isyn2 = False
         weights_rec = np.reshape(weights_rec, [*weights_rec.shape, 1])
 
-    if (
-        weights_rec.ndim != 3
-        or weights_rec.shape[0] != weights_rec.shape[1]
-    ):
+    if weights_rec.ndim != 3 or weights_rec.shape[0] != weights_rec.shape[1]:
         raise ValueError("Recurrent weights must be of shape `(Nhidden, Nhidden, [2])`")
 
     if Nhidden != weights_rec.shape[0]:

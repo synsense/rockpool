@@ -795,6 +795,7 @@ class TSContinuous(TimeSeries):
         channels: Optional[Union[ArrayLike, int]] = None,
         stagger: Optional[Union[float, int]] = None,
         skip: Optional[int] = None,
+        dt: Optional[float] = None,
         *args,
         **kwargs,
     ):
@@ -806,15 +807,18 @@ class TSContinuous(TimeSeries):
         :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
         :param Optional[float] stagger: Stagger to use to separate each series when plotting multiple series. (Default: `None`, no stagger)
         :param Optional[int] skip: Skip several series when plotting multiple series
-        :param args, kwargs:  Optional arguments to pass to plotting function
+        :param Optiona[float] dt: Resample time series to this timestep before plotting
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
         """
-        if times is None:
+        if dt is not None and times is None:
+            times = np.arange(self.t_start, self.t_stop, dt)
+            samples = self(times)
+        elif times is not None:
+            samples = self(times)
+        else:
             times = self.times
             samples = self.samples
-        else:
-            samples = self(times)
 
         if channels is not None:
             samples = samples[:, channels]
@@ -868,8 +872,12 @@ class TSContinuous(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
                 # - Plot the curves
                 return ax.plot(times, samples, **kwargs)
+
             else:
                 raise RuntimeError(
                     f"TSContinuous: `{self.name}`: No plotting back-end set."
