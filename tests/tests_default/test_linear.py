@@ -30,7 +30,7 @@ def test_linear_nobias():
 
     import numpy as np
 
-    mod = Linear((2, 10), bias=False)
+    mod = Linear((2, 10), has_bias=False)
 
     input = np.random.rand(10, 2)
 
@@ -40,13 +40,13 @@ def test_linear_nobias():
     assert output.shape == (10, 10)
 
     with raises(ValueError):
-        mod = Linear(10, bias=False)
+        mod = Linear(10, has_bias=False)
 
     with raises(ValueError):
-        mod = Linear((10,), bias=False)
+        mod = Linear((10,), has_bias=False)
 
     with raises(ValueError):
-        mod = Linear((10, 10, 10), bias=False)
+        mod = Linear((10, 10, 10), has_bias=False)
 
 
 def test_jaxlinear():
@@ -100,7 +100,7 @@ def test_jaxlinear_nobias():
 
     import numpy as np
 
-    mod = LinearJax((2, 10), bias=False)
+    mod = LinearJax((2, 10), has_bias=False)
 
     input = np.random.rand(10, 2)
 
@@ -110,13 +110,13 @@ def test_jaxlinear_nobias():
     assert output.shape == (10, 10)
 
     with raises(ValueError):
-        mod = LinearJax(10, bias=False)
+        mod = LinearJax(10, has_bias=False)
 
     with raises(ValueError):
-        mod = LinearJax((10,), bias=False)
+        mod = LinearJax((10,), has_bias=False)
 
     with raises(ValueError):
-        mod = LinearJax((10, 10, 10), bias=False)
+        mod = LinearJax((10, 10, 10), has_bias=False)
 
     # - Test compiled
     je = jax.jit(mod)

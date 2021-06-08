@@ -53,7 +53,9 @@ class LinearTorch(TorchModule):
     def __init__(
         self,
         shape: tuple,
-        bias: bool = True,
+        weight=None,
+        bias=None,
+        has_bias: bool = True,
         device: Optional[str] = None,
         dtype: Optional[str] = None,
     ) -> None:
@@ -62,7 +64,7 @@ class LinearTorch(TorchModule):
 
         Args:
             shape (tuple): The shape of this layer ``(Nin, Nout)``
-            bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
+            has_bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
             device (Optional[str]): Initialise the tensors on the supplied device.
             dtype (Optional[str]): Initialise the tensors with the supplied dtype.
         """
@@ -78,6 +80,7 @@ class LinearTorch(TorchModule):
         # - Set up parameters
         factory_kwargs = {"device": device, "dtype": dtype}
         self.weight: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
+            weight,
             shape=shape,
             init_func=lambda s: init.uniform_(
                 torch.empty(s, **factory_kwargs), math.sqrt(2 / s[0])
@@ -86,8 +89,9 @@ class LinearTorch(TorchModule):
         )
         """ (torch.Tensor) Weight matrix with shape ``(Nin, Nout)`` """
 
-        if bias:
+        if has_bias:
             self.bias: Union[torch.Tensor, rp.Parameter] = rp.Parameter(
+                bias,
                 shape=shape[-1],
                 init_func=lambda s: init.uniform_(
                     torch.empty(s[-1], **factory_kwargs), math.sqrt(2 / s[0])

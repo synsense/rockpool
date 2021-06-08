@@ -36,7 +36,9 @@ class LinearMixin(ABC):
     def __init__(
         self,
         shape: tuple,
-        bias: bool = True,
+        weight=None,
+        bias=None,
+        has_bias: bool = True,
         weight_init_func: Callable = kaiming,
         *args,
         **kwargs
@@ -84,14 +86,14 @@ class LinearMixin(ABC):
 
         # - Specify weight parameter
         self.weight = Parameter(
-            shape=self.shape, init_func=weight_init_func, family="weights"
+            weight, shape=self.shape, init_func=weight_init_func, family="weights"
         )
         """ Weight matrix of this module """
 
         # - Specify bias parameter
-        if bias:
+        if has_bias or bias is not None:
             self.bias = Parameter(
-                shape=self.size_out, init_func=weight_init_func, family="biases"
+                bias, shape=self.size_out, init_func=weight_init_func, family="biases"
             )
             """ Bias vector of this module """
         else:
