@@ -3,6 +3,7 @@ Contains the module base classes for Rockpool
 """
 # - Rockpool imports
 from rockpool.parameters import ParameterBase
+from rockpool.timeseries import TimeSeries
 
 # - Other imports
 from abc import ABC, abstractmethod
@@ -604,6 +605,23 @@ class ModuleBase(ABC):
             )
 
         return outputs, new_state, recorded_state
+
+    def _wrap_recorded_state(
+        self, recorded_dict: dict, t_start: float
+    ) -> Dict[str, TimeSeries]:
+        """
+        Convert a recorded dictionary to a :py:class:`TimeSeries` representation
+
+        This method is optional, and is provided to make the :py:meth:`timed` conversion to a :py:class:`TimedModule` work better. You should override this method in your custom :py:class:`Module`, to wrap each element of your recorded state dictionary as a :py:class:`TimeSeries`
+
+        Args:
+            state_dict (dict): A recorded state dictionary as returned by :py:meth:`.evolve`
+            t_start (float): The initial time of the recorded state, to use as the starting point of the time series
+
+        Returns:
+            Dict[str, TimeSeries]: The mapped recorded state dictionary, wrapped as :py:class:`TimeSeries` objects
+        """
+        return recorded_dict
 
 
 class Module(ModuleBase, ABC):

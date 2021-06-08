@@ -116,6 +116,11 @@ class AFE(Module):
 
     This module simulates the Pollen audio front-end stage. This is a signal-to-event core that provides a number of band-pass filters, followed by rectifying event production simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
 
+    Notes:
+        The AFE contains frequency tripling internally. For accuracy simulation, the sampling frequency should be at least 6 times higher than the highest frequency component in the signal. It would be a good idea to use a LPF to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.
+
+        Input to the module is in Volts. Input amplitude should be scaled to a maximum of 112mV RMS.
+
     See Also:
         For example usage of the :py:class:`.AFE` Module, see :ref:`/tutorials/analog-frontend-example.ipynb`
     """
@@ -157,7 +162,7 @@ class AFE(Module):
         LNA_gain: float
             Gain of the first stage low-noise amplifier, in dB. Default: 0.
         fs: int
-            Sampling frequency of the input data, in Hz. Default: 16kHz
+            Sampling frequency of the input data, in Hz. Default: 16kHz. **Note that the AFE contains frequency tripling, so the maximum representable frequency is ``fs/6``.**
         shape: int
             Number of filters / output channels. Default: ``(16,)``
         manual_scaling: float
@@ -214,7 +219,7 @@ class AFE(Module):
         """ int: Band-pass filter order (Default 2)"""
 
         # Non-ideal
-        self.MAX_INPUT_OFFSET: P_float = Parameter(0.0)  # form microphone
+        self.MAX_INPUT_OFFSET: P_float = Parameter(0.0)  # from microphone
         """ float: Maxmimum input offset from microphone (Default 0.) """
 
         self.MAX_LNA_OFFSET: P_float = Parameter(5.0)  # +/-5mV random
@@ -296,6 +301,12 @@ class AFE(Module):
             ]
         )
         """ np.ndarray: Centre frequency of each band-pass filter in Hz """
+
+        # - Check the filters w.r.t the sampling frequency
+        if self.Fs < (6 * np.max(self.fcs)):
+            raise ValueError(
+                f"Sampling frequency must be at least 6 times highest BPF centre freq. (>{6 * np.max(self.fcs)} Hz)"
+            )
 
         # Bandwidths of the filters
         self.bws: P_array = Parameter(
@@ -496,10 +507,8 @@ class AFE(Module):
 
         # - Augment input data to avoid artefacts, and save for next time
         input_length = input.shape[0]
-        print(input_length)
         this_input = input
-        # input = np.concatenate((np.flip(-input), input))
-        print(input.shape)
+        input = np.concatenate((self._last_input, input))
         self._last_input = this_input
 
         input_offset = self.MAX_INPUT_OFFSET
@@ -603,14 +612,13 @@ class AFE(Module):
             spikes = self._sampling_signal(spikes, self.DIGITAL_COUNTER)
 
         # - Trim data to this chunk
-        # spikes = spikes[-input_length:, :]
-        print(spikes.shape)
+        spikes = spikes[-input_length:, :]
 
         if record:
             # - Trim data to this chunk
-            # lna_out = lna_out[-input_length:, :]
-            # filtered = filtered[-input_length:, :]
-            # rectified = rectified[-input_length:, :]
+            lna_out = lna_out[-input_length:, :]
+            filtered = filtered[-input_length:, :]
+            rectified = rectified[-input_length:, :]
 
             recording = {
                 "LNA_out": lna_out,
