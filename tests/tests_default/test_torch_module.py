@@ -200,7 +200,10 @@ def test_LIFTorch():
     w_syn = torch.rand(n_synapses, n_neurons)
     w_rec = torch.rand(n_neurons, n_synapses)
 
+    # - Test minimal initialisation
+    mod = LIFTorch((n_synapses, n_neurons))
 
+    # - Test maximal initialisation
     mod = LIFTorch(
         shape=(n_synapses, n_neurons),
         tau_mem=tau_mem,
@@ -244,6 +247,10 @@ def test_LIFNeuronTorch():
     tau_mem = torch.rand(1, n_neurons)
     bias = torch.rand(1, n_neurons)
 
+    # - Test minimal initialisation
+    mod = LIFNeuronTorch((n_neurons,))
+
+    # - Test maximal initialisation
     mod = LIFNeuronTorch(
         shape=(n_neurons,),
         tau_mem=tau_mem,
@@ -282,6 +289,10 @@ def test_ExpSynTorch():
     T = 20
     tau_syn = torch.rand(1, n_synapses)
 
+    # - Test minimal initialisation
+    mod = ExpSynTorch((n_synapses,))
+
+    # - Test maximal initialisation
     mod = ExpSynTorch(
         shape=(n_synapses,),
         tau_syn=tau_syn,
