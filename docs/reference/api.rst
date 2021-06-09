@@ -72,6 +72,8 @@ Time series classes
 
     nn.modules.RateEulerJax
     nn.modules.LIFJax
+    nn.modules.LIFTorch
+    nn.modules.LIFNeuronTorch
 
     nn.modules.Linear
     nn.modules.LinearJax
@@ -82,6 +84,7 @@ Time series classes
     nn.modules.AFE
 
     nn.modules.ExpSmoothJax
+    nn.modules.ExpSynTorch
 
     nn.modules.SoftmaxJax
     nn.modules.LogSoftmaxJax
