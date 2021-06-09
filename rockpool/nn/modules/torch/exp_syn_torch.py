@@ -38,7 +38,8 @@ class ExpSynTorch(TorchModule):
         shape : tuple = None,
         tau_syn: Optional[FloatVector] = 0.05,
         dt: float = 1e-3,
-        device: str ="cpu",
+        device = None,
+        dtype = None,
         record: bool = False,
         *args,
         **kwargs,
@@ -55,7 +56,7 @@ class ExpSynTorch(TorchModule):
             record (bool): If set to True, the module records the internal states and returns them with the output. Default: False
         """
         # Initialize class variables
-
+        factory_kwargs = {'device': device, 'dtype': dtype}
         super().__init__(
             shape=shape,
             spiking_input=True,
@@ -70,9 +71,9 @@ class ExpSynTorch(TorchModule):
         if isinstance(tau_syn, torch.Tensor):
             self.tau_syn = rp.Parameter(tau_syn)
         else:
-            self.tau_syn = rp.Parameter(torch.ones(1, n_synapses) * tau_syn)
+            self.tau_syn = rp.Parameter(torch.ones(1, n_synapses) * tau_syn, **factory_kwargs)
 
-        self.isyn = rp.State(torch.zeros(1, n_synapses))
+        self.isyn = rp.State(torch.zeros(1, n_synapses, **factory_kwargs))
 
         self.dt = rp.SimulationParameter(dt)
 
