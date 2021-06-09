@@ -19,7 +19,7 @@ from typing import Optional, Tuple, Any
 __all__ = ["ExpSynTorch"]
 
 # - Define a float / array type
-FloatVector = Union[float, np.ndarray, torch.Tensor]
+FloatVector = Union[float, torch.Tensor]
 
 class ExpSynTorch(TorchModule):
     """
@@ -67,8 +67,8 @@ class ExpSynTorch(TorchModule):
         self.n_synapses = n_synapses
         self.record = record
 
-        if isinstance(tau_syn, list) or isinstance(tau_syn, np.ndarray):
-            self.tau_syn = rp.Parameter(torch.from_numpy(tau_syn))
+        if isinstance(tau_syn, torch.Tensor):
+            self.tau_syn = rp.Parameter(tau_syn)
         else:
             self.tau_syn = rp.Parameter(torch.ones(1, n_synapses) * tau_syn)
 
