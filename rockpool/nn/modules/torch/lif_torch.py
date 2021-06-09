@@ -14,6 +14,7 @@ import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
 import torch.nn.functional as F
+import torch.nn.init as init
 import rockpool.parameters as rp
 from typing import Optional, Tuple, Any
 
@@ -83,14 +84,16 @@ class LIFTorch(TorchModule):
     """
     def __init__(
         self,
-        n_neurons: int = None,
+        shape: tuple = None,
         tau_mem: Optional[FloatVector] = 0.1,
         tau_syn: Optional[FloatVector] = 0.05,
         bias: Optional[FloatVector] = 0,
+        has_bias: bool = True,
         w_rec: torch.Tensor = None,
         dt: float = 1e-3,
         noise_std: float = 0.0,
-        device: str ="cpu",
+        device = None,
+        dtype = None,
         record: bool = False,
         *args,
         **kwargs,
@@ -99,37 +102,47 @@ class LIFTorch(TorchModule):
         Instantiate an LIF module
 
         Args:
-            n_neurons (int): Number of neuron-synapse pairs that will be created.
+            shape (tuple): Either a single dimension ``N``, which defines a feed-forward layer of LIF neurons, or two dimensions ``(N, N)``, which defines a recurrent layer of LIF neurons.
             tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 100ms will be used by default.
             tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, 0.0 will be used by default.
-            w_rec (Optional[FloatVector]): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+            has_bias (bool): When True the module uses trainable bias.
+            w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: 0.0
-            device (str): Defines the device on which the model will be processed. Default: 'cpu'
+            device: Defines the device on which the model will be processed.
+            dtype: Defines the data type of the tensors saved as attributes.
             record (bool): If set to True, the module records the internal states and returns them with the output. Default: False
         """
         # Initialize class variables
 
         super().__init__(
-            shape=(n_neurons,n_neurons),
+            shape=shape,
             spiking_input=True,
             spiking_output=True,
             *args,
             **kwargs,
         )
 
-        if w_rec == None:
-            self.w_rec = torch.zeros(n_neurons,n_neurons)
+        factory_kwargs = {'device': device, 'dtype': dtype}
+
+        if len(shape) == 2:
+            self.w_rec = rp.Parameter(
+                w_rec,
+                shape=shape,
+                init_func=lambda s: init.kaiming_uniform_(
+                    torch.empty(s, **factory_kwargs)),
+                family="weights",
+                )
         else:
-            if w_rec.shape == (n_neurons,n_neurons):
-                self.w_rec = rp.Parameter(w_rec)
+            self.w_rec = torch.zeros(shape[0], shape[0], **factory_kwargs)
+
             else:
                 raise ValueError(
-                    "Input has wrong dimension. It is {}, must be {}".format(w_rec.shape, (n_neurons,n_neurons))
+                    "Input has wrong dimension. It is {}, must be {}".format(w_rec.shape, shape)
                 )
 
-        self.n_neurons = n_neurons
+        self.n_neurons = shape[0]
         self.record = record
         self.v_thresh = 0
         self.v_reset = -1
@@ -138,22 +151,25 @@ class LIFTorch(TorchModule):
         if isinstance(tau_mem, torch.Tensor):
             self.tau_mem = rp.Parameter(tau_mem)
         else:
-            self.tau_mem = rp.Parameter(torch.ones(1, n_neurons).to(device)  * tau_mem)
+            self.tau_mem = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs)  * tau_mem)
 
         if isinstance(tau_syn, torch.Tensor):
             self.tau_syn = rp.Parameter(tau_syn)
         else:
-            self.tau_syn = rp.Parameter(torch.ones(1, n_neurons).to(device) * tau_syn)
+            self.tau_syn = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs) * tau_syn)
 
-        if isinstance(bias, torch.Tensor):
-            self.bias = rp.Parameter(bias)
+        if has_bias:
+            if isinstance(bias, torch.Tensor):
+                self.bias = rp.Parameter(bias)
+            else:
+                self.bias = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs) * bias)
         else:
-            self.bias = rp.Parameter(torch.ones(1, n_neurons).to(device) * bias)
+            self.bias = torch.zeros(1, n_neurons, **factory_kwargs)
 
         self.dt = rp.SimulationParameter(dt)
 
-        self.isyn = rp.State(torch.zeros(1, n_neurons))
-        self.vmem = rp.State(self.v_reset * torch.ones(1, n_neurons))
+        self.isyn = rp.State(torch.zeros(1, n_neurons, **factory_kwargs))
+        self.vmem = rp.State(self.v_reset * torch.ones(1, n_neurons, **factory_kwargs))
 
         self.alpha = self.dt / self.tau_mem
         self.beta = torch.exp(-self.dt / self.tau_syn)
