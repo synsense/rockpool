@@ -32,10 +32,12 @@ class ExpSynTorch(TorchModule):
         \\tau_{syn} \\dot{I}_{syn} + I_{syn} = 0
 
         I_{syn} += S_{in}(t)
+
+        where :math:`S_{in}(t)` is a vector containing ``1`` for each input channel that emits a spike at time :math:`t`.
     """
     def __init__(
         self,
-        shape : tuple = None,
+        shape: tuple = None,
         tau_syn: Optional[FloatVector] = 0.05,
         dt: float = 1e-3,
         device = None,
