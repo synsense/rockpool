@@ -35,7 +35,7 @@ class ExpSynTorch(TorchModule):
     """
     def __init__(
         self,
-        n_synapses: int = None,
+        shape : tuple = None,
         tau_syn: Optional[FloatVector] = 0.05,
         dt: float = 1e-3,
         device: str ="cpu",
@@ -47,7 +47,7 @@ class ExpSynTorch(TorchModule):
         Instantiate an exp. synapse module
 
         Args:
-            n_synapses (int): Number of synapses that will be created.
+            shape (tuple): Number of synapses that will be created. Example: shape = (5,).
             tau_syn (Optional[np.ndarray]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: 0.0
@@ -57,14 +57,14 @@ class ExpSynTorch(TorchModule):
         # Initialize class variables
 
         super().__init__(
-            shape=(n_synapses,n_synapses),
+            shape=shape,
             spiking_input=True,
             spiking_output=False,
             *args,
             **kwargs,
         )
 
-        self.n_synapses = n_synapses
+        self.n_synapses = shape[0]
         self.record = record
 
         if isinstance(tau_syn, torch.Tensor):
