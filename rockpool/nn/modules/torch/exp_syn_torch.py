@@ -73,7 +73,7 @@ class ExpSynTorch(TorchModule):
         if isinstance(tau_syn, torch.Tensor):
             self.tau_syn = rp.Parameter(tau_syn)
         else:
-            self.tau_syn = rp.Parameter(torch.ones(1, self.n_synapses) * tau_syn, **factory_kwargs)
+            self.tau_syn = rp.Parameter(torch.ones(1, self.n_synapses, **factory_kwargs) * tau_syn)
 
         self.isyn = rp.State(torch.zeros(1, self.n_synapses, **factory_kwargs))
 
