@@ -214,11 +214,12 @@ def test_LIFTorch():
     )
 
     # - Generate some data
-    input_data = torch.rand(n_batches, T, n_neurons)
+    input_data = torch.rand(n_batches, T, n_neurons, requires_grad=True)
 
     # - Test torch interface
-    out = mod(input_data)
+    out = mod.forward(input_data)
 
+    out.sum().backward()
 
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
