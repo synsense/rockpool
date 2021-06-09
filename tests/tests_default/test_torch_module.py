@@ -200,14 +200,16 @@ def test_LIFTorch():
 
 
     mod = LIFTorch(
-        n_neurons=n_neurons,
+        shape=(n_neurons, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
         bias=bias,
+        has_bias=True,
         w_rec=w_rec,
         dt=1e-3,
         noise_std=0.1,
-        device="cpu",
+        device=None,
+        dtype=None,
         record=True
     )
 

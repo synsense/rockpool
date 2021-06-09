@@ -137,10 +137,6 @@ class LIFTorch(TorchModule):
         else:
             self.w_rec = torch.zeros(shape[0], shape[0], **factory_kwargs)
 
-            else:
-                raise ValueError(
-                    "Input has wrong dimension. It is {}, must be {}".format(w_rec.shape, shape)
-                )
 
         self.n_neurons = shape[0]
         self.record = record
@@ -151,25 +147,25 @@ class LIFTorch(TorchModule):
         if isinstance(tau_mem, torch.Tensor):
             self.tau_mem = rp.Parameter(tau_mem)
         else:
-            self.tau_mem = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs)  * tau_mem)
+            self.tau_mem = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs)  * tau_mem)
 
         if isinstance(tau_syn, torch.Tensor):
             self.tau_syn = rp.Parameter(tau_syn)
         else:
-            self.tau_syn = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs) * tau_syn)
+            self.tau_syn = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs) * tau_syn)
 
         if has_bias:
             if isinstance(bias, torch.Tensor):
                 self.bias = rp.Parameter(bias)
             else:
-                self.bias = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs) * bias)
+                self.bias = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs) * bias)
         else:
-            self.bias = torch.zeros(1, n_neurons, **factory_kwargs)
+            self.bias = torch.zeros(1, self.n_neurons, **factory_kwargs)
 
         self.dt = rp.SimulationParameter(dt)
 
-        self.isyn = rp.State(torch.zeros(1, n_neurons, **factory_kwargs))
-        self.vmem = rp.State(self.v_reset * torch.ones(1, n_neurons, **factory_kwargs))
+        self.isyn = rp.State(torch.zeros(1, self.n_neurons, **factory_kwargs))
+        self.vmem = rp.State(self.v_reset * torch.ones(1, self.n_neurons, **factory_kwargs))
 
         self.alpha = self.dt / self.tau_mem
         self.beta = torch.exp(-self.dt / self.tau_syn)
