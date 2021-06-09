@@ -190,22 +190,26 @@ def test_LIFTorch():
     import torch
 
 
+    n_synapses = 5
     n_neurons = 10
     n_batches = 3
     T = 20
     tau_mem = torch.rand(1, n_neurons)
-    tau_syn = torch.rand(1, n_neurons)
+    tau_syn = torch.rand(1, n_synapses)
     bias = torch.rand(1, n_neurons)
-    w_rec = torch.rand(n_neurons, n_neurons)
+    w_syn = torch.rand(n_synapses, n_neurons)
+    w_rec = torch.rand(n_neurons, n_synapses)
 
 
     mod = LIFTorch(
-        shape=(n_neurons, n_neurons),
+        shape=(n_synapses, n_neurons),
         tau_mem=tau_mem,
         tau_syn=tau_syn,
         bias=bias,
         has_bias=True,
+        w_syn=w_syn,
         w_rec=w_rec,
+        has_rec=True,
         dt=1e-3,
         noise_std=0.1,
         device=None,
@@ -214,7 +218,7 @@ def test_LIFTorch():
     )
 
     # - Generate some data
-    input_data = torch.rand(n_batches, T, n_neurons, requires_grad=True)
+    input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True)
 
     # - Test torch interface
     out = mod.forward(input_data)
@@ -224,11 +228,11 @@ def test_LIFTorch():
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
 
-    assert out.shape == input_data.shape
-    for _, obj in ns.items():
-        assert obj.shape == (1, n_neurons)
-    for _, obj in rd.items():
-        assert obj.shape == input_data.shape
+    assert out.shape == (n_batches, T, n_neurons)
+    assert ns['Isyn'].shape == (1, n_synapses)
+    assert ns['Vmem'].shape == (1, n_neurons)
+    assert rd['Isyn'].shape == (n_batches, T, n_synapses)
+    assert rd['Vmem'].shape == (n_batches, T, n_neurons)
 
 def test_LIFNeuronTorch():
     from rockpool.nn.modules.torch.lif_neuron_torch import LIFNeuronTorch
