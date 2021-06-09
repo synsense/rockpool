@@ -126,7 +126,7 @@ class LIFNeuronTorch(TorchModule):
         if isinstance(tau_mem, torch.Tensor):
             self.tau_mem = rp.Parameter(tau_mem)
         else:
-            self.tau_mem = rp.Parameter(torch.ones(1, n_neurons, **factory_kwargs)  * tau_mem)
+            self.tau_mem = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs)  * tau_mem)
 
         if has_bias:
             if isinstance(bias, torch.Tensor):
@@ -135,10 +135,10 @@ class LIFNeuronTorch(TorchModule):
                 self.bias = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs) * bias)
         else:
             self.bias = torch.zeros(1, self.n_neurons, **factory_kwargs)
-            
+
         self.dt = rp.SimulationParameter(dt)
 
-        self.vmem = rp.State(self.v_reset * torch.ones(1, n_neurons, **factory_kwargs))
+        self.vmem = rp.State(self.v_reset * torch.ones(1, self.n_neurons, **factory_kwargs))
 
         self.alpha = self.dt / self.tau_mem
 
