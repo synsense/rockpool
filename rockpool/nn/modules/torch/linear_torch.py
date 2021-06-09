@@ -83,7 +83,7 @@ class LinearTorch(TorchModule):
             weight,
             shape=shape,
             init_func=lambda s: init.uniform_(
-                torch.empty(s, **factory_kwargs), math.sqrt(2 / s[0])
+                torch.empty(s, **factory_kwargs), -math.sqrt(2 / s[0]), math.sqrt(2 / s[0])
             ),
             family="weights",
         )
@@ -94,7 +94,7 @@ class LinearTorch(TorchModule):
                 bias,
                 shape=shape[-1],
                 init_func=lambda s: init.uniform_(
-                    torch.empty(s[-1], **factory_kwargs), math.sqrt(2 / s[0])
+                    torch.empty(s[-1], **factory_kwargs), -math.sqrt(2 / s[0]), math.sqrt(2 / s[0])
                 ),
                 family="biases",
             )
