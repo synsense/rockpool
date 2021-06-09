@@ -1248,11 +1248,12 @@ def export_config(
     mat = np.zeros(num_neurons, dtype=int) - 1
     is_source = np.zeros(num_neurons, dtype=int)
     is_target = np.zeros(num_neurons, dtype=int)
+    num_sources = np.zeros(num_neurons, dtype=int)
     for i, aliases in enumerate(model.aliases):
         if len(aliases) > 0:
             mat[i] = aliases[0]
             is_source[i] = 1
-            is_target[aliases[0]] = 1
+            is_target[aliases[0]] += 1
 
     # save to file
     print("Writing raram.ini", end="\r")
@@ -1265,7 +1266,26 @@ def export_config(
     print("Writing rcram.ini", end="\r")
     with open(path / "rcram.ini", "w+") as f:
         for pre, issource in enumerate(is_source):
-            f.write(to_hex(issource * 2 + is_target[pre], 1))
+            # print(
+            #     pre,
+            #     "->",
+            #     mat[pre],
+            #     ":",
+            #     is_target[mat[pre]],
+            #     issource,
+            #     is_target[pre],
+            #     ((is_target[mat[pre]] > 1) << 2)
+            #     + (issource << 1)
+            #     + (is_target[pre] > 0),
+            # )
+            f.write(
+                to_hex(
+                    ((is_target[mat[pre]] > 1) << 2)
+                    + (issource << 1)
+                    + (is_target[pre] > 0),
+                    1,
+                )
+            )
             f.write("\n")
 
     # basic config
