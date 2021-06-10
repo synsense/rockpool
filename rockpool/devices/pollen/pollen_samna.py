@@ -377,9 +377,12 @@ class PollenSamna(Module):
         # - Configure Pollen for accel-time mode
         m_Nhidden = Nhidden if record else 0
         m_Nout = Nout if record else 0
-        putils.select_accel_time_mode(
+        self._config, self._state_buffer = putils.configure_accel_time_mode(
             self._device, self._config, self._state_buffer, m_Nhidden, m_Nout
         )
+
+        # - Apply the configuration
+        putils.apply_configuration(self._device, self._config)
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -421,6 +424,8 @@ class PollenSamna(Module):
         read_events = putils.blocking_read(
             self._event_buffer, timeout=10.0, target_timestamp=final_timestep
         )
+
+        print(len(input_events_list), len(read_events))
 
         # - Read the simulation output data
         pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)

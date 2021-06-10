@@ -107,7 +107,7 @@ except:
             data_up.append(spikes)
             cdc = cdc * (1 - spikes)
 
-        return jnp.array(data_up), cdc
+        return np.array(data_up), cdc
 
 
 class AFE(Module):

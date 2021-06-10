@@ -37,6 +37,10 @@ PollenReadBuffer = samna.BufferSinkNode_pollen_event_output_event
 PollenNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
 
 
+class ResponseTimeout(Exception):
+    pass
+
+
 class PollenState(NamedTuple):
     """
     ``NamedTuple`` that encapsulates a recorded Pollen HDK state
@@ -175,17 +179,19 @@ def new_pollen_state_monitor_buffer(
 
 def blocking_read(
     buffer: PollenReadBuffer,
-    count: Optional[int] = None,
     target_timestamp: Optional[int] = None,
+    count: Optional[int] = None,
     timeout: Optional[float] = None,
 ) -> List:
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
+    You should not provide `count` and `target_timestamp` together.
+
     Args:
         buffer (PollenReadBuffer): A buffer to read from
-        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
         target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
+        count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
         timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
 
     Returns:
@@ -220,6 +226,10 @@ def blocking_read(
         # - Check number of events read
         if count:
             continue_read &= len(all_events) < count
+
+        # - Continue reading if no events have been read
+        if not target_timestamp and not count:
+            continue_read &= len(all_events) == 0
 
     # - Perform one final read for good measure
     all_events.extend(buffer.get_events())
@@ -262,6 +272,7 @@ def read_register(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
     address: int,
+    timeout: float = 1.0,
 ) -> List[int]:
     """
     Read the contents of a register
@@ -270,6 +281,7 @@ def read_register(
         daughterboard (PollenDaughterBoard):
         buffer (samna.BufferSinkNode_pollen_event_output_event):
         address (int): The register address to read
+        timeout (float): A timeout in seconds
 
     Returns:
         List[int]: A list of events returned from the read
@@ -282,16 +294,25 @@ def read_register(
     daughterboard.get_model().write([rrv_ev])
 
     # - Wait for data and read it
-    events = blocking_read(buffer, count=1, timeout=1.0)
+    start_t = time.time()
+    continue_read = True
+    while continue_read:
+        # - Read from the buffer
+        events = buffer.get_events()
 
-    # - Filter returned events for the desired address
-    ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
+        # - Filter returned events for the desired address
+        ev_filt = [e for e in events if hasattr(e, "address") and e.address == address]
 
-    # - If we didn't get the required register read, try again by recursion
-    if ev_filt == []:
-        return read_register(daughterboard, buffer, address)
-    else:
-        return [e.data for e in ev_filt]
+        # - Should we continue the read?
+        continue_read &= len(ev_filt) == 0
+        continue_read &= (time.time() - start_t) < timeout
+
+    # - If we didn't get the required register read, raise an error
+    if len(ev_filt) == 0:
+        raise ResponseTimeout
+
+    # - Return adta
+    return [e.data for e in ev_filt]
 
 
 def read_memory(
@@ -965,7 +986,9 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+    daughterboard: PollenDaughterBoard,
+    buffer: PollenReadBuffer,
+    timeout: float = 1.0,
 ) -> int:
     """
     Retrieve the current timestamp on a Pollen HDK
@@ -973,6 +996,7 @@ def get_current_timestamp(
     Args:
         daughterboard (PollenDaughterBoard): A Pollen HDK
         buffer (PollenReadBuffer): A connected read buffer for the pollen HDK
+        timeout (float): A timeout for reading
 
     Returns:
         int: The current timestamp on the Pollen HDK
@@ -987,26 +1011,34 @@ def get_current_timestamp(
 
     # - Wait for the readout event to be sent back, and extract the timestamp
     timestamp = None
-    while timestamp is None:
-        readout_events = [
-            e
-            for e in blocking_read(buffer, timeout=1.0)
-            if isinstance(e, samna.pollen.event.Readout)
+    continue_read = True
+    start_t = time.time()
+    while continue_read:
+        readout_events = buffer.get_events()
+        ev_filt = [
+            e for e in readout_events if isinstance(e, samna.pollen.event.Readout)
         ]
-        if readout_events:
-            timestamp = readout_events[0].timestamp
+        if ev_filt:
+            timestamp = ev_filt[0].timestamp
+            continue_read = False
+        else:
+            # - Check timeout
+            continue_read &= (time.time() - start_t) < timeout
+
+    if timestamp is None:
+        raise ResponseTimeout
 
     # - Return the timestamp
     return timestamp
 
 
-def select_accel_time_mode(
+def configure_accel_time_mode(
     daughterboard: PollenDaughterBoard,
     config: PollenConfiguration,
     state_monitor_buffer: PollenNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
-) -> None:
+) -> (PollenConfiguration, PollenNeuronStateBuffer):
     """
     Switch on accelerated-time mode on a Pollen daughterboard, and configure network monitoring
 
@@ -1016,9 +1048,12 @@ def select_accel_time_mode(
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to configure
         config (PollenConfiguration): The desired Pollen configuration to use
-        state_monitor_buffer (PollenNeuronStateBuffer): A connect neuron state monitor buffer
+        state_monitor_buffer (PollenNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
+
+    Returns:
+        (PollenConfiguration, PollenNeuronStateBuffer): `config` and `monitor_buffer`
     """
     # - Select accelerated time mode
     config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
@@ -1038,9 +1073,13 @@ def select_accel_time_mode(
             0, monitor_Nhidden + monitor_Noutput
         )
 
-    # - Write the configuration to the chip and configure the buffer accordingly
+    # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
-    apply_configuration(daughterboard, config)
+
+    # - Return the configuration and buffer
+    return config, state_monitor_buffer
+
+    # apply_configuration(daughterboard, config)
 
 
 def select_single_step_time_mode(
