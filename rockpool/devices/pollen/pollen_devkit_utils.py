@@ -182,7 +182,7 @@ def blocking_read(
     target_timestamp: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
-) -> List:
+) -> (List, bool):
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
@@ -201,6 +201,7 @@ def blocking_read(
 
     # - Read at least a certain number of events
     continue_read = True
+    is_timeout = False
     start_time = time.time()
     while continue_read:
         # - Perform a read and save events
@@ -221,7 +222,8 @@ def blocking_read(
 
         # - Check timeout
         if timeout:
-            continue_read &= (time.time() - start_time) <= timeout
+            is_timeout = (time.time() - start_time) <= timeout
+            continue_read &= is_timeout
 
         # - Check number of events read
         if count:
@@ -235,7 +237,7 @@ def blocking_read(
     all_events.extend(buffer.get_events())
 
     # - Return read events
-    return all_events
+    return all_events, is_timeout
 
 
 def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
@@ -272,7 +274,7 @@ def read_register(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
     address: int,
-    timeout: float = 1.0,
+    timeout: float = 2.0,
 ) -> List[int]:
     """
     Read the contents of a register
@@ -309,7 +311,7 @@ def read_register(
 
     # - If we didn't get the required register read, raise an error
     if len(ev_filt) == 0:
-        raise ResponseTimeout
+        raise ResponseTimeout(f"Timeout after {timeout}s")
 
     # - Return adta
     return [e.data for e in ev_filt]
@@ -353,7 +355,9 @@ def read_memory(
     daughterboard.get_model().write(read_events_list)
 
     # - Read data
-    events = blocking_read(buffer, count=count + 1)
+    events, is_timeout = blocking_read(buffer, count=count + 1)
+    if is_timeout:
+        raise TimeoutError(f"Memory read timed out.")
 
     # - Filter returned events for the desired addresses
     return [
@@ -456,11 +460,15 @@ def verify_pollen_version(
     # - Read events until timeout
     filtered_events = []
     t_end = time.time() + timeout
-    while (len(filtered_events) == 0) and (time.time() < t_end):
+    while len(filtered_events) == 0:
         events = buffer.get_events()
         filtered_events = [
             e for e in events if isinstance(e, samna.pollen.event.Version)
         ]
+
+        # - Check timeout
+        if time.time() > t_end:
+            raise TimeoutError(f"Checking ready status timed out after {timeout}s")
 
     return (
         (len(filtered_events) > 0)
@@ -988,7 +996,7 @@ def num_buffer_neurons(Nhidden: int) -> int:
 def get_current_timestamp(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
-    timeout: float = 1.0,
+    timeout: float = 3.0,
 ) -> int:
     """
     Retrieve the current timestamp on a Pollen HDK
@@ -1026,7 +1034,7 @@ def get_current_timestamp(
             continue_read &= (time.time() - start_t) < timeout
 
     if timestamp is None:
-        raise ResponseTimeout
+        raise ResponseTimeout(f"Timeout after {timeout}s")
 
     # - Return the timestamp
     return timestamp

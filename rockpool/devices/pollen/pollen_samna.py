@@ -381,8 +381,17 @@ class PollenSamna(Module):
             self._device, self._config, self._state_buffer, m_Nhidden, m_Nout
         )
 
+        print("384")
+
+        # - Wait until Pollen is ready
+        putils.is_pollen_ready(self._device, self._event_buffer)
+
+        print("389")
+
         # - Apply the configuration
         putils.apply_configuration(self._device, self._config)
+
+        print("394")
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -410,25 +419,40 @@ class PollenSamna(Module):
             event.address = addr
             input_events_list.append(event)
 
+        print(422)
+
         # - Wait until Pollen is ready
         putils.is_pollen_ready(self._device, self._event_buffer)
+
+        print(427)
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
         self._event_buffer.get_events()
 
+        print(433)
+
         # - Write the events and trigger the simulation
         self._device.get_model().write(input_events_list)
 
+        print(438)
+
         # - Wait until the simulation is finished
-        read_events = putils.blocking_read(
+        read_events, is_timeout = putils.blocking_read(
             self._event_buffer, timeout=10.0, target_timestamp=final_timestep
         )
+
+        print(445)
+
+        if is_timeout:
+            raise TimeoutError(f"Processing didn't finish for {10.0}s.")
 
         print(len(input_events_list), len(read_events))
 
         # - Read the simulation output data
         pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+
+        print(455)
 
         # pollen_data, times = putils.decode_accel_mode_data(read_events, Nhidden, Nout)
 
