@@ -195,7 +195,8 @@ def blocking_read(
         timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
 
     Returns:
-        List: A list of read events
+        (List, bool): `event_list`, `is_timeout`
+        `event_list` A list of read events. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
     """
     all_events = []
 
@@ -222,8 +223,8 @@ def blocking_read(
 
         # - Check timeout
         if timeout:
-            is_timeout = (time.time() - start_time) <= timeout
-            continue_read &= is_timeout
+            is_timeout = (time.time() - start_time) > timeout
+            continue_read &= not is_timeout
 
         # - Check number of events read
         if count:

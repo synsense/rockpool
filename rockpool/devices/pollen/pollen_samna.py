@@ -438,16 +438,17 @@ class PollenSamna(Module):
         print(438)
 
         # - Wait until the simulation is finished
+        timeout = 100.0
         read_events, is_timeout = putils.blocking_read(
-            self._event_buffer, timeout=10.0, target_timestamp=final_timestep
+            self._event_buffer, timeout=timeout, target_timestamp=final_timestep
         )
 
         print(445)
 
         if is_timeout:
-            raise TimeoutError(f"Processing didn't finish for {10.0}s.")
+            raise TimeoutError(f"Processing didn't finish for {timeout}s.")
 
-        print(len(input_events_list), len(read_events))
+        print("Events:", len(input_events_list), len(read_events))
 
         # - Read the simulation output data
         pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
