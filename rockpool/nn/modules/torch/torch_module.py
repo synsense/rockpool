@@ -3,10 +3,10 @@ Provide a base class for build Torch-compatible modules
 """
 from rockpool.nn.modules.module import Module
 
-# from .parameters import Parameter, State, SimulationParameter
-
 import torch
 from torch import nn
+
+import numpy as np
 
 import rockpool.parameters as rp
 
@@ -96,8 +96,6 @@ class TorchModule(Module, nn.Module):
                 If the ``record`` argument is ``True``, ``record_dict`` is a dictionary containing the recorded state variables for this and all submodules, recorded over evolution.
         """
 
-        self.record = record
-
         # - Call nn.Module.__call__() method to get output data
         output_data = nn.Module.__call__(self, input_data)
 
@@ -130,12 +128,12 @@ class TorchModule(Module, nn.Module):
             TorchModule.from_torch(value, retain_torch_api=True)
             super().__setattr__(key, value)
 
-    def register_buffer(self, name: str, tensor: torch.Tensor) -> None:
-        self._register_attribute(name, rp.State(tensor, None, None, tensor.shape))
-        super().register_buffer(name, tensor)
+    def register_buffer(self, name: str, tensor: torch.Tensor, *args, **kwargs) -> None:
+        self._register_attribute(name, rp.State(tensor, None, None, np.shape(tensor)))
+        super().register_buffer(name, tensor, *args, **kwargs)
 
     def register_parameter(self, name: str, param: nn.Parameter) -> None:
-        self._register_attribute(name, rp.Parameter(param, None, None, param.shape))
+        self._register_attribute(name, rp.Parameter(param, None, None, np.shape(param)))
         super().register_parameter(name, param)
 
     def _get_attribute_family(
