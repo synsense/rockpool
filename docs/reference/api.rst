@@ -77,6 +77,7 @@ Time series classes
 
     nn.modules.Linear
     nn.modules.LinearJax
+    nn.modules.LinearTorch
 
     nn.modules.Instant
     nn.modules.InstantJax

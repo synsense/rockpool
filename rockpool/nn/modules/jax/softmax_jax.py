@@ -23,6 +23,8 @@ class WeightedSmoothBase(JaxModule):
         self,
         shape: Optional[tuple] = None,
         weight: Optional[np.ndarray] = None,
+        bias: Optional[np.ndarray] = None,
+        has_bias: bool = True,
         tau: float = 100e-3,
         dt: float = 1e-3,
         activation_fun: Callable[[np.ndarray], np.ndarray] = lambda x: x,
@@ -34,7 +36,9 @@ class WeightedSmoothBase(JaxModule):
 
         Args:
             shape (Optional[tuple]): Defines the module shape ``(Nin, Nout)``. If not provided, the shape of ``weight`` will be used.
-            weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised to ``U[-sqrt(1 / Nin), sqrt(1 / Nin)]``.
+            weight (Optional[np.ndarray]): Concrete initialisation data for the weights. If not provided, will be initialised to ``U[-sqrt(2 / Nin), sqrt(2 / Nin)]``.
+            bias (Optonal[np.ndarray]): Concrete initialisation data for the biases. If not provided, will be initialised to ``U[-sqrt(2 / Nin), sqrt(2 / Nin)]``.
+            has_bias (bool): Iff ``True``, the module will include a set of biases. Default: ``True``.
             tau (float): Smoothing time constant :math:`\\tau`. Default: 100 ms.
             dt (float): Simulation tme-step in seconds. Default: 1 ms.
             activation_fun (Callable): Activation function to apply to each neuron
@@ -53,7 +57,9 @@ class WeightedSmoothBase(JaxModule):
         super().__init__(shape=shape, *args, **kwargs)
 
         # - Define the submodules
-        self.linear = LinearJax(shape=shape, weight=weight)
+        self.linear = LinearJax(
+            shape=shape, weight=weight, bias=bias, has_bias=has_bias
+        )
         self.smooth = ExpSmoothJax(
             shape=(shape[-1],), tau=tau, dt=dt, activation_fun=activation_fun
         )
@@ -96,6 +102,8 @@ class SoftmaxJax(WeightedSmoothBase):
         self,
         shape: Optional[tuple] = None,
         weight: Optional[np.ndarray] = None,
+        bias: Optional[np.ndarray] = None,
+        has_bias: bool = True,
         tau: float = 100e-3,
         dt: float = 1e-3,
         *args,
@@ -107,6 +115,8 @@ class SoftmaxJax(WeightedSmoothBase):
         Args:
             shape (Optional[tuple]): Defines the module shape ``(Nin, Nout)``. If not provided, the shape of ``weight`` will be used.
             weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised using Kaiming initialization: :math:`W \sim U[\pm\sqrt(2 / N_{in})]`.
+            bias (Optonal[np.ndarray]): Concrete initialisation data for the biases. If not provided, will be initialised to ``U[-sqrt(2 / Nin), sqrt(2 / Nin)]``.
+            has_bias (bool): Iff ``True``, the module will include a set of biases. Default: ``True``.
             tau (float): Smoothing time constant :math:`\\tau`. Default: 100 ms.
             dt (float): Simulation tme-step in seconds. Default: 1 ms.
         """
@@ -114,6 +124,8 @@ class SoftmaxJax(WeightedSmoothBase):
         super().__init__(
             shape=shape,
             weight=weight,
+            bias=bias,
+            has_bias=has_bias,
             tau=tau,
             dt=dt,
             activation_fun=lambda x: softmax(x),
@@ -147,6 +159,8 @@ class LogSoftmaxJax(WeightedSmoothBase):
         self,
         shape: Optional[tuple] = None,
         weight: Optional[np.ndarray] = None,
+        bias: Optional[np.ndarray] = None,
+        has_bias: bool = True,
         tau: float = 100e-3,
         dt: float = 1e-3,
         *args,
@@ -158,6 +172,8 @@ class LogSoftmaxJax(WeightedSmoothBase):
         Args:
             shape (Optional[tuple]): Defines the module shape ``(Nin, Nout)``. If not provided, the shape of ``weight`` will be used.
             weight (Optional[tuple]): Concrete initialisation data for the weights. If not provided, will be initialised using Kaiming initialization: :math:`W \sim U[\pm\sqrt(2 / N_{in})]`.
+            bias (Optonal[np.ndarray]): Concrete initialisation data for the biases. If not provided, will be initialised to ``U[-sqrt(2 / Nin), sqrt(2 / Nin)]``.
+            has_bias (bool): Iff ``True``, the module will include a set of biases. Default: ``True``.
             tau (float): Smoothing time constant :math:`\\tau`. Default: 100 ms.
             dt (float): Simulation tme-step in seconds. Default: 1 ms.
         """
@@ -165,6 +181,8 @@ class LogSoftmaxJax(WeightedSmoothBase):
         super().__init__(
             shape=shape,
             weight=weight,
+            bias=bias,
+            has_bias=has_bias,
             tau=tau,
             dt=dt,
             activation_fun=lambda x: logsoftmax(x),
