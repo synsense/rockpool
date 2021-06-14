@@ -158,9 +158,7 @@ def test_LIFBitshiftTorch():
 
     N = 10
     Nsyn = 2
-    tau_mem = 2 * np.ones(
-        N,
-    )
+    tau_mem = 2 * np.ones(N,)
     tau_syn = torch.Tensor([2, 8])
     tau_syn = tau_syn.view(1, Nsyn).T.repeat(1, N)
     mod = LIFBitshiftTorch(
@@ -185,198 +183,6 @@ def test_LIFBitshiftTorch():
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
 
-def test_LIFTorch():
-    from rockpool.nn.modules.torch.lif_torch import LIFTorch
-    import torch
-
-
-    n_synapses = 5
-    n_neurons = 10
-    n_batches = 3
-    T = 20
-    tau_mem = torch.rand(1, n_neurons)
-    tau_syn = torch.rand(1, n_synapses)
-    bias = torch.rand(1, n_neurons)
-    w_syn = torch.rand(n_synapses, n_neurons)
-    w_rec = torch.rand(n_neurons, n_synapses)
-
-    # - Test minimal initialisation
-    mod = LIFTorch((n_synapses, n_neurons))
-
-    # - Test maximal initialisation
-    mod = LIFTorch(
-        shape=(n_synapses, n_neurons),
-        tau_mem=tau_mem,
-        tau_syn=tau_syn,
-        bias=bias,
-        has_bias=True,
-        w_syn=w_syn,
-        w_rec=w_rec,
-        has_rec=True,
-        dt=1e-3,
-        noise_std=0.1,
-        device=None,
-        dtype=None,
-        record=True
-    )
-
-    # - Generate some data
-    input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True)
-
-    # - Test torch interface
-    out = mod.forward(input_data)
-
-    out.sum().backward()
-
-    # - Test Rockpool interface
-    out, ns, rd = mod.evolve(input_data)
-
-    assert out.shape == (n_batches, T, n_neurons)
-    assert ns['Isyn'].shape == (1, n_synapses)
-    assert ns['Vmem'].shape == (1, n_neurons)
-    assert rd['Isyn'].shape == (n_batches, T, n_synapses)
-    assert rd['Vmem'].shape == (n_batches, T, n_neurons)
-
-def test_LIFNeuronTorch():
-    from rockpool.nn.modules.torch.lif_neuron_torch import LIFNeuronTorch
-    import torch
-
-    n_neurons = 10
-    n_batches = 3
-    T = 20
-    tau_mem = torch.rand(1, n_neurons)
-    bias = torch.rand(1, n_neurons)
-
-    # - Test minimal initialisation
-    mod = LIFNeuronTorch((n_neurons,))
-
-    # - Test maximal initialisation
-    mod = LIFNeuronTorch(
-        shape=(n_neurons,),
-        tau_mem=tau_mem,
-        bias=bias,
-        has_bias=True,
-        dt=1e-3,
-        noise_std=0.1,
-        device=None,
-        dtype=None,
-        record=True
-    )
-
-    # - Generate some data
-    input_data = torch.rand(n_batches, T, n_neurons, requires_grad=True)
-
-    # - Test torch interface
-    out = mod.forward(input_data)
-
-    out.sum().backward()
-
-    # - Test Rockpool interface
-    out, ns, rd = mod.evolve(input_data)
-
-    assert out.shape == input_data.shape
-    for _, obj in ns.items():
-        assert obj.shape == (1, n_neurons)
-    for _, obj in rd.items():
-        assert obj.shape == input_data.shape
-
-def test_ExpSynTorch():
-    from rockpool.nn.modules.torch.exp_syn_torch import ExpSynTorch
-    import torch
-
-    n_synapses = 10
-    n_batches = 3
-    T = 20
-    tau_syn = torch.rand(1, n_synapses)
-
-    # - Test minimal initialisation
-    mod = ExpSynTorch((n_synapses,))
-
-    # - Test maximal initialisation
-    mod = ExpSynTorch(
-        shape=(n_synapses,),
-        tau_syn=tau_syn,
-        dt=1e-3,
-        device=None,
-        dtype=None,
-        record=True
-    )
-
-    # - Generate some data
-    input_data = torch.rand(n_batches, T, n_synapses, requires_grad=True)
-
-    # - Test torch interface
-    out = mod.forward(input_data)
-
-    out.sum().backward()
-
-    # - Test Rockpool interface
-    out, ns, rd = mod.evolve(input_data)
-
-    assert out.shape == input_data.shape
-    for _, obj in ns.items():
-        assert obj.shape == (1, n_synapses)
-    for _, obj in rd.items():
-        assert obj.shape == input_data.shape
-
-def test_single_neuron():
-    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
-    import torch
-
-    N = 1
-    Nsyn = 2
-    tau_mem = [0.04]
-    tau_syn = [[0.02], [0.03]]
-    threshold = [10.0]
-    learning_window = [0.5]
-
-    lyr = LIFBitshiftTorch(
-        n_neurons=N,
-        n_synapses=Nsyn,
-        tau_mem=tau_mem,
-        tau_syn=tau_syn,
-        threshold=threshold,
-        learning_window=learning_window,
-        batch_size=1,
-        dt=0.01,
-        device="cpu",
-    )
-
-    inp = torch.zeros((10, 1, 2, 1)).cpu()
-    inp[1, :, :, :] = 1
-    out, states, recs = lyr(inp, record=True)
-
-
-def test_backward():
-    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
-    import torch
-
-    N = 1
-    Nsyn = 2
-    tau_mem = [0.04]
-    tau_syn = [[0.02]]
-    threshold = [10.0]
-    learning_window = [0.5]
-
-    lyr = LIFBitshiftTorch(
-        n_neurons=N,
-        n_synapses=Nsyn,
-        tau_mem=tau_mem,
-        tau_syn=tau_syn,
-        threshold=threshold,
-        learning_window=learning_window,
-        batch_size=1,
-        dt=0.01,
-        device="cpu",
-    )
-
-    inp = torch.rand(50, 1, Nsyn, N).cpu()
-
-    inp.requires_grad = True
-    out, states, recs = lyr(inp, record=True)
-
-    out.sum().backward()
-
 
 def test_lowpass():
     from rockpool.nn.modules.torch.lowpass import LowPass
@@ -385,11 +191,7 @@ def test_lowpass():
     N = 3
     tau_mem = 0.04
 
-    lyr = LowPass(
-        n_neurons=N,
-        tau_mem=tau_mem,
-        dt=0.01,
-    )
+    lyr = LowPass(n_neurons=N, tau_mem=tau_mem, dt=0.01,)
 
     inp = torch.rand(50, 1, N).cpu()
 
