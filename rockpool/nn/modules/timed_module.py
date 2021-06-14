@@ -860,7 +860,7 @@ class TimedModuleWrapper(TimedModule):
 
     def __repr__(self) -> str:
         """ str: A representation of this module as a string """
-        return f"{super().__repr__()} with {self.module.full_name} as module"
+        return f"{super().__repr__()} with {self._module.full_name} as module"
 
     def evolve(
         self,
@@ -896,7 +896,7 @@ class TimedModuleWrapper(TimedModule):
         )
 
         # - Call evolution method of wrapped module
-        output, state_dict, record_dict = self.module.evolve(input_data, record=record)
+        output, state_dict, record_dict = self._module.evolve(input_data, record=record)
 
         # - Get the first output, if more than one is returned
         if isinstance(output, tuple):
@@ -907,9 +907,14 @@ class TimedModuleWrapper(TimedModule):
             kwargs_timeseries = {}
         ts_out = self._gen_timeseries(output, **kwargs_timeseries)
 
-        # - We would need to convert record_dict elements here, if we are going to do it
+        # - Use the optional `_wrap_recorded_state` method to convert the recorded state to TimeSeries objects
+        if record:
+            record_dict = self._module._wrap_recorded_state(record_dict, time_base[0])
 
         return ts_out, state_dict, record_dict
+
+    def reset_state(self) -> None:
+        self._module = self._module.reset_state()
 
 
 class LayerToTimedModule(TimedModule):

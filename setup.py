@@ -12,7 +12,7 @@ setup_args = {
     "author_email": "dylan.muir@synsense.ai",
     "version": __version__,
     "packages": setuptools.find_packages(),
-    "install_requires": ["numpy"],
+    "install_requires": ["numpy", "scipy"],
     "extras_require": {
         "all": [
             "tqdm",
@@ -23,7 +23,7 @@ setup_args = {
             "torchvision",
             "jax",
             "jaxlib",
-            "samna",
+            "samna>=0.7.1.0",
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",

@@ -795,6 +795,7 @@ class TSContinuous(TimeSeries):
         channels: Optional[Union[ArrayLike, int]] = None,
         stagger: Optional[Union[float, int]] = None,
         skip: Optional[int] = None,
+        dt: Optional[float] = None,
         *args,
         **kwargs,
     ):
@@ -806,15 +807,18 @@ class TSContinuous(TimeSeries):
         :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
         :param Optional[float] stagger: Stagger to use to separate each series when plotting multiple series. (Default: `None`, no stagger)
         :param Optional[int] skip: Skip several series when plotting multiple series
-        :param args, kwargs:  Optional arguments to pass to plotting function
+        :param Optiona[float] dt: Resample time series to this timestep before plotting
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
         """
-        if times is None:
+        if dt is not None and times is None:
+            times = np.arange(self.t_start, self.t_stop, dt)
+            samples = self(times)
+        elif times is not None:
+            samples = self(times)
+        else:
             times = self.times
             samples = self.samples
-        else:
-            samples = self(times)
 
         if channels is not None:
             samples = samples[:, channels]
@@ -868,8 +872,12 @@ class TSContinuous(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
                 # - Plot the curves
                 return ax.plot(times, samples, **kwargs)
+
             else:
                 raise RuntimeError(
                     f"TSContinuous: `{self.name}`: No plotting back-end set."
@@ -1154,12 +1162,15 @@ class TSContinuous(TimeSeries):
         resampled_series._create_interpolator()
         return resampled_series
 
-    def to_clocked(self, dt: float,) -> np.ndarray:
+    def to_clocked(
+        self,
+        dt: float,
+    ) -> np.ndarray:
         """
         Resample this time series to a synchronous clock and return the samples
 
         This method will generate a time base that begins at :py:attr:`.t_start` and extends to at least :py:attr:`.t_stop`, sampled on a clock defined by ``dt``. The time series will be resampled to that time base, using the defined interpolation method, and the clocked samples will be returned as a raster.
-        
+
         Args:
             dt (float): The desired clock time step, in seconds
 
@@ -2229,7 +2240,7 @@ class TSEvent(TimeSeries):
                 ax.set_xlim(self.t_start, self.t_stop)
 
                 # - Set the extent of the channels axis
-                ax.set_ylim(-1, self.num_channels + 1)
+                ax.set_ylim(-1, self.num_channels)
 
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)

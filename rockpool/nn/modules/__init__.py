@@ -13,7 +13,7 @@ dModules = {
     ".jax.softmax_jax": ("SoftmaxJax", "LogSoftmaxJax"),
     ".native.linear": ("Linear", "LinearJax"),
     ".native.instant": ("Instant", "InstantJax"),
-    ".native.analogFrontEnd": ("AFE"),
+    ".native.filter_bank": ("ButterMelFilter", "ButterFilter"),
     ".nest.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"),
     ".torch.torch_module": "TorchModule",
     ".torch.lif_torch": "LIFTorch",

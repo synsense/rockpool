@@ -123,34 +123,34 @@ Time series classes
     nn.layers.RecCLIAF
 
     .. nn.layers.RecDynapSE
-    nn.layers.VirtualDynapse
-    nn.layers.RecFSSpikeEulerBT
-    nn.layers.RecFSSpikeADS
-    nn.layers.RecRateEulerJax
-    nn.layers.RecRateEulerJax_IO
-    nn.layers.FFRateEulerJax
-    nn.layers.ForceRateEulerJax_IO
-    nn.layers.FFExpSynTorch
-    nn.layers.FFIAFTorch
-    nn.layers.FFIAFRefrTorch
-    nn.layers.FFIAFSpkInTorch
-    nn.layers.FFIAFSpkInRefrTorch
-    nn.layers.RecIAFTorch
-    nn.layers.RecIAFRefrTorch
-    nn.layers.RecIAFSpkInTorch
-    nn.layers.RecIAFSpkInRefrTorch
-    nn.layers.RecIAFSpkInRefrCLTorch
-    nn.layers.CLIAF
-    nn.layers.SoftMaxLayer
-    nn.layers.FFExpSyn
-    nn.layers.RecLIFJax
-    nn.layers.RecLIFCurrentInJax
-    nn.layers.RecLIFJax_IO
-    nn.layers.RecLIFCurrentInJax_IO
-    nn.layers.FFLIFJax_IO
-    nn.layers.FFLIFCurrentInJax_SO
-    nn.layers.FFExpSynCurrentInJax
-    nn.layers.FFExpSynJax
+    .. nn.layers.VirtualDynapse
+    .. nn.layers.RecFSSpikeEulerBT
+    .. nn.layers.RecFSSpikeADS
+    .. nn.layers.RecRateEulerJax
+    .. nn.layers.RecRateEulerJax_IO
+    .. nn.layers.FFRateEulerJax
+    .. nn.layers.ForceRateEulerJax_IO
+    .. nn.layers.FFExpSynTorch
+    .. nn.layers.FFIAFTorch
+    .. nn.layers.FFIAFRefrTorch
+    .. nn.layers.FFIAFSpkInTorch
+    .. nn.layers.FFIAFSpkInRefrTorch
+    .. nn.layers.RecIAFTorch
+    .. nn.layers.RecIAFRefrTorch
+    .. nn.layers.RecIAFSpkInTorch
+    .. nn.layers.RecIAFSpkInRefrTorch
+    .. nn.layers.RecIAFSpkInRefrCLTorch
+    .. nn.layers.CLIAF
+    .. nn.layers.SoftMaxLayer
+    .. nn.layers.FFExpSyn
+    .. nn.layers.RecLIFJax
+    .. nn.layers.RecLIFCurrentInJax
+    .. nn.layers.RecLIFJax_IO
+    .. nn.layers.RecLIFCurrentInJax_IO
+    .. nn.layers.FFLIFJax_IO
+    .. nn.layers.FFLIFCurrentInJax_SO
+    .. nn.layers.FFExpSynCurrentInJax
+    .. nn.layers.FFExpSynJax
 
 Conversion utilities
 --------------------
@@ -180,6 +180,8 @@ Hardware support and simulation
     :toctree: _autosummary
 
     devices.pollen.config_from_specification
+    devices.pollen.load_config
+    devices.pollen.save_config
 
 .. autosummary::
     :toctree: _autosummary
@@ -187,3 +189,9 @@ Hardware support and simulation
 
     devices.pollen.PollenCim
     devices.pollen.PollenSamna
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.pollen.pollen_devkit_utils

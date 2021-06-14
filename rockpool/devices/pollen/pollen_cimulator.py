@@ -13,6 +13,8 @@ if util.find_spec("cimulator") is None:
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool import TSContinuous, TSEvent
+
 
 # - Import Cimulator
 from cimulator.pollen import Synapse, PollenLayer
@@ -31,7 +33,13 @@ __all__ = ["PollenCim"]
 
 class PollenCim(Module):
     """
-    A Module simulating a digital SNN on Pollen, using Cimulator as a back-end
+    A :py:class:`.Module` simulating a digital SNN on Pollen, using Cimulator as a back-end.
+
+    You should use the factory methods `.from_config` and `.from_specification` to build a concrete `.PollenCim` module.
+
+    See Also:
+
+        See the tutorials :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb` for a high-level overview of building and deploying networks for Pollen.
     """
 
     __create_key = object()
@@ -203,6 +211,7 @@ class PollenCim(Module):
         weight_shift_out: int = 0,
         aliases: Optional[list] = None,
         dt: float = 1e-3,
+        verify_config: bool = True,
     ) -> "PollenCim":
         """
         Instantiate a :py:class:`.PollenCim` module from a full set of parameters
@@ -223,14 +232,18 @@ class PollenCim(Module):
             weight_shift_out (int): An integer number of bits to left-shift the output weight matrix
             aliases (Optional[list]):
             dt (float): Simulation time step in seconds. Default: 1 ms
+            verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
 
-        Returns: :py:class:`.PollenCim`: A :py:class:`.TimedModule` that
+        Returns:
+            :py:class:`.PollenCim`: A :py:class:`.Module` that emulates the Pollen hardware.
 
+        Raises:
+            ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
         from rockpool.devices.pollen import config_from_specification
 
         # - Convert specification to pollen configuration
-        config, _, _ = config_from_specification(
+        config, is_valid, status = config_from_specification(
             weights_in=weights_in,
             weights_rec=weights_rec,
             weights_out=weights_out,
@@ -246,6 +259,9 @@ class PollenCim(Module):
             weight_shift_out=weight_shift_out,
             aliases=aliases,
         )
+
+        if verify_config and not is_valid:
+            raise ValueError("Pollen configuration is not valid: " + status)
 
         # - Instantiate module from config
         return cls.from_config(config, dt=dt)
@@ -265,12 +281,12 @@ class PollenCim(Module):
             recording = {}
         else:
             recording = {
-                "vmem": np.array(self._pollen_layer.rec_v_mem).T,
-                "isyn": np.array(self._pollen_layer.rec_i_syn).T,
-                "isyn2": np.array(self._pollen_layer.rec_i_syn2).T,
-                "spikes": np.array(self._pollen_layer.rec_recurrent_spikes),
-                "vmem_out": np.array(self._pollen_layer.rec_v_mem_out).T,
-                "isyn_out": np.array(self._pollen_layer.rec_i_syn_out).T,
+                "Vmem": np.array(self._pollen_layer.rec_v_mem).T,
+                "Isyn": np.array(self._pollen_layer.rec_i_syn).T,
+                "Isyn2": np.array(self._pollen_layer.rec_i_syn2).T,
+                "Spikes": np.array(self._pollen_layer.rec_recurrent_spikes),
+                "Vmem_out": np.array(self._pollen_layer.rec_v_mem_out).T,
+                "Isyn_out": np.array(self._pollen_layer.rec_i_syn_out).T,
             }
 
         # - Return output, state and recording dictionary
@@ -280,3 +296,25 @@ class PollenCim(Module):
         """ Reset the state of this module. """
         self._pollen_layer.reset_all()
         return self
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "Vmem": TSContinuous.from_clocked(
+                state_dict["Vmem"], name="$V_{mem}$", **args
+            ),
+            "Isyn": TSContinuous.from_clocked(
+                state_dict["Isyn"], name="$I_{syn}$", **args
+            ),
+            "Isyn2": TSContinuous.from_clocked(
+                state_dict["Isyn2"], name="$I_{syn,2}$", **args
+            ),
+            "Spikes": TSEvent.from_raster(state_dict["Spikes"], name="Spikes", **args),
+            "Vmem_out": TSContinuous.from_clocked(
+                state_dict["Vmem_out"], name="$V_{mem,out}$", **args
+            ),
+            "Isyn_out": TSContinuous.from_clocked(
+                state_dict["Isyn_out"], name="$I_{syn,out}$", **args
+            ),
+        }
