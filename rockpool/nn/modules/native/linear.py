@@ -9,7 +9,7 @@ from rockpool.parameters import Parameter
 import numpy as onp
 from warnings import warn
 
-from typing import Tuple, Any
+from typing import Tuple, Any, Callable
 
 from abc import ABC
 
@@ -33,7 +33,16 @@ class LinearMixin(ABC):
 
     _dot = None
 
-    def __init__(self, shape, weight_init_func=kaiming, weight=None, *args, **kwargs):
+    def __init__(
+        self,
+        shape: tuple,
+        weight=None,
+        bias=None,
+        has_bias: bool = True,
+        weight_init_func: Callable = kaiming,
+        *args,
+        **kwargs
+    ):
         """
         Encapsulate a linear weight matrix
 
@@ -79,9 +88,19 @@ class LinearMixin(ABC):
         self.weight = Parameter(
             weight, shape=self.shape, init_func=weight_init_func, family="weights"
         )
+        """ Weight matrix of this module """
+
+        # - Specify bias parameter
+        if has_bias or bias is not None:
+            self.bias = Parameter(
+                bias, shape=self.size_out, init_func=weight_init_func, family="biases"
+            )
+            """ Bias vector of this module """
+        else:
+            self.bias = 0
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
-        return self._dot(input_data, self.weight), {}, {}
+        return self._dot(input_data, self.weight) + self.bias, {}, {}
 
 
 class Linear(LinearMixin, Module):
