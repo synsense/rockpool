@@ -46,7 +46,7 @@ def test_LIFTorch():
     out, ns, rd = mod(input_data, record=True)
 
     assert out.shape == (n_batches, T, n_neurons)
-    assert ns["Isyn"].shape == (1, n_synapses)
-    assert ns["Vmem"].shape == (1, n_neurons)
-    assert rd["Isyn"].shape == (n_batches, T, n_synapses)
-    assert rd["Vmem"].shape == (n_batches, T, n_neurons)
+    assert ns["isyn"].shape == (1, n_synapses)
+    assert ns["vmem"].shape == (1, n_neurons)
+    assert rd["isyn"].shape == (n_batches, T, n_synapses)
+    assert rd["vmem"].shape == (n_batches, T, n_neurons)

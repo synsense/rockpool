@@ -214,7 +214,7 @@ class LIFTorch(TorchModule):
 
         # - Build state record
         record_dict = (
-            {"Isyn": self._isyn_rec, "Vmem": self._vmem_rec,} if record else {}
+            {"isyn": self._isyn_rec, "vmem": self._vmem_rec,} if record else {}
         )
 
         return output_data, states, record_dict
