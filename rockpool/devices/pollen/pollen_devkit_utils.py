@@ -1042,7 +1042,6 @@ def get_current_timestamp(
 
 
 def configure_accel_time_mode(
-    daughterboard: PollenDaughterBoard,
     config: PollenConfiguration,
     state_monitor_buffer: PollenNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
@@ -1055,7 +1054,6 @@ def configure_accel_time_mode(
         Use :py:func:`new_pollen_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen daughterboard to configure
         config (PollenConfiguration): The desired Pollen configuration to use
         state_monitor_buffer (PollenNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
@@ -1068,27 +1066,33 @@ def configure_accel_time_mode(
     config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
 
     # - Configure reading out of neuron state during evolution
-    if monitor_Nhidden + monitor_Noutput > 0:
-        config.debug.monitor_neuron_i_syn = samna.pollen.configuration.NeuronRange(
-            0, monitor_Nhidden + monitor_Noutput
-        )
-        config.debug.monitor_neuron_i_syn2 = samna.pollen.configuration.NeuronRange(
-            0, monitor_Nhidden
-        )
-        config.debug.monitor_neuron_spike = samna.pollen.configuration.NeuronRange(
-            0, monitor_Nhidden
-        )
-        config.debug.monitor_neuron_v_mem = samna.pollen.configuration.NeuronRange(
-            0, monitor_Nhidden + monitor_Noutput
-        )
+    perform_readout = monitor_Nhidden + monitor_Noutput > 0
+    config.debug.monitor_neuron_i_syn = (
+        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        if perform_readout
+        else None
+    )
+    config.debug.monitor_neuron_i_syn2 = (
+        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden)
+        if perform_readout
+        else None
+    )
+    config.debug.monitor_neuron_spike = (
+        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden)
+        if perform_readout
+        else None
+    )
+    config.debug.monitor_neuron_v_mem = (
+        samna.pollen.configuration.NeuronRange(0, monitor_Nhidden + monitor_Noutput)
+        if perform_readout
+        else None
+    )
 
     # - Configure the monitor buffer
     state_monitor_buffer.set_configuration(config)
 
     # - Return the configuration and buffer
     return config, state_monitor_buffer
-
-    # apply_configuration(daughterboard, config)
 
 
 def select_single_step_time_mode(
