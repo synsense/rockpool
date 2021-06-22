@@ -384,6 +384,12 @@ class PollenSamna(Module):
         # - Wait until Pollen is ready
         putils.is_pollen_ready(self._device, self._event_buffer)
 
+        # - ATTEMPTED WORK AROUND for SPI clock bug
+        if record:
+            self._device.get_io_module().write_config(0x0002, 0x000C)
+        else:
+            self._device.get_io_module().write_config(0x0002, 0x0007)
+
         # - Apply the configuration
         putils.apply_configuration(self._device, self._config)
 
@@ -425,8 +431,8 @@ class PollenSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt
-            read_timeout = read_timeout * 20.0 if record else read_timeout / 2.0
+            read_timeout = len(input) * self.dt * Nhidden / 400.0
+            read_timeout = read_timeout * 20.0 if record else read_timeout
 
         # - Wait until the simulation is finished
         read_events, is_timeout = putils.blocking_read(
