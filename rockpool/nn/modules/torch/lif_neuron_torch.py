@@ -67,22 +67,14 @@ class LIFNeuronTorch(TorchModule):
 
         V_{mem, j} = V_{mem, j} - 1
 
-    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
-
-    :Surrogate signals:
-
-    To facilitate gradient-based training, a surrogate :math:`U(t)` is generated from the membrane potentials of each neuron.
-
-    .. math ::
-
-        U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
+    Neurons therefore share a common resting potential of ``0.``, a firing threshold of ``0.``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``0.``).
     """
 
     def __init__(
         self,
         shape: tuple = None,
         tau_mem: FloatVector = 0.1,
-        bias: FloatVector = 0,
+        bias: FloatVector = 0.0,
         has_bias: bool = True,
         dt: float = 1e-3,
         noise_std: float = 0.0,

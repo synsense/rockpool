@@ -70,7 +70,7 @@ class LIFJax(JaxModule):
 
         V_{mem, j} = V_{mem, j} - 1
 
-    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``0.``).
 
     :Surrogate signals:
 
@@ -180,7 +180,10 @@ class LIFJax(JaxModule):
             shape=(self.size_out,),
         )
         self.bias: Union[np.ndarray, Parameter] = Parameter(
-            bias, "bias", init_func=lambda s: np.zeros(s), shape=(self.size_out,),
+            bias,
+            "bias",
+            init_func=lambda s: np.zeros(s),
+            shape=(self.size_out,),
         )
         self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
         self.noise_std: Union[float, SimulationParameter] = SimulationParameter(
@@ -199,7 +202,9 @@ class LIFJax(JaxModule):
         )
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         Raw JAX evolution function for an LIF spiking layer
@@ -312,7 +317,9 @@ class LIFJax(JaxModule):
 
         # - Evolve over spiking inputs
         state, (Irec_ts, spikes_ts, Vmem_ts, Isyn_ts) = scan(
-            forward, (self.spikes, self.Isyn, self.Vmem), (input_data, noise_ts),
+            forward,
+            (self.spikes, self.Isyn, self.Vmem),
+            (input_data, noise_ts),
         )
 
         # - Generate output surrogate

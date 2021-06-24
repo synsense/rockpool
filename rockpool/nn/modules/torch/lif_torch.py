@@ -73,7 +73,7 @@ class LIFTorch(TorchModule):
 
         V_{mem, j} = V_{mem, j} - 1
 
-    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``-1``).
+    Neurons therefore share a common resting potential of ``0``, a firing threshold of ``0``, and a subtractive reset of ``-1``. Neurons each have an optional bias current `.bias` (default: ``0.``).
 
     :Surrogate signals:
 
@@ -89,7 +89,7 @@ class LIFTorch(TorchModule):
         shape: tuple = None,
         tau_mem: Optional[FloatVector] = 100e-3,
         tau_syn: Optional[FloatVector] = 50e-3,
-        bias: Optional[FloatVector] = 0,
+        bias: Optional[FloatVector] = 0.0,
         has_bias: bool = True,
         w_syn: torch.Tensor = None,
         w_rec: torch.Tensor = None,
@@ -129,7 +129,11 @@ class LIFTorch(TorchModule):
 
         # - Initialise superclass
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=True,
+            *args,
+            **kwargs,
         )
 
         # - Default tensor construction parameters
@@ -213,7 +217,12 @@ class LIFTorch(TorchModule):
 
         # - Build state record
         record_dict = (
-            {"isyn": self._isyn_rec, "vmem": self._vmem_rec,} if record else {}
+            {
+                "isyn": self._isyn_rec,
+                "vmem": self._vmem_rec,
+            }
+            if record
+            else {}
         )
 
         return output_data, states, record_dict
