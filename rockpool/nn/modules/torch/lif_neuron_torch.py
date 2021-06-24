@@ -9,18 +9,19 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-from typing import Union, List, Tuple
+from typing import Union, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
-import torch.nn.functional as F
 import rockpool.parameters as rp
-from typing import Optional, Tuple, Any
+
+from rockpool.typehints import P_float, P_tensor
 
 __all__ = ["LIFNeuronTorch"]
 
 # - Define a float / array type
 FloatVector = Union[float, torch.Tensor]
+
 
 class StepPWL(torch.autograd.Function):
     """
@@ -30,6 +31,7 @@ class StepPWL(torch.autograd.Function):
 
     :return torch.Tensor: output value and gradient function
     """
+
     @staticmethod
     def forward(ctx, data):
         ctx.save_for_backward(data)
@@ -37,7 +39,7 @@ class StepPWL(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        data, = ctx.saved_tensors
+        (data,) = ctx.saved_tensors
         grad_input = grad_output.clone()
         grad_input[data < -0.5] = 0
         return grad_input
@@ -51,9 +53,9 @@ class LIFNeuronTorch(TorchModule):
 
     .. math ::
 
-        \\tau_{syn} \\dot{V}_{mem} + V_{mem} = I_{in} + b + \\sigma\\zeta(t)
+        \\tau_{mem} \\dot{V}_{mem} + V_{mem} = I_{in} + b + \\sigma\\zeta(t)
 
-    where :math:`I_{in}(t)` is a :math:`N` vector containing a continuous signal of bias currents for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` is the membrane time constant.
+    where :math:`I_{in}(t)` is a :math:`N` vector containing a continuous input currents for each neuron; :math:`b` is a bias current for each neuron; :math:`\\sigma\\zeta(t)` is a white-noise process with standard deviation :math:`\\sigma` injected independently onto each neuron's membrane; and :math:`\\tau_{mem}` is the membrane time constant.
 
     :On spiking:
 
@@ -62,8 +64,6 @@ class LIFNeuronTorch(TorchModule):
     .. math ::
 
         V_{mem, j} > V_{thr} \\rightarrow S_{rec,j} = 1
-
-        I_{syn} = I_{syn} + S_{rec} \\cdot w_{rec}
 
         V_{mem, j} = V_{mem, j} - 1
 
@@ -77,17 +77,17 @@ class LIFNeuronTorch(TorchModule):
 
         U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
     """
+
     def __init__(
         self,
         shape: tuple = None,
-        tau_mem: Optional[FloatVector] = 0.1,
-        bias: Optional[FloatVector] = 0,
+        tau_mem: FloatVector = 0.1,
+        bias: FloatVector = 0,
         has_bias: bool = True,
         dt: float = 1e-3,
         noise_std: float = 0.0,
-        device = None,
-        dtype = None,
-        record: bool = False,
+        device=None,
+        dtype=None,
         *args,
         **kwargs,
     ):
@@ -96,17 +96,22 @@ class LIFNeuronTorch(TorchModule):
 
         Args:
             shape (tuple): Number of neuron-synapse pairs that will be created. Example: shape = (5,)
-            tau_mem (Optional[FloatVector]): An optional array with concrete initialisation data for the membrane time constants. If not provided, 100ms will be used by default.
-            tau_syn (Optional[FloatVector]): An optional array with concrete initialisation data for the synaptic time constants. If not provided, 50ms will be used by default.
-            bias (Optional[FloatVector]): An optional array with concrete initialisation data for the neuron bias currents. If not provided, 0.0 will be used by default.
+            tau_mem (FloatVector): An optional array with concrete initialisation data for the membrane time constants. If not provided, 100ms will be used by default.
+            bias (FloatVector): An optional array with concrete initialisation data for the neuron bias currents. If not provided, 0.0 will be used by default.
+            has_bias (bool): A flag indicating that the neurons should have a bias. Default: ``True``, neurons have a trainable bias. ``False``: Neurons have a bias fixed to zero.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: 0.0
             device: Defines the device on which the model will be processed.
             dtype: Defines the data type of the tensors saved as attributes.
-            record (bool): If set to True, the module records the internal states and returns them with the output. Default: False
         """
-        # Initialize class variables
+        # - Check shape argument
+        if np.size(shape) == 1:
+            shape = (np.array(shape).item(),)
 
+        if np.size(shape) > 1:
+            raise ValueError("`shape` must have only one dimension for LIFNeuronTorch")
+
+        # - Initialize super-class
         super().__init__(
             shape=shape,
             spiking_input=False,
@@ -115,47 +120,73 @@ class LIFNeuronTorch(TorchModule):
             **kwargs,
         )
 
-        factory_kwargs = {'device': device, 'dtype': dtype}
+        # - Determine arguments for building tensors
+        factory_kwargs = {"device": device, "dtype": dtype}
 
-        self.n_neurons = shape[0]
-        self.record = record
-        self.v_thresh = 0
-        self.v_reset = -1
-        self.noise_std = noise_std
+        # - Reset and thresholds
+        self._v_thresh: float = 0.0
+        self._v_reset: float = -1.0
 
-        if isinstance(tau_mem, torch.Tensor):
-            self.tau_mem = rp.Parameter(tau_mem)
+        # - Intialise parameters
+        self.noise_std: P_float = rp.SimulationParameter(noise_std)
+        """ (float) Std. Dev. of noise injected into neurons on each time-step """
+
+        if np.size(tau_mem) == 1:
+            self.tau_mem: P_tensor = rp.Parameter(
+                torch.ones(size=(self.size_out,), **factory_kwargs)
+                * np.array(tau_mem).item(),
+                shape=(self.size_out,),
+                family="taus",
+            )
+            """ (torch.Tensor) Vector `(N,)` with time constants of each neuron """
         else:
-            self.tau_mem = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs)  * tau_mem)
+            self.tau_mem: P_tensor = rp.Parameter(
+                tau_mem, shape=(self.size_out,), family="taus"
+            )
+            """ (torch.Tensor) Vector `(N,)` with time constants of each neuron """
 
         if has_bias:
-            if isinstance(bias, torch.Tensor):
-                self.bias = rp.Parameter(bias)
+            if np.size(bias) == 1:
+                self.bias = rp.Parameter(
+                    torch.ones(size=(self.size_out,), **factory_kwargs)
+                    * np.array(bias).item(),
+                    shape=(self.size_out,),
+                    family="biases",
+                )
+                """ (torch.Tensor) Vector `(N,)` with bias of each neuron """
+
             else:
-                self.bias = rp.Parameter(torch.ones(1, self.n_neurons, **factory_kwargs) * bias)
+                self.bias: P_tensor = rp.Parameter(
+                    bias, shape=(self.size_out,), family="biases"
+                )
+                """ (torch.Tensor) Vector `(N,)` with bias of each neuron """
+
         else:
-            self.bias = torch.zeros(1, self.n_neurons, **factory_kwargs)
+            self.bias = torch.zeros(self.size_out, **factory_kwargs)
 
-        self.dt = rp.SimulationParameter(dt)
+        self.dt: P_float = rp.SimulationParameter(dt)
+        """ (float) Simulation time-step in seconds """
 
-        self.vmem = rp.State(self.v_reset * torch.ones(1, self.n_neurons, **factory_kwargs))
+        self.vmem: P_tensor = rp.State(
+            self._v_reset * torch.ones(1, self.size_out, **factory_kwargs)
+        )
+        """ (torch.Tensor) Vector `(N,)` of neuron membrane potentials """
 
-        self.alpha = self.dt / self.tau_mem
+        # - Attribute for recording state
+        self._vmem_rec = None
+        """ (torch.Tensor) Record of previous evolution """
 
-    def evolve(self, input_data: torch.Tensor, record: bool = False) -> Tuple[Any, Any, Any]:
+    def evolve(
+        self, input_data: torch.Tensor, record: bool = False
+    ) -> Tuple[Any, Any, Any]:
+        # - Call super-class evolve
+        output_data, states, record_dict = super().evolve(input_data, record)
 
-        output_data = self.forward(input_data)
+        # - Fill record dictionary
+        if record:
+            record_dict["Vmem"] = self._vmem_rec
 
-        states = {
-            "Vmem": self.vmem,
-        }
-        if self.record:
-            record_dict = {
-                "Vmem": self.vmem_rec,
-            }
-        else:
-            record_dict = {}
-
+        # - Return output
         return output_data, states, record_dict
 
     def forward(self, data: torch.Tensor) -> torch.Tensor:
@@ -173,41 +204,40 @@ class LIFNeuronTorch(TorchModule):
             Out of spikes with the shape (batch, time_steps, n_neurons)
 
         """
+        # - Validate data shape
         n_batches, time_steps, n_neurons = data.shape
 
-        if n_neurons != self.n_neurons:
+        if n_neurons != self.size_out:
             raise ValueError(
-                "Input has wrong neuron dimension. It is {}, must be {}".format(n_neurons, self.n_neurons)
+                f"Input has wrong neuron dimensions. It is {n_neurons}, must be {self.size_out}"
             )
 
-        vmem = torch.ones(n_batches,1) @ self.vmem
-        bias = torch.ones(n_batches,1) @ self.bias
-        v_thresh = self.v_thresh
-        v_reset = self.v_reset
-        alpha = self.alpha
+        # - Expand state out by batch dimension
+        vmem = torch.ones(n_batches, 1) @ self.vmem
+
+        alpha = self.dt / self.tau_mem
         step_pwl = StepPWL.apply
         noise_std = self.noise_std
 
+        # - Initialise output raster and state record
         out_spikes = torch.zeros(data.shape, device=data.device)
+        self._vmem_rec = torch.zeros(data.shape)
 
-        if self.record:
-            self.vmem_rec = torch.zeros(data.shape)
-
+        # - Loop over time
         for t in range(time_steps):
+            # - Update membrane potential
+            dvmem = data[:, t, :] + self.bias - vmem
+            vmem = vmem + alpha * dvmem + torch.randn(vmem.shape) * noise_std
 
-            # - Membrane potentials
-            dvmem = data[:,t,:] + bias - vmem
-            vmem = vmem + alpha * dvmem + torch.randn(vmem.shape)*noise_std
+            # - Record state
+            self._vmem_rec[:, t, :] = vmem
 
-            if self.record:
-                self.vmem_rec[:,t,:] = vmem
+            # - Compute spikes and reset
+            out_spikes[:, t, :] = step_pwl(vmem)
+            vmem = vmem - out_spikes[:, t, :]
 
-            out_spikes[:,t,:] = step_pwl(vmem)
-            vmem = vmem - out_spikes[:,t,:]
+        # - Only retain state for first neuron
+        self.vmem = vmem[0:1, :].detach()
 
-        self.vmem = vmem[0:1,:].detach()
-
-        if self.record:
-            self.vmem_rec.detach_()
-
+        self._vmem_rec.detach_()
         return out_spikes

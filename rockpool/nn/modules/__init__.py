@@ -19,6 +19,7 @@ dModules = {
     ".torch.lif_torch": "LIFTorch",
     ".torch.exp_syn_torch": "ExpSynTorch",
     ".torch.lif_neuron_torch": "LIFNeuronTorch",
+    ".torch.linear_torch": "LinearTorch",
 }
 
 

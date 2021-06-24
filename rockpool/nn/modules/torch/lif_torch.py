@@ -98,7 +98,6 @@ class LIFTorch(TorchModule):
         noise_std: float = 0.0,
         device=None,
         dtype=None,
-        # record: bool = False,
         *args,
         **kwargs,
     ):

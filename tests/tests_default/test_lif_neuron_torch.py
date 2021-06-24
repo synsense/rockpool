@@ -8,15 +8,16 @@ def test_LIFNeuronTorch():
     n_neurons = 10
     n_batches = 3
     T = 20
-    tau_mem = torch.rand(1, n_neurons)
-    bias = torch.rand(1, n_neurons)
+    tau_mem = torch.rand(n_neurons)
+    bias = torch.rand(n_neurons)
 
     # - Test minimal initialisation
     mod = LIFNeuronTorch((n_neurons,))
+    mod = LIFNeuronTorch(n_neurons)
 
     # - Test maximal initialisation
     mod = LIFNeuronTorch(
-        shape=(n_neurons,),
+        shape=n_neurons,
         tau_mem=tau_mem,
         bias=bias,
         has_bias=True,
@@ -24,7 +25,6 @@ def test_LIFNeuronTorch():
         noise_std=0.1,
         device=None,
         dtype=None,
-        record=True,
     )
 
     # - Generate some data
@@ -36,7 +36,7 @@ def test_LIFNeuronTorch():
     out.sum().backward()
 
     # - Test Rockpool interface
-    out, ns, rd = mod.evolve(input_data)
+    out, ns, rd = mod.evolve(input_data, record=True)
 
     assert out.shape == input_data.shape
     for _, obj in ns.items():

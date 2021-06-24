@@ -9,7 +9,7 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
-from typing import Union, List, Tuple, Optional, Tuple, Any
+from typing import Optional, Tuple, Any
 import numpy as np
 from rockpool.nn.modules.torch.torch_module import TorchModule
 import torch
@@ -38,7 +38,7 @@ class ExpSynTorch(TorchModule):
     def __init__(
         self,
         shape: tuple = None,
-        tau_syn: Optional[rt.FloatVector] = 50e-3,
+        tau_syn: rt.FloatVector = 50e-3,
         dt: float = 1e-3,
         device: str = None,
         dtype=None,
@@ -59,7 +59,11 @@ class ExpSynTorch(TorchModule):
         # Initialize class variables
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__(
-            shape=shape, spiking_input=True, spiking_output=False, *args, **kwargs,
+            shape=shape,
+            spiking_input=True,
+            spiking_output=False,
+            *args,
+            **kwargs,
         )
 
         # - Permit a scalar tau_syn initialisation
@@ -72,7 +76,10 @@ class ExpSynTorch(TorchModule):
         """ (torch.Tensor) Time constants of each synapse in seconds ``(N,)`` """
 
         self.isyn: rt.P_tensor = rp.State(
-            shape=(1, self.size_out,),
+            shape=(
+                1,
+                self.size_out,
+            ),
             init_func=lambda s: torch.zeros(*s, **factory_kwargs),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
