@@ -78,7 +78,7 @@ class LIFJax(JaxModule):
 
     .. math ::
 
-        U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
+        U_j = \\textrm{tanh}(20 * V_j + 1) / 2 + .5
     """
 
     def __init__(
@@ -236,7 +236,7 @@ class LIFJax(JaxModule):
 
         .. math ::
 
-            U_j = \\textrm{tanh}(V_j + 1) / 2 + .5
+            U_j = \\textrm{tanh}(20 * V_j + 1) / 2 + .5
 
         Args:
             input_data (np.ndarray): Input array of shape ``(T, Nin)`` to evolve over
