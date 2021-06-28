@@ -16,7 +16,9 @@ dModules = {
     ".native.filter_bank": ("ButterMelFilter", "ButterFilter"),
     ".nest.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"),
     ".torch.torch_module": "TorchModule",
-    ".torch.lif_torch": "LIFLayer",
+    ".torch.lif_torch": "LIFTorch",
+    ".torch.exp_syn_torch": "ExpSynTorch",
+    ".torch.lif_neuron_torch": "LIFNeuronTorch",
     ".torch.linear_torch": "LinearTorch",
 }
 

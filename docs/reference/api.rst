@@ -72,6 +72,8 @@ Time series classes
 
     nn.modules.RateEulerJax
     nn.modules.LIFJax
+    nn.modules.LIFTorch
+    nn.modules.LIFNeuronTorch
 
     nn.modules.Linear
     nn.modules.LinearJax
@@ -80,9 +82,8 @@ Time series classes
     nn.modules.Instant
     nn.modules.InstantJax
 
-    nn.modules.AFE
-
     nn.modules.ExpSmoothJax
+    nn.modules.ExpSynTorch
 
     nn.modules.SoftmaxJax
     nn.modules.LogSoftmaxJax
@@ -187,6 +188,7 @@ Hardware support and simulation
 
     devices.pollen.PollenCim
     devices.pollen.PollenSamna
+    devices.pollen.AFE
 
 .. autosummary::
     :toctree: _autosummary
