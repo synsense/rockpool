@@ -37,10 +37,6 @@ PollenReadBuffer = samna.BufferSinkNode_pollen_event_output_event
 PollenNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
 
 
-class ResponseTimeout(Exception):
-    pass
-
-
 class PollenState(NamedTuple):
     """
     ``NamedTuple`` that encapsulates a recorded Pollen HDK state
@@ -312,7 +308,7 @@ def read_register(
 
     # - If we didn't get the required register read, raise an error
     if len(ev_filt) == 0:
-        raise ResponseTimeout(f"Timeout after {timeout}s")
+        raise TimeoutError(f"Timeout after {timeout}s")
 
     # - Return adta
     return [e.data for e in ev_filt]
@@ -1035,7 +1031,7 @@ def get_current_timestamp(
             continue_read &= (time.time() - start_t) < timeout
 
     if timestamp is None:
-        raise ResponseTimeout(f"Timeout after {timeout}s")
+        raise TimeoutError(f"Timeout after {timeout}s")
 
     # - Return the timestamp
     return timestamp

@@ -384,12 +384,6 @@ class PollenSamna(Module):
         # - Wait until Pollen is ready
         putils.is_pollen_ready(self._device, self._event_buffer)
 
-        # - ATTEMPTED WORK AROUND for SPI clock bug
-        if record:
-            self._device.get_io_module().write_config(0x0002, 0x000C)
-        else:
-            self._device.get_io_module().write_config(0x0002, 0x0007)
-
         # - Apply the configuration
         putils.apply_configuration(self._device, self._config)
 
@@ -410,7 +404,7 @@ class PollenSamna(Module):
 
         # - Add an extra event to ensure readout for entire input extent
         event = samna.pollen.event.Spike()
-        event.timestamp = np.shape(input)[0]
+        event.timestamp = np.shape(input)[0] + start_timestep
         input_events_list.append(event)
 
         # - Clear the input event count register to make sure the dummy event is ignored
@@ -440,7 +434,9 @@ class PollenSamna(Module):
         )
 
         if is_timeout:
-            raise TimeoutError(f"Processing didn't finish for {read_timeout}s.")
+            TimeoutError(
+                f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events, first timestamp: {read_events[0].timestamp}, final timestamp: {read_events[-1].timestamp}"
+            )
 
         # - Read the simulation output data
         pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)

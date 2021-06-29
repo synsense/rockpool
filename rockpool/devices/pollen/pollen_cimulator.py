@@ -5,6 +5,8 @@ Cimulator-backed module compatible with Pollen. Requires Cimulator
 # - Check that Cimulator is installed
 from importlib import util
 
+import cimulator.pollen
+
 if util.find_spec("cimulator") is None:
     raise ModuleNotFoundError(
         "'Cimulator' not found. Modules that rely on Cimulator will not be available."
@@ -84,6 +86,10 @@ class PollenCim(Module):
         # - Store the dt
         self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
         """ (float) Simulation time-step for this module """
+
+        # - Empty attribute for the Pollen layer
+        self._pollen_layer: Optional[PollenLayer] = None
+        """ (PollenLayer) Handle to a Cimulator object """
 
     @classmethod
     def from_config(cls, config: PollenConfiguration, dt: float = 1e-3):
