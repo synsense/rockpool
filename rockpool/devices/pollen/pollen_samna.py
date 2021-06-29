@@ -391,16 +391,20 @@ class PollenSamna(Module):
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
         final_timestep = start_timestep + len(input) - 1
 
-        # - Encode input and readout events
+        # -- Encode input events
         input_events_list = []
-        for timestep, input_data in enumerate(input):
-            # - Generate input events
-            for channel, channel_events in enumerate(input_data):
-                for _ in range(channel_events):
-                    event = samna.pollen.event.Spike()
-                    event.neuron = channel
-                    event.timestamp = start_timestep + timestep
-                    input_events_list.append(event)
+
+        # - Locate input events
+        spikes = np.argwhere(input)
+        counts = input[np.nonzero(input)]
+
+        # - Generate input events
+        for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
+            for _ in range(count):
+                event = samna.pollen.event.Spike()
+                event.neuron = channel
+                event.timestamp = start_timestep + timestep
+                input_events_list.append(event)
 
         # - Add an extra event to ensure readout for entire input extent
         event = samna.pollen.event.Spike()
