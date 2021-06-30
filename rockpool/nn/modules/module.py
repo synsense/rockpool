@@ -137,7 +137,7 @@ class ModuleBase(ABC):
                 (_, _, _, _, shape) = __registered_attributes[name]
                 if np.shape(val) != shape and val is not None:
                     raise ValueError(
-                        f"The new value assigned to {name} must be of shape {shape}."
+                        f"The new value assigned to {name} must be of shape {shape} (got {np.shape(val)})."
                     )
 
             # - Assign the value to the __registered_attributes dictionary

@@ -31,7 +31,7 @@ from ..pollen.pollen_devkit_utils import PollenDaughterBoard
 import numpy as np
 
 # - Typing
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 
 from warnings import warn
 
@@ -323,7 +323,8 @@ class PollenSamna(Module):
             raise ValueError("`device` must be an opened Pollen HDK daughter board.")
 
         # - Store the device
-        self._device = device
+        self._device: PollenDaughterBoard = device
+        """ (PollenDaughterBoard) The Pollen HDK used by this module """
 
         # - Get a default configuration
         if config is None:
@@ -332,8 +333,12 @@ class PollenSamna(Module):
         # - Store the configuration (and apply it)
         self.config: Union[
             PollenConfiguration, SimulationParameter
-        ] = SimulationParameter(init_func=lambda _: config)
+        ] = SimulationParameter(shape=(), init_func=lambda _: config)
         """ `.PollenConfiguration`: The configuration of the Pollen module """
+
+        # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
+        self._last_record_mode: Optional[bool] = None
+        """ (bool) The most recent (and assumed still valid) recording mode """
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
@@ -363,6 +368,20 @@ class PollenSamna(Module):
         putils.reset_neuron_synapse_state(self._device)
         return self
 
+    def _configure_accel_time_mode(self, Nhidden: int, Nout: int, record: bool):
+        if record != self._last_record_mode:
+            # - Keep a registry of the last recording mode
+            self._last_record_mode = record
+
+            # - Configure Pollen for accel-time mode
+            m_Nhidden = Nhidden if record else 0
+            m_Nout = Nout if record else 0
+
+            # - Applies the configuration via `self.config`
+            self.config, state_buffer = putils.configure_accel_time_mode(
+                self._config, self._state_buffer, m_Nhidden, m_Nout
+            )
+
     def evolve(
         self,
         input: np.ndarray,
@@ -374,18 +393,8 @@ class PollenSamna(Module):
         # - Get the network size
         Nhidden, Nout = self.shape[-2:]
 
-        # - Configure Pollen for accel-time mode
-        m_Nhidden = Nhidden if record else 0
-        m_Nout = Nout if record else 0
-        self._config, self._state_buffer = putils.configure_accel_time_mode(
-            self._config, self._state_buffer, m_Nhidden, m_Nout
-        )
-
-        # - Wait until Pollen is ready
-        putils.is_pollen_ready(self._device, self._event_buffer)
-
-        # - Apply the configuration
-        putils.apply_configuration(self._device, self._config)
+        # - Configure the recording mode
+        self._configure_accel_time_mode(Nhidden, Nout, record)
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -417,9 +426,6 @@ class PollenSamna(Module):
             event.address = addr
             input_events_list.append(event)
 
-        # - Wait until Pollen is ready
-        putils.is_pollen_ready(self._device, self._event_buffer)
-
         # - Clear the read and state buffers
         self._state_buffer.reset()
         self._event_buffer.get_events()
@@ -430,7 +436,7 @@ class PollenSamna(Module):
         # - Determine a reasonable read timeout
         if read_timeout is None:
             read_timeout = len(input) * self.dt * Nhidden / 400.0
-            read_timeout = read_timeout * 20.0 if record else read_timeout
+            read_timeout = read_timeout * 5.0 if record else read_timeout
 
         # - Wait until the simulation is finished
         read_events, is_timeout = putils.blocking_read(
@@ -438,9 +444,12 @@ class PollenSamna(Module):
         )
 
         if is_timeout:
-            TimeoutError(
-                f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events, first timestamp: {read_events[0].timestamp}, final timestamp: {read_events[-1].timestamp}"
-            )
+            message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
+            readout_events = [e for e in read_events if hasattr(e, "timestamp")]
+
+            if len(readout_events) > 0:
+                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}"
+            raise TimeoutError(message)
 
         # - Read the simulation output data
         pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
