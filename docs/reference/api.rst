@@ -74,6 +74,7 @@ Time series classes
     nn.modules.LIFJax
     nn.modules.LIFTorch
     nn.modules.LIFNeuronTorch
+    nn.modules.FFUpDownTorch
 
     nn.modules.Linear
     nn.modules.LinearJax
