@@ -46,14 +46,13 @@ class StepPWL(torch.autograd.Function):
 
 ## - FFUpDown - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
 class FFUpDownTorch(TorchModule):
-    # TODO: Document the module function in a mathematical way. Reference paper of INI.
     """
-    Define a spiking feedforward layer to convert analogue inputs to up and down channels
+    Feedforward layer that converts each analogue input channel to one spiking up and one down channel.
 
-    Feedforward layer that converts each analogue input channel to one spiking up and one down channel
-            Runs in batch mode like `.FFUpDownTorch` to save memory, but does not use pytorch. `.FFUpDownTorch` seems to be slower...
+    This module orients itself on the ADC implementation in 'A Neuromorphic Event-Based Neural Recording System for Smart Brain-Machine-Interfaces', Corradi et al. 2015. While following the same idea, the dynamics of the module are not modeled, instead this module strives to be an nominal implementation of the idea of an up-down ADM.
+
+    The spike generation is dependent on whether the input value surpasses/falls below the up/down threshold relavtive of the reference value. If a threshold is reached, a spike will be emitted and the threshhold value added (in case of an up spike) resp. subtracted from the refernece value.
     """
-
     ## - Constructor
     def __init__(
         self,
