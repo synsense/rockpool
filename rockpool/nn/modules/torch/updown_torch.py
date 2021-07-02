@@ -59,6 +59,7 @@ class FFUpDownTorch(TorchModule):
         shape: tuple = None,
         thr_up: Optional[FloatVector] = 1e-3,
         thr_down: Optional[FloatVector] = 1e-3,
+        n_ref_steps: int = 0,
         repeat_output: int = 1,
         dt: float = 1e-3,
         device=None,
@@ -73,6 +74,7 @@ class FFUpDownTorch(TorchModule):
             shape (tuple): A single dimension ``(N_in,)``, which defines the number of input channels. The output is always given as ``N_out = 2 * N_in``.
             thr_up (Optional[FloatVector]): Thresholds for creating up-spikes. Default: ``0.001``
             thr_down (Optional[FloatVector]): Thresholds for creating down-spikes. Default: ``0.001``
+            n_ref_steps (float): For how many steps of dt is the ADM entering the refractory period. During the refractory period the module doesn't emit any spikes. Default: ``0``
             repeat_output (int): Repeat each output spike x times.
             dt (float): The time step for the forward-Euler ODE solver. Default: ``1ms``
             device: Defines the device on which the model will be processed.
@@ -103,6 +105,7 @@ class FFUpDownTorch(TorchModule):
 
         # - Store layer parameters
         self.repeat_output = repeat_output
+        self.n_ref_steps = n_ref_steps
 
         if np.size(thr_up) == 1:
             thr_up = torch.ones((1, self.size_in), **self.factory_kwargs) * thr_up
@@ -172,6 +175,9 @@ class FFUpDownTorch(TorchModule):
         # - Extend thresholds out by batches
         thr_up = torch.ones(n_batches, 1) @ self.thr_up
         thr_down = torch.ones(n_batches, 1) @ self.thr_down
+        # - Counter, for how many steps of dt is the module still in refractory period
+        # - Has to be counted for each batch and channel individually
+        remaining_ref_steps = torch.zeros(n_batches, n_channels)
 
         # Reference value from where we observe whether the signal surpasses any thresholds
         analog_value = data[:, 0, :]
@@ -182,10 +188,8 @@ class FFUpDownTorch(TorchModule):
         self._analog_value_rec = torch.zeros(n_batches, time_steps, n_channels, **self.factory_kwargs)
         out_spikes = torch.zeros(n_batches, time_steps, self.size_out, **self.factory_kwargs)
 
-
         # - Loop over time
         for t in range(time_steps):
-
             # - Record the state
             self._analog_value_rec[:, t, :] = analog_value.detach()
             # - Get the difference between the last analog value saved
@@ -195,14 +199,29 @@ class FFUpDownTorch(TorchModule):
             # - Enter the negative thr_down so that it checks for changes going below this threshold.
             down_channels = step_pwl(diff_values, -thr_down)
 
+            if self.n_ref_steps > 0:
+                # - Remove the spikes of all channels that are still in the refractory period
+                up_channels[remaining_ref_steps>0] = 0
+                down_channels[remaining_ref_steps>0] = 0
+                # - Limit the amount of emitted spikes to 1, since the refractory period supresses all spikes after the first one
+                up_channels[up_channels>=1] = 1
+                down_channels[down_channels>=1] = 1
+                # - Reset the refractory counter back to the full time when either an up or a down spike was emitted
+                remaining_ref_steps[(up_channels + down_channels) > 0] = self.n_ref_steps
+                # - Set the reference value to the last input for all channels which are in refractory period
+                analog_value[remaining_ref_steps > 0] = (data[:, t, :])[remaining_ref_steps > 0]
+                # - Count down the refractory counters
+                remaining_ref_steps -= 1
+            else:
+                # - Add (resp. subtract) the thresholds for every emitted spike
+                analog_value = analog_value + up_channels*thr_up
+                analog_value = analog_value - down_channels*thr_down
+
             # - Interleave up and down channels so we have 2*k as up and 2*k + 1 as down channel of the k-th input channel
             # - Multiply by repeat_output to get the desired multiple of spikes
             out_spikes[:, t, :] = self.repeat_output * torch.stack(
                                     (up_channels, down_channels),
                                     dim=2,
                                     ).view(n_batches, 2*n_channels)
-            # - Add (resp. subtract) the thresholds for every emitted spike
-            analog_value = analog_value + up_channels*thr_up
-            analog_value = analog_value - down_channels*thr_down
 
         return out_spikes
