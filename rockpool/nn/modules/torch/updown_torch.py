@@ -180,7 +180,7 @@ class FFUpDownTorch(TorchModule):
         remaining_ref_steps = torch.zeros(n_batches, n_channels)
 
         # - Reference value from where we observe whether the signal surpasses any thresholds
-        analog_value = data[:, 0, :]
+        analog_value = data[:, 0, :].detach()
 
         step_pwl = StepPWL.apply
 
