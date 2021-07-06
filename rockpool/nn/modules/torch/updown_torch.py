@@ -1,7 +1,5 @@
 """
-updown.py - Feedforward layer that converts each analogue input channel to one spiking up and one down channel
-            Runs in batch mode like FFUpDownTorch to save memory, but does not use pytorch. FFUpDownTorch seems
-            to be slower..
+Feedforward layer that converts each analogue input channel to one spiking up and one down channel
 """
 from importlib import util
 
@@ -44,14 +42,16 @@ class StepPWL(torch.autograd.Function):
         # - Since there are two inputs, we need to give two outputs to backpropagate.
         return grad_input, grad_input
 
-## - FFUpDown - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
+## - FFUpDownTorch - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
 class FFUpDownTorch(TorchModule):
     """
-    Feedforward layer that converts each analogue input channel to one spiking up and one down channel.
+    Feedforward layer that converts each analogue input channel to one spiking up and one spiking down channel.
 
-    This module orients itself on the ADC implementation in 'A Neuromorphic Event-Based Neural Recording System for Smart Brain-Machine-Interfaces', Corradi et al. 2015. While following the same idea, the dynamics of the module are not modeled, instead this module strives to be an nominal implementation of the idea of an up-down ADM.
+    This module orients itself on the ADC implementation in 'A Neuromorphic Event-Based Neural Recording System for Smart Brain-Machine-Interfaces', Corradi et al. 2015. While following the same idea, the dynamics and non-idealities of the module are not modeled, instead this module strives to be an nominal implementation of the idea of an up-down ADM.
 
-    The spike generation is dependent on whether the input value surpasses/falls below the up/down threshold relavtive of the reference value. If a threshold is reached, a spike will be emitted and the threshhold value added (in case of an up spike) resp. subtracted from the refernece value.
+    The spike generation is dependent on whether the input value surpasses/falls below the up/down threshold relative of the reference value. If a threshold is reached, a spike will be emitted and the threshhold value added (in case of an up spike) resp. subtracted from the refernece value.
+
+    This module also allows for setting a refractory period, which is activated after a spike was emitted on either of the output channels, during which further spike emitting is supressed.
     """
     ## - Constructor
     def __init__(
@@ -74,9 +74,9 @@ class FFUpDownTorch(TorchModule):
             shape (tuple): A single dimension ``(N_in,)``, which defines the number of input channels. The output is always given as ``N_out = 2 * N_in``.
             thr_up (Optional[FloatVector]): Thresholds for creating up-spikes. Default: ``0.001``
             thr_down (Optional[FloatVector]): Thresholds for creating down-spikes. Default: ``0.001``
-            n_ref_steps (float): For how many steps of dt is the ADM entering the refractory period. During the refractory period the module doesn't emit any spikes. Default: ``0``
+            n_ref_steps (float): Determines the duration of the refractory period as multiple of `dt` (`t_ref=n_ref_steps*dt`). During the refractory period the module doesn't emit any spikes. Default: ``0``
             repeat_output (int): Repeat each output spike x times.
-            dt (float): The time step for the forward-Euler ODE solver. Default: ``1ms``
+            dt (float): The time step for the forward-Euler ODE solver in seconds. Default: ``1ms``
             device: Defines the device on which the model will be processed.
             dtype: Defines the data type of the tensors saved as attributes.
             device: Defines the device on which the module will be processed.
@@ -151,7 +151,7 @@ class FFUpDownTorch(TorchModule):
     def forward(self, data: torch.Tensor) -> torch.Tensor:
         """
         Forward method for processing data through this layer
-        Convert each analog input channdiff_valuesel to a up and down spike channel.
+        Convert each analog input channel to an up and down spike channel.
 
         ----------
         data: Tensor
@@ -172,14 +172,14 @@ class FFUpDownTorch(TorchModule):
                 )
             )
 
-        # - Extend thresholds out by batches
+        # - Extend thresholds by batches
         thr_up = torch.ones(n_batches, 1) @ self.thr_up
         thr_down = torch.ones(n_batches, 1) @ self.thr_down
-        # - Counter, for how many steps of dt is the module still in refractory period
-        # - Has to be counted for each batch and channel individually
+        ''' Counter, for how many steps of dt is the module still in refractory period.
+        Has to be counted for each batch and channel individually. '''
         remaining_ref_steps = torch.zeros(n_batches, n_channels)
 
-        # Reference value from where we observe whether the signal surpasses any thresholds
+        # - Reference value from where we observe whether the signal surpasses any thresholds
         analog_value = data[:, 0, :]
 
         step_pwl = StepPWL.apply
