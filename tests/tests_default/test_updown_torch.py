@@ -19,6 +19,7 @@ def test_FFUpDownTorch():
         shape=(n_channels,),
         thr_up=thr_up,
         thr_down=thr_down,
+        n_ref_steps = 1,
         repeat_output=1,
         dt=1e-3,
         device=None,
