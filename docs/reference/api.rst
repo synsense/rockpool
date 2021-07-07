@@ -172,6 +172,16 @@ Conversion utilities
 
     training.jax_loss
 
+``PyTorch`` training utilities
+---------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+    :template: module.rst
+
+    training.torch_loss
+
 Hardware support and simulation
 -------------------------------
 
