@@ -18,7 +18,7 @@ def test_imports():
         softmax,
         logsoftmax,
         adversarial_loss,
-        split_and_sample
+        split_and_sample,
     )
 
 
@@ -172,13 +172,15 @@ def test_logsoftmax():
     logsoftmax(np.random.rand(N), temp)
     jax.jit(logsoftmax)(np.random.rand(N), temp)
 
+
 def test_adversarial_loss():
     PLOT = False
     from rockpool.training.jax_loss import (
         robustness_loss,
         pga_attack,
         adversarial_loss,
-        mse)
+        mse,
+    )
     from jax import jacfwd
     from rockpool.nn.combinators import Sequential
     from rockpool.nn.modules import LinearJax, InstantJax
@@ -186,6 +188,7 @@ def test_adversarial_loss():
     import jax.random as random
     import jax.tree_util as tu
     import numpy as np
+
     if PLOT:
         import matplotlib.pyplot as plt
 
@@ -197,17 +200,17 @@ def test_adversarial_loss():
     Nout = 1
 
     net = Sequential(
-            LinearJax((Nin, Nhidden)),
-            InstantJax(Nhidden, jnp.tanh),
-            LinearJax((Nhidden, Nout)),
-        )
-    
+        LinearJax((Nin, Nhidden)),
+        InstantJax(Nhidden, jnp.tanh),
+        LinearJax((Nhidden, Nout)),
+    )
+
     parameters = net.parameters()
     parameters_flattened, tree_def_params = tu.tree_flatten(parameters)
     attack_steps = 10
     mismatch_level = 0.2
     initial_std = 0.001
-    inputs = np.random.normal(0,1,(T,Nin))
+    inputs = np.random.normal(0, 1, (T, Nin))
 
     net = net.reset_state()
     net = net.set_attributes(parameters)
@@ -215,42 +218,50 @@ def test_adversarial_loss():
     rand_key = random.PRNGKey(0)
 
     def f(parameters_flattened):
-        theta_star, _ =  pga_attack(params_flattened=parameters_flattened,
-                                    net=net,
-                                    rand_key=rand_key,
-                                    attack_steps=attack_steps,
-                                    mismatch_level=mismatch_level,
-                                    initial_std=initial_std,
-                                    inputs=inputs,
-                                    output_theta=output_theta,
-                                    tree_def_params=tree_def_params,
-                                    boundary_loss=mse)
+        theta_star, _ = pga_attack(
+            params_flattened=parameters_flattened,
+            net=net,
+            rand_key=rand_key,
+            attack_steps=attack_steps,
+            mismatch_level=mismatch_level,
+            initial_std=initial_std,
+            inputs=inputs,
+            output_theta=output_theta,
+            tree_def_params=tree_def_params,
+            boundary_loss=mse,
+        )
         return theta_star
 
-    theta_star, verbose = pga_attack(params_flattened=parameters_flattened,
-                                    net=net,
-                                    rand_key=rand_key,
-                                    attack_steps=attack_steps,
-                                    mismatch_level=mismatch_level,
-                                    initial_std=initial_std,
-                                    inputs=inputs,
-                                    output_theta=output_theta,
-                                    tree_def_params=tree_def_params,
-                                    boundary_loss=mse)
+    theta_star, verbose = pga_attack(
+        params_flattened=parameters_flattened,
+        net=net,
+        rand_key=rand_key,
+        attack_steps=attack_steps,
+        mismatch_level=mismatch_level,
+        initial_std=initial_std,
+        inputs=inputs,
+        output_theta=output_theta,
+        tree_def_params=tree_def_params,
+        boundary_loss=mse,
+    )
 
     diagonals = []
-    for idx,p in enumerate(parameters_flattened):
+    for idx, p in enumerate(parameters_flattened):
         diagonal_tmp = jnp.zeros_like(p)
         for step in range(attack_steps):
-            diagonal_tmp += (mismatch_level * jnp.sign(p)) / attack_steps * jnp.sign(verbose["grads"][step][idx])
+            diagonal_tmp += (
+                (mismatch_level * jnp.sign(p))
+                / attack_steps
+                * jnp.sign(verbose["grads"][step][idx])
+            )
         diagonals.append(1 + jnp.reshape(diagonal_tmp, newshape=(-1,)))
 
     J = jacfwd(f)(parameters_flattened)
     W = []
-    for idx,p in enumerate(parameters_flattened):
+    for idx, p in enumerate(parameters_flattened):
         J_sub = J[idx][idx]
-        W.append(np.reshape(J_sub, newshape=(np.prod(p.shape),np.prod(p.shape))))
-    
+        W.append(np.reshape(J_sub, newshape=(np.prod(p.shape), np.prod(p.shape))))
+
     for idx in range(len(parameters_flattened)):
         jacobian_diag = np.diagonal(W[idx])
         diag = diagonals[idx]
@@ -261,17 +272,19 @@ def test_adversarial_loss():
     if PLOT:
         plt.show()
 
-    loss = adversarial_loss(parameters=parameters,
-                        net=net,
-                        inputs=inputs,
-                        target=random.normal(rand_key, shape=(Nout,T)),
-                        training_loss=mse,
-                        boundary_loss=mse,
-                        rand_key=rand_key,
-                        noisy_forward_std=0.2,
-                        initial_std=0.001,
-                        mismatch_level=0.01,
-                        beta_robustness=0.1,
-                        attack_steps=5)
+    loss = adversarial_loss(
+        parameters=parameters,
+        net=net,
+        inputs=inputs,
+        target=random.normal(rand_key, shape=(Nout, T)),
+        training_loss=mse,
+        boundary_loss=mse,
+        rand_key=rand_key,
+        noisy_forward_std=0.2,
+        initial_std=0.001,
+        mismatch_level=0.01,
+        beta_robustness=0.1,
+        attack_steps=5,
+    )
 
-    assert not (loss in [np.inf,np.nan]), "Loss is NaN/Inf"
+    assert not (loss in [np.inf, np.nan]), "Loss is NaN/Inf"

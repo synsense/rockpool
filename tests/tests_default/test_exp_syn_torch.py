@@ -15,7 +15,11 @@ def test_ExpSynTorch():
 
     # - Test maximal initialisation
     mod = ExpSynTorch(
-        shape=(n_synapses,), tau_syn=tau_syn, dt=1e-3, device=None, dtype=None,
+        shape=(n_synapses,),
+        tau_syn=tau_syn,
+        dt=1e-3,
+        device=None,
+        dtype=None,
     )
 
     # - Generate some data

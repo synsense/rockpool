@@ -43,7 +43,10 @@ def flatten(
 
 
 def debug_evolution(
-    jmod: JaxModule, state: dict, parameters: dict, input: np.ndarray,
+    jmod: JaxModule,
+    state: dict,
+    parameters: dict,
+    input: np.ndarray,
 ) -> None:
     """
     Debug and report the presence of NaNs in network state / output
@@ -131,7 +134,10 @@ def debug_optimisation(
         found_nan = False
         for step in range(input.shape[0]):
             gradients_limited = vgf_loss(
-                parameters, jmod, input[:step, :], target[:step, :],
+                parameters,
+                jmod,
+                input[:step, :],
+                target[:step, :],
             )
 
             for k, v in flatten(gradients_limited).items():
