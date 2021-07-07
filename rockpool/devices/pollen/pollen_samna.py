@@ -417,7 +417,7 @@ class PollenSamna(Module):
 
         # - Add an extra event to ensure readout for entire input extent
         event = samna.pollen.event.Spike()
-        event.timestamp = np.shape(input)[0] + start_timestep
+        event.timestamp = final_timestep + 1
         input_events_list.append(event)
 
         # - Clear the input event count register to make sure the dummy event is ignored
@@ -448,7 +448,7 @@ class PollenSamna(Module):
             readout_events = [e for e in read_events if hasattr(e, "timestamp")]
 
             if len(readout_events) > 0:
-                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}"
+                message += f", first timestamp: {readout_events[0].timestamp}, final timestamp: {readout_events[-1].timestamp}, target timestamp: {final_timestep}"
             raise TimeoutError(message)
 
         # - Read the simulation output data
