@@ -59,7 +59,7 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
 
 class ParameterBoundaryRegularizer(nn.Module):
     '''
-    Class wrapper for the summed exponential error of boundary violations of an input.
+    Class wrapper for the summed exponential error of boundary violations of an input. See :py:func:'.summed_exp_boundary_loss' for more information.
     Allows to define the boundaries of a value just once in an object.
     '''
     def __init__(self, lower_bound=None, upper_bound=None):
