@@ -326,10 +326,6 @@ class PollenSamna(Module):
         self._device: PollenDaughterBoard = device
         """ (PollenDaughterBoard) The Pollen HDK used by this module """
 
-        # - Get a default configuration
-        if config is None:
-            config = samna.pollen.configuration.PollenConfiguration()
-
         # - Store the configuration (and apply it)
         self.config: Union[
             PollenConfiguration, SimulationParameter

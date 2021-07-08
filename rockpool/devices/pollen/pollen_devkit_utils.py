@@ -132,12 +132,17 @@ def new_pollen_read_buffer(
 
     # - Get the device model
     model = daughterboard.get_model()
+    print("   got model")
 
     # - Get Pollen output event source node
     source_node = model.get_source_node()
+    print("   got source node")
 
     # - Add the buffer as a destination for the Pollen output events
-    success = source_node.add_destination(buffer.get_input_channel())
+    ic = buffer.get_input_channel()
+    print("   got input channel")
+
+    success = source_node.add_destination(ic)
     assert success, "Error connecting the new buffer."
 
     # - Return the buffer
@@ -587,7 +592,11 @@ def apply_configuration(
         config (PollenConfiguration): A configuration for Pollen
     """
     # - Ideal -- just write the configuration using samna
-    daughterboard.get_model().apply_configuration(config)
+    m = daughterboard.get_model()
+
+    print("   got model")
+
+    m.apply_configuration(config)
 
 
 def read_neuron_synapse_state(
