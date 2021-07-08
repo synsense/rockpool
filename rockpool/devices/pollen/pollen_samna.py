@@ -30,15 +30,20 @@ from ..pollen.pollen_devkit_utils import PollenDaughterBoard
 # - Numpy
 import numpy as np
 
+import time
+
 # - Typing
 from typing import Optional, Union, Callable
 
 from warnings import warn
 
-import time
+try:
+    from tqdm.autonotebook import tqdm
+except ModuleNotFoundError:
 
-# - JSON
-import json
+    def tqdm(wrapped, *args, **kwargs):
+        return wrapped
+
 
 # - Configure exports
 __all__ = ["config_from_specification", "save_config", "load_config", "PollenSamna"]
@@ -469,3 +474,88 @@ class PollenSamna(Module):
 
         # - Return spike output, new state and record dictionary
         return pollen_data.Spikes_out, new_state, rec_dict
+
+    def evolve_manual(
+        self,
+        input: np.ndarray,
+        record: bool = False,
+        read_timeout: float = 5.0,
+        *args,
+        **kwargs,
+    ) -> (np.ndarray, dict, dict):
+        # - Get some information about the network size
+        _, Nhidden, Nout = self.shape
+
+        # - Select single-step simulation mode
+        self.config = putils.configure_single_step_time_mode(self.config)
+
+        # - Wait until pollen is ready
+        t_start = time.time()
+        while not putils.is_pollen_ready(self._device, self._event_buffer):
+            if time.time() - t_start > read_timeout:
+                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input) - 1
+
+        # - Reset input spike registers
+        putils.reset_input_spikes(self._device)
+
+        # - Initialise lists for recording state
+        vmem_ts = []
+        isyn_ts = []
+        isyn2_ts = []
+        vmem_out_ts = []
+        isyn_out_ts = []
+        spikes_ts = []
+        output_ts = []
+
+        # - Loop over time steps
+        for timestep in tqdm(range(len(input))):
+            # - Send input events for this time-step
+            putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Evolve one time-step on Pollen
+            putils.advance_time_step(self._device)
+
+            # - Wait until pollen has finished the simulation of this time step
+            t_start = time.time()
+            while not putils.is_pollen_ready(self._device, self._event_buffer):
+                if time.time() - t_start > read_timeout:
+                    raise TimeoutError(
+                        f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
+                    )
+
+            # - Read all synapse and neuron states for this time step
+            if record:
+                this_state = putils.read_neuron_synapse_state(
+                    self._device, self._event_buffer, Nhidden, Nout
+                )
+                vmem_ts.append(this_state.V_mem_hid)
+                isyn_ts.append(this_state.I_syn_hid)
+                isyn2_ts.append(this_state.I_syn2_hid)
+                vmem_out_ts.append(this_state.V_mem_out)
+                isyn_out_ts.append(this_state.I_syn_out)
+                spikes_ts.append(this_state.Spikes_hid)
+
+            # - Read the output event register
+            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_ts.append(output_events)
+
+        if record:
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "Vmem": np.array(vmem_ts),
+                "Isyn": np.array(isyn_ts),
+                "Isyn2": np.array(isyn2_ts),
+                "Spikes": np.array(spikes_ts),
+                "Vmem_out": np.array(vmem_out_ts),
+                "Isyn_out": np.array(isyn_out_ts),
+                "times": np.arange(start_timestep, final_timestep + 1),
+            }
+        else:
+            rec_dict = {}
+
+        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
+        return np.array(output_ts), {}, rec_dict

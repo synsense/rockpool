@@ -324,6 +324,7 @@ def read_memory(
     buffer: PollenReadBuffer,
     start_address: int,
     count: int = 1,
+    read_timeout: float = 2.0,
 ) -> List[int]:
     """
     Read a block of memory from a Pollen HDK
@@ -357,7 +358,7 @@ def read_memory(
     daughterboard.get_model().write(read_events_list)
 
     # - Read data
-    events, is_timeout = blocking_read(buffer, count=count + 1)
+    events, is_timeout = blocking_read(buffer, count=count + 1, timeout=read_timeout)
     if is_timeout:
         raise TimeoutError(f"Memory read timed out.")
 
@@ -1100,9 +1101,7 @@ def configure_accel_time_mode(
     return config, state_monitor_buffer
 
 
-def select_single_step_time_mode(
-    daughterboard: PollenDaughterBoard, config: PollenConfiguration
-) -> None:
+def configure_single_step_time_mode(config: PollenConfiguration) -> PollenConfiguration:
     """
     Switch on single-step model on a Pollen daughterboard
 
@@ -1112,7 +1111,7 @@ def select_single_step_time_mode(
     """
     # - Write the configuration
     config.operation_mode = samna.pollen.OperationMode.Manual
-    apply_configuration(daughterboard, config)
+    return config
 
 
 def to_hex(n: int, digits: int) -> str:
