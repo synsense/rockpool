@@ -18,22 +18,23 @@ from jax.lib import pytree
 from jax.tree_util import tree_structure
 
 from typing import Tuple, Callable, List, Dict, Any
-
-RNGKey = Any
+from rockpool.typehints import JaxRNGKey
 
 __all__ = ["pga_attack", "adversarial_loss"]
 
 
-def _split_and_sample_normal(key: RNGKey, shape: Tuple) -> Tuple[RNGKey, np.ndarray]:
+def _split_and_sample_normal(
+    key: JaxRNGKey, shape: Tuple
+) -> Tuple[JaxRNGKey, np.ndarray]:
     """
     Split an RNG key and generate random data of a given shape following a standard Gaussian distribution
 
     Args:
-        key (RNGKey): Array of two ints. A Jax random key
+        key (JaxRNGKey): Array of two ints. A Jax random key
         shape (tuple): The shape that the random normal data should have
 
     Returns:
-        (RNGKey, np.ndarray): Tuple of `(key,data)`. `key` is the new key that can be used in subsequent computations and `data` is the Gaussian data
+        (JaxRNGKey, np.ndarray): Tuple of `(key,data)`. `key` is the new key that can be used in subsequent computations and `data` is the Gaussian data
     """
     key, subkey = random.split(key)
     val = random.normal(subkey, shape=shape)

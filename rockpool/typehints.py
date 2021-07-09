@@ -28,6 +28,8 @@ try:
 except:
     Tensor = Any
 
+JaxRNGKey = Any
+
 P_tensor = Union[Tensor, ParameterBase]
 
 FloatVector = Union[float, np.ndarray, Tensor]
