@@ -521,11 +521,17 @@ class PollenSamna(Module):
 
             # - Wait until pollen has finished the simulation of this time step
             t_start = time.time()
+            is_timeout = False
             while not putils.is_pollen_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
-                    raise TimeoutError(
-                        f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
-                    )
+                    is_timeout = True
+                    # raise TimeoutError(
+                    #     f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
+                    # )
+                    break
+
+            if is_timeout:
+                break
 
             # - Read all synapse and neuron states for this time step
             if record:

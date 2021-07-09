@@ -574,7 +574,7 @@ def reset_neuron_synapse_state(daughterboard: PollenDaughterBoard) -> None:
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK daughterboard to reset
     """
-    # - `get_configuration()` is not yet compatible with `apply_configuration()`
+    # - Get the current configuration
     config = daughterboard.get_model().get_configuration()
 
     # - Reset via configuration
