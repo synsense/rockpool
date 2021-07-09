@@ -659,7 +659,7 @@ def read_neuron_synapse_state(
         np.array(Isyn[-Nout:], "int16"),
         np.array(Isyn2, "int16"),
         np.array(Spikes, "bool"),
-        read_output_events(daughterboard, buffer),
+        read_output_events(daughterboard, buffer)[:Nout],
     )
 
 
@@ -911,7 +911,7 @@ def read_output_events(
     status = read_register(daughterboard, buffer, 0x10)
 
     # - Convert to neuron events and return
-    string = bin(status[-1])[-8:]
+    string = format(int(status[-1]), "0>32b")[-8:]
     return np.array([bool(int(e)) for e in string[::-1]], "bool")
 
 
@@ -1131,7 +1131,7 @@ def to_hex(n: int, digits: int) -> str:
 def export_config(
     path: Union[str, Path],
     config: PollenConfiguration,
-    dt: float = None,
+    dt: float,
 ) -> None:
     """
     Export a network configuration to text files
