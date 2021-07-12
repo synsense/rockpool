@@ -1358,7 +1358,7 @@ def export_config(
         conf["ON"] = int(np.max([s.target_neuron_id for s in syns]) + 1)
 
         # bit shift values
-        conf["IWBS"] = model.weight_shift_out
+        conf["IWBS"] = model.weight_shift_inp
         conf["RWBS"] = model.weight_shift_rec
         conf["OWBS"] = model.weight_shift_out
 
