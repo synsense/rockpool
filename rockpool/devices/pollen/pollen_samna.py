@@ -201,7 +201,11 @@ def config_from_specification(
 
     # - Build the configuration
     config = PollenConfiguration()
+
+    # - WORKAROUD: Ensure that RAM power is enabled, and the chip clock is running
     config.debug.clock_enable = True
+    config.debug.ram_power_enable = True
+
     config.synapse2_enable = enable_isyn2
     config.reservoir.aliasing = aliases is not None
     config.input.weight_bit_shift = weight_shift_in
@@ -358,6 +362,10 @@ class PollenSamna(Module):
 
     @config.setter
     def config(self, new_config):
+        # - WORKAROUND: Ensure the RAM power and the chip clock are enabled
+        new_config.debug.clock_enable = True
+        new_config.debug.ram_power_enable = True
+
         # - Write the configuration to the device
         putils.apply_configuration(self._device, new_config)
 
