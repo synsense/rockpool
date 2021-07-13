@@ -935,31 +935,119 @@ def print_debug_ram(
         Nin (int): Number of input neurons to display. Default: ``10``.
         Nhidden (int): Number of hidden neurons to display. Default: ``10``.
     """
-    print("iwtram", read_memory(daughterboard, buffer, 0x100, Nin * Nhidden))
-    print("iwt2ram", read_memory(daughterboard, buffer, 0x3F80, Nin * Nhidden))
+    print(
+        "iwtram",
+        read_memory(
+            daughterboard, buffer, 0x100, Nin * (Nhidden + num_buffer_neurons(Nhidden))
+        ),
+    )
+    print(
+        "iwt2ram",
+        read_memory(
+            daughterboard, buffer, 0x3F80, Nin * (Nhidden + num_buffer_neurons(Nhidden))
+        ),
+    )
 
-    print("nscram", read_memory(daughterboard, buffer, 0x7E00, Nhidden + Nout))
-    print("rsc2ram", read_memory(daughterboard, buffer, 0x81F0, Nhidden))
-    print("nmpram", read_memory(daughterboard, buffer, 0x85D8, Nhidden + Nout))
+    print(
+        "nscram",
+        read_memory(
+            daughterboard, buffer, 0x7E00, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rsc2ram",
+        read_memory(
+            daughterboard, buffer, 0x81F0, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "nmpram",
+        read_memory(
+            daughterboard, buffer, 0x85D8, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("ndsram", read_memory(daughterboard, buffer, 0x89C8, Nhidden + Nout))
-    print("rds2ram", read_memory(daughterboard, buffer, 0x8DB8, Nhidden))
-    print("ndmram", read_memory(daughterboard, buffer, 0x91A0, Nhidden + Nout))
+    print(
+        "ndsram",
+        read_memory(
+            daughterboard, buffer, 0x89C8, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rds2ram",
+        read_memory(
+            daughterboard, buffer, 0x8DB8, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "ndmram",
+        read_memory(
+            daughterboard, buffer, 0x91A0, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("nthram", read_memory(daughterboard, buffer, 0x9590, Nhidden + Nout))
-    
-    print("rcram", read_memory(daughterboard, buffer, 0x9980, Nhidden))
-    print("raram", read_memory(daughterboard, buffer, 0x9D68, Nhidden))
+    print(
+        "nthram",
+        read_memory(
+            daughterboard, buffer, 0x9590, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("rspkram", read_memory(daughterboard, buffer, 0xA150, Nhidden))
+    print(
+        "rcram",
+        read_memory(
+            daughterboard, buffer, 0x9980, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "raram",
+        read_memory(
+            daughterboard, buffer, 0x9D68, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("refocram", read_memory(daughterboard, buffer, 0xA538, Nhidden))
-    print("rforam", read_memory(daughterboard, buffer, 0xA920, Nhidden))
+    print(
+        "rspkram",
+        read_memory(
+            daughterboard, buffer, 0xA150, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("rwtram", read_memory(daughterboard, buffer, 0x12620, Nhidden), "...")
-    print("rwt2ram", read_memory(daughterboard, buffer, 0x1A320, Nhidden), "...")
+    print(
+        "refocram",
+        read_memory(
+            daughterboard, buffer, 0xA538, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rforam",
+        read_memory(
+            daughterboard, buffer, 0xA920, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("owtram", read_memory(daughterboard, buffer, 0x22020, Nhidden * Nout))
+    print(
+        "rwtram",
+        read_memory(
+            daughterboard, buffer, 0x12620, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rwt2ram",
+        read_memory(
+            daughterboard, buffer, 0x1A320, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+
+    print(
+        "owtram",
+        read_memory(
+            daughterboard,
+            buffer,
+            0x22020,
+            (Nhidden + num_buffer_neurons(Nhidden) * Nout),
+        ),
+    )
 
 
 def print_debug_registers(
