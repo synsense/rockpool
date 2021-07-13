@@ -575,7 +575,7 @@ class PollenSamna(Module):
         return np.array(output_ts), {}, rec_dict
 
 
-    def evolve_manual_config(
+    def evolve_manual_allram(
         self,
         input: np.ndarray,
         record: bool = False,
@@ -584,7 +584,7 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Get some information about the network size
-        _, Nhidden, Nout = self.shape
+        Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
         self.config = putils.configure_single_step_time_mode(self.config)
@@ -649,8 +649,8 @@ class PollenSamna(Module):
 
             # - Read all synapse and neuron states for this time step
             if record:
-                this_state = putils.read_all_ram_state(
-                    self._device, self._event_buffer, Nhidden, Nout
+                this_state = putils.read_allram_state(
+                    self._device, self._event_buffer, Nin, Nhidden, Nout
                 )
                 vmem_ts.append(this_state.V_mem_hid)
                 isyn_ts.append(this_state.I_syn_hid)
@@ -687,6 +687,19 @@ class PollenSamna(Module):
                 "Vmem_out": np.array(vmem_out_ts),
                 "Isyn_out": np.array(isyn_out_ts),
                 "times": np.arange(start_timestep, final_timestep + 1),
+                "Input_weight_ram": np.array(input_weight_ram_ts),
+                "Input_weight_2ram": np.array(input_weight_2ram_ts),
+                "Neuron_dash_syn_ram": np.array(neuron_dash_syn_ram_ts),
+                "Reservoir_dash_syn_2ram": np.array(reservoir_dash_syn_2ram_ts),
+                "Neuron_dash_mem_ram": np.array(neuron_dash_mem_ram_ts),
+                "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
+                "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
+                "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(reservoir_effective_fanout_count_ram_ts),
+                "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
+                "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
+                "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
+                "Output_weight_ram": np.array(output_weight_ram_ts),
             }
         else:
             rec_dict = {}
