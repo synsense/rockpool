@@ -69,6 +69,21 @@ class PollenState(NamedTuple):
     Spikes_out: np.array
     """ Spikes from output layer neurons """
 
+    # ram as state
+    IWTRAM_state: np.array
+    IWT2RAM_state: np.array
+    NDSRAM_state: np.array
+    RDS2RAM_state: np.array
+    NDMRAM_state: np.array
+    NTHRAM_state: np.array
+    RCRAM_state: np.array
+    RARAM_state: np.array
+    REFOCRAM_state: np.array
+    RFORAM_state: np.array
+    RWTRAM_state: np.array
+    RWT2RAM_state: np.array
+    OWTRAM_state: np.array
+
 
 def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard]:
     """
@@ -660,6 +675,191 @@ def read_neuron_synapse_state(
         np.array(Isyn2, "int16"),
         np.array(Spikes, "bool"),
         read_output_events(daughterboard, buffer)[:Nout],
+    )
+
+def read_all_ram_state(
+    daughterboard: PollenDaughterBoard,
+    buffer: PollenReadBuffer,
+    Nin: int = 16,
+    Nhidden: int = 1000,
+    Nout: int = 8,
+) -> PollenState:
+    """
+    Read and return the config ram in each step as a state
+
+    Args:
+        daughterboard (PollenDaughterboard): The Pollen HDK to query
+        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK
+
+    Returns:
+        :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+
+    """
+    # - Define the memory bank addresses
+    memory_table = {
+        "nscram": 0x7E00,
+        "rsc2ram": 0x81F0,
+        "nmpram": 0x85D8,
+        "rspkram": 0xA150,
+        "IWTRAM": 0x00100,
+        "IWT2RAM": 0x03F80,
+        "NDSRAM": 0x089C8,
+        "RDS2RAM": 0x08DB8,
+        "NDMRAM": 0x091A0,
+        "NTHRAM": 0x09590,
+        "RCRAM": 0x09980,
+        "RARAM": 0x09D68,
+        "REFOCRAM": 0x0A538,
+        "RFORAM": 0x0A920,
+        "RWTRAM": 0x12620,
+        "RWT2RAM": 0x1A320,
+        "OWTRAM": 0x22020,
+    }
+
+    # - Read synaptic currents
+    Isyn = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["nscram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    # - Read synaptic currents 2
+    Isyn2 = read_memory(daughterboard, buffer, memory_table["rsc2ram"], Nhidden)
+
+    # - Read membrane potential
+    Vmem = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["nmpram"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    # - Read reservoir spikes
+    Spikes = read_memory(daughterboard, buffer, memory_table["rspkram"], Nhidden)
+
+    #######################
+    #### config as ram ####
+    #######################
+
+    input_weight_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["IWTRAM"],
+        Nin*Nhidden,
+    )
+
+    input_weight_2ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["IWT2RAM"],
+        Nin*Nhidden,
+    )
+
+    neuron_dash_syn_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["NDSRAM"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+
+    reservoir_dash_syn_2ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["RDS2RAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    neuron_dash_mem_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["NDMRAM"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    neuron_threshold_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["NTHRAM"],
+        Nhidden + Nout + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_config_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["RCRAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_aliasing_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["RARAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    reservoir_effective_fanout_count_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["REFOCRAM"],
+        Nhidden + num_buffer_neurons(Nhidden),
+    )
+
+    recurrent_fanout_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["RFORAM"],
+        32,000,
+    )
+
+    recurrent_weight_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["RWTRAM"],
+        32,000,
+    )
+
+    recurrent_weight_2ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["RWT2RAM"],
+        32,000,
+    )
+
+    output_weight_ram = read_memory(
+        daughterboard,
+        buffer,
+        memory_table["OWTRAM"],
+        Nout * (Nhidden + num_buffer_neurons(Nhidden)),
+    )
+
+    # - Return the state
+    return PollenState(
+        Nhidden,
+        Nout,
+        np.array(Vmem[:Nhidden], "int16"),
+        np.array(Isyn[:Nhidden], "int16"),
+        np.array(Vmem[-Nout:], "int16"),
+        np.array(Isyn[-Nout:], "int16"),
+        np.array(Isyn2, "int16"),
+        np.array(Spikes, "bool"),
+        read_output_events(daughterboard, buffer)[:Nout],
+
+        # config ram
+        np.array(input_weight_ram, "int16"),
+        np.array(input_weight_2ram, "int16"),
+        np.array(neuron_dash_syn_ram, "int16"),
+        np.array(reservoir_dash_syn_2ram, "int16"),
+        np.array(neuron_dash_mem_ram, "int16"),
+        np.array(neuron_threshold_ram, "int16"),
+        np.array(reservoir_config_ram, "int16"),
+        np.array(reservoir_aliasing_ram, "int16"),
+        np.array(reservoir_effective_fanout_count_ram, "int16"),
+        np.array(recurrent_fanout_ram, "int16"),
+        np.array(recurrent_weight_ram, "int16"),
+        np.array(recurrent_weight_2ram, "int16"),
+        np.array(output_weight_ram, "int16"),
     )
 
 
@@ -1631,3 +1831,196 @@ def export_temporal_state(
                     for chan, num_spikes in enumerate(chans):
                         for _ in range(num_spikes):
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
+
+
+def export_all_ram_state(
+    path: Union[Path, str],
+    config: PollenConfiguration,
+    inp_spks: np.ndarray,
+    state: PollenState,
+) -> None:
+    """
+    Export the state of a Pollen network over time
+
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
+
+    Args:
+        path (Path): The directory to export the state to
+        config (PollenConfiguration): The configuration of the Pollen network
+        inp_spks (np.ndarray): The input spikes for this simulation
+        state (PollenState): A temporal state of a Pollen network to export
+    """
+    # - Make `path` a path
+    path = Path(path)
+
+    # - Determine network size
+    inp_size = np.shape(config.input.weights)[0]
+    num_neurons = np.shape(config.reservoir.weights)[1]
+    readout_size = np.shape(config.readout.weights)[1]
+    size_total = num_neurons + readout_size
+
+    # rspkram
+    mat = np.zeros((np.shape(state.Spikes_hid)[0], num_neurons), dtype=int)
+    spks = np.array(state.Spikes_hid).astype(int)
+
+    if len(spks) > 0:
+        mat[:, : spks.shape[1]] = spks
+
+        path_spkr = path / "spk_res"
+        if not path_spkr.exists():
+            makedirs(path_spkr)
+
+        print("Writing rspkram files in spk_res", end="\r")
+        for t, spks in enumerate(mat):
+            with open(path_spkr / f"rspkram_{t}.txt", "w+") as f:
+                for val in spks:
+                    f.write(to_hex(val, 2))
+                    f.write("\n")
+
+    # ospkram
+    mat = np.zeros((np.shape(state.Spikes_out)[0], readout_size), dtype=int)
+    spks = np.array(state.Spikes_out).astype(int)
+
+    if len(spks) > 0:
+        mat[:, : spks.shape[1]] = spks
+
+        path_spko = path / "spk_out"
+        if not path_spko.exists():
+            makedirs(path_spko)
+
+        print("Writing ospkram files in spk_out", end="\r")
+        for t, spks in enumerate(mat):
+            with open(path_spko / f"ospkram_{t}.txt", "w+") as f:
+                for val in spks:
+                    f.write(to_hex(val, 2))
+                    f.write("\n")
+
+    # nscram
+    mat = np.zeros((np.shape(state.I_syn_hid)[0], size_total), dtype=int)
+    isyns = np.array(state.I_syn_hid).astype(int)
+    mat[:, : isyns.shape[1]] = isyns
+    isyns_out = np.array(state.I_syn_out).astype(int)
+    mat[:, num_neurons : num_neurons + isyns_out.shape[1]] = isyns_out
+
+    path_isyn = path / "isyn"
+    if not path_isyn.exists():
+        makedirs(path_isyn)
+
+    print("Writing nscram files in isyn", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_isyn / f"nscram_{t}.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    # nsc2ram
+    if not hasattr(state, "I_syn2_hid"):
+        mat = np.zeros((0, num_neurons), int)
+    else:
+        mat = np.zeros((np.shape(state.I_syn2_hid)[0], num_neurons), dtype=int)
+        isyns2 = np.array(state.I_syn2_hid).astype(int)
+        mat[:, : isyns2.shape[1]] = isyns2
+
+    path_isyn2 = path / "isyn2"
+    if not path_isyn2.exists():
+        makedirs(path_isyn2)
+
+    print("Writing nsc2ram files in isyn2", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_isyn2 / f"nsc2ram_{t}.txt", "w+") as f:
+            for val in vals:
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    # nmpram
+    mat = np.zeros((np.shape(state.V_mem_hid)[0], size_total), dtype=int)
+    vmems = np.array(state.V_mem_hid).astype(int)
+    mat[:, : vmems.shape[1]] = vmems
+    vmems_out = np.array(state.V_mem_out).astype(int)
+    mat[:, num_neurons : num_neurons + vmems_out.shape[1]] = vmems_out
+
+    path_vmem = path / "vmem"
+    if not path_vmem.exists():
+        makedirs(path_vmem)
+
+    print("Writing nmpram files in vmem", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_vmem / f"nmpram_{t}.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    if inp_spks is not None:
+        # input spikes
+        path_spki = path / "spk_in"
+        if not path_spki.exists():
+            makedirs(path_spki)
+
+        print("Writing inp_spks.txt", end="\r")
+        with open(path_spki / "inp_spks.txt", "w+") as f:
+            idle = -1
+            for t, chans in enumerate(inp_spks):
+                idle += 1
+                if not np.all(chans == 0):
+                    f.write(f"// time step {t}\n")
+                    if idle > 0:
+                        f.write(f"idle {idle}\n")
+                    idle = 0
+                    for chan, num_spikes in enumerate(chans):
+                        for _ in range(num_spikes):
+                            f.write(f"wr IN{to_hex(chan, 1)}\n")
+
+
+    #IWTRAM_state:
+    mat = np.zeros((np.shape(state.IWTRAM_state)[0], size_total), dtype=int)
+    vmems = np.array(state.V_mem_hid).astype(int)
+    mat[:, : vmems.shape[1]] = vmems
+    vmems_out = np.array(state.V_mem_out).astype(int)
+    mat[:, num_neurons : num_neurons + vmems_out.shape[1]] = vmems_out
+
+    path_vmem = path / "vmem"
+    if not path_vmem.exists():
+        makedirs(path_vmem)
+
+    print("Writing nmpram files in vmem", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_vmem / f"nmpram_{t}.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    if inp_spks is not None:
+        # input spikes
+        path_spki = path / "spk_in"
+        if not path_spki.exists():
+            makedirs(path_spki)
+
+        print("Writing inp_spks.txt", end="\r")
+        with open(path_spki / "inp_spks.txt", "w+") as f:
+            idle = -1
+            for t, chans in enumerate(inp_spks):
+                idle += 1
+                if not np.all(chans == 0):
+                    f.write(f"// time step {t}\n")
+                    if idle > 0:
+                        f.write(f"idle {idle}\n")
+                    idle = 0
+                    for chan, num_spikes in enumerate(chans):
+                        for _ in range(num_spikes):
+                            f.write(f"wr IN{to_hex(chan, 1)}\n")
+
+
+
+
+    IWT2RAM_state: np.array
+    NDSRAM_state: np.array
+    RDS2RAM_state: np.array
+    NDMRAM_state: np.array
+    NTHRAM_state: np.array
+    RCRAM_state: np.array
+    RARAM_state: np.array
+    REFOCRAM_state: np.array
+    RFORAM_state: np.array
+    RWTRAM_state: np.array
+    RWT2RAM_state: np.array
+    OWTRAM_state: np.array
