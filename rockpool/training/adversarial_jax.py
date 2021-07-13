@@ -181,7 +181,7 @@ def adversarial_loss(
     mismatch_level: float = 0.025,
     beta_robustness: float = 0.25,
     attack_steps: int = 10,
-):
+) -> float:
     """
     Implement a hybrid task / adversarial robustness loss
 
