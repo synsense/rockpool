@@ -171,6 +171,7 @@ Conversion utilities
     :template: module.rst
 
     training.jax_loss
+    training.adversarial_jax
 
 Hardware support and simulation
 -------------------------------

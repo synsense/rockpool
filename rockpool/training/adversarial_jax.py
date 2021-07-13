@@ -2,7 +2,7 @@
 Functions to implement adversarial training approaches using Jax
 
 See Also:
-    :ref:`/tutorials/adversarial-training.ipynb` illustrates how to use the functions in this module to implement adversarial attacks on the parameters of a network during training.
+    :ref:`/tutorials/adversarial_training.ipynb` illustrates how to use the functions in this module to implement adversarial attacks on the parameters of a network during training.
 """
 import jax
 import numpy as np
@@ -78,17 +78,17 @@ def _eval_target_loss(
     return loss(target, output)
 
 
-@partial(
-    jax.jit,
-    static_argnames=(
-        "net",
-        "tree_def_params",
-        "mismatch_loss",
-        "attack_steps",
-        "mismatch_level",
-        "initial_std",
-    ),
-)
+# @partial(
+#     jax.jit,
+#     static_argnames=(
+#         "net",
+#         "tree_def_params",
+#         "mismatch_loss",
+#         "attack_steps",
+#         "mismatch_level",
+#         "initial_std",
+#     ),
+# )
 def pga_attack(
     params_flattened: List,
     net: Callable[[np.ndarray], np.ndarray],
@@ -155,19 +155,19 @@ def pga_attack(
     return theta_star, verbose
 
 
-@partial(
-    jax.jit,
-    static_argnames=(
-        "net",
-        "task_Loss",
-        "mismatch_loss",
-        "noisy_forward_std",
-        "initial_std",
-        "mismatch_level",
-        "beta_robustness",
-        "attack_steps",
-    ),
-)
+# @partial(
+#     jax.jit,
+#     static_argnames=(
+#         "net",
+#         "task_Loss",
+#         "mismatch_loss",
+#         "noisy_forward_std",
+#         "initial_std",
+#         "mismatch_level",
+#         "beta_robustness",
+#         "attack_steps",
+#     ),
+# )
 def adversarial_loss(
     parameters: Tree,
     net: JaxModule,
