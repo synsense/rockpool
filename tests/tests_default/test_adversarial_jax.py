@@ -38,7 +38,7 @@ def test_adversarial_loss():
 
     net = net.reset_state()
     net = net.set_attributes(parameters)
-    output_theta, _, _ = net(inputs)
+    output_nominal, _, _ = net(inputs)
     rng_key = random.PRNGKey(0)
 
     def f(parameters_flattened):
@@ -50,9 +50,9 @@ def test_adversarial_loss():
             mismatch_level=mismatch_level,
             initial_std=initial_std,
             inputs=inputs,
-            output_theta=output_theta,
+            net_out_original=output_nominal,
             tree_def_params=tree_def_params,
-            mismatch_loss=mse,
+            mismatch_loss=tu.Partial(mse),
         )
         return theta_star
 
@@ -64,9 +64,9 @@ def test_adversarial_loss():
         mismatch_level=mismatch_level,
         initial_std=initial_std,
         inputs=inputs,
-        output_theta=output_theta,
+        net_out_original=output_nominal,
         tree_def_params=tree_def_params,
-        mismatch_loss=mse,
+        mismatch_loss=tu.Partial(mse),
     )
 
     diagonals = []
@@ -101,9 +101,9 @@ def test_adversarial_loss():
         net=net,
         inputs=inputs,
         target=random.normal(rng_key, shape=(Nout, T)),
-        task_loss=mse,
-        mismatch_loss=mse,
-        rngkey=rng_key,
+        task_loss=tu.Partial(mse),
+        mismatch_loss=tu.Partial(mse),
+        rng_key=rng_key,
         noisy_forward_std=0.2,
         initial_std=0.001,
         mismatch_level=0.01,
