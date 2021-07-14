@@ -17,8 +17,6 @@ def test_imports():
         l2sqr_norm,
         softmax,
         logsoftmax,
-        adversarial_loss,
-        split_and_sample,
     )
 
 

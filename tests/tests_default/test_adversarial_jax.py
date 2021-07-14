@@ -1,3 +1,10 @@
+def test_imports():
+    from rockpool.training.adversarial_jax import (
+        pga_attack,
+        adversarial_loss,
+    )
+
+
 def test_adversarial_loss():
     PLOT = False
     from rockpool.training.jax_loss import mse
