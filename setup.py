@@ -21,7 +21,7 @@ setup_args = {
             "pytest-xdist",
             "torch",
             "torchvision",
-            "jax>=2.0",
+            "jax>=0.2",
             "jaxlib",
             "samna>=0.8.8.0",
             "sphinx",
