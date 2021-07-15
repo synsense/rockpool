@@ -2234,13 +2234,16 @@ def export_allram_state(
     print("Writing RFORAM files in recurrent_fanout", end="\r")
     for t, vals in enumerate(mat):
         with open(path_RFORAM_state / f"RFORAM_{t}.txt", "w+") as f:
-            fan_out_count = 0
+            line = 0
             reservoir_fanout_total = 0
             for i_neur, val in enumerate(vals):
                 if i_neur == reservoir_fanout_total:
-                    f.write(f"// rfo of RSN{fan_out_count} \n")
-                    reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][fan_out_count]
-                    fan_out_count += 1
+                    f.write(f"// rfo of RSN{line} \n")
+                    reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][line]
+                    while reservoir_effective_fanout_count[t][line]==0:
+                        f.write(f"// rfo of RSN{line} \n")
+                        line += 1
+                    line += 1
                 f.write(to_hex(val, 3))
                 f.write("\n")
 
@@ -2256,13 +2259,16 @@ def export_allram_state(
     print("Writing RWTRAM files in recurrent_weight", end="\r")
     for t, vals in enumerate(mat):
         with open(path_RWTRAM_state / f"RWTRAM_{t}.txt", "w+") as f:
-            fan_out_count = 0
+            line = 0
             reservoir_fanout_total = 0
             for i_neur, val in enumerate(vals):
                 if i_neur == reservoir_fanout_total:
-                    f.write(f"// rwt of RSN{fan_out_count} \n")
-                    reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][fan_out_count]
-                    fan_out_count += 1
+                    f.write(f"// rwt of RSN{line} \n")
+                    reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][line]
+                    while reservoir_effective_fanout_count[t][line]==0:
+                        f.write(f"// rwt of RSN{line} \n")
+                        line += 1
+                    line += 1
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
@@ -2278,13 +2284,16 @@ def export_allram_state(
     print("Writing RWT2RAM files in recurrent_weight_2", end="\r")
     for t, vals in enumerate(mat):
         with open(path_RWT2RAM_state / f"RWT2RAM_{t}.txt", "w+") as f:
-            fan_out_count = 0
+            line = 0
             reservoir_fanout_total = 0
             for i_neur, val in enumerate(vals):
                 if i_neur == reservoir_fanout_total:
-                    f.write(f"// rwt2 of RSN{fan_out_count} \n")
-                    reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][fan_out_count]
-                    fan_out_count += 1
+                    f.write(f"// rwt2 of RSN{line} \n")
+                    reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][line]
+                    while reservoir_effective_fanout_count[t][line]==0:
+                        f.write(f"// rwt2 of RSN{line} \n")
+                        line += 1
+                    line += 1
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
