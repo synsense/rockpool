@@ -33,7 +33,7 @@ import numpy as np
 import time
 
 # - Typing
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Callable, List
 
 from warnings import warn
 
@@ -52,18 +52,18 @@ __all__ = ["config_from_specification", "save_config", "load_config", "PollenSam
 def config_from_specification(
     weights_in: np.ndarray,
     weights_out: np.ndarray,
-    weights_rec: np.ndarray = None,
-    dash_mem: np.ndarray = None,
-    dash_mem_out: np.ndarray = None,
-    dash_syn: np.ndarray = None,
-    dash_syn_2: np.ndarray = None,
-    dash_syn_out: np.ndarray = None,
-    threshold: np.ndarray = None,
-    threshold_out: np.ndarray = None,
+    weights_rec: Optional[np.ndarray] = None,
+    dash_mem: Optional[np.ndarray] = None,
+    dash_mem_out: Optional[np.ndarray] = None,
+    dash_syn: Optional[np.ndarray] = None,
+    dash_syn_2: Optional[np.ndarray] = None,
+    dash_syn_out: Optional[np.ndarray] = None,
+    threshold: Optional[np.ndarray] = None,
+    threshold_out: Optional[np.ndarray] = None,
     weight_shift_in: int = 0,
     weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
-    aliases: Optional[list] = None,
+    aliases: Optional[List[List[int]]] = None,
 ) -> (PollenConfiguration, bool, str):
     """
     Convert a full network specification to a pollen config and validate it
@@ -85,7 +85,7 @@ def config_from_specification(
         weight_shift_in (int): The number of bits to left-shift each input weight. Default: ``0``
         weight_shift_rec (int): The number of bits to left-shift each recurrent weight. Default: ``0``
         weight_shift_out (int): The number of bits to left-shift each output layer weight. Default: ``0``
-        aliases (Optional[list]): For each neuron in the hidden population, a list containing the alias targets for that neuron
+        aliases (Optional[List[List[int]]]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
     Returns: (:py:class:`.samna.pollen.PollenConfiguration`, bool, str): config, is_valid, message
         ``config`` will be a `PollenConfiguration`.
@@ -143,9 +143,9 @@ def config_from_specification(
         )
 
     # - Check bitshift TCs, assign defaults
-    dash_mem = np.ones(Nhidden, "int") if dash_mem is None else dash_mem
-    dash_syn = np.ones(Nhidden, "int") if dash_syn is None else dash_syn
-    dash_syn_2 = np.ones(Nhidden, "int") if dash_syn_2 is None else dash_syn_2
+    dash_mem = np.ones(Nhidden, "int") if dash_mem is None else np.array(dash_mem)
+    dash_syn = np.ones(Nhidden, "int") if dash_syn is None else np.array(dash_syn)
+    dash_syn_2 = np.ones(Nhidden, "int") if dash_syn_2 is None else np.array(dash_syn_2)
 
     if (
         np.size(dash_mem) != Nhidden
@@ -157,8 +157,12 @@ def config_from_specification(
             + f" found {np.size(dash_mem)}, {np.size(dash_syn)}, {np.size(dash_syn_2)}"
         )
 
-    dash_mem_out = np.ones(Nout, "int") if dash_mem_out is None else dash_mem_out
-    dash_syn_out = np.ones(Nout, "int") if dash_syn_out is None else dash_syn_out
+    dash_mem_out = (
+        np.ones(Nout, "int") if dash_mem_out is None else np.array(dash_mem_out)
+    )
+    dash_syn_out = (
+        np.ones(Nout, "int") if dash_syn_out is None else np.array(dash_syn_out)
+    )
 
     if np.size(dash_mem_out) != Nout or np.size(dash_syn_out) != Nout:
         raise ValueError(
@@ -166,8 +170,10 @@ def config_from_specification(
         )
 
     # - Check thresholds, assign defaults
-    threshold = np.zeros(Nhidden, "int") if threshold is None else threshold
-    threshold_out = np.zeros(Nout, "int") if threshold_out is None else threshold_out
+    threshold = np.zeros(Nhidden, "int") if threshold is None else np.array(threshold)
+    threshold_out = (
+        np.zeros(Nout, "int") if threshold_out is None else np.array(threshold_out)
+    )
 
     if threshold.size != Nhidden:
         raise ValueError(
@@ -223,7 +229,7 @@ def config_from_specification(
     for i in range(len(weights_rec)):
         neuron = ReservoirNeuron()
         if aliases is not None and len(aliases[i]) > 0:
-            neuron.alias_target = aliases[i][0].astype("int")
+            neuron.alias_target = int(aliases[i][0])
         neuron.i_syn_decay = dash_syn[i].astype("int")
         neuron.i_syn2_decay = dash_syn_2[i].astype("int")
         neuron.v_mem_decay = dash_mem[i].astype("int")
@@ -328,7 +334,7 @@ class PollenSamna(Module):
         self._state_buffer = putils.new_pollen_state_monitor_buffer(device)
 
         # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
-        if not putils.verify_pollen_version(device, self._event_buffer):
+        if not putils.verify_pollen_version(device, self._event_buffer, timeout=10.0):
             raise ValueError("`device` must be an opened Pollen HDK daughter board.")
 
         # - Store the device
@@ -449,7 +455,9 @@ class PollenSamna(Module):
 
         # - Wait until the simulation is finished
         read_events, is_timeout = putils.blocking_read(
-            self._event_buffer, timeout=read_timeout, target_timestamp=final_timestep
+            self._event_buffer,
+            timeout=max(read_timeout, 1.0),
+            target_timestamp=final_timestep,
         )
 
         if is_timeout:
@@ -494,7 +502,14 @@ class PollenSamna(Module):
         # - Get some information about the network size
         _, Nhidden, Nout = self.shape
 
+        # m_Nhidden = Nhidden if record else 0
+        # m_Nout = Nout if record else 0
+
         # - Select single-step simulation mode
+        # - Applies the configuration via `self.config`
+        # config, state_buffer = putils.configure_accel_time_mode(
+        #     self._config, self._state_buffer, m_Nhidden, m_Nout
+        # )
         self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Wait until pollen is ready
@@ -556,6 +571,21 @@ class PollenSamna(Module):
             # - Read the output event register
             output_events = putils.read_output_events(self._device, self._event_buffer)
             output_ts.append(output_events)
+
+        # if record:
+        #     pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+        #     # - Build a recorded state dictionary
+        #     rec_dict = {
+        #         "Vmem": np.array(pollen_data.V_mem_hid),
+        #         "Isyn": np.array(pollen_data.I_syn_hid),
+        #         "Isyn2": np.array(pollen_data.I_syn2_hid),
+        #         "Spikes": np.array(pollen_data.Spikes_hid),
+        #         "Vmem_out": np.array(pollen_data.V_mem_out),
+        #         "Isyn_out": np.array(pollen_data.I_syn_out),
+        #         "times": np.arange(start_timestep, final_timestep + 1),
+        #     }
+        # else:
+        #     rec_dict = {}
 
         if record:
             # - Build a recorded state dictionary

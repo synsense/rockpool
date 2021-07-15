@@ -329,7 +329,7 @@ def read_register(
 
     # - If we didn't get the required register read, raise an error
     if len(ev_filt) == 0:
-        raise TimeoutError(f"Timeout after {timeout}s")
+        raise TimeoutError(f"Timeout after {timeout}s when reading register {address}.")
 
     # - Return adta
     return [e.data for e in ev_filt]
@@ -376,13 +376,17 @@ def read_memory(
     # - Read data
     events, is_timeout = blocking_read(buffer, count=count + 1, timeout=read_timeout)
     if is_timeout:
-        raise TimeoutError(f"Memory read timed out.")
+        raise TimeoutError(
+            f"Memory read timed out after {read_timeout} s. Reading @{start_address}+{count}."
+        )
 
     # - Filter returned events for the desired addresses
     return [
         e.data
         for e in events[1:]
-        if e.address >= start_address and e.address < start_address + count
+        if hasattr(e, "address")
+        and e.address >= start_address
+        and e.address < start_address + count
     ]
 
 
@@ -487,7 +491,7 @@ def verify_pollen_version(
 
         # - Check timeout
         if time.time() > t_end:
-            raise TimeoutError(f"Checking ready status timed out after {timeout}s")
+            raise TimeoutError(f"Checking version timed out after {timeout}s.")
 
     return (
         (len(filtered_events) > 0)
@@ -608,12 +612,12 @@ def apply_configuration(
         daughterboard (PollenDaughterboard): The Pollen HDK to write the configuration to
         config (PollenConfiguration): A configuration for Pollen
     """
+    # - WORKAROUND: Manually enable debug clock
+    config.debug.clock_enable = True
+    config.debug.ram_power_enable = True
+
     # - Ideal -- just write the configuration using samna
-    m = daughterboard.get_model()
-
-    print("   got model")
-
-    m.apply_configuration(config)
+    daughterboard.get_model().apply_configuration(config)
 
 
 def read_neuron_synapse_state(
@@ -1134,30 +1138,119 @@ def print_debug_ram(
         Nin (int): Number of input neurons to display. Default: ``10``.
         Nhidden (int): Number of hidden neurons to display. Default: ``10``.
     """
-    print("iwtram", read_memory(daughterboard, buffer, 0x100, Nin * Nhidden))
-    print("iwt2ram", read_memory(daughterboard, buffer, 0x3F80, Nin * Nhidden))
+    print(
+        "iwtram",
+        read_memory(
+            daughterboard, buffer, 0x100, Nin * (Nhidden + num_buffer_neurons(Nhidden))
+        ),
+    )
+    print(
+        "iwt2ram",
+        read_memory(
+            daughterboard, buffer, 0x3F80, Nin * (Nhidden + num_buffer_neurons(Nhidden))
+        ),
+    )
 
-    print("nscram", read_memory(daughterboard, buffer, 0x7E00, Nhidden + Nout))
-    print("rsc2ram", read_memory(daughterboard, buffer, 0x81F0, Nhidden))
-    print("nmpram", read_memory(daughterboard, buffer, 0x85D8, Nhidden + Nout))
+    print(
+        "nscram",
+        read_memory(
+            daughterboard, buffer, 0x7E00, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rsc2ram",
+        read_memory(
+            daughterboard, buffer, 0x81F0, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "nmpram",
+        read_memory(
+            daughterboard, buffer, 0x85D8, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("ndsram", read_memory(daughterboard, buffer, 0x89C8, Nhidden + Nout))
-    print("rds2ram", read_memory(daughterboard, buffer, 0x8DB8, Nhidden))
-    print("ndmram", read_memory(daughterboard, buffer, 0x91A0, Nhidden + Nout))
+    print(
+        "ndsram",
+        read_memory(
+            daughterboard, buffer, 0x89C8, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rds2ram",
+        read_memory(
+            daughterboard, buffer, 0x8DB8, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "ndmram",
+        read_memory(
+            daughterboard, buffer, 0x91A0, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("nthram", read_memory(daughterboard, buffer, 0x9590, Nhidden + Nout))
-    print("rcram", read_memory(daughterboard, buffer, 0x9980, Nhidden + Nout))
-    print("raram", read_memory(daughterboard, buffer, 0x9D68, Nhidden + Nout))
+    print(
+        "nthram",
+        read_memory(
+            daughterboard, buffer, 0x9590, Nhidden + Nout + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("rspkram", read_memory(daughterboard, buffer, 0xA150, Nhidden))
+    print(
+        "rcram",
+        read_memory(
+            daughterboard, buffer, 0x9980, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "raram",
+        read_memory(
+            daughterboard, buffer, 0x9D68, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("refocram", read_memory(daughterboard, buffer, 0xA538, Nhidden))
-    print("rforam", read_memory(daughterboard, buffer, 0xA920, Nhidden))
+    print(
+        "rspkram",
+        read_memory(
+            daughterboard, buffer, 0xA150, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("rwtram", read_memory(daughterboard, buffer, 0x12620, Nhidden), "...")
-    print("rwt2ram", read_memory(daughterboard, buffer, 0x1A320, Nhidden), "...")
+    print(
+        "refocram",
+        read_memory(
+            daughterboard, buffer, 0xA538, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rforam",
+        read_memory(
+            daughterboard, buffer, 0xA920, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
 
-    print("owtram", read_memory(daughterboard, buffer, 0x22020, Nhidden * Nout))
+    print(
+        "rwtram",
+        read_memory(
+            daughterboard, buffer, 0x12620, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+    print(
+        "rwt2ram",
+        read_memory(
+            daughterboard, buffer, 0x1A320, Nhidden + num_buffer_neurons(Nhidden)
+        ),
+    )
+
+    print(
+        "owtram",
+        read_memory(
+            daughterboard,
+            buffer,
+            0x22020,
+            (Nhidden + num_buffer_neurons(Nhidden) * Nout),
+        ),
+    )
 
 
 def print_debug_registers(
@@ -1244,7 +1337,7 @@ def get_current_timestamp(
             continue_read &= (time.time() - start_t) < timeout
 
     if timestamp is None:
-        raise TimeoutError(f"Timeout after {timeout}s")
+        raise TimeoutError(f"Timeout after {timeout}s when reading current timestamp.")
 
     # - Return the timestamp
     return timestamp

@@ -303,10 +303,10 @@ class AFE(Module):
         """ np.ndarray: Centre frequency of each band-pass filter in Hz """
 
         # - Check the filters w.r.t the sampling frequency
-        if self.Fs < (6 * np.max(self.fcs)):
-            raise ValueError(
-                f"Sampling frequency must be at least 6 times highest BPF centre freq. (>{6 * np.max(self.fcs)} Hz)"
-            )
+        # if self.Fs < (6 * np.max(self.fcs)):
+        #     raise ValueError(
+        #         f"Sampling frequency must be at least 6 times highest BPF centre freq. (>{6 * np.max(self.fcs)} Hz)"
+        #     )
 
         # Bandwidths of the filters
         self.bws: P_array = Parameter(
