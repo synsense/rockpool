@@ -2145,7 +2145,7 @@ def export_allram_state(
             reservoir_fanout_total = 0
             for i_neur, val in enumerate(vals):
                 if i_neur == reservoir_fanout_total:
-                    f.write(f"// rfo for RSN{fan_out_count} \n")
+                    f.write(f"// rfo of RSN{fan_out_count} \n")
                     reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][fan_out_count]
                     fan_out_count += 1
                 f.write(to_hex(val, 3))
@@ -2167,10 +2167,10 @@ def export_allram_state(
             reservoir_fanout_total = 0
             for i_neur, val in enumerate(vals):
                 if i_neur == reservoir_fanout_total:
-                    f.write(f"// rwt for RSN{fan_out_count} \n")
+                    f.write(f"// rwt of RSN{fan_out_count} \n")
                     reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][fan_out_count]
                     fan_out_count += 1
-                f.write(to_hex(val, 3))
+                f.write(to_hex(val, 2))
                 f.write("\n")
 
     # RWT2RAM_state: recurrent_weight_2ram_ts
@@ -2189,10 +2189,10 @@ def export_allram_state(
             reservoir_fanout_total = 0
             for i_neur, val in enumerate(vals):
                 if i_neur == reservoir_fanout_total:
-                    f.write(f"// rwt2 for RSN{fan_out_count} \n")
+                    f.write(f"// rwt2 of RSN{fan_out_count} \n")
                     reservoir_fanout_total = reservoir_fanout_total + reservoir_effective_fanout_count[t][fan_out_count]
                     fan_out_count += 1
-                f.write(to_hex(val, 3))
+                f.write(to_hex(val, 2))
                 f.write("\n")
 
     # OWTRAM_state: output_weight_ram_ts
