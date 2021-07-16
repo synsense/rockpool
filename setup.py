@@ -22,7 +22,7 @@ setup_args = {
             "torch",
             "torchvision",
             "jax>=0.2.13",
-            "jaxlib",
+            "jaxlib>=0.1.66",
             "samna",
             "sphinx",
             "nbsphinx",
