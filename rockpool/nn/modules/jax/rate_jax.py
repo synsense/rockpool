@@ -171,7 +171,10 @@ class RateEulerJax(JaxModule):
         """ The vector ``(N,)`` of time constants :math:`\\tau` for each neuron"""
 
         self.bias: Union[np.ndarray, Parameter] = Parameter(
-            bias, "bias", init_func=lambda s: np.zeros(s), shape=(self.size_out,),
+            bias,
+            "bias",
+            init_func=lambda s: np.zeros(s),
+            shape=(self.size_out,),
         )
         """The vector ``(N,)`` of bias currents for each neuron"""
 
@@ -213,7 +216,9 @@ class RateEulerJax(JaxModule):
         )
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self,
+        input_data: np.ndarray,
+        record: bool = False,
     ):
         dt_tau = self.dt / self.tau
         w_rec = self.w_rec
