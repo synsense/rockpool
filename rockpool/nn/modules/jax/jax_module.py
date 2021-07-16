@@ -21,6 +21,7 @@ from copy import deepcopy
 import operator as op
 from abc import ABC
 from typing import Optional, Tuple
+from rockpool.typehints import Tree
 
 
 class JaxModule(Module, ABC):
@@ -112,12 +113,12 @@ class JaxModule(Module, ABC):
         # - Register the module
         super()._register_module(name, mod)
 
-    def set_attributes(self, new_attributes: dict) -> "JaxModule":
+    def set_attributes(self, new_attributes: Tree) -> "JaxModule":
         """
         Assign new attributes to this module and submodules
 
         Args:
-            new_attributes (dict): The dictionary of new attributes to assign to this module tree
+            new_attributes (Tree): The tree of new attributes to assign to this module tree
 
         Returns:
             `.JaxModule`:
