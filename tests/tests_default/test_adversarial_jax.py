@@ -118,4 +118,4 @@ def test_adversarial_loss():
         attack_steps=5,
     )
 
-    assert not (loss in [np.inf, np.nan]), "Loss is NaN/Inf"
+    assert not (np.array(loss).item() in [np.inf, np.nan]), "Loss is NaN/Inf"
