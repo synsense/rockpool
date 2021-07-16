@@ -158,7 +158,9 @@ def test_LIFBitshiftTorch():
 
     N = 10
     Nsyn = 2
-    tau_mem = 2 * np.ones(N,)
+    tau_mem = 2 * np.ones(
+        N,
+    )
     tau_syn = torch.Tensor([2, 8])
     tau_syn = tau_syn.view(1, Nsyn).T.repeat(1, N)
     mod = LIFBitshiftTorch(
@@ -191,7 +193,11 @@ def test_lowpass():
     N = 3
     tau_mem = 0.04
 
-    lyr = LowPass(n_neurons=N, tau_mem=tau_mem, dt=0.01,)
+    lyr = LowPass(
+        n_neurons=N,
+        tau_mem=tau_mem,
+        dt=0.01,
+    )
 
     inp = torch.rand(50, 1, N).cpu()
 

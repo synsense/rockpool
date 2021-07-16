@@ -448,6 +448,7 @@ class AFE(Module):
 
         def one_over_f(f: np.ndarray, knee: float, alpha: float) -> np.ndarray:
             d = np.ones_like(f)
+            f = np.clip(f, 1e-12, np.inf)
             d[f < knee] = np.abs(((knee / f[f < knee]) ** (alpha)))
             d[0] = 1
             return d

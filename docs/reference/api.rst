@@ -168,10 +168,16 @@ Conversion utilities
 
 .. autosummary::
     :toctree: _autosummary
-    :recursive:
     :template: module.rst
 
     training.jax_loss
+    training.adversarial_jax
+
+.. autosummary::
+    :toctree: _autosummary
+
+    training.adversarial_jax.pga_attack
+    training.adversarial_jax.adversarial_loss
 
 Hardware support and simulation
 -------------------------------
