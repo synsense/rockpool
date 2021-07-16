@@ -32,3 +32,6 @@ P_tensor = Union[Tensor, ParameterBase]
 
 FloatVector = Union[float, np.ndarray, Tensor]
 IntVector = Union[int, np.ndarray, Tensor]
+
+JaxRNGKey = Any
+JaxTreeDef = Any

@@ -7,11 +7,11 @@ See Also:
 
 import jax.numpy as np
 
+from copy import deepcopy
+
 import jax.tree_util as tu
 
 from typing import Tuple
-
-from copy import deepcopy
 
 
 def mse(output: np.array, target: np.array) -> float:
