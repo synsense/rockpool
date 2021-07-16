@@ -1,5 +1,0 @@
-{
-    "python.pythonPath": "/Users/Shared/anaconda3/bin/python",
-    "jupyter.jupyterServerType": "local",
-    "restructuredtext.confPath": "${workspaceFolder}/docs"
-}

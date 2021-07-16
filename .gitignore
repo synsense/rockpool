@@ -12,8 +12,8 @@ docs/reference/_autosummary
 build/
 dist/
 /docs/advanced/CHANGELOG.md
-/docs/tutorials/.vscode
 /docs/tutorials/.ipynb_checkpoints
 test_net_torch_config
 test.json
 requirements.yml
+**/.vscode
