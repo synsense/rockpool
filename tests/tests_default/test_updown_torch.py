@@ -1,7 +1,7 @@
 import pytest
 
 
-def test_FFUpDownTorch():
+def test_UpDownTorch():
     from rockpool.nn.modules.torch.updown_torch import UpDownTorch
     import torch
 
@@ -11,6 +11,7 @@ def test_FFUpDownTorch():
     thr_up = torch.rand(n_channels)
     thr_down = torch.rand(n_channels)
     models = []
+
     # - Test minimal initialisation
     models.append(UpDownTorch((n_channels,)))
 
