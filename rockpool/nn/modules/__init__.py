@@ -20,7 +20,7 @@ dModules = {
     ".torch.exp_syn_torch": "ExpSynTorch",
     ".torch.lif_neuron_torch": "LIFNeuronTorch",
     ".torch.linear_torch": "LinearTorch",
-    ".torch.updown_torch": "FFUpDownTorch",
+    ".torch.updown_torch": "UpDownTorch",
 }
 
 
