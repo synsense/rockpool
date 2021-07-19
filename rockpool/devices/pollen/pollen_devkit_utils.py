@@ -41,6 +41,7 @@ class PollenState(NamedTuple):
     """
     ``NamedTuple`` that encapsulates a recorded Pollen HDK state
     """
+
     Nin: int
 
     Nhidden: int
@@ -682,6 +683,7 @@ def read_neuron_synapse_state(
         read_output_events(daughterboard, buffer)[:Nout],
     )
 
+
 def read_allram_state(
     daughterboard: PollenDaughterBoard,
     buffer: PollenReadBuffer,
@@ -768,7 +770,6 @@ def read_allram_state(
         Nhidden + Nout + num_buffer_neurons(Nhidden),
     )
 
-
     reservoir_dash_syn_2ram = read_memory(
         daughterboard,
         buffer,
@@ -808,7 +809,7 @@ def read_allram_state(
         daughterboard,
         buffer,
         memory_table["REFOCRAM"],
-        #Nhidden + num_buffer_neurons(Nhidden), --> dummy neuron
+        # Nhidden + num_buffer_neurons(Nhidden), --> dummy neuron
         Nhidden,
     )
 
@@ -852,7 +853,6 @@ def read_allram_state(
         np.array(Isyn2, "int16"),
         np.array(Spikes, "bool"),
         read_output_events(daughterboard, buffer)[:Nout],
-
         # config ram
         np.array(input_weight_ram, "int16"),
         np.array(input_weight_2ram, "int16"),
@@ -1685,6 +1685,7 @@ def export_config(
 
         json.dump(conf, f)
 
+
 def export_config_nocomment(
     path: Union[str, Path],
     config: PollenConfiguration,
@@ -2330,7 +2331,7 @@ def export_allram_state(
     #### config ram, not export dummy neuron ####
     #############################################
 
-    #IWTRAM_state: input_weight_ram_ts
+    # IWTRAM_state: input_weight_ram_ts
     mat = np.zeros((np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int)
     input_weight = np.array(state.IWTRAM_state).astype(int)
     mat[:, : input_weight.shape[1]] = input_weight[:, 0 : Nin * Nhidden]
@@ -2343,7 +2344,7 @@ def export_allram_state(
     for t, vals in enumerate(mat):
         with open(path_IWTRAM_state / f"IWTRAM_{t}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
-                if i_neur%Nhidden == 0:
+                if i_neur % Nhidden == 0:
                     f.write(f"// iwt for IN{i_neur//Nhidden} \n")
                 f.write(to_hex(val, 2))
                 f.write("\n")
@@ -2361,7 +2362,7 @@ def export_allram_state(
     for t, vals in enumerate(mat):
         with open(path_IWT2RAM_state / f"IWT2RAM_{t}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
-                if i_neur%Nhidden == 0:
+                if i_neur % Nhidden == 0:
                     f.write(f"// iwt2 for IN{i_neur//Nhidden} \n")
                 f.write(to_hex(val, 2))
                 f.write("\n")
@@ -2385,7 +2386,9 @@ def export_allram_state(
     # RDS2RAM_state: reservoir_dash_syn_2ram_ts
     mat = np.zeros((np.shape(state.RDS2RAM_state)[0], Nhidden + Nout), dtype=int)
     reservoir_dash_syn_2 = np.array(state.RDS2RAM_state).astype(int)
-    mat[:, : reservoir_dash_syn_2.shape[1]] = reservoir_dash_syn_2[:, 0 : Nhidden + Nout]
+    mat[:, : reservoir_dash_syn_2.shape[1]] = reservoir_dash_syn_2[
+        :, 0 : Nhidden + Nout
+    ]
 
     path_RDS2RAM_state = path / "RDS2RAM_state"
     if not path_RDS2RAM_state.exists():
@@ -2433,7 +2436,7 @@ def export_allram_state(
     # RCRAM_state: reservoir_config_ram_ts
     mat = np.zeros((np.shape(state.RCRAM_state)[0], Nhidden), dtype=int)
     reservoir_config = np.array(state.RCRAM_state).astype(int)
-    mat[:, : reservoir_config.shape[1]] = reservoir_config[:, 0 : Nhidden]
+    mat[:, : reservoir_config.shape[1]] = reservoir_config[:, 0:Nhidden]
 
     path_RCRAM_state = path / "RCRAM_state"
     if not path_RCRAM_state.exists():
@@ -2449,7 +2452,7 @@ def export_allram_state(
     # RARAM_state: reservoir_aliasing_ram_ts
     mat = np.zeros((np.shape(state.RARAM_state)[0], Nhidden), dtype=int)
     reservoir_aliasing = np.array(state.RARAM_state).astype(int)
-    mat[:, : reservoir_aliasing.shape[1]] = reservoir_aliasing[:, 0 : Nhidden]
+    mat[:, : reservoir_aliasing.shape[1]] = reservoir_aliasing[:, 0:Nhidden]
 
     path_RARAM_state = path / "RARAM_state"
     if not path_RARAM_state.exists():
@@ -2465,7 +2468,9 @@ def export_allram_state(
     # REFOCRAM_state: reservoir_effective_fanout_count_ram_ts
     mat = np.zeros((np.shape(state.REFOCRAM_state)[0], Nhidden), dtype=int)
     reservoir_effective_fanout_count = np.array(state.REFOCRAM_state).astype(int)
-    mat[:, : reservoir_effective_fanout_count.shape[1]] = reservoir_effective_fanout_count[:, 0 : Nhidden]
+    mat[
+        :, : reservoir_effective_fanout_count.shape[1]
+    ] = reservoir_effective_fanout_count[:, 0:Nhidden]
 
     path_REFOCRAM_state = path / "REFOCRAM_state"
     if not path_REFOCRAM_state.exists():
@@ -2479,7 +2484,9 @@ def export_allram_state(
                 f.write("\n")
 
     # RFORAM_state: recurrent_fanout_ram_ts
-    mat = np.zeros((np.shape(state.RFORAM_state)[0], np.shape(state.RFORAM_state)[1]), dtype=int) #32000
+    mat = np.zeros(
+        (np.shape(state.RFORAM_state)[0], np.shape(state.RFORAM_state)[1]), dtype=int
+    )  # 32000
     recurrent_fanout = np.array(state.RFORAM_state).astype(int)
     mat[:, : recurrent_fanout.shape[1]] = recurrent_fanout
 
@@ -2491,7 +2498,9 @@ def export_allram_state(
     for t, rforam in enumerate(mat):
         with open(path_RFORAM_state / f"RFORAM_{t}.txt", "w+") as f:
             reservoir_fanout_total = 0
-            for res_neur_index, fanout_count in enumerate(reservoir_effective_fanout_count[t]):
+            for res_neur_index, fanout_count in enumerate(
+                reservoir_effective_fanout_count[t]
+            ):
                 f.write(f"// rfo of RSN{res_neur_index} \n")
                 for fanout_index in range(fanout_count):
                     f.write(to_hex(rforam[reservoir_fanout_total], 3))
@@ -2499,7 +2508,9 @@ def export_allram_state(
                     reservoir_fanout_total += 1
 
     # RWTRAM_state: recurrent_weight_ram_ts
-    mat = np.zeros((np.shape(state.RWTRAM_state)[0], np.shape(state.RWTRAM_state)[1]), dtype=int) #32000
+    mat = np.zeros(
+        (np.shape(state.RWTRAM_state)[0], np.shape(state.RWTRAM_state)[1]), dtype=int
+    )  # 32000
     recurrent_weight = np.array(state.RWTRAM_state).astype(int)
     mat[:, : recurrent_weight.shape[1]] = recurrent_weight
 
@@ -2511,7 +2522,9 @@ def export_allram_state(
     for t, rforam in enumerate(mat):
         with open(path_RFORAM_state / f"RWTRAM_{t}.txt", "w+") as f:
             reservoir_fanout_total = 0
-            for res_neur_index, fanout_count in enumerate(reservoir_effective_fanout_count[t]):
+            for res_neur_index, fanout_count in enumerate(
+                reservoir_effective_fanout_count[t]
+            ):
                 f.write(f"// rwt of RSN{res_neur_index} \n")
                 for fanout_index in range(fanout_count):
                     f.write(to_hex(rforam[reservoir_fanout_total], 2))
@@ -2519,7 +2532,9 @@ def export_allram_state(
                     reservoir_fanout_total += 1
 
     # RWT2RAM_state: recurrent_weight_2ram_ts
-    mat = np.zeros((np.shape(state.RWT2RAM_state)[0], np.shape(state.RWT2RAM_state)[1]), dtype=int) #32000
+    mat = np.zeros(
+        (np.shape(state.RWT2RAM_state)[0], np.shape(state.RWT2RAM_state)[1]), dtype=int
+    )  # 32000
     recurrent_weight_2 = np.array(state.RWT2RAM_state).astype(int)
     mat[:, : recurrent_weight_2.shape[1]] = recurrent_weight_2
 
@@ -2531,7 +2546,9 @@ def export_allram_state(
     for t, rforam in enumerate(mat):
         with open(path_RFORAM_state / f"RWTRAM_{t}.txt", "w+") as f:
             reservoir_fanout_total = 0
-            for res_neur_index, fanout_count in enumerate(reservoir_effective_fanout_count[t]):
+            for res_neur_index, fanout_count in enumerate(
+                reservoir_effective_fanout_count[t]
+            ):
                 f.write(f"// rwt2 of RSN{res_neur_index} \n")
                 for fanout_index in range(fanout_count):
                     f.write(to_hex(rforam[reservoir_fanout_total], 2))
@@ -2551,8 +2568,7 @@ def export_allram_state(
     for t, vals in enumerate(mat):
         with open(path_OWTRAM_state / f"OWTRAM_{t}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
-                if i_neur%Nout == 0:
+                if i_neur % Nout == 0:
                     f.write(f"// owt for IN{i_neur//Nout} \n")
                 f.write(to_hex(val, 2))
                 f.write("\n")
-
