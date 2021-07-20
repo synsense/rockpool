@@ -20,7 +20,6 @@ def test_submodule_import():
     import rockpool.training
     import rockpool.utilities
     import rockpool.parameters
-    
 
     # from rockpool.layers import recurrent
     # from rockpool.layers import internal

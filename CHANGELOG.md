@@ -2,6 +2,53 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.1] -- 2021-07-20
+
+### Added
+
+ - 👹 Adversarial training of parameters using the *Jax* back-end, including a tutorial
+ - 🐰 "Easter" tutorial demonstrating an SNN trained to generate images
+ - 🔥 Torch tutorials for training non-spiking and spiking networks with Torch back-ends
+ - Added new method `nn.Module.timed()`, to automatically convert a module to a `TimedModule`  
+ - New `LIFTorch` module that permits training of neuron and synaptic time constants in addition to other network parameters
+ - New `ExpSynTorch` module: exponential leak synapses with Torch back-end
+ - New `LinearTorch` module: linear model with Torch back-end
+ - New `LowPass` module: exponential smoothing with Torch back-end
+ - New `ExpSmoothJax` module: single time-constant exponential smoothing layer, supporting arbitrary transfer functions on output
+ - New `softmax` and `log_softmax` losses in `jax_loss` package
+ - New `utilities.jax_tree_utils` package containing useful parameter tree handling functions
+ - New `TSContinuous.to_clocked()` convenience method, to easily rasterise a continuous time series
+ - Alpha: Optional `_wrap_recorded_state()` method added to `nn.Module` base class, which supports wrapping recorded state dictionaries as `TimeSeries` objects, when using the high-level `TimeSeries` API
+ - Support for `add_events` flag for time-series wrapper class
+ - New Parameter dictionary classes to simplify conversion and handling of *Torch* and *Jax* module parameters
+   - Added `astorch()` method to parameter dictionaries returned form `TorchModule`
+ - Improved type hinting
+
+### Changed
+
+ - Old `LIFTorch` module renamed to `LIFBitshiftTorch` 
+ - Kaiming and Xavier initialisation support for `Linear` modules
+ - `Linear` modules provide a bias by default
+ - Moved `filter_bank` package from V1 layers into `nn.modules`
+ - Update *Jax* requirement to > v2.13
+
+### Fixed
+
+ - Fixed *binder* links for tutorial notebooks
+ - Fixed bug in `Module` for multiple inheritance, where the incorrect `__repr__()` method would be called
+ - Fixed `TimedModuleWrapper.reset_state()` method
+ - Fixed axis limit bug in `TSEvent.plot()` method
+ - Removed page width constraint for docs
+ - Enable `FFExpSyn` module by making it independent of old `RRTrainedLayer`
+
+### Deprecated
+
+ - Removed `rpyc` dependency
+
+### Removed
+
+
+
 ## [v2.0] -- 2021-03-24
 
  - **New Rockpool API. Breaking change from v1.x**
