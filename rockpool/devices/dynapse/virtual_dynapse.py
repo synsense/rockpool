@@ -150,17 +150,15 @@ class VirtualDynapseV1(Layer):
             connections=connections_ext, external=True
         )
         if (
-            (connections_rec is not None or connections_ext is not None)
-            and self.validate_connections(
-                self._connections_rec,
-                self._connections_ext,
-                verbose=True,
-                validate_fanin=self.validate_fanin,
-                validate_fanout=self.validate_fanout,
-                validate_aliasing=self.validate_aliasing,
-            )
-            != CONNECTIONS_VALID
-        ):
+            connections_rec is not None or connections_ext is not None
+        ) and self.validate_connections(
+            self._connections_rec,
+            self._connections_ext,
+            verbose=True,
+            validate_fanin=self.validate_fanin,
+            validate_fanout=self.validate_fanout,
+            validate_aliasing=self.validate_aliasing,
+        ) != CONNECTIONS_VALID:
             raise ValueError(
                 self.start_print + "Connections not compatible with hardware."
             )

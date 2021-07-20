@@ -222,7 +222,7 @@ class FFRateLayerBase(Layer):
 
         # - Call super-class initialiser
         super().__init__(
-            weights=np.asarray(weights, 'float'), dt=dt, noise_std=noise_std, name=name
+            weights=np.asarray(weights, "float"), dt=dt, noise_std=noise_std, name=name
         )
         self.bias = self._correct_param_shape(bias)
 

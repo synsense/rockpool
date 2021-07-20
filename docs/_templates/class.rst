@@ -14,7 +14,7 @@
 
    {% block attributes %}
    {% if attributes %}
-   .. rubric:: Attributes
+   .. rubric:: Attributes overview
 
    .. autosummary::
    {% for item in attributes %}
@@ -27,7 +27,7 @@
    {% block methods %}
 
    {% if methods %}
-   .. rubric:: Methods
+   .. rubric:: Methods overview
 
    .. autosummary::
    {% for item in methods %}

@@ -72,12 +72,31 @@ Time series classes
 
     nn.modules.RateEulerJax
     nn.modules.LIFJax
+    nn.modules.LIFTorch
+    nn.modules.LIFNeuronTorch
 
     nn.modules.Linear
     nn.modules.LinearJax
+    nn.modules.LinearTorch
 
     nn.modules.Instant
     nn.modules.InstantJax
+
+    nn.modules.ExpSmoothJax
+    nn.modules.ExpSynTorch
+
+    nn.modules.SoftmaxJax
+    nn.modules.LogSoftmaxJax
+
+:py:class:`Layer` subclasses from Rockpool v1
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. .. seealso:: :ref:`layerssummary`, :ref:`/tutorials/building_reservoir.ipynb` and other tutorials.
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
 
     nn.layers.RecRateEuler
     nn.layers.FFRateEuler
@@ -103,34 +122,34 @@ Time series classes
     nn.layers.RecCLIAF
 
     .. nn.layers.RecDynapSE
-    nn.layers.VirtualDynapse
-    nn.layers.RecFSSpikeEulerBT
-    nn.layers.RecFSSpikeADS
-    nn.layers.RecRateEulerJax
-    nn.layers.RecRateEulerJax_IO
-    nn.layers.FFRateEulerJax
-    nn.layers.ForceRateEulerJax_IO
-    nn.layers.FFExpSynTorch
-    nn.layers.FFIAFTorch
-    nn.layers.FFIAFRefrTorch
-    nn.layers.FFIAFSpkInTorch
-    nn.layers.FFIAFSpkInRefrTorch
-    nn.layers.RecIAFTorch
-    nn.layers.RecIAFRefrTorch
-    nn.layers.RecIAFSpkInTorch
-    nn.layers.RecIAFSpkInRefrTorch
-    nn.layers.RecIAFSpkInRefrCLTorch
-    nn.layers.CLIAF
-    nn.layers.SoftMaxLayer
-    nn.layers.FFExpSyn
-    nn.layers.RecLIFJax
-    nn.layers.RecLIFCurrentInJax
-    nn.layers.RecLIFJax_IO
-    nn.layers.RecLIFCurrentInJax_IO
-    nn.layers.FFLIFJax_IO
-    nn.layers.FFLIFCurrentInJax_SO
-    nn.layers.FFExpSynCurrentInJax
-    nn.layers.FFExpSynJax
+    .. nn.layers.VirtualDynapse
+    .. nn.layers.RecFSSpikeEulerBT
+    .. nn.layers.RecFSSpikeADS
+    .. nn.layers.RecRateEulerJax
+    .. nn.layers.RecRateEulerJax_IO
+    .. nn.layers.FFRateEulerJax
+    .. nn.layers.ForceRateEulerJax_IO
+    .. nn.layers.FFExpSynTorch
+    .. nn.layers.FFIAFTorch
+    .. nn.layers.FFIAFRefrTorch
+    .. nn.layers.FFIAFSpkInTorch
+    .. nn.layers.FFIAFSpkInRefrTorch
+    .. nn.layers.RecIAFTorch
+    .. nn.layers.RecIAFRefrTorch
+    .. nn.layers.RecIAFSpkInTorch
+    .. nn.layers.RecIAFSpkInRefrTorch
+    .. nn.layers.RecIAFSpkInRefrCLTorch
+    .. nn.layers.CLIAF
+    .. nn.layers.SoftMaxLayer
+    .. nn.layers.FFExpSyn
+    .. nn.layers.RecLIFJax
+    .. nn.layers.RecLIFCurrentInJax
+    .. nn.layers.RecLIFJax_IO
+    .. nn.layers.RecLIFCurrentInJax_IO
+    .. nn.layers.FFLIFJax_IO
+    .. nn.layers.FFLIFCurrentInJax_SO
+    .. nn.layers.FFExpSynCurrentInJax
+    .. nn.layers.FFExpSynJax
 
 Conversion utilities
 --------------------
@@ -148,9 +167,13 @@ Conversion utilities
 
 .. autosummary::
     :toctree: _autosummary
+    :template: module.rst
 
-    training.jax_loss.mse
-    training.jax_loss.l2sqr_norm
-    training.jax_loss.l0_norm_approx
-    training.jax_loss.bounds_cost
-    training.jax_loss.make_bounds
+    training.jax_loss
+    training.adversarial_jax
+
+.. autosummary::
+    :toctree: _autosummary
+
+    training.adversarial_jax.pga_attack
+    training.adversarial_jax.adversarial_loss

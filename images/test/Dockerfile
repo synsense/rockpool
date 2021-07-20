@@ -8,3 +8,6 @@ COPY requirements.yml ./
 RUN [ "conda", "update", "--all" ]
 RUN [ "conda", "env", "update", "--name", "base", "--file", "requirements.yml" ]
 RUN [ "pip", "install", "--upgrade", "jax", "jaxlib", "sphinx-rtd-theme", "sphinx-autobuild" ]
+RUN apt-get update && \
+    apt-get -y install build-essential libgl1-mesa-glx && \
+    rm -rf /var/lib/apt/lists/*

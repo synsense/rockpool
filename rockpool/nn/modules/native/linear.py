@@ -9,9 +9,21 @@ from rockpool.parameters import Parameter
 import numpy as onp
 from warnings import warn
 
-from typing import Tuple, Any
+from typing import Tuple, Any, Callable
 
 from abc import ABC
+
+__all__ = ["kaiming", "xavier", "Linear", "LinearJax"]
+
+
+def kaiming(s):
+    lim = onp.sqrt(2 / s[0])
+    return onp.random.uniform(-lim, lim, s)
+
+
+def xavier(s):
+    lim = onp.sqrt(6 / onp.sum(s))
+    return onp.random.uniform(-lim, lim, s)
 
 
 class LinearMixin(ABC):
@@ -23,11 +35,11 @@ class LinearMixin(ABC):
 
     def __init__(
         self,
-        shape,
-        weight_init_func=lambda s: onp.random.uniform(
-            -onp.sqrt(1 / s[0]), onp.sqrt(1 / s[0]), s
-        ),
+        shape: tuple,
         weight=None,
+        bias=None,
+        has_bias: bool = True,
+        weight_init_func: Callable = kaiming,
         *args,
         **kwargs
     ):
@@ -57,7 +69,7 @@ class LinearMixin(ABC):
 
         Args:
             shape (tuple): The desired shape of the weight matrix. Must have two entries ``(Nin, Nout)``
-            weight_init_func (Callable): The initialisation function to use for the weights. Default: Uniform on the range :math:`(\\sqrt(1/Nin), \\sqrt(1/Nin))`
+            weight_init_func (Callable): The initialisation function to use for the weights. Default: Kaiming initialization; uniform on the range :math:`(\\sqrt(2/Nin), \\sqrt(2/Nin))`
             weight (Optional[np.array]): A concrete weight matrix to assign to the weights on initialisation. ``weight.shape`` must match the ``shape`` argument
         """
         # - Base class must be `Module`
@@ -76,9 +88,19 @@ class LinearMixin(ABC):
         self.weight = Parameter(
             weight, shape=self.shape, init_func=weight_init_func, family="weights"
         )
+        """ Weight matrix of this module """
+
+        # - Specify bias parameter
+        if has_bias or bias is not None:
+            self.bias = Parameter(
+                bias, shape=self.size_out, init_func=weight_init_func, family="biases"
+            )
+            """ Bias vector of this module """
+        else:
+            self.bias = 0
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
-        return self._dot(input_data, self.weight), {}, {}
+        return self._dot(input_data, self.weight) + self.bias, {}, {}
 
 
 class Linear(LinearMixin, Module):

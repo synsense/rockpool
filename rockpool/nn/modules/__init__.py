@@ -9,11 +9,19 @@ dModules = {
     ".jax.jax_module": "JaxModule",
     ".jax.lif_jax": "LIFJax",
     ".jax.rate_jax": "RateEulerJax",
+    ".jax.exp_smooth_jax": "ExpSmoothJax",
+    ".jax.softmax_jax": ("SoftmaxJax", "LogSoftmaxJax"),
     ".native.linear": ("Linear", "LinearJax"),
     ".native.instant": ("Instant", "InstantJax"),
+    ".native.filter_bank": ("ButterMelFilter", "ButterFilter"),
     ".nest.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"),
     ".torch.torch_module": "TorchModule",
-    ".torch.lif_torch": "LIFLayer",
+    ".torch.lif_torch": "LIFTorch",
+    ".torch.lif_bitshift_torch": "LIFBitshiftTorch",
+    ".torch.lowpass": "LowPass",
+    ".torch.exp_syn_torch": "ExpSynTorch",
+    ".torch.lif_neuron_torch": "LIFNeuronTorch",
+    ".torch.linear_torch": "LinearTorch",
 }
 
 

@@ -168,6 +168,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         dt: Union[float, SimulationParameter],
         spiking_input: bool = False,
         spiking_output: bool = False,
+        add_events: bool = True,
         *args,
         **kwargs,
     ):
@@ -210,6 +211,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         # - Wrap `evolve()` method to perform timestep updates
         self.__evolve = self.evolve
         self.evolve = self._evolve_wrapper
+
+        # - Remember "add events" argument
+        self._add_events = add_events
 
     def __post_init__(self) -> None:
         """
@@ -400,7 +404,9 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
             )
 
         if self.spiking_input:
-            return self._prepare_input_events(ts_input, duration, num_timesteps)
+            return self._prepare_input_events(
+                ts_input, duration, num_timesteps, add_events=self._add_events
+            )
         else:
             return self._prepare_input_continuous(ts_input, duration, num_timesteps)
 
@@ -464,6 +470,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         ts_input: Optional[TSEvent] = None,
         duration: Optional[float] = None,
         num_timesteps: Optional[int] = None,
+        add_events: bool = False,
     ) -> Tuple[np.ndarray, np.ndarray, int]:
         """
         Sample input from a :py:class:`TSEvent` time series, set up evolution time base
@@ -501,7 +508,7 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
                 t_start=self.t,
                 num_timesteps=np.size(time_base),
                 channels=np.arange(self.size_in),
-                # add_events=getattr(self.module, "add_events", False),
+                add_events=add_events,
             )
 
         else:
@@ -749,9 +756,13 @@ class TimedModule(ModuleBase, metaclass=PostInitMetaMixin):
         # - Reset own time
         self._timestep = 0
 
+        # - Get attribute registry
+        __registered_attributes, __modules = self._get_attribute_registry()
+
         # - Reset submodule time
-        for m in self.modules():
-            m.reset_time()
+        for (k, m) in __modules.items():
+            if hasattr(m, "reset_time"):
+                m[0].reset_time()
 
     def reset_all(self) -> None:
         """
@@ -788,7 +799,13 @@ class TimedModuleWrapper(TimedModule):
     """
 
     def __init__(
-        self, module: Module, output_num: int = 0, dt: float = None, *args, **kwargs
+        self,
+        module: Module,
+        output_num: int = 0,
+        dt: float = None,
+        add_events: bool = True,
+        *args,
+        **kwargs,
     ):
         """
         Wrap a low-level module as a high-level :py:class:`.TimedModule`
@@ -797,8 +814,7 @@ class TimedModuleWrapper(TimedModule):
             module (:py:class:`.Module`): The module to wrap. Must inherit from :py:class:`.Module`.
             output_num (int): If the output of the evolution function for ``module`` returns multiple outputs, then here you should specify which of the outputs to wrap into a time series to return. :py:class:`.TimedModuleWrapper` only supports returning one output argument from :py:meth:`.evolve`.
             dt (float): The timestep to set for ``module``, if ``module.dt`` does not exist. Note that ``module.dt`` will not be overridden by this argument!
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
+            add_events (bool): If ``True``, then multiple events per time bin will be summed when converting to a raster. If ``False``, only a single event will be retained per time bin. Default: ``True``, sum events in each time bin.
         """
         # - Check that we are wrapping a Module object
         if not isinstance(module, Module):
@@ -826,6 +842,7 @@ class TimedModuleWrapper(TimedModule):
             spiking_input=module.spiking_input,
             spiking_output=module.spiking_output,
             dt=module.dt,
+            add_events=add_events,
             *args,
             **kwargs,
         )
@@ -843,7 +860,7 @@ class TimedModuleWrapper(TimedModule):
 
     def __repr__(self) -> str:
         """ str: A representation of this module as a string """
-        return f"{super().__repr__()} with {self.module.full_name} as module"
+        return f"{super().__repr__()} with {self._module.full_name} as module"
 
     def evolve(
         self,
@@ -879,7 +896,7 @@ class TimedModuleWrapper(TimedModule):
         )
 
         # - Call evolution method of wrapped module
-        output, state_dict, record_dict = self.module.evolve(input_data, record=record)
+        output, state_dict, record_dict = self._module.evolve(input_data, record=record)
 
         # - Get the first output, if more than one is returned
         if isinstance(output, tuple):
@@ -890,9 +907,14 @@ class TimedModuleWrapper(TimedModule):
             kwargs_timeseries = {}
         ts_out = self._gen_timeseries(output, **kwargs_timeseries)
 
-        # - We would need to convert record_dict elements here, if we are going to do it
+        # - Use the optional `_wrap_recorded_state` method to convert the recorded state to TimeSeries objects
+        if record:
+            record_dict = self._module._wrap_recorded_state(record_dict, time_base[0])
 
         return ts_out, state_dict, record_dict
+
+    def reset_state(self) -> None:
+        self._module = self._module.reset_state()
 
 
 class LayerToTimedModule(TimedModule):

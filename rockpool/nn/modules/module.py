@@ -3,6 +3,7 @@ Contains the module base classes for Rockpool
 """
 # - Rockpool imports
 from rockpool.parameters import ParameterBase
+from rockpool.timeseries import TimeSeries
 
 # - Other imports
 from abc import ABC, abstractmethod
@@ -76,7 +77,7 @@ class ModuleBase(ABC):
         if self.modules():
             repr += " {"
             for mod in self.modules().values():
-                repr += "\n" + mod.__repr__(indent=indent + "    ")
+                repr += "\n" + ModuleBase.__repr__(mod, indent=indent + "    ")
 
             repr += f"\n{indent}" + "}"
 
@@ -511,21 +512,18 @@ class ModuleBase(ABC):
 
     @property
     def class_name(self) -> str:
-        """ str: Class name of ``self``
-        """
+        """str: Class name of ``self``"""
         # - Determine class name by removing "<class '" and "'>" and the package information
         return type(self).__name__
 
     @property
     def name(self) -> str:
-        """ str: The name of this module, or an empty string if ``None``
-        """
+        """str: The name of this module, or an empty string if ``None``"""
         return f"'{self._name}'" if hasattr(self, "_name") and self._name else ""
 
     @property
     def full_name(self) -> str:
-        """ str: The full name of this module (class plus module name)
-        """
+        """str: The full name of this module (class plus module name)"""
         return f"{self.class_name} {self.name}"
 
     @property
@@ -608,6 +606,23 @@ class ModuleBase(ABC):
 
         return outputs, new_state, recorded_state
 
+    def _wrap_recorded_state(
+        self, recorded_dict: dict, t_start: float
+    ) -> Dict[str, TimeSeries]:
+        """
+        Convert a recorded dictionary to a :py:class:`TimeSeries` representation
+
+        This method is optional, and is provided to make the :py:meth:`timed` conversion to a :py:class:`TimedModule` work better. You should override this method in your custom :py:class:`Module`, to wrap each element of your recorded state dictionary as a :py:class:`TimeSeries`
+
+        Args:
+            state_dict (dict): A recorded state dictionary as returned by :py:meth:`.evolve`
+            t_start (float): The initial time of the recorded state, to use as the starting point of the time series
+
+        Returns:
+            Dict[str, TimeSeries]: The mapped recorded state dictionary, wrapped as :py:class:`TimeSeries` objects
+        """
+        return recorded_dict
+
 
 class Module(ModuleBase, ABC):
     """
@@ -642,6 +657,23 @@ class Module(ModuleBase, ABC):
     #         # - We should inherit the first `dt` of a submodule
     #         if hasattr(mod, "dt"):
     #             setattr(self, "dt", mod.dt)
+
+    def timed(self, output_num: int = 0, dt: float = None, add_events: bool = False):
+        """
+        Convert this module to a :py:class:`TimedModule`
+
+        Args:
+            output_num (int): Specify which output of the module to take, if the module returns multiple output series. Default: ``0``, take the first (or only) output.
+            dt (float): Used to provide a time-step for this module, if the module does not already have one. If ``self`` already defines a time-step, then ``self.dt`` will be used. Default: ``None``
+            add_events (bool): Iff ``True``, the :py:class:`.TimedModule` will add events occurring on a single timestep on input and output. Default: ``False``, don't add time steps.
+
+        Returns: :py:class:`.TimedModule`: A timed module that wraps this module
+        """
+        from rockpool.nn.modules.timed_module import TimedModuleWrapper
+
+        return TimedModuleWrapper(
+            self, output_num=output_num, dt=dt, add_events=add_events
+        )
 
 
 class PostInitMetaMixin(type(ModuleBase)):

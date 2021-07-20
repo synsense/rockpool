@@ -2,7 +2,6 @@
 # exp_synapses_manual.py - Class implementing a spike-to-current layer with exponential synapses
 ###
 
-raise ImportError("This module needs to be ported to the v2 API")
 
 # - Imports
 from typing import Optional, Union, Tuple, List, Dict
@@ -10,7 +9,8 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 from rockpool.timeseries import TSContinuous, TSEvent
-from rockpool.training.rr_trained_layer import RRTrainedLayer
+from rockpool.nn.layers.layer import Layer
+from rockpool.nn.modules.timed_module import astimedmodule
 
 
 # - Type alias for array-like objects
@@ -28,7 +28,11 @@ def sigmoid(z):
 
 
 ## - FFExpSyn - Class: define an exponential synapse layer (spiking input)
-class FFExpSyn(RRTrainedLayer):
+@astimedmodule(
+    parameters=["weights", "bias", "tau_syn"],
+    simulation_parameters=["dt", "noise_std", "add_events"],
+)
+class FFExpSyn(Layer):
     """Define an exponential synapse layer with spiking inputs and current outputs"""
 
     ## - Constructor
@@ -160,6 +164,10 @@ class FFExpSyn(RRTrainedLayer):
         :param str method:              String indicating which training method to choose. Currently only ridge regression ("rr") and logistic regression are supported.
         :param kwargs:                  Will be passed on to corresponding training method.
         """
+
+        raise NotImplementedError(
+            "Training is currently not available for this module."
+        )
         # - Choose training method
         if method in {
             "rr",
@@ -330,6 +338,10 @@ class FFExpSyn(RRTrainedLayer):
             If `return_trained_output`, the dict contains the output of evolving with the newly trained weights.
         """
 
+        raise NotImplementedError(
+            "Training is currently not available for this module."
+        )
+
         self._store_states = store_states
         tr_data = super().train_rr(
             ts_target=ts_target,
@@ -375,6 +387,10 @@ class FFExpSyn(RRTrainedLayer):
         :param bool store_states:       Include last state from previous training and store state from this training. This has the same effect as if data from both trainings were presented at once.
         :param bool verbose:            Print output about training progress
         """
+
+        raise NotImplementedError(
+            "Training is currently not available for this module."
+        )
 
         # - Discrete time steps for evaluating input and target time series
         num_timesteps = int(np.round(ts_target.duration / self.dt))

@@ -216,7 +216,9 @@ def test_diaf_evolve_resetting():
     # - Reset
     rl.reset_all()
     assert rl.t == 0, "Time has not been reset correctly"
-    np.testing.assert_allclose(rl.neur_state, 0, err_msg = "State has not been reset correctly")
+    np.testing.assert_allclose(
+        rl.neur_state, 0, err_msg="State has not been reset correctly"
+    )
 
 
 def test_diaf_evolve_vfvrest():

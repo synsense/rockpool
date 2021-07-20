@@ -151,17 +151,19 @@ def test_TorchModule():
     print(o, ns, rd)
 
 
-def test_TorchLIF():
-    from rockpool.nn.modules.torch.lif_torch import LIFLayer
+def test_LIFBitshiftTorch():
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import numpy as np
     import torch
 
     N = 10
     Nsyn = 2
-    tau_mem = 2 * np.ones(N,)
+    tau_mem = 2 * np.ones(
+        N,
+    )
     tau_syn = torch.Tensor([2, 8])
     tau_syn = tau_syn.view(1, Nsyn).T.repeat(1, N)
-    mod = LIFLayer(
+    mod = LIFBitshiftTorch(
         n_neurons=N,
         n_synapses=Nsyn,
         batch_size=1,
@@ -179,26 +181,47 @@ def test_TorchLIF():
 
     # - Test torch interface
     out = mod.forward(input_data)
-    print(out.shape)
 
     # - Test Rockpool interface
     out, ns, rd = mod.evolve(input_data)
-    print(ns)
 
 
-def test_single_neuron():
-    from rockpool.nn.modules.torch.lif_torch import LIFLayer
-    import numpy as np
+def test_lowpass():
+    from rockpool.nn.modules.torch.lowpass import LowPass
+    import torch
+
+    N = 3
+    tau_mem = 0.04
+
+    lyr = LowPass(
+        n_neurons=N,
+        tau_mem=tau_mem,
+        dt=0.01,
+    )
+
+    inp = torch.rand(50, 1, N).cpu()
+
+    inp.requires_grad = True
+    out, states, recs = lyr(inp, record=True)
+
+    out.sum().backward()
+
+    assert out.shape == inp.shape
+
+
+def test_astorch():
+    from rockpool.nn.modules.torch import LIFBitshiftTorch
+
     import torch
 
     N = 1
     Nsyn = 2
     tau_mem = [0.04]
-    tau_syn = [[0.02], [0.03]]
+    tau_syn = [[0.02]]
     threshold = [10.0]
     learning_window = [0.5]
 
-    lyr = LIFLayer(
+    lyr = LIFBitshiftTorch(
         n_neurons=N,
         n_synapses=Nsyn,
         tau_mem=tau_mem,
@@ -210,14 +233,12 @@ def test_single_neuron():
         device="cpu",
     )
 
-    inp = torch.zeros((10, 1, 2, 1)).cpu()
-    inp[1, :, :, :] = 1
-    out, states, recs = lyr(inp, record=True)
+    inp = torch.rand(50, 1, Nsyn, N).cpu()
 
-    assert abs(states["Vmem"].item() - 0.5399) < 1e-3
-    assert abs(states["Isyn"][0][0].item() - 0.0021) < 1e-3
-    assert abs(states["Isyn"][0][1].item() - 0.0262) < 1e-3
+    params = lyr.parameters()
+    params_astorch = params.astorch()
 
-    assert abs(recs["Vmem"][-1].item() - 0.5399) < 1e-3
-    assert abs(recs["Isyn"][-1][0][0].item() - 0.0021) < 1e-3
-    assert abs(recs["Isyn"][-1][0][1].item() - 0.0262) < 1e-3
+    torch_params = torch.nn.Module.parameters(lyr)
+
+    for (r_param, t_param) in zip(params_astorch, torch_params):
+        assert r_param is t_param, "Rockpool and torch parameters do not match."
