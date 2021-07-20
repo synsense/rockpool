@@ -17,6 +17,8 @@ dModules = {
     ".nest.iaf_nest": ("FFIAFNest", "RecIAFSpkInNest", "RecAEIFSpkInNest"),
     ".torch.torch_module": "TorchModule",
     ".torch.lif_torch": "LIFTorch",
+    ".torch.lif_bitshift_torch": "LIFBitshiftTorch",
+    ".torch.lowpass": "LowPass",
     ".torch.exp_syn_torch": "ExpSynTorch",
     ".torch.lif_neuron_torch": "LIFNeuronTorch",
     ".torch.linear_torch": "LinearTorch",
