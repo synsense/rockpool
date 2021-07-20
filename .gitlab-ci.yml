@@ -1,5 +1,6 @@
 stages:
   - docs
+  - docs_deploy
   - test
   - build
   - deploy
@@ -95,7 +96,7 @@ dist_build:
       - dist
 
 pages:
-  stage: docs
+  stage: docs_deploy
   only:
     - master
 
