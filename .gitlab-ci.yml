@@ -1,4 +1,5 @@
 stages:
+  - docs
   - test
   - build
   - deploy
@@ -45,7 +46,7 @@ optional_tests:
       - pytest -v tests/test_optional -n 4
 
 documentation_linting:
-  stage: test
+  stage: docs
   allow_failure: true
   image: registry.gitlab.com/synsense/rockpool/test:latest
 
@@ -57,7 +58,7 @@ documentation_linting:
     - sphinx-build -n -b dummy docs docs/_build/html
 
 docs_build:
-  stage: build
+  stage: docs
   allow_failure: true
   image: registry.gitlab.com/synsense/rockpool/test:latest
 
@@ -88,14 +89,13 @@ dist_build:
 
   script:
     - python setup.py sdist
-#    - python setup.py bdist_wheel
 
   artifacts:
     paths:
       - dist
 
 pages:
-  stage: deploy
+  stage: docs
   only:
     - master
 
