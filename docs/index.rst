@@ -57,17 +57,6 @@ and evaluating recurrent networks, which can operate both with continuous-time d
 
 .. toctree::
    :maxdepth: 1
-   :caption: Training and deploying to HW
-
-   devices/pollen-overview.ipynb
-   devices/torch-training-spiking-for-pollen.ipynb
-   devices/analog-frontend-example.ipynb
-
-   .. tutorials/DynapseControl.ipynb
-   .. tutorials/RecDynapSE.ipynb
-
-.. toctree::
-   :maxdepth: 1
    :caption: Advanced topics
 
    reference/api

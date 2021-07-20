@@ -177,27 +177,3 @@ Conversion utilities
 
     training.adversarial_jax.pga_attack
     training.adversarial_jax.adversarial_loss
-
-Hardware support and simulation
--------------------------------
-
-.. autosummary::
-    :toctree: _autosummary
-
-    devices.pollen.config_from_specification
-    devices.pollen.load_config
-    devices.pollen.save_config
-
-.. autosummary::
-    :toctree: _autosummary
-    :template: class.rst
-
-    devices.pollen.PollenCim
-    devices.pollen.PollenSamna
-    devices.pollen.AFE
-
-.. autosummary::
-    :toctree: _autosummary
-    :template: module.rst
-
-    devices.pollen.pollen_devkit_utils
