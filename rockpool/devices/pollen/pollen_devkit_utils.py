@@ -1253,11 +1253,92 @@ def print_debug_ram(
     )
 
 
+def export_registers(
+    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer, file,
+) -> None:
+    """
+    Print register contents for debugging purposes
+
+    Args:
+        daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
+        buffer (PollenReadBuffer): A connected Pollen read buffer to use in reading registers
+        file: a file to save the registers
+    """
+
+    with open(file, "w+") as f:
+        f.write("ctrl1")
+        f.write(hex(read_register(daughterboard, buffer, 0x1)[0]))
+        f.write("\n")
+
+        f.write("ctrl2")
+        f.write(hex(read_register(daughterboard, buffer, 0x2)[0]))
+        f.write("\n")
+
+        f.write("dbg_ctrl1")
+        f.write(hex(read_register(daughterboard, buffer, 0x18)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl1")
+        f.write(hex(read_register(daughterboard, buffer, 0x04)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl2")
+        f.write(hex(read_register(daughterboard, buffer, 0x05)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl3")
+        f.write(hex(read_register(daughterboard, buffer, 0x06)[0]))
+        f.write("\n")
+
+        f.write("pwrctrl4")
+        f.write(hex(read_register(daughterboard, buffer, 0x07)[0]))
+        f.write("\n")
+
+        f.write("ispkreg00")
+        f.write(hex(read_register(daughterboard, buffer, 0x0C)[0]))
+        f.write("\n")
+
+        f.write("ispkreg01")
+        f.write(hex(read_register(daughterboard, buffer, 0x0D)[0]))
+        f.write("\n")
+
+        f.write("ispkreg10")
+        f.write(hex(read_register(daughterboard, buffer, 0x0E)[0]))
+        f.write("\n")
+
+        f.write("ispkreg11")
+        f.write(hex(read_register(daughterboard, buffer, 0x0F)[0]))
+        f.write("\n")
+
+        f.write("stat")
+        f.write(hex(read_register(daughterboard, buffer, 0x10)[0]))
+        f.write("\n")
+
+        f.write("int")
+        f.write(hex(read_register(daughterboard, buffer, 0x11)[0]))
+        f.write("\n")
+
+        f.write("omp_stat0")
+        f.write(hex(read_register(daughterboard, buffer, 0x12)[0]))
+        f.write("\n")
+
+        f.write("omp_stat1")
+        f.write(hex(read_register(daughterboard, buffer, 0x13)[0]))
+        f.write("\n")
+
+        f.write("omp_stat2")
+        f.write(hex(read_register(daughterboard, buffer, 0x14)[0]))
+        f.write("\n")
+
+        f.write("omp_stat3")
+        f.write(hex(read_register(daughterboard, buffer, 0x15)[0]))
+        f.write("\n")
+
 def print_debug_registers(
     daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
 ) -> None:
     """
-    Print register contents for debugging purposes
+    export register contents for debugging purposes
 
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
@@ -1292,7 +1373,7 @@ def num_buffer_neurons(Nhidden: int) -> int:
     Returns:
         int: The number of buffer neurons
     """
-    Nbuffer = 1 if Nhidden % 2 == 1 else 2
+    Nbuffer = 2 if Nhidden % 2 == 1 else 1
     return Nbuffer
 
 

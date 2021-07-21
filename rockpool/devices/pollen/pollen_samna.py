@@ -4,6 +4,8 @@ Samna-backed bridge to Pollen dev kit
 
 # - Check that Samna is installed
 from importlib import util
+from pathlib import Path
+from os import makedirs
 
 if util.find_spec("samna") is None:
     raise ModuleNotFoundError(
@@ -652,6 +654,187 @@ class PollenSamna(Module):
 
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
+            # - Send input events for this time-step
+            putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Evolve one time-step on Pollen
+            putils.advance_time_step(self._device)
+
+            # - Wait until pollen has finished the simulation of this time step
+            t_start = time.time()
+            is_timeout = False
+            while not putils.is_pollen_ready(self._device, self._event_buffer):
+                if time.time() - t_start > read_timeout:
+                    is_timeout = True
+                    # raise TimeoutError(
+                    #     f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
+                    # )
+                    break
+
+            if is_timeout:
+                break
+
+            # - Read all synapse and neuron states for this time step
+            if record:
+                this_state = putils.read_allram_state(
+                    self._device, self._event_buffer, Nin, Nhidden, Nout
+                )
+                vmem_ts.append(this_state.V_mem_hid)
+                isyn_ts.append(this_state.I_syn_hid)
+                isyn2_ts.append(this_state.I_syn2_hid)
+                vmem_out_ts.append(this_state.V_mem_out)
+                isyn_out_ts.append(this_state.I_syn_out)
+                spikes_ts.append(this_state.Spikes_hid)
+
+                input_weight_ram_ts.append(this_state.IWTRAM_state)
+                input_weight_2ram_ts.append(this_state.IWT2RAM_state)
+                neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
+                reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
+                neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
+                neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
+                reservoir_config_ram_ts.append(this_state.RCRAM_state)
+                reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
+                reservoir_effective_fanout_count_ram_ts.append(
+                    this_state.REFOCRAM_state
+                )
+                recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
+                recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
+                recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
+                output_weight_ram_ts.append(this_state.OWTRAM_state)
+
+            # - Read the output event register
+            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_ts.append(output_events)
+
+        if record:
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "Vmem": np.array(vmem_ts),
+                "Isyn": np.array(isyn_ts),
+                "Isyn2": np.array(isyn2_ts),
+                "Spikes": np.array(spikes_ts),
+                "Vmem_out": np.array(vmem_out_ts),
+                "Isyn_out": np.array(isyn_out_ts),
+                "times": np.arange(start_timestep, final_timestep + 1),
+                "Input_weight_ram": np.array(input_weight_ram_ts),
+                "Input_weight_2ram": np.array(input_weight_2ram_ts),
+                "Neuron_dash_syn_ram": np.array(neuron_dash_syn_ram_ts),
+                "Reservoir_dash_syn_2ram": np.array(reservoir_dash_syn_2ram_ts),
+                "Neuron_dash_mem_ram": np.array(neuron_dash_mem_ram_ts),
+                "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
+                "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
+                "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(
+                    reservoir_effective_fanout_count_ram_ts
+                ),
+                "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
+                "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
+                "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
+                "Output_weight_ram": np.array(output_weight_ram_ts),
+            }
+        else:
+            rec_dict = {}
+
+        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
+        return np.array(output_ts), {}, rec_dict
+
+    def evolve_manual_ram_register(
+        self,
+        input: np.ndarray,
+        daughterboard,
+        buffer,
+        record: bool = False,
+        read_timeout: float = 5.0,
+        *args,
+        **kwargs,
+    ) -> (np.ndarray, dict, dict):
+        # - Get some information about the network size
+        Nin, Nhidden, Nout = self.shape
+
+        # - Select single-step simulation mode
+        # self.config = putils.configure_single_step_time_mode(self.config)
+
+        # - Initialise lists for recording state
+        vmem_ts = []
+        isyn_ts = []
+        isyn2_ts = []
+        vmem_out_ts = []
+        isyn_out_ts = []
+        spikes_ts = []
+        output_ts = []
+
+        input_weight_ram_ts = []
+        input_weight_2ram_ts = []
+        neuron_dash_syn_ram_ts = []
+        reservoir_dash_syn_2ram_ts = []
+        neuron_dash_mem_ram_ts = []
+        neuron_threshold_ram_ts = []
+        reservoir_config_ram_ts = []
+        reservoir_aliasing_ram_ts = []
+        reservoir_effective_fanout_count_ram_ts = []
+        recurrent_fanout_ram_ts = []
+        recurrent_weight_ram_ts = []
+        recurrent_weight_2ram_ts = []
+        output_weight_ram_ts = []
+
+        ##########################################################
+        #### - Read all ram and register before evolve_manual ####
+        ##########################################################
+
+        if record:
+            this_state = putils.read_allram_state(
+                self._device, self._event_buffer, Nin, Nhidden, Nout
+            )
+            vmem_ts.append(this_state.V_mem_hid)
+            isyn_ts.append(this_state.I_syn_hid)
+            isyn2_ts.append(this_state.I_syn2_hid)
+            vmem_out_ts.append(this_state.V_mem_out)
+            isyn_out_ts.append(this_state.I_syn_out)
+            spikes_ts.append(this_state.Spikes_hid)
+
+            input_weight_ram_ts.append(this_state.IWTRAM_state)
+            input_weight_2ram_ts.append(this_state.IWT2RAM_state)
+            neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
+            reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
+            neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
+            neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
+            reservoir_config_ram_ts.append(this_state.RCRAM_state)
+            reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
+            reservoir_effective_fanout_count_ram_ts.append(
+                this_state.REFOCRAM_state
+            )
+            recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
+            recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
+            recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
+            output_weight_ram_ts.append(this_state.OWTRAM_state)
+
+            folder = './registers/'
+            newFolder = Path(folder)
+            if not newFolder.exists():
+                makedirs(newFolder)
+            file = folder + "register_0.txt"
+            putils.export_registers(daughterboard, buffer, file)
+
+        ##########################################################
+        #### - Read all ram and register before evolve_manual ####
+        ##########################################################
+
+        # - Wait until pollen is ready
+        t_start = time.time()
+        while not putils.is_pollen_ready(self._device, self._event_buffer):
+            if time.time() - t_start > read_timeout:
+                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input) - 1
+
+        # - Reset input spike registers
+        putils.reset_input_spikes(self._device)
+
+        # - Loop over time steps
+        # for timestep in tqdm(range(len(input))):
+        for timestep in tqdm(range(20)):
             # for timestep in tqdm(range(1)):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
@@ -700,6 +883,10 @@ class PollenSamna(Module):
                 recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
                 recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
                 output_weight_ram_ts.append(this_state.OWTRAM_state)
+
+                #### register ####
+                file = folder + f"register_{timestep+1}.txt"
+                putils.export_registers(daughterboard, buffer, file)
 
             # - Read the output event register
             output_events = putils.read_output_events(self._device, self._event_buffer)
