@@ -1097,6 +1097,8 @@ def send_immediate_input_spikes(
                 s_event.neuron = input_channel
                 events_list.append(s_event)
 
+    print([e.neuron for e in events_list if hasattr(e, "neuron")])
+
     # - Send input spikes for this time-step
     daughterboard.get_model().write(events_list)
 
