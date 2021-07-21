@@ -149,15 +149,15 @@ def new_pollen_read_buffer(
 
     # - Get the device model
     model = daughterboard.get_model()
-    print("   got model")
+    # print("   got model")
 
     # - Get Pollen output event source node
     source_node = model.get_source_node()
-    print("   got source node")
+    # print("   got source node")
 
     # - Add the buffer as a destination for the Pollen output events
     ic = buffer.get_input_channel()
-    print("   got input channel")
+    # print("   got input channel")
 
     success = source_node.add_destination(ic)
     assert success, "Error connecting the new buffer."
@@ -2331,9 +2331,9 @@ def export_allram_state(
     #### config ram, not export dummy neuron ####
     #############################################
     # IWTRAM_state: input_weight_ram_ts
-    mat = np.zeros((np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int)
+    mat = np.zeros((np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int) # num_buffer_neuron???
     input_weight = np.array(state.IWTRAM_state).astype(int)
-    mat[:, : input_weight.shape[1]] = input_weight[:, 0 : Nin * (Nhidden+num_buffer_neurons(Nhidden))]
+    mat[:, : input_weight.shape[1]] = input_weight[:, 0 : Nin * Nhidden] # num_buffer_neuron???
 
     path_IWTRAM_state = path / "IWTRAM_state"
     if not path_IWTRAM_state.exists():
@@ -2349,9 +2349,9 @@ def export_allram_state(
                 f.write("\n")
 
     # IWT2RAM_state input_weight_2ram_ts
-    mat = np.zeros((np.shape(state.IWT2RAM_state)[0], Nin * (Nhidden+num_buffer_neurons(Nhidden))), dtype=int)
+    mat = np.zeros((np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int) # num_buffer_neuron???
     input_weight_2 = np.array(state.IWT2RAM_state).astype(int)
-    mat[:, : input_weight_2.shape[1]] = input_weight_2[:, 0 : Nin * (Nhidden+num_buffer_neurons(Nhidden))]
+    mat[:, : input_weight_2.shape[1]] = input_weight_2[:, 0 : Nin * Nhidden] # num_buffer_neuron???
 
     path_IWT2RAM_state = path / "IWT2RAM_state"
     if not path_IWT2RAM_state.exists():
@@ -2383,9 +2383,9 @@ def export_allram_state(
                 f.write("\n")
 
     # RDS2RAM_state: reservoir_dash_syn_2ram_ts
-    mat = np.zeros((np.shape(state.RDS2RAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout), dtype=int)
+    mat = np.zeros((np.shape(state.RDS2RAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)), dtype=int)
     reservoir_dash_syn_2 = np.array(state.RDS2RAM_state).astype(int)
-    mat[:, : reservoir_dash_syn_2.shape[1]] = reservoir_dash_syn_2[:, 0 : Nhidden + num_buffer_neurons(Nhidden) + Nout]
+    mat[:, : reservoir_dash_syn_2.shape[1]] = reservoir_dash_syn_2[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
     path_RDS2RAM_state = path / "RDS2RAM_state"
     if not path_RDS2RAM_state.exists():
         makedirs(path_RDS2RAM_state)
@@ -2398,9 +2398,9 @@ def export_allram_state(
                 f.write("\n")
 
     # NDMRAM_state: neuron_dash_mem_ram_ts
-    mat = np.zeros((np.shape(state.NDMRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout), dtype=int)
+    mat = np.zeros((np.shape(state.NDMRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)), dtype=int)
     neuron_dash_mem = np.array(state.NDMRAM_state).astype(int)
-    mat[:, : neuron_dash_mem.shape[1]] = neuron_dash_mem[:, 0 : Nhidden + num_buffer_neurons(Nhidden) + Nout]
+    mat[:, : neuron_dash_mem.shape[1]] = neuron_dash_mem[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
 
     path_NDMRAM_state = path / "NDMRAM_state"
     if not path_NDMRAM_state.exists():
@@ -2535,7 +2535,7 @@ def export_allram_state(
 
     print("Writing RWT2RAM files in recurrent_weight_2", end="\r")
     for t, rforam in enumerate(mat):
-        with open(path_RWT2RAM_state / f"RWTRAM_{t}.txt", "w+") as f:
+        with open(path_RWT2RAM_state / f"RWT2RAM_{t}.txt", "w+") as f:
             reservoir_fanout_total = 0
             for res_neur_index, fanout_count in enumerate(
                 reservoir_effective_fanout_count[t]
