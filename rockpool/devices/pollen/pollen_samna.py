@@ -741,8 +741,6 @@ class PollenSamna(Module):
     def evolve_manual_ram_register(
         self,
         input: np.ndarray,
-        daughterboard,
-        buffer,
         record: bool = False,
         read_timeout: float = 5.0,
         *args,
@@ -800,20 +798,18 @@ class PollenSamna(Module):
             neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
             reservoir_config_ram_ts.append(this_state.RCRAM_state)
             reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-            reservoir_effective_fanout_count_ram_ts.append(
-                this_state.REFOCRAM_state
-            )
+            reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
             recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
             recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
             recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
             output_weight_ram_ts.append(this_state.OWTRAM_state)
 
-            folder = './registers/'
+            folder = "./registers/"
             newFolder = Path(folder)
             if not newFolder.exists():
                 makedirs(newFolder)
-            file = folder + "register_0.txt"
-            putils.export_registers(daughterboard, buffer, file)
+            file = folder + "register_init.txt"
+            putils.export_registers(self._device, self._event_buffer, file)
 
         ##########################################################
         #### - Read all ram and register before evolve_manual ####
@@ -885,8 +881,8 @@ class PollenSamna(Module):
                 output_weight_ram_ts.append(this_state.OWTRAM_state)
 
                 #### register ####
-                file = folder + f"register_{timestep+1}.txt"
-                putils.export_registers(daughterboard, buffer, file)
+                file = folder + f"register_{timestep}.txt"
+                putils.export_registers(self._device, self._event_buffer, file)
 
             # - Read the output event register
             output_events = putils.read_output_events(self._device, self._event_buffer)
