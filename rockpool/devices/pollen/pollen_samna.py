@@ -368,10 +368,6 @@ class PollenSamna(Module):
 
     @config.setter
     def config(self, new_config):
-        # - WORKAROUND: Ensure the RAM power and the chip clock are enabled
-        new_config.debug.clock_enable = True
-        new_config.debug.ram_power_enable = True
-
         # - Write the configuration to the device
         putils.apply_configuration(self._device, new_config)
 
@@ -510,7 +506,7 @@ class PollenSamna(Module):
         # config, state_buffer = putils.configure_accel_time_mode(
         #     self._config, self._state_buffer, m_Nhidden, m_Nout
         # )
-        self.config = putils.configure_single_step_time_mode(self.config)
+        # self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Wait until pollen is ready
         t_start = time.time()
@@ -604,7 +600,6 @@ class PollenSamna(Module):
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
 
-
     def evolve_manual_allram(
         self,
         input: np.ndarray,
@@ -617,7 +612,7 @@ class PollenSamna(Module):
         Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
-        self.config = putils.configure_single_step_time_mode(self.config)
+        # self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Wait until pollen is ready
         t_start = time.time()
@@ -657,7 +652,7 @@ class PollenSamna(Module):
 
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
-        #for timestep in tqdm(range(1)):
+            # for timestep in tqdm(range(1)):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
@@ -698,7 +693,9 @@ class PollenSamna(Module):
                 neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
                 reservoir_config_ram_ts.append(this_state.RCRAM_state)
                 reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-                reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
+                reservoir_effective_fanout_count_ram_ts.append(
+                    this_state.REFOCRAM_state
+                )
                 recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
                 recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
                 recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
@@ -726,7 +723,9 @@ class PollenSamna(Module):
                 "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
                 "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
                 "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
-                "Reservoir_effective_fanout_count_ram": np.array(reservoir_effective_fanout_count_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(
+                    reservoir_effective_fanout_count_ram_ts
+                ),
                 "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
                 "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
                 "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
