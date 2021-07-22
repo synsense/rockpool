@@ -834,8 +834,8 @@ class PollenSamna(Module):
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
             #### save register after give input before evolve ####
-            file = folder + f"register_{timestep+1}_spkin.txt"
-            putils.export_registers(daughterboard, buffer, file)
+            file = folder + f"register_{timestep}_spkin.txt"
+            putils.export_registers(self._device, self._event_buffer, file)
 
             # - Print register content
             putils.print_debug_registers(self._device, self._event_buffer)
