@@ -2701,3 +2701,6 @@ def export_allram_state(
             for i_neur, val in enumerate(vals):
                 if i_neur % Nout == 0:
                     f.write(f"// owt for RSN{i_neur//Nout} \n")
+                f.write(to_hex(val, 2))
+                f.write("\n")
+
