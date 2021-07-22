@@ -1092,12 +1092,15 @@ def send_immediate_input_spikes(
     events_list = []
     for input_channel, event in enumerate(spike_counts):
         if event:
-            for _ in range(event):
+            for _ in range(int(event)):
                 s_event = samna.pollen.event.Spike()
                 s_event.neuron = input_channel
                 events_list.append(s_event)
 
-    print([e.neuron for e in events_list if hasattr(e, "neuron")])
+    print(
+        "Sending events to channel:",
+        [e.neuron for e in events_list if hasattr(e, "neuron")],
+    )
 
     # - Send input spikes for this time-step
     daughterboard.get_model().write(events_list)

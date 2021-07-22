@@ -829,11 +829,12 @@ class PollenSamna(Module):
         putils.reset_input_spikes(self._device)
 
         # - Loop over time steps
-        # for timestep in tqdm(range(len(input))):
-        for timestep in tqdm(range(20)):
-            # for timestep in tqdm(range(1)):
+        for timestep in tqdm(range(len(input))):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Print register content
+            putils.print_debug_registers(self._device, self._event_buffer)
 
             # - Evolve one time-step on Pollen
             putils.advance_time_step(self._device)
@@ -880,7 +881,7 @@ class PollenSamna(Module):
                 recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
                 output_weight_ram_ts.append(this_state.OWTRAM_state)
 
-                #### register ####
+                #### registers ####
                 file = folder + f"register_{timestep}.txt"
                 putils.export_registers(self._device, self._event_buffer, file)
 
