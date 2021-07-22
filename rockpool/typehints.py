@@ -5,6 +5,7 @@ Module to provide useful types for Rockpool
 import numpy as np
 from typing import Union, Any
 from collections import abc
+from jax import numpy as jnp
 
 from rockpool.parameters import ParameterBase
 
@@ -33,5 +34,9 @@ P_tensor = Union[Tensor, ParameterBase]
 FloatVector = Union[float, np.ndarray, Tensor]
 IntVector = Union[int, np.ndarray, Tensor]
 
+# Jax Types
+
 JaxRNGKey = Any
 JaxTreeDef = Any
+
+JP_ndarray = Union[jnp.ndarray, ParameterBase]

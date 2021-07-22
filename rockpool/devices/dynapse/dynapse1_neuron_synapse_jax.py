@@ -46,8 +46,7 @@ from jax.lax import scan
 from jax import numpy as np
 from typing import Optional, Protocol, Tuple, Union, Dict, Callable, Any
 
-# - Define a float / array type
-FloatVector = Union[float, np.ndarray]
+from rockpool.typehints import JP_ndarray, P_float
 
 
 class DynapSE1NeuronSynapseJax(JaxModule):
@@ -160,14 +159,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # however, they experience different parameters in practice
         # because of device mismatch
 
-        self.Itau_ahp: Union[np.ndarray, Parameter] = Parameter(
+        self.Itau_ahp: JP_ndarray = Parameter(
             Itau_ahp * np.ones(self.size_out),
             "AHP",
             init_func=lambda s: np.ones(s) * Io,
             shape=(self.size_out,),
         )
 
-        self.Ith_ahp: Union[np.ndarray, Parameter] = Parameter(
+        self.Ith_ahp: JP_ndarray = Parameter(
             Ith_ahp * np.ones(self.size_out),
             "AHP",
             init_func=lambda s: np.ones(s) * Io,
@@ -189,20 +188,16 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
-        self.rng_key: Union[np.ndarray, State] = State(
-            rng_key, init_func=lambda _: rng_key
-        )
+        self.rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
-        self.spikes: Union[np.ndarray, State] = State(
-            shape=(self.size_out,), init_func=np.zeros
-        )
+        self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
 
-        self.Iahp: Union[np.ndarray, State] = State(
+        self.Iahp: JP_ndarray = State(
             shape=(self.size_out,), init_func=lambda s: np.ones(s) * Io
         )
 
         # Simulation Parameters
-        self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
+        self.dt: P_float = SimulationParameter(dt)
 
     def evolve(
         self,
