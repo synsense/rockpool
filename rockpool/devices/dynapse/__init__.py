@@ -23,6 +23,7 @@ dModules = {
     #     "teleport_function",
     # ),
     ".virtual_dynapse": "VirtualDynapse",
+    ".dynapse1_neuron_synapse_jax" : "DynapSE1NeuronSynapseJax"
 }
 
 # - Define current package
