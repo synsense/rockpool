@@ -834,10 +834,14 @@ class PollenSamna(Module):
 
         # - Loop over time steps
         # for timestep in tqdm(range(len(input))):
-        for timestep in tqdm(range(20)):
+        for timestep in tqdm(range(1)):
             # for timestep in tqdm(range(1)):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            #### save register after give input before evolve ####
+            file = folder + f"register_{timestep+1}_spkin.txt"
+            putils.export_registers(daughterboard, buffer, file)
 
             # - Evolve one time-step on Pollen
             putils.advance_time_step(self._device)
