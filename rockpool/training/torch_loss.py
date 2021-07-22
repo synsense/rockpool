@@ -48,6 +48,18 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
 
         ...
 
+    If we would only like to introduce a lower bound penalty to a parameter we can easily do that by leaving away the definition for `upper_bound`. The same works analogously for only penalizing upper bounds.
+
+    .. code-block:: python
+        ...
+
+        boundary_loss = summed_exp_boundary_loss(model[0].thr_up, lower_bound=1e-4)
+        complete_loss = train_loss + boundary_loss
+        # Do backpropagation over both losses and optimize the model parameters accordingly
+        complete_loss.backward()
+        optimizer.step()
+
+        ...
 
     Args:
         data (torch.Tensor): The data which boundary violations will be penalized, with shape (N,).
