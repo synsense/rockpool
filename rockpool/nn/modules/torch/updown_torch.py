@@ -31,9 +31,9 @@ class StepPWL(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, data, thr):
-        ctx.save_for_backward(data / thr)
-        return torch.clamp(torch.floor(data / thr), 0)
+    def forward(ctx, data):
+        ctx.save_for_backward(data)
+        return torch.clamp(torch.floor(data), 0)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -41,7 +41,7 @@ class StepPWL(torch.autograd.Function):
         grad_input = grad_output.clone()
         grad_input[data < 0.5] = 0
         # - Since there are two inputs, we need to give two outputs to backpropagate.
-        return grad_input, grad_input
+        return grad_input
 
 
 ## - UpDownTorch - Class: Define a spiking feedforward layer to convert analogue inputs to up and down channels
@@ -203,10 +203,9 @@ class UpDownTorch(TorchModule):
             diff_values = data[:, t, :] - analog_value
 
             # - Calculate the spike outputs
-            up_channels = step_pwl(diff_values, thr_up)
-
+            up_channels = step_pwl(diff_values/thr_up)
             # - Enter the negative thr_down so that it checks for changes going below this threshold.
-            down_channels = step_pwl(diff_values, -thr_down)
+            down_channels = step_pwl(diff_values/(-thr_down))
 
             if self.n_ref_steps > 0:
                 # - Remove the spikes of all channels that are still in the refractory period
