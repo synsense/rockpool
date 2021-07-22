@@ -30,6 +30,25 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
             0,  & \\text{else} \\\\
             \\end{cases}
 
+    This function allows for soft parameter constraints by creating a loss for boundary violations. This can be reached by adding `summed_exp_boundary_loss(data, lower_bound, upper_bound)` to your general loss, where `data` is an arbitrary tensor and both bounds are scalars. If either of the bounds is given as `None`, its boundary will not be penalized.
+    In the example below we will introduce soft constraints to `tau_mem` of the first layer of the model, so that values `tau_mem > 1e-1` and `tau_mem < 1e-3` will be punished and considered in the optimozation step.
+
+    .. code-block:: python
+        ...
+
+        # Calculate the training loss
+        y_hat, _, _ = model.evolve(x)
+        train_loss = F.mse_loss(y, y_hat)
+        # Set soft constraints to the time constants of the first layer of the Parameter
+        boundary_loss = summed_exp_boundary_loss(model[0].tau_mem, 1e-3, 1e-1)
+        complete_loss = train_loss + boundary_loss
+        # Do backpropagation over both losses and optimize the model parameters accordingly
+        complete_loss.backward()
+        optimizer.step()
+
+        ...
+
+
     Args:
         data (torch.Tensor): The data which boundary violations will be penalized, with shape (N,).
         lower_bound (float): Lower bound for the data.
