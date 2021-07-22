@@ -143,6 +143,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :raises ValueError: When the user does not provide a valid shape
         """
 
+        # [] TODO : Once attributes are stable, please add docstrings for each in `__init__()`
+
         if shape is None:
             raise ValueError("You must provide `shape`")
 
@@ -176,13 +178,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # [] TODO : out_rate is just been using to validate the model
         self.out_rate = out_rate
 
-        # Constants
-        self.Io = Io
-        self.Ica = Ica
-        self.kappa = (kappa_n, kappa_p)
-        self.Ut = Ut
-        self.Cahp = Cahp
-
         # States
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
@@ -198,6 +193,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # Simulation Parameters
         self.dt: P_float = SimulationParameter(dt)
+        ## Silicon Features
+        self.Io: P_float = SimulationParameter(Io)
+        self.Ica: P_float = SimulationParameter(Ica)
+        self.kappa: P_float = SimulationParameter((kappa_n + kappa_p) / 2)
+        self.Ut: P_float = SimulationParameter(Ut)
+        self.Cahp: P_float = SimulationParameter(Cahp)
 
     def evolve(
         self,
@@ -309,24 +310,3 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :rtype: np.ndarray
         """
         return (self.Cahp * self.Ut) / (self.kappa * self.Itau_ahp)
-
-    @property
-    def kappa(self):
-        """
-        kappa getter
-
-        :return: self._kappa
-        :rtype: float
-        """
-        return self._kappa
-
-    @kappa.setter
-    def kappa(self, val):
-        """
-        kappa setter, mean of n&p type subthreshold slope factors
-
-        :param val: kappa_n, kappa_p
-        :type val: Tuple[float, float]
-        """
-        kappa_n, kappa_p = val
-        self._kappa = (kappa_n + kappa_p) / 2.0
