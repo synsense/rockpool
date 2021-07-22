@@ -44,7 +44,14 @@ def test_euler_jax():
     import numpy as np
 
     lyr = RateEulerJax(
-        tau=np.random.rand(2,) * 10, bias=np.random.rand(2,), activation_func="tanh"
+        tau=np.random.rand(
+            2,
+        )
+        * 10,
+        bias=np.random.rand(
+            2,
+        ),
+        activation_func="tanh",
     )
     lyr = lyr.reset_state()
 
@@ -138,8 +145,15 @@ def test_ffwd_net():
                     ),
                 )
 
-                tau = np.random.rand(N_out,) * 10
-                bias = np.random.rand(N_out,)
+                tau = (
+                    np.random.rand(
+                        N_out,
+                    )
+                    * 10
+                )
+                bias = np.random.rand(
+                    N_out,
+                )
                 setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):
@@ -218,8 +232,15 @@ def test_sgd():
                     Parameter(np.random.rand(N_in, N_out), "weights"),
                 )
 
-                tau = np.random.rand(N_out,) * 10
-                bias = np.random.rand(N_out,)
+                tau = (
+                    np.random.rand(
+                        N_out,
+                    )
+                    * 10
+                )
+                bias = np.random.rand(
+                    N_out,
+                )
                 setattr(self, f"iaf_{index}", RateEulerJax(tau=tau, bias=bias))
 
         def evolve(self, input, record: bool = False):

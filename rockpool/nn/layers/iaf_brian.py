@@ -517,8 +517,19 @@ class FFIAFBrianBase(Layer):
 
 
 @astimedmodule(
-    parameters=["weights", "bias", "tau_mem", "v_thresh", "v_reset", "v_rest",],
-    simulation_parameters=["dt", "noise_std", "refractory",],
+    parameters=[
+        "weights",
+        "bias",
+        "tau_mem",
+        "v_thresh",
+        "v_reset",
+        "v_rest",
+    ],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
 )
 class FFIAFBrian(FFIAFBrianBase):
     pass
@@ -534,7 +545,11 @@ class FFIAFBrian(FFIAFBrianBase):
         "v_reset",
         "v_rest",
     ],
-    simulation_parameters=["dt", "noise_std", "refractory",],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
 )
 class FFIAFSpkInBrian(FFIAFBrianBase):
     """Spiking feedforward layer with spiking inputs and outputs"""
@@ -1405,7 +1420,11 @@ class RecIAFBrianBase(Layer):
         "v_reset",
         "v_rest",
     ],
-    simulation_parameters=["dt", "noise_std", "refractory",],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
 )
 class RecIAFBrian(RecIAFBrianBase):
     pass
@@ -1423,7 +1442,11 @@ class RecIAFBrian(RecIAFBrianBase):
         "v_reset",
         "v_rest",
     ],
-    simulation_parameters=["dt", "noise_std", "refractory",],
+    simulation_parameters=[
+        "dt",
+        "noise_std",
+        "refractory",
+    ],
 )
 class RecIAFSpkInBrian(RecIAFBrianBase):
     """Spiking recurrent layer with spiking in- and outputs, and a Brian2 backend"""
