@@ -1099,7 +1099,7 @@ def send_immediate_input_spikes(
 
     print(
         "Sending events to channel:",
-        [e.neuron for e in events_list if hasattr(e, "neuron")],
+        [e.neuron_id for e in events_list if hasattr(e, "neuron_id")],
     )
 
     # - Send input spikes for this time-step
