@@ -1094,7 +1094,7 @@ def send_immediate_input_spikes(
         if event:
             for _ in range(int(event)):
                 s_event = samna.pollen.event.Spike()
-                s_event.neuron = input_channel
+                s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
     print(
@@ -2318,7 +2318,7 @@ def export_allram_state(
 
         print("Writing rspkram files in spk_res", end="\r")
         for t, spks in enumerate(mat):
-            with open(path_spkr / f"rspkram_{t}.txt", "w+") as f:
+            with open(path_spkr / f"rspkram_{t-1}.txt", "w+") as f: #t-1 because add 1 before evolve
                 for val in spks:
                     f.write(to_hex(val, 2))
                     f.write("\n")
@@ -2336,7 +2336,7 @@ def export_allram_state(
 
         print("Writing ospkram files in spk_out", end="\r")
         for t, spks in enumerate(mat):
-            with open(path_spko / f"ospkram_{t}.txt", "w+") as f:
+            with open(path_spko / f"ospkram_{t-1}.txt", "w+") as f:
                 for val in spks:
                     f.write(to_hex(val, 2))
                     f.write("\n")
@@ -2354,7 +2354,7 @@ def export_allram_state(
 
     print("Writing nscram files in isyn", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_isyn / f"nscram_{t}.txt", "w+") as f:
+        with open(path_isyn / f"nscram_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 4))
                 f.write("\n")
@@ -2373,7 +2373,7 @@ def export_allram_state(
 
     print("Writing rsc2ram files in isyn2", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_isyn2 / f"rsc2ram_{t}.txt", "w+") as f:
+        with open(path_isyn2 / f"rsc2ram_{t-1}.txt", "w+") as f:
             for val in vals:
                 f.write(to_hex(val, 4))
                 f.write("\n")
@@ -2391,7 +2391,7 @@ def export_allram_state(
 
     print("Writing nmpram files in vmem", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_vmem / f"nmpram_{t}.txt", "w+") as f:
+        with open(path_vmem / f"nmpram_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 4))
                 f.write("\n")
@@ -2408,7 +2408,7 @@ def export_allram_state(
             for t, chans in enumerate(inp_spks):
                 idle += 1
                 if not np.all(chans == 0):
-                    f.write(f"// time step {t}\n")
+                    f.write(f"// time step {t-1}\n")
                     if idle > 0:
                         f.write(f"idle {idle}\n")
                     idle = 0
@@ -2434,7 +2434,7 @@ def export_allram_state(
 
     print("Writing IWTRAM files in input_weight", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_IWTRAM_state / f"IWTRAM_{t}.txt", "w+") as f:
+        with open(path_IWTRAM_state / f"IWTRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 if i_neur % Nhidden == 0:
                     f.write(f"// iwt for IN{i_neur//Nhidden} \n")
@@ -2456,7 +2456,7 @@ def export_allram_state(
 
     print("Writing IWT2RAM files in input_weight_2", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_IWT2RAM_state / f"IWT2RAM_{t}.txt", "w+") as f:
+        with open(path_IWT2RAM_state / f"IWT2RAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 if i_neur % Nhidden == 0:
                     f.write(f"// iwt2 for IN{i_neur//Nhidden} \n")
@@ -2479,7 +2479,7 @@ def export_allram_state(
 
     print("Writing NDSRAM files in input_weight", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_NDSRAM_state / f"NDSRAM_{t}.txt", "w+") as f:
+        with open(path_NDSRAM_state / f"NDSRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 1))
                 f.write("\n")
@@ -2499,7 +2499,7 @@ def export_allram_state(
 
     print("Writing RDS2RAM files in reservoir_dash_syn_2", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_RDS2RAM_state / f"RDS2RAM_{t}.txt", "w+") as f:
+        with open(path_RDS2RAM_state / f"RDS2RAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 1))
                 f.write("\n")
@@ -2520,7 +2520,7 @@ def export_allram_state(
 
     print("Writing NDMRAM files in neuron_dash_mem", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_NDMRAM_state / f"NDMRAM_{t}.txt", "w+") as f:
+        with open(path_NDMRAM_state / f"NDMRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 1))
                 f.write("\n")
@@ -2541,7 +2541,7 @@ def export_allram_state(
 
     print("Writing NTHRAM files in neuron_threshold", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_NTHRAM_state / f"NTHRAM_{t}.txt", "w+") as f:
+        with open(path_NTHRAM_state / f"NTHRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 4))
                 f.write("\n")
@@ -2561,7 +2561,7 @@ def export_allram_state(
 
     print("Writing RCRAM files in input_weight", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_RCRAM_state / f"RCRAM_{t}.txt", "w+") as f:
+        with open(path_RCRAM_state / f"RCRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 1))
                 f.write("\n")
@@ -2581,7 +2581,7 @@ def export_allram_state(
 
     print("Writing RARAM files in reservoir_aliasing", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_RARAM_state / f"RARAM_{t}.txt", "w+") as f:
+        with open(path_RARAM_state / f"RARAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 3))
                 f.write("\n")
@@ -2601,7 +2601,7 @@ def export_allram_state(
 
     print("Writing REFOCRAM files in reservoir_effective_fanout_count", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_REFOCRAM_state / f"REFOCRAM_{t}.txt", "w+") as f:
+        with open(path_REFOCRAM_state / f"REFOCRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 f.write(to_hex(val, 2))
                 f.write("\n")
@@ -2619,7 +2619,7 @@ def export_allram_state(
 
     print("Writing RFORAM files in recurrent_fanout", end="\r")
     for t, rforam in enumerate(mat):
-        with open(path_RFORAM_state / f"RFORAM_{t}.txt", "w+") as f:
+        with open(path_RFORAM_state / f"RFORAM_{t-1}.txt", "w+") as f:
             reservoir_fanout_total = 0
             for res_neur_index, fanout_count in enumerate(
                 reservoir_effective_fanout_count[t]
@@ -2643,7 +2643,7 @@ def export_allram_state(
 
     print("Writing RWTRAM files in recurrent_weight", end="\r")
     for t, rforam in enumerate(mat):
-        with open(path_RWTRAM_state / f"RWTRAM_{t}.txt", "w+") as f:
+        with open(path_RWTRAM_state / f"RWTRAM_{t-1}.txt", "w+") as f:
             reservoir_fanout_total = 0
             for res_neur_index, fanout_count in enumerate(
                 reservoir_effective_fanout_count[t]
@@ -2667,7 +2667,7 @@ def export_allram_state(
 
     print("Writing RWT2RAM files in recurrent_weight_2", end="\r")
     for t, rforam in enumerate(mat):
-        with open(path_RWT2RAM_state / f"RWT2RAM_{t}.txt", "w+") as f:
+        with open(path_RWT2RAM_state / f"RWT2RAM_{t-1}.txt", "w+") as f:
             reservoir_fanout_total = 0
             for res_neur_index, fanout_count in enumerate(
                 reservoir_effective_fanout_count[t]
@@ -2697,7 +2697,7 @@ def export_allram_state(
 
     print("Writing OWTRAM files in output_weight", end="\r")
     for t, vals in enumerate(mat):
-        with open(path_OWTRAM_state / f"OWTRAM_{t}.txt", "w+") as f:
+        with open(path_OWTRAM_state / f"OWTRAM_{t-1}.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 if i_neur % Nout == 0:
                     f.write(f"// owt for RSN{i_neur//Nout} \n")
