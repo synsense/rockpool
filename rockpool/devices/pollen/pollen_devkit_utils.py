@@ -1095,6 +1095,7 @@ def send_immediate_input_spikes(
             for _ in range(int(event)):
                 s_event = samna.pollen.event.Spike()
                 s_event.neuron_id = input_channel
+                print(s_event.neuron_id)
                 events_list.append(s_event)
 
     print(
