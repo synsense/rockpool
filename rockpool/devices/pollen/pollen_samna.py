@@ -829,8 +829,7 @@ class PollenSamna(Module):
         putils.reset_input_spikes(self._device)
 
         # - Loop over time steps
-        # for timestep in tqdm(range(len(input))):
-        for timestep in tqdm(range(1)):
+        for timestep in tqdm(range(len(input))):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
