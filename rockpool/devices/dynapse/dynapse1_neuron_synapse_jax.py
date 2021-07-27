@@ -25,11 +25,6 @@ References:
     https://tube.switch.ch/switchcast/uzh.ch/series/5ee1d666-25d2-4c4d-aeb9-4b754b880345?order=newest-first
 
 
-Acknowledgements:
-    Dimitri Zendrikov for providing circuit diagrams and design feedback
-    Michel Perez for spotting DPI simulation pitfalls
-    Giacomo Indiveri
-
 Project Owner : Dylan Muir, SynSense AG
 Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
@@ -94,6 +89,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self,
         shape: tuple = None,
         out_rate: float = 0.02,
+        update_type: str = "simple",
         Itau_ahp: float = 1e-12,
         Ith_ahp: float = 1e-12,
         Io: float = 0.5e-12,
@@ -177,6 +173,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # [] TODO : out_rate is just been using to validate the model
         self.out_rate = out_rate
+        self.update_type = update_type
 
         # States
         if rng_key is None:
@@ -220,6 +217,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True``.
         :rtype: Tuple[np.ndarray, dict, dict]
         """
+        update_ahp = self._get_dpi_update_func(self.update_type)
 
         def forward(
             state: State, spike_inputs_ts: np.ndarray
@@ -244,11 +242,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             spikes, Iahp, key = state
 
             # Reset depending on spiking activity
-            Iahp += spikes * self.Iahp_inf
+            # [] TODO : CHANGE BACK TO
+            # Iahp += spikes * self.Iahp_inf
+            Iahp += spike_inputs_ts * self.Iahp_inf
 
             # Apply forward step
-            Iahp = Iahp * np.exp(-self.dt / self.tau_ahp)
-            # Iahp += self.del_Iahp()
+            Iahp = update_ahp(Iahp)
 
             # Io clipping
             Iahp = np.clip(Iahp, self.Io)
@@ -288,6 +287,37 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # - Return outputs
         return outputs, states, record_dict
+
+    def _get_dpi_update_func(self, type: str) -> Callable[[float], float]:
+        """
+        _get_dpi_update_func Returns the DPI update function given the type
+
+        :param type: The update type : 'simple' or 'exp'
+        :type type: str
+        :raises TypeError: If the update type given is neither 'simple' nor 'exp'
+        :return: a function calculating the value of the synaptic current in the next time step, given the instantaneous synaptic current
+        :rtype: Callable[[float], float]
+        """
+        if type == "simple":
+
+            def _simple_update(Isyn):
+                factor = -self.dt / self.tau_ahp
+                I_next = Isyn + Isyn * factor
+                return I_next
+
+            return _simple_update
+
+        elif type == "exp":
+
+            def _exponential_update(Isyn):
+                factor = np.exp(-self.dt / self.tau_ahp)
+                I_next = Isyn * factor
+                return I_next
+
+            return _exponential_update
+
+        else:
+            raise TypeError("Update type undefined. Try one of 'simple', 'exp'")
 
     @property
     def Iahp_inf(self):
