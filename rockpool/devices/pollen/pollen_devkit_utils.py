@@ -851,7 +851,7 @@ def read_allram_state(
         np.array(Vmem[-Nout:], "int16"),
         np.array(Isyn[-Nout:], "int16"),
         np.array(Isyn2, "int16"),
-        np.array(Spikes, "bool"),
+        np.array(Spikes, "int16"), #why bool ???
         read_output_events(daughterboard, buffer)[:Nout],
         # config ram
         np.array(input_weight_ram, "int16"),
@@ -1095,13 +1095,12 @@ def send_immediate_input_spikes(
             for _ in range(int(event)):
                 s_event = samna.pollen.event.Spike()
                 s_event.neuron_id = input_channel
-                print(s_event.neuron_id)
                 events_list.append(s_event)
 
-    print(
-        "Sending events to channel:",
-        [e.neuron_id for e in events_list if hasattr(e, "neuron_id")],
-    )
+    #print(
+     #   "Sending events to channel:",
+      #  [e.neuron_id for e in events_list if hasattr(e, "neuron_id")],
+    #)
 
     # - Send input spikes for this time-step
     daughterboard.get_model().write(events_list)
@@ -1355,22 +1354,30 @@ def print_debug_registers(
     """
     print("ctrl1", hex(read_register(daughterboard, buffer, 0x1)[0]))
     print("ctrl2", hex(read_register(daughterboard, buffer, 0x2)[0]))
-    print("dbg_ctrl1", hex(read_register(daughterboard, buffer, 0x18)[0]))
+    print("ctrl3", hex(read_register(daughterboard, buffer, 0x3)[0]))
     print("pwrctrl1", hex(read_register(daughterboard, buffer, 0x04)[0]))
     print("pwrctrl2", hex(read_register(daughterboard, buffer, 0x05)[0]))
     print("pwrctrl3", hex(read_register(daughterboard, buffer, 0x06)[0]))
     print("pwrctrl4", hex(read_register(daughterboard, buffer, 0x07)[0]))
-    print("ispkreg00", hex(read_register(daughterboard, buffer, 0x0C)[0]))
-    print("ispkreg01", hex(read_register(daughterboard, buffer, 0x0D)[0]))
-    print("ispkreg10", hex(read_register(daughterboard, buffer, 0x0E)[0]))
-    print("ispkreg11", hex(read_register(daughterboard, buffer, 0x0F)[0]))
+    print("ie", hex(read_register(daughterboard, buffer, 0x08)[0]))
+    print("ctrl4", hex(read_register(daughterboard, buffer, 0x09)[0]))
+    print("baddr", hex(read_register(daughterboard, buffer, 0x0a)[0]))
+    print("blen", hex(read_register(daughterboard, buffer, 0x0b)[0]))
+    print("ispkreg00", hex(read_register(daughterboard, buffer, 0x0c)[0]))
+    print("ispkreg01", hex(read_register(daughterboard, buffer, 0x0d)[0]))
+    print("ispkreg10", hex(read_register(daughterboard, buffer, 0x0e)[0]))
+    print("ispkreg11", hex(read_register(daughterboard, buffer, 0x0f)[0]))
     print("stat", hex(read_register(daughterboard, buffer, 0x10)[0]))
     print("int", hex(read_register(daughterboard, buffer, 0x11)[0]))
     print("omp_stat0", hex(read_register(daughterboard, buffer, 0x12)[0]))
     print("omp_stat1", hex(read_register(daughterboard, buffer, 0x13)[0]))
     print("omp_stat2", hex(read_register(daughterboard, buffer, 0x14)[0]))
     print("omp_stat3", hex(read_register(daughterboard, buffer, 0x15)[0]))
-
+    print("monsel0", hex(read_register(daughterboard, buffer, 0x16)[0]))
+    print("monsel1", hex(read_register(daughterboard, buffer, 0x17)[0]))
+    print("dbg_ctrl1", hex(read_register(daughterboard, buffer, 0x18)[0]))
+    print("dbg_stat1", hex(read_register(daughterboard, buffer, 0x19)[0]))
+    print("tr_cntr_stat", hex(read_register(daughterboard, buffer, 0x1a)[0]))
 
 def num_buffer_neurons(Nhidden: int) -> int:
     """
@@ -2329,7 +2336,7 @@ def export_allram_state(
     spks = np.array(state.Spikes_out).astype(int)
 
     if len(spks) > 0:
-        mat[:, : spks.shape[1]] = spks
+        mat[:, : spks.shape[1]] = spks[:, 0:Nout] # [:, 0:Nout] for the last step ???
 
         path_spko = path / "spk_out"
         if not path_spko.exists():
