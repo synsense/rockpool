@@ -122,10 +122,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         Itau_ahp: Optional[JP_ndarray] = None,
         Ith_ahp: Optional[JP_ndarray] = None,
         Iw_ahp: Optional[JP_ndarray] = None,
-        parameter_init: Optional[DynpaSE1Parameters] = None,
         dt: float = 1e-3,
         out_rate: float = 0.02,
-        update_type: str = "simple",
+        update_type: str = "dpi",
+        param_config: Optional[DynpaSE1Parameters] = None,
         layout: Optional[DynapSE1Layout] = None,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
@@ -172,9 +172,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if shape is None:
             raise ValueError("You must provide `shape`")
 
-        if layout is None:
-            layout = DynapSE1Layout()
-
         super().__init__(
             shape=shape,
             spiking_input=spiking_input,
@@ -183,32 +180,33 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             **kwargs,
         )
 
-        # Parameters
+        # --- Parameters --- #
+
         # [] TODO: all neurons cannot have different parameters ideally
         # however, they experience different parameters in practice
         # because of device mismatch
 
-        if parameter_init is None:
-            parameter_init = DynpaSE1Parameters()
+        if param_config is None:
+            param_config = DynpaSE1Parameters()
 
         self.Itau_ahp: JP_ndarray = Parameter(
             data=Itau_ahp,
             family="AHP",
-            init_func=lambda s: np.ones(s) * parameter_init.Itau_ahp,
+            init_func=lambda s: np.ones(s) * param_config.Itau_ahp,
             shape=(self.size_out,),
         )
 
         self.Ith_ahp: JP_ndarray = Parameter(
             data=Ith_ahp,
             family="AHP",
-            init_func=lambda s: np.ones(s) * parameter_init.Ith_ahp,
+            init_func=lambda s: np.ones(s) * param_config.Ith_ahp,
             shape=(self.size_out,),
         )
 
         self.Iw_ahp: JP_ndarray = Parameter(
             data=Iw_ahp,
             family="AHP",
-            init_func=lambda s: np.ones(s) * parameter_init.Iw_ahp,
+            init_func=lambda s: np.ones(s) * param_config.Iw_ahp,
             shape=(self.size_out,),
         )
 
@@ -216,9 +214,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.out_rate = out_rate
         self.update_type = update_type
 
-        # States
+        # --- States --- #
+
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+
+        if layout is None:
+            layout = DynapSE1Layout()
+
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
 
         self.rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
@@ -226,10 +229,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
 
         self.Iahp: JP_ndarray = State(
-            shape=(self.size_out,), init_func=lambda s: np.ones(s) * layout.Io
+            shape=(self.size_out,),
+            family="AHP",
+            init_func=lambda s: np.ones(s) * layout.Io,
         )
 
-        # Simulation Parameters
+        # --- Simulation Parameters --- #
         self.dt: P_float = SimulationParameter(dt)
         self.layout = SimulationParameter(layout)
 
@@ -280,10 +285,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # Reset depending on spiking activity
             # [] TODO : CHANGE BACK TO
             # Iahp += spikes * self.Iahp_inf
-            Iahp += spike_inputs_ts * self.Iahp_inf
+            # Iahp += spike_inputs_ts * self.Iahp_inf
 
             # Apply forward step
-            Iahp = update_ahp(Iahp)
+            Iahp = update_ahp(Iahp, spike_inputs_ts, self.Iahp_inf)
 
             # Io clipping
             Iahp = np.clip(Iahp, self.layout.Io)
@@ -315,6 +320,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         if record:
             record_dict = {
+                "input_data": input_data,
                 "spikes": spikes_ts,
                 "Iahp": Iahp_ts,
             }
@@ -336,7 +342,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         if type == "simple":
 
-            def _simple_update(Isyn):
+            def _simple_update(Isyn, spikes, Iss):
+                Isyn += spikes * Iss
                 factor = -self.dt / self.tau_ahp
                 I_next = Isyn + Isyn * factor
                 return I_next
@@ -345,15 +352,36 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         elif type == "exp":
 
-            def _exponential_update(Isyn):
+            def _exponential_update(Isyn, spikes, Iss):
+                Isyn += spikes * Iss
                 factor = np.exp(-self.dt / self.tau_ahp)
                 I_next = Isyn * factor
                 return I_next
 
             return _exponential_update
 
+        elif type == "dpi":
+
+            def _dpi_update(Isyn, spikes, Iss):
+
+                factor = np.exp(-self.dt / self.tau_ahp)
+
+                # CHARGE PHASE
+                charge = Iss * (1 - factor) + Isyn * factor
+                charge_vector = spikes * charge
+
+                # DISCHARGE PHASE
+                discharge = Isyn * factor
+                discharge_vector = (1 - spikes) * discharge
+
+                I_next = charge_vector + discharge_vector
+
+                return I_next
+
+            return _dpi_update
+
         else:
-            raise TypeError("Update type undefined. Try one of 'simple', 'exp'")
+            raise TypeError("Update type undefined. Try one of 'simple', 'exp', 'dpi'")
 
     @property
     def Iahp_inf(self):
