@@ -39,9 +39,40 @@ import jax.random as rand
 from jax.lax import scan
 
 from jax import numpy as np
-from typing import Optional, Protocol, Tuple, Union, Dict, Callable, Any
+from dataclasses import dataclass
+
+from typing import (
+    Optional,
+    Tuple,
+    Callable,
+    Any,
+)
 
 from rockpool.typehints import JP_ndarray, P_float
+
+
+@dataclass
+class DynapSE1Layout:
+    kappa_n: float = 0.75
+    kappa_p: float = 0.66
+    Ut: float = 25e-3
+    Cmem: float = 1.5e-12
+    Cahp: float = 1e-12
+    Cnmda: float = 1.5e-12
+    Campa: float = 1.5e-12
+    Cgaba_a: float = 1.5e-12
+    Cgaba_b: float = 1.5e-12
+    Io: float = 5e-13
+
+    def __init__(self):
+        self.kappa = (self.kappa_n + self.kappa_p) / 2
+
+
+@dataclass
+class DynpaSE1Parameters:
+    Itau_ahp: float = 1e-12
+    Ith_ahp: float = 1e-12
+    Iw_ahp: float = 2e-12
 
 
 class DynapSE1NeuronSynapseJax(JaxModule):
@@ -88,17 +119,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     def __init__(
         self,
         shape: tuple = None,
+        Itau_ahp: Optional[JP_ndarray] = None,
+        Ith_ahp: Optional[JP_ndarray] = None,
+        Iw_ahp: Optional[JP_ndarray] = None,
+        parameter_init: Optional[DynpaSE1Parameters] = None,
+        dt: float = 1e-3,
         out_rate: float = 0.02,
         update_type: str = "simple",
-        Itau_ahp: float = 1e-12,
-        Ith_ahp: float = 1e-12,
-        Io: float = 0.5e-12,
-        Ica: float = 2e-12,
-        kappa_n: float = 0.75,
-        kappa_p: float = 0.66,
-        Ut: float = 25e-3,
-        Cahp: float = 1e-12,
-        dt: float = 1e-3,
+        layout: Optional[DynapSE1Layout] = None,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
         spiking_output: bool = True,
@@ -118,8 +146,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :type Ith_ahp: float, optional
         :param Io: Dark current, defaults to 0.5e-12
         :type Io: float, optional
-        :param Ica: Calcium current, Spike-frequency adaptation weight current, defaults to 2e-12
-        :type Ica: float, optional
+        :param Iw_ahp: Calcium current, Spike-frequency adaptation weight current, defaults to 2e-12
+        :type Iw_ahp: float, optional
         :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
         :type kappa_n: float, optional
         :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
@@ -144,6 +172,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if shape is None:
             raise ValueError("You must provide `shape`")
 
+        if layout is None:
+            layout = DynapSE1Layout()
+
         super().__init__(
             shape=shape,
             spiking_input=spiking_input,
@@ -157,17 +188,27 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # however, they experience different parameters in practice
         # because of device mismatch
 
+        if parameter_init is None:
+            parameter_init = DynpaSE1Parameters()
+
         self.Itau_ahp: JP_ndarray = Parameter(
-            Itau_ahp * np.ones(self.size_out),
-            "AHP",
-            init_func=lambda s: np.ones(s) * Io,
+            data=Itau_ahp,
+            family="AHP",
+            init_func=lambda s: np.ones(s) * parameter_init.Itau_ahp,
             shape=(self.size_out,),
         )
 
         self.Ith_ahp: JP_ndarray = Parameter(
-            Ith_ahp * np.ones(self.size_out),
-            "AHP",
-            init_func=lambda s: np.ones(s) * Io,
+            data=Ith_ahp,
+            family="AHP",
+            init_func=lambda s: np.ones(s) * parameter_init.Ith_ahp,
+            shape=(self.size_out,),
+        )
+
+        self.Iw_ahp: JP_ndarray = Parameter(
+            data=Iw_ahp,
+            family="AHP",
+            init_func=lambda s: np.ones(s) * parameter_init.Iw_ahp,
             shape=(self.size_out,),
         )
 
@@ -185,17 +226,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
 
         self.Iahp: JP_ndarray = State(
-            shape=(self.size_out,), init_func=lambda s: np.ones(s) * Io
+            shape=(self.size_out,), init_func=lambda s: np.ones(s) * layout.Io
         )
 
         # Simulation Parameters
         self.dt: P_float = SimulationParameter(dt)
-        ## Silicon Features
-        self.Io: P_float = SimulationParameter(Io)
-        self.Ica: P_float = SimulationParameter(Ica)
-        self.kappa: P_float = SimulationParameter((kappa_n + kappa_p) / 2)
-        self.Ut: P_float = SimulationParameter(Ut)
-        self.Cahp: P_float = SimulationParameter(Cahp)
+        self.layout = SimulationParameter(layout)
 
     def evolve(
         self,
@@ -250,7 +286,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Iahp = update_ahp(Iahp)
 
             # Io clipping
-            Iahp = np.clip(Iahp, self.Io)
+            Iahp = np.clip(Iahp, self.layout.Io)
 
             # [] TODO : Decide on upper bound
             # Iahp = np.clip(Iahp, self.Io, self.Iahp_inf)
@@ -328,7 +364,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: Ratio of currents through diffpair and adaptation block
         :rtype: np.ndarray
         """
-        return (self.Ith_ahp / self.Itau_ahp) * self.Ica
+        return (self.Ith_ahp / self.Itau_ahp) * self.Iw_ahp
 
     @property
     def tau_ahp(self):
@@ -339,4 +375,4 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: depends on silicon properties and Itau_ahp together
         :rtype: np.ndarray
         """
-        return (self.Cahp * self.Ut) / (self.kappa * self.Itau_ahp)
+        return (self.layout.Cahp * self.layout.Ut) / (self.layout.kappa * self.Itau_ahp)
