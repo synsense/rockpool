@@ -1281,8 +1281,8 @@ def export_registers(
         f.write(hex(read_register(daughterboard, buffer, 0x2)[0]))
         f.write("\n")
 
-        f.write("dbg_ctrl1 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x18)[0]))
+        f.write("ctrl3 ")
+        f.write(hex(read_register(daughterboard, buffer, 0x3)[0]))
         f.write("\n")
 
         f.write("pwrctrl1 ")
@@ -1301,20 +1301,36 @@ def export_registers(
         f.write(hex(read_register(daughterboard, buffer, 0x07)[0]))
         f.write("\n")
 
+        f.write("ie ")
+        f.write(hex(read_register(daughterboard, buffer, 0x08)[0]))
+        f.write("\n")
+
+        f.write("ctrl4 ")
+        f.write(hex(read_register(daughterboard, buffer, 0x09)[0]))
+        f.write("\n")
+
+        f.write("baddr ")
+        f.write(hex(read_register(daughterboard, buffer, 0x0a)[0]))
+        f.write("\n")
+
+        f.write("blen ")
+        f.write(hex(read_register(daughterboard, buffer, 0x0b)[0]))
+        f.write("\n")
+
         f.write("ispkreg00 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0C)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0c)[0]))
         f.write("\n")
 
         f.write("ispkreg01 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0D)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0d)[0]))
         f.write("\n")
 
         f.write("ispkreg10 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0E)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0e)[0]))
         f.write("\n")
 
         f.write("ispkreg11 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0F)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0f)[0]))
         f.write("\n")
 
         f.write("stat ")
@@ -1339,6 +1355,26 @@ def export_registers(
 
         f.write("omp_stat3 ")
         f.write(hex(read_register(daughterboard, buffer, 0x15)[0]))
+        f.write("\n")
+
+        f.write("monsel0 ")
+        f.write(hex(read_register(daughterboard, buffer, 0x16)[0]))
+        f.write("\n")
+
+        f.write("monsel1 ")
+        f.write(hex(read_register(daughterboard, buffer, 0x17)[0]))
+        f.write("\n")
+
+        f.write("dbg_ctrl1 ")
+        f.write(hex(read_register(daughterboard, buffer, 0x18)[0]))
+        f.write("\n")
+
+        f.write("dbg_stat1 ")
+        f.write(hex(read_register(daughterboard, buffer, 0x19)[0]))
+        f.write("\n")
+
+        f.write("tr_cntr_stat ")
+        f.write(hex(read_register(daughterboard, buffer, 0x1a)[0]))
         f.write("\n")
 
 
@@ -2416,7 +2452,7 @@ def export_allram_state(
             for t, chans in enumerate(inp_spks):
                 idle += 1
                 if not np.all(chans == 0):
-                    f.write(f"// time step {t-1}\n")
+                    f.write(f"// time step {t}\n")
                     if idle > 0:
                         f.write(f"idle {idle}\n")
                     idle = 0
@@ -2706,6 +2742,436 @@ def export_allram_state(
     print("Writing OWTRAM files in output_weight", end="\r")
     for t, vals in enumerate(mat):
         with open(path_OWTRAM_state / f"OWTRAM_{t-1}.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                if i_neur % Nout == 0:
+                    f.write(f"// owt for RSN{i_neur//Nout} \n")
+                f.write(to_hex(val, 2))
+                f.write("\n")
+
+
+def export_last_state(
+    path: Union[Path, str],
+    config: PollenConfiguration,
+    inp_spks: np.ndarray,
+    state: PollenState
+) -> None:
+    """
+    Export the state of a Pollen network over time
+
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
+
+    Args:
+        path (Path): The directory to export the state to
+        config (PollenConfiguration): The configuration of the Pollen network
+        inp_spks (np.ndarray): The input spikes for this simulation
+        state (PollenState): A temporal state of a Pollen network to export
+    """
+    # - Make `path` a path
+    path = Path(path)
+
+    # - Determine network size
+    inp_size = np.shape(config.input.weights)[0]
+    num_neurons = np.shape(config.reservoir.weights)[1]
+    readout_size = np.shape(config.readout.weights)[1]
+    size_total = num_neurons + readout_size
+
+    Nin = inp_size
+    Nhidden = num_neurons
+    Nout = readout_size
+
+    # rspkram
+    mat = np.zeros((np.shape(state.Spikes_hid)[0], num_neurons), dtype=int)
+    spks = np.array(state.Spikes_hid).astype(int)
+
+    if len(spks) > 0:
+        mat[:, : spks.shape[1]] = spks
+
+        path_spkr = path / "spk_res"
+        if not path_spkr.exists():
+            makedirs(path_spkr)
+
+        print("Writing rspkram files in spk_res", end="\r")
+        for t, spks in enumerate(mat):
+            with open(path_spkr / "rspkram_last.txt", "w+") as f: #t-1 because add 1 before evolve
+                for val in spks:
+                    f.write(to_hex(val, 2))
+                    f.write("\n")
+
+    # ospkram
+    mat = np.zeros((np.shape(state.Spikes_out)[0], readout_size), dtype=int)
+    spks = np.array(state.Spikes_out).astype(int)
+
+    if len(spks) > 0:
+        mat[:, : spks.shape[1]] = spks[:, 0:Nout] # [:, 0:Nout] for the last step ???
+
+        path_spko = path / "spk_out"
+        if not path_spko.exists():
+            makedirs(path_spko)
+
+        print("Writing ospkram files in spk_out", end="\r")
+        for t, spks in enumerate(mat):
+            with open(path_spko / "ospkram_last.txt", "w+") as f:
+                for val in spks:
+                    f.write(to_hex(val, 2))
+                    f.write("\n")
+
+    # nscram
+    mat = np.zeros((np.shape(state.I_syn_hid)[0], size_total), dtype=int)
+    isyns = np.array(state.I_syn_hid).astype(int)
+    mat[:, : isyns.shape[1]] = isyns
+    isyns_out = np.array(state.I_syn_out).astype(int)
+    mat[:, num_neurons : num_neurons + isyns_out.shape[1]] = isyns_out
+
+    path_isyn = path / "isyn"
+    if not path_isyn.exists():
+        makedirs(path_isyn)
+
+    print("Writing nscram files in isyn", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_isyn / "nscram_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    # nsc2ram --> rsc2ram
+    if not hasattr(state, "I_syn2_hid"):
+        mat = np.zeros((0, num_neurons), int)
+    else:
+        mat = np.zeros((np.shape(state.I_syn2_hid)[0], num_neurons), dtype=int)
+        isyns2 = np.array(state.I_syn2_hid).astype(int)
+        mat[:, : isyns2.shape[1]] = isyns2
+
+    path_isyn2 = path / "isyn2"
+    if not path_isyn2.exists():
+        makedirs(path_isyn2)
+
+    print("Writing rsc2ram files in isyn2", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_isyn2 / "rsc2ram_last.txt", "w+") as f:
+            for val in vals:
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    # nmpram
+    mat = np.zeros((np.shape(state.V_mem_hid)[0], size_total), dtype=int)
+    vmems = np.array(state.V_mem_hid).astype(int)
+    mat[:, : vmems.shape[1]] = vmems
+    vmems_out = np.array(state.V_mem_out).astype(int)
+    mat[:, num_neurons : num_neurons + vmems_out.shape[1]] = vmems_out
+
+    path_vmem = path / "vmem"
+    if not path_vmem.exists():
+        makedirs(path_vmem)
+
+    print("Writing nmpram files in vmem", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_vmem / "nmpram_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    if inp_spks is not None:
+        # input spikes
+        path_spki = path / "spk_in"
+        if not path_spki.exists():
+            makedirs(path_spki)
+
+        print("Writing inp_spks.txt", end="\r")
+        with open(path_spki / "inp_spks.txt", "w+") as f:
+            idle = -1
+            for t, chans in enumerate(inp_spks):
+                idle += 1
+                if not np.all(chans == 0):
+                    f.write(f"// time step {t}\n")
+                    if idle > 0:
+                        f.write(f"idle {idle}\n")
+                    idle = 0
+                    for chan, num_spikes in enumerate(chans):
+                        for _ in range(num_spikes):
+                            f.write(f"wr IN{to_hex(chan, 1)}\n")
+
+    #############################################
+    #### config ram, not export dummy neuron ####
+    #############################################
+    # IWTRAM_state: input_weight_ram_ts
+    mat = np.zeros(
+        (np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int
+    )  # num_buffer_neuron???
+    input_weight = np.array(state.IWTRAM_state).astype(int)
+    mat[:, : input_weight.shape[1]] = input_weight[
+        :, 0 : Nin * Nhidden
+    ]  # num_buffer_neuron???
+
+    path_IWTRAM_state = path / "IWTRAM_state"
+    if not path_IWTRAM_state.exists():
+        makedirs(path_IWTRAM_state)
+
+    print("Writing IWTRAM files in input_weight", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_IWTRAM_state / "IWTRAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                if i_neur % Nhidden == 0:
+                    f.write(f"// iwt for IN{i_neur//Nhidden} \n")
+                f.write(to_hex(val, 2))
+                f.write("\n")
+
+    # IWT2RAM_state input_weight_2ram_ts
+    mat = np.zeros(
+        (np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int
+    )  # num_buffer_neuron???
+    input_weight_2 = np.array(state.IWT2RAM_state).astype(int)
+    mat[:, : input_weight_2.shape[1]] = input_weight_2[
+        :, 0 : Nin * Nhidden
+    ]  # num_buffer_neuron???
+
+    path_IWT2RAM_state = path / "IWT2RAM_state"
+    if not path_IWT2RAM_state.exists():
+        makedirs(path_IWT2RAM_state)
+
+    print("Writing IWT2RAM files in input_weight_2", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_IWT2RAM_state / "IWT2RAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                if i_neur % Nhidden == 0:
+                    f.write(f"// iwt2 for IN{i_neur//Nhidden} \n")
+                f.write(to_hex(val, 2))
+                f.write("\n")
+
+    # NDSRAM_state:neuron_dash_syn_ram_ts
+    mat = np.zeros(
+        (np.shape(state.NDSRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout),
+        dtype=int,
+    )
+    neuron_dash_syn = np.array(state.NDSRAM_state).astype(int)
+    mat[:, : neuron_dash_syn.shape[1]] = neuron_dash_syn[
+        :, 0 : Nhidden + num_buffer_neurons(Nhidden) + Nout
+    ]
+
+    path_NDSRAM_state = path / "NDSRAM_state"
+    if not path_NDSRAM_state.exists():
+        makedirs(path_NDSRAM_state)
+
+    print("Writing NDSRAM files in input_weight", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_NDSRAM_state / "NDSRAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 1))
+                f.write("\n")
+
+    # RDS2RAM_state: reservoir_dash_syn_2ram_ts
+    mat = np.zeros(
+        (np.shape(state.RDS2RAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
+        dtype=int,
+    )
+    reservoir_dash_syn_2 = np.array(state.RDS2RAM_state).astype(int)
+    mat[:, : reservoir_dash_syn_2.shape[1]] = reservoir_dash_syn_2[
+        :, 0 : Nhidden + num_buffer_neurons(Nhidden)
+    ]
+    path_RDS2RAM_state = path / "RDS2RAM_state"
+    if not path_RDS2RAM_state.exists():
+        makedirs(path_RDS2RAM_state)
+
+    print("Writing RDS2RAM files in reservoir_dash_syn_2", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_RDS2RAM_state / "RDS2RAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 1))
+                f.write("\n")
+
+    # NDMRAM_state: neuron_dash_mem_ram_ts
+    mat = np.zeros(
+        (np.shape(state.NDMRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
+        dtype=int,
+    )
+    neuron_dash_mem = np.array(state.NDMRAM_state).astype(int)
+    mat[:, : neuron_dash_mem.shape[1]] = neuron_dash_mem[
+        :, 0 : Nhidden + num_buffer_neurons(Nhidden)
+    ]
+
+    path_NDMRAM_state = path / "NDMRAM_state"
+    if not path_NDMRAM_state.exists():
+        makedirs(path_NDMRAM_state)
+
+    print("Writing NDMRAM files in neuron_dash_mem", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_NDMRAM_state / "NDMRAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 1))
+                f.write("\n")
+
+    # NTHRAM_state: neuron_threshold_ram_ts
+    mat = np.zeros(
+        (np.shape(state.NTHRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout),
+        dtype=int,
+    )
+    neuron_threshold = np.array(state.NTHRAM_state).astype(int)
+    mat[:, : neuron_threshold.shape[1]] = neuron_threshold[
+        :, 0 : Nhidden + num_buffer_neurons(Nhidden) + Nout
+    ]
+
+    path_NTHRAM_state = path / "NTHRAM_state"
+    if not path_NTHRAM_state.exists():
+        makedirs(path_NTHRAM_state)
+
+    print("Writing NTHRAM files in neuron_threshold", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_NTHRAM_state / "NTHRAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 4))
+                f.write("\n")
+
+    # RCRAM_state: reservoir_config_ram_ts
+    mat = np.zeros(
+        (np.shape(state.RCRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
+        dtype=int,
+    )
+    reservoir_config = np.array(state.RCRAM_state).astype(int)
+    mat[:, : reservoir_config.shape[1]] = reservoir_config[
+        :, 0 : Nhidden + num_buffer_neurons(Nhidden)
+    ]
+    path_RCRAM_state = path / "RCRAM_state"
+    if not path_RCRAM_state.exists():
+        makedirs(path_RCRAM_state)
+
+    print("Writing RCRAM files in input_weight", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_RCRAM_state / "RCRAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 1))
+                f.write("\n")
+
+    # RARAM_state: reservoir_aliasing_ram_ts
+    mat = np.zeros(
+        (np.shape(state.RARAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
+        dtype=int,
+    )
+    reservoir_aliasing = np.array(state.RARAM_state).astype(int)
+    mat[:, : reservoir_aliasing.shape[1]] = reservoir_aliasing[
+        :, 0 : Nhidden + num_buffer_neurons(Nhidden)
+    ]
+    path_RARAM_state = path / "RARAM_state"
+    if not path_RARAM_state.exists():
+        makedirs(path_RARAM_state)
+
+    print("Writing RARAM files in reservoir_aliasing", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_RARAM_state / "RARAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 3))
+                f.write("\n")
+
+    # REFOCRAM_state: reservoir_effective_fanout_count_ram_ts
+    mat = np.zeros(
+        (np.shape(state.REFOCRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
+        dtype=int,
+    )
+    reservoir_effective_fanout_count = np.array(state.REFOCRAM_state).astype(int)
+    mat[
+        :, : reservoir_effective_fanout_count.shape[1]
+    ] = reservoir_effective_fanout_count[:, 0 : Nhidden + num_buffer_neurons(Nhidden)]
+    path_REFOCRAM_state = path / "REFOCRAM_state"
+    if not path_REFOCRAM_state.exists():
+        makedirs(path_REFOCRAM_state)
+
+    print("Writing REFOCRAM files in reservoir_effective_fanout_count", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_REFOCRAM_state / "REFOCRAM_last.txt", "w+") as f:
+            for i_neur, val in enumerate(vals):
+                f.write(to_hex(val, 2))
+                f.write("\n")
+
+    # RFORAM_state: recurrent_fanout_ram_ts
+    mat = np.zeros(
+        (np.shape(state.RFORAM_state)[0], np.shape(state.RFORAM_state)[1]), dtype=int
+    )  # 32000
+    recurrent_fanout = np.array(state.RFORAM_state).astype(int)
+    mat[:, : recurrent_fanout.shape[1]] = recurrent_fanout
+
+    path_RFORAM_state = path / "RFORAM_state"
+    if not path_RFORAM_state.exists():
+        makedirs(path_RFORAM_state)
+
+    print("Writing RFORAM files in recurrent_fanout", end="\r")
+    for t, rforam in enumerate(mat):
+        with open(path_RFORAM_state / "RFORAM_last.txt", "w+") as f:
+            reservoir_fanout_total = 0
+            for res_neur_index, fanout_count in enumerate(
+                reservoir_effective_fanout_count[t]
+            ):
+                f.write(f"// rfo of RSN{res_neur_index} \n")
+                for fanout_index in range(fanout_count):
+                    f.write(to_hex(rforam[reservoir_fanout_total], 3))
+                    f.write("\n")
+                    reservoir_fanout_total += 1
+
+    # RWTRAM_state: recurrent_weight_ram_ts
+    mat = np.zeros(
+        (np.shape(state.RWTRAM_state)[0], np.shape(state.RWTRAM_state)[1]), dtype=int
+    )  # 32000
+    recurrent_weight = np.array(state.RWTRAM_state).astype(int)
+    mat[:, : recurrent_weight.shape[1]] = recurrent_weight
+
+    path_RWTRAM_state = path / "RWTRAM_state"
+    if not path_RWTRAM_state.exists():
+        makedirs(path_RWTRAM_state)
+
+    print("Writing RWTRAM files in recurrent_weight", end="\r")
+    for t, rforam in enumerate(mat):
+        with open(path_RWTRAM_state / "RWTRAM_last.txt", "w+") as f:
+            reservoir_fanout_total = 0
+            for res_neur_index, fanout_count in enumerate(
+                reservoir_effective_fanout_count[t]
+            ):
+                f.write(f"// rwt of RSN{res_neur_index} \n")
+                for fanout_index in range(fanout_count):
+                    f.write(to_hex(rforam[reservoir_fanout_total], 2))
+                    f.write("\n")
+                    reservoir_fanout_total += 1
+
+    # RWT2RAM_state: recurrent_weight_2ram_ts
+    mat = np.zeros(
+        (np.shape(state.RWT2RAM_state)[0], np.shape(state.RWT2RAM_state)[1]), dtype=int
+    )  # 32000
+    recurrent_weight_2 = np.array(state.RWT2RAM_state).astype(int)
+    mat[:, : recurrent_weight_2.shape[1]] = recurrent_weight_2
+
+    path_RWT2RAM_state = path / "RWT2RAM_state"
+    if not path_RWT2RAM_state.exists():
+        makedirs(path_RWT2RAM_state)
+
+    print("Writing RWT2RAM files in recurrent_weight_2", end="\r")
+    for t, rforam in enumerate(mat):
+        with open(path_RWT2RAM_state / "RWT2RAM_last.txt", "w+") as f:
+            reservoir_fanout_total = 0
+            for res_neur_index, fanout_count in enumerate(
+                reservoir_effective_fanout_count[t]
+            ):
+                f.write(f"// rwt2 of RSN{res_neur_index} \n")
+                for fanout_index in range(fanout_count):
+                    f.write(to_hex(rforam[reservoir_fanout_total], 2))
+                    f.write("\n")
+                    reservoir_fanout_total += 1
+
+    # OWTRAM_state: output_weight_ram_ts
+    mat = np.zeros(
+        (
+            np.shape(state.OWTRAM_state)[0],
+            Nout * (Nhidden + num_buffer_neurons(Nhidden)),
+        ),
+        dtype=int,
+    )
+    output_weight = np.array(state.OWTRAM_state).astype(int)
+    mat[:, : output_weight.shape[1]] = output_weight[
+        :, 0 : Nout * (Nhidden + num_buffer_neurons(Nhidden))
+    ]
+
+    path_OWTRAM_state = path / "OWTRAM_state"
+    if not path_OWTRAM_state.exists():
+        makedirs(path_OWTRAM_state)
+
+    print("Writing OWTRAM files in output_weight", end="\r")
+    for t, vals in enumerate(mat):
+        with open(path_OWTRAM_state / "OWTRAM_last.txt", "w+") as f:
             for i_neur, val in enumerate(vals):
                 if i_neur % Nout == 0:
                     f.write(f"// owt for RSN{i_neur//Nout} \n")

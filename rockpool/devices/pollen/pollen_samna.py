@@ -329,7 +329,7 @@ class PollenSamna(Module):
         )
 
         # - Initialise the pollen HDK
-        putils.initialise_pollen_hdk(device)
+        putils.initialise_pollen_hdk(device) # dummy 'TriggerProcessing' signal
 
         # - Register a buffer to read events from Pollen
         self._event_buffer = putils.new_pollen_read_buffer(device)
@@ -808,7 +808,7 @@ class PollenSamna(Module):
             newFolder = Path(folder)
             if not newFolder.exists():
                 makedirs(newFolder)
-            file = folder + "register_init.txt"
+            file = folder + "register_-1.txt"
             putils.export_registers(self._device, self._event_buffer, file)
 
         ##########################################################
