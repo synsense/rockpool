@@ -43,6 +43,7 @@ class PollenState(NamedTuple):
     """
 
     Nin: int
+    """ The number of input-layer neurons """
 
     Nhidden: int
     """ The number of hidden-layer neurons """
@@ -156,7 +157,7 @@ def new_pollen_read_buffer(
     # print("   got source node")
 
     # - Add the buffer as a destination for the Pollen output events
-    ic = buffer.get_input_channel()
+    ic = buffer.get_input_channel() # source_node -> ic -> buffer (filter)
     # print("   got input channel")
 
     success = source_node.add_destination(ic)
@@ -872,6 +873,7 @@ def read_allram_state(
 
 def read_accel_mode_data(
     monitor_buffer: PollenNeuronStateBuffer,
+    Nin: int,
     Nhidden: int,
     Nout: int,
 ) -> PollenState:
@@ -899,8 +901,23 @@ def read_accel_mode_data(
     vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
     vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
 
+    IWTRAM_ts = np.zeros((1,1))
+    IWT2RAM_ts = np.zeros((1,1))
+    NDSRAM_ts = np.zeros((1,1))
+    RDS2RAM_ts = np.zeros((1,1))
+    NDMRAM_ts = np.zeros((1,1))
+    NTHRAM_ts = np.zeros((1,1))
+    RCRAM_ts = np.zeros((1,1))
+    RARAM_ts = np.zeros((1,1))
+    REFOCRAM_ts = np.zeros((1,1))
+    RFORAM_ts = np.zeros((1,1))
+    RWTRAM_ts = np.zeros((1,1))
+    RWT2RAM_ts = np.zeros((1,1))
+    OWTRAM_ts = np.zeros((1,1))
+
     # - Return as a PollenState object
     return PollenState(
+        Nin,
         Nhidden,
         Nout,
         vmem_ts,
@@ -910,6 +927,19 @@ def read_accel_mode_data(
         isyn2_ts,
         spikes_ts,
         spikes_out_ts,
+        IWTRAM_ts,
+        IWT2RAM_ts,
+        NDSRAM_ts,
+        RDS2RAM_ts,
+        NDMRAM_ts,
+        NTHRAM_ts,
+        RCRAM_ts,
+        RARAM_ts,
+        REFOCRAM_ts,
+        RFORAM_ts,
+        RWTRAM_ts,
+        RWT2RAM_ts,
+        OWTRAM_ts,
     )
 
 

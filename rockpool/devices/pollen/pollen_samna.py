@@ -404,7 +404,7 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         # - Get the network size
-        Nhidden, Nout = self.shape[-2:]
+        Nin, Nhidden, Nout = self.shape[:]
 
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
@@ -424,7 +424,7 @@ class PollenSamna(Module):
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
                 event = samna.pollen.event.Spike()
-                event.neuron = channel
+                event.neuron_id = channel
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
@@ -458,6 +458,12 @@ class PollenSamna(Module):
             target_timestamp=final_timestep,
         )
 
+        # def eventsToStr(events):
+        #     strings = ""
+        #     for e in events:
+        #         strings += f'[{str(e)}]'
+        #     return strings
+
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
             readout_events = [e for e in read_events if hasattr(e, "timestamp")]
@@ -467,7 +473,7 @@ class PollenSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
 
         if record:
             # - Build a recorded state dictionary
@@ -571,7 +577,7 @@ class PollenSamna(Module):
             output_ts.append(output_events)
 
         # if record:
-        #     pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+        #     pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
         #     # - Build a recorded state dictionary
         #     rec_dict = {
         #         "Vmem": np.array(pollen_data.V_mem_hid),
