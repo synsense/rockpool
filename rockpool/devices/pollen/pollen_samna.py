@@ -463,6 +463,19 @@ class PollenSamna(Module):
         #     for e in events:
         #         strings += f'[{str(e)}]'
         #     return strings
+        folder = "./state_monitor/"
+        newFolder = Path(folder)
+        if not newFolder.exists():
+            makedirs(newFolder)
+
+        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
+        np.savetxt(folder+"Vmem.txt", np.array(pollen_data.V_mem_hid), fmt="%i")
+        np.savetxt(folder+"Isyn.txt", np.array(pollen_data.I_syn_hid), fmt="%i")
+        np.savetxt(folder+"Isyn2.txt", np.array(pollen_data.I_syn2_hid), fmt="%i")
+        np.savetxt(folder+"Spikes.txt", np.array(pollen_data.Spikes_hid), fmt="%i")
+        np.savetxt(folder+"Vmem_out.txt", np.array(pollen_data.V_mem_out), fmt="%i")
+        np.savetxt(folder+"Isyn_out.txt", np.array(pollen_data.I_syn_out), fmt="%i")
+        np.savetxt(folder+"times.txt", np.arange(start_timestep, final_timestep + 1), fmt="%i")
 
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
