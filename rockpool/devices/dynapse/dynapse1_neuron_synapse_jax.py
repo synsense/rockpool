@@ -53,26 +53,59 @@ from rockpool.typehints import JP_ndarray, P_float
 
 @dataclass
 class DynapSE1Layout:
-    kappa_n: float = 0.75
-    kappa_p: float = 0.66
-    Ut: float = 25e-3
-    Cmem: float = 1.5e-12
-    Cahp: float = 1e-12
-    Cnmda: float = 1.5e-12
-    Campa: float = 1.5e-12
-    Cgaba_a: float = 1.5e-12
-    Cgaba_b: float = 1.5e-12
-    Io: float = 5e-13
+    def __init__(
+        self,
+        kappa_n: float = 0.75,
+        kappa_p: float = 0.66,
+        Ut: float = 25e-3,
+        Cmem: float = 1.5e-12,
+        Cahp: float = 1e-9,
+        Cnmda: float = 1.5e-9,
+        Campa: float = 1.5e-12,
+        Cgaba_a: float = 1.5e-12,
+        Cgaba_b: float = 1.5e-12,
+        Io: float = 5e-13,
+    ):
 
-    def __init__(self):
-        self.kappa = (self.kappa_n + self.kappa_p) / 2
+        self.kappa_n = kappa_n
+        self.kappa_p = kappa_p
+        self.Ut = Ut
+        self.Cmem = Cmem
+        self.Cahp = Cahp
+        self.Cnmda = Cnmda
+        self.Campa = Campa
+        self.Cgaba_a = Cgaba_a
+        self.Cgaba_b = Cgaba_b
+        self.Io = Io
+        self.kappa = (kappa_n + kappa_p) / 2
+
+
+@dataclass
+class DPIParameters:
+    def __init__(
+        self,
+        Isyn: float = 5e-12,
+        Itau: float = 1e-9,
+        Ith: float = 1e-9,
+        Iw: float = 1e-6,
+    ):
+
+        self.Isyn = Isyn
+        self.Itau = Itau
+        self.Ith = Ith
+        self.Iw = Iw
 
 
 @dataclass
 class DynpaSE1Parameters:
-    Itau_ahp: float = 1e-12
-    Ith_ahp: float = 1e-12
-    Iw_ahp: float = 2e-12
+    def __init__(
+        self,
+        ahp: Optional[DPIParameters] = None,
+        nmda: Optional[DPIParameters] = None,
+    ):
+
+        self.ahp = ahp
+        self.nmda = nmda
 
 
 class DynapSE1NeuronSynapseJax(JaxModule):
@@ -83,6 +116,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     [] ATTENTION TODO: Now, implementation is only for one core
     [] TODO: TRY to present rng_key, dt, parameters, states as property, timeit!
     [] TODO: Arrange the silicon features in neat way. Think about dict, class, json
+    [] TODO: think about activating and deactivating certain circuit blocks. Might be function returning another function
+    [] TODO: all neurons cannot have the same parameters ideally however, they experience different parameters in practice because of device mismatch
 
     DynapSE1 neuron and synapse circuit simulation
     This module implements the dynamics
@@ -119,13 +154,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     def __init__(
         self,
         shape: tuple = None,
-        Itau_ahp: Optional[JP_ndarray] = None,
-        Ith_ahp: Optional[JP_ndarray] = None,
-        Iw_ahp: Optional[JP_ndarray] = None,
         dt: float = 1e-3,
         out_rate: float = 0.02,
         update_type: str = "dpi",
-        param_config: Optional[DynpaSE1Parameters] = None,
+        params: Optional[DynpaSE1Parameters] = None,
         layout: Optional[DynapSE1Layout] = None,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
@@ -172,6 +204,20 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if shape is None:
             raise ValueError("You must provide `shape`")
 
+        if rng_key is None:
+            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
+
+        if layout is None:
+            layout = DynapSE1Layout()
+
+        if params is None:
+            params = DynpaSE1Parameters(ahp=DPIParameters(), nmda=DPIParameters())
+
+        _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
+        self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
+        self._layout = layout
+        self._params = params
+
         super().__init__(
             shape=shape,
             spiking_input=spiking_input,
@@ -180,34 +226,17 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             **kwargs,
         )
 
+        # [] TODO: Think about loop and __setattribute__
+
         # --- Parameters --- #
-
-        # [] TODO: all neurons cannot have different parameters ideally
-        # however, they experience different parameters in practice
-        # because of device mismatch
-
-        if param_config is None:
-            param_config = DynpaSE1Parameters()
-
-        self.Itau_ahp: JP_ndarray = Parameter(
-            data=Itau_ahp,
-            family="AHP",
-            init_func=lambda s: np.ones(s) * param_config.Itau_ahp,
-            shape=(self.size_out,),
+        self.Iahp, self.Itau_ahp, self.Ith_ahp, self.Iw_ahp = self._set_dpi_params(
+            init=params.ahp,
+            block_name="AHP",
         )
 
-        self.Ith_ahp: JP_ndarray = Parameter(
-            data=Ith_ahp,
-            family="AHP",
-            init_func=lambda s: np.ones(s) * param_config.Ith_ahp,
-            shape=(self.size_out,),
-        )
-
-        self.Iw_ahp: JP_ndarray = Parameter(
-            data=Iw_ahp,
-            family="AHP",
-            init_func=lambda s: np.ones(s) * param_config.Iw_ahp,
-            shape=(self.size_out,),
+        self.Inmda, self.Itau_nmda, self.Ith_nmda, self.Iw_nmda = self._set_dpi_params(
+            init=params.nmda,
+            block_name="NMDA",
         )
 
         # [] TODO : out_rate is just been using to validate the model
@@ -215,24 +244,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.update_type = update_type
 
         # --- States --- #
-
-        if rng_key is None:
-            rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-
-        if layout is None:
-            layout = DynapSE1Layout()
-
-        _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
-
-        self.rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
-
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
-
-        self.Iahp: JP_ndarray = State(
-            shape=(self.size_out,),
-            family="AHP",
-            init_func=lambda s: np.ones(s) * layout.Io,
-        )
 
         # --- Simulation Parameters --- #
         self.dt: P_float = SimulationParameter(dt)
@@ -258,7 +270,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True``.
         :rtype: Tuple[np.ndarray, dict, dict]
         """
-        update_ahp = self._get_dpi_update_func(self.update_type)
+        update_ahp = self._get_dpi_update_func(
+            self.update_type, self._tau("ahp"), self._Iinf("ahp")
+        )
+        update_nmda = self._get_dpi_update_func(
+            self.update_type, self._tau("nmda"), self._Iinf("nmda")
+        )
 
         def forward(
             state: State, spike_inputs_ts: np.ndarray
@@ -280,42 +297,35 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             :rtype: Tuple[State, np.ndarray, np.ndarray]
             """
 
-            spikes, Iahp, key = state
-
-            # Reset depending on spiking activity
-            # [] TODO : CHANGE BACK TO
-            # Iahp += spikes * self.Iahp_inf
-            # Iahp += spike_inputs_ts * self.Iahp_inf
+            spikes, Iahp, Inmda, key = state
 
             # Apply forward step
-            Iahp = update_ahp(Iahp, spike_inputs_ts, self.Iahp_inf)
-
-            # Io clipping
-            Iahp = np.clip(Iahp, self.layout.Io)
-
-            # [] TODO : Decide on upper bound
-            # Iahp = np.clip(Iahp, self.Io, self.Iahp_inf)
+            Iahp = update_ahp(Iahp, spikes)
+            Inmda = update_nmda(Inmda, spike_inputs_ts)
 
             # [] TODO: REMOVE
             # Random spike generation
             key, subkey = rand.split(key)
             spikes = rand.poisson(subkey, self.out_rate, (self.size_out,)).astype(float)
 
-            return (spikes, Iahp, key), (spikes, Iahp)
+            return (spikes, Iahp, Inmda, key), (spikes, Iahp, Inmda)
 
         # - Evolve over spiking inputs
-        state, (spikes_ts, Iahp_ts) = scan(
+        state, (spikes_ts, Iahp_ts, Inmda_ts) = scan(
             forward,
-            (self.spikes, self.Iahp, self.rng_key),
+            (self.spikes, self.Iahp, self.Inmda, self._rng_key),
             input_data,
         )
+
+        self.spikes, self.Iahp, self.Inmda, self._rng_key = state
 
         # - Generate return arguments
         outputs = spikes_ts
 
         states = {
-            "spikes": spikes_ts[-1],
-            "Iahp": Iahp_ts[-1],
+            "spikes": self.spikes,
+            "Iahp": self.Iahp,
+            "Inmda": self.Inmda,
         }
 
         if record:
@@ -323,6 +333,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 "input_data": input_data,
                 "spikes": spikes_ts,
                 "Iahp": Iahp_ts,
+                "Inmda": Inmda_ts,
             }
         else:
             record_dict = {}
@@ -330,44 +341,48 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # - Return outputs
         return outputs, states, record_dict
 
-    def _get_dpi_update_func(self, type: str) -> Callable[[float], float]:
+    def _get_dpi_update_func(
+        self, type: str, tau: Callable[[], float], Iss: Callable[[], float]
+    ) -> Callable[[float], float]:
         """
         _get_dpi_update_func Returns the DPI update function given the type
 
-        :param type: The update type : 'simple' or 'exp'
+        :param type: The update type : 'taylor', 'exp', or 'dpi'
         :type type: str
-        :raises TypeError: If the update type given is neither 'simple' nor 'exp'
+        :raises TypeError: If the update type given is neither 'taylor' nor 'exp' nor 'dpi'
         :return: a function calculating the value of the synaptic current in the next time step, given the instantaneous synaptic current
         :rtype: Callable[[float], float]
         """
-        if type == "simple":
+        if type == "taylor":
 
-            def _simple_update(Isyn, spikes, Iss):
-                Isyn += spikes * Iss
-                factor = -self.dt / self.tau_ahp
+            def _taylor_update(Isyn, spikes):
+                Isyn += spikes * Iss()
+                factor = -self.dt / tau()
                 I_next = Isyn + Isyn * factor
+                I_next = np.clip(I_next, self.layout.Io)
                 return I_next
 
-            return _simple_update
+            return _taylor_update
 
         elif type == "exp":
 
-            def _exponential_update(Isyn, spikes, Iss):
-                Isyn += spikes * Iss
-                factor = np.exp(-self.dt / self.tau_ahp)
+            def _exponential_update(Isyn, spikes):
+                Isyn += spikes * Iss()
+                factor = np.exp(-self.dt / tau())
                 I_next = Isyn * factor
+                I_next = np.clip(I_next, self.layout.Io)
                 return I_next
 
             return _exponential_update
 
         elif type == "dpi":
 
-            def _dpi_update(Isyn, spikes, Iss):
+            def _dpi_update(Isyn, spikes):
 
-                factor = np.exp(-self.dt / self.tau_ahp)
+                factor = np.exp(-self.dt / tau())
 
                 # CHARGE PHASE
-                charge = Iss * (1 - factor) + Isyn * factor
+                charge = Iss() * (1 - factor) + Isyn * factor
                 charge_vector = spikes * charge
 
                 # DISCHARGE PHASE
@@ -375,32 +390,76 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 discharge_vector = (1 - spikes) * discharge
 
                 I_next = charge_vector + discharge_vector
+                I_next = np.clip(I_next, self.layout.Io)
 
                 return I_next
 
             return _dpi_update
 
         else:
-            raise TypeError("Update type undefined. Try one of 'simple', 'exp', 'dpi'")
+            raise TypeError(
+                f"{type} Update type undefined. Try one of 'taylor', 'exp', 'dpi'"
+            )
 
-    @property
-    def Iahp_inf(self):
-        """
-        Iahp_inf the reset value for Iahp
-        ! Attention: Subject to change depended on I_tau_ahp
+    def _set_dpi_params(
+        self,
+        init: DPIParameters,
+        block_name: str,
+        Itau: Optional[np.ndarray] = None,
+        Ith: Optional[np.ndarray] = None,
+        Iw: Optional[np.ndarray] = None,
+    ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]:
+        if init is not None:
+            Isyn: JP_ndarray = State(
+                shape=(self.size_out,),
+                family=block_name,
+                init_func=lambda s: np.ones(s) * init.Isyn,
+            )
 
-        :return: Ratio of currents through diffpair and adaptation block
-        :rtype: np.ndarray
-        """
-        return (self.Ith_ahp / self.Itau_ahp) * self.Iw_ahp
+            Itau: JP_ndarray = Parameter(
+                data=Itau,
+                family=block_name,
+                init_func=lambda s: np.ones(s) * init.Itau,
+                shape=(self.size_out,),
+            )
 
-    @property
-    def tau_ahp(self):
-        """
-        tau_ahp adaptation time constant
-        ! Attention: Subject to change depended on I_tau_ahp
+            Ith: JP_ndarray = Parameter(
+                data=Ith,
+                family=block_name,
+                init_func=lambda s: np.ones(s) * init.Ith,
+                shape=(self.size_out,),
+            )
 
-        :return: depends on silicon properties and Itau_ahp together
-        :rtype: np.ndarray
-        """
-        return (self.layout.Cahp * self.layout.Ut) / (self.layout.kappa * self.Itau_ahp)
+            Iw: JP_ndarray = Parameter(
+                data=Iw,
+                family=block_name,
+                init_func=lambda s: np.ones(s) * init.Iw,
+                shape=(self.size_out,),
+            )
+
+            return Isyn, Itau, Ith, Iw
+
+        else:
+            raise ValueError("Initial DPI parameter values are not given!")
+
+    def _tau(self, name):
+        capacitance = self.layout.__getattribute__(f"C{name}")
+        Ut = self.layout.Ut
+        kappa = self.layout.kappa
+
+        def tau():
+            Itau = self.__getattribute__(f"Itau_{name}")
+            time_const = (capacitance * Ut) / (kappa * Itau)
+            return time_const
+
+        return tau
+
+    def _Iinf(self, name):
+        def Iinf():
+            Ith = self.__getattribute__(f"Ith_{name}")
+            Itau = self.__getattribute__(f"Itau_{name}")
+            Iw = self.__getattribute__(f"Iw_{name}")
+            Iss = (Ith / Itau) * Iw
+            return Iss
+
+        return Iinf
