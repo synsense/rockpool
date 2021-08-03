@@ -113,3 +113,75 @@ def spike_to_pulse(
     pulse_signal = TSContinuous.from_clocked(pulse_signal, dt=dt, name=name)
 
     return pulse_signal
+
+
+def custom_spike_train(
+    channels: int,
+    base: np.ndarray,
+    kernel: np.ndarray,
+    dt: float = 1e-3,
+    name: Optional[str] = "Input Spikes",
+) -> TSEvent:
+    """
+    custom_spike_train Uses matrix multiplication to create custom spike trains.
+    Define a 1D base and 1D kernel.
+    Each element of the base will be multiplied by each element of the kernel.
+    If the base has N elements and the kernel has M elements,
+    the function will return an array with NxM elements.
+
+        For example:
+        base =    [0,0,1,0,0]                                       # Nx1
+        kernel =  [1,0,0,0]                                         # 1xM
+        spikes = [[0 0 0 0][0 0 0 0][1 0 0 0][0 0 0 0][0 0 0 0]]    # NxM
+
+    :param base: The base spike train to be extended Nx1
+    :type base: np.ndarray
+    :param kernel: The kernel to be multiplied by each element of base vector
+    :type kernel: np.ndarray
+    :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
+    :type dt: float, optional
+    :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
+    :type name: Optional[str], optional
+    """
+    base = np.atleast_2d(base)
+    kernel = np.atleast_2d(kernel)
+    spikes = np.matmul(base.T, kernel)
+    spikes = np.expand_dims(spikes.flatten(), axis=1).astype(bool)
+    spikes = np.hstack((spikes,) * channels).astype(bool)
+    input_sp_ts = TSEvent.from_raster(spikes, name=name, periodic=True, dt=dt)
+    return input_sp_ts
+
+
+def random_spike_train(
+    duration: float,
+    channels: int,
+    rate: float,
+    dt: float = 1e-3,
+    name: Optional[str] = "Input Spikes",
+) -> TSEvent:
+    """
+    random_spike_train Generate a Poisson frozen random spike train
+
+    :param duration: The simulation duration in seconds
+    :type duration: float
+    :param channels: Number of channels, or number of neurons
+    :type channels: int
+    :param rate: The spiking rate in Hertz(1/s)
+    :type rate: float
+    :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
+    :type dt: float, optional
+    :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
+    :type name: Optional[str], optional
+    :raises ValueError: No spike generated due to low firing rate or very short simulation time
+    :return: [description]
+    :rtype: TSEvent
+    """
+    steps = int(np.round(duration / dt))
+    spiking_prob = rate * dt
+    input_sp_raster = np.random.rand(steps, channels) < spiking_prob
+    if not any(input_sp_raster.flatten()):
+        raise ValueError(
+            "No spike generated at all due to low firing rate or short simulation time duration!"
+        )
+    input_sp_ts = TSEvent.from_raster(input_sp_raster, name=name, periodic=True, dt=dt)
+    return input_sp_ts
