@@ -97,7 +97,7 @@ class DPIParameters:
 
 
 @dataclass
-class DynpaSE1Parameters:
+class DynapSE1Parameters:
     def __init__(
         self,
         ahp: Optional[DPIParameters] = None,
@@ -157,7 +157,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         dt: float = 1e-3,
         out_rate: float = 0.02,
         update_type: str = "dpi",
-        params: Optional[DynpaSE1Parameters] = None,
+        params: Optional[DynapSE1Parameters] = None,
         layout: Optional[DynapSE1Layout] = None,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
@@ -202,7 +202,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # [] TODO : Once attributes are stable, please add docstrings for each in `__init__()`
 
         if shape is None:
-            raise ValueError("You must provide `shape`")
+            raise ValueError("You must provide a `shape` tuple (N,)")
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
@@ -211,7 +211,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             layout = DynapSE1Layout()
 
         if params is None:
-            params = DynpaSE1Parameters(ahp=DPIParameters(), nmda=DPIParameters())
+            params = DynapSE1Parameters(ahp=DPIParameters(), nmda=DPIParameters())
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
@@ -271,10 +271,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :rtype: Tuple[np.ndarray, dict, dict]
         """
         update_ahp = self._get_dpi_update_func(
-            self.update_type, self._tau("ahp"), self._Iinf("ahp")
+            self.update_type, self.get_tau("ahp"), self.get_Iinf("ahp")
         )
         update_nmda = self._get_dpi_update_func(
-            self.update_type, self._tau("nmda"), self._Iinf("nmda")
+            self.update_type, self.get_tau("nmda"), self.get_Iinf("nmda")
         )
 
         def forward(
@@ -442,7 +442,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         else:
             raise ValueError("Initial DPI parameter values are not given!")
 
-    def _tau(self, name):
+    def get_tau(self, name):
         capacitance = self.layout.__getattribute__(f"C{name}")
         Ut = self.layout.Ut
         kappa = self.layout.kappa
@@ -454,7 +454,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         return tau
 
-    def _Iinf(self, name):
+    def get_Iinf(self, name):
         def Iinf():
             Ith = self.__getattribute__(f"Ith_{name}")
             Itau = self.__getattribute__(f"Itau_{name}")
