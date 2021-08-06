@@ -8,7 +8,7 @@ Note : The package needs an notebook environment to run.
 Example:
     ```
     from dpi_gui import ResponseGUI
-    res = ResponseGUI((2,), "input", "response")
+    res = ResponseGUI((2,))
     res.display_widgets()
     ```
 
@@ -34,11 +34,15 @@ from dynapse1_neuron_synapse_jax import (
     DynapSE1Parameters,
 )
 
-from utils import spike_to_pulse, custom_spike_train, random_spike_train
-
-from typing import (
-    Optional,
+from utils import (
+    spike_to_pulse,
+    custom_spike_train,
+    random_spike_train,
+    calculate_tau,
+    calculate_Isyn_inf,
 )
+
+from typing import Union, Tuple, Optional
 
 plt.rcParams["figure.figsize"] = [12, 4]
 plt.rcParams["figure.dpi"] = 300
@@ -46,8 +50,8 @@ plt.rcParams["figure.dpi"] = 300
 
 @dataclass
 class SpikeParams:
-    base: str = "0,1,0,0,0,0,0,0,0,0"
-    kernel: str = "1,0,0,0,0,0"
+    times: str = "2e-3,3e-2,5e-2,7e-2"
+    channels: Optional[str] = None
     duration: float = 1e-1
     dt: float = 1e-6
     pulse_width: float = 1e-5
@@ -57,11 +61,14 @@ class SpikeParams:
 
 @dataclass
 class DPIParams:
+    kappa_n: float = 0.75
+    kappa_p: float = 0.66
+    Ut: float = 25e-3
+    Io: float = 5e-12
     Capacitor: float = 1e-9
     Itau: float = 1e-9
-    Ith: float = 1e-9
+    Ith: float = 4e-9
     Iw: float = 1e-6
-    Io: float = 5e-12
 
 
 class ResponseGUI:
@@ -83,6 +90,9 @@ class ResponseGUI:
         if dpi_params is None:
             dpi_params = DPIParams()
 
+        self.init_spike_params = spike_params
+        self.init_dpi_params = dpi_params
+
         self._create_input_widgets(spike_params)
         self._create_response_widgets(dpi_params)
         self._create_gui()
@@ -96,15 +106,18 @@ class ResponseGUI:
         )
         self.select_type.observe(self._on_toggle_changed, "value")
 
-        self.base = widgets.Text(
-            value=params.base,
-            description="Carrier:",
+        times, channels = self._check_times_channels(
+            params.times, params.channels, self.shape[0]
+        )
+        self.times = widgets.Text(
+            value=times,
+            description="Times :",
             disabled=False,
         )
 
-        self.kernel = widgets.Text(
-            value=params.kernel,
-            description="Kernel:",
+        self.channels = widgets.Text(
+            value=channels,
+            description="Channels:",
             disabled=False,
         )
 
@@ -130,7 +143,7 @@ class ResponseGUI:
             min=-5,
             max=-1,
             value=params.pulse_width,
-            description="PW (s):",
+            description="$t_{pulse}$ (s):",
             disabled=False,
             readout_format=".1e",
         )
@@ -147,7 +160,7 @@ class ResponseGUI:
             min=0,
             max=5,
             value=params.amplitude,
-            description="Amp. (V):",
+            description="$V_{DD}$ (V):",
             disabled=False,
         )
 
@@ -158,8 +171,8 @@ class ResponseGUI:
 
         self.interact = widgets.interactive(
             self.plot_custom_spike_train,
-            base=self.base,
-            kernel=self.kernel,
+            times=self.times,
+            channels=self.channels,
             duration=self.duration,
             pulse_width=self.pulse_width,
             amplitude=self.amplitude,
@@ -169,12 +182,70 @@ class ResponseGUI:
 
         self.input_out = widgets.Output()
 
+    def _check_times_channels(
+        self,
+        times: str,
+        channels: Optional[str],
+        num_channels: int,
+    ) -> Tuple[str, str]:
+
+        if num_channels > 1:
+            channels_arr = (
+                list(map(int, channels.split(",")))
+                if channels is not None
+                else np.random.randint(
+                    low=0,
+                    high=num_channels,
+                    size=len(times.split(",")),
+                    dtype=int,
+                )
+            )
+            channels = ",".join([str(item) for item in channels_arr])
+        return times, channels
+
     def _create_response_widgets(self, params):
+
+        self.Ut = widgets.FloatText(
+            step=1e-3,
+            value=params.Ut,
+            description="$U_{T}$ (V):",
+            disabled=False,
+            readout_format=".1e",
+            layout=widgets.Layout(width="20%"),
+        )
+
+        self.kappa_n = widgets.FloatText(
+            step=1e-2,
+            value=params.kappa_n,
+            description="$\\kappa_{n}$:",
+            disabled=False,
+            readout_format=".1e",
+            layout=widgets.Layout(width="20%"),
+        )
+
+        self.kappa_p = widgets.FloatText(
+            step=1e-2,
+            value=params.kappa_p,
+            description="$\\kappa_{p}$:",
+            disabled=False,
+            readout_format=".1e",
+            layout=widgets.Layout(width="20%"),
+        )
+
+        self.Io = widgets.FloatText(
+            step=1e-13,
+            value=params.Io,
+            description="$I_{o}$ (A):",
+            disabled=False,
+            readout_format=".1e",
+            layout=widgets.Layout(width="20%"),
+        )
+
         self.Capacitor = widgets.FloatLogSlider(
             min=-12,
             max=-3,
             value=params.Capacitor,
-            description="Capacitor (F):",
+            description="$C$ (F):",
             disabled=False,
             readout_format=".1e",
         )
@@ -183,7 +254,7 @@ class ResponseGUI:
             min=-12,
             max=-3,
             value=params.Itau,
-            description="Itau (A):",
+            description="$I_{\\tau}$ (A):",
             disabled=False,
             readout_format=".1e",
         )
@@ -192,7 +263,7 @@ class ResponseGUI:
             min=-12,
             max=-3,
             value=params.Ith,
-            description="Ith (A):",
+            description="$I_{th}$ (A):",
             disabled=False,
             readout_format=".1e",
         )
@@ -201,24 +272,66 @@ class ResponseGUI:
             min=-12,
             max=-3,
             value=params.Iw,
-            description="Iw (A):",
-            disabled=False,
-            readout_format=".1e",
-        )
-
-        self.Io = widgets.FloatLogSlider(
-            min=-13,
-            max=-6,
-            value=params.Io,
-            description="Io (A):",
+            description="$I_{w}$ (A):",
             disabled=False,
             readout_format=".1e",
         )
 
         self.run = widgets.Button(description="Run")
         self.run.on_click(self._on_run_clicked)
+        self.default = widgets.Button(description="Set to Default")
+        self.default.on_click(self._on_default_clicked)
 
         self.response_out = widgets.Output()
+
+        self.response_interactive = widgets.interactive(
+            self.plot_response_dependends,
+            Ut=self.Ut,
+            kappa_n=self.kappa_n,
+            kappa_p=self.kappa_p,
+            C=self.Capacitor,
+            Itau=self.Itau,
+            Ith=self.Ith,
+            Iw=self.Iw,
+        )
+
+    def plot_response_dependends(
+        self,
+        Ut: float,
+        kappa_n: float,
+        kappa_p: float,
+        C: float,
+        Itau: float,
+        Ith: float,
+        Iw: float,
+    ):
+        layout = DynapSE1Layout()
+        tau = calculate_tau(
+            C,
+            Itau,
+            Ut,
+            kappa_n,
+            kappa_p,
+        )
+        Itau_inf = calculate_Isyn_inf(Ith, Itau, Iw)
+
+        tau_str = "$\\tau = \\dfrac{C U_{T}}{\\kappa I_{\\tau}} =$ %.1e s\n\n" % tau
+        infinity_str = (
+            "$I_{syn_{\infty}} = \\dfrac{I_{th}}{I_{\\tau}} \cdot I_{w} =$ %.1e A\n\n"
+            % Itau_inf
+        )
+
+        ax = plt.axes(
+            [0, 0, 0, 0], xmargin=-0.04, ymargin=-0.04
+        )  # left,bottom,width,height
+        ax.axis("off")
+
+        plt.text(
+            0,
+            0,
+            tau_str + infinity_str,
+            size=3.5,
+        )
 
     def plot_input(self, st, dt, pulse_width, amplitude, name):
         plt.figure()
@@ -237,38 +350,49 @@ class ResponseGUI:
         plt.show()
 
     def plot_custom_spike_train(
-        self, base, kernel, duration, dt, pulse_width, amplitude, name
+        self, times, channels, duration, dt, pulse_width, amplitude, name
     ):
         try:
-            base = list(map(int, base.split(",")))
-            kernel = list(map(int, kernel.split(",")))
+            times = list(map(float, times.split(",")))
+            if channels != "":
+                channels = list(map(int, channels.split(",")))
+            else:
+                channels = None
+
+            if len(channels) != len(times):
+                print(
+                    "TSEvent `Input`: `channels` must have the same number of elements as `times`, be an integer or None."
+                )
+                channels = None
+
         except:
             None
 
-        if isinstance(base, list) and isinstance(kernel, list):
-            steps = int(np.round(duration / dt))
-            len_base = len(base)
-            kernel_size = int(np.round(steps / len_base))
-            len_kernel = len(kernel)
-            if len_kernel < kernel_size:
-                extend = kernel_size - len_kernel
-                kernel = kernel + [0] * extend
-
-            self.st = custom_spike_train(
-                channels=self.shape[0], base=base, kernel=kernel, dt=dt, name=name
+        if isinstance(times, list) and (isinstance(channels, list) or channels is None):
+            self.spike_train = custom_spike_train(
+                times=times,
+                channels=channels,
+                duration=duration,
+                name=name,
             )
-            self.plot_input(self.st, dt, pulse_width, amplitude, name)
+            if channels is not None:
+                if max(channels) >= self.shape[0]:
+                    print("Number of channels does not match the shape provided!!!")
+                if min(channels) < 0:
+                    print("Channel ID should not be negative!")
+
+            self.plot_input(self.spike_train, dt, pulse_width, amplitude, name)
 
         else:
-            print("Base and Kernel is not given properly!")
+            print("Base and Kernel is not given properly <value>,<value>,<value>!")
 
     def plot_random_spike_train(self, duration, dt, pulse_width, amplitude, rate, name):
 
         try:
-            self.st = random_spike_train(
-                duration=duration, channels=self.shape[0], rate=rate, dt=dt, name=name
+            self.spike_train = random_spike_train(
+                duration=duration, n_channels=self.shape[0], rate=rate, dt=dt, name=name
             )
-            self.plot_input(self.st, dt, pulse_width, amplitude, name)
+            self.plot_input(self.spike_train, dt, pulse_width, amplitude, name)
 
         except ValueError as e:
             print(e)
@@ -297,40 +421,45 @@ class ResponseGUI:
 
     def _on_run_clicked(self, button):
         self.response_out.clear_output()
+
+        # Create a new DynapSE1NeuronSynapseJax Instance
+        layout = DynapSE1Layout(Cnmda=self.Capacitor.value, Io=self.Io.value)
+        nmda = DPIParameters(Itau=self.Itau.value, Ith=self.Ith.value, Iw=self.Iw.value)
+        params = DynapSE1Parameters(ahp=nmda, nmda=nmda)
+
+        self.se1 = TimedModuleWrapper(
+            DynapSE1NeuronSynapseJax(
+                shape=self.shape,
+                out_rate=0.0002,
+                dt=self.dt.value,
+                params=params,
+                layout=layout,
+                spiking_input=False,
+            )
+        )
+
+        self.se1.reset_state()
+
+        # - Evolve with the spiking input
+        tsOutput, new_state, record_dict = self.se1(
+            self.vin.start_at(self.se1.t), record=True
+        )
+
         with self.response_out:
-
-            # Create a new DynapSE1NeuronSynapseJax Instance
-            layout = DynapSE1Layout(Cnmda=self.Capacitor.value, Io=self.Io.value)
-            nmda = DPIParameters(
-                Itau=self.Itau.value, Ith=self.Ith.value, Iw=self.Iw.value
-            )
-            params = DynapSE1Parameters(ahp=nmda, nmda=nmda)
-
-            self.se1 = TimedModuleWrapper(
-                DynapSE1NeuronSynapseJax(
-                    shape=self.shape,
-                    out_rate=0.0002,
-                    dt=self.dt.value,
-                    params=params,
-                    layout=layout,
-                    spiking_input=False,
-                )
-            )
-
-            self.se1.reset_state()
-
-            # - Evolve with the spiking input
-            tsOutput, new_state, record_dict = self.se1(
-                self.vin.start_at(self.se1.t), record=True
-            )
-
             self.plot_synaptic_response(record_dict)
+
+    def _on_default_clicked(self, button):
+        self._create_response_widgets(self.init_dpi_params)
+        self.gui.close()
+        self._create_gui()
+        self.gui.children[0].selected_index = 1
+        self.display()
 
     def _on_toggle_changed(self, change):
 
         if change["new"] == "random":
-            self.base.disabled = True
-            self.kernel.disabled = True
+            self.times.disabled = True
+            self.channels.disabled = True
             self.hit.disabled = False
 
             self.interact = widgets.interactive(
@@ -344,14 +473,14 @@ class ResponseGUI:
             )
 
         if change["new"] == "custom":
-            self.base.disabled = False
-            self.kernel.disabled = False
+            self.times.disabled = False
+            self.channels.disabled = False
             self.hit.disabled = True
 
             self.interact = widgets.interactive(
                 self.plot_custom_spike_train,
-                base=self.base,
-                kernel=self.kernel,
+                times=self.times,
+                channels=self.channels,
                 duration=self.duration,
                 pulse_width=self.pulse_width,
                 amplitude=self.amplitude,
@@ -370,17 +499,29 @@ class ResponseGUI:
         tab_input = widgets.VBox([select, self.interact, self.input_out])
 
         # RESPONSE
+        # tau = widgets.HBox([self.Itau, self.tau])
+        lay = list(self.response_interactive.children[:3])
+        lay.append(self.Io)
+        layout_widgets = widgets.HBox(
+            lay,
+            layout=widgets.Layout(flex_flow="row wrap"),
+        )
+        controls = widgets.VBox(
+            self.response_interactive.children[3:-1],
+            layout=widgets.Layout(flex_flow="column wrap"),
+        )
+        output = self.response_interactive.children[-1]
+        response = widgets.HBox([controls, output])
+        DPIResponse = widgets.VBox([layout_widgets, response])
+        buttons = widgets.HBox([self.run, self.default])
         tab_response = widgets.VBox(
             [
-                self.Capacitor,
-                self.Itau,
-                self.Ith,
-                self.Iw,
-                self.Io,
-                self.run,
+                DPIResponse,
+                buttons,
                 self.response_out,
             ]
         )
+        self.response_interactive.update()
 
         # GUI
         tab = widgets.Tab(children=[tab_input, tab_response])
