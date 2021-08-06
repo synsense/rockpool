@@ -7,6 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 23/07/2021
 """
 
+
 from rockpool import TSEvent, TSContinuous
 
 from typing import (
@@ -14,7 +15,11 @@ from typing import (
     Union,
     Tuple,
     Generator,
+    List,
 )
+
+NoneType = type(None)
+ArrayLike = Union[np.ndarray, List, Tuple]
 
 import numpy as np
 
@@ -116,45 +121,35 @@ def spike_to_pulse(
 
 
 def custom_spike_train(
-    channels: int,
-    base: np.ndarray,
-    kernel: np.ndarray,
-    dt: float = 1e-3,
+    times: ArrayLike,
+    channels: Union[ArrayLike, NoneType],
+    duration: float,
     name: Optional[str] = "Input Spikes",
 ) -> TSEvent:
     """
-    custom_spike_train Uses matrix multiplication to create custom spike trains.
-    Define a 1D base and 1D kernel.
-    Each element of the base will be multiplied by each element of the kernel.
-    If the base has N elements and the kernel has M elements,
-    the function will return an array with NxM elements.
+    custom_spike_train Generate a custom spike train given exact spike times
 
-        For example:
-        base =    [0,0,1,0,0]                                       # Nx1
-        kernel =  [1,0,0,0]                                         # 1xM
-        spikes = [[0 0 0 0][0 0 0 0][1 0 0 0][0 0 0 0][0 0 0 0]]    # NxM
-
-    :param base: The base spike train to be extended Nx1
-    :type base: np.ndarray
-    :param kernel: The kernel to be multiplied by each element of base vector
-    :type kernel: np.ndarray
-    :param dt: The time step for the forward-Euler ODE solver, defaults to 1e-3
-    :type dt: float, optional
+    :param times: ``Tx1`` vector of exact spike times
+    :type times: ArrayLike
+    :param channels: ``Tx1`` vector of spike channels. All events belongs to channels 0 if None
+    :type channels: Union[ArrayLike, NoneType]
+    :param duration: The simulation duration in seconds
+    :type duration: float
     :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
     :type name: Optional[str], optional
+    :return: custom generated discrete spike train
+    :rtype: TSEvent
     """
-    base = np.atleast_2d(base)
-    kernel = np.atleast_2d(kernel)
-    spikes = np.matmul(base.T, kernel)
-    spikes = np.expand_dims(spikes.flatten(), axis=1).astype(bool)
-    spikes = np.hstack((spikes,) * channels).astype(bool)
-    input_sp_ts = TSEvent.from_raster(spikes, name=name, periodic=True, dt=dt)
+
+    input_sp_ts = TSEvent(
+        times=times, channels=channels, t_start=0, t_stop=duration, name=name
+    )
     return input_sp_ts
 
 
 def random_spike_train(
     duration: float,
-    channels: int,
+    n_channels: int,
     rate: float,
     dt: float = 1e-3,
     name: Optional[str] = "Input Spikes",
@@ -173,15 +168,70 @@ def random_spike_train(
     :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
     :type name: Optional[str], optional
     :raises ValueError: No spike generated due to low firing rate or very short simulation time
-    :return: [description]
+    :return: randomly generated discrete spike train
     :rtype: TSEvent
     """
     steps = int(np.round(duration / dt))
     spiking_prob = rate * dt
-    input_sp_raster = np.random.rand(steps, channels) < spiking_prob
+    input_sp_raster = np.random.rand(steps, n_channels) < spiking_prob
     if not any(input_sp_raster.flatten()):
         raise ValueError(
             "No spike generated at all due to low firing rate or short simulation time duration!"
         )
     input_sp_ts = TSEvent.from_raster(input_sp_raster, name=name, periodic=True, dt=dt)
     return input_sp_ts
+
+
+def calculate_tau(
+    c: float,
+    itau: float,
+    ut: float = 25e-3,
+    kappa_n: float = 0.75,
+    kappa_p: float = 0.66,
+) -> float:
+    """
+    calculate_tau calculates the time constant using the leakage current
+
+    .. math ::
+        \\tau = \\dfrac{C U_{T}}{\\kappa I_{\\tau}}
+
+    :param c: capacitor value in farads
+    :type c: float
+    :param itau: leakage current in amperes
+    :type itau: float
+    :param ut: termal voltage in volts, defaults to 25e-3
+    :type ut: float, optional
+    :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+    :type kappa_n: float, optional
+    :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
+    :type kappa_p: float, optional
+    :return: time constant in seconds
+    :rtype: float
+    """
+    kappa = (kappa_n + kappa_p) / 2
+    tau = (c * ut) / (kappa * itau)
+    return tau
+
+
+def calculate_Isyn_inf(
+    Ith: float,
+    Itau: float,
+    Iw: float,
+) -> float:
+    """
+    calculate_Isyn_inf calculates the steady state DPI current
+
+    .. math ::
+        I_{syn_{\\infty}} = \\dfrac{I_{th}}{I_{\\tau}}I_{w}
+
+    :param Ith: threshold current, a.k.a gain current in amperes
+    :type Ith: float
+    :param Itau: leakage current in amperes
+    :type Itau: float
+    :param Iw: weight current in amperes
+    :type Iw: float
+    :return: steady state current in amperes
+    :rtype: float
+    """
+    Iss = (Ith / Itau) * Iw
+    return Iss
