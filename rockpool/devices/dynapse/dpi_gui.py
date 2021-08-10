@@ -17,7 +17,7 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 02/08/2021
 """
-
+import time
 import numpy as np
 import ipywidgets as widgets
 import matplotlib.pyplot as plt
@@ -65,9 +65,9 @@ class DPIParams:
     kappa_p: float = 0.66
     Ut: float = 25e-3
     Io: float = 5e-12
-    Capacitor: float = 1e-9
-    Itau: float = 1e-9
-    Ith: float = 4e-9
+    Capacitor: float = 28e-12
+    Itau: float = 10e-12
+    Ith: float = 40e-12
     Iw: float = 1e-6
 
 
@@ -75,14 +75,18 @@ class ResponseGUI:
     def __init__(
         self,
         shape: tuple,
+        update_type: str = "dpi",
         spike_params: Optional[SpikeParams] = None,
         dpi_params: Optional[DPIParams] = None,
         input_tab: Optional[str] = "Input Spikes",
         response_tab: Optional[str] = "DPI Response",
+        spike_in: Union[TSEvent, TSContinuous] = None,
     ):
         self.shape = shape
+        self.update_type = update_type
         self.input_tab = input_tab
         self.response_tab = response_tab
+        self.spike_in = spike_in
 
         if spike_params is None:
             spike_params = SpikeParams()
@@ -334,19 +338,23 @@ class ResponseGUI:
         )
 
     def plot_input(self, st, dt, pulse_width, amplitude, name):
+
         plt.figure()
         st.plot()
 
-        self.vin = spike_to_pulse(
-            input_spike=st,
-            dt=dt,
-            pulse_width=pulse_width,
-            amplitude=amplitude,
-            name=name,
-        )
+        if dt < pulse_width:
+            self.vin = spike_to_pulse(
+                input_spike=st,
+                dt=dt,
+                pulse_width=pulse_width,
+                amplitude=amplitude,
+                name=name,
+            )
 
-        plt.figure()
-        self.vin.plot(stagger=self.vin.max * 1.2)
+            plt.figure()
+            self.vin.plot(stagger=self.vin.max * 1.2)
+        else:
+            self.vin = st
         plt.show()
 
     def plot_custom_spike_train(
@@ -401,16 +409,22 @@ class ResponseGUI:
             print("Fatal error occured! Comment out the try except block!")
 
     def plot_synaptic_response(self, rd):
-        input_data = TSContinuous.from_clocked(
-            rd["input_data"], dt=self.dt.value, name="$V_{in}$"
-        )
+        plt.figure()
+        if self.dt.value > self.pulse_width.value:
+            input_data = TSEvent.from_raster(
+                rd["input_data"], dt=self.dt.value, name="Input Spikes", periodic=True
+            )
+            input_data.plot()
+
+        else:
+            input_data = TSContinuous.from_clocked(
+                rd["input_data"], dt=self.dt.value, name="$V_{in}$"
+            )
+            input_data.plot(stagger=input_data.max * 1.2)
 
         I_syn = TSContinuous.from_clocked(
             rd["Inmda"], dt=self.dt.value, name="$I_{syn}$"
         )
-
-        plt.figure()
-        input_data.plot(stagger=input_data.max * 1.2)
 
         plt.figure()
         I_syn.plot(stagger=I_syn.max * 1.2)
@@ -420,33 +434,38 @@ class ResponseGUI:
         self.interact.update()
 
     def _on_run_clicked(self, button):
-        self.response_out.clear_output()
 
+        self.response_out.clear_output()
+        tic = time.perf_counter()
         # Create a new DynapSE1NeuronSynapseJax Instance
         layout = DynapSE1Layout(Cnmda=self.Capacitor.value, Io=self.Io.value)
         nmda = DPIParameters(Itau=self.Itau.value, Ith=self.Ith.value, Iw=self.Iw.value)
         params = DynapSE1Parameters(ahp=nmda, nmda=nmda)
+        spiking_input = True if self.dt.value > self.pulse_width.value else False
 
         self.se1 = TimedModuleWrapper(
             DynapSE1NeuronSynapseJax(
                 shape=self.shape,
                 out_rate=0.0002,
+                update_type=self.update_type,
                 dt=self.dt.value,
                 params=params,
                 layout=layout,
-                spiking_input=False,
+                spiking_input=spiking_input,
             )
         )
 
         self.se1.reset_state()
-
         # - Evolve with the spiking input
-        tsOutput, new_state, record_dict = self.se1(
+        tsOutput, new_state, self.record_dict = self.se1(
             self.vin.start_at(self.se1.t), record=True
         )
 
+        toc = time.perf_counter()
+
         with self.response_out:
-            self.plot_synaptic_response(record_dict)
+            print(f"RUNTIME : {toc-tic:.2f} s")
+            self.plot_synaptic_response(self.record_dict)
 
     def _on_default_clicked(self, button):
         self._create_response_widgets(self.init_dpi_params)
@@ -528,6 +547,15 @@ class ResponseGUI:
         tab.set_title(0, self.input_tab)
         tab.set_title(1, self.response_tab)
         self.gui = widgets.VBox(children=[tab])
+
+        if self.spike_in is not None:
+            self.times.value = ",".join([str(item) for item in self.spike_in.times])
+            self.channels.value = ",".join(
+                [str(item) for item in self.spike_in.channels]
+            )
+            self.duration.value = self.spike_in.duration
+            self.gui.children[0].selected_index = 1
+            self._on_run_clicked(None)
 
     def display(self):
         display(self.gui)
