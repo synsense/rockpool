@@ -7,7 +7,7 @@ E-mail : ugurcan.cakal@gmail.com
 23/07/2021
 """
 
-
+import numpy as np
 from rockpool import TSEvent, TSContinuous
 
 from typing import (
