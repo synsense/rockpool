@@ -155,6 +155,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self,
         shape: tuple = None,
         dt: float = 1e-3,
+        t_pulse: float = 1e-5,
         out_rate: float = 0.02,
         update_type: str = "dpi",
         params: Optional[DynapSE1Parameters] = None,
@@ -248,6 +249,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # --- Simulation Parameters --- #
         self.dt: P_float = SimulationParameter(dt)
+        self.t_pulse: P_float = SimulationParameter(t_pulse)
         self.layout = SimulationParameter(layout)
 
     def evolve(
@@ -382,7 +384,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 factor = np.exp(-self.dt / tau())
 
                 # CHARGE PHASE
-                charge = Iss() * (1 - factor) + Isyn * factor
+                charge = Iss() * (1.0 - factor) + Isyn * factor
                 charge_vector = spikes * charge
 
                 # DISCHARGE PHASE
@@ -395,6 +397,36 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 return I_next
 
             return _dpi_update
+
+        elif (
+            type == "dpi_us"
+        ):  # DPI Undersampled Simulation : only 1 spike allowed in 1ms
+
+            def _dpi_us_update(Isyn, spikes):
+
+                full_discharge = np.exp(-self.dt / tau())
+                f_charge = np.exp(-self.t_pulse / tau())
+                t_dis = (self.dt - self.t_pulse) / 2.0
+                f_dis = np.exp(-t_dis / tau())
+
+                # IF spikes
+                # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+                charge = (
+                    Iss() * f_dis * (1.0 - f_charge) + Isyn * f_charge * f_dis * f_dis
+                )
+                charge_vector = spikes * charge
+
+                # IF no spike at all
+                # DISCHARGE PHASE
+                discharge = Isyn * full_discharge
+                discharge_vector = (1 - spikes) * discharge
+
+                I_next = charge_vector + discharge_vector
+                I_next = np.clip(I_next, self.layout.Io)
+
+                return I_next
+
+            return _dpi_us_update
 
         else:
             raise TypeError(
