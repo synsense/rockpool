@@ -283,17 +283,11 @@ def pulse_width_increment(
 
             :param num_spikes: [description]
             :type num_spikes: Union[int, np.ndarray]
-            :raises ValueError: If the increment is beyond the the limits.
-                That is the pulse width calculated is greater than the simulation timestep
-            :return: the upgraded pulsewidth
+            :return: the upgraded pulse width
             :rtype: float
             """
             pulse_width = num_spikes * base_width
-
-            if np.array(pulse_width).max() > dt:
-                raise ValueError(
-                    f"Total pulse width:{pulse_width}s is grater than dt:{dt}s"
-                )
+            pulse_width = np.clip(pulse_width, 0, dt)
             return pulse_width
 
         return lin_incr
