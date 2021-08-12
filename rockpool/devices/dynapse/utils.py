@@ -11,6 +11,7 @@ import numpy as np
 from rockpool import TSEvent, TSContinuous
 
 from typing import (
+    Callable,
     Optional,
     Union,
     Tuple,
@@ -235,3 +236,64 @@ def calculate_Isyn_inf(
     """
     Iss = (Ith / Itau) * Iw
     return Iss
+
+
+def pulse_width_increment(
+    method: str, base_width: float, dt: float
+) -> Callable[[int], float]:
+    """
+    pulse_width_increment defines a method for pulse width increment
+    in the case that pulses are merged together as one.
+    It can be a logarithic increase which can manage infinite amount of spikes
+    or can be a linear increase which is computationally lighter.
+
+    :param method: The increment merhod: "lin" or "log".
+    :type method: str
+    :param base_width: the unit pulse width to be increased
+    :type base_width: float
+    :param dt: the simulation timestep
+    :type dt: float
+    :return: a function to calculate the effective pulse width
+    :rtype: Callable[[int], float]
+    """
+    if method == "log":
+
+        def log_incr(num_spikes: Union[int, np.ndarray]):
+
+            """
+            log_incr decreases the increment amount exponentially at each time
+            so that the infinite amount of spikes can increase the pulse width
+            up to the simulation timestep
+
+            :param num_spikes: number of spikes within one simulation timestep
+            :type num_spikes: Union[int, np.ndarray]
+            :return: the upgraded pulsewidth
+            :rtype: float
+            """
+            return dt * (1 - np.exp(-num_spikes * base_width / dt))
+
+        return log_incr
+
+    if method == "lin":
+
+        def lin_incr(num_spikes: Union[int, np.ndarray]):
+            """
+            lin_incr Implements the simplest possible approach. Multiply the
+            number of spikes with the unit pulse width
+
+            :param num_spikes: [description]
+            :type num_spikes: Union[int, np.ndarray]
+            :raises ValueError: If the increment is beyond the the limits.
+                That is the pulse width calculated is greater than the simulation timestep
+            :return: the upgraded pulsewidth
+            :rtype: float
+            """
+            pulse_width = num_spikes * base_width
+
+            if np.array(pulse_width).max() > dt:
+                raise ValueError(
+                    f"Total pulse width:{pulse_width}s is grater than dt:{dt}s"
+                )
+            return pulse_width
+
+        return lin_incr
