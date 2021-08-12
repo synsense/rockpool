@@ -157,7 +157,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         dt: float = 1e-3,
         t_pulse: float = 1e-5,
         out_rate: float = 0.02,
-        update_type: str = "dpi",
+        update_type: str = "dpi_us",
         params: Optional[DynapSE1Parameters] = None,
         layout: Optional[DynapSE1Layout] = None,
         rng_key: Optional[Any] = None,
@@ -262,7 +262,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         The function solves the dynamical equations introduced at
         ``DynapSE1NeuronSynapseJax`` module definition
 
-        :param input_data: Input array of shape ``(T, Nin)`` to evolve over
+        :param input_data: Input array of shape ``(T, Nin)`` to evolve over. Represents number of spikes at that timebin
         :type input_data: np.ndarray
         :param record: record the each timestep of evolution or not, defaults to False
         :type record: bool, optional
@@ -272,6 +272,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             record_dict: is a dictionary containing the recorded state variables during the evolution at each time step, if the ``record`` argument is ``True``.
         :rtype: Tuple[np.ndarray, dict, dict]
         """
+
         update_ahp = self._get_dpi_update_func(
             self.update_type, self.get_tau("ahp"), self.get_Iinf("ahp")
         )
@@ -357,8 +358,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         if type == "taylor":
 
-            def _taylor_update(Isyn, spikes):
-                Isyn += spikes * Iss()
+            def _taylor_update(Isyn, n_spikes):
+                Isyn += n_spikes * Iss()
                 factor = -self.dt / tau()
                 I_next = Isyn + Isyn * factor
                 I_next = np.clip(I_next, self.layout.Io)
@@ -368,8 +369,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         elif type == "exp":
 
-            def _exponential_update(Isyn, spikes):
-                Isyn += spikes * Iss()
+            def _exponential_update(Isyn, n_spikes):
+                Isyn += n_spikes * Iss()
                 factor = np.exp(-self.dt / tau())
                 I_next = Isyn * factor
                 I_next = np.clip(I_next, self.layout.Io)
@@ -379,13 +380,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         elif type == "dpi":
 
-            def _dpi_update(Isyn, spikes):
+            def _dpi_update(Isyn, n_spikes):
 
                 factor = np.exp(-self.dt / tau())
+                spikes = n_spikes.astype(bool)
 
                 # CHARGE PHASE
                 charge = Iss() * (1.0 - factor) + Isyn * factor
-                charge_vector = spikes * charge
+                charge_vector = spikes * charge  # linear
 
                 # DISCHARGE PHASE
                 discharge = Isyn * factor
@@ -402,13 +404,19 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             type == "dpi_us"
         ):  # DPI Undersampled Simulation : only 1 spike allowed in 1ms
 
-            def _dpi_us_update(Isyn, spikes):
+            def pulse_width(n_spikes):
+                return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
 
+            def _dpi_us_update(Isyn, n_spikes):
+
+                # t_pulse = pulse_width(n_spikes)
+                t_pulse = self.t_pulse * n_spikes
                 full_discharge = np.exp(-self.dt / tau())
-                f_charge = np.exp(-self.t_pulse / tau())
-                t_dis = (self.dt - self.t_pulse) / 2.0
+                f_charge = np.exp(-t_pulse / tau())
+                t_dis = (self.dt - t_pulse) / 2.0
                 f_dis = np.exp(-t_dis / tau())
 
+                spikes = n_spikes.astype(bool)
                 # IF spikes
                 # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
                 charge = (
@@ -427,6 +435,34 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 return I_next
 
             return _dpi_us_update
+
+        elif type == "dpi_us2":  # DPI Undersampled Simulation : equations simplified
+
+            def pulse_width(n_spikes):
+                return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
+
+            def _dpi_us2_update(Isyn, n_spikes):
+
+                f_dt = np.exp(-self.dt / tau())
+
+                # t_pulse = pulse_width(n_spikes)
+                t_pulse = self.t_pulse * n_spikes
+
+                t_dis = (self.dt - t_pulse) / 2.0
+                f_charge = np.exp(-t_dis / tau()) - np.exp(-(t_dis + t_pulse) / tau())
+
+                # DISCHARGE IN ANY CASE
+                Isyn *= f_dt
+
+                # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+                spikes = n_spikes.astype(bool)
+                Isyn += Iss() * (f_charge * spikes)
+
+                Isyn = np.clip(Isyn, self.layout.Io)
+
+                return Isyn
+
+            return _dpi_us2_update
 
         else:
             raise TypeError(
