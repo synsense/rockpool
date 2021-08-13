@@ -64,7 +64,7 @@ class DPIParams:
     kappa_n: float = 0.75
     kappa_p: float = 0.66
     Ut: float = 25e-3
-    Io: float = 5e-12
+    Io: float = 5e-13
     Capacitor: float = 28e-12
     Itau: float = 10e-12
     Ith: float = 40e-12
