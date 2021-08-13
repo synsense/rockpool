@@ -99,7 +99,9 @@ def spike_to_pulse(
             )
 
     if pulse_width < dt:
-        raise ValueError("Pulse width must be greater than or equal to dt")
+        raise ValueError(
+            f"Pulse width:{pulse_width:.1e} must be greater than or equal to dt:{dt:.1e}"
+        )
 
     # Get the channel iterator and number of timesteps represented in one channel
     channels, signal_steps = channel_iterator()
@@ -291,3 +293,93 @@ def pulse_width_increment(
             return pulse_width
 
         return lin_incr
+
+
+def pulse_placement(method: str, dt: float) -> Callable[[np.ndarray], float]:
+    """
+    pulse_placement defines a method to place a pulse inside a larger timebin
+
+    :param method: The method of placement. It can be "middle", "start", "end", or "random"
+    :type method: str
+    :param dt: the timebin to place the pulse
+    :type dt: float
+    :return: a function to calculate the time left after the pulse ends
+    :rtype: Callable[[np.ndarray],float]
+    """
+    if method == "middle":
+
+        def _middle(t_pulse: np.ndarray):
+            """
+            _middle places the pulse right in the middle of the timebin
+            .___|-|___.
+
+            :param t_pulse: an array of durations of the pulses
+            :type t_pulse: np.ndarray
+            :return: the time left after the pulse ends.
+            :rtype: float
+            """
+            t_dis = (dt - t_pulse) / 2.0
+            return t_dis
+
+        return _middle
+
+    if method == "start":
+
+        def _start(t_pulse: np.ndarray):
+            """
+            _start places the pulse at the beginning of the timebin
+            .|-|______.
+
+            :param t_pulse: an array of durations of the pulses
+            :type t_pulse: np.ndarray
+            :return: the time left after the pulse ends.
+            :rtype: float
+            """
+            t_dis = dt - t_pulse
+            return t_dis
+
+        return _start
+
+    if method == "end":
+
+        def _end(t_pulse: np.ndarray):
+            """
+            _end places the pulse at the end of the timebin
+            .______|-|.
+            Note that it's the most advantageous one becasue
+            placing the pulse at the end, one exponential term in the DPI update
+            equation can be omitted.
+
+            :param t_pulse: an array of durations of the pulses
+            :type t_pulse: np.ndarray
+            :return: the time left after the pulse ends.
+            :rtype: float
+            """
+            t_dis = 0
+            return t_dis
+
+        return _end
+
+    if method == "random":
+
+        def _random(t_pulse: np.ndarray):
+            """
+            _random places the pulse to a random place inside the timebin
+            .__|-|____.
+            ._____|-|_.
+            ._|-|_____.
+
+            Note that it's the most expensive one among the other placement methods
+            since that there is a random number generation overhead at each time.
+
+            :param t_pulse: an array of durations of the pulses
+            :type t_pulse: np.ndarray
+            :return: the time left after the pulse ends.
+            :rtype: float
+            """
+
+            t_pulse_start = (dt - t_pulse) * np.random.random_sample()
+            t_dis = dt - t_pulse_start - t_pulse
+            return t_dis
+
+        return _random
