@@ -441,6 +441,15 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             def pulse_width(n_spikes):
                 return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
 
+            def _random(t_pulse: np.ndarray):
+
+                t_pulse_start = (self.dt - t_pulse) * onp.random.random_sample(
+                    len(t_pulse)
+                )
+                t_pulse_end = t_pulse + t_pulse_start
+                t_dis = self.dt - t_pulse_end
+                return t_dis
+
             def _dpi_us2_update(Isyn, n_spikes):
 
                 f_dt = np.exp(-self.dt / tau())
@@ -448,7 +457,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 # t_pulse = pulse_width(n_spikes)
                 t_pulse = self.t_pulse * n_spikes
 
-                t_dis = (self.dt - t_pulse) / 2.0
+                # t_dis = (self.dt - t_pulse) / 2.0
+                t_dis = _random(t_pulse)
                 f_charge = np.exp(-t_dis / tau()) - np.exp(-(t_dis + t_pulse) / tau())
 
                 # DISCHARGE IN ANY CASE
@@ -464,6 +474,31 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             return _dpi_us2_update
 
+        elif (
+            type == "dpi_us3"
+        ):  # DPI Undersampled Simulation : more simplification : t_dis = 0, pulse is at the end
+
+            def pulse_width(n_spikes):
+                return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
+
+            def _dpi_us3_update(Isyn, n_spikes):
+                f_dt = np.exp(-self.dt / tau())
+                # t_pulse = pulse_width(n_spikes)
+                t_pulse = self.t_pulse * n_spikes
+                f_charge = 1 - np.exp(-t_pulse / tau())
+
+                # DISCHARGE IN ANY CASE
+                Isyn *= f_dt
+
+                # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+                # f_charge array = 0 where there is no spike
+                Isyn += Iss() * f_charge
+
+                Isyn = np.clip(Isyn, self.layout.Io)
+
+                return Isyn
+
+            return _dpi_us3_update
         else:
             raise TypeError(
                 f"{type} Update type undefined. Try one of 'taylor', 'exp', 'dpi'"
