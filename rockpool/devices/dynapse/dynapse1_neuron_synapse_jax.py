@@ -50,6 +50,8 @@ from typing import (
 
 from rockpool.typehints import JP_ndarray, P_float
 
+from utils import dpi_update_func
+
 
 @dataclass
 class DynapSE1Layout:
@@ -77,14 +79,22 @@ class DynapSE1Layout:
         self.Cgaba_a = Cgaba_a
         self.Cgaba_b = Cgaba_b
         self.Io = Io
+
+        # Calculated
         self.kappa = (kappa_n + kappa_p) / 2
+        self._f_tau = Ut / self.kappa
+        self.f_tau_ahp = self._f_tau * Cahp
+        self.f_tau_nmda = self._f_tau * Cnmda
+        self.f_tau_ampa = self._f_tau * Campa
+        self.f_tau_gaba_a = self._f_tau * Cgaba_a
+        self.f_tau_gaba_b = self._f_tau * Cgaba_b
 
 
 @dataclass
 class DPIParameters:
     def __init__(
         self,
-        Isyn: float = 5e-12,
+        Isyn: float = 5e-13,
         Itau: float = 1e-9,
         Ith: float = 1e-9,
         Iw: float = 1e-6,
@@ -102,10 +112,16 @@ class DynapSE1Parameters:
         self,
         ahp: Optional[DPIParameters] = None,
         nmda: Optional[DPIParameters] = None,
+        ampa: Optional[DPIParameters] = None,
+        gaba_a: Optional[DPIParameters] = None,
+        gaba_b: Optional[DPIParameters] = None,
     ):
 
         self.ahp = ahp
         self.nmda = nmda
+        self.ampa = ampa
+        self.gaba_a = gaba_a
+        self.gaba_b = gaba_b
 
 
 class DynapSE1NeuronSynapseJax(JaxModule):
@@ -157,7 +173,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         dt: float = 1e-3,
         t_pulse: float = 1e-5,
         out_rate: float = 0.02,
-        update_type: str = "dpi_us",
+        update_type: str = "dpi_us3",
         params: Optional[DynapSE1Parameters] = None,
         layout: Optional[DynapSE1Layout] = None,
         rng_key: Optional[Any] = None,
@@ -212,7 +228,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             layout = DynapSE1Layout()
 
         if params is None:
-            params = DynapSE1Parameters(ahp=DPIParameters(), nmda=DPIParameters())
+            params = DynapSE1Parameters(
+                ahp=DPIParameters(),
+                nmda=DPIParameters(),
+                ampa=DPIParameters(),
+                gaba_a=DPIParameters(),
+                gaba_b=DPIParameters(),
+            )
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
@@ -238,6 +260,31 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.Inmda, self.Itau_nmda, self.Ith_nmda, self.Iw_nmda = self._set_dpi_params(
             init=params.nmda,
             block_name="NMDA",
+        )
+
+        self.Iampa, self.Itau_ampa, self.Ith_ampa, self.Iw_ampa = self._set_dpi_params(
+            init=params.ampa,
+            block_name="AMPA",
+        )
+
+        (
+            self.Igaba_a,
+            self.Itau_gaba_a,
+            self.Ith_gaba_a,
+            self.Iw_gaba_a,
+        ) = self._set_dpi_params(
+            init=params.gaba_a,
+            block_name="GABA_A",
+        )
+
+        (
+            self.Igaba_b,
+            self.Itau_gaba_b,
+            self.Ith_gaba_b,
+            self.Iw_gaba_b,
+        ) = self._set_dpi_params(
+            init=params.gaba_b,
+            block_name="GABA_B",
         )
 
         # [] TODO : out_rate is just been using to validate the model
@@ -273,11 +320,21 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :rtype: Tuple[np.ndarray, dict, dict]
         """
 
-        update_ahp = self._get_dpi_update_func(
-            self.update_type, self.get_tau("ahp"), self.get_Iinf("ahp")
+        update_ahp = dpi_update_func(
+            self.update_type,
+            self.get_tau("ahp"),
+            self.get_Iinf("ahp"),
+            self.dt,
+            self.layout.Io,
+            self.t_pulse,
         )
-        update_nmda = self._get_dpi_update_func(
-            self.update_type, self.get_tau("nmda"), self.get_Iinf("nmda")
+        update_nmda = dpi_update_func(
+            self.update_type,
+            self.get_tau("nmda"),
+            self.get_Iinf("nmda"),
+            self.dt,
+            self.layout.Io,
+            self.t_pulse,
         )
 
         def forward(
@@ -300,27 +357,63 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             :rtype: Tuple[State, np.ndarray, np.ndarray]
             """
 
-            spikes, Iahp, Inmda, key = state
+            spikes, Iahp, Inmda, Iampa, Igaba_a, Igaba_b, key = state
 
             # Apply forward step
-            Iahp = update_ahp(Iahp, spikes)
-            Inmda = update_nmda(Inmda, spike_inputs_ts)
+            # Iahp = update_ahp(Iahp, spikes)
+            # Inmda = update_nmda(Inmda, spike_inputs_ts)
+            # t_pulse = pulse_width(n_spikes)
+
+            # Calculate the pulse width with a linear increase
+            t_pw = self.t_pulse * spike_inputs_ts
+            f_charge = 1 - np.exp(-t_pw / self.tau_syn)
+            f_discharge = np.exp(-self.dt / self.tau_syn)
+
+            Isyn = np.array([Inmda, Iampa, Igaba_a, Igaba_b])
+
+            # DISCHARGE IN ANY CASE
+            Isyn = np.multiply(Isyn, f_discharge)
+
+            # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+            # f_charge array = 0 where there is no spike
+            Isyn += np.multiply(self.Iss_syn, f_charge)
+
+            Isyn = np.clip(Isyn, self.layout.Io)
+
+            Inmda, Iampa, Igaba_a, Igaba_b = Isyn
 
             # [] TODO: REMOVE
             # Random spike generation
             key, subkey = rand.split(key)
             spikes = rand.poisson(subkey, self.out_rate, (self.size_out,)).astype(float)
 
-            return (spikes, Iahp, Inmda, key), (spikes, Iahp, Inmda)
+            state = (spikes, Iahp, Inmda, Iampa, Igaba_a, Igaba_b, key)
+            return state, (spikes, Iahp, Inmda, Iampa, Igaba_a, Igaba_b)
 
         # - Evolve over spiking inputs
-        state, (spikes_ts, Iahp_ts, Inmda_ts) = scan(
+        state, (spikes_ts, Iahp_ts, Inmda_ts, Iampa_ts, Igaba_a_ts, Igaba_b_ts,) = scan(
             forward,
-            (self.spikes, self.Iahp, self.Inmda, self._rng_key),
+            (
+                self.spikes,
+                self.Iahp,
+                self.Inmda,
+                self.Iampa,
+                self.Igaba_a,
+                self.Igaba_b,
+                self._rng_key,
+            ),
             input_data,
         )
 
-        self.spikes, self.Iahp, self.Inmda, self._rng_key = state
+        (
+            self.spikes,
+            self.Iahp,
+            self.Inmda,
+            self.Iampa,
+            self.Igaba_a,
+            self.Igaba_b,
+            self._rng_key,
+        ) = state
 
         # - Generate return arguments
         outputs = spikes_ts
@@ -329,6 +422,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "spikes": self.spikes,
             "Iahp": self.Iahp,
             "Inmda": self.Inmda,
+            "Iampa": self.Iampa,
+            "Igaba_a": self.Igaba_a,
+            "Igaba_b": self.Igaba_b,
         }
 
         if record:
@@ -337,172 +433,15 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 "spikes": spikes_ts,
                 "Iahp": Iahp_ts,
                 "Inmda": Inmda_ts,
+                "Iampa": Iampa_ts,
+                "Igaba_a": Igaba_a_ts,
+                "Igaba_b": Igaba_b_ts,
             }
         else:
             record_dict = {}
 
         # - Return outputs
         return outputs, states, record_dict
-
-    def _get_dpi_update_func(
-        self, type: str, tau: Callable[[], float], Iss: Callable[[], float]
-    ) -> Callable[[float], float]:
-        """
-        _get_dpi_update_func Returns the DPI update function given the type
-
-        :param type: The update type : 'taylor', 'exp', or 'dpi'
-        :type type: str
-        :raises TypeError: If the update type given is neither 'taylor' nor 'exp' nor 'dpi'
-        :return: a function calculating the value of the synaptic current in the next time step, given the instantaneous synaptic current
-        :rtype: Callable[[float], float]
-        """
-        if type == "taylor":
-
-            def _taylor_update(Isyn, n_spikes):
-                Isyn += n_spikes * Iss()
-                factor = -self.dt / tau()
-                I_next = Isyn + Isyn * factor
-                I_next = np.clip(I_next, self.layout.Io)
-                return I_next
-
-            return _taylor_update
-
-        elif type == "exp":
-
-            def _exponential_update(Isyn, n_spikes):
-                Isyn += n_spikes * Iss()
-                factor = np.exp(-self.dt / tau())
-                I_next = Isyn * factor
-                I_next = np.clip(I_next, self.layout.Io)
-                return I_next
-
-            return _exponential_update
-
-        elif type == "dpi":
-
-            def _dpi_update(Isyn, n_spikes):
-
-                factor = np.exp(-self.dt / tau())
-                spikes = n_spikes.astype(bool)
-
-                # CHARGE PHASE
-                charge = Iss() * (1.0 - factor) + Isyn * factor
-                charge_vector = spikes * charge  # linear
-
-                # DISCHARGE PHASE
-                discharge = Isyn * factor
-                discharge_vector = (1 - spikes) * discharge
-
-                I_next = charge_vector + discharge_vector
-                I_next = np.clip(I_next, self.layout.Io)
-
-                return I_next
-
-            return _dpi_update
-
-        elif (
-            type == "dpi_us"
-        ):  # DPI Undersampled Simulation : only 1 spike allowed in 1ms
-
-            def pulse_width(n_spikes):
-                return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
-
-            def _dpi_us_update(Isyn, n_spikes):
-
-                # t_pulse = pulse_width(n_spikes)
-                t_pulse = self.t_pulse * n_spikes
-                full_discharge = np.exp(-self.dt / tau())
-                f_charge = np.exp(-t_pulse / tau())
-                t_dis = (self.dt - t_pulse) / 2.0
-                f_dis = np.exp(-t_dis / tau())
-
-                spikes = n_spikes.astype(bool)
-                # IF spikes
-                # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
-                charge = (
-                    Iss() * f_dis * (1.0 - f_charge) + Isyn * f_charge * f_dis * f_dis
-                )
-                charge_vector = spikes * charge
-
-                # IF no spike at all
-                # DISCHARGE PHASE
-                discharge = Isyn * full_discharge
-                discharge_vector = (1 - spikes) * discharge
-
-                I_next = charge_vector + discharge_vector
-                I_next = np.clip(I_next, self.layout.Io)
-
-                return I_next
-
-            return _dpi_us_update
-
-        elif type == "dpi_us2":  # DPI Undersampled Simulation : equations simplified
-
-            def pulse_width(n_spikes):
-                return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
-
-            def _random(t_pulse: np.ndarray):
-
-                t_pulse_start = (self.dt - t_pulse) * onp.random.random_sample(
-                    len(t_pulse)
-                )
-                t_pulse_end = t_pulse + t_pulse_start
-                t_dis = self.dt - t_pulse_end
-                return t_dis
-
-            def _dpi_us2_update(Isyn, n_spikes):
-
-                f_dt = np.exp(-self.dt / tau())
-
-                # t_pulse = pulse_width(n_spikes)
-                t_pulse = self.t_pulse * n_spikes
-
-                # t_dis = (self.dt - t_pulse) / 2.0
-                t_dis = _random(t_pulse)
-                f_charge = np.exp(-t_dis / tau()) - np.exp(-(t_dis + t_pulse) / tau())
-
-                # DISCHARGE IN ANY CASE
-                Isyn *= f_dt
-
-                # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
-                spikes = n_spikes.astype(bool)
-                Isyn += Iss() * (f_charge * spikes)
-
-                Isyn = np.clip(Isyn, self.layout.Io)
-
-                return Isyn
-
-            return _dpi_us2_update
-
-        elif (
-            type == "dpi_us3"
-        ):  # DPI Undersampled Simulation : more simplification : t_dis = 0, pulse is at the end
-
-            def pulse_width(n_spikes):
-                return self.dt * (1.0 - np.exp(-n_spikes * self.t_pulse / self.dt))
-
-            def _dpi_us3_update(Isyn, n_spikes):
-                f_dt = np.exp(-self.dt / tau())
-                # t_pulse = pulse_width(n_spikes)
-                t_pulse = self.t_pulse * n_spikes
-                f_charge = 1 - np.exp(-t_pulse / tau())
-
-                # DISCHARGE IN ANY CASE
-                Isyn *= f_dt
-
-                # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
-                # f_charge array = 0 where there is no spike
-                Isyn += Iss() * f_charge
-
-                Isyn = np.clip(Isyn, self.layout.Io)
-
-                return Isyn
-
-            return _dpi_us3_update
-        else:
-            raise TypeError(
-                f"{type} Update type undefined. Try one of 'taylor', 'exp', 'dpi'"
-            )
 
     def _set_dpi_params(
         self,
@@ -566,3 +505,80 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             return Iss
 
         return Iinf
+
+    @property
+    def Iss_ahp(self):
+        _Iss = (self.Ith_ahp / self.Itau_ahp) * self.Iw_ahp
+        return _Iss
+
+    @property
+    def Iss_nmda(self):
+        _Iss = (self.Ith_nmda / self.Itau_nmda) * self.Iw_nmda
+        return _Iss
+
+    @property
+    def Iss_ampa(self):
+        _Iss = (self.Ith_ampa / self.Itau_ampa) * self.Iw_ampa
+        return _Iss
+
+    @property
+    def Iss_gaba_a(self):
+        _Iss = (self.Ith_gaba_a / self.Itau_gaba_a) * self.Iw_gaba_a
+        return _Iss
+
+    @property
+    def Iss_gaba_b(self):
+        _Iss = (self.Ith_gaba_b / self.Itau_gaba_b) * self.Iw_gaba_b
+        return _Iss
+
+    @property
+    def Iss_syn(self):
+        return np.array(
+            [self.Iss_nmda, self.Iss_ampa, self.Iss_gaba_a, self.Iss_gaba_b]
+        )
+
+    @property
+    def tau_ahp(self):
+        _tau = self.layout.f_tau_ahp / self.Itau_ahp
+        return _tau
+
+    @property
+    def tau_nmda(self):
+        _tau = self.layout.f_tau_nmda / self.Itau_nmda
+        return _tau
+
+    @property
+    def tau_ampa(self):
+        _tau = self.layout.f_tau_ampa / self.Itau_ampa
+        return _tau
+
+    @property
+    def tau_gaba_a(self):
+        _tau = self.layout.f_tau_gaba_a / self.Itau_gaba_a
+        return _tau
+
+    @property
+    def tau_gaba_b(self):
+        _tau = self.layout.f_tau_gaba_b / self.Itau_gaba_b
+        return _tau
+
+    @property
+    def tau_syn(self):
+        return np.array(
+            [self.tau_nmda, self.tau_ampa, self.tau_gaba_a, self.tau_gaba_b]
+        )
+
+    # @property
+    # def tau_ampa(self):
+    #     _tau = self.layout.f_tau_ampa / self.Itau_ampa
+    #     return _tau
+
+    # @property
+    # def tau_gaba_a(self):
+    #     _tau = self.layout.f_tau_gaba_a / self.Itau_gaba_a
+    #     return _tau
+
+    # @property
+    # def tau_gaba_b(self):
+    #     _tau = self.layout.f_tau_gaba_b / self.Itau_gaba_b
+    #     return _tau
