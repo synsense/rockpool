@@ -9,10 +9,8 @@ if util.find_spec("torch") is None:
         "'Torch' backend not found. Modules that rely on Torch will not be available."
     )
 
+from rockpool.nn.modules import TorchModule
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
 
 __all__ = ["ParameterBoundaryRegularizer"]
 
@@ -91,7 +89,7 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
     return lower_loss + upper_loss
 
 
-class ParameterBoundaryRegularizer(nn.Module):
+class ParameterBoundaryRegularizer(TorchModule):
     """
     Class wrapper for the summed exponential error of boundary violations of an input. See :py:func:`.summed_exp_boundary_loss` for more information.
     Allows to define the boundaries of a value just once in an object.
