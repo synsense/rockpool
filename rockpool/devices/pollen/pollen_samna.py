@@ -416,16 +416,9 @@ class PollenSamna(Module):
                 rcram[i] = 3
         putils.write_memory(self._device, 0x9980, 1000, rcram)
 
-        # print('\n after write rcram \n')
-        # putils.print_debug_ram(self._device, self._event_buffer, 2, 6, 1)
-
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
         final_timestep = start_timestep + len(input) - 1
-
-        # print('\n after get current timestamp \n')
-        # putils.print_debug_registers(self._device, self._event_buffer)
-        # putils.print_debug_ram(self._device, self._event_buffer, 2, 6, 1)
 
         # -- Encode input events
         input_events_list = []
@@ -442,28 +435,16 @@ class PollenSamna(Module):
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
-        # print('\n before add dummy input spike \n')
-        # putils.print_debug_registers(self._device, self._event_buffer)
-        # putils.print_debug_ram(self._device, self._event_buffer, 2, 6, 1)
-
         # - Add an extra event to ensure readout for entire input extent
         event = samna.pollen.event.Spike()
         event.timestamp = final_timestep + 1
         input_events_list.append(event)
-
-        # print('\n after add dummy input spike \n')
-        # putils.print_debug_registers(self._device, self._event_buffer)
-        # putils.print_debug_ram(self._device, self._event_buffer, 2, 6, 1)
 
         # - Clear the input event count register to make sure the dummy event is ignored
         for addr in [0x0C, 0x0D, 0x0E, 0x0F]:
             event = samna.pollen.event.WriteRegisterValue()
             event.address = addr
             input_events_list.append(event)
-
-        # print('\n after clear the input register \n')
-        # putils.print_debug_registers(self._device, self._event_buffer)
-        # putils.print_debug_ram(self._device, self._event_buffer, 2, 6, 1)
 
         # - Clear the read and state buffers
         self._state_buffer.reset()
@@ -475,10 +456,6 @@ class PollenSamna(Module):
 
         # - Write the events and trigger the simulation
         self._device.get_model().write(input_events_list)
-
-        # print('\n after write the events and trigger the simulation \n')
-        # putils.print_debug_registers(self._device, self._event_buffer)
-        # putils.print_debug_ram(self._device, testModel._event_buffer, 2, 6, 1)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
@@ -498,19 +475,19 @@ class PollenSamna(Module):
         #         strings += f'[{str(e)}]'
         #     return strings
 
-        folder = "./state_monitor/"
-        newFolder = Path(folder)
-        if not newFolder.exists():
-            makedirs(newFolder)
-
-        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
-        np.savetxt(folder+"Vmem.txt", np.array(pollen_data.V_mem_hid), fmt="%i")
-        np.savetxt(folder+"Isyn.txt", np.array(pollen_data.I_syn_hid), fmt="%i")
-        np.savetxt(folder+"Isyn2.txt", np.array(pollen_data.I_syn2_hid), fmt="%i")
-        np.savetxt(folder+"Spikes.txt", np.array(pollen_data.Spikes_hid), fmt="%i")
-        np.savetxt(folder+"Vmem_out.txt", np.array(pollen_data.V_mem_out), fmt="%i")
-        np.savetxt(folder+"Isyn_out.txt", np.array(pollen_data.I_syn_out), fmt="%i")
-        np.savetxt(folder+"times.txt", np.arange(start_timestep, final_timestep + 1), fmt="%i")
+        # folder = "./state_monitor/"
+        # newFolder = Path(folder)
+        # if not newFolder.exists():
+        #     makedirs(newFolder)
+        #
+        # pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
+        # np.savetxt(folder+"Vmem.txt", np.array(pollen_data.V_mem_hid), fmt="%i")
+        # np.savetxt(folder+"Isyn.txt", np.array(pollen_data.I_syn_hid), fmt="%i")
+        # np.savetxt(folder+"Isyn2.txt", np.array(pollen_data.I_syn2_hid), fmt="%i")
+        # np.savetxt(folder+"Spikes.txt", np.array(pollen_data.Spikes_hid), fmt="%i")
+        # np.savetxt(folder+"Vmem_out.txt", np.array(pollen_data.V_mem_out), fmt="%i")
+        # np.savetxt(folder+"Isyn_out.txt", np.array(pollen_data.I_syn_out), fmt="%i")
+        # np.savetxt(folder+"times.txt", np.arange(start_timestep, final_timestep + 1), fmt="%i")
 
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
@@ -521,7 +498,7 @@ class PollenSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        # pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
+        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
 
         if record:
             # - Build a recorded state dictionary
