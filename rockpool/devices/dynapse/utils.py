@@ -19,10 +19,9 @@ from typing import (
     List,
 )
 
-NoneType = type(None)
 ArrayLike = Union[np.ndarray, List, Tuple]
 
-import numpy as np
+import jax.numpy as jnp
 
 
 def spike_to_pulse(
@@ -125,7 +124,7 @@ def spike_to_pulse(
 
 def custom_spike_train(
     times: ArrayLike,
-    channels: Union[ArrayLike, NoneType],
+    channels: Optional[ArrayLike],
     duration: float,
     name: Optional[str] = "Input Spikes",
 ) -> TSEvent:
@@ -135,7 +134,7 @@ def custom_spike_train(
     :param times: ``Tx1`` vector of exact spike times
     :type times: ArrayLike
     :param channels: ``Tx1`` vector of spike channels. All events belongs to channels 0 if None
-    :type channels: Union[ArrayLike, NoneType]
+    :type channels: Optional[ArrayLike]
     :param duration: The simulation duration in seconds
     :type duration: float
     :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
@@ -185,25 +184,25 @@ def random_spike_train(
     return input_sp_ts
 
 
-def calculate_tau(
-    c: float,
-    itau: float,
-    ut: float = 25e-3,
+def get_tau(
+    C: float,
+    Itau: float,
+    Ut: float = 25e-3,
     kappa_n: float = 0.75,
     kappa_p: float = 0.66,
 ) -> float:
     """
-    calculate_tau calculates the time constant using the leakage current
+    get_tau calculates the time constant using the leakage current
 
     .. math ::
         \\tau = \\dfrac{C U_{T}}{\\kappa I_{\\tau}}
 
-    :param c: capacitor value in farads
-    :type c: float
-    :param itau: leakage current in amperes
-    :type itau: float
-    :param ut: termal voltage in volts, defaults to 25e-3
-    :type ut: float, optional
+    :param C: capacitor value in farads
+    :type C: float
+    :param Itau: leakage current in amperes
+    :type Itau: float
+    :param Ut: termal voltage in volts, defaults to 25e-3
+    :type Ut: float, optional
     :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
     :type kappa_n: float, optional
     :param kappa_p: Subthreshold slope factor (p-type transistor), defaults to 0.66
@@ -212,17 +211,17 @@ def calculate_tau(
     :rtype: float
     """
     kappa = (kappa_n + kappa_p) / 2
-    tau = (c * ut) / (kappa * itau)
+    tau = (C * Ut) / (kappa * Itau)
     return tau
 
 
-def calculate_Isyn_inf(
+def Isyn_inf(
     Ith: float,
     Itau: float,
     Iw: float,
 ) -> float:
     """
-    calculate_Isyn_inf calculates the steady state DPI current
+    Isyn_inf calculates the steady state DPI current
 
     .. math ::
         I_{syn_{\\infty}} = \\dfrac{I_{th}}{I_{\\tau}}I_{w}
@@ -238,6 +237,24 @@ def calculate_Isyn_inf(
     """
     Iss = (Ith / Itau) * Iw
     return Iss
+
+
+def get_param_vector(object_list: ArrayLike, target: str) -> np.ndarray:
+    """
+    get_param_vector lists the parameters traversing the different object instances of the same class
+
+    :param object_list: list of objects to be traversed
+    :type object_list: ArrayLike
+    :param target: target parameter to be extracted and listed in the order of object list
+    :type target: str
+    :return: An array of target parameter values obtained from the objects
+    :rtype: np.ndarray
+    """
+    param_list = [
+        obj.__getattribute__(target) if obj is not None else None for obj in object_list
+    ]
+
+    return np.array(param_list)
 
 
 def pulse_width_increment(
@@ -383,3 +400,163 @@ def pulse_placement(method: str, dt: float) -> Callable[[np.ndarray], float]:
             return t_dis
 
         return _random
+
+
+def dpi_update_func(
+    type: str,
+    tau: Callable[[], float],
+    Iss: Callable[[], float],
+    dt: float,
+    Io: float,
+    t_pulse: Optional[float],
+) -> Callable[[float], float]:
+    """
+    dpi_update_func Returns the DPI update function given the type
+
+    :param type: The update type : 'taylor', 'exp', or 'dpi'
+    :type type: str
+    :raises TypeError: If the update type given is neither 'taylor' nor 'exp' nor 'dpi'
+    :return: a function calculating the value of the synaptic current in the next time step, given the instantaneous synaptic current
+    :rtype: Callable[[float], float]
+    """
+    if type == "taylor":
+
+        def _taylor_update(Isyn, n_spikes):
+            Isyn += n_spikes * Iss()
+            factor = -dt / tau()
+            I_next = Isyn + Isyn * factor
+            I_next = jnp.clip(I_next, Io)
+            return I_next
+
+        return _taylor_update
+
+    elif type == "exp":
+
+        def _exponential_update(Isyn, n_spikes):
+            Isyn += n_spikes * Iss()
+            factor = jnp.exp(-dt / tau())
+            I_next = Isyn * factor
+            I_next = jnp.clip(I_next, Io)
+            return I_next
+
+        return _exponential_update
+
+    elif type == "dpi":
+
+        def _dpi_update(Isyn, n_spikes):
+
+            factor = jnp.exp(-dt / tau())
+            spikes = n_spikes.astype(bool)
+
+            # CHARGE PHASE
+            charge = Iss() * (1.0 - factor) + Isyn * factor
+            charge_vector = spikes * charge  # linear
+
+            # DISCHARGE PHASE
+            discharge = Isyn * factor
+            discharge_vector = (1 - spikes) * discharge
+
+            I_next = charge_vector + discharge_vector
+            I_next = jnp.clip(I_next, Io)
+
+            return I_next
+
+        return _dpi_update
+
+    elif type == "dpi_us":  # DPI Undersampled Simulation : only 1 spike allowed in 1ms
+
+        def pulse_width(n_spikes):
+            return dt * (1.0 - jnp.exp(-n_spikes * t_pulse / dt))
+
+        def _dpi_us_update(Isyn, n_spikes):
+
+            # t_pulse = pulse_width(n_spikes)
+            pw = t_pulse * n_spikes
+            full_discharge = jnp.exp(-dt / tau())
+            f_charge = jnp.exp(-pw / tau())
+            t_dis = (dt - pw) / 2.0
+            f_dis = jnp.exp(-t_dis / tau())
+
+            spikes = n_spikes.astype(bool)
+            # IF spikes
+            # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+            charge = Iss() * f_dis * (1.0 - f_charge) + Isyn * f_charge * f_dis * f_dis
+            charge_vector = spikes * charge
+
+            # IF no spike at all
+            # DISCHARGE PHASE
+            discharge = Isyn * full_discharge
+            discharge_vector = (1 - spikes) * discharge
+
+            I_next = charge_vector + discharge_vector
+            I_next = jnp.clip(I_next, Io)
+
+            return I_next
+
+        return _dpi_us_update
+
+    elif type == "dpi_us2":  # DPI Undersampled Simulation : equations simplified
+
+        def pulse_width(n_spikes):
+            return dt * (1.0 - jnp.exp(-n_spikes * t_pulse / dt))
+
+        def _random(t_pulse: jnp.ndarray):
+
+            t_pulse_start = (dt - t_pulse) * np.random.random_sample(len(t_pulse))
+            t_pulse_end = t_pulse + t_pulse_start
+            t_dis = dt - t_pulse_end
+            return t_dis
+
+        def _dpi_us2_update(Isyn, n_spikes):
+
+            f_dt = jnp.exp(-dt / tau())
+
+            # t_pulse = pulse_width(n_spikes)
+            pw = t_pulse * n_spikes
+
+            # t_dis = (dt - t_pulse) / 2.0
+            t_dis = _random(pw)
+            f_charge = jnp.exp(-t_dis / tau()) - jnp.exp(-(t_dis + pw) / tau())
+
+            # DISCHARGE IN ANY CASE
+            Isyn *= f_dt
+
+            # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+            spikes = n_spikes.astype(bool)
+            Isyn += Iss() * (f_charge * spikes)
+
+            Isyn = jnp.clip(Isyn, Io)
+
+            return Isyn
+
+        return _dpi_us2_update
+
+    elif (
+        type == "dpi_us3"
+    ):  # DPI Undersampled Simulation : more simplification : t_dis = 0, pulse is at the end
+
+        def pulse_width(n_spikes):
+            return dt * (1.0 - jnp.exp(-n_spikes * t_pulse / dt))
+
+        def _dpi_us3_update(Isyn, n_spikes):
+            f_dt = jnp.exp(-dt / tau())
+            # t_pulse = pulse_width(n_spikes)
+            pw = t_pulse * n_spikes
+            f_charge = 1 - jnp.exp(-pw / tau())
+
+            # DISCHARGE IN ANY CASE
+            Isyn *= f_dt
+
+            # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
+            # f_charge array = 0 where there is no spike
+            Isyn += Iss() * f_charge
+
+            Isyn = jnp.clip(Isyn, Io)
+
+            return Isyn
+
+        return _dpi_us3_update
+    else:
+        raise TypeError(
+            f"{type} Update type undefined. Try one of 'taylor', 'exp', 'dpi'"
+        )
