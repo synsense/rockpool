@@ -1,6 +1,6 @@
 """
 Low level DynapSE1 simulator.
-Solves the characteristic equations to simulate the circuit.
+Solves the characteristic equations to simulate the circuits.
 Trainable parameters
 
 References:
@@ -44,54 +44,93 @@ from dataclasses import dataclass
 from typing import (
     Optional,
     Tuple,
-    Callable,
     Any,
 )
 
 from rockpool.typehints import JP_ndarray, P_float
 
-from utils import dpi_update_func
-
 
 @dataclass
 class DynapSE1Layout:
-    def __init__(
-        self,
-        kappa_n: float = 0.75,
-        kappa_p: float = 0.66,
-        Ut: float = 25e-3,
-        Cmem: float = 1.5e-12,
-        Cahp: float = 1e-9,
-        Cnmda: float = 1.5e-9,
-        Campa: float = 1.5e-10,
-        Cgaba_a: float = 1.5e-11,
-        Cgaba_b: float = 1.5e-12,
-        Io: float = 5e-13,
-    ):
+    """
+    DynapSE1Layout contains the constant values used in simulation that are related to the exact silicon layout of a chip.
 
-        self.kappa_n = kappa_n
-        self.kappa_p = kappa_p
-        self.Ut = Ut
-        self.Cmem = Cmem
-        self.Cahp = Cahp
-        self.Cnmda = Cnmda
-        self.Campa = Campa
-        self.Cgaba_a = Cgaba_a
-        self.Cgaba_b = Cgaba_b
-        self.Io = Io
+    :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
+    :type kappa_n: float, optional
+    :param kappa_p: Subthreshold slope factor (n-type transistor), defaults to 0.66
+    :type kappa_p: float, optional
+    :param Ut: Thermal voltage in Volts, defaults to 25e-3
+    :type Ut: float, optional
+    :param Cmem: Membrane capacitance in Farads, fixed at layout time, defaults to 3.2e-12
+    :type Cmem: float, optional
+    :param Cahp: Spike-frequency adaptation capacitance in Farads, defaults to 40e-12
+    :type Cahp: float, optional
+    :param Cnmda: NMDA DPI synaptic capacitance in Farads, fixed at layout time, defaults to 28e-12
+    :type Cnmda: float, optional
+    :param Campa: AMPA DPI synaptic capacitance in Farads, fixed at layout time, defaults to 28e-12
+    :type Campa: float, optional
+    :param Cgaba_a: GABA_A DPI synaptic capacitance in Farads, fixed at layout time,, defaults to 27e-12
+    :type Cgaba_a: float, optional
+    :param Cgaba_b: GABA_B(SHUNT) DPI synaptic capacitance in Farads, fixed at layout time, defaults to 27e-12
+    :type Cgaba_b: float, optional
+    :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
+    :type Io: float, optional
 
-        # Calculated
-        self.kappa = (kappa_n + kappa_p) / 2
+    :Instance Variables:
 
-        _f_tau = Ut / self.kappa
+    :ivar kappa: Mean kappa
+    :type kappa: float
+    :ivar f_tau_ahp: Tau factor for AHP. tau = f_tau/I_tau
+    :type f_tau_ahp: float
+    :ivar f_tau_nmda: Tau factor for NMDA. tau = f_tau/I_tau
+    :type f_tau_nmda: float
+    :ivar f_tau_ampa: Tau factor for AMPA. tau = f_tau/I_tau
+    :type f_tau_ampa: float
+    :ivar f_tau_gaba_a: Tau factor for GABA_A. tau = f_tau/I_tau
+    :type f_tau_gaba_a: float
+    :ivar f_tau_gaba_b: Tau factor for GABA_B. tau = f_tau/I_tau
+    :type f_tau_gaba_b: float
+    :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
+    :type f_tau_syn: np.ndarray
+    """
 
-        self.f_tau_mem = _f_tau * Cmem
+    kappa_n: float = 0.75
+    kappa_p: float = 0.66
+    Ut: float = 25e-3
+    Cmem: float = 3.2e-12
+    Cahp: float = 40e-12
+    Cnmda: float = 28e-12
+    Campa: float = 28e-12
+    Cgaba_a: float = 27e-12
+    Cgaba_b: float = 27e-12
+    Io: float = 5e-13
 
-        self.f_tau_ahp = _f_tau * Cahp
-        self.f_tau_nmda = _f_tau * Cnmda
-        self.f_tau_ampa = _f_tau * Campa
-        self.f_tau_gaba_a = _f_tau * Cgaba_a
-        self.f_tau_gaba_b = _f_tau * Cgaba_b
+    def __post_init__(self):
+        """
+        __post_init__ runs after __init__ and sets the variables depending on the initial values
+        """
+        self.kappa = (self.kappa_n + self.kappa_p) / 2.0
+        self._set_tau_factors()
+
+    def _set_tau_factors(self):
+        """
+        _set_tau_factors sets individual tau factors as well as a vector of factors as instance variables.
+        Tau can then be obtained by tau = f_tau/I_tau
+        """
+        # Block independend factor
+        _f_tau = self.Ut / self.kappa
+
+        # Membrane
+        self.f_tau_mem = _f_tau * self.Cmem
+
+        # DPI Circuits
+        self.f_tau_ahp = _f_tau * self.Cahp
+        self.f_tau_nmda = _f_tau * self.Cnmda
+        self.f_tau_ampa = _f_tau * self.Campa
+        self.f_tau_gaba_a = _f_tau * self.Cgaba_a
+        self.f_tau_gaba_b = _f_tau * self.Cgaba_b
+
+        # All DPI synapses together
         self.f_tau_syn = np.array(
             [
                 self.f_tau_ahp,
@@ -105,68 +144,118 @@ class DynapSE1Layout:
 
 @dataclass
 class DPIParameters:
-    def __init__(
-        self,
-        Isyn: float = 5e-13,
-        Itau: float = 1e-9,
-        Ith: float = 1e-9,
-        Iw: float = 1e-6,
-    ):
+    """
+    DPIParameters contains DPI specific parameter and state variables
 
-        self.Isyn = Isyn
-        self.Itau = Itau
-        self.Ith = Ith
-        self.Iw = Iw
+    :param Isyn: DPI output current in Amperes, defaults to 5e-13
+    :type Isyn: float, optional
+    :param Itau: Synaptic time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
+    :type Itau: float, optional
+    :param Ith: DPI's threshold / gain current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau), defaults to 40e-12
+    :type Ith: float, optional
+    :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-6
+    :type Iw: float, optional
+    """
+
+    Isyn: float = 5e-13
+    Itau: float = 10e-12
+    Ith: float = 40e-12
+    Iw: float = 1e-6
 
 
 @dataclass
 class FeedbackParameters:
-    def __init__(
-        self,
-        Igain: float = 5e-11,
-        Ith: float = 5e-10,
-        Inorm: float = 1e-11,
-    ):
-        self.Igain = Igain
-        self.Ith = Ith
-        self.Inorm = Inorm
+    """
+    FeedbackParameters contains the positive feedback circuit block parameters of Dynap-SE1 membrane.
+    Parameters are used to calculate positive feedback current with respect to the formula below.
+
+    .. math ::
+        I_{a} = \\dfrac{I_{a_{gain}}}{1+ exp\\left(-\\dfrac{I_{mem}+I_{a_{th}}}{I_{a_{norm}}}\\right)}
+
+    :param Igain: Feedback gain current, heuristic parameter, defaults to 5e-11
+    :type Igain: float, optional
+    :param Ith: Feedback threshold current, typically a fraction of Ispk_th, defaults to 5e-10
+    :type Ith: float, optional
+    :param Inorm: Feedback normalization current, heuristic parameter, defaults to 1e-11
+    :type Inorm: float, optional
+    """
+
+    Igain: float = 5e-11
+    Ith: float = 5e-10
+    Inorm: float = 1e-11
 
 
 @dataclass
 class MembraneParameters:
-    def __init__(
-        self,
-        Imem: float = 5e-13,
-        Itau: float = 1e-9,
-        Ith: float = 1e-9,
-        feedback: Optional[FeedbackParameters] = None,
-    ):
-        self.Imem = Imem
-        self.Itau = Itau
-        self.Ith = Ith
-        if feedback is None:
-            feedback = FeedbackParameters()
-        self.feedback = feedback
+    """
+    MembraneParameters contains membrane specific parameters and state variables
+
+    :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to 5e-13
+    :type Imem: float, optional
+    :param Itau: Membrane time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
+    :type Itau: float, optional
+    :param Ith: Membrane's threshold / gain current in Amperes, scaling factor for the membrane current (typically x2, x4 of I_tau), defaults to 40e-12
+    :type Ith: float, optional
+    :param feedback: positive feedback circuit block parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
+    :type feedback: Optional[FeedbackParameters], optional
+    """
+
+    Imem: float = 5e-13
+    Itau: float = 10e-12
+    Ith: float = 40e-12
+    feedback: Optional[FeedbackParameters] = None
+
+    def __post_init__(self):
+        """
+        __post_init__ runs after __init__ and initializes the feedback block with default values in the case that it's not specified.
+        """
+        if self.feedback is None:
+            self.feedback = FeedbackParameters()
 
 
 @dataclass
 class DynapSE1Parameters:
-    def __init__(
-        self,
-        mem: Optional[MembraneParameters] = None,
-        ahp: Optional[DPIParameters] = None,
-        nmda: Optional[DPIParameters] = None,
-        ampa: Optional[DPIParameters] = None,
-        gaba_a: Optional[DPIParameters] = None,
-        gaba_b: Optional[DPIParameters] = None,
-    ):
+    """
+    DynapSE1Parameters encapsulates the DynapSE1 circuit block parameters and provides an easy access.
 
-        self.mem = mem
-        self.ahp = ahp
-        self.nmda = nmda
-        self.ampa = ampa
-        self.gaba_a = gaba_a
-        self.gaba_b = gaba_b
+    :param mem: Membrane block parameters (Imem, Itau, Ith, feedback(Igain, Ith, Inorm)), defaults to None
+    :type mem: Optional[MembraneParameters], optional
+    :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
+    :type ahp: Optional[DPIParameters], optional
+    :param nmda: NMDA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
+    :type nmda: Optional[DPIParameters], optional
+    :param ampa: AMPA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
+    :type ampa: Optional[DPIParameters], optional
+    :param gaba_a: GABA_A synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
+    :type gaba_a: Optional[DPIParameters], optional
+    :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
+    :type gaba_b: Optional[DPIParameters], optional
+    """
+
+    mem: Optional[MembraneParameters] = None
+    ahp: Optional[DPIParameters] = None
+    nmda: Optional[DPIParameters] = None
+    ampa: Optional[DPIParameters] = None
+    gaba_a: Optional[DPIParameters] = None
+    gaba_b: Optional[DPIParameters] = None
+
+    def __post_init__(self):
+        """
+        __post_init__ runs after __init__ and initializes the DPI and membrane blocks with default values in the case that they are not specified.
+        """
+
+        if self.mem is None:
+            self.mem = MembraneParameters()
+        if self.ahp is None:
+            self.ahp = DPIParameters()
+        if self.nmda is None:
+            self.nmda = DPIParameters()
+        if self.ampa is None:
+            self.ampa = DPIParameters()
+        if self.gaba_a is None:
+            self.gaba_a = DPIParameters()
+        if self.gaba_b is None:
+            self.gaba_b = DPIParameters()
 
 
 class DynapSE1NeuronSynapseJax(JaxModule):
@@ -174,7 +263,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     Implements the chip dynamical equations for the DPI neuron and synapse models
     Receives configuration as bias currents
     As few HW restrictions as possible
-    [] ATTENTION TODO: Now, implementation is only for one core
+    [] ATTENTION TODO: Now, the implementation is only for one core
     [] TODO: TRY to present rng_key, dt, parameters, states as property, timeit!
     [] TODO: Arrange the silicon features in neat way. Think about dict, class, json
     [] TODO: think about activating and deactivating certain circuit blocks. Might be function returning another function
@@ -220,9 +309,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         t_pulse_rec: float = 1e-6,
         Idc: float = 5e-13,
         out_rate: float = 0.02,
-        update_type: str = "dpi_us3",
-        params: Optional[DynapSE1Parameters] = None,
         layout: Optional[DynapSE1Layout] = None,
+        params: Optional[DynapSE1Parameters] = None,
         rng_key: Optional[Any] = None,
         spiking_input: bool = True,
         spiking_output: bool = True,
@@ -275,14 +363,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             layout = DynapSE1Layout()
 
         if params is None:
-            params = DynapSE1Parameters(
-                mem=MembraneParameters(),
-                ahp=DPIParameters(),
-                nmda=DPIParameters(),
-                ampa=DPIParameters(),
-                gaba_a=DPIParameters(),
-                gaba_b=DPIParameters(),
-            )
+            params = DynapSE1Parameters()
 
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
@@ -305,38 +386,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             block_name="MEM",
         )
 
-        self.Iahp, self.Itau_ahp, self.Ith_ahp, self.Iw_ahp = self._set_dpi_params(
-            init=params.ahp,
-            block_name="AHP",
+        # [AHP, NMDA, AMPA, GABA_A, GABA_B]
+        self.Isyn, self.Itau_syn, self.Ith_syn, self.Iw = self._set_syn_params(
+            init=params
         )
-
-        self.Inmda, self.Itau_nmda, self.Ith_nmda, self.Iw_nmda = self._set_dpi_params(
-            init=params.nmda,
-            block_name="NMDA",
-        )
-
-        self.Iampa, self.Itau_ampa, self.Ith_ampa, self.Iw_ampa = self._set_dpi_params(
-            init=params.ampa,
-            block_name="AMPA",
-        )
-
-        (
-            self.Igaba_a,
-            self.Itau_gaba_a,
-            self.Ith_gaba_a,
-            self.Iw_gaba_a,
-        ) = self._set_dpi_params(init=params.gaba_a, block_name="GABA_A")
-
-        (
-            self.Igaba_b,
-            self.Itau_gaba_b,
-            self.Ith_gaba_b,
-            self.Iw_gaba_b,
-        ) = self._set_dpi_params(init=params.gaba_b, block_name="GABA_B")
 
         # [] TODO : out_rate is just been using to validate the model
         self.out_rate = out_rate
-        self.update_type = update_type
 
         # --- States --- #
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
@@ -390,48 +446,18 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 Iahp_ts: Spike frequency adaptation current by each neuron over time [T, N]
             :rtype: Tuple[State, np.ndarray, np.ndarray]
             """
-            spikes, Imem, Iahp, Inmda, Iampa, Igaba_a, Igaba_b, key = state
+            spikes, Imem, Isyn, key = state
 
             # --- Utilities --- #  # 5xNin
-            # Combine synaptic currents and related parameters together for the sake of parallel computation
-            _Isyn = np.array([Iahp, Inmda, Iampa, Igaba_a, Igaba_b])
 
-            _Itau_syn = np.array(
-                [
-                    self.Itau_ahp,
-                    self.Itau_nmda,
-                    self.Itau_ampa,
-                    self.Itau_gaba_a,
-                    self.Itau_gaba_b,
-                ]
-            )
-
-            _Ith_syn = np.array(
-                [
-                    self.Ith_ahp,
-                    self.Ith_nmda,
-                    self.Ith_ampa,
-                    self.Ith_gaba_a,
-                    self.Ith_gaba_b,
-                ]
-            )
-
-            _Iw_syn = np.array(
-                [
-                    self.Iw_ahp,
-                    self.Iw_nmda,
-                    self.Iw_ampa,
-                    self.Iw_gaba_a,
-                    self.Iw_gaba_b,
-                ]
-            )
-
-            _tau_syn = (f_tau_syn / _Itau_syn.T).T  # 5xNin
-            _Iss_syn = (_Ith_syn / _Itau_syn) * _Iw_syn  # 5xNin
+            Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn
+            _tau_syn = (f_tau_syn / self.Itau_syn.T).T  # 5xNin
+            _Iss_syn = (self.Ith_syn / self.Itau_syn) * self.Iw  # 5xNin
 
             # --- Forward step --- #
 
-            ## combine spike output and spiking inputs for 4 synapses
+            ## spiking inputs for 4 synapses NMDA, AMPA, GABA_A, GABA_B
+            ## spiking output for 1 synapse AHP
             spike_inputs = np.tile(spike_inputs_ts, (4, 1))
 
             ## Calculate the pulse width with a linear increase
@@ -446,16 +472,16 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             f_discharge = np.exp(-self.dt / _tau_syn)  # 5xNin
 
             # DISCHARGE IN ANY CASE
-            _Isyn = f_discharge * _Isyn
+            Isyn = f_discharge * Isyn
 
             # CHARGE PHASE -- UNDERSAMPLED -- dt >> t_pulse
             # f_charge array = 0 where there is no spike
-            _Isyn += f_charge * _Iss_syn
+            Isyn += f_charge * _Iss_syn
 
             # Make sure that synaptic currents are lower bounded by Io
-            _Isyn = np.clip(_Isyn, Io)  # 5xNin
+            Isyn = np.clip(Isyn, Io)  # 5xNin
 
-            # --- MEMRANE DYNAMICS --- #
+            # --- MEMBRANE DYNAMICS --- #
             # [] TODO : Change I_gaba_b dynamics. It's the shunt current
 
             tau_mem = self.layout.f_tau_mem / self.Itau_mem
@@ -466,58 +492,30 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             f_Imem = ((Ia) / (self.Itau_mem)) * (Imem + self.Ith_mem)
             Imem_inf = ((self.Ith_mem) / (self.Itau_mem)) * (Iin - Iahp - self.Itau_mem)
 
-            ## MEMRANE Forward Euler ##
+            ## MEMBRANE Forward Euler ##
             del_Imem = (
                 (Imem / (tau_mem * (self.Ith_mem + Imem)))
-                * (Imem_inf + f_Imem - Imem * (1 + (Iahp / self.Itau_mem)))
+                * (Imem_inf + f_Imem - (Imem * (1 + (Iahp / self.Itau_mem))))
                 * self.dt
             )
             Imem = Imem + del_Imem
-
-            Iahp, Inmda, Iampa, Igaba_a, Igaba_b = _Isyn  # 5xNin
 
             # [] TODO: REMOVE
             # Random spike generation
             key, subkey = rand.split(key)
             spikes = rand.poisson(subkey, self.out_rate, (self.size_out,)).astype(float)
 
-            state = (spikes, Imem, Iahp, Inmda, Iampa, Igaba_a, Igaba_b, key)
-            return state, (spikes, Imem, Iahp, Inmda, Iampa, Igaba_a, Igaba_b)
+            state = (spikes, Imem, Isyn, key)
+            return state, (spikes, Imem, Isyn)
 
         # - Evolve over spiking inputs
-        state, (
-            spikes_ts,
-            Imem_ts,
-            Iahp_ts,
-            Inmda_ts,
-            Iampa_ts,
-            Igaba_a_ts,
-            Igaba_b_ts,
-        ) = scan(
+        state, (spikes_ts, Imem_ts, Isyn_ts) = scan(
             forward,
-            (
-                self.spikes,
-                self.Imem,
-                self.Iahp,
-                self.Inmda,
-                self.Iampa,
-                self.Igaba_a,
-                self.Igaba_b,
-                self._rng_key,
-            ),
+            (self.spikes, self.Imem, self.Isyn, self._rng_key),
             input_data,
         )
 
-        (
-            self.spikes,
-            self.Imem,
-            self.Iahp,
-            self.Inmda,
-            self.Iampa,
-            self.Igaba_a,
-            self.Igaba_b,
-            self._rng_key,
-        ) = state
+        (self.spikes, self.Imem, self.Isyn, self._rng_key) = state
 
         # - Generate return arguments
         outputs = spikes_ts
@@ -525,11 +523,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         states = {
             "spikes": self.spikes,
             "Imem": self.Imem,
-            "Iahp": self.Iahp,
-            "Inmda": self.Inmda,
-            "Iampa": self.Iampa,
-            "Igaba_a": self.Igaba_a,
-            "Igaba_b": self.Igaba_b,
+            "Iahp": self.Isyn[0],
+            "Inmda": self.Isyn[1],
+            "Iampa": self.Isyn[2],
+            "Igaba_a": self.Isyn[3],
+            "Igaba_b": self.Isyn[4],
         }
 
         if record:
@@ -537,11 +535,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 "input_data": input_data,
                 "spikes": spikes_ts,
                 "Imem": Imem_ts,
-                "Iahp": Iahp_ts,
-                "Inmda": Inmda_ts,
-                "Iampa": Iampa_ts,
-                "Igaba_a": Igaba_a_ts,
-                "Igaba_b": Igaba_b_ts,
+                "Iahp": Isyn_ts[:, 0, :],
+                "Inmda": Isyn_ts[:, 1, :],
+                "Iampa": Isyn_ts[:, 2, :],
+                "Igaba_a": Isyn_ts[:, 3, :],
+                "Igaba_b": Isyn_ts[:, 4, :],
             }
         else:
             record_dict = {}
@@ -589,6 +587,79 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         else:
             raise ValueError("Initial DPI parameter values are not given!")
+
+    def _set_syn_params(self, init: DynapSE1Parameters):
+
+        _Isyn = np.array(
+            [
+                init.ahp.Isyn,
+                init.nmda.Isyn,
+                init.ampa.Isyn,
+                init.gaba_a.Isyn,
+                init.gaba_b.Isyn,
+            ]
+        )
+
+        _Itau = np.array(
+            [
+                init.ahp.Itau,
+                init.nmda.Itau,
+                init.ampa.Itau,
+                init.gaba_a.Itau,
+                init.gaba_b.Itau,
+            ]
+        )
+
+        _Ith = np.array(
+            [
+                init.ahp.Ith,
+                init.nmda.Ith,
+                init.ampa.Ith,
+                init.gaba_a.Ith,
+                init.gaba_b.Ith,
+            ]
+        )
+
+        _Iw = np.array(
+            [
+                init.ahp.Iw,
+                init.nmda.Iw,
+                init.ampa.Iw,
+                init.gaba_a.Iw,
+                init.gaba_b.Iw,
+            ]
+        )
+
+        # 5xNin
+
+        Isyn: JP_ndarray = State(
+            shape=(len(_Isyn), self.size_out),
+            family="synapse",
+            init_func=lambda s: (np.ones(s).T * _Isyn).T,
+        )
+
+        Itau: JP_ndarray = Parameter(
+            shape=(len(_Itau), self.size_out),
+            data=None,
+            family="leak",
+            init_func=lambda s: (np.ones(s).T * _Itau).T,
+        )
+
+        Ith: JP_ndarray = Parameter(
+            shape=(len(_Ith), self.size_out),
+            data=None,
+            family="gain",
+            init_func=lambda s: (np.ones(s).T * _Ith).T,
+        )
+
+        Iw: JP_ndarray = Parameter(
+            shape=(len(_Iw), self.size_out),
+            data=None,
+            family="weight",
+            init_func=lambda s: (np.ones(s).T * _Iw).T,
+        )
+
+        return Isyn, Itau, Ith, Iw
 
     def _set_mem_params(
         self,
