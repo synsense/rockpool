@@ -157,7 +157,7 @@ def new_pollen_read_buffer(
     # print("   got source node")
 
     # - Add the buffer as a destination for the Pollen output events
-    ic = buffer.get_input_channel() # source_node -> ic -> buffer (filter)
+    ic = buffer.get_input_channel()  # source_node -> ic -> buffer (filter)
     # print("   got input channel")
 
     success = source_node.add_destination(ic)
@@ -605,7 +605,9 @@ def reset_neuron_synapse_state(daughterboard: PollenDaughterBoard) -> None:
 
 
 def apply_configuration(
-    daughterboard: PollenDaughterBoard, config: PollenConfiguration
+    daughterboard: PollenDaughterBoard,
+    config: PollenConfiguration,
+    buffer: PollenReadBuffer,
 ) -> None:
     """
     Apply a configuration to the Pollen HDK
@@ -620,6 +622,13 @@ def apply_configuration(
 
     # - Ideal -- just write the configuration using samna
     daughterboard.get_model().apply_configuration(config)
+
+    # - WORKAROUND: Design bug, where aliasing is not computed correctly
+    rcram = read_memory(daughterboard, buffer, 0x9980, 1000)
+    for i in range(1000):
+        if rcram[i] == 2:
+            rcram[i] = 3
+    write_memory(daughterboard, 0x9980, 1000, rcram)
 
 
 def read_neuron_synapse_state(
@@ -852,7 +861,7 @@ def read_allram_state(
         np.array(Vmem[-Nout:], "int16"),
         np.array(Isyn[-Nout:], "int16"),
         np.array(Isyn2, "int16"),
-        np.array(Spikes, "int16"), #why bool ???
+        np.array(Spikes, "int16"),
         read_output_events(daughterboard, buffer)[:Nout],
         # config ram
         np.array(input_weight_ram, "int16"),
@@ -901,19 +910,19 @@ def read_accel_mode_data(
     vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
     vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
 
-    IWTRAM_ts = np.zeros((1,1))
-    IWT2RAM_ts = np.zeros((1,1))
-    NDSRAM_ts = np.zeros((1,1))
-    RDS2RAM_ts = np.zeros((1,1))
-    NDMRAM_ts = np.zeros((1,1))
-    NTHRAM_ts = np.zeros((1,1))
-    RCRAM_ts = np.zeros((1,1))
-    RARAM_ts = np.zeros((1,1))
-    REFOCRAM_ts = np.zeros((1,1))
-    RFORAM_ts = np.zeros((1,1))
-    RWTRAM_ts = np.zeros((1,1))
-    RWT2RAM_ts = np.zeros((1,1))
-    OWTRAM_ts = np.zeros((1,1))
+    IWTRAM_ts = np.zeros((1, 1))
+    IWT2RAM_ts = np.zeros((1, 1))
+    NDSRAM_ts = np.zeros((1, 1))
+    RDS2RAM_ts = np.zeros((1, 1))
+    NDMRAM_ts = np.zeros((1, 1))
+    NTHRAM_ts = np.zeros((1, 1))
+    RCRAM_ts = np.zeros((1, 1))
+    RARAM_ts = np.zeros((1, 1))
+    REFOCRAM_ts = np.zeros((1, 1))
+    RFORAM_ts = np.zeros((1, 1))
+    RWTRAM_ts = np.zeros((1, 1))
+    RWT2RAM_ts = np.zeros((1, 1))
+    OWTRAM_ts = np.zeros((1, 1))
 
     # - Return as a PollenState object
     return PollenState(
@@ -1127,10 +1136,10 @@ def send_immediate_input_spikes(
                 s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
-    #print(
-     #   "Sending events to channel:",
-      #  [e.neuron_id for e in events_list if hasattr(e, "neuron_id")],
-    #)
+    # print(
+    #   "Sending events to channel:",
+    #  [e.neuron_id for e in events_list if hasattr(e, "neuron_id")],
+    # )
 
     # - Send input spikes for this time-step
     daughterboard.get_model().write(events_list)
@@ -1340,27 +1349,27 @@ def export_registers(
         f.write("\n")
 
         f.write("baddr ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0a)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0A)[0]))
         f.write("\n")
 
         f.write("blen ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0b)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0B)[0]))
         f.write("\n")
 
         f.write("ispkreg00 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0c)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0C)[0]))
         f.write("\n")
 
         f.write("ispkreg01 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0d)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0D)[0]))
         f.write("\n")
 
         f.write("ispkreg10 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0e)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0E)[0]))
         f.write("\n")
 
         f.write("ispkreg11 ")
-        f.write(hex(read_register(daughterboard, buffer, 0x0f)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x0F)[0]))
         f.write("\n")
 
         f.write("stat ")
@@ -1404,7 +1413,7 @@ def export_registers(
         f.write("\n")
 
         f.write("tr_cntr_stat ")
-        f.write(hex(read_register(daughterboard, buffer, 0x1a)[0]))
+        f.write(hex(read_register(daughterboard, buffer, 0x1A)[0]))
         f.write("\n")
 
 
@@ -1427,12 +1436,12 @@ def print_debug_registers(
     print("pwrctrl4", hex(read_register(daughterboard, buffer, 0x07)[0]))
     print("ie", hex(read_register(daughterboard, buffer, 0x08)[0]))
     print("ctrl4", hex(read_register(daughterboard, buffer, 0x09)[0]))
-    print("baddr", hex(read_register(daughterboard, buffer, 0x0a)[0]))
-    print("blen", hex(read_register(daughterboard, buffer, 0x0b)[0]))
-    print("ispkreg00", hex(read_register(daughterboard, buffer, 0x0c)[0]))
-    print("ispkreg01", hex(read_register(daughterboard, buffer, 0x0d)[0]))
-    print("ispkreg10", hex(read_register(daughterboard, buffer, 0x0e)[0]))
-    print("ispkreg11", hex(read_register(daughterboard, buffer, 0x0f)[0]))
+    print("baddr", hex(read_register(daughterboard, buffer, 0x0A)[0]))
+    print("blen", hex(read_register(daughterboard, buffer, 0x0B)[0]))
+    print("ispkreg00", hex(read_register(daughterboard, buffer, 0x0C)[0]))
+    print("ispkreg01", hex(read_register(daughterboard, buffer, 0x0D)[0]))
+    print("ispkreg10", hex(read_register(daughterboard, buffer, 0x0E)[0]))
+    print("ispkreg11", hex(read_register(daughterboard, buffer, 0x0F)[0]))
     print("stat", hex(read_register(daughterboard, buffer, 0x10)[0]))
     print("int", hex(read_register(daughterboard, buffer, 0x11)[0]))
     print("omp_stat0", hex(read_register(daughterboard, buffer, 0x12)[0]))
@@ -1443,7 +1452,8 @@ def print_debug_registers(
     print("monsel1", hex(read_register(daughterboard, buffer, 0x17)[0]))
     print("dbg_ctrl1", hex(read_register(daughterboard, buffer, 0x18)[0]))
     print("dbg_stat1", hex(read_register(daughterboard, buffer, 0x19)[0]))
-    print("tr_cntr_stat", hex(read_register(daughterboard, buffer, 0x1a)[0]))
+    print("tr_cntr_stat", hex(read_register(daughterboard, buffer, 0x1A)[0]))
+
 
 def num_buffer_neurons(Nhidden: int) -> int:
     """
@@ -2392,7 +2402,9 @@ def export_allram_state(
 
         print("Writing rspkram files in spk_res", end="\r")
         for t, spks in enumerate(mat):
-            with open(path_spkr / f"rspkram_{t-1}.txt", "w+") as f: #t-1 because add 1 before evolve
+            with open(
+                path_spkr / f"rspkram_{t-1}.txt", "w+"
+            ) as f:  # t-1 because add 1 before evolve
                 for val in spks:
                     f.write(to_hex(val, 2))
                     f.write("\n")
@@ -2402,7 +2414,7 @@ def export_allram_state(
     spks = np.array(state.Spikes_out).astype(int)
 
     if len(spks) > 0:
-        mat[:, : spks.shape[1]] = spks[:, 0:Nout] # [:, 0:Nout] for the last step ???
+        mat[:, : spks.shape[1]] = spks[:, 0:Nout]  # [:, 0:Nout] for the last step ???
 
         path_spko = path / "spk_out"
         if not path_spko.exists():
@@ -2783,7 +2795,7 @@ def export_last_state(
     path: Union[Path, str],
     config: PollenConfiguration,
     inp_spks: np.ndarray,
-    state: PollenState
+    state: PollenState,
 ) -> None:
     """
     Export the state of a Pollen network over time
@@ -2822,7 +2834,9 @@ def export_last_state(
 
         print("Writing rspkram files in spk_res", end="\r")
         for t, spks in enumerate(mat):
-            with open(path_spkr / "rspkram_last.txt", "w+") as f: #t-1 because add 1 before evolve
+            with open(
+                path_spkr / "rspkram_last.txt", "w+"
+            ) as f:  # t-1 because add 1 before evolve
                 for val in spks:
                     f.write(to_hex(val, 2))
                     f.write("\n")
@@ -2832,7 +2846,7 @@ def export_last_state(
     spks = np.array(state.Spikes_out).astype(int)
 
     if len(spks) > 0:
-        mat[:, : spks.shape[1]] = spks[:, 0:Nout] # [:, 0:Nout] for the last step ???
+        mat[:, : spks.shape[1]] = spks[:, 0:Nout]  # [:, 0:Nout] for the last step ???
 
         path_spko = path / "spk_out"
         if not path_spko.exists():

@@ -329,7 +329,7 @@ class PollenSamna(Module):
         )
 
         # - Initialise the pollen HDK
-        putils.initialise_pollen_hdk(device) # dummy 'TriggerProcessing' signal
+        putils.initialise_pollen_hdk(device)  # dummy 'TriggerProcessing' signal
 
         # - Register a buffer to read events from Pollen
         self._event_buffer = putils.new_pollen_read_buffer(device)
@@ -362,18 +362,20 @@ class PollenSamna(Module):
 
     @property
     def config(self):
-        # - Return the locally stored config
-        return self._config
-
-        # - Reading the configuration is not yet supported
-        # return self._device_model.get_configuration()
+        # - Return the configuration stored on Xylo HDK
+        return self._device.get_configuration()
 
     @config.setter
     def config(self, new_config):
-        # - Write the configuration to the device
-        putils.apply_configuration(self._device, new_config)
+        # - Test for a valid configuration
+        is_valid, msg = samna.pollen.validate_configuration(new_config)
+        if ~is_valid:
+            raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
-        # - Store the configuration locally, since reading is not supported
+        # - Write the configuration to the device
+        putils.apply_configuration(self._device, new_config, self._event_buffer)
+
+        # - Store the configuration locally
         self._config = new_config
 
     def reset_state(self) -> "PollenSamna":
@@ -403,18 +405,30 @@ class PollenSamna(Module):
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
+        """
+        Evolve a network on the Xylo HDK
+
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
         # - Get the network size
         Nin, Nhidden, Nout = self.shape[:]
 
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
-
-        # - bypass the design bug, need to be after 'configure_accel_time_mode'
-        rcram = putils.read_memory(self._device, self._event_buffer, 0x9980, 1000)
-        for i in range(1000):
-            if rcram[i] == 2:
-                rcram[i] = 3
-        putils.write_memory(self._device, 0x9980, 1000, rcram)
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -450,17 +464,13 @@ class PollenSamna(Module):
         self._state_buffer.reset()
         self._event_buffer.get_events()
 
-        # print('\n after clear the read and state buffers \n')
-        # putils.print_debug_registers(self._device, self._event_buffer)
-        # putils.print_debug_ram(self._device, self._event_buffer, 2, 6, 1)
-
         # - Write the events and trigger the simulation
         self._device.get_model().write(input_events_list)
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 400.0
-            read_timeout = read_timeout * 5.0 if record else read_timeout
+            read_timeout = len(input) * self.dt * Nhidden / 800.0
+            read_timeout = read_timeout * 10.0 if record else read_timeout
 
         # - Wait until the simulation is finished
         read_events, is_timeout = putils.blocking_read(
@@ -468,26 +478,6 @@ class PollenSamna(Module):
             timeout=max(read_timeout, 1.0),
             target_timestamp=final_timestep,
         )
-
-        # def eventsToStr(events):
-        #     strings = ""
-        #     for e in events:
-        #         strings += f'[{str(e)}]'
-        #     return strings
-
-        # folder = "./state_monitor/"
-        # newFolder = Path(folder)
-        # if not newFolder.exists():
-        #     makedirs(newFolder)
-        #
-        # pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
-        # np.savetxt(folder+"Vmem.txt", np.array(pollen_data.V_mem_hid), fmt="%i")
-        # np.savetxt(folder+"Isyn.txt", np.array(pollen_data.I_syn_hid), fmt="%i")
-        # np.savetxt(folder+"Isyn2.txt", np.array(pollen_data.I_syn2_hid), fmt="%i")
-        # np.savetxt(folder+"Spikes.txt", np.array(pollen_data.Spikes_hid), fmt="%i")
-        # np.savetxt(folder+"Vmem_out.txt", np.array(pollen_data.V_mem_out), fmt="%i")
-        # np.savetxt(folder+"Isyn_out.txt", np.array(pollen_data.I_syn_out), fmt="%i")
-        # np.savetxt(folder+"times.txt", np.arange(start_timestep, final_timestep + 1), fmt="%i")
 
         if is_timeout:
             message = f"Processing didn't finish for {read_timeout}s. Read {len(read_events)} events"
@@ -498,7 +488,9 @@ class PollenSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
+        pollen_data = putils.read_accel_mode_data(
+            self._state_buffer, Nin, Nhidden, Nout
+        )
 
         if record:
             # - Build a recorded state dictionary
@@ -520,7 +512,7 @@ class PollenSamna(Module):
         # - Return spike output, new state and record dictionary
         return pollen_data.Spikes_out, new_state, rec_dict
 
-    def evolve_manual(
+    def _evolve_manual(
         self,
         input: np.ndarray,
         record: bool = False,
@@ -531,15 +523,9 @@ class PollenSamna(Module):
         # - Get some information about the network size
         _, Nhidden, Nout = self.shape
 
-        # m_Nhidden = Nhidden if record else 0
-        # m_Nout = Nout if record else 0
-
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
-        # config, state_buffer = putils.configure_accel_time_mode(
-        #     self._config, self._state_buffer, m_Nhidden, m_Nout
-        # )
-        # self.config = putils.configure_single_step_time_mode(self.config)
+        self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Wait until pollen is ready
         t_start = time.time()
@@ -577,9 +563,6 @@ class PollenSamna(Module):
             while not putils.is_pollen_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
-                    # raise TimeoutError(
-                    #     f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
-                    # )
                     break
 
             if is_timeout:
@@ -601,21 +584,6 @@ class PollenSamna(Module):
             output_events = putils.read_output_events(self._device, self._event_buffer)
             output_ts.append(output_events)
 
-        # if record:
-        #     pollen_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
-        #     # - Build a recorded state dictionary
-        #     rec_dict = {
-        #         "Vmem": np.array(pollen_data.V_mem_hid),
-        #         "Isyn": np.array(pollen_data.I_syn_hid),
-        #         "Isyn2": np.array(pollen_data.I_syn2_hid),
-        #         "Spikes": np.array(pollen_data.Spikes_hid),
-        #         "Vmem_out": np.array(pollen_data.V_mem_out),
-        #         "Isyn_out": np.array(pollen_data.I_syn_out),
-        #         "times": np.arange(start_timestep, final_timestep + 1),
-        #     }
-        # else:
-        #     rec_dict = {}
-
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
@@ -633,7 +601,7 @@ class PollenSamna(Module):
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
 
-    def evolve_manual_allram(
+    def _evolve_manual_allram(
         self,
         input: np.ndarray,
         record: bool = False,
@@ -645,7 +613,7 @@ class PollenSamna(Module):
         Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
-        # self.config = putils.configure_single_step_time_mode(self.config)
+        self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Wait until pollen is ready
         t_start = time.time()
@@ -697,9 +665,6 @@ class PollenSamna(Module):
             while not putils.is_pollen_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
-                    # raise TimeoutError(
-                    #     f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
-                    # )
                     break
 
             if is_timeout:
@@ -769,7 +734,7 @@ class PollenSamna(Module):
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
 
-    def evolve_manual_ram_register(
+    def _evolve_manual_ram_register(
         self,
         input: np.ndarray,
         record: bool = False,
@@ -861,7 +826,7 @@ class PollenSamna(Module):
 
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
-        # for timestep in tqdm(range(3)):
+            # for timestep in tqdm(range(3)):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
@@ -870,7 +835,7 @@ class PollenSamna(Module):
             putils.export_registers(self._device, self._event_buffer, file)
 
             # - Print register content
-            #putils.print_debug_registers(self._device, self._event_buffer)
+            # putils.print_debug_registers(self._device, self._event_buffer)
 
             # - Evolve one time-step on Pollen
             putils.advance_time_step(self._device)
@@ -881,9 +846,6 @@ class PollenSamna(Module):
             while not putils.is_pollen_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
-                    # raise TimeoutError(
-                    #     f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
-                    # )
                     break
 
             if is_timeout:
