@@ -369,7 +369,7 @@ class PollenSamna(Module):
     def config(self, new_config):
         # - Test for a valid configuration
         is_valid, msg = samna.pollen.validate_configuration(new_config)
-        if ~is_valid:
+        if not is_valid:
             raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
@@ -380,7 +380,7 @@ class PollenSamna(Module):
 
     def reset_state(self) -> "PollenSamna":
         # - Reset neuron and synapse state on Pollen
-        putils.reset_neuron_synapse_state(self._device)
+        putils.reset_neuron_synapse_state(self._device, self._event_buffer)
         return self
 
     def _configure_accel_time_mode(self, Nhidden: int, Nout: int, record: bool):

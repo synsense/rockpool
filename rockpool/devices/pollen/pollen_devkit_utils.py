@@ -589,7 +589,9 @@ def zero_memory(
         write_memory(daughterboard, *bank)
 
 
-def reset_neuron_synapse_state(daughterboard: PollenDaughterBoard) -> None:
+def reset_neuron_synapse_state(
+    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+) -> None:
     """
     Reset the neuron and synapse state on a Pollen HDK
 
@@ -601,7 +603,7 @@ def reset_neuron_synapse_state(daughterboard: PollenDaughterBoard) -> None:
 
     # - Reset via configuration
     config.clear_network_state = True
-    apply_configuration(daughterboard, config)
+    apply_configuration(daughterboard, config, buffer)
 
 
 def apply_configuration(
