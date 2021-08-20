@@ -19,6 +19,9 @@ from typing import (
     List,
 )
 
+from rockpool.parameters import Parameter, State, SimulationParameter
+from rockpool.typehints import JP_ndarray, P_float
+
 ArrayLike = Union[np.ndarray, List, Tuple]
 
 import jax.numpy as jnp
@@ -559,4 +562,42 @@ def dpi_update_func(
     else:
         raise TypeError(
             f"{type} Update type undefined. Try one of 'taylor', 'exp', 'dpi'"
+        )
+
+
+def set_param(
+    shape: tuple,
+    family: str,
+    init_func: Callable,
+    object: str,
+) -> JP_ndarray:
+    """
+    set_param is a utility function helps making a neat selection of state, parameter or simulation parameter
+    Seee Also:
+        See :py:class:`.Parameter` for representing the configuration of a module, :py:class:`.State` for representing the transient internal state of a neuron or module, and :py:class:`.SimulationParameter` for representing simulation- or solver-specific parameters that are not important for network configuration.
+
+    :param shape: Specifying the permitted shape of the attribute.
+    :type shape: tuple
+    :param family: An arbitrary string to specify the "family" of this attribute. ``'weights'``, ``'taus'``, ``'biases'`` are popular choices.
+    :type family: str
+    :param init_func: A function that initializes the attribute of interest
+    :type init_func: Callable
+    :param object: the type of the object to be constructed. It can be "state", "parameter" or "simulation"
+    :type object: str
+    :raises ValueError: When object type is not one of "state", "parameter" or "simulation"
+    :return: constructed parameter or the state variable
+    :rtype: JP_ndarray
+    """
+    if object.upper() == "STATE":
+        Iparam: JP_ndarray = State(shape=shape, family=family, init_func=init_func)
+        return Iparam
+    elif object.upper() == "PARAMETER":
+        Iparam: JP_ndarray = Parameter(shape=shape, family=family, init_func=init_func)
+        return Iparam
+    elif object.upper() == "SIMULATION":
+        Iparam: JP_ndarray = Parameter(shape=shape, family=family, init_func=init_func)
+        return Iparam
+    else:
+        raise ValueError(
+            f"object type: {object} can be 'state', 'parameter', or 'simulation'"
         )
