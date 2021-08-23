@@ -51,7 +51,7 @@ from typing import (
 
 from rockpool.typehints import JP_ndarray, P_float
 
-from utils import (
+from rockpool.devices.dynapse.utils import (
     get_param_vector,
     set_param,
 )
@@ -167,9 +167,9 @@ class DPIParameters:
     """
 
     Isyn: float = 5e-13
-    Itau: float = 10e-12
+    Itau: float = 40e-12
     Ith: float = 40e-12
-    Iw: float = 1e-6
+    Iw: float = 1e-7
 
 
 @dataclass
@@ -614,19 +614,16 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "Igaba_b": self.Isyn[4],
         }
 
-        if record:
-            record_dict = {
-                "input_data": input_data,
-                "spikes": spikes_ts,
-                "Imem": Imem_ts,
-                "Iahp": Isyn_ts[:, 0, :],
-                "Inmda": Isyn_ts[:, 1, :],
-                "Iampa": Isyn_ts[:, 2, :],
-                "Igaba_a": Isyn_ts[:, 3, :],
-                "Igaba_b": Isyn_ts[:, 4, :],
-            }
-        else:
-            record_dict = {}
+        record_dict = {
+            "input_data": input_data,
+            "spikes": spikes_ts,
+            "Imem": Imem_ts,
+            "Iahp": Isyn_ts[:, 0, :],
+            "Inmda": Isyn_ts[:, 1, :],
+            "Iampa": Isyn_ts[:, 2, :],
+            "Igaba_a": Isyn_ts[:, 3, :],
+            "Igaba_b": Isyn_ts[:, 4, :],
+        }
 
         return outputs, states, record_dict
 
