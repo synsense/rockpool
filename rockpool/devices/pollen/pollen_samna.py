@@ -25,6 +25,7 @@ from samna.pollen import validate_configuration
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+from rockpool import TSContinuous, TSEvent
 
 from ..pollen import pollen_devkit_utils as putils
 from ..pollen.pollen_devkit_utils import PollenDaughterBoard
@@ -918,3 +919,25 @@ class PollenSamna(Module):
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "Vmem": TSContinuous.from_clocked(
+                state_dict["Vmem"], name="$V_{mem}$", **args
+            ),
+            "Isyn": TSContinuous.from_clocked(
+                state_dict["Isyn"], name="$I_{syn}$", **args
+            ),
+            "Isyn2": TSContinuous.from_clocked(
+                state_dict["Isyn2"], name="$I_{syn,2}$", **args
+            ),
+            "Spikes": TSEvent.from_raster(state_dict["Spikes"], name="Spikes", **args),
+            "Vmem_out": TSContinuous.from_clocked(
+                state_dict["Vmem_out"], name="$V_{mem,out}$", **args
+            ),
+            "Isyn_out": TSContinuous.from_clocked(
+                state_dict["Isyn_out"], name="$I_{syn,out}$", **args
+            ),
+        }

@@ -70,11 +70,7 @@ class PollenCim(Module):
 
         # - Initialise the superclass
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=True,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=True, *args, **kwargs,
         )
 
         # - Store the configuration
@@ -273,11 +269,7 @@ class PollenCim(Module):
         return cls.from_config(config, dt=dt)
 
     def evolve(
-        self,
-        input_raster: np.ndarray = None,
-        record: bool = False,
-        *args,
-        **kwargs,
+        self, input_raster: np.ndarray = None, record: bool = False, *args, **kwargs,
     ):
         # - Evolve using the pollen layer
         output = np.array(self._pollen_layer.evolve(input_raster))
