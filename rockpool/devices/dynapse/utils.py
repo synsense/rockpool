@@ -218,11 +218,7 @@ def get_tau(
     return tau
 
 
-def Isyn_inf(
-    Ith: float,
-    Itau: float,
-    Iw: float,
-) -> float:
+def Isyn_inf(Ith: float, Itau: float, Iw: float,) -> float:
     """
     Isyn_inf calculates the steady state DPI current
 
@@ -566,10 +562,7 @@ def dpi_update_func(
 
 
 def set_param(
-    shape: tuple,
-    family: str,
-    init_func: Callable,
-    object: str,
+    shape: tuple, family: str, init_func: Callable, object: str,
 ) -> JP_ndarray:
     """
     set_param is a utility function helps making a neat selection of state, parameter or simulation parameter
@@ -595,7 +588,9 @@ def set_param(
         Iparam: JP_ndarray = Parameter(shape=shape, family=family, init_func=init_func)
         return Iparam
     elif object.upper() == "SIMULATION":
-        Iparam: JP_ndarray = Parameter(shape=shape, family=family, init_func=init_func)
+        Iparam: JP_ndarray = SimulationParameter(
+            shape=shape, family=family, init_func=init_func
+        )
         return Iparam
     else:
         raise ValueError(

@@ -32,12 +32,13 @@ E-mail : ugurcan.cakal@gmail.com
 """
 
 import numpy as onp
-import jax.random as rand
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
 from rockpool.parameters import Parameter, State, SimulationParameter
 
 
+import jax
+import jax.random as rand
 from jax.lax import scan
 from jax import numpy as np
 
@@ -47,14 +48,31 @@ from typing import (
     Optional,
     Tuple,
     Any,
+    Callable,
 )
 
-from rockpool.typehints import JP_ndarray, P_float
+from rockpool.typehints import JP_ndarray, P_float, FloatVector
 
 from rockpool.devices.dynapse.utils import (
     get_param_vector,
     set_param,
 )
+
+
+@jax.custom_gradient
+def step_pwl(
+    x: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
+) -> (FloatVector, Callable[[FloatVector], FloatVector]):
+    """
+    Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
+
+    :param FloatVector x: Input value
+
+    :return (FloatVector, Callable[[FloatVector], FloatVector]): output value and gradient function
+    """
+    s = np.clip(np.floor(x - Ispkthr) + 1.0, 0.0)
+    return s, lambda g: (g * (x > Ireset) * (Ispkthr - Ireset), 0.0, 0.0)
+
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
@@ -484,9 +502,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         )
 
     def evolve(
-        self,
-        input_data: np.ndarray,
-        record: bool = False,
+        self, input_data: np.ndarray, record: bool = False,
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         evolve implements raw JAX evolution function for a DynapSE1NeuronSynapseJax module.
@@ -593,32 +609,27 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Imem = np.clip(Imem, self.Io)
 
             # --- Spike Generation Logic --- #
-            spikes = np.greater(Imem, self.Ispkthr).astype(float)
+            spikes = step_pwl(Imem, self.Ispkthr, self.Ireset).astype(float)
 
             state = (spikes, Imem, Isyn, key)
             return state, (spikes, Imem, Isyn)
 
         # --- Evolve over spiking inputs --- #
         state, (spikes_ts, Imem_ts, Isyn_ts) = scan(
-            forward,
-            (self.spikes, self.Imem, self.Isyn, self._rng_key),
-            input_data,
+            forward, (self.spikes, self.Imem, self.Isyn, self._rng_key), input_data,
         )
 
         # [] TODO: NOT ALLOWED!!!!
-        # (self.spikes, self.Imem, self.Isyn, self._rng_key) = state
+        new_spikes, new_Imem, new_Isyn, new_rng_key = state
 
         # --- RETURN ARGUMENTS --- #
         outputs = spikes_ts
 
         states = {
-            "spikes": self.spikes,
-            "Imem": self.Imem,
-            "Iahp": self.Isyn[0],
-            "Inmda": self.Isyn[1],
-            "Iampa": self.Isyn[2],
-            "Igaba_a": self.Isyn[3],
-            "Igaba_b": self.Isyn[4],
+            "_rng_key": new_rng_key,
+            "Imem": new_Imem,
+            "Isyn": new_Isyn,
+            "spikes": new_spikes,
         }
 
         record_dict = {
@@ -666,9 +677,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         dpi_list = (ahp, nmda, ampa, gaba_a, gaba_b)
 
         def get_dpi_parameter(
-            target: str,
-            family: str,
-            object: Optional[str] = "parameter",
+            target: str, family: str, object: Optional[str] = "parameter",
         ) -> JP_ndarray:
             """
             get_dpi_parameter encapsulates required data management to set a synaptic parameter
@@ -698,9 +707,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         return Isyn, Itau, Ith, Iw
 
     def _set_mem_params(
-        self,
-        init: MembraneParameters,
-        family: Optional[str] = "membrane",
+        self, init: MembraneParameters, family: Optional[str] = "membrane",
     ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, FeedbackParameters]:
         """
         _set_mem_params constructs and initiates membrane parameters and states
@@ -718,8 +725,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
 
         def get_mem_parameter(
-            target: str,
-            object: Optional[str] = "parameter",
+            target: str, object: Optional[str] = "parameter",
         ) -> JP_ndarray:
             """
             get_mem_parameter encapsulates required data management for setting a membrane parameter
