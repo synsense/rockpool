@@ -162,14 +162,14 @@ class DPIParameters:
     :type Itau: float, optional
     :param Ith: DPI's threshold / gain current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau), defaults to 40e-12
     :type Ith: float, optional
-    :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-6
+    :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-7
     :type Iw: float, optional
     """
 
     Isyn: float = 5e-13
     Itau: float = 10e-12
     Ith: float = 40e-12
-    Iw: float = 1e-6
+    Iw: float = 1e-7
 
 
 @dataclass
@@ -460,8 +460,16 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # --- Simulation Parameters --- #
         self.dt: P_float = SimulationParameter(dt)
-        self.layout = SimulationParameter(layout)
-        self.config = SimulationParameter(config)
+
+        # self.layout = SimulationParameter(layout)
+        self.Io = SimulationParameter(layout.Io)
+        self.f_tau_mem = SimulationParameter(layout.f_tau_mem)
+        self.f_tau_syn = SimulationParameter(layout.f_tau_syn)
+
+        # self.config = SimulationParameter(config)
+        self.t_pulse = config.t_pulse
+        self.t_pulse_ahp = config.t_pulse_ahp
+        self.Idc = config.Idc
 
         ## Policy currents
         self.Ireset: JP_ndarray = SimulationParameter(
@@ -527,14 +535,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             ## ATTENTION : Optimization can make Itau_mem and I_tau_syn < Io
             # We might have division by 0 if we allow this to happen!
-            Itau_mem_clip = np.clip(self.Itau_mem, self.layout.Io)
-            Ith_mem_clip = np.clip(self.Ith_mem, self.layout.Io)
-            Itau_syn_clip = np.clip(self.Itau_syn, self.layout.Io)
-            Ith_syn_clip = np.clip(self.Ith_syn, self.layout.Io)
+            Itau_mem_clip = np.clip(self.Itau_mem, self.Io)
+            Ith_mem_clip = np.clip(self.Ith_mem, self.Io)
+            Itau_syn_clip = np.clip(self.Itau_syn, self.Io)
+            Ith_syn_clip = np.clip(self.Ith_syn, self.Io)
 
             # --- Implicit parameters  --- #  # 5xNin
-            tau_mem = self.layout.f_tau_mem / Itau_mem_clip
-            tau_syn = (self.layout.f_tau_syn / Itau_syn_clip.T).T
+            tau_mem = self.f_tau_mem / Itau_mem_clip
+            tau_syn = (self.f_tau_syn / Itau_syn_clip.T).T
             Isyn_inf = (Ith_syn_clip / Itau_syn_clip) * self.Iw
 
             # --- Forward step: DPI SYNAPSES --- #
@@ -543,10 +551,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             spike_inputs = np.tile(spike_inputs_ts, (4, 1))
 
             ## Calculate the effective pulse width with a linear increase
-            t_pw_in = (
-                self.config.t_pulse * spike_inputs
-            )  # 4xNin [NMDA, AMPA, GABA_A, GABA_B]
-            t_pw_out = self.config.t_pulse_ahp * spikes  # 1xNin [AHP]
+            t_pw_in = self.t_pulse * spike_inputs  # 4xNin [NMDA, AMPA, GABA_A, GABA_B]
+            t_pw_out = self.t_pulse_ahp * spikes  # 1xNin [AHP]
             t_pw = np.vstack((t_pw_out, t_pw_in))
 
             ## Exponential charge and discharge factor arrays
@@ -558,7 +564,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             ## CHARGE if spike occurs -- UNDERSAMPLED -- dt >> t_pulse
             Isyn += f_charge * Isyn_inf
-            Isyn = np.clip(Isyn, self.layout.Io)  # 5xNin
+            Isyn = np.clip(Isyn, self.Io)  # 5xNin
 
             # --- Forward step: MEMBRANE --- #
 
@@ -566,8 +572,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn
             # Ishunt = np.clip(Igaba_b, self.layout.Io, Imem) # Not sure how to use
 
-            Iin = Inmda + Iampa - Igaba_a - Igaba_b - self.config.Idc
-            Iin = np.clip(Iin, self.layout.Io)
+            Iin = Inmda + Iampa - Igaba_a - Igaba_b - self.Idc
+            Iin = np.clip(Iin, self.Io)
 
             ## Steady state current
             Imem_inf = ((Ith_mem_clip) / (Itau_mem_clip)) * (Iin - Iahp - Itau_mem_clip)
@@ -576,7 +582,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Ia = self.mem_fb.Igain / (
                 1 + np.exp(-(Imem - self.mem_fb.Ith) / self.mem_fb.Inorm)
             )
-            Ia = np.clip(Ia, self.layout.Io)
+            Ia = np.clip(Ia, self.Io)
             f_Imem = ((Ia) / (Itau_mem_clip)) * (Imem + Ith_mem_clip)
 
             ## Forward Euler Update
@@ -584,7 +590,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                 Imem_inf + f_Imem - (Imem * (1 + (Iahp / Itau_mem_clip)))
             )
             Imem = Imem + del_Imem * self.dt
-            Imem = np.clip(Imem, self.layout.Io)
+            Imem = np.clip(Imem, self.Io)
 
             # --- Spike Generation Logic --- #
             spikes = np.greater(Imem, self.Ispkthr).astype(float)
@@ -599,7 +605,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             input_data,
         )
 
-        (self.spikes, self.Imem, self.Isyn, self._rng_key) = state
+        # [] TODO: NOT ALLOWED!!!!
+        # (self.spikes, self.Imem, self.Isyn, self._rng_key) = state
 
         # --- RETURN ARGUMENTS --- #
         outputs = spikes_ts
@@ -667,7 +674,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             object: Optional[str] = "parameter",
         ) -> JP_ndarray:
             """
-            get_dpi_parameter encapsulates required data management for setting a synaptic parameter
+            get_dpi_parameter encapsulates required data management to set a synaptic parameter
 
             :param target: target parameter to be extracted from the DPIParameters object: Isyn, Itau, Ith, or Iw
             :type target: str
