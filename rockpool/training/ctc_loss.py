@@ -15,16 +15,16 @@ def ctc_loss_numpy(
     label: Sequence, log_prob: np.ndarray, seq_length: int, big_num: float = 1e10
 ) -> float:
     """
-    Numpy implemenetation of the CTC loss
+    Numpy implementation of the CTC loss
 
     Args:
-        label:
-        log_prob:
-        seq_length:
-        big_num:
+        label (Sequence[int]): A sequence of actual label ids ``(Tlabels,)``
+        log_prob (np.ndarray): A matrix ``(T, Nlabels)`` of log probabilities of observing each possible label out of ``Nlabels``, for each network output time-bin ``T``.
+        seq_length (int): The length of the original sequence
+        big_num (float): A large number used to represent a very low log-probability
 
     Returns:
-        float: The calculated loss
+        float: The calculated CTC sequence loss
     """
     label_ = [0, 0]
     l = len(label)
@@ -59,13 +59,13 @@ def ctc_loss_jax(
     Jax-compatible implementation of the CTC loss
 
     Args:
-        label:
-        log_prob:
-        seq_length:
-        big_num:
+        label (Sequence[int]): A sequence of actual label ids ``(Tlabels,)``
+        log_prob (np.ndarray): A matrix ``(T, Nlabels)`` of log probabilities of observing each possible label out of ``Nlabels``, for each network output time-bin ``T``.
+        seq_length (int): The length of the original sequence
+        big_num (float): A large number used to represent a very low log-probability
 
     Returns:
-        float: The calculated loss
+        float: The calculated CTC sequence loss
     """
     label_ = jnp.full(2 * len(label) + 2, 0)
     label_ = label_.at[2::2].set(label)
@@ -140,11 +140,7 @@ def ctc_loss_jax(
             label_[j],
             label_[j - 2],
         )
-        _, aa_ret_inner = scan(
-            f=inner,
-            xs=inputs,
-            init=None,
-        )
+        _, aa_ret_inner = scan(f=inner, xs=inputs, init=None,)
 
         aa_ret_inner += log_prob_label_i[3 : l_ + 1]
 
@@ -157,11 +153,7 @@ def ctc_loss_jax(
         return aa_ret_i, aa_ret_i
 
     inputs = (log_prob_[1 : seq_length + 1], log_prob_label[1 : seq_length + 1])
-    _, aa_final = scan(
-        f=outer,
-        xs=inputs,
-        init=aa_0,
-    )
+    _, aa_final = scan(f=outer, xs=inputs, init=aa_0,)
 
     return -jnp.logaddexp(
         aa_final[seq_length - 2][l_], aa_final[seq_length - 2][l_ - 1]
@@ -175,13 +167,13 @@ def ctc_loss_torch(
     Torch implementation of the CTC loss
 
     Args:
-        label:
-        log_prob:
-        seq_length:
-        big_num:
+        label (Sequence[int]): A sequence of actual label ids ``(Tlabels,)``
+        log_prob (np.ndarray): A matrix ``(T, Nlabels)`` of log probabilities of observing each possible label out of ``Nlabels``, for each network output time-bin ``T``.
+        seq_length (int): The length of the original sequence
+        big_num (float): A large number used to represent a very low log-probability
 
     Returns:
-        float: The calculated CTC loss
+        float: The calculated CTC sequence loss
     """
 
     def my_log1p(x):
