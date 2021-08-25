@@ -1,4 +1,4 @@
-API reference for {{ fullname }}
+{{ fullname }}
 ==================================================================================================================================================================================================================================================
 
 .. currentmodule:: {{ module }}
@@ -14,7 +14,7 @@ API reference for {{ fullname }}
 
    {% block attributes %}
    {% if attributes %}
-   .. rubric:: Attributes
+   .. rubric:: Attributes overview
 
    .. autosummary::
    {% for item in attributes %}
@@ -27,7 +27,7 @@ API reference for {{ fullname }}
    {% block methods %}
 
    {% if methods %}
-   .. rubric:: Methods
+   .. rubric:: Methods overview
 
    .. autosummary::
    {% for item in methods %}

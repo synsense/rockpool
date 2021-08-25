@@ -5,32 +5,49 @@ stages:
 
 unit_tests:
   stage: test
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
+    - git clone https://${GITLAB_USER}:${GITLAB_CLONE_API_KEY}@spinystellate.office.synsense.ai/research/cimulator.git cimulator_git
+    - pip install ./cimulator_git/
+    - conda install nest-simulator
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v tests
+    - pytest -v tests/tests_default -n 4
+    - pytest -v tests/test_v1layers -n 4
 
 nest_tests:
   stage: test
   allow_failure: true
   when: manual
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
     - pip install .[all] --no-cache-dir
 
   script:
-    - pytest -v test_nest
+      - pytest -v tests/test_nest -n 4
+
+optional_tests:
+  stage: test
+  allow_failure: true
+  image: registry.gitlab.com/synsense/rockpool/test:latest
+  when: manual
+
+  before_script:
+    - pip install --upgrade pip
+    - pip install .[all] --no-cache-dir
+
+  script:
+      - pytest -v tests/test_optional -n 4
 
 documentation_linting:
   stage: test
   allow_failure: true
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
@@ -42,13 +59,14 @@ documentation_linting:
 docs_build:
   stage: build
   allow_failure: true
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   before_script:
     - pip install --upgrade pip
     - pip install .[all] --no-cache-dir
 
   script:
+    - cp CHANGELOG.md docs/advanced
     - sphinx-build -b html docs docs/_build/html
 
   artifacts:
@@ -58,7 +76,7 @@ docs_build:
 
 dist_build:
   stage: build
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   dependencies:
     - unit_tests
@@ -70,7 +88,7 @@ dist_build:
 
   script:
     - python setup.py sdist
-    - python setup.py bdist_wheel
+#    - python setup.py bdist_wheel
 
   artifacts:
     paths:
@@ -82,7 +100,7 @@ pages:
     - master
 
   allow_failure: true
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   dependencies:
     - docs_build
@@ -97,7 +115,7 @@ pages:
 pypi_deploy:
   stage: deploy
   when: manual
-  image: aictx/ci-python-arch:latest
+  image: registry.gitlab.com/synsense/rockpool/test:latest
 
   only:
     - master

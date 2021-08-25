@@ -69,6 +69,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 
 # - Absolute tolerance, e.g. for comparing float values
 _TOLERANCE_ABSOLUTE = 1e-9
+_TOLERANCE_RELATIVE = 1e-6
 
 # - Global plotting backend
 def set_global_ts_plotting_backend(backend: Union[str, None], verbose=True):
@@ -546,8 +547,10 @@ class TimeSeries:
         try:
             # - Largest allowed value for new_start
             max_start = self._times[0] if self._times.size > 0 else self._t_stop
-            if new_start <= max_start:
-                self._t_start = float(new_start)
+            if new_start < max_start:
+                self._t_start = new_start
+            elif new_start - max_start < _TOLERANCE_ABSOLUTE:
+                self._t_start = max_start
             else:
                 raise ValueError(
                     "TimeSeries `{}`: t_start must be less or equal to {}. It was {}.".format(
@@ -569,6 +572,8 @@ class TimeSeries:
         min_stop = self._times[-1] if self._times.size > 0 else self._t_start
         if new_stop >= min_stop:
             self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
         else:
             raise ValueError(
                 "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
@@ -670,6 +675,8 @@ class TSContinuous(TimeSeries):
 
     """
 
+    _samples = []
+
     def __init__(
         self,
         times: Optional[ArrayLike] = None,
@@ -680,7 +687,8 @@ class TSContinuous(TimeSeries):
         t_stop: Optional[float] = None,
         name: str = "unnamed",
         units: Optional[str] = None,
-        interp_kind: str = "linear",
+        interp_kind: str = "previous",
+        fill_value: str = "extrapolate",
     ):
         """
         TSContinuous - Represents a continuously-sample time series, supporting interpolation and periodicity.
@@ -688,14 +696,15 @@ class TSContinuous(TimeSeries):
         :param ArrayLike times:             [Tx1] vector of time samples
         :param ArrayLike samples:           [TxM] matrix of values corresponding to each time sample
         :param Optional[in] num_channels:   If ``samples`` is None, determines the number of channels of ``self``. Otherwise it has no effect at all.
-        :param bool periodic:     Treat the time series as periodic around the end points. Default: ``False``
+        :param bool periodic:               Treat the time series as periodic around the end points. Default: ``False``
         :param Optional[float] t_start:     If not ``None``, the series start time is ``t_start``, otherwise ``times[0]``
         :param Optional[float] t_stop:      If not ``None``, the series stop time is ``t_stop``, otherwise ``times[-1]``
-        :param str name:          Name of the `.TSContinuous` object. Default: ``"unnamed"``
+        :param str name:                    Name of the `.TSContinuous` object. Default: ``"unnamed"``
         :param Optional[str] units:         Units of the `.TSContinuous` object. Default: ``None``
-        :param Optional[str] interp_kind:   Specify the interpolation type. Default: ``"linear"``
+        :param str interp_kind:             Specify the interpolation type. Default: ``"previous"``
+        :param str fill_value:              Specify the method to fill values outside sample times. Default: ``"extrapolate"``. **Sampling beyond `.t_stop` is still not permitted**
 
-        If the time series is not periodic (the default), then NaNs will be returned for any extrapolated values.
+        If the time series is not periodic (the default), then NaNs will be returned for any values outside `t_start` and `t_stop`.
         """
 
         if times is None:
@@ -721,9 +730,61 @@ class TSContinuous(TimeSeries):
         )
 
         # - Assign attributes
-        self.interp_kind = interp_kind
-        self.samples = samples.astype("float")
+        self.interp = None
+        self.fill_value = fill_value
+        self._interp_kind = interp_kind
+        self.samples = samples.astype("float")  # Also creates an interpolator
         self.units = units
+
+        # - Default: Throw exceptions when sampled output contains `NaN`s
+        self.beyond_range_exception = True
+        # - Default: Change sample times that are slightly out of range
+        self.approx_limit_times = True
+
+    ## -- Alternative constructor for clocked time series
+    @staticmethod
+    def from_clocked(
+        samples: np.ndarray,
+        dt: float,
+        t_start: float = 0.0,
+        periodic: bool = False,
+        name: str = None,
+        interp_kind: str = "previous",
+    ) -> "TSContinuous":
+        """
+        Convenience method to create a new continuous time series from a clocked sample.
+
+        ``samples`` is an array of clocked samples, sampled at a regular interval ``dt``. Each sample is assumed to occur at the **start** of a time bin, such that the first sample occurs at ``t = 0`` (or ``t = t_start``). A continuous time series will be returned, constructed using ``samples``, and filling the time ``t = 0`` to ``t = N*dt``, with ``t_start`` and ``t_stop`` set appropriately.
+
+        :param np.ndarray samples:  A clocked set of contiguous-time samples, with a sample interval of ``dt``. ``samples`` must be of shape ``[T, C]``, where ``T`` is the number of time bins, and ``C`` is the number of channels.
+        :param float dt:            The sample interval for ``samples``
+        :param float t_start:       The time of the first sample.
+        :param bool periodic:       Flag specifying whether or not the time series will be generated as a periodic series. Default:``False``, do not generate a periodic time series.
+        :param Optional[str] name:  Optional string to set as the name for this time series. Default: ``None``
+        :param str interp_kind:     String specifying the interpolation method to be used for the returned time series. Any string accepted by `scipy.interp1d` is accepted. Default: `"previous"`, sample-and-hold interpolation.
+
+        :return `.TSContinuous` :   A continuous time series containing ``samples``.
+        """
+        if samples is None or np.size(samples) == 0:
+            raise TypeError(
+                "TSContinuous.from_clocked: `samples` must not be empty or `None`."
+            )
+
+        # - Ensure that `samples` is an ndarray
+        samples = np.atleast_1d(samples)
+
+        # - Build a time base
+        time_base = np.arange(0, np.shape(samples)[0]) * dt + t_start
+
+        # - Return a continuous time series
+        return TSContinuous(
+            time_base,
+            samples,
+            t_stop=time_base[-1] + dt,
+            periodic=periodic,
+            name=name,
+            interp_kind=interp_kind,
+        )
 
     ## -- Methods for plotting and printing
 
@@ -734,6 +795,7 @@ class TSContinuous(TimeSeries):
         channels: Optional[Union[ArrayLike, int]] = None,
         stagger: Optional[Union[float, int]] = None,
         skip: Optional[int] = None,
+        dt: Optional[float] = None,
         *args,
         **kwargs,
     ):
@@ -745,15 +807,18 @@ class TSContinuous(TimeSeries):
         :param Optional[ArrayLike] channels:  Channels of the time series to be plotted.
         :param Optional[float] stagger: Stagger to use to separate each series when plotting multiple series. (Default: `None`, no stagger)
         :param Optional[int] skip: Skip several series when plotting multiple series
-        :param args, kwargs:  Optional arguments to pass to plotting function
+        :param Optiona[float] dt: Resample time series to this timestep before plotting
 
         :return: Plot object. Either holoviews Layout, or matplotlib plot
         """
-        if times is None:
+        if dt is not None and times is None:
+            times = np.arange(self.t_start, self.t_stop, dt)
+            samples = self(times)
+        elif times is not None:
+            samples = self(times)
+        else:
             times = self.times
             samples = self.samples
-        else:
-            samples = self(times)
 
         if channels is not None:
             samples = samples[:, channels]
@@ -807,8 +872,12 @@ class TSContinuous(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
                 # - Plot the curves
                 return ax.plot(times, samples, **kwargs)
+
             else:
                 raise RuntimeError(
                     f"TSContinuous: `{self.name}`: No plotting back-end set."
@@ -895,11 +964,11 @@ class TSContinuous(TimeSeries):
         dtype_samples: Union[None, str, type, np.dtype] = None,
     ) -> Dict:
         """
-        Store data and attributes of this :py:`TSContinuous` in a :py:`Dict`.
+        Store data and attributes of this :py:class:`.TSContinuous` in a :py:class:`dict`.
 
         :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
         :param Union[None, str, type, np.dtype] dtype_samples:  Data type in which `samples` are to be returned, for example to save space.
-        :return:    Dict with data and attributes of this :py:`TSContinuous`.
+        :return:    Dict with data and attributes of this :py:class:`.TSContinuous`.
         """
 
         if dtype_times is not None:
@@ -923,7 +992,7 @@ class TSContinuous(TimeSeries):
             "samples": samples,
             "t_start": np.array(t_start),
             "t_stop": np.array(t_stop),
-            f"interp_kind_{self.interp_kind}": np.array([]),
+            f"interp_kind_{self._interp_kind}": np.array([]),
             "periodic": np.array(self.periodic),
             f"name_{self.name}": np.array([]),
             f"type_TSContinuous": np.array(
@@ -1092,6 +1161,28 @@ class TSContinuous(TimeSeries):
             resampled_series._t_stop = times[-1]
         resampled_series._create_interpolator()
         return resampled_series
+
+    def to_clocked(
+        self,
+        dt: float,
+    ) -> np.ndarray:
+        """
+        Resample this time series to a synchronous clock and return the samples
+
+        This method will generate a time base that begins at :py:attr:`.t_start` and extends to at least :py:attr:`.t_stop`, sampled on a clock defined by ``dt``. The time series will be resampled to that time base, using the defined interpolation method, and the clocked samples will be returned as a raster.
+
+        Args:
+            dt (float): The desired clock time step, in seconds
+
+        Returns:
+            np.ndarray: The samples from the clocked time series
+        """
+        # - Build a time base that spans the extend of the time series
+        num_samples = np.ceil((self.t_stop - self.t_start) / dt)
+        time_base = np.arange(num_samples) * dt + self.t_start
+
+        # - Resample the time series to the supplied time base and return
+        return self.resample(time_base).samples
 
     ## -- Methods for combining time series
 
@@ -1337,12 +1428,19 @@ class TSContinuous(TimeSeries):
             self.interp = lambda t: None
 
         elif np.size(self.times) == 1:
+
             # - Handle sample for single time step (`interp1d` would cause error)
             def single_sample(t):
                 times = np.array(t).flatten()
                 samples = np.empty((times.size, self.num_channels))
                 samples.fill(np.nan)
-                samples[times == self.times[0]] = self.samples[0]
+                if self._fill_value == "extrapolate":
+                    assign_val = np.logical_and(
+                        self.t_start <= times, times <= self.t_stop
+                    )
+                else:
+                    assign_val = times == self.times[0]
+                samples[assign_val] = self.samples[0]
                 return samples
 
             self.interp = single_sample
@@ -1352,11 +1450,12 @@ class TSContinuous(TimeSeries):
             self.interp = spint.interp1d(
                 self._times,
                 self._samples,
-                kind=self.interp_kind,
+                kind=self._interp_kind,
                 axis=0,
                 assume_sorted=True,
                 bounds_error=False,
                 copy=False,
+                fill_value=self._fill_value,
             )
 
     def _interpolate(self, times: Union[int, float, ArrayLike]) -> np.ndarray:
@@ -1367,17 +1466,83 @@ class TSContinuous(TimeSeries):
 
         :return np.ndarray:     Array of interpolated values. Will have the shape ``TxN``, where ``N`` is the number of channels in ``self``
         """
-        # - Enforce periodicity
-        if self.periodic and self.duration > 0:
-            times = (np.asarray(times) - self._t_start) % self.duration + self._t_start
 
-        samples = self.interp(times)
+        # Make sure `times` is an array
+        times = np.array(times)
 
         # - Handle empty series
-        if samples is None:
+        if self.isempty():
             return np.zeros((np.size(times), 0))
-        else:
-            return np.reshape(self.interp(times), (-1, self.num_channels))
+
+        # - Enforce periodicity
+        if self.periodic and self.duration > 0:
+            times = (times - self._t_start) % self.duration + self._t_start
+
+        # Time points that define the range of the interpolator
+        t_first = self.times[0]
+        t_last = self.t_stop if self._interp_kind == "previous" else self.times[-1]
+
+        # Time points outside of this range
+        is_early = np.array(times < t_first)
+        is_late = np.array(times > t_last)
+
+        # - Correct time points that are slightly out of range
+        if self.approx_limit_times:
+
+            tol = min(_TOLERANCE_ABSOLUTE, _TOLERANCE_RELATIVE * self.duration)
+            # Find values in `times` that are slightly before first or slightly after
+            # last sample
+            t_first_approx = t_first - tol
+            t_last_approx = t_last + tol
+            set_t_first = np.logical_and(is_early, times >= t_first_approx)
+            set_t_last = np.logical_and(is_late, times <= t_last_approx)
+            times = np.where(set_t_first, t_first, times)
+            times = np.where(set_t_last, t_last, times)
+            if np.logical_or(set_t_first, set_t_last).any():
+                warn(
+                    f"TSContinuous `{self.name}`: Some of the requested time points "
+                    + "were slightly outside the time range of this series (by at "
+                    + f"most {tol} s) and were approximated by "
+                    + f"the first or last time point of this series. To prevent this "
+                    + f"behavior, set the `approx_limit_times` attribute to `False`."
+                )
+                is_early[set_t_first] = False
+                is_late[set_t_last] = False
+
+        # - Warn or throw exception if output contains `NaN`s
+        if is_early.any() or is_late.any():
+            error_msg = (
+                f"TSContinuous `{self.name}`: Some of the requested time points are "
+                + "beyond the first and last time points of this series and cannot "
+                + "be sampled.\n"
+                + "If you think that this is due to rounding errors, try setting "
+                + "the `approx_limit_times` attribute to `True`.\n"
+            )
+            if self.beyond_range_exception:
+                raise ValueError(
+                    error_msg
+                    + "If you want to sample at these time points anyway, you can "
+                    + "set the `beyond_range_exception` attribute of this time series "
+                    + "to `False` and will receive `NaN` as values."
+                )
+            else:
+                warn(
+                    error_msg
+                    + "Will return `NaN` for these time points."
+                    + "To raise a ValueError in situations like this, set the "
+                    + "`beyond_range_exception` attribute of this time series to `True`."
+                )
+
+        samples = np.reshape(self.interp(times), (-1, self.num_channels))
+
+        # - Catch invalid times, replace with NaN
+        invalid_times = np.logical_or(
+            np.array(times) < self.t_start, np.array(times) > self.t_stop
+        )
+        samples[invalid_times, :] = np.nan
+
+        # - Return the sampled data
+        return samples
 
     def _compatible_shape(self, other_samples) -> np.ndarray:
         """
@@ -1538,13 +1703,13 @@ class TSContinuous(TimeSeries):
 
     # - Addition
 
-    def __add__(self, other_samples):
+    def __add__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__iadd__(other_samples)
 
-    def __radd__(self, other_samples):
+    def __radd__(self, other_samples: TimeSeries) -> TimeSeries:
         return self + other_samples
 
-    def __iadd__(self, other_samples):
+    def __iadd__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1567,13 +1732,13 @@ class TSContinuous(TimeSeries):
 
     # - Subtraction
 
-    def __sub__(self, other_samples):
+    def __sub__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__isub__(other_samples)
 
-    def __rsub__(self, other_samples):
+    def __rsub__(self, other_samples: TimeSeries) -> TimeSeries:
         return -(self - other_samples)
 
-    def __isub__(self, other_samples):
+    def __isub__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1595,13 +1760,13 @@ class TSContinuous(TimeSeries):
 
     # - Multiplication
 
-    def __mul__(self, other_samples):
+    def __mul__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__imul__(other_samples)
 
-    def __rmul__(self, other_samples):
+    def __rmul__(self, other_samples: TimeSeries) -> TimeSeries:
         return self * other_samples
 
-    def __imul__(self, other_samples):
+    def __imul__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1621,15 +1786,15 @@ class TSContinuous(TimeSeries):
 
     # - Division
 
-    def __truediv__(self, other_samples):
+    def __truediv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__itruediv__(other_samples)
 
-    def __rtruediv__(self, other_samples):
+    def __rtruediv__(self, other_samples: TimeSeries) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = 1 / self_copy.samples
         return self_copy * other_samples
 
-    def __itruediv__(self, other_samples):
+    def __itruediv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(
                 np.reshape(other_samples(self.times), (np.size(self.times), -1))
@@ -1653,15 +1818,15 @@ class TSContinuous(TimeSeries):
 
     # - Floor division
 
-    def __floordiv__(self, other_samples):
+    def __floordiv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__ifloordiv__(other_samples)
 
-    def __rfloordiv__(self, other_samples):
+    def __rfloordiv__(self, other_samples: TimeSeries) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = 1 / self_copy.samples
         return self_copy // (1 / other_samples)
 
-    def __ifloordiv__(self, other_samples):
+    def __ifloordiv__(self, other_samples: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(other_samples, TSContinuous):
             other_samples = self._compatible_shape(other_samples(self.times))
         else:
@@ -1679,12 +1844,24 @@ class TSContinuous(TimeSeries):
 
         return self
 
+    # - Matrix multiplication
+
+    def __matmul__(self, matrix) -> TimeSeries:
+        return self.copy().__imatmul__(matrix)
+
+    def __rmatmul__(self, matrix) -> TimeSeries:
+        raise NotImplementedError
+
+    def __imatmul__(self, matrix) -> TimeSeries:
+        self.samples = self.samples @ matrix
+        return self
+
     # - Exponentiation
 
-    def __pow__(self, exponent):
+    def __pow__(self, exponent: Union[TimeSeries, Any]) -> TimeSeries:
         return self.copy().__ipow__(exponent)
 
-    def __rpow__(self, base):
+    def __rpow__(self, base: Union[np.ndarray, Any]) -> TimeSeries:
         new_series = self.copy()
 
         base = new_series._compatible_shape(base)
@@ -1701,7 +1878,7 @@ class TSContinuous(TimeSeries):
 
         return new_series
 
-    def __ipow__(self, exponent):
+    def __ipow__(self, exponent: Union[TimeSeries, Any]) -> TimeSeries:
         if isinstance(exponent, TSContinuous):
             exponent = self._compatible_shape(exponent(self.times))
         else:
@@ -1721,14 +1898,14 @@ class TSContinuous(TimeSeries):
 
     # - Absolute
 
-    def __abs__(self):
+    def __abs__(self) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = np.abs(self_copy.samples)
         return self_copy
 
     # - Negative
 
-    def __neg__(self):
+    def __neg__(self) -> TimeSeries:
         self_copy = self.copy()
         self_copy.samples = -self_copy.samples
         return self_copy
@@ -1800,6 +1977,49 @@ class TSContinuous(TimeSeries):
         """(float) Minimum value of time series"""
         return np.nanmin(self.samples)
 
+    @property
+    def beyond_range_exception(self):
+        return self._nan_exception
+
+    @beyond_range_exception.setter
+    def beyond_range_exception(self, raise_exception: bool):
+        try:
+            self._nan_exception = bool(raise_exception)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `beyond_range_exception` must be of boolean type."
+            )
+
+    @property
+    def approx_limit_times(self):
+        return self._approx_limit_times
+
+    @approx_limit_times.setter
+    def approx_limit_times(self, approx: bool):
+        try:
+            self._approx_limit_times = bool(approx)
+        except (TypeError, ValueError):
+            raise TypeError(
+                f"TSContinuous `{self.name}`: `approx_limit_times` must be of boolean type."
+            )
+
+    @property
+    def fill_value(self):
+        return self._fill_value
+
+    @fill_value.setter
+    def fill_value(self, value):
+        if isinstance(value, str):
+            if value != "extrapolate":
+                raise ValueError(
+                    f"TSContinuous `{self.name}`: "
+                    + "Fill_value` must be either `extrapolate` or a fill value to pass to `scipy.interpolate`."
+                )
+
+        self._fill_value = value
+        if self.interp is not None:
+            self._create_interpolator()
+
 
 ### --- Event time series
 
@@ -1842,7 +2062,7 @@ class TSEvent(TimeSeries):
 
         :param Optional[str] name:                    Name of the time series (Default: None)
 
-        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, max(channels) is taken to be the total channel number
+        :param Optional[int] num_channels:            Total number of channels in the data source. If ``None``, the total channel number is taken to be ``max(channels)``
         """
 
         # - Default time trace: empty
@@ -1850,6 +2070,19 @@ class TSEvent(TimeSeries):
             times = np.array([])
         else:
             times = np.atleast_1d(times).flatten().astype(float)
+
+        # - Make sure `t_stop` is larger than any provided time point.
+        if times.size > 0:
+            if t_stop is None:
+                raise TypeError(
+                    "If `times` is not `None`, `t_stop` must be a float strictly "
+                    + "greater than the largest entry in `times`."
+                )
+            if np.max(times) >= t_stop:
+                raise ValueError(
+                    f"`t_stop` (here {t_stop}) must be strictly greater than the "
+                    + f"largest entry in `times` (here {np.max(times)})."
+                )
 
         # - Default name: 'unnamed'
         name = "unnamed" if name is None else name
@@ -2003,6 +2236,12 @@ class TSEvent(TimeSeries):
                 if ax.get_title() is "" and self.name is not "unnamed":
                     ax.set_title(self.name)
 
+                # - Set the extent of the time axis
+                ax.set_xlim(self.t_start, self.t_stop)
+
+                # - Set the extent of the channels axis
+                ax.set_ylim(-1, self.num_channels)
+
                 # - Plot the curves
                 return ax.scatter(times, channels, *args, **kwargs)
 
@@ -2037,7 +2276,6 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Union[int, ArrayLike, None] = None,
-        include_stop: bool = False,
         remap_channels: bool = False,
         inplace: bool = False,
     ) -> "TSEvent":
@@ -2049,7 +2287,6 @@ class TSEvent(TimeSeries):
         :param Optional[float] t_start:             Time from which on events are returned. Default: `.t_start`
         :param Optional[float] t_stop:              Time until which events are returned. Default: `.t_stop`
         :param Optional[ArrayLike[int]] channels:   Channels of which events are returned. Default: All channels
-        :param bool include_stop:                   If there are events with time `t_stop`, include them or not. Default: ``False``, do not include events at `t_stop`
         :param bool remap_channels:                 Map channel IDs to continuous sequence starting from 0. Set `num_channels` to largest new ID + 1. Default: ``False``, do not remap channels
         :param bool inplace:                        Iff ``True``, the operation is performed in place (Default: False)
 
@@ -2062,7 +2299,7 @@ class TSEvent(TimeSeries):
             new_series = self
 
         # - Extract matching events
-        time_data, channel_data = new_series(t_start, t_stop, channels, include_stop)
+        time_data, channel_data = new_series(t_start, t_stop, channels)
 
         # - Update new timeseries
         new_series._times = time_data
@@ -2127,18 +2364,17 @@ class TSEvent(TimeSeries):
         num_timesteps: int = None,
         channels: np.ndarray = None,
         add_events: bool = False,
-        include_t_stop: bool = False,
     ) -> np.ndarray:
         """
         Return a rasterized version of the time series data, where each data point represents a time step
 
         Events are represented in a boolean matrix, where the first axis corresponds to time, the second axis to the channel. Events that happen between time steps are projected to the preceding step. If two events happen during one time step within a single channel, they are counted as one, unless ``add_events`` is ``True``.
 
-        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at ``t+dt``**. Such events would be included in the following time bin. As a result, if you absolutely need any spikes that occur at ``t_stop`` to be included in the raster, you can set the argument ``include_t_stop`` to ``True``. This will force events at ``t_stop`` to be included, possible by forcing an extra time bin at the end of the raster.
+        Time bins for the raster extend ``[t, t+dt)``, that is **explicitly excluding events that occur at** ``t+dt``. Such events would be included in the following time bin.
 
         To generate a time trace that corresponds to the raster, you can use :py:func:`numpy.arange` as follows::
 
-            num_timesteps = np.ceil((t_stop - t_start) / dt) + ((t_stop - t_start) % dt == 0) and include_t_stop
+            num_timesteps = np.ceil((t_stop - t_start) / dt)
             bin_starts = np.arange(num_timesteps) * dt + t_start
             bin_stops = bin_starts + dt
             bin_mid = bin_starts + dt/2
@@ -2148,8 +2384,7 @@ class TSEvent(TimeSeries):
             def mod(num, div):
                 return (num - div * np.floor(num/div))
 
-            num_timesteps = int(np.ceil((t_stop - t_start) / dt) +
-                int((np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE) and include_t_stop))
+            num_timesteps = int(np.ceil((t_stop - t_start) / dt)
 
         :param float dt:                            Duration of single time step in raster
         :param Optional[float] t_start:             Time where to start raster. Default: None (use ``self.t_start``)
@@ -2196,27 +2431,12 @@ class TSEvent(TimeSeries):
             # - Use `num_timesteps` to determine `t_stop`
             t_stop = t_start + num_timesteps * dt
 
-            # - `include_t_stop` is ignored in this case
-            if include_t_stop:
-                warn("`include_t_stop` is ignored if `num_timesteps` is provided.")
-                include_t_stop = False
-
         elif t_stop is None:
             # - Use own `t_stop`
             t_stop = self.t_stop
 
-        # - Compute number of raster timesteps, taking into account `include_t_stop` argument
-        num_timesteps = int(
-            np.ceil((t_stop - t_start) / dt)
-            + int(
-                (np.abs(mod(t_stop - t_start, dt)) < _TOLERANCE_ABSOLUTE)
-                and include_t_stop
-            )
-        )
-
-        # - If the final time bin spans over `t_stop`, then we should include spikes at `t_stop`
-        if t_start + num_timesteps * dt > t_stop:
-            include_t_stop = True
+        # - Compute number of raster timesteps
+        num_timesteps = int(np.ceil((t_stop - t_start) / dt))
 
         # - Clip the time series to include only the events of interest
         series = self.clip(
@@ -2224,7 +2444,6 @@ class TSEvent(TimeSeries):
             t_stop=t_stop,
             channels=channels_clip,
             remap_channels=False,
-            include_stop=include_t_stop,
         )
 
         # - Create raster for storing event data
@@ -2316,14 +2535,14 @@ class TSEvent(TimeSeries):
         periodic: bool = False,
         num_channels: Optional[int] = None,
         spikes_at_bin_start: bool = False,
-    ):
+    ) -> "TSEvent":
         """
         Create a `.TSEvent` object from a raster array
 
         Given a rasterised event time series, with dimensions [TxC], `~.TSEvent.from_raster` will generate a event
         time series as a `.TSEvent` object.
 
-        .. rubic:: Example
+        .. rubric:: Example
 
         The following code will generate a Poisson event train with 200 time steps of 1ms each, and 20 channels, with a spiking probability of 10% per time bin::
 
@@ -2347,11 +2566,11 @@ class TSEvent(TimeSeries):
         :return TSEvent: A new `.TSEvent` containing the events in ``raster``
         """
 
-        # - Make sure ``raster`` is a numpy array
-        raster = np.array(raster)
+        # - Make sure ``raster`` is a numpy array of integer type
+        raster = np.asarray(raster, int)
 
         # - Reshape if the array is 1d
-        if len(raster.shape) == 1 or raster.shape[1] == 1:
+        if len(raster.shape) == 1:
             raster = np.atleast_2d(raster).T
 
         # - Compute `t_stop` if not provided
@@ -2380,11 +2599,11 @@ class TSEvent(TimeSeries):
         dtype_channels: Union[None, str, type, np.dtype] = None,
     ) -> Dict:
         """
-        Store data and attributes of this :py:`TSEvent` in a :py:`Dict`.
+        Store data and attributes of this :py:class:`.TSEvent` in a ``Dict``.
 
-        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which `times` are to be returned, for example to save space.
-        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which `channels` are to be returned, for example to save space.
-        :return:    Dict with data and attributes of this :py:`TSEvent`.
+        :param Union[None, str, type, np.dtype] dtype_times:    Data type in which ``times`` are to be returned, for example to save space.
+        :param Union[None, str, type, np.dtype] dtype_channels:  Data type in which ``channels`` are to be returned, for example to save space.
+        :return:    Dict with data and attributes of this :py:class:`.TSEvent`.
         """
 
         if dtype_times is not None:
@@ -2392,7 +2611,8 @@ class TSEvent(TimeSeries):
             times = self.times.astype(dtype_times)
             # Cannot simply clip `times` because of rounding issues.
             t_start = np.clip(self.t_start, None, np.min(times))
-            t_stop = np.clip(self.t_stop, np.max(times), None)
+            res = np.finfo(dtype_times).resolution
+            t_stop = np.clip(self.t_stop, np.max(times) + res, None)
         else:
             times = self.times
             t_start = self.t_start
@@ -2433,7 +2653,7 @@ class TSEvent(TimeSeries):
         dtype_channels: Union[None, str, type, np.dtype] = None,
     ):
         """
-        Save this :py:`.TSEvent` as an ``npz`` file using ``np.savez``
+        Save this :py:class:`.TSEvent` as an ``npz`` file using :py:meth:`np.savez`
 
         :param str path:        Path to save file
         :param bool verbose:    Print path information after successfully saving.
@@ -2722,15 +2942,14 @@ class TSEvent(TimeSeries):
         t_start: Optional[float] = None,
         t_stop: Optional[float] = None,
         channels: Optional[Union[int, ArrayLike]] = None,
-        include_stop: bool = False,
     ) -> (np.ndarray, np.ndarray):
         """
-        ts(...) - Return events in interval between indicated times
+        ts(...) - Return events in interval between indicated times, ignoring
+                  events at `t_stop`.
 
         :param Optional[float] t_start:     Time from which on events are returned
         :param Optional[float] t_stop:      Time until which events are returned
         :param Optional[Union[int, ArrayLike]] channels:  Channels of which events are returned
-        :param bool include_stop:  If there are events with time t_stop include them or not. Default: ``False``, do not include events at time ``t_stop``
 
         :return:
             np.ndarray  Times of events
@@ -2742,7 +2961,6 @@ class TSEvent(TimeSeries):
 
         if t_stop is None:
             t_stop: float = self.t_stop
-            include_stop = True
 
         # - Permit unsorted bounds
         if t_stop < t_start:
@@ -2761,11 +2979,8 @@ class TSEvent(TimeSeries):
         # - Events with matching channels
         channel_matches = self._matching_channels(channels, all_channels)
 
-        # - Handle events at stop time
-        if include_stop:
-            choose_events_stop: np.ndarray = all_times <= t_stop
-        else:
-            choose_events_stop: np.ndarray = all_times < t_stop
+        # - Ignore events from stop time onwards
+        choose_events_stop: np.ndarray = all_times < t_stop
 
         # - Extract matching events and return
         choose_events: np.ndarray = (
@@ -2835,9 +3050,10 @@ class TSEvent(TimeSeries):
         new_channels = np.asarray(new_channels)
 
         # - Check size of new data
-        assert np.size(new_channels) == 1 or np.size(new_channels) == np.size(
-            self.times
-        ), "`new_channels` must be the same size as `times`."
+        if np.size(new_channels) != 1 and np.size(new_channels) != np.size(self.times):
+            raise ValueError(
+                f"TSEvent `{self.name}`: `new_channels` must be the same size as `times`."
+            )
 
         # - Handle scalar channel
         if np.size(new_channels) == 1:
@@ -2874,6 +3090,57 @@ class TSEvent(TimeSeries):
             )
         else:
             self._num_channels = new_num_ch
+
+    @property
+    def times(self):
+        """ (ArrayLike[float]) Array of sample times """
+        return self._times
+
+    @times.setter
+    def times(self, new_times: ArrayLike):
+        # - Check time trace for correct size
+        if np.size(new_times) != np.size(self._times):
+            raise ValueError(
+                f"TSContinuous `{self.name}`: "
+                + "New time trace must have the same number of elements as the original trace."
+            )
+
+        # - Make sure time trace is sorted
+        if (np.diff(new_times) < 0).any():
+            raise ValueError(
+                f"TSContinuous `{self.name}`: "
+                + "The time trace must be sorted and not decreasing"
+            )
+
+        # - Store new time trace
+        self._times = np.atleast_1d(new_times).flatten().astype(float)
+
+        if np.size(self._times) > 0:
+            # - Fix t_start and t_stop
+            self._t_start = min(self._t_start, new_times[0])
+            res = np.finfo(self._times.dtype).resolution
+            self._t_stop = max(self._t_stop, new_times[-1] + res)
+
+    @property
+    def t_stop(self) -> float:
+        """ (float) Stop time of time series (final sample) """
+        return self._t_stop
+
+    @t_stop.setter
+    def t_stop(self, new_stop):
+        # - Smallest allowed value for new_stop
+        res = np.finfo(self._times.dtype).resolution
+        min_stop = self._times[-1] + res if self._times.size > 0 else self._t_start
+        if new_stop >= min_stop:
+            self._t_stop = new_stop
+        elif min_stop - new_stop < _TOLERANCE_ABSOLUTE:
+            self._t_stop = min_stop
+        else:
+            raise ValueError(
+                "TimeSeries `{}`: t_stop must be greater or equal to {}. It was {}.".format(
+                    self.name, min_stop, new_stop
+                )
+            )
 
 
 ### --- Dict-like object to store TimeSeries on disk

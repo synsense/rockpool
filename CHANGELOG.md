@@ -2,6 +2,109 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.1] -- 2021-07-20
+
+### Added
+
+ - 👹 Adversarial training of parameters using the *Jax* back-end, including a tutorial
+ - 🐰 "Easter" tutorial demonstrating an SNN trained to generate images
+ - 🔥 Torch tutorials for training non-spiking and spiking networks with Torch back-ends
+ - Added new method `nn.Module.timed()`, to automatically convert a module to a `TimedModule`  
+ - New `LIFTorch` module that permits training of neuron and synaptic time constants in addition to other network parameters
+ - New `ExpSynTorch` module: exponential leak synapses with Torch back-end
+ - New `LinearTorch` module: linear model with Torch back-end
+ - New `LowPass` module: exponential smoothing with Torch back-end
+ - New `ExpSmoothJax` module: single time-constant exponential smoothing layer, supporting arbitrary transfer functions on output
+ - New `softmax` and `log_softmax` losses in `jax_loss` package
+ - New `utilities.jax_tree_utils` package containing useful parameter tree handling functions
+ - New `TSContinuous.to_clocked()` convenience method, to easily rasterise a continuous time series
+ - Alpha: Optional `_wrap_recorded_state()` method added to `nn.Module` base class, which supports wrapping recorded state dictionaries as `TimeSeries` objects, when using the high-level `TimeSeries` API
+ - Support for `add_events` flag for time-series wrapper class
+ - New Parameter dictionary classes to simplify conversion and handling of *Torch* and *Jax* module parameters
+   - Added `astorch()` method to parameter dictionaries returned form `TorchModule`
+ - Improved type hinting
+
+### Changed
+
+ - Old `LIFTorch` module renamed to `LIFBitshiftTorch` 
+ - Kaiming and Xavier initialisation support for `Linear` modules
+ - `Linear` modules provide a bias by default
+ - Moved `filter_bank` package from V1 layers into `nn.modules`
+ - Update *Jax* requirement to > v2.13
+
+### Fixed
+
+ - Fixed *binder* links for tutorial notebooks
+ - Fixed bug in `Module` for multiple inheritance, where the incorrect `__repr__()` method would be called
+ - Fixed `TimedModuleWrapper.reset_state()` method
+ - Fixed axis limit bug in `TSEvent.plot()` method
+ - Removed page width constraint for docs
+ - Enable `FFExpSyn` module by making it independent of old `RRTrainedLayer`
+
+### Deprecated
+
+ - Removed `rpyc` dependency
+
+### Removed
+
+
+
+## [v2.0] -- 2021-03-24
+
+ - **New Rockpool API. Breaking change from v1.x**
+ - Documentation for new API
+ - Native support for Jax and Torch backends
+ - Many v1 Layers transferred
+
+## [v1.1.0.4] -- 2020-11-06
+
+ - Hotfix to remove references to ctxctl and aiCTX
+ - Hotfix to include NEST documentation in CI-built docs
+ - Hotfix to include change log in build docs
+
+## [v1.1] -- 2020-09-12
+
+### Added
+ - Considerably expanded support for Denève-Machens spike-timing networks, including training arbitrary dynamical systems in a new `RecFSSpikeADS` layer. Added tutorials for standard D-M networks for linear dynamical systems, as well as a tutorial for training ADS networks
+ - Added a new "Intro to SNNs" getting-started guide
+  - A new "sharp points of Rockpool" tutorial collects the tricks and traps for new users and old
+ - A new `Network` class, `JaxStack`, supports stacking and end-to-end gradient-based training of all Jax-based layers. A new tutorial has been added for this functionality 
+ - `TimeSeries` classes now support best-practices creation from clock or rasterised data. `TSContinuous` provides a `.from_clocked()` method, and `TSEvent` provides a `.from_raster()` method for this purpose. `.from_clocked()` a sample-and-hold interpolation, for intuitive generation of time series from periodically-sampled data.
+ - `TSContinuous` now supports a `.fill_value` property, which permits extrapolation using `scipy.interpolate`
+ - New `TSDictOnDisk` class for storing `TimeSeries` objects transparently on disk
+  - Allow ignoring data points for specific readout units in ridge regression Fisher relabelling. To be used, for example with all-vs-all classification
+  - Added exponential synapse Jax layers
+  - Added `RecLIFCurrentIn_SO` layer
+  
+
+### Changed
+ - `TSEvent` time series no longer support creation without explicitly setting `t_stop`. The previous default of taking the final event time as `t_stop` was causing too much confusion. For related reasons, `TSEvent` now forbids events to occur at `t_stop`
+ - `TimeSeries` classes by default no longer permit sampling outside of the time range they are defined for, raising a `ValueError` exception if this occurs. This renders safe several traps that new users were falling in to. This behaviour is selectable per time series, and can be transferred to a warning instead of an exception using the `beyond_range_exception` flag
+ - Jax trainable layers now import from a new mixin class `JaxTrainer`. THe class provides a default loss function, which can be overridden in each sub-class to provide suitable regularisation. The training interface now returns loss value and gradients directly, rather than requiring an extra function call and additional evolution
+ - Improved training method for JAX rate layers, to permit parameterisation of loss function and optimiser
+ - Improved the `._prepare_input...()` methods in the `Layer` class, such that all `Layer`s that inherit from this superclass are consistent in the number of time steps returned from evolution
+ - The `Network.load()` method is now a class method
+ - Test suite now uses multiple cores for faster testing
+ - Changed company branding from aiCTX -> SynSense
+ - Documentation is now hosted at [https://rockpool.ai]()
+ 
+### Fixed
+ - Fixed bugs in precise spike-timing layer `RecSpikeBT`
+ - Fixed behavior of `Layer` class when passing weights in wrong format
+ - Stability improvements in `DynapseControl`
+ - Fix faulty z_score_standardization and Fisher relabelling in `RidgeRegrTrainer`. Fisher relabelling now has better handling of differently sized batches
+ - Fixed bugs in saving and loading several layers
+ - More sensible default values for `VirtualDynapse` baseweights
+ - Fix handling of empty `channels` argument in `TSEvent._matching_channels()` method
+  - Fixed bug in `Layer._prepare_input`, where it would raise an AssertionError when no input TS was provided
+  - Fixed a bug in `train_output_target`, where the gradient would be incorrectly handled if no batching was performed
+  - Fixed `to_dict` method for `FFExpSynJax` classes
+  - Removed redundant `_prepare_input()` method from Torch layer
+  - Many small documentation improvements
+
+
+---
+
 ## [v1.0.8] -- 2020-01-17
 
 ### Added

@@ -4,14 +4,14 @@ from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
 dModules = {
-    ".gpl.property_arrays": (
+    ".property_arrays": (
         "SetterArray",
         "ImmutableArray",
         "RefArray",
         "RefProperty",
     ),
-    ".gpl.type_handling": ("ArrayLike", "to_scalar"),
-    ".gpl.timedarray_shift": "TimedArray",
+    ".type_handling": ("ArrayLike", "to_scalar"),
+    ".timedarray_shift": "TimedArray",
 }
 
 
@@ -20,6 +20,18 @@ strBasePackage = "rockpool.utilities"
 
 # - Initialise list of available modules
 __all__ = []
+
+
+class bcolors:
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
 
 # - Loop over submodules to attempt import
 for strModule, classnames in dModules.items():
@@ -54,10 +66,10 @@ for strModule, classnames in dModules.items():
     except ModuleNotFoundError as err:
         # - Ignore ModuleNotFoundError
         warn("Could not load package " + strModule)
-        print(err)
+        print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)
         pass
 
     except ImportError as err:
         # - Raise a warning if the package could not be imported for any other reason
         warn("Could not load package " + strModule)
-        print(err)
+        print(bcolors.FAIL + bcolors.BOLD + str(err) + bcolors.ENDC)

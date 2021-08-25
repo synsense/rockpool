@@ -12,13 +12,14 @@
 #
 import os
 import sys
+import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath("../rockpool"))
 
 # -- Project information -----------------------------------------------------
 
 project = "Rockpool"
-copyright = "2019, aiCTX AG"
+copyright = "2019–2020, SynSense"
 author = "Dylan Muir, Felix Bauer, Philipp Weidel"
 
 # The full version, including alpha/beta/rc tags
@@ -40,11 +41,13 @@ extensions = [
     "nbsphinx",
     "sphinx.ext.mathjax",
     "recommonmark",
+    "sphinx.ext.imgconverter",
+    "sphinx_rtd_theme",
 ]
 
 source_suffix = {
-    '.rst': 'restructuredtext',
-    '.md': 'markdown',
+    ".rst": "restructuredtext",
+    ".md": "markdown",
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -70,6 +73,10 @@ html_theme = "sphinx_rtd_theme"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 
+html_css_files = [
+    "css/custom.css",
+]
+
 autosummary_generate = True
 
 rst_prolog = """
@@ -87,9 +94,9 @@ nbsphinx_prolog = r"""
     .. nbinfo::
         This page was generated from `{{ docname }}`__.
         Interactive online version:
-        :raw-html:`<a href="https://mybinder.org/v2/gl/aiCTX%2Frockpool/v{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
+        :raw-html:`<a href="https://mybinder.org/v2/gl/synsense%2Frockpool/v{{ env.config.release }}?filepath={{ docname }}"><img alt="Binder badge" src="https://mybinder.org/badge_logo.svg" style="vertical-align:text-bottom"></a>`
         
-    __ https://mybinder.org/v2/gl/aiCTX%2Frockpool/
+    __ https://mybinder.org/v2/gl/synsense%2Frockpool/
         {{ env.config.release }}/{{ docname }}
         
 .. raw:: latex
@@ -104,6 +111,6 @@ nbsphinx_epilog = """
 
 nbsphinx_allow_errors = True
 
-nbsphinx_execute = 'never'
+nbsphinx_execute = "never"
 
 autodoc_default_options = {"special-members": "__init__", "private-members": True}

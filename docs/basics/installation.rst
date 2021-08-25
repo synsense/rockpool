@@ -6,7 +6,7 @@ Installing |project|
 Base requirements
 -----------------
 
-|project| requires `Python 3.6`_, numpy_, scipy_ and numba_ to install. These requirements will be installed by `pip` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
+|project| requires `Python 3.6`_ and numpy_, to install. These requirements will be installed by `pip` when installing |project|. We recommend using anaconda_, miniconda_ or another environment manager to keep your Python dependencies clean.
 
 Installation using `pip`
 ------------------------
@@ -29,12 +29,13 @@ You can also install |project| using `conda`, from the `conda-forge` channel.
 Dependencies
 ------------
 
-|project| has several dependencies for various aspects of the package. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed layers (e.g. `.RecRateEulerJax`); PyTorch_ is required to use the Torch_-backed layers (e.g. `.RecIAFTorch`), and so on. But if these dependencies are not available, the remainder of |project| is still usable.
+|project| has several dependencies for various aspects of the package. However, these dependencies are compartmentalised as much as possible. For example, Jax_ is required to use the Jax_-backed modules (e.g. `.RateEulerJax`); PyTorch_ is required to use the Torch_-backed modules, and so on. But if these dependencies are not available, the remainder of |project| is still usable.
 
-* NEST_ for NEST_-backed layers
-* Jax_ for Jax_-backed layers
-* PyTorch_ for Torch_-backed layers
-* Brian2_ for Brian_-backed layers
+* scipy_ for scipy_-backed modules
+* NEST_ for NEST_-backed modules
+* Jax_ for Jax_-backed modules
+* PyTorch_ for Torch_-backed modules
+* Brian2_ for Brian_-backed modules
 * Matplotlib_ or HoloViews_ for plotting `.TimeSeries`
 * PyTest_ for running tests
 * Sphinx_, NBSphinx_ and Sphinx-autobuild_ for building documentation
@@ -45,11 +46,31 @@ To automatically install all the extra dependencies required by |project|, use t
 
     $ pip install rockpool[all]
 
+Building the documentation
+--------------------------
+
+The |project| documentation is based on sphinx, and all dependencies required for a local HTML version are installed with `pip install rockpool[all]`.
+
+To build a live, locally-hosted HTML version of the docs, use the command
+
+.. code-block:: Bash
+
+    $ cd docs
+    $ make clean livehtml
+
+To build a PDF version of the docs, you need to install `imagemagick` on your system, as well as a working version of `latex` and `pdflatex`. You will need to install these dependencies manually.
+
+Once all dependencies are installed, you can build the PDF docs with
+
+.. code-block:: Bash
+
+    $ cd docs
+    $ make clean latexpdf
 
 Contributing
-============
+------------
 
-If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/ai-ctx/rockpool to your own account. Then clone your fork to your development machine
+If you would like to contribute to |project|, then you should begin by forking the public repository at https://gitlab.com/synsense/rockpool to your own account. Then clone your fork to your development machine
 
 .. code-block:: Bash
 
@@ -94,7 +115,7 @@ Then when you're ready, make a merge request on gitlab.com, from the feature bra
 .. _`Black code formatter`: https://black.readthedocs.io/en/stable/
 
 Running tests
--------------
+~~~~~~~~~~~~~
 
 As part of the merge review process, we'll check that all the unit tests pass. You can check this yourself (and probably should before making your merge request), by running the unit tests locally.
 
@@ -103,20 +124,6 @@ To run all the unit tests for |project|, use `pytest`:
 .. code-block:: Bash
 
     $ pytest tests
-
-
-Building documentation
-----------------------
-
-The |project| documentation requires Sphinx_, NBSphinx_ and Sphinx-autobuild_. The commands
-
-.. code-block:: Bash
-
-    $ cd docs
-    $ make livehtml
-
-
-Will compile the documentation and open a web browser to the local copy of the docs.
 
 .. _Python 3.6: https://python.org
 .. _numpy: https://www.numpy.org
