@@ -407,7 +407,7 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Evolve a network on the Xylo HDK
+        Evolve a network on the Xylo HDK with fake-auto mode. It is through 'samna.pollen.OperationMode.AcceleratedTime' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -521,6 +521,28 @@ class PollenSamna(Module):
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
+        """
+        Use for debug purpose.
+
+        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
+
         # - Get some information about the network size
         _, Nhidden, Nout = self.shape
 
@@ -610,6 +632,28 @@ class PollenSamna(Module):
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
+        """
+         Use for debug purpose.
+
+         Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+
+         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+         Args:
+             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+         Returns:
+             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+             ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+             ``record_dict`` is a dictionary containing recorded internal all RAM state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+         Raises:
+             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+         """
+
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
 
@@ -629,7 +673,7 @@ class PollenSamna(Module):
         # - Reset input spike registers
         putils.reset_input_spikes(self._device)
 
-        # - Initialise lists for recording state
+        # - Initialise lists for internal all RAM state
         vmem_ts = []
         isyn_ts = []
         isyn2_ts = []
@@ -671,7 +715,7 @@ class PollenSamna(Module):
             if is_timeout:
                 break
 
-            # - Read all synapse and neuron states for this time step
+            # - Read all RAM states for this time step
             if record:
                 this_state = putils.read_allram_state(
                     self._device, self._event_buffer, Nin, Nhidden, Nout
@@ -743,11 +787,32 @@ class PollenSamna(Module):
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
+        """
+         Use for debug purpose.
+
+         Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+
+         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+         Args:
+             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+             record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+         Returns:
+             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+             ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+             ``record_dict`` is a dictionary containing recorded internal all RAM and register state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+         Raises:
+             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+         """
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
 
         # - Select single-step simulation mode
-        # self.config = putils.configure_single_step_time_mode(self.config)
+        self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Initialise lists for recording state
         vmem_ts = []
@@ -772,10 +837,7 @@ class PollenSamna(Module):
         recurrent_weight_2ram_ts = []
         output_weight_ram_ts = []
 
-        ##########################################################
-        #### - Read all ram and register before evolve_manual ####
-        ##########################################################
-
+        # - Read all ram and register before evolve_manual
         if record:
             this_state = putils.read_allram_state(
                 self._device, self._event_buffer, Nin, Nhidden, Nout
@@ -801,16 +863,15 @@ class PollenSamna(Module):
             recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
             output_weight_ram_ts.append(this_state.OWTRAM_state)
 
+            # - Create a folder to save register state in each timestamp
             folder = "./registers/"
             newFolder = Path(folder)
             if not newFolder.exists():
                 makedirs(newFolder)
+
+            # - Save the register state before evolve_manual as '-1' timestamp.
             file = folder + "register_-1.txt"
             putils.export_registers(self._device, self._event_buffer, file)
-
-        ##########################################################
-        #### - Read all ram and register before evolve_manual ####
-        ##########################################################
 
         # - Wait until pollen is ready
         t_start = time.time()
@@ -827,21 +888,17 @@ class PollenSamna(Module):
 
         # - Loop over time steps
         for timestep in tqdm(range(len(input))):
-            # for timestep in tqdm(range(3)):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
-            #### save register after give input before evolve ####
+            # - Save register just after give input but before evolve_manual for each timestamp
             file = folder + f"register_{timestep}_spkin.txt"
             putils.export_registers(self._device, self._event_buffer, file)
 
-            # - Print register content
-            # putils.print_debug_registers(self._device, self._event_buffer)
-
-            # - Evolve one time-step on Pollen
+            # - Evolve one time-step on Xylo HDK
             putils.advance_time_step(self._device)
 
-            # - Wait until pollen has finished the simulation of this time step
+            # - Wait until Xylo HDK has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
             while not putils.is_pollen_ready(self._device, self._event_buffer):
@@ -852,7 +909,7 @@ class PollenSamna(Module):
             if is_timeout:
                 break
 
-            # - Read all synapse and neuron states for this time step
+            # - Read all RAM and register state for this time step
             if record:
                 this_state = putils.read_allram_state(
                     self._device, self._event_buffer, Nin, Nhidden, Nout
@@ -880,7 +937,7 @@ class PollenSamna(Module):
                 recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
                 output_weight_ram_ts.append(this_state.OWTRAM_state)
 
-                #### registers ####
+                # - Save register after evolve_manual for each timestamp
                 file = folder + f"register_{timestep}.txt"
                 putils.export_registers(self._device, self._event_buffer, file)
 

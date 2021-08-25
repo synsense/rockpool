@@ -72,7 +72,7 @@ class PollenState(NamedTuple):
     Spikes_out: np.array
     """ Spikes from output layer neurons """
 
-    # ram as state
+    # - include config RAM
     IWTRAM_state: np.array
     IWT2RAM_state: np.array
     NDSRAM_state: np.array
@@ -704,7 +704,7 @@ def read_allram_state(
     Nout: int = 8,
 ) -> PollenState:
     """
-    Read and return the config ram in each step as a state
+    Read and return the all ram in each step as a state
 
     Args:
         daughterboard (PollenDaughterboard): The Pollen HDK to query
@@ -757,10 +757,7 @@ def read_allram_state(
     # - Read reservoir spikes
     Spikes = read_memory(daughterboard, buffer, memory_table["rspkram"], Nhidden)
 
-    ##########################################
-    #### config as ram, with dummy neuron ####
-    ##########################################
-
+    # - Read config RAM including buffer neuron(s)
     input_weight_ram = read_memory(
         daughterboard,
         buffer,
@@ -858,6 +855,7 @@ def read_allram_state(
         Nin,
         Nhidden,
         Nout,
+        # - state RAM
         np.array(Vmem[:Nhidden], "int16"),
         np.array(Isyn[:Nhidden], "int16"),
         np.array(Vmem[-Nout:], "int16"),
@@ -865,7 +863,7 @@ def read_allram_state(
         np.array(Isyn2, "int16"),
         np.array(Spikes, "int16"),
         read_output_events(daughterboard, buffer)[:Nout],
-        # config ram
+        # - config RAM
         np.array(input_weight_ram, "int16"),
         np.array(input_weight_2ram, "int16"),
         np.array(neuron_dash_syn_ram, "int16"),
@@ -912,6 +910,7 @@ def read_accel_mode_data(
     vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
     vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
 
+    # - dummy RAM value in PollenState
     IWTRAM_ts = np.zeros((1, 1))
     IWT2RAM_ts = np.zeros((1, 1))
     NDSRAM_ts = np.zeros((1, 1))
@@ -1861,7 +1860,7 @@ def export_config(
         json.dump(conf, f)
 
 
-def export_config_nocomment(
+def _export_config_nocomment(
     path: Union[str, Path],
     config: PollenConfiguration,
     dt: float,
@@ -2368,7 +2367,7 @@ def export_allram_state(
     state: PollenState,
 ) -> None:
     """
-    Export the state of a Pollen network over time
+    Export the all RAM state of a Pollen network over time
 
     This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
 
@@ -2391,7 +2390,7 @@ def export_allram_state(
     Nhidden = num_neurons
     Nout = readout_size
 
-    # rspkram
+    # - rspkram
     mat = np.zeros((np.shape(state.Spikes_hid)[0], num_neurons), dtype=int)
     spks = np.array(state.Spikes_hid).astype(int)
 
@@ -2411,7 +2410,7 @@ def export_allram_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # ospkram
+    # - ospkram
     mat = np.zeros((np.shape(state.Spikes_out)[0], readout_size), dtype=int)
     spks = np.array(state.Spikes_out).astype(int)
 
@@ -2429,7 +2428,7 @@ def export_allram_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # nscram
+    # - nscram
     mat = np.zeros((np.shape(state.I_syn_hid)[0], size_total), dtype=int)
     isyns = np.array(state.I_syn_hid).astype(int)
     mat[:, : isyns.shape[1]] = isyns
@@ -2447,7 +2446,7 @@ def export_allram_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # nsc2ram --> rsc2ram
+    # - nsc2ram renamed as rsc2ram (correct name in the Xylo datasheet)
     if not hasattr(state, "I_syn2_hid"):
         mat = np.zeros((0, num_neurons), int)
     else:
@@ -2466,7 +2465,7 @@ def export_allram_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # nmpram
+    # - nmpram
     mat = np.zeros((np.shape(state.V_mem_hid)[0], size_total), dtype=int)
     vmems = np.array(state.V_mem_hid).astype(int)
     mat[:, : vmems.shape[1]] = vmems
@@ -2485,7 +2484,7 @@ def export_allram_state(
                 f.write("\n")
 
     if inp_spks is not None:
-        # input spikes
+        # - input spikes
         path_spki = path / "spk_in"
         if not path_spki.exists():
             makedirs(path_spki)
@@ -2504,17 +2503,16 @@ def export_allram_state(
                         for _ in range(num_spikes):
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
 
-    #############################################
-    #### config ram, not export dummy neuron ####
-    #############################################
+    # - Save config RAM, not export dummy neuron
+
     # IWTRAM_state: input_weight_ram_ts
     mat = np.zeros(
         (np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int
-    )  # num_buffer_neuron???
+    )
     input_weight = np.array(state.IWTRAM_state).astype(int)
     mat[:, : input_weight.shape[1]] = input_weight[
         :, 0 : Nin * Nhidden
-    ]  # num_buffer_neuron???
+    ]
 
     path_IWTRAM_state = path / "IWTRAM_state"
     if not path_IWTRAM_state.exists():
@@ -2529,14 +2527,14 @@ def export_allram_state(
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
-    # IWT2RAM_state input_weight_2ram_ts
+    # - IWT2RAM_state: input_weight_2ram_ts
     mat = np.zeros(
         (np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int
-    )  # num_buffer_neuron???
+    )
     input_weight_2 = np.array(state.IWT2RAM_state).astype(int)
     mat[:, : input_weight_2.shape[1]] = input_weight_2[
         :, 0 : Nin * Nhidden
-    ]  # num_buffer_neuron???
+    ]
 
     path_IWT2RAM_state = path / "IWT2RAM_state"
     if not path_IWT2RAM_state.exists():
@@ -2551,7 +2549,7 @@ def export_allram_state(
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
-    # NDSRAM_state:neuron_dash_syn_ram_ts
+    # - NDSRAM_state: neuron_dash_syn_ram_ts
     mat = np.zeros(
         (np.shape(state.NDSRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout),
         dtype=int,
@@ -2572,7 +2570,7 @@ def export_allram_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # RDS2RAM_state: reservoir_dash_syn_2ram_ts
+    # - RDS2RAM_state: reservoir_dash_syn_2ram_ts
     mat = np.zeros(
         (np.shape(state.RDS2RAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2592,7 +2590,7 @@ def export_allram_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # NDMRAM_state: neuron_dash_mem_ram_ts
+    # - NDMRAM_state: neuron_dash_mem_ram_ts
     mat = np.zeros(
         (np.shape(state.NDMRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2613,7 +2611,7 @@ def export_allram_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # NTHRAM_state: neuron_threshold_ram_ts
+    # - NTHRAM_state: neuron_threshold_ram_ts
     mat = np.zeros(
         (np.shape(state.NTHRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout),
         dtype=int,
@@ -2634,7 +2632,7 @@ def export_allram_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # RCRAM_state: reservoir_config_ram_ts
+    # - RCRAM_state: reservoir_config_ram_ts
     mat = np.zeros(
         (np.shape(state.RCRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2654,7 +2652,7 @@ def export_allram_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # RARAM_state: reservoir_aliasing_ram_ts
+    # - RARAM_state: reservoir_aliasing_ram_ts
     mat = np.zeros(
         (np.shape(state.RARAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2674,7 +2672,7 @@ def export_allram_state(
                 f.write(to_hex(val, 3))
                 f.write("\n")
 
-    # REFOCRAM_state: reservoir_effective_fanout_count_ram_ts
+    # - REFOCRAM_state: reservoir_effective_fanout_count_ram_ts
     mat = np.zeros(
         (np.shape(state.REFOCRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2694,7 +2692,7 @@ def export_allram_state(
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
-    # RFORAM_state: recurrent_fanout_ram_ts
+    # - RFORAM_state: recurrent_fanout_ram_ts
     mat = np.zeros(
         (np.shape(state.RFORAM_state)[0], np.shape(state.RFORAM_state)[1]), dtype=int
     )  # 32000
@@ -2718,7 +2716,7 @@ def export_allram_state(
                     f.write("\n")
                     reservoir_fanout_total += 1
 
-    # RWTRAM_state: recurrent_weight_ram_ts
+    # - RWTRAM_state: recurrent_weight_ram_ts
     mat = np.zeros(
         (np.shape(state.RWTRAM_state)[0], np.shape(state.RWTRAM_state)[1]), dtype=int
     )  # 32000
@@ -2742,7 +2740,7 @@ def export_allram_state(
                     f.write("\n")
                     reservoir_fanout_total += 1
 
-    # RWT2RAM_state: recurrent_weight_2ram_ts
+    # - RWT2RAM_state: recurrent_weight_2ram_ts
     mat = np.zeros(
         (np.shape(state.RWT2RAM_state)[0], np.shape(state.RWT2RAM_state)[1]), dtype=int
     )  # 32000
@@ -2766,7 +2764,7 @@ def export_allram_state(
                     f.write("\n")
                     reservoir_fanout_total += 1
 
-    # OWTRAM_state: output_weight_ram_ts
+    # - OWTRAM_state: output_weight_ram_ts
     mat = np.zeros(
         (
             np.shape(state.OWTRAM_state)[0],
