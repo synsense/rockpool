@@ -74,6 +74,7 @@ Time series classes
     nn.modules.LIFJax
     nn.modules.LIFTorch
     nn.modules.LIFNeuronTorch
+    nn.modules.UpDownTorch
 
     nn.modules.Linear
     nn.modules.LinearJax
@@ -177,6 +178,16 @@ Conversion utilities
 
     training.adversarial_jax.pga_attack
     training.adversarial_jax.adversarial_loss
+
+``PyTorch`` training utilities
+---------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+    :template: module.rst
+
+    training.torch_loss
 
 Hardware support and simulation
 -------------------------------
