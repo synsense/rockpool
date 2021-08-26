@@ -27,19 +27,22 @@ from IPython.display import display
 from rockpool import TSEvent, TSContinuous
 from rockpool.nn.modules import TimedModuleWrapper
 
-from dynapse1_neuron_synapse_jax import (
+from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
     DynapSE1NeuronSynapseJax,
-    DynapSE1Layout,
-    DPIParameters,
-    DynapSE1Parameters,
 )
 
-from utils import (
+from rockpool.devices.dynapse.dynapse1_parameters import (
+    DynapSE1Layout,
+    DynapSE1Parameters,
+    SynapseParameters,
+)
+
+from rockpool.devices.dynapse.utils import (
     spike_to_pulse,
     custom_spike_train,
     random_spike_train,
-    calculate_tau,
-    calculate_Isyn_inf,
+    get_tau,
+    Isyn_inf,
 )
 
 from typing import Union, Tuple, Optional
@@ -68,14 +71,13 @@ class DPIParams:
     Capacitor: float = 28e-12
     Itau: float = 10e-12
     Ith: float = 40e-12
-    Iw: float = 1e-6
+    Iw: float = 1e-7
 
 
 class ResponseGUI:
     def __init__(
         self,
         shape: tuple,
-        update_type: str = "dpi",
         spike_params: Optional[SpikeParams] = None,
         dpi_params: Optional[DPIParams] = None,
         input_tab: Optional[str] = "Input Spikes",
@@ -83,7 +85,6 @@ class ResponseGUI:
         spike_in: Union[TSEvent, TSContinuous] = None,
     ):
         self.shape = shape
-        self.update_type = update_type
         self.input_tab = input_tab
         self.response_tab = response_tab
         self.spike_in = spike_in
@@ -310,14 +311,14 @@ class ResponseGUI:
         Iw: float,
     ):
         layout = DynapSE1Layout()
-        tau = calculate_tau(
+        tau = get_tau(
             C,
             Itau,
             Ut,
             kappa_n,
             kappa_p,
         )
-        Itau_inf = calculate_Isyn_inf(Ith, Itau, Iw)
+        Itau_inf = Isyn_inf(Ith, Itau, Iw)
 
         tau_str = "$\\tau = \\dfrac{C U_{T}}{\\kappa I_{\\tau}} =$ %.1e s\n\n" % tau
         infinity_str = (
@@ -426,8 +427,29 @@ class ResponseGUI:
             rd["Inmda"], dt=self.dt.value, name="$I_{syn}$"
         )
 
+        I_mem = TSContinuous.from_clocked(
+            rd["Imem"], dt=self.dt.value, name="$I_{mem}$"
+        )
+
+        Ispkthr = np.ones_like(rd["Iahp"]) * self.se1._module.Ispkthr
+        I_spkthr = TSContinuous.from_clocked(
+            Ispkthr, dt=self.dt.value, name="$I_{spkthr}$"
+        )
+
+        spikes = TSEvent.from_raster(
+            rd["spikes"], dt=self.dt.value, name="Output Spikes"
+        )
+
         plt.figure()
         I_syn.plot(stagger=I_syn.max * 1.2)
+
+        plt.figure()
+        I_mem.plot(stagger=I_mem.max * 1.2)
+        I_spkthr.plot(stagger=I_mem.max * 1.2, linestyle="dashed")
+
+        plt.figure()
+        spikes.plot()
+
         plt.show()
 
     def _on_hit_clicked(self, button):
@@ -438,19 +460,20 @@ class ResponseGUI:
         self.response_out.clear_output()
         tic = time.perf_counter()
         # Create a new DynapSE1NeuronSynapseJax Instance
-        layout = DynapSE1Layout(Cnmda=self.Capacitor.value, Io=self.Io.value)
-        nmda = DPIParameters(Itau=self.Itau.value, Ith=self.Ith.value, Iw=self.Iw.value)
-        params = DynapSE1Parameters(ahp=nmda, nmda=nmda)
+        layout = DynapSE1Layout(Io=self.Io.value)
+        nmda = SynapseParameters(
+            Itau=self.Itau.value,
+            C=self.Capacitor.value,
+            Iw=self.Iw.value,
+        )
+        config = DynapSE1Parameters(layout=layout, ahp=nmda, nmda=nmda)
         spiking_input = True if self.dt.value > self.pulse_width.value else False
 
         self.se1 = TimedModuleWrapper(
             DynapSE1NeuronSynapseJax(
                 shape=self.shape,
-                out_rate=0.0002,
-                update_type=self.update_type,
                 dt=self.dt.value,
-                params=params,
-                layout=layout,
+                config=config,
                 spiking_input=spiking_input,
             )
         )
