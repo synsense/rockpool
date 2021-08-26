@@ -51,268 +51,43 @@ from typing import (
     Callable,
 )
 
-from rockpool.typehints import JP_ndarray, P_float, FloatVector
+from rockpool.typehints import JP_ndarray, P_float, FloatVector, Value
 
 from rockpool.devices.dynapse.utils import (
     get_param_vector,
     set_param,
 )
 
-
-@jax.custom_gradient
-def step_pwl(
-    x: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
-) -> (FloatVector, Callable[[FloatVector], FloatVector]):
-    """
-    Heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
-
-    :param FloatVector x: Input value
-
-    :return (FloatVector, Callable[[FloatVector], FloatVector]): output value and gradient function
-    """
-    s = np.clip(np.floor(x - Ispkthr) + 1.0, 0.0)
-    return s, lambda g: (g * (x > Ireset) * (Ispkthr - Ireset), 0.0, 0.0)
-
+from rockpool.devices.dynapse.dynapse1_parameters import (
+    DynapSE1Parameters,
+    SynapseParameters,
+    MembraneParameters,
+    FeedbackParameters,
+)
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
 
-@dataclass
-class DynapSE1Layout:
+@jax.custom_gradient
+def step_pwl(
+    Imem: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
+) -> Tuple[FloatVector, Callable[[FloatVector], FloatVector]]:
     """
-    DynapSE1Layout contains the constant values used in simulation that are related to the exact silicon layout of a chip.
+    step_pwl implements heaviside step function with piece-wise linear derivative to use as spike-generation surrogate
 
-    :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
-    :type kappa_n: float, optional
-    :param kappa_p: Subthreshold slope factor (n-type transistor), defaults to 0.66
-    :type kappa_p: float, optional
-    :param Ut: Thermal voltage in Volts, defaults to 25e-3
-    :type Ut: float, optional
-    :param Cmem: Membrane capacitance in Farads, fixed at layout time, defaults to 3.2e-12
-    :type Cmem: float, optional
-    :param Cahp: Spike-frequency adaptation capacitance in Farads, defaults to 40e-12
-    :type Cahp: float, optional
-    :param Cnmda: NMDA DPI synaptic capacitance in Farads, fixed at layout time, defaults to 28e-12
-    :type Cnmda: float, optional
-    :param Campa: AMPA DPI synaptic capacitance in Farads, fixed at layout time, defaults to 28e-12
-    :type Campa: float, optional
-    :param Cgaba_a: GABA_A DPI synaptic capacitance in Farads, fixed at layout time,, defaults to 27e-12
-    :type Cgaba_a: float, optional
-    :param Cgaba_b: GABA_B(SHUNT) DPI synaptic capacitance in Farads, fixed at layout time, defaults to 27e-12
-    :type Cgaba_b: float, optional
-    :param Io: Dark current in Amperes that flows through the transistors even at the idle state, defaults to 5e-13
-    :type Io: float, optional
-
-    :Instance Variables:
-
-    :ivar kappa: Mean kappa
-    :type kappa: float
-    :ivar f_tau_ahp: Tau factor for AHP. tau = f_tau/I_tau
-    :type f_tau_ahp: float
-    :ivar f_tau_nmda: Tau factor for NMDA. tau = f_tau/I_tau
-    :type f_tau_nmda: float
-    :ivar f_tau_ampa: Tau factor for AMPA. tau = f_tau/I_tau
-    :type f_tau_ampa: float
-    :ivar f_tau_gaba_a: Tau factor for GABA_A. tau = f_tau/I_tau
-    :type f_tau_gaba_a: float
-    :ivar f_tau_gaba_b: Tau factor for GABA_B. tau = f_tau/I_tau
-    :type f_tau_gaba_b: float
-    :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
-    :type f_tau_syn: np.ndarray
+    :param x: Input current to be compared for firing
+    :type x: FloatVector
+    :param Ispkthr: Spiking threshold current in Amperes
+    :type Ispkthr: FloatVector
+    :param Ireset: Reset current after spike generation in Amperes
+    :type Ireset: FloatVector
+    :return: spike output value and gradient function
+    :rtype: Tuple[FloatVector, Callable[[FloatVector], FloatVector]]
     """
 
-    kappa_n: float = 0.75
-    kappa_p: float = 0.66
-    Ut: float = 25e-3
-    Cmem: float = 3.2e-12
-    Cahp: float = 40e-12
-    Cnmda: float = 28e-12
-    Campa: float = 28e-12
-    Cgaba_a: float = 27e-12
-    Cgaba_b: float = 27e-12
-    Io: float = 5e-13
-
-    def __post_init__(self) -> None:
-        """
-        __post_init__ runs after __init__ and sets the variables depending on the initial values
-        """
-        self.kappa = (self.kappa_n + self.kappa_p) / 2.0
-        self._set_tau_factors()
-
-    def _set_tau_factors(self) -> None:
-        """
-        _set_tau_factors sets individual tau factors as well as a vector of factors as instance variables.
-        Tau can then be obtained by tau = f_tau/I_tau
-        """
-        # Block independend factor
-        _f_tau = self.Ut / self.kappa
-
-        # Membrane
-        self.f_tau_mem = _f_tau * self.Cmem
-
-        # DPI Circuits
-        self.f_tau_ahp = _f_tau * self.Cahp
-        self.f_tau_nmda = _f_tau * self.Cnmda
-        self.f_tau_ampa = _f_tau * self.Campa
-        self.f_tau_gaba_a = _f_tau * self.Cgaba_a
-        self.f_tau_gaba_b = _f_tau * self.Cgaba_b
-
-        # All DPI synapses together
-        self.f_tau_syn = np.array(
-            [
-                self.f_tau_ahp,
-                self.f_tau_nmda,
-                self.f_tau_ampa,
-                self.f_tau_gaba_a,
-                self.f_tau_gaba_b,
-            ]
-        )
-
-
-@dataclass
-class DPIParameters:
-    """
-    DPIParameters contains DPI specific parameter and state variables
-
-    :param Isyn: DPI output current in Amperes, defaults to 5e-13
-    :type Isyn: float, optional
-    :param Itau: Synaptic time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
-    :type Itau: float, optional
-    :param Ith: DPI's threshold / gain current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau), defaults to 40e-12
-    :type Ith: float, optional
-    :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-7
-    :type Iw: float, optional
-    """
-
-    Isyn: float = 5e-13
-    Itau: float = 40e-12
-    Ith: float = 40e-12
-    Iw: float = 1e-7
-
-
-@dataclass
-class FeedbackParameters:
-    """
-    FeedbackParameters contains the positive feedback circuit heuristic parameters of Dynap-SE1 membrane.
-    Parameters are used to calculate positive feedback current with respect to the formula below.
-
-    .. math ::
-        I_{a} = \\dfrac{I_{a_{gain}}}{1+ exp\\left(-\\dfrac{I_{mem}+I_{a_{th}}}{I_{a_{norm}}}\\right)}
-
-    :param Igain: Feedback gain current, heuristic parameter, defaults to 5e-11
-    :type Igain: float, optional
-    :param Ith: Feedback threshold current, typically a fraction of Ispk_th, defaults to 5e-10
-    :type Ith: float, optional
-    :param Inorm: Feedback normalization current, heuristic parameter, defaults to 1e-11
-    :type Inorm: float, optional
-    """
-
-    Igain: float = 5e-11
-    Ith: float = 5e-10
-    Inorm: float = 1e-11
-
-
-@dataclass
-class MembraneParameters:
-    """
-    MembraneParameters contains membrane specific parameters and state variables
-
-    :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to 5e-13
-    :type Imem: float, optional
-    :param Itau: Membrane time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
-    :type Itau: float, optional
-    :param Ith: Membrane's threshold / gain current in Amperes, scaling factor for the membrane current (typically x2, x4 of I_tau), defaults to 40e-12
-    :type Ith: float, optional
-    :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
-    :type feedback: Optional[FeedbackParameters], optional
-    """
-
-    Imem: float = 5e-13
-    Itau: float = 10e-12
-    Ith: float = 40e-12
-    feedback: Optional[FeedbackParameters] = None
-
-    def __post_init__(self) -> None:
-        """
-        __post_init__ runs after __init__ and initializes the feedback block with default values in the case that it's not specified.
-        """
-        if self.feedback is None:
-            self.feedback = FeedbackParameters()
-
-
-@dataclass
-class DynapSE1Parameters:
-    """
-    DynapSE1Parameters encapsulates the DynapSE1 circuit parameters and provides an easy access.
-
-    :param Idc: Constant DC current in Amperes, injected to membrane, defaults to 5e-13
-    :type Idc: float, optional
-    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If V_mem > V_nmda: The Isyn_nmda current is added up to the input current, else it cannot. defaults to 5e-13
-    :type If_nmda: float, optional
-    :param Ireset: Reset current after spike generation in Amperes, defaults to 6e-13
-    :type Ireset: float, optional
-    :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
-    :type Ispkthr: float, optional
-    :param t_ref: refractory period in seconds, limits maximum firing rate, defaults to 15e-3
-    :type t_ref: float, optional
-    :param t_pulse: the width of the pulse in seconds produced by virtue of a spike, defaults to 1e-5
-    :type t_pulse: float, optional
-    :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
-    :type fpulse_ahp: float, optional
-    :param mem: Membrane block parameters (Imem, Itau, Ith, feedback(Igain, Ith, Inorm)), defaults to None
-    :type mem: Optional[MembraneParameters], optional
-    :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
-    :type ahp: Optional[DPIParameters], optional
-    :param nmda: NMDA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type nmda: Optional[DPIParameters], optional
-    :param ampa: AMPA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type ampa: Optional[DPIParameters], optional
-    :param gaba_a: GABA_A synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type gaba_a: Optional[DPIParameters], optional
-    :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-    :type gaba_b: Optional[DPIParameters], optional
-
-    :Instance Variables:
-
-    :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
-    :type t_pulse_ahp: float
-
-    [] TODO : Implement get bias currents utility
-    """
-
-    Idc: float = 5e-13
-    If_nmda: float = 5e-13
-    Ireset: float = 6e-13
-    Ispkthr: float = 1e-9
-    t_ref: float = 15e-3
-    t_pulse: float = 1e-5
-    fpulse_ahp: float = 0.1
-    mem: Optional[MembraneParameters] = None
-    ahp: Optional[DPIParameters] = None
-    nmda: Optional[DPIParameters] = None
-    ampa: Optional[DPIParameters] = None
-    gaba_a: Optional[DPIParameters] = None
-    gaba_b: Optional[DPIParameters] = None
-
-    def __post_init__(self) -> None:
-        """
-        __post_init__ runs after __init__ and initializes the DPI and membrane blocks with default values in the case that they are not specified.
-        """
-
-        if self.mem is None:
-            self.mem = MembraneParameters()
-        if self.ahp is None:
-            self.ahp = DPIParameters()
-        if self.nmda is None:
-            self.nmda = DPIParameters()
-        if self.ampa is None:
-            self.ampa = DPIParameters()
-        if self.gaba_a is None:
-            self.gaba_a = DPIParameters(Iw=0)
-        if self.gaba_b is None:
-            self.gaba_b = DPIParameters(Iw=0)
-
-        self.t_pulse_ahp = self.t_pulse * self.fpulse_ahp
+    spikes = np.clip(np.floor(Imem - Ispkthr) + 1.0, 0.0)
+    grad_func = lambda g: (g * (Imem > Ireset) * (Ispkthr - Ireset), 0.0, 0.0)
+    return spikes, grad_func
 
 
 class DynapSE1NeuronSynapseJax(JaxModule):
@@ -424,7 +199,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     def __init__(
         self,
         shape: tuple = None,
-        layout: Optional[DynapSE1Layout] = None,
         config: Optional[DynapSE1Parameters] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
@@ -443,9 +217,6 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
-
-        if layout is None:
-            layout = DynapSE1Layout()
 
         if config is None:
             config = DynapSE1Parameters()
@@ -479,17 +250,19 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         # --- Simulation Parameters --- #
         self.dt: P_float = SimulationParameter(dt)
 
-        # self.layout = SimulationParameter(layout)
-        self.Io = SimulationParameter(layout.Io)
-        self.f_tau_mem = SimulationParameter(layout.f_tau_mem)
-        self.f_tau_syn = SimulationParameter(layout.f_tau_syn)
+        ## Layout Params
+        self.Io = SimulationParameter(config.layout.Io)
 
-        # self.config = SimulationParameter(config)
-        self.t_pulse = config.t_pulse
-        self.t_pulse_ahp = config.t_pulse_ahp
-        self.Idc = config.Idc
+        ## Configuration Parameters
+        self.f_tau_mem = SimulationParameter(config.f_tau_mem)
+        self.f_tau_syn = SimulationParameter(config.f_tau_syn)
+        self.t_pulse = SimulationParameter(config.t_pulse)
+        self.t_pulse_ahp = SimulationParameter(config.t_pulse_ahp)
+        self.Idc = SimulationParameter(config.Idc)
+        self.If_nmda = SimulationParameter(config.If_nmda)
+        self.t_ref = SimulationParameter(config.t_ref)
 
-        ## Policy currents
+        ### Policy currents
         self.Ireset: JP_ndarray = SimulationParameter(
             shape=(self.size_out,),
             family="simulation",
@@ -502,7 +275,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         )
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False,
+        self, input_data: np.ndarray, record: bool = False
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         evolve implements raw JAX evolution function for a DynapSE1NeuronSynapseJax module.
@@ -587,8 +360,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ## Decouple synaptic currents and calculate membrane input
             Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn
             # Ishunt = np.clip(Igaba_b, self.layout.Io, Imem) # Not sure how to use
-
-            Iin = Inmda + Iampa - Igaba_a - Igaba_b - self.Idc
+            # Inmda = 0 if Vmem < Vth_nmda else Inmda
+            Iin = Inmda + Iampa - Igaba_a - Igaba_b + self.Idc
             Iin = np.clip(Iin, self.Io)
 
             ## Steady state current
@@ -609,22 +382,23 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Imem = np.clip(Imem, self.Io)
 
             # --- Spike Generation Logic --- #
-            spikes = step_pwl(Imem, self.Ispkthr, self.Ireset).astype(float)
+            ## Detect next spikes (with custom gradient)
+            spikes = step_pwl(Imem, self.Ispkthr, self.Ireset)
 
             state = (spikes, Imem, Isyn, key)
             return state, (spikes, Imem, Isyn)
 
         # --- Evolve over spiking inputs --- #
         state, (spikes_ts, Imem_ts, Isyn_ts) = scan(
-            forward, (self.spikes, self.Imem, self.Isyn, self._rng_key), input_data,
+            forward, (self.spikes, self.Imem, self.Isyn, self._rng_key), input_data
         )
 
-        # [] TODO: NOT ALLOWED!!!!
         new_spikes, new_Imem, new_Isyn, new_rng_key = state
 
         # --- RETURN ARGUMENTS --- #
         outputs = spikes_ts
 
+        ## the state returned should be in the same shape with the state dictionary given
         states = {
             "_rng_key": new_rng_key,
             "Imem": new_Imem,
@@ -647,25 +421,25 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     def _set_syn_params(
         self,
-        ahp: Optional[DPIParameters] = None,
-        nmda: Optional[DPIParameters] = None,
-        ampa: Optional[DPIParameters] = None,
-        gaba_a: Optional[DPIParameters] = None,
-        gaba_b: Optional[DPIParameters] = None,
+        ahp: Optional[SynapseParameters] = None,
+        nmda: Optional[SynapseParameters] = None,
+        ampa: Optional[SynapseParameters] = None,
+        gaba_a: Optional[SynapseParameters] = None,
+        gaba_b: Optional[SynapseParameters] = None,
     ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]:
         """
         _set_syn_params helps constructing and initiating synapse parameters and states for ["AHP", "NMDA", "AMPA", "GABA_A", "GABA_B"]
 
         :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
-        :type ahp: Optional[DPIParameters], optional
+        :type ahp: Optional[SynapseParameters], optional
         :param nmda: NMDA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-        :type nmda: Optional[DPIParameters], optional
+        :type nmda: Optional[SynapseParameters], optional
         :param ampa: AMPA synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-        :type ampa: Optional[DPIParameters], optional
+        :type ampa: Optional[SynapseParameters], optional
         :param gaba_a: GABA_A synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-        :type gaba_a: Optional[DPIParameters], optional
+        :type gaba_a: Optional[SynapseParameters], optional
         :param gaba_b: GABA_B (shunt) synapse paramters (Isyn, Itau, Ith, Iw), defaults to None
-        :type gaba_b: Optional[DPIParameters], optional
+        :type gaba_b: Optional[SynapseParameters], optional
         :return: Isyn, Itau, Ith, Iw : states and parameters in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nin)
             Isyn: 2D array of synapse currents (State)
             Itau: 2D array of synapse leakage currents (Parameter)
@@ -677,7 +451,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         dpi_list = (ahp, nmda, ampa, gaba_a, gaba_b)
 
         def get_dpi_parameter(
-            target: str, family: str, object: Optional[str] = "parameter",
+            target: str, family: str, object: Optional[str] = "parameter"
         ) -> JP_ndarray:
             """
             get_dpi_parameter encapsulates required data management to set a synaptic parameter
@@ -707,7 +481,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         return Isyn, Itau, Ith, Iw
 
     def _set_mem_params(
-        self, init: MembraneParameters, family: Optional[str] = "membrane",
+        self, init: MembraneParameters, family: Optional[str] = "membrane"
     ) -> Tuple[JP_ndarray, JP_ndarray, JP_ndarray, FeedbackParameters]:
         """
         _set_mem_params constructs and initiates membrane parameters and states
@@ -725,7 +499,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
 
         def get_mem_parameter(
-            target: str, object: Optional[str] = "parameter",
+            target: str, object: Optional[str] = "parameter"
         ) -> JP_ndarray:
             """
             get_mem_parameter encapsulates required data management for setting a membrane parameter
