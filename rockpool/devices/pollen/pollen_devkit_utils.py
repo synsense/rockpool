@@ -72,7 +72,22 @@ class PollenState(NamedTuple):
     Spikes_out: np.array
     """ Spikes from output layer neurons """
 
-    # - include config RAM
+class PollenAllRam(NamedTuple):
+    """
+    ``NamedTuple`` that encapsulates a recorded Pollen HDK state
+    """
+    # - state Ram
+    Nin: int                # The number of input-layer neurons
+    Nhidden: int            # The number of hidden-layer neurons
+    Nout: int               # The number of output layer neurons
+    V_mem_hid: np.array     # Membrane potential of hidden neurons
+    I_syn_hid: np.array     # Synaptic current 1 of hidden neurons
+    V_mem_out: np.array     # Membrane potential of output neurons
+    I_syn_out: np.array     # Synaptic current of output neurons
+    I_syn2_hid: np.array    # Synaptic current 2 of hidden neurons
+    Spikes_hid: np.array    # Spikes from hidden layer neurons
+    Spikes_out: np.array    # Spikes from output layer neurons
+    # - config RAM
     IWTRAM_state: np.array
     IWT2RAM_state: np.array
     NDSRAM_state: np.array
@@ -702,7 +717,7 @@ def read_allram_state(
     Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
-) -> PollenState:
+) -> PollenAllRam:
     """
     Read and return the all ram in each step as a state
 
@@ -850,8 +865,8 @@ def read_allram_state(
         Nout * (Nhidden + num_buffer_neurons(Nhidden)),
     )
 
-    # - Return the state
-    return PollenState(
+    # - Return the all ram state
+    return PollenAllRam(
         Nin,
         Nhidden,
         Nout,
@@ -910,21 +925,6 @@ def read_accel_mode_data(
     vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
     vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
 
-    # - dummy RAM value in PollenState
-    IWTRAM_ts = np.zeros((1, 1))
-    IWT2RAM_ts = np.zeros((1, 1))
-    NDSRAM_ts = np.zeros((1, 1))
-    RDS2RAM_ts = np.zeros((1, 1))
-    NDMRAM_ts = np.zeros((1, 1))
-    NTHRAM_ts = np.zeros((1, 1))
-    RCRAM_ts = np.zeros((1, 1))
-    RARAM_ts = np.zeros((1, 1))
-    REFOCRAM_ts = np.zeros((1, 1))
-    RFORAM_ts = np.zeros((1, 1))
-    RWTRAM_ts = np.zeros((1, 1))
-    RWT2RAM_ts = np.zeros((1, 1))
-    OWTRAM_ts = np.zeros((1, 1))
-
     # - Return as a PollenState object
     return PollenState(
         Nin,
@@ -937,19 +937,6 @@ def read_accel_mode_data(
         isyn2_ts,
         spikes_ts,
         spikes_out_ts,
-        IWTRAM_ts,
-        IWT2RAM_ts,
-        NDSRAM_ts,
-        RDS2RAM_ts,
-        NDMRAM_ts,
-        NTHRAM_ts,
-        RCRAM_ts,
-        RARAM_ts,
-        REFOCRAM_ts,
-        RFORAM_ts,
-        RWTRAM_ts,
-        RWT2RAM_ts,
-        OWTRAM_ts,
     )
 
 
@@ -1860,263 +1847,6 @@ def export_config(
         json.dump(conf, f)
 
 
-def _export_config_nocomment(
-    path: Union[str, Path],
-    config: PollenConfiguration,
-    dt: float,
-) -> None:
-    """
-    Export a network configuration to text files
-
-    Args:
-        path (Union[str, path]): Directory to write data
-        config (PollenConfiguration): A Pollen configuraiton to export
-        dt (float): The time step of the simulation
-    """
-    # - Check base path
-    path = Path(path)
-    if not path.exists():
-        makedirs(path)
-
-    # - Generate a PollenCim module from the config
-    from rockpool.devices.pollen import PollenCim
-
-    cim = PollenCim.from_config(config, dt=dt)
-    model = cim._pollen_layer
-
-    inp_size = len(model.synapses_in)
-    num_neurons = len(model.synapses_rec)
-
-    # transfer input synapses to matrix
-    num_targets = num_neurons
-    mat = np.zeros((2, inp_size, num_targets), dtype=int)
-    for pre, syns in enumerate(model.synapses_in):
-        for syn in syns:
-            mat[syn.target_synapse_id, pre, syn.target_neuron_id] = syn.weight
-
-    # iwtram and iwt2ram (input neurons of synapse IDs 0 and 1)
-    for ram, mat_syn in zip(("iwt", "iwt2"), mat):
-        # save to file
-        print(f"Writing {ram}ram.txt", end="\r")
-        with open(path / f"{ram}ram.txt", "w+") as f:
-            for pre, line in enumerate(mat_syn):
-                for post, weight in enumerate(line):
-                    f.write(to_hex(weight, 2))
-                    f.write("\n")
-
-    # create matrix for recurrent weights (slightly different convention than for input)
-    mat = np.zeros((num_neurons, num_neurons, 2), dtype=int)
-    for pre, syns in enumerate(model.synapses_rec):
-        for syn in syns:
-            mat[pre, syn.target_neuron_id, syn.target_synapse_id] = syn.weight
-
-    # rwtram (recurrent neurons of synapse IDs 0)
-    print("Writing rwtram.txt", end="\r")
-    with open(path / "rwtram.txt", "w+") as f:
-        for pre, line in enumerate(mat):
-            for syns in line:
-                if np.any(syns != 0):
-                    weight = syns[0]
-                    f.write(to_hex(weight, 2))
-                    f.write("\n")
-
-    # rwtram2 (recurrent neurons of synapse IDs 1)
-    print("Writing rwt2ram.txt", end="\r")
-    with open(path / "rwt2ram.txt", "w+") as f:
-        for pre, line in enumerate(mat):
-            for syns in line:
-                if np.any(syns != 0):
-                    weight = syns[1]
-                    f.write(to_hex(weight, 2))
-                    f.write("\n")
-
-    # rforam (recurrent fanout, or target ids)
-    print("Writing rforam.txt", end="\r")
-    with open(path / "rforam.txt", "w+") as f:
-        for pre, line in enumerate(mat):
-            for post, syns in enumerate(line):
-                if np.any(syns != 0):
-                    f.write(to_hex(post, 3))
-                    f.write("\n")
-
-    # refocram (recurrent effective fanout, or number of targets)
-    print("Writing refocram..txt", end="\r")
-    with open(path / "refocram.txt", "w+") as f:
-        for pre, line in enumerate(mat):
-            count = 0
-            for post, syns in enumerate(line):
-                if np.any(syns != 0):
-                    count += 1
-            f.write(to_hex(count, 2))
-            f.write("\n")
-
-    # owtram (output weights)
-    # transfer output synapses to matrix
-    post_ids_out = [
-        [syn.target_neuron_id for syn in l_syn if syn.target_synapse_id == 0]
-        for l_syn in model.synapses_out
-    ]
-    weights_out = [
-        [syn.weight for syn in l_syn if syn.target_synapse_id == 0]
-        for l_syn in model.synapses_out
-    ]
-    try:
-        readout_size = max(max(post_ids_out)) + 1
-    except:
-        readout_size = 0
-
-    size_total = readout_size + num_neurons
-    mat = np.zeros((num_neurons, readout_size), dtype=int)
-    for pre, (post, weight) in enumerate(zip(post_ids_out, weights_out)):
-        mat[pre, post] = weight
-
-    # save to file
-    print("Writing owtram.txt", end="\r")
-    with open(path / "owtram.txt", "w+") as f:
-        for pre, line in enumerate(mat):
-            for post, weight in enumerate(line):
-                f.write(to_hex(weight, 2))
-                f.write("\n")
-
-    # ndmram (membrane time constants)
-    mat = np.zeros(size_total, dtype=int)
-    mat[:num_neurons] = [n.v_mem_decay for n in config.reservoir.neurons]
-    mat[num_neurons:size_total] = [n.v_mem_decay for n in config.readout.neurons]
-
-    # save to file
-    print("Writing ndmram.txt", end="\r")
-    with open(path / "ndmram.txt", "w+") as f:
-        for pre, dash in enumerate(mat):
-            f.write(to_hex(dash, 1))
-            f.write("\n")
-
-    # ndsram (synaptic time constants, ID=0)
-    mat = np.zeros(size_total, dtype=int)
-    mat[:num_neurons] = [n.i_syn_decay for n in config.reservoir.neurons]
-    mat[num_neurons:size_total] = [n.i_syn_decay for n in config.readout.neurons]
-
-    # save to file
-    print("Writing ndsram.txt", end="\r")
-    with open(path / "ndsram.txt", "w+") as f:
-        for pre, dash in enumerate(mat):
-            f.write(to_hex(dash, 1))
-            f.write("\n")
-
-    # nds2ram (synaptic time constants, ID=1) --> rds2ram
-    if config.synapse2_enable:
-        mat = [n.i_syn2_decay for n in config.reservoir.neurons]
-    else:
-        mat = np.zeros(num_neurons, int)
-
-    # save to file
-    print("Writing rds2ram.txt", end="\r")
-    with open(path / "rds2ram.txt", "w+") as f:
-        for pre, dash in enumerate(mat):
-            f.write(to_hex(dash, 1))
-            f.write("\n")
-
-    # nthram (thresholds)
-    thresholds = [n.threshold for n in config.reservoir.neurons] + [
-        n.threshold for n in config.readout.neurons
-    ]
-
-    # save to file
-    print("Writing nthram.txt", end="\r")
-    with open(path / "nthram.txt", "w+") as f:
-        for pre, th in enumerate(thresholds):
-            f.write(to_hex(th, 4))
-            f.write("\n")
-
-    # raram and rcram (aliases)
-    mat = np.zeros(num_neurons, dtype=int) - 1
-    is_source = np.zeros(num_neurons, dtype=int)
-    is_target = np.zeros(num_neurons, dtype=int)
-    num_sources = np.zeros(num_neurons, dtype=int)
-    for i, aliases in enumerate(model.aliases):
-        if len(aliases) > 0:
-            mat[i] = aliases[0]
-            is_source[i] = 1
-            is_target[aliases[0]] += 1
-
-    # save to file
-    print("Writing raram.txt", end="\r")
-    with open(path / "raram.txt", "w+") as f:
-        for pre, alias in enumerate(mat):
-            f.write(to_hex(alias, 3))
-            f.write("\n")
-
-    # save to file
-    print("Writing rcram.txt", end="\r")
-    with open(path / "rcram.txt", "w+") as f:
-        for pre, issource in enumerate(is_source):
-            # print(
-            #     pre,
-            #     "->",
-            #     mat[pre],
-            #     ":",
-            #     is_target[mat[pre]],
-            #     issource,
-            #     is_target[pre],
-            #     ((is_target[mat[pre]] > 1) << 2)
-            #     + (issource << 1)
-            #     + (is_target[pre] > 0),
-            # )
-            f.write(
-                to_hex(
-                    ((is_target[mat[pre]] > 1) << 2)
-                    + (issource << 1)
-                    + (is_target[pre] > 0),
-                    1,
-                )
-            )
-            f.write("\n")
-
-    # basic config
-    print("Writing basic_config.json", end="\r")
-    with open(path / "basic_config.json", "w+") as f:
-        conf = {}
-
-        # number of neurons
-        conf["IN"] = len(model.synapses_in)
-        conf["RSN"] = len(model.synapses_rec)
-
-        # determine output size by getting the largest target neuron id
-        syns = np.hstack(model.synapses_out)
-        conf["ON"] = int(np.max([s.target_neuron_id for s in syns]) + 1)
-
-        # bit shift values
-        conf["IWBS"] = model.weight_shift_inp
-        conf["RWBS"] = model.weight_shift_rec
-        conf["OWBS"] = model.weight_shift_out
-
-        # expansion neurons
-        # if num_expansion is not None:
-        #    conf["IEN"] = num_expansion
-
-        # dt
-        conf["time_resolution_wrap"] = config.time_resolution_wrap
-        conf["DT"] = cim.dt
-
-        # number of synapses
-        n_syns = 1
-        syns_in = np.hstack(model.synapses_in)
-        if np.any(np.array([s.target_synapse_id for s in syns_in]) == 1):
-            n_syns = 2
-        syns_rec = np.hstack(model.synapses_rec)
-        if np.any(np.array([s.target_synapse_id for s in syns_rec]) == 1):
-            n_syns = 2
-
-        conf["N_SYNS"] = n_syns
-
-        # aliasing
-        if max([len(a) for a in model.aliases]) > 0:
-            conf["RA"] = True
-        else:
-            conf["RA"] = False
-
-        json.dump(conf, f)
-
-
 def export_frozen_state(
     path: Union[str, Path], config: PollenConfiguration, state: PollenState
 ) -> None:
@@ -2504,7 +2234,6 @@ def export_allram_state(
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
 
     # - Save config RAM, not export dummy neuron
-
     # IWTRAM_state: input_weight_ram_ts
     mat = np.zeros(
         (np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int
@@ -2934,17 +2663,15 @@ def export_last_state(
                         for _ in range(num_spikes):
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
 
-    #############################################
-    #### config ram, not export dummy neuron ####
-    #############################################
+    # - Save config RAM, not export dummy neuron
     # IWTRAM_state: input_weight_ram_ts
     mat = np.zeros(
         (np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int
-    )  # num_buffer_neuron???
+    )
     input_weight = np.array(state.IWTRAM_state).astype(int)
     mat[:, : input_weight.shape[1]] = input_weight[
         :, 0 : Nin * Nhidden
-    ]  # num_buffer_neuron???
+    ]
 
     path_IWTRAM_state = path / "IWTRAM_state"
     if not path_IWTRAM_state.exists():
@@ -2962,11 +2689,11 @@ def export_last_state(
     # IWT2RAM_state input_weight_2ram_ts
     mat = np.zeros(
         (np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int
-    )  # num_buffer_neuron???
+    )
     input_weight_2 = np.array(state.IWT2RAM_state).astype(int)
     mat[:, : input_weight_2.shape[1]] = input_weight_2[
         :, 0 : Nin * Nhidden
-    ]  # num_buffer_neuron???
+    ]
 
     path_IWT2RAM_state = path / "IWT2RAM_state"
     if not path_IWT2RAM_state.exists():
