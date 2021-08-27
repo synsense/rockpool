@@ -276,7 +276,7 @@ class DynapSE1Parameters:
     :type Ireset: Optional[float], optional
     :param Idc: Constant DC current in Amperes, injected to membrane, defaults to Io
     :type Idc: Optional[float], optional
-    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If V_mem > V_nmda: The Isyn_nmda current is added up to the input current, else it cannot. defaults to Io
+    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If :math:`V_{mem} > V_{nmda}` : The :math:`I_{syn_{NMDA}}` current is added up to the input current, else it cannot. defaults to Io
     :type If_nmda: Optional[float], optional
     :param mem: Membrane block parameters (Imem, Itau, Ith, feedback(Igain, Ith, Inorm)), defaults to None
     :type mem: Optional[MembraneParameters], optional
@@ -295,8 +295,8 @@ class DynapSE1Parameters:
 
     :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
     :type t_pulse_ahp: float
-    :ivar f_tau: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
-    :type f_tau: float
+    :ivar f_tau_mem: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
+    :type f_tau_mem: float
     :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
     :type f_tau_syn: np.ndarray
 
@@ -362,7 +362,3 @@ class DynapSE1Parameters:
                 self.gaba_b.f_tau,
             ]
         )
-
-
-d = DynapSE1Parameters()
-print(d)
