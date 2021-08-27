@@ -1,3 +1,12 @@
+"""
+Dynap-SE1 Parameter classes to be used in initial configuration of DynapSE1NeuronSynapseJax module
+
+Project Owner : Dylan Muir, SynSense AG
+Author : Ugurcan Cakal
+E-mail : ugurcan.cakal@gmail.com
+24/08/2021
+"""
+
 from rockpool.typehints import Value
 from jax import numpy as np
 
@@ -11,7 +20,7 @@ from typing import (
 @dataclass
 class DynapSE1Layout:
     """
-    DynapSE1Layout contains the constant values used in simulation that are related to the exact silicon layout of a chip.
+    DynapSE1Layout contains the constant values used in simulation that are related to the exact silicon layout of a Dynap-SE1 chip.
 
     :param kappa_n: Subthreshold slope factor (n-type transistor), defaults to 0.75
     :type kappa_n: float, optional
@@ -43,7 +52,7 @@ class DynapSE1Layout:
 @dataclass
 class DPIParameters:
     """
-    DPIParameters contains DPI specific parameter and state variables
+    DPIParameters encapsulates DPI-specific bias current parameters and calculates their logical reciprocals.
 
     :param Itau: Synaptic time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
     :type Itau: float, optional
@@ -120,21 +129,25 @@ class SynapseParameters(DPIParameters):
     """
     DPIParameters contains DPI specific parameter and state variables
 
-    :param Isyn: DPI output current in Amperes, defaults to 5e-13
-    :type Isyn: float, optional
-    :param Itau: Synaptic time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
-    :type Itau: float, optional
-    :param Ith: DPI's threshold / gain current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau), defaults to 40e-12
-    :type Ith: float, optional
     :param Iw: Synaptic weight current in Amperes, determines how strong the response is in terms of amplitude, defaults to 1e-7
     :type Iw: float, optional
+    :param Isyn: DPI output current in Amperes (state variable), defaults to Io
+    :type Isyn: Optional[float], optional
     """
 
-    Isyn: float = 5e-13
     Iw: float = 1e-7
+    Isyn: Optional[float] = None
 
     def __post_init__(self):
+        """
+        __post_init__ runs after __init__ and initializes the SynapseParameters, check if Isyn value is in legal bounds.
+
+        :raises ValueError: Illegal Isyn value desired. It cannot be less than Io
+        """
         super().__post_init__()
+
+        if self.Isyn is None:
+            self.Isyn = self.layout.Io
 
         if self.Isyn < self.layout.Io:
             raise ValueError(
@@ -169,25 +182,26 @@ class MembraneParameters(DPIParameters):
     """
     MembraneParameters contains membrane specific parameters and state variables
 
-    :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to 5e-13
-    :type Imem: float, optional
-    :param Itau: Membrane time constant current in Amperes, that is inversely proportional to time constant tau, defaults to 10e-12
-    :type Itau: float, optional
-    :param Ith: Membrane's threshold / gain current in Amperes, scaling factor for the membrane current (typically x2, x4 of I_tau), defaults to 40e-12
-    :type Ith: float, optional
+    :param Imem: The sub-threshold current that represents the real neuron’s membrane potential variable, defaults to Io
+    :type Imem: Optional[float], optional
     :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
     :type feedback: Optional[FeedbackParameters], optional
     """
 
-    Imem: float = 5e-13
     C: float = 3.2e-12
+    Imem: Optional[float] = None
     feedback: Optional[FeedbackParameters] = None
 
     def __post_init__(self) -> None:
         """
-        __post_init__ runs after __init__ and initializes the feedback block with default values in the case that it's not specified.
+        __post_init__ runs after __init__ and initializes the feedback block with default values in the case that it's not specified, check if Imem value is in legal bounds.
+
+        :raises ValueError: Illegal Imem value desired. It cannot be less than Io
         """
         super().__post_init__()
+
+        if self.Imem is None:
+            self.Imem = self.layout.Io
 
         if self.Imem < self.layout.Io:
             raise ValueError(
@@ -200,27 +214,47 @@ class MembraneParameters(DPIParameters):
 
 @dataclass
 class AHPParameters(SynapseParameters):
+    """
+    AHPParameters inherits SynapseParameters and re-arrange the default parameters for AHP circuit
+    """
+
     C: float = 40e-12
 
 
 @dataclass
 class NMDAParameters(SynapseParameters):
+    """
+    NMDAParameters inherits SynapseParameters and re-arrange the default parameters for NMDA circuit
+    """
+
     C: float = 28e-12
 
 
 @dataclass
 class AMPAParameters(SynapseParameters):
+    """
+    AMPAParameters inherits SynapseParameters and re-arrange the default parameters for AMPA circuit
+    """
+
     C: float = 28e-12
 
 
 @dataclass
 class GABAAParameters(SynapseParameters):
+    """
+    GABAAParameters inherits SynapseParameters and re-arrange the default parameters for GABA_A circuit
+    """
+
     C: float = 27e-12
     Iw: float = 0
 
 
 @dataclass
 class GABABParameters(SynapseParameters):
+    """
+    GABABParameters inherits SynapseParameters and re-arrange the default parameters for GABA_B circuit
+    """
+
     C: float = 27e-12
     Iw: float = 0
 
@@ -230,20 +264,20 @@ class DynapSE1Parameters:
     """
     DynapSE1Parameters encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
-    :param Idc: Constant DC current in Amperes, injected to membrane, defaults to 5e-13
-    :type Idc: float, optional
-    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If V_mem > V_nmda: The Isyn_nmda current is added up to the input current, else it cannot. defaults to 5e-13
-    :type If_nmda: float, optional
-    :param Ireset: Reset current after spike generation in Amperes, defaults to 6e-13
-    :type Ireset: float, optional
-    :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
-    :type Ispkthr: float, optional
     :param t_ref: refractory period in seconds, limits maximum firing rate, defaults to 15e-3
     :type t_ref: float, optional
     :param t_pulse: the width of the pulse in seconds produced by virtue of a spike, defaults to 1e-5
     :type t_pulse: float, optional
     :param fpulse_ahp: the decrement factor for the pulse widths arriving in AHP circuit, defaults to 0.1
     :type fpulse_ahp: float, optional
+    :param Ispkthr: Spiking threshold current in Amperes, depends on layout (see chip for details), defaults to 1e-9
+    :type Ispkthr: float, optional
+    :param Ireset: Reset current after spike generation in Amperes, defaults to Io
+    :type Ireset: Optional[float], optional
+    :param Idc: Constant DC current in Amperes, injected to membrane, defaults to Io
+    :type Idc: Optional[float], optional
+    :param If_nmda: The NMDA gate current in Amperes setting the NMDA gating voltage. If V_mem > V_nmda: The Isyn_nmda current is added up to the input current, else it cannot. defaults to Io
+    :type If_nmda: Optional[float], optional
     :param mem: Membrane block parameters (Imem, Itau, Ith, feedback(Igain, Ith, Inorm)), defaults to None
     :type mem: Optional[MembraneParameters], optional
     :param ahp: Spike frequency adaptation block parameters (Isyn, Itau, Ith, Iw), defaults to None
@@ -261,17 +295,21 @@ class DynapSE1Parameters:
 
     :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
     :type t_pulse_ahp: float
+    :ivar f_tau: Tau factor for membrane circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
+    :type f_tau: float
+    :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
+    :type f_tau_syn: np.ndarray
 
     [] TODO : Implement get bias currents utility
     """
 
-    Idc: float = 5e-13
-    If_nmda: float = 5e-13
-    Ireset: float = 6e-13
-    Ispkthr: float = 1e-9
     t_ref: float = 15e-3
     t_pulse: float = 1e-5
     fpulse_ahp: float = 0.1
+    Ispkthr: float = 1e-9
+    Ireset: Optional[float] = None
+    Idc: Optional[float] = None
+    If_nmda: Optional[float] = None
     layout: Optional[DynapSE1Layout] = None
     mem: Optional[MembraneParameters] = None
     ahp: Optional[SynapseParameters] = None
@@ -286,6 +324,16 @@ class DynapSE1Parameters:
         """
         if self.layout is None:
             self.layout = DynapSE1Layout()
+
+        # Set the bias currents to Io by default
+        if self.Idc is None:
+            self.Idc = self.layout.Io
+        if self.If_nmda is None:
+            self.If_nmda = self.layout.Io
+        if self.Ireset is None:
+            self.Ireset = self.layout.Io
+
+        # Initialize the subcircuit blocks with the same layout
         if self.mem is None:
             self.mem = MembraneParameters(layout=self.layout)
         if self.ahp is None:
