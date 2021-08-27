@@ -22,8 +22,28 @@ dModules = {
     #     "setup_rpyc_namespace",
     #     "teleport_function",
     # ),
-    ".virtual_dynapse": "VirtualDynapse",
-    ".dynapse1_neuron_synapse_jax" : "DynapSE1NeuronSynapseJax"
+    # ".virtual_dynapse": "VirtualDynapse",
+    ".dynapse1_neuron_synapse_jax": (
+        "DynapSE1NeuronSynapseJax",
+        "step_pwl",
+    ),
+    ".dynapse1_parameters": (
+        "DynapSE1Layout",
+        "DPIParameters",
+        "SynapseParameters",
+        "FeedbackParameters",
+        "MembraneParameters",
+        "AHPParameters",
+        "NMDAParameters",
+        "AMPAParameters",
+        "GABAAParameters",
+        "GABABParameters",
+        "DynapSE1Parameters",
+    ),
+    ".utils": (
+        "custom_spike_train",
+        "random_spike_train",
+    ),
 }
 
 # - Define current package
