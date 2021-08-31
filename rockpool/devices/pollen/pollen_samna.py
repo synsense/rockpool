@@ -431,6 +431,17 @@ class PollenSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
+        # - change CTRL1.MEM_CLK_ON to potentially decrease power
+        # event = samna.pollen.event.ReadRegisterValue()
+        # event.address = 1  # 0x18
+        # self._device.get_model().write([event])
+        # time.sleep(1)
+        # ret = self._event_buffer.get_events()
+        # event = samna.pollen.event.WriteRegisterValue()
+        # event.address = 1
+        # event.data = ret[0].data & 0xfffeffff
+        # self._device.get_model().write([event])
+
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
         final_timestep = start_timestep + len(input) - 1
