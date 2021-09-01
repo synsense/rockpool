@@ -165,15 +165,15 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type Imem: JP_ndarray
     :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape = (Nin,)
     :type Itau_mem: JP_ndarray
-    :ivar fgain_mem: Array of membrane gain parameter of the neurons with shape = (Nin,)
-    :type fgain_mem: JP_ndarray
+    :ivar f_gain_mem: Array of membrane gain parameter of the neurons with shape = (Nin,)
+    :type f_gain_mem: JP_ndarray
     :ivar mem_fb: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm
     :type mem_fb: FeedbackParameters
     :ivar Isyn: 2D array of synapse currents of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nin)
     :type Isyn: JP_ndarray
     :ivar Itau_syn: 2D array of synapse leakage currents of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nin)
     :type Itau_syn: JP_ndarray
-    :ivar fgain_syn: 2D array of synapse gain parameters of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nin)
+    :ivar f_gain_syn: 2D array of synapse gain parameters of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nin)
     :type gain_syn: JP_ndarray
     :ivar Iw: 2D array of synapse weight currents of the neurons in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] with shape = (5,Nin)
     :type Iw: JP_ndarray
@@ -248,12 +248,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         )
 
         # --- Parameters & States --- #
-        self.Imem, self.Itau_mem, self.fgain_mem, self.mem_fb = self._set_mem_params(
+        self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
             init=config.mem,
         )
 
         ## Synapses parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B]
-        self.Isyn, self.Itau_syn, self.fgain_syn, self.Iw = self._set_syn_params(
+        self.Isyn, self.Itau_syn, self.f_gain_syn, self.Iw = self._set_syn_params(
             ahp=config.ahp,
             nmda=config.nmda,
             ampa=config.ampa,
@@ -290,7 +290,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         )
 
     def evolve(
-        self, input_data: np.ndarray, record: bool = False
+        self, input_data: np.ndarray, record: bool = True
     ) -> Tuple[np.ndarray, dict, dict]:
         """
         evolve implements raw JAX evolution function for a DynapSE1NeuronSynapseJax module.
@@ -345,7 +345,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # --- Implicit parameters  --- #  # 5xNin
             tau_mem = self.f_tau_mem / Itau_mem_clip
             tau_syn = (self.f_tau_syn / Itau_syn_clip.T).T
-            Isyn_inf = self.fgain_syn * self.Iw
+            Isyn_inf = self.f_gain_syn * self.Iw
 
             # --- Forward step: DPI SYNAPSES --- #
 
@@ -378,8 +378,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Iin = np.clip(Iin, self.Io)
 
             ## Steady state current
-            Imem_inf = self.fgain_mem * (Iin - Iahp - Itau_mem_clip)
-            Ith_mem_clip = self.fgain_mem * Itau_mem_clip
+            Imem_inf = self.f_gain_mem * (Iin - Iahp - Itau_mem_clip)
+            Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Positive feedback
             Ia = self.mem_fb.Igain / (
@@ -490,7 +490,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         Isyn = get_dpi_parameter("Isyn", "synapse", object="state")
         Itau = get_dpi_parameter("Itau", "leak")
         Iw = get_dpi_parameter("Iw", "weight")
-        f_gain = get_dpi_parameter("f_gain", "gain", object="simulation")
+        f_gain = get_dpi_parameter("f_gain", "gain")
         return Isyn, Itau, f_gain, Iw
 
     def _set_mem_params(
@@ -532,7 +532,78 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         Imem = get_mem_parameter("Imem", object="state")
         Itau = get_mem_parameter("Itau")
-        f_gain = get_mem_parameter("f_gain", object="simulation")
+        f_gain = get_mem_parameter("f_gain")
         feedback: FeedbackParameters = init.feedback
 
         return Imem, Itau, f_gain, feedback
+
+    @property
+    def tau_mem(self):
+        """
+        tau_mem holds an array of time constants in seconds for neurons with shape = (Nin,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_mem / self.Itau_mem.T
+
+    @property
+    def tau_syn(self):
+        """
+        tau_syn holds an array of time constants in seconds for each synapse of the neurons with shape = (Nin,5)
+        There are tau_ahp, tau_nmda, tau_ampa, tau_gaba_a, and tau_gaba_b methods as well to fetch the time constants of the exact synapse
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn / self.Itau_syn.T
+
+    @property
+    def tau_ahp(self):
+        """
+        tau_ahp holds an array of time constants in seconds for AHP synapse of the neurons with shape = (Nin,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn[0] / self.Itau_syn[0]
+
+    @property
+    def tau_nmda(self):
+        """
+        tau_nmda holds an array of time constants in seconds for NMDA synapse of the neurons with shape = (Nin,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn[1] / self.Itau_syn[1]
+
+    @property
+    def tau_ampa(self):
+        """
+        tau_ampa holds an array of time constants in seconds for AMPA synapse of the neurons with shape = (Nin,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn[2] / self.Itau_syn[2]
+
+    @property
+    def tau_gaba_a(self):
+        """
+        tau_gaba_a holds an array of time constants in seconds for GABA_A synapse of the neurons with shape = (Nin,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn[3] / self.Itau_syn[3]
+
+    @property
+    def tau_gaba_b(self):
+        """
+        tau_gaba_b holds an array of time constants in seconds for GABA_B synapse of the neurons with shape = (Nin,)
+
+        :return: array of time constants
+        :rtype: JP_ndarray
+        """
+        return self.f_tau_syn[4] / self.Itau_syn[4]
