@@ -68,6 +68,48 @@ from rockpool.devices.dynapse.dynapse1_parameters import (
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
 
+@dataclass
+class SYN:
+    """
+    SYN helps reordering of the synapses used in the DynapSE1NeuronSynapseJax module
+    Synapse parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
+    [] TODO : Improve the module in general. Now there is no pre-caution for illegal indices or duplicates
+    """
+
+    AHP: int = 4
+    NMDA: int = 0
+    AMPA: int = 3
+    GABA_A: int = 1
+    GABA_B: int = 2
+
+    def __len__(self):
+        return 5
+
+    @property
+    def target_idx(self):
+        """
+        order the index array to be used to put the synapses in the desired index order. It can be used to
+        rearange the default order array [AHP, NMDA, AMPA, GABA_A, GABA_B] into desired order.
+
+        :return: the target indexes of the synapses
+        :rtype: np.ndarray
+        """
+        _idx = np.argsort(self.default_idx)
+        return _idx
+
+    @property
+    def default_idx(self):
+        """
+        idx returns the indexes of the synapses in the desired order. It can be used to
+        rearange a custom ordered array into the original order [AHP, NMDA, AMPA, GABA_A, GABA_B].
+
+        :return: the indexes of the synapses in original order
+        :rtype: np.ndarray
+        """
+        _idx = np.array([self.AHP, self.NMDA, self.AMPA, self.GABA_A, self.GABA_B])
+        return _idx
+
+
 @jax.custom_gradient
 def step_pwl(
     Imem: FloatVector, Ispkthr: FloatVector, Ireset: FloatVector
@@ -153,6 +195,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
     :type rng_key: Optional[Any], optional
+    :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
+    :type syn_order: Optional[SYN], optional
     :param spiking_input: Whether this module receives spiking input, defaults to True
     :type spiking_input: bool, optional
     :param spiking_output: Whether this module produces spiking output, defaults to True
@@ -161,6 +205,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     :Instance Variables:
 
+    :ivar SYN: Instance of ``order`` parameter
+    :type SYN: SYN
+    :ivar target_idx: The indexes to rearange the default ordered array [AHP, NMDA, AMPA, GABA_A, GABA_B] into custom order [...]
+    :type target_idx: np.ndarray
+    :ivar default_idx: The indexes to rearange the custom ordered array [...] into default order [AHP, NMDA, AMPA, GABA_A, GABA_B]
+    :type default_idx: np.ndarray
     :ivar Imem: Array of membrane currents of the neurons with shape = (Nin,)
     :type Imem: JP_ndarray
     :ivar Itau_mem: Array of membrane leakage currents of the neurons with shape = (Nin,)
@@ -217,6 +267,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         config: Optional[DynapSE1Parameters] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
+        syn_order: Optional[SYN] = None,
         spiking_input: bool = True,
         spiking_output: bool = True,
         *args,
@@ -236,6 +287,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if config is None:
             config = DynapSE1Parameters()
 
+        if syn_order is None:
+            syn_order = SYN()
+
+        self.SYN = syn_order
+        self.target_idx = self.SYN.target_idx
+        self.default_idx = self.SYN.default_idx
+
         _, rng_key = rand.split(np.array(rng_key, dtype=np.uint32))
         self._rng_key: JP_ndarray = State(rng_key, init_func=lambda _: rng_key)
 
@@ -252,7 +310,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             init=config.mem,
         )
 
-        ## Synapses parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B]
+        ## Synapse parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B]
         self.Isyn, self.Itau_syn, self.f_gain_syn, self.Iw = self._set_syn_params(
             ahp=config.ahp,
             nmda=config.nmda,
@@ -270,7 +328,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         ## Configuration Parameters
         self.f_tau_mem = SimulationParameter(config.f_tau_mem)
-        self.f_tau_syn = SimulationParameter(config.f_tau_syn)
+        self.f_tau_syn = SimulationParameter(config.f_tau_syn[self.target_idx])
         self.t_pulse = SimulationParameter(config.t_pulse)
         self.t_pulse_ahp = SimulationParameter(config.t_pulse_ahp)
         self.Idc = SimulationParameter(config.Idc)
@@ -355,7 +413,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNin [NMDA, AMPA, GABA_A, GABA_B]
             t_pw_out = self.t_pulse_ahp * spikes  # 1xNin [AHP]
-            t_pw = np.vstack((t_pw_out, t_pw_in))
+            t_pw = np.vstack((t_pw_out, t_pw_in))[
+                self.target_idx
+            ]  # default -> target order
 
             ## Exponential charge and discharge factor arrays
             f_charge = 1 - np.exp(-t_pw / tau_syn)  # 5xNin
@@ -371,7 +431,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # --- Forward step: MEMBRANE --- #
 
             ## Decouple synaptic currents and calculate membrane input
-            Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn
+            Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn[
+                self.default_idx
+            ]  # target -> default order
             # Ishunt = np.clip(Igaba_b, self.layout.Io, Imem) # Not sure how to use
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
             Iin = Inmda + Iampa - Igaba_a - Igaba_b + self.Idc
@@ -424,11 +486,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "input_data": input_data,
             "spikes": spikes_ts,
             "Imem": Imem_ts,
-            "Iahp": Isyn_ts[:, 0, :],
-            "Inmda": Isyn_ts[:, 1, :],
-            "Iampa": Isyn_ts[:, 2, :],
-            "Igaba_a": Isyn_ts[:, 3, :],
-            "Igaba_b": Isyn_ts[:, 4, :],
+            "Iahp": Isyn_ts[:, self.SYN.AHP, :],
+            "Inmda": Isyn_ts[:, self.SYN.NMDA, :],
+            "Iampa": Isyn_ts[:, self.SYN.AMPA, :],
+            "Igaba_a": Isyn_ts[:, self.SYN.GABA_A, :],
+            "Igaba_b": Isyn_ts[:, self.SYN.GABA_B, :],
         }
 
         return outputs, states, record_dict
@@ -462,7 +524,13 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :rtype: Tuple[JP_ndarray, JP_ndarray, JP_ndarray, JP_ndarray]
         """
 
-        dpi_list = (ahp, nmda, ampa, gaba_a, gaba_b)
+        dpi_list = [None] * len(self.SYN)
+
+        dpi_list[self.SYN.AHP] = ahp
+        dpi_list[self.SYN.NMDA] = nmda
+        dpi_list[self.SYN.AMPA] = ampa
+        dpi_list[self.SYN.GABA_A] = gaba_a
+        dpi_list[self.SYN.GABA_B] = gaba_b
 
         def get_dpi_parameter(
             target: str, family: str, object: Optional[str] = "parameter"
@@ -566,7 +634,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[0] / self.Itau_syn[0]
+        return self.f_tau_syn[self.SYN.AHP] / self.Itau_syn[self.SYN.AHP]
 
     @property
     def tau_nmda(self):
@@ -576,7 +644,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[1] / self.Itau_syn[1]
+        return self.f_tau_syn[self.SYN.NMDA] / self.Itau_syn[self.SYN.NMDA]
 
     @property
     def tau_ampa(self):
@@ -586,7 +654,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[2] / self.Itau_syn[2]
+        return self.f_tau_syn[self.SYN.AMPA] / self.Itau_syn[self.SYN.AMPA]
 
     @property
     def tau_gaba_a(self):
@@ -596,7 +664,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[3] / self.Itau_syn[3]
+        return self.f_tau_syn[self.SYN.GABA_A] / self.Itau_syn[self.SYN.GABA_A]
 
     @property
     def tau_gaba_b(self):
@@ -606,4 +674,4 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: array of time constants
         :rtype: JP_ndarray
         """
-        return self.f_tau_syn[4] / self.Itau_syn[4]
+        return self.f_tau_syn[self.SYN.GABA_B] / self.Itau_syn[self.SYN.GABA_B]
