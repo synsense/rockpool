@@ -4,6 +4,8 @@ Samna-backed bridge to Pollen dev kit
 
 # - Check that Samna is installed
 from importlib import util
+from pathlib import Path
+from os import makedirs
 
 if util.find_spec("samna") is None:
     raise ModuleNotFoundError(
@@ -23,6 +25,7 @@ from samna.pollen import validate_configuration
 # - Rockpool imports
 from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
+from rockpool import TSContinuous, TSEvent
 
 from ..pollen import pollen_devkit_utils as putils
 from ..pollen.pollen_devkit_utils import PollenDaughterBoard
@@ -288,9 +291,14 @@ def load_config(filename: str) -> PollenConfiguration:
 
 class PollenSamna(Module):
     """
-    A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`.
+    A spiking neuron :py:class:`.Module` backed by the Pollen hardware, via `samna`.
 
-    Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen. See :ref:`/devices/pollen-overview.ipynb` for more information about the Pollen development kit, and supported networks.
+    Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen.
+
+    See Also:
+
+        See the tutorials :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb` for a high-level overview of building and deploying networks for Pollen.
+
     """
 
     def __init__(
@@ -327,7 +335,7 @@ class PollenSamna(Module):
         )
 
         # - Initialise the pollen HDK
-        putils.initialise_pollen_hdk(device)
+        putils.initialise_pollen_hdk(device)  # dummy 'TriggerProcessing' signal
 
         # - Register a buffer to read events from Pollen
         self._event_buffer = putils.new_pollen_read_buffer(device)
@@ -339,51 +347,59 @@ class PollenSamna(Module):
 
         # - Store the device
         self._device: PollenDaughterBoard = device
-        """ (PollenDaughterBoard) The Pollen HDK used by this module """
+        """ `.PollenDaughterBoard`: The Pollen HDK used by this module """
 
         # - Store the configuration (and apply it)
         self.config: Union[
             PollenConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
-        """ `.PollenConfiguration`: The configuration of the Pollen module """
+        """ `.PollenConfiguration`: The HDK configuration applied to the Pollen module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
-        """ (bool) The most recent (and assumed still valid) recording mode """
+        """ bool: The most recent (and assumed still valid) recording mode """
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
-        """ float: Simulation time-step of the module """
+        """ float: Simulation time-step of the module, in seconds """
 
         # - Zero neuron state when building a new module
         self.reset_state()
 
     @property
     def config(self):
-        # - Return the locally stored config
-        return self._config
-
-        # - Reading the configuration is not yet supported
-        # return self._device_model.get_configuration()
+        # - Return the configuration stored on Xylo HDK
+        return self._device.get_model().get_configuration()
 
     @config.setter
     def config(self, new_config):
-        # - WORKAROUND: Ensure the RAM power and the chip clock are enabled
-        new_config.debug.clock_enable = True
-        new_config.debug.ram_power_enable = True
+        # - Test for a valid configuration
+        is_valid, msg = samna.pollen.validate_configuration(new_config)
+        if not is_valid:
+            raise ValueError(f"Invalid configuration for the Xylo HDK: {msg}")
 
         # - Write the configuration to the device
-        putils.apply_configuration(self._device, new_config)
+        putils.apply_configuration(self._device, new_config, self._event_buffer)
 
-        # - Store the configuration locally, since reading is not supported
+        # - Store the configuration locally
         self._config = new_config
 
     def reset_state(self) -> "PollenSamna":
         # - Reset neuron and synapse state on Pollen
-        putils.reset_neuron_synapse_state(self._device)
+        putils.reset_neuron_synapse_state(self._device, self._event_buffer)
         return self
 
-    def _configure_accel_time_mode(self, Nhidden: int, Nout: int, record: bool):
+    def _configure_accel_time_mode(
+        self, Nhidden: int, Nout: int, record: bool = False
+    ) -> None:
+        """
+        Configure the Xylo HDK to use accelerated-time mode, with optional state recording
+
+        Args:
+            Nhidden (int): Number of hidden neurons from which to record state. Default: ``0``; do not record state from any neurons. If non-zero, state from neurons with ID 0..(Nhidden-1) inclusive will be recorded during evolution.
+            Nout (int): Number of output layer neurons from which to record state. Default: ``0``; do not record state from any output neurons.
+            record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
+        """
         if record != self._last_record_mode:
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
@@ -405,8 +421,27 @@ class PollenSamna(Module):
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
+        """
+        Evolve a network on the Xylo HDK in accelerated-time mode
+
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period. Optionally record internal state of the network, selectable with the ``record`` flag.
+
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
         # - Get the network size
-        Nhidden, Nout = self.shape[-2:]
+        Nin, Nhidden, Nout = self.shape[:]
 
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
@@ -426,7 +461,7 @@ class PollenSamna(Module):
         for timestep, channel, count in zip(spikes[:, 0], spikes[:, 1], counts):
             for _ in range(count):
                 event = samna.pollen.event.Spike()
-                event.neuron = channel
+                event.neuron_id = channel
                 event.timestamp = start_timestep + timestep
                 input_events_list.append(event)
 
@@ -450,8 +485,8 @@ class PollenSamna(Module):
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
-            read_timeout = len(input) * self.dt * Nhidden / 400.0
-            read_timeout = read_timeout * 5.0 if record else read_timeout
+            read_timeout = len(input) * self.dt * Nhidden / 800.0
+            read_timeout = read_timeout * 10.0 if record else read_timeout
 
         # - Wait until the simulation is finished
         read_events, is_timeout = putils.blocking_read(
@@ -469,7 +504,9 @@ class PollenSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
+        pollen_data = putils.read_accel_mode_data(
+            self._state_buffer, Nin, Nhidden, Nout
+        )
 
         if record:
             # - Build a recorded state dictionary
@@ -491,7 +528,7 @@ class PollenSamna(Module):
         # - Return spike output, new state and record dictionary
         return pollen_data.Spikes_out, new_state, rec_dict
 
-    def evolve_manual(
+    def _evolve_manual(
         self,
         input: np.ndarray,
         record: bool = False,
@@ -499,17 +536,31 @@ class PollenSamna(Module):
         *args,
         **kwargs,
     ) -> (np.ndarray, dict, dict):
+        """
+        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.pollen.OperationMode.Manual' in samna.
+
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
+
         # - Get some information about the network size
         _, Nhidden, Nout = self.shape
 
-        # m_Nhidden = Nhidden if record else 0
-        # m_Nout = Nout if record else 0
-
         # - Select single-step simulation mode
         # - Applies the configuration via `self.config`
-        # config, state_buffer = putils.configure_accel_time_mode(
-        #     self._config, self._state_buffer, m_Nhidden, m_Nout
-        # )
         self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Wait until pollen is ready
@@ -548,9 +599,6 @@ class PollenSamna(Module):
             while not putils.is_pollen_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
-                    # raise TimeoutError(
-                    #     f"Timed out waiting for a simulation time-step. Step {timestep} of {len(input)}."
-                    # )
                     break
 
             if is_timeout:
@@ -572,21 +620,6 @@ class PollenSamna(Module):
             output_events = putils.read_output_events(self._device, self._event_buffer)
             output_ts.append(output_events)
 
-        # if record:
-        #     pollen_data = putils.read_accel_mode_data(self._state_buffer, Nhidden, Nout)
-        #     # - Build a recorded state dictionary
-        #     rec_dict = {
-        #         "Vmem": np.array(pollen_data.V_mem_hid),
-        #         "Isyn": np.array(pollen_data.I_syn_hid),
-        #         "Isyn2": np.array(pollen_data.I_syn2_hid),
-        #         "Spikes": np.array(pollen_data.Spikes_hid),
-        #         "Vmem_out": np.array(pollen_data.V_mem_out),
-        #         "Isyn_out": np.array(pollen_data.I_syn_out),
-        #         "times": np.arange(start_timestep, final_timestep + 1),
-        #     }
-        # else:
-        #     rec_dict = {}
-
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
@@ -603,3 +636,376 @@ class PollenSamna(Module):
 
         # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
         return np.array(output_ts), {}, rec_dict
+
+    def _evolve_manual_allram(
+        self,
+        input: np.ndarray,
+        record: bool = False,
+        read_timeout: float = 5.0,
+        *args,
+        **kwargs,
+    ) -> (np.ndarray, dict, dict):
+        """
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.pollen.OperationMode.Manual' in samna.
+
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal all RAM state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
+
+        # - Get some information about the network size
+        Nin, Nhidden, Nout = self.shape
+
+        # - Select single-step simulation mode
+        self.config = putils.configure_single_step_time_mode(self.config)
+
+        # - Wait until pollen is ready
+        t_start = time.time()
+        while not putils.is_pollen_ready(self._device, self._event_buffer):
+            if time.time() - t_start > read_timeout:
+                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input) - 1
+
+        # - Reset input spike registers
+        putils.reset_input_spikes(self._device)
+
+        # - Initialise lists for internal all RAM state
+        vmem_ts = []
+        isyn_ts = []
+        isyn2_ts = []
+        vmem_out_ts = []
+        isyn_out_ts = []
+        spikes_ts = []
+        output_ts = []
+
+        input_weight_ram_ts = []
+        input_weight_2ram_ts = []
+        neuron_dash_syn_ram_ts = []
+        reservoir_dash_syn_2ram_ts = []
+        neuron_dash_mem_ram_ts = []
+        neuron_threshold_ram_ts = []
+        reservoir_config_ram_ts = []
+        reservoir_aliasing_ram_ts = []
+        reservoir_effective_fanout_count_ram_ts = []
+        recurrent_fanout_ram_ts = []
+        recurrent_weight_ram_ts = []
+        recurrent_weight_2ram_ts = []
+        output_weight_ram_ts = []
+
+        # - Loop over time steps
+        for timestep in tqdm(range(len(input))):
+            # - Send input events for this time-step
+            putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Evolve one time-step on Pollen
+            putils.advance_time_step(self._device)
+
+            # - Wait until pollen has finished the simulation of this time step
+            t_start = time.time()
+            is_timeout = False
+            while not putils.is_pollen_ready(self._device, self._event_buffer):
+                if time.time() - t_start > read_timeout:
+                    is_timeout = True
+                    break
+
+            if is_timeout:
+                break
+
+            # - Read all RAM states for this time step
+            if record:
+                this_state = putils.read_allram_state(
+                    self._device, self._event_buffer, Nin, Nhidden, Nout
+                )
+                vmem_ts.append(this_state.V_mem_hid)
+                isyn_ts.append(this_state.I_syn_hid)
+                isyn2_ts.append(this_state.I_syn2_hid)
+                vmem_out_ts.append(this_state.V_mem_out)
+                isyn_out_ts.append(this_state.I_syn_out)
+                spikes_ts.append(this_state.Spikes_hid)
+
+                input_weight_ram_ts.append(this_state.IWTRAM_state)
+                input_weight_2ram_ts.append(this_state.IWT2RAM_state)
+                neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
+                reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
+                neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
+                neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
+                reservoir_config_ram_ts.append(this_state.RCRAM_state)
+                reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
+                reservoir_effective_fanout_count_ram_ts.append(
+                    this_state.REFOCRAM_state
+                )
+                recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
+                recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
+                recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
+                output_weight_ram_ts.append(this_state.OWTRAM_state)
+
+            # - Read the output event register
+            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_ts.append(output_events)
+
+        if record:
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "Vmem": np.array(vmem_ts),
+                "Isyn": np.array(isyn_ts),
+                "Isyn2": np.array(isyn2_ts),
+                "Spikes": np.array(spikes_ts),
+                "Vmem_out": np.array(vmem_out_ts),
+                "Isyn_out": np.array(isyn_out_ts),
+                "times": np.arange(start_timestep, final_timestep + 1),
+                "Input_weight_ram": np.array(input_weight_ram_ts),
+                "Input_weight_2ram": np.array(input_weight_2ram_ts),
+                "Neuron_dash_syn_ram": np.array(neuron_dash_syn_ram_ts),
+                "Reservoir_dash_syn_2ram": np.array(reservoir_dash_syn_2ram_ts),
+                "Neuron_dash_mem_ram": np.array(neuron_dash_mem_ram_ts),
+                "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
+                "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
+                "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(
+                    reservoir_effective_fanout_count_ram_ts
+                ),
+                "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
+                "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
+                "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
+                "Output_weight_ram": np.array(output_weight_ram_ts),
+            }
+        else:
+            rec_dict = {}
+
+        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
+        return np.array(output_ts), {}, rec_dict
+
+    def _evolve_manual_ram_register(
+        self,
+        input: np.ndarray,
+        record: bool = False,
+        read_timeout: float = 5.0,
+        *args,
+        **kwargs,
+    ) -> (np.ndarray, dict, dict):
+        """
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.pollen.OperationMode.Manual' in samna.
+
+        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal all RAM and register state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
+        # - Get some information about the network size
+        Nin, Nhidden, Nout = self.shape
+
+        # - Select single-step simulation mode
+        self.config = putils.configure_single_step_time_mode(self.config)
+
+        # - Initialise lists for recording state
+        vmem_ts = []
+        isyn_ts = []
+        isyn2_ts = []
+        vmem_out_ts = []
+        isyn_out_ts = []
+        spikes_ts = []
+        output_ts = []
+
+        input_weight_ram_ts = []
+        input_weight_2ram_ts = []
+        neuron_dash_syn_ram_ts = []
+        reservoir_dash_syn_2ram_ts = []
+        neuron_dash_mem_ram_ts = []
+        neuron_threshold_ram_ts = []
+        reservoir_config_ram_ts = []
+        reservoir_aliasing_ram_ts = []
+        reservoir_effective_fanout_count_ram_ts = []
+        recurrent_fanout_ram_ts = []
+        recurrent_weight_ram_ts = []
+        recurrent_weight_2ram_ts = []
+        output_weight_ram_ts = []
+
+        # - Read all ram and register before evolve_manual
+        if record:
+            this_state = putils.read_allram_state(
+                self._device, self._event_buffer, Nin, Nhidden, Nout
+            )
+            vmem_ts.append(this_state.V_mem_hid)
+            isyn_ts.append(this_state.I_syn_hid)
+            isyn2_ts.append(this_state.I_syn2_hid)
+            vmem_out_ts.append(this_state.V_mem_out)
+            isyn_out_ts.append(this_state.I_syn_out)
+            spikes_ts.append(this_state.Spikes_hid)
+
+            input_weight_ram_ts.append(this_state.IWTRAM_state)
+            input_weight_2ram_ts.append(this_state.IWT2RAM_state)
+            neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
+            reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
+            neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
+            neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
+            reservoir_config_ram_ts.append(this_state.RCRAM_state)
+            reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
+            reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
+            recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
+            recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
+            recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
+            output_weight_ram_ts.append(this_state.OWTRAM_state)
+
+            # - Create a folder to save register state in each timestamp
+            folder = "./registers/"
+            newFolder = Path(folder)
+            if not newFolder.exists():
+                makedirs(newFolder)
+
+            # - Save the register state before evolve_manual as '-1' timestamp.
+            file = folder + "register_-1.txt"
+            putils.export_registers(self._device, self._event_buffer, file)
+
+        # - Wait until pollen is ready
+        t_start = time.time()
+        while not putils.is_pollen_ready(self._device, self._event_buffer):
+            if time.time() - t_start > read_timeout:
+                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+
+        # - Get current timestamp
+        start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
+        final_timestep = start_timestep + len(input) - 1
+
+        # - Reset input spike registers
+        putils.reset_input_spikes(self._device)
+
+        # - Loop over time steps
+        for timestep in tqdm(range(len(input))):
+            # - Send input events for this time-step
+            putils.send_immediate_input_spikes(self._device, input[timestep])
+
+            # - Save register just after give input but before evolve_manual for each timestamp
+            file = folder + f"register_{timestep}_spkin.txt"
+            putils.export_registers(self._device, self._event_buffer, file)
+
+            # - Evolve one time-step on Xylo HDK
+            putils.advance_time_step(self._device)
+
+            # - Wait until Xylo HDK has finished the simulation of this time step
+            t_start = time.time()
+            is_timeout = False
+            while not putils.is_pollen_ready(self._device, self._event_buffer):
+                if time.time() - t_start > read_timeout:
+                    is_timeout = True
+                    break
+
+            if is_timeout:
+                break
+
+            # - Read all RAM and register state for this time step
+            if record:
+                this_state = putils.read_allram_state(
+                    self._device, self._event_buffer, Nin, Nhidden, Nout
+                )
+                vmem_ts.append(this_state.V_mem_hid)
+                isyn_ts.append(this_state.I_syn_hid)
+                isyn2_ts.append(this_state.I_syn2_hid)
+                vmem_out_ts.append(this_state.V_mem_out)
+                isyn_out_ts.append(this_state.I_syn_out)
+                spikes_ts.append(this_state.Spikes_hid)
+
+                input_weight_ram_ts.append(this_state.IWTRAM_state)
+                input_weight_2ram_ts.append(this_state.IWT2RAM_state)
+                neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
+                reservoir_dash_syn_2ram_ts.append(this_state.RDS2RAM_state)
+                neuron_dash_mem_ram_ts.append(this_state.NDMRAM_state)
+                neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
+                reservoir_config_ram_ts.append(this_state.RCRAM_state)
+                reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
+                reservoir_effective_fanout_count_ram_ts.append(
+                    this_state.REFOCRAM_state
+                )
+                recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
+                recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
+                recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
+                output_weight_ram_ts.append(this_state.OWTRAM_state)
+
+                # - Save register after evolve_manual for each timestamp
+                file = folder + f"register_{timestep}.txt"
+                putils.export_registers(self._device, self._event_buffer, file)
+
+            # - Read the output event register
+            output_events = putils.read_output_events(self._device, self._event_buffer)
+            output_ts.append(output_events)
+
+        if record:
+            # - Build a recorded state dictionary
+            rec_dict = {
+                "Vmem": np.array(vmem_ts),
+                "Isyn": np.array(isyn_ts),
+                "Isyn2": np.array(isyn2_ts),
+                "Spikes": np.array(spikes_ts),
+                "Vmem_out": np.array(vmem_out_ts),
+                "Isyn_out": np.array(isyn_out_ts),
+                "times": np.arange(start_timestep, final_timestep + 1),
+                "Input_weight_ram": np.array(input_weight_ram_ts),
+                "Input_weight_2ram": np.array(input_weight_2ram_ts),
+                "Neuron_dash_syn_ram": np.array(neuron_dash_syn_ram_ts),
+                "Reservoir_dash_syn_2ram": np.array(reservoir_dash_syn_2ram_ts),
+                "Neuron_dash_mem_ram": np.array(neuron_dash_mem_ram_ts),
+                "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
+                "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
+                "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(
+                    reservoir_effective_fanout_count_ram_ts
+                ),
+                "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
+                "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
+                "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
+                "Output_weight_ram": np.array(output_weight_ram_ts),
+            }
+        else:
+            rec_dict = {}
+
+        # - Return the output spikes, the (empty) new state dictionary, and the recorded state dictionary
+        return np.array(output_ts), {}, rec_dict
+
+    def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:
+        args = {"dt": self.dt, "t_start": t_start}
+
+        return {
+            "Vmem": TSContinuous.from_clocked(
+                state_dict["Vmem"], name="$V_{mem}$", **args
+            ),
+            "Isyn": TSContinuous.from_clocked(
+                state_dict["Isyn"], name="$I_{syn}$", **args
+            ),
+            "Isyn2": TSContinuous.from_clocked(
+                state_dict["Isyn2"], name="$I_{syn,2}$", **args
+            ),
+            "Spikes": TSEvent.from_raster(state_dict["Spikes"], name="Spikes", **args),
+            "Vmem_out": TSContinuous.from_clocked(
+                state_dict["Vmem_out"], name="$V_{mem,out}$", **args
+            ),
+            "Isyn_out": TSContinuous.from_clocked(
+                state_dict["Isyn_out"], name="$I_{syn,out}$", **args
+            ),
+        }

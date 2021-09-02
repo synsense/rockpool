@@ -36,6 +36,10 @@ class ModuleBase(ABC):
             *args: Additional positional arguments
             **kwargs: Additional keyword arguments
         """
+        # - Set flag to specify that we are in the `__init__()` method
+        self._in_Module_init = True
+        """(bool) If exists and ``True``, indicates that the module is in the ``__init__`` chain."""
+
         # - Initialise co-classes etc.
         super().__init__(*args, **kwargs)
 
@@ -117,7 +121,11 @@ class ModuleBase(ABC):
 
         # - Check if this is a new rockpool Parameter
         if isinstance(val, ParameterBase):
-            if hasattr(self, name):
+            if (
+                hasattr(self, name)
+                and hasattr(self, "_in_Module_init")
+                and not self._in_Module_init
+            ):
                 raise ValueError(
                     f'Cannot assign a new Parameter or State to an existing attribute "{name}".'
                 )
@@ -624,7 +632,25 @@ class ModuleBase(ABC):
         return recorded_dict
 
 
-class Module(ModuleBase, ABC):
+class PostInitMetaMixin(type(ModuleBase)):
+    """
+    A mixin base class that adds a ``__post_init__()`` method to a class. ``__post_init__()`` is called after the ``__init__()`` method, on instantiation of an object.
+    """
+
+    def __call__(cls, *args, **kwargs):
+        # - Instantiate the object
+        obj = super().__call__(*args, **kwargs)
+
+        # - Check for a `__post_init__` method
+        if hasattr(cls, "__post_init__"):
+            cls.__post_init__(obj)
+
+        # - Clear the init flag
+        obj._in_Module_init = False
+        return obj
+
+
+class Module(ModuleBase, ABC, metaclass=PostInitMetaMixin):
     """
     The native Python / numpy ``Module`` base class for Rockpool
     """
@@ -674,16 +700,3 @@ class Module(ModuleBase, ABC):
         return TimedModuleWrapper(
             self, output_num=output_num, dt=dt, add_events=add_events
         )
-
-
-class PostInitMetaMixin(type(ModuleBase)):
-    """
-    A mixin base class that adds a ``__post_init__()`` method to a class. ``__post_init__()`` is called after the ``__init__()`` method, on instantiation of an object.
-    """
-
-    def __call__(cls, *args, **kwargs):
-        obj = super().__call__(*args, **kwargs)
-        if hasattr(cls, "__post_init__"):
-            cls.__post_init__(obj)
-
-        return obj

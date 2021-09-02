@@ -117,12 +117,12 @@ class AFE(Module):
     This module simulates the Pollen audio front-end stage. This is a signal-to-event core that provides a number of band-pass filters, followed by rectifying event production simulating a spiking LIF neuron. The event rate in each channel is roughly correlated to the energy in each filter band.
 
     Notes:
-        The AFE contains frequency tripling internally. For accuracy simulation, the sampling frequency should be at least 6 times higher than the highest frequency component in the signal. It would be a good idea to use a LPF to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.
+        - The AFE contains frequency tripling internally. For accurate simulation, the sampling frequency must be at least 6 times higher than the highest frequency component in the filtering chain. This would be the centre frequency of the highest filter, plus half the BW of that signal. To prevent signal aliasing, you should apply a low-pass filter to restrict the bandwidth of the input, to ensure you don't exceed this target highest frequency.
 
-        Input to the module is in Volts. Input amplitude should be scaled to a maximum of 112mV RMS.
+        - Input to the module is in Volts. Input amplitude should be scaled to a maximum of 112mV RMS.
 
     See Also:
-        For example usage of the :py:class:`.AFE` Module, see :ref:`/tutorials/analog-frontend-example.ipynb`
+        For example usage of the :py:class:`.AFE` Module, see :ref:`/devices/analog-frontend-example.ipynb`
     """
 
     def __init__(
