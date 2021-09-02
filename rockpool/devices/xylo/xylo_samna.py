@@ -1,5 +1,5 @@
 """
-Samna-backed bridge to Pollen dev kit
+Samna-backed bridge to Xylo dev kit
 """
 
 # - Check that Samna is installed
@@ -14,11 +14,12 @@ if util.find_spec("samna") is None:
 
 # - Samna imports
 import samna
+
 from samna.pollen.configuration import (
-    PollenConfiguration,
     ReservoirNeuron,
     OutputNeuron,
 )
+from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
 
 from samna.pollen import validate_configuration
 
@@ -27,8 +28,8 @@ from rockpool.nn.modules.module import Module
 from rockpool.parameters import SimulationParameter
 from rockpool import TSContinuous, TSEvent
 
-from ..pollen import pollen_devkit_utils as putils
-from ..pollen.pollen_devkit_utils import PollenDaughterBoard
+from ..xylo import xylo_devkit_utils as putils
+from ..xylo.xylo_devkit_utils import XyloDaughterBoard
 
 # - Numpy
 import numpy as np
@@ -49,7 +50,7 @@ except ModuleNotFoundError:
 
 
 # - Configure exports
-__all__ = ["config_from_specification", "save_config", "load_config", "PollenSamna"]
+__all__ = ["config_from_specification", "save_config", "load_config", "XyloSamna"]
 
 
 def config_from_specification(
@@ -67,12 +68,12 @@ def config_from_specification(
     weight_shift_rec: int = 0,
     weight_shift_out: int = 0,
     aliases: Optional[List[List[int]]] = None,
-) -> (PollenConfiguration, bool, str):
+) -> (XyloConfiguration, bool, str):
     """
-    Convert a full network specification to a pollen config and validate it
+    Convert a full network specification to a xylo config and validate it
 
     See Also:
-        For detailed information about the networks supported on Pollen, see :ref:`/devices/pollen-overview.ipynb`
+        For detailed information about the networks supported on Xylo, see :ref:`/devices/xylo-overview.ipynb`
 
     Args:
         weights_in (np.ndarray): A quantised 8-bit input weight matrix ``(Nin, Nin_res, 2)``. The third dimension specifies connections onto the second input synapse for each neuron. ``Nin_res`` indicates the number of hidfden-layer neurons that receive input from the input channels.
@@ -91,7 +92,7 @@ def config_from_specification(
         aliases (Optional[List[List[int]]]): For each neuron in the hidden population, a list containing the alias targets for that neuron
 
     Returns: (:py:class:`.samna.pollen.PollenConfiguration`, bool, str): config, is_valid, message
-        ``config`` will be a `PollenConfiguration`.
+        ``config`` will be a `XyloConfiguration`.
         ``is_valid`` will be a boolean flag ``True`` iff the configuration is valid.
         ``message`` will be an empty string if the configuration is valid, or a message indicating why the configuration is invalid.
     """
@@ -209,7 +210,7 @@ def config_from_specification(
         )
 
     # - Build the configuration
-    config = PollenConfiguration()
+    config = XyloConfiguration()
 
     # - WORKAROUD: Ensure that RAM power is enabled, and the chip clock is running
     config.debug.clock_enable = True
@@ -256,30 +257,30 @@ def config_from_specification(
     return config, is_valid, message
 
 
-def save_config(config: PollenConfiguration, filename: str) -> None:
+def save_config(config: XyloConfiguration, filename: str) -> None:
     """
-    Save a Pollen configuration to disk in JSON format
+    Save a Xylo configuration to disk in JSON format
 
     Args:
-        config (PollenConfiguration): The configuration to write
+        config (XyloConfiguration): The configuration to write
         filename (str): The filename to write to
     """
     with open(filename, "w") as f:
         f.write(config.to_json())
 
 
-def load_config(filename: str) -> PollenConfiguration:
+def load_config(filename: str) -> XyloConfiguration:
     """
-    Read a Pollen configuration from disk in JSON format
+    Read a Xylo configuration from disk in JSON format
 
     Args:
         filename (str): The filename to read from
 
     Returns:
-        `.PollenConfiguration`: The configuration loaded from disk
+        `.XyloConfiguration`: The configuration loaded from disk
     """
     # - Create a new config object
-    conf = PollenConfiguration()
+    conf = XyloConfiguration()
 
     # - Read the configuration from file
     with open(filename) as f:
@@ -289,41 +290,41 @@ def load_config(filename: str) -> PollenConfiguration:
     return conf
 
 
-class PollenSamna(Module):
+class XyloSamna(Module):
     """
-    A spiking neuron :py:class:`.Module` backed by the Pollen hardware, via `samna`.
+    A spiking neuron :py:class:`.Module` backed by the Xylo hardware, via `samna`.
 
-    Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen.
+    Use :py:func:`.config_from_specification` to build and validate a configuration for Xylo.
 
     See Also:
 
-        See the tutorials :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb` for a high-level overview of building and deploying networks for Pollen.
+        See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
 
     """
 
     def __init__(
         self,
-        device: PollenDaughterBoard,
-        config: PollenConfiguration = None,
+        device: XyloDaughterBoard,
+        config: XyloConfiguration = None,
         dt: float = 1e-3,
         *args,
         **kwargs,
     ):
         """
-        Instantiate a Module with Pollen dev-kit backend
+        Instantiate a Module with Xylo dev-kit backend
 
         Args:
-            device (PollenDaughterBoard): An opened `samna` device to a Pollen dev kit
-            config (PollenConfiguraration): A Pollen configuration from `samna`
+            device (XyloDaughterBoard): An opened `samna` device to a Xylo dev kit
+            config (XyloConfiguraration): A Xylo configuration from `samna`
             dt (float): The simulation time-step to use for this Module
         """
         # - Check input arguments
         if device is None:
-            raise ValueError("`device` must be a valid, opened Pollen HDK device.")
+            raise ValueError("`device` must be a valid, opened Xylo HDK device.")
 
         # - Get a default configuration
         if config is None:
-            config = samna.pollen.configuration.PollenConfiguration()
+            config = samna.pollen.configuration.XyloConfiguration()
 
         # - Get the network shape
         Nin, Nhidden = np.shape(config.input.weights)
@@ -334,26 +335,26 @@ class PollenSamna(Module):
             shape=(Nin, Nhidden, Nout), spiking_input=True, spiking_output=True
         )
 
-        # - Initialise the pollen HDK
-        putils.initialise_pollen_hdk(device)  # dummy 'TriggerProcessing' signal
+        # - Initialise the xylo HDK
+        putils.initialise_xylo_hdk(device)  # dummy 'TriggerProcessing' signal
 
-        # - Register a buffer to read events from Pollen
-        self._event_buffer = putils.new_pollen_read_buffer(device)
-        self._state_buffer = putils.new_pollen_state_monitor_buffer(device)
+        # - Register a buffer to read events from Xylo
+        self._event_buffer = putils.new_xylo_read_buffer(device)
+        self._state_buffer = putils.new_xylo_state_monitor_buffer(device)
 
-        # - Check that we can access the device node, and that it's a Pollen HDK daughterboard
-        if not putils.verify_pollen_version(device, self._event_buffer, timeout=10.0):
-            raise ValueError("`device` must be an opened Pollen HDK daughter board.")
+        # - Check that we can access the device node, and that it's a Xylo HDK daughterboard
+        if not putils.verify_xylo_version(device, self._event_buffer, timeout=10.0):
+            raise ValueError("`device` must be an opened Xylo HDK daughter board.")
 
         # - Store the device
-        self._device: PollenDaughterBoard = device
-        """ `.PollenDaughterBoard`: The Pollen HDK used by this module """
+        self._device: XyloDaughterBoard = device
+        """ `.XyloDaughterBoard`: The Xylo HDK used by this module """
 
         # - Store the configuration (and apply it)
         self.config: Union[
-            PollenConfiguration, SimulationParameter
+            XyloConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
-        """ `.PollenConfiguration`: The HDK configuration applied to the Pollen module """
+        """ `.XyloConfiguration`: The HDK configuration applied to the Xylo module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
@@ -384,8 +385,8 @@ class PollenSamna(Module):
         # - Store the configuration locally
         self._config = new_config
 
-    def reset_state(self) -> "PollenSamna":
-        # - Reset neuron and synapse state on Pollen
+    def reset_state(self) -> "XyloSamna":
+        # - Reset neuron and synapse state on Xylo
         putils.reset_neuron_synapse_state(self._device, self._event_buffer)
         return self
 
@@ -404,7 +405,7 @@ class PollenSamna(Module):
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
 
-            # - Configure Pollen for accel-time mode
+            # - Configure Xylo for accel-time mode
             m_Nhidden = Nhidden if record else 0
             m_Nout = Nout if record else 0
 
@@ -504,19 +505,17 @@ class PollenSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        pollen_data = putils.read_accel_mode_data(
-            self._state_buffer, Nin, Nhidden, Nout
-        )
+        xylo_data = putils.read_accel_mode_data(self._state_buffer, Nin, Nhidden, Nout)
 
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
-                "Vmem": np.array(pollen_data.V_mem_hid),
-                "Isyn": np.array(pollen_data.I_syn_hid),
-                "Isyn2": np.array(pollen_data.I_syn2_hid),
-                "Spikes": np.array(pollen_data.Spikes_hid),
-                "Vmem_out": np.array(pollen_data.V_mem_out),
-                "Isyn_out": np.array(pollen_data.I_syn_out),
+                "Vmem": np.array(xylo_data.V_mem_hid),
+                "Isyn": np.array(xylo_data.I_syn_hid),
+                "Isyn2": np.array(xylo_data.I_syn2_hid),
+                "Spikes": np.array(xylo_data.Spikes_hid),
+                "Vmem_out": np.array(xylo_data.V_mem_out),
+                "Isyn_out": np.array(xylo_data.I_syn_out),
                 "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
@@ -526,7 +525,7 @@ class PollenSamna(Module):
         new_state = {}
 
         # - Return spike output, new state and record dictionary
-        return pollen_data.Spikes_out, new_state, rec_dict
+        return xylo_data.Spikes_out, new_state, rec_dict
 
     def _evolve_manual(
         self,
@@ -563,11 +562,11 @@ class PollenSamna(Module):
         # - Applies the configuration via `self.config`
         self.config = putils.configure_single_step_time_mode(self.config)
 
-        # - Wait until pollen is ready
+        # - Wait until xylo is ready
         t_start = time.time()
-        while not putils.is_pollen_ready(self._device, self._event_buffer):
+        while not putils.is_xylo_ready(self._device, self._event_buffer):
             if time.time() - t_start > read_timeout:
-                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+                raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -590,13 +589,13 @@ class PollenSamna(Module):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
-            # - Evolve one time-step on Pollen
+            # - Evolve one time-step on Xylo
             putils.advance_time_step(self._device)
 
-            # - Wait until pollen has finished the simulation of this time step
+            # - Wait until xylo has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
-            while not putils.is_pollen_ready(self._device, self._event_buffer):
+            while not putils.is_xylo_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
                     break
@@ -671,11 +670,11 @@ class PollenSamna(Module):
         # - Select single-step simulation mode
         self.config = putils.configure_single_step_time_mode(self.config)
 
-        # - Wait until pollen is ready
+        # - Wait until xylo is ready
         t_start = time.time()
-        while not putils.is_pollen_ready(self._device, self._event_buffer):
+        while not putils.is_xylo_ready(self._device, self._event_buffer):
             if time.time() - t_start > read_timeout:
-                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+                raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -712,13 +711,13 @@ class PollenSamna(Module):
             # - Send input events for this time-step
             putils.send_immediate_input_spikes(self._device, input[timestep])
 
-            # - Evolve one time-step on Pollen
+            # - Evolve one time-step on Xylo
             putils.advance_time_step(self._device)
 
-            # - Wait until pollen has finished the simulation of this time step
+            # - Wait until xylo has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
-            while not putils.is_pollen_ready(self._device, self._event_buffer):
+            while not putils.is_xylo_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
                     break
@@ -884,11 +883,11 @@ class PollenSamna(Module):
             file = folder + "register_-1.txt"
             putils.export_registers(self._device, self._event_buffer, file)
 
-        # - Wait until pollen is ready
+        # - Wait until xylo is ready
         t_start = time.time()
-        while not putils.is_pollen_ready(self._device, self._event_buffer):
+        while not putils.is_xylo_ready(self._device, self._event_buffer):
             if time.time() - t_start > read_timeout:
-                raise TimeoutError("Timed out waiting for Pollen to be ready.")
+                raise TimeoutError("Timed out waiting for Xylo to be ready.")
 
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
@@ -912,7 +911,7 @@ class PollenSamna(Module):
             # - Wait until Xylo HDK has finished the simulation of this time step
             t_start = time.time()
             is_timeout = False
-            while not putils.is_pollen_ready(self._device, self._event_buffer):
+            while not putils.is_xylo_ready(self._device, self._event_buffer):
                 if time.time() - t_start > read_timeout:
                     is_timeout = True
                     break

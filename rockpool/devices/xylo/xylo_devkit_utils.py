@@ -1,10 +1,10 @@
 """
-Utilities for working with the Pollen HDK.
+Utilities for working with the Xylo HDK.
 
-Ideally you should not need to use these utility functions. You should try using :py:class:`.PollenSamna` and :py:class:`.PollenCim` for high-level interfaces to Pollen.
+Ideally you should not need to use these utility functions. You should try using :py:class:`.XyloSamna` and :py:class:`.XyloCim` for high-level interfaces to Xylo.
 
 See Also:
-    The tutorials in :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb`.
+    The tutorials in :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb`.
 
 """
 
@@ -18,7 +18,7 @@ if util.find_spec("samna") is None:
 
 # - `samna` imports
 import samna
-from samna.pollen.configuration import PollenConfiguration
+from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
 
 # - Other imports
 from warnings import warn
@@ -31,15 +31,15 @@ import json
 # - Typing and useful proxy types
 from typing import Any, List, Iterable, Optional, NamedTuple, Union, Tuple
 
-PollenDaughterBoard = Any
+XyloDaughterBoard = Any
 SamnaDeviceNode = Any
-PollenReadBuffer = samna.BufferSinkNode_pollen_event_output_event
-PollenNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
+XyloReadBuffer = samna.BufferSinkNode_pollen_event_output_event
+XyloNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
 
 
-class PollenState(NamedTuple):
+class XyloState(NamedTuple):
     """
-    `.NamedTuple` that encapsulates a recorded Pollen HDK state
+    `.NamedTuple` that encapsulates a recorded Xylo HDK state
     """
 
     Nin: int
@@ -73,9 +73,9 @@ class PollenState(NamedTuple):
     """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
 
 
-class PollenAllRam(NamedTuple):
+class XyloAllRam(NamedTuple):
     """
-    ``NamedTuple`` that encapsulates a recorded Pollen HDK state
+    ``NamedTuple`` that encapsulates a recorded Xylo HDK state
     """
 
     # - state Ram
@@ -150,11 +150,11 @@ class PollenAllRam(NamedTuple):
     """ np.ndarray: Contents of OWTRAM """
 
 
-def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard]:
+def find_xylo_boards(device_node: SamnaDeviceNode) -> List[XyloDaughterBoard]:
     """
-    Search for and return a list of Pollen HDK daughterboards
+    Search for and return a list of Xylo HDK daughterboards
 
-    Iterate over devices and search for Pollen HDK daughterboards. Return a list of available Pollen daughterboards, or an empty list if none are found.
+    Iterate over devices and search for Xylo HDK daughterboards. Return a list of available Xylo daughterboards, or an empty list if none are found.
 
     Notes:
         This function will open any unopened devices on the device node.
@@ -163,7 +163,7 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
         device_node (SamnaDeviceNode): An opened Samna device node
 
     Returns:
-        List[PollenDaughterBoard]: A (possibly empty) list of Pollen HDK daughterboards.
+        List[XyloDaughterBoard]: A (possibly empty) list of Xylo HDK daughterboards.
     """
     # - Get a list of unopened devices
     unopened_devices = device_node.DeviceController.get_unopened_devices()
@@ -179,47 +179,47 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
     # - Get a list of opened devices
     device_list = device_node.DeviceController.get_opened_devices()
 
-    # - Search for a pollen dev kit
-    pollen_hdk_list = [
+    # - Search for a xylo dev kit
+    xylo_hdk_list = [
         getattr(device_node, d.name)
         for d in device_list
         if d.device_info.device_type_name == "PollenDevKit"
     ]
 
-    # - Search for pollen boards
-    pollen_daughterboard_list = []
-    for d in pollen_hdk_list:
+    # - Search for xylo boards
+    xylo_daughterboard_list = []
+    for d in xylo_hdk_list:
         daughterboard = d.get_daughter_board(0)
         if "PollenDaughterBoard" in str(type(daughterboard)):
-            pollen_daughterboard_list.append(daughterboard)
+            xylo_daughterboard_list.append(daughterboard)
 
-    return pollen_daughterboard_list
+    return xylo_daughterboard_list
 
 
-def new_pollen_read_buffer(
-    daughterboard: PollenDaughterBoard,
-) -> PollenReadBuffer:
+def new_xylo_read_buffer(
+    daughterboard: XyloDaughterBoard,
+) -> XyloReadBuffer:
     """
-    Create and connect a new buffer to read from a Pollen HDK
+    Create and connect a new buffer to read from a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterBoard):
+        daughterboard (XyloDaughterBoard):
 
     Returns:
-        samna.BufferSinkNode_pollen_event_output_event: Output buffer receiving events from Pollen HDK
+        samna.BufferSinkNode_xylo_event_output_event: Output buffer receiving events from Xylo HDK
     """
-    # - Register a buffer to read events from Pollen
-    buffer = PollenReadBuffer()
+    # - Register a buffer to read events from Xylo
+    buffer = XyloReadBuffer()
 
     # - Get the device model
     model = daughterboard.get_model()
     # print("   got model")
 
-    # - Get Pollen output event source node
+    # - Get Xylo output event source node
     source_node = model.get_source_node()
     # print("   got source node")
 
-    # - Add the buffer as a destination for the Pollen output events
+    # - Add the buffer as a destination for the Xylo output events
     ic = buffer.get_input_channel()  # source_node -> ic -> buffer (filter)
     # print("   got input channel")
 
@@ -230,28 +230,28 @@ def new_pollen_read_buffer(
     return buffer
 
 
-def new_pollen_state_monitor_buffer(
-    daughterboard: PollenDaughterBoard,
-) -> PollenNeuronStateBuffer:
+def new_xylo_state_monitor_buffer(
+    daughterboard: XyloDaughterBoard,
+) -> XyloNeuronStateBuffer:
     """
     Create a new buffer for monitoring neuron and synapse state and connect it
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen HDK to configure
+        daughterboard (XyloDaughterBoard): A Xylo HDK to configure
 
     Returns:
-        PollenNeuronStateBuffer: A connected neuron / synapse state monitor buffer
+        XyloNeuronStateBuffer: A connected neuron / synapse state monitor buffer
     """
     # - Register a new buffer to receive neuron and synapse state
-    buffer = PollenNeuronStateBuffer()
+    buffer = XyloNeuronStateBuffer()
 
     # - Get the device model
     model = daughterboard.get_model()
 
-    # - Get Pollen output event source node
+    # - Get Xylo output event source node
     source_node = model.get_source_node()
 
-    # - Add the buffer as a destination for the Pollen output events
+    # - Add the buffer as a destination for the Xylo output events
     success = source_node.add_destination(buffer.get_input_channel())
     assert success, "Error connecting the new buffer."
 
@@ -260,7 +260,7 @@ def new_pollen_state_monitor_buffer(
 
 
 def blocking_read(
-    buffer: PollenReadBuffer,
+    buffer: XyloReadBuffer,
     target_timestamp: Optional[int] = None,
     count: Optional[int] = None,
     timeout: Optional[float] = None,
@@ -271,7 +271,7 @@ def blocking_read(
     You should not provide `count` and `target_timestamp` together.
 
     Args:
-        buffer (PollenReadBuffer): A buffer to read from
+        buffer (XyloReadBuffer): A buffer to read from
         target_timestamp (Optional[int]): The desired final timestamp. Read until this timestamp is returned in an event. Default: ``None``, don't wait until a particular timestamp is read.
         count (Optional[int]): The count of required events. Default: ``None``, just wait for any data.
         timeout (Optional[float]): The time in seconds to wait for a result. Default: ``None``, no timeout: block until a read is made.
@@ -323,27 +323,27 @@ def blocking_read(
     return all_events, is_timeout
 
 
-def initialise_pollen_hdk(daughterboard: PollenDaughterBoard) -> None:
+def initialise_xylo_hdk(daughterboard: XyloDaughterBoard) -> None:
     """
-    Initialise the Pollen HDK
+    Initialise the Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen daughterboard to initialise
+        daughterboard (XyloDaughterBoard): A Xylo daughterboard to initialise
     """
     # - Always need to advance one time-step to initialise
     advance_time_step(daughterboard)
 
 
 def write_register(
-    daughterboard: PollenDaughterBoard,
+    daughterboard: XyloDaughterBoard,
     register: int,
     data: int = 0,
 ) -> None:
     """
-    Write data to a register on a Pollen HDK
+    Write data to a register on a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard): A pollen HDK daughterboard to write to
+        daughterboard (XyloDaughterboard): A xylo HDK daughterboard to write to
         register (int): The address of the register to write to
         data (int): The data to write. Default: 0x0
     """
@@ -354,8 +354,8 @@ def write_register(
 
 
 def read_register(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     address: int,
     timeout: float = 2.0,
 ) -> List[int]:
@@ -363,8 +363,8 @@ def read_register(
     Read the contents of a register
 
     Args:
-        daughterboard (PollenDaughterBoard):
-        buffer (samna.BufferSinkNode_pollen_event_output_event):
+        daughterboard (XyloDaughterBoard):
+        buffer (samna.BufferSinkNode_xylo_event_output_event):
         address (int): The register address to read
         timeout (float): A timeout in seconds
 
@@ -401,18 +401,18 @@ def read_register(
 
 
 def read_memory(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     start_address: int,
     count: int = 1,
     read_timeout: float = 2.0,
 ) -> List[int]:
     """
-    Read a block of memory from a Pollen HDK
+    Read a block of memory from a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard):
-        buffer (samna.BufferSinkNode_pollen_event_output_event): A connected output buffer to use in reading
+        daughterboard (XyloDaughterboard):
+        buffer (samna.BufferSinkNode_xylo_event_output_event): A connected output buffer to use in reading
         start_address (int): The base address to start reading from
         count (int): The number of elements to read
 
@@ -460,7 +460,7 @@ def generate_read_memory_events(
     count: int = 1,
 ) -> List[Any]:
     """
-    Build a list of events that cause Pollen memory to be read
+    Build a list of events that cause Xylo memory to be read
 
     This function is designed to be used with `decode_memory_read_events`.
 
@@ -472,7 +472,7 @@ def generate_read_memory_events(
         count (int): The number of memory elements to read. Default: ``1``, read a single memory address.
 
     Returns:
-        List: A list of events to send to a Pollen HDK
+        List: A list of events to send to a Xylo HDK
     """
     # - Set up a memory read
     read_events_list = []
@@ -496,7 +496,7 @@ def decode_memory_read_events(
     count: int = 1,
 ) -> List:
     """
-    Decode a list of events containing memory reads from a Pollen HDK
+    Decode a list of events containing memory reads from a Xylo HDK
 
     This is a low-level function designed to be used in conjuction with :py:func:`.generate_read_memory_events`.
 
@@ -504,7 +504,7 @@ def decode_memory_read_events(
         Use the :py:func:`read_memory` function for a more convenient high-level API.
 
     Args:
-        events (List): A list of events read from a Pollen HDK
+        events (List): A list of events read from a Xylo HDK
         start_address (int): The starting address for the memory read
         count (int): The number of contiguous memory elements that were read
 
@@ -523,21 +523,21 @@ def decode_memory_read_events(
     return return_data
 
 
-def verify_pollen_version(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+def verify_xylo_version(
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     timeout: float = 1.0,
 ) -> bool:
     """
-    Verify that the provided daughterbaord returns the correct version ID for Pollen
+    Verify that the provided daughterbaord returns the correct version ID for Xylo
 
     Args:
-        daughterboard (PollenDaughterBoard): A daughter-board object to test
-        buffer (samna.BufferSinkNode_pollen_event_output_event): A read buffer
+        daughterboard (XyloDaughterBoard): A daughter-board object to test
+        buffer (samna.BufferSinkNode_xylo_event_output_event): A read buffer
         timeout (float): Timeout for checking in seconds
 
     Returns:
-        bool: ``True`` iff the version ID is correct for Pollen
+        bool: ``True`` iff the version ID is correct for Xylo
     """
     # - Clear the read buffer
     buffer.get_events()
@@ -566,17 +566,17 @@ def verify_pollen_version(
 
 
 def write_memory(
-    daughterboard: PollenDaughterBoard,
+    daughterboard: XyloDaughterBoard,
     start_address: int,
     count: Optional[int] = None,
     data: Optional[Iterable] = None,
     chunk_size: int = 65535,
 ) -> None:
     """
-    Write data to Pollen memory
+    Write data to Xylo memory
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen daughterboard to write to
+        daughterboard (XyloDaughterBoard): A Xylo daughterboard to write to
         start_address (int): The base address to start writing from
         count (int): The number of entries to write. Default: ``len(data)``
         data (Iterable): A list of data to write to memory. Default: Write zeros.
@@ -616,15 +616,15 @@ def write_memory(
 
 
 def zero_memory(
-    daughterboard: PollenDaughterBoard,
+    daughterboard: XyloDaughterBoard,
 ) -> None:
     """
-    Clear all Pollen memory
+    Clear all Xylo memory
 
-    This function writes zeros to all memory banks on a Pollen HDK.
+    This function writes zeros to all memory banks on a Xylo HDK.
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to zero memory on
+        daughterboard (XyloDaughterboard): The Xylo HDK to zero memory on
     """
     # - Define the memory banks
     memory_table = {
@@ -653,13 +653,13 @@ def zero_memory(
 
 
 def reset_neuron_synapse_state(
-    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+    daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer
 ) -> None:
     """
-    Reset the neuron and synapse state on a Pollen HDK
+    Reset the neuron and synapse state on a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK daughterboard to reset
+        daughterboard (XyloDaughterboard): The Xylo HDK daughterboard to reset
     """
     # - Get the current configuration
     config = daughterboard.get_model().get_configuration()
@@ -670,16 +670,16 @@ def reset_neuron_synapse_state(
 
 
 def apply_configuration(
-    daughterboard: PollenDaughterBoard,
-    config: PollenConfiguration,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    config: XyloConfiguration,
+    buffer: XyloReadBuffer,
 ) -> None:
     """
-    Apply a configuration to the Pollen HDK
+    Apply a configuration to the Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to write the configuration to
-        config (PollenConfiguration): A configuration for Pollen
+        daughterboard (XyloDaughterboard): The Xylo HDK to write the configuration to
+        config (XyloConfiguration): A configuration for Xylo
     """
     # - WORKAROUND: Manually enable debug clock
     config.debug.clock_enable = True
@@ -697,22 +697,22 @@ def apply_configuration(
 
 
 def read_neuron_synapse_state(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     Nhidden: int = 1000,
     Nout: int = 8,
-) -> PollenState:
+) -> XyloState:
     """
     Read and return the current neuron and synaptic state of neurons
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to query
-        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK
+        daughterboard (XyloDaughterboard): The Xylo HDK to query
+        buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
         Nhidden (int): Number of hidden neurons to read. Default: ``1000`` (all neurons).
         Nout (int): Number of output neurons to read. Default: ``8`` (all neurons).
 
     Returns:
-        :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+        :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
 
     """
     # - Define the memory bank addresses
@@ -746,7 +746,7 @@ def read_neuron_synapse_state(
     Spikes = read_memory(daughterboard, buffer, memory_table["rspkram"], Nhidden)
 
     # - Return the state
-    return PollenState(
+    return XyloState(
         Nhidden,
         Nout,
         np.array(Vmem[:Nhidden], "int16"),
@@ -760,21 +760,21 @@ def read_neuron_synapse_state(
 
 
 def read_allram_state(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     Nin: int = 16,
     Nhidden: int = 1000,
     Nout: int = 8,
-) -> PollenAllRam:
+) -> XyloAllRam:
     """
     Read and return the all ram in each step as a state
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to query
-        buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK
+        daughterboard (XyloDaughterboard): The Xylo HDK to query
+        buffer (XyloReadBuffer): A read buffer connected to the Xylo HDK
 
     Returns:
-        :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
+        :py:class:`.XyloState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
 
     """
     # - Define the memory bank addresses
@@ -914,7 +914,7 @@ def read_allram_state(
     )
 
     # - Return the all ram state
-    return PollenAllRam(
+    return XyloAllRam(
         Nin,
         Nhidden,
         Nout,
@@ -944,21 +944,21 @@ def read_allram_state(
 
 
 def read_accel_mode_data(
-    monitor_buffer: PollenNeuronStateBuffer,
+    monitor_buffer: XyloNeuronStateBuffer,
     Nin: int,
     Nhidden: int,
     Nout: int,
-) -> PollenState:
+) -> XyloState:
     """
-    Read accelerated simulation mode data from a Pollen HDK
+    Read accelerated simulation mode data from a Xylo HDK
 
     Args:
-        monitor_buffer (PollenNeuronStateBuffer): A connected `PollenNeuronStateBuffer` to read from
+        monitor_buffer (XyloNeuronStateBuffer): A connected `XyloNeuronStateBuffer` to read from
         Nhidden (int): The number of hidden neurons to monitor
         Nout (int): The number of output neurons to monitor
 
     Returns:
-        PollenState: The encapsulated state read from the Pollen device
+        XyloState: The encapsulated state read from the Xylo device
     """
     # - Read data from neuron state buffer
     vmem_ts = np.array(monitor_buffer.get_reservoir_v_mem(), "int16").T
@@ -973,8 +973,8 @@ def read_accel_mode_data(
     vmem_out_ts = vmem_ts[:, -Nout:] if len(vmem_ts) > 0 else None
     vmem_ts = vmem_ts[:, :Nhidden] if len(vmem_ts) > 0 else None
 
-    # - Return as a PollenState object
-    return PollenState(
+    # - Return as a XyloState object
+    return XyloState(
         Nin,
         Nhidden,
         Nout,
@@ -990,24 +990,24 @@ def read_accel_mode_data(
 
 def decode_accel_mode_data(
     events: List[Any], Nhidden: int = 1000, Nout: int = 8
-) -> Tuple[PollenState, np.ndarray]:
+) -> Tuple[XyloState, np.ndarray]:
     """
-    Decode events from accelerated-time operation of the Pollen HDK
+    Decode events from accelerated-time operation of the Xylo HDK
 
     Warnings:
-        ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Pollen HDK, for this function to operate as expected.
+        ``Nhidden`` and ``Nout`` must be defined correctly for the network deployed to the Xylo HDK, for this function to operate as expected.
 
         This function must be called with the *full* list of events from a simulation. Otherwise the data returned will be incomplete. This function will not operate as expected if provided with incomplete data.
 
         You can use the ``target_timstamp`` argument to `.blocking_read` to ensure that you have read events up to the desired final timestep.
 
     Args:
-        events (List[Any]): A list of events produced during an accelerated-mode simulation on a Pollen HDK
+        events (List[Any]): A list of events produced during an accelerated-mode simulation on a Xylo HDK
         Nhidden (int): The number of defined hidden-layer neurons. Default: ``1000``, expect to read the state of every neuron.
         Nout (int): The number of defined output-layer neurons. Default: ``8``, expect to read the state of every neuron.
 
     Returns:
-        (`.PollenState`, np.ndarray): A `.NamedTuple` containing the decoded state resulting from the simulation, and an array of timestamps for each state entry over time
+        (`.XyloState`, np.ndarray): A `.NamedTuple` containing the decoded state resulting from the simulation, and an array of timestamps for each state entry over time
     """
 
     # - Define the memory banks
@@ -1101,7 +1101,7 @@ def decode_accel_mode_data(
     vmem_ts = vmem_ts[:, :Nhidden]
 
     return (
-        PollenState(
+        XyloState(
             Nhidden,
             Nout,
             vmem_ts,
@@ -1116,51 +1116,49 @@ def decode_accel_mode_data(
     )
 
 
-def is_pollen_ready(
-    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
-) -> None:
+def is_xylo_ready(daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer) -> None:
     """
-    Query a Pollen HDK to see if it is ready for a time-step
+    Query a Xylo HDK to see if it is ready for a time-step
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to query
-        buffer (PollenReadBuffer): A buffer to use while reading
+        daughterboard (XyloDaughterboard): The Xylo HDK to query
+        buffer (XyloReadBuffer): A buffer to use while reading
 
-    Returns: ``True`` iff the Pollen HDK has finished all processing
+    Returns: ``True`` iff the Xylo HDK has finished all processing
     """
     return read_register(daughterboard, buffer, 0x10)[-1] & (1 << 16) is not 0
 
 
-def advance_time_step(daughterboard: PollenDaughterBoard) -> None:
+def advance_time_step(daughterboard: XyloDaughterBoard) -> None:
     """
-    Take a single manual time-step on a Pollen HDK
+    Take a single manual time-step on a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to access
+        daughterboard (XyloDaughterboard): The Xylo HDK to access
     """
     e = samna.pollen.event.TriggerProcessing()
     daughterboard.get_model().write([e])
 
 
-def reset_input_spikes(daughterboard: PollenDaughterBoard) -> None:
+def reset_input_spikes(daughterboard: XyloDaughterBoard) -> None:
     """
-    Reset the input spike registers on a Pollen HDK
+    Reset the input spike registers on a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard): The Pollen HDK to access
+        daughterboard (XyloDaughterboard): The Xylo HDK to access
     """
     for register in range(4):
         write_register(daughterboard, 0x0C + register)
 
 
 def send_immediate_input_spikes(
-    daughterboard: PollenDaughterBoard, spike_counts: Iterable[int]
+    daughterboard: XyloDaughterBoard, spike_counts: Iterable[int]
 ) -> None:
     """
-    Send input events with no timestamp to a Pollen HDK
+    Send input events with no timestamp to a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterboard): A Pollen HDK to send events to
+        daughterboard (XyloDaughterboard): A Xylo HDK to send events to
         spike_counts (Iterable[int]): An Iterable containing one slot per input channel. Each entry indicates how many events should be sent to the corresponding input channel.
     """
     # - Encode input events
@@ -1177,14 +1175,14 @@ def send_immediate_input_spikes(
 
 
 def read_output_events(
-    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+    daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer
 ) -> np.ndarray:
     """
-    Read the spike flags from the output neurons on a Pollen HDK
+    Read the spike flags from the output neurons on a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterBoard): The Pollen HDK to query
-        buffer (PollenReadBuffer): A read buffer to use
+        daughterboard (XyloDaughterBoard): The Xylo HDK to query
+        buffer (XyloReadBuffer): A read buffer to use
 
     Returns:
         np.ndarray: A boolean array of output event flags
@@ -1198,8 +1196,8 @@ def read_output_events(
 
 
 def print_debug_ram(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     Nin: int = 10,
     Nhidden: int = 10,
     Nout: int = 2,
@@ -1208,8 +1206,8 @@ def print_debug_ram(
     Print memory contents for debugging purposes
 
     Args:
-        daughterboard (PollenDaughterboard): A Pollen daughterboard to debug
-        buffer (PollenReadBuffer): A connected Pollen read buffer to use when reading memory
+        daughterboard (XyloDaughterboard): A Xylo daughterboard to debug
+        buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading memory
         Nin (int): Number of input neurons to display. Default: ``10``.
         Nhidden (int): Number of hidden neurons to display. Default: ``10``.
     """
@@ -1329,16 +1327,16 @@ def print_debug_ram(
 
 
 def export_registers(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     file,
 ) -> None:
     """
     Print register contents for debugging purposes
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
-        buffer (PollenReadBuffer): A connected Pollen read buffer to use in reading registers
+        daughterboard (XyloDaughterBoard): A Xylo daughterboard to debug
+        buffer (XyloReadBuffer): A connected Xylo read buffer to use in reading registers
         file: a file to save the registers
     """
 
@@ -1449,14 +1447,14 @@ def export_registers(
 
 
 def print_debug_registers(
-    daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
+    daughterboard: XyloDaughterBoard, buffer: XyloReadBuffer
 ) -> None:
     """
-    Print register contents of a Pollen HDK for debugging purposes
+    Print register contents of a Xylo HDK for debugging purposes
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
-        buffer (PollenReadBuffer): A connected Pollen read buffer to use when reading registers
+        daughterboard (XyloDaughterBoard): A Xylo daughterboard to debug
+        buffer (XyloReadBuffer): A connected Xylo read buffer to use when reading registers
     """
     print("ctrl1", hex(read_register(daughterboard, buffer, 0x1)[0]))
     print("ctrl2", hex(read_register(daughterboard, buffer, 0x2)[0]))
@@ -1488,7 +1486,7 @@ def print_debug_registers(
 
 def num_buffer_neurons(Nhidden: int) -> int:
     """
-    Number of buffer neurons required for this network on Pollen 1
+    Number of buffer neurons required for this network on Xylo 1
 
     Args:
         Nhidden (int): Number of hidden layer neurons
@@ -1501,26 +1499,26 @@ def num_buffer_neurons(Nhidden: int) -> int:
 
 
 def get_current_timestamp(
-    daughterboard: PollenDaughterBoard,
-    buffer: PollenReadBuffer,
+    daughterboard: XyloDaughterBoard,
+    buffer: XyloReadBuffer,
     timeout: float = 3.0,
 ) -> int:
     """
-    Retrieve the current timestamp on a Pollen HDK
+    Retrieve the current timestamp on a Xylo HDK
 
     Args:
-        daughterboard (PollenDaughterBoard): A Pollen HDK
-        buffer (PollenReadBuffer): A connected read buffer for the pollen HDK
+        daughterboard (XyloDaughterBoard): A Xylo HDK
+        buffer (XyloReadBuffer): A connected read buffer for the xylo HDK
         timeout (float): A timeout for reading
 
     Returns:
-        int: The current timestamp on the Pollen HDK
+        int: The current timestamp on the Xylo HDK
     """
 
     # - Clear read buffer
     buffer.get_events()
 
-    # - Trigger a readout event on Pollen
+    # - Trigger a readout event on Xylo
     e = samna.pollen.event.TriggerReadout()
     daughterboard.get_model().write([e])
 
@@ -1548,25 +1546,25 @@ def get_current_timestamp(
 
 
 def configure_accel_time_mode(
-    config: PollenConfiguration,
-    state_monitor_buffer: PollenNeuronStateBuffer,
+    config: XyloConfiguration,
+    state_monitor_buffer: XyloNeuronStateBuffer,
     monitor_Nhidden: Optional[int] = 0,
     monitor_Noutput: Optional[int] = 0,
-) -> (PollenConfiguration, PollenNeuronStateBuffer):
+) -> (XyloConfiguration, XyloNeuronStateBuffer):
     """
-    Switch on accelerated-time mode on a Pollen daughterboard, and configure network monitoring
+    Switch on accelerated-time mode on a Xylo daughterboard, and configure network monitoring
 
     Notes:
-        Use :py:func:`new_pollen_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
+        Use :py:func:`new_xylo_state_monitor_buffer` to generate a buffer to monitor neuron and synapse state.
 
     Args:
-        config (PollenConfiguration): The desired Pollen configuration to use
-        state_monitor_buffer (PollenNeuronStateBuffer): A connected neuron state monitor buffer
+        config (XyloConfiguration): The desired Xylo configuration to use
+        state_monitor_buffer (XyloNeuronStateBuffer): A connected neuron state monitor buffer
         monitor_Nhidden (Optional[int]): The number of hidden neurons for which to monitor state during evolution. Default: ``0``, don't monitor any hidden neurons.
         monitor_Noutput (Optional[int]): The number of output neurons for which to monitor state during evolution. Default: ``0``, don't monitor any output neurons.
 
     Returns:
-        (PollenConfiguration, PollenNeuronStateBuffer): `config` and `monitor_buffer`
+        (XyloConfiguration, XyloNeuronStateBuffer): `config` and `monitor_buffer`
     """
     # - Select accelerated time mode
     config.operation_mode = samna.pollen.OperationMode.AcceleratedTime
@@ -1601,13 +1599,13 @@ def configure_accel_time_mode(
     return config, state_monitor_buffer
 
 
-def configure_single_step_time_mode(config: PollenConfiguration) -> PollenConfiguration:
+def configure_single_step_time_mode(config: XyloConfiguration) -> XyloConfiguration:
     """
-    Switch on single-step model on a Pollen daughterboard
+    Switch on single-step model on a Xylo daughterboard
 
     Args:
-        daughterboard (PollenBaughterBoard): The Pollen HDK to configure
-        config (PollenConfiguration): The desired Pollen configuration to use
+        daughterboard (XyloBaughterBoard): The Xylo HDK to configure
+        config (XyloConfiguration): The desired Xylo configuration to use
     """
     # - Write the configuration
     config.operation_mode = samna.pollen.OperationMode.Manual
@@ -1630,7 +1628,7 @@ def to_hex(n: int, digits: int) -> str:
 
 def export_config(
     path: Union[str, Path],
-    config: PollenConfiguration,
+    config: XyloConfiguration,
     dt: float,
 ) -> None:
     """
@@ -1640,7 +1638,7 @@ def export_config(
 
     Args:
         path (Union[str, path]): Directory to write data
-        config (PollenConfiguration): A Pollen configuraiton to export
+        config (XyloConfiguration): A Xylo configuraiton to export
         dt (float): The time step of the simulation
     """
     # - Check base path
@@ -1648,11 +1646,11 @@ def export_config(
     if not path.exists():
         makedirs(path)
 
-    # - Generate a PollenCim module from the config
-    from rockpool.devices.pollen import PollenCim
+    # - Generate a XyloCim module from the config
+    from rockpool.devices.xylo import XyloCim
 
-    cim = PollenCim.from_config(config, dt=dt)
-    model = cim._pollen_layer
+    cim = XyloCim.from_config(config, dt=dt)
+    model = cim._xylo_layer
 
     inp_size = len(model.synapses_in)
     num_neurons = len(model.synapses_rec)
@@ -1893,17 +1891,17 @@ def export_config(
 
 
 def export_frozen_state(
-    path: Union[str, Path], config: PollenConfiguration, state: PollenState
+    path: Union[str, Path], config: XyloConfiguration, state: XyloState
 ) -> None:
     """
-    Export a single time-step frozen state of a Pollen network
+    Export a single time-step frozen state of a Xylo network
 
-    This function will produce a series of RAM initialisation files containing a Pollen state, written to the directory ``path``, which will be created if necessary.
+    This function will produce a series of RAM initialisation files containing a Xylo state, written to the directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
-        config (PollenConfiguration): The configuration of the Pollen network
-        state (PollenState): A single time-step state of a Pollen network to export
+        config (XyloConfiguration): The configuration of the Xylo network
+        state (XyloState): A single time-step state of a Xylo network to export
     """
     # - Make `path` a path
     path = Path(path)
@@ -1999,20 +1997,20 @@ def export_frozen_state(
 
 def export_temporal_state(
     path: Union[Path, str],
-    config: PollenConfiguration,
+    config: XyloConfiguration,
     inp_spks: np.ndarray,
-    state: PollenState,
+    state: XyloState,
 ) -> None:
     """
-    Export the state of a Pollen network over time, for debugging purposes
+    Export the state of a Xylo network over time, for debugging purposes
 
-    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network. The files will be save to the directory ``path``, which will be created if necessary.
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Xylo network. The files will be save to the directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
-        config (PollenConfiguration): The configuration of the Pollen network
+        config (XyloConfiguration): The configuration of the Xylo network
         inp_spks (np.ndarray): The input spikes for this simulation
-        state (PollenState): A temporal state of a Pollen network to export
+        state (XyloState): A temporal state of a Xylo network to export
     """
     # - Make `path` a path
     path = Path(path)
@@ -2137,20 +2135,20 @@ def export_temporal_state(
 
 def export_allram_state(
     path: Union[Path, str],
-    config: PollenConfiguration,
+    config: XyloConfiguration,
     inp_spks: np.ndarray,
-    state: PollenState,
+    state: XyloState,
 ) -> None:
     """
-    Export the all RAM state of a Pollen network over time, for debugging purposes
+    Export the all RAM state of a Xylo network over time, for debugging purposes
 
-    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network. The files will be written to a directory ``path``, which will be created if necessary.
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Xylo network. The files will be written to a directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
-        config (PollenConfiguration): The configuration of the Pollen network
+        config (XyloConfiguration): The configuration of the Xylo network
         inp_spks (np.ndarray): The input spikes for this simulation
-        state (PollenState): A temporal state of a Pollen network to export
+        state (XyloState): A temporal state of a Xylo network to export
     """
     # - Make `path` a path
     path = Path(path)
@@ -2559,20 +2557,20 @@ def export_allram_state(
 
 def export_last_state(
     path: Union[Path, str],
-    config: PollenConfiguration,
+    config: XyloConfiguration,
     inp_spks: np.ndarray,
-    state: PollenState,
+    state: XyloState,
 ) -> None:
     """
-    Export the final state of a Pollen network, evolved over an input
+    Export the final state of a Xylo network, evolved over an input
 
-    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network. The files will be written to the directory ``path``, which will be created if necessary.
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Xylo network. The files will be written to the directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
-        config (PollenConfiguration): The configuration of the Pollen network
+        config (XyloConfiguration): The configuration of the Xylo network
         inp_spks (np.ndarray): The input spikes for this simulation
-        state (PollenState): A temporal state of a Pollen network to export
+        state (XyloState): A temporal state of a Xylo network to export
     """
     # - Make `path` a path
     path = Path(path)

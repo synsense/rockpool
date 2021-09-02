@@ -2,17 +2,17 @@ import pytest
 
 
 def test_imports():
-    from rockpool.devices.pollen import (
+    from rockpool.devices.xylo import (
         config_from_specification,
         save_config,
         load_config,
-        PollenSamna,
+        XyloSamna,
     )
-    import rockpool.devices.pollen.pollen_devkit_utils as putils
+    import rockpool.devices.xylo.xylo_devkit_utils as putils
 
 
 def test_from_specification():
-    from rockpool.devices.pollen import config_from_specification
+    from rockpool.devices.xylo import config_from_specification
     import numpy as np
 
     Nin = 3
@@ -38,7 +38,7 @@ def test_from_specification():
 
 
 def test_save_load():
-    from rockpool.devices.pollen import (
+    from rockpool.devices.xylo import (
         config_from_specification,
         save_config,
         load_config,
@@ -117,9 +117,9 @@ def test_save_load():
     )
 
 
-def test_PollenSamna():
-    from rockpool.devices.pollen import PollenSamna, config_from_specification
-    import rockpool.devices.pollen.pollen_devkit_utils as putils
+def test_XyloSamna():
+    from rockpool.devices.xylo import XyloSamna, config_from_specification
+    import rockpool.devices.xylo.xylo_devkit_utils as putils
     import samna
     import numpy as np
 
@@ -143,15 +143,13 @@ def test_PollenSamna():
     # name "device_node".
     # The contents of the node are now available as the Python submodule samna.device_node
     samna.open_remote_node(node_id, "device_node")
-    pollen_hdk_nodes = putils.find_pollen_boards(samna.device_node)
+    xylo_hdk_nodes = putils.find_xylo_boards(samna.device_node)
 
-    assert (
-        len(pollen_hdk_nodes) > 0
-    ), "You must connect a Pollen dev kit to run this test"
+    assert len(xylo_hdk_nodes) > 0, "You must connect a Xylo dev kit to run this test"
 
-    daughterboard = pollen_hdk_nodes[0]
+    daughterboard = xylo_hdk_nodes[0]
 
-    # - Make a Pollen configuration
+    # - Make a Xylo configuration
     Nin = 3
     Nhidden = 5
     Nout = 2
@@ -174,12 +172,12 @@ def test_PollenSamna():
         aliases=None,
     )
 
-    # - Make a PollenSamna module
-    mod_pollen = PollenSamna(daughterboard, config, dt)
+    # - Make a XyloSamna module
+    mod_xylo = XyloSamna(daughterboard, config, dt)
 
     # - Simulate with random input
     T = 10
     f_rate = 0.01
     input_ts = np.random.rand(T, Nin) < 0.01
-    mod_pollen.reset_state()
-    output_ts, _, rec_state = mod_pollen(input_ts, record=True)
+    mod_xylo.reset_state()
+    output_ts, _, rec_state = mod_xylo(input_ts, record=True)

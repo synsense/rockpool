@@ -1,11 +1,9 @@
 """
-Cimulator-backed module compatible with Pollen. Requires Cimulator
+Cimulator-backed module compatible with Xylo. Requires Cimulator
 """
 
 # - Check that Cimulator is installed
 from importlib import util
-
-import cimulator.pollen
 
 if util.find_spec("cimulator") is None:
     raise ModuleNotFoundError(
@@ -19,7 +17,7 @@ from rockpool import TSContinuous, TSEvent
 
 
 # - Import Cimulator
-from cimulator.pollen import Synapse, PollenLayer
+from cimulator.pollen import Synapse, PollenLayer as XyloLayer
 
 # - Numpy
 import numpy as np
@@ -27,21 +25,21 @@ import numpy as np
 # - Typing
 from typing import Optional, Union, Any, Dict
 
-PollenConfiguration = Union[Dict, Any]
+XyloConfiguration = Union[Dict, Any]
 
 # - Define exports
-__all__ = ["PollenCim"]
+__all__ = ["XyloCim"]
 
 
-class PollenCim(Module):
+class XyloCim(Module):
     """
-    A :py:class:`.Module` simulating a digital SNN on Pollen, using Cimulator as a back-end.
+    A :py:class:`.Module` simulating a digital SNN on Xylo, using Cimulator as a back-end.
 
-    You should use the factory methods `.from_config` and `.from_specification` to build a concrete `.PollenCim` module.
+    You should use the factory methods `.from_config` and `.from_specification` to build a concrete `.XyloCim` module.
 
     See Also:
 
-        See the tutorials :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb` for a high-level overview of building and deploying networks for Pollen.
+        See the tutorials :ref:`/devices/xylo-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-xylo.ipynb` for a high-level overview of building and deploying networks for Xylo.
     """
 
     __create_key = object()
@@ -50,22 +48,22 @@ class PollenCim(Module):
     def __init__(
         self,
         create_key,
-        config: PollenConfiguration,
+        config: XyloConfiguration,
         shape: tuple = (16, 1000, 8),
         dt: float = 1e-3,
         *args,
         **kwargs,
     ):
         """
-        Private constructor for :py:class:`.PollenCim`
+        Private constructor for :py:class:`.XyloCim`
 
         Warnings:
-            Use the factory methods :py:meth:`.PollenCim.from_config` and :py:meth:`PollenCim.from_specfication` to construct a :py:class:`.PollenCim` module.
+            Use the factory methods :py:meth:`.XyloCim.from_config` and :py:meth:`XyloCim.from_specfication` to construct a :py:class:`.XyloCim` module.
         """
         # - Check that we are creating the object using a factory function
-        if create_key is not PollenCim.__create_key:
+        if create_key is not XyloCim.__create_key:
             raise NotImplementedError(
-                "PollenCim may only be instantiated using factory methods `from_config` or `from_weights`."
+                "XyloCim may only be instantiated using factory methods `from_config` or `from_weights`."
             )
 
         # - Initialise the superclass
@@ -78,29 +76,29 @@ class PollenCim(Module):
         )
 
         # - Store the configuration
-        self.config: Union[PollenConfiguration, Parameter] = Parameter(
+        self.config: Union[XyloConfiguration, Parameter] = Parameter(
             init_func=lambda _: config
         )
-        """ (PollenConfiguration) Configuration of the Pollen module """
+        """ (XyloConfiguration) Configuration of the Xylo module """
 
         # - Store the dt
         self.dt: Union[float, SimulationParameter] = SimulationParameter(dt)
         """ (float) Simulation time-step for this module """
 
-        # - Empty attribute for the Pollen layer
-        self._pollen_layer: Optional[PollenLayer] = None
-        """ (PollenLayer) Handle to a Cimulator object """
+        # - Empty attribute for the Xylo layer
+        self._xylo_layer: Optional[XyloLayer] = None
+        """ (XyloLayer) Handle to a Cimulator object """
 
     @classmethod
-    def from_config(cls, config: PollenConfiguration, dt: float = 1e-3):
+    def from_config(cls, config: XyloConfiguration, dt: float = 1e-3):
         """
-        Creata a Cimulator based layer to simulate the Pollen hardware, from a configuration
+        Creata a Cimulator based layer to simulate the Xylo hardware, from a configuration
 
         Parameters:
         dt: float
             Timestep for simulation, in seconds. Default: 1ms
-        config: PollenConfiguration
-            ``samna.pollen.Configuration`` object to specify all parameters. See samna documentation for details.
+        config: XyloConfiguration
+            ``samna.pollen.PollenConfiguration`` object to specify all parameters. See samna documentation for details.
 
         """
         # - Instantiate the class
@@ -177,8 +175,8 @@ class PollenCim(Module):
         _cim_params.weight_shift_rec = config.reservoir.weight_bit_shift
         _cim_params.weight_shift_out = config.readout.weight_bit_shift
 
-        # - Instantiate a Pollen Cimulation layer
-        mod._pollen_layer = PollenLayer(
+        # - Instantiate a Xylo Cimulation layer
+        mod._xylo_layer = XyloLayer(
             synapses_in=_cim_params.synapses_in,
             synapses_rec=_cim_params.synapses_rec,
             synapses_out=_cim_params.synapses_out,
@@ -192,7 +190,7 @@ class PollenCim(Module):
             dash_mem_out=_cim_params.dash_mem_out,
             dash_syns=_cim_params.dash_syn,
             dash_syns_out=_cim_params.dash_syn_out,
-            name="PollenCim_PollenLayer",
+            name="XyloCim_XyloLayer",
         )
 
         # - Store parameters and return
@@ -218,9 +216,9 @@ class PollenCim(Module):
         aliases: Optional[list] = None,
         dt: float = 1e-3,
         verify_config: bool = True,
-    ) -> "PollenCim":
+    ) -> "XyloCim":
         """
-        Instantiate a :py:class:`.PollenCim` module from a full set of parameters
+        Instantiate a :py:class:`.XyloCim` module from a full set of parameters
 
         Args:
             weights_in (np.ndarray): An int8 matrix ``(Nin, Nhidden, 2)``, specifying input to hidden neuron connections. The final dimension specifies the inputs to the two available synapses of the hidden neurons.
@@ -241,14 +239,14 @@ class PollenCim(Module):
             verify_config (bool): Check for a valid configuraiton before applying it. Default ``True``.
 
         Returns:
-            :py:class:`.PollenCim`: A :py:class:`.Module` that emulates the Pollen hardware.
+            :py:class:`.XyloCim`: A :py:class:`.Module` that emulates the Xylo hardware.
 
         Raises:
             ValueError: If ``verify_config`` is ``True`` and the configuration is not valid.
         """
-        from rockpool.devices.pollen import config_from_specification
+        from rockpool.devices.xylo import config_from_specification
 
-        # - Convert specification to pollen configuration
+        # - Convert specification to xylo configuration
         config, is_valid, status = config_from_specification(
             weights_in=weights_in,
             weights_rec=weights_rec,
@@ -267,7 +265,7 @@ class PollenCim(Module):
         )
 
         if verify_config and not is_valid:
-            raise ValueError("Pollen configuration is not valid: " + status)
+            raise ValueError("Xylo configuration is not valid: " + status)
 
         # - Instantiate module from config
         return cls.from_config(config, dt=dt)
@@ -279,28 +277,28 @@ class PollenCim(Module):
         *args,
         **kwargs,
     ):
-        # - Evolve using the pollen layer
-        output = np.array(self._pollen_layer.evolve(input_raster))
+        # - Evolve using the xylo layer
+        output = np.array(self._xylo_layer.evolve(input_raster))
 
         # - Build the recording dictionary
         if not record:
             recording = {}
         else:
             recording = {
-                "Vmem": np.array(self._pollen_layer.rec_v_mem).T,
-                "Isyn": np.array(self._pollen_layer.rec_i_syn).T,
-                "Isyn2": np.array(self._pollen_layer.rec_i_syn2).T,
-                "Spikes": np.array(self._pollen_layer.rec_recurrent_spikes),
-                "Vmem_out": np.array(self._pollen_layer.rec_v_mem_out).T,
-                "Isyn_out": np.array(self._pollen_layer.rec_i_syn_out).T,
+                "Vmem": np.array(self._xylo_layer.rec_v_mem).T,
+                "Isyn": np.array(self._xylo_layer.rec_i_syn).T,
+                "Isyn2": np.array(self._xylo_layer.rec_i_syn2).T,
+                "Spikes": np.array(self._xylo_layer.rec_recurrent_spikes),
+                "Vmem_out": np.array(self._xylo_layer.rec_v_mem_out).T,
+                "Isyn_out": np.array(self._xylo_layer.rec_i_syn_out).T,
             }
 
         # - Return output, state and recording dictionary
         return output, {}, recording
 
-    def reset_state(self) -> "PollenCim":
+    def reset_state(self) -> "XyloCim":
         """ Reset the state of this module. """
-        self._pollen_layer.reset_all()
+        self._xylo_layer.reset_all()
         return self
 
     def _wrap_recorded_state(self, state_dict: dict, t_start: float = 0.0) -> dict:

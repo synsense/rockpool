@@ -1,15 +1,13 @@
-import pytest
-
-
 def test_imports():
-    from rockpool.devices import pollen
+    from rockpool.devices import xylo
 
 
 def test_configure():
     # - Samna imports
-    from samna.pollen.configuration import PollenConfiguration, ReservoirNeuron
+    from samna.pollen.configuration import ReservoirNeuron
+    from samna.pollen.configuration import PollenConfiguration as XyloConfiguration
     from samna.pollen import validate_configuration
-    from rockpool.devices import pollen
+    from rockpool.devices import xylo
     import numpy as np
 
     # - Build a network
@@ -19,8 +17,8 @@ def test_configure():
 
     # - Quantise the network
 
-    # - Build a Pollen configuration
-    c = PollenConfiguration()
+    # - Build a Xylo configuration
+    c = XyloConfiguration()
 
     w = np.ones((Nin, Nhidden), "int")
     print(w.shape)
@@ -40,10 +38,10 @@ def test_configure():
 
     print(validate_configuration(c))
 
-    # - Build a simulated Pollen Module
-    mod_cimulator = pollen.PollenCim.from_config(c, dt=dt)
+    # - Build a simulated Xylo Module
+    mod_cimulator = xylo.XyloCim.from_config(c, dt=dt)
 
-    # - Simulate the evolution of the network on Pollen
+    # - Simulate the evolution of the network on Xylo
     T = 1000
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
@@ -52,9 +50,7 @@ def test_configure():
 
 def test_specification():
     # - Samna imports
-    from samna.pollen.configuration import PollenConfiguration, ReservoirNeuron
-    from samna.pollen import validate_configuration
-    from rockpool.devices import pollen
+    from rockpool.devices import xylo
     import numpy as np
 
     Nin = 8
@@ -67,7 +63,7 @@ def test_specification():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    mod_cimulator = pollen.PollenCim.from_specification(**spec)
+    mod_cimulator = xylo.XyloCim.from_specification(**spec)
 
     # - Test complete spec
     spec = {
@@ -87,9 +83,9 @@ def test_specification():
         "aliases": None,
     }
 
-    mod_cimulator = pollen.PollenCim.from_specification(**spec)
+    mod_cimulator = xylo.XyloCim.from_specification(**spec)
 
-    # - Simulate the evolution of the network on Pollen
+    # - Simulate the evolution of the network on Xylo
     T = 1000
     input_rate = 0.01
     input_raster = np.random.rand(T, Nin) < input_rate
@@ -98,9 +94,7 @@ def test_specification():
 
 def test_from_config():
     # - Samna imports
-    from samna.pollen.configuration import PollenConfiguration, ReservoirNeuron
-    from samna.pollen import validate_configuration
-    from rockpool.devices import pollen
+    from rockpool.devices import xylo
     import numpy as np
 
     Nin = 8
@@ -113,7 +107,7 @@ def test_from_config():
         "weights_out": np.ones((Nhidden, Nout), "int"),
     }
 
-    c, _, _ = pollen.config_from_specification(**spec)
-    mod_cimulator = pollen.PollenCim.from_config(c)
+    c, _, _ = xylo.config_from_specification(**spec)
+    mod_cimulator = xylo.XyloCim.from_config(c)
 
     mod_cimulator.timed()
