@@ -291,9 +291,14 @@ def load_config(filename: str) -> PollenConfiguration:
 
 class PollenSamna(Module):
     """
-    A spiking neuron :py:class:`Module` backed by the Pollen hardware, via `samna`.
+    A spiking neuron :py:class:`.Module` backed by the Pollen hardware, via `samna`.
 
-    Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen. See :ref:`/devices/pollen-overview.ipynb` for more information about the Pollen development kit, and supported networks.
+    Use :py:func:`.config_from_specification` to build and validate a configuration for Pollen.
+
+    See Also:
+
+        See the tutorials :ref:`/devices/pollen-overview.ipynb` and :ref:`/devices/torch-training-spiking-for-pollen.ipynb` for a high-level overview of building and deploying networks for Pollen.
+
     """
 
     def __init__(
@@ -342,21 +347,21 @@ class PollenSamna(Module):
 
         # - Store the device
         self._device: PollenDaughterBoard = device
-        """ (PollenDaughterBoard) The Pollen HDK used by this module """
+        """ `.PollenDaughterBoard`: The Pollen HDK used by this module """
 
         # - Store the configuration (and apply it)
         self.config: Union[
             PollenConfiguration, SimulationParameter
         ] = SimulationParameter(shape=(), init_func=lambda _: config)
-        """ `.PollenConfiguration`: The configuration of the Pollen module """
+        """ `.PollenConfiguration`: The HDK configuration applied to the Pollen module """
 
         # - Keep a registry of the current recording mode, to save unnecessary reconfiguration
         self._last_record_mode: Optional[bool] = None
-        """ (bool) The most recent (and assumed still valid) recording mode """
+        """ bool: The most recent (and assumed still valid) recording mode """
 
         # - Store the timestep
         self.dt: Union[float, SimulationParameter] = dt
-        """ float: Simulation time-step of the module """
+        """ float: Simulation time-step of the module, in seconds """
 
         # - Zero neuron state when building a new module
         self.reset_state()
@@ -384,7 +389,17 @@ class PollenSamna(Module):
         putils.reset_neuron_synapse_state(self._device, self._event_buffer)
         return self
 
-    def _configure_accel_time_mode(self, Nhidden: int, Nout: int, record: bool):
+    def _configure_accel_time_mode(
+        self, Nhidden: int, Nout: int, record: bool = False
+    ) -> None:
+        """
+        Configure the Xylo HDK to use accelerated-time mode, with optional state recording
+
+        Args:
+            Nhidden (int): Number of hidden neurons from which to record state. Default: ``0``; do not record state from any neurons. If non-zero, state from neurons with ID 0..(Nhidden-1) inclusive will be recorded during evolution.
+            Nout (int): Number of output layer neurons from which to record state. Default: ``0``; do not record state from any output neurons.
+            record (bool): Iff ``True``, record state during evolution. Default: ``False``, do not record state.
+        """
         if record != self._last_record_mode:
             # - Keep a registry of the last recording mode
             self._last_record_mode = record
@@ -407,9 +422,9 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Evolve a network on the Xylo HDK with fake-auto mode. It is through 'samna.pollen.OperationMode.AcceleratedTime' in samna.
+        Evolve a network on the Xylo HDK in accelerated-time mode
 
-        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period. Optionally record internal state of the network, selectable with the ``record`` flag.
 
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
@@ -522,9 +537,7 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Use for debug purpose.
-
-        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode. For debug purposes only. Uses 'samna.pollen.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -633,9 +646,7 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Use for debug purpose.
-
-        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM contents of Xylo. Uses 'samna.pollen.OperationMode.Manual' in samna.
 
         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
@@ -788,7 +799,7 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-        Use for debug purpose.
+        Evolve a network on the Xylo HDK in single-step manual mode, while recording the entire RAM and register contents of Xylo. Uses 'samna.pollen.OperationMode.Manual' in samna.
 
         Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
 

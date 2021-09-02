@@ -39,38 +39,38 @@ PollenNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
 
 class PollenState(NamedTuple):
     """
-    ``NamedTuple`` that encapsulates a recorded Pollen HDK state
+    `.NamedTuple` that encapsulates a recorded Pollen HDK state
     """
 
     Nin: int
-    """ The number of input-layer neurons """
+    """ int: The number of input-layer neurons """
 
     Nhidden: int
-    """ The number of hidden-layer neurons """
+    """ int: The number of hidden-layer neurons """
 
     Nout: int
-    """ The number of output layer neurons """
+    """ int: The number of output layer neurons """
 
-    V_mem_hid: np.array
-    """ Membrane potential of hidden neurons """
+    V_mem_hid: np.ndarray
+    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
 
-    I_syn_hid: np.array
-    """ Synaptic current 1 of hidden neurons """
+    I_syn_hid: np.ndarray
+    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
 
-    V_mem_out: np.array
-    """ Membrane potential of output neurons """
+    V_mem_out: np.ndarray
+    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
 
-    I_syn_out: np.array
-    """ Synaptic current of output neurons """
+    I_syn_out: np.ndarray
+    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
 
-    I_syn2_hid: np.array
-    """ Synaptic current 2 of hidden neurons """
+    I_syn2_hid: np.ndarray
+    """ np.ndarray: Synaptic current 2 of hidden neurons ``(Nhidden,)``"""
 
-    Spikes_hid: np.array
-    """ Spikes from hidden layer neurons """
+    Spikes_hid: np.ndarray
+    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
 
-    Spikes_out: np.array
-    """ Spikes from output layer neurons """
+    Spikes_out: np.ndarray
+    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
 
 
 class PollenAllRam(NamedTuple):
@@ -79,30 +79,75 @@ class PollenAllRam(NamedTuple):
     """
 
     # - state Ram
-    Nin: int  # The number of input-layer neurons
-    Nhidden: int  # The number of hidden-layer neurons
-    Nout: int  # The number of output layer neurons
-    V_mem_hid: np.array  # Membrane potential of hidden neurons
-    I_syn_hid: np.array  # Synaptic current 1 of hidden neurons
-    V_mem_out: np.array  # Membrane potential of output neurons
-    I_syn_out: np.array  # Synaptic current of output neurons
-    I_syn2_hid: np.array  # Synaptic current 2 of hidden neurons
-    Spikes_hid: np.array  # Spikes from hidden layer neurons
-    Spikes_out: np.array  # Spikes from output layer neurons
+    Nin: int
+    """ int: The number of input-layer neurons """
+
+    Nhidden: int
+    """ int: The number of hidden-layer neurons """
+
+    Nout: int
+    """ int: The number of output layer neurons """
+
+    V_mem_hid: np.ndarray
+    """ np.ndarray: Membrane potential of hidden neurons ``(Nhidden,)``"""
+
+    I_syn_hid: np.ndarray
+    """ np.ndarray: Synaptic current 1 of hidden neurons ``(Nhidden,)``"""
+
+    V_mem_out: np.ndarray
+    """ np.ndarray: Membrane potential of output neurons ``(Nhidden,)``"""
+
+    I_syn_out: np.ndarray
+    """ np.ndarray: Synaptic current of output neurons ``(Nout,)``"""
+
+    I_syn2_hid: np.ndarray
+    """ np.ndarray: Synaptic current 2 of hidden neurons ``(Nhidden,)``"""
+
+    Spikes_hid: np.ndarray
+    """ np.ndarray: Spikes from hidden layer neurons ``(Nhidden,)``"""
+
+    Spikes_out: np.ndarray
+    """ np.ndarray: Spikes from output layer neurons ``(Nout,)``"""
+
     # - config RAM
-    IWTRAM_state: np.array
-    IWT2RAM_state: np.array
-    NDSRAM_state: np.array
-    RDS2RAM_state: np.array
-    NDMRAM_state: np.array
-    NTHRAM_state: np.array
-    RCRAM_state: np.array
-    RARAM_state: np.array
-    REFOCRAM_state: np.array
-    RFORAM_state: np.array
-    RWTRAM_state: np.array
-    RWT2RAM_state: np.array
-    OWTRAM_state: np.array
+    IWTRAM_state: np.ndarray
+    """ np.ndarray: Contents of IWTRAM """
+
+    IWT2RAM_state: np.ndarray
+    """ np.ndarray: Contents of IWT2RAM """
+
+    NDSRAM_state: np.ndarray
+    """ np.ndarray: Contents of NDSRAM """
+
+    RDS2RAM_state: np.ndarray
+    """ np.ndarray: Contents of RDS2RAM """
+
+    NDMRAM_state: np.ndarray
+    """ np.ndarray: Contents of NMDRAM """
+
+    NTHRAM_state: np.ndarray
+    """ np.ndarray: Contents of NTHRAM """
+
+    RCRAM_state: np.ndarray
+    """ np.ndarray: Contents of RCRAM """
+
+    RARAM_state: np.ndarray
+    """ np.ndarray: Contents of RARAM """
+
+    REFOCRAM_state: np.ndarray
+    """ np.ndarray: Contents of REFOCRAM """
+
+    RFORAM_state: np.ndarray
+    """ np.ndarray: Contents of RFORAM """
+
+    RWTRAM_state: np.ndarray
+    """ np.ndarray: Contents of RWTRAM """
+
+    RWT2RAM_state: np.ndarray
+    """ np.ndarray: Contents of RWT2RAM """
+
+    OWTRAM_state: np.ndarray
+    """ np.ndarray: Contents of OWTRAM """
 
 
 def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard]:
@@ -117,7 +162,8 @@ def find_pollen_boards(device_node: SamnaDeviceNode) -> List[PollenDaughterBoard
     Args:
         device_node (SamnaDeviceNode): An opened Samna device node
 
-    Returns: List[PollenDaughterBoard]: A (possibly empty) list of Pollen HDK daughterboards.
+    Returns:
+        List[PollenDaughterBoard]: A (possibly empty) list of Pollen HDK daughterboards.
     """
     # - Get a list of unopened devices
     unopened_devices = device_node.DeviceController.get_unopened_devices()
@@ -232,7 +278,7 @@ def blocking_read(
 
     Returns:
         (List, bool): `event_list`, `is_timeout`
-        `event_list` A list of read events. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
+        `event_list` is a list of events read from the HDK. `is_timeout` is a boolean flag indicating that the read resulted in a timeout
     """
     all_events = []
 
@@ -1126,11 +1172,6 @@ def send_immediate_input_spikes(
                 s_event.neuron_id = input_channel
                 events_list.append(s_event)
 
-    # print(
-    #   "Sending events to channel:",
-    #  [e.neuron_id for e in events_list if hasattr(e, "neuron_id")],
-    # )
-
     # - Send input spikes for this time-step
     daughterboard.get_model().write(events_list)
 
@@ -1411,11 +1452,11 @@ def print_debug_registers(
     daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
 ) -> None:
     """
-    export register contents for debugging purposes
+    Print register contents of a Pollen HDK for debugging purposes
 
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
-        buffer (PollenReadBuffer): A connected Pollen read buffer to use in reading registers
+        buffer (PollenReadBuffer): A connected Pollen read buffer to use when reading registers
     """
     print("ctrl1", hex(read_register(daughterboard, buffer, 0x1)[0]))
     print("ctrl2", hex(read_register(daughterboard, buffer, 0x2)[0]))
@@ -1582,7 +1623,7 @@ def to_hex(n: int, digits: int) -> str:
         digits (int): Number of digits to produce
 
     Returns:
-        str: HEx-encoded string, with ``digits`` digits
+        str: Hex-encoded string, with ``digits`` digits
     """
     return "%s" % ("0000%x" % (n & 0xFFFFFFFF))[-digits:]
 
@@ -1593,7 +1634,9 @@ def export_config(
     dt: float,
 ) -> None:
     """
-    Export a network configuration to text files
+    Export a network configuration to a set of text files, for debugging purposes
+
+    This function produces a large number of text files under the directory ``path``, which will be created if necessary. These files contain detailed memory contents and configuration options specified by an HDK configuration object ``config``.
 
     Args:
         path (Union[str, path]): Directory to write data
@@ -1853,9 +1896,9 @@ def export_frozen_state(
     path: Union[str, Path], config: PollenConfiguration, state: PollenState
 ) -> None:
     """
-    Export a single frozen state of a Pollen network
+    Export a single time-step frozen state of a Pollen network
 
-    This function will produce a series of RAM initialisation files containing a Pollen state
+    This function will produce a series of RAM initialisation files containing a Pollen state, written to the directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
@@ -1961,9 +2004,9 @@ def export_temporal_state(
     state: PollenState,
 ) -> None:
     """
-    Export the state of a Pollen network over time
+    Export the state of a Pollen network over time, for debugging purposes
 
-    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network. The files will be save to the directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
@@ -2099,9 +2142,9 @@ def export_allram_state(
     state: PollenState,
 ) -> None:
     """
-    Export the all RAM state of a Pollen network over time
+    Export the all RAM state of a Pollen network over time, for debugging purposes
 
-    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network. The files will be written to a directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
@@ -2521,9 +2564,9 @@ def export_last_state(
     state: PollenState,
 ) -> None:
     """
-    Export the state of a Pollen network over time
+    Export the final state of a Pollen network, evolved over an input
 
-    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network.
+    This function will produce a series of RAM files, per time-step, containing the recorded state evolution of a Pollen network. The files will be written to the directory ``path``, which will be created if necessary.
 
     Args:
         path (Path): The directory to export the state to
