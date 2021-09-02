@@ -36,12 +36,6 @@ SamnaDeviceNode = Any
 PollenReadBuffer = samna.BufferSinkNode_pollen_event_output_event
 PollenNeuronStateBuffer = samna.pollen.NeuronStateSinkNode
 
-class PollenOut(NamedTuple):
-    """
-    ``NamedTuple`` that encapsulates a recorded Pollen HDK state
-    """
-    Spikes_out: np.array
-    """ Spikes from output layer neurons """
 
 class PollenState(NamedTuple):
     """
@@ -58,6 +52,7 @@ class PollenState(NamedTuple):
     I_syn2_hid: np.array    # Synaptic current 2 of hidden neurons
     Spikes_hid: np.array    # Spikes from hidden layer neurons
     Spikes_out: np.array    # Spikes from output layer neurons
+
 
 class PollenAllRam(NamedTuple):
     """
@@ -925,31 +920,6 @@ def read_accel_mode_data(
         isyn2_ts,
         spikes_ts,
         spikes_out_ts,
-    )
-
-def read_accel_mode_data_power(
-    monitor_buffer: PollenNeuronStateBuffer,
-    Nin: int,
-    Nhidden: int,
-    Nout: int,
-) -> PollenOut:
-    """
-    Read accelerated simulation mode data from a Pollen HDK
-
-    Args:
-        monitor_buffer (PollenNeuronStateBuffer): A connected `PollenNeuronStateBuffer` to read from
-        Nhidden (int): The number of hidden neurons to monitor
-        Nout (int): The number of output neurons to monitor
-
-    Returns:
-        PollenState: The encapsulated state read from the Pollen device
-    """
-    # - Read data from neuron state buffer
-    spikes_out_ts = np.array(monitor_buffer.get_output_spike(), "int8").T
-
-    # - Return as a PollenState object
-    return PollenOut(
-        spikes_out_ts
     )
 
 

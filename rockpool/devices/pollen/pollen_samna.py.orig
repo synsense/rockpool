@@ -431,6 +431,13 @@ class PollenSamna(Module):
         # - Configure the recording mode
         self._configure_accel_time_mode(Nhidden, Nout, record)
 
+<<<<<<< HEAD
+        # - switch CTRL1.MEM_CLK_ON, DBG_CTRL1.ALL_CLK_ON, DBG_CTRL1.ALL_RAM_ON to off to decrease power
+        putils.write_register(self._device, 0x1, 7)
+        putils.write_register(self._device, 0x18, 0)
+
+=======
+>>>>>>> temp
         # - Get current timestamp
         start_timestep = putils.get_current_timestamp(self._device, self._event_buffer)
         final_timestep = start_timestep + len(input) - 1
@@ -466,7 +473,11 @@ class PollenSamna(Module):
         self._event_buffer.get_events()
 
         # - Write the events and trigger the simulation, need to interleave spikes
-        self._device.get_model().write(input_events_list)
+        self._device.get_model().write(input_events_list[0:10])
+        # - measure either io or core power
+        self._device.measure_core_power()
+        # self._device.measure_io_power()
+        self._device.get_model().write(input_events_list[10:])
 
         # - Determine a reasonable read timeout
         if read_timeout is None:
@@ -489,20 +500,20 @@ class PollenSamna(Module):
             raise TimeoutError(message)
 
         # - Read the simulation output data
-        pollen_data = putils.read_accel_mode_data(
+        pollen_data = putils.read_accel_mode_data_power(
             self._state_buffer, Nin, Nhidden, Nout
         )
 
         if record:
             # - Build a recorded state dictionary
             rec_dict = {
-                "Vmem": np.array(pollen_data.V_mem_hid),
-                "Isyn": np.array(pollen_data.I_syn_hid),
-                "Isyn2": np.array(pollen_data.I_syn2_hid),
-                "Spikes": np.array(pollen_data.Spikes_hid),
-                "Vmem_out": np.array(pollen_data.V_mem_out),
-                "Isyn_out": np.array(pollen_data.I_syn_out),
-                "times": np.arange(start_timestep, final_timestep + 1),
+                # "Vmem": np.array(pollen_data.V_mem_hid),
+                # "Isyn": np.array(pollen_data.I_syn_hid),
+                # "Isyn2": np.array(pollen_data.I_syn2_hid),
+                # "Spikes": np.array(pollen_data.Spikes_hid),
+                # "Vmem_out": np.array(pollen_data.V_mem_out),
+                # "Isyn_out": np.array(pollen_data.I_syn_out),
+                # "times": np.arange(start_timestep, final_timestep + 1),
             }
         else:
             rec_dict = {}
