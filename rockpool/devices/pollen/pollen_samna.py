@@ -364,7 +364,7 @@ class PollenSamna(Module):
     @property
     def config(self):
         # - Return the configuration stored on Xylo HDK
-        return self._device.get_configuration()
+        return self._device.get_model().get_configuration()
 
     @config.setter
     def config(self, new_config):
@@ -413,7 +413,7 @@ class PollenSamna(Module):
 
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-            record (bool): If ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
         Returns:
@@ -465,7 +465,7 @@ class PollenSamna(Module):
         self._state_buffer.reset()
         self._event_buffer.get_events()
 
-        # - Write the events and trigger the simulation, need to interleave spikes
+        # - Write the events and trigger the simulation
         self._device.get_model().write(input_events_list)
 
         # - Determine a reasonable read timeout
@@ -530,7 +530,7 @@ class PollenSamna(Module):
 
         Args:
             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-            record (bool): If ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
         Returns:
@@ -633,26 +633,26 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-         Use for debug purpose.
+        Use for debug purpose.
 
-         Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
 
-         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the all RAM states produced during the input period.
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
-         Args:
-             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-             record (bool): If ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
-             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
-         Returns:
-             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
-             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
-             ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
-             ``record_dict`` is a dictionary containing recorded internal all RAM state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal all RAM state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
 
-         Raises:
-             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
-         """
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
 
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
@@ -674,7 +674,6 @@ class PollenSamna(Module):
         putils.reset_input_spikes(self._device)
 
         # - Initialise lists for internal all RAM state
-        # - state RAM
         vmem_ts = []
         isyn_ts = []
         isyn2_ts = []
@@ -682,7 +681,7 @@ class PollenSamna(Module):
         isyn_out_ts = []
         spikes_ts = []
         output_ts = []
-        # - config RAM
+
         input_weight_ram_ts = []
         input_weight_2ram_ts = []
         neuron_dash_syn_ram_ts = []
@@ -727,6 +726,7 @@ class PollenSamna(Module):
                 vmem_out_ts.append(this_state.V_mem_out)
                 isyn_out_ts.append(this_state.I_syn_out)
                 spikes_ts.append(this_state.Spikes_hid)
+
                 input_weight_ram_ts.append(this_state.IWTRAM_state)
                 input_weight_2ram_ts.append(this_state.IWT2RAM_state)
                 neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
@@ -735,7 +735,9 @@ class PollenSamna(Module):
                 neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
                 reservoir_config_ram_ts.append(this_state.RCRAM_state)
                 reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-                reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
+                reservoir_effective_fanout_count_ram_ts.append(
+                    this_state.REFOCRAM_state
+                )
                 recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
                 recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
                 recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
@@ -763,7 +765,9 @@ class PollenSamna(Module):
                 "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
                 "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
                 "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
-                "Reservoir_effective_fanout_count_ram": np.array(reservoir_effective_fanout_count_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(
+                    reservoir_effective_fanout_count_ram_ts
+                ),
                 "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
                 "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
                 "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),
@@ -784,26 +788,26 @@ class PollenSamna(Module):
         **kwargs,
     ) -> (np.ndarray, dict, dict):
         """
-         Use for debug purpose.
+        Use for debug purpose.
 
-         Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
+        Evolve a network on the Xylo HDK with manual mode. It is through 'samna.pollen.OperationMode.Manual' in samna.
 
-         Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the all RAM and register states produced during the input period.
+        Sends a series of events to the Xylo HDK, evolves the network over the input events, and returns the output events produced during the input period.
 
-         Args:
-             input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
-             record (bool): If ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
-             read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
+        Args:
+            input (np.ndarray): A raster ``(T, Nin)`` specifying for each bin the number of input events sent to the corresponding input channel on Xylo, at the corresponding time point. Up to 15 input events can be sent per bin.
+            record (bool): Iff ``True``, record and return all internal state of the neurons and synapses on Xylo. Default: ``False``, do not record internal state.
+            read_timeout (Optional[float]): Set an explicit read timeout for the entire simulation time. This should be sufficient for the simulation to complete, and for data to be returned. Default: ``None``, set a reasonable default timeout.
 
-         Returns:
-             (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
-             ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
-             ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
-             ``record_dict`` is a dictionary containing recorded internal all RAM and register state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
+        Returns:
+            (np.ndarray, dict, dict): ``output``, ``new_state``, ``record_dict``.
+            ``output`` is a raster ``(T, Nout)``, containing events for each channel in each time bin. Time bins in ``output`` correspond to the time bins in ``input``.
+            ``new_state`` is an empty dictiionary. The Xylo HDK does not permit querying or setting state.
+            ``record_dict`` is a dictionary containing recorded internal all RAM and register state of Xylo during evolution, if the ``record`` argument is ``True``. Otherwise this is an empty dictionary.
 
-         Raises:
-             `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
-         """
+        Raises:
+            `TimeoutError`: If reading data times out during the evolution. An explicity timeout can be set using the `read_timeout` argument.
+        """
         # - Get some information about the network size
         Nin, Nhidden, Nout = self.shape
 
@@ -811,7 +815,6 @@ class PollenSamna(Module):
         self.config = putils.configure_single_step_time_mode(self.config)
 
         # - Initialise lists for recording state
-        # - state RAM
         vmem_ts = []
         isyn_ts = []
         isyn2_ts = []
@@ -819,7 +822,7 @@ class PollenSamna(Module):
         isyn_out_ts = []
         spikes_ts = []
         output_ts = []
-        # - config RAM
+
         input_weight_ram_ts = []
         input_weight_2ram_ts = []
         neuron_dash_syn_ram_ts = []
@@ -845,6 +848,7 @@ class PollenSamna(Module):
             vmem_out_ts.append(this_state.V_mem_out)
             isyn_out_ts.append(this_state.I_syn_out)
             spikes_ts.append(this_state.Spikes_hid)
+
             input_weight_ram_ts.append(this_state.IWTRAM_state)
             input_weight_2ram_ts.append(this_state.IWT2RAM_state)
             neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
@@ -916,6 +920,7 @@ class PollenSamna(Module):
                 vmem_out_ts.append(this_state.V_mem_out)
                 isyn_out_ts.append(this_state.I_syn_out)
                 spikes_ts.append(this_state.Spikes_hid)
+
                 input_weight_ram_ts.append(this_state.IWTRAM_state)
                 input_weight_2ram_ts.append(this_state.IWT2RAM_state)
                 neuron_dash_syn_ram_ts.append(this_state.NDSRAM_state)
@@ -924,7 +929,9 @@ class PollenSamna(Module):
                 neuron_threshold_ram_ts.append(this_state.NTHRAM_state)
                 reservoir_config_ram_ts.append(this_state.RCRAM_state)
                 reservoir_aliasing_ram_ts.append(this_state.RARAM_state)
-                reservoir_effective_fanout_count_ram_ts.append(this_state.REFOCRAM_state)
+                reservoir_effective_fanout_count_ram_ts.append(
+                    this_state.REFOCRAM_state
+                )
                 recurrent_fanout_ram_ts.append(this_state.RFORAM_state)
                 recurrent_weight_ram_ts.append(this_state.RWTRAM_state)
                 recurrent_weight_2ram_ts.append(this_state.RWT2RAM_state)
@@ -956,7 +963,9 @@ class PollenSamna(Module):
                 "Neuron_threshold_ram": np.array(neuron_threshold_ram_ts),
                 "Reservoir_config_ram": np.array(reservoir_config_ram_ts),
                 "Reservoir_aliasing_ram": np.array(reservoir_aliasing_ram_ts),
-                "Reservoir_effective_fanout_count_ram": np.array(reservoir_effective_fanout_count_ram_ts),
+                "Reservoir_effective_fanout_count_ram": np.array(
+                    reservoir_effective_fanout_count_ram_ts
+                ),
                 "Recurrent_fanout_ram": np.array(recurrent_fanout_ram_ts),
                 "Recurrent_weight_ram": np.array(recurrent_weight_ram_ts),
                 "Recurrent_weight_2ram": np.array(recurrent_weight_2ram_ts),

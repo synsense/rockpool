@@ -41,34 +41,54 @@ class PollenState(NamedTuple):
     """
     ``NamedTuple`` that encapsulates a recorded Pollen HDK state
     """
-    # - state Ram
-    Nin: int                # The number of input-layer neurons
-    Nhidden: int            # The number of hidden-layer neurons
-    Nout: int               # The number of output layer neurons
-    V_mem_hid: np.array     # Membrane potential of hidden neurons
-    I_syn_hid: np.array     # Synaptic current 1 of hidden neurons
-    V_mem_out: np.array     # Membrane potential of output neurons
-    I_syn_out: np.array     # Synaptic current of output neurons
-    I_syn2_hid: np.array    # Synaptic current 2 of hidden neurons
-    Spikes_hid: np.array    # Spikes from hidden layer neurons
-    Spikes_out: np.array    # Spikes from output layer neurons
+
+    Nin: int
+    """ The number of input-layer neurons """
+
+    Nhidden: int
+    """ The number of hidden-layer neurons """
+
+    Nout: int
+    """ The number of output layer neurons """
+
+    V_mem_hid: np.array
+    """ Membrane potential of hidden neurons """
+
+    I_syn_hid: np.array
+    """ Synaptic current 1 of hidden neurons """
+
+    V_mem_out: np.array
+    """ Membrane potential of output neurons """
+
+    I_syn_out: np.array
+    """ Synaptic current of output neurons """
+
+    I_syn2_hid: np.array
+    """ Synaptic current 2 of hidden neurons """
+
+    Spikes_hid: np.array
+    """ Spikes from hidden layer neurons """
+
+    Spikes_out: np.array
+    """ Spikes from output layer neurons """
 
 
 class PollenAllRam(NamedTuple):
     """
-    ``NamedTuple`` that encapsulates all Pollen HDK RAM
+    ``NamedTuple`` that encapsulates a recorded Pollen HDK state
     """
+
     # - state Ram
-    Nin: int                # The number of input-layer neurons
-    Nhidden: int            # The number of hidden-layer neurons
-    Nout: int               # The number of output layer neurons
-    V_mem_hid: np.array     # Membrane potential of hidden neurons
-    I_syn_hid: np.array     # Synaptic current 1 of hidden neurons
-    V_mem_out: np.array     # Membrane potential of output neurons
-    I_syn_out: np.array     # Synaptic current of output neurons
-    I_syn2_hid: np.array    # Synaptic current 2 of hidden neurons
-    Spikes_hid: np.array    # Spikes from hidden layer neurons
-    Spikes_out: np.array    # Spikes from output layer neurons
+    Nin: int  # The number of input-layer neurons
+    Nhidden: int  # The number of hidden-layer neurons
+    Nout: int  # The number of output layer neurons
+    V_mem_hid: np.array  # Membrane potential of hidden neurons
+    I_syn_hid: np.array  # Synaptic current 1 of hidden neurons
+    V_mem_out: np.array  # Membrane potential of output neurons
+    I_syn_out: np.array  # Synaptic current of output neurons
+    I_syn2_hid: np.array  # Synaptic current 2 of hidden neurons
+    Spikes_hid: np.array  # Spikes from hidden layer neurons
+    Spikes_out: np.array  # Spikes from output layer neurons
     # - config RAM
     IWTRAM_state: np.array
     IWT2RAM_state: np.array
@@ -202,8 +222,7 @@ def blocking_read(
     """
     Perform a blocking read on a buffer, optionally waiting for a certain count, a target timestamp, or imposing a timeout
 
-    Notes:
-        You should not provide `count` and `target_timestamp` together.
+    You should not provide `count` and `target_timestamp` together.
 
     Args:
         buffer (PollenReadBuffer): A buffer to read from
@@ -709,7 +728,7 @@ def read_allram_state(
         buffer (PollenReadBuffer): A read buffer connected to the Pollen HDK
 
     Returns:
-        :py:class:`.PollenAllRam`: The recorded state as a ``NamedTuple``. This state has **no time axis**; the first axis is the neuron ID.
+        :py:class:`.PollenState`: The recorded state as a ``NamedTuple``. Contains keys ``V_mem_hid``,  ``V_mem_out``, ``I_syn_hid``, ``I_syn_out``, ``I_syn2_hid``, ``Nhidden``, ``Nout``. This state has **no time axis**; the first axis is the neuron ID.
 
     """
     # - Define the memory bank addresses
@@ -1274,7 +1293,7 @@ def export_registers(
     file,
 ) -> None:
     """
-    Save register contents for debugging purposes
+    Print register contents for debugging purposes
 
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
@@ -1392,7 +1411,7 @@ def print_debug_registers(
     daughterboard: PollenDaughterBoard, buffer: PollenReadBuffer
 ) -> None:
     """
-    Print register contents for debugging purposes
+    export register contents for debugging purposes
 
     Args:
         daughterboard (PollenDaughterBoard): A Pollen daughterboard to debug
@@ -1595,14 +1614,14 @@ def export_config(
     inp_size = len(model.synapses_in)
     num_neurons = len(model.synapses_rec)
 
-    # - transfer input synapses to matrix
+    # transfer input synapses to matrix
     num_targets = num_neurons
     mat = np.zeros((2, inp_size, num_targets), dtype=int)
     for pre, syns in enumerate(model.synapses_in):
         for syn in syns:
             mat[syn.target_synapse_id, pre, syn.target_neuron_id] = syn.weight
 
-    # - iwtram and iwt2ram (input neurons of synapse IDs 0 and 1)
+    # iwtram and iwt2ram (input neurons of synapse IDs 0 and 1)
     for ram, mat_syn in zip(("iwt", "iwt2"), mat):
         # save to file
         print(f"Writing {ram}ram.ini", end="\r")
@@ -1613,13 +1632,13 @@ def export_config(
                     f.write(to_hex(weight, 2))
                     f.write("\n")
 
-    # - create matrix for recurrent weights (slightly different convention than for input)
+    # create matrix for recurrent weights (slightly different convention than for input)
     mat = np.zeros((num_neurons, num_neurons, 2), dtype=int)
     for pre, syns in enumerate(model.synapses_rec):
         for syn in syns:
             mat[pre, syn.target_neuron_id, syn.target_synapse_id] = syn.weight
 
-    # - rwtram (recurrent neurons of synapse IDs 0)
+    # rwtram (recurrent neurons of synapse IDs 0)
     print("Writing rwtram.ini", end="\r")
     with open(path / "rwtram.ini", "w+") as f:
         for pre, line in enumerate(mat):
@@ -1630,7 +1649,7 @@ def export_config(
                     f.write(to_hex(weight, 2))
                     f.write("\n")
 
-    # - rwtram2 (recurrent neurons of synapse IDs 1)
+    # rwtram2 (recurrent neurons of synapse IDs 1)
     print("Writing rwt2ram.ini", end="\r")
     with open(path / "rwt2ram.ini", "w+") as f:
         for pre, line in enumerate(mat):
@@ -1641,7 +1660,7 @@ def export_config(
                     f.write(to_hex(weight, 2))
                     f.write("\n")
 
-    # - rforam (recurrent fanout, or target ids)
+    # rforam (recurrent fanout, or target ids)
     print("Writing rforam.ini", end="\r")
     with open(path / "rforam.ini", "w+") as f:
         for pre, line in enumerate(mat):
@@ -1651,7 +1670,7 @@ def export_config(
                     f.write(to_hex(post, 3))
                     f.write("\n")
 
-    # - refocram (recurrent effective fanout, or number of targets)
+    # refocram (recurrent effective fanout, or number of targets)
     print("Writing refocram.ini", end="\r")
     with open(path / "refocram.ini", "w+") as f:
         for pre, line in enumerate(mat):
@@ -1662,7 +1681,8 @@ def export_config(
             f.write(to_hex(count, 2))
             f.write("\n")
 
-    # - owtram (output weights), transfer output synapses to matrix
+    # owtram (output weights)
+    # transfer output synapses to matrix
     post_ids_out = [
         [syn.target_neuron_id for syn in l_syn if syn.target_synapse_id == 0]
         for l_syn in model.synapses_out
@@ -1681,7 +1701,7 @@ def export_config(
     for pre, (post, weight) in enumerate(zip(post_ids_out, weights_out)):
         mat[pre, post] = weight
 
-    # - save to file
+    # save to file
     print("Writing owtram.ini", end="\r")
     with open(path / "owtram.ini", "w+") as f:
         for pre, line in enumerate(mat):
@@ -1690,56 +1710,56 @@ def export_config(
                 f.write(to_hex(weight, 2))
                 f.write("\n")
 
-    # - ndmram (membrane time constants)
+    # ndmram (membrane time constants)
     mat = np.zeros(size_total, dtype=int)
     mat[:num_neurons] = [n.v_mem_decay for n in config.reservoir.neurons]
     mat[num_neurons:size_total] = [n.v_mem_decay for n in config.readout.neurons]
 
-    # - save to file
+    # save to file
     print("Writing ndmram.ini", end="\r")
     with open(path / "ndmram.ini", "w+") as f:
         for pre, dash in enumerate(mat):
             f.write(to_hex(dash, 1))
             f.write("\n")
 
-    # - ndsram (synaptic time constants, ID=0)
+    # ndsram (synaptic time constants, ID=0)
     mat = np.zeros(size_total, dtype=int)
     mat[:num_neurons] = [n.i_syn_decay for n in config.reservoir.neurons]
     mat[num_neurons:size_total] = [n.i_syn_decay for n in config.readout.neurons]
 
-    # - save to file
+    # save to file
     print("Writing ndsram.ini", end="\r")
     with open(path / "ndsram.ini", "w+") as f:
         for pre, dash in enumerate(mat):
             f.write(to_hex(dash, 1))
             f.write("\n")
 
-    # - nds2ram (synaptic time constants, ID=1) --> rds2ram
+    # nds2ram (synaptic time constants, ID=1) --> rds2ram
     if config.synapse2_enable:
         mat = [n.i_syn2_decay for n in config.reservoir.neurons]
     else:
         mat = np.zeros(num_neurons, int)
 
-    # - save to file
+    # save to file
     print("Writing rds2ram.ini", end="\r")
     with open(path / "rds2ram.ini", "w+") as f:
         for pre, dash in enumerate(mat):
             f.write(to_hex(dash, 1))
             f.write("\n")
 
-    # - nthram (thresholds)
+    # nthram (thresholds)
     thresholds = [n.threshold for n in config.reservoir.neurons] + [
         n.threshold for n in config.readout.neurons
     ]
 
-    # - save to file
+    # save to file
     print("Writing nthram.ini", end="\r")
     with open(path / "nthram.ini", "w+") as f:
         for pre, th in enumerate(thresholds):
             f.write(to_hex(th, 4))
             f.write("\n")
 
-    # - raram and rcram (aliases)
+    # raram and rcram (aliases)
     mat = np.zeros(num_neurons, dtype=int) - 1
     is_source = np.zeros(num_neurons, dtype=int)
     is_target = np.zeros(num_neurons, dtype=int)
@@ -1750,14 +1770,14 @@ def export_config(
             is_source[i] = 1
             is_target[aliases[0]] += 1
 
-    # - save to file
+    # save to file
     print("Writing raram.ini", end="\r")
     with open(path / "raram.ini", "w+") as f:
         for pre, alias in enumerate(mat):
             f.write(to_hex(alias, 3))
             f.write("\n")
 
-    # - save to file
+    # save to file
     print("Writing rcram.ini", end="\r")
     with open(path / "rcram.ini", "w+") as f:
         for pre, issource in enumerate(is_source):
@@ -1783,20 +1803,20 @@ def export_config(
             )
             f.write("\n")
 
-    # - basic config
+    # basic config
     print("Writing basic_config.json", end="\r")
     with open(path / "basic_config.json", "w+") as f:
         conf = {}
 
-        # - number of neurons
+        # number of neurons
         conf["IN"] = len(model.synapses_in)
         conf["RSN"] = len(model.synapses_rec)
 
-        # - determine output size by getting the largest target neuron id
+        # determine output size by getting the largest target neuron id
         syns = np.hstack(model.synapses_out)
         conf["ON"] = int(np.max([s.target_neuron_id for s in syns]) + 1)
 
-        # - bit shift values
+        # bit shift values
         conf["IWBS"] = model.weight_shift_inp
         conf["RWBS"] = model.weight_shift_rec
         conf["OWBS"] = model.weight_shift_out
@@ -1805,11 +1825,11 @@ def export_config(
         # if num_expansion is not None:
         #    conf["IEN"] = num_expansion
 
-        # - dt
+        # dt
         conf["time_resolution_wrap"] = config.time_resolution_wrap
         conf["DT"] = cim.dt
 
-        # - number of synapses
+        # number of synapses
         n_syns = 1
         syns_in = np.hstack(model.synapses_in)
         if np.any(np.array([s.target_synapse_id for s in syns_in]) == 1):
@@ -1820,7 +1840,7 @@ def export_config(
 
         conf["N_SYNS"] = n_syns
 
-        # - aliasing
+        # aliasing
         if max([len(a) for a in model.aliases]) > 0:
             conf["RA"] = True
         else:
@@ -1864,7 +1884,7 @@ def export_frozen_state(
 
     T = 1
 
-    # - rspkram
+    # rspkram
     mat = np.zeros((T, num_neurons), dtype=int)
     spks = np.array(np.atleast_2d(state.Spikes_hid)).astype(int)
 
@@ -1878,7 +1898,7 @@ def export_frozen_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # - ospkram
+    # ospkram
     mat = np.zeros((T, readout_size), dtype=int)
     spks = np.array(np.atleast_2d(state.Spikes_out)).astype(int)
 
@@ -1891,7 +1911,7 @@ def export_frozen_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # - nscram
+    # nscram
     mat = np.zeros((T, size_total), dtype=int)
     isyns = np.array(np.atleast_2d(state.I_syn_hid)).astype(int)
     mat[:, : isyns.shape[1]] = isyns
@@ -1905,7 +1925,7 @@ def export_frozen_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nsc2ram --> rsc2ram
+    # nsc2ram --> rsc2ram
     if not hasattr(state, "I_syn2_hid"):
         mat = np.zeros((0, num_neurons), int)
     else:
@@ -1920,7 +1940,7 @@ def export_frozen_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nmpram
+    # nmpram
     mat = np.zeros((T, size_total), dtype=int)
     vmems = np.array(np.atleast_2d(state.V_mem_hid)).astype(int)
     mat[:, : vmems.shape[1]] = vmems
@@ -1960,7 +1980,7 @@ def export_temporal_state(
     readout_size = np.shape(config.readout.weights)[1]
     size_total = num_neurons + readout_size
 
-    # - rspkram
+    # rspkram
     mat = np.zeros((np.shape(state.Spikes_hid)[0], num_neurons), dtype=int)
     spks = np.array(state.Spikes_hid).astype(int)
 
@@ -1978,7 +1998,7 @@ def export_temporal_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # - ospkram
+    # ospkram
     mat = np.zeros((np.shape(state.Spikes_out)[0], readout_size), dtype=int)
     spks = np.array(state.Spikes_out).astype(int)
 
@@ -1996,7 +2016,7 @@ def export_temporal_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # - nscram
+    # nscram
     mat = np.zeros((np.shape(state.I_syn_hid)[0], size_total), dtype=int)
     isyns = np.array(state.I_syn_hid).astype(int)
     mat[:, : isyns.shape[1]] = isyns
@@ -2014,7 +2034,7 @@ def export_temporal_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nsc2ram --> rsc2ram
+    # nsc2ram --> rsc2ram
     if not hasattr(state, "I_syn2_hid"):
         mat = np.zeros((0, num_neurons), int)
     else:
@@ -2033,7 +2053,7 @@ def export_temporal_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nmpram
+    # nmpram
     mat = np.zeros((np.shape(state.V_mem_hid)[0], size_total), dtype=int)
     vmems = np.array(state.V_mem_hid).astype(int)
     mat[:, : vmems.shape[1]] = vmems
@@ -2052,7 +2072,7 @@ def export_temporal_state(
                 f.write("\n")
 
     if inp_spks is not None:
-        # - input spikes
+        # input spikes
         path_spki = path / "spk_in"
         if not path_spki.exists():
             makedirs(path_spki)
@@ -2158,7 +2178,7 @@ def export_allram_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nsc2ram renamed as rsc2ram (rsc2ram is the correct name in the Xylo datasheet)
+    # - nsc2ram renamed as rsc2ram (correct name in the Xylo datasheet)
     if not hasattr(state, "I_syn2_hid"):
         mat = np.zeros((0, num_neurons), int)
     else:
@@ -2216,14 +2236,10 @@ def export_allram_state(
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
 
     # - Save config RAM, not export dummy neuron
-    # - IWTRAM_state: input_weight_ram_ts
-    mat = np.zeros(
-        (np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int
-    )
+    # IWTRAM_state: input_weight_ram_ts
+    mat = np.zeros((np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int)
     input_weight = np.array(state.IWTRAM_state).astype(int)
-    mat[:, : input_weight.shape[1]] = input_weight[
-        :, 0 : Nin * Nhidden
-    ]
+    mat[:, : input_weight.shape[1]] = input_weight[:, 0 : Nin * Nhidden]
 
     path_IWTRAM_state = path / "IWTRAM_state"
     if not path_IWTRAM_state.exists():
@@ -2239,13 +2255,9 @@ def export_allram_state(
                 f.write("\n")
 
     # - IWT2RAM_state: input_weight_2ram_ts
-    mat = np.zeros(
-        (np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int
-    )
+    mat = np.zeros((np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int)
     input_weight_2 = np.array(state.IWT2RAM_state).astype(int)
-    mat[:, : input_weight_2.shape[1]] = input_weight_2[
-        :, 0 : Nin * Nhidden
-    ]
+    mat[:, : input_weight_2.shape[1]] = input_weight_2[:, 0 : Nin * Nhidden]
 
     path_IWT2RAM_state = path / "IWT2RAM_state"
     if not path_IWT2RAM_state.exists():
@@ -2532,7 +2544,7 @@ def export_last_state(
     Nhidden = num_neurons
     Nout = readout_size
 
-    # - rspkram
+    # rspkram
     mat = np.zeros((np.shape(state.Spikes_hid)[0], num_neurons), dtype=int)
     spks = np.array(state.Spikes_hid).astype(int)
 
@@ -2552,7 +2564,7 @@ def export_last_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # - ospkram
+    # ospkram
     mat = np.zeros((np.shape(state.Spikes_out)[0], readout_size), dtype=int)
     spks = np.array(state.Spikes_out).astype(int)
 
@@ -2570,7 +2582,7 @@ def export_last_state(
                     f.write(to_hex(val, 2))
                     f.write("\n")
 
-    # - nscram
+    # nscram
     mat = np.zeros((np.shape(state.I_syn_hid)[0], size_total), dtype=int)
     isyns = np.array(state.I_syn_hid).astype(int)
     mat[:, : isyns.shape[1]] = isyns
@@ -2588,7 +2600,7 @@ def export_last_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nsc2ram --> rsc2ram
+    # nsc2ram --> rsc2ram
     if not hasattr(state, "I_syn2_hid"):
         mat = np.zeros((0, num_neurons), int)
     else:
@@ -2607,7 +2619,7 @@ def export_last_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - nmpram
+    # nmpram
     mat = np.zeros((np.shape(state.V_mem_hid)[0], size_total), dtype=int)
     vmems = np.array(state.V_mem_hid).astype(int)
     mat[:, : vmems.shape[1]] = vmems
@@ -2626,7 +2638,7 @@ def export_last_state(
                 f.write("\n")
 
     if inp_spks is not None:
-        # - input spikes
+        # input spikes
         path_spki = path / "spk_in"
         if not path_spki.exists():
             makedirs(path_spki)
@@ -2646,14 +2658,10 @@ def export_last_state(
                             f.write(f"wr IN{to_hex(chan, 1)}\n")
 
     # - Save config RAM, not export dummy neuron
-    # - IWTRAM_state: input_weight_ram_ts
-    mat = np.zeros(
-        (np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int
-    )
+    # IWTRAM_state: input_weight_ram_ts
+    mat = np.zeros((np.shape(state.IWTRAM_state)[0], Nin * Nhidden), dtype=int)
     input_weight = np.array(state.IWTRAM_state).astype(int)
-    mat[:, : input_weight.shape[1]] = input_weight[
-        :, 0 : Nin * Nhidden
-    ]
+    mat[:, : input_weight.shape[1]] = input_weight[:, 0 : Nin * Nhidden]
 
     path_IWTRAM_state = path / "IWTRAM_state"
     if not path_IWTRAM_state.exists():
@@ -2668,14 +2676,10 @@ def export_last_state(
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
-    # - IWT2RAM_state: input_weight_2ram_ts
-    mat = np.zeros(
-        (np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int
-    )
+    # IWT2RAM_state input_weight_2ram_ts
+    mat = np.zeros((np.shape(state.IWT2RAM_state)[0], Nin * Nhidden), dtype=int)
     input_weight_2 = np.array(state.IWT2RAM_state).astype(int)
-    mat[:, : input_weight_2.shape[1]] = input_weight_2[
-        :, 0 : Nin * Nhidden
-    ]
+    mat[:, : input_weight_2.shape[1]] = input_weight_2[:, 0 : Nin * Nhidden]
 
     path_IWT2RAM_state = path / "IWT2RAM_state"
     if not path_IWT2RAM_state.exists():
@@ -2690,7 +2694,7 @@ def export_last_state(
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
-    # - NDSRAM_state: neuron_dash_syn_ram_ts
+    # NDSRAM_state:neuron_dash_syn_ram_ts
     mat = np.zeros(
         (np.shape(state.NDSRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout),
         dtype=int,
@@ -2731,7 +2735,7 @@ def export_last_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # - NDMRAM_state: neuron_dash_mem_ram_ts
+    # NDMRAM_state: neuron_dash_mem_ram_ts
     mat = np.zeros(
         (np.shape(state.NDMRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2752,7 +2756,7 @@ def export_last_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # - NTHRAM_state: neuron_threshold_ram_ts
+    # NTHRAM_state: neuron_threshold_ram_ts
     mat = np.zeros(
         (np.shape(state.NTHRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden) + Nout),
         dtype=int,
@@ -2773,7 +2777,7 @@ def export_last_state(
                 f.write(to_hex(val, 4))
                 f.write("\n")
 
-    # - RCRAM_state: reservoir_config_ram_ts
+    # RCRAM_state: reservoir_config_ram_ts
     mat = np.zeros(
         (np.shape(state.RCRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2793,7 +2797,7 @@ def export_last_state(
                 f.write(to_hex(val, 1))
                 f.write("\n")
 
-    # - RARAM_state: reservoir_aliasing_ram_ts
+    # RARAM_state: reservoir_aliasing_ram_ts
     mat = np.zeros(
         (np.shape(state.RARAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2813,7 +2817,7 @@ def export_last_state(
                 f.write(to_hex(val, 3))
                 f.write("\n")
 
-    # - REFOCRAM_state: reservoir_effective_fanout_count_ram_ts
+    # REFOCRAM_state: reservoir_effective_fanout_count_ram_ts
     mat = np.zeros(
         (np.shape(state.REFOCRAM_state)[0], Nhidden + num_buffer_neurons(Nhidden)),
         dtype=int,
@@ -2833,7 +2837,7 @@ def export_last_state(
                 f.write(to_hex(val, 2))
                 f.write("\n")
 
-    # - RFORAM_state: recurrent_fanout_ram_ts
+    # RFORAM_state: recurrent_fanout_ram_ts
     mat = np.zeros(
         (np.shape(state.RFORAM_state)[0], np.shape(state.RFORAM_state)[1]), dtype=int
     )  # 32000
@@ -2857,7 +2861,7 @@ def export_last_state(
                     f.write("\n")
                     reservoir_fanout_total += 1
 
-    # - RWTRAM_state: recurrent_weight_ram_ts
+    # RWTRAM_state: recurrent_weight_ram_ts
     mat = np.zeros(
         (np.shape(state.RWTRAM_state)[0], np.shape(state.RWTRAM_state)[1]), dtype=int
     )  # 32000
@@ -2881,7 +2885,7 @@ def export_last_state(
                     f.write("\n")
                     reservoir_fanout_total += 1
 
-    # - RWT2RAM_state: recurrent_weight_2ram_ts
+    # RWT2RAM_state: recurrent_weight_2ram_ts
     mat = np.zeros(
         (np.shape(state.RWT2RAM_state)[0], np.shape(state.RWT2RAM_state)[1]), dtype=int
     )  # 32000
@@ -2905,7 +2909,7 @@ def export_last_state(
                     f.write("\n")
                     reservoir_fanout_total += 1
 
-    # - OWTRAM_state: output_weight_ram_ts
+    # OWTRAM_state: output_weight_ram_ts
     mat = np.zeros(
         (
             np.shape(state.OWTRAM_state)[0],
