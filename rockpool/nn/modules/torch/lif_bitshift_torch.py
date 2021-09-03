@@ -188,6 +188,7 @@ class LIFBitshiftTorch(TorchModule):
         self._record_Isyn = None
 
         self._record_dict = {}
+        self._record = False
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
 
