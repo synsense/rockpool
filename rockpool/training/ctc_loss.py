@@ -140,7 +140,11 @@ def ctc_loss_jax(
             label_[j],
             label_[j - 2],
         )
-        _, aa_ret_inner = scan(f=inner, xs=inputs, init=None,)
+        _, aa_ret_inner = scan(
+            f=inner,
+            xs=inputs,
+            init=None,
+        )
 
         aa_ret_inner += log_prob_label_i[3 : l_ + 1]
 
@@ -153,7 +157,11 @@ def ctc_loss_jax(
         return aa_ret_i, aa_ret_i
 
     inputs = (log_prob_[1 : seq_length + 1], log_prob_label[1 : seq_length + 1])
-    _, aa_final = scan(f=outer, xs=inputs, init=aa_0,)
+    _, aa_final = scan(
+        f=outer,
+        xs=inputs,
+        init=aa_0,
+    )
 
     return -jnp.logaddexp(
         aa_final[seq_length - 2][l_], aa_final[seq_length - 2][l_ - 1]

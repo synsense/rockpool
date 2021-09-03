@@ -3,13 +3,13 @@ def test_imports():
 
 
 def test_init():
-    from rockpool.devices.pollen.analogFrontEnd import AFE
+    from rockpool.devices.xylo.analogFrontEnd import AFE
 
     afe = AFE()
 
 
 def test_evolve():
-    from rockpool.devices.pollen.analogFrontEnd import AFE
+    from rockpool.devices.xylo.analogFrontEnd import AFE
     from rockpool.timeseries import TSContinuous
     import numpy as np
 
