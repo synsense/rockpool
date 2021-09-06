@@ -260,9 +260,9 @@ class GABABParameters(SynapseParameters):
 
 
 @dataclass
-class DynapSE1Parameters:
+class DynapSE1SimulationConfiguration:
     """
-    DynapSE1Parameters encapsulates the DynapSE1 circuit parameters and provides an easy access.
+    DynapSE1SimulationConfiguration encapsulates the DynapSE1 circuit parameters and provides an easy access.
 
     :param t_ref: refractory period in seconds, limits maximum firing rate, defaults to 15e-3
     :type t_ref: float, optional
