@@ -48,7 +48,7 @@ class BiasGen:
     @staticmethod
     def get_bias(coarse: np.uint8, fine: np.uint8) -> np.float64:
         """
-        coarse_fine_2_linear
+        coarse_fine_to_linear
         The very large scale integration(VLSI) neurons on DYNAP-SE are controlled by configurable current
         sources called “biases”. For each bias, there is an integer coarse value :math:`C \\in [0,7]` and
         an integer fine value :math:`F \\in [0,255]`, which together determine the amplitude of the current
@@ -66,6 +66,11 @@ class BiasGen:
     @staticmethod
     def get_linear(coarse: np.uint8, fine: np.uint8) -> np.float32:
         bias = BiasGen.get_bias(coarse, fine)
+        linear = BiasGen.bias_to_linear(bias)
+        return linear
+
+    @staticmethod
+    def bias_to_linear(bias: np.float64):
         linear = np.multiply(bias, BiasGen.scaling_factor, dtype=np.float32)
         linear = np.round(linear, 0)
         return linear
@@ -79,7 +84,7 @@ class BiasGen:
 
         :param linear: the linear bias value
         :type linear: np.float32
-        :param coarse_smallest: Choose the smallest coarse value possible. In this case, fine value would be slightly higher. If False, the function returns the biggest possible coarse value. defaults to False
+        :param coarse_smallest: Choose the smallest coarse value possible. In this case, fine value would be slightly higher. If False, the function returns the biggest possible coarse value. The smaller the coarse value is the better the resolution is! defaults to True
         :type coarse_smallest: bool, optional
         :param exact: If true, the function returns a corse fine tuple in the case that the exact linear value can be obtained using the ``BiasGen.get_linear()`` function else the function returns None. If false, the function returns the closest possible coarse and fine tuple, defaults to True
         :type exact: bool, optional
@@ -154,6 +159,14 @@ class BiasGen:
             return couples[couple_idx]
         else:
             return None
+
+    @staticmethod
+    def bias_to_coarse_fine(
+        bias: np.float64, coarse_smallest: bool = True  # Better resolution
+    ) -> Tuple[np.uint8, np.uint8]:
+        linear = BiasGen.bias_to_linear(bias)
+        coarse, fine = BiasGen.get_coarse_fine(linear, coarse_smallest, exact=False)
+        return coarse, fine
 
     @staticmethod
     def get_lookup_table() -> np.ndarray:
