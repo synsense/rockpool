@@ -30,7 +30,7 @@ Author : Ugurcan Cakal
 E-mail : ugurcan.cakal@gmail.com
 13/07/2021
 """
-
+import json
 import numpy as onp
 
 from rockpool.nn.modules.jax.jax_module import JaxModule
@@ -45,6 +45,9 @@ from jax import numpy as np
 from dataclasses import dataclass
 
 from typing import (
+    Dict,
+    Union,
+    List,
     Optional,
     Tuple,
     Any,
@@ -56,13 +59,22 @@ from rockpool.typehints import JP_ndarray, P_float, FloatVector
 from rockpool.devices.dynapse.utils import (
     get_param_vector,
     set_param,
+    get_Dynapse1Parameter,
 )
 
-from rockpool.devices.dynapse.dynapse1_parameters import (
-    DynapSE1Parameters,
+from rockpool.devices.dynapse.dynapse1_simconfig import (
+    DynapSE1SimulationConfiguration,
     SynapseParameters,
     MembraneParameters,
     FeedbackParameters,
+)
+
+from rockpool.devices.dynapse.biasgen import BiasGen
+
+
+from samna.dynapse1 import (
+    Dynapse1ParameterGroup,
+    Dynapse1Parameter,
 )
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
@@ -185,12 +197,17 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         I_{mem, j} = I_{reset}
 
+    :Attributes:
+
+    :attr biases: name list of all the low level biases
+    :type biases: List[str]
+
     :Parameters:
 
     :param shape: The number of neruons to employ, defaults to None
     :type shape: tuple, optional
-    :param config: Dynap-SE1 bias currents and configuration parameters, defaults to None
-    :type config: Optional[DynapSE1Parameters], optional
+    :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
+    :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
     :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
@@ -261,10 +278,38 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         -As a method on the class?
     """
 
+    biases = [
+        "IF_AHTAU_N",
+        "IF_AHTHR_N",
+        "IF_AHW_P",
+        "IF_BUF_P",
+        "IF_CASC_N",
+        "IF_DC_P",
+        "IF_NMDA_N",
+        "IF_RFR_N",
+        "IF_TAU1_N",
+        "IF_TAU2_N",
+        "IF_THR_N",
+        "NPDPIE_TAU_F_P",
+        "NPDPIE_TAU_S_P",
+        "NPDPIE_THR_F_P",
+        "NPDPIE_THR_S_P",
+        "NPDPII_TAU_F_P",
+        "NPDPII_TAU_S_P",
+        "NPDPII_THR_F_P",
+        "NPDPII_THR_S_P",
+        "PS_WEIGHT_EXC_F_N",
+        "PS_WEIGHT_EXC_S_N",
+        "PS_WEIGHT_INH_F_N",
+        "PS_WEIGHT_INH_S_N",
+        "PULSE_PWLK_P",
+        "R2R_P",
+    ]
+
     def __init__(
         self,
         shape: tuple = None,
-        config: Optional[DynapSE1Parameters] = None,
+        sim_config: Optional[DynapSE1SimulationConfiguration] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         syn_order: Optional[SYN] = None,
@@ -284,8 +329,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
 
-        if config is None:
-            config = DynapSE1Parameters()
+        if sim_config is None:
+            sim_config = DynapSE1SimulationConfiguration()
 
         if syn_order is None:
             syn_order = SYN()
@@ -307,16 +352,16 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # --- Parameters & States --- #
         self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
-            init=config.mem,
+            init=sim_config.mem,
         )
 
         ## Synapse parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B]
         self.Isyn, self.Itau_syn, self.f_gain_syn, self.Iw = self._set_syn_params(
-            ahp=config.ahp,
-            nmda=config.nmda,
-            ampa=config.ampa,
-            gaba_a=config.gaba_a,
-            gaba_b=config.gaba_b,
+            ahp=sim_config.ahp,
+            nmda=sim_config.nmda,
+            ampa=sim_config.ampa,
+            gaba_a=sim_config.gaba_a,
+            gaba_b=sim_config.gaba_b,
         )
         self.spikes: JP_ndarray = State(shape=(self.size_out,), init_func=np.zeros)
 
@@ -324,27 +369,27 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.dt: P_float = SimulationParameter(dt)
 
         ## Layout Params
-        self.Io = SimulationParameter(config.layout.Io)
+        self.Io = SimulationParameter(sim_config.layout.Io)
 
         ## Configuration Parameters
-        self.f_tau_mem = SimulationParameter(config.f_tau_mem)
-        self.f_tau_syn = SimulationParameter(config.f_tau_syn[self.target_idx])
-        self.t_pulse = SimulationParameter(config.t_pulse)
-        self.t_pulse_ahp = SimulationParameter(config.t_pulse_ahp)
-        self.Idc = SimulationParameter(config.Idc)
-        self.If_nmda = SimulationParameter(config.If_nmda)
-        self.t_ref = SimulationParameter(config.t_ref)
+        self.f_tau_mem = SimulationParameter(sim_config.f_tau_mem)
+        self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn[self.target_idx])
+        self.t_pulse = SimulationParameter(sim_config.t_pulse)
+        self.t_pulse_ahp = SimulationParameter(sim_config.t_pulse_ahp)
+        self.Idc = SimulationParameter(sim_config.Idc)
+        self.If_nmda = SimulationParameter(sim_config.If_nmda)
+        self.t_ref = SimulationParameter(sim_config.t_ref)
 
         ### Policy currents
         self.Ispkthr: JP_ndarray = SimulationParameter(
             shape=(self.size_out,),
             family="simulation",
-            init_func=lambda s: np.ones(s) * config.Ispkthr,
+            init_func=lambda s: np.ones(s) * sim_config.Ispkthr,
         )
         self.Ireset: JP_ndarray = SimulationParameter(
             shape=(self.size_out,),
             family="simulation",
-            init_func=lambda s: np.ones(s) * config.Ireset,
+            init_func=lambda s: np.ones(s) * sim_config.Ireset,
         )
 
     def evolve(
@@ -495,6 +540,64 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         return outputs, states, record_dict
 
+    def samna_param_group(self, chipId: int, coreId: int) -> Dynapse1ParameterGroup:
+        """
+        samna_param_group creates a samna Dynapse1ParameterGroup group object and configure the bias
+        parameters by creating a dictionary. It does not check if the values are legal or not.
+
+        :param chipId: the chip ID to declare in the paramter group
+        :type chipId: int
+        :param coreId: the core ID to declare in the parameter group
+        :type coreId: int
+        :return: samna config object
+        :rtype: Dynapse1ParameterGroup
+        """
+        pg_json = json.dumps(self._param_group(chipId, coreId))
+        pg_samna = Dynapse1ParameterGroup()
+        pg_samna.from_json(pg_json)
+        return pg_samna
+
+    def _param_group(
+        self, chipId, coreId
+    ) -> Dict[
+        str,
+        Dict[str, Union[int, List[Dict[str, Union[str, Dict[str, Union[str, int]]]]]]],
+    ]:
+        """
+        _param_group creates a samna type dictionary to configure the parameter group
+
+        :param chipId: the chip ID to declare in the paramter group
+        :type chipId: int
+        :param coreId: the core ID to declare in the parameter group
+        :type coreId: int
+        :return: a dictonary of bias currents, and their coarse/fine values
+        :rtype: Dict[str, Dict[str, Union[int, List[Dict[str, Union[str, Dict[str, Union[str, int]]]]]]]]
+        """
+
+        def param_dict(param: Dynapse1Parameter) -> Dict[str, Union[str, int]]:
+            serial = {
+                "paramName": param.param_name,
+                "coarseValue": param.coarse_value,
+                "fineValue": param.fine_value,
+                "type": param.type,
+            }
+            return serial
+
+        paramMap = [
+            {"key": bias, "value": param_dict(self.__getattribute__(bias))}
+            for bias in self.biases
+        ]
+
+        group = {
+            "value0": {
+                "paramMap": paramMap,
+                "chipId": chipId,
+                "coreId": coreId,
+            }
+        }
+
+        return group
+
     def _set_syn_params(
         self,
         ahp: Optional[SynapseParameters] = None,
@@ -605,6 +708,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         return Imem, Itau, f_gain, feedback
 
+    ## --- HIGH LEVEL TIME CONSTANTS -- ##
+
     @property
     def tau_mem(self):
         """
@@ -675,3 +780,196 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :rtype: JP_ndarray
         """
         return self.f_tau_syn[self.SYN.GABA_B] / self.Itau_syn[self.SYN.GABA_B]
+
+    ## --- MID-LEVEL HIDDEN BIAS CURRENTS (JAX) -- ##
+
+    @property
+    def Ith_mem(self):
+        return self.Itau_mem * self.f_gain_mem
+
+    @property
+    def Ith_syn(self):
+        return self.Itau_syn * self.f_gain_syn
+
+    ## --- LOW LEVEL BIAS CURRENTS (SAMNA) -- ##
+    @property
+    def IF_AHTAU_N(self):
+        """
+        IF_AHTAU_N is the bias current controlling the AHP circuit time constant. Itau_ahp
+        """
+        param = get_Dynapse1Parameter(
+            bias=self.Itau_syn[self.SYN.AHP].mean(), name="IF_AHTAU_N"
+        )
+        return param
+
+    @property
+    def IF_AHTHR_N(self):
+        param = get_Dynapse1Parameter(
+            bias=self.Ith_syn[self.SYN.AHP].mean(), name="IF_AHTHR_N"
+        )
+        return param
+
+    @property
+    def IF_AHW_P(self):
+        param = get_Dynapse1Parameter(
+            bias=self.Iw[self.SYN.AHP].mean(), name="IF_AHW_P"
+        )
+        return param
+
+    @property
+    def IF_BUF_P(self):
+        """
+        IF_BUF_P Vm readout, use samna defaults.
+        """
+        return Dynapse1Parameter("IF_BUF_P", 4, 80)
+
+    @property
+    def IF_CASC_N(self):
+        """
+        IF_CASC_N for AHP regularization, not so important, use samna defaults.
+        """
+        param = get_Dynapse1Parameter(bias=self.Io, name="IF_CASC_N")
+        return param
+
+    @property
+    def IF_DC_P(self):
+        param = get_Dynapse1Parameter(bias=self.Idc, name="IF_DC_P")
+        return param
+
+    @property
+    def IF_NMDA_N(self):
+        param = get_Dynapse1Parameter(bias=self.If_nmda, name="IF_NMDA_N")
+        return param
+
+    @property
+    def IF_RFR_N(self):
+        """
+        [] TODO : FIND THE CONVERSION FROM REFRACTORY PERIOD TO REFRACTORY CURRENT+
+        # 4, 120 in Chenxi
+        """
+        return Dynapse1Parameter("IF_RFR_N", 4, 3)
+
+    @property
+    def IF_TAU1_N(self):
+        param = get_Dynapse1Parameter(bias=self.Itau_mem.mean(), name="IF_TAU1_N")
+        return param
+
+    @property
+    def IF_TAU2_N(self):
+        """
+        IF_TAU2_N Second refractory period. Generally max current. For deactivation of certain neruons.
+        """
+        return Dynapse1Parameter("IF_TAU2_N", 7, 255)
+
+    @property
+    def IF_THR_N(self):
+        param = get_Dynapse1Parameter(bias=self.Ith_mem.mean(), name="IF_THR_N")
+        return param
+
+    @property
+    def NPDPIE_TAU_F_P(self):
+        # FAST_EXC, AMPA
+        param = get_Dynapse1Parameter(
+            bias=self.Itau_syn[self.SYN.AMPA].mean(), name="NPDPIE_TAU_F_P"
+        )
+        return param
+
+    @property
+    def NPDPIE_TAU_S_P(self):
+        # SLOW_EXC, NMDA
+        param = get_Dynapse1Parameter(
+            bias=self.Itau_syn[self.SYN.NMDA].mean(), name="NPDPIE_TAU_S_P"
+        )
+        return param
+
+    @property
+    def NPDPIE_THR_F_P(self):
+        # FAST_EXC, AMPA
+        param = get_Dynapse1Parameter(
+            bias=self.Ith_syn[self.SYN.AMPA].mean(), name="NPDPIE_THR_F_P"
+        )
+        return param
+
+    @property
+    def NPDPIE_THR_S_P(self):
+        # SLOW_EXC, NMDA
+        param = get_Dynapse1Parameter(
+            bias=self.Ith_syn[self.SYN.NMDA].mean(), name="NPDPIE_THR_S_P"
+        )
+        return param
+
+    @property
+    def NPDPII_TAU_F_P(self):
+        # FAST_INH, GABA_B
+        param = get_Dynapse1Parameter(
+            bias=self.Itau_syn[self.SYN.GABA_B].mean(), name="NPDPII_TAU_F_P"
+        )
+        return param
+
+    @property
+    def NPDPII_TAU_S_P(self):
+        # SLOW_INH, GABA_A
+        param = get_Dynapse1Parameter(
+            bias=self.Itau_syn[self.SYN.GABA_A].mean(), name="NPDPII_TAU_S_P"
+        )
+        return param
+
+    @property
+    def NPDPII_THR_F_P(self):
+        # FAST_INH, GABA_B
+        param = get_Dynapse1Parameter(
+            bias=self.Ith_syn[self.SYN.GABA_B].mean(), name="NPDPII_THR_F_P"
+        )
+        return param
+
+    @property
+    def NPDPII_THR_S_P(self):
+        # SLOW_INH, GABA_A
+        param = get_Dynapse1Parameter(
+            bias=self.Ith_syn[self.SYN.GABA_A].mean(), name="NPDPII_THR_S_P"
+        )
+        return param
+
+    @property
+    def PS_WEIGHT_EXC_F_N(self):
+        # FAST_EXC, AMPA
+        param = get_Dynapse1Parameter(
+            bias=self.Iw[self.SYN.AMPA].mean(), name="PS_WEIGHT_EXC_F_N"
+        )
+        return param
+
+    @property
+    def PS_WEIGHT_EXC_S_N(self):
+        # SLOW_EXC, NMDA
+        param = get_Dynapse1Parameter(
+            bias=self.Iw[self.SYN.NMDA].mean(), name="PS_WEIGHT_EXC_S_N"
+        )
+        return param
+
+    @property
+    def PS_WEIGHT_INH_F_N(self):
+        # FAST_INH, GABA_B
+        param = get_Dynapse1Parameter(
+            bias=self.Iw[self.SYN.GABA_B].mean(), name="PS_WEIGHT_INH_F_N"
+        )
+        return param
+
+    @property
+    def PS_WEIGHT_INH_S_N(self):
+        # SLOW_INH, GABA_A
+        param = get_Dynapse1Parameter(
+            bias=self.Iw[self.SYN.GABA_A].mean(), name="PS_WEIGHT_INH_S_N"
+        )
+        return param
+
+    @property
+    def PULSE_PWLK_P(self):
+        """
+        [] TODO : FIND THE CONVERSION FROM PULSE WIDTH TO PULSE WIDTH CURRENT
+        """
+        return Dynapse1Parameter("PULSE_PWLK_P", 4, 106)
+
+    @property
+    def R2R_P(self):
+        # Use samna defaults
+        return Dynapse1Parameter("R2R_P", 3, 85)
