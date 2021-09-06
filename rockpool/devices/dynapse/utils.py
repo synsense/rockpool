@@ -19,12 +19,15 @@ from typing import (
     List,
 )
 
+import jax.numpy as jnp
+
 from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.typehints import JP_ndarray, P_float
+from rockpool.devices.dynapse.biasgen import BiasGen
+
+from samna.dynapse1 import Dynapse1Parameter
 
 ArrayLike = Union[np.ndarray, List, Tuple]
-
-import jax.numpy as jnp
 
 
 def spike_to_pulse(
@@ -218,7 +221,7 @@ def get_tau(
     return tau
 
 
-def Isyn_inf(Ith: float, Itau: float, Iw: float,) -> float:
+def Isyn_inf(Ith: float, Itau: float, Iw: float) -> float:
     """
     Isyn_inf calculates the steady state DPI current
 
@@ -562,7 +565,7 @@ def dpi_update_func(
 
 
 def set_param(
-    shape: tuple, family: str, init_func: Callable, object: str,
+    shape: tuple, family: str, init_func: Callable, object: str
 ) -> JP_ndarray:
     """
     set_param is a utility function helps making a neat selection of state, parameter or simulation parameter
@@ -596,3 +599,19 @@ def set_param(
         raise ValueError(
             f"object type: {object} can be 'state', 'parameter', or 'simulation'"
         )
+
+
+def get_Dynapse1Parameter(bias: float, name: str) -> Dynapse1Parameter:
+    """
+    get_Dynapse1Parameter constructs a samna DynapSE1Parameter object given the bias current desired
+
+    :param bias: bias current desired. It will be expressed by a coarse fine tuple which will generate the closest possible bias current.
+    :type bias: float
+    :param name: the name of the bias parameter
+    :type name: str
+    :return: samna DynapSE1Parameter object
+    :rtype: Dynapse1Parameter
+    """
+    coarse, fine = BiasGen.bias_to_coarse_fine(bias)
+    param = Dynapse1Parameter(name, coarse, fine)
+    return param
