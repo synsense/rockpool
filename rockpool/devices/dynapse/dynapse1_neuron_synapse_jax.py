@@ -481,11 +481,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ]  # target -> default order
             # Ishunt = np.clip(Igaba_b, self.layout.Io, Imem) # Not sure how to use
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
-            Iin = Inmda + Iampa - Igaba_a - Igaba_b + self.Idc
+            # Iin = Inmda + Iampa - Igaba_a - Igaba_b + self.Idc
+            Iin = Inmda + Iampa - Igaba_b + self.Idc
             Iin = np.clip(Iin, self.Io)
 
             ## Steady state current
-            Imem_inf = self.f_gain_mem * (Iin - Iahp - Itau_mem_clip)
+            Imem_inf = self.f_gain_mem * (Iin - (Iahp + Igaba_a) - Itau_mem_clip)
             Ith_mem_clip = self.f_gain_mem * Itau_mem_clip
 
             ## Positive feedback
@@ -497,7 +498,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
             ## Forward Euler Update
             del_Imem = (Imem / (tau_mem * (Ith_mem_clip + Imem))) * (
-                Imem_inf + f_Imem - (Imem * (1 + (Iahp / Itau_mem_clip)))
+                Imem_inf + f_Imem - (Imem * (1 + ((Iahp + Igaba_a) / Itau_mem_clip)))
             )
             Imem = Imem + del_Imem * self.dt
             Imem = np.clip(Imem, self.Io)
@@ -900,33 +901,33 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     @property
     def NPDPII_TAU_F_P(self):
-        # FAST_INH, GABA_B
+        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.GABA_B].mean(), name="NPDPII_TAU_F_P"
+            bias=self.Itau_syn[self.SYN.GABA_A].mean(), name="NPDPII_TAU_F_P"
         )
         return param
 
     @property
     def NPDPII_TAU_S_P(self):
-        # SLOW_INH, GABA_A
+        # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.GABA_A].mean(), name="NPDPII_TAU_S_P"
+            bias=self.Itau_syn[self.SYN.GABA_B].mean(), name="NPDPII_TAU_S_P"
         )
         return param
 
     @property
     def NPDPII_THR_F_P(self):
-        # FAST_INH, GABA_B
+        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.GABA_B].mean(), name="NPDPII_THR_F_P"
+            bias=self.Ith_syn[self.SYN.GABA_A].mean(), name="NPDPII_THR_F_P"
         )
         return param
 
     @property
     def NPDPII_THR_S_P(self):
-        # SLOW_INH, GABA_A
+        # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.GABA_A].mean(), name="NPDPII_THR_S_P"
+            bias=self.Ith_syn[self.SYN.GABA_B].mean(), name="NPDPII_THR_S_P"
         )
         return param
 
@@ -948,17 +949,17 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     @property
     def PS_WEIGHT_INH_F_N(self):
-        # FAST_INH, GABA_B
+        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.GABA_B].mean(), name="PS_WEIGHT_INH_F_N"
+            bias=self.Iw[self.SYN.GABA_A].mean(), name="PS_WEIGHT_INH_F_N"
         )
         return param
 
     @property
     def PS_WEIGHT_INH_S_N(self):
-        # SLOW_INH, GABA_A
+        # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.GABA_A].mean(), name="PS_WEIGHT_INH_S_N"
+            bias=self.Iw[self.SYN.GABA_B].mean(), name="PS_WEIGHT_INH_S_N"
         )
         return param
 
