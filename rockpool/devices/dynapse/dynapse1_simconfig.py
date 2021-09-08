@@ -73,7 +73,7 @@ class DPIParameters:
     :type Ith: float
     """
 
-    Itau: float = 10e-12
+    Itau: float = 7e-12
     f_gain: float = 4
     C: float = 1e-12
     tau: Optional[float] = None
@@ -365,13 +365,13 @@ class DynapSE1SimulationConfiguration:
                 C=_Co * 4, r_Cref=0.1, r_Cpulse=0.1, layout=self.layout
             )
         if self.ahp is None:
-            self.ahp = AHPParameters(C=_Co * 40, layout=self.layout)
+            self.ahp = AHPParameters(C=_Co * 10, layout=self.layout)
         if self.nmda is None:
             self.nmda = NMDAParameters(C=_Co * 20, layout=self.layout)
         if self.ampa is None:
-            self.ampa = AMPAParameters(C=_Co, layout=self.layout)
+            self.ampa = AMPAParameters(C=_Co * 2, layout=self.layout)
         if self.gaba_a is None:
-            self.gaba_a = GABAAParameters(C=_Co, layout=self.layout)
+            self.gaba_a = GABAAParameters(C=_Co * 2, layout=self.layout)
         if self.gaba_b is None:
             self.gaba_b = GABABParameters(C=_Co * 20, layout=self.layout)
 
