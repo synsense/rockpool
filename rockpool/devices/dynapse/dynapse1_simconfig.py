@@ -323,11 +323,15 @@ class DynapSE1SimulationConfiguration:
     :type f_tau_mem: float
     :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
     :type f_tau_syn: np.ndarray
+    :ivar f_t_ref: time factor for refractory period circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
+    :type f_t_ref: float
+    :ivar f_t_pulse: time factor for pulse width generation circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
+    :type f_t_pulse: float
 
     [] TODO : Implement get bias currents utility
     """
 
-    t_ref: float = 15e-3
+    t_ref: float = 10e-3
     t_pulse: float = 1e-5
     fpulse_ahp: float = 0.1
     Ispkthr: float = 1e-9
@@ -379,6 +383,8 @@ class DynapSE1SimulationConfiguration:
 
         # Membrane
         self.f_tau_mem = self.mem.f_tau
+        self.f_t_ref = self.mem.f_ref
+        self.f_t_pulse = self.mem.f_pulse
 
         # All DPI synapses together
         self.f_tau_syn = np.array(
