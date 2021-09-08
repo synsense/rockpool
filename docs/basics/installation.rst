@@ -46,6 +46,14 @@ To automatically install all the extra dependencies required by |project|, use t
 
     $ pip install rockpool[all]
 
+or
+
+.. code-block:: zsh
+
+    $ pip install rockpool\[all\]
+
+if using zsh.
+
 Building the documentation
 --------------------------
 
