@@ -71,11 +71,21 @@ from rockpool.devices.dynapse.dynapse1_simconfig import (
 
 from rockpool.devices.dynapse.biasgen import BiasGen
 
+_SAMNA_AVAILABLE = True
 
-from samna.dynapse1 import (
-    Dynapse1ParameterGroup,
-    Dynapse1Parameter,
-)
+try:
+    from samna.dynapse1 import (
+        Dynapse1ParameterGroup,
+        Dynapse1Parameter,
+    )
+except ModuleNotFoundError as e:
+    print(
+        e,
+        "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
+        "Deployment utilities depends on samna!",
+    )
+    _SAMNA_AVAILABLE = False
+
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
