@@ -62,9 +62,10 @@ class SequentialMixin(ABC):
             if shape_out[mod_index] != shape_in[mod_index + 1]:
                 raise ValueError(
                     f"The output of submodule {mod_index} "
-                    + "({type(submods[mod_index]).__name__}) "
-                    + "does not match the input shape of submodule "
-                    + "{mod_index+1} ({type(submods[mod_index+1]).__name__})"
+                    + f"({type(submods[mod_index]).__name__}) "
+                    + f"does not match the input shape of submodule "
+                    + f"{mod_index+1} ({type(submods[mod_index+1]).__name__}): "
+                    + f"{shape_out[mod_index]} ≠ {shape_in[mod_index+1]}"
                 )
 
         # - Call superclass __init__
