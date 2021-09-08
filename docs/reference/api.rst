@@ -212,3 +212,9 @@ Hardware support and simulation
     :template: module.rst
 
     devices.pollen.pollen_devkit_utils
+
+.. autosummary::
+    :toctree: _autosummary
+    :templte: module.rst
+
+    devices.dynapse.DynapSE1NeuronSynapseJax
