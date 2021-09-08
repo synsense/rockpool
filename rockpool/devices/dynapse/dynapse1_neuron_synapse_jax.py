@@ -266,6 +266,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type If_nmda: float
     :ivar t_ref: refractory period in seconds, limits maximum firing rate
     :type t_ref: float
+    :ivar timer_ref: timer to keep the time from the spike generation until the refractory period ends
+    :type timer_ref: int
 
 
     [] TODO: ATTENTION Now, the implementation is only for one core, extend it for multiple cores
@@ -380,6 +382,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self.If_nmda = SimulationParameter(sim_config.If_nmda)
         self.t_ref = SimulationParameter(sim_config.t_ref)
 
+        ### Refractory Period
+        self.timer_ref = State(shape=(self.size_out,), init_func=np.zeros)
+
         ### Policy currents
         self.Ispkthr: JP_ndarray = SimulationParameter(
             shape=(self.size_out,),
@@ -435,10 +440,15 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # [] TODO : Implement NMDA gating mechanism
             # [] TODO : Would you allow currents to go below Io or not?!!!!
 
-            spikes, Imem, Isyn, key = state
+            spikes, Imem, Isyn, key, timer_ref = state
 
             # Reset Imem depending on spiking activity
             Imem = (1 - spikes) * Imem + spikes * self.Ireset
+
+            # Set the timer
+            timer_ref -= self.dt
+            timer_ref = np.clip(timer_ref, 0)
+            timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
 
             ## ATTENTION : Optimization can make Itau_mem and I_tau_syn < Io
             # We might have division by 0 if we allow this to happen!
@@ -479,10 +489,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             Iahp, Inmda, Iampa, Igaba_a, Igaba_b = Isyn[
                 self.default_idx
             ]  # target -> default order
-            # Ishunt = np.clip(Igaba_b, self.layout.Io, Imem) # Not sure how to use
+
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
             # Iin = Inmda + Iampa - Igaba_a - Igaba_b + self.Idc
+            # Iin = 0 if the neuron is in the refractory period
             Iin = Inmda + Iampa - Igaba_b + self.Idc
+            Iin *= np.logical_not(timer_ref.astype(bool))
             Iin = np.clip(Iin, self.Io)
 
             ## Steady state current
@@ -507,15 +519,17 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ## Detect next spikes (with custom gradient)
             spikes = step_pwl(Imem, self.Ispkthr, self.Ireset)
 
-            state = (spikes, Imem, Isyn, key)
+            state = (spikes, Imem, Isyn, key, timer_ref)
             return state, (spikes, Imem, Isyn)
 
         # --- Evolve over spiking inputs --- #
         state, (spikes_ts, Imem_ts, Isyn_ts) = scan(
-            forward, (self.spikes, self.Imem, self.Isyn, self._rng_key), input_data
+            forward,
+            (self.spikes, self.Imem, self.Isyn, self._rng_key, self.timer_ref),
+            input_data,
         )
 
-        new_spikes, new_Imem, new_Isyn, new_rng_key = state
+        new_spikes, new_Imem, new_Isyn, new_rng_key, new_timer_ref = state
 
         # --- RETURN ARGUMENTS --- #
         outputs = spikes_ts
@@ -526,6 +540,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             "Imem": new_Imem,
             "Isyn": new_Isyn,
             "spikes": new_spikes,
+            "timer_ref": new_timer_ref,
         }
 
         record_dict = {
@@ -901,33 +916,33 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     @property
     def NPDPII_TAU_F_P(self):
-        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
+        # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.GABA_A].mean(), name="NPDPII_TAU_F_P"
+            bias=self.Itau_syn[self.SYN.GABA_B].mean(), name="NPDPII_TAU_F_P"
         )
         return param
 
     @property
     def NPDPII_TAU_S_P(self):
-        # SLOW_INH, GABA_B, subtractive
+        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Itau_syn[self.SYN.GABA_B].mean(), name="NPDPII_TAU_S_P"
+            bias=self.Itau_syn[self.SYN.GABA_A].mean(), name="NPDPII_TAU_S_P"
         )
         return param
 
     @property
     def NPDPII_THR_F_P(self):
-        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
+        # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.GABA_A].mean(), name="NPDPII_THR_F_P"
+            bias=self.Ith_syn[self.SYN.GABA_B].mean(), name="NPDPII_THR_F_P"
         )
         return param
 
     @property
     def NPDPII_THR_S_P(self):
-        # SLOW_INH, GABA_B, subtractive
+        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Ith_syn[self.SYN.GABA_B].mean(), name="NPDPII_THR_S_P"
+            bias=self.Ith_syn[self.SYN.GABA_A].mean(), name="NPDPII_THR_S_P"
         )
         return param
 
@@ -949,17 +964,17 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
     @property
     def PS_WEIGHT_INH_F_N(self):
-        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
+        # SLOW_INH, GABA_B, subtractive
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.GABA_A].mean(), name="PS_WEIGHT_INH_F_N"
+            bias=self.Iw[self.SYN.GABA_B].mean(), name="PS_WEIGHT_INH_F_N"
         )
         return param
 
     @property
     def PS_WEIGHT_INH_S_N(self):
-        # SLOW_INH, GABA_B, subtractive
+        # FAST_INH, GABA_A, shunting, a mixture of subtractive and divisive
         param = get_Dynapse1Parameter(
-            bias=self.Iw[self.SYN.GABA_B].mean(), name="PS_WEIGHT_INH_S_N"
+            bias=self.Iw[self.SYN.GABA_A].mean(), name="PS_WEIGHT_INH_S_N"
         )
         return param
 
