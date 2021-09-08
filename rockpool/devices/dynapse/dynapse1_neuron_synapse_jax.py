@@ -491,9 +491,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ]  # target -> default order
 
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
-            # Iin = Inmda + Iampa - Igaba_a - Igaba_b + self.Idc
+            I_nmda_dp = Inmda / (1 + Inmda / Imem)
+
             # Iin = 0 if the neuron is in the refractory period
-            Iin = Inmda + Iampa - Igaba_b + self.Idc
+            Iin = I_nmda_dp + Iampa - Igaba_b + self.Idc
             Iin *= np.logical_not(timer_ref.astype(bool))
             Iin = np.clip(Iin, self.Io)
 
