@@ -71,11 +71,21 @@ from rockpool.devices.dynapse.dynapse1_simconfig import (
 
 from rockpool.devices.dynapse.biasgen import BiasGen
 
+_SAMNA_AVAILABLE = True
 
-from samna.dynapse1 import (
-    Dynapse1ParameterGroup,
-    Dynapse1Parameter,
-)
+try:
+    from samna.dynapse1 import (
+        Dynapse1ParameterGroup,
+        Dynapse1Parameter,
+    )
+except ModuleNotFoundError as e:
+    print(
+        e,
+        "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
+        "Deployment utilities depends on samna!",
+    )
+    _SAMNA_AVAILABLE = False
+
 
 DynapSE1State = Tuple[JP_ndarray, JP_ndarray, JP_ndarray, Optional[Any]]
 
@@ -256,6 +266,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type f_tau_mem: float
     :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
     :type f_tau_syn: np.ndarray
+    :ivar f_t_ref: The factor of conversion from refractory period in seconds to refractory period bias current in Amperes
+    :type f_t_ref: float
+    :ivar f_t_pulse: The factor of conversion from pulse width in seconds to pulse width bias current in Amperes
+    :type f_t_pulse: float
     :ivar t_pulse: the width of the pulse in seconds produced by virtue of a spike
     :type t_pulse: float
     :ivar t_pulse_ahp: reduced pulse width also look at ``t_pulse`` and ``fpulse_ahp``
@@ -376,6 +390,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         ## Configuration Parameters
         self.f_tau_mem = SimulationParameter(sim_config.f_tau_mem)
         self.f_tau_syn = SimulationParameter(sim_config.f_tau_syn[self.target_idx])
+        self.f_t_ref = SimulationParameter(sim_config.f_t_ref)
+        self.f_t_pulse = SimulationParameter(sim_config.f_t_pulse)
         self.t_pulse = SimulationParameter(sim_config.t_pulse)
         self.t_pulse_ahp = SimulationParameter(sim_config.t_pulse_ahp)
         self.Idc = SimulationParameter(sim_config.Idc)
@@ -491,7 +507,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ]  # target -> default order
 
             # Inmda = 0 if Vmem < Vth_nmda else Inmda
-            I_nmda_dp = Inmda / (1 + Inmda / Imem)
+            I_nmda_dp = Inmda / (1 + self.If_nmda / Imem)
 
             # Iin = 0 if the neuron is in the refractory period
             Iin = I_nmda_dp + Iampa - Igaba_b + self.Idc
@@ -861,10 +877,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     @property
     def IF_RFR_N(self):
         """
-        [] TODO : FIND THE CONVERSION FROM REFRACTORY PERIOD TO REFRACTORY CURRENT+
         # 4, 120 in Chenxi
+        # 0, 20 by Ugurcan
         """
-        return Dynapse1Parameter("IF_RFR_N", 4, 3)
+        I_ref = self.f_t_ref / self.t_ref
+        param = get_Dynapse1Parameter(bias=I_ref, name="IF_RFR_N")
+        return param
 
     @property
     def IF_TAU1_N(self):
@@ -982,9 +1000,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     @property
     def PULSE_PWLK_P(self):
         """
-        [] TODO : FIND THE CONVERSION FROM PULSE WIDTH TO PULSE WIDTH CURRENT
+        # 4, 160 by default
+        # 3, 56 for 10u by Ugurcan
         """
-        return Dynapse1Parameter("PULSE_PWLK_P", 4, 106)
+        I_pulse = self.f_t_pulse / self.t_pulse
+        param = get_Dynapse1Parameter(bias=I_pulse, name="PULSE_PWLK_P")
+        return param
 
     @property
     def R2R_P(self):

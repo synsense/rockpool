@@ -58,7 +58,7 @@ class DPIParameters:
     :type Itau: float, optional
     :param f_gain: the gain ratio for the steady state solution. :math:`f_{gain}= \dfrac{I_{th}}{I_{\\tau}}`, defaults to 4
     :type f_gain: float, optional
-    :param C: DPI synaptic capacitance in Farads, fixed at layout time, defaults to 25e-12
+    :param C: DPI synaptic capacitance in Farads, fixed at layout time, defaults to 1e-12
     :type C: float, optional
     :param tau: Synaptic time constant, co-depended to Itau. In the case its provided, Itau is infered from tau, defaults to None
     :type tau: Optional[float], optional
@@ -66,15 +66,16 @@ class DPIParameters:
     :type layout: Optional[DynapSE1Layout], optional
 
     :Instance Variables:
+
     :ivar f_tau: Tau factor for DPI circuit. :math:`f_{\\tau} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\tau} = I_{\\tau} \\cdot \\tau`
     :type f_tau: float
     :ivar Ith:  DPI's threshold / gain current in Amperes, scaling factor for the synaptic weight (typically x2, x4 of I_tau) :math:`I_{th} = f_{gain} \cdot I_{\\tau}`
     :type Ith: float
     """
 
-    Itau: float = 10e-12
+    Itau: float = 7e-12
     f_gain: float = 4
-    C: float = 25e-12
+    C: float = 1e-12
     tau: Optional[float] = None
     layout: Optional[DynapSE1Layout] = None
 
@@ -186,9 +187,26 @@ class MembraneParameters(DPIParameters):
     :type Imem: Optional[float], optional
     :param feedback: positive feedback circuit heuristic parameters:Ia_gain, Ia_th, and Ia_norm, defaults to None
     :type feedback: Optional[FeedbackParameters], optional
+    :param r_Cref: The ratio of refractory and membrane capacitance values :math:`\\dfrac{C_{ref}}{C_{mem}}`
+    :type r_Cref: float, optional
+    :param r_Cpulse: The ratio of pulse and membrane capacitance values :math:`\\dfrac{C_{pulse}}{C_{mem}}`
+    :type r_Cpulse: float, optional
+
+    :Instance Variables:
+
+    :ivar Cref: the capacitance value of the circuit that implements the refractory period
+    :type Cref: float
+    :ivar Cpulse: the capacitance value of the circuit that converts the spikes to pulses
+    :type Cpulse: float
+    :ivar f_ref: the capacitance value of the circuit that implements the refractory period
+    :type f_ref: float
+    :ivar f_pulse: the capacitance value of the circuit that converts the spikes to pulses
+    :type f_pulse: float
     """
 
     C: float = 3.2e-12
+    r_Cref: float = 0.1
+    r_Cpulse: float = 0.1
     Imem: Optional[float] = None
     feedback: Optional[FeedbackParameters] = None
 
@@ -207,6 +225,12 @@ class MembraneParameters(DPIParameters):
             raise ValueError(
                 f"Illegal Imem : {self.Imem}A. It should be greater than Io : {self.layout.Io}"
             )
+
+        self.Cref = self.C * self.r_Cref
+        self.Cpulse = self.C * self.r_Cpulse
+
+        self.f_ref = (self.layout.Ut / self.layout.kappa) * self.Cref
+        self.f_pulse = (self.layout.Ut / self.layout.kappa) * self.Cpulse
 
         if self.feedback is None:
             self.feedback = FeedbackParameters()
@@ -299,11 +323,15 @@ class DynapSE1SimulationConfiguration:
     :type f_tau_mem: float
     :ivar f_tau_syn: A vector of tau factors in the following order: [AHP, NMDA, AMPA, GABA_A, GABA_B]
     :type f_tau_syn: np.ndarray
+    :ivar f_t_ref: time factor for refractory period circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
+    :type f_t_ref: float
+    :ivar f_t_pulse: time factor for pulse width generation circuit. :math:`f_{\\t} = \\dfrac{U_T}{\\kappa \\cdot C}`, :math:`f_{\\t} = I_{\\t} \\cdot \\t`
+    :type f_t_pulse: float
 
     [] TODO : Implement get bias currents utility
     """
 
-    t_ref: float = 15e-3
+    t_ref: float = 10e-3
     t_pulse: float = 1e-5
     fpulse_ahp: float = 0.1
     Ispkthr: float = 1e-9
@@ -333,24 +361,30 @@ class DynapSE1SimulationConfiguration:
         if self.Ireset is None:
             self.Ireset = self.layout.Io
 
+        _Co = 1e-12
+
         # Initialize the subcircuit blocks with the same layout
         if self.mem is None:
-            self.mem = MembraneParameters(layout=self.layout)
+            self.mem = MembraneParameters(
+                C=_Co * 4, r_Cref=0.1, r_Cpulse=0.1, layout=self.layout
+            )
         if self.ahp is None:
-            self.ahp = AHPParameters(layout=self.layout)
+            self.ahp = AHPParameters(C=_Co * 10, layout=self.layout)
         if self.nmda is None:
-            self.nmda = NMDAParameters(layout=self.layout)
+            self.nmda = NMDAParameters(C=_Co * 20, layout=self.layout)
         if self.ampa is None:
-            self.ampa = AMPAParameters(layout=self.layout)
+            self.ampa = AMPAParameters(C=_Co * 2, layout=self.layout)
         if self.gaba_a is None:
-            self.gaba_a = GABAAParameters(layout=self.layout)
+            self.gaba_a = GABAAParameters(C=_Co * 2, layout=self.layout)
         if self.gaba_b is None:
-            self.gaba_b = GABABParameters(layout=self.layout)
+            self.gaba_b = GABABParameters(C=_Co * 20, layout=self.layout)
 
         self.t_pulse_ahp = self.t_pulse * self.fpulse_ahp
 
         # Membrane
         self.f_tau_mem = self.mem.f_tau
+        self.f_t_ref = self.mem.f_ref
+        self.f_t_pulse = self.mem.f_pulse
 
         # All DPI synapses together
         self.f_tau_syn = np.array(

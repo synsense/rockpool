@@ -25,7 +25,17 @@ from rockpool.parameters import Parameter, State, SimulationParameter
 from rockpool.typehints import JP_ndarray, P_float
 from rockpool.devices.dynapse.biasgen import BiasGen
 
-from samna.dynapse1 import Dynapse1Parameter
+_SAMNA_AVAILABLE = True
+
+try:
+    from samna.dynapse1 import Dynapse1Parameter
+except ModuleNotFoundError as e:
+    print(
+        e,
+        "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
+        "Deployment utilities depends on samna!",
+    )
+    _SAMNA_AVAILABLE = False
 
 ArrayLike = Union[np.ndarray, List, Tuple]
 
