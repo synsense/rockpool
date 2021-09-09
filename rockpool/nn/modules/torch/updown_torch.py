@@ -203,9 +203,9 @@ class UpDownTorch(TorchModule):
             diff_values = data[:, t, :] - analog_value
 
             # - Calculate the spike outputs
-            up_channels = step_pwl(diff_values/thr_up)
+            up_channels = step_pwl(diff_values / thr_up)
             # - Enter the negative thr_down so that it checks for changes going below this threshold.
-            down_channels = step_pwl(diff_values/(-thr_down))
+            down_channels = step_pwl(diff_values / (-thr_down))
 
             if self.n_ref_steps > 0:
                 # - Remove the spikes of all channels that are still in the refractory period
