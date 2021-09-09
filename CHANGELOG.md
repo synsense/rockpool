@@ -2,6 +2,29 @@
 
 All notable changes between Rockpool releases will be documented in this file.
 
+## [v2.2] -- 2021-09-09
+
+### Added
+
+ - Added support for the Xylo development kit in `.devices.xylo`, including several tutorials
+ - Added CTC loss implementations in `.training.ctc_loss`
+ - New trainable `torch` modules: `LIFTorch` and others in `.nn.modules.torch`, including an asynchronous delta modulator `UpDownTorch`
+ - Added `torch` training utilities and loss functions in `.training.torch_loss`
+ - New `TorchSequential` class to support `Sequential` combinator for `torch` modules
+ - Added a `FFwdStackTorch` class to support `FFwdStack` combinator for `torch` modules
+
+### Changed
+
+ - Existing `LIFTorch` module renamed to `LIFBitshiftTorch`; updated module to align better with Rockpool API
+ - Improvements to `.typehints` package
+ - `TorchModule` now raises an error if submodules are not `Torchmodules`
+
+### Fixed
+
+ - Updated LIF torch training tutorial to use new `LIFBitshiftTorch` module
+ - Improved installation instructions for `zsh`
+
+
 ## [v2.1] -- 2021-07-20
 
 ### Added
