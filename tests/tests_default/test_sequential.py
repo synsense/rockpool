@@ -4,6 +4,7 @@ def test_imports():
         Sequential,
         JaxSequential,
         ModSequential,
+        TorchSequential,
     )
 
     from rockpool.nn.combinators.ffwd_stack import (
@@ -14,7 +15,7 @@ def test_imports():
     )
 
 
-def test_Sequential_nojax():
+def test_Sequential_mod():
     from rockpool.nn.combinators.sequential import Sequential
     from rockpool.nn.modules.native.linear import Linear
     from rockpool.nn.modules.module import Module
@@ -31,7 +32,7 @@ def test_Sequential_nojax():
                 shape=self._shape[-1], init_func=np.random.standard_normal
             )
 
-        def evolve(self, input_data, weights_recurrent=None, record: bool = False):
+        def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
     seq = Sequential(
@@ -48,11 +49,7 @@ def test_Sequential_nojax():
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (
-        output,
-        _,
-        _,
-    ) = seq(input_data)
+    (output, _, _,) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -89,11 +86,7 @@ def test_Sequential_jax():
     T = 10
     input_data = np.random.rand(T, Nin)
 
-    (
-        output,
-        new_state,
-        recorded_state,
-    ) = seq(input_data)
+    (output, new_state, recorded_state,) = seq(input_data)
     seq = seq.set_attributes(new_state)
     print("output: ", output.T)
 
@@ -104,11 +97,7 @@ def test_Sequential_jax():
 
     # - Test compilation
     je = jax.jit(seq)
-    (
-        output_jit,
-        _,
-        _,
-    ) = je(input_data)
+    (output_jit, _, _,) = je(input_data)
     print("jax.jit output: ", output_jit.T)
 
     # - Test differentiation
@@ -128,7 +117,47 @@ def test_Sequential_jax():
     print("grads: ", grads)
 
 
-def test_FFwdStack_nojax():
+def test_Sequential_torch():
+    from rockpool.nn.combinators.sequential import Sequential
+    from rockpool.nn.modules.torch.linear_torch import LinearTorch
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+    from rockpool.parameters import State, Parameter
+
+    import torch
+
+    # - Define a simple module
+    class Mod(TorchModule):
+        def __init__(self, shape=None, *args, **kwargs):
+            super().__init__(shape=shape, *args, *kwargs)
+            self.activation = State(shape=self._shape[-1], init_func=torch.zeros)
+            self.bias = Parameter(shape=self._shape[-1], init_func=torch.randn)
+
+        def evolve(self, input_data, record: bool = False):
+            return input_data + self.bias, {}, {}
+
+    seq = Sequential(
+        Mod(10),
+        LinearTorch((10, 20)),
+        Mod(20),
+        LinearTorch((20, 30)),
+        Mod(30),
+        LinearTorch((30, 1)),
+        Mod(1),
+    )
+    print(seq)
+
+    input_data = torch.randn((100, 10))
+
+    # - Test evolve
+    (output, _, _,) = seq(input_data)
+    print(output.shape)
+
+    # - Test parameters
+    print(seq.parameters())
+    print(seq.state())
+
+
+def test_FFwdStack_mod():
     from rockpool.nn.combinators.ffwd_stack import FFwdStack
     from rockpool.nn.modules.native.linear import Linear
     from rockpool.nn.modules.module import Module
@@ -145,25 +174,16 @@ def test_FFwdStack_nojax():
                 shape=self._shape[-1], init_func=np.random.standard_normal
             )
 
-        def evolve(self, input_data, weights_recurrent=None, record: bool = False):
+        def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(
-        Mod(10),
-        Mod(20),
-        Mod(30),
-        Mod(1),
-    )
+    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
-    (
-        output,
-        _,
-        _,
-    ) = seq(input_data)
+    (output, _, _,) = seq(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -189,26 +209,17 @@ def test_FFwdStack_jax():
                 shape=self._shape[-1], init_func=np.random.standard_normal
             )
 
-        def evolve(self, input_data, weights_recurrent=None, record: bool = False):
+        def evolve(self, input_data, record: bool = False):
             return input_data + self.bias, {}, {}
 
-    seq = FFwdStack(
-        Mod(10),
-        Mod(20),
-        Mod(30),
-        Mod(1),
-    )
+    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
     print(seq)
 
     input_data = np.random.rand(100, 10)
 
     # - Test evolve
     seq_jit = jit(seq)
-    (
-        output,
-        _,
-        _,
-    ) = seq_jit(input_data)
+    (output, _, _,) = seq_jit(input_data)
     print(output.shape)
 
     # - Test parameters
@@ -217,8 +228,36 @@ def test_FFwdStack_jax():
 
     # - Test compilation
     je = jit(seq)
-    (
-        output,
-        _,
-        _,
-    ) = seq(input_data)
+    (output, _, _,) = seq(input_data)
+
+
+def test_FFwdStack_torch():
+    from rockpool.nn.combinators.ffwd_stack import FFwdStack
+    from rockpool.nn.modules.native.linear import Linear
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+    from rockpool.parameters import State, Parameter
+
+    import torch
+
+    # - Define a simple module
+    class Mod(TorchModule):
+        def __init__(self, shape=None, *args, **kwargs):
+            super().__init__(shape=shape, *args, *kwargs)
+            self.activation = State(shape=self._shape[-1], init_func=torch.zeros)
+            self.bias = Parameter(shape=self._shape[-1], init_func=torch.randn)
+
+        def evolve(self, input_data, record: bool = False):
+            return input_data + self.bias, {}, {}
+
+    seq = FFwdStack(Mod(10), Mod(20), Mod(30), Mod(1),)
+    print(seq)
+
+    input_data = torch.rand((100, 10))
+
+    # - Test evolve
+    (output, _, _,) = seq(input_data)
+    print(output.shape)
+
+    # - Test parameters
+    print(seq.parameters())
+    print(seq.state())
