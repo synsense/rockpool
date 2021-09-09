@@ -22,9 +22,7 @@ class FFwdStackMixin(ABC):
     _dot = None
 
     def __init__(
-        self,
-        *args,
-        **kwargs,
+        self, *args, **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -89,19 +87,13 @@ class FFwdStackMixin(ABC):
             setattr(
                 self,
                 w_name,
-                Parameter(
-                    shape=w_shape,
-                    family="weights",
-                    init_func=weight_init_func,
-                ),
+                Parameter(shape=w_shape, family="weights", init_func=weight_init_func,),
             )
 
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self,
-                mod_name,
-                submod,
+                self, mod_name, submod,
             )
 
         # - Record module and weight lists
@@ -125,10 +117,7 @@ class FFwdStackMixin(ABC):
             input_data, substate, subrec = mod(input_data, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {
-                    submod_name: subrec,
-                    f"{submod_name}_output": input_data,
-                }
+                {submod_name: subrec, f"{submod_name}_output": input_data,}
             )
 
             # - Push data through weight
@@ -169,6 +158,24 @@ except:
             )
 
 
+try:
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+    import torch
+
+    class TorchFFwdStack(FFwdStackMixin, TorchModule):
+        _dot = staticmethod(torch.matmul)
+        pass
+
+
+except:
+
+    class TorchFFwdStack:
+        def __init__(self):
+            raise ImportError(
+                "'Torch' backend not found. Modules relying on PyTorch will not be available."
+            )
+
+
 def FFwdStack(*args, **kwargs):
     """
     Assemble modules into a feed-forward stack, with linear weights in between
@@ -192,12 +199,24 @@ def FFwdStack(*args, **kwargs):
     for item in args:
         if isinstance(item, JaxModule):
             use_jax = True
+            break
+
+    # - Check for Torch submodultes
+    use_torch = False
+    for item in args:
+        if isinstance(item, TorchModule):
+            use_torch = True
+            break
 
     # - Use either the JaxFFwdStack or ModFFwdStack classes
     if use_jax:
         if "weight_init_func" not in kwargs:
             kwargs.update({"weight_init_func": jnp.zeros})
         return JaxFFwdStack(*args, **kwargs)
+    elif use_torch:
+        if "weight_init_func" not in kwargs:
+            kwargs.update({"weight_init_func": torch.zeros})
+        return TorchFFwdStack(*args, **kwargs)
     else:
         if "weight_init_func" not in kwargs:
             kwargs.update({"weight_init_func": onp.zeros})

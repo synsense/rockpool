@@ -20,7 +20,7 @@ class ModuleBase(ABC):
 
     def __init__(
         self,
-        shape: Optional[Tuple] = None,
+        shape: Optional[Union[Tuple, int]] = None,
         spiking_input: bool = False,
         spiking_output: bool = False,
         *args,
@@ -30,7 +30,7 @@ class ModuleBase(ABC):
         Initialise this module
 
         Args:
-            shape (Optional[Tuple]): The shape of the defined module
+            shape (Optional[Union[Tuple, int]]): The shape of the defined module
             spiking_input (bool): Whether this module receives spiking input. Default: False
             spiking_output (bool): Whether this module produces spiking output. Default: False
             *args: Additional positional arguments
