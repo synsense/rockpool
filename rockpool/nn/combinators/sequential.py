@@ -168,7 +168,7 @@ except:
             )
 
 
-def Sequential(*args, **kwargs) -> SequentialMixin:
+def Sequential(*args, **kwargs) -> ModuleBase:
     """
     Build a sequential stack of modules by connecting them end-to-end
 
