@@ -20,7 +20,7 @@ from jax.tree_util import register_pytree_node
 from copy import deepcopy
 import operator as op
 from abc import ABC
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from rockpool.typehints import Tree
 
 
@@ -41,10 +41,7 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self,
-        shape: tuple = None,
-        *args,
-        **kwargs,
+        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
     ):
         """
 

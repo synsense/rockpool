@@ -74,6 +74,7 @@ Time series classes
     nn.modules.LIFJax
     nn.modules.LIFTorch
     nn.modules.LIFNeuronTorch
+    nn.modules.UpDownTorch
 
     nn.modules.Linear
     nn.modules.LinearJax
@@ -177,3 +178,37 @@ Conversion utilities
 
     training.adversarial_jax.pga_attack
     training.adversarial_jax.adversarial_loss
+
+``PyTorch`` training utilities
+---------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+    :recursive:
+    :template: module.rst
+
+    training.torch_loss
+
+Hardware support and simulation
+-------------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    devices.xylo.config_from_specification
+    devices.xylo.load_config
+    devices.xylo.save_config
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: class.rst
+
+    devices.xylo.XyloCim
+    devices.xylo.XyloSamna
+    devices.xylo.AFE
+
+.. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.xylo.xylo_devkit_utils

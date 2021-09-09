@@ -22,6 +22,7 @@ dModules = {
     ".torch.exp_syn_torch": "ExpSynTorch",
     ".torch.lif_neuron_torch": "LIFNeuronTorch",
     ".torch.linear_torch": "LinearTorch",
+    ".torch.updown_torch": "UpDownTorch",
 }
 
 
@@ -29,7 +30,21 @@ dModules = {
 strBasePackage = "rockpool.nn.modules"
 
 # - Define docstring for module
-__doc__ = """Defines classes for simulating layers of neurons"""
+__doc__ = """
+            rockpool.nn.modules package - Contains building-block modules for networks
+            
+            Subpackages:
+                `native`: Numpy-backed modules
+                `jax`: Jax-backed modules
+                `torch`: Torch-backed modules
+                `nest`: NEST-backed modules
+                `brian`: Brian2-backed modules
+                
+            The bases classes :py:class:`.Module`, :py:class:`.JaxModule` and :py:class:`TorchModule` are used to compose arbitrary networks of SNN modules.
+            
+            See Also:
+                See :ref:`/basics/getting_started.ipynb` and :ref:`/in-depth/api-low-level.ipynb` for description and examples for building networks and writing your own :py:class:`.Module` classes. See :ref:`/in-depth/api-high-level.ipynb` for details of the :py:class:`.TimedModule` high-level API. 
+            """
 
 # - Initialise list of available modules
 __all__ = []
