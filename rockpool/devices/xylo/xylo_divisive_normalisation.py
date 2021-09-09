@@ -113,8 +113,8 @@ class DivisiveNormalisation(Module):
             E_ch_rep=np.repeat(E_ch,max_spike_in_frame, axis=1)
             
             # compare the repeated values with LFSR output
-            
-            
+            # Note that LFSR noise is shared across the channels
+        
             # Spike train generate by SG: each row contains spikes generated in a specific frame
             # units of time are 'dt'
             S_sg=(E_ch_rep>=lfsr_noise)
@@ -177,5 +177,5 @@ class DivisiveNormalisation(Module):
     T=10000
     prob=0.05
     
-    in_spike=(np.random.rand(T,1)<=p)
+    in_spike=(np.random.rand(T,1)<=prob)
     
