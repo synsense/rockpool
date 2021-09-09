@@ -145,6 +145,26 @@ class TorchModule(Module, nn.Module):
         # - Cast it to TorchModuleParameters and return
         return TorchModuleParameters(**attr)
 
+    def _register_module(self, name: str, mod):
+        """
+        Add a submodule to the module registry
+
+        Args:
+            name (str): The name of the submodule, extracted from the assigned attribute name
+            mod (TorchModule): The submodule to register
+
+        Raises:
+            ValueError: If the assigned submodule is not a `TorchModule`
+        """
+        # - Check that the submodule is also Torch compatible
+        if not isinstance(mod, TorchModule):
+            raise ValueError(
+                f"Submodules of a `TorchModule` must themselves all be `TorchModule`s. Trying to assign a `{mod.class_name}` as a submodule of a `{self.class_name}`"
+            )
+
+        # - Register the module
+        super()._register_module(name, mod)
+
     @classmethod
     def from_torch(cls: type, obj: nn.Module, retain_torch_api: bool = False) -> None:
         """
