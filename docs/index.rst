@@ -59,8 +59,8 @@ and evaluating recurrent networks, which can operate both with continuous-time d
    :maxdepth: 1
    :caption: Training and deploying to HW
 
-   devices/pollen-overview.ipynb
-   devices/torch-training-spiking-for-pollen.ipynb
+   devices/xylo-overview.ipynb
+   devices/torch-training-spiking-for-xylo.ipynb
    devices/analog-frontend-example.ipynb
 
    .. tutorials/DynapseControl.ipynb

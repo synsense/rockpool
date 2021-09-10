@@ -1,12 +1,10 @@
+"""
+Implement the `Sequential` combinator, with helper classes for Jax and Torch backends
+"""
+
 from rockpool.nn.modules.module import Module, ModuleBase
-from rockpool.parameters import Parameter
-
 from copy import copy
-
 from typing import Tuple, Any
-
-import numpy as onp
-
 from abc import ABC
 
 __all__ = ["Sequential"]
@@ -18,9 +16,7 @@ class SequentialMixin(ABC):
     """
 
     def __init__(
-        self,
-        *args,
-        **kwargs,
+        self, *args, **kwargs,
     ):
         # - Check that `shape` wasn't provided as a keyword argument
         if "shape" in kwargs:
@@ -62,9 +58,10 @@ class SequentialMixin(ABC):
             if shape_out[mod_index] != shape_in[mod_index + 1]:
                 raise ValueError(
                     f"The output of submodule {mod_index} "
-                    + "({type(submods[mod_index]).__name__}) "
-                    + "does not match the input shape of submodule "
-                    + "{mod_index+1} ({type(submods[mod_index+1]).__name__})"
+                    + f"({type(submods[mod_index]).__name__}) "
+                    + f"does not match the input shape of submodule "
+                    + f"{mod_index+1} ({type(submods[mod_index+1]).__name__}): "
+                    + f"{shape_out[mod_index]} ≠ {shape_in[mod_index+1]}"
                 )
 
         # - Call superclass __init__
@@ -79,9 +76,7 @@ class SequentialMixin(ABC):
         # - Assign modules as submodules
         for (mod_name, submod) in zip(submod_names, submods):
             setattr(
-                self,
-                mod_name,
-                submod,
+                self, mod_name, submod,
             )
 
         # - Record module and weight lists
@@ -103,10 +98,7 @@ class SequentialMixin(ABC):
             x, substate, subrec = mod(x, record=record)
             new_state_dict.update({submod_name: substate})
             record_dict.update(
-                {
-                    submod_name: subrec,
-                    f"{submod_name}_output": copy(x),
-                }
+                {submod_name: subrec, f"{submod_name}_output": copy(x),}
             )
 
         # - Return output, state and record
@@ -160,7 +152,23 @@ except:
             )
 
 
-def Sequential(*args, **kwargs) -> SequentialMixin:
+try:
+    from rockpool.nn.modules.torch.torch_module import TorchModule
+
+    class TorchSequential(SequentialMixin, TorchModule):
+        pass
+
+
+except:
+
+    class TorchSequential:
+        def __init__(self):
+            raise ImportError(
+                "'Torch' backend not found. Modules relying on PyTorch will not be available."
+            )
+
+
+def Sequential(*args, **kwargs) -> ModuleBase:
     """
     Build a sequential stack of modules by connecting them end-to-end
 
@@ -184,14 +192,12 @@ def Sequential(*args, **kwargs) -> SequentialMixin:
     Returns:
         A :py:class:`.Module` subclass object that encapsulates the provided modules
     """
-    # - Check for Jax submodules
-    use_jax = False
+    # - Check for Jax and Torch submodules
     for item in args:
         if isinstance(item, JaxModule):
-            use_jax = True
+            return JaxSequential(*args, **kwargs)
+        if isinstance(item, TorchModule):
+            return TorchSequential(*args, **kwargs)
 
-    # - Use either the JaxSequential or ModSequential classes
-    if use_jax:
-        return JaxSequential(*args, **kwargs)
-    else:
-        return ModSequential(*args, **kwargs)
+    # - Use ModSequential if no JaxModule or TorchModule is in the submodules
+    return ModSequential(*args, **kwargs)

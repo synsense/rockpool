@@ -38,13 +38,21 @@ Dependencies
 * Brian2_ for Brian_-backed modules
 * Matplotlib_ or HoloViews_ for plotting `.TimeSeries`
 * PyTest_ for running tests
-* Sphinx_, NBSphinx_ and Sphinx-autobuild_ for building documentation
+* Sphinx_, pandoc_, NBSphinx_ and Sphinx-autobuild_ for building documentation
 
-To automatically install all the extra dependencies required by |project|, use the command
+To automatically install most of the extra dependencies required by |project|, use the command
 
 .. code-block:: Bash
 
     $ pip install rockpool[all]
+
+or
+
+.. code-block:: zsh
+
+    $ pip install rockpool\[all\]
+
+if using zsh. Some dependencies, such as pandoc_ and NEST_, must be installed manually.
 
 Building the documentation
 --------------------------
@@ -137,6 +145,7 @@ To run all the unit tests for |project|, use `pytest`:
 .. _Brian2: https://github.com/brian-team/brian2
 .. _PyTest: https://github.com/pytest-dev/pytest
 .. _Sphinx: http://www.sphinx-doc.org
+.. _pandoc: https://pandoc.org
 .. _NBSphinx: https://github.com/spatialaudio/nbsphinx
 .. _Sphinx-autobuild: https://github.com/GaretJax/sphinx-autobuild
 .. _anaconda: https://www.anaconda.com

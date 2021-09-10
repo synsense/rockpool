@@ -1,6 +1,11 @@
 import pytest
 
 
+def test_imports():
+    from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
+    from rockpool.nn.modules import LIFBitshiftTorch
+
+
 def test_single_neuron():
     from rockpool.nn.modules.torch.lif_bitshift_torch import LIFBitshiftTorch
     import torch

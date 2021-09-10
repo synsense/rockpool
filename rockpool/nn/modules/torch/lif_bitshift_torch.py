@@ -20,6 +20,8 @@ import rockpool.parameters as rp
 
 from typing import Tuple, Any
 
+from rockpool.typehints import P_int, P_float, P_tensor
+
 __all__ = ["LIFBitshiftTorch"]
 
 
@@ -95,6 +97,8 @@ class LIFBitshiftTorch(TorchModule):
         learning_window: float,
         dt=1,
         device="cuda",
+        *args,
+        **kwargs,
     ):
         """
 
@@ -116,50 +120,57 @@ class LIFBitshiftTorch(TorchModule):
             Resolution of the simulation in seconds.
         """
         # Initialize class variables
-        torch.nn.Module.__init__(self)
+        # torch.nn.Module.__init__(self)
+        super().__init__(
+            shape=(n_neurons * n_synapses * batch_size, n_neurons), *args, **kwargs
+        )
 
-        self.n_neurons = rp.SimulationParameter(n_neurons)
-        self.n_synapses = rp.SimulationParameter(n_synapses)
-        self.batch_size = rp.SimulationParameter(batch_size)
+        self.n_neurons: P_int = rp.SimulationParameter(n_neurons)
+        self.n_synapses: P_int = rp.SimulationParameter(n_synapses)
+        self.batch_size: P_int = rp.SimulationParameter(batch_size)
 
         if isinstance(tau_mem, float):
-            self.tau_mem = rp.Parameter(
+            self.tau_mem: P_tensor = rp.Parameter(
                 torch.from_numpy(np.array([tau_mem])).to(device), "taus"
             )
         else:
-            self.tau_mem = rp.Parameter(
+            self.tau_mem: P_tensor = rp.Parameter(
                 torch.from_numpy(np.array(tau_mem)).to(device), "taus"
             )
 
         if isinstance(tau_syn, float):
-            self.tau_syn = rp.Parameter(
+            self.tau_syn: P_tensor = rp.Parameter(
                 torch.from_numpy(np.array([tau_syn])).to(device), "taus"
             )
         else:
-            self.tau_syn = rp.Parameter(
+            self.tau_syn: P_tensor = rp.Parameter(
                 torch.from_numpy(np.array(tau_syn)).to(device), "taus"
             )
 
-        self.threshold = rp.Parameter(torch.Tensor([threshold]).to(device))
-        self.learning_window = rp.Parameter(torch.Tensor([learning_window]).to(device))
-        self.dt = rp.SimulationParameter(dt, "dt")
+        self.threshold: P_tensor = rp.Parameter(torch.Tensor([threshold]).to(device))
+        self.learning_window: P_tensor = rp.Parameter(
+            torch.Tensor([learning_window]).to(device)
+        )
+        self.dt: P_float = rp.SimulationParameter(dt, "dt")
 
-        self.vmem = rp.State(torch.zeros((self.batch_size, self.n_neurons)).to(device))
-        self.isyn = rp.State(
+        self.vmem: P_tensor = rp.State(
+            torch.zeros((self.batch_size, self.n_neurons)).to(device)
+        )
+        self.isyn: P_tensor = rp.State(
             torch.zeros((self.batch_size, self.n_synapses, self.n_neurons)).to(device)
         )
 
-        self.alpha_mem = rp.Parameter(
+        self.alpha_mem: P_tensor = rp.Parameter(
             calc_bitshift_decay(self.tau_mem, self.dt).to(device)
         )
-        self.alpha_syn = rp.Parameter(
+        self.alpha_syn: P_tensor = rp.Parameter(
             calc_bitshift_decay(self.tau_syn, self.dt).to(device)
         )
 
-        self.propagator_mem = rp.Parameter(
+        self.propagator_mem: P_tensor = rp.Parameter(
             torch.exp(-self.dt / self.tau_mem).to(device)
         )
-        self.propagator_syn = rp.Parameter(
+        self.propagator_syn: P_tensor = rp.Parameter(
             torch.exp(-self.dt / self.tau_syn).to(device)
         )
 
@@ -173,12 +184,15 @@ class LIFBitshiftTorch(TorchModule):
             self.bitshift_decay = Bitshift().apply
 
         # placeholders for recordings
-        self.vmem_rec = None
-        self.isyn_rec = None
+        self._record_Vmem = None
+        self._record_Isyn = None
 
-        self.record = False
+        self._record_dict = {}
+        self._record = False
 
     def evolve(self, input_data, record: bool = False) -> Tuple[Any, Any, Any]:
+
+        self._record = record
 
         output_data, _, _ = super().evolve(input_data, record)
 
@@ -187,17 +201,21 @@ class LIFBitshiftTorch(TorchModule):
             "Vmem": self.vmem,
         }
 
-        record_dict = {
-            "Isyn": self.isyn_rec,
-            "Vmem": self.vmem_rec,
-        }
+        record_dict = (
+            {
+                "Isyn": self._record_Isyn,
+                "Vmem": self._record_Vmem,
+            }
+            if record
+            else {}
+        )
 
         return output_data, states, record_dict
 
     def lif_cpp_forward(self, data):
         import torch_lif_cpp
 
-        out, self.vmem_rec, self.isyn_rec = torch_lif_cpp.forward(
+        out, self._record_Vmem, self._record_Isyn = torch_lif_cpp.forward(
             data.double(),
             self.vmem.double(),
             self.isyn.double(),
@@ -207,11 +225,11 @@ class LIFBitshiftTorch(TorchModule):
             self.propagator_syn.double(),
             self.threshold.double().item(),
             self.learning_window.double().item(),
-            self.record,
+            self._record,
         )
 
-        self.vmem = self.vmem_rec[-1]
-        self.isyn = self.isyn_rec[-1]
+        self.vmem = self._record_Vmem[-1]
+        self.isyn = self._record_Isyn[-1]
 
         # Output spike count
         self.n_spikes_out = out
@@ -256,11 +274,11 @@ class LIFBitshiftTorch(TorchModule):
         learning_window = self.learning_window
         out_spikes = torch.zeros((time_steps, n_batches, n_neurons), device=data.device)
 
-        if self.record:
-            self.vmem_rec = torch.zeros(
+        if self._record:
+            self._record_Vmem = torch.zeros(
                 (time_steps, n_batches, n_neurons), device=data.device
             )
-            self.isyn_rec = torch.zeros(
+            self._record_Isyn = torch.zeros(
                 (time_steps, n_batches, n_synapses, n_neurons), device=data.device
             )
 
@@ -273,10 +291,10 @@ class LIFBitshiftTorch(TorchModule):
             # Membrane reset
             vmem = vmem - out * threshold
 
-            if self.record:
+            if self._record:
                 # recording
-                self.vmem_rec[t] = vmem
-                self.isyn_rec[t] = isyn
+                self._record_Vmem[t] = vmem
+                self._record_Isyn[t] = isyn
 
             # Integrate input
             isyn = isyn + data[t]

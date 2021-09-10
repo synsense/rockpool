@@ -195,20 +195,26 @@ Hardware support and simulation
 .. autosummary::
     :toctree: _autosummary
 
-    devices.pollen.config_from_specification
-    devices.pollen.load_config
-    devices.pollen.save_config
+    devices.xylo.config_from_specification
+    devices.xylo.load_config
+    devices.xylo.save_config
 
 .. autosummary::
     :toctree: _autosummary
     :template: class.rst
 
-    devices.pollen.PollenCim
-    devices.pollen.PollenSamna
-    devices.pollen.AFE
+    devices.xylo.XyloCim
+    devices.xylo.XyloSamna
+    devices.xylo.AFE
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
-    devices.pollen.pollen_devkit_utils
+    devices.xylo.xylo_devkit_utils
+
+.. autosummary::
+    :toctree: _autosummary
+    :templte: module.rst
+
+    devices.dynapse.DynapSE1NeuronSynapseJax
