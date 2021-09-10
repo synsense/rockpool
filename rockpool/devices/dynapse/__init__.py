@@ -1,5 +1,6 @@
 ## __init__.py Smart importer for submodules
 import importlib
+from rockpool.devices.dynapse.biasgen import BiasGen
 from warnings import warn
 
 # - Dictionary {module file} -> {class name to import}
@@ -26,8 +27,9 @@ dModules = {
     ".dynapse1_neuron_synapse_jax": (
         "DynapSE1NeuronSynapseJax",
         "step_pwl",
+        "SYN",
     ),
-    ".dynapse1_parameters": (
+    ".dynapse1_simconfig": (
         "DynapSE1Layout",
         "DPIParameters",
         "SynapseParameters",
@@ -38,12 +40,13 @@ dModules = {
         "AMPAParameters",
         "GABAAParameters",
         "GABABParameters",
-        "DynapSE1Parameters",
+        "DynapSE1SimulationConfiguration",
     ),
     ".utils": (
         "custom_spike_train",
         "random_spike_train",
     ),
+    ".biasgen": ("BiasGen",),
 }
 
 # - Define current package
