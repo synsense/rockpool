@@ -31,9 +31,9 @@ from rockpool.devices.dynapse.dynapse1_neuron_synapse_jax import (
     DynapSE1NeuronSynapseJax,
 )
 
-from rockpool.devices.dynapse.dynapse1_parameters import (
+from rockpool.devices.dynapse.dynapse1_simconfig import (
     DynapSE1Layout,
-    DynapSE1Parameters,
+    DynapSE1SimulationConfiguration,
     SynapseParameters,
 )
 
@@ -466,14 +466,14 @@ class ResponseGUI:
             C=self.Capacitor.value,
             Iw=self.Iw.value,
         )
-        config = DynapSE1Parameters(layout=layout, ahp=nmda, nmda=nmda)
+        sim_config = DynapSE1SimulationConfiguration(layout=layout, ahp=nmda, nmda=nmda)
         spiking_input = True if self.dt.value > self.pulse_width.value else False
 
         self.se1 = TimedModuleWrapper(
             DynapSE1NeuronSynapseJax(
                 shape=self.shape,
                 dt=self.dt.value,
-                config=config,
+                sim_config=sim_config,
                 spiking_input=spiking_input,
             )
         )
