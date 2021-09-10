@@ -10,7 +10,7 @@ Rockpool is a Python package for developing signal processing applications with 
 
 The best place to start with Rockpool is the [documentation](https://rockpool.ai), which contains several tutorials and getting started guides.
 
-The documentation is hosted on GitLab: [https://rockpool.ai/](https://rockpool.ai/)
+The documentation is hosted online: [https://rockpool.ai/](https://rockpool.ai/)
 
 # Installation instructions
 
@@ -28,7 +28,7 @@ If you want to install all the extra dependencies required for Brian, PyTorch an
 $ pip install rockpool[all] --user
 ```
 
-## NEST layers
+## NEST-backed modules
 
 The NEST simulator cannot be installed using `pip`. Please see the documentation for NEST at [https://nest-simulator.readthedocs.io/en/latest/] for instructions on how to get NEST running on your system.
 
@@ -38,10 +38,10 @@ Rockpool is released under a AGPL license. Commercial licenses are available on 
 
 # Contributing
 
-Fork the public repository at https://gitlab.com/SynSense/rockpool, then clone your fork.
+Fork the public repository at https://github.com/SynSense/rockpool, then clone your fork.
 
 ```bash
-$ git clone https://gitlab.com/your-fork-location/rockpool.git rockpool
+$ git clone https://github.com/your-fork-location/rockpool.git rockpool
 ```
 
 Install the package in development mode using `pip`
@@ -71,4 +71,4 @@ Then push your new branch to your repository
 $ git push -u origin feature/my-feature
 ```
 
-When you're finished with your modifications, make a merge request on gitlab.com, from your branch in your fork to https://gitlab.com/SynSense/rockpool.
+When you're finished with your modifications, make a merge request on github.com, from your branch in your fork to https://github.com/SynSense/rockpool.
