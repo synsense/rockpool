@@ -47,6 +47,7 @@ dModules = {
         "random_spike_train",
     ),
     ".biasgen": ("BiasGen",),
+    ".router": ("Router"),
 }
 
 # - Define current package
