@@ -22,8 +22,6 @@ import numpy as np
 import warnings
 
 
-
-
 def build_lfsr(filename) -> np.ndarray:
     """
     This function reads the LFSR code in a binary format from the file "filename"
@@ -47,14 +45,13 @@ def build_lfsr(filename) -> np.ndarray:
     return code_lfsr
 
 
-
-
 class DivisiveNormalisation(Module):
     """
     This class simulates divisive normalization for an input spike signal
     with possibly several channels.
     The output of the simulation is another spike signal with normalized rates.
     """
+
     def __init__(
             self,
             shape: tuple,
@@ -76,23 +73,23 @@ class DivisiveNormalisation(Module):
         super().__init__(shape, spiking_input=True, spiking_output=True)
 
         # number of input channels
-        self.chan_num : P_int = SimulationParameter(chan_num)
+        self.chan_num: P_int = SimulationParameter(chan_num)
 
         # initialize the value of the counter or set to zero if not specified
         if (E_frame_counter is None):
-            self.E_frame_counter : P_int = State(np.zeros(self.chan_num, 'int'))
+            self.E_frame_counter: P_int = State(np.zeros(self.chan_num, 'int'))
         elif (E_frame_counter.size != chan_num):
             warnings.warn(
                 f'we need one initialization per counter for each cahnnel:\n  number of channels: {self.chan_num} \n size of initialization: {E_frame_counter.size}')
             self.E_frame_counter: P_int = State(np.zeros(self.chan_num, 'int'))
         else:
-            self.E_frame_counter: P_int= State(np.copy(E_frame_counter).astype('int'))
+            self.E_frame_counter: P_int = State(np.copy(E_frame_counter).astype('int'))
 
         self.bits_counter: P_int = SimulationParameter(bits_counter)
 
         # initialize the state of IAF_counter
         if IAF_counter is None:
-            self.IAF_counter : P_int = State(np.zeros(self.chan_num, 'int'))
+            self.IAF_counter: P_int = State(np.zeros(self.chan_num, 'int'))
         elif IAF_counter.size != chan_num:
             warnings.warn(
                 f'we need one initialization per counter for each cahnnel:\n  number of channels: {self.chan_num} \n size of initialization: {IAF_counter.size}')
@@ -133,7 +130,6 @@ class DivisiveNormalisation(Module):
         self.p_local: P_int = int((1 + p_local) / 2) * 2
         if self.p_local != p_local:
             warnings.warn(f'p_local={p_local} was rounded to an even integer!')
-
 
 
     def evolve(
@@ -324,3 +320,42 @@ class DivisiveNormalisation(Module):
         )
 
         return output_spike, record_dict
+
+    @staticmethod
+    def corr_metric(spikes: np.ndarray):
+        # this function compute the matrix of correlation factors
+        # for the input spikes in "spikes"
+
+        # correlation matrix
+        corr_mat=(spikes.T @ spikes)/spikes.shape[0]
+
+        # compute the average
+        mean_vec=np.mean(spikes, axis=0)
+
+        # compute the covariance matrix
+        cov_mat=corr_mat - np.outer(mean_vec,mean_vec)
+
+        # extract the diagonal elements of covariance matrix as variances
+        var_vec=np.diag(cov_mat)
+        var_vec.reshape(var_vec.size,1)
+
+        # normalize the rows and columns of covariance matrix
+        # with the variances obtained so far
+
+        # normalization matrix
+        norm_mat=np.outer(np.sqrt(1/var_vec), np.sqrt(1/var_vec))
+
+        # correlation factor matrix obtained by normalization
+        corr_factor_mat=norm_mat*cov_mat
+
+        return corr_factor_mat, cov_mat, mean_vec
+
+
+
+
+
+
+
+
+
+
