@@ -142,7 +142,8 @@ class Router:
                 ID, (tuple, list, np.ndarray)
             ):  # The ID is a fixed number. Still, it should be iterable.
                 try:
-                    ID = [int(ID)]
+                    dtype = type(ID_max)
+                    ID = [dtype(ID)]
                 except:
                     raise TypeError(
                         "ID can only be an arraylike : [np.ndarray, List, Tuple] or a number [int, float, complex, np.number] "
@@ -199,6 +200,48 @@ class Router:
         return coreID_selected
 
     @staticmethod
+    def pair_uid_to_key(
+        connections: Union[NeuronConnection, List[NeuronConnection]]
+    ) -> Union[NeuronKey, List[NeuronKey]]:
+        """
+        pair_uid_to_key convert a single neuron connection pair or a list of neuron connection pairs
+        consisting of their uniquie IDs to a neuron key or a list of neuron keys consisting of
+        a tuple of chipID, coreID and neuronID
+
+        :param connections: a tuple of UIDs or a list of tuples of UIDs
+        :type connections: Union[NeuronConnection, List[NeuronConnection]]
+        :raises TypeError: When UID cannot be casted to np.uint16
+        :raises TypeError: When connections are not a tuple of UIDs or a list of tuples of UIDs!
+        :return: A neuron key with chipID, coreID and neuronID or a list of neuron keys.
+        :rtype: Union[NeuronKey, List[NeuronKey]]
+        """
+
+        pair_decoder = lambda pair: tuple(map(Router.decode_UID, pair))
+
+        if isinstance(connections, (tuple, list, np.ndarray)):
+
+            # List of pairs
+            if isinstance(connections[0], (tuple, list, np.ndarray)):
+                connections = list(map(pair_decoder, connections))
+
+            # Single pair
+            else:
+                try:
+                    np.uint16(connections[0])
+                    np.uint16(connections[1])
+                except:
+                    raise TypeError(f"UID should be casted to np.uint16")
+
+                connections = pair_decoder(connections)
+
+        else:
+            raise TypeError(
+                "Connections can be a tuple of UIDs or a list of tuples of UIDs!"
+            )
+
+        return connections
+
+    @staticmethod
     def receiving_connections(
         neuron: Dynapse1Neuron, synapse: Dynapse1Synapse
     ) -> List[NeuronConnection]:
@@ -234,6 +277,7 @@ class Router:
         connections = Router.connect_pre_post(pre_list, post)
         return connections
 
+    @staticmethod
     def broadcasting_connections(
         neuron: Dynapse1Neuron, destination: Dynapse1Destination
     ) -> List[NeuronConnection]:
@@ -282,6 +326,7 @@ class Router:
         connections = Router.connect_pre_post(pre, post_list)
         return connections
 
+    @staticmethod
     def connect_pre_post(
         preUID: Union[np.uint16, ArrayLike], postUID: Union[np.uint16, ArrayLike]
     ) -> List[NeuronConnection]:
