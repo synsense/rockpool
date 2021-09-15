@@ -7,6 +7,12 @@ E-mail : ugurcan.cakal@gmail.com
 13/09/2021
 """
 
+from samna.dynapse1 import (
+    Dynapse1Neuron,
+    Dynapse1Synapse,
+    Dynapse1Destination,
+)
+
 from typing import (
     Iterable,
     Union,
@@ -20,6 +26,7 @@ import numpy as np
 ArrayLike = Union[np.ndarray, List, Tuple]
 Numeric = Union[int, float, complex, np.number]
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
+NeuronConnection = Tuple[np.uint16, np.uint16]
 
 
 class Router:
@@ -128,7 +135,7 @@ class Router:
             :return: an array like object or a range generator to traverse a list of IDs.
             :rtype: Iterable
             """
-            if ID == None:  # Full range
+            if ID is None:  # Full range
                 ID = range(ID_max)
 
             elif not isinstance(
@@ -168,3 +175,180 @@ class Router:
                     id_list.append(Router.get_UID(chip, core, neuron))
 
         return id_list
+
+    @staticmethod
+    def select_coreID_with_mask(core_mask: np.uint8) -> np.ndarray:
+        """
+        select_coreID_with_mask apply bit mask to select cores
+        0001 -> selected coreID: 0
+        1000 -> selected coreID: 3
+        0101 -> selected coreID 0 and 2
+
+        :param core_mask: Binary mask to select core IDs
+        :type core_mask: np.uint8
+        :return: an array of IDs of selected cores
+        :rtype: np.ndarray
+        """
+
+        coreID = range(Router.NUM_CORES)  # [3,2,1,0]
+        bit_pattern = lambda n: (1 << n)  # 2^n
+
+        # Indexes of the IDs to be selected in coreID list
+        idx = np.array([core_mask & bit_pattern(cid) for cid in coreID], dtype=bool)
+        coreID_selected = np.array(coreID, dtype=np.uint8)[idx]
+        return coreID_selected
+
+    @staticmethod
+    def receiving_connections(
+        neuron: Dynapse1Neuron, synapse: Dynapse1Synapse
+    ) -> List[NeuronConnection]:
+        """
+        receiving_connections produce a list of spike receiving connections given a neuron and synapse object
+        From the device's point of view, in each CAM(Content Addressable Memory) cell
+        the neuron can be set to listen to (i.e. receive events from) one other neuron.
+        In the CAM, the core and neuron IDs can be set, but there is no space to set the chipID.
+        Therefore, a post-synaptic neuron listens all the pre-synaptic neurons having the
+        same core and neuron ID across different chips.
+
+        :param neuron: The neuron at the post-synaptic side
+        :type neuron: Dynapse1Neuron
+        :param synapse: High level content of a CAM cell
+                        "syn_type": 2,
+                        "listen_neuron_id": 0,
+                        "listen_core_id": 0
+        :type synapse: Dynapse1Synapse
+        :return: List of unique IDs of all neuron connection pairs in the (pre, post) order.
+        :rtype: List[NeuronConnection]
+        """
+
+        # Pre-synaptic neurons to listen across 4 chips
+        pre_list = Router.get_UID_combination(
+            chipID=None,
+            coreID=synapse.listen_core_id,
+            neuronID=synapse.listen_neuron_id,
+        )
+
+        # Post-synaptic neuron
+        post = Router.get_UID(neuron.chip_id, neuron.core_id, neuron.neuron_id)
+
+        connections = Router.connect_pre_post(pre_list, post)
+        return connections
+
+    def broadcasting_connections(
+        neuron: Dynapse1Neuron, destination: Dynapse1Destination
+    ) -> List[NeuronConnection]:
+        """
+        broadcasting_connections produce a list of spike boardcasting connections given a neuron and a destination object.
+        From device's point of view, in each SRAM(Static Random Access Memory) cell
+        the neuron can be set to broadcast it's spikes to one other chip. In the SRAM, one can also
+        set a core mask to narrow down the number of neruons receiving the spikes. However, there is no
+        space to set the neuronID. Therefore, a pre-synaptic neuron broadcast it's spike output
+        to all the neuron in the specified core. The neurons at the post-synaptic side decide on listening or not.
+
+        :param neuron: The neuron at the pre-synaptic side
+        :type neuron: Dynapse1Neuron
+        :param destination: High level content of the SRAM cell
+                            "targetChipId": 0,
+                            "inUse": false,
+                            "virtualCoreId": 0,
+                            "coreMask": 0,
+                            "sx": 0,
+                            "sy": 0,
+                            "dx": 0,
+                            "dy": 0
+        :type destination: Dynapse1Destination
+        :return: List of unique IDs of all neuron connection pairs in the (pre, post) order.
+        :rtype: List[NeuronConnection]
+        """
+
+        cores_to_send = Router.select_coreID_with_mask(destination.core_mask)
+        if len(cores_to_send) == 0:
+            return []
+
+        # Pre-synaptic neurons to broadcast spike events
+        post_list = Router.get_UID_combination(
+            chipID=destination.target_chip_id,
+            coreID=cores_to_send,
+            neuronID=None,
+        )
+
+        # Pre-synaptic neuron
+        pre = Router.get_UID(
+            neuron.chip_id,
+            destination.virtual_core_id,  # pretend
+            neuron.neuron_id,
+        )
+
+        connections = Router.connect_pre_post(pre, post_list)
+        return connections
+
+    def connect_pre_post(
+        preUID: Union[np.uint16, ArrayLike], postUID: Union[np.uint16, ArrayLike]
+    ) -> List[NeuronConnection]:
+        """
+        connect_pre_post produce a list of connections between neurons like List[(preUID, postUID)].
+        The pre and post can be given as a list or a single ID. If a single ID is given, a repeating
+        UID list having the same shape with the others is created.
+
+        :param preUID: a unique pre-synaptic neuron ID or a list of IDs
+        :type preUID: Union[np.uint16, ArrayLike]
+        :param postUID: a unique post-synaptic neuron ID or a list of IDs
+        :type postUID: Union[np.uint16, ArrayLike]
+        :raises ValueError: When the size of the preUID and postUID arrays are not the same
+        :raises TypeError: preUID or postUID is not ArraLike or a type which can casted to np.uint16
+        :return: connections between neruons in the form of tuple(preUID, postUID)
+        :rtype: List[NeuronConnection]
+        """
+
+        def to_list(uid: np.uint16) -> List[np.uint16]:
+            """
+            to_list creates a repeating list given a single element
+
+            :param uid: a single unique neuron id
+            :type uid: np.uint16
+            :raises TypeError: If the neuron id cannot be casted to uint16.
+            :return: a repeating list of given uid with the shape of the second uid list provided to the upper level function.
+            :rtype: List[np.uint16]
+            """
+            try:
+                uid = np.uint16(uid)
+            except:
+                raise TypeError(f"neuron ID should be int or uint!")
+            uid_list = [uid] * n_connections
+
+            return uid_list
+
+        # Find the number of connections defined implicitly by the size of one of the arrays provided
+        n_connections = 1
+
+        if isinstance(preUID, (tuple, list, np.ndarray)):
+            n_connections = len(preUID)
+
+        if isinstance(postUID, (tuple, list, np.ndarray)):
+            if n_connections == 1:
+                n_connections = len(postUID)
+            else:
+                if n_connections != len(postUID):
+                    raise ValueError(
+                        f"number of pre-synaptic and post-synaptic neurons does not match {len(preUID)} != {len(postUID)}"
+                    )
+
+        # If both preUID and postUID is numeric
+        if n_connections == 1:
+            preUID = to_list(preUID)
+            postUID = to_list(postUID)
+
+        else:
+            if isinstance(preUID, (tuple, list, np.ndarray)):
+                postUID = to_list(postUID)
+
+            elif isinstance(postUID, (tuple, list, np.ndarray)):
+                preUID = to_list(preUID)
+
+            else:
+                raise TypeError(
+                    f"preUID and postUID should be an ArraLike or a type which can be casted to uint16"
+                )
+
+        connections = list(zip(preUID, postUID))
+        return connections
