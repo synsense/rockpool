@@ -57,6 +57,7 @@ class DivisiveNormalisation(Module):
     def __init__(
         self,
         shape: tuple = 1,
+        *args,
         bits_counter: int = 10,
         E_frame_counter: np.ndarray = None,
         IAF_counter: np.ndarray = None,
@@ -68,7 +69,6 @@ class DivisiveNormalisation(Module):
         bits_lfsr: int = 10,
         code_lfsr: np.ndarray = None,
         p_local: int = 12,
-        *args,
         **kwargs,
     ):
         """
@@ -396,32 +396,3 @@ class DivisiveNormalisation(Module):
         )
 
         return output_spike, self.state(), record_dict
-
-    @staticmethod
-    def corr_metric(spikes: np.ndarray):
-        # this function compute the matrix of correlation factors
-        # for the input spikes in "spikes"
-
-        # correlation matrix
-        corr_mat = (spikes.T @ spikes) / spikes.shape[0]
-
-        # compute the average
-        mean_vec = np.mean(spikes, axis=0)
-
-        # compute the covariance matrix
-        cov_mat = corr_mat - np.outer(mean_vec, mean_vec)
-
-        # extract the diagonal elements of covariance matrix as variances
-        var_vec = np.diag(cov_mat)
-        var_vec.reshape(var_vec.size, 1)
-
-        # normalize the rows and columns of covariance matrix
-        # with the variances obtained so far
-
-        # normalization matrix
-        norm_mat = np.outer(np.sqrt(1 / var_vec), np.sqrt(1 / var_vec))
-
-        # correlation factor matrix obtained by normalization
-        corr_factor_mat = norm_mat * cov_mat
-
-        return corr_factor_mat, cov_mat, mean_vec
