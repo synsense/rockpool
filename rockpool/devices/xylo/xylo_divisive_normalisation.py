@@ -57,7 +57,6 @@ class DivisiveNormalisation(Module):
     def __init__(
         self,
         shape: tuple = 1,
-        *args,
         bits_counter: int = 10,
         E_frame_counter: np.ndarray = None,
         IAF_counter: np.ndarray = None,
@@ -69,6 +68,7 @@ class DivisiveNormalisation(Module):
         bits_lfsr: int = 10,
         code_lfsr: np.ndarray = None,
         p_local: int = 12,
+        *args,
         **kwargs,
     ):
         """
