@@ -38,11 +38,11 @@ def build_lfsr(filename) -> np.ndarray:
     # all-zero
     code_lfsr = np.zeros(len(lines), dtype="int")
 
-    for i in range(len(lines) - 1):
+    for i in range(len(lines)):
         code_lfsr[i] = int(lines[i], 2)
 
-    # remove the first element corresponding to the all-zero state
-    code_lfsr = code_lfsr[:-1] + 1
+    # remove the last element (duplicate)
+    code_lfsr = code_lfsr[:-1]
 
     return code_lfsr
 
@@ -155,6 +155,9 @@ class DivisiveNormalisation(Module):
         )
         """ np.ndarray: LFSR sequence to use for pRNG """
 
+        self.lfsr_index: P_int = State(0)
+        """ int: Current index into LFSR sequence """
+
         # set the ratio between the rate of local and global clocks
         # note that because of return-to-zero pulses, the spike rate increases
         # by only p_local/2 -> set p_local to be an even number
@@ -194,8 +197,8 @@ class DivisiveNormalisation(Module):
         # clip the counter to take the limited number of bits into account
         E = np.clip(E, 0, 2 ** self.bits_counter)
 
-        # register the value of E_frame_counter
-        self.E_frame_counter = E[-1, :]
+        # Reset the value of E_frame_counter
+        self.E_frame_counter = np.zeros(self.size_in, "int")
 
         # Perform low-pass filter on E(t)-> M(t)
         # M(t) = s * E(t) + (1-s) M(t-1)
@@ -224,6 +227,7 @@ class DivisiveNormalisation(Module):
         # we should make sure that teh controller does not allow count-back to zero
         # and keeps the value of the counter at its maximum
         M = np.clip(M, 0, 2 ** self.bits_lowpass - 1)
+        self.M_lowpass_state = M[-1, :]
 
         # use the value of E(t) at each frame t to produce a pseudo-random
         # Poisson spike train using LFSR
@@ -246,21 +250,22 @@ class DivisiveNormalisation(Module):
         lfsr_ticks_needed = cycles_per_frame * num_frames
 
         # number of LFSR periods needed
-        num_lfsr_period = int(np.ceil(lfsr_ticks_needed / self.code_lfsr.size))
+        num_lfsr_period = int(np.ceil(lfsr_ticks_needed / self.code_lfsr.size)) + 1
 
         code_lfsr_frame = np.tile(self.code_lfsr, num_lfsr_period)[
-            :lfsr_ticks_needed
+            self.lfsr_index : self.lfsr_index + lfsr_ticks_needed
         ].reshape(E.shape[0], -1)
+        self.lfsr_index = (self.lfsr_index + lfsr_ticks_needed) % len(self.code_lfsr)
 
         # initialize the IAF_state for further inspection
         if record:
-            IAF_state_saved = [[]] * self.size_in
+            IAF_state_saved = [[] for _ in range(self.size_in)]
 
         # length of expanded frame after expansion of spikes and zero-pad
         len_frame_local = int(cycles_per_frame * self.p_local / 2)
 
-        output_spike_times = [[]] * self.size_in
-        output_spike_channels = [[]] * self.size_in
+        output_spike_times = [[] for _ in range(self.size_in)]
+        output_spike_channels = [[] for _ in range(self.size_in)]
 
         # perform operation per channel
         for ch in range(self.size_in):
@@ -348,7 +353,7 @@ class DivisiveNormalisation(Module):
                 )
 
                 # Save the IAF state for the next frame
-                self.IAF_counter[ch] = IAF_state[-1]
+                self.IAF_counter[ch] = np.copy(IAF_state[-1])
                 # res_from_previous_frame = output_spike_ch[t, -1]
 
             # register the state of the IAF counter
@@ -366,34 +371,26 @@ class DivisiveNormalisation(Module):
             output_spike_channels[ch] = ch * np.ones(len(output_spike_times[ch]))
 
         # - Sort times and channels
-        output_spike_times = np.sort(np.concatenate(output_spike_times))
+        sorted_indices = np.argsort(np.concatenate(output_spike_times))
+        output_spike_times = np.concatenate(output_spike_times)[sorted_indices]
+        output_spike_channels = np.concatenate(output_spike_channels)[sorted_indices]
 
-        # - Build output spike raster
+        # - Build output spike raster via TSEvent
         output_spike = TSEvent(
-            np.concatenate(output_spike_times),
-            np.concatenate(output_spike_channels),
+            output_spike_times,
+            output_spike_channels,
             t_start=0.0,
             t_stop=num_frames * self.frame_dt,
         ).raster(self.dt, add_events=True)
 
         # - Generate state record dictionary
         record_dict = (
-            {
-                "E_frame_counter": self.E_frame_counter,
-                "IAF_counter": self.IAF_counter,
-                "IAF_state_saved": np.array(IAF_state_saved),
-            }
+            {"E": E, "M": M, "IAF_state": np.array(IAF_state_saved).T,}
             if record
             else {}
         )
 
-        state_dict = {
-            "E_frame_counter": self.E_frame_counter,
-            "IAF_counter": self.IAF_counter,
-            "M_lowpass_state": M,
-        }
-
-        return output_spike, {}, record_dict
+        return output_spike, self.state(), record_dict
 
     @staticmethod
     def corr_metric(spikes: np.ndarray):
