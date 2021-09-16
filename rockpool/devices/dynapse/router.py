@@ -11,6 +11,7 @@ from samna.dynapse1 import (
     Dynapse1Neuron,
     Dynapse1Synapse,
     Dynapse1Destination,
+    Dynapse1SynType,
 )
 
 from typing import (
@@ -27,6 +28,7 @@ ArrayLike = Union[np.ndarray, List, Tuple]
 Numeric = Union[int, float, complex, np.number]
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
 NeuronConnection = Tuple[np.uint16, np.uint16]
+NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
 
 
 class Router:
@@ -243,12 +245,13 @@ class Router:
 
     @staticmethod
     def receiving_connections(
-        neuron: Dynapse1Neuron, synapse: Dynapse1Synapse
-    ) -> List[NeuronConnection]:
+        neuron: Dynapse1Neuron,
+        synapse: Dynapse1Synapse,
+    ) -> List[NeuronConnectionSynType]:
         """
         receiving_connections produce a list of spike receiving connections given a neuron and synapse object
         From the device's point of view, in each CAM(Content Addressable Memory) cell
-        the neuron can be set to listen to (i.e. receive events from) one other neuron.
+        the neuron can be set to listen to (i.e. receive events from) one other neuron with a specified synapse type.
         In the CAM, the core and neuron IDs can be set, but there is no space to set the chipID.
         Therefore, a post-synaptic neuron listens all the pre-synaptic neurons having the
         same core and neuron ID across different chips.
@@ -260,8 +263,8 @@ class Router:
                         "listen_neuron_id": 0,
                         "listen_core_id": 0
         :type synapse: Dynapse1Synapse
-        :return: List of unique IDs of all neuron connection pairs in the (pre, post) order.
-        :rtype: List[NeuronConnection]
+        :return: List of unique IDs of all neuron connection pairs in the (pre, post, syn_type) order.
+        :rtype: List[NeuronConnectionSynType]
         """
 
         # Pre-synaptic neurons to listen across 4 chips
@@ -273,8 +276,8 @@ class Router:
 
         # Post-synaptic neuron
         post = Router.get_UID(neuron.chip_id, neuron.core_id, neuron.neuron_id)
+        connections = Router.connect_pre_post(pre_list, post, synapse.syn_type)
 
-        connections = Router.connect_pre_post(pre_list, post)
         return connections
 
     @staticmethod
@@ -328,8 +331,10 @@ class Router:
 
     @staticmethod
     def connect_pre_post(
-        preUID: Union[np.uint16, ArrayLike], postUID: Union[np.uint16, ArrayLike]
-    ) -> List[NeuronConnection]:
+        preUID: Union[np.uint16, ArrayLike],
+        postUID: Union[np.uint16, ArrayLike],
+        syn_type: Optional[Dynapse1SynType] = None,
+    ) -> Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
         """
         connect_pre_post produce a list of connections between neurons like List[(preUID, postUID)].
         The pre and post can be given as a list or a single ID. If a single ID is given, a repeating
@@ -339,26 +344,31 @@ class Router:
         :type preUID: Union[np.uint16, ArrayLike]
         :param postUID: a unique post-synaptic neuron ID or a list of IDs
         :type postUID: Union[np.uint16, ArrayLike]
+        :param syn_type: The synapse type of the connection, defaults to None
+        :type syn_type: Optional[Dynapse1SynType], optional
         :raises ValueError: When the size of the preUID and postUID arrays are not the same
+        :raises ValueError: When the size of syn_type is different than the number of connections
         :raises TypeError: preUID or postUID is not ArraLike or a type which can casted to np.uint16
-        :return: connections between neruons in the form of tuple(preUID, postUID)
-        :rtype: List[NeuronConnection]
+        :return: connections between neruons in the form of tuple(preUID, postUID) or tuple(preUID, postUID, synType)
+        :rtype: Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
         """
 
-        def to_list(uid: np.uint16) -> List[np.uint16]:
+        def to_list(uid: Numeric, dtype: type = np.uint16) -> List[Numeric]:
             """
             to_list creates a repeating list given a single element
 
             :param uid: a single unique neuron id
-            :type uid: np.uint16
-            :raises TypeError: If the neuron id cannot be casted to uint16.
+            :type uid: Numeric
+            :raises TypeError: If the neuron id cannot be casted to dtype.
             :return: a repeating list of given uid with the shape of the second uid list provided to the upper level function.
-            :rtype: List[np.uint16]
+            :rtype: List[Numeric]
             """
             try:
-                uid = np.uint16(uid)
+                uid = dtype(uid)
             except:
-                raise TypeError(f"neuron ID should be int or uint!")
+                raise TypeError(
+                    f"data provided should be casted to data type: {dtype}!"
+                )
             uid_list = [uid] * n_connections
 
             return uid_list
@@ -378,6 +388,18 @@ class Router:
                         f"number of pre-synaptic and post-synaptic neurons does not match {len(preUID)} != {len(postUID)}"
                     )
 
+        # syn_type is defined
+        if syn_type is not None:
+            if isinstance(syn_type, (tuple, list, np.ndarray)):
+                if n_connections != len(syn_type):
+                    raise ValueError(
+                        f"number of synapse types does not match with n_connections {len(syn_type)} != {n_connections}"
+                    )
+                else:
+                    syn_type = list(map(np.uint8, syn_type))
+            else:
+                syn_type = to_list(syn_type, np.uint8)
+
         # If both preUID and postUID is numeric
         if n_connections == 1:
             preUID = to_list(preUID)
@@ -394,6 +416,9 @@ class Router:
                 raise TypeError(
                     f"preUID and postUID should be an ArraLike or a type which can be casted to uint16"
                 )
+        if syn_type is not None:
+            connections = list(zip(preUID, postUID, syn_type))
+        else:
+            connections = list(zip(preUID, postUID))
 
-        connections = list(zip(preUID, postUID))
         return connections
