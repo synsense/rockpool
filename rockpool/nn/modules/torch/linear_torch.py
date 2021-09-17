@@ -30,24 +30,17 @@ class LinearTorch(TorchModule):
 
     This module supports :ref:`TensorFloat32<tf32_on_ampere>`.
 
-    Args:
-        shape (tuple): ``(in_features, out_features)``
-        bias: If set to ``False``, the layer will not learn an additive bias. Default: ``True``
-
-    Shape:
-        - Input: :math:`(N, *, H_{in})` where :math:`*` means any number of additional dimensions and :math:`H_{in} = \\text{in_features}`
-        - Output: :math:`(N, *, H_{out})` where all but the last dimension are the same shape as the input and :math:`H_{out} = \\text{out_features}`.
-
-    Attributes:
-        weight: the learnable weights of the module of shape :math:`(\\text{out_features}, \\text{in_features})`. The values are initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where :math:`k = \\frac{2}{\\text{in_features}}`
-        bias:   the learnable bias of the module of shape :math:`(\\text{out_features})`. If :attr:`bias` is ``True``, the values are initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})` where :math:`k = \\frac{2}{\\text{in_features}}`
-
     Examples::
         >>> m = LinearTorch((20, 30))
         >>> input = torch.randn(128, 20)
         >>> output, _, _ = m(input)
         >>> print(output.size())
         torch.Size([128, 30])
+
+        >>> m = LinearTorch((2, 3), has_bias = False)
+        >>> m.parameters()
+        {'weight': tensor([[ 0.6433, -0.7139, -0.2954],
+         [ 0.9858,  0.3872,  0.6614]])}
     """
 
     def __init__(
@@ -64,6 +57,8 @@ class LinearTorch(TorchModule):
 
         Args:
             shape (tuple): The shape of this layer ``(Nin, Nout)``
+            weight (Tensor): Concrete initialisation data for the weights ``(Nin, Nout)``
+            bias (Tensor): Concrete initialisation data for the biases ``(Nout,)``
             has_bias (bool): Iff ``True``, this layer includes a bias. Default: ``True``
             device (Optional[str]): Initialise the tensors on the supplied device.
             dtype (Optional[str]): Initialise the tensors with the supplied dtype.
@@ -107,7 +102,15 @@ class LinearTorch(TorchModule):
             self.bias = None
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        return F.linear(input, self.weight.T, self.bias)
+        return (
+            F.linear(
+                input.type(torch.double),
+                self.weight.type(torch.double).T,
+                self.bias.type(torch.double),
+            )
+            if self.bias is not None
+            else F.linear(input.type(torch.double), self.weight.type(torch.double).T)
+        )
 
     def _extra_repr(self) -> str:
         return "in_features={}, out_features={}, bias={}".format(

@@ -121,6 +121,7 @@ class ExpSynTorch(TorchModule):
             Out of spikes with the shape (batch, time_steps, N)
         """
         n_batches, time_steps, n_synapses = data.shape
+        data = data.type(torch.double)
 
         if n_synapses != self.size_out:
             raise ValueError(
