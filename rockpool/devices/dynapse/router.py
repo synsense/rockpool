@@ -7,14 +7,9 @@ E-mail : ugurcan.cakal@gmail.com
 13/09/2021
 """
 
-from samna.dynapse1 import (
-    Dynapse1Neuron,
-    Dynapse1Synapse,
-    Dynapse1Destination,
-    Dynapse1SynType,
-)
 
 from typing import (
+    Dict,
     Iterable,
     Union,
     List,
@@ -29,6 +24,24 @@ Numeric = Union[int, float, complex, np.number]
 NeuronKey = Tuple[np.uint8, np.uint8, np.uint16]
 NeuronConnection = Tuple[np.uint16, np.uint16]
 NeuronConnectionSynType = Tuple[np.uint16, np.uint16, np.uint8]
+
+_SAMNA_AVAILABLE = True
+
+try:
+    from samna.dynapse1 import (
+        Dynapse1Neuron,
+        Dynapse1Synapse,
+        Dynapse1Destination,
+        Dynapse1SynType,
+        Dynapse1Configuration,
+    )
+except ModuleNotFoundError as e:
+    print(
+        e,
+        "\nDynapSE1NeuronSynapseJax module can only be used for simulation purposes."
+        "Deployment utilities depends on samna!",
+    )
+    _SAMNA_AVAILABLE = False
 
 
 class Router:
@@ -422,3 +435,233 @@ class Router:
             connections = list(zip(preUID, postUID))
 
         return connections
+
+    @staticmethod
+    def synapse_dict(
+        fan_in: List[NeuronConnectionSynType], fan_out: List[NeuronConnection]
+    ) -> Dict[NeuronConnectionSynType, int]:
+        """
+        synapse_dict produce a dictionary of synapses indicating the occurance of each synapses between
+        the active neurons indicated in the active connection list
+
+        :param fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type)
+        :type fan_in: List[NeuronConnectionSynType]
+        :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type)
+        :type fan_out: List[NeuronConnection]
+        :return: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
+        :rtype: Dict[NeuronConnectionSynType, int]
+        """
+
+        # Get the number of occurances of the synapses in the fan_in list (preUID, postUID, syn_type)
+        synapses, s_count = np.unique(fan_in, axis=0, return_counts=True)
+
+        # Skip the synapse type
+        fan_in_no_type = np.unique(np.array(fan_in)[:, 0:2], axis=0)
+        fan_out = np.unique(fan_out, axis=0)
+
+        # Intersection of connections indicated in the sending side and the connections indicated in the listening side
+        connections = list(set(map(tuple, fan_in_no_type)) & set(map(tuple, fan_out)))
+
+        synapse_dict = {}
+        # key = preUID, postUID, syn_sype
+        for i, key in enumerate(synapses):
+            if (key[0], key[1]) in connections:
+                synapse_dict[tuple(key)] = s_count[i]
+
+        return synapse_dict
+
+    @staticmethod
+    def syn_type_map() -> Dict[int, str]:
+        """
+        syn_type_map creates a dictionary mapping the synapse type index to synapse type name
+
+        :return: a dictionary of integer synapse type index keys and their names
+        :rtype: Dict[int, str]
+        """
+
+        type_convert = lambda syn_type: (
+            Dynapse1SynType(syn_type).value,
+            Dynapse1SynType(syn_type).name,
+        )
+        syn_type_map = dict(map(type_convert, range(4)))
+
+        return syn_type_map
+
+    @staticmethod
+    def synapses_from_config(
+        config: Dynapse1Configuration, return_syn_type: bool = False
+    ) -> Union[
+        Dict[NeuronConnectionSynType, int],
+        Tuple[Dict[NeuronConnectionSynType, int], Dict[int, str]],
+    ]:
+        """
+        synapses_from_config builts a synapse dictionary by traversing a samna DynapSE1 device configuration object
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param return_syn_type: return a dictionary of synapse types along with the , defaults to False
+        :type return_syn_type: bool, optional
+        :return: synapses, synapse_type_map
+            synapses: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
+            synapse_type_map : a dictionary of integer synapse type index keys and their names
+        :rtype: Union[Dict[NeuronConnectionSynType, int], Tuple[Dict[NeuronConnectionSynType, int], Dict[int,str]]]
+        """
+
+        fan_in = []
+        fan_out = []
+
+        # Traverse the chip for neruon-neuron connections
+        for chip in config.chips:  # 4
+            for core in chip.cores:  # 4
+                for neuron in core.neurons:  # 256
+
+                    # FAN-IN (64)
+                    for syn in neuron.synapses:
+                        # An active synapse
+                        if syn.listen_neuron_id != 0:
+                            fan_in += Router.receiving_connections(neuron, syn)
+
+                    # FAN-OUT (4)
+                    for dest in neuron.destinations:
+                        # An active destination
+                        if dest.target_chip_id != 16 and dest.target_chip_id != 0:
+                            fan_out += Router.broadcasting_connections(neuron, dest)
+
+        synapses = Router.synapse_dict(fan_in, fan_out)
+
+        if not return_syn_type:
+            return synapses
+        else:
+            # Which synapse type index (the first dimension) correspond to which synapse type
+            syn_type_map = Router.syn_type_map()
+            return synapses, syn_type_map
+
+    @staticmethod
+    def weight_matrix(
+        synapse_dict: Dict[NeuronConnectionSynType, int],
+        dtype: type = np.uint8,
+        return_maps: bool = True,
+        decode_UID: bool = False,
+    ) -> Union[
+        np.ndarray,
+        Tuple[
+            np.ndarray,
+            Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
+            Dict[int, str],
+        ],
+    ]:
+        """
+        weight_matrix creates a 3D weight matrix given a synapse dictionary. The dictionary should
+        have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
+        One can use `Router.synapses_from_config()` function to create this dictionary out of a samna config object.
+        The first dimension of the weight matrix holds the different synapse types. For example,
+        weight[0] stands for the GABA_B connections. weight[1] stands for the GABA_A connections and so on.
+        The second dimension of the weight matrix is for pre-synaptic neurons and the third dimension is for
+        the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
+        If weight[0][1][2] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
+
+        :param synapse_dict: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
+        :type synapse_dict: Dict[NeuronConnectionSynType, int]
+        :param dtype: numeric type of the weight matrix. For Dynap-SE1, there are at most 64 connections between neurons so dtype defaults to np.uint8
+        :type dtype: type, optional
+        :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
+        :type return_maps: bool, optional
+        :param decode_UID: decode the UID to get a key instead or not, defaults to False
+        :type decode_UID: bool, optional
+        :return: weight, index_UID_map
+            weight: 3D weight matrix indicating number of synapses between neruons
+            index_UID_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
+            syn_type_map:a  dictionary of integer synapse type index keys and their names
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
+        """
+
+        # Assign matrix indices to the neurons indicated in synapse_dict [(preUID, postUID, syn_type) : num_connections]
+        pre_post = np.array(list(synapse_dict.keys()))[:, 0:2]
+        neurons = np.unique(pre_post)
+        idx = dict(zip(neurons, range(len(neurons))))
+
+        # weight[synapse_type][pre-synaptic neuron index][post-synaptic neuron index]
+        weight = np.zeros((4, len(idx), len(idx)), dtype=dtype)
+
+        # Traverse synapse dictionary
+        for (pre, post, syn_type), count in synapse_dict.items():
+            weight[syn_type][idx[pre]][idx[post]] = count
+
+        if not return_maps:
+            return weight
+
+        else:
+            # Which pre,post index (second and third dimensions) correspond to which neuron? universal ID
+            if decode_UID:
+                index_UID_map = {v: Router.decode_UID(k) for k, v in idx.items()}
+            else:
+                index_UID_map = {v: k for k, v in idx.items()}
+
+            # Which synapse type index (the first dimension) correspond to which synapse type
+            syn_type_map = Router.syn_type_map()
+
+            return weight, index_UID_map, syn_type_map
+
+    @staticmethod
+    def get_weight_from_config(
+        config: Dynapse1Configuration,
+        dtype: type = np.uint8,
+        return_maps: bool = True,
+        decode_UID: bool = False,
+    ) -> Union[
+        np.ndarray,
+        Tuple[
+            np.ndarray,
+            Union[Dict[int, np.uint16], Dict[int, NeuronKey]],
+            Dict[int, str],
+        ],
+    ]:
+        """
+        get_weight_from_config Use `synapses_from_config` and `weight_matrix` functions together to get a weight matrix
+        from a samna config object. `synapses_from_config` creates the synapse dictionaries from a configuration object
+        and `weight_matrix` converts the dictionary to a weight matrix. For details of the algorithms, please check the functions.
+
+        Router.get_weight_from_config(config)
+
+        (array([[[0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [2, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0]],
+
+                [[0, 0, 0, 0, 1],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0]],
+
+                [[0, 1, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0]],
+
+                [[0, 1, 0, 1, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0],
+                 [0, 0, 0, 0, 0]]], dtype=uint8),
+        {0: 1044, 1: 1084, 2: 1176, 3: 3108, 4: 3179},
+        {0: 'GABA_B', 1: 'GABA_A', 2: 'NMDA', 3: 'AMPA'})
+
+        :param config: samna Dynapse1 configuration object used to configure a network on the chip
+        :type config: Dynapse1Configuration
+        :param dtype: numeric type of the weight matrix. For Dynap-SE1, there are at most 64 connections between neurons so dtype defaults to np.uint8
+        :type dtype: type, optional
+        :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
+        :type return_maps: bool, optional
+        :param decode_UID: decode the UID to get a key instead or not, defaults to False
+        :type decode_UID: bool, optional
+        :return: weight, index_UID_map
+            weight: 3D weight matrix indicating number of synapses between neruons
+            index_UID_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
+            syn_type_map:a  dictionary of integer synapse type index keys and their names
+        :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
+        """
+        syn_dict = Router.synapses_from_config(config)
+        return Router.weight_matrix(syn_dict, dtype, return_maps, decode_UID)
