@@ -23,6 +23,18 @@ import pathlib as pl
 
 basedir = pl.Path(imp.find_module("rockpool")[1]) / "devices" / "xylo"
 
+from enum import IntEnum
+
+__all__ = ["LowPassMode", "DivisiveNormalisation", "build_lfsr"]
+
+
+LowPassMode = IntEnum(
+    "LowPassMode",
+    "UNDERFLOW_PROTECT OVERFLOW_PROTECT",
+    module=__name__,
+    qualname="rockpool.devices.xylo.xylo_divisive_normalisation.LowPassMode",
+)
+
 
 def build_lfsr(filename) -> np.ndarray:
     """
@@ -50,8 +62,6 @@ def build_lfsr(filename) -> np.ndarray:
 class DivisiveNormalisation(Module):
     """
     A digital divisive normalization block
-
-
     """
 
     def __init__(
@@ -69,6 +79,7 @@ class DivisiveNormalisation(Module):
         bits_lfsr: int = 10,
         code_lfsr: np.ndarray = None,
         p_local: int = 12,
+        low_pass_mode: LowPassMode = LowPassMode.UNDERFLOW_PROTECT,
         **kwargs,
     ):
         """
@@ -86,6 +97,7 @@ class DivisiveNormalisation(Module):
             bits_lfsr (int): Bit-width of LFSR. Default: ``10``
             code_lfsr (np.ndarray): LFSR sequence to use. **Must be supplied**
             p_local (int): Factor to multiply spike rate E. Factor ``p`` is given by ``p_local / 2``.
+            low_pass_mode (LowPassMode): Specify how to compute the low-pass filter M. Possible values are ``LowPassMode.UNDERFLOW_PROTECT`` and ``LowPassMode.OVERFLOW_PROTECT``. Default: ``LowPassMode.UNDERFLOW_PROTECT``, optimised for low input event frequencies. ``LowPassMode.OVERFLOW_PROTECT`` is optimal for high input frequencies.
         """
 
         # intialize the Module superclass
@@ -167,6 +179,44 @@ class DivisiveNormalisation(Module):
         if self.p_local != p_local:
             warnings.warn(f"`p_local` = {p_local} was rounded to an even integer!")
 
+        if low_pass_mode not in LowPassMode:
+            raise ValueError(
+                f"Unexpected value for `low_pass_mode`: {low_pass_mode}. Expected {[str(e) for e in LowPassMode]}"
+            )
+
+        self.low_pass_mode = SimulationParameter(low_pass_mode)
+        """ LowPassMode: Specifies which mode to use for low-pass filtering """
+
+    def _low_pass_underflow_protect(
+        self, E_t: np.ndarray, M_t: np.ndarray
+    ) -> np.ndarray:
+        """
+        Implement one low-pass filter time-step, with underflow protection
+
+        Args:
+            E_t (np.ndarray): Input rates for this frame ``(N,)`
+            M_t (np.ndarray): Current low-pass state from previous frame ``(N,)``
+
+        Returns:
+            np.ndarray: Low-pass state for the next frame ``(N,)``
+        """
+        return (E_t + (M_t << self.bits_shift_lowpass) - M_t) >> self.bits_shift_lowpass
+
+    def _low_pass_overflow_protect(
+        self, E_t: np.ndarray, M_t: np.ndarray
+    ) -> np.ndarray:
+        """
+        Implement one low-pass filter time-step, with overflow protection
+
+        Args:
+            E_t (np.ndarray): Input rates for this frame ``(N,)`
+            M_t (np.ndarray): Current low-pass state from previous frame ``(N,)``
+
+        Returns:
+            np.ndarray: Low-pass state for the next frame ``(N,)``
+        """
+        return (E_t >> self.bits_shift_lowpass) + M_t - (M_t >> self.bits_shift_lowpass)
+
     def evolve(
         self, input_spike: np.ndarray, record: bool = False
     ) -> (np.ndarray, dict):
@@ -189,7 +239,6 @@ class DivisiveNormalisation(Module):
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
         num_frames = E.shape[0]
-        num_input_steps = input_spike.shape[0]
 
         # add the effect of initial values in E_frame_counter
         E[0, :] += self.E_frame_counter.astype(int)
@@ -207,20 +256,26 @@ class DivisiveNormalisation(Module):
 
         M = np.zeros((num_frames + 1, self.size_in), dtype="int")
 
+        # - Select the low-pass implementation
+        if self.low_pass_mode is LowPassMode.UNDERFLOW_PROTECT:
+            print("underflow protect")
+            low_pass = self._low_pass_underflow_protect
+        elif self.low_pass_mode is LowPassMode.OVERFLOW_PROTECT:
+            print("overflow protect")
+            low_pass = self._low_pass_overflow_protect
+        else:
+            raise ValueError(
+                f"Unexpected value for `.low_pass_mode`: {self.low_pass_mode}. Expected {[str(e) for e in LowPassMode]}"
+            )
+
         # load the initialization of the filter
         M[0, :] = self.M_lowpass_state
 
-        # we have implemented the improved version of filer to avoid truncation
-        # this requires some additional bits for M
+        # - Perform the low-pass filtering
         for t in range(num_frames):
-            # current implementation with truncation issue
-            # M[t+1, :] = (E[t, :] >> int(self.bits_shift_lowpass) + M[t, :] - M[t, :] >> int(self.bits_shift_lowpass))
+            M[t + 1, :] = low_pass(E[t, :], M[t, :])
 
-            # the improved version we have adopted here
-            M[t + 1, :] = (
-                E[t, :] + (M[t, :] << self.bits_shift_lowpass) - M[t, :]
-            ) >> self.bits_shift_lowpass
-
+        # - Trim the first entry (initial state)
         M = M[1:, :]
 
         # take the limited number of counter bits into account
@@ -263,9 +318,7 @@ class DivisiveNormalisation(Module):
         if record:
             IAF_state_saved = [[] for _ in range(self.size_in)]
 
-        # length of expanded frame after expansion of spikes and zero-pad
-        len_frame_local = int(cycles_per_frame * self.p_local / 2)
-
+        # initialise output spike variables
         output_spike_times = [[] for _ in range(self.size_in)]
         output_spike_channels = [[] for _ in range(self.size_in)]
 
