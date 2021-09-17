@@ -59,11 +59,7 @@ class ExpSynTorch(TorchModule):
         # Initialize class variables
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__(
-            shape=shape,
-            spiking_input=True,
-            spiking_output=False,
-            *args,
-            **kwargs,
+            shape=shape, spiking_input=True, spiking_output=False, *args, **kwargs,
         )
 
         # - Permit a scalar tau_syn initialisation
@@ -76,10 +72,7 @@ class ExpSynTorch(TorchModule):
         """ (torch.Tensor) Time constants of each synapse in seconds ``(N,)`` """
 
         self.isyn: rt.P_tensor = rp.State(
-            shape=(
-                1,
-                self.size_out,
-            ),
+            shape=(1, self.size_out,),
             init_func=lambda s: torch.zeros(*s, **factory_kwargs),
         )
         """ (torch.tensor) Synaptic current state for each synapse ``(1, N)`` """
@@ -129,7 +122,9 @@ class ExpSynTorch(TorchModule):
             )
 
         # - Expand state over batches
-        isyn = torch.ones(n_batches, 1) @ self.isyn
+        isyn = torch.ones(n_batches, 1).type(torch.double) @ self.isyn.type(
+            torch.double
+        )
 
         # - Build a tensor to compute and return internal state
         self._isyn_rec = torch.zeros(data.shape, device=data.device)
