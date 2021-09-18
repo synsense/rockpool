@@ -23,6 +23,18 @@ import pathlib as pl
 
 basedir = pl.Path(imp.find_module("rockpool")[1]) / "devices" / "xylo"
 
+from enum import IntEnum
+
+__all__ = ["LowPassMode", "DivisiveNormalisation", "build_lfsr"]
+
+
+LowPassMode = IntEnum(
+    "LowPassMode",
+    "UNDERFLOW_PROTECT OVERFLOW_PROTECT",
+    module=__name__,
+    qualname="rockpool.devices.xylo.xylo_divisive_normalisation.LowPassMode",
+)
+
 
 def build_lfsr(filename) -> np.ndarray:
     """
@@ -50,8 +62,6 @@ def build_lfsr(filename) -> np.ndarray:
 class DivisiveNormalisation(Module):
     """
     A digital divisive normalization block
-
-
     """
 
     def __init__(
@@ -69,6 +79,7 @@ class DivisiveNormalisation(Module):
         bits_lfsr: int = 10,
         code_lfsr: np.ndarray = None,
         p_local: int = 12,
+        low_pass_mode: LowPassMode = LowPassMode.UNDERFLOW_PROTECT,
         **kwargs,
     ):
         """
@@ -86,6 +97,7 @@ class DivisiveNormalisation(Module):
             bits_lfsr (int): Bit-width of LFSR. Default: ``10``
             code_lfsr (np.ndarray): LFSR sequence to use. **Must be supplied**
             p_local (int): Factor to multiply spike rate E. Factor ``p`` is given by ``p_local / 2``.
+            low_pass_mode (LowPassMode): Specify how to compute the low-pass filter M. Possible values are ``LowPassMode.UNDERFLOW_PROTECT`` and ``LowPassMode.OVERFLOW_PROTECT``. Default: ``LowPassMode.UNDERFLOW_PROTECT``, optimised for low input event frequencies. ``LowPassMode.OVERFLOW_PROTECT`` is optimal for high input frequencies.
         """
 
         # intialize the Module superclass
@@ -119,8 +131,8 @@ class DivisiveNormalisation(Module):
 
         # at the moment we implement averaging filter such that its value is
         # always a positive integer. We can do much better by using some
-        # fixed-point implementation by using some extra bits as decimals
-        # this is left for future
+        # fixed-point implementation by using some extra bits as decimals.
+        # This improvment is left for future.
         self.M_lowpass_state: P_ndarray = State(
             M_lowpass_state,
             shape=(self.size_in),
@@ -167,12 +179,50 @@ class DivisiveNormalisation(Module):
         if self.p_local != p_local:
             warnings.warn(f"`p_local` = {p_local} was rounded to an even integer!")
 
+        if low_pass_mode not in LowPassMode:
+            raise ValueError(
+                f"Unexpected value for `low_pass_mode`: {low_pass_mode}. Expected {[str(e) for e in LowPassMode]}"
+            )
+
+        self.low_pass_mode = SimulationParameter(low_pass_mode)
+        """ LowPassMode: Specifies which mode to use for low-pass filtering """
+
+    def _low_pass_underflow_protect(
+        self, E_t: np.ndarray, M_t: np.ndarray
+    ) -> np.ndarray:
+        """
+        Implement one low-pass filter time-step, with underflow protection
+
+        Args:
+            E_t (np.ndarray): Input rates for this frame ``(N,)`
+            M_t (np.ndarray): Current low-pass state from previous frame ``(N,)``
+
+        Returns:
+            np.ndarray: Low-pass state for the next frame ``(N,)``
+        """
+        return (E_t + (M_t << self.bits_shift_lowpass) - M_t) >> self.bits_shift_lowpass
+
+    def _low_pass_overflow_protect(
+        self, E_t: np.ndarray, M_t: np.ndarray
+    ) -> np.ndarray:
+        """
+        Implement one low-pass filter time-step, with overflow protection
+
+        Args:
+            E_t (np.ndarray): Input rates for this frame ``(N,)`
+            M_t (np.ndarray): Current low-pass state from previous frame ``(N,)``
+
+        Returns:
+            np.ndarray: Low-pass state for the next frame ``(N,)``
+        """
+        return (E_t >> self.bits_shift_lowpass) + M_t - (M_t >> self.bits_shift_lowpass)
+
     def evolve(
         self, input_spike: np.ndarray, record: bool = False
     ) -> (np.ndarray, dict):
         """
         This class simulates divisive normalization for an input spike signal
-        with possibly several channels.
+        with one or several channels.
         The output of the simulation is another spike signal with normalized rates.
         """
         # check the dimensionality first
@@ -189,7 +239,6 @@ class DivisiveNormalisation(Module):
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
         num_frames = E.shape[0]
-        num_input_steps = input_spike.shape[0]
 
         # add the effect of initial values in E_frame_counter
         E[0, :] += self.E_frame_counter.astype(int)
@@ -207,55 +256,55 @@ class DivisiveNormalisation(Module):
 
         M = np.zeros((num_frames + 1, self.size_in), dtype="int")
 
+        # - Select the low-pass implementation
+        if self.low_pass_mode is LowPassMode.UNDERFLOW_PROTECT:
+            print("underflow protect")
+            low_pass = self._low_pass_underflow_protect
+        elif self.low_pass_mode is LowPassMode.OVERFLOW_PROTECT:
+            print("overflow protect")
+            low_pass = self._low_pass_overflow_protect
+        else:
+            raise ValueError(
+                f"Unexpected value for `.low_pass_mode`: {self.low_pass_mode}. Expected {[str(e) for e in LowPassMode]}"
+            )
+
         # load the initialization of the filter
         M[0, :] = self.M_lowpass_state
 
-        # we have implemented the improved version of filer to avoid truncation
-        # this requires some additional bits for M
+        # - Perform the low-pass filtering
         for t in range(num_frames):
-            # current implementation with truncation issue
-            # M[t+1, :] = (E[t, :] >> int(self.bits_shift_lowpass) + M[t, :] - M[t, :] >> int(self.bits_shift_lowpass))
+            M[t + 1, :] = low_pass(E[t, :], M[t, :])
 
-            # the improved version we have adopted here
-            M[t + 1, :] = (
-                E[t, :] + (M[t, :] << self.bits_shift_lowpass) - M[t, :]
-            ) >> self.bits_shift_lowpass
-
+        # - Trim the first entry (initial state)
         M = M[1:, :]
 
         # take the limited number of counter bits into account
-        # we should make sure that teh controller does not allow count-back to zero
-        # and keeps the value of the counter at its maximum
+        # we should make sure that the controller does not allow count-back to zero
+        # i.e., it keeps the value of the counter at its maximum
         M = np.clip(M, 0, 2 ** self.bits_lowpass - 1)
         self.M_lowpass_state = M[-1, :]
 
         # use the value of E(t) at each frame t to produce a pseudo-random
-        # Poisson spike train using LFSR
+        # Poisson spike train by comparing E(t) with the LFSR output
         # as the value of LFSR varies with global clock rate f_s, we have 'frame_dt*f_s'
         # samples in each frame
-        # the timing of the output in in units of 'dt'
+        # the timing of the output is in units of 'dt'
 
         # Number of global clock cycles within a frame period
         cycles_per_frame = int(np.ceil(self.frame_dt / self.dt))
 
-        # maximum number of spikes at the output
-        # max_output_spikes = int(cycles_per_frame * E.shape[0] * self.p_local / 2)
-
-        # initialize the matrix of output spikes in all channels
-        # output_spike = np.zeros((max_output_spikes, E.shape[1]))
-
-        # compute the specific slice of LFSR code used for comparison among different frames
-        # find the total number of comparisons between all E(t) and LFSR output
-        # this is given by the total number of spikes
+        # whole number of LFSR cycles that are needed for comparison with E(t)
+        # over all frames t=0, 1, ...
         lfsr_ticks_needed = cycles_per_frame * num_frames
 
         # number of LFSR periods needed
         num_lfsr_period = int(np.ceil(lfsr_ticks_needed / self.code_lfsr.size)) + 1
 
+        # the slice of LFSR code used over this frame
         code_lfsr_frame = np.tile(self.code_lfsr, num_lfsr_period)[
             self.lfsr_index : self.lfsr_index + lfsr_ticks_needed
         ].reshape(
-            E.shape[0], -1
+            num_frames, -1
         )  # (frames, cycles_per_frame)
         self.lfsr_index = (self.lfsr_index + lfsr_ticks_needed) % len(self.code_lfsr)
 
@@ -263,9 +312,7 @@ class DivisiveNormalisation(Module):
         if record:
             IAF_state_saved = [[] for _ in range(self.size_in)]
 
-        # length of expanded frame after expansion of spikes and zero-pad
-        len_frame_local = int(cycles_per_frame * self.p_local / 2)
-
+        # initialise output spike variables
         output_spike_times = [[] for _ in range(self.size_in)]
         output_spike_channels = [[] for _ in range(self.size_in)]
 
@@ -275,7 +322,7 @@ class DivisiveNormalisation(Module):
             E_ch = np.copy(E[:, ch])
             M_ch = np.copy(M[:, ch])
 
-            # repeat Each E(t) 'max_spike_in_frame' times
+            # repeat Each E(t) 'cycle_per_frame' times -> E(t) is compared with LFSR slice this many time.
             E_ch = E_ch.reshape(num_frames, -1)  # (frames, 1)
             E_ch_rep = np.tile(
                 E_ch, (1, cycles_per_frame)
@@ -288,7 +335,7 @@ class DivisiveNormalisation(Module):
             # multiply the frequency of spikes by a factor p_local/2
             # (i) unwrap all frames in time (column vec)
             # (ii) repeat along column to simulate the effect of local clock
-            # (iii) zero-pad each pulse to take the return-to-zero pulse shape into account
+            # (iii) zero-pad each pulse (row) to take the return-to-zero pulse shape into account
             # (iv) wrap again to have the expanded frame in a row
 
             # (i)-(ii)
@@ -310,16 +357,13 @@ class DivisiveNormalisation(Module):
 
             # (iv)
             # now reshape S_local so that pulses corresponding to a specific frame are in the same row
+            # this is needed because the threshold of IAF 'M(t)' changes from frame to frame
             S_local = S_local.reshape(
                 num_frames, -1
             )  # (frames, cycles_per_frame * p_local)
 
             # apply IAF with threshold M(t) at each frame t (each row of S_local)
             # due to surplus from frame t-> t+1, we need to do this frame by frame
-            # output_spike_ch = np.zeros(S_local.shape, dtype="int")
-
-            # initialize the state of the corresponding counter
-            # res_from_previous_frame = self.IAF_counter[ch]
 
             for t in range(num_frames):
                 # find the largest integer less than the floating-value threshold M(t)
@@ -329,6 +373,7 @@ class DivisiveNormalisation(Module):
                 # spike comes from the local generator
                 # we solve this by simply adding the threshold by 1
                 # threshold = np.ceil(M_ch[t]).astype("int") + 1
+                # in this implemntation: special case of integer-valued threshold M(t)
                 threshold = M_ch[t] + 1
 
                 # compute the cumulative number of firings starting from residual and take mode
@@ -337,9 +382,6 @@ class DivisiveNormalisation(Module):
                     % threshold
                 )
 
-                # IAF_state = (
-                #     self.IAF_counter[ch] + np.cumsum(S_local[t, :])
-                # ) % threshold
 
                 # save if needed
                 if record:
@@ -359,15 +401,8 @@ class DivisiveNormalisation(Module):
 
                 # Save the IAF state for the next frame
                 self.IAF_counter[ch] = np.copy(IAF_state[-1])
-                # res_from_previous_frame = output_spike_ch[t, -1]
 
-            # register the state of the IAF counter
-            # self.IAF_counter[ch] = res_from_previous_frame
-
-            # unwrap the spikes and copy it in the output_spike for the channel
-            # since we are not worried about modification: no need for copy -> ravel
-            # output_spike[:, ch] = output_spike_ch.ravel()
-
+            # collect all the firing times in all frames in a single array
             if record:
                 IAF_state_saved[ch] = np.concatenate(IAF_state_saved[ch])
 
@@ -381,6 +416,7 @@ class DivisiveNormalisation(Module):
         output_spike_channels = np.concatenate(output_spike_channels)[sorted_indices]
 
         # - Build output spike raster via TSEvent
+        # add_events=True -> allow multiple events in a single time-slot
         output_spike = TSEvent(
             output_spike_times,
             output_spike_channels,

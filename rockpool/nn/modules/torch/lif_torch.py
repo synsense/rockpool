@@ -112,7 +112,7 @@ class LIFTorch(TorchModule):
             has_bias (bool): When ``True`` the module provides a trainable bias. Default: ``True``
             w_syn (torch.Tensor): Defines the weights between the synapse outputs and the LIF neuron inputs. Must have shape ``(Nin, Nout)``.
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-            has_rec (bool): When ``True`` the module provides a trainable recurent weight matrix. Default ``False``, module is feed-forward.
+            has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
             device: Defines the device on which the model will be processed.
@@ -190,13 +190,18 @@ class LIFTorch(TorchModule):
             self.bias: float = 0.0
             """ (Tensor) Neuron biases `(Nout)` """
 
-        self.w_syn = rp.Parameter(
-            w_syn,
-            shape=shape,
-            init_func=lambda s: init.kaiming_uniform_(torch.empty(s, **factory_kwargs)),
-            family="weights",
-        )
-        """ (Tensor) Input weights `(Nin, Nout)` """
+        if np.size(shape) > 1:
+            self.w_syn = rp.Parameter(
+                w_syn,
+                shape=shape,
+                init_func=lambda s: init.kaiming_uniform_(
+                    torch.empty(s, **factory_kwargs)
+                ),
+                family="weights",
+            )
+            """ (Tensor) Input weights `(Nin, Nout)` """
+        else:
+            self.w_syn = None
 
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
@@ -243,6 +248,7 @@ class LIFTorch(TorchModule):
 
         """
         n_batches, time_steps, n_synapses = data.shape
+        data = data.type(torch.double)
 
         if n_synapses != self.size_in:
             raise ValueError(
@@ -252,8 +258,12 @@ class LIFTorch(TorchModule):
             )
 
         # - Replicate states out by batches
-        vmem = torch.ones(n_batches, 1) @ self.vmem
-        isyn = torch.ones(n_batches, 1) @ self.isyn
+        vmem = torch.ones(n_batches, 1).type(torch.double) @ self.vmem.type(
+            torch.double
+        )
+        isyn = torch.ones(n_batches, 1).type(torch.double) @ self.isyn.type(
+            torch.double
+        )
         n_neurons = self.size_out
         alpha = self.dt / self.tau_mem
         beta = torch.exp(-self.dt / self.tau_syn)
@@ -266,12 +276,15 @@ class LIFTorch(TorchModule):
 
         # - Loop over time
         for t in range(time_steps):
-
             # Integrate input
             isyn = beta * isyn + data[:, t, :]
 
             # - Membrane potentials
-            dvmem = F.linear(isyn, self.w_syn.T) + self.bias - vmem
+            dvmem = (
+                isyn + self.bias - vmem
+                if self.w_syn is None
+                else isyn @ self.w_syn.type(torch.double) + self.bias - vmem
+            )
             vmem = vmem + alpha * dvmem + torch.randn(vmem.shape) * self.noise_std
 
             self._vmem_rec[:, t, :] = vmem
