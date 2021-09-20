@@ -218,6 +218,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
+    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+    :type w_rec: Optional[FloatVector], optional
     :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
@@ -326,6 +328,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self,
         shape: tuple = None,
         sim_config: Optional[DynapSE1SimulationConfiguration] = None,
+        w_rec: Optional[FloatVector] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         syn_order: Optional[SYN] = None,
@@ -365,6 +368,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             *args,
             **kwargs,
         )
+
+        # Check the network size and initialize the recurrent weight vector accordingly
+        self.w_rec = self._init_w_rec(w_rec)
 
         # --- Parameters & States --- #
         self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
@@ -461,7 +467,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # Reset Imem depending on spiking activity
             Imem = (1 - spikes) * Imem + spikes * self.Ireset
 
-            # Set the timer
+            # Set the refractrory timer
             timer_ref -= self.dt
             timer_ref = np.clip(timer_ref, 0)
             timer_ref = (1 - spikes) * timer_ref + spikes * self.t_ref
@@ -740,6 +746,50 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         feedback: FeedbackParameters = init.feedback
 
         return Imem, Itau, f_gain, feedback
+
+    def _init_w_rec(self, w_rec: Optional[FloatVector]) -> Union[JP_ndarray, float]:
+        """
+        _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
+
+        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+        :type w_rec: Optional[FloatVector], optional
+        :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
+        :raises ValueError: `shape` may not specify more than two dimensions.
+        :raises ValueError: `shape[0]` and `shape[1]` must be equal for a recurrent module.
+        :return: Recurrent weight matrix parameter initialized randomly or depending on an initial weight vector.
+        :rtype: Union[JP_ndarray, float]
+        """
+
+        # - Recurrent or Feed forward?
+        if len(self.shape) == 1:
+            # - Feed-forward mode
+            if w_rec is not None:
+                raise ValueError(
+                    "If `shape` is unidimensional, then `w_rec` may not be provided as an argument."
+                )
+
+            w_rec: float = 0.0
+
+        else:
+            # - Recurrent mode
+            if len(self.shape) > 2:
+                raise ValueError("`shape` may not specify more than two dimensions.")
+
+            if self.size_out != self.size_in:
+                raise ValueError(
+                    "`shape[0]` and `shape[1]` must be equal for a recurrent module."
+                )
+
+            w_rec: JP_ndarray = Parameter(
+                np.array(w_rec, dtype=np.float32),
+                family="weights",
+                init_func=lambda s: rand.normal(
+                    rand.split(self._rng_key)[0], shape=self.shape
+                ),
+                shape=self.shape,
+            )
+
+        return w_rec
 
     ## --- HIGH LEVEL TIME CONSTANTS -- ##
 
