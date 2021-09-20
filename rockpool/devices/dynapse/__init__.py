@@ -1,5 +1,6 @@
 ## __init__.py Smart importer for submodules
 import importlib
+from rockpool.devices.dynapse.dynapse1_simulator import DynapSE1Jax
 from rockpool.devices.dynapse.biasgen import BiasGen
 from warnings import warn
 
@@ -48,6 +49,7 @@ dModules = {
     ),
     ".biasgen": ("BiasGen",),
     ".router": ("Router"),
+    ".dynapse1_simulator": ("DynapSE1Jax"),
 }
 
 # - Define current package
