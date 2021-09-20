@@ -129,7 +129,7 @@ class SYN:
         :rtype: np.ndarray
         """
         _idx = np.array([self.AHP, self.NMDA, self.AMPA, self.GABA_A, self.GABA_B])
-        return _idx
+        return _idx[_idx >= 0]
 
 
 @jax.custom_gradient
@@ -329,6 +329,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         shape: tuple = None,
         sim_config: Optional[DynapSE1SimulationConfiguration] = None,
         w_rec: Optional[FloatVector] = None,
+        rec_order: Optional[SYN] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
         syn_order: Optional[SYN] = None,
@@ -354,6 +355,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         if syn_order is None:
             syn_order = SYN()
 
+        if rec_order is None:
+            rec_order = SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
+
         self.SYN = syn_order
         self.target_idx = self.SYN.target_idx
         self.default_idx = self.SYN.default_idx
@@ -370,7 +374,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         )
 
         # Check the network size and initialize the recurrent weight vector accordingly
-        self.w_rec = self._init_w_rec(w_rec)
+        self.w_rec = self._init_w_rec(w_rec, rec_order)
 
         # --- Parameters & States --- #
         self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
@@ -752,12 +756,14 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         return Imem, Itau, f_gain, feedback
 
-    def _init_w_rec(self, w_rec: Optional[FloatVector]) -> Union[JP_ndarray, float]:
+    def _init_w_rec(
+        self, w_rec: FloatVector, rec_order: SYN
+    ) -> Union[JP_ndarray, float]:
         """
         _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
 
         :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(4, N, N)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
-        :type w_rec: Optional[FloatVector], optional
+        :type w_rec: FloatVector
         :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
         :raises ValueError: `shape` may not specify more than two dimensions.
         :raises ValueError: `shape[0]` and `shape[1]` must be equal for a recurrent module.
@@ -800,6 +806,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                     raise ValueError(
                         "The first dimension of the recurrent weight matrix `w_rec` is reserved for different synapse types. There are 4 synapses, fixed!"
                     )
+
+                # RE-ORDER
+                w_rec = w_rec[rec_order.default_idx]
+
+                # Now in [NMDA, AMPA, GABA_A, GABA_B] order
 
             w_rec: JP_ndarray = Parameter(
                 w_rec,
