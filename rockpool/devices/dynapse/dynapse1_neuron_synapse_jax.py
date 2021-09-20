@@ -218,7 +218,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
-    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(4, N, N)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
     :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
     :type dt: float, optional
@@ -343,7 +343,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # Check the parameters and initialize to default if necessary
         if shape is None:
-            raise ValueError("You must provide a ``shape`` tuple (N,)")
+            raise ValueError("You must provide a ``shape`` tuple (N,) or (N,N)")
 
         if rng_key is None:
             rng_key = rand.PRNGKey(onp.random.randint(0, 2 ** 63))
@@ -461,6 +461,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # [] TODO : Change I_gaba_b dynamics. It's the shunt current
             # [] TODO : Implement NMDA gating mechanism
             # [] TODO : Would you allow currents to go below Io or not?!!!!
+            # [] TODO : Input layer
 
             spikes, Imem, Isyn, key, timer_ref = state
 
@@ -485,7 +486,11 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # --- Forward step: DPI SYNAPSES --- #
 
             ## spike input for 4 synapses: NMDA, AMPA, GABA_A, GABA_B; spike output for 1 synapse: AHP
-            spike_inputs = np.tile(spike_inputs_ts, (4, 1))
+
+            ### Merge external and recurrent spike inputs
+            spike_in_ext = np.tile(spike_inputs_ts, (4, 1))
+            spike_in_rec = np.dot(spikes, self.w_rec)
+            spike_inputs = np.add(spike_in_ext, spike_in_rec)
 
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNin [NMDA, AMPA, GABA_A, GABA_B]
@@ -751,13 +756,18 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
 
-        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(4, N, N)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
         :type w_rec: Optional[FloatVector], optional
         :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
         :raises ValueError: `shape` may not specify more than two dimensions.
         :raises ValueError: `shape[0]` and `shape[1]` must be equal for a recurrent module.
+        :raises ValueError: Recurrent weight matrix should be 3 dimensional
+        :raises ValueError: The first dimension of the recurrent weight matrix `w_rec` is reserved for different synapse types. There are 4 synapses, fixed!
         :return: Recurrent weight matrix parameter initialized randomly or depending on an initial weight vector.
         :rtype: Union[JP_ndarray, float]
+
+        [] TODO: More realistic, sparse weight matrix initialization.Make multiple connections possible in the initialization with non-uniform selection
+        [] TODO: Check the w_rec order
         """
 
         # - Recurrent or Feed forward?
@@ -780,13 +790,27 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                     "`shape[0]` and `shape[1]` must be equal for a recurrent module."
                 )
 
+            if w_rec is not None:
+                w_rec = np.array(w_rec, dtype=np.float32)
+                if len(w_rec.shape) != 3:
+                    raise ValueError(
+                        "Recurrent weight matrix `w_rec` should be 3 dimensional. There are 4 weight matrices stored for 4 different synapse types!"
+                    )
+                if w_rec.shape[0] != 4:
+                    raise ValueError(
+                        "The first dimension of the recurrent weight matrix `w_rec` is reserved for different synapse types. There are 4 synapses, fixed!"
+                    )
+
             w_rec: JP_ndarray = Parameter(
-                np.array(w_rec, dtype=np.float32),
+                w_rec,
                 family="weights",
-                init_func=lambda s: rand.normal(
-                    rand.split(self._rng_key)[0], shape=self.shape
+                init_func=lambda s: rand.randint(
+                    rand.split(self._rng_key)[0],
+                    shape=(4, *self.shape),
+                    minval=0,
+                    maxval=2,
                 ),
-                shape=self.shape,
+                shape=(4, *self.shape),
             )
 
         return w_rec
