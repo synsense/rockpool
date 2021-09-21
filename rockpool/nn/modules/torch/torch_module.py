@@ -1,6 +1,14 @@
 """
 Provide a base class for build Torch-compatible modules
 """
+from importlib import util
+
+if (util.find_spec("torch") is None):
+    raise ModuleNotFoundError(
+        "'Torch' backend not found. Modules that rely on Torch will not be available."
+    )
+
+
 from rockpool.nn.modules.module import Module
 
 import torch

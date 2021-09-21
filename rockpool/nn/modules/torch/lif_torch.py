@@ -87,13 +87,14 @@ class LIFTorch(TorchModule):
     def __init__(
         self,
         shape: tuple = None,
-        tau_mem: Optional[FloatVector] = 100e-3,
-        tau_syn: Optional[FloatVector] = 50e-3,
-        bias: Optional[FloatVector] = 0.0,
+        tau_mem: FloatVector = 100e-3,
+        tau_syn: FloatVector = 50e-3,
+        bias: FloatVector = 0.0,
         has_bias: bool = True,
         w_syn: torch.Tensor = None,
         w_rec: torch.Tensor = None,
         has_rec: bool = False,
+        threshold: FloatVector = 0.0,
         dt: float = 1e-3,
         noise_std: float = 0.0,
         device=None,
@@ -113,6 +114,7 @@ class LIFTorch(TorchModule):
             w_syn (torch.Tensor): Defines the weights between the synapse outputs and the LIF neuron inputs. Must have shape ``(Nin, Nout)``.
             w_rec (torch.Tensor): If the module is initialised in recurrent mode, you can provide a concrete initialisation for the recurrent weights, which must be a matrix with shape ``(Nout, Nin)``. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
             has_rec (bool): When ``True`` the module provides a trainable recurrent weight matrix. Default ``False``, module is feed-forward.
+            threshold (FloatVector): An optional array specifying the firing threshold of each neuron. If not provided, ``0.`` will be used by default.
             dt (float): The time step for the forward-Euler ODE solver. Default: 1ms
             noise_std (float): The std. dev. of the noise added to membrane state variables at each time-step. Default: ``0.0``
             device: Defines the device on which the model will be processed.
@@ -203,6 +205,12 @@ class LIFTorch(TorchModule):
         else:
             self.w_syn = None
 
+        if np.size(threshold) == 1:
+            threshold = torch.ones(self.size_out, **factory_kwargs) * threshold
+
+        self.threshold: P_tensor = rp.Parameter(threshold)
+        """ (Tensor) Firing threshold for each neuron `(Nout,)` """
+
         self.dt: P_float = rp.SimulationParameter(dt)
         """ (float) Euler simulator time-step in seconds"""
 
@@ -290,7 +298,7 @@ class LIFTorch(TorchModule):
             self._vmem_rec[:, t, :] = vmem
             self._isyn_rec[:, t, :] = isyn
 
-            out_spikes[:, t, :] = step_pwl(vmem)
+            out_spikes[:, t, :] = step_pwl(vmem - self.threshold)
             vmem = vmem - out_spikes[:, t, :]
 
             # - Apply spikes over the recurrent weights

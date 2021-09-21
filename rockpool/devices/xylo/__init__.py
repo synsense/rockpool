@@ -1,4 +1,17 @@
 # - Import submodules to make them available
-from .xylo_cimulator import *
-from .xylo_samna import *
-from .analogFrontEnd import *
+import warnings
+
+try:
+    from .xylo_cimulator import *
+except Exception as inst:
+    warnings.warn(inst.msg)
+
+try:
+    from .xylo_samna import *
+except Exception as inst:
+    warnings.warn(inst.msg)
+
+try:
+    from .analogFrontEnd import *
+except Exception as inst:
+    warnings.warn(inst.msg)
