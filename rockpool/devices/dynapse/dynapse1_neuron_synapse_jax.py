@@ -77,7 +77,7 @@ class SYN:
     """
     SYN helps reordering of the synapses used in the DynapSE1NeuronSynapseJax module
     Synapse parameters are combined in the order of [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
-    [] TODO : Improve the module in general. Now there is no pre-caution for illegal indices or duplicates
+    Synapse indexes should start from 0 and need to be all contiguous integers! Make a synapse index < 0 to eliminate!
     """
 
     AHP: int = 4
@@ -86,13 +86,29 @@ class SYN:
     GABA_A: int = 1
     GABA_B: int = 2
 
+    def __post_init__(self) -> None:
+        """
+        __post_init__ Check if indexes given are contiguous integers and starts from zero. Ignore members with negative values
+
+        :raises ValueError: Indices should start from zero!
+        :raises ValueError: Indices should be contiguous integers!
+        """
+        sorted_idx = np.sort(self.default_idx)
+
+        if sorted_idx[0] != 0:
+            raise ValueError("Indices should start from zero!")
+
+        for i, idx in enumerate(sorted_idx[1:]):
+            if (idx - sorted_idx[i]) != 1:
+                raise ValueError("Indices should be contiguous integers.")
+
     def __len__(self):
-        return 5
+        return len(self.default_idx)
 
     @property
     def target_idx(self):
         """
-        order the index array to be used to put the synapses in the desired index order. It can be used to
+        target_idx is the index array to be used to put the synapses in the desired index order. It can be used to
         rearange the default order array [AHP, NMDA, AMPA, GABA_A, GABA_B] into desired order.
 
         :return: the target indexes of the synapses
@@ -104,7 +120,7 @@ class SYN:
     @property
     def default_idx(self):
         """
-        idx returns the indexes of the synapses in the desired order. It can be used to
+        default_idx returns the indexes of the synapses in the desired order. It can be used to
         rearange a custom ordered array into the original order [AHP, NMDA, AMPA, GABA_A, GABA_B].
 
         :return: the indexes of the synapses in original order
@@ -112,6 +128,27 @@ class SYN:
         """
         _idx = np.array([self.AHP, self.NMDA, self.AMPA, self.GABA_A, self.GABA_B])
         return _idx[_idx >= 0]
+
+    @property
+    def default_idx_no_ahp(self):
+        """
+        default_idx_no_ahp is close to the `default_idx` property but the difference is that `default_idx_no_ahp` return an 
+        index array without AHP synapse. Even if AHP synapse is defined in the middle, it reorders the array and 
+        produces a contiguous index array out of given synapse indexes.
+
+        :return: the indexes of the synapses in AHP reduced order
+        :rtype: np.ndarray
+        """
+
+        check_if_smaller = (
+            lambda syn: syn if (self.AHP < 0 or syn < self.AHP) else syn - 1
+        )
+        nmda = check_if_smaller(self.NMDA)
+        ampa = check_if_smaller(self.AMPA)
+        gaba_a = check_if_smaller(self.GABA_A)
+        gaba_b = check_if_smaller(self.GABA_B)
+        _idx = np.array([nmda, ampa, gaba_a, gaba_b])
+        return _idx
 
 
 @jax.custom_gradient
