@@ -492,11 +492,7 @@ class AFE(Module):
         # return sampled
 
     def evolve(
-        self,
-        input: np.ndarray = None,
-        record: bool = False,
-        *args,
-        **kwargs,
+        self, input: np.ndarray = None, record: bool = False, *args, **kwargs,
     ):
         # - Make sure input is 1D
         if np.ndim(input) > 1:
@@ -652,6 +648,9 @@ class AFE(Module):
             "BPF": TSContinuous.from_clocked(state_dict["BPF"], name="BPF", **args),
             "rect": TSContinuous.from_clocked(state_dict["rect"], name="Rect", **args),
             "spks_out": TSEvent.from_raster(
-                state_dict["spks_out"], name="Spikes", **args
+                state_dict["spks_out"],
+                name="Spikes",
+                num_channels=self.size_out,
+                **args,
             ),
         }

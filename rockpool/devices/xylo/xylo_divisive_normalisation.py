@@ -242,7 +242,9 @@ class DivisiveNormalisation(Module):
         # - output is counter output E(t) of duration 'frame_dt'
         # - input : (N, self.size_in) -> N is units of 'dt'
         # - E: (n_frame, self.size_in) -> units of 'frame_dt'
-        ts_input = TSEvent.from_raster(input_spike, dt=self.dt)
+        ts_input = TSEvent.from_raster(
+            input_spike, dt=self.dt, num_channels=self.size_in
+        )
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
         num_frames = E.shape[0]
@@ -426,6 +428,7 @@ class DivisiveNormalisation(Module):
             output_spike_channels,
             t_start=0.0,
             t_stop=num_frames * self.frame_dt,
+            num_channels=self.size_out,
         ).raster(self.dt, add_events=True)
 
         # - Generate state record dictionary
@@ -461,7 +464,9 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
         # - output is counter output E(t) of duration 'frame_dt'
         # - input : (N, self.size_in) -> N is units of 'dt'
         # - E: (n_frame, self.size_in) -> units of 'frame_dt'
-        ts_input = TSEvent.from_raster(input_spike, dt=self.dt)
+        ts_input = TSEvent.from_raster(
+            input_spike, dt=self.dt, num_channels=self.size_in,
+        )
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
         num_frames = E.shape[0]
@@ -625,6 +630,7 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
             output_spike_channels,
             t_start=0.0,
             t_stop=num_frames * self.frame_dt,
+            num_channels=self.size_out,
         ).raster(self.dt, add_events=True)
 
         # - Generate state record dictionary
