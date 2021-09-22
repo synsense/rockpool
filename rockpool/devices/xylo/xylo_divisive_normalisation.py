@@ -23,6 +23,8 @@ import pathlib as pl
 
 basedir = pl.Path(imp.find_module("rockpool")[1]) / "devices" / "xylo"
 
+from typing import Tuple, Union
+
 from enum import IntEnum
 
 __all__ = [
@@ -71,7 +73,7 @@ class DivisiveNormalisation(Module):
 
     def __init__(
         self,
-        shape: tuple = 1,
+        shape: Union[int, Tuple[int]] = 1,
         *args,
         bits_counter: int = 10,
         E_frame_counter: np.ndarray = None,
@@ -100,7 +102,7 @@ class DivisiveNormalisation(Module):
             dt (float): Global clock step in seconds. Default: 0.1ms
             frame_dt (float): Frame clock step in seconds. Default: 50ms
             bits_lfsr (int): Bit-width of LFSR. Default: ``10``
-            code_lfsr (np.ndarray): LFSR sequence to use. **Must be supplied**
+            code_lfsr (np.ndarray): LFSR sequence to use. Default: Load a pre-defined LFSR sequence.
             p_local (int): Factor to multiply spike rate E. Factor ``p`` is given by ``p_local / 2``.
             low_pass_mode (LowPassMode): Specify how to compute the low-pass filter M. Possible values are ``LowPassMode.UNDERFLOW_PROTECT`` and ``LowPassMode.OVERFLOW_PROTECT``. Default: ``LowPassMode.UNDERFLOW_PROTECT``, optimised for low input event frequencies. ``LowPassMode.OVERFLOW_PROTECT`` is optimal for high input frequencies.
         """
