@@ -2557,7 +2557,7 @@ class TSEvent(TimeSeries):
         :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
         :param Optional[str] name:          The name of the returned time series. Default: ``None``
         :param bool periodic:               The ``periodic`` flag passed to the new time series
-        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series. Default: the number of channels in ``raster``
+        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series. Default: ``None``, use the number of channels ``C`` in ``raster``
         :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
 
         :return TSEvent: A new `.TSEvent` containing the events in ``raster``
