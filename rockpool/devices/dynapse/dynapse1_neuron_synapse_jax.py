@@ -54,7 +54,12 @@ from typing import (
     Callable,
 )
 
-from rockpool.typehints import JP_ndarray, P_float, FloatVector
+from rockpool.typehints import (
+    JP_ndarray,
+    P_float,
+    FloatVector,
+    BoolVector,
+)
 
 from rockpool.devices.dynapse.utils import (
     get_param_vector,
@@ -132,8 +137,8 @@ class SYN:
     @property
     def default_idx_no_ahp(self):
         """
-        default_idx_no_ahp is close to the `default_idx` property but the difference is that `default_idx_no_ahp` return an 
-        index array without AHP synapse. Even if AHP synapse is defined in the middle, it reorders the array and 
+        default_idx_no_ahp is close to the `default_idx` property but the difference is that `default_idx_no_ahp` return an
+        index array without AHP synapse. Even if AHP synapse is defined in the middle, it reorders the array and
         produces a contiguous index array out of given synapse indexes.
 
         :return: the indexes of the synapses in AHP reduced order
@@ -237,14 +242,68 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type shape: tuple, optional
     :param sim_config: Dynap-SE1 bias currents and simulation configuration parameters, defaults to None
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
+    :param syn_mask: Synaptic mask to determine which synapses of the neuron accepts incoming spikes [4,Nin]. The order defined by the syn_order., defaults to None
+    :type syn_mask: Optional[BoolVector], optional
+    :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
+    :type syn_order: Optional[SYN], optional
+
+        Let's say 5 neurons initiated. With syn_mask
+
+            [[0, 0, 1, 1, 1],  # NMDA
+             [0, 0, 1, 1, 0],  # AMPA
+             [0, 0, 1, 0, 1],  # GABA_A
+             [0, 1, 1, 0, 0]   # GABA_B
+
+        And syn_order SYN(AHP=4, NMDA=0, AMPA=1, GABA_A=2, GABA_B=3) # AHP will be ignored
+
+        The first neuron won't accept any external spike
+        The second neuron will accept from GABA_B synapse
+        The third neuron will accept external spikes from all synapses
+        The fourth neuron will accept from NMDA and AMPA
+        The fifth neuron will accept from NMDA and GABA_A
+
     :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(4, N, N)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
+    :param rec_order: The order of recurrent synapses in `w_rec` recurrent weight matrix. [GABA_B, GABA_A, NMDA, AMPA] by default
+    :type rec_order: Optional[SYN], optional
+
+        Let's say 5 neuron initiated. With w_rec
+
+            [[[0, 0, 0, 0, 0],  # GABA_B
+              [0, 0, 0, 0, 0],
+              [2, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0]],
+
+             [[0, 0, 0, 0, 1],  # GABA_A
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0]],
+
+             [[0, 0, 0, 0, 0],  # NMDA
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 1]],
+
+             [[0, 1, 0, 0, 0],  # AMPA
+              [0, 0, 0, 0, 0],
+              [0, 0, 0, 1, 0],
+              [0, 0, 1, 0, 0],
+              [0, 0, 0, 0, 0]]]
+
+        And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
+
+        There are 2 GABA_B synapses from neuron 2 to neuron 0
+        There is 1 GABA_A synapse from neuron 0 to neuron 4
+        There is 1 NMDA synapse from neuron 4 to neuron 4
+        There are single AMPA synapses from neuron 0 to neuron 1, from n2 to n3, from n3 to n2.
+
     :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
     :type dt: float, optional
     :param rng_key: The Jax RNG seed to use on initialisation. By default, a new seed is generated, defaults to None
     :type rng_key: Optional[Any], optional
-    :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
-    :type syn_order: Optional[SYN], optional
     :param spiking_input: Whether this module receives spiking input, defaults to True
     :type spiking_input: bool, optional
     :param spiking_output: Whether this module produces spiking output, defaults to True
@@ -319,11 +378,12 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         self,
         shape: tuple = None,
         sim_config: Optional[DynapSE1SimulationConfiguration] = None,
+        syn_mask: Optional[BoolVector] = None,
+        syn_order: Optional[SYN] = None,
         w_rec: Optional[FloatVector] = None,
         rec_order: Optional[SYN] = None,
         dt: float = 1e-3,
         rng_key: Optional[Any] = None,
-        syn_order: Optional[SYN] = None,
         spiking_input: bool = True,
         spiking_output: bool = True,
         *args,
@@ -366,6 +426,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
 
         # Check the network size and initialize the recurrent weight vector accordingly
         self.w_rec = self._init_w_rec(w_rec, rec_order)
+
+        # Synaptic input mask
+        self.syn_mask = self._init_syn_mask(syn_mask)
 
         # --- Parameters & States --- #
         self.Imem, self.Itau_mem, self.f_gain_mem, self.mem_fb = self._set_mem_params(
@@ -483,7 +546,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ## spike input for 4 synapses: NMDA, AMPA, GABA_A, GABA_B; spike output for 1 synapse: AHP
 
             ### Merge external and recurrent spike inputs
-            spike_in_ext = np.tile(spike_inputs_ts, (4, 1))
+            spike_in_ext = np.multiply(spike_inputs_ts, self.syn_mask)
             spike_in_rec = np.dot(spikes, self.w_rec)
             spike_inputs = np.add(spike_in_ext, spike_in_rec)
 
@@ -695,6 +758,38 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
 
+            Let's say 5 neuron initiated. With w_rec
+
+                [[[0, 0, 0, 0, 0],  # GABA_B
+                  [0, 0, 0, 0, 0],
+                  [2, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0]],
+
+                 [[0, 0, 0, 0, 1],  # GABA_A
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0]],
+
+                 [[0, 0, 0, 0, 0],  # NMDA
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 0, 1]],
+
+                 [[0, 1, 0, 0, 0],  # AMPA
+                  [0, 0, 0, 0, 0],
+                  [0, 0, 0, 1, 0],
+                  [0, 0, 1, 0, 0],
+                  [0, 0, 0, 0, 0]]]
+
+            And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
+            There are 2 GABA_B synapses from neuron 2 to neuron 0
+            There is 1 GABA_A synapse from neuron 0 to neuron 4
+            There is 1 NMDA synapse from neuron 4 to neuron 4
+            There are single AMPA synapses from neuron 0 to neuron 1, from n2 to n3, from n3 to n2.
+
         :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(4, N, N)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
         :type w_rec: FloatVector
         :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
@@ -705,8 +800,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         :return: Recurrent weight matrix parameter initialized randomly or depending on an initial weight vector.
         :rtype: Union[JP_ndarray, float]
 
-        [] TODO: More realistic, sparse weight matrix initialization.Make multiple connections possible in the initialization with non-uniform selection
-        [] TODO: Check the w_rec order
+        [] TODO: More realistic, sparse weight matrix initialization. Make multiple connections possible in the initialization with non-uniform selection
         """
 
         # - Recurrent or Feed forward?
@@ -740,10 +834,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
                         "The first dimension of the recurrent weight matrix `w_rec` is reserved for different synapse types. There are 4 synapses, fixed!"
                     )
 
-                # RE-ORDER
-                w_rec = w_rec[rec_order.default_idx]
-
-                # Now in [NMDA, AMPA, GABA_A, GABA_B] order
+                # RE-ORDER [NMDA, AMPA, GABA_A, GABA_B]
+                w_rec = w_rec[rec_order.default_idx_no_ahp]
 
             w_rec: JP_ndarray = Parameter(
                 w_rec,
@@ -758,6 +850,54 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             )
 
         return w_rec
+
+    def _init_syn_mask(self, syn_mask: BoolVector) -> JP_ndarray:
+        """
+        _init_syn_mask checks the synaptic mask given, re-order to match with simulator defaults,
+        and create a `SimulatorParameter` object instance using the given data.
+
+            Let's say 5 neurons initiated. With syn_mask
+
+                [[0, 0, 1, 1, 1],  # NMDA
+                 [0, 0, 1, 1, 0],  # AMPA
+                 [0, 0, 1, 0, 1],  # GABA_A
+                 [0, 1, 1, 0, 0]   # GABA_B
+
+            And syn_order SYN(AHP=4, NMDA=0, AMPA=1, GABA_A=2, GABA_B=3) # AHP will be ignored
+
+            The first neuron won't accept any external spike
+            The second neuron will accept from GABA_B synapse
+            The third neuron will accept external spikes from all synapses
+            The fourth neuron will accept from NMDA and AMPA
+            The fifth neuron will accept from NMDA and GABA_A
+
+        :param syn_mask: [description]
+        :type syn_mask: BoolVector
+        :raises ValueError: The shape of the synaptic input mask should be equal to (4,Nin)
+        :return: Synaptic mask simulation parameter
+        :rtype: JP_ndarray
+        """
+
+        if syn_mask is not None:
+            syn_mask = np.array(syn_mask, dtype=bool)
+            if syn_mask.shape != (4, self.size_out):
+                raise ValueError(
+                    "The shape of the synaptic input mask should be equal to (4,Nin)!"
+                )
+
+            # Now in [NMDA, AMPA, GABA_A, GABA_B] order
+            syn_mask = syn_mask[self.SYN.default_idx_no_ahp]
+
+        else:
+            syn_mask = np.ones((4, self.size_out), dtype=bool)
+
+        syn_mask: JP_ndarray = SimulationParameter(
+            syn_mask,
+            family="mask",
+            shape=(4, self.size_out),
+        )
+
+        return syn_mask
 
     ## --- HIGH LEVEL TIME CONSTANTS -- ##
 

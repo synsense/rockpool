@@ -49,6 +49,7 @@ except:
 P_tensor = Union[Tensor, ParameterBase]
 
 FloatVector = Union[float, np.ndarray, Tensor]
+BoolVector = Union[bool, np.ndarray, Tensor]i
 IntVector = Union[int, np.ndarray, Tensor]
 
 # Jax Types
