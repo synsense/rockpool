@@ -248,11 +248,9 @@ class DivisiveNormalisation(Module):
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
         num_frames = E.shape[0]
-        print(E.shape)
 
         # add the effect of initial values in E_frame_counter
         E[0, :] += self.E_frame_counter.astype(int)
-        print(E.shape)
 
         # clip the counter to take the limited number of bits into account
         E = np.clip(E, 0, 2 ** self.bits_counter)
@@ -472,7 +470,7 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
         E = ts_input.raster(dt=self.frame_dt, add_events=True)
 
         num_frames = E.shape[0]
-        print(E.shape)
+
         # add the effect of initial values in E_frame_counter
         E[0, :] += self.E_frame_counter.astype(int)
 
