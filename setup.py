@@ -23,7 +23,6 @@ setup_args = {
             "torchvision",
             "jax>=0.2.13",
             "jaxlib>=0.1.66",
-            "samna",
             "sphinx",
             "nbsphinx",
             "sphinx-autobuild",
@@ -43,9 +42,9 @@ setup_args = {
     "keywords": "spiking neural network SNN neuromorphic",
     "python_requires": ">=3.6",
     "project_urls": {
-        "Source Code": "https://gitlab.com/SynSense/rockpool",
+        "Source Code": "https://github.com/SynSense/rockpool",
         "Documentation": "https://rockpool.ai",
-        "Bug Tracker": "https://gitlab.com/SynSense/rockpool/-/issues",
+        "Bug Tracker": "https://github.com/SynSense/rockpool/issues",
     },
 }
 
