@@ -508,16 +508,28 @@ class Router:
 
     @staticmethod
     def synapse_dict(
-        fan_in: List[NeuronConnectionSynType], fan_out: List[NeuronConnection]
+        fan_in: List[NeuronConnectionSynType],
+        fan_out: Optional[List[NeuronConnection]] = None,
     ) -> Dict[NeuronConnectionSynType, int]:
         """
+        synapse_dict [summary]
+
+        :param fan_in: [description]
+        :type fan_in: List[NeuronConnectionSynType]
+        :param fan_out: [description], defaults to None
+        :type fan_out: Optional[List[NeuronConnection]], optional
+        :return: [description]
+        :rtype: Dict[NeuronConnectionSynType, int]
+        """
+        """
         synapse_dict produce a dictionary of synapses indicating the occurance of each synapses between
-        the active neurons indicated in the active connection list
+        the active neurons indicated in the active connection list. If only the fan_in is provided,
+        then all the neurons in the fan_in list considered as active neurons.
 
         :param fan_in: Receving connection indicated in the listening side(CAM cells). list consisting of tuples : (preUID, postUID, syn_type)
         :type fan_in: List[NeuronConnectionSynType]
-        :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type)
-        :type fan_out: List[NeuronConnection]
+        :param fan_out: Sending connection indicated in the sending side(SRAM cells). list consisting of tuples : (preUID, postUID, syn_type), defaults to None
+        :type fan_out: Optional[List[NeuronConnection]], optional
         :return: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
         :rtype: Dict[NeuronConnectionSynType, int]
         """
@@ -525,17 +537,20 @@ class Router:
         # Get the number of occurances of the synapses in the fan_in list (preUID, postUID, syn_type)
         synapses, s_count = np.unique(fan_in, axis=0, return_counts=True)
 
+        if fan_out is not None:
         # Skip the synapse type
         fan_in_no_type = np.unique(np.array(fan_in)[:, 0:2], axis=0)
         fan_out = np.unique(fan_out, axis=0)
 
         # Intersection of connections indicated in the sending side and the connections indicated in the listening side
-        connections = list(set(map(tuple, fan_in_no_type)) & set(map(tuple, fan_out)))
+            connections = list(
+                set(map(tuple, fan_in_no_type)) & set(map(tuple, fan_out))
+            )
 
         synapse_dict = {}
         # key = preUID, postUID, syn_sype
         for i, key in enumerate(synapses):
-            if (key[0], key[1]) in connections:
+            if fan_out is None or (key[0], key[1]) in connections:
                 synapse_dict[tuple(key)] = s_count[i]
 
         return synapse_dict
