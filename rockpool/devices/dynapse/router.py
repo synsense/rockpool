@@ -665,12 +665,12 @@ class Router:
         neurons = np.unique(pre_post)
         idx = dict(zip(neurons, range(len(neurons))))
 
-        # weight[synapse_type][pre-synaptic neuron index][post-synaptic neuron index]
-        weight = np.zeros((4, len(idx), len(idx)), dtype=dtype)
+        # weight[synapse_type][post-synaptic neuron index][pre-synaptic neuron index]
+        weight = np.zeros((len(idx), len(idx), 4), dtype=dtype)
 
         # Traverse synapse dictionary
         for (pre, post, syn_type), count in synapse_dict.items():
-            weight[syn_type][idx[pre]][idx[post]] = count
+            weight[idx[post]][idx[pre]][syn_type] = count
 
         if not return_maps:
             return weight
