@@ -258,56 +258,94 @@ class Router:
 
     @staticmethod
     def receiving_connections(
-        neuron: Dynapse1Neuron,
-        synapse: Dynapse1Synapse,
+        neuron: Optional[Dynapse1Neuron] = None,
+        synapse: Optional[Dynapse1Synapse] = None,
+        neuron_UID: Optional[np.uint16] = None,
+        listen_core_id: Optional[np.uint8] = None,
+        listen_neuron_id: Optional[np.uint8] = None,
+        syn_type: Optional[Union[Dynapse1Synapse, np.uint8]] = None,
     ) -> List[NeuronConnectionSynType]:
         """
-        receiving_connections produce a list of spike receiving connections given a neuron and synapse object
+        receiving_connections produce a list of spike receiving connections given
+        samna neuron and synapse objects or neuronID and it's event accepting conditions.
         From the device's point of view, in each CAM(Content Addressable Memory) cell
         the neuron can be set to listen to (i.e. receive events from) one other neuron with a specified synapse type.
         In the CAM, the core and neuron IDs can be set, but there is no space to set the chipID.
         Therefore, a post-synaptic neuron listens all the pre-synaptic neurons having the
         same core and neuron ID across different chips.
 
-        :param neuron: The neuron at the post-synaptic side
-        :type neuron: Dynapse1Neuron
-        :param synapse: High level content of a CAM cell
+        Note that samna objects have priority over the ID definitions. For example, if both Dynapse1Neuron
+        object and neuronUID is given, funciton considers only the Dynapse1Neuron object.
+
+        :param neuron: The neuron at the post-synaptic side, defaults to None
+        :type neuron: Optional[Dynapse1Neuron], optional
+        :param synapse: High level content of a CAM cell, defaults to None
                         "syn_type": 2,
                         "listen_neuron_id": 0,
                         "listen_core_id": 0
-        :type synapse: Dynapse1Synapse
+        :type synapse: Optional[Dynapse1Synapse], optional
+        :param neuron_UID: post-synaptic universal neuron ID, defaults to None
+        :type neuron_UID: Optional[np.uint16], optional
+        :param listen_core_id: the event sending core ID to listen, defaults to None
+        :type listen_core_id: Optional[np.uint8], optional
+        :param listen_neuron_id: the event sending neuron ID to listen, defaults to None
+        :type listen_neuron_id: Optional[np.uint8], optional
+        :param syn_type: the type of the synapse to process the events, defaults to None
+        :type syn_type: Optional[Union[Dynapse1Synapse, np.uint8]], optional
         :return: List of unique IDs of all neuron connection pairs in the (pre, post, syn_type) order.
         :rtype: List[NeuronConnectionSynType]
         """
 
+        # Get the required info from the samna objects or explicit definitions
+        chip_id, core_id, neuron_id = (
+            Router.decode_UID(neuron_UID)
+            if neuron is None
+            else (neuron.chip_id, neuron.core_id, neuron.neuron_id)
+        )
+
+        listen_core_id = listen_core_id if synapse is None else synapse.listen_core_id
+        listen_neuron_id = (
+            listen_neuron_id if synapse is None else synapse.listen_neuron_id
+        )
+        syn_type = syn_type if synapse is None else synapse.syn_type
+
         # Pre-synaptic neurons to listen across 4 chips
         pre_list = Router.get_UID_combination(
             chipID=None,
-            coreID=synapse.listen_core_id,
-            neuronID=synapse.listen_neuron_id,
+            coreID=listen_core_id,
+            neuronID=listen_neuron_id,
         )
 
         # Post-synaptic neuron
-        post = Router.get_UID(neuron.chip_id, neuron.core_id, neuron.neuron_id)
-        connections = Router.connect_pre_post(pre_list, post, synapse.syn_type)
+        post = Router.get_UID(chip_id, core_id, neuron_id)
+        connections = Router.connect_pre_post(pre_list, post, syn_type)
 
         return connections
 
     @staticmethod
     def broadcasting_connections(
-        neuron: Dynapse1Neuron, destination: Dynapse1Destination
+        neuron: Optional[Dynapse1Neuron] = None,
+        destination: Optional[Dynapse1Destination] = None,
+        neuron_UID: Optional[np.uint16] = None,
+        target_chip_id: Optional[np.uint8] = None,
+        core_mask: Optional[np.uint8] = None,
+        virtual_core_id: Optional[np.uint8] = None,
     ) -> List[NeuronConnection]:
         """
-        broadcasting_connections produce a list of spike boardcasting connections given a neuron and a destination object.
+        broadcasting_connections produce a list of spike boardcasting connections given a neuron and a destination object or
+        given exact neuron_UID sending the events and it's target chip ID, core mask, and virtual core ID if exist.
         From device's point of view, in each SRAM(Static Random Access Memory) cell
         the neuron can be set to broadcast it's spikes to one other chip. In the SRAM, one can also
         set a core mask to narrow down the number of neruons receiving the spikes. However, there is no
         space to set the neuronID. Therefore, a pre-synaptic neuron broadcast it's spike output
         to all the neuron in the specified core. The neurons at the post-synaptic side decide on listening or not.
 
-        :param neuron: The neuron at the pre-synaptic side
-        :type neuron: Dynapse1Neuron
-        :param destination: High level content of the SRAM cell
+        Note that samna objects have priority over the ID definitions. For example, if both Dynapse1Neuron
+        object and neuronUID is given, funciton considers only the Dynapse1Neuron object.
+
+        :param neuron: The neuron at the pre-synaptic side, defaults to None
+        :type neuron: Optional[Dynapse1Neuron], optional
+        :param destination: High level content of the SRAM cell, defaults to None
                             "targetChipId": 0,
                             "inUse": false,
                             "virtualCoreId": 0,
@@ -316,27 +354,55 @@ class Router:
                             "sy": 0,
                             "dx": 0,
                             "dy": 0
-        :type destination: Dynapse1Destination
+        :type destination: Optional[Dynapse1Destination], optional
+        :param neuron_UID: pre-synaptic universal neuron ID, defaults to None
+        :type neuron_UID: Optional[np.uint16], optional
+        :param target_chip_id: the chip ID to broadcast the events, defaults to None
+        :type target_chip_id: Optional[np.uint8], optional
+        :param core_mask: the core mask used while sending the events, defaults to None
+            1111 means all 4 cores are on the target
+            0010 means events will be arrived at core 2 only
+        :type core_mask: Optional[np.uint8], optional
+        :param virtual_core_id: virtual core ID of the sending side to pretend. If None, neuron core ID is used instead, defaults to None
+        :type virtual_core_id: Optional[np.uint8], optional
         :return: List of unique IDs of all neuron connection pairs in the (pre, post) order.
         :rtype: List[NeuronConnection]
         """
 
-        cores_to_send = Router.select_coreID_with_mask(destination.core_mask)
+        # If there is no target core, there is no need to calculate the rest!
+        core_mask = core_mask if destination is None else destination.core_mask
+        cores_to_send = Router.select_coreID_with_mask(core_mask)
         if len(cores_to_send) == 0:
             return []
 
+        # Get the required info from the samna objects or explicit definitions
+        target_chip_id = (
+            target_chip_id if destination is None else destination.target_chip_id
+        )
+        virtual_core_id = (
+            virtual_core_id if destination is None else destination.virtual_core_id
+        )
+        chip_id, core_id, neuron_id = (
+            Router.decode_UID(neuron_UID)
+            if neuron is None
+            else (neuron.chip_id, neuron.core_id, neuron.neuron_id)
+        )
+
+        # No need to define the virtual core id, it's equal to core id if not defined!
+        virtual_core_id = core_id if virtual_core_id is None else virtual_core_id
+
         # Pre-synaptic neurons to broadcast spike events
         post_list = Router.get_UID_combination(
-            chipID=destination.target_chip_id,
+            chipID=target_chip_id,
             coreID=cores_to_send,
             neuronID=None,
         )
 
         # Pre-synaptic neuron
         pre = Router.get_UID(
-            neuron.chip_id,
-            destination.virtual_core_id,  # pretend
-            neuron.neuron_id,
+            chip_id,
+            virtual_core_id,  # pretend
+            neuron_id,
         )
 
         connections = Router.connect_pre_post(pre, post_list)
@@ -346,7 +412,7 @@ class Router:
     def connect_pre_post(
         preUID: Union[np.uint16, ArrayLike],
         postUID: Union[np.uint16, ArrayLike],
-        syn_type: Optional[Dynapse1SynType] = None,
+        syn_type: Optional[Union[Dynapse1Synapse, np.uint8]] = None,
     ) -> Union[List[NeuronConnection], List[NeuronConnectionSynType]]:
         """
         connect_pre_post produce a list of connections between neurons like List[(preUID, postUID)].
@@ -358,7 +424,7 @@ class Router:
         :param postUID: a unique post-synaptic neuron ID or a list of IDs
         :type postUID: Union[np.uint16, ArrayLike]
         :param syn_type: The synapse type of the connection, defaults to None
-        :type syn_type: Optional[Dynapse1SynType], optional
+        :type syn_type: Optional[Union[Dynapse1Synapse, np.uint8]], optional
         :raises ValueError: When the size of the preUID and postUID arrays are not the same
         :raises ValueError: When the size of syn_type is different than the number of connections
         :raises TypeError: preUID or postUID is not ArraLike or a type which can casted to np.uint16
@@ -391,10 +457,14 @@ class Router:
 
         if isinstance(preUID, (tuple, list, np.ndarray)):
             n_connections = len(preUID)
+            if n_connections == 1:
+                preUID = preUID[0]
 
         if isinstance(postUID, (tuple, list, np.ndarray)):
             if n_connections == 1:
                 n_connections = len(postUID)
+                if n_connections == 1:
+                    postUID = postUID[0]
             else:
                 if n_connections != len(postUID):
                     raise ValueError(
