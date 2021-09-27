@@ -531,7 +531,8 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             ## in the dot product, postxprexsyn reduces to postxsyn
             ### Merge external and recurrent spike inputs
             spike_in = np.add(spikes, spike_inputs_ts)  # Nrec(pre-synaptic)
-            spike_inputs = np.dot(spike_in, self.w_rec).T  # 4xNrec(post_synaptic)
+            spike_inputs = np.dot(spike_in, self.w_rec).T + self.Io  # 4xNrec (post)
+
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [NMDA, AMPA, GABA_A, GABA_B]
             t_pw_out = self.t_pulse_ahp * spikes  # 1xNrec [AHP]
