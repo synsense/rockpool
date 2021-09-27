@@ -507,6 +507,74 @@ class Router:
         return connections
 
     @staticmethod
+    def connect_input(
+        virtual_connections: List[NeuronConnection],
+        virtual_neurons: Optional[List[np.uint16]] = None,
+    ) -> Dict[np.uint16, Tuple[np.uint8, np.uint8]]:
+        """
+        connect_input create a dictionary of FPGA->DynapSE connections to be used in the creation of a list of
+        spike boardcasting connections using `Router.broadcasting_connections()`. FPGA neuron are not actual neruons
+        with state, instead they generate events given a timestep and necessary credientials. They just forward
+        the spiking events to desired locations. Due to the architecture of the router, it's impossible to define a
+        unique destination for an FPGA-generated event. Instead, one can define a target chip and a core mask to
+        select one core or multiple cores to broadcast an event. Then on the destination side, neurons decide on listening or not.
+
+        :param virtual_connections: a list of tuples of pre-synaptic neuron UID and post-synaptic neuron UID defining the connections from the FPGA neurons to device neurons.
+        :type virtual_connections: List[NeuronConnection]
+        :param virtual_neurons: explicitly defined virtual neurons, defaults to None
+        :type virtual_neurons: Optional[List[np.uint16]], optional
+        :raises ValueError: Virtual pre-synaptic neuron is not given in virtual_neurons (in the case virtual neruons defined)
+        :raises ValueError: A virtual neuron cannot broadcast to more than one chips!
+        :return: a dictionary of virtual(FPGA) pre-synaptic neuron UID mapping to it's destination (chipID, coreMask)
+        :rtype: Dict[np.uint16, Tuple[np.uint8, np.uint8]]
+        """
+
+        # If a virtual neuron broadcast to multiple cores inside the chip, update the core_mask accordingly
+        update_core_mask = lambda core_mask, core_ID: core_mask | (1 << core_ID)
+
+        # If virtual neurons are given explicitly, any other neuron UID encountered will raise a ValueError
+        if virtual_neurons is not None:
+            input_dict = dict.fromkeys(virtual_neurons)
+        else:
+            input_dict = {}
+
+        # Traverse the virtual FPGA->device connections
+        for pre, post in virtual_connections:
+
+            target_chip, target_core, _ = Router.decode_UID(post)
+
+            # Illegal Key
+            if virtual_neurons is not None and pre not in input_dict:
+                raise ValueError(
+                    f"Virtual neuron {pre} is not given in virtual_neurons : {virtual_neurons}!"
+                )
+
+            # First occurance
+            elif pre not in input_dict or input_dict[pre] is None:
+                input_dict[pre] = (target_chip, update_core_mask(0, target_core))
+
+            # Update the core mask
+            else:
+                chipID, coreMask = input_dict[pre]
+
+                # ChipID is different than expected!
+                if chipID != target_chip:
+                    raise ValueError(
+                        f"A virtual neuron cannot broadcast to more than one chips!\n"
+                        f"Virtual UID:{pre} -> Chip:{chipID}, cores:{Router.select_coreID_with_mask(coreMask)} (existing destination)\n"
+                        f"Virtual UID:{pre} -> Chip:{target_chip}, core:{target_core}, (post-synaptic neuron:{post})"
+                    )
+
+                # Legal update
+                else:
+                    input_dict[pre] = (
+                        chipID,
+                        update_core_mask(coreMask, target_core),
+                    )
+
+        return input_dict
+
+    @staticmethod
     def synapse_dict(
         fan_in: List[NeuronConnectionSynType],
         fan_out: Optional[List[NeuronConnection]] = None,
@@ -538,11 +606,11 @@ class Router:
         synapses, s_count = np.unique(fan_in, axis=0, return_counts=True)
 
         if fan_out is not None:
-        # Skip the synapse type
-        fan_in_no_type = np.unique(np.array(fan_in)[:, 0:2], axis=0)
-        fan_out = np.unique(fan_out, axis=0)
+            # Skip the synapse type
+            fan_in_no_type = np.unique(np.array(fan_in)[:, 0:2], axis=0)
+            fan_out = np.unique(fan_out, axis=0)
 
-        # Intersection of connections indicated in the sending side and the connections indicated in the listening side
+            # Intersection of connections indicated in the sending side and the connections indicated in the listening side
             connections = list(
                 set(map(tuple, fan_in_no_type)) & set(map(tuple, fan_out))
             )
@@ -574,7 +642,9 @@ class Router:
 
     @staticmethod
     def synapses_from_config(
-        config: Dynapse1Configuration, return_syn_type: bool = False
+        config: Dynapse1Configuration,
+        virtual_connections: Optional[List[NeuronConnection]] = None,
+        return_syn_type: bool = False,
     ) -> Union[
         Dict[NeuronConnectionSynType, int],
         Tuple[Dict[NeuronConnectionSynType, int], Dict[int, str]],
@@ -584,16 +654,20 @@ class Router:
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
+        :param virtual_connections: A list of tuples of universal neuron IDs defining the input connections from the FPGA to device neurons, defaults to None
+            e.g : [(50,1044),(50,1045)]
+        :type virtual_connections: Optional[List[NeuronConnection]], optional
         :param return_syn_type: return a dictionary of synapse types along with the , defaults to False
         :type return_syn_type: bool, optional
         :return: synapses, synapse_type_map
-            synapses: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
+            synapses: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses indicated with (preUID, postUID, syn_type) keys
             synapse_type_map : a dictionary of integer synapse type index keys and their names
-        :rtype: Union[Dict[NeuronConnectionSynType, int], Tuple[Dict[NeuronConnectionSynType, int], Dict[int,str]]]
+        :rtype: Union[Dict[str,Dict[NeuronConnectionSynType, int]], Tuple[Dict[str,Dict[NeuronConnectionSynType, int]], Dict[int,str]]]
         """
 
         fan_in = []
         fan_out = []
+        fpga_out = []
 
         # Traverse the chip for neruon-neuron connections
         for chip in config.chips:  # 4
@@ -612,7 +686,28 @@ class Router:
                         if dest.target_chip_id != 16 and dest.target_chip_id != 0:
                             fan_out += Router.broadcasting_connections(neuron, dest)
 
-        synapses = Router.synapse_dict(fan_in, fan_out)
+        # Get the virtual input synapses (FPGA neuron -> device neuron)
+        if virtual_connections is not None:
+
+            # First create a dictionary for virtual input connections. pre_UID: (target_chip_ID, core_mask)
+            input_dict = Router.connect_input(virtual_connections)
+
+            # Traverse the virtual connection dictionary
+            for virtual_UID, (chip_ID, core_mask) in input_dict.items():
+                fpga_out += Router.broadcasting_connections(
+                    neuron_UID=virtual_UID,
+                    target_chip_id=chip_ID,
+                    core_mask=core_mask,
+                )
+
+        # Need target chipID, core mask
+        real_synapses = Router.synapse_dict(fan_in, fan_out)
+        virtual_synapses = Router.synapse_dict(fan_in, fpga_out)
+
+        synapses = {
+            "real": real_synapses,
+            "virtual": virtual_synapses,
+        }
 
         if not return_syn_type:
             return synapses
@@ -690,8 +785,9 @@ class Router:
     @staticmethod
     def get_weight_from_config(
         config: Dynapse1Configuration,
+        virtual_connections: Optional[List[NeuronConnection]] = None,
         dtype: type = np.uint8,
-        return_maps: bool = True,
+        return_maps: bool = False,
         decode_UID: bool = False,
     ) -> Union[
         np.ndarray,
@@ -708,45 +804,78 @@ class Router:
 
         Router.get_weight_from_config(config)
 
-        (array([[[0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [2, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0]],
+        (array([[[0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0]],
 
-                [[0, 0, 0, 0, 1],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 2],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [2, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0]],
 
-                [[0, 1, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0]],
+                [[0, 0, 0, 0],
+                 [0, 0, 1, 1],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0]],
 
-                [[0, 1, 0, 1, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0],
-                 [0, 0, 0, 0, 0]]], dtype=uint8),
-        {0: 1044, 1: 1084, 2: 1176, 3: 3108, 4: 3179},
+                [[0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0]],
+
+                [[0, 0, 0, 0],
+                 [0, 0, 0, 1],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0]],
+
+                [[0, 0, 0, 0],
+                 [0, 1, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0],
+                 [0, 0, 0, 0]]], dtype=uint8),
+        {0: 50, 1: 1044, 2: 1084, 3: 1176, 4: 3108, 5: 3179},
         {0: 'GABA_B', 1: 'GABA_A', 2: 'NMDA', 3: 'AMPA'})
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
+        :param virtual_connections: A list of tuples of universal neuron IDs defining the input connections from the FPGA to device neurons, defaults to None
+            e.g : [(50,1044),(50,1045)]
+        :type virtual_connections: Optional[List[NeuronConnection]], optional
         :param dtype: numeric type of the weight matrix. For Dynap-SE1, there are at most 64 connections between neurons so dtype defaults to np.uint8
         :type dtype: type, optional
         :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
         :type return_maps: bool, optional
         :param decode_UID: decode the UID to get a key instead or not, defaults to False
         :type decode_UID: bool, optional
-        :return: weight, index_UID_map
+        :return: weight, index_UID_map, syn_dict
             weight: 3D weight matrix indicating number of synapses between neruons
             index_UID_map: a dictionary of the mapping between matrix indexes of the neurons and their global unique IDs (or keys)
             syn_type_map:a  dictionary of integer synapse type index keys and their names
+            syn_dict: a super dictionary of `virtual` and `real` synapse dictionaries for number of occurances of each synapses indicated with (preUID, postUID, syn_type) keys
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
         """
-        syn_dict = Router.synapses_from_config(config)
-        return Router.weight_matrix(syn_dict, dtype, return_maps, decode_UID)
+        syn_dict = Router.synapses_from_config(config, virtual_connections)
+
+        # Merge real and virtual dictionaries by adding
+        real = syn_dict["real"].copy()
+        virtual = syn_dict["virtual"].copy()
+
+        for key, value in virtual.items():
+            real[key] += value if key in real else value
+
+        if return_maps:
+            return Router.weight_matrix(real, dtype, return_maps, decode_UID), syn_dict
+        else:
+            return Router.weight_matrix(real, dtype, return_maps, decode_UID)
