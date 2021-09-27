@@ -823,10 +823,10 @@ class TSContinuous(TimeSeries):
         if channels is not None:
             samples = samples[:, channels]
 
-        if skip is not None and skip is not 0:
+        if skip is not None and skip != 0:
             samples = samples[:, ::skip]
 
-        if stagger is not None and stagger is not 0:
+        if stagger is not None and stagger != 0:
             samples = samples + np.arange(0, samples.shape[1] * stagger, stagger)
 
         if target is None:
@@ -861,15 +861,15 @@ class TSContinuous(TimeSeries):
                 ax = plt.gca()
 
                 # - Set the ylabel, if it isn't already set
-                if ax.get_ylabel() is "" and self.units is not None:
+                if ax.get_ylabel() == "" and self.units is not None:
                     ax.set_ylabel(self.units)
 
                 # - Set the xlabel, if it isn't already set
-                if ax.get_xlabel() is "":
+                if ax.get_xlabel() == "":
                     ax.set_xlabel("Time (s)")
 
                 # - Set the title, if it isn't already set
-                if ax.get_title() is "" and self.name is not "unnamed":
+                if ax.get_title() == "" and self.name != "unnamed":
                     ax.set_title(self.name)
 
                 # - Set the extent of the time axis
@@ -1162,10 +1162,7 @@ class TSContinuous(TimeSeries):
         resampled_series._create_interpolator()
         return resampled_series
 
-    def to_clocked(
-        self,
-        dt: float,
-    ) -> np.ndarray:
+    def to_clocked(self, dt: float,) -> np.ndarray:
         """
         Resample this time series to a synchronous clock and return the samples
 
@@ -2225,15 +2222,15 @@ class TSEvent(TimeSeries):
                 ax = plt.gca()
 
                 # - Set the ylabel, if it isn't already set
-                if ax.get_ylabel() is "":
+                if ax.get_ylabel() == "":
                     ax.set_ylabel("Channels")
 
                 # - Set the xlabel, if it isn't already set
-                if ax.get_xlabel() is "":
+                if ax.get_xlabel() == "":
                     ax.set_xlabel("Time (s)")
 
                 # - Set the title, if it isn't already set
-                if ax.get_title() is "" and self.name is not "unnamed":
+                if ax.get_title() == "" and self.name != "unnamed":
                     ax.set_title(self.name)
 
                 # - Set the extent of the time axis
@@ -2554,13 +2551,13 @@ class TSEvent(TimeSeries):
             raster = np.random.rand((T, C)) > spike_prob
             spikes_ts = TSEvent.from_raster(raster, dt)
 
-        :param np.ndarray raster:           A TxC array of events. Each row corresponds to a clocked time step of  `dt` duration. Each bin contains the number of spikes present in that bin
+        :param np.ndarray raster:           An array of events ``(T, C)``. Each row corresponds to a clocked time step of  `dt` duration. Each bin contains the number of spikes present in that bin
         :param float dt:                    Duration of each time bin in seconds
         :param float t_start:               The start time of the first bin in ``raster``. Default: ``0.``
         :param float t_stop:                The stop time of the time series. Default: the total duration of the provided raster
         :param Optional[str] name:          The name of the returned time series. Default: ``None``
         :param bool periodic:               The ``periodic`` flag passed to the new time series
-        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series
+        :param Optional[int] num_channels:  The ``num_channels`` argument passed to the new time series. Default: ``None``, use the number of channels ``C`` in ``raster``
         :param bool spikes_at_bin_start:    Iff ``True``, then spikes in ``raster`` are considered to occur at the start of the time bin. If ``False``, then spikes occur half-way through each time bin. Default: ``False``, spikes occur half-way through each time bin.
 
         :return TSEvent: A new `.TSEvent` containing the events in ``raster``
@@ -2581,6 +2578,9 @@ class TSEvent(TimeSeries):
         spike_present = raster > 0
         spikes_per_bin = raster[spike_present]
         spikes = np.repeat(np.argwhere(raster), spikes_per_bin, axis=0)
+
+        # - Determine the number of channels
+        num_channels = raster.shape[1] if num_channels is None else num_channels
 
         # - Convert to a new TSEvent object and return
         return TSEvent(

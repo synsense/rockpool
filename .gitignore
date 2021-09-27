@@ -17,3 +17,4 @@ test_net_torch_config
 test.json
 requirements.yml
 **/.vscode
+*.so
