@@ -446,6 +446,12 @@ class DivisiveNormalisationNoLFSR(DivisiveNormalisation):
     Divisive normalisation block, with no LFSR spike generation but direct event passthrough
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        delattr(self, "bits_lfsr")
+        delattr(self, "code_lfsr")
+        delattr(self, "lfsr_index")
+
     def evolve(
         self, input_spike: np.ndarray, record: bool = False
     ) -> (np.ndarray, dict):
