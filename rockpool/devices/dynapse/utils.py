@@ -17,6 +17,7 @@ from typing import (
     Tuple,
     Generator,
     List,
+    Dict,
 )
 
 import jax.numpy as jnp
@@ -171,9 +172,12 @@ def random_spike_train(
     rate: float,
     dt: float = 1e-3,
     name: Optional[str] = "Input Spikes",
-) -> TSEvent:
+    channel_UID: Optional[ArrayLike] = None,
+    return_channel_UID: bool = False,
+) -> Union[TSEvent, Tuple[TSEvent, Dict[int, np.uint16]]]:
     """
-    random_spike_train Generate a Poisson frozen random spike train
+    random_spike_train generate a Poisson frozen random spike train and
+    Dynap-SE1 compatible virtual universal neuron IDs respective to channels if demanded
 
     :param duration: The simulation duration in seconds
     :type duration: float
@@ -185,10 +189,23 @@ def random_spike_train(
     :type dt: float, optional
     :param name: The name of the resulting TSEvent object, defaults to "Input Spikes"
     :type name: Optional[str], optional
-    :raises ValueError: No spike generated due to low firing rate or very short simulation time
-    :return: randomly generated discrete spike train
-    :rtype: TSEvent
+    :param channel_UID: a list of universal neuron IDs to assign channels, defaults to None
+    :type channel_UID: Optional[ArrayLike], optional
+    :param return_channel_UID: return channels UIDs together with TSEvent spike train or not, defaults to False
+    :type return_channel_UID: bool, optional
+    :raises ValueError: No spike generated due to low firing rate or very short simulation time]
+    :raises ValueError: Channels UID list must have the same number of elements with the number of channels
+    :raises ValueError: Duplicate elements found in channelUID list. UID's should be unique!
+    :raises ValueError: Illegal virtual neuron UID! It should be less than 1024
+    :raises ValueError: Illegal UID ! It should be bigger than 0
+    :return: input_sp_ts, channel_UID_dict
+        :input_sp_ts: randomly generated discrete spike train
+        :channel_UID_dict: a dictionary mapping the channels indexes to neruon UIDs
+    :rtype: Union[TSEvent, Tuple[TSEvent, Dict[int, np.uint16]]]
+
+    [] TODO: parametrize max UID = 1024
     """
+
     steps = int(np.round(duration / dt))
     spiking_prob = rate * dt
     input_sp_raster = np.random.rand(steps, n_channels) < spiking_prob
@@ -197,7 +214,41 @@ def random_spike_train(
             "No spike generated at all due to low firing rate or short simulation time duration!"
         )
     input_sp_ts = TSEvent.from_raster(input_sp_raster, name=name, periodic=True, dt=dt)
-    return input_sp_ts
+
+    if channel_UID is not None:
+        if len(channel_UID) != input_sp_ts.num_channels:
+            raise ValueError(
+                "Channels UID list must have the same number of elements with the number of channels"
+            )
+        channel_UID = np.array(channel_UID, dtype=int)
+
+        if not np.array_equal(np.sort(channel_UID), np.unique(channel_UID)):
+            raise ValueError(
+                "Duplicate elements found in channelUID list. UID's should be unique!"
+            )
+
+        if channel_UID.max() > 1024:
+            raise ValueError(
+                f"Illegal virtual neuron UID : {channel_UID.max()}! It should be less than 1024"
+            )
+        if channel_UID.min() < 0:
+            raise ValueError(
+                f"Illegal UID : {channel_UID.min()}! It should be bigger than 0"
+            )
+
+        channel_UID = channel_UID.astype(np.uint16)
+
+        return_channel_UID = True
+    elif return_channel_UID:
+        channel_UID = np.array(
+            list(range(1, input_sp_ts.num_channels + 1)), dtype=np.uint16
+        )
+
+    channel_UID_dict = dict(zip(range(input_sp_ts.num_channels), channel_UID))
+    if return_channel_UID:
+        return input_sp_ts, channel_UID_dict
+    else:
+        return input_sp_ts
 
 
 def get_tau(
