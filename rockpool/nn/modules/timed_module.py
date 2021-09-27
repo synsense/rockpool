@@ -1069,7 +1069,7 @@ class LayerToTimedModule(TimedModule):
             Any: The value of the attribute
 
         """
-        if key is "_ModuleBase__registered_attributes" or key is "_ModuleBase__modules":
+        if key == "_ModuleBase__registered_attributes" or key == "_ModuleBase__modules":
             raise AttributeError
 
         # - Get attribute from module if registered

@@ -206,11 +206,17 @@ Hardware support and simulation
     devices.xylo.XyloCim
     devices.xylo.XyloSamna
     devices.xylo.AFE
+    devices.xylo.DivisiveNormalisation
 
 .. autosummary::
     :toctree: _autosummary
     :template: module.rst
 
+    .. autosummary::
+    :toctree: _autosummary
+    :template: module.rst
+
+    devices.xylo
     devices.xylo.xylo_devkit_utils
 
 .. autosummary::
