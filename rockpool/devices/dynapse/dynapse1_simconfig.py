@@ -270,7 +270,7 @@ class GABAAParameters(SynapseParameters):
     """
 
     C: float = 27e-12
-    Iw: float = 0
+    # Iw: float = 0
 
 
 @dataclass
@@ -280,7 +280,7 @@ class GABABParameters(SynapseParameters):
     """
 
     C: float = 27e-12
-    Iw: float = 0
+    # Iw: float = 0
 
 
 @dataclass
