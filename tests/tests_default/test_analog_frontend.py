@@ -41,7 +41,7 @@ def test_evolve():
         seed=seed,
     ).timed()
 
-    # create chrip
+    # create chirp
     T = 1
     f0 = 1
     f1 = 7800.0
@@ -55,3 +55,15 @@ def test_evolve():
     out, state, rec = afe.evolve(ts_inp)
 
     assert out.raster(dt).shape == (T * fs, num_filters)
+
+
+def test_zero_input():
+    from rockpool.devices.xylo.analogFrontEnd import AFE
+    import numpy as np
+
+    T = 1000
+    Nout = 16
+    afe = AFE(Nout)
+    out, state, rec = afe(np.zeros((T, Nout)))
+
+    assert out.shape == (T, Nout)

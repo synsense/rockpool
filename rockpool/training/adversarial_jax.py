@@ -78,7 +78,7 @@ def _eval_target_loss(
     return loss(target, output)
 
 
-@jax.partial(
+@partial(
     jax.jit,
     static_argnames=(
         "net",
@@ -155,7 +155,7 @@ def pga_attack(
     return theta_star, verbose
 
 
-@jax.partial(
+@partial(
     jax.jit,
     static_argnames=(
         "net",
