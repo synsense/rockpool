@@ -75,7 +75,7 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
         # - Only count the loss when a violation occured, in which case exp(y_i - y_upper) > 1
         upper_loss = torch.sum(upper_loss[upper_loss > 1])
     else:
-        upper_loss = 0
+        upper_loss = 0.0
 
     # - If lower_bound is given, calculate the loss, otherwise skip it
     if lower_bound:
@@ -84,7 +84,7 @@ def summed_exp_boundary_loss(data, lower_bound=None, upper_bound=None):
         # - Only count the loss when a violation occured, in which case exp(y_lower - y_i) > 1
         lower_loss = torch.sum(lower_loss[lower_loss > 1])
     else:
-        lower_loss = 0
+        lower_loss = 0.0
 
     return lower_loss + upper_loss
 

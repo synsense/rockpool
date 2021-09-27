@@ -13,6 +13,15 @@ if (util.find_spec("jax") is None) or (util.find_spec("jaxlib") is None):
         "'Jax' and 'Jaxlib' backend not found. Modules that rely on Jax will not be available."
     )
 
+# check if JAX is available (especially for M1-type MAC processors)
+try:
+    import jax, jaxlib
+
+except Exception as e:
+    raise ImportError(
+        "Could not import 'jax' or 'jaxlib'. Modules that rely on Jax will not be available."
+    )
+
 # - Jax imports
 from jax.tree_util import register_pytree_node
 
@@ -41,7 +50,10 @@ class JaxModule(Module, ABC):
     """The internal registry of registered `JaxModule` s"""
 
     def __init__(
-        self, shape: Optional[Union[int, Tuple]] = None, *args, **kwargs,
+        self,
+        shape: Optional[Union[int, Tuple]] = None,
+        *args,
+        **kwargs,
     ):
         """
 

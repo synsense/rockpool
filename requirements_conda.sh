@@ -1,2 +1,2 @@
 #!/bin/bash
-conda env update --file requirements.yml
+conda env update --file environment.yml
