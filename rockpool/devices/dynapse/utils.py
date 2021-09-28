@@ -239,12 +239,14 @@ def random_spike_train(
         channel_UID = channel_UID.astype(np.uint16)
 
         return_channel_UID = True
+
     elif return_channel_UID:
         channel_UID = np.array(
             list(range(1, input_sp_ts.num_channels + 1)), dtype=np.uint16
         )
 
-    channel_UID_dict = dict(zip(range(input_sp_ts.num_channels), channel_UID))
+        channel_UID_dict = dict(zip(range(input_sp_ts.num_channels), channel_UID))
+
     if return_channel_UID:
         return input_sp_ts, channel_UID_dict
     else:
