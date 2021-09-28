@@ -718,7 +718,8 @@ class Router:
 
     @staticmethod
     def weight_matrix(
-        synapse_dict: Dict[NeuronConnectionSynType, int],
+        device_synapses: Dict[NeuronConnectionSynType, int],
+        input_synapses: Dict[NeuronConnectionSynType, int],
         dtype: type = np.uint8,
         return_maps: bool = True,
         decode_UID: bool = False,
@@ -734,14 +735,16 @@ class Router:
         weight_matrix creates a 3D weight matrix given a synapse dictionary. The dictionary should
         have the number of occurances of each synapses indicated with (preUID, postUID, syn_type) key.
         One can use `Router.synapses_from_config()` function to create this dictionary out of a samna config object.
-        The first dimension of the weight matrix holds the different synapse types. For example,
-        weight[0] stands for the GABA_B connections. weight[1] stands for the GABA_A connections and so on.
-        The second dimension of the weight matrix is for pre-synaptic neurons and the third dimension is for
+        The third dimension of the weight matrix holds the different synapse types. For example,
+        weight[:,:,0] stands for the GABA_B connections. weight[:,:,1] stands for the GABA_A connections and so on.
+        The first dimension of the weight matrix is for pre-synaptic neurons and the second dimension is for
         the post-synaptic neurons. The numbers stored indicate the number of synapses between respected neurons.
-        If weight[0][1][2] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
+        If weight[1][2][0] == 5, that means that there are 5 GABA_B connections from neuron 1 to neuron 2.
 
-        :param synapse_dict: a dictionary for number of occurances of each synapses indicated with (preUID, postUID, syn_type) key
-        :type synapse_dict: Dict[NeuronConnectionSynType, int]
+        :param device_synapses: a dictionary for number of occurances of each in-device synapses indicated with (preUID, postUID, syn_type) key
+        :type device_synapses: Dict[NeuronConnectionSynType, int]
+        :param input_synapses: a dictionary for number of occurances of each fpga-to-device synapses indicated with (preUID, postUID, syn_type) key
+        :type input_synapses: Dict[NeuronConnectionSynType, int]
         :param dtype: numeric type of the weight matrix. For Dynap-SE1, there are at most 64 connections between neurons so dtype defaults to np.uint8
         :type dtype: type, optional
         :param return_maps: return the index-to-UID, and syn-index-to-type maps or not, defaults to True
@@ -755,27 +758,47 @@ class Router:
         :rtype: Union[np.ndarray, Tuple[np.ndarray, Union[Dict[int, np.uint16], Dict[int, NeuronKey]] , Dict[int, str]]]
         """
 
+        # Extract the neurons from the synapse dictionaries
+        device_pre_post = np.array(list(device_synapses.keys()))[:, 0:2]
+        input_pre = np.array(list(input_synapses.keys()))[:, 0]
+        input_post = np.array(list(input_synapses.keys()))[:, 1]
+
+        # Get the device and virtual neurons seperately
+        device_neurons = np.unique(np.hstack((device_pre_post.flatten(), input_post)))
+        virtual_neurons = np.unique(input_pre)
+
         # Assign matrix indices to the neurons indicated in synapse_dict [(preUID, postUID, syn_type) : num_connections]
-        pre_post = np.array(list(synapse_dict.keys()))[:, 0:2]
-        neurons = np.unique(pre_post)
+        ## The order is first device then virtual
+        neurons = np.hstack((device_neurons, virtual_neurons))
         idx = dict(zip(neurons, range(len(neurons))))
 
-        # weight[synapse_type][post-synaptic neuron index][pre-synaptic neuron index]
-        weight = np.zeros((len(idx), len(idx), 4), dtype=dtype)
+        synapses = {**device_synapses, **input_synapses}
+
+        # weight[pre-synaptic neuron index][post-synaptic neuron index][synapse_type]
+        weight = np.zeros(
+            (len(device_neurons) + len(virtual_neurons), len(device_neurons), 4),
+            dtype=dtype,
+        )
 
         # Traverse synapse dictionary
-        for (pre, post, syn_type), count in synapse_dict.items():
-            weight[idx[post]][idx[pre]][syn_type] = count
+        for (pre, post, syn_type), count in synapses.items():
+            weight[idx[pre]][idx[post]][syn_type] = count
 
         if not return_maps:
             return weight
 
         else:
-            # Which pre,post index (second and third dimensions) correspond to which neuron? universal ID
+            # Which pre,post index (first and second dimensions) correspond to which neuron? universal ID
+            device_map = {idx[n]: (n, "Dynap-SE1") for n in device_neurons}
+            fpga_map = {idx[n]: (n, "FPGA") for n in virtual_neurons}
+            index_UID_map = {**device_map, **fpga_map}
+
             if decode_UID:
-                index_UID_map = {v: Router.decode_UID(k) for k, v in idx.items()}
-            else:
-                index_UID_map = {v: k for k, v in idx.items()}
+                map_decoder = lambda row: (
+                    row[0],
+                    (Router.decode_UID(row[1][0]), row[1][1]),
+                )
+                index_UID_map = dict(map(map_decoder, index_UID_map.items()))
 
             # Which synapse type index (the first dimension) correspond to which synapse type
             syn_type_map = Router.syn_type_map()
@@ -804,49 +827,76 @@ class Router:
 
         Router.get_weight_from_config(config)
 
-        (array([[[0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0]],
+                   #  Gb Ga N  A
+            (array([[[0, 0, 0, 0],  # pre = 0 (device) post = 0 (device)
+                     [0, 0, 0, 1],  #                  post = 1 (device)
+                     [0, 0, 0, 0],  #                  post = 2 (device)
+                     [0, 0, 0, 0],  #                  post = 3 (device)
+                     [0, 1, 0, 0]], #                  post = 4 (device)
 
-                [[0, 0, 0, 2],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [2, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0]],
+                    [[0, 0, 0, 0], # pre = 1 (device)
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0]],
 
-                [[0, 0, 0, 0],
-                 [0, 0, 1, 1],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0]],
+                    [[2, 0, 0, 0], # pre = 2 (device)
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 1],
+                     [0, 0, 0, 0]],
 
-                [[0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0]],
+                    [[0, 0, 0, 0], # pre = 3 (device)
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 1],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0]],
 
-                [[0, 0, 0, 0],
-                 [0, 0, 0, 1],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0]],
+                    [[0, 0, 0, 0], # pre = 4 (device)
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 1, 0]],
 
-                [[0, 0, 0, 0],
-                 [0, 1, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0],
-                 [0, 0, 0, 0]]], dtype=uint8),
-        {0: 50, 1: 1044, 2: 1084, 3: 1176, 4: 3108, 5: 3179},
-        {0: 'GABA_B', 1: 'GABA_A', 2: 'NMDA', 3: 'AMPA'})
+                    [[0, 0, 0, 1], # pre = 5 (virtual)
+                     [0, 0, 0, 1],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0]],
+
+                    [[0, 0, 0, 0], # pre = 6 (virtual)
+                     [0, 0, 0, 0],
+                     [0, 0, 1, 0],
+                     [0, 0, 1, 0],
+                     [0, 0, 0, 0]],
+
+                    [[0, 0, 0, 0], # pre = 7 (virtual)
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 0, 0, 0],
+                     [0, 1, 0, 0]]], dtype=uint8),
+
+                {0: ((1, 0, 20), 'Dynap-SE1'),
+                1: ((1, 0, 36), 'Dynap-SE1'),
+                2: ((3, 0, 60), 'Dynap-SE1'),
+                3: ((3, 0, 107), 'Dynap-SE1'),
+                4: ((3, 0, 152), 'Dynap-SE1'),
+                5: ((0, 0, 50), 'FPGA'),
+                6: ((0, 0, 59), 'FPGA'),
+                7: ((0, 0, 78), 'FPGA')},
+
+                {0: 'GABA_B', 1: 'GABA_A', 2: 'NMDA', 3: 'AMPA'})
+
+         Real
+            AMPA : 1 from n0 to n1, 1 from n2 to n3, 1 from n3 to n2
+            NMDA : 1 from n4 to n4
+            GABA_A: 1 from n0 to n4
+            GABA_B: 2 from n2 to n0
+
+        Virtual(External Input)
+            AMPA : 1 from n5 to n0, 1 from n5 to n1
+            NMDA : 1 from n6 to n2, 1 from n6 to n3
+            GABA_A: 1 from n7 to n4
 
         :param config: samna Dynapse1 configuration object used to configure a network on the chip
         :type config: Dynapse1Configuration
@@ -868,14 +918,13 @@ class Router:
         """
         syn_dict = Router.synapses_from_config(config, virtual_connections)
 
-        # Merge real and virtual dictionaries by adding
-        real = syn_dict["real"].copy()
-        virtual = syn_dict["virtual"].copy()
-
-        for key, value in virtual.items():
-            real[key] += value if key in real else value
+        real = syn_dict["real"]
+        virtual = syn_dict["virtual"]
 
         if return_maps:
-            return Router.weight_matrix(real, dtype, return_maps, decode_UID), syn_dict
+            return (
+                Router.weight_matrix(real, virtual, dtype, return_maps, decode_UID),
+                syn_dict,
+            )
         else:
-            return Router.weight_matrix(real, dtype, return_maps, decode_UID)
+            return Router.weight_matrix(real, virtual, dtype, return_maps, decode_UID)
