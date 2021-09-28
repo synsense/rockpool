@@ -244,50 +244,74 @@ class DynapSE1NeuronSynapseJax(JaxModule):
     :type sim_config: Optional[DynapSE1SimulationConfiguration], optional
     :param syn_order: The order of synapses to be stored in 2D synaptic parameter arrays. [AHP, NMDA, AMPA, GABA_A, GABA_B] by default
     :type syn_order: Optional[SYN], optional
-    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec, Nrec, 4)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+    :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(Nrec+Nin, Nrec, 4)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
     :type w_rec: Optional[FloatVector], optional
     :param rec_order: The order of recurrent synapses in `w_rec` recurrent weight matrix. [GABA_B, GABA_A, NMDA, AMPA] by default
     :type rec_order: Optional[SYN], optional
 
-        Let's say 5 neuron initiated. With w_rec
+        Let's say 5 device neuron and 3 virtual FPGA neurons initiated with w_rec
 
-          #  Gb Ga N  A
-          [[[0, 0, 0, 0], # post = 0, pre = 0
-            [0, 0, 0, 0], #           pre = 1
-            [2, 0, 0, 0], #           pre = 2
-            [0, 0, 0, 0], #           pre = 3
-            [0, 0, 0, 0]],#           pre = 4
+        #  Gb Ga N  A
+        [[[0, 0, 0, 0],  # pre = 0 (device) post = 0 (device)
+          [0, 0, 0, 1],  #                  post = 1 (device)
+          [0, 0, 0, 0],  #                  post = 2 (device)
+          [0, 0, 0, 0],  #                  post = 3 (device)
+          [0, 1, 0, 0]], #                  post = 4 (device)
 
-           [[0, 0, 0, 1], # post = 1,
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]],
+         [[0, 0, 0, 0], # pre = 1 (device)
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]],
 
-           [[0, 0, 0, 0], # post = 2,
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, 0]],
+         [[2, 0, 0, 0], # pre = 2 (device)
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 1],
+          [0, 0, 0, 0]],
 
-           [[0, 0, 0, 0], # post = 3,
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]],
+         [[0, 0, 0, 0], # pre = 3 (device)
+          [0, 0, 0, 0],
+          [0, 0, 0, 1],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]],
 
-           [[0, 1, 0, 0], # post = 4,
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 1, 0]]]
+         [[0, 0, 0, 0], # pre = 4 (device)
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 1, 0]],
 
-        And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
+         [[0, 0, 0, 1], # pre = 5 (virtual)
+          [0, 0, 0, 1],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 1]],
 
-        There are 2 GABA_B synapses from neuron 2 to neuron 0
-        There is 1 GABA_A synapse from neuron 0 to neuron 4
-        There is 1 NMDA synapse from neuron 4 to neuron 4
-        There are single AMPA synapses from neuron 0 to neuron 1, from n2 to n3, from n3 to n2.
+         [[0, 0, 0, 0], # pre = 6 (virtual)
+          [0, 0, 0, 0],
+          [0, 0, 1, 0],
+          [0, 0, 1, 0],
+          [0, 0, 0, 1]],
+
+         [[0, 0, 0, 0], # pre = 7 (virtual)
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0],
+          [0, 1, 0, 0]]],
+
+          And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
+
+        Real
+            AMPA : 1 from n0 to n1, 1 from n2 to n3, 1 from n3 to n2
+            NMDA : 1 from n4 to n4
+            GABA_A: 1 from n0 to n4
+            GABA_B: 2 from n2 to n0
+
+        Virtual(External Input)
+            AMPA : 1 from n5 to n0, 1 from n5 to n1 1 from n5 to n4
+            NMDA : 1 from n6 to n2, 1 from n6 to n3 1 from n6 to n4
+            GABA_A: 1 from n7 to n4
 
     :param dt: The time step for the forward-Euler ODE solve, defaults to 1e-3
     :type dt: float, optional
@@ -527,11 +551,10 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             # --- Forward step: DPI SYNAPSES --- #
 
             ## spike input for 4 synapses: NMDA, AMPA, GABA_A, GABA_B; spike output for 1 synapse: AHP
-            ## w_rec.shape = NrecxNrecx4 [post,pre,syn]
-            ## in the dot product, postxprexsyn reduces to postxsyn
-            ### Merge external and recurrent spike inputs
-            spike_in = np.add(spikes, spike_inputs_ts)  # Nrec(pre-synaptic)
-            spike_inputs = np.dot(spike_in, self.w_rec).T + self.Io  # 4xNrec (post)
+            ## w_rec.shape = (Nrec+Nin)xNrecx4 [pre,post,syn]
+
+            spike_in = np.hstack((spikes, spike_inputs_ts))  # Nrec+Nin(pre-synaptic)
+            spike_inputs = np.dot(self.w_rec.T, spike_in) + self.Io  # 4xNrec (post)
 
             ## Calculate the effective pulse width with a linear increase
             t_pw_in = self.t_pulse * spike_inputs  # 4xNrec [NMDA, AMPA, GABA_A, GABA_B]
@@ -741,46 +764,7 @@ class DynapSE1NeuronSynapseJax(JaxModule):
         """
         _init_w_rec Intialize a recurrent weight matrix parameter given the network shape.
 
-        Let's say 5 neuron initiated. With w_rec
-
-          #  Gb Ga N  A
-          [[[0, 0, 0, 0], # post = 0, pre = 0
-            [0, 0, 0, 0], #           pre = 1
-            [2, 0, 0, 0], #           pre = 2
-            [0, 0, 0, 0], #           pre = 3
-            [0, 0, 0, 0]],#           pre = 4
-
-           [[0, 0, 0, 1], # post = 1,
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]],
-
-           [[0, 0, 0, 0], # post = 2,
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, 0]],
-
-           [[0, 0, 0, 0], # post = 3,
-            [0, 0, 0, 0],
-            [0, 0, 0, 1],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0]],
-
-           [[0, 1, 0, 0], # post = 4,
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 0, 0],
-            [0, 0, 1, 0]]]
-
-        And rec_order SYN(AHP=-1, NMDA=2, AMPA=3, GABA_A=1, GABA_B=0)
-        There are 2 GABA_B synapses from neuron 2 to neuron 0
-        There is 1 GABA_A synapse from neuron 0 to neuron 4
-        There is 1 NMDA synapse from neuron 4 to neuron 4
-        There are single AMPA synapses from neuron 0 to neuron 1, from n2 to n3, from n3 to n2.
-
-        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a square matrix with shape ``(N, N, 4)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
+        :param w_rec: If the module is initialised in recurrent mode, one can provide a concrete initialisation for the recurrent weights, which must be a rectangular matrix with shape ``(Nrec+Nin, Nrec, 4)``. The first 4 holds a weight matrix for 4 different synapse types. If the model is not initialised in recurrent mode, then you may not provide ``w_rec``.
         :type w_rec: FloatVector
         :raises ValueError: If `shape` is unidimensional, then `w_rec` may not be provided as an argument.
         :raises ValueError: `shape` may not specify more than two dimensions.
@@ -808,9 +792,9 @@ class DynapSE1NeuronSynapseJax(JaxModule):
             if len(self.shape) > 2:
                 raise ValueError("`shape` may not specify more than two dimensions.")
 
-            if self.size_out != self.size_in:
+            if self.size_out > self.size_in:
                 raise ValueError(
-                    "`shape[0]` and `shape[1]` must be equal for a recurrent module."
+                    "Input dimension (Nrec+Nin) should be bigger than output dimension (Nrec)"
                 )
 
             if w_rec is not None:
